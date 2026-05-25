@@ -26,6 +26,7 @@ pub enum MetamorphicValidTransform {
   AddLeadingI32ConstDropToDefinedFunctions
   AddTrailingI32ConstDropToDefinedFunctions
   AddTrailingEmptyVoidBlockToDefinedFunctions
+  AddLeadingEmptyVoidBlockToDefinedFunctions
 } derive(Eq, Debug)
 
 ///|
@@ -64,6 +65,8 @@ pub fn metamorphic_valid_transform_id(
       "add-trailing-i32-const-drop-to-defined-functions"
     AddTrailingEmptyVoidBlockToDefinedFunctions =>
       "add-trailing-empty-void-block-to-defined-functions"
+    AddLeadingEmptyVoidBlockToDefinedFunctions =>
+      "add-leading-empty-void-block-to-defined-functions"
   }
 }
 
@@ -1099,6 +1102,34 @@ fn metamorphic_add_trailing_empty_void_block_to_defined_functions(
 }
 
 ///|
+fn metamorphic_add_leading_empty_void_block_to_defined_functions(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let funcs = []
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            let next_instrs = [
+              @lib.Instruction::block(
+                @lib.BlockType::void_(),
+                @lib.Expr::new([]),
+              ),
+            ]
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
 fn metamorphic_add_unused_empty_function(mod : @lib.Module) -> @lib.Module {
   let types = []
   match mod.type_sec {
@@ -1167,6 +1198,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddLeadingI32ConstDropToDefinedFunctions,
     AddTrailingI32ConstDropToDefinedFunctions,
     AddTrailingEmptyVoidBlockToDefinedFunctions,
+    AddLeadingEmptyVoidBlockToDefinedFunctions,
   ]
 }
 
@@ -1213,6 +1245,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_trailing_i32_const_drop_to_defined_functions(mod)
     AddTrailingEmptyVoidBlockToDefinedFunctions =>
       metamorphic_add_trailing_empty_void_block_to_defined_functions(mod)
+    AddLeadingEmptyVoidBlockToDefinedFunctions =>
+      metamorphic_add_leading_empty_void_block_to_defined_functions(mod)
   }
   match validate_module(transformed) {
     Ok(_) =>
