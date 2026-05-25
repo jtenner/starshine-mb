@@ -367,6 +367,7 @@ pub enum MetamorphicValidTransform {
   AddUnusedI32LocalToDefinedFunctions
   AddUnusedNumericLocalsToDefinedFunctions
   AddUnusedReferenceLocalsToDefinedFunctions
+  AddUnusedV128LocalToDefinedFunctions
   AddLeadingNopToDefinedFunctions
   AddTrailingNopToDefinedFunctions
   AddLeadingI32ConstDropToDefinedFunctions
