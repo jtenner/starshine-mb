@@ -43,6 +43,8 @@ pub fn format_fuzz_suite_result(FuzzSuiteResult, FuzzOutputMode) -> String
 
 pub fn format_golden_seed_catalog_entry_json(GoldenSeedCatalogEntry) -> String
 
+pub fn format_golden_seed_catalog_json(Array[GoldenSeedCatalogEntry]) -> String
+
 pub fn fuzz_active_suite_names() -> Array[String]
 
 pub fn fuzz_interestingness_hash_schema() -> FuzzInterestingnessHashSchema

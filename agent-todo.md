@@ -655,7 +655,6 @@ p1 next-up / active:
 - [FUZ]1051B - Add smoke and CI recipes for current default fuzz suites.
 - [FUZ]1051C - Add pass-signoff and validator-stress recipes.
 - [FUZ]1051D - Document recipe override precedence and common commands.
-- [FUZ]1058B - Add the first checked-in golden seed catalog entries for GenValid, invalid AST, invalid binary, invalid text, and metamorphic suites.
 - [FUZ]1058C - Add golden seed smoke runner that asserts stable high-level counters.
 - [FUZ]1058D - Add docs explaining when and how to update golden seeds.
 

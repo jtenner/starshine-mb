@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1058B golden seed catalog entries
+
+- Completed `[FUZ]1058B` by adding a formatted checked-in smoke catalog document for the first golden seeds spanning GenValid, invalid AST, invalid binary, invalid text, pass-fuzz metadata, minimization, and WAST roundtrip surfaces.
+- Added `format_golden_seed_catalog_json(...)`, focused catalog-format coverage in `src/fuzz/main_wbtest.mbt`, and [`fuzzing/golden-seed-catalog.md`](fuzzing/golden-seed-catalog.md) to document the schema, entries, and maintenance rules.
+
 ## [2026-05-25] fuzzing | FUZ1038C custom-section stress payloads
 
 - Completed `[FUZ]1038C` by widening the metamorphic `add-custom-section-stress` transform from four to eight unknown non-`name` custom sections, adding name-like, high-byte, repeated, and ASCII payload shapes alongside the existing empty, raw-byte, UTF-8-name, and long-payload cases.

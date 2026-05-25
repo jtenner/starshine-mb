@@ -2854,6 +2854,26 @@ pub fn format_golden_seed_catalog_entry_json(
 }
 
 ///|
+pub fn format_golden_seed_catalog_json(
+  entries : Array[GoldenSeedCatalogEntry],
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "{\"schema\":\"starshine.fuzz.golden-seed-catalog.v1\",\"entries\":[",
+  )
+  let mut i = 0
+  while i < entries.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    out.write_string(format_golden_seed_catalog_entry_json(entries[i]))
+    i += 1
+  }
+  out.write_string("]}")
+  out.to_string()
+}
+
+///|
 pub fn golden_seed_catalog_schema_json() -> String {
   "{\"schema\":\"starshine.fuzz.golden-seed-catalog.v1\",\"entry\":{\"required\":[\"id\",\"suite\",\"profile\",\"seed\",\"expected_counters\",\"covered_surfaces\"],\"optional\":[\"artifacts\",\"notes\"],\"fields\":{\"id\":\"stable unique catalog id\",\"suite\":\"fuzz suite or adapter name\",\"profile\":\"suite profile or recipe profile\",\"seed\":\"unsigned 64-bit deterministic root seed\",\"expected_counters\":\"array of named exact or minimum counters\",\"covered_surfaces\":\"maintained feature/strategy surfaces this seed exercises\",\"artifacts\":\"expected artifact file names or logical outputs\",\"notes\":\"human maintenance note\"}},\"counter_value_kind\":\"exact-or-minimum-nonnegative-integer\"}"
 }

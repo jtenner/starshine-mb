@@ -1406,6 +1406,22 @@ test "golden seed smoke suite catalog covers major deterministic surfaces" {
 }
 
 ///|
+test "golden seed smoke suite catalog formats checked-in json document" {
+  let json = format_golden_seed_catalog_json(golden_seed_smoke_suite_catalog())
+  assert_true(
+    json.contains("\"schema\":\"starshine.fuzz.golden-seed-catalog.v1\""),
+  )
+  assert_true(json.contains("\"entries\":["))
+  assert_true(json.contains("\"id\":\"gen-valid-coverage-forced-smoke\""))
+  assert_true(json.contains("\"id\":\"invalid-ast-repro-smoke\""))
+  assert_true(json.contains("\"id\":\"invalid-binary-repro-smoke\""))
+  assert_true(json.contains("\"id\":\"invalid-text-repro-smoke\""))
+  assert_true(json.contains("\"id\":\"pass-fuzz-metadata-smoke\""))
+  assert_true(json.contains("\"id\":\"minimization-repro-smoke\""))
+  assert_true(json.contains("\"id\":\"wast-roundtrip-smoke\""))
+}
+
+///|
 test "golden seed catalog example formats expected counters and surfaces" {
   let entry = GoldenSeedCatalogEntry::new(
     "gen-valid-smoke-v128",
