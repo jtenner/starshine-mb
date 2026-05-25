@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO default-local compare normalization audit
+
+- Added research note [`0667`](./raw/research/0667-2026-05-25-sgo-default-local-compare-normalization-audit.md) for `[SGO]005`, auditing the accepted explicit-default-local artifact diff from the SGO v0.1.0 signoff.
+- Closed `[SGO]005` as evidence-gated: the known `defined=48 abs=69` artifact diff remains representation-only local/default-init drift, and future work should prefer narrow compare-helper normalization only when release QA or compare-harness needs make it actionable.
+- No optimizer behavior, compare tooling, tests, or direct SGO fuzz changed because this was docs/backlog-only.
+
 ## [2026-05-25] binaryen | SGO nested cleanup scheduler deferral audit
 
 - Added research note [`0666`](./raw/research/0666-2026-05-25-sgo-nested-cleanup-scheduler-deferral-audit.md) for `[SGO]004`, auditing whether the nested cleanup runtime / exact-scheduler experiment should remain active.

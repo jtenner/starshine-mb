@@ -299,10 +299,10 @@ Execution rules for all DAE slices
   - Required future deliverables: trace before/after nested timers, preserve validation and direct 10k SGO fuzz parity, identify whether the fix lives in SGO scheduling, HOT lift/lower safety, or a nested cleanup pass, and document whether the accepted artifact-tuned lane changes.
 
 - [SGO]005 - Default-Local Compare Normalization
-  - Status: deferred to v0.1.1 tooling/cosmetic follow-up; not a v0.1.0 correctness blocker.
-  - Goal: eliminate or normalize the accepted direct SGO `defined=48 abs=69` artifact diff where Binaryen preserves an explicit `local.set $0 (i32.const 0)` and Starshine relies on WebAssembly default local zero-initialization.
-  - Resume when: exact artifact diffs need to become quieter for release QA or compare-harness work.
-  - Deliverables when resumed: either teach the compare helper to ignore explicit default local initialization when semantically equivalent, or add a deliberate Starshine emission/canonicalization option if preserving the explicit set proves more useful.
+  - Status: closed evidence-gated by the 0667 audit; not an active tooling/cosmetic item without a release-QA or compare-harness need.
+  - Decision: keep the accepted direct SGO `defined=48 abs=69` artifact diff classified as representation-only local/default-init drift. Binaryen preserves an explicit `local.set $0 (i32.const 0)`, while Starshine relies on WebAssembly default local zero-initialization.
+  - Reopen only when: exact artifact diffs need to become quieter for release QA or compare-harness work, or a future case shows this drift is not representation-only.
+  - Required future deliverables: prefer narrow compare-helper normalization for provably equivalent explicit default local initialization over optimizer emission changes, and do not hide arbitrary local/control-shape differences.
 
 ## v0.2.0 Backlog
 
