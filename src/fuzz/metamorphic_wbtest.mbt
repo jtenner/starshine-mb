@@ -1138,6 +1138,84 @@ test "metamorphic duplicate equivalent imported memory transform avoids defined-
 }
 
 ///|
+test "metamorphic duplicate equivalent imported immutable i32 global transform appends unused matching import" {
+  let original_import = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("global"),
+    @lib.global_extern_type(@lib.GlobalType::new(@lib.ValType::i32(), false)),
+  )
+  let base = @lib.Module::new().with_import_sec(
+    @lib.ImportSec::new([original_import]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddDuplicateEquivalentImportedImmutableI32Global,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-duplicate-equivalent-imported-immutable-i32-global",
+  )
+  match transformed.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => {
+      @debug.assert_eq(imports.length(), 2)
+      @debug.assert_eq(imports[0], original_import)
+      match imports[1] {
+        @lib.Import(module_name, item_name, @lib.GlobalExternType(global_type)) => {
+          @debug.assert_eq(module_name, @lib.Name::new("env"))
+          @debug.assert_eq(
+            item_name,
+            @lib.Name::new("global_metamorphic_duplicate"),
+          )
+          @debug.assert_eq(
+            global_type,
+            @lib.GlobalType::new(@lib.ValType::i32(), false),
+          )
+        }
+        _ => fail("expected duplicate imported immutable i32 global")
+      }
+    }
+    None => fail("expected transformed imports")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic duplicate equivalent imported immutable i32 global transform avoids defined-global index shifts" {
+  let global = @lib.Global::new(
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+    @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+  )
+  let base = @lib.Module::new().with_global_sec(@lib.GlobalSec::new([global]))
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddDuplicateEquivalentImportedImmutableI32Global,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match transformed.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => @debug.assert_eq(imports.length(), 0)
+    None => ()
+  }
+  match transformed.wasm_module.global_sec {
+    Some(@lib.GlobalSec(globals)) => @debug.assert_eq(globals.length(), 1)
+    None => fail("expected original global")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic duplicate equivalent imported funcref table transform appends unused matching import" {
   let original_import = @lib.Import::new(
     @lib.Name::new("env"),
@@ -7860,11 +7938,16 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 423)
-  @debug.assert_eq(stats.validated, 423)
+  @debug.assert_eq(stats.transformed, 424)
+  @debug.assert_eq(stats.validated, 424)
   assert_true(stats.transform_ids.contains("add-duplicate-equivalent-memory"))
   assert_true(
     stats.transform_ids.contains("add-duplicate-equivalent-imported-memory"),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-duplicate-equivalent-imported-immutable-i32-global",
+    ),
   )
   assert_true(
     stats.transform_ids.contains(
