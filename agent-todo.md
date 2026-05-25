@@ -300,17 +300,10 @@ Execution rules for all DAE slices
   - Exit criteria: lit-derived tests and docs; no runtime/code-body broadening mixed into this slice.
 
 - [SGO]003L - GC Refinalization-Safe Replacement Surfaces
-  - Status: active candidate; blocked until parser/validation/refinalization path is isolated.
-  - Goal: unblock the narrow `ref.cast(ref.func-global)` positive and decide if any additional GC replacements are safe.
-  - Open checklist:
-    - Reproduce parser/lib lowering limitation for normal `ref.cast` WAT.
-    - Build a minimal lib-level or parser-supported fixture that exercises SGO replacement plus type repair.
-    - Decide whether the narrow `ref.cast(ref.func-global)` positive can validate through the normal pipeline.
-    - Add negative for less-refined alias replacement.
-    - Add negative for object-identity-sensitive replacement.
-    - If blocked, document the exact parser/type/refinalization API needed before implementation.
-  - Explicit non-goals: broad `struct.new_default` duplication, arbitrary GC object identity copying, descriptor GC/ref ops without source-backed fixtures.
-  - Exit criteria: either landed narrow positive with validation/refinalization tests or documented blocker with next required parser/type API change.
+  - Status: closed blocked/research-only by the 0656 audit; no SGO behavior changed.
+  - Decision: do not implement the narrow `ref.cast(ref.func-global)` positive inside `[SGO]003` until normal `ref.cast` WAT lowering and the type-changing replacement/refinalization path are isolated in a dedicated parser/validation slice.
+  - Completed evidence: the 0583 probe already reproduced the normal-`ref.cast` parser gap and showed a temporary lib-level positive still failed through the SGO pipeline; the less-refined alias negative is already pinned locally. The 0656 closeout converts that into a durable blocker instead of leaving this as an open behavior slice.
+  - Required future prerequisite before reopening behavior: add parser/lowering support for normal `ref.cast`, build a minimal validating SGO fixture where replacement changes reference precision and refinalization repairs the function, then add paired less-refined-alias and object-identity negatives. Keep broad `struct.new_default` duplication, arbitrary GC object identity copying, and descriptor GC/ref ops out of scope unless separately source-backed.
 
 - [SGO]003M - Plain `simplify-globals` / `propagate-globals-globally` Engine Exposure
   - Status: closed research-only by the 0655 exposure audit; no public surface changed.

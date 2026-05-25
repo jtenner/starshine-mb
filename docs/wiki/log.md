@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO GC refinalization blocker audit
+
+- Added research note [`0656`](./raw/research/0656-2026-05-25-sgo-gc-refinalization-blocker-audit.md) for `[SGO]003L`, converting the prior `ref.cast(ref.func-global)` probe into an explicit parser/validation/refinalization blocker.
+- Closed `[SGO]003L` as blocked/research-only: normal `ref.cast` has lib/binary/typechecker support but is not parser/lowering-supported for the source-alignment fixture, and the prior lib-level probe still failed through the SGO pipeline.
+- No optimizer behavior changed and no direct SGO fuzz was required because this was docs/backlog-only. `[SGO]003` remains active/partial.
+
 ## [2026-05-25] binaryen | SGO plain family exposure audit
 
 - Added research note [`0655`](./raw/research/0655-2026-05-25-sgo-plain-family-exposure-audit.md) for `[SGO]003M`, comparing the plain `simplify-globals`, active partial `simplify-globals-optimizing`, and startup-only `propagate-globals-globally` contracts.
