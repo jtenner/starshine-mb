@@ -1159,6 +1159,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-24] fuzzing | FUZ1036B metamorphic local declaration split
+
+- Completed `[FUZ]1036B` by adding the `split-merge-local-declarations` metamorphic-valid transform. It splits the first multi-count local declaration run in each defined function into adjacent declarations of the same value type without changing local indices or instructions, validates the transformed module, and reports the new transform id through `validate-valid-metamorphic` details.
+- Added a `Locals::from_decl_runs_preserving_groups(...)` constructor for deliberate declaration-run shape tests/transforms where semantic local order is unchanged but binary declaration grouping should be preserved until encoding.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the active metamorphic-valid transform registry names local declaration grouping reshaping alongside unused local declarations, no-op body reshaping, export aliasing, custom sections, passive segments, and metadata transforms.
+
 ## [2026-05-24] fuzzing | FUZ1036 metamorphic duplicate equivalent function type
 
 - Completed `[FUZ]1036A` by adding the `add-duplicate-equivalent-function-type` metamorphic-valid transform. It appends an unused duplicate of the first existing single function type when one is available, or a fresh unused `[] -> []` fallback otherwise, without retargeting existing type indices.

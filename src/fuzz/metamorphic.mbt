@@ -35,6 +35,7 @@ pub enum MetamorphicValidTransform {
   AddTrailingEmptyVoidBlockToDefinedFunctions
   AddLeadingEmptyVoidBlockToDefinedFunctions
   AddLeadingEmptyVoidLoopToDefinedFunctions
+  SplitMergeLocalDeclarations
   AddTrailingEmptyVoidLoopToDefinedFunctions
   AddExportAliases
   ReverseCustomSections
@@ -94,6 +95,7 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-empty-void-block-to-defined-functions"
     AddLeadingEmptyVoidLoopToDefinedFunctions =>
       "add-leading-empty-void-loop-to-defined-functions"
+    SplitMergeLocalDeclarations => "split-merge-local-declarations"
     AddTrailingEmptyVoidLoopToDefinedFunctions =>
       "add-trailing-empty-void-loop-to-defined-functions"
     AddExportAliases => "add-export-aliases"
@@ -1394,6 +1396,42 @@ fn metamorphic_add_trailing_empty_void_loop_to_defined_functions(
 }
 
 ///|
+fn metamorphic_split_merge_local_declarations(mod : @lib.Module) -> @lib.Module {
+  let funcs = []
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, expr) => {
+            let runs = locals.runs()
+            let next_runs : Array[@lib.LocalRun] = []
+            let mut split_done = false
+            for run in runs {
+              if !split_done && run.count() > 1U {
+                next_runs.push(@lib.LocalRun::new(1U, run.val_type()))
+                next_runs.push(
+                  @lib.LocalRun::new(run.count() - 1U, run.val_type()),
+                )
+                split_done = true
+              } else {
+                next_runs.push(run)
+              }
+            }
+            funcs.push(
+              @lib.Func::new(
+                @lib.Locals::from_decl_runs_preserving_groups(next_runs),
+                expr,
+              ),
+            )
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
 fn metamorphic_reverse_custom_sections(mod : @lib.Module) -> @lib.Module {
   let custom_secs = []
   let mut index = mod.custom_secs.length()
@@ -1528,6 +1566,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddLeadingEmptyVoidBlockToDefinedFunctions,
     AddLeadingEmptyVoidLoopToDefinedFunctions,
     AddTrailingEmptyVoidLoopToDefinedFunctions,
+    SplitMergeLocalDeclarations,
     AddExportAliases,
     ReverseCustomSections,
   ]
@@ -1596,6 +1635,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_leading_empty_void_loop_to_defined_functions(mod)
     AddTrailingEmptyVoidLoopToDefinedFunctions =>
       metamorphic_add_trailing_empty_void_loop_to_defined_functions(mod)
+    SplitMergeLocalDeclarations =>
+      metamorphic_split_merge_local_declarations(mod)
     AddExportAliases => metamorphic_add_export_aliases(mod)
     ReverseCustomSections => metamorphic_reverse_custom_sections(mod)
   }

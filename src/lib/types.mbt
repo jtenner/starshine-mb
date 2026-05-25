@@ -8412,6 +8412,13 @@ pub fn Locals::new(runs : Array[LocalRun]) -> Locals {
 }
 
 ///|
+pub fn Locals::from_decl_runs_preserving_groups(
+  runs : Array[LocalRun],
+) -> Locals {
+  { runs, indices: None }
+}
+
+///|
 pub fn Locals::empty() -> Locals {
   Locals::new([])
 }

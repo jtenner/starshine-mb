@@ -2156,6 +2156,7 @@ pub fn Locals::at(Self, Int) -> ValType?
 pub fn Locals::copy(Self) -> Self
 pub fn Locals::empty() -> Self
 pub fn Locals::ensure_index(Self) -> Array[Int]
+pub fn Locals::from_decl_runs_preserving_groups(Array[LocalRun]) -> Self
 pub fn Locals::from_types(Array[ValType]) -> Self
 #alias("_[_]")
 pub fn Locals::get(Self, Int) -> ValType

@@ -379,6 +379,7 @@ pub enum MetamorphicValidTransform {
   AddTrailingEmptyVoidBlockToDefinedFunctions
   AddLeadingEmptyVoidBlockToDefinedFunctions
   AddLeadingEmptyVoidLoopToDefinedFunctions
+  SplitMergeLocalDeclarations
   AddTrailingEmptyVoidLoopToDefinedFunctions
   AddExportAliases
   ReverseCustomSections
