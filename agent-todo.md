@@ -613,7 +613,20 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 Use these slice ids when selecting or reporting future FUZ work. Parent tasks below keep the fuller goals, invariants, and historical evidence; this index names the remaining units so agents do not have to infer the next slice from long status paragraphs.
 
 p1 GenValid / valid-generation slices:
-- No active p1 GenValid recipe-catalog slices remain.
+- [FUZ]1036A (done) - Metamorphic suite scaffold and custom/name/data/global/function/table/elem metadata transforms.
+- [FUZ]1036B (done) - Name-section/local/control metadata transforms and simple locals/body no-op transforms.
+- [FUZ]1036C (done) - Export aliases, custom-section reordering, reference/numeric local widening, and simple const/drop/if/eqz body transforms.
+- [FUZ]1036D (done) - Scalar numeric computed/drop body transforms through integer count ops; current suite has 221 transforms per generated module.
+- [FUZ]1036E (p1) - Numeric conversion and reinterpret computed/drop transforms.
+- [FUZ]1036F (p1) - Sign-extension, wrap/extend, and saturating-truncation computed/drop transforms.
+- [FUZ]1036G (p1) - SIMD constant/unary/bitwise computed/drop transforms.
+- [FUZ]1036H (p1) - SIMD lane/splat/shift/extract/replace computed/drop transforms.
+- [FUZ]1036I (p1) - Reference i31/extern conversion/test/cast fact-safe computed/drop transforms.
+- [FUZ]1036J (p1) - Harmless memory/table size query and passive segment/data-count reshaping transforms.
+- [FUZ]1036K (p1) - Function/table/global/import/export aliasing and duplicate-equivalent declaration transforms beyond the current simple surfaces.
+- [FUZ]1036L (p1) - Control identity and stack-preserving wrapper transforms beyond empty block/loop and single identity block.
+- [FUZ]1036M (p1) - Pass-fuzz integration for requesting metamorphic transform ids and reporting transform facts.
+- [FUZ]1036N (p1) - Metamorphic suite docs/signoff closeout once remaining transform families and harness integration are complete.
 
 p1/p2 oracle, reporting, and infrastructure slices:
 - [FUZ]1052B (p2) - Export Invocation Result Matrix
@@ -791,6 +804,21 @@ p2 invalid/binary/text slices:
   - Exit Criteria: agents can battle-test passes for repeatability and composition robustness using the same artifact/replay workflow as compare-pass.
 
 - [FUZ]1036 (IN PROGRESS, p1) - Metamorphic Valid Module Transformer Suite
+  - Sub-slice tracker:
+    - [FUZ]1036A (done) - Metamorphic suite scaffold plus initial custom/name/data/global/function/table/element metadata transforms.
+    - [FUZ]1036B (done) - Deterministic name-section/local/control metadata transforms plus simple local and no-op body reshaping.
+    - [FUZ]1036C (done) - Export aliases, custom-section reordering, reference/numeric local widening, const/drop, empty-if, and eqz body transforms.
+    - [FUZ]1036D (done) - Scalar numeric computed/drop body transforms through integer count ops; active registry now reports 221 transforms per generated module.
+    - [FUZ]1036E (open, p1) - Add scalar numeric conversion and reinterpret computed/drop body transforms where operands are constant and nontrapping.
+    - [FUZ]1036F (open, p1) - Add sign-extension, integer wrap/extend, and saturating truncation computed/drop transforms.
+    - [FUZ]1036G (open, p1) - Add SIMD constant, unary, and bitwise computed/drop body transforms under `v128` feature validation.
+    - [FUZ]1036H (open, p1) - Add SIMD splat, lane extract/replace, shift, and lane-shape computed/drop body transforms with legal immediates.
+    - [FUZ]1036I (open, p1) - Add fact-safe reference/i31/extern conversion, ref.test, and nullable/non-nullable cast computed/drop transforms that cannot trap for the chosen operand stack.
+    - [FUZ]1036J (open, p1) - Add harmless memory/table size-query transforms and richer passive segment/data-count reshaping without changing resource indices.
+    - [FUZ]1036K (open, p1) - Add additional duplicate-equivalent declarations and aliasing transforms for function/table/global/import/export surfaces beyond the current simple cases.
+    - [FUZ]1036L (open, p1) - Add stack-preserving control identity wrappers beyond empty block/loop and single identity block.
+    - [FUZ]1036M (open, p1) - Wire metamorphic transform id selection and transform facts into pass-fuzz GenValid batch/compare workflows.
+    - [FUZ]1036N (open, p1) - Close out docs, suite signoff, and parent-task cleanup once all intended transform families and harness integration are complete.
   - Run 23 current continuation: IN PROGRESS as of 2026-05-25 08:31 EDT; continuing the GenValid metamorphic transformer suite with integer count body reshaping.
   - Status: active. Latest Run 23 continuation update: added the `add-leading-i32-clz-drop-to-defined-functions`, `add-trailing-i32-clz-drop-to-defined-functions`, `add-leading-i32-ctz-drop-to-defined-functions`, `add-trailing-i32-ctz-drop-to-defined-functions`, `add-leading-i32-popcnt-drop-to-defined-functions`, `add-trailing-i32-popcnt-drop-to-defined-functions`, `add-leading-i64-clz-drop-to-defined-functions`, `add-trailing-i64-clz-drop-to-defined-functions`, `add-leading-i64-ctz-drop-to-defined-functions`, `add-trailing-i64-ctz-drop-to-defined-functions`, `add-leading-i64-popcnt-drop-to-defined-functions`, and `add-trailing-i64-popcnt-drop-to-defined-functions` transforms. They prepend or append pure zero-valued i32/i64 count stacks to every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate the transformed modules, report the new transform ids through suite details, and raise the suite to two hundred twenty-one transforms per generated module. TDD first failed in `moon test src/fuzz` because the new transform constructors were missing and smoke expectations still reported two hundred nine transforms, then passed after adding transform ids, registry entries, transform implementations, focused roundtrip tests, suite detail expectations, and generator-ledger docs. Validation for this slice is in the commit message. Task remains active for more semantics-preserving transform families.
   - Previous Run 23 continuation update: added the `add-leading-i32-rotl-drop-to-defined-functions`, `add-trailing-i32-rotl-drop-to-defined-functions`, `add-leading-i32-rotr-drop-to-defined-functions`, `add-trailing-i32-rotr-drop-to-defined-functions`, `add-leading-i64-rotl-drop-to-defined-functions`, `add-trailing-i64-rotl-drop-to-defined-functions`, `add-leading-i64-rotr-drop-to-defined-functions`, and `add-trailing-i64-rotr-drop-to-defined-functions` transforms. They prepend or append pure zero-valued i32/i64 rotate stacks to every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate the transformed modules, report the new transform ids through suite details, and raise the suite to two hundred nine transforms per generated module. TDD first failed in `moon test src/fuzz` because the new transform constructors were missing, then passed after adding transform ids, registry entries, transform implementations, focused roundtrip tests, suite detail expectations, and generator-ledger docs. Validation for this slice is in the commit message. Task remains active for more semantics-preserving transform families.
