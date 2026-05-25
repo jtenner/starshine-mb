@@ -25,6 +25,7 @@ pub enum MetamorphicValidTransform {
   AddUnusedReferenceLocalsToDefinedFunctions
   AddUnusedV128LocalToDefinedFunctions
   AddUnusedGcReferenceLocalsToDefinedFunctions
+  AddLeadingRefNullDropToDefinedFunctions
   AddTrailingRefNullDropToDefinedFunctions
   AddLeadingNopToDefinedFunctions
   AddTrailingNopToDefinedFunctions
@@ -74,6 +75,8 @@ pub fn metamorphic_valid_transform_id(
       "add-unused-v128-local-to-defined-functions"
     AddUnusedGcReferenceLocalsToDefinedFunctions =>
       "add-unused-gc-reference-locals-to-defined-functions"
+    AddLeadingRefNullDropToDefinedFunctions =>
+      "add-leading-ref-null-drop-to-defined-functions"
     AddTrailingRefNullDropToDefinedFunctions =>
       "add-trailing-ref-null-drop-to-defined-functions"
     AddLeadingNopToDefinedFunctions => "add-leading-nop-to-defined-functions"
@@ -1089,6 +1092,34 @@ fn metamorphic_add_unused_gc_reference_locals_to_defined_functions(
 }
 
 ///|
+fn metamorphic_add_leading_ref_null_drop_to_defined_functions(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let funcs = []
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            let next_instrs = [
+              @lib.Instruction::ref_null(
+                @lib.HeapType::abs(@lib.AbsHeapType::extern_()),
+              ),
+              @lib.Instruction::drop(),
+            ]
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
 fn metamorphic_add_trailing_ref_null_drop_to_defined_functions(
   mod : @lib.Module,
 ) -> @lib.Module {
@@ -1453,6 +1484,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddUnusedReferenceLocalsToDefinedFunctions,
     AddUnusedV128LocalToDefinedFunctions,
     AddUnusedGcReferenceLocalsToDefinedFunctions,
+    AddLeadingRefNullDropToDefinedFunctions,
     AddTrailingRefNullDropToDefinedFunctions,
     AddLeadingNopToDefinedFunctions,
     AddTrailingNopToDefinedFunctions,
@@ -1508,6 +1540,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_unused_v128_local_to_defined_functions(mod)
     AddUnusedGcReferenceLocalsToDefinedFunctions =>
       metamorphic_add_unused_gc_reference_locals_to_defined_functions(mod)
+    AddLeadingRefNullDropToDefinedFunctions =>
+      metamorphic_add_leading_ref_null_drop_to_defined_functions(mod)
     AddTrailingRefNullDropToDefinedFunctions =>
       metamorphic_add_trailing_ref_null_drop_to_defined_functions(mod)
     AddLeadingNopToDefinedFunctions =>
