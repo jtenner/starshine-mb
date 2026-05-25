@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-24] fuzzing | FUZ1036 metamorphic valid trailing const-drop transform
+
+- Continued `[FUZ]1036` by adding the `add-trailing-i32-const-drop-to-defined-functions` metamorphic-valid transform. It starts from a validating module, appends a pure `i32.const 0; drop` pair to every defined function body, preserves existing result-stack values, validates the transformed module, and reports the new transform id through `validate-valid-metamorphic` details.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the active metamorphic-valid transform registry now names trailing harmless const/drop body reshaping alongside custom-section, module/name-section metadata, passive-data, unused-global, unused-function, unused-type, unused-table, passive-element, structured name-map, unused-local, leading/trailing nop, and leading const/drop surfaces.
+
 ## [2026-05-24] fuzzing | FUZ1036 metamorphic valid trailing nop transform
 
 - Continued `[FUZ]1036` by adding the `add-trailing-nop-to-defined-functions` metamorphic-valid transform. It starts from a validating module, appends one `nop` to every defined function body without changing stack or observable behavior, validates the transformed module, and reports the new transform id through `validate-valid-metamorphic` details.

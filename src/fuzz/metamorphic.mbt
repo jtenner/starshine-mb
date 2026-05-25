@@ -24,6 +24,7 @@ pub enum MetamorphicValidTransform {
   AddLeadingNopToDefinedFunctions
   AddTrailingNopToDefinedFunctions
   AddLeadingI32ConstDropToDefinedFunctions
+  AddTrailingI32ConstDropToDefinedFunctions
 } derive(Eq, Debug)
 
 ///|
@@ -58,6 +59,8 @@ pub fn metamorphic_valid_transform_id(
     AddTrailingNopToDefinedFunctions => "add-trailing-nop-to-defined-functions"
     AddLeadingI32ConstDropToDefinedFunctions =>
       "add-leading-i32-const-drop-to-defined-functions"
+    AddTrailingI32ConstDropToDefinedFunctions =>
+      "add-trailing-i32-const-drop-to-defined-functions"
   }
 }
 
@@ -1039,6 +1042,31 @@ fn metamorphic_add_leading_i32_const_drop_to_defined_functions(
 }
 
 ///|
+fn metamorphic_add_trailing_i32_const_drop_to_defined_functions(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let funcs = []
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            let next_instrs = []
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            next_instrs.push(@lib.Instruction::i32_const(0))
+            next_instrs.push(@lib.Instruction::drop())
+            funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
 fn metamorphic_add_unused_empty_function(mod : @lib.Module) -> @lib.Module {
   let types = []
   match mod.type_sec {
@@ -1105,6 +1133,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddLeadingNopToDefinedFunctions,
     AddTrailingNopToDefinedFunctions,
     AddLeadingI32ConstDropToDefinedFunctions,
+    AddTrailingI32ConstDropToDefinedFunctions,
   ]
 }
 
@@ -1147,6 +1176,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_trailing_nop_to_defined_functions(mod)
     AddLeadingI32ConstDropToDefinedFunctions =>
       metamorphic_add_leading_i32_const_drop_to_defined_functions(mod)
+    AddTrailingI32ConstDropToDefinedFunctions =>
+      metamorphic_add_trailing_i32_const_drop_to_defined_functions(mod)
   }
   match validate_module(transformed) {
     Ok(_) =>
