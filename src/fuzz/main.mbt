@@ -217,10 +217,20 @@ pub fn fuzz_standard_recipe_text_by_name(name : String) -> String? {
         schema_line +
         "name=smoke\nsuite=validate-valid\nprofile=smoke\nseed=0x5eed\nseed-count=1\nshard-count=1\noutput=text\n",
       )
+    "default-smoke" =>
+      Some(
+        schema_line +
+        "name=default-smoke\nsuite=all\nprofile=smoke\nseed=0x5eed\nseed-count=1\nshard-count=1\noutput=text\n",
+      )
     "ci" =>
       Some(
         schema_line +
         "name=ci\nsuite=cmd-harness\nprofile=ci+gen-valid=natural-small+passes=common-clusters\nseed=0x5eed\nseed-count=4\nshard-count=1\noutput=jsonl\n",
+      )
+    "default-ci" =>
+      Some(
+        schema_line +
+        "name=default-ci\nsuite=all\nprofile=ci\nseed=0x5eed\nseed-count=4\nshard-count=1\noutput=jsonl\n",
       )
     "nightly" =>
       Some(
@@ -254,8 +264,8 @@ pub fn fuzz_standard_recipe_text_by_name(name : String) -> String? {
 ///|
 pub fn fuzz_standard_recipe_names() -> Array[String] {
   [
-    "smoke", "ci", "nightly", "pass-signoff", "validator-stress", "parser-stress",
-    "binaryen-oracle",
+    "smoke", "default-smoke", "ci", "default-ci", "nightly", "pass-signoff", "validator-stress",
+    "parser-stress", "binaryen-oracle",
   ]
 }
 
@@ -1564,7 +1574,38 @@ pub fn parse_fuzz_recipe_text(text : String) -> Result[FuzzRecipe, String] {
 
 ///|
 pub fn parse_fuzz_cli_args(args : Array[String]) -> FuzzCliArgs {
-  parse_fuzz_cli_args_with_recipe(args, None)
+  let mut recipe : FuzzRecipe? = None
+  let mut i = 0
+  while i < args.length() {
+    let arg = args[i].trim().to_owned()
+    if arg == "--recipe" {
+      if i + 1 >= args.length() {
+        abort("missing value for --recipe")
+      }
+      if recipe is Some(_) {
+        abort("duplicate --recipe flag")
+      }
+      let name = args[i + 1].trim().to_owned()
+      recipe = match fuzz_standard_recipe_by_name(name) {
+        Some(v) => Some(v)
+        None => abort("unknown fuzz recipe '\{name}'")
+      }
+      i += 2
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--recipe=") {
+      if recipe is Some(_) {
+        abort("duplicate --recipe flag")
+      }
+      let name = fuzz_tail_string(arg, 9)
+      recipe = match fuzz_standard_recipe_by_name(name) {
+        Some(v) => Some(v)
+        None => abort("unknown fuzz recipe '\{name}'")
+      }
+    }
+    i += 1
+  }
+  parse_fuzz_cli_args_with_recipe(args, recipe)
 }
 
 ///|

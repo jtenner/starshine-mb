@@ -24,7 +24,9 @@ Blank lines and `#` comments are ignored. Unknown keys, unsupported schema versi
 The `--recipe <name>` / `--recipe=<name>` flag is recognized by the parser layer. The checked-in catalog currently provides these recipe ids:
 
 - `smoke`: short `validate-valid` smoke run.
+- `default-smoke`: one-seed `all`-suite smoke sweep over every active default fuzz suite.
 - `ci`: CI-oriented `cmd-harness` run with natural-small GenValid input and common pass clusters.
+- `default-ci`: four-seed `all`-suite CI sweep over every active default fuzz suite, emitted as JSONL.
 - `nightly`: broader `validate-valid-metamorphic` stress sweep.
 - `pass-signoff`: pass-oriented `cmd-harness` run with Binaryen-oracle-portable GenValid input, each-pass coverage, idempotence checking, and shard defaults.
 - `validator-stress`: `validate-valid` stress recipe.
@@ -33,5 +35,5 @@ The `--recipe <name>` / `--recipe=<name>` flag is recognized by the parser layer
 
 ## Evidence
 
-- `src/fuzz/main_wbtest.mbt` covers required schema-version parsing, unsupported schema rejection, `=` inside profile values, standard catalog ids, catalog-text parsing, and CLI-over-recipe precedence.
-- `moon test src/fuzz` passed for the standard catalog slice.
+- `src/fuzz/main_wbtest.mbt` covers required schema-version parsing, unsupported schema rejection, `=` inside profile values, standard catalog ids including default smoke/CI all-suite recipes, catalog-text parsing, and CLI-over-recipe precedence.
+- `moon test src/fuzz` passed for the default smoke/CI recipe slice.

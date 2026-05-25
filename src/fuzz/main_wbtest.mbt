@@ -1071,6 +1071,22 @@ test "standard fuzz recipe catalog includes required checked-in recipes" {
   assert_true(names.contains("validator-stress"))
   assert_true(names.contains("parser-stress"))
   assert_true(names.contains("binaryen-oracle"))
+  assert_true(names.contains("default-smoke"))
+  assert_true(names.contains("default-ci"))
+  let smoke_recipe = match fuzz_standard_recipe_by_name("default-smoke") {
+    Some(v) => v
+    None => fail("expected default-smoke recipe")
+  }
+  @debug.assert_eq(smoke_recipe.suite, "all")
+  @debug.assert_eq(smoke_recipe.profile, "smoke")
+  @debug.assert_eq(smoke_recipe.seed_i64, 0x5eedL)
+  let ci_recipe = match fuzz_standard_recipe_by_name("default-ci") {
+    Some(v) => v
+    None => fail("expected default-ci recipe")
+  }
+  @debug.assert_eq(ci_recipe.suite, "all")
+  @debug.assert_eq(ci_recipe.profile, "ci")
+  assert_true(ci_recipe.seed_count > smoke_recipe.seed_count)
   let recipe = match fuzz_standard_recipe_by_name("pass-signoff") {
     Some(v) => v
     None => fail("expected pass-signoff recipe")
@@ -1092,9 +1108,24 @@ test "standard fuzz recipe texts parse through the public recipe parser" {
       Err(msg) => fail("standard recipe \{name} did not parse: \{msg}")
     }
     @debug.assert_eq(recipe.name, name)
-    assert_true(fuzz_active_suite_names().contains(recipe.suite))
+    assert_true(
+      recipe.suite == "all" || fuzz_active_suite_names().contains(recipe.suite),
+    )
     assert_true(recipe.seed_count > 0)
     assert_true(recipe.shard_count > 0)
+  }
+}
+
+///|
+test "parse_fuzz_cli_args loads checked-in recipe defaults by name" {
+  let parsed = parse_fuzz_cli_args(["--recipe", "default-ci"])
+  @debug.assert_eq(parsed.suite, "all")
+  @debug.assert_eq(parsed.profile, "ci")
+  @debug.assert_eq(parsed.seed_i64, 0x5eedL)
+  @debug.assert_eq(parsed.seed_count, 4)
+  match parsed.output_mode {
+    Jsonl => ()
+    _ => fail("expected default-ci to select jsonl output")
   }
 }
 
