@@ -616,6 +616,10 @@ pub enum MetamorphicValidTransform {
   AddTrailingI64PopcntDropToDefinedFunctions
   AddLeadingI32WrapI64DropToDefinedFunctions
   AddTrailingI32WrapI64DropToDefinedFunctions
+  AddLeadingI64ExtendI32SDropToDefinedFunctions
+  AddTrailingI64ExtendI32SDropToDefinedFunctions
+  AddLeadingI64ExtendI32UDropToDefinedFunctions
+  AddTrailingI64ExtendI32UDropToDefinedFunctions
   AddLeadingI32ShlDropToDefinedFunctions
   AddTrailingI32ShlDropToDefinedFunctions
   AddLeadingI32ShrSDropToDefinedFunctions

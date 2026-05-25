@@ -3876,7 +3876,8 @@ fn assert_metamorphic_integer_unary_drop_transform(
           if instrs.length() != 4 {
             return Err("unexpected instruction count")
           }
-          let zero = if expected_id.contains("i64") {
+          let zero = if expected_id.contains("i64") &&
+            !expected_id.contains("extend-i32") {
             @lib.Instruction::i64_const(0L)
           } else {
             @lib.Instruction::i32_const(0)
@@ -3902,7 +3903,7 @@ fn assert_metamorphic_integer_unary_drop_transform(
 }
 
 ///|
-test "metamorphic i32.wrap_i64 drop transforms preserve validation and binary roundtrip" {
+test "metamorphic i32.wrap_i64 and i64.extend_i32 drop transforms preserve validation and binary roundtrip" {
   match
     assert_metamorphic_integer_unary_drop_transform(
       AddLeadingI32WrapI64DropToDefinedFunctions,
@@ -3918,6 +3919,46 @@ test "metamorphic i32.wrap_i64 drop transforms preserve validation and binary ro
       AddTrailingI32WrapI64DropToDefinedFunctions,
       "add-trailing-i32-wrap-i64-drop-to-defined-functions",
       @lib.Instruction::i32_wrap_i64(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_unary_drop_transform(
+      AddLeadingI64ExtendI32SDropToDefinedFunctions,
+      "add-leading-i64-extend-i32-s-drop-to-defined-functions",
+      @lib.Instruction::i64_extend_i32s(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_unary_drop_transform(
+      AddTrailingI64ExtendI32SDropToDefinedFunctions,
+      "add-trailing-i64-extend-i32-s-drop-to-defined-functions",
+      @lib.Instruction::i64_extend_i32s(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_unary_drop_transform(
+      AddLeadingI64ExtendI32UDropToDefinedFunctions,
+      "add-leading-i64-extend-i32-u-drop-to-defined-functions",
+      @lib.Instruction::i64_extend_i32u(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_unary_drop_transform(
+      AddTrailingI64ExtendI32UDropToDefinedFunctions,
+      "add-trailing-i64-extend-i32-u-drop-to-defined-functions",
+      @lib.Instruction::i64_extend_i32u(),
       false,
     ) {
     Ok(_) => ()
@@ -5084,8 +5125,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 223)
-  @debug.assert_eq(stats.validated, 223)
+  @debug.assert_eq(stats.transformed, 227)
+  @debug.assert_eq(stats.validated, 227)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -5109,6 +5150,16 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(
     stats.transform_ids.contains(
       "add-trailing-i32-wrap-i64-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-leading-i64-extend-i32-s-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-trailing-i64-extend-i32-u-drop-to-defined-functions",
     ),
   )
   assert_true(stats.transform_ids.contains("add-module-name-section"))
