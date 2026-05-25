@@ -616,8 +616,6 @@ p1 GenValid / valid-generation slices:
 - No active p1 GenValid recipe-catalog slices remain.
 
 p1/p2 oracle, reporting, and infrastructure slices:
-- [FUZ]1048B (p2) - Coverage Delta Diff Tool
-  - Unit: compare two fuzz reports and flag required coverage drops while tolerating optional counters.
 - [FUZ]1049A (p2) - Parallel Fuzz Shard Queue
   - Unit: split suites/seeds/profiles into shard work items with non-overlapping artifact paths.
 - [FUZ]1049B (p2) - Deterministic Merge/Resume
@@ -955,7 +953,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1048 (p2) - Fuzz Result Trend Reports And Coverage Deltas
   - Goal: compare fuzz coverage and outcomes across commits, seeds, and profiles.
   - Why: broad generator work can accidentally remove surfaces while all tests still pass. Trend reports make coverage regressions visible.
-  - Deliverables: write summary JSON for feature/opcode counters, strategy counters, pass statuses, failure classes, timings, and artifact counts; add a diff tool that compares two reports and highlights lost required/optional coverage.
+  - Deliverables: write summary JSON for feature/opcode counters, strategy counters, pass statuses, failure classes, timings, and artifact counts. The coverage-delta diff tool is complete: `bun fuzz coverage-delta [--optional] <before> <after>` compares report counters, fails on required counter drops, tolerates optional counters by default, and always reports artifact/failure/status/timing drift.
   - Required APIs: fuzz JSON reports from [FUZ]1030, exact ledger from [FUZ]1013, pass-fuzz result schema, docs/wiki tooling.
   - Invariants: report comparison must tolerate newly added optional counters; required counter drops should fail only when a profile declares that floor.
   - Dependencies: [FUZ]1013 and [FUZ]1030.

@@ -10,7 +10,9 @@ sources:
   - ../../../src/fuzz/invalid_repro.mbt
   - ../../../scripts/lib/fuzz-task.ts
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../scripts/lib/fuzz-coverage-delta-task.ts
   - ../../../scripts/test/task-family-commands.ts
+  - ../../../scripts/test/fuzz-coverage-delta.ts
 related:
   - ./validation-gates.md
   - ./pass-fuzz-compare.md
@@ -29,6 +31,7 @@ Starshine has two related fuzz entry surfaces:
 
 1. [`moon run src/fuzz -- ...`](../../../src/fuzz/main.mbt), the MoonBit-owned suite runner and artifact emitter.
 2. [`bun fuzz run ...`](../../../scripts/lib/fuzz-task.ts), the task wrapper that forwards the supported MoonBit runner surface with target and Moon executable options.
+3. [`bun fuzz coverage-delta ...`](../../../scripts/lib/fuzz-coverage-delta-task.ts), the report-diff helper for comparing two persisted fuzz summary JSON files.
 
 Use these for broad randomized exploration, artifact emission, and validator-rejection repro capture. Keep deterministic reductions, helper invariants, and focused regressions in normal package tests; heavy randomized loops should not move back into `moon test`. For the higher-level validation gate that calls this runner after `moon info`, `moon fmt`, `moon check`, and `moon test`, see [`validation-gates.md`](./validation-gates.md).
 
@@ -151,11 +154,14 @@ It routes through [`build_invalid_fuzz_failure_report_by_suite_and_stable_id(...
 
 Use compare-pass for optimizer parity signoff or failure-replay workflows, not broad fuzz-suite coverage. The detailed command, generator, normalization, failure-class, replay, and `--jobs` contract now lives in [`pass-fuzz-compare.md`](pass-fuzz-compare.md); keep this page focused on the ordinary `src/fuzz` runner and wrapper split.
 
+`bun fuzz coverage-delta [--optional] <before-report.json> <after-report.json>` compares numeric counters under a persisted summary report's `summary` object. Counter paths containing a component that starts with `required` are treated as required coverage: decreases are printed and make the command exit nonzero. Optional counters are tolerated by default so new or removed optional surfaces do not break CI noise floors; pass `--optional` / `--include-optional` to print optional changes as well. Artifact counts, failure classes, pass statuses, and timings are always shown when changed so run-shape drift remains visible even when the changed counter is not a required coverage floor.
+
 ## Maintenance Guidance
 
 - Add or extend a named `src/fuzz` suite for new broad randomized work; keep `moon test` deterministic and fast.
 - Update [`src/fuzz/main_wbtest.mbt`](../../../src/fuzz/main_wbtest.mbt) whenever the suite inventory, command parser, result format, or artifact command contract changes.
 - Keep [`scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts) aligned with wrapper forwarding behavior for `bun fuzz run` and `bun fuzz compare-pass`.
+- Keep [`scripts/test/fuzz-coverage-delta.ts`](../../../scripts/test/fuzz-coverage-delta.ts) aligned with required-vs-optional counter policy for `bun fuzz coverage-delta`.
 - If a suite emits persisted failures, include enough metadata to replay from `suite`, `profile`, `seed`, and attempt/strategy identity.
 - Serialize Moon commands in automation because `_build/.moon-lock` is shared.
 - When widening validator invalid lanes, update [`validate/fuzz-hardening.md`](../validate/fuzz-hardening.md) for strategy/repro summary, [`validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md) for stage/family/artifact semantics, and this page only for runner command shape.
