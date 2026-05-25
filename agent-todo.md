@@ -220,18 +220,19 @@ Execution rules for all DAE slices
 
 ### SGO - Follow-Up Improvements
 
+No active SGO follow-up task remains after the 0673 evidence-gated closeout. The closed entries below are retained only as reopen rules and source pointers for future explicit child slices.
+
 - [SGO]003 - Binaryen `SimplifyGlobals.cpp` Breadth Coordination
-  - Status: active/partial for v0.1.1 because the product goal changed toward broad Binaryen coverage; not a v0.1.0 blocker and not a rejection of the supported-surface signoff in `docs/wiki/raw/research/0573-2026-05-19-sgo-v010-signoff.md`.
-  - Goal: broaden SGO toward fuller Binaryen `SimplifyGlobals.cpp` rewrite-family coverage while preserving the accepted v0.1.0 direct/nested/late-tail surface as a scoped signoff, not a full-parity claim.
+  - Status: closed evidence-gated by `docs/wiki/raw/research/0673-2026-05-25-sgo003-call-breadth-closeout.md`. This is not a full Binaryen `SimplifyGlobals.cpp` parity claim and does not change the accepted v0.1.0 supported-surface signoff in `docs/wiki/raw/research/0573-2026-05-19-sgo-v010-signoff.md`.
+  - Decision: the currently enumerated post-signoff breadth queue has either landed, been closed as guardrail/research-only, been converted into a prerequisite/blocker, or now requires a fresh Binaryen-positive child slice before behavior changes. Known incomplete families remain documented in the parity matrix but are not active backlog tasks without concrete evidence.
   - Current matrix: `docs/wiki/binaryen/passes/simplify-globals-optimizing/parity-matrix.md` distinguishes implemented, partial, missing, intentionally conservative, and unknown families.
-  - Completed evidence: landed behavior, refactor, guardrail, research, and rebaseline slices are recorded in `docs/wiki/raw/research/0574` through `0665` where applicable, `docs/wiki/log.md`, and the SGO parity/readiness pages. Do not duplicate the full completed slice history here; use those docs as the source of truth.
-  - General deliverables for every SGO003 subtask: focused Binaryen probe or source fixture first, local test(s) before implementation for behavior-bearing work, paired negative guardrails for trapping/effectful/control-transfer boundaries, `moon test src/passes`, direct `--pass simplify-globals-optimizing` compare fuzz for nontrivial matcher/dataflow work, docs/wiki/log updates, and keep `[SGO]003` partial unless the user explicitly accepts a final bounded scope.
-  - Open-work tracking rule: if a slice uncovers a blocker, prerequisite, deferred family, or refactor follow-up, add it explicitly under one of the SGO003 children below before commit; do not leave implicit "later" work hidden only in research-note prose.
+  - Historical evidence: landed behavior, refactor, guardrail, research, and rebaseline slices are recorded in `docs/wiki/raw/research/0574` through `0673` where applicable, `docs/wiki/log.md`, and the SGO parity/readiness pages. Do not duplicate the full completed slice history here; use those docs as the source of truth.
+  - Reopen rule: file a new explicit SGO child slice before changing behavior. It must name the Binaryen-positive source/probe shape, add local tests before implementation, include paired negatives for trapping/effectful/control-transfer or aliasing boundaries, run `moon test src/passes`, run direct `--pass simplify-globals-optimizing` compare fuzz for nontrivial matcher/dataflow changes, and update docs/wiki/log.
 
 
 - [SGO]003D - Read-Only-To-Write Safe Side-Effect Independence
   - Status: closed by the 0665 closeout audit for the currently enumerated side-effect-independence scope; no generic hidden work bucket remains.
-  - Decision: the 0644 grow guardrails, 0661 scalar-load/table-get audit, 0662 store/table/bulk audit, 0663 wrapper/control inventory, and 0664 named-family gate cover or conservatively defer every visible `[SGO]003D` follow-up. Parent `[SGO]003` remains active/partial and this is not a full `SimplifyGlobals.cpp` parity claim.
+  - Decision: the 0644 grow guardrails, 0661 scalar-load/table-get audit, 0662 store/table/bulk audit, 0663 wrapper/control inventory, and 0664 named-family gate cover or conservatively defer every visible `[SGO]003D` follow-up. Parent `[SGO]003` was later closed evidence-gated by 0673; this is not a full `SimplifyGlobals.cpp` parity claim.
   - Follow-up rule: future side-effect independence behavior must land as a newly filed explicit child with a named Binaryen-positive opcode or wrapper grammar, paired candidate-derived/global-steered/unknown-effect/aliasing negatives, no broad whitelist additions, `moon test src/passes`, direct SGO compare fuzz, and docs identifying the admitted family.
 
 - [SGO]003D1 - Wrapper/Control Composition Inventory For Already-Covered Independent Effects
@@ -246,13 +247,13 @@ Execution rules for all DAE slices
 
 - [SGO]003D3 - Side-Effect Independence Closeout Audit
   - Status: closed by the 0665 research closeout.
-  - Decision: all visible side-effect-independence follow-ups from 0644, 0661, 0662, 0663, and 0664 are covered, explicitly conservative, or separately represented by `[SGO]003E2` for call read/write summaries. Keep parent `[SGO]003` active/partial unless separately accepted by the user.
+  - Decision: all visible side-effect-independence follow-ups from 0644, 0661, 0662, 0663, and 0664 are covered, explicitly conservative, or separately represented by `[SGO]003E2` for call read/write summaries. Parent `[SGO]003` was later closed evidence-gated by 0673.
 
 - [SGO]003E2 - Direct-Call Read/Write Summary Implementation
-  - Status: partial behavior slice landed in 0671. Starshine now builds fixed-point `SgoFunctionGlobalEffects` summaries with per-global `reads` plus `mutates`, conservative imported/dynamic-call rows, direct-call transitive closure, and function arities for the syntactic call matcher.
-  - Landed behavior: read-only-to-write self-guards may count a direct ordinary zero-param/one-result call as independent when the transitive callee summary neither reads nor mutates the candidate global. This covers the 0634/0635 no-read/no-write and wrong-global-read positives while keeping candidate-derived operands, callee candidate reads, imported calls, indirect calls, `call_ref`, and `return_call` conservative.
-  - Follow-up guardrails: 0672 pins that the existing matcher already accepts source-backed independent direct calls with clean constant operands and preserves candidate-derived direct-call operands plus callee-candidate-read calls; no optimizer behavior changed.
-  - Remaining deferred breadth: callee-write/no-remaining-read positives, imported-call positives, indirect-call positives, generated-effects/visibility modeling, richer non-constant call operands, and broader call placement still need explicit child slices with Binaryen-positive evidence and paired guardrails. Parent `[SGO]003` remains active/partial and this is not full `SimplifyGlobals.cpp` parity.
+  - Status: closed evidence-gated by the 0673 closeout after the 0671 behavior slice and 0672 constant-argument guardrails.
+  - Landed behavior: Starshine builds fixed-point `SgoFunctionGlobalEffects` summaries with per-global `reads` plus `mutates`, conservative imported/dynamic-call rows, direct-call transitive closure, and function arities. Read-only-to-write self-guards may count an ordinary direct call as independent when the call operands are clean and the transitive callee summary neither reads nor mutates the candidate global.
+  - Covered positives and guardrails: the 0634/0635 no-read/no-write and wrong-global-read positives are covered; 0672 pins clean constant-argument direct calls. Candidate-derived operands, callee candidate reads, imported calls, indirect calls, `call_ref`, and `return_call` remain conservative.
+  - Reopen rule: callee-write/no-remaining-read positives, imported-call positives, indirect-call or `call_ref` positives, generated-effects/visibility modeling, richer non-constant operands, or broader call placements need a new explicit child slice with Binaryen-positive evidence and paired guardrails. This is not full `SimplifyGlobals.cpp` parity.
 
 
 
@@ -260,7 +261,7 @@ Execution rules for all DAE slices
   - Status: closed by the 0659 runtime-fact closeout audit; no generic runtime propagation bucket remains open.
   - Decision: keep the current runtime fact model at its source-backed boundaries instead of broadening further without a new explicit Binaryen-positive shape. Covered local regions include straight-line/top-level noise, adjacent/nested plain blocks, official dominance-lit pre-call then reads, direct-call mutation-filtered facts for syntactically/transitively unwritten globals, else-local facts, loop-local same-body facts, and `try_table` body-local facts.
   - Preserved boundaries: no incoming facts into else arms, no post-if joins, no pre-loop facts into loops, no loop facts out/backedges, no post-`try_table` joins, and imported/indirect/`call_ref`/dynamic `return_call` barriers remain conservative unless a future slice explicitly redesigns one boundary with tests and fuzz.
-  - Follow-up rule: file any future runtime propagation work as a new explicit child slice with a written dominance/invalidation contract, one rewritten-read positive, one value-observable preserved-read negative, and direct SGO fuzz for behavior changes. Keep call read/write summary work under `[SGO]003E2` and do not use read-only-to-write call evidence as runtime fact evidence.
+  - Follow-up rule: file any future runtime propagation work as a new explicit child slice with a written dominance/invalidation contract, one rewritten-read positive, one value-observable preserved-read negative, and direct SGO fuzz for behavior changes. File future call read/write summary work as a new explicit child rather than reopening broad runtime facts, and do not use read-only-to-write call evidence as runtime fact evidence.
 
 - [SGO]003J - Same-As-Init Expression Equivalence Broadening
   - Status: closed conservative/research-only by the 0658 audit; no same-init expression broadening is authorized inside `[SGO]003` without a new explicit Binaryen-positive grammar.

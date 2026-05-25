@@ -560,11 +560,17 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO003 call breadth closeout
+
+- Added research note [`0673`](./raw/research/0673-2026-05-25-sgo003-call-breadth-closeout.md) to close the currently enumerated `[SGO]003` / `[SGO]003E2` active queue as evidence-gated after the direct-call read/write summary and constant-argument guardrail slices.
+- No optimizer behavior changed: known remaining call breadth such as imported/indirect/`call_ref`, generated-effects, richer operands, and broader placements now requires a new explicit Binaryen-positive child slice before implementation.
+- No Moon or fuzz validation was required for this docs/backlog-only closeout; latest behavior-bearing validation remains the 0671 direct SGO 10k fuzz and 0672 `moon test` evidence.
+
 ## [2026-05-25] binaryen | SGO direct-call constant-argument guardrails
 
 - Added research note [`0672`](./raw/research/0672-2026-05-25-sgo-direct-call-const-arg-guardrails.md) for a `[SGO]003E2` follow-up, pinning the source-backed direct-call constant-argument read-only-to-write shape.
 - No optimizer behavior changed: the existing SGO FlowScanner/direct-call path already removes the fake global guard for independent direct calls with clean constant operands, while preserving candidate-derived call operands.
-- Added focused positive and negative tests in `src/passes/simplify_globals_optimizing_test.mbt`; `moon test src/passes` passed (`1608/1608`) and full `moon test` passed (`3684/3684`). `[SGO]003` remains active/partial.
+- Added focused positive and negative tests in `src/passes/simplify_globals_optimizing_test.mbt`; `moon test src/passes` passed (`1608/1608`) and full `moon test` passed (`3684/3684`). `[SGO]003` remained active/partial until the 0673 closeout.
 
 ## [2026-05-25] binaryen | SGO direct-call read summary implementation
 
