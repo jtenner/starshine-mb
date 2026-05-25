@@ -2734,6 +2734,10 @@ fn metamorphic_add_ref_eq_empty_struct_drop_to_defined_functions(
   mod : @lib.Module,
   leading : Bool,
 ) -> @lib.Module {
+  match mod.code_sec {
+    Some(@lib.CodeSec(funcs)) => if funcs.length() == 0 { return mod }
+    None => return mod
+  }
   let (typed_mod, type_idx) = metamorphic_with_appended_empty_struct_type(mod)
   metamorphic_add_unary_drop_to_defined_functions(
     typed_mod,

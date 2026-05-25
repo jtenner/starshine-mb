@@ -3059,6 +3059,84 @@ test "metamorphic ref.eq ref.func transform stays unavailable despite a declared
 }
 
 ///|
+test "metamorphic ref.eq empty-struct transform stays unavailable without defined function bodies" {
+  let base = @lib.Module::new()
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddLeadingRefEqEmptyStructDropToDefinedFunctions,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-leading-ref-eq-empty-struct-drop-to-defined-functions",
+  )
+  match transformed.wasm_module.type_sec {
+    Some(_) =>
+      fail("expected no synthetic type when no body can receive debris")
+    None => ()
+  }
+  match transformed.wasm_module.code_sec {
+    Some(_) => fail("expected no code section")
+    None => ()
+  }
+}
+
+///|
+test "metamorphic trailing ref.eq ref.func transform stays unavailable despite a declared function operand" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddTrailingRefEqFuncDropToDefinedFunctions,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-trailing-ref-eq-func-drop-to-defined-functions",
+  )
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          @debug.assert_eq(instrs.length(), 1)
+          @debug.assert_eq(instrs[0], @lib.Instruction::i32_const(7))
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic ref.eq ref.func transform is unavailable without a declared function operand" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
