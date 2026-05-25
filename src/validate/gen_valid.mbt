@@ -9692,10 +9692,16 @@ fn gen_valid_payload(ctx : GenValidContext, payload : Bytes) -> Bytes {
 ///|
 fn gen_valid_import_module_name(ctx : GenValidContext, index : Int) -> Name {
   if gen_valid_is_topology_heavy_config(ctx.config) {
-    match index % 3 {
+    match index % 6 {
       0 => gen_valid_name(ctx, "env")
-      1 => gen_valid_name(ctx, "fzg.topology.a")
-      _ => gen_valid_name(ctx, "fzg.topology.b")
+      1 => gen_valid_name(ctx, "")
+      2 => gen_valid_name(ctx, "fzg.topology.a")
+      3 =>
+        gen_valid_name(
+          ctx, "fzg.import.module.with.a.deliberately.long.edge.profile",
+        )
+      4 => gen_valid_name(ctx, "fzg.模块.🧪")
+      _ => gen_valid_name(ctx, "env")
     }
   } else {
     gen_valid_name(ctx, "env")

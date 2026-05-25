@@ -613,8 +613,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 Use these slice ids when selecting or reporting future FUZ work. Parent tasks below keep the fuller goals, invariants, and historical evidence; this index names the remaining units so agents do not have to infer the next slice from long status paragraphs.
 
 p1 GenValid / valid-generation slices:
-- [FUZ]1038A (p1, GenValid) - Valid Name String Edge Profiles
-  - Unit: generate empty, long, Unicode, and repeated import module names while preserving validation and roundtrip behavior.
 - [FUZ]1038B (p1, GenValid) - Custom Section Placement/Payload Stress
   - Unit: generate multiple unknown custom sections with varied valid placement and payload bytes; keep text/binary roundtrip expectations explicit.
 - [FUZ]1046A (p1, GenValid) - Feature-Gate Matrix Harness
@@ -907,7 +905,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1038 (p1) - Import, Export, Name, String, And Custom Section Stress
   - Goal: widen non-code module metadata surfaces without mixing them into body-generation work.
   - Why: import/export names, custom sections, name sections, UTF-8 strings, duplicates, long strings, empty names, and unusual module names are common decoder/parser/optimizer edge cases.
-  - Deliverables: generate empty and long valid names, Unicode names, repeated imported module names, many exports under distinct names, export aliases, name-section function/local/label names, unknown custom sections with varied placement, and payloads containing arbitrary bytes.
+  - Deliverables remaining: generate many exports under distinct names, export aliases, name-section function/local/label names, unknown custom sections with varied placement, and payloads containing arbitrary bytes. Empty, long, Unicode, and repeated valid import module names are covered by completed [FUZ]1038A.
   - Required APIs: import/export/name/custom-section types, binary encoder/decoder, text printer/parser where names are represented.
   - Invariants: valid mode must keep export names unique where required; invalid duplicate/name/UTF-8 cases should be routed to invalid binary/text lanes.
   - Dependencies: [FUZ]1003 topology widening and [FUZ]1021 binary malformed-byte matrix recommended.

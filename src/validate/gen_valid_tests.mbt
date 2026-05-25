@@ -1883,6 +1883,29 @@ test "topology-heavy profile emits nonzero table bulk and element operators" {
 }
 
 ///|
+test "topology-heavy import module names cover edge profiles" {
+  let ctx = GenValidContext::new_streamed(
+    0xf71002UL,
+    GenValidConfig::for_profile(TopologyHeavyProfile),
+  )
+  @debug.assert_eq(gen_valid_import_module_name(ctx, 0), Name::new("env"))
+  @debug.assert_eq(gen_valid_import_module_name(ctx, 1), Name::new(""))
+  @debug.assert_eq(
+    gen_valid_import_module_name(ctx, 2),
+    Name::new("fzg.topology.a"),
+  )
+  @debug.assert_eq(
+    gen_valid_import_module_name(ctx, 3),
+    Name::new("fzg.import.module.with.a.deliberately.long.edge.profile"),
+  )
+  @debug.assert_eq(
+    gen_valid_import_module_name(ctx, 4),
+    Name::new("fzg.模块.🧪"),
+  )
+  @debug.assert_eq(gen_valid_import_module_name(ctx, 5), Name::new("env"))
+}
+
+///|
 test "topology-heavy profile emits high-index import export topology" {
   let config = GenValidConfig::for_profile(TopologyHeavyProfile)
   assert_true(config.max_defined_funcs >= 16)
