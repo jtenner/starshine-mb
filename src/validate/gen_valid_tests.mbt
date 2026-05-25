@@ -219,6 +219,21 @@ test "gen-valid shared const-expression contexts select allowed op families" {
 }
 
 ///|
+test "gen-valid proposal feature-gate matrix exposes positive and negative rows" {
+  let rows = gen_valid_proposal_feature_gate_matrix()
+  @debug.assert_eq(rows.length(), gen_valid_proposal_features().length())
+  rows.each(fn(row) raise {
+    assert_true(
+      gen_valid_proposal_feature_enabled(row.enabled_toggles, row.feature),
+    )
+    assert_true(row.disabled_toggles.length() > 0)
+    row.disabled_toggles.each(fn(toggles) raise {
+      assert_false(gen_valid_proposal_feature_enabled(toggles, row.feature))
+    })
+  })
+}
+
+///|
 test "gen-valid proposal feature-gate matrix maps central gates to toggles" {
   let all = GenValidFeatureToggles::coverage_forced_default()
   assert_true(gen_valid_proposal_feature_enabled(all, GcFeature))

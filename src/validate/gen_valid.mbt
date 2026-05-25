@@ -219,6 +219,13 @@ pub enum GenValidProposalFeature {
 } derive(Eq, Debug)
 
 ///|
+pub struct GenValidProposalFeatureGateRow {
+  feature : GenValidProposalFeature
+  enabled_toggles : GenValidFeatureToggles
+  disabled_toggles : Array[GenValidFeatureToggles]
+} derive(Eq, Debug)
+
+///|
 pub fn gen_valid_proposal_features() -> Array[GenValidProposalFeature] {
   [
     GcFeature,
@@ -282,6 +289,100 @@ pub fn gen_valid_proposal_feature_enabled(
     ExtendedConstFeature => toggles.allow_const_expr_variants
     ReferenceTypesFeature => toggles.allow_ref_types
   }
+}
+
+///|
+pub fn gen_valid_proposal_feature_gate_matrix() -> Array[
+  GenValidProposalFeatureGateRow,
+] {
+  let all = GenValidFeatureToggles::{
+    ..GenValidFeatureToggles::coverage_forced_default(),
+    allow_relaxed_simd: true,
+  }
+  [
+    {
+      feature: GcFeature,
+      enabled_toggles: all,
+      disabled_toggles: [
+        { ..all, allow_ref_types: false },
+        { ..all, allow_subtyping_topology: false },
+      ],
+    },
+    {
+      feature: FunctionReferencesFeature,
+      enabled_toggles: all,
+      disabled_toggles: [
+        { ..all, allow_ref_types: false },
+        { ..all, allow_call_indirect: false },
+      ],
+    },
+    {
+      feature: TailCallsFeature,
+      enabled_toggles: all,
+      disabled_toggles: [{ ..all, allow_tail_calls: false }],
+    },
+    {
+      feature: ExceptionsFeature,
+      enabled_toggles: all,
+      disabled_toggles: [{ ..all, allow_tags: false }],
+    },
+    {
+      feature: SimdFeature,
+      enabled_toggles: all,
+      disabled_toggles: [{ ..all, allow_v128: false }],
+    },
+    {
+      feature: RelaxedSimdFeature,
+      enabled_toggles: all,
+      disabled_toggles: [
+        { ..all, allow_v128: false },
+        { ..all, allow_relaxed_simd: false },
+      ],
+    },
+    {
+      feature: AtomicsFeature,
+      enabled_toggles: all,
+      disabled_toggles: [
+        { ..all, allow_mems: false },
+        { ..all, allow_shared_memories: false },
+        { ..all, allow_atomics: false },
+      ],
+    },
+    {
+      feature: BulkMemoryFeature,
+      enabled_toggles: all,
+      disabled_toggles: [
+        { ..all, allow_mems: false },
+        { ..all, allow_datas: false, allow_tables: false, allow_elems: false },
+      ],
+    },
+    {
+      feature: MultiMemoryFeature,
+      enabled_toggles: all,
+      disabled_toggles: [
+        { ..all, allow_mems: false },
+        { ..all, allow_memory_limit_variants: false },
+      ],
+    },
+    {
+      feature: Memory64Feature,
+      enabled_toggles: all,
+      disabled_toggles: [
+        { ..all, allow_mems: false },
+        { ..all, allow_memory64: false },
+      ],
+    },
+    {
+      feature: ExtendedConstFeature,
+      enabled_toggles: all,
+      disabled_toggles: [{ ..all, allow_const_expr_variants: false }],
+    },
+    {
+      feature: ReferenceTypesFeature,
+      enabled_toggles: all,
+      disabled_toggles: [{ ..all, allow_ref_types: false }],
+    },
+  ]
 }
 
 ///|

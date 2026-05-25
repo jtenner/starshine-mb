@@ -76,6 +76,8 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile]
 
 pub fn gen_valid_proposal_feature_enabled(GenValidFeatureToggles, GenValidProposalFeature) -> Bool
 
+pub fn gen_valid_proposal_feature_gate_matrix() -> Array[GenValidProposalFeatureGateRow]
+
 pub fn gen_valid_proposal_feature_label(GenValidProposalFeature) -> String
 
 pub fn gen_valid_proposal_features() -> Array[GenValidProposalFeature]
@@ -989,6 +991,12 @@ pub enum GenValidProposalFeature {
   Memory64Feature
   ExtendedConstFeature
   ReferenceTypesFeature
+} derive(Eq, @debug.Debug)
+
+pub struct GenValidProposalFeatureGateRow {
+  feature : GenValidProposalFeature
+  enabled_toggles : GenValidFeatureToggles
+  disabled_toggles : Array[GenValidFeatureToggles]
 } derive(Eq, @debug.Debug)
 
 pub enum GenValidRandomStreamLabel {

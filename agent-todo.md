@@ -613,8 +613,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 Use these slice ids when selecting or reporting future FUZ work. Parent tasks below keep the fuller goals, invariants, and historical evidence; this index names the remaining units so agents do not have to infer the next slice from long status paragraphs.
 
 p1 GenValid / valid-generation slices:
-- [FUZ]1046B (p1, GenValid) - Feature-Gate Matrix Completion
-  - Unit: fill out GC, function references, tail calls, exceptions, SIMD, relaxed SIMD, atomics, bulk memory, multi-memory, memory64, extended const, and reference-types gates.
 - [FUZ]1051A (p1, tooling) - Fuzz Recipe Schema Core
   - Unit: define and parse the checked-in recipe schema with predictable CLI override precedence.
 - [FUZ]1051B (p1, tooling) - Standard Checked-In Recipe Set
@@ -970,16 +968,6 @@ p2 invalid/binary/text slices:
   - Dependencies: [FUZ]1027 and [FUZ]1032.
   - Suggested Tests: fake text adapter tests, abbreviation fixtures, name-resolution fixtures, unavailable-tool skip tests.
   - Exit Criteria: text fuzzing can explain whether a failure is local parser/printer behavior, external tool disagreement, or true validation divergence.
-
-- [FUZ]1046 (p1) - Proposal Feature Gate Positive And Negative Matrix
-  - Goal: test every proposal/feature toggle with both accepted and rejected examples.
-  - Why: GenValid enables many modern wasm features, but validators must also reject proposal instructions/types when disabled and accept them when enabled.
-  - Deliverables: define a feature-gate matrix for GC, function references, tail calls, exceptions, SIMD, relaxed SIMD, atomics, bulk memory, multi-memory, memory64, extended const, reference types, and any local proposal flags; generate one positive and one negative fixture per gate.
-  - Required APIs: feature toggles, validator feature checks, invalid AST/binary strategies, docs/wiki coverage ledger.
-  - Invariants: negative tests must fail because of the disabled feature, not because the module is otherwise malformed; positive tests must validate under the matching feature set.
-  - Dependencies: [FUZ]1013 exact ledger and [FUZ]1020 invalid AST expansion.
-  - Suggested Tests: per-feature enabled/disabled fixtures, exact issue-kind expectations where available, CLI profile tests for feature toggles.
-  - Exit Criteria: adding or changing a feature gate requires updating one obvious matrix and its positive/negative tests.
 
 - [FUZ]1047 (p2) - Normalization And Canonicalization Oracle Audit
   - Goal: audit the normalization layers used by pass-fuzz compare so they do not hide real semantic differences or report known harmless representation noise.

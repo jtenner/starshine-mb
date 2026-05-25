@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1046B GenValid proposal gate matrix completion
+
+- Completed `[FUZ]1046B` by adding `GenValidProposalFeatureGateRow` and `gen_valid_proposal_feature_gate_matrix()`, a reusable positive/negative toggle matrix covering GC, function references, tail calls, exceptions, SIMD, relaxed SIMD, atomics, bulk memory, multi-memory, memory64, extended const, and reference types.
+- Added focused matrix coverage in [`src/validate/gen_valid_tests.mbt`](../../src/validate/gen_valid_tests.mbt) and updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so future proposal-gate changes update one obvious table and fixture.
+
 ## [2026-05-25] fuzzing | FUZ1046A GenValid proposal gate matrix
 
 - Started `[FUZ]1046A` by adding the central `GenValidProposalFeature` matrix and helpers that map existing GenValid feature toggles onto proposal gates for GC, function references, tail calls, exceptions, SIMD, relaxed SIMD, atomics, bulk memory, multi-memory, memory64, extended const, and reference types.
