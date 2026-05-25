@@ -3171,12 +3171,37 @@ pub fn gen_valid_numtype(ctx : GenValidContext) -> NumType {
 }
 
 ///|
+priv struct GenValidConstExprContext {
+  allow_numeric_const : Bool
+  allow_ref_null : Bool
+  allow_ref_func : Bool
+  allow_imported_immutable_global_get : Bool
+}
+
+///|
+fn GenValidConstExprContext::numeric_only() -> GenValidConstExprContext {
+  {
+    allow_numeric_const: true,
+    allow_ref_null: false,
+    allow_ref_func: false,
+    allow_imported_immutable_global_get: false,
+  }
+}
+
+///|
 fn gen_const_expr_from(
   ctx : GenValidContext,
   label : GenValidRandomStreamLabel,
   vt : ValType,
 ) -> Expr {
-  Expr::new([gen_const_instr_from(ctx, label, vt)])
+  gen_valid_const_expr_from_context(
+    ctx,
+    label,
+    vt,
+    { ..GenValidConstExprContext::numeric_only(), allow_ref_null: true },
+    [],
+    None,
+  )
 }
 
 ///|
@@ -3209,6 +3234,45 @@ fn gen_const_instr_from(
         Instruction::ref_null(rt.get_heap_type())
       }
     BotValType => Instruction::unreachable_()
+  }
+}
+
+///|
+fn gen_valid_const_expr_from_context(
+  ctx : GenValidContext,
+  label : GenValidRandomStreamLabel,
+  vt : ValType,
+  expr_context : GenValidConstExprContext,
+  imported_immutable_globals : Array[GlobalType],
+  ref_func_idx : FuncIdx?,
+) -> Expr {
+  if expr_context.allow_imported_immutable_global_get {
+    match gen_matching_immutable_global_idx(imported_immutable_globals, vt) {
+      Some(idx) => return Expr::new([Instruction::global_get(idx)])
+      None => ()
+    }
+  }
+  if expr_context.allow_ref_func && vt == ValType::funcref() {
+    match ref_func_idx {
+      Some(func_idx) => return Expr::new([Instruction::ref_func(func_idx)])
+      None => ()
+    }
+  }
+  match vt {
+    RefTypeValType(rt) if expr_context.allow_ref_null =>
+      return Expr::new([
+        if rt.is_exact() {
+          Instruction::ref_null_type(rt)
+        } else {
+          Instruction::ref_null(rt.get_heap_type())
+        },
+      ])
+    _ => ()
+  }
+  if expr_context.allow_numeric_const {
+    Expr::new([gen_const_instr_from(ctx, label, vt)])
+  } else {
+    Expr::new([Instruction::unreachable_()])
   }
 }
 
@@ -3956,11 +4020,22 @@ fn gen_valid_const_expr_for_global(
 ) -> Expr {
   if ctx.config.features.allow_const_expr_variants {
     match gen_matching_immutable_global_idx(prior_globals, vt) {
-      Some(idx) if vt == ValType::i32() &&
+      Some(_) if vt == ValType::i32() &&
         (
           ctx.config.mode == CoverageForced ||
           ctx.random_bool_from(GlobalStream)
-        ) => return Expr::new([Instruction::global_get(idx)])
+        ) =>
+        return gen_valid_const_expr_from_context(
+          ctx,
+          GlobalStream,
+          vt,
+          {
+            ..GenValidConstExprContext::numeric_only(),
+            allow_imported_immutable_global_get: true,
+          },
+          prior_globals,
+          None,
+        )
       _ => ()
     }
     if vt == ValType::funcref() &&
@@ -3968,7 +4043,14 @@ fn gen_valid_const_expr_for_global(
         ctx.config.mode == CoverageForced ||
         ctx.random_int_from(GlobalStream, 4) == 0
       ) {
-      return Expr::new([Instruction::ref_func(func_idx)])
+      return gen_valid_const_expr_from_context(
+        ctx,
+        GlobalStream,
+        vt,
+        { ..GenValidConstExprContext::numeric_only(), allow_ref_func: true },
+        [],
+        Some(func_idx),
+      )
     }
     match vt {
       RefTypeValType(HeapTypeRefType(true, _, HeapType(type_idx))) =>

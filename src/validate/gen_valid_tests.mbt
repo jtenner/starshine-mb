@@ -23,6 +23,67 @@ test "gen_valid_module_result reports success diagnostics" {
 }
 
 ///|
+test "gen-valid shared const-expression contexts select allowed op families" {
+  let ctx = GenValidContext::new_streamed(0x1037AUL, {
+    ..GenValidConfig::coverage_forced_default()
+  })
+  let numeric = gen_valid_const_expr_from_context(
+    ctx,
+    GlobalStream,
+    ValType::i32(),
+    GenValidConstExprContext::numeric_only(),
+    [],
+    None,
+  )
+  match numeric {
+    Expr([I32Const(_)]) => ()
+    other => fail("expected numeric const expression, got \{other}")
+  }
+
+  let imported_global = gen_valid_const_expr_from_context(
+    ctx,
+    GlobalStream,
+    ValType::i32(),
+    {
+      ..GenValidConstExprContext::numeric_only(),
+      allow_imported_immutable_global_get: true,
+    },
+    [GlobalType::new(ValType::i32(), false)],
+    None,
+  )
+  @debug.assert_eq(
+    imported_global,
+    Expr::new([Instruction::global_get(GlobalIdx::new(0U))]),
+  )
+
+  let funcref = gen_valid_const_expr_from_context(
+    ctx,
+    GlobalStream,
+    ValType::funcref(),
+    { ..GenValidConstExprContext::numeric_only(), allow_ref_func: true },
+    [],
+    Some(FuncIdx::new(7U)),
+  )
+  @debug.assert_eq(
+    funcref,
+    Expr::new([Instruction::ref_func(FuncIdx::new(7U))]),
+  )
+
+  let nullable_ref = gen_valid_const_expr_from_context(
+    ctx,
+    GlobalStream,
+    ValType::externref(),
+    { ..GenValidConstExprContext::numeric_only(), allow_ref_null: true },
+    [],
+    None,
+  )
+  @debug.assert_eq(
+    nullable_ref,
+    Expr::new([Instruction::ref_null(HeapType::abs(AbsHeapType::extern_()))]),
+  )
+}
+
+///|
 test "gen-valid PRNG stream labels have stable seed derivations" {
   @debug.assert_eq(gen_valid_random_stream_labels().length(), 15)
   @debug.assert_eq(
