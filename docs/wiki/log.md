@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-25] docs | dae DAE014 index/source sync
+
+- Completed a DAE014 documentation recovery slice by linking the latest Func505 classification note from the `dae-optimizing` index and Starshine strategy source lists.
+- Refreshed the index `last_reviewed` date and added the current durable diagnostic status: default raw compare still stops at type-section/type-index drift, while both-canonical compare stops at `.tmp/dae-func504-tail-control-artifact`, `defined=505 abs=522`, with the Func505 loop/local output-shape frontier classified as unknown/risky pending reduction.
+- No pass behavior changed; active DAE implementation slices remain open in `agent-todo.md`.
+
 ## [2026-05-25] passes | dae DAE006 Func505 frontier classification
 
 - Classified the current both-canonical DAE frontier at `.tmp/dae-func504-tail-control-artifact`, `defined=505 abs=522`, in [`raw/research/0576-2026-05-25-dae-func505-frontier-classification.md`](raw/research/0576-2026-05-25-dae-func505-frontier-classification.md).

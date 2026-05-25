@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-25
 sources:
+  - ../../../raw/research/0576-2026-05-25-dae-func505-frontier-classification.md
   - ../../../raw/research/0575-2026-05-24-dae-func408-compare-layer-audit.md
   - ../../../raw/research/0574-2026-05-21-dae002-post-raw-cleanup-frontier-audit.md
   - ../../../raw/research/0570-2026-05-18-dae002-func237-frontier-classification.md
