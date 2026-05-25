@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-24] binaryen | SGO select position shared matcher
+
+- Added research note [`0627`](./raw/research/0627-2026-05-24-sgo-select-position-shared-matcher.md) and unified the no-catch `try_table` select and `try_table` + `ref.is_null` select-position matchers, including the leading-constant reverse-compare variants.
+- This is a refactor-only slice: it preserves the three already-probed select operand placements, existing no-catch/ref.is_null prefix checks, caught `try_table` conservatism, and direct/if-return guard application.
+- Direct SGO fuzz at `.tmp/pass-fuzz-sgo-select-position-shared-matcher-10k` matched `9975/9975` compared cases with `0` mismatches and `0` validation failures; `[SGO]003` remains active/partial.
+
 ## [2026-05-24] binaryen | SGO try_table guard applier unification
 
 - Added research note [`0626`](./raw/research/0626-2026-05-24-sgo-try-table-guard-applier-unification.md) and routed no-catch `try_table` select, reverse-compare select, `ref.is_null` compare, `ref.is_null` select, and `ref.is_null` select reverse-compare guard families through one direct/if-return body applier.

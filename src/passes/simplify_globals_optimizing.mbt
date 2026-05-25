@@ -3499,6 +3499,71 @@ fn sgo_is_select_instr(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn sgo_select_pos_around_value(
+  instrs : Array[@lib.Instruction],
+  value_start : Int,
+  after_value : Int,
+) -> Int? {
+  if after_value + 2 < instrs.length() &&
+    sgo_const_instr(instrs[after_value]) != None &&
+    sgo_const_instr(instrs[after_value + 1]) != None &&
+    sgo_is_select_instr(instrs[after_value + 2]) {
+    return Some(after_value + 2)
+  }
+  if value_start > 0 &&
+    after_value + 1 < instrs.length() &&
+    sgo_const_instr(instrs[value_start - 1]) != None &&
+    sgo_const_instr(instrs[after_value]) != None &&
+    sgo_is_select_instr(instrs[after_value + 1]) {
+    return Some(after_value + 1)
+  }
+  if value_start > 1 &&
+    after_value < instrs.length() &&
+    sgo_const_instr(instrs[value_start - 2]) != None &&
+    sgo_const_instr(instrs[value_start - 1]) != None &&
+    sgo_is_select_instr(instrs[after_value]) {
+    return Some(after_value)
+  }
+  None
+}
+
+///|
+fn sgo_select_reverse_compare_pos_around_value(
+  instrs : Array[@lib.Instruction],
+  value_start : Int,
+  after_value : Int,
+) -> Int? {
+  if value_start > 2 &&
+    after_value + 1 < instrs.length() &&
+    sgo_const_instr(instrs[value_start - 3]) != None &&
+    sgo_const_instr(instrs[value_start - 2]) != None &&
+    sgo_const_instr(instrs[value_start - 1]) != None &&
+    sgo_is_select_instr(instrs[after_value]) &&
+    sgo_is_compare_instr(instrs[after_value + 1]) {
+    return Some(after_value + 1)
+  }
+  if value_start > 0 &&
+    after_value + 3 < instrs.length() &&
+    sgo_const_instr(instrs[value_start - 1]) != None &&
+    sgo_const_instr(instrs[after_value]) != None &&
+    sgo_const_instr(instrs[after_value + 1]) != None &&
+    sgo_is_select_instr(instrs[after_value + 2]) &&
+    sgo_is_compare_instr(instrs[after_value + 3]) {
+    return Some(after_value + 3)
+  }
+  if value_start > 1 &&
+    after_value + 2 < instrs.length() &&
+    sgo_const_instr(instrs[value_start - 2]) != None &&
+    sgo_const_instr(instrs[value_start - 1]) != None &&
+    sgo_const_instr(instrs[after_value]) != None &&
+    sgo_is_select_instr(instrs[after_value + 1]) &&
+    sgo_is_compare_instr(instrs[after_value + 2]) {
+    return Some(after_value + 2)
+  }
+  None
+}
+
+///|
 fn sgo_try_table_select_pos(
   instrs : Array[@lib.Instruction],
   pos : Int,
@@ -3507,30 +3572,10 @@ fn sgo_try_table_select_pos(
     return None
   }
   match instrs[pos] {
-    @lib.TryTable(_, catches, @lib.Expr(_)) if catches.length() == 0 => ()
-    _ => return None
+    @lib.TryTable(_, catches, @lib.Expr(_)) if catches.length() == 0 =>
+      sgo_select_pos_around_value(instrs, pos, pos + 1)
+    _ => None
   }
-  if pos + 3 < instrs.length() &&
-    sgo_const_instr(instrs[pos + 1]) != None &&
-    sgo_const_instr(instrs[pos + 2]) != None &&
-    sgo_is_select_instr(instrs[pos + 3]) {
-    return Some(pos + 3)
-  }
-  if pos > 0 &&
-    pos + 2 < instrs.length() &&
-    sgo_const_instr(instrs[pos - 1]) != None &&
-    sgo_const_instr(instrs[pos + 1]) != None &&
-    sgo_is_select_instr(instrs[pos + 2]) {
-    return Some(pos + 2)
-  }
-  if pos > 1 &&
-    pos + 1 < instrs.length() &&
-    sgo_const_instr(instrs[pos - 2]) != None &&
-    sgo_const_instr(instrs[pos - 1]) != None &&
-    sgo_is_select_instr(instrs[pos + 1]) {
-    return Some(pos + 1)
-  }
-  None
 }
 
 ///|
@@ -3567,37 +3612,10 @@ fn sgo_try_table_select_reverse_compare_if_index(
     return None
   }
   match instrs[pos] {
-    @lib.TryTable(_, catches, @lib.Expr(_)) if catches.length() == 0 => ()
-    _ => return None
+    @lib.TryTable(_, catches, @lib.Expr(_)) if catches.length() == 0 =>
+      sgo_select_reverse_compare_pos_around_value(instrs, pos, pos + 1)
+    _ => None
   }
-  if pos > 2 &&
-    pos + 2 < instrs.length() &&
-    sgo_const_instr(instrs[pos - 3]) != None &&
-    sgo_const_instr(instrs[pos - 2]) != None &&
-    sgo_const_instr(instrs[pos - 1]) != None &&
-    sgo_is_select_instr(instrs[pos + 1]) &&
-    sgo_is_compare_instr(instrs[pos + 2]) {
-    return Some(pos + 2)
-  }
-  if pos > 0 &&
-    pos + 4 < instrs.length() &&
-    sgo_const_instr(instrs[pos - 1]) != None &&
-    sgo_const_instr(instrs[pos + 1]) != None &&
-    sgo_const_instr(instrs[pos + 2]) != None &&
-    sgo_is_select_instr(instrs[pos + 3]) &&
-    sgo_is_compare_instr(instrs[pos + 4]) {
-    return Some(pos + 4)
-  }
-  if pos > 1 &&
-    pos + 3 < instrs.length() &&
-    sgo_const_instr(instrs[pos - 2]) != None &&
-    sgo_const_instr(instrs[pos - 1]) != None &&
-    sgo_const_instr(instrs[pos + 1]) != None &&
-    sgo_is_select_instr(instrs[pos + 2]) &&
-    sgo_is_compare_instr(instrs[pos + 3]) {
-    return Some(pos + 3)
-  }
-  None
 }
 
 ///|
@@ -3633,35 +3651,11 @@ fn sgo_try_table_ref_is_null_select_pos(
   if pos >= instrs.length() || pos + 1 >= instrs.length() {
     return None
   }
-  match instrs[pos] {
-    @lib.TryTable(_, catches, @lib.Expr(_)) if catches.length() == 0 => ()
-    _ => return None
+  match (instrs[pos], instrs[pos + 1]) {
+    (@lib.TryTable(_, catches, @lib.Expr(_)), @lib.RefIsNull) if catches.length() ==
+      0 => sgo_select_pos_around_value(instrs, pos, pos + 2)
+    _ => None
   }
-  match instrs[pos + 1] {
-    @lib.RefIsNull => ()
-    _ => return None
-  }
-  if pos > 1 &&
-    pos + 2 < instrs.length() &&
-    sgo_const_instr(instrs[pos - 2]) != None &&
-    sgo_const_instr(instrs[pos - 1]) != None &&
-    sgo_is_select_instr(instrs[pos + 2]) {
-    return Some(pos + 2)
-  }
-  if pos + 4 < instrs.length() &&
-    sgo_const_instr(instrs[pos + 2]) != None &&
-    sgo_const_instr(instrs[pos + 3]) != None &&
-    sgo_is_select_instr(instrs[pos + 4]) {
-    return Some(pos + 4)
-  }
-  if pos > 0 &&
-    pos + 3 < instrs.length() &&
-    sgo_const_instr(instrs[pos - 1]) != None &&
-    sgo_const_instr(instrs[pos + 2]) != None &&
-    sgo_is_select_instr(instrs[pos + 3]) {
-    return Some(pos + 3)
-  }
-  None
 }
 
 ///|
@@ -3697,42 +3691,11 @@ fn sgo_try_table_ref_is_null_select_reverse_compare_if_index(
   if pos >= instrs.length() || pos + 1 >= instrs.length() {
     return None
   }
-  match instrs[pos] {
-    @lib.TryTable(_, catches, @lib.Expr(_)) if catches.length() == 0 => ()
-    _ => return None
+  match (instrs[pos], instrs[pos + 1]) {
+    (@lib.TryTable(_, catches, @lib.Expr(_)), @lib.RefIsNull) if catches.length() ==
+      0 => sgo_select_reverse_compare_pos_around_value(instrs, pos, pos + 2)
+    _ => None
   }
-  match instrs[pos + 1] {
-    @lib.RefIsNull => ()
-    _ => return None
-  }
-  if pos > 2 &&
-    pos + 3 < instrs.length() &&
-    sgo_const_instr(instrs[pos - 3]) != None &&
-    sgo_const_instr(instrs[pos - 2]) != None &&
-    sgo_const_instr(instrs[pos - 1]) != None &&
-    sgo_is_select_instr(instrs[pos + 2]) &&
-    sgo_is_compare_instr(instrs[pos + 3]) {
-    return Some(pos + 3)
-  }
-  if pos > 0 &&
-    pos + 5 < instrs.length() &&
-    sgo_const_instr(instrs[pos - 1]) != None &&
-    sgo_const_instr(instrs[pos + 2]) != None &&
-    sgo_const_instr(instrs[pos + 3]) != None &&
-    sgo_is_select_instr(instrs[pos + 4]) &&
-    sgo_is_compare_instr(instrs[pos + 5]) {
-    return Some(pos + 5)
-  }
-  if pos > 1 &&
-    pos + 4 < instrs.length() &&
-    sgo_const_instr(instrs[pos - 2]) != None &&
-    sgo_const_instr(instrs[pos - 1]) != None &&
-    sgo_const_instr(instrs[pos + 2]) != None &&
-    sgo_is_select_instr(instrs[pos + 3]) &&
-    sgo_is_compare_instr(instrs[pos + 4]) {
-    return Some(pos + 4)
-  }
-  None
 }
 
 ///|
