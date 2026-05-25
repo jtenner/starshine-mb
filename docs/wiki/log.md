@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-24] fuzzing | FUZ1036 metamorphic valid unused numeric locals transform
+
+- Continued `[FUZ]1036` by adding the `add-unused-numeric-locals-to-defined-functions` metamorphic-valid transform. It starts from a validating module, appends unused `i64`, `f32`, and `f64` body locals to every defined function without shifting existing local indices or changing instructions, validates the transformed module, and reports the new transform id through `validate-valid-metamorphic` details.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the active metamorphic-valid transform registry now names broader numeric local-declaration reshaping alongside custom-section reordering, custom-section insertion, module/name-section metadata, export aliasing, passive-data, unused globals/functions/types/tables/elements, structured name maps, and no-op body reshaping surfaces.
+
 ## [2026-05-24] fuzzing | FUZ1036 metamorphic valid reverse custom sections transform
 
 - Continued `[FUZ]1036` by adding the `reverse-custom-sections` metamorphic-valid transform. It starts from a validating module, reverses the custom-section list without touching core semantic sections, validates the transformed module, and reports the new transform id through `validate-valid-metamorphic` details.

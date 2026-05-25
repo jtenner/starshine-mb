@@ -21,6 +21,7 @@ pub enum MetamorphicValidTransform {
   AddTagNamesSection
   AddFieldNamesSection
   AddUnusedI32LocalToDefinedFunctions
+  AddUnusedNumericLocalsToDefinedFunctions
   AddLeadingNopToDefinedFunctions
   AddTrailingNopToDefinedFunctions
   AddLeadingI32ConstDropToDefinedFunctions
@@ -61,6 +62,8 @@ pub fn metamorphic_valid_transform_id(
     AddFieldNamesSection => "add-field-names-section"
     AddUnusedI32LocalToDefinedFunctions =>
       "add-unused-i32-local-to-defined-functions"
+    AddUnusedNumericLocalsToDefinedFunctions =>
+      "add-unused-numeric-locals-to-defined-functions"
     AddLeadingNopToDefinedFunctions => "add-leading-nop-to-defined-functions"
     AddTrailingNopToDefinedFunctions => "add-trailing-nop-to-defined-functions"
     AddLeadingI32ConstDropToDefinedFunctions =>
@@ -985,6 +988,29 @@ fn metamorphic_add_unused_i32_local_to_defined_functions(
 }
 
 ///|
+fn metamorphic_add_unused_numeric_locals_to_defined_functions(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let funcs = []
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, expr) => {
+            let next_locals = locals.copy()
+            next_locals.push(@lib.ValType::i64())
+            next_locals.push(@lib.ValType::f32())
+            next_locals.push(@lib.ValType::f64())
+            funcs.push(@lib.Func::new(next_locals, expr))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
 fn metamorphic_add_leading_nop_to_defined_functions(
   mod : @lib.Module,
 ) -> @lib.Module {
@@ -1316,6 +1342,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTagNamesSection,
     AddFieldNamesSection,
     AddUnusedI32LocalToDefinedFunctions,
+    AddUnusedNumericLocalsToDefinedFunctions,
     AddLeadingNopToDefinedFunctions,
     AddTrailingNopToDefinedFunctions,
     AddLeadingI32ConstDropToDefinedFunctions,
@@ -1362,6 +1389,8 @@ pub fn metamorphic_apply_transform(
     AddFieldNamesSection => metamorphic_add_field_names_section(mod)
     AddUnusedI32LocalToDefinedFunctions =>
       metamorphic_add_unused_i32_local_to_defined_functions(mod)
+    AddUnusedNumericLocalsToDefinedFunctions =>
+      metamorphic_add_unused_numeric_locals_to_defined_functions(mod)
     AddLeadingNopToDefinedFunctions =>
       metamorphic_add_leading_nop_to_defined_functions(mod)
     AddTrailingNopToDefinedFunctions =>
