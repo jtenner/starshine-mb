@@ -1463,6 +1463,88 @@ test "metamorphic duplicate equivalent imported immutable f32 global transform i
 }
 
 ///|
+test "metamorphic duplicate equivalent imported immutable f64 global transform appends unused matching import" {
+  let original_import = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("const64f"),
+    @lib.global_extern_type(@lib.GlobalType::new(@lib.ValType::f64(), false)),
+  )
+  let base = @lib.Module::new().with_import_sec(
+    @lib.ImportSec::new([original_import]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddDuplicateEquivalentImportedImmutableF64Global,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-duplicate-equivalent-imported-immutable-f64-global",
+  )
+  match transformed.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => {
+      @debug.assert_eq(imports.length(), 2)
+      @debug.assert_eq(imports[0], original_import)
+      match imports[1] {
+        @lib.Import(module_name, item_name, @lib.GlobalExternType(global_type)) => {
+          @debug.assert_eq(module_name, @lib.Name::new("env"))
+          @debug.assert_eq(
+            item_name,
+            @lib.Name::new("global64f_const_metamorphic_duplicate"),
+          )
+          @debug.assert_eq(
+            global_type,
+            @lib.GlobalType::new(@lib.ValType::f64(), false),
+          )
+        }
+        _ => fail("expected duplicate imported immutable f64 global")
+      }
+    }
+    None => fail("expected transformed imports")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic duplicate equivalent imported immutable f64 global transform ignores mutable and non-f64 imports" {
+  let f64_mutable = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("mut64f"),
+    @lib.global_extern_type(@lib.GlobalType::new(@lib.ValType::f64(), true)),
+  )
+  let i32_immutable = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("const32"),
+    @lib.global_extern_type(@lib.GlobalType::new(@lib.ValType::i32(), false)),
+  )
+  let base = @lib.Module::new().with_import_sec(
+    @lib.ImportSec::new([f64_mutable, i32_immutable]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddDuplicateEquivalentImportedImmutableF64Global,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match transformed.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => @debug.assert_eq(imports.length(), 2)
+    None => fail("expected original imports")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic duplicate equivalent imported immutable i64 global transform appends unused matching import" {
   let original_import = @lib.Import::new(
     @lib.Name::new("env"),
@@ -8675,8 +8757,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 434)
-  @debug.assert_eq(stats.validated, 434)
+  @debug.assert_eq(stats.transformed, 435)
+  @debug.assert_eq(stats.validated, 435)
   assert_true(stats.transform_ids.contains("add-duplicate-equivalent-memory"))
   assert_true(
     stats.transform_ids.contains("add-duplicate-equivalent-mutable-i32-global"),
@@ -8692,6 +8774,11 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(
     stats.transform_ids.contains(
       "add-duplicate-equivalent-imported-immutable-f32-global",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-duplicate-equivalent-imported-immutable-f64-global",
     ),
   )
   assert_true(
