@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] tooling | dae Func476 canonical local normalization
+
+- Classified the both-canonical Func476/abs493 frontier as compare-layer representation drift: both sides have the selected void signature, and the remaining body difference is Binaryen reusing a dead parameter local for the allocator result while Starshine keeps a fresh temp plus inert `nop`s.
+- Added a narrow diagnostic-only canonical-function normalizer in [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts) and fixture coverage in [`../../scripts/test/self-optimize-compare-canonical-func-command.ts`](../../scripts/test/self-optimize-compare-canonical-func-command.ts). Raw WAT/wasm comparison is unchanged.
+- `.tmp/dae-func476-local-artifact` validates with `wasm-opt --all-features` and advances the both-canonical frontier to `defined=484 abs=501`; latest pass timing remains over target (`2138.210ms` Starshine versus `922.670ms` Binaryen), and the new Func484 frontier still needs classification.
+
 ## [2026-05-24] passes | dae Func469 selected literal frontier
 
 - Extended selected DAE dropped-result removal in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) to cover Func4106 after Func469/abs486 exposed another real dropped-result gap.

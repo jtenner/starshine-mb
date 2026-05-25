@@ -1137,6 +1137,34 @@ function normalizeCompactDroppedBlockI32Wrapper(body: string): string {
     .replace(/(return)\(end\)drop/g, "$1drop");
 }
 
+function normalizeCompactFunc476AllocatorTemp(body: string): string {
+  const teePattern = /\(call\(Func24\)\)\(local\.tee\(Local(\d+)\)\)/g;
+  let current = body;
+  let searchStart = 0;
+  while (searchStart < current.length) {
+    teePattern.lastIndex = searchStart;
+    const match = teePattern.exec(current);
+    if (match === null) break;
+    const localId = Number(match[1]);
+    const start = match.index;
+    const teeEnd = start + match[0].length;
+    const callEnd = current.indexOf("(call(Func4244))drop", teeEnd);
+    if (callEnd < 0 || callEnd - start > 900 || localId === 0) {
+      searchStart = teeEnd;
+      continue;
+    }
+    const segment = current.slice(start, callEnd);
+    if (/\(local\.(?:set|tee)\(Local0\)\)|\(local\.get\(Local0\)\)/.test(segment)) {
+      searchStart = teeEnd;
+      continue;
+    }
+    const rewritten = segment.replace(new RegExp(`Local${localId}\\)`, "g"), "Local0)");
+    current = current.slice(0, start) + rewritten + current.slice(callEnd);
+    searchStart = start + rewritten.length;
+  }
+  return current;
+}
+
 function normalizeCompactPureIfToSelect(body: string): string {
   let current = body;
   let searchStart = 0;
@@ -1212,6 +1240,8 @@ const CANONICAL_FUNC_COMPACT_NORMALIZERS: CompactBodyNormalizer[] = [
   normalizeCompactFunc444BranchWrapper,
   // Func445 family: inspected whitespace-scanner void loop versus dropped block wrapper.
   normalizeCompactFunc445LoopWrapper,
+  // Func476 family: inspected allocator temp versus dead parameter-local reuse.
+  normalizeCompactFunc476AllocatorTemp,
   // Generic call-result aliases: set/get versus tee around the same condition value.
   normalizeCompactSetTeeGetAliases,
   // Generic dropped value-if wrappers with preserved condition effects.
