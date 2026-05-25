@@ -11199,6 +11199,57 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
         NameAssoc::new(1U, gen_valid_name(ctx, "fzg_param1")),
       ])
       local_name_entries.push(IndirectNameAssoc::new(2U, first_local_names))
+    } else if gen_valid_is_topology_heavy_config(config) {
+      for i = 0; i < func_type_idxs.length(); i = i + 1 {
+        let type_idx = func_type_idxs[i]
+        let type_idx_i = match type_idx {
+          TypeIdx(type_idx_u) => type_idx_u.reinterpret_as_int()
+          RecIdx(type_idx_u) => type_idx_u.reinterpret_as_int()
+        }
+        let Func(locals, _) = funcs[i]
+        let local_count = type_params[type_idx_i].length() + locals.length()
+        let local_names : Array[NameAssoc] = []
+        for local_idx = 0; local_idx < local_count; local_idx = local_idx + 1 {
+          local_names.push(
+            NameAssoc::new(
+              local_idx.reinterpret_as_uint(),
+              gen_valid_name(ctx, "fzg_local\{i}_\{local_idx}"),
+            ),
+          )
+        }
+        if !local_names.is_empty() {
+          local_name_entries.push(
+            IndirectNameAssoc::new(
+              (import_func_count + i).reinterpret_as_uint(),
+              NameMap::new(local_names),
+            ),
+          )
+        }
+      }
+    }
+    let label_name_entries : Array[IndirectNameAssoc] = []
+    if gen_valid_is_topology_heavy_config(config) {
+      for i = 0; i < funcs.length(); i = i + 1 {
+        let Func(_, body) = funcs[i]
+        let label_count = gen_valid_label_count_expr(body)
+        let label_names : Array[NameAssoc] = []
+        for label_idx = 0; label_idx < label_count; label_idx = label_idx + 1 {
+          label_names.push(
+            NameAssoc::new(
+              label_idx.reinterpret_as_uint(),
+              gen_valid_name(ctx, "fzg_label\{i}_\{label_idx}"),
+            ),
+          )
+        }
+        if !label_names.is_empty() {
+          label_name_entries.push(
+            IndirectNameAssoc::new(
+              (import_func_count + i).reinterpret_as_uint(),
+              NameMap::new(label_names),
+            ),
+          )
+        }
+      }
     }
     let name_sec = NameSec::new(
       module_name=Some(gen_valid_name(ctx, "fzg_module")),
@@ -11246,6 +11297,11 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
         None
       } else {
         Some(IndirectNameMap::new(local_name_entries))
+      },
+      label_names=if label_name_entries.is_empty() {
+        None
+      } else {
+        Some(IndirectNameMap::new(label_name_entries))
       },
     )
     mod = mod.with_name_sec(name_sec)
@@ -11323,6 +11379,37 @@ fn gen_valid_instruction_count_instr(instr : Instruction) -> Int {
       1 + gen_valid_instruction_count_instrs(then_body) + else_count
     }
     _ => 1
+  }
+}
+
+///|
+fn gen_valid_label_count_expr(expr : Expr) -> Int {
+  let Expr(instrs) = expr
+  gen_valid_label_count_instrs(instrs)
+}
+
+///|
+fn gen_valid_label_count_instrs(instrs : Array[Instruction]) -> Int {
+  let mut total = 0
+  for instr in instrs {
+    total += gen_valid_label_count_instr(instr)
+  }
+  total
+}
+
+///|
+fn gen_valid_label_count_instr(instr : Instruction) -> Int {
+  match instr {
+    Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
+      1 + gen_valid_label_count_expr(body)
+    If(_, then_body, else_body) => {
+      let else_count = match else_body {
+        Some(instrs) => gen_valid_label_count_instrs(instrs)
+        None => 0
+      }
+      1 + gen_valid_label_count_instrs(then_body) + else_count
+    }
+    _ => 0
   }
 }
 

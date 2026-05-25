@@ -2150,6 +2150,12 @@ test "topology-heavy profile emits high-index import export topology" {
     gen_valid_test_non_name_custom_count(generated.wasm_module) >= 2,
     msg="topology-heavy profile should emit multiple non-name custom sections in the binary-supported leading custom section area",
   )
+  assert_true(
+    gen_valid_test_name_sec_has_func_local_and_label_names(
+      generated.wasm_module,
+    ),
+    msg="topology-heavy profile should emit function, local, and label name-section payloads",
+  )
   assert_true(generated.facts.has_import_export_topology)
   assert_true(generated.facts.has_imports_start_exports)
 }
@@ -2322,6 +2328,28 @@ fn gen_valid_test_module_has_local_name_entries(mod : Module) -> Bool {
         Some(IndirectNameMap(entries)) => !entries.is_empty()
         None => false
       }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_name_sec_has_func_local_and_label_names(mod : Module) -> Bool {
+  match mod.name_sec {
+    Some(name_sec) => {
+      let has_func_names = match name_sec.func_names {
+        Some(NameMap(entries)) => !entries.is_empty()
+        None => false
+      }
+      let has_local_names = match name_sec.local_names {
+        Some(IndirectNameMap(entries)) => !entries.is_empty()
+        None => false
+      }
+      let has_label_names = match name_sec.label_names {
+        Some(IndirectNameMap(entries)) => !entries.is_empty()
+        None => false
+      }
+      has_func_names && has_local_names && has_label_names
+    }
     None => false
   }
 }
