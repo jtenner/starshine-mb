@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1036F2 metamorphic trunc-sat drop body reshaping
+
+- Completed `[FUZ]1036F2` by adding leading/trailing computed/drop transforms for all eight scalar saturating truncation opcodes (`i32`/`i64` from `f32`/`f64`, signed and unsigned). They insert finite `1.0` operands in representable ranges before the `trunc_sat` opcode and `drop`, preserving stack effects and observable behavior while exercising the `0xFC` scalar saturating conversion family.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened the metamorphic smoke expectations to 281 transforms per generated module, and kept the targeted `validate-valid-metamorphic` smoke green.
+
 ## [2026-05-25] fuzzing | FUZ1036E6 metamorphic float demote/promote drop body reshaping
 
 - Completed `[FUZ]1036E6` by adding leading/trailing `f32.demote_f64` and `f64.promote_f32` computed/drop metamorphic-valid transforms. They insert pure matching-typed finite-one conversion stacks at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate transformed modules, and raise the active registry to 255 transforms per generated module.

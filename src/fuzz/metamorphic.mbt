@@ -139,6 +139,22 @@ pub enum MetamorphicValidTransform {
   AddTrailingF64ConvertI64SDropToDefinedFunctions
   AddLeadingF64ConvertI64UDropToDefinedFunctions
   AddTrailingF64ConvertI64UDropToDefinedFunctions
+  AddLeadingI32TruncSatF32SDropToDefinedFunctions
+  AddTrailingI32TruncSatF32SDropToDefinedFunctions
+  AddLeadingI32TruncSatF32UDropToDefinedFunctions
+  AddTrailingI32TruncSatF32UDropToDefinedFunctions
+  AddLeadingI32TruncSatF64SDropToDefinedFunctions
+  AddTrailingI32TruncSatF64SDropToDefinedFunctions
+  AddLeadingI32TruncSatF64UDropToDefinedFunctions
+  AddTrailingI32TruncSatF64UDropToDefinedFunctions
+  AddLeadingI64TruncSatF32SDropToDefinedFunctions
+  AddTrailingI64TruncSatF32SDropToDefinedFunctions
+  AddLeadingI64TruncSatF32UDropToDefinedFunctions
+  AddTrailingI64TruncSatF32UDropToDefinedFunctions
+  AddLeadingI64TruncSatF64SDropToDefinedFunctions
+  AddTrailingI64TruncSatF64SDropToDefinedFunctions
+  AddLeadingI64TruncSatF64UDropToDefinedFunctions
+  AddTrailingI64TruncSatF64UDropToDefinedFunctions
   AddLeadingI32ReinterpretF32DropToDefinedFunctions
   AddTrailingI32ReinterpretF32DropToDefinedFunctions
   AddLeadingI64ReinterpretF64DropToDefinedFunctions
@@ -530,6 +546,38 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-f64-convert-i64-u-drop-to-defined-functions"
     AddTrailingF64ConvertI64UDropToDefinedFunctions =>
       "add-trailing-f64-convert-i64-u-drop-to-defined-functions"
+    AddLeadingI32TruncSatF32SDropToDefinedFunctions =>
+      "add-leading-i32-trunc-sat-f32-s-drop-to-defined-functions"
+    AddTrailingI32TruncSatF32SDropToDefinedFunctions =>
+      "add-trailing-i32-trunc-sat-f32-s-drop-to-defined-functions"
+    AddLeadingI32TruncSatF32UDropToDefinedFunctions =>
+      "add-leading-i32-trunc-sat-f32-u-drop-to-defined-functions"
+    AddTrailingI32TruncSatF32UDropToDefinedFunctions =>
+      "add-trailing-i32-trunc-sat-f32-u-drop-to-defined-functions"
+    AddLeadingI32TruncSatF64SDropToDefinedFunctions =>
+      "add-leading-i32-trunc-sat-f64-s-drop-to-defined-functions"
+    AddTrailingI32TruncSatF64SDropToDefinedFunctions =>
+      "add-trailing-i32-trunc-sat-f64-s-drop-to-defined-functions"
+    AddLeadingI32TruncSatF64UDropToDefinedFunctions =>
+      "add-leading-i32-trunc-sat-f64-u-drop-to-defined-functions"
+    AddTrailingI32TruncSatF64UDropToDefinedFunctions =>
+      "add-trailing-i32-trunc-sat-f64-u-drop-to-defined-functions"
+    AddLeadingI64TruncSatF32SDropToDefinedFunctions =>
+      "add-leading-i64-trunc-sat-f32-s-drop-to-defined-functions"
+    AddTrailingI64TruncSatF32SDropToDefinedFunctions =>
+      "add-trailing-i64-trunc-sat-f32-s-drop-to-defined-functions"
+    AddLeadingI64TruncSatF32UDropToDefinedFunctions =>
+      "add-leading-i64-trunc-sat-f32-u-drop-to-defined-functions"
+    AddTrailingI64TruncSatF32UDropToDefinedFunctions =>
+      "add-trailing-i64-trunc-sat-f32-u-drop-to-defined-functions"
+    AddLeadingI64TruncSatF64SDropToDefinedFunctions =>
+      "add-leading-i64-trunc-sat-f64-s-drop-to-defined-functions"
+    AddTrailingI64TruncSatF64SDropToDefinedFunctions =>
+      "add-trailing-i64-trunc-sat-f64-s-drop-to-defined-functions"
+    AddLeadingI64TruncSatF64UDropToDefinedFunctions =>
+      "add-leading-i64-trunc-sat-f64-u-drop-to-defined-functions"
+    AddTrailingI64TruncSatF64UDropToDefinedFunctions =>
+      "add-trailing-i64-trunc-sat-f64-u-drop-to-defined-functions"
     AddLeadingI32ReinterpretF32DropToDefinedFunctions =>
       "add-leading-i32-reinterpret-f32-drop-to-defined-functions"
     AddTrailingI32ReinterpretF32DropToDefinedFunctions =>
@@ -3272,6 +3320,22 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingF64ConvertI64SDropToDefinedFunctions,
     AddLeadingF64ConvertI64UDropToDefinedFunctions,
     AddTrailingF64ConvertI64UDropToDefinedFunctions,
+    AddLeadingI32TruncSatF32SDropToDefinedFunctions,
+    AddTrailingI32TruncSatF32SDropToDefinedFunctions,
+    AddLeadingI32TruncSatF32UDropToDefinedFunctions,
+    AddTrailingI32TruncSatF32UDropToDefinedFunctions,
+    AddLeadingI32TruncSatF64SDropToDefinedFunctions,
+    AddTrailingI32TruncSatF64SDropToDefinedFunctions,
+    AddLeadingI32TruncSatF64UDropToDefinedFunctions,
+    AddTrailingI32TruncSatF64UDropToDefinedFunctions,
+    AddLeadingI64TruncSatF32SDropToDefinedFunctions,
+    AddTrailingI64TruncSatF32SDropToDefinedFunctions,
+    AddLeadingI64TruncSatF32UDropToDefinedFunctions,
+    AddTrailingI64TruncSatF32UDropToDefinedFunctions,
+    AddLeadingI64TruncSatF64SDropToDefinedFunctions,
+    AddTrailingI64TruncSatF64SDropToDefinedFunctions,
+    AddLeadingI64TruncSatF64UDropToDefinedFunctions,
+    AddTrailingI64TruncSatF64UDropToDefinedFunctions,
     AddLeadingI32ReinterpretF32DropToDefinedFunctions,
     AddTrailingI32ReinterpretF32DropToDefinedFunctions,
     AddLeadingI64ReinterpretF64DropToDefinedFunctions,
@@ -4053,6 +4117,102 @@ pub fn metamorphic_apply_transform(
         false,
         @lib.Instruction::f64_convert_i64u(),
       )
+    AddLeadingI32TruncSatF32SDropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, true, [
+        @lib.Instruction::f32_const(1.0),
+        @lib.Instruction::i32_trunc_sat_f32s(),
+        @lib.Instruction::drop(),
+      ])
+    AddTrailingI32TruncSatF32SDropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, false, [
+        @lib.Instruction::f32_const(1.0),
+        @lib.Instruction::i32_trunc_sat_f32s(),
+        @lib.Instruction::drop(),
+      ])
+    AddLeadingI32TruncSatF32UDropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, true, [
+        @lib.Instruction::f32_const(1.0),
+        @lib.Instruction::i32_trunc_sat_f32u(),
+        @lib.Instruction::drop(),
+      ])
+    AddTrailingI32TruncSatF32UDropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, false, [
+        @lib.Instruction::f32_const(1.0),
+        @lib.Instruction::i32_trunc_sat_f32u(),
+        @lib.Instruction::drop(),
+      ])
+    AddLeadingI32TruncSatF64SDropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, true, [
+        @lib.Instruction::f64_const(1.0),
+        @lib.Instruction::i32_trunc_sat_f64s(),
+        @lib.Instruction::drop(),
+      ])
+    AddTrailingI32TruncSatF64SDropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, false, [
+        @lib.Instruction::f64_const(1.0),
+        @lib.Instruction::i32_trunc_sat_f64s(),
+        @lib.Instruction::drop(),
+      ])
+    AddLeadingI32TruncSatF64UDropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, true, [
+        @lib.Instruction::f64_const(1.0),
+        @lib.Instruction::i32_trunc_sat_f64u(),
+        @lib.Instruction::drop(),
+      ])
+    AddTrailingI32TruncSatF64UDropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, false, [
+        @lib.Instruction::f64_const(1.0),
+        @lib.Instruction::i32_trunc_sat_f64u(),
+        @lib.Instruction::drop(),
+      ])
+    AddLeadingI64TruncSatF32SDropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, true, [
+        @lib.Instruction::f32_const(1.0),
+        @lib.Instruction::i64_trunc_sat_f32s(),
+        @lib.Instruction::drop(),
+      ])
+    AddTrailingI64TruncSatF32SDropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, false, [
+        @lib.Instruction::f32_const(1.0),
+        @lib.Instruction::i64_trunc_sat_f32s(),
+        @lib.Instruction::drop(),
+      ])
+    AddLeadingI64TruncSatF32UDropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, true, [
+        @lib.Instruction::f32_const(1.0),
+        @lib.Instruction::i64_trunc_sat_f32u(),
+        @lib.Instruction::drop(),
+      ])
+    AddTrailingI64TruncSatF32UDropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, false, [
+        @lib.Instruction::f32_const(1.0),
+        @lib.Instruction::i64_trunc_sat_f32u(),
+        @lib.Instruction::drop(),
+      ])
+    AddLeadingI64TruncSatF64SDropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, true, [
+        @lib.Instruction::f64_const(1.0),
+        @lib.Instruction::i64_trunc_sat_f64s(),
+        @lib.Instruction::drop(),
+      ])
+    AddTrailingI64TruncSatF64SDropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, false, [
+        @lib.Instruction::f64_const(1.0),
+        @lib.Instruction::i64_trunc_sat_f64s(),
+        @lib.Instruction::drop(),
+      ])
+    AddLeadingI64TruncSatF64UDropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, true, [
+        @lib.Instruction::f64_const(1.0),
+        @lib.Instruction::i64_trunc_sat_f64u(),
+        @lib.Instruction::drop(),
+      ])
+    AddTrailingI64TruncSatF64UDropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, false, [
+        @lib.Instruction::f64_const(1.0),
+        @lib.Instruction::i64_trunc_sat_f64u(),
+        @lib.Instruction::drop(),
+      ])
     AddLeadingI32ReinterpretF32DropToDefinedFunctions =>
       metamorphic_add_unary_drop_to_defined_functions(mod, true, [
         @lib.Instruction::f32_const(0.0),

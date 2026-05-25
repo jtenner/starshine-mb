@@ -5382,8 +5382,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 265)
-  @debug.assert_eq(stats.validated, 265)
+  @debug.assert_eq(stats.transformed, 281)
+  @debug.assert_eq(stats.validated, 281)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -5437,6 +5437,16 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(
     stats.transform_ids.contains(
       "add-trailing-f64-convert-i64-u-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-leading-i32-trunc-sat-f32-s-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-trailing-i64-trunc-sat-f64-u-drop-to-defined-functions",
     ),
   )
   assert_true(
