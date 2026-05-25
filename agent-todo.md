@@ -230,16 +230,32 @@ Execution rules for all DAE slices
 
 
 - [SGO]003D - Read-Only-To-Write Safe Side-Effect Independence
-  - Status: active candidate; behavior-bearing.
+  - Status: active/partial with explicit children only; no generic hidden work bucket remains.
   - Goal: admit additional side-effecting instructions only when stack/value-flow proves the candidate-derived value is independent of the side effect and still reaches only the final same-global guard.
-  - Candidate shapes: recursive combinations with already-supported pure prefixes or newly discovered exact side-effect families that have fresh Binaryen-positive probes. The 0644 guardrail slice pinned independent `memory.grow` / `table.grow` prefixes as already covered while preserving candidate-derived grow negatives; the 0661 audit closed the scalar-load / `table.get` checklist as already covered by current source and tests; the 0662 audit closed the currently enumerated clean store/table/bulk opcode-family checklist as already covered by current source and tests.
-  - Explicit non-goals without fresh oracle evidence: atomics, SIMD memory ops, memory/table grow, relaxed SIMD, broad bulk ops beyond probed clean operands, calls with candidate-derived operands, and trapping casts/truncations/loads fed by the candidate.
-  - Open checklist:
-    - Probe one exact remaining clean side-effect family at a time against Binaryen before coding.
-    - For every Binaryen-positive family, add a paired candidate-derived negative before implementation.
-    - If a probed family is already covered, land only guardrail tests/research and do not broaden code.
-    - If a probed family is Binaryen-negative or unsafe, document it as conservative and keep it out of the whitelist.
-  - Exit criteria: fixture pairs for each admitted instruction family, no broad whitelist additions, direct SGO fuzz, docs identifying every newly admitted opcode family.
+  - Current evidence: the 0644 guardrail slice pinned independent `memory.grow` / `table.grow` prefixes as already covered while preserving candidate-derived grow negatives; the 0661 audit closed scalar-load / `table.get` opcode-family work as already covered by source and tests; the 0662 audit closed the currently enumerated clean store/table/bulk opcode-family work as already covered by source and tests.
+  - Explicit non-goals without fresh oracle evidence: atomics, SIMD memory ops, memory/table grow beyond the 0644 independent-prefix guardrails, relaxed SIMD, broad bulk ops beyond probed clean operands, calls with candidate-derived operands, and trapping casts/truncations/loads fed by the candidate.
+  - Open-work rule: any future behavior must land as one of the explicit child slices below or as a newly filed child with a named Binaryen-positive shape, paired candidate-derived/global-steered negatives, no broad whitelist additions, `moon test src/passes`, direct SGO compare fuzz, and docs identifying the admitted opcode or wrapper family.
+
+- [SGO]003D1 - Wrapper/Control Composition Inventory For Already-Covered Independent Effects
+  - Status: active research-first candidate; behavior-bearing only if a precise uncovered Binaryen-positive shape is found.
+  - Hidden-work source: 0661 and 0662 both note that they did not prove every wrapper/control composition around already-covered independent scalar-load, `table.get`, store, table, bulk, `elem.drop`, and `data.drop` effects.
+  - Goal: decide whether any recursive wrapper/control composition around already-supported independent effects is actually uncovered and worth implementing, without reopening opcode-family whitelists.
+  - Required probes before coding: one exact wrapper/control grammar at a time, such as transparent result-block composition, clean void wrapper prefixes, clean value-producing wrappers, no-catch `try_table` wrappers, or already-supported pure-prefix recursion around an already-covered effect.
+  - Required negatives: candidate-derived operand to the effect, global-steered execution of the effect, control transfer (`br`, `br_if`, `return`, throw-like constructs), caught `try_table`, extra same-global reads/writes, post-join observable uses, and trapping/effectful consumers fed by the candidate global.
+  - Exit criteria: either close as already covered/conservative with research evidence, or land fixture pairs plus the narrow matcher change, direct SGO fuzz, docs/wiki/log updates, and keep `[SGO]003` partial.
+
+- [SGO]003D2 - Named New Side-Effect Family Probe Gate
+  - Status: deferred/discovery gate; not behavior-ready until a specific opcode family is named from source, Binaryen lit, or fuzz evidence.
+  - Hidden-work source: 0661/0662 phrase future side-effect independence as possible only for a specific uncovered opcode or wrapper grammar, not for a broad whitelist.
+  - Goal: prevent future discoveries from staying implicit by requiring a concrete child slice before any unlisted side-effect family is admitted.
+  - Candidate examples only with fresh oracle evidence: atomics, SIMD memory ops, relaxed SIMD memory ops, new bulk forms not already covered, calls or call-like effects with independently proven no-read/no-write facts, or other Binaryen-positive effect families not listed in current FlowScanner predicates.
+  - Required negatives: candidate-derived operands, global-steered execution, trapping/effectful consumers fed by the candidate global, unknown imported/dynamic effects, and any target/global aliasing ambiguity.
+  - Exit criteria: either close as Binaryen-negative/conservative, split a behavior-ready named child slice with fixtures and fuzz requirements, or document a prerequisite analysis blocker such as read/write summaries or dominance reasoning.
+
+- [SGO]003D3 - Side-Effect Independence Closeout Audit
+  - Status: deferred until `[SGO]003D1` is closed and `[SGO]003D2` has either no named candidates or only explicitly deferred children.
+  - Goal: close `[SGO]003D` without claiming full `SimplifyGlobals.cpp` parity by checking that all side-effect-independence follow-ups from 0644, 0661, 0662, and any later child slices are either covered, explicitly conservative, or represented by separate backlog ids.
+  - Exit criteria: update `agent-todo.md`, add a research note and `docs/wiki/log.md` entry, state remaining non-goals/blockers, and keep parent `[SGO]003` active/partial unless separately accepted by the user.
 
 - [SGO]003E2 - Direct-Call Read/Write Summary Implementation
   - Status: deferred/closed by the 0660 prerequisite audit; not an active behavior slice until the read/write summary prerequisite is explicitly scheduled.
