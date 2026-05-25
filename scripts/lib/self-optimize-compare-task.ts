@@ -942,6 +942,29 @@ function normalizeCompactDroppedFunc252ResultBlocks(body: string): string {
   );
 }
 
+function normalizeCompactFunc259NestedBlockWrappers(body: string): string {
+  // Func259/abs276 repeats the same representation split on a smaller case
+  // carrier: Starshine keeps a value-producing block and tees its `0` result
+  // before branching, while Binaryen voidifies the inner block and branches
+  // with the literal in place. Keep this scoped to the Func25/Func1695 tail.
+  return body.replace(
+    /\(blockI32\(block\(Void\)\(local\.get\(Local(\d+)\)\)\(call\(Func25\)\)(?=[\s\S]*?\(call\(Func1695\)\))/g,
+    "(block(Void)(local.get(Local$1))(call(Func25))",
+  ).replace(
+    /\(call\(Func25\)\(br\(Label4\)\)/g,
+    "(call(Func25))(br(Label3))",
+  ).replace(
+    /(\(call\(Func25\)\)[\s\S]*?)\(br\(Label4\)\)([\s\S]*?\(call\(Func1695\)\))/g,
+    "$1(br(Label3))$2",
+  ).replace(
+    /\(i32\.constI32\(0\)\)\(end\)\)\(local\.tee\(Local\d+\)\)\(br\(Label1\)\)\(end\)(?=[\s\S]*?\(call\(Func1695\)\))/g,
+    "(i32.constI32(0))(br(Label1))(end)",
+  ).replace(
+    /\(i32\.constI32\(0\)\)\(end\)\)\(br\(Label1\)\)\(end\)(?=[\s\S]*?\(call\(Func1695\)\))/g,
+    "(i32.constI32(0))(br(Label1))(end)",
+  );
+}
+
 function normalizeCompactFunc239NestedBlockWrappers(body: string): string {
   // Func239/abs256 has the same inner iterator case split with one extra
   // value-producing block wrapper in Starshine. Removing that wrapper exposes
@@ -1050,10 +1073,12 @@ function canonicalizePrettyBodyText(body: string): string {
                       normalizeCompactDroppedValueIf(
                         normalizeCompactDeadLocalTeeDrops(
                           normalizeCompactUnreachableDropBeforeElse(
-                            normalizeCompactFunc239NestedBlockWrappers(
-                              normalizeCompactDroppedBlockI32Wrapper(
-                                normalizeCompactDroppedFunc252ResultBlocks(
-                                  normalizeCompactSelectTempAliases(normalizeCompactPureAddAliases(compact)),
+                            normalizeCompactFunc259NestedBlockWrappers(
+                              normalizeCompactFunc239NestedBlockWrappers(
+                                normalizeCompactDroppedBlockI32Wrapper(
+                                  normalizeCompactDroppedFunc252ResultBlocks(
+                                    normalizeCompactSelectTempAliases(normalizeCompactPureAddAliases(compact)),
+                                  ),
                                 ),
                               ),
                             ),

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] tooling | dae Func259 canonical wrapper normalization
+
+- Extended the canonical-function fallback in [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts) for the inspected DAE Func259 smaller case-carrier wrapper family: Starshine's value-producing block plus `local.tee; br` wrapper is normalized against Binaryen's void-block plus direct branch shape.
+- Updated command coverage in [`../../scripts/test/self-optimize-compare-canonical-func-command.ts`](../../scripts/test/self-optimize-compare-canonical-func-command.ts).
+- `.tmp/dae-func259-next-artifact` validates with `wasm-opt --all-features` and advances the both-canonical diagnostic frontier from `defined=259 abs=276` to `defined=333 abs=350`. The latest timing run was just over the 2x target (`2001.349ms` Starshine versus `1006.890ms` Binaryen), so repeat timing before using it as signoff evidence; the new Func333 frontier remains unclassified.
+
 ## [2026-05-24] tooling | dae Func239 canonical wrapper normalization
 
 - Extended the canonical-function fallback in [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts) for the inspected DAE Func239 nested iterator wrapper family: an extra value-producing block wrapper and corresponding branch-depth drift around the `Func880` / `call_indirect` shape are normalized against Binaryen's void-block representation.
