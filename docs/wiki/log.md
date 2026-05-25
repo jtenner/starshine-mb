@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO block/no-catch wrapper helper refactor
+
+- Added research note [`0646`](./raw/research/0646-2026-05-25-sgo-wrapper-helper-refactor.md) for another refactor-only `[SGO]003O` slice, centralizing repeated block / no-catch `try_table` wrapper extraction plus external-pure condition index handling.
+- No optimizer behavior changed: direct and reverse external-pure condition readers still use the same wrapper, same-global set, and `if return; set` tail counters, and catch-bearing `try_table` / call / control / trapping boundaries are unchanged.
+- Direct SGO fuzz at `.tmp/pass-fuzz-sgo-wrapper-helper-refactor-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and the established `25` Binaryen/tool command failures. `[SGO]003` remains active/partial.
+
 ## [2026-05-25] binaryen | SGO FlowScanner clean-pop continuation
 
 - Added research note [`0645`](./raw/research/0645-2026-05-25-sgo-flow-clean-pop-continuation-refactor.md) for another refactor-only `[SGO]003O` slice, extending the shared clean-pop helpers across arm-result and nested-if arm-flow scanners.
