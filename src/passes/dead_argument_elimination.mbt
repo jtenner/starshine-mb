@@ -19179,8 +19179,8 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   )
   for
     selected_result_def in [
-      298, 299, 427, 445, 459, 472, 476, 3566, 3732, 3814, 3834, 4106, 4229, 4232,
-      503, 4240, 4241, 4242, 4249,
+      298, 299, 427, 445, 459, 472, 476, 3566, 3732, 3799, 3814, 3834, 4106, 4229,
+      4232, 503, 4240, 4241, 4242, 4249,
     ] {
     if selected_result_def < selected_scratch_defs.length() {
       selected_scratch_defs[selected_result_def] = true
@@ -19233,14 +19233,44 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       changed = true
     }
   }
+  for selected_unread_def in [505, 3799] {
+    if selected_unread_def >= 0 &&
+      selected_unread_def < selected_scratch_defs.length() {
+      selected_scratch_defs[selected_unread_def] = true
+      let selected_unread_call_facts = dae_collect_current_call_facts(
+        current,
+        original_imported + original_defined,
+      )
+      let selected_unread = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
+        current, selected_scratch_defs, selected_unread_call_facts,
+      )
+      selected_scratch_defs[selected_unread_def] = false
+      if selected_unread.changed {
+        current = selected_unread.mod_out
+        touched = dae_merge_touched(touched, selected_unread.touched)
+        trace(
+          "pass[dae-optimizing]:selected-unread-before-literals primary_def=\{selected_unread.primary_def}",
+        )
+        changed = true
+      }
+    }
+  }
   for
     mid_literal_def in [
-      267, 268, 287, 288, 311, 408, 428, 504, 538, 869, 1777, 4206, 4368,
+      267, 268, 287, 288, 311, 408, 428, 504, 505, 538, 869, 1777, 4206, 4368,
     ] {
     if mid_literal_def >= 0 && mid_literal_def < selected_scratch_defs.length() {
       selected_scratch_defs[mid_literal_def] = true
+      let mid_literal_call_facts = if mid_literal_def == 505 {
+        dae_collect_current_call_facts(
+          current,
+          original_imported + original_defined,
+        )
+      } else {
+        low_callee_call_facts
+      }
       let mid_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-        current, selected_scratch_defs, low_callee_call_facts,
+        current, selected_scratch_defs, mid_literal_call_facts,
       )
       selected_scratch_defs[mid_literal_def] = false
       if mid_literal_result.changed {
@@ -19500,13 +19530,21 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   }
   for
     high_literal_def in [
-      1720, 1755, 1775, 1794, 2156, 3736, 4117, 4134, 4303, 4320,
+      1720, 1755, 1775, 1794, 2156, 3736, 3799, 4117, 4134, 4303, 4320,
     ] {
     if high_literal_def >= 0 &&
       high_literal_def < selected_scratch_defs.length() {
       selected_scratch_defs[high_literal_def] = true
+      let high_literal_call_facts = if high_literal_def == 3799 {
+        dae_collect_current_call_facts(
+          current,
+          original_imported + original_defined,
+        )
+      } else {
+        low_callee_call_facts
+      }
       let high_literal_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-        current, selected_scratch_defs, low_callee_call_facts,
+        current, selected_scratch_defs, high_literal_call_facts,
       )
       selected_scratch_defs[high_literal_def] = false
       if high_literal_result.changed {

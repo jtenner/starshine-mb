@@ -80,8 +80,8 @@ Completed direct-pass slices
 Current checkpoints
 - Direct semantic baseline: `[DAE]001` is accepted. Keep it closed unless a new semantic mismatch, validation failure, or escaped-call correctness issue is reproduced.
 - Default raw debug-artifact helper: still first-diffs at `defined=336 abs=353` from raw type-section/type-index representation drift (`type $10/$2` versus `type $9/$1`). Do not treat this as a Func408 body issue.
-- Both-canonical diagnostic helper: `scripts/self-optimize-compare.ts --canonicalize-binaryen-output --dae-optimizing` currently advances to `.tmp/dae-func503-normalized2-artifact`, first diff `defined=504 abs=521`, after a Func503 slice that removed selected dropped result `503` and classified the remaining Func503 loop-induction carrier drift as compare-layer representation.
-- Latest diagnostic timing is over the 2x target after correctness-first Func503 diagnostic work: `3167.943ms` Starshine pass versus `947.270ms` Binaryen pass for `.tmp/dae-func503-normalized2-artifact`. Per user direction, keep prioritizing correctness/frontier classification over pass time for now.
+- Both-canonical diagnostic helper: `scripts/self-optimize-compare.ts --canonicalize-binaryen-output --dae-optimizing` currently remains at first diff `defined=504 abs=521` in `.tmp/dae-func504-selected5-artifact`, after a Func504 callee slice removed true selected exact-literal/signature gaps for defined funcs `505` and `3799`; the remaining Func504 body drift is caller-local/control cleanup around the now-specialized callees and still needs classification or a code/diagnostic cleanup.
+- Latest diagnostic timing is over the 2x target after correctness-first Func504 callee work: `2784.959ms` Starshine pass versus `861.346ms` Binaryen pass for `.tmp/dae-func504-selected5-artifact`. Per user direction, keep prioritizing correctness/frontier classification over pass time for now.
 - Latest validation before commit `0196531d`: script compare tests, `wasm-opt --all-features .tmp/dae-func447-normalized-artifact/starshine.wasm`, `git diff --check`, `moon info`, `moon fmt`, and `moon test` all passed; `moon info` still reports existing unused DAE helper warnings.
 - `[DAE]007` compare-tool normalization hygiene is closed for the current diagnostic helper: the canonical-function fallback now uses an explicit ordered normalizer list instead of a deeply nested call chain, with a diagnostic-only comment at the artifact-family cleanup point and unchanged fixture coverage.
 - Important classification: Func408/abs425 raw body is closed. With both sides passed through the same strip-debug writer, Func408 matches after type-id stripping; prior Func408 drift was compare-layer representation, not a DAE raw rewrite target.
@@ -151,7 +151,7 @@ Execution rules for all DAE slices
 - [DAE]006 - Both-Canonical Frontier Advancement
   - Goal: continue the diagnostic both-canonical frontier from current `defined=504 abs=521`.
   - Next action:
-    - Inspect `.tmp/dae-func503-normalized2-artifact/func-defined504-abs521.binaryen.pretty.txt` and `.starshine.pretty.txt` plus the `.wat` diff.
+    - Inspect `.tmp/dae-func504-selected5-artifact/func-defined504-abs521.binaryen.pretty.txt` and `.starshine.pretty.txt` plus the `.wat` diff; callee signatures for `$3799` and `$505` now match, so focus on the remaining caller-local/control cleanup.
     - Classify before coding: compare-layer representation drift, true DAE output mismatch, type/signature drift, validation/tool issue, or unknown/risky.
   - Deliverables:
     - For representation-only drift, add a narrow script fixture and diagnostic-only normalizer.

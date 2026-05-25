@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-25] passes | dae Func504 selected callee narrowing
+
+- Classified the leading Func504/abs521 callee-signature differences as true selected exact-literal gaps for defined funcs `505` and `3799`; added focused exact-literal coverage for defined func `505` and routed those late selected literals through fresh current call facts.
+- Added defined func `3799` to the selected dropped-result coverage list for the inspected Func504 tuple/result family.
+- `.tmp/dae-func504-selected5-artifact` validates with `wasm-opt --all-features` and keeps the both-canonical frontier at `defined=504 abs=521`, now reduced to caller-local/control cleanup after `$3799` and `$505` signatures match; latest pass timing remains over target (`2784.959ms` Starshine versus `861.346ms` Binaryen).
+
 ## [2026-05-25] passes/tooling | dae Func503 result and loop-carrier frontier
 
 - Classified Func503/abs520 as a real selected dropped-result gap for defined func `503`; added selected dropped-result coverage with focused pass-test coverage.
