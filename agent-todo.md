@@ -224,8 +224,9 @@ Execution rules for all DAE slices
   - Status: active/partial for v0.1.1 because the product goal changed toward broad Binaryen coverage; not a v0.1.0 blocker and not a rejection of the supported-surface signoff in `docs/wiki/raw/research/0573-2026-05-19-sgo-v010-signoff.md`.
   - Goal: broaden SGO toward fuller Binaryen `SimplifyGlobals.cpp` rewrite-family coverage while preserving the accepted v0.1.0 direct/nested/late-tail surface as a scoped signoff, not a full-parity claim.
   - Current matrix: `docs/wiki/binaryen/passes/simplify-globals-optimizing/parity-matrix.md` distinguishes implemented, partial, missing, intentionally conservative, and unknown families.
-  - Completed evidence: landed behavior, refactor, guardrail, research, and rebaseline slices are recorded in `docs/wiki/raw/research/0574` through `0645` where applicable, `docs/wiki/log.md`, and the SGO parity/readiness pages. Do not duplicate the full completed slice history here; use those docs as the source of truth.
+  - Completed evidence: landed behavior, refactor, guardrail, research, and rebaseline slices are recorded in `docs/wiki/raw/research/0574` through `0649` where applicable, `docs/wiki/log.md`, and the SGO parity/readiness pages. Do not duplicate the full completed slice history here; use those docs as the source of truth.
   - General deliverables for every SGO003 subtask: focused Binaryen probe or source fixture first, local test(s) before implementation for behavior-bearing work, paired negative guardrails for trapping/effectful/control-transfer boundaries, `moon test src/passes`, direct `--pass simplify-globals-optimizing` compare fuzz for nontrivial matcher/dataflow work, docs/wiki/log updates, and keep `[SGO]003` partial unless the user explicitly accepts a final bounded scope.
+  - Open-work tracking rule: if a slice uncovers a blocker, prerequisite, deferred family, or refactor follow-up, add it explicitly under one of the SGO003 children below before commit; do not leave implicit "later" work hidden only in research-note prose.
 
 
 - [SGO]003D - Read-Only-To-Write Safe Side-Effect Independence
@@ -233,6 +234,12 @@ Execution rules for all DAE slices
   - Goal: admit additional side-effecting instructions only when stack/value-flow proves the candidate-derived value is independent of the side effect and still reaches only the final same-global guard.
   - Candidate shapes: remaining clean store/table/bulk forms if exact Binaryen positives exist, additional scalar-load/table.get independence forms, and recursive combinations with already-supported pure prefixes. The 0644 guardrail slice pinned independent `memory.grow` / `table.grow` prefixes as already covered while preserving candidate-derived grow negatives.
   - Explicit non-goals without fresh oracle evidence: atomics, SIMD memory ops, memory/table grow, relaxed SIMD, broad bulk ops beyond probed clean operands, calls with candidate-derived operands, and trapping casts/truncations/loads fed by the candidate.
+  - Open checklist:
+    - Probe one exact remaining clean side-effect family at a time against Binaryen before coding.
+    - For every Binaryen-positive family, add a paired candidate-derived negative before implementation.
+    - Decide whether any scalar-load / `table.get` independence forms are truly uncovered after the existing clean scalar-load, `table.get`, and grow guardrails.
+    - If a probed family is already covered, land only guardrail tests/research and do not broaden code.
+    - If a probed family is Binaryen-negative or unsafe, document it as conservative and keep it out of the whitelist.
   - Exit criteria: fixture pairs for each admitted instruction family, no broad whitelist additions, direct SGO fuzz, docs identifying every newly admitted opcode family.
 
 - [SGO]003E2 - Direct-Call Read/Write Summary Implementation
@@ -241,6 +248,13 @@ Execution rules for all DAE slices
   - Candidate positives: direct no-read/no-write call and wrong-global-read call in read-only-to-write conditions, with candidate-clean operands and transitive callee summaries that neither read nor mutate the candidate global.
   - Required negatives: candidate-derived call operands, callee reads candidate global, imported calls, indirect calls, `call_ref`, `return_call`, recursive cycles with unknown summaries, and callee writes candidate global unless separately proven safe.
   - Explicit deferrals: imported-call, indirect-call, and callee-write/no-remaining-read Binaryen-positive probes from 0635 need generated-effects or whole-module no-read/fake-traffic modeling before implementation.
+  - Open checklist:
+    - Design per-global read/write summaries separate from the existing mutation-only runtime fact invalidation summaries.
+    - Compute summaries to fixed point for direct ordinary calls, including recursion/cycle handling.
+    - Treat imported calls, indirect calls, `call_ref`, and `return_call` as unknown until a separate generated-effects/no-read model exists.
+    - Add positive tests only for direct calls proven not to read or write the candidate global.
+    - Add negatives for candidate-derived operands, candidate-global reads, imported/indirect/ref calls, unknown recursion, and callee writes.
+    - Revisit the imported-call / indirect-call / callee-write Binaryen positives from 0635 only after whole-module no-read/fake-traffic modeling exists.
   - Exit criteria: tests first, fixed-point read/write summaries, direct SGO fuzz, and docs naming every accepted call boundary.
 
 
@@ -250,6 +264,12 @@ Execution rules for all DAE slices
   - Goal: broaden runtime replacement of later `global.get`s only where dominance and invalidation are explicit.
   - Candidate shapes: additional straight-line dominated regions, nested plain blocks with direct-call write-set filtering, body-local facts in simple control constructs, and source-backed generated-effects positives if analysis is added.
   - Current boundaries to preserve unless redesigned: else-arm incoming facts, post-if joins, pre-loop facts into loops, loop facts out/backedges, post-`try_table` joins, imported/indirect/call_ref/return_call barriers.
+  - Open checklist:
+    - Write the dominance/invalidation contract before changing code.
+    - Identify exactly one additional dominated region shape per slice.
+    - Add a rewritten-read positive and a value-observable preserved-read negative for each region.
+    - Preserve else-arm incoming, post-if join, loop entry/backedge/exit, post-`try_table`, and unknown-call barriers unless the slice explicitly redesigns one boundary.
+    - Keep direct-call write-set filtering tied to proven summaries only; do not use read-only-to-write call evidence as runtime fact evidence.
   - Exit criteria: clear dataflow contract, tests for both rewritten and value-observable preserved reads, direct SGO fuzz, docs naming every join/barrier boundary.
 
 - [SGO]003J - Same-As-Init Expression Equivalence Broadening
@@ -258,6 +278,12 @@ Execution rules for all DAE slices
   - Candidate shapes: simple nontrapping const expressions, exact `global.get` initializer chains with local provenance, and source-backed repeated-run boundaries.
   - Known guardrails: imported initializer provenance matters; block-wrapped runtime-set operands were Binaryen-negative; alias-init direct-literal one-shot behavior is pinned; multiple previous expression-equivalence probes were negative.
   - Required negatives: imported source, changed intermediate write, function-code-only single use, block-wrapped values with real reads, expressions with object identity, and trapping/effectful expressions.
+  - Open checklist:
+    - Re-probe any candidate expression grammar with exact Binaryen fixtures before coding.
+    - Keep imported initializer provenance as a hard boundary unless a source-backed positive proves otherwise.
+    - Separate one-run and repeated-run behavior in tests and docs.
+    - Avoid object-identity-sensitive GC/ref expressions and any trapping/effectful expression.
+    - If probes remain negative, land research/guardrails only and leave behavior unchanged.
   - Exit criteria: exact expression grammar, tests before implementation, docs stating one-run vs repeated-run behavior.
 
 - [SGO]003K - Startup And Single-Use Initializer Follow-Ups
@@ -265,31 +291,47 @@ Execution rules for all DAE slices
   - Goal: extend startup/global-initializer propagation only for source-backed single-use or copy-chain cases not already covered.
   - Candidate shapes: additional parser-supported GC/ref initializer forms, nested single-use chains, and multi-input folds where all inputs are proven local and single-use.
   - Guardrails: no nested cleanup solely from startup-only rewrites; preserve second global use, function-code second use, imported source, and function-code-only single-use negatives.
+  - Open checklist:
+    - Mine only parser-supported, source-backed startup/global-initializer shapes.
+    - Keep function-code-only single-use out of this slice.
+    - Add second-use/imported-source negatives for each new initializer fold.
+    - Confirm startup-only rewrites still do not mark functions for nested cleanup.
+    - Keep GC/ref initializer follow-ups that require refinalization under `[SGO]003L`, not here.
   - Exit criteria: lit-derived tests and docs; no runtime/code-body broadening mixed into this slice.
 
 - [SGO]003L - GC Refinalization-Safe Replacement Surfaces
   - Status: active candidate; blocked until parser/validation/refinalization path is isolated.
   - Goal: unblock the narrow `ref.cast(ref.func-global)` positive and decide if any additional GC replacements are safe.
-  - Tasks:
+  - Open checklist:
     - Reproduce parser/lib lowering limitation for normal `ref.cast` WAT.
     - Build a minimal lib-level or parser-supported fixture that exercises SGO replacement plus type repair.
-    - Add negative for less-refined alias and object-identity-sensitive replacements.
+    - Decide whether the narrow `ref.cast(ref.func-global)` positive can validate through the normal pipeline.
+    - Add negative for less-refined alias replacement.
+    - Add negative for object-identity-sensitive replacement.
+    - If blocked, document the exact parser/type/refinalization API needed before implementation.
   - Explicit non-goals: broad `struct.new_default` duplication, arbitrary GC object identity copying, descriptor GC/ref ops without source-backed fixtures.
   - Exit criteria: either landed narrow positive with validation/refinalization tests or documented blocker with next required parser/type API change.
 
 - [SGO]003M - Plain `simplify-globals` / `propagate-globals-globally` Engine Exposure
   - Status: deferred active candidate; interface/scheduling work.
   - Goal: decide whether the shared SGO engine should expose additional Binaryen pass names or plain-pass behavior.
-  - Tasks:
+  - Open checklist:
     - Compare Binaryen plain `simplify-globals`, `simplify-globals-optimizing`, and `propagate-globals-globally` contracts.
     - Identify which Starshine engine pieces are safe without optimizing nested cleanup.
+    - Decide whether to expose new pass names or keep them boundary-only.
     - Add registry/dispatcher/CLI tests if any public surface changes.
+    - Run direct-pass fuzz for any newly exposed public behavior.
+    - Do not widen `optimize` / `shrink` presets until direct behavior is separately signed.
   - Exit criteria: public behavior tests and docs; no preset widening until direct pass behavior is separately signed.
 
 - [SGO]003O - Refactor-Only Matcher Maintainability Queue
   - Status: opportunistic; lower priority than behavior-bearing slices after commits `0f8b8902` through `39fa0a22`. The 0641 and 0645 clean-pop helper slices centralized repeated FlowScanner pop/taint checks without behavior broadening, the 0643 call-result helper slice centralized repeated call-boundary stack handling while preserving the adjacent-`global.get` arm-result exception, the 0646 wrapper helper slice centralized repeated block/no-catch `try_table` extraction plus external-pure condition index handling, the 0647 exact-tail helper slice centralized direct `if return; set` tail dispatch, the 0648 clean-leaf helper slice centralized repeated FlowScanner constant/nullary/local leaf pushes, and the 0649 effect-predicate helper slice centralized clean pair/triple side-effect opcode groups.
   - Goal: keep SGO maintainable without changing behavior.
-  - Candidate cleanup: remaining FlowScanner predicate grouping and clearer helper naming around condition/value-stack matchers.
+  - Open checklist:
+    - Remaining FlowScanner predicate grouping beyond the 0648 clean-leaf and 0649 clean-effect helper slices.
+    - Clearer helper naming around condition/value-stack matchers.
+    - Audit whether any duplicated nested `if` arm-result helpers remain worth extracting; if not, remove this bullet in a later bookkeeping slice.
+    - Keep refactors behavior-preserving; any behavior-bearing discovery must move to `[SGO]003D`, `[SGO]003H`, or another explicit behavior slice.
   - Rules: no tests required if truly refactor-only and existing tests/fuzz prove behavior preservation; do not use refactors to sneak in new matcher breadth.
   - Exit criteria: small commits with research notes, `moon test src/passes`, direct SGO fuzz when matcher logic is touched, and docs/log updates.
 
