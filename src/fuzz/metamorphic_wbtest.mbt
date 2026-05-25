@@ -1356,6 +1356,87 @@ test "metamorphic duplicate equivalent imported funcref table transform appends 
 }
 
 ///|
+test "metamorphic duplicate equivalent imported tag transform appends unused matching import when no defined tags can shift" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+  )
+  let tag_type = @lib.TagType::new(@lib.TypeIdx::new(0U))
+  let original_import = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("tag"),
+    @lib.tag_extern_type(tag_type),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_import_sec(@lib.ImportSec::new([original_import]))
+  let transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentImportedTag) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-duplicate-equivalent-imported-tag",
+  )
+  match transformed.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => {
+      @debug.assert_eq(imports.length(), 2)
+      @debug.assert_eq(imports[0], original_import)
+      match imports[1] {
+        @lib.Import(module_name, item_name, @lib.TagExternType(dup_tag_type)) => {
+          @debug.assert_eq(module_name, @lib.Name::new("env"))
+          @debug.assert_eq(
+            item_name,
+            @lib.Name::new("tag_metamorphic_duplicate"),
+          )
+          @debug.assert_eq(dup_tag_type, tag_type)
+        }
+        _ => fail("expected duplicate imported tag")
+      }
+    }
+    None => fail("expected transformed imports")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic duplicate equivalent imported tag transform avoids defined-tag index shifts" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+  )
+  let tag_type = @lib.TagType::new(@lib.TypeIdx::new(0U))
+  let original_import = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("tag"),
+    @lib.tag_extern_type(tag_type),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_import_sec(@lib.ImportSec::new([original_import]))
+    .with_tag_sec(@lib.TagSec::new([tag_type]))
+  let transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentImportedTag) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match transformed.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => @debug.assert_eq(imports.length(), 1)
+    None => fail("expected original import")
+  }
+  match transformed.wasm_module.tag_sec {
+    Some(@lib.TagSec(tags)) => @debug.assert_eq(tags.length(), 1)
+    None => fail("expected original tag")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic duplicate equivalent imported funcref table transform avoids defined-table index shifts" {
   let table = @lib.Table::new(
     @lib.TableType::new(
@@ -8021,14 +8102,17 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 425)
-  @debug.assert_eq(stats.validated, 425)
+  @debug.assert_eq(stats.transformed, 426)
+  @debug.assert_eq(stats.validated, 426)
   assert_true(stats.transform_ids.contains("add-duplicate-equivalent-memory"))
   assert_true(
     stats.transform_ids.contains("add-duplicate-equivalent-imported-memory"),
   )
   assert_true(
     stats.transform_ids.contains("add-duplicate-equivalent-imported-function"),
+  )
+  assert_true(
+    stats.transform_ids.contains("add-duplicate-equivalent-imported-tag"),
   )
   assert_true(
     stats.transform_ids.contains(

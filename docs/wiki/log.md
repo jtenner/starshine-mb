@@ -1210,6 +1210,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added focused whitebox coverage proving the new leading transform appends the expected empty struct type, emits `struct.new_default; struct.new_default; ref.eq; drop`, and preserves validation plus binary roundtrip. Refreshed metamorphic smoke counters from `412` to `414` transformed/validated variants and asserted the new transform id appears in suite JSON.
 - Validation: `moon test src/fuzz`, `moon info`, `moon fmt`, `moon test`, and `bun fuzz run --suite validate-valid-metamorphic --profile smoke --seed 0x1036 --seed-count 1` pass.
 
+## [2026-05-25] fuzzing | FUZ1036K11 duplicate equivalent imported tag transform
+
+- Completed `[FUZ]1036K11` by adding `add-duplicate-equivalent-imported-tag`. The transform appends an unused import with the same tag type as the first existing imported tag and a deterministic duplicate field name, while intentionally no-oping when the module has defined tags so defined tag indices are never shifted.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 426 transforms per generated module, and kept focused `src/fuzz` validation green.
+
 ## [2026-05-25] fuzzing | FUZ1036M1 GenValid batch metamorphic transform selection
 
 - Completed `[FUZ]1036M1` by locking the Moon and Bun `--emit-gen-valid-batch` selection surface for repeated `--metamorphic-transform <id>` flags. Batch emission already applies requested transform ids round-robin; the manifest now records requested `metamorphic_transform_ids` at top level and applied per-record `transform_id` values for replay/reporting.
