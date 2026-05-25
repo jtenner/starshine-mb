@@ -95,6 +95,18 @@ pub enum MetamorphicValidTransform {
   AddTrailingI64OrDropToDefinedFunctions
   AddLeadingI64XorDropToDefinedFunctions
   AddTrailingI64XorDropToDefinedFunctions
+  AddLeadingI32ClzDropToDefinedFunctions
+  AddTrailingI32ClzDropToDefinedFunctions
+  AddLeadingI32CtzDropToDefinedFunctions
+  AddTrailingI32CtzDropToDefinedFunctions
+  AddLeadingI32PopcntDropToDefinedFunctions
+  AddTrailingI32PopcntDropToDefinedFunctions
+  AddLeadingI64ClzDropToDefinedFunctions
+  AddTrailingI64ClzDropToDefinedFunctions
+  AddLeadingI64CtzDropToDefinedFunctions
+  AddTrailingI64CtzDropToDefinedFunctions
+  AddLeadingI64PopcntDropToDefinedFunctions
+  AddTrailingI64PopcntDropToDefinedFunctions
   AddLeadingI32ShlDropToDefinedFunctions
   AddTrailingI32ShlDropToDefinedFunctions
   AddLeadingI32ShrSDropToDefinedFunctions
@@ -386,6 +398,30 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-i64-xor-drop-to-defined-functions"
     AddTrailingI64XorDropToDefinedFunctions =>
       "add-trailing-i64-xor-drop-to-defined-functions"
+    AddLeadingI32ClzDropToDefinedFunctions =>
+      "add-leading-i32-clz-drop-to-defined-functions"
+    AddTrailingI32ClzDropToDefinedFunctions =>
+      "add-trailing-i32-clz-drop-to-defined-functions"
+    AddLeadingI32CtzDropToDefinedFunctions =>
+      "add-leading-i32-ctz-drop-to-defined-functions"
+    AddTrailingI32CtzDropToDefinedFunctions =>
+      "add-trailing-i32-ctz-drop-to-defined-functions"
+    AddLeadingI32PopcntDropToDefinedFunctions =>
+      "add-leading-i32-popcnt-drop-to-defined-functions"
+    AddTrailingI32PopcntDropToDefinedFunctions =>
+      "add-trailing-i32-popcnt-drop-to-defined-functions"
+    AddLeadingI64ClzDropToDefinedFunctions =>
+      "add-leading-i64-clz-drop-to-defined-functions"
+    AddTrailingI64ClzDropToDefinedFunctions =>
+      "add-trailing-i64-clz-drop-to-defined-functions"
+    AddLeadingI64CtzDropToDefinedFunctions =>
+      "add-leading-i64-ctz-drop-to-defined-functions"
+    AddTrailingI64CtzDropToDefinedFunctions =>
+      "add-trailing-i64-ctz-drop-to-defined-functions"
+    AddLeadingI64PopcntDropToDefinedFunctions =>
+      "add-leading-i64-popcnt-drop-to-defined-functions"
+    AddTrailingI64PopcntDropToDefinedFunctions =>
+      "add-trailing-i64-popcnt-drop-to-defined-functions"
     AddLeadingI32ShlDropToDefinedFunctions =>
       "add-leading-i32-shl-drop-to-defined-functions"
     AddTrailingI32ShlDropToDefinedFunctions =>
@@ -2349,6 +2385,32 @@ fn metamorphic_add_f64_nearest_drop_to_defined_functions(
 }
 
 ///|
+fn metamorphic_add_i32_unary_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+  unary : @lib.Instruction,
+) -> @lib.Module {
+  metamorphic_add_unary_drop_to_defined_functions(mod, leading, [
+    @lib.Instruction::i32_const(0),
+    unary,
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
+fn metamorphic_add_i64_unary_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+  unary : @lib.Instruction,
+) -> @lib.Module {
+  metamorphic_add_unary_drop_to_defined_functions(mod, leading, [
+    @lib.Instruction::i64_const(0L),
+    unary,
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
 fn metamorphic_add_i32_binary_drop_to_defined_functions(
   mod : @lib.Module,
   leading : Bool,
@@ -3034,6 +3096,18 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingI64OrDropToDefinedFunctions,
     AddLeadingI64XorDropToDefinedFunctions,
     AddTrailingI64XorDropToDefinedFunctions,
+    AddLeadingI32ClzDropToDefinedFunctions,
+    AddTrailingI32ClzDropToDefinedFunctions,
+    AddLeadingI32CtzDropToDefinedFunctions,
+    AddTrailingI32CtzDropToDefinedFunctions,
+    AddLeadingI32PopcntDropToDefinedFunctions,
+    AddTrailingI32PopcntDropToDefinedFunctions,
+    AddLeadingI64ClzDropToDefinedFunctions,
+    AddTrailingI64ClzDropToDefinedFunctions,
+    AddLeadingI64CtzDropToDefinedFunctions,
+    AddTrailingI64CtzDropToDefinedFunctions,
+    AddLeadingI64PopcntDropToDefinedFunctions,
+    AddTrailingI64PopcntDropToDefinedFunctions,
     AddLeadingI32ShlDropToDefinedFunctions,
     AddTrailingI32ShlDropToDefinedFunctions,
     AddLeadingI32ShrSDropToDefinedFunctions,
@@ -3538,6 +3612,78 @@ pub fn metamorphic_apply_transform(
         mod,
         false,
         @lib.Instruction::i64_xor(),
+      )
+    AddLeadingI32ClzDropToDefinedFunctions =>
+      metamorphic_add_i32_unary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i32_clz(),
+      )
+    AddTrailingI32ClzDropToDefinedFunctions =>
+      metamorphic_add_i32_unary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i32_clz(),
+      )
+    AddLeadingI32CtzDropToDefinedFunctions =>
+      metamorphic_add_i32_unary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i32_ctz(),
+      )
+    AddTrailingI32CtzDropToDefinedFunctions =>
+      metamorphic_add_i32_unary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i32_ctz(),
+      )
+    AddLeadingI32PopcntDropToDefinedFunctions =>
+      metamorphic_add_i32_unary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i32_popcnt(),
+      )
+    AddTrailingI32PopcntDropToDefinedFunctions =>
+      metamorphic_add_i32_unary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i32_popcnt(),
+      )
+    AddLeadingI64ClzDropToDefinedFunctions =>
+      metamorphic_add_i64_unary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i64_clz(),
+      )
+    AddTrailingI64ClzDropToDefinedFunctions =>
+      metamorphic_add_i64_unary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i64_clz(),
+      )
+    AddLeadingI64CtzDropToDefinedFunctions =>
+      metamorphic_add_i64_unary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i64_ctz(),
+      )
+    AddTrailingI64CtzDropToDefinedFunctions =>
+      metamorphic_add_i64_unary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i64_ctz(),
+      )
+    AddLeadingI64PopcntDropToDefinedFunctions =>
+      metamorphic_add_i64_unary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i64_popcnt(),
+      )
+    AddTrailingI64PopcntDropToDefinedFunctions =>
+      metamorphic_add_i64_unary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i64_popcnt(),
       )
     AddLeadingI32ShlDropToDefinedFunctions =>
       metamorphic_add_i32_binary_drop_to_defined_functions(
