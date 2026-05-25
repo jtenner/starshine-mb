@@ -123,6 +123,18 @@ pub fn metamorphic_valid_transform_id(
 }
 
 ///|
+pub fn metamorphic_valid_transform_by_id(
+  id : String,
+) -> Result[MetamorphicValidTransform, String] {
+  for transform in metamorphic_valid_transforms() {
+    if metamorphic_valid_transform_id(transform) == id {
+      return Ok(transform)
+    }
+  }
+  Err("unknown metamorphic transform id: \{id}")
+}
+
+///|
 pub struct MetamorphicValidTransformResult {
   transform_id : String
   wasm_module : @lib.Module

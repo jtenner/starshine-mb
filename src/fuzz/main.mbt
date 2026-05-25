@@ -27,6 +27,7 @@ pub struct EmitGenValidBatchArgs {
   excluded_features : Array[ValidateValidFeatureKey]
   max_attempts : Int
   manifest_path : String?
+  metamorphic_transform_ids : Array[String]
 } derive(Eq, Debug)
 
 ///|
@@ -39,6 +40,7 @@ pub fn EmitGenValidBatchArgs::new(
   excluded_features? : Array[ValidateValidFeatureKey] = [],
   max_attempts? : Int = count,
   manifest_path? : String? = None,
+  metamorphic_transform_ids? : Array[String] = [],
 ) -> EmitGenValidBatchArgs {
   {
     count,
@@ -49,6 +51,7 @@ pub fn EmitGenValidBatchArgs::new(
     excluded_features,
     max_attempts,
     manifest_path,
+    metamorphic_transform_ids,
   }
 }
 
@@ -709,6 +712,7 @@ fn fuzz_parse_emit_gen_valid_batch_args(
   let excluded_features : Array[ValidateValidFeatureKey] = []
   let mut max_attempts : Int? = None
   let mut manifest_path : String? = None
+  let metamorphic_transform_ids : Array[String] = []
   let mut i = 1
   while i < args.length() {
     let arg = args[i].trim().to_owned()
@@ -849,6 +853,14 @@ fn fuzz_parse_emit_gen_valid_batch_args(
       i += 2
       continue
     }
+    if arg == "--metamorphic-transform" {
+      if i + 1 >= args.length() {
+        abort("missing value for --metamorphic-transform")
+      }
+      metamorphic_transform_ids.push(args[i + 1])
+      i += 2
+      continue
+    }
     if fuzz_has_prefix_text(arg, "--max-attempts=") {
       if max_attempts is Some(_) {
         abort("duplicate --max-attempts flag")
@@ -867,6 +879,11 @@ fn fuzz_parse_emit_gen_valid_batch_args(
         abort("duplicate --manifest flag")
       }
       manifest_path = Some(fuzz_tail_string(arg, 11))
+      i += 1
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--metamorphic-transform=") {
+      metamorphic_transform_ids.push(fuzz_tail_string(arg, 24))
       i += 1
       continue
     }
@@ -906,6 +923,7 @@ fn fuzz_parse_emit_gen_valid_batch_args(
     excluded_features~,
     max_attempts=resolved_max_attempts,
     manifest_path~,
+    metamorphic_transform_ids~,
   )
 }
 
@@ -1548,6 +1566,7 @@ pub struct GenValidBatchManifestEntry {
   validated : Bool
   validation_error_message : String?
   facts : GenValidFeatureFacts
+  transform_id : String?
 } derive(Eq, Debug)
 
 ///|
@@ -1729,6 +1748,7 @@ pub fn emit_gen_valid_batch_artifacts_until_features(
   required_floors : Array[ValidateValidFeatureFloor],
   excluded_features : Array[ValidateValidFeatureKey],
   max_attempts : Int,
+  metamorphic_transform_ids? : Array[String] = [],
 ) -> Result[GenValidCoverageSelection, String] {
   if count < 0 {
     return Err("count must be non-negative")
@@ -1777,7 +1797,24 @@ pub fn emit_gen_valid_batch_artifacts_until_features(
           "gen-valid coverage selection produced invalid module at attempt \{attempts}: \{validation_error_message(err)}",
         )
     }
-    let bytes = match encode_module(generated.wasm_module) {
+    let mut artifact_module = generated.wasm_module
+    let mut artifact_transform_id : String? = None
+    if metamorphic_transform_ids.length() > 0 {
+      let requested_id = metamorphic_transform_ids[selected %
+        metamorphic_transform_ids.length()]
+      let transform = match metamorphic_valid_transform_by_id(requested_id) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let transformed = match
+        metamorphic_apply_transform(generated.wasm_module, transform) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      artifact_module = transformed.wasm_module
+      artifact_transform_id = Some(transformed.transform_id)
+    }
+    let bytes = match encode_module(artifact_module) {
       Ok(v) => v
       Err(err) =>
         return Err(
@@ -1796,6 +1833,7 @@ pub fn emit_gen_valid_batch_artifacts_until_features(
       validated: true,
       validation_error_message: None,
       facts: generated.facts,
+      transform_id: artifact_transform_id,
     })
     feature_stats = next_stats
   }
@@ -1865,6 +1903,7 @@ pub fn emit_gen_valid_batch_artifacts_with_manifest(
       validated: true,
       validation_error_message: None,
       facts: generated.facts,
+      transform_id: None,
     })
     i += 1
   }
@@ -2100,8 +2139,12 @@ fn format_gen_valid_batch_manifest_json(
       Some(msg) => "\"\{fuzz_json_escape(msg)}\""
       None => "null"
     }
+    let transform_json = match item.transform_id {
+      Some(id) => "\"\{fuzz_json_escape(id)}\""
+      None => "null"
+    }
     out.write_string(
-      "{\"file_name\":\"\{fuzz_json_escape(item.file_name)}\",\"seed\":\{item.seed},\"index\":\{item.index},\"config_label\":\"\{fuzz_json_escape(item.config_label)}\",\"attempts\":\{item.attempts},\"validated\":\{item.validated},\"validation_error_message\":\{error_json},\"feature_facts\":\{format_gen_valid_batch_feature_facts_json(item.facts)}}",
+      "{\"file_name\":\"\{fuzz_json_escape(item.file_name)}\",\"seed\":\{item.seed},\"index\":\{item.index},\"config_label\":\"\{fuzz_json_escape(item.config_label)}\",\"attempts\":\{item.attempts},\"validated\":\{item.validated},\"validation_error_message\":\{error_json},\"transform_id\":\{transform_json},\"feature_facts\":\{format_gen_valid_batch_feature_facts_json(item.facts)}}",
     )
     i += 1
   }
@@ -2117,14 +2160,20 @@ fn emit_gen_valid_batch_selection(
     Ok(v) => v
     Err(e) => return Err(e)
   }
-  emit_gen_valid_batch_artifacts_until_features(
-    args.count,
-    args.seed,
-    config,
-    args.required_features,
-    args.excluded_features,
-    args.max_attempts,
-  )
+  let selection = match
+    emit_gen_valid_batch_artifacts_until_features(
+      args.count,
+      args.seed,
+      config,
+      args.required_features,
+      args.excluded_features,
+      args.max_attempts,
+      metamorphic_transform_ids=args.metamorphic_transform_ids,
+    ) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  Ok(selection)
 }
 
 ///|

@@ -43,6 +43,7 @@ type PassFuzzCompareOptions = {
   genValidProfile: string | null;
   genValidRequiredFeatures: string[];
   genValidExcludedFeatures: string[];
+  genValidMetamorphicTransforms: string[];
   maxFailures: number;
   keepGoingAfterCommandFailures: boolean;
   jobs: number;
@@ -99,6 +100,7 @@ type PassFuzzCompareSummary = {
   genValidProfile: string | null;
   genValidRequiredFeatures: string[];
   genValidExcludedFeatures: string[];
+  genValidMetamorphicTransforms: string[];
   genValidManifestPath: string | null;
   generatorCounts: {
     wasmSmith: number;
@@ -123,6 +125,7 @@ const RESERVED_OPTIONS = new Set([
   "--gen-valid-profile",
   "--require-feature",
   "--exclude-feature",
+  "--gen-valid-metamorphic-transform",
   "--max-failures",
   "--keep-going-after-command-failures",
   "--normalize",
@@ -200,6 +203,8 @@ const HELP_TEXT = [
   "                       Require a GenValid batch feature floor; may repeat",
   "  --exclude-feature <feature>",
   "                       Exclude GenValid batch features; may repeat",
+  "  --gen-valid-metamorphic-transform <id>",
+  "                       Request transformed GenValid variants and preserve transform ids in reports; may repeat",
   "  --max-failures <n>    Stop after this many mismatches/failures. Default: 20",
   "  --keep-going-after-command-failures",
   "                       Record command failures without counting them toward --max-failures",
@@ -1053,6 +1058,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let genValidProfile: string | null = null;
   const genValidRequiredFeatures: string[] = [];
   const genValidExcludedFeatures: string[] = [];
+  const genValidMetamorphicTransforms: string[] = [];
   let maxFailures = 20;
   let keepGoingAfterCommandFailures = false;
   let jobs = 1;
@@ -1136,6 +1142,12 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         genValidExcludedFeatures.push(argv[i + 1] ?? fail("missing value for --exclude-feature"));
         i += 2;
         break;
+      case "--gen-valid-metamorphic-transform":
+        genValidMetamorphicTransforms.push(
+          argv[i + 1] ?? fail("missing value for --gen-valid-metamorphic-transform"),
+        );
+        i += 2;
+        break;
       case "--max-failures":
         maxFailures = parseNonNegativeInt(
           "max-failures",
@@ -1198,6 +1210,13 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
           i += 1;
           break;
         }
+        if (token.startsWith("--gen-valid-metamorphic-transform=")) {
+          genValidMetamorphicTransforms.push(
+            token.substring("--gen-valid-metamorphic-transform=".length),
+          );
+          i += 1;
+          break;
+        }
         if (RESERVED_OPTIONS.has(token)) {
           fail(`missing value for ${token}`);
         }
@@ -1250,6 +1269,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       genValidProfile,
       genValidRequiredFeatures,
       genValidExcludedFeatures,
+      genValidMetamorphicTransforms,
       maxFailures,
       keepGoingAfterCommandFailures,
       jobs,
@@ -1334,6 +1354,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         ...(options.genValidProfile === null ? [] : ["--gen-valid-profile", options.genValidProfile]),
         ...options.genValidRequiredFeatures.flatMap((feature) => ["--require-feature", feature]),
         ...options.genValidExcludedFeatures.flatMap((feature) => ["--exclude-feature", feature]),
+        ...options.genValidMetamorphicTransforms.flatMap((id) => ["--metamorphic-transform", id]),
         "--out-dir",
         genValidMoonDir,
         "--manifest",
@@ -1381,6 +1402,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     genValidProfile: options.genValidProfile,
     genValidRequiredFeatures: options.genValidRequiredFeatures,
     genValidExcludedFeatures: options.genValidExcludedFeatures,
+    genValidMetamorphicTransforms: options.genValidMetamorphicTransforms,
     genValidManifestPath:
       genValidCount > 0 && fs.existsSync(genValidManifestPath)
         ? path.relative(outDir, genValidManifestPath)

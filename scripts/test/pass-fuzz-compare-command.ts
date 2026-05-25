@@ -55,6 +55,10 @@ if (args[0] === "run" && args.includes("src/fuzz")) {
   fs.mkdirSync(outDir, { recursive: true });
   fs.writeFileSync(path.join(outDir, "gen-valid-000001.wasm"), "gen-valid-1");
   fs.writeFileSync(path.join(outDir, "gen-valid-000002.wasm"), "gen-valid-2");
+  fs.writeFileSync(path.join(outDir, "manifest.json"), JSON.stringify({ records: [
+    { file_name: "gen-valid-000001.wasm", transform_id: "add-non-name-custom-section" },
+    { file_name: "gen-valid-000002.wasm", transform_id: "add-non-name-custom-section" },
+  ] }));
 }
 process.exit(0);
 `,
@@ -135,6 +139,8 @@ process.exit(0);
       "--require-feature",
       "v128",
       "--exclude-feature=imports",
+      "--gen-valid-metamorphic-transform",
+      "add-non-name-custom-section",
       "--remove-unused-brs",
     ],
     {
@@ -175,6 +181,10 @@ process.exit(0);
     JSON.stringify(moonLogs[0]).includes('"--exclude-feature","imports"'),
     `expected gen-valid excluded feature forwarding, got ${JSON.stringify(moonLogs[0], null, 2)}`,
   );
+  assert(
+    JSON.stringify(moonLogs[0]).includes('"--metamorphic-transform","add-non-name-custom-section"'),
+    `expected gen-valid metamorphic transform forwarding, got ${JSON.stringify(moonLogs[0], null, 2)}`,
+  );
 
   const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
     requestedCount: number;
@@ -186,6 +196,8 @@ process.exit(0);
     genValidProfile: string | null;
     genValidRequiredFeatures: string[];
     genValidExcludedFeatures: string[];
+    genValidMetamorphicTransforms: string[];
+    genValidManifestPath: string | null;
     passFlags: string[];
     binaryenPassFlags: string[];
   };
@@ -199,6 +211,8 @@ process.exit(0);
   assert(summary.genValidProfile === "relaxed-simd", `unexpected gen-valid profile ${summary.genValidProfile}`);
   assert(JSON.stringify(summary.genValidRequiredFeatures) === JSON.stringify(["v128"]), `unexpected required features ${JSON.stringify(summary.genValidRequiredFeatures)}`);
   assert(JSON.stringify(summary.genValidExcludedFeatures) === JSON.stringify(["imports"]), `unexpected excluded features ${JSON.stringify(summary.genValidExcludedFeatures)}`);
+  assert(JSON.stringify(summary.genValidMetamorphicTransforms) === JSON.stringify(["add-non-name-custom-section"]), `unexpected metamorphic transforms ${JSON.stringify(summary.genValidMetamorphicTransforms)}`);
+  assert(summary.genValidManifestPath === path.join("inputs", "gen-valid", "manifest.json"), `unexpected manifest path ${summary.genValidManifestPath}`);
   assert(
     JSON.stringify(summary.passFlags) === JSON.stringify(["--remove-unused-brs"]),
     `unexpected pass flags ${JSON.stringify(summary.passFlags)}`,

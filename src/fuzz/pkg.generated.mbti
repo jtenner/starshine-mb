@@ -27,7 +27,7 @@ pub fn build_validate_invalid_binary_minimal_repro_by_stable_id(String) -> Resul
 
 pub fn emit_gen_valid_batch_artifacts(Int, UInt64) -> Result[Array[(String, Bytes)], String]
 
-pub fn emit_gen_valid_batch_artifacts_until_features(Int, UInt64, @validate.GenValidConfig, Array[@validate.ValidateValidFeatureFloor], Array[@validate.ValidateValidFeatureKey], Int) -> Result[GenValidCoverageSelection, String]
+pub fn emit_gen_valid_batch_artifacts_until_features(Int, UInt64, @validate.GenValidConfig, Array[@validate.ValidateValidFeatureFloor], Array[@validate.ValidateValidFeatureKey], Int, metamorphic_transform_ids? : Array[String]) -> Result[GenValidCoverageSelection, String]
 
 pub fn emit_gen_valid_batch_artifacts_with_manifest(Int, UInt64) -> Result[GenValidBatchArtifacts, String]
 
@@ -70,6 +70,8 @@ pub fn invalid_fuzz_suite_name_for_source_kind(InvalidFuzzSourceKind) -> String
 pub fn invalid_fuzz_text_source_kind() -> InvalidFuzzSourceKind
 
 pub fn metamorphic_apply_transform(@lib.Module, MetamorphicValidTransform) -> Result[MetamorphicValidTransformResult, String]
+
+pub fn metamorphic_valid_transform_by_id(String) -> Result[MetamorphicValidTransform, String]
 
 pub fn metamorphic_valid_transform_id(MetamorphicValidTransform) -> String
 
@@ -169,8 +171,9 @@ pub struct EmitGenValidBatchArgs {
   excluded_features : Array[@validate.ValidateValidFeatureKey]
   max_attempts : Int
   manifest_path : String?
+  metamorphic_transform_ids : Array[String]
 } derive(Eq, @debug.Debug)
-pub fn EmitGenValidBatchArgs::new(Int, UInt64, String, profile? : String, required_features? : Array[@validate.ValidateValidFeatureFloor], excluded_features? : Array[@validate.ValidateValidFeatureKey], max_attempts? : Int, manifest_path? : String?) -> Self
+pub fn EmitGenValidBatchArgs::new(Int, UInt64, String, profile? : String, required_features? : Array[@validate.ValidateValidFeatureFloor], excluded_features? : Array[@validate.ValidateValidFeatureKey], max_attempts? : Int, manifest_path? : String?, metamorphic_transform_ids? : Array[String]) -> Self
 
 pub struct EmitInvalidReproArgs {
   suite : String
@@ -261,6 +264,7 @@ pub struct GenValidBatchManifestEntry {
   validated : Bool
   validation_error_message : String?
   facts : @validate.GenValidFeatureFacts
+  transform_id : String?
 } derive(Eq, @debug.Debug)
 
 pub struct GenValidCoverageSelection {
