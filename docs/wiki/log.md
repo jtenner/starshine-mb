@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1036N2 metamorphic suite signoff smoke
+
+- Completed `[FUZ]1036N2` by rerunning the metamorphic-valid suite closeout smoke and CI-representative Moon checks after the latest transform and harness metadata slices.
+- Validation: `moon test src/fuzz` passed (`432` tests); `bun fuzz run --suite validate-valid-metamorphic --profile smoke --seed 0x1036 --seed-count 1` passed with `attempts=1`; `moon info`, `moon fmt`, and full `moon test` passed (`4156` tests) with only the pre-existing DAE unused-value warnings reported by `moon info`.
+
 ## [2026-05-25] fuzzing | FUZ1036N1 metamorphic ledger closeout
 
 - Completed `[FUZ]1036N1` by refreshing [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) with the latest completed metamorphic transform families and harness metadata behavior.
