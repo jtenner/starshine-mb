@@ -16,6 +16,7 @@ pub enum MetamorphicValidTransform {
   AddUnusedFuncrefTable
   AddDuplicateEquivalentMemory
   AddDuplicateEquivalentImportedMemory
+  AddDuplicateEquivalentImportedFunction
   AddDuplicateEquivalentImportedImmutableI32Global
   AddDuplicateEquivalentImportedFuncrefTable
   AddDuplicateEquivalentFuncrefTable
@@ -454,6 +455,8 @@ pub fn metamorphic_valid_transform_id(
     AddDuplicateEquivalentMemory => "add-duplicate-equivalent-memory"
     AddDuplicateEquivalentImportedMemory =>
       "add-duplicate-equivalent-imported-memory"
+    AddDuplicateEquivalentImportedFunction =>
+      "add-duplicate-equivalent-imported-function"
     AddDuplicateEquivalentImportedImmutableI32Global =>
       "add-duplicate-equivalent-imported-immutable-i32-global"
     AddDuplicateEquivalentImportedFuncrefTable =>
@@ -2254,6 +2257,42 @@ fn metamorphic_add_duplicate_equivalent_imported_memory(
                   module_name,
                   @lib.Name::new("memory_metamorphic_duplicate"),
                   @lib.mem_extern_type(mem_type),
+                ),
+              )
+              duplicated = true
+            }
+          _ => ()
+        }
+      }
+    }
+    None => ()
+  }
+  mod.with_import_sec(@lib.ImportSec::new(imports))
+}
+
+///|
+fn metamorphic_add_duplicate_equivalent_imported_function(
+  mod : @lib.Module,
+) -> @lib.Module {
+  if mod.func_sec is Some(_) || mod.code_sec is Some(_) {
+    return mod
+  }
+  let imports = []
+  let mut duplicated = false
+  match mod.import_sec {
+    Some(@lib.ImportSec(existing)) => {
+      for import_ in existing {
+        imports.push(import_)
+      }
+      for import_ in existing {
+        match import_ {
+          @lib.Import(module_name, _, @lib.FuncExternType(type_idx)) =>
+            if !duplicated {
+              imports.push(
+                @lib.Import::new(
+                  module_name,
+                  @lib.Name::new("func_metamorphic_duplicate"),
+                  @lib.func_extern_type(type_idx),
                 ),
               )
               duplicated = true
@@ -4764,6 +4803,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddUnusedFuncrefTable,
     AddDuplicateEquivalentMemory,
     AddDuplicateEquivalentImportedMemory,
+    AddDuplicateEquivalentImportedFunction,
     AddDuplicateEquivalentImportedImmutableI32Global,
     AddDuplicateEquivalentImportedFuncrefTable,
     AddDuplicateEquivalentFuncrefTable,
@@ -5225,6 +5265,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_duplicate_equivalent_memory(mod)
     AddDuplicateEquivalentImportedMemory =>
       metamorphic_add_duplicate_equivalent_imported_memory(mod)
+    AddDuplicateEquivalentImportedFunction =>
+      metamorphic_add_duplicate_equivalent_imported_function(mod)
     AddDuplicateEquivalentImportedImmutableI32Global =>
       metamorphic_add_duplicate_equivalent_imported_immutable_i32_global(mod)
     AddDuplicateEquivalentImportedFuncrefTable =>

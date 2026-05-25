@@ -1270,6 +1270,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Completed `[FUZ]1036J4` by adding `reshape-passive-element-segments`, a metamorphic-valid transform that rewrites one passive legacy function-index element segment into an equivalent typed `ref.func` expression segment without changing function indices or table declarations.
 - Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 393 transforms per generated module, and kept focused `src/fuzz` validation green.
 
+## [2026-05-25] fuzzing | FUZ1036K10 duplicate imported-function transform
+
+- Completed `[FUZ]1036K10` by adding `add-duplicate-equivalent-imported-function`, a metamorphic-valid declaration transform that duplicates the first imported function's type under a deterministic unused field name only when the module has no defined functions/code section, avoiding defined-function index shifts.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 425 transforms per generated module, and kept focused `src/fuzz` validation green.
+
 ## [2026-05-25] fuzzing | FUZ1036J3 passive data-segment shape stress
 
 - Completed `[FUZ]1036J3` by adding `add-passive-data-segment-shape-stress`, a metamorphic-valid transform that appends three unused passive data segments with empty, binary, and textual payload shapes. The transform refreshes data-count metadata and only appends to the data index space, so existing data indices and bulk-memory users are not retargeted.

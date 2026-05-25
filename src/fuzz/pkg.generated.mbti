@@ -527,6 +527,7 @@ pub enum MetamorphicValidTransform {
   AddUnusedFuncrefTable
   AddDuplicateEquivalentMemory
   AddDuplicateEquivalentImportedMemory
+  AddDuplicateEquivalentImportedFunction
   AddDuplicateEquivalentImportedImmutableI32Global
   AddDuplicateEquivalentImportedFuncrefTable
   AddDuplicateEquivalentFuncrefTable
