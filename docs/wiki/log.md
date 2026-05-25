@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO direct-pass rebaseline
+
+- Added research note [`0640`](./raw/research/0640-2026-05-25-sgo003p-direct-rebaseline.md) for `[SGO]003P`, refreshing direct `simplify-globals-optimizing` evidence after the recent guardrail/research/source-alignment slices.
+- Direct fuzz at `.tmp/pass-fuzz-sgo003p-rebaseline-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures (`22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, `1` `binaryen-invalid-tag-index`).
+- Completed `[SGO]003P` as a rebaseline-only slice; no optimizer behavior changed and full Binaryen `SimplifyGlobals.cpp` parity is still not claimed. `[SGO]003` remains active/partial.
+
 ## [2026-05-25] binaryen | SGO nested cleanup wrapper frontier
 
 - Added research note [`0639`](./raw/research/0639-2026-05-25-sgo-nested-cleanup-wrapper-frontier.md) for `[SGO]003N`, documenting the current SGO nested cleanup structural guard.
