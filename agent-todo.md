@@ -608,6 +608,172 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 
 ### FUZ - Fuzzer Hardening and GenValid Widening
 
+#### Tiny FUZ work-slice board
+
+Use this board as the tracking view for fuzzer work. Each slice should be small enough for one focused TDD loop: add/adjust focused tests, implement one narrow behavior, update docs/wiki counters, and run the targeted fuzz smoke plus `moon test src/fuzz` or the relevant package test. Prefer finishing p1 GenValid/metamorphic slices before p2 infrastructure unless a bug or release need says otherwise.
+
+p1 next-up / active:
+- [FUZ]1036E1 - Add `i32.wrap_i64` leading/trailing computed-drop transforms over constant operands.
+- [FUZ]1036E2 - Add `i64.extend_i32_s/u` leading/trailing computed-drop transforms.
+- [FUZ]1036E3 - Add `f32.convert_i32_s/u` and `f32.convert_i64_s/u` constant computed-drop transforms.
+- [FUZ]1036E4 - Add `f64.convert_i32_s/u` and `f64.convert_i64_s/u` constant computed-drop transforms.
+- [FUZ]1036E5 - Add `i32.reinterpret_f32`, `i64.reinterpret_f64`, `f32.reinterpret_i32`, and `f64.reinterpret_i64` constant computed-drop transforms.
+- [FUZ]1036E6 - Add `f32.demote_f64` and `f64.promote_f32` constant computed-drop transforms.
+- [FUZ]1036F1 - Add `i32.extend8_s`, `i32.extend16_s`, `i64.extend8_s`, `i64.extend16_s`, and `i64.extend32_s` unary sign-extension computed-drop transforms.
+- [FUZ]1036F2 - Add saturating truncation computed-drop transforms for constant finite operands in representable ranges.
+- [FUZ]1036G1 - Add `v128.const; drop` leading/trailing transforms gated on SIMD support.
+- [FUZ]1036G2 - Add safe SIMD unary computed-drop transforms such as `v128.not` and lane all-true/bitmask reductions with constant operands.
+- [FUZ]1036G3 - Add SIMD bitwise binary computed-drop transforms (`and`, `andnot`, `or`, `xor`, `bitselect`) with constant operands.
+- [FUZ]1036H1 - Add SIMD splat computed-drop transforms with scalar constant operands.
+- [FUZ]1036H2 - Add SIMD shift computed-drop transforms with constant vector and legal constant count.
+- [FUZ]1036H3 - Add SIMD lane extract computed-drop transforms with legal immediates.
+- [FUZ]1036H4 - Add SIMD lane replace computed-drop transforms with legal immediates and constant scalar/vector operands.
+- [FUZ]1036I1 - Add `ref.null; ref.is_null; drop` leading/trailing transforms for nullable reference types.
+- [FUZ]1036I2 - Add `ref.i31` / proven-safe `i31.get_s/u` computed-drop transforms where the operand stack proves non-null i31.
+- [FUZ]1036I3 - Add `any.convert_extern` / `extern.convert_any` computed-drop transforms over known nontrapping reference operands.
+- [FUZ]1036I4 - Add nullable `ref.test` / nullable `ref.cast` computed-drop transforms only where null-success or non-null facts prove no trap.
+- [FUZ]1036J1 - Add `memory.size; drop` transforms only for modules with a valid memory index.
+- [FUZ]1036J2 - Add `table.size; drop` transforms only for modules with a valid table index.
+- [FUZ]1036J3 - Add passive data-segment reshaping that preserves data-count metadata and does not retarget existing indices.
+- [FUZ]1036J4 - Add passive element-segment reshaping that preserves table/function references and does not retarget existing indices.
+- [FUZ]1036K1 - Add duplicate-equivalent unused function type declaration transforms.
+- [FUZ]1036K2 - Add additional export alias transforms for functions, tables, memories, and globals while preserving unique export names.
+- [FUZ]1036K3 - Add imported/defined declaration aliasing transforms that do not shift existing indices.
+- [FUZ]1036L1 - Add stack-preserving `block` identity wrappers around simple constant/drop stacks.
+- [FUZ]1036L2 - Add stack-preserving `loop` identity wrappers around simple constant/drop stacks.
+- [FUZ]1036L3 - Add nested identity wrapper transforms with a small fixed depth cap.
+- [FUZ]1036M1 - Add CLI/report support for selecting metamorphic transform ids in GenValid batch runs.
+- [FUZ]1036M2 - Thread transform id/facts into pass-fuzz case metadata and artifact paths.
+- [FUZ]1036M3 - Add pass-fuzz smoke coverage for one selected metamorphic transform id.
+- [FUZ]1036N1 - Update generator-ledger/wiki docs with the completed metamorphic transform families.
+- [FUZ]1036N2 - Run and record metamorphic suite signoff smoke/CI evidence.
+- [FUZ]1036N3 - Prune or archive stale long-form [FUZ]1036 progress notes after the closeout evidence is durable.
+- [FUZ]1037A - Define the shared const-expression generator interface and allowed-op matrix.
+- [FUZ]1037B - Cover numeric constants in global, data offset, element offset, and table initializer contexts.
+- [FUZ]1037C - Cover `ref.null` and `ref.func` initializer expressions where valid.
+- [FUZ]1037D - Cover imported immutable `global.get` initializer expressions.
+- [FUZ]1037E - Add invalid const-expression fixtures for body-only ops in const contexts.
+- [FUZ]1038B - Generate many distinct valid export names and export aliases in metadata-heavy profiles.
+- [FUZ]1038C - Generate varied unknown custom sections with different legal placements and payload bytes.
+- [FUZ]1038D - Generate name-section function/local/label payloads in metadata-heavy profiles.
+- [FUZ]1039A - Generate valid start-function profiles with `[] -> []` helpers.
+- [FUZ]1039B - Generate active data/element offsets using imported immutable globals.
+- [FUZ]1039C - Generate table initializers using `ref.func` and typed refs.
+- [FUZ]1051A - Define checked-in fuzz recipe schema version and parser tests.
+- [FUZ]1051B - Add smoke and CI recipes for current default fuzz suites.
+- [FUZ]1051C - Add pass-signoff and validator-stress recipes.
+- [FUZ]1051D - Document recipe override precedence and common commands.
+- [FUZ]1058B - Add the first checked-in golden seed catalog entries for GenValid, invalid AST, invalid binary, invalid text, and metamorphic suites.
+- [FUZ]1058C - Add golden seed smoke runner that asserts stable high-level counters.
+- [FUZ]1058D - Add docs explaining when and how to update golden seeds.
+
+p2 invalid/binary/text tiny slices:
+- [FUZ]1020A1 - When manually unblocked, add one subtype-variance invalid AST family and focused repair/reject tests.
+- [FUZ]1020A2 - When manually unblocked, add one descriptor-cycle invalid AST family.
+- [FUZ]1020A3 - When manually unblocked, add one heap/ref type-index invalid AST family.
+- [FUZ]1020B1 - When manually unblocked, add the next table/memory/tag/global section-index invalid AST family not already covered.
+- [FUZ]1020B2 - When manually unblocked, add the next element/data/datacount/start/export/code/name-section rule variant not already covered.
+- [FUZ]1020C1 - When manually unblocked, add one remaining GC body invalid proposal family.
+- [FUZ]1020C2 - When manually unblocked, add one remaining exception/branch-payload invalid body family.
+- [FUZ]1020C3 - When manually unblocked, add one remaining memory64/relaxed-SIMD/const-safety invalid body family.
+- [FUZ]1021A1 - When manually unblocked, add invalid UTF-8 corruption for custom-section names.
+- [FUZ]1021A2 - When manually unblocked, add invalid UTF-8 corruption for import/export names.
+- [FUZ]1021A3 - When manually unblocked, add invalid UTF-8 corruption for name-section payload strings.
+- [FUZ]1021B1 - When manually unblocked, add invalid primary opcode byte corruption.
+- [FUZ]1021B2 - When manually unblocked, add bad proposal prefix/subopcode corruption for represented prefixes.
+- [FUZ]1021B3 - When manually unblocked, add malformed/overwide subopcode immediate corruption beyond the landed atomics/SIMD samples.
+- [FUZ]1021C1 - When manually unblocked, add invalid SIMD lane-immediate byte corruptions.
+- [FUZ]1021C2 - When manually unblocked, add invalid blocktype encoding corruptions.
+- [FUZ]1021C3 - When manually unblocked, add invalid heap/ref type encoding corruptions.
+- [FUZ]1021C4 - When manually unblocked, add remaining memarg/immediate malformed-byte families.
+- [FUZ]1022A1 - Add decode-accepted binary cases for body stack mismatches.
+- [FUZ]1022A2 - Add decode-accepted binary cases for bad branch labels/payloads.
+- [FUZ]1022A3 - Add decode-accepted binary cases for bad local/global/table/memory/tag/type indices.
+- [FUZ]1022A4 - Add decode-accepted binary cases for call_indirect/call_ref signature failures.
+- [FUZ]1022A5 - Add decode-accepted binary cases for GC struct/array field failures.
+- [FUZ]1022B1 - Add decode-accepted binary cases for exception validation failures.
+- [FUZ]1022B2 - Add decode-accepted binary cases for atomics on non-shared memory.
+- [FUZ]1022B3 - Add decode-accepted binary cases for memory64 address typing failures.
+- [FUZ]1022B4 - Add decode-accepted binary cases for invalid const-expression encodings.
+- [FUZ]1022B5 - Add decode-accepted binary cases for relaxed-SIMD validation failures where represented.
+- [FUZ]1023A1 - When manually unblocked, add valid-before-link dynamic outcome classification.
+- [FUZ]1023A2 - When manually unblocked, persist valid-before-link dynamic repro metadata separately from parse/validate rejection.
+- [FUZ]1023B1 - When manually unblocked, broaden dynamic source feature facts beyond current simple WAT field tags.
+- [FUZ]1023C1 - When manually unblocked, add dynamic bad type-token mutation.
+- [FUZ]1023C2 - When manually unblocked, add dynamic mutable-global const-init mutation.
+- [FUZ]1023C3 - When manually unblocked, add dynamic string/name mutation.
+- [FUZ]1023C4 - When manually unblocked, add dynamic module-field mutation.
+- [FUZ]1023C5 - When manually unblocked, add additional dynamic memarg/lane/index mutations.
+- [FUZ]1025A1 - Version `InvalidFuzzFailureReport` metadata with backward-compatible parsing.
+- [FUZ]1025A2 - Record variant id, issue kind, generator profile/config, feature facts, and source artifacts.
+- [FUZ]1025B1 - Add shrink-preserves-outcome support for AST invalid modules.
+- [FUZ]1025B2 - Add shrink-preserves-outcome support for binary byte artifacts.
+- [FUZ]1025B3 - Add shrink-preserves-outcome support for text assertion artifacts.
+- [FUZ]1025B4 - Add shrink-preserves-outcome support for spec-seed extracts.
+- [FUZ]1026A1 - Add deterministic two-fault AST invalid stress case.
+- [FUZ]1026A2 - Add deterministic binary+text or binary-only multi-fault stress case.
+- [FUZ]1026B1 - Persist all mutation ids and broad outcomes for multi-fault repros.
+
+p2 oracle/reporting/infrastructure tiny slices:
+- [FUZ]1031A - Add optional `--out-dir` plumbing for ordinary fuzz runs without changing default output behavior.
+- [FUZ]1031B - Write `result.json` and `cases.jsonl` for one ordinary fuzz suite.
+- [FUZ]1031C - Add `generated/`, `failures/`, and manifest layout for one suite.
+- [FUZ]1031D - Generalize output-dir layout to the remaining ordinary fuzz suites.
+- [FUZ]1031E - Document fuzz artifact retention and replay behavior.
+- [FUZ]1032A - Add optional `wasm-tools validate` adapter with unavailable-tool skip classification.
+- [FUZ]1032B - Add optional Binaryen `wasm-validate` adapter.
+- [FUZ]1032C - Add optional WABT validation adapter if locally available.
+- [FUZ]1032D - Add fake-runtime adapter tests for future execution oracle plumbing.
+- [FUZ]1033A - Add pass-fuzz `--check-idempotent` parser/report plumbing.
+- [FUZ]1033B - Implement idempotence check for one pass-fuzz smoke path.
+- [FUZ]1033C - Add repeated-pass validation property check.
+- [FUZ]1033D - Add selected pass-composition property check metadata without changing default signoff behavior.
+- [FUZ]1042A - Define promoted/quarantine corpus directory and metadata policy.
+- [FUZ]1042B - Add replay command metadata for promoted cases.
+- [FUZ]1042C - Add replay-all task over a tiny promoted fixture set.
+- [FUZ]1043A - Define shared minimizer predicate interface.
+- [FUZ]1043B - Add module/function deletion reducer fixture.
+- [FUZ]1043C - Add byte-slice deletion reducer fixture.
+- [FUZ]1043D - Add text-token deletion reducer fixture.
+- [FUZ]1044A1 - Add n-way binary adapter result schema and fake classifications.
+- [FUZ]1044A2 - Wire Starshine vs optional wasm-tools classification for binary decode/validate.
+- [FUZ]1044A3 - Wire optional WABT/Binaryen classifications and proposal-gap reporting.
+- [FUZ]1045A1 - Add n-way text adapter result schema and fake classifications.
+- [FUZ]1045A2 - Wire local WAT/WAST parser against optional WABT text command.
+- [FUZ]1045A3 - Wire optional wasm-tools text command and unsupported-syntax classification.
+- [FUZ]1047A - Document each pass-fuzz normalization step and emitted artifact/hash.
+- [FUZ]1047B - Add fixtures for debug-only/name/custom-section differences.
+- [FUZ]1047C - Add fixtures for default-local initialization and transparent block-wrapper normalization.
+- [FUZ]1047D - Add fixtures for NaN payload/printing equality and inequality boundaries.
+- [FUZ]1048A - Ensure every fuzz summary JSON records feature/opcode/strategy counters needed by coverage-delta.
+- [FUZ]1048B - Add a docs example for `bun fuzz coverage-delta` required vs optional counters.
+- [FUZ]1049A - Add deterministic shard queue smoke over two fake shards.
+- [FUZ]1049B - Add resume-skip test for completed shard manifests.
+- [FUZ]1049C - Add stable merge test for ledgers and cases independent of completion order.
+- [FUZ]1050A - Add raw bytes/text and normalized canonical hashes to artifact metadata.
+- [FUZ]1050B - Add feature-fact and failure-predicate interestingness hashes.
+- [FUZ]1050C - Add reversible dedup index mapping hashes to seeds/profiles.
+- [FUZ]1052B1 - Choose deterministic simple argument vectors for exported functions.
+- [FUZ]1052B2 - Execute one simple exported function under the optional runtime adapter.
+- [FUZ]1052B3 - Classify equal result, equal trap, unsupported runtime, nondeterministic import, and semantic mismatch.
+- [FUZ]1053A1 - Add per-case timeout budget and timeout classification to the ordinary fuzz runner.
+- [FUZ]1053A2 - Add per-case timeout budget and timeout classification to pass-fuzz.
+- [FUZ]1053A3 - Add per-case timeout budget and timeout classification to external adapters.
+- [FUZ]1053B1 - Persist timeout/resource repro metadata without failing to write partial artifacts.
+- [FUZ]1053B2 - Add cleanup/manifest behavior for partial timeout artifacts.
+- [FUZ]1055A1 - Generate a valid two-module WAST script with named module/register wiring.
+- [FUZ]1055A2 - Generate valid import/export wiring across multiple modules.
+- [FUZ]1055B1 - Generate `assert_unlinkable` for missing imports.
+- [FUZ]1055B2 - Generate `assert_unlinkable` for type-mismatched imports.
+- [FUZ]1056A1 - Add curated invalid binary byte-offset/section diagnostic fixture.
+- [FUZ]1056A2 - Add curated invalid text line/column diagnostic fixture.
+- [FUZ]1056B1 - Persist best-effort diagnostic locations in binary invalid repros.
+- [FUZ]1056B2 - Persist best-effort diagnostic locations in text invalid repros.
+- [FUZ]1057A1 - Document canonicality policy for overwide/noncanonical encodings.
+- [FUZ]1057B1 - Add canonical and overwide unsigned LEB fixture matrix.
+- [FUZ]1057B2 - Add signed LEB boundary fixture matrix.
+- [FUZ]1057B3 - Add section-size encoding, NaN payload preservation, and custom-section byte-preservation fixtures.
+
 #### Named remaining FUZ slice index
 
 Use these slice ids when selecting or reporting future FUZ work. Parent tasks below keep the fuller goals, invariants, and historical evidence; this index names the remaining units so agents do not have to infer the next slice from long status paragraphs.
