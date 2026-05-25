@@ -1587,6 +1587,70 @@ pub struct GenValidCoverageSelection {
 } derive(Eq, Debug)
 
 ///|
+pub enum GoldenSeedCounterKind {
+  Exact
+  Minimum
+} derive(Eq, Debug)
+
+///|
+pub struct GoldenSeedExpectedCounter {
+  name : String
+  kind : GoldenSeedCounterKind
+  value : Int
+} derive(Eq, Debug)
+
+///|
+pub fn GoldenSeedExpectedCounter::exact(
+  name : String,
+  value : Int,
+) -> GoldenSeedExpectedCounter {
+  { name, kind: GoldenSeedCounterKind::Exact, value }
+}
+
+///|
+pub fn GoldenSeedExpectedCounter::minimum(
+  name : String,
+  value : Int,
+) -> GoldenSeedExpectedCounter {
+  { name, kind: GoldenSeedCounterKind::Minimum, value }
+}
+
+///|
+pub struct GoldenSeedCatalogEntry {
+  id : String
+  suite : String
+  profile : String
+  seed : UInt64
+  expected_counters : Array[GoldenSeedExpectedCounter]
+  covered_surfaces : Array[String]
+  artifacts : Array[String]
+  notes : String
+} derive(Eq, Debug)
+
+///|
+pub fn GoldenSeedCatalogEntry::new(
+  id : String,
+  suite : String,
+  profile : String,
+  seed : UInt64,
+  expected_counters? : Array[GoldenSeedExpectedCounter] = [],
+  covered_surfaces? : Array[String] = [],
+  artifacts? : Array[String] = [],
+  notes? : String = "",
+) -> GoldenSeedCatalogEntry {
+  {
+    id,
+    suite,
+    profile,
+    seed,
+    expected_counters,
+    covered_surfaces,
+    artifacts,
+    notes,
+  }
+}
+
+///|
 fn gen_valid_coverage_feature_label(key : ValidateValidFeatureKey) -> String {
   match key {
     @validate.ValidateValidFeatureKey::Imports => "imports"
@@ -2118,6 +2182,72 @@ fn format_gen_valid_stream_derivations_json(seed : UInt64) -> String {
   }
   out.write_char(']')
   out.to_string()
+}
+
+///|
+fn format_fuzz_string_array_json(items : Array[String]) -> String {
+  let out = StringBuilder::new()
+  out.write_char('[')
+  let mut i = 0
+  while i < items.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    out.write_char('"')
+    out.write_string(fuzz_json_escape(items[i]))
+    out.write_char('"')
+    i += 1
+  }
+  out.write_char(']')
+  out.to_string()
+}
+
+///|
+fn format_golden_seed_counter_kind(kind : GoldenSeedCounterKind) -> String {
+  match kind {
+    GoldenSeedCounterKind::Exact => "exact"
+    GoldenSeedCounterKind::Minimum => "minimum"
+  }
+}
+
+///|
+pub fn format_golden_seed_catalog_entry_json(
+  entry : GoldenSeedCatalogEntry,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("{\"id\":\"")
+  out.write_string(fuzz_json_escape(entry.id))
+  out.write_string("\",\"suite\":\"")
+  out.write_string(fuzz_json_escape(entry.suite))
+  out.write_string("\",\"profile\":\"")
+  out.write_string(fuzz_json_escape(entry.profile))
+  out.write_string("\",\"seed\":\{entry.seed},\"expected_counters\":[")
+  let mut i = 0
+  while i < entry.expected_counters.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    let counter = entry.expected_counters[i]
+    out.write_string("{\"name\":\"")
+    out.write_string(fuzz_json_escape(counter.name))
+    out.write_string("\",\"kind\":\"")
+    out.write_string(format_golden_seed_counter_kind(counter.kind))
+    out.write_string("\",\"value\":\{counter.value}}")
+    i += 1
+  }
+  out.write_string("],\"covered_surfaces\":")
+  out.write_string(format_fuzz_string_array_json(entry.covered_surfaces))
+  out.write_string(",\"artifacts\":")
+  out.write_string(format_fuzz_string_array_json(entry.artifacts))
+  out.write_string(",\"notes\":\"")
+  out.write_string(fuzz_json_escape(entry.notes))
+  out.write_string("\"}")
+  out.to_string()
+}
+
+///|
+pub fn golden_seed_catalog_schema_json() -> String {
+  "{\"schema\":\"starshine.fuzz.golden-seed-catalog.v1\",\"entry\":{\"required\":[\"id\",\"suite\",\"profile\",\"seed\",\"expected_counters\",\"covered_surfaces\"],\"optional\":[\"artifacts\",\"notes\"],\"fields\":{\"id\":\"stable unique catalog id\",\"suite\":\"fuzz suite or adapter name\",\"profile\":\"suite profile or recipe profile\",\"seed\":\"unsigned 64-bit deterministic root seed\",\"expected_counters\":\"array of named exact or minimum counters\",\"covered_surfaces\":\"maintained feature/strategy surfaces this seed exercises\",\"artifacts\":\"expected artifact file names or logical outputs\",\"notes\":\"human maintenance note\"}},\"counter_value_kind\":\"exact-or-minimum-nonnegative-integer\"}"
 }
 
 ///|

@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1058A golden seed catalog schema
+
+- Completed `[FUZ]1058A` by adding the `starshine.fuzz.golden-seed-catalog.v1` schema helper, `GoldenSeedCatalogEntry`, expected-counter kind/value modeling, and JSON format coverage for deterministic golden seed records.
+- Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) and this index/log trail so the follow-up `[FUZ]1058B` smoke-suite catalog has a documented entry shape for seeds, counters, covered surfaces, artifacts, and notes.
+
 ## [2026-05-25] fuzzing | FUZ1036D metamorphic i32.eqz drop body reshaping
 
 - Continued `[FUZ]1036D` by adding the `add-leading-i32-eqz-drop-to-defined-functions` and `add-trailing-i32-eqz-drop-to-defined-functions` metamorphic-valid transforms. They insert a pure `i32.const 0; i32.eqz; drop` stack at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate the transformed modules, and report the new transform ids through `validate-valid-metamorphic` details.

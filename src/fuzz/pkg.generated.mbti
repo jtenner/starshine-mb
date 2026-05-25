@@ -37,6 +37,8 @@ pub fn format_fuzz_run_report_json(String, String, Int64, Int, Int, Int, Array[F
 
 pub fn format_fuzz_suite_result(FuzzSuiteResult, FuzzOutputMode) -> String
 
+pub fn format_golden_seed_catalog_entry_json(GoldenSeedCatalogEntry) -> String
+
 pub fn fuzz_active_suite_names() -> Array[String]
 
 pub fn fuzz_reserved_suite_names() -> Array[String]
@@ -56,6 +58,8 @@ pub fn gen_invalid_binary_seed_config(GenInvalidBinaryParams) -> @validate.GenVa
 pub fn gen_invalid_binary_seed_mode_name(GenInvalidBinarySeedMode) -> String
 
 pub fn gen_invalid_binary_seed_module(@splitmix.RandomState, GenInvalidBinaryParams) -> Result[@lib.Module, String]
+
+pub fn golden_seed_catalog_schema_json() -> String
 
 pub fn invalid_fuzz_ast_source_kind() -> InvalidFuzzSourceKind
 
@@ -296,6 +300,31 @@ pub struct GenValidWatValidateRoundtripFuzzStats {
   validated : Int
   validation_failures : Int
 } derive(Eq, @debug.Debug)
+
+pub struct GoldenSeedCatalogEntry {
+  id : String
+  suite : String
+  profile : String
+  seed : UInt64
+  expected_counters : Array[GoldenSeedExpectedCounter]
+  covered_surfaces : Array[String]
+  artifacts : Array[String]
+  notes : String
+} derive(Eq, @debug.Debug)
+pub fn GoldenSeedCatalogEntry::new(String, String, String, UInt64, expected_counters? : Array[GoldenSeedExpectedCounter], covered_surfaces? : Array[String], artifacts? : Array[String], notes? : String) -> Self
+
+pub enum GoldenSeedCounterKind {
+  Exact
+  Minimum
+} derive(Eq, @debug.Debug)
+
+pub struct GoldenSeedExpectedCounter {
+  name : String
+  kind : GoldenSeedCounterKind
+  value : Int
+} derive(Eq, @debug.Debug)
+pub fn GoldenSeedExpectedCounter::exact(String, Int) -> Self
+pub fn GoldenSeedExpectedCounter::minimum(String, Int) -> Self
 
 pub struct InvalidFuzzArtifact {
   label : String

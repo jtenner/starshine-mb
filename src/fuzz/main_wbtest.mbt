@@ -537,6 +537,56 @@ test "emit_gen_valid_batch_to_dir writes opt-in manifest for selected modules" {
 }
 
 ///|
+test "golden seed catalog schema records deterministic coverage contract" {
+  let schema = golden_seed_catalog_schema_json()
+  assert_true(
+    schema.contains("\"schema\":\"starshine.fuzz.golden-seed-catalog.v1\""),
+  )
+  assert_true(schema.contains("\"seed\""))
+  assert_true(schema.contains("\"suite\""))
+  assert_true(schema.contains("\"profile\""))
+  assert_true(schema.contains("\"expected_counters\""))
+  assert_true(schema.contains("\"covered_surfaces\""))
+  assert_true(schema.contains("\"artifacts\""))
+  assert_true(schema.contains("\"notes\""))
+  assert_true(
+    schema.contains(
+      "\"required\":[\"id\",\"suite\",\"profile\",\"seed\",\"expected_counters\",\"covered_surfaces\"]",
+    ),
+  )
+  assert_true(
+    schema.contains(
+      "\"counter_value_kind\":\"exact-or-minimum-nonnegative-integer\"",
+    ),
+  )
+}
+
+///|
+test "golden seed catalog example formats expected counters and surfaces" {
+  let entry = GoldenSeedCatalogEntry::new(
+    "gen-valid-smoke-v128",
+    "validate-valid",
+    "smoke",
+    0x5eedUL,
+    expected_counters=[GoldenSeedExpectedCounter::minimum("features.v128", 1)],
+    covered_surfaces=["GenValid", "v128"],
+    artifacts=["result.json"],
+    notes="stable v128 smoke seed",
+  )
+  let json = format_golden_seed_catalog_entry_json(entry)
+  assert_true(json.contains("\"id\":\"gen-valid-smoke-v128\""))
+  assert_true(json.contains("\"suite\":\"validate-valid\""))
+  assert_true(json.contains("\"profile\":\"smoke\""))
+  assert_true(json.contains("\"seed\":24301"))
+  assert_true(json.contains("\"kind\":\"minimum\""))
+  assert_true(json.contains("\"name\":\"features.v128\""))
+  assert_true(json.contains("\"value\":1"))
+  assert_true(json.contains("\"covered_surfaces\":[\"GenValid\",\"v128\"]"))
+  assert_true(json.contains("\"artifacts\":[\"result.json\"]"))
+  assert_true(json.contains("\"notes\":\"stable v128 smoke seed\""))
+}
+
+///|
 test "gen-valid batch manifest stream derivations roundtrip through parser" {
   let args = EmitGenValidBatchArgs::new(
     1,

@@ -115,6 +115,10 @@ Callers that need generation diagnostics can use [`gen_valid_module_result(...)`
 
 For local coverage-guided selection, [`emit_gen_valid_batch_artifacts_until_features(...)`](../../../src/fuzz/main.mbt) generates a bounded candidate stream from an explicit `GenValidConfig`, keeps only modules that contribute to required feature floors and do not hit excluded feature keys, and returns the selected artifacts, manifest entries, aggregate `GenValidFeatureStats`, floor failures, attempt count, and skipped-candidate count. Use [`validate_valid_feature_floor_by_label(...)`](../../../src/validate/validate.mbt) and [`validate_valid_feature_actual_count_by_label(...)`](../../../src/validate/validate.mbt) when a caller needs stable string labels instead of constructing ledger enum values directly.
 
+### Golden seed catalog schema
+
+The maintained golden-seed catalog schema is now named `starshine.fuzz.golden-seed-catalog.v1` and is exposed by [`golden_seed_catalog_schema_json()`](../../../src/fuzz/main.mbt). Each entry records a stable `id`, `suite`, `profile`, unsigned root `seed`, `expected_counters`, and `covered_surfaces`; `artifacts` and `notes` are optional maintenance fields. Expected counters are named nonnegative integers with either `exact` or `minimum` semantics so smoke seeds can pin stable invariants while allowing broader feature counters to grow. [`GoldenSeedCatalogEntry`](../../../src/fuzz/main.mbt) and [`format_golden_seed_catalog_entry_json(...)`](../../../src/fuzz/main.mbt) provide the checked formatter used by tests before the catalog is populated with actual seeds.
+
 ### Invalid repro bundles
 
 The MoonBit runner also exposes the shared invalid-repro builder:

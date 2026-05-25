@@ -617,8 +617,6 @@ p1 GenValid / valid-generation slices:
   - Unit: define and parse the checked-in recipe schema with predictable CLI override precedence.
 - [FUZ]1051B (p1, tooling) - Standard Checked-In Recipe Set
   - Unit: add smoke, CI, nightly, pass-signoff, validator-stress, parser-stress, and Binaryen-oracle recipes plus docs/examples.
-- [FUZ]1058A (p1, GenValid/tooling) - Golden Seed Catalog Schema
-  - Unit: define how golden seeds, expected counters, and covered surfaces are recorded.
 - [FUZ]1058B (p1, GenValid/tooling) - Golden Seed Smoke Suite
   - Unit: add a small deterministic suite that exercises major GenValid, invalid, text, binary, pass-fuzz metadata, and minimization surfaces.
 
@@ -1074,7 +1072,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1058 (p1) - Fuzzer Self-Tests, Golden Seeds, And Deterministic Example Catalog
   - Goal: maintain a small catalog of seeds/examples that prove each major fuzz surface still works.
   - Why: large random runs are poor smoke tests. Future agents need fast deterministic examples for GenValid profiles, invalid variants, text mutation, binary corruption, pass-fuzz metadata, and minimization.
-  - Deliverables: add golden seeds for each profile/family, expected feature/strategy counters, expected artifact names, and a docs page explaining what each seed is meant to cover.
+  - Deliverables: add golden seeds for each profile/family, expected feature/strategy counters, expected artifact names, and a docs page explaining what each seed is meant to cover. Schema slice [FUZ]1058A is complete: `golden_seed_catalog_schema_json()` defines `starshine.fuzz.golden-seed-catalog.v1`, and `GoldenSeedCatalogEntry` / `format_golden_seed_catalog_entry_json(...)` lock the entry shape for the follow-up smoke-suite catalog.
   - Required APIs: GenValid profiles, invalid strategy ledgers, fuzz runner reports, batch manifests.
   - Invariants: golden seeds should be few and intentionally maintained; broad coverage remains the job of CI/stress fuzz, not the catalog.
   - Dependencies: [FUZ]1013 exact ledger and [FUZ]1030 detailed reports.
