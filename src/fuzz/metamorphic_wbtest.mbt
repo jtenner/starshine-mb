@@ -3326,6 +3326,90 @@ test "metamorphic i32 and i64 equality drop transforms preserve validation and b
 }
 
 ///|
+test "metamorphic i32 and i64 signed relational drop transforms preserve validation and binary roundtrip" {
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingI32LtSDropToDefinedFunctions,
+      "add-leading-i32-lt-s-drop-to-defined-functions",
+      @lib.Instruction::i32_lt_s(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingI32LtSDropToDefinedFunctions,
+      "add-trailing-i32-lt-s-drop-to-defined-functions",
+      @lib.Instruction::i32_lt_s(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingI32GtSDropToDefinedFunctions,
+      "add-leading-i32-gt-s-drop-to-defined-functions",
+      @lib.Instruction::i32_gt_s(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingI32GtSDropToDefinedFunctions,
+      "add-trailing-i32-gt-s-drop-to-defined-functions",
+      @lib.Instruction::i32_gt_s(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingI64LtSDropToDefinedFunctions,
+      "add-leading-i64-lt-s-drop-to-defined-functions",
+      @lib.Instruction::i64_lt_s(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingI64LtSDropToDefinedFunctions,
+      "add-trailing-i64-lt-s-drop-to-defined-functions",
+      @lib.Instruction::i64_lt_s(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingI64GtSDropToDefinedFunctions,
+      "add-leading-i64-gt-s-drop-to-defined-functions",
+      @lib.Instruction::i64_gt_s(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingI64GtSDropToDefinedFunctions,
+      "add-trailing-i64-gt-s-drop-to-defined-functions",
+      @lib.Instruction::i64_gt_s(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic f32 and f64 equality drop transforms preserve validation and binary roundtrip" {
   match
     assert_metamorphic_binary_drop_transform(
@@ -4156,8 +4240,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 145)
-  @debug.assert_eq(stats.validated, 145)
+  @debug.assert_eq(stats.transformed, 153)
+  @debug.assert_eq(stats.validated, 153)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -4403,6 +4487,16 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(
     stats.transform_ids.contains(
       "add-trailing-f64-ne-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-leading-i32-lt-s-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-trailing-i64-gt-s-drop-to-defined-functions",
     ),
   )
   assert_true(
