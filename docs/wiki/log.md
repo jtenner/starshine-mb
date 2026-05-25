@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO function-effect read summary study
+
+- Added research note [`0634`](./raw/research/0634-2026-05-25-sgo-function-effect-read-summary-study.md) for `[SGO]003I`, auditing Starshine's direct-call mutation summaries and probing Binaryen call-shaped read-only-to-write boundaries.
+- Binaryen probe evidence showed a direct no-read/no-write call can be transparent in a condition, while a callee read of the candidate global preserves the mutable global and outer guard; future `[SGO]003E` implementation should add fixed-point read/write summaries before accepting call-shaped positives.
+- Removed completed `[SGO]003I` from active backlog, updated `[SGO]003E` with the 0634 dependency, and kept `[SGO]003` active/partial; no optimizer behavior changed.
+
 ## [2026-05-25] binaryen | SGO next-slice probe inventory refresh
 
 - Added research note [`0633`](./raw/research/0633-2026-05-25-sgo-next-slice-probe-inventory-refresh.md) for `[SGO]003A`, comparing the current SGO source/test/matrix state after the 0632 refactor streak.
