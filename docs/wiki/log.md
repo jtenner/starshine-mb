@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO refactor queue closeout
+
+- Added research note [`0654`](./raw/research/0654-2026-05-25-sgo-refactor-queue-closeout.md) for `[SGO]003O4`, auditing the refactor-only matcher maintainability queue after `[SGO]003O1` through `[SGO]003O3` were resolved.
+- Closed `[SGO]003O` instead of keeping an open opportunistic bucket: no hidden maintainability blockers or deferred matcher families were found, and future refactor discoveries should be filed as explicit child slices.
+- No optimizer behavior changed and no direct SGO fuzz was required because this was docs/backlog-only. `[SGO]003` remains active/partial.
+
 ## [2026-05-25] binaryen | SGO clean leaf replacement helper rename
 
 - Added research note [`0653`](./raw/research/0653-2026-05-25-sgo-clean-leaf-replacement-rename.md) for `[SGO]003O3`, renaming the FlowScanner one-clean-pop / one-clean-push helper to make the clean leaf replacement contract explicit.
