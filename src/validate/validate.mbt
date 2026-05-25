@@ -5903,7 +5903,9 @@ priv struct ValidateTestConstExprForms {
   gc_ref_in_global : Bool
   global_get_in_table_init : Bool
   global_get_in_elem_offset : Bool
+  imported_global_get_in_elem_offset : Bool
   global_get_in_data_offset : Bool
+  imported_global_get_in_data_offset : Bool
 }
 
 ///|
@@ -5915,7 +5917,9 @@ fn validate_test_const_expr_forms_empty() -> ValidateTestConstExprForms {
     gc_ref_in_global: false,
     global_get_in_table_init: false,
     global_get_in_elem_offset: false,
+    imported_global_get_in_elem_offset: false,
     global_get_in_data_offset: false,
+    imported_global_get_in_data_offset: false,
   }
 }
 
@@ -5974,6 +5978,26 @@ fn validate_test_imported_global_count(mod : Module) -> Int {
     }
     None => 0
   }
+}
+
+///|
+fn validate_test_expr_has_imported_global_get(
+  expr : Expr,
+  imported_global_count : Int,
+) -> Bool {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      GlobalGet(idx) => {
+        let GlobalIdx(idx_u) = idx
+        if idx_u.reinterpret_as_int() < imported_global_count {
+          return true
+        }
+      }
+      _ => ()
+    }
+  }
+  false
 }
 
 ///|
@@ -6049,6 +6073,10 @@ fn validate_test_const_expr_forms_module(
               ..forms,
               global_get_in_elem_offset: forms.global_get_in_elem_offset ||
               validate_test_expr_has_global_get(offset),
+              imported_global_get_in_elem_offset: forms.imported_global_get_in_elem_offset ||
+              validate_test_expr_has_imported_global_get(
+                offset, imported_global_count,
+              ),
             }
           _ => ()
         }
@@ -6065,6 +6093,10 @@ fn validate_test_const_expr_forms_module(
               ..forms,
               global_get_in_data_offset: forms.global_get_in_data_offset ||
               validate_test_expr_has_global_get(offset),
+              imported_global_get_in_data_offset: forms.imported_global_get_in_data_offset ||
+              validate_test_expr_has_imported_global_get(
+                offset, imported_global_count,
+              ),
             }
           Passive => ()
         }
@@ -6090,7 +6122,9 @@ test "gen_valid coverage-forced emits const-expression variants" {
   assert_true(forms.gc_ref_in_global)
   assert_true(forms.global_get_in_table_init)
   assert_true(forms.global_get_in_elem_offset)
+  assert_true(forms.imported_global_get_in_elem_offset)
   assert_true(forms.global_get_in_data_offset)
+  assert_true(forms.imported_global_get_in_data_offset)
   let facts = gen_valid_feature_facts(mod, config.mode)
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
   assert_true(validate_valid_feature_actual_count(stats, ConstExprVariants) > 0)

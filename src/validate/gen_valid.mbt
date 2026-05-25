@@ -10339,10 +10339,19 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   }
 
   let total_func_count = import_func_count + defined_func_count
-  let const_i32_global_idx = if ctx.config.features.allow_const_expr_variants {
-    gen_matching_immutable_global_idx(global_types, ValType::i32())
+  let imported_i32_global_idx = if ctx.config.features.allow_const_expr_variants {
+    gen_matching_immutable_global_idx(imported_global_types, ValType::i32())
   } else {
     None
+  }
+  let const_i32_global_idx = match imported_i32_global_idx {
+    Some(idx) => Some(idx)
+    None =>
+      if ctx.config.features.allow_const_expr_variants {
+        gen_matching_immutable_global_idx(global_types, ValType::i32())
+      } else {
+        None
+      }
   }
   let tags : Array[TagType] = []
   for i = 0; i < defined_tag_count; i = i + 1 {
@@ -10394,7 +10403,7 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
             gen_valid_active_i32_offset_from(
               ctx,
               ElemStream,
-              global_idx=const_i32_global_idx,
+              global_idx=imported_i32_global_idx,
             ),
           ),
           ElemKind::funcs([func_idx, second_func_idx]),
@@ -10593,7 +10602,7 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
             gen_valid_active_i32_offset_from(
               ctx,
               DataStream,
-              global_idx=const_i32_global_idx,
+              global_idx=imported_i32_global_idx,
             ),
           ),
           gen_valid_payload(ctx, b"gen-valid-active-with-a-larger-payload"),

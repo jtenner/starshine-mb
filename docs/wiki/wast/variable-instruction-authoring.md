@@ -70,7 +70,7 @@ Identifier metadata is separate from variable instruction semantics. For the sou
 | Core instruction model | [`src/lib/types.mbt`](../../../src/lib/types.mbt) | Keeps `LocalGet`, `LocalSet`, `LocalTee`, `GlobalGet`, and `GlobalSet` as explicit `Instruction` variants. |
 | Binary bytes | [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) | Uses opcodes `0x20`..`0x24`, each followed by the relevant local/global index immediate; byte well-formedness is not enough to prove semantic validity. |
 | Validation | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) | Checks index existence, value types, global mutability, and constant-expression eligibility. |
-| Fuzz / generator evidence | [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt) | `[FZG]003` covers `local.tee`; `[FZG]008` covers immutable `global.get` const-expression variants; invalid strategies keep mutable-global const-expression failures live. |
+| Fuzz / generator evidence | [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt) | `[FZG]003` covers `local.tee`; `[FZG]008` covers immutable `global.get` const-expression variants; `[FUZ]1039B` forces imported immutable `i32` globals into coverage-forced active element/data offsets; invalid strategies keep mutable-global const-expression failures live. |
 
 ## Text Shapes And Stack Rules
 
@@ -126,6 +126,7 @@ Starshine's codec maps these directly in [`src/binary/decode.mbt`](../../../src/
 Starshine allows an extended immutable-`global.get` constant-expression subset in selected initializer/offset positions. The key local rules are:
 
 - immutable imported globals may be read in constant expressions;
+- coverage-forced GenValid modules deliberately use imported immutable `i32` globals in active element and data offsets so that the imported-global offset profile stays exercised;
 - immutable earlier defined globals may be read by later globals or segment/table initializers;
 - mutable `global.get` is rejected in constant expressions;
 - ordinary function-body `global.get` remains just a normal instruction.

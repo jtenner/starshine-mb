@@ -613,8 +613,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 Use these slice ids when selecting or reporting future FUZ work. Parent tasks below keep the fuller goals, invariants, and historical evidence; this index names the remaining units so agents do not have to infer the next slice from long status paragraphs.
 
 p1 GenValid / valid-generation slices:
-- [FUZ]1039B (p1, GenValid) - Imported-Global Offset Initialization Profiles
-  - Unit: generate active element/data offsets and global initializers that use imported immutable globals through the shared const-expression matrix.
 - [FUZ]1038A (p1, GenValid) - Valid Name String Edge Profiles
   - Unit: generate empty, long, Unicode, and repeated import module names while preserving validation and roundtrip behavior.
 - [FUZ]1038B (p1, GenValid) - Custom Section Placement/Payload Stress
