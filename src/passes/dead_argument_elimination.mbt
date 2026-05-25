@@ -19180,7 +19180,7 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   for
     selected_result_def in [
       298, 299, 427, 445, 459, 472, 476, 3566, 3732, 3814, 3834, 4106, 4229, 4232,
-      4240, 4241, 4249,
+      4240, 4241, 4242, 4249,
     ] {
     if selected_result_def < selected_scratch_defs.length() {
       selected_scratch_defs[selected_result_def] = true
@@ -19235,7 +19235,7 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   }
   for
     mid_literal_def in [
-      267, 268, 287, 288, 311, 408, 428, 538, 869, 1777, 4206, 4368,
+      267, 268, 287, 288, 311, 408, 428, 504, 538, 869, 1777, 4206, 4368,
     ] {
     if mid_literal_def >= 0 && mid_literal_def < selected_scratch_defs.length() {
       selected_scratch_defs[mid_literal_def] = true

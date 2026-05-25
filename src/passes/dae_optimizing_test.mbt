@@ -2971,7 +2971,7 @@ test "dae-optimizing removes selected mid-prefix dropped callee results" {
   for
     target_def in [
       299, 427, 459, 472, 476, 3566, 3732, 3814, 3834, 4106, 4229, 4232, 4240, 4241,
-      4249,
+      4242, 4249,
     ] {
     let out = StringBuilder::new()
     out.write_string("(module\n")
@@ -3193,6 +3193,30 @@ test "dae-optimizing removes selected Func408 nops" {
     target_def.reinterpret_as_uint(),
   )
   assert_false(target.contains("nop"), msg=target)
+}
+
+///|
+test "dae-optimizing materializes selected Func521 literal actual" {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < 504; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32 i32) (result i32)
+      #|    local.get 0)
+      #|  (func (export "run") (param i32) (result i32)
+      #|    local.get 0
+      #|    i32.const 55168
+      #|    call $target)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  @debug.assert_eq(dae_test_func_params(optimized, 504).length(), 1)
+  let run = optimized.pretty_print_defined_func(505U)
+  assert_false(run.contains("55168"), msg=run)
 }
 
 ///|

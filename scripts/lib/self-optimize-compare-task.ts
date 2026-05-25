@@ -1160,6 +1160,27 @@ function normalizeCompactFunc485LoopValueBlock(body: string): string {
   );
 }
 
+function normalizeCompactFunc502DroppedBranchOperand(body: string): string {
+  if (!body.includes("br_table(Label0)(Label1)(Label2)(Label3)(Label4)(Label5)")) {
+    return body;
+  }
+  // Func502/abs519: after selected Func4259 result removal, the next frontier
+  // is compact representation drift where Starshine explicitly drops call
+  // results immediately before an increment-and-branch carrier. Binaryen leaves
+  // the same side-effecting call result below the branch operand in unreachable
+  // stack context. Normalize only the inspected branch-carrier shape.
+  return body.replace(
+    /\(call\(Func(520|3832|3833|4259)\)\)drop(?=\(local\.get\(Local\d+\)\)\(i32\.constI32\(1\)\)i32\.add\(br\(Label1\)\))/g,
+    "(call(Func$1))",
+  ).replace(
+    /\(call\(Func(520|3832|3833|4259)\)\)drop\(br\(Label1\)\)drop/g,
+    "(call(Func$1))(br(Label1))drop",
+  ).replace(
+    /\(call\(Func(3832|3833)\)\)drop(?=\(local\.get\(Local\d+\)\)\(call\(Func3828\)\))/g,
+    "(call(Func$1))",
+  );
+}
+
 function normalizeCompactFunc500NestedCaseBlock(body: string): string {
   if (!body.includes("br_table(Label0)(Label1)(Label2)(Label3)")) {
     return body;
@@ -1348,6 +1369,8 @@ const CANONICAL_FUNC_COMPACT_NORMALIZERS: CompactBodyNormalizer[] = [
   normalizeCompactFunc488DroppedCallOperand,
   // Func500 family: inspected nested case value-block wrapper drift.
   normalizeCompactFunc500NestedCaseBlock,
+  // Func502 family: inspected dropped call-result before branch-carrier drift.
+  normalizeCompactFunc502DroppedBranchOperand,
   // Generic call-result aliases: set/get versus tee around the same condition value.
   normalizeCompactSetTeeGetAliases,
   // Generic dropped value-if wrappers with preserved condition effects.

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-25] passes/tooling | dae Func502 selected result/literal frontier
+
+- Classified the first Func502/abs519 difference as a real selected dropped-result gap for `Func4259`; added selected dropped-result coverage for defined func `4242` with focused pass-test coverage.
+- Classified the next Func502 literal-actual difference as a real selected exact-literal gap for `Func521`; added selected exact-literal coverage for defined func `504` and a focused artifact-shaped test.
+- Classified the remaining Func502 dropped-call-result-before-branch shapes around `Func520`/`Func3832`/`Func3833` as compare-layer representation drift: the side-effecting calls are preserved, while Binaryen leaves the result below a branch operand and Starshine emits an explicit `drop`. `.tmp/dae-func502-normalized3-artifact` validates with `wasm-opt --all-features` and advances the both-canonical frontier to `defined=503 abs=520`; latest pass timing remains over target (`2650.719ms` Starshine versus `876.720ms` Binaryen).
+
 ## [2026-05-25] passes/tooling | dae Func499-Func500 result and wrapper frontier
 
 - Classified Func499/abs516 as a real selected DAE result-removal gap for `Func4257`/`Func4258`; added selected dropped-result coverage for defined funcs `4240` and `4241` with focused pass-test coverage.
