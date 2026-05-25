@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-24] fuzzing | FUZ1036C metamorphic export alias stress
+
+- Completed `[FUZ]1036C` by adding `add-prefixed-export-aliases` and `add-suffixed-export-aliases` metamorphic-valid transforms. Both preserve every original export entry, append deterministic name-derived aliases to the same extern indices, repair name collisions with numeric suffixes, validate the transformed module, and report the new transform ids through `validate-valid-metamorphic` details.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the active metamorphic-valid transform registry names the widened export-name reshaping surface alongside the earlier index-based export alias transform.
+
 ## [2026-05-24] fuzzing | FUZ1036B metamorphic local declaration split
 
 - Completed `[FUZ]1036B` by adding the `split-merge-local-declarations` metamorphic-valid transform. It splits the first multi-count local declaration run in each defined function into adjacent declarations of the same value type without changing local indices or instructions, validates the transformed module, and reports the new transform id through `validate-valid-metamorphic` details.

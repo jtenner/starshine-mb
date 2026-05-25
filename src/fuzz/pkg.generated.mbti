@@ -382,6 +382,8 @@ pub enum MetamorphicValidTransform {
   SplitMergeLocalDeclarations
   AddTrailingEmptyVoidLoopToDefinedFunctions
   AddExportAliases
+  AddPrefixedExportAliases
+  AddSuffixedExportAliases
   ReverseCustomSections
 } derive(Eq, @debug.Debug)
 

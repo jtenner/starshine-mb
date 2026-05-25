@@ -1581,6 +1581,126 @@ test "metamorphic reverse custom sections transform preserves validation and bin
 }
 
 ///|
+test "metamorphic prefixed export aliases transform preserves existing entries and unique names" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_prefixed_alias_run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+  let transformed = match
+    metamorphic_apply_transform(base, AddPrefixedExportAliases) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "add-prefixed-export-aliases")
+  match transformed.wasm_module.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      @debug.assert_eq(exports.length(), 4)
+      match exports[0] {
+        @lib.Export(name, _) =>
+          @debug.assert_eq(name, @lib.Name::from_string("run"))
+      }
+      match exports[1] {
+        @lib.Export(name, _) =>
+          @debug.assert_eq(
+            name,
+            @lib.Name::from_string("metamorphic_prefixed_alias_run"),
+          )
+      }
+      @debug.assert_eq(
+        exports[2],
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_prefixed_alias_run_1"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      )
+      @debug.assert_eq(
+        exports[3],
+        @lib.Export::new(
+          @lib.Name::from_string(
+            "metamorphic_prefixed_alias_metamorphic_prefixed_alias_run",
+          ),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      )
+    }
+    None => fail("expected transformed export section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic suffixed export aliases transform preserves validation and unique names" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+  let transformed = match
+    metamorphic_apply_transform(base, AddSuffixedExportAliases) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "add-suffixed-export-aliases")
+  match transformed.wasm_module.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      @debug.assert_eq(exports.length(), 2)
+      match exports[0] {
+        @lib.Export(name, _) =>
+          @debug.assert_eq(name, @lib.Name::from_string("run"))
+      }
+      @debug.assert_eq(
+        exports[1],
+        @lib.Export::new(
+          @lib.Name::from_string("run_metamorphic_alias"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      )
+    }
+    None => fail("expected transformed export section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic export aliases transform preserves validation and binary roundtrip" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),
@@ -1975,8 +2095,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 39)
-  @debug.assert_eq(stats.validated, 39)
+  @debug.assert_eq(stats.transformed, 41)
+  @debug.assert_eq(stats.validated, 41)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -2073,5 +2193,7 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
     ),
   )
   assert_true(stats.transform_ids.contains("add-export-aliases"))
+  assert_true(stats.transform_ids.contains("add-prefixed-export-aliases"))
+  assert_true(stats.transform_ids.contains("add-suffixed-export-aliases"))
   assert_true(stats.transform_ids.contains("reverse-custom-sections"))
 }

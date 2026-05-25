@@ -613,8 +613,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 Use these slice ids when selecting or reporting future FUZ work. Parent tasks below keep the fuller goals, invariants, and historical evidence; this index names the remaining units so agents do not have to infer the next slice from long status paragraphs.
 
 p1 GenValid / valid-generation slices:
-- [FUZ]1036C (p1, GenValid) - Metamorphic Export Rename/Alias Stress Follow-Up
-  - Unit: widen export-name reshaping beyond the current alias transform while preserving existing entry points and unique export names.
 - [FUZ]1036D (p1, GenValid) - Metamorphic Identity Wrapper Expression Transform
   - Unit: wrap safe body fragments in identity `block` / value-preserving wrappers where stack typing proves no semantic change; start with a narrow fixture before GenValid-wide use.
 - [FUZ]1036E (p1, GenValid) - Metamorphic Pass-Fuzz Integration

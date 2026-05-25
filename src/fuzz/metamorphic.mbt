@@ -38,6 +38,8 @@ pub enum MetamorphicValidTransform {
   SplitMergeLocalDeclarations
   AddTrailingEmptyVoidLoopToDefinedFunctions
   AddExportAliases
+  AddPrefixedExportAliases
+  AddSuffixedExportAliases
   ReverseCustomSections
 } derive(Eq, Debug)
 
@@ -99,6 +101,8 @@ pub fn metamorphic_valid_transform_id(
     AddTrailingEmptyVoidLoopToDefinedFunctions =>
       "add-trailing-empty-void-loop-to-defined-functions"
     AddExportAliases => "add-export-aliases"
+    AddPrefixedExportAliases => "add-prefixed-export-aliases"
+    AddSuffixedExportAliases => "add-suffixed-export-aliases"
     ReverseCustomSections => "reverse-custom-sections"
   }
 }
@@ -1443,6 +1447,27 @@ fn metamorphic_reverse_custom_sections(mod : @lib.Module) -> @lib.Module {
 }
 
 ///|
+fn metamorphic_export_name_to_string(name : @lib.Name) -> String {
+  match name {
+    @lib.Name(sv) => sv.to_owned()
+  }
+}
+
+///|
+fn metamorphic_unique_export_name(
+  exports : Array[@lib.Export],
+  base_name : String,
+) -> @lib.Name {
+  let mut suffix = 0
+  let mut candidate = @lib.Name::from_string(base_name)
+  while metamorphic_export_name_exists(exports, candidate) {
+    suffix += 1
+    candidate = @lib.Name::from_string("\{base_name}_\{suffix}")
+  }
+  candidate
+}
+
+///|
 fn metamorphic_add_export_aliases(mod : @lib.Module) -> @lib.Module {
   let exports = []
   match mod.export_sec {
@@ -1454,15 +1479,10 @@ fn metamorphic_add_export_aliases(mod : @lib.Module) -> @lib.Module {
       for export_ in existing {
         match export_ {
           @lib.Export(_, extern_idx) => {
-            let mut alias_name = @lib.Name::from_string(
+            let alias_name = metamorphic_unique_export_name(
+              exports,
               "metamorphic_alias_\{alias_index}",
             )
-            while metamorphic_export_name_exists(exports, alias_name) {
-              alias_index += 1
-              alias_name = @lib.Name::from_string(
-                "metamorphic_alias_\{alias_index}",
-              )
-            }
             exports.push(@lib.Export::new(alias_name, extern_idx))
             alias_index += 1
           }
@@ -1472,6 +1492,45 @@ fn metamorphic_add_export_aliases(mod : @lib.Module) -> @lib.Module {
     None => ()
   }
   mod.with_export_sec(@lib.ExportSec::new(exports))
+}
+
+///|
+fn metamorphic_add_named_export_aliases(
+  mod : @lib.Module,
+  prefix : String,
+  suffix : String,
+) -> @lib.Module {
+  let exports = []
+  match mod.export_sec {
+    Some(@lib.ExportSec(existing)) => {
+      for export_ in existing {
+        exports.push(export_)
+      }
+      for export_ in existing {
+        match export_ {
+          @lib.Export(name, extern_idx) => {
+            let alias_name = metamorphic_unique_export_name(
+              exports,
+              "\{prefix}\{metamorphic_export_name_to_string(name)}\{suffix}",
+            )
+            exports.push(@lib.Export::new(alias_name, extern_idx))
+          }
+        }
+      }
+    }
+    None => ()
+  }
+  mod.with_export_sec(@lib.ExportSec::new(exports))
+}
+
+///|
+fn metamorphic_add_prefixed_export_aliases(mod : @lib.Module) -> @lib.Module {
+  metamorphic_add_named_export_aliases(mod, "metamorphic_prefixed_alias_", "")
+}
+
+///|
+fn metamorphic_add_suffixed_export_aliases(mod : @lib.Module) -> @lib.Module {
+  metamorphic_add_named_export_aliases(mod, "", "_metamorphic_alias")
 }
 
 ///|
@@ -1568,6 +1627,8 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingEmptyVoidLoopToDefinedFunctions,
     SplitMergeLocalDeclarations,
     AddExportAliases,
+    AddPrefixedExportAliases,
+    AddSuffixedExportAliases,
     ReverseCustomSections,
   ]
 }
@@ -1638,6 +1699,8 @@ pub fn metamorphic_apply_transform(
     SplitMergeLocalDeclarations =>
       metamorphic_split_merge_local_declarations(mod)
     AddExportAliases => metamorphic_add_export_aliases(mod)
+    AddPrefixedExportAliases => metamorphic_add_prefixed_export_aliases(mod)
+    AddSuffixedExportAliases => metamorphic_add_suffixed_export_aliases(mod)
     ReverseCustomSections => metamorphic_reverse_custom_sections(mod)
   }
   match validate_module(transformed) {
