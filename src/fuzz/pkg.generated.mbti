@@ -642,6 +642,10 @@ pub enum MetamorphicValidTransform {
   AddTrailingNullableRefTestDropToDefinedFunctions
   AddLeadingNullableRefCastDropToDefinedFunctions
   AddTrailingNullableRefCastDropToDefinedFunctions
+  AddLeadingRefI31TestDropToDefinedFunctions
+  AddTrailingRefI31TestDropToDefinedFunctions
+  AddLeadingRefI31CastDropToDefinedFunctions
+  AddTrailingRefI31CastDropToDefinedFunctions
   AddLeadingRefEqDropToDefinedFunctions
   AddTrailingRefEqDropToDefinedFunctions
   AddLeadingRefEqFuncDropToDefinedFunctions

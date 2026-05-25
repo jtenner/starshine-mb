@@ -1245,6 +1245,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Completed `[FUZ]1036J3` by adding `add-passive-data-segment-shape-stress`, a metamorphic-valid transform that appends three unused passive data segments with empty, binary, and textual payload shapes. The transform refreshes data-count metadata and only appends to the data index space, so existing data indices and bulk-memory users are not retargeted.
 - Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 392 transforms per generated module, and kept focused `src/fuzz` validation green.
 
+## [2026-05-25] fuzzing | FUZ1036I5 metamorphic i31 test/cast drop body reshaping
+
+- Completed `[FUZ]1036I5` by adding leading/trailing `i32.const 31; ref.i31; ref.test (ref i31); drop` and `i32.const 31; ref.i31; ref.cast (ref i31); drop` metamorphic-valid transforms. They use a freshly constructed non-null i31 reference, so the non-null i31 test/cast is fact-safe and nontrapping, then drop the computed value without changing locals, result stacks, validation, or observable behavior.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 418 transforms per generated module, and kept focused `src/fuzz` validation green.
+
 ## [2026-05-25] fuzzing | FUZ1036J1 metamorphic memory.size drop body reshaping
 
 - Completed `[FUZ]1036J1` by adding leading/trailing `memory.size 0; drop` metamorphic-valid transforms that are applicable only when the source module has at least one valid memory index. The transforms preserve existing locals, result stacks, and observable behavior while exercising harmless memory query debris.

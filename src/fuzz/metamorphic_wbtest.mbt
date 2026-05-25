@@ -3430,6 +3430,114 @@ test "metamorphic trailing nullable ref.cast null-success drop transform preserv
 }
 
 ///|
+test "metamorphic leading ref.i31 ref.test drop transform preserves validation and binary roundtrip" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+        ),
+      ]),
+    )
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddLeadingRefI31TestDropToDefinedFunctions,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-leading-ref-i31-test-drop-to-defined-functions",
+  )
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          @debug.assert_eq(instrs.length(), 5)
+          @debug.assert_eq(instrs[0], @lib.Instruction::i32_const(31))
+          @debug.assert_eq(instrs[1], @lib.Instruction::ref_i31())
+          @debug.assert_eq(
+            instrs[2],
+            @lib.Instruction::ref_test(
+              false,
+              @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+            ),
+          )
+          @debug.assert_eq(instrs[3], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[4], @lib.Instruction::i32_const(7))
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic trailing ref.i31 ref.cast drop transform preserves validation and binary roundtrip" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+        ),
+      ]),
+    )
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddTrailingRefI31CastDropToDefinedFunctions,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-trailing-ref-i31-cast-drop-to-defined-functions",
+  )
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          @debug.assert_eq(instrs.length(), 5)
+          @debug.assert_eq(instrs[0], @lib.Instruction::i32_const(7))
+          @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(31))
+          @debug.assert_eq(instrs[2], @lib.Instruction::ref_i31())
+          @debug.assert_eq(
+            instrs[3],
+            @lib.Instruction::ref_cast(
+              false,
+              @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+            ),
+          )
+          @debug.assert_eq(instrs[4], @lib.Instruction::drop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic leading ref null is-null drop transform preserves validation and binary roundtrip" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
@@ -7500,8 +7608,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 414)
-  @debug.assert_eq(stats.validated, 414)
+  @debug.assert_eq(stats.transformed, 418)
+  @debug.assert_eq(stats.validated, 418)
   assert_true(
     stats.transform_ids.contains(
       "add-leading-block-wrapped-i32-const-drop-to-defined-functions",

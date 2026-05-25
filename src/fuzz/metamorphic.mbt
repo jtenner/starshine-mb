@@ -133,6 +133,10 @@ pub enum MetamorphicValidTransform {
   AddTrailingNullableRefTestDropToDefinedFunctions
   AddLeadingNullableRefCastDropToDefinedFunctions
   AddTrailingNullableRefCastDropToDefinedFunctions
+  AddLeadingRefI31TestDropToDefinedFunctions
+  AddTrailingRefI31TestDropToDefinedFunctions
+  AddLeadingRefI31CastDropToDefinedFunctions
+  AddTrailingRefI31CastDropToDefinedFunctions
   AddLeadingRefEqDropToDefinedFunctions
   AddTrailingRefEqDropToDefinedFunctions
   AddLeadingRefEqFuncDropToDefinedFunctions
@@ -667,6 +671,14 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-nullable-ref-cast-drop-to-defined-functions"
     AddTrailingNullableRefCastDropToDefinedFunctions =>
       "add-trailing-nullable-ref-cast-drop-to-defined-functions"
+    AddLeadingRefI31TestDropToDefinedFunctions =>
+      "add-leading-ref-i31-test-drop-to-defined-functions"
+    AddTrailingRefI31TestDropToDefinedFunctions =>
+      "add-trailing-ref-i31-test-drop-to-defined-functions"
+    AddLeadingRefI31CastDropToDefinedFunctions =>
+      "add-leading-ref-i31-cast-drop-to-defined-functions"
+    AddTrailingRefI31CastDropToDefinedFunctions =>
+      "add-trailing-ref-i31-cast-drop-to-defined-functions"
     AddLeadingRefEqDropToDefinedFunctions =>
       "add-leading-ref-eq-drop-to-defined-functions"
     AddTrailingRefEqDropToDefinedFunctions =>
@@ -2615,6 +2627,56 @@ fn metamorphic_add_nullable_ref_cast_drop_to_defined_functions(
     mod,
     leading,
     metamorphic_nullable_ref_cast_drop_instrs(),
+  )
+}
+
+///|
+fn metamorphic_ref_i31_test_drop_instrs() -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::i32_const(31),
+    @lib.Instruction::ref_i31(),
+    @lib.Instruction::ref_test(
+      false,
+      @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+    ),
+    @lib.Instruction::drop(),
+  ]
+}
+
+///|
+fn metamorphic_ref_i31_cast_drop_instrs() -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::i32_const(31),
+    @lib.Instruction::ref_i31(),
+    @lib.Instruction::ref_cast(
+      false,
+      @lib.HeapType::abs(@lib.AbsHeapType::i31()),
+    ),
+    @lib.Instruction::drop(),
+  ]
+}
+
+///|
+fn metamorphic_add_ref_i31_test_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+) -> @lib.Module {
+  metamorphic_add_unary_drop_to_defined_functions(
+    mod,
+    leading,
+    metamorphic_ref_i31_test_drop_instrs(),
+  )
+}
+
+///|
+fn metamorphic_add_ref_i31_cast_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+) -> @lib.Module {
+  metamorphic_add_unary_drop_to_defined_functions(
+    mod,
+    leading,
+    metamorphic_ref_i31_cast_drop_instrs(),
   )
 }
 
@@ -4586,6 +4648,10 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingNullableRefTestDropToDefinedFunctions,
     AddLeadingNullableRefCastDropToDefinedFunctions,
     AddTrailingNullableRefCastDropToDefinedFunctions,
+    AddLeadingRefI31TestDropToDefinedFunctions,
+    AddTrailingRefI31TestDropToDefinedFunctions,
+    AddLeadingRefI31CastDropToDefinedFunctions,
+    AddTrailingRefI31CastDropToDefinedFunctions,
     AddLeadingRefEqDropToDefinedFunctions,
     AddTrailingRefEqDropToDefinedFunctions,
     AddLeadingRefEqFuncDropToDefinedFunctions,
@@ -5527,6 +5593,14 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_nullable_ref_cast_drop_to_defined_functions(mod, true)
     AddTrailingNullableRefCastDropToDefinedFunctions =>
       metamorphic_add_nullable_ref_cast_drop_to_defined_functions(mod, false)
+    AddLeadingRefI31TestDropToDefinedFunctions =>
+      metamorphic_add_ref_i31_test_drop_to_defined_functions(mod, true)
+    AddTrailingRefI31TestDropToDefinedFunctions =>
+      metamorphic_add_ref_i31_test_drop_to_defined_functions(mod, false)
+    AddLeadingRefI31CastDropToDefinedFunctions =>
+      metamorphic_add_ref_i31_cast_drop_to_defined_functions(mod, true)
+    AddTrailingRefI31CastDropToDefinedFunctions =>
+      metamorphic_add_ref_i31_cast_drop_to_defined_functions(mod, false)
     AddLeadingRefEqDropToDefinedFunctions =>
       metamorphic_add_ref_eq_drop_to_defined_functions(mod, true)
     AddTrailingRefEqDropToDefinedFunctions =>
