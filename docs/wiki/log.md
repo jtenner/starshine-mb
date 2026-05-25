@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-24] binaryen | SGO try_table guard applier unification
+
+- Added research note [`0626`](./raw/research/0626-2026-05-24-sgo-try-table-guard-applier-unification.md) and routed no-catch `try_table` select, reverse-compare select, `ref.is_null` compare, `ref.is_null` select, and `ref.is_null` select reverse-compare guard families through one direct/if-return body applier.
+- This is a refactor-only slice: it preserves existing matcher-specific no-catch checks, direct `if global.set` handling, exact `if return; set` tails, caught `try_table` conservatism, and loop/non-`try_table` behavior.
+- Direct SGO fuzz at `.tmp/pass-fuzz-sgo-try-table-guard-applier-unify-10k` matched `9975/9975` compared cases with `0` mismatches and `0` validation failures; `[SGO]003` remains active/partial.
+
 ## [2026-05-24] binaryen | SGO read-only-to-write dispatch split
 
 - Added research note [`0625`](./raw/research/0625-2026-05-24-sgo-read-only-to-write-dispatch-split.md) and split the large block/no-catch-`try_table` read-only-to-write dispatcher into shared external-pure, shared tail, and no-catch-`try_table`-specific guard groups.

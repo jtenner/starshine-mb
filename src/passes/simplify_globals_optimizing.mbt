@@ -610,18 +610,10 @@ fn sgo_count_no_catch_try_table_specific_condition_guards(
   safe_reads : Array[Int],
 ) -> Unit {
   sgo_count_try_table_select_guard_read(instrs, pos, safe_reads)
-  sgo_count_try_table_select_reverse_compare_read_only_to_write_read(
-    instrs, pos, safe_reads,
-  )
-  sgo_count_try_table_select_reverse_compare_if_return_read(
-    instrs, pos, safe_reads,
-  )
+  sgo_count_try_table_select_reverse_compare_guard_read(instrs, pos, safe_reads)
   sgo_count_try_table_ref_is_null_compare_guard_read(instrs, pos, safe_reads)
   sgo_count_try_table_ref_is_null_select_guard_read(instrs, pos, safe_reads)
-  sgo_count_try_table_ref_is_null_select_reverse_compare_read_only_to_write_read(
-    instrs, pos, safe_reads,
-  )
-  sgo_count_try_table_ref_is_null_select_reverse_compare_if_return_read(
+  sgo_count_try_table_ref_is_null_select_reverse_compare_guard_read(
     instrs, pos, safe_reads,
   )
   if pos + 2 < instrs.length() {
@@ -3448,6 +3440,22 @@ fn sgo_scan_optional_external_pure_if_index(
 }
 
 ///|
+fn sgo_count_try_table_guard_read(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  if_index : Int,
+  safe_reads : Array[Int],
+) -> Unit {
+  match instrs[pos] {
+    @lib.TryTable(_, _, @lib.Expr(body)) => {
+      sgo_count_body_direct_if_set_read(body, instrs[if_index], safe_reads)
+      sgo_count_body_if_return_tail_read(instrs, body, if_index, safe_reads)
+    }
+    _ => ()
+  }
+}
+
+///|
 fn sgo_try_table_ref_is_null_compare_guard_if_index(
   instrs : Array[@lib.Instruction],
   pos : Int,
@@ -3475,13 +3483,10 @@ fn sgo_count_try_table_ref_is_null_compare_guard_read(
   pos : Int,
   safe_reads : Array[Int],
 ) -> Unit {
-  match
-    (instrs[pos], sgo_try_table_ref_is_null_compare_guard_if_index(instrs, pos)) {
-    (@lib.TryTable(_, _, @lib.Expr(body)), Some(if_index)) => {
-      sgo_count_body_direct_if_set_read(body, instrs[if_index], safe_reads)
-      sgo_count_body_if_return_tail_read(instrs, body, if_index, safe_reads)
-    }
-    _ => ()
+  match sgo_try_table_ref_is_null_compare_guard_if_index(instrs, pos) {
+    Some(if_index) =>
+      sgo_count_try_table_guard_read(instrs, pos, if_index, safe_reads)
+    None => ()
   }
 }
 
@@ -3546,12 +3551,10 @@ fn sgo_count_try_table_select_guard_read(
   pos : Int,
   safe_reads : Array[Int],
 ) -> Unit {
-  match (instrs[pos], sgo_try_table_select_guard_if_index(instrs, pos)) {
-    (@lib.TryTable(_, _, @lib.Expr(body)), Some(if_index)) => {
-      sgo_count_body_direct_if_set_read(body, instrs[if_index], safe_reads)
-      sgo_count_body_if_return_tail_read(instrs, body, if_index, safe_reads)
-    }
-    _ => ()
+  match sgo_try_table_select_guard_if_index(instrs, pos) {
+    Some(if_index) =>
+      sgo_count_try_table_guard_read(instrs, pos, if_index, safe_reads)
+    None => ()
   }
 }
 
@@ -3610,36 +3613,15 @@ fn sgo_try_table_select_reverse_compare_guard_if_index(
 }
 
 ///|
-fn sgo_count_try_table_select_reverse_compare_read_only_to_write_read(
+fn sgo_count_try_table_select_reverse_compare_guard_read(
   instrs : Array[@lib.Instruction],
   pos : Int,
   safe_reads : Array[Int],
 ) -> Unit {
-  match
-    (
-      instrs[pos],
-      sgo_try_table_select_reverse_compare_guard_if_index(instrs, pos),
-    ) {
-    (@lib.TryTable(_, _, @lib.Expr(body)), Some(if_index)) =>
-      sgo_count_body_direct_if_set_read(body, instrs[if_index], safe_reads)
-    _ => ()
-  }
-}
-
-///|
-fn sgo_count_try_table_select_reverse_compare_if_return_read(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
-) -> Unit {
-  match
-    (
-      instrs[pos],
-      sgo_try_table_select_reverse_compare_guard_if_index(instrs, pos),
-    ) {
-    (@lib.TryTable(_, _, @lib.Expr(body)), Some(if_index)) =>
-      sgo_count_body_if_return_tail_read(instrs, body, if_index, safe_reads)
-    _ => ()
+  match sgo_try_table_select_reverse_compare_guard_if_index(instrs, pos) {
+    Some(if_index) =>
+      sgo_count_try_table_guard_read(instrs, pos, if_index, safe_reads)
+    None => ()
   }
 }
 
@@ -3700,13 +3682,10 @@ fn sgo_count_try_table_ref_is_null_select_guard_read(
   pos : Int,
   safe_reads : Array[Int],
 ) -> Unit {
-  match
-    (instrs[pos], sgo_try_table_ref_is_null_select_guard_if_index(instrs, pos)) {
-    (@lib.TryTable(_, _, @lib.Expr(body)), Some(if_index)) => {
-      sgo_count_body_direct_if_set_read(body, instrs[if_index], safe_reads)
-      sgo_count_body_if_return_tail_read(instrs, body, if_index, safe_reads)
-    }
-    _ => ()
+  match sgo_try_table_ref_is_null_select_guard_if_index(instrs, pos) {
+    Some(if_index) =>
+      sgo_count_try_table_guard_read(instrs, pos, if_index, safe_reads)
+    None => ()
   }
 }
 
@@ -3769,40 +3748,16 @@ fn sgo_try_table_ref_is_null_select_reverse_compare_guard_if_index(
 }
 
 ///|
-fn sgo_count_try_table_ref_is_null_select_reverse_compare_read_only_to_write_read(
+fn sgo_count_try_table_ref_is_null_select_reverse_compare_guard_read(
   instrs : Array[@lib.Instruction],
   pos : Int,
   safe_reads : Array[Int],
 ) -> Unit {
   match
-    (
-      instrs[pos],
-      sgo_try_table_ref_is_null_select_reverse_compare_guard_if_index(
-        instrs, pos,
-      ),
-    ) {
-    (@lib.TryTable(_, _, @lib.Expr(body)), Some(if_index)) =>
-      sgo_count_body_direct_if_set_read(body, instrs[if_index], safe_reads)
-    _ => ()
-  }
-}
-
-///|
-fn sgo_count_try_table_ref_is_null_select_reverse_compare_if_return_read(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
-) -> Unit {
-  match
-    (
-      instrs[pos],
-      sgo_try_table_ref_is_null_select_reverse_compare_guard_if_index(
-        instrs, pos,
-      ),
-    ) {
-    (@lib.TryTable(_, _, @lib.Expr(body)), Some(if_index)) =>
-      sgo_count_body_if_return_tail_read(instrs, body, if_index, safe_reads)
-    _ => ()
+    sgo_try_table_ref_is_null_select_reverse_compare_guard_if_index(instrs, pos) {
+    Some(if_index) =>
+      sgo_count_try_table_guard_read(instrs, pos, if_index, safe_reads)
+    None => ()
   }
 }
 
