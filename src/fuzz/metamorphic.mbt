@@ -129,6 +129,14 @@ pub enum MetamorphicValidTransform {
   AddTrailingF64ConvertI64SDropToDefinedFunctions
   AddLeadingF64ConvertI64UDropToDefinedFunctions
   AddTrailingF64ConvertI64UDropToDefinedFunctions
+  AddLeadingI32ReinterpretF32DropToDefinedFunctions
+  AddTrailingI32ReinterpretF32DropToDefinedFunctions
+  AddLeadingI64ReinterpretF64DropToDefinedFunctions
+  AddTrailingI64ReinterpretF64DropToDefinedFunctions
+  AddLeadingF32ReinterpretI32DropToDefinedFunctions
+  AddTrailingF32ReinterpretI32DropToDefinedFunctions
+  AddLeadingF64ReinterpretI64DropToDefinedFunctions
+  AddTrailingF64ReinterpretI64DropToDefinedFunctions
   AddLeadingI32ShlDropToDefinedFunctions
   AddTrailingI32ShlDropToDefinedFunctions
   AddLeadingI32ShrSDropToDefinedFunctions
@@ -488,6 +496,22 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-f64-convert-i64-u-drop-to-defined-functions"
     AddTrailingF64ConvertI64UDropToDefinedFunctions =>
       "add-trailing-f64-convert-i64-u-drop-to-defined-functions"
+    AddLeadingI32ReinterpretF32DropToDefinedFunctions =>
+      "add-leading-i32-reinterpret-f32-drop-to-defined-functions"
+    AddTrailingI32ReinterpretF32DropToDefinedFunctions =>
+      "add-trailing-i32-reinterpret-f32-drop-to-defined-functions"
+    AddLeadingI64ReinterpretF64DropToDefinedFunctions =>
+      "add-leading-i64-reinterpret-f64-drop-to-defined-functions"
+    AddTrailingI64ReinterpretF64DropToDefinedFunctions =>
+      "add-trailing-i64-reinterpret-f64-drop-to-defined-functions"
+    AddLeadingF32ReinterpretI32DropToDefinedFunctions =>
+      "add-leading-f32-reinterpret-i32-drop-to-defined-functions"
+    AddTrailingF32ReinterpretI32DropToDefinedFunctions =>
+      "add-trailing-f32-reinterpret-i32-drop-to-defined-functions"
+    AddLeadingF64ReinterpretI64DropToDefinedFunctions =>
+      "add-leading-f64-reinterpret-i64-drop-to-defined-functions"
+    AddTrailingF64ReinterpretI64DropToDefinedFunctions =>
+      "add-trailing-f64-reinterpret-i64-drop-to-defined-functions"
     AddLeadingI32ShlDropToDefinedFunctions =>
       "add-leading-i32-shl-drop-to-defined-functions"
     AddTrailingI32ShlDropToDefinedFunctions =>
@@ -3196,6 +3220,14 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingF64ConvertI64SDropToDefinedFunctions,
     AddLeadingF64ConvertI64UDropToDefinedFunctions,
     AddTrailingF64ConvertI64UDropToDefinedFunctions,
+    AddLeadingI32ReinterpretF32DropToDefinedFunctions,
+    AddTrailingI32ReinterpretF32DropToDefinedFunctions,
+    AddLeadingI64ReinterpretF64DropToDefinedFunctions,
+    AddTrailingI64ReinterpretF64DropToDefinedFunctions,
+    AddLeadingF32ReinterpretI32DropToDefinedFunctions,
+    AddTrailingF32ReinterpretI32DropToDefinedFunctions,
+    AddLeadingF64ReinterpretI64DropToDefinedFunctions,
+    AddTrailingF64ReinterpretI64DropToDefinedFunctions,
     AddLeadingI32ShlDropToDefinedFunctions,
     AddTrailingI32ShlDropToDefinedFunctions,
     AddLeadingI32ShrSDropToDefinedFunctions,
@@ -3905,6 +3937,54 @@ pub fn metamorphic_apply_transform(
         false,
         @lib.Instruction::f64_convert_i64u(),
       )
+    AddLeadingI32ReinterpretF32DropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, true, [
+        @lib.Instruction::f32_const(0.0),
+        @lib.Instruction::i32_reinterpret_f32(),
+        @lib.Instruction::drop(),
+      ])
+    AddTrailingI32ReinterpretF32DropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, false, [
+        @lib.Instruction::f32_const(0.0),
+        @lib.Instruction::i32_reinterpret_f32(),
+        @lib.Instruction::drop(),
+      ])
+    AddLeadingI64ReinterpretF64DropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, true, [
+        @lib.Instruction::f64_const(0.0),
+        @lib.Instruction::i64_reinterpret_f64(),
+        @lib.Instruction::drop(),
+      ])
+    AddTrailingI64ReinterpretF64DropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, false, [
+        @lib.Instruction::f64_const(0.0),
+        @lib.Instruction::i64_reinterpret_f64(),
+        @lib.Instruction::drop(),
+      ])
+    AddLeadingF32ReinterpretI32DropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, true, [
+        @lib.Instruction::i32_const(0),
+        @lib.Instruction::f32_reinterpret_i32(),
+        @lib.Instruction::drop(),
+      ])
+    AddTrailingF32ReinterpretI32DropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, false, [
+        @lib.Instruction::i32_const(0),
+        @lib.Instruction::f32_reinterpret_i32(),
+        @lib.Instruction::drop(),
+      ])
+    AddLeadingF64ReinterpretI64DropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, true, [
+        @lib.Instruction::i64_const(0L),
+        @lib.Instruction::f64_reinterpret_i64(),
+        @lib.Instruction::drop(),
+      ])
+    AddTrailingF64ReinterpretI64DropToDefinedFunctions =>
+      metamorphic_add_unary_drop_to_defined_functions(mod, false, [
+        @lib.Instruction::i64_const(0L),
+        @lib.Instruction::f64_reinterpret_i64(),
+        @lib.Instruction::drop(),
+      ])
     AddLeadingI32ShlDropToDefinedFunctions =>
       metamorphic_add_i32_binary_drop_to_defined_functions(
         mod,
