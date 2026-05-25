@@ -287,9 +287,9 @@ Execution rules for all DAE slices
   - Exit criteria: public behavior tests and docs; no preset widening until direct pass behavior is separately signed.
 
 - [SGO]003O - Refactor-Only Matcher Maintainability Queue
-  - Status: opportunistic; lower priority than behavior-bearing slices after commits `0f8b8902` through `39fa0a22`. The 0641 and 0645 clean-pop helper slices centralized repeated FlowScanner pop/taint checks without behavior broadening, the 0643 call-result helper slice centralized repeated call-boundary stack handling while preserving the adjacent-`global.get` arm-result exception, and the 0646 wrapper helper slice centralized repeated block/no-catch `try_table` extraction plus external-pure condition index handling.
+  - Status: opportunistic; lower priority than behavior-bearing slices after commits `0f8b8902` through `39fa0a22`. The 0641 and 0645 clean-pop helper slices centralized repeated FlowScanner pop/taint checks without behavior broadening, the 0643 call-result helper slice centralized repeated call-boundary stack handling while preserving the adjacent-`global.get` arm-result exception, the 0646 wrapper helper slice centralized repeated block/no-catch `try_table` extraction plus external-pure condition index handling, and the 0647 exact-tail helper slice centralized direct `if return; set` tail dispatch.
   - Goal: keep SGO maintainable without changing behavior.
-  - Candidate cleanup: remaining FlowScanner predicate grouping, repeated exact-tail dispatch, and clearer helper naming around condition/value-stack matchers.
+  - Candidate cleanup: remaining FlowScanner predicate grouping and clearer helper naming around condition/value-stack matchers.
   - Rules: no tests required if truly refactor-only and existing tests/fuzz prove behavior preservation; do not use refactors to sneak in new matcher breadth.
   - Exit criteria: small commits with research notes, `moon test src/passes`, direct SGO fuzz when matcher logic is touched, and docs/log updates.
 

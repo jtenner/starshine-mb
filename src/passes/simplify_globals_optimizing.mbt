@@ -2687,62 +2687,44 @@ fn sgo_is_compare_instr(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn sgo_if_return_guard_and_tail_match(
+  if_instr : @lib.Instruction,
+  tail_start : Int,
+  instrs : Array[@lib.Instruction],
+  idx : @lib.GlobalIdx,
+) -> Bool {
+  sgo_is_return_guard(if_instr) &&
+  sgo_if_return_tail_matches(instrs, tail_start, idx)
+}
+
+///|
 fn sgo_is_exact_if_return_set(
   instrs : Array[@lib.Instruction],
   pos : Int,
   idx : @lib.GlobalIdx,
 ) -> Bool {
   match instrs {
-    [@lib.GlobalGet(get_idx), if_instr, block_tail] =>
-      pos == 0 &&
-      get_idx == idx &&
-      sgo_is_return_guard(if_instr) &&
-      sgo_if_return_block_tail_matches(block_tail, idx)
-    [@lib.GlobalGet(get_idx), first, second, third] if first ==
+    [@lib.GlobalGet(get_idx), first, if_instr, ..] if first ==
       @lib.Instruction::i32_eqz() =>
       pos == 0 &&
       get_idx == idx &&
-      sgo_is_return_guard(second) &&
-      sgo_if_return_block_tail_matches(third, idx)
-    [@lib.GlobalGet(get_idx), if_instr, value, set] =>
-      pos == 0 &&
-      get_idx == idx &&
-      sgo_is_return_guard(if_instr) &&
-      sgo_if_return_set_tail_matches(value, set, idx)
-    [@lib.GlobalGet(get_idx), first, second, value, set] if first ==
-      @lib.Instruction::i32_eqz() =>
-      pos == 0 &&
-      get_idx == idx &&
-      sgo_is_return_guard(second) &&
-      sgo_if_return_set_tail_matches(value, set, idx)
-    [@lib.GlobalGet(get_idx), const_instr, cmp_instr, if_instr, block_tail] =>
+      sgo_if_return_guard_and_tail_match(if_instr, 3, instrs, idx)
+    [@lib.GlobalGet(get_idx), const_instr, cmp_instr, if_instr, ..] =>
       pos == 0 &&
       get_idx == idx &&
       sgo_const_instr(const_instr) != None &&
       sgo_is_compare_instr(cmp_instr) &&
-      sgo_is_return_guard(if_instr) &&
-      sgo_if_return_block_tail_matches(block_tail, idx)
-    [const_instr, @lib.GlobalGet(get_idx), cmp_instr, if_instr, block_tail] =>
+      sgo_if_return_guard_and_tail_match(if_instr, 4, instrs, idx)
+    [const_instr, @lib.GlobalGet(get_idx), cmp_instr, if_instr, ..] =>
       pos == 1 &&
       get_idx == idx &&
       sgo_const_instr(const_instr) != None &&
       sgo_is_compare_instr(cmp_instr) &&
-      sgo_is_return_guard(if_instr) &&
-      sgo_if_return_block_tail_matches(block_tail, idx)
-    [@lib.GlobalGet(get_idx), const_instr, cmp_instr, if_instr, value, set] =>
+      sgo_if_return_guard_and_tail_match(if_instr, 4, instrs, idx)
+    [@lib.GlobalGet(get_idx), if_instr, ..] =>
       pos == 0 &&
       get_idx == idx &&
-      sgo_const_instr(const_instr) != None &&
-      sgo_is_compare_instr(cmp_instr) &&
-      sgo_is_return_guard(if_instr) &&
-      sgo_if_return_set_tail_matches(value, set, idx)
-    [const_instr, @lib.GlobalGet(get_idx), cmp_instr, if_instr, value, set] =>
-      pos == 1 &&
-      get_idx == idx &&
-      sgo_const_instr(const_instr) != None &&
-      sgo_is_compare_instr(cmp_instr) &&
-      sgo_is_return_guard(if_instr) &&
-      sgo_if_return_set_tail_matches(value, set, idx)
+      sgo_if_return_guard_and_tail_match(if_instr, 2, instrs, idx)
     _ => false
   }
 }
