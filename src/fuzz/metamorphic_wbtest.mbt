@@ -924,6 +924,54 @@ test "metamorphic unused passive funcref element transform preserves validation 
 }
 
 ///|
+test "metamorphic passive element reshaping preserves func references" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::passive(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+  let transformed = match
+    metamorphic_apply_transform(base, ReshapePassiveElementSegments) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "reshape-passive-element-segments")
+  match transformed.wasm_module.elem_sec {
+    Some(@lib.ElemSec(elems)) =>
+      match elems[0] {
+        @lib.Elem(@lib.Passive, @lib.TypedExprsElemKind(rt, exprs)) => {
+          @debug.assert_eq(rt, @lib.RefType::abs(@lib.AbsHeapType::func()))
+          @debug.assert_eq(exprs.length(), 1)
+          @debug.assert_eq(
+            exprs[0],
+            @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(0U))]),
+          )
+        }
+        _ => fail("expected reshaped passive typed ref.func element segment")
+      }
+    None => fail("expected transformed element section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic unused empty function-type transform preserves validation and binary roundtrip" {
   let generated = match
     gen_valid_module_result_from_seed(
@@ -6618,13 +6666,14 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 392)
-  @debug.assert_eq(stats.validated, 392)
+  @debug.assert_eq(stats.transformed, 393)
+  @debug.assert_eq(stats.validated, 393)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
   )
   assert_true(stats.transform_ids.contains("add-custom-section-stress"))
+  assert_true(stats.transform_ids.contains("reshape-passive-element-segments"))
   assert_true(
     stats.transform_ids.contains("add-passive-data-segment-shape-stress"),
   )

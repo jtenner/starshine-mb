@@ -12,6 +12,7 @@ pub enum MetamorphicValidTransform {
   AddDuplicateEquivalentFunctionType
   AddUnusedFuncrefTable
   AddUnusedPassiveFuncrefElementSegment
+  ReshapePassiveElementSegments
   AddFunctionNamesSection
   AddLocalNamesSection
   AddLabelNamesSection
@@ -415,6 +416,7 @@ pub fn metamorphic_valid_transform_id(
     AddUnusedFuncrefTable => "add-unused-funcref-table"
     AddUnusedPassiveFuncrefElementSegment =>
       "add-unused-passive-funcref-element-segment"
+    ReshapePassiveElementSegments => "reshape-passive-element-segments"
     AddFunctionNamesSection => "add-function-names-section"
     AddLocalNamesSection => "add-local-names-section"
     AddLabelNamesSection => "add-label-names-section"
@@ -2098,6 +2100,44 @@ fn metamorphic_add_unused_passive_funcref_element_segment(
   }
   elems.push(@lib.Elem::new(@lib.ElemMode::passive(), @lib.ElemKind::funcs([])))
   mod.with_elem_sec(@lib.ElemSec::new(elems))
+}
+
+///|
+fn metamorphic_reshape_passive_element_segments(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let elems = []
+  let mut changed = false
+  match mod.elem_sec {
+    Some(@lib.ElemSec(existing)) =>
+      for elem in existing {
+        match elem {
+          @lib.Elem(@lib.Passive, @lib.FuncsElemKind(func_idxs)) if !changed => {
+            let exprs = []
+            for func_idx in func_idxs {
+              exprs.push(@lib.Expr::new([@lib.Instruction::ref_func(func_idx)]))
+            }
+            elems.push(
+              @lib.Elem::new(
+                @lib.ElemMode::passive(),
+                @lib.ElemKind::typed_exprs(
+                  @lib.RefType::abs(@lib.AbsHeapType::func()),
+                  exprs,
+                ),
+              ),
+            )
+            changed = true
+          }
+          _ => elems.push(elem)
+        }
+      }
+    None => ()
+  }
+  if changed {
+    mod.with_elem_sec(@lib.ElemSec::new(elems))
+  } else {
+    mod
+  }
 }
 
 ///|
@@ -4016,6 +4056,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddDuplicateEquivalentFunctionType,
     AddUnusedFuncrefTable,
     AddUnusedPassiveFuncrefElementSegment,
+    ReshapePassiveElementSegments,
     AddFunctionNamesSection,
     AddLocalNamesSection,
     AddLabelNamesSection,
@@ -4437,6 +4478,8 @@ pub fn metamorphic_apply_transform(
     AddUnusedFuncrefTable => metamorphic_add_unused_funcref_table(mod)
     AddUnusedPassiveFuncrefElementSegment =>
       metamorphic_add_unused_passive_funcref_element_segment(mod)
+    ReshapePassiveElementSegments =>
+      metamorphic_reshape_passive_element_segments(mod)
     AddFunctionNamesSection => metamorphic_add_function_names_section(mod)
     AddLocalNamesSection => metamorphic_add_local_names_section(mod)
     AddLabelNamesSection => metamorphic_add_label_names_section(mod)
