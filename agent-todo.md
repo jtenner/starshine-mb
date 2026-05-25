@@ -264,19 +264,16 @@ Active v0.1.0 slices for full Binaryen parity
     - direct SGO fuzz remains green under the configured command-failure stop (`0` mismatches, `0` validation failures).
 
 - [SGO]003B - Same-As-Init Expression Equivalence Parity
-  - Status: active after `[SGO]003A`.
-  - Goal: implement the Binaryen-supported same-as-init write-removal surface beyond current direct literal / `ref.null` / `ref.func` and known alias guardrails.
-  - Why: `Same-as-init write removal` remains partially implemented; broader `Properties::getLiterals` expression equivalence is open, but prior probes found several non-positives, so this must be source/probe led.
-  - Tasks:
-    - inventory Binaryen official and generated positives for same-init expression matching, separating direct literals, canonicalized aliases, block/result wrappers, arithmetic expressions, reference expressions, imported-provenance cases, changed-write cases, and repeated-run behavior;
-    - add tests first for each Binaryen-positive expression grammar;
-    - add paired negatives for read-present block-wrapped same-init, alias-init/direct-write one-shot, imported initializer provenance, changed non-init writes, effectful/trapping expressions, object-identity-sensitive GC expressions, and any expression whose duplication would alter allocation identity;
-    - implement only the proven literal/expression families;
-    - ensure removed writes become `drop(value)` and preserve operand evaluation.
-  - Exit criteria:
-    - all known same-init rows in the parity matrix are either implemented or explicitly negative with source evidence;
-    - direct SGO 10k fuzz green;
-    - any remaining same-init diff in self-optimize is classified.
+  - Status: accepted / evidence-gated on 2026-05-25. Fresh arithmetic and `select` same-init probes were Binaryen negatives, and the existing block/result, alias one-shot, imported-provenance, changed-write, and object-identity guardrails remain the active boundary. Evidence lives in `docs/wiki/raw/research/0676-2026-05-25-sgo-same-init-expression-guardrails.md`, with prior closeout context in `0658`.
+  - Goal: avoid broadening same-init write removal beyond the currently proven direct literal / `ref.null` / `ref.func` and exact repeated-run alias surfaces unless a future exact Binaryen-positive expression grammar appears.
+  - Completed tasks:
+    - [x] inventoried current official/generated evidence and prior closeouts for direct literals, canonicalized aliases, block/result wrappers, arithmetic expressions, `select` expressions, imported-provenance cases, changed-write cases, and repeated-run behavior;
+    - [x] added focused guardrail tests for arithmetic and `select` expression-shaped same-init writes, both preserving the mutable global and later read;
+    - [x] kept implementation unchanged because no new Binaryen-positive expression grammar was found.
+  - Future reopen criteria:
+    - a new exact Binaryen-positive fixture for a specific expression grammar;
+    - paired negatives for provenance, trapping/effectful expressions, block/result wrappers, changed non-init writes, and object-identity-sensitive GC expressions;
+    - direct SGO 10k fuzz for any behavior change.
 
 - [SGO]003C - Full Read-Only-To-Write FlowScanner Parity
   - Status: active after `[SGO]003A`; can proceed in small sub-slices.

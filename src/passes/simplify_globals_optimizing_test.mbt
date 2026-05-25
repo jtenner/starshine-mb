@@ -2367,6 +2367,59 @@ test "simplify-globals-optimizing keeps result-block same-as-init writes" {
 }
 
 ///|
+test "simplify-globals-optimizing keeps arithmetic same-init expressions conservative" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 7))
+      #|  (func (export "run") (result i32)
+      #|    i32.const 3
+      #|    i32.const 4
+      #|    i32.add
+      #|    global.set $g
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("i32.add"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps select same-init expressions conservative" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $g (mut i32) (i32.const 7))
+      #|  (func (export "run") (result i32)
+      #|    i32.const 7
+      #|    i32.const 8
+      #|    i32.const 1
+      #|    select
+      #|    global.set $g
+      #|    global.get $g))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing removes void-block direct-literal same-as-init writes" {
   let optimized = sgo_test_run(
     (

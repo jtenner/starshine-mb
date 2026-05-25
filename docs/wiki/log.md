@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO same-init expression guardrails
+
+- Added research note [`0676`](./raw/research/0676-2026-05-25-sgo-same-init-expression-guardrails.md) for `[SGO]003B`, probing arithmetic and `select` same-init expression candidates and confirming they are Binaryen negatives.
+- Added focused guardrail tests that keep arithmetic and `select` same-init set operands conservative in the presence of later reads. `moon fmt`, `moon info` (existing DAE warnings), `moon test src/passes` (`1612/1612`), and full `moon test` (`3688/3688`) passed. No direct SGO fuzz was required because no optimizer behavior changed.
+- Closed `[SGO]003B` as evidence-gated/conservative; future same-init broadening needs a fresh exact Binaryen-positive fixture.
+
 ## [2026-05-25] binaryen | SGO fact-table source audit
 
 - Added research note [`0675`](./raw/research/0675-2026-05-25-sgo-fact-table-source-audit.md) for `[SGO]003A`, mapping Binaryen `GlobalInfo` facts to Starshine's `SgoGlobalInfo` row.
