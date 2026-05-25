@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] tooling | dae Func218 canonical wrapper normalization
+
+- Extended the canonical-function fallback in [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts) for the inspected DAE Func218 writer family: branchy value-producing blocks whose result is immediately dropped are normalized against Binaryen's void-block form, and dead `local.tee; drop` wrapper temps are ignored when the tee local is never read again.
+- Updated command coverage in [`../../scripts/test/self-optimize-compare-canonical-func-command.ts`](../../scripts/test/self-optimize-compare-canonical-func-command.ts).
+- `.tmp/dae-func218-next7-artifact` validates with `wasm-opt --all-features` and advances the both-canonical diagnostic frontier from `defined=218 abs=235` to `defined=239 abs=256`. The latest timing run was slightly above the 2x target (`1851.863ms` Starshine versus `968.468ms` Binaryen), so repeat timing before using it as signoff evidence; the new Func239 frontier remains unclassified.
+
 ## [2026-05-24] tooling | dae Func208 canonical wrapper normalization
 
 - Extended the canonical-function fallback in [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts) for the inspected DAE Func208 writer family: `call $252; drop; block(result i32) ...; drop` is normalized against Binaryen's void-block plus explicit dropped-value form, and unreachable `drop` before an `else` arm is ignored after an unconditional branch.

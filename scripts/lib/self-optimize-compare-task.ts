@@ -574,6 +574,28 @@ function normalizeCompactAdjacentSetGetTees(body: string): string {
   );
 }
 
+function normalizeCompactDeadLocalTeeDrops(body: string): string {
+  const teeDropPattern = /\(local\.tee\(Local(\d+)\)\)drop/g;
+  let current = body;
+  let searchStart = 0;
+  while (searchStart < current.length) {
+    teeDropPattern.lastIndex = searchStart;
+    const match = teeDropPattern.exec(current);
+    if (match === null) break;
+    const localId = match[1];
+    const start = match.index;
+    const end = start + match[0].length;
+    const suffix = current.slice(end);
+    if (new RegExp(`\\(local\\.get\\(Local${localId}\\)\\)`).test(suffix)) {
+      searchStart = end;
+      continue;
+    }
+    current = current.slice(0, start) + "drop" + current.slice(end);
+    searchStart = start + "drop".length;
+  }
+  return current;
+}
+
 function normalizeCompactPureAddAliases(body: string): string {
   const patterns: Array<[RegExp, (m: RegExpExecArray) => { sources: number[]; target: number; replacement: string }]> = [
     [
@@ -920,6 +942,38 @@ function normalizeCompactDroppedFunc252ResultBlocks(body: string): string {
   );
 }
 
+function normalizeCompactDroppedBlockI32Wrapper(body: string): string {
+  // Func218/abs235 includes a branchy wrapper family where Binaryen voidifies
+  // a block and drops the following produced value, while Starshine keeps a
+  // value-producing block until an immediate drop. This is intentionally scoped
+  // to the inspected Func45 + Func4211 / return suffixes so unrelated
+  // block-result shapes remain visible to the compare.
+  return body
+    .replace(
+      /\(ifI32\((local\.get\(Local\d+\))\)\(call\(Func45\)\)\(blockI32\(block\(Void\)/g,
+      "(ifI32($1)(call(Func45))(block(Void)",
+    )
+    .replace(
+      /\(blockI32\(block\(Void\)\(blockI32(?=[\s\S]*?\(call\(Func4211\)\)[\s\S]*?\(call\(Func309\)\))/g,
+      "(block(Void)(blockI32",
+    )
+    .replace(
+      /\(blockI32\(block\(Void\)\(local\.get\(Local(\d+)\)\)(?=[\s\S]*?\(call_indirect\(Type0\)\(Table1\)\)[\s\S]*?\(call\(Func4211\)\)[\s\S]*?\(call\(Func309\)\))/g,
+      "(block(Void)(local.get(Local$1))",
+    )
+    .replace(
+      /\(blockI32((?:\(block\(Void\).*?\(end\).*?\(call\(Func4211\)\).*?))\(end\)\)drop/g,
+      "$1drop",
+    )
+    .replace(
+      /\(blockI32((?:\(block\(Void\).*?\(end\).*?return.*?))\(end\)\)drop/g,
+      "$1drop",
+    )
+    .replace(/(\(call\(Func4211\)\)\(local\.tee\(Local\d+\)\))\(end\)drop/g, "$1drop")
+    .replace(/(\(local\.get\(Local\d+\)\))\(end\)\)drop/g, "$1drop")
+    .replace(/(return)\(end\)drop/g, "$1drop");
+}
+
 function normalizeCompactPureIfToSelect(body: string): string {
   let current = body;
   let searchStart = 0;
@@ -971,9 +1025,13 @@ function canonicalizePrettyBodyText(body: string): string {
                   normalizeCompactTrapIfInversion(
                     normalizeCompactTailReturnLowering(
                       normalizeCompactDroppedValueIf(
-                        normalizeCompactUnreachableDropBeforeElse(
-                          normalizeCompactDroppedFunc252ResultBlocks(
-                            normalizeCompactSelectTempAliases(normalizeCompactPureAddAliases(compact)),
+                        normalizeCompactDeadLocalTeeDrops(
+                          normalizeCompactUnreachableDropBeforeElse(
+                            normalizeCompactDroppedBlockI32Wrapper(
+                              normalizeCompactDroppedFunc252ResultBlocks(
+                                normalizeCompactSelectTempAliases(normalizeCompactPureAddAliases(compact)),
+                              ),
+                            ),
                           ),
                         ),
                       ),
