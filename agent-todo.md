@@ -224,7 +224,7 @@ Execution rules for all DAE slices
   - Status: active/partial for v0.1.1 because the product goal changed toward broad Binaryen coverage; not a v0.1.0 blocker and not a rejection of the supported-surface signoff in `docs/wiki/raw/research/0573-2026-05-19-sgo-v010-signoff.md`.
   - Goal: broaden SGO toward fuller Binaryen `SimplifyGlobals.cpp` rewrite-family coverage while preserving the accepted v0.1.0 direct/nested/late-tail surface as a scoped signoff, not a full-parity claim.
   - Current matrix: `docs/wiki/binaryen/passes/simplify-globals-optimizing/parity-matrix.md` distinguishes implemented, partial, missing, intentionally conservative, and unknown families.
-  - Completed evidence: landed behavior, refactor, guardrail, research, and rebaseline slices are recorded in `docs/wiki/raw/research/0574` through `0640` where applicable, `docs/wiki/log.md`, and the SGO parity/readiness pages. Do not duplicate the full completed slice history here; use those docs as the source of truth.
+  - Completed evidence: landed behavior, refactor, guardrail, research, and rebaseline slices are recorded in `docs/wiki/raw/research/0574` through `0641` where applicable, `docs/wiki/log.md`, and the SGO parity/readiness pages. Do not duplicate the full completed slice history here; use those docs as the source of truth.
   - General deliverables for every SGO003 subtask: focused Binaryen probe or source fixture first, local test(s) before implementation for behavior-bearing work, paired negative guardrails for trapping/effectful/control-transfer boundaries, `moon test src/passes`, direct `--pass simplify-globals-optimizing` compare fuzz for nontrivial matcher/dataflow work, docs/wiki/log updates, and keep `[SGO]003` partial unless the user explicitly accepts a final bounded scope.
 
 
@@ -294,7 +294,7 @@ Execution rules for all DAE slices
   - Exit criteria: public behavior tests and docs; no preset widening until direct pass behavior is separately signed.
 
 - [SGO]003O - Refactor-Only Matcher Maintainability Queue
-  - Status: opportunistic; lower priority than behavior-bearing slices after commits `0f8b8902` through `39fa0a22`.
+  - Status: opportunistic; lower priority than behavior-bearing slices after commits `0f8b8902` through `39fa0a22`. The 0641 clean-pop helper slice centralized repeated FlowScanner pop/taint checks without behavior broadening.
   - Goal: keep SGO maintainable without changing behavior.
   - Candidate cleanup: remaining duplicated block/no-catch wrapper extractors, FlowScanner predicate grouping, repeated exact-tail dispatch, and clearer helper naming around condition/value-stack matchers.
   - Rules: no tests required if truly refactor-only and existing tests/fuzz prove behavior preservation; do not use refactors to sneak in new matcher breadth.
