@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] tooling | FUZ1036M2 pass-fuzz transform metadata
+
+- Completed `[FUZ]1036M2` by threading GenValid manifest `transform_id` values into compare-pass `cases.jsonl` records as `transformId`, persisted failure metadata, and transformed GenValid failure directory names.
+- Updated [`tooling/pass-fuzz-compare.md`](tooling/pass-fuzz-compare.md) so replay triage knows where transform ids appear and how transformed failure paths are named.
+
 ## [2026-05-25] fuzzing | FUZ1036I3D GC ref.eq metamorphic transform
 
 - Completed `[FUZ]1036I3D` by adding leading/trailing GenValid metamorphic transforms that append an empty struct type, construct two nontrapping `struct.new_default` operands, compare them with `ref.eq`, and drop the result in each defined function body.

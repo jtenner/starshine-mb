@@ -222,11 +222,16 @@ process.exit(0);
     summary.inputEffectTrapCounts.hasUnreachable === 0,
     `unexpected unreachable count ${JSON.stringify(summary.inputEffectTrapCounts)}`,
   );
-  const cases = fs.readFileSync(path.join(outDir, "cases.jsonl"), "utf8").trim().split("\n").map((line) => JSON.parse(line) as { inputEffectTrapFacts?: Record<string, boolean> });
+  const cases = fs.readFileSync(path.join(outDir, "cases.jsonl"), "utf8").trim().split("\n").map((line) => JSON.parse(line) as { generator: string; transformId?: string; inputEffectTrapFacts?: Record<string, boolean> });
   assert(cases.length === 4, `expected 4 case records, got ${cases.length}`);
   assert(
     cases.every((record) => record.inputEffectTrapFacts && typeof record.inputEffectTrapFacts.mayTrap === "boolean"),
     `expected per-case effect/trap facts in cases.jsonl, got ${JSON.stringify(cases, null, 2)}`,
+  );
+  const genValidCases = cases.filter((record) => record.generator === "gen-valid");
+  assert(
+    genValidCases.length === 2 && genValidCases.every((record) => record.transformId === "add-non-name-custom-section"),
+    `expected gen-valid case metadata to preserve transform ids, got ${JSON.stringify(cases, null, 2)}`,
   );
   assert(
     JSON.stringify(summary.passFlags) === JSON.stringify(["--remove-unused-brs"]),
@@ -1171,6 +1176,7 @@ if (args[0] === "run" && args.includes("src/fuzz")) {
       index: i,
       config_label: "fake-coverage",
       feature_facts: { mode: "coverage-forced", has_v128: i === 1 },
+      transform_id: "add-non-name-custom-section",
     });
   }
   const manifestIndex = args.indexOf("--manifest");
@@ -1275,7 +1281,11 @@ process.exit(0);
     assert(entry.detail.includes("synthetic starshine failure"), `expected command stderr in detail, got ${entry.detail}`);
   }
 
-  const metadataPath = path.join(outDir, "failures", "case-000001-gen-valid", "failure-metadata.json");
+  assert(
+    summary.failureDirs[0].endsWith("case-000001-gen-valid-transform-add-non-name-custom-section"),
+    `expected transformed gen-valid failure dir to include transform id, got ${summary.failureDirs[0]}`,
+  );
+  const metadataPath = path.join(outDir, "failures", "case-000001-gen-valid-transform-add-non-name-custom-section", "failure-metadata.json");
   assert(fs.existsSync(metadataPath), `expected persisted failure metadata at ${metadataPath}`);
   const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8")) as {
     caseIndex: number;
@@ -1284,7 +1294,8 @@ process.exit(0);
     artifacts: string[];
     replay: { input: string; passFlags: string[] };
     status: string;
-    genValidManifestEntry: { file_name: string; feature_facts: { has_v128: boolean } } | null;
+    genValidManifestEntry: { file_name: string; feature_facts: { has_v128: boolean }; transform_id: string } | null;
+    transformId: string | null;
   };
   assert(metadata.caseIndex === 1, `unexpected failure metadata case index ${metadata.caseIndex}`);
   assert(metadata.generator === "gen-valid", `unexpected failure metadata generator ${metadata.generator}`);
@@ -1293,6 +1304,7 @@ process.exit(0);
   assert(metadata.status === "command-failure", `expected command-failure metadata status, got ${metadata.status}`);
   assert(metadata.genValidManifestEntry?.file_name === "gen-valid-000001.wasm", `expected copied gen-valid manifest entry, got ${JSON.stringify(metadata.genValidManifestEntry)}`);
   assert(metadata.genValidManifestEntry?.feature_facts.has_v128 === true, `expected copied gen-valid feature facts, got ${JSON.stringify(metadata.genValidManifestEntry)}`);
+  assert(metadata.transformId === "add-non-name-custom-section", `expected transform id in metadata, got ${JSON.stringify(metadata)}`);
   assert(metadata.replay.input === "input.wasm", `expected relative replay input, got ${metadata.replay.input}`);
   assert(JSON.stringify(metadata.replay.passFlags) === JSON.stringify(["--remove-unused-brs"]), `unexpected replay pass flags ${JSON.stringify(metadata.replay.passFlags)}`);
 

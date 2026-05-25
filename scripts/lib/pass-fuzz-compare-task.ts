@@ -84,6 +84,7 @@ type CaseRecord = {
   status: CaseStatus;
   detail: string;
   failureClass?: CommandFailureClass;
+  transformId?: string;
   inputEffectTrapFacts?: EffectTrapFacts;
 };
 
@@ -1162,6 +1163,20 @@ function noteInputEffectTrapFacts(summary: PassFuzzCompareSummary, facts: Effect
   if (facts.mayTrap) summary.inputEffectTrapCounts.mayTrap += 1;
 }
 
+function genValidManifestTransformId(genValidManifestEntry: unknown | null): string | null {
+  if (genValidManifestEntry !== null && typeof genValidManifestEntry === "object" && "transform_id" in genValidManifestEntry) {
+    const transformId = (genValidManifestEntry as { transform_id?: unknown }).transform_id;
+    if (typeof transformId === "string" && transformId.length > 0) {
+      return transformId;
+    }
+  }
+  return null;
+}
+
+function safeArtifactNameSegment(value: string): string {
+  return value.replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^_+|_+$/g, "") || "unknown";
+}
+
 function persistFailureArtifacts(
   outDir: string,
   caseIndex: number,
@@ -1175,10 +1190,11 @@ function persistFailureArtifacts(
   genValidManifestEntry: unknown | null = null,
   inputEffectTrapFacts: EffectTrapFacts | null = null,
 ): string {
+  const transformId = genValidManifestTransformId(genValidManifestEntry);
   const failureDir = path.join(
     outDir,
     "failures",
-    `case-${String(caseIndex).padStart(6, "0")}-${generator}`,
+    `case-${String(caseIndex).padStart(6, "0")}-${generator}${transformId === null ? "" : `-transform-${safeArtifactNameSegment(transformId)}`}`,
   );
   fs.mkdirSync(failureDir, { recursive: true });
   fs.writeFileSync(path.join(failureDir, "failure.txt"), `${detail}\n`);
@@ -1215,6 +1231,7 @@ function persistFailureArtifacts(
         detail,
         artifacts: artifacts.sort(),
         genValidManifestEntry,
+        transformId,
         inputEffectTrapFacts,
         replay: {
           input: "input.wasm",
@@ -1266,7 +1283,7 @@ function loadReplayCases(
     const failureDir = path.join(
       replayDir,
       "failures",
-      `case-${String(record.caseIndex).padStart(6, "0")}-${record.generator}`,
+      `case-${String(record.caseIndex).padStart(6, "0")}-${record.generator}${record.transformId === undefined ? "" : `-transform-${safeArtifactNameSegment(record.transformId)}`}`,
     );
     const inputPath = path.join(failureDir, "input.wasm");
     if (!fs.existsSync(inputPath)) {
@@ -1739,10 +1756,16 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   let failures = 0;
   let nextReplayIndex = 0;
   const caseRecords: CaseRecord[] = [];
+  const caseTransformIds = new Map<number, string>();
 
   function recordCase(record: CaseRecord): void {
-    caseRecords.push(record);
-    fs.appendFileSync(casesPath, `${JSON.stringify(record)}\n`);
+    const transformId = caseTransformIds.get(record.caseIndex);
+    const enrichedRecord =
+      record.transformId === undefined && transformId !== undefined
+        ? { ...record, transformId }
+        : record;
+    caseRecords.push(enrichedRecord);
+    fs.appendFileSync(casesPath, `${JSON.stringify(enrichedRecord)}\n`);
   }
 
   function genValidInputIndexForReplayIndex(replayIndex: number): number {
@@ -1771,6 +1794,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     const compositionPath = path.join(workDir, "starshine.composition.wasm");
     const compositionWatPath = path.join(workDir, "starshine.composition.wat");
     let genValidManifestEntry: unknown | null = null;
+    let transformId: string | null = null;
     let inputEffectTrapFacts: EffectTrapFacts | null = null;
 
     try {
@@ -1781,6 +1805,10 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           genValidInputs[genValidInputIndexForReplayIndex(replayIndex)] ??
           fail("not enough generated gen-valid inputs");
         genValidManifestEntry = genValidManifestRecords.get(path.basename(source)) ?? null;
+        transformId = genValidManifestTransformId(genValidManifestEntry);
+        if (transformId !== null) {
+          caseTransformIds.set(caseNumber, transformId);
+        }
         fs.copyFileSync(source, inputPath);
       } else {
         const smith = await runSmith(
