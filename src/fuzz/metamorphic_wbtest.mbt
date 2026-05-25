@@ -3902,6 +3902,30 @@ fn assert_metamorphic_integer_unary_drop_transform(
 }
 
 ///|
+test "metamorphic i32.wrap_i64 drop transforms preserve validation and binary roundtrip" {
+  match
+    assert_metamorphic_integer_unary_drop_transform(
+      AddLeadingI32WrapI64DropToDefinedFunctions,
+      "add-leading-i32-wrap-i64-drop-to-defined-functions",
+      @lib.Instruction::i32_wrap_i64(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_unary_drop_transform(
+      AddTrailingI32WrapI64DropToDefinedFunctions,
+      "add-trailing-i32-wrap-i64-drop-to-defined-functions",
+      @lib.Instruction::i32_wrap_i64(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic i32 and i64 clz/ctz/popcnt drop transforms preserve validation and binary roundtrip" {
   match
     assert_metamorphic_integer_unary_drop_transform(
@@ -5060,8 +5084,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 221)
-  @debug.assert_eq(stats.validated, 221)
+  @debug.assert_eq(stats.transformed, 223)
+  @debug.assert_eq(stats.validated, 223)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -5075,6 +5099,16 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(
     stats.transform_ids.contains(
       "add-trailing-i64-popcnt-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-leading-i32-wrap-i64-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-trailing-i32-wrap-i64-drop-to-defined-functions",
     ),
   )
   assert_true(stats.transform_ids.contains("add-module-name-section"))

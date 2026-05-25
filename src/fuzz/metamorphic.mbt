@@ -107,6 +107,8 @@ pub enum MetamorphicValidTransform {
   AddTrailingI64CtzDropToDefinedFunctions
   AddLeadingI64PopcntDropToDefinedFunctions
   AddTrailingI64PopcntDropToDefinedFunctions
+  AddLeadingI32WrapI64DropToDefinedFunctions
+  AddTrailingI32WrapI64DropToDefinedFunctions
   AddLeadingI32ShlDropToDefinedFunctions
   AddTrailingI32ShlDropToDefinedFunctions
   AddLeadingI32ShrSDropToDefinedFunctions
@@ -422,6 +424,10 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-i64-popcnt-drop-to-defined-functions"
     AddTrailingI64PopcntDropToDefinedFunctions =>
       "add-trailing-i64-popcnt-drop-to-defined-functions"
+    AddLeadingI32WrapI64DropToDefinedFunctions =>
+      "add-leading-i32-wrap-i64-drop-to-defined-functions"
+    AddTrailingI32WrapI64DropToDefinedFunctions =>
+      "add-trailing-i32-wrap-i64-drop-to-defined-functions"
     AddLeadingI32ShlDropToDefinedFunctions =>
       "add-leading-i32-shl-drop-to-defined-functions"
     AddTrailingI32ShlDropToDefinedFunctions =>
@@ -3108,6 +3114,8 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingI64CtzDropToDefinedFunctions,
     AddLeadingI64PopcntDropToDefinedFunctions,
     AddTrailingI64PopcntDropToDefinedFunctions,
+    AddLeadingI32WrapI64DropToDefinedFunctions,
+    AddTrailingI32WrapI64DropToDefinedFunctions,
     AddLeadingI32ShlDropToDefinedFunctions,
     AddTrailingI32ShlDropToDefinedFunctions,
     AddLeadingI32ShrSDropToDefinedFunctions,
@@ -3684,6 +3692,18 @@ pub fn metamorphic_apply_transform(
         mod,
         false,
         @lib.Instruction::i64_popcnt(),
+      )
+    AddLeadingI32WrapI64DropToDefinedFunctions =>
+      metamorphic_add_i64_unary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i32_wrap_i64(),
+      )
+    AddTrailingI32WrapI64DropToDefinedFunctions =>
+      metamorphic_add_i64_unary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i32_wrap_i64(),
       )
     AddLeadingI32ShlDropToDefinedFunctions =>
       metamorphic_add_i32_binary_drop_to_defined_functions(
