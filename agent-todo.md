@@ -250,12 +250,6 @@ Execution rules for all DAE slices
   - Explicit deferrals: imported-call, indirect-call, and callee-write/no-remaining-read Binaryen-positive probes from 0635 need generated-effects or whole-module no-read/fake-traffic modeling before implementation.
   - Exit criteria: tests first, fixed-point read/write summaries, direct SGO fuzz, and docs naming every accepted call boundary.
 
-- [SGO]003F - Loop Self-Guard Breadth Beyond Current Symmetry
-  - Status: active research candidate; high risk.
-  - Goal: determine whether any loop self-guard broadening beyond the current non-branching value-loop subset is Binaryen-positive and implement only exact safe shapes.
-  - Current boundary: non-branching loops may yield direct candidate reads or simple nontrapping pure chains into adjacent direct/`i32.eqz`/compare/reverse-compare guards; broad FlowScanner in loops is intentionally disabled.
-  - Required probes: loop with `br_if`, loop with branch-free but effectful body, loop with candidate-consuming load after wrapper, post-loop join/backedge observable read, and loop-carried facts.
-  - Exit criteria: either focused implementation with strict no-branch/no-backedge guards, or a guardrail-only research note preserving current conservatism.
 
 
 - [SGO]003H - Runtime Trace Local Fact Propagation Beyond Official Dominance Lit

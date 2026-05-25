@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO loop self-guard boundary study
+
+- Added research note [`0638`](./raw/research/0638-2026-05-25-sgo-loop-self-guard-boundary-study.md) for `[SGO]003F`, probing loop-wrapped read-only-to-write conditions beyond the current direct/simple-pure subset.
+- Binaryen removes fake traffic for an independent wrong-global `global.set` prefix inside a value loop, but preserves branchy `br_if` loops and candidate-consuming trapping loads; a naive full-FlowScanner loop reuse regressed existing local coverage and was not retained.
+- Added Starshine guardrails for the current conservative independent-effect prefix and the branchy loop boundary, completed `[SGO]003F` as a research/guardrail slice, and left behavior broadening to a future narrow loop scanner or cleanup-frontier slice. `[SGO]003` remains active/partial.
+
 ## [2026-05-25] binaryen | SGO try_table block-wrapper guardrails
 
 - Added research note [`0637`](./raw/research/0637-2026-05-25-sgo-try-table-block-wrapper-guardrails.md) for `[SGO]003G`, probing a no-catch `try_table (result i32)` whose body is a transparent `block (result i32)` around the candidate global read.
