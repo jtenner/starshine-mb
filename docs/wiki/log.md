@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO nested cleanup wrapper frontier
+
+- Added research note [`0639`](./raw/research/0639-2026-05-25-sgo-nested-cleanup-wrapper-frontier.md) for `[SGO]003N`, documenting the current SGO nested cleanup structural guard.
+- Confirmed the active frontier is scheduler/HOT-cleanup safety: touched functions with value-producing `block`/`if` wrappers containing nested `if` control are filtered from nested cleanup, while the SGO core rewrite remains valid.
+- Completed `[SGO]003N` as research-only with no behavior broadening; future guard lifting should move to a dedicated `[SGO]004` runtime/scheduler slice with a minimal verifier reproduction. `[SGO]003` remains active/partial.
+
 ## [2026-05-25] binaryen | SGO loop self-guard boundary study
 
 - Added research note [`0638`](./raw/research/0638-2026-05-25-sgo-loop-self-guard-boundary-study.md) for `[SGO]003F`, probing loop-wrapped read-only-to-write conditions beyond the current direct/simple-pure subset.
