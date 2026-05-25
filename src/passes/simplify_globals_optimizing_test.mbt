@@ -3831,6 +3831,69 @@ test "simplify-globals-optimizing removes nested-if arm value flow with independ
 }
 
 ///|
+test "simplify-globals-optimizing removes nested-if first-arm value flow with independent call condition" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "foo" (func $foo (result i32)))
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    call $foo
+      #|    if (result i32)
+      #|      global.get $guard
+      #|    else
+      #|      i32.const 1
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps nested-if both-arm candidate reads" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (import "env" "foo" (func $foo (result i32)))
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    call $foo
+      #|    if (result i32)
+      #|      global.get $guard
+      #|    else
+      #|      global.get $guard
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing removes nested-if arm value flow with pure call condition" {
   let optimized = sgo_test_run(
     (
