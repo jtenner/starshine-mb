@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] passes | dae Func469 selected literal frontier
+
+- Extended selected DAE dropped-result removal in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) to cover Func4106 after Func469/abs486 exposed another real dropped-result gap.
+- Extended selected exact-literal materialization to Func4117, Func4134, Func4303, and Func4320, closing the remaining constant-actual drift at Func469/abs486.
+- Broadened focused DAE coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt). `.tmp/dae-func469-literal-artifact` validates with `wasm-opt --all-features` and advances the both-canonical diagnostic frontier to `defined=476 abs=493`; initial inspection classifies that new frontier as local-numbering/nop representation drift inside already-void Func476. Latest pass timing remains over target (`2142.515ms` Starshine versus `861.834ms` Binaryen), but correctness/frontier classification is the current priority.
+
 ## [2026-05-24] passes | dae Func467 selected result frontier
 
 - Extended selected DAE dropped-result removal in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) to cover Func459, Func3732, Func472, and Func476 after the both-canonical frontier exposed real result/signature gaps at Func448/abs465, Func456/abs473, and Func467/abs484.

@@ -80,8 +80,8 @@ Completed direct-pass slices
 Current checkpoints
 - Direct semantic baseline: `[DAE]001` is accepted. Keep it closed unless a new semantic mismatch, validation failure, or escaped-call correctness issue is reproduced.
 - Default raw debug-artifact helper: still first-diffs at `defined=336 abs=353` from raw type-section/type-index representation drift (`type $10/$2` versus `type $9/$1`). Do not treat this as a Func408 body issue.
-- Both-canonical diagnostic helper: `scripts/self-optimize-compare.ts --canonicalize-binaryen-output --dae-optimizing` currently advances through selected dropped-result/exact-literal families to `.tmp/dae-func467-result-artifact`, first diff `defined=469 abs=486`.
-- Latest diagnostic timing is over the 2x target after the new selected Func459/3732/472/476 result-removal and Func3736 exact-literal coverage: `2466.697ms` Starshine pass versus `996.778ms` Binaryen pass. Treat performance as the next blocker before signoff.
+- Both-canonical diagnostic helper: `scripts/self-optimize-compare.ts --canonicalize-binaryen-output --dae-optimizing` currently advances through selected dropped-result/exact-literal families to `.tmp/dae-func469-literal-artifact`, first diff `defined=476 abs=493`.
+- Latest diagnostic timing is over the 2x target after correctness-first selected Func4106 result-removal and Func4117/4134/4303/4320 exact-literal coverage: `2142.515ms` Starshine pass versus `861.834ms` Binaryen pass. Per user direction, keep prioritizing correctness/frontier classification over pass time for now.
 - Latest validation before commit `0196531d`: script compare tests, `wasm-opt --all-features .tmp/dae-func447-normalized-artifact/starshine.wasm`, `git diff --check`, `moon info`, `moon fmt`, and `moon test` all passed; `moon info` still reports existing unused DAE helper warnings.
 - `[DAE]007` compare-tool normalization hygiene is closed for the current diagnostic helper: the canonical-function fallback now uses an explicit ordered normalizer list instead of a deeply nested call chain, with a diagnostic-only comment at the artifact-family cleanup point and unchanged fixture coverage.
 - Important classification: Func408/abs425 raw body is closed. With both sides passed through the same strip-debug writer, Func408 matches after type-id stripping; prior Func408 drift was compare-layer representation, not a DAE raw rewrite target.
@@ -111,7 +111,7 @@ Execution rules for all DAE slices
 
 - [DAE]003 - Constant-Actual and Unread-Parameter Generalization
   - Goal: broaden the safe exact-literal/unread-parameter machinery beyond the current selected artifact lanes.
-  - Why: current coverage includes private direct callees where every caller passes the same exact literal, selected scalar memory-load siblings, typed single-result block wrappers, immutable `global.get` for selected Func330/def313, selected Func3736, and many selected debug-artifact defs; broader candidate discovery remains incomplete.
+  - Why: current coverage includes private direct callees where every caller passes the same exact literal, selected scalar memory-load siblings, typed single-result block wrappers, immutable `global.get` for selected Func330/def313, selected Func3736/Func4117/Func4134/Func4303/Func4320, and many selected debug-artifact defs; broader candidate discovery remains incomplete.
   - Deliverables:
     - Generalize beyond fixed selected defs without reopening the earlier runtime cliffs.
     - Support more carrier shapes: non-adjacent forwarding, localized forwarding chains, recursive/self-recursive cycles, block/loop/if/try carriers, and safe immutable global/materialized constants.
@@ -125,7 +125,7 @@ Execution rules for all DAE slices
 
 - [DAE]004 - Selected Result-Removal Broadening
   - Goal: convert the selected dropped-result lane into a principled, broader result-removal scheduler.
-  - Why: selected defs now include artifact families such as `298`, `299`, `427`, `445`, `459`, `472`, `476`, `3566`, `3732`, `3814`, `3834`, and `4229`; Func445 and Func459/3732/472/476 proved the both-canonical frontier can still expose real result/signature gaps.
+  - Why: selected defs now include artifact families such as `298`, `299`, `427`, `445`, `459`, `472`, `476`, `3566`, `3732`, `3814`, `3834`, `4106`, and `4229`; Func445 and Func459/3732/472/476/4106 proved the both-canonical frontier can still expose real result/signature gaps.
   - Deliverables:
     - Replace the handpicked selected-def list with a fact-driven candidate queue when safe.
     - Preserve signatures when any live/undropped call result still exists, including undropped dead-suffix calls.
@@ -149,9 +149,9 @@ Execution rules for all DAE slices
   - Exit criteria: raw type-section drift is either fixed, accepted as out of scope, or permanently documented as a known diagnostic boundary.
 
 - [DAE]006 - Both-Canonical Frontier Advancement
-  - Goal: continue the diagnostic both-canonical frontier from current `defined=469 abs=486`.
+  - Goal: continue the diagnostic both-canonical frontier from current `defined=476 abs=493`.
   - Next action:
-    - Inspect `.tmp/dae-func467-result-artifact/func-defined469-abs486.binaryen.pretty.txt` and `.starshine.pretty.txt` plus the `.wat` diff.
+    - Inspect `.tmp/dae-func469-literal-artifact/func-defined476-abs493.binaryen.pretty.txt` and `.starshine.pretty.txt` plus the `.wat` diff; initial evidence looks like local-numbering/nop representation drift inside already-void Func476 rather than a remaining result/signature gap.
     - Classify before coding: compare-layer representation drift, true DAE output mismatch, type/signature drift, validation/tool issue, or unknown/risky.
   - Deliverables:
     - For representation-only drift, add a narrow script fixture and diagnostic-only normalizer.
@@ -164,6 +164,7 @@ Execution rules for all DAE slices
     - Func448: selected Func459 result removal.
     - Func456: selected Func3732 result removal plus selected Func3736 exact-literal materialization.
     - Func467: selected Func472/Func476 result removal.
+    - Func469: selected Func4106 result removal plus selected Func4117/Func4134/Func4303/Func4320 exact-literal materialization.
   - Exit criteria: both-canonical diagnostic compare reaches full function equality or a documented non-normalizable semantic/shape boundary.
 
 - [DAE]008 - Func237 Historical Frontier Closure or Deferral
@@ -211,7 +212,7 @@ Execution rules for all DAE slices
   - Goal: keep DAE artifact and direct-pass runtime inside `Starshine <= 2x Binaryen`, preferably with headroom.
   - Why: recent both-canonical artifact timings are often close to the 2x threshold; earlier selected scheduler experiments showed unstable timing even when byte-identical.
   - Deliverables:
-    - Repeat timing for `.tmp/dae-func467-result-artifact` or the latest artifact before claiming signoff.
+    - Repeat timing for `.tmp/dae-func469-literal-artifact` or the latest artifact before claiming signoff.
     - Attribute whole-command wall-time separately from pass-local runtime unless the root cause is inside DAE.
     - Avoid broad rescans, per-def bitmap churn, whole-module untouched cleanup, and selected-loop expansions that previously caused cliffs.
   - Known useful runtime strategies:
