@@ -135,6 +135,8 @@ pub enum MetamorphicValidTransform {
   AddTrailingNullableRefCastDropToDefinedFunctions
   AddLeadingRefEqDropToDefinedFunctions
   AddTrailingRefEqDropToDefinedFunctions
+  AddLeadingRefEqFuncDropToDefinedFunctions
+  AddTrailingRefEqFuncDropToDefinedFunctions
   AddLeadingRefEqI31DropToDefinedFunctions
   AddTrailingRefEqI31DropToDefinedFunctions
   AddLeadingAnyConvertExternDropToDefinedFunctions
@@ -667,6 +669,10 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-ref-eq-drop-to-defined-functions"
     AddTrailingRefEqDropToDefinedFunctions =>
       "add-trailing-ref-eq-drop-to-defined-functions"
+    AddLeadingRefEqFuncDropToDefinedFunctions =>
+      "add-leading-ref-eq-func-drop-to-defined-functions"
+    AddTrailingRefEqFuncDropToDefinedFunctions =>
+      "add-trailing-ref-eq-func-drop-to-defined-functions"
     AddLeadingRefEqI31DropToDefinedFunctions =>
       "add-leading-ref-eq-i31-drop-to-defined-functions"
     AddTrailingRefEqI31DropToDefinedFunctions =>
@@ -2593,6 +2599,29 @@ fn metamorphic_ref_eq_drop_instrs() -> Array[@lib.Instruction] {
 }
 
 ///|
+fn metamorphic_first_declared_func_for_ref_func(
+  _mod : @lib.Module,
+) -> @lib.FuncIdx? {
+  // `ref.eq` accepts only eqref operands. `ref.func` produces a function
+  // reference, so no declared function index can make a valid `ref.eq`
+  // computed/drop sequence. Keep this transform unavailable until a future
+  // spec/toolchain change proves such operands valid.
+  None
+}
+
+///|
+fn metamorphic_ref_eq_func_drop_instrs(
+  func_idx : @lib.FuncIdx,
+) -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::ref_func(func_idx),
+    @lib.Instruction::ref_func(func_idx),
+    @lib.Instruction::ref_eq(),
+    @lib.Instruction::drop(),
+  ]
+}
+
+///|
 fn metamorphic_ref_eq_i31_drop_instrs() -> Array[@lib.Instruction] {
   [
     @lib.Instruction::i32_const(31),
@@ -2614,6 +2643,22 @@ fn metamorphic_add_ref_eq_drop_to_defined_functions(
     leading,
     metamorphic_ref_eq_drop_instrs(),
   )
+}
+
+///|
+fn metamorphic_add_ref_eq_func_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+) -> @lib.Module {
+  match metamorphic_first_declared_func_for_ref_func(mod) {
+    Some(func_idx) =>
+      metamorphic_add_unary_drop_to_defined_functions(
+        mod,
+        leading,
+        metamorphic_ref_eq_func_drop_instrs(func_idx),
+      )
+    None => mod
+  }
 }
 
 ///|
@@ -4446,6 +4491,8 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingNullableRefCastDropToDefinedFunctions,
     AddLeadingRefEqDropToDefinedFunctions,
     AddTrailingRefEqDropToDefinedFunctions,
+    AddLeadingRefEqFuncDropToDefinedFunctions,
+    AddTrailingRefEqFuncDropToDefinedFunctions,
     AddLeadingRefEqI31DropToDefinedFunctions,
     AddTrailingRefEqI31DropToDefinedFunctions,
     AddLeadingAnyConvertExternDropToDefinedFunctions,
@@ -5385,6 +5432,10 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_ref_eq_drop_to_defined_functions(mod, true)
     AddTrailingRefEqDropToDefinedFunctions =>
       metamorphic_add_ref_eq_drop_to_defined_functions(mod, false)
+    AddLeadingRefEqFuncDropToDefinedFunctions =>
+      metamorphic_add_ref_eq_func_drop_to_defined_functions(mod, true)
+    AddTrailingRefEqFuncDropToDefinedFunctions =>
+      metamorphic_add_ref_eq_func_drop_to_defined_functions(mod, false)
     AddLeadingRefEqI31DropToDefinedFunctions =>
       metamorphic_add_ref_eq_i31_drop_to_defined_functions(mod, true)
     AddTrailingRefEqI31DropToDefinedFunctions =>
