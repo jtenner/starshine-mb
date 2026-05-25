@@ -518,6 +518,104 @@ process.exit(0);
   assert(starshineLogs.length === 4, `expected first and second Starshine runs for 2 cases, got ${starshineLogs.length}`);
 }
 
+export function runPassFuzzCompareCompositionPropertyTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-composition-"));
+  const outDir = path.join(tmpdir, "out");
+  const starshineLog = path.join(tmpdir, "starshine.log");
+
+  const fakeMoon = makeExecutable(path.join(tmpdir, "fake-moon"), `process.exit(0);`);
+  const fakeStarshine = makeExecutable(
+    path.join(tmpdir, "fake-starshine"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_STARSHINE_LOG, JSON.stringify(args) + "\\n");
+const outIndex = args.indexOf("--out");
+if (outIndex === -1) process.exit(1);
+const input = fs.readFileSync(args[args.length - 1], "utf8");
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+fs.writeFileSync(args[outIndex + 1], "normalized-output");
+process.exit(0);
+`,
+  );
+  const fakeWasmOpt = makeExecutable(
+    path.join(tmpdir, "fake-wasm-opt"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+const outIndex = args.indexOf("-o");
+if (outIndex === -1) process.exit(1);
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+if (args.includes("-S")) {
+  fs.writeFileSync(args[outIndex + 1], "(module ;; normalized)\\n");
+} else {
+  fs.copyFileSync(args[0], args[outIndex + 1]);
+}
+process.exit(0);
+`,
+  );
+  const fakeWasmTools = makeExecutable(
+    path.join(tmpdir, "fake-wasm-tools"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+if (args[0] === "smith") {
+  const outIndex = args.indexOf("-o");
+  fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+  fs.writeFileSync(args[outIndex + 1], "smith");
+}
+process.exit(0);
+`,
+  );
+
+  const result = spawnSync(
+    "bun",
+    [
+      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--count",
+      "1",
+      "--generator",
+      "wasm-smith",
+      "--property",
+      "composition",
+      "--out-dir",
+      outDir,
+      "--moon",
+      fakeMoon,
+      "--starshine-bin",
+      fakeStarshine,
+      "--wasm-opt-bin",
+      fakeWasmOpt,
+      "--wasm-tools-bin",
+      fakeWasmTools,
+      "--remove-unused-brs",
+      "--vacuum",
+    ],
+    { cwd: repoRoot, env: { ...process.env, FAKE_STARSHINE_LOG: starshineLog }, encoding: "utf8" },
+  );
+  if (result.error) throw result.error;
+  if (result.status !== 0) fail(`pass-fuzz-compare composition failed:\n${result.stderr}`);
+
+  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
+    propertyMode: string;
+    propertyFailureCount: number;
+    compositionCheckedCount: number;
+    compositionMatchCount: number;
+  };
+  assert(summary.propertyMode === "composition", `unexpected property mode ${summary.propertyMode}`);
+  assert(summary.propertyFailureCount === 0, `unexpected property failures ${summary.propertyFailureCount}`);
+  assert(summary.compositionCheckedCount === 1, `unexpected composition checks ${summary.compositionCheckedCount}`);
+  assert(summary.compositionMatchCount === 1, `unexpected composition matches ${summary.compositionMatchCount}`);
+  const starshineLogs = fs.readFileSync(starshineLog, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as string[]);
+  assert(starshineLogs.length === 3, `expected combined plus two sequential Starshine runs, got ${starshineLogs.length}`);
+  assert(starshineLogs[1].includes("--remove-unused-brs") && !starshineLogs[1].includes("--vacuum"), `expected first sequential pass only, got ${JSON.stringify(starshineLogs[1])}`);
+  assert(starshineLogs[2].includes("--vacuum") && !starshineLogs[2].includes("--remove-unused-brs"), `expected second sequential pass only, got ${JSON.stringify(starshineLogs[2])}`);
+}
+
 export function runPassFuzzCompareHelpMentionsExternalValidatorsTest(): void {
   const repoRoot = path.resolve(import.meta.dir, "..", "..");
   const result = spawnSync(
@@ -3339,6 +3437,7 @@ if (import.meta.main) {
   runPassFuzzCompareDropConstsNormalizerCommandTest();
   runPassFuzzCompareUnreachableControlDebrisNormalizerCommandTest();
   runPassFuzzCompareIdempotencePropertyTest();
+  runPassFuzzCompareCompositionPropertyTest();
   runPassFuzzCompareHelpMentionsExternalValidatorsTest();
   runPassFuzzCompareRuntimeExecutionNodeTest();
   runPassFuzzCompareListPassesCommandTest();

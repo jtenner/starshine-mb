@@ -20,7 +20,7 @@ type CompareNormalizer = "drop-consts" | "unreachable-control-debris";
 type CaseStatus = "match" | "mismatch" | "validation-failure" | "generator-failure" | "command-failure" | "property-failure";
 type ExternalValidatorKind = "wasm-tools" | "binaryen" | "wabt";
 type RuntimeExecutionMode = "off" | "node";
-type PropertyMode = "none" | "idempotence";
+type PropertyMode = "none" | "idempotence" | "composition";
 type CommandFailureClass =
   | "starshine-command-failed"
   | "starshine-invalid-limits"
@@ -120,6 +120,8 @@ type PassFuzzCompareSummary = {
   propertyFailureCount: number;
   idempotenceCheckedCount: number;
   idempotenceMatchCount: number;
+  compositionCheckedCount: number;
+  compositionMatchCount: number;
   runtimeExecutionCounts: {
     checked: number;
     unsupported: number;
@@ -230,7 +232,7 @@ const HELP_TEXT = [
   "                       Optional skip-clean output validator: wasm-tools | binaryen | wabt. May repeat",
   "  --runtime-execution <mode>",
   "                       Optional runtime smoke execution adapter: off | node. Default: off",
-  "  --property <mode>    Optional property checks: idempotence. May be repeated later; default: none",
+  "  --property <mode>    Optional property checks: idempotence | composition. May be repeated later; default: none",
   "  --binaryen-validate-bin <path>",
   "                       Binaryen validator command for --external-validator binaryen. Default: wasm-validate",
   "  --wabt-validate-bin <path>",
@@ -383,6 +385,7 @@ function normalizePropertyMode(raw: string): PropertyMode {
   switch (raw.trim()) {
     case "none":
     case "idempotence":
+    case "composition":
       return raw.trim();
     default:
       fail(`unsupported property mode for pass-fuzz-compare: ${raw}`);
@@ -1673,6 +1676,8 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     propertyFailureCount: 0,
     idempotenceCheckedCount: 0,
     idempotenceMatchCount: 0,
+    compositionCheckedCount: 0,
+    compositionMatchCount: 0,
     runtimeExecutionCounts: {
       checked: 0,
       unsupported: 0,
@@ -1721,6 +1726,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     const idempotenceRawPath = path.join(workDir, "starshine.idempotence.raw.wasm");
     const idempotencePath = path.join(workDir, "starshine.idempotence.wasm");
     const idempotenceWatPath = path.join(workDir, "starshine.idempotence.wat");
+    const compositionRawPrefix = path.join(workDir, "starshine.composition.step");
+    const compositionPath = path.join(workDir, "starshine.composition.wasm");
+    const compositionWatPath = path.join(workDir, "starshine.composition.wat");
     let genValidManifestEntry: unknown | null = null;
     let inputEffectTrapFacts: EffectTrapFacts | null = null;
 
@@ -1955,6 +1963,114 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           summary.propertyFailureCount += 1;
           failures += 1;
           const detail = `idempotence property command failed: ${commandFailureDetail(error)}`;
+          summary.failureDirs.push(
+            persistFailureArtifacts(
+              outDir,
+              caseNumber,
+              generator,
+              "property-failure",
+              detail,
+              workDir,
+              options.wasmToolsBin,
+              repoRoot,
+              options.passFlags,
+              genValidManifestEntry,
+              inputEffectTrapFacts,
+            ),
+          );
+          recordCase({
+            caseIndex: caseNumber,
+            generator,
+            status: "property-failure",
+            detail,
+            inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
+          });
+          return;
+        }
+      }
+
+      if (options.propertyMode === "composition") {
+        if (options.passFlags.length < 2) {
+          fail("--property composition requires at least two pass flags");
+        }
+        summary.compositionCheckedCount += 1;
+        let compositionInputPath = inputPath;
+        let finalCompositionRawPath = "";
+        try {
+          for (let passIndex = 0; passIndex < options.passFlags.length; passIndex += 1) {
+            finalCompositionRawPath = `${compositionRawPrefix}.${String(passIndex + 1).padStart(2, "0")}.raw.wasm`;
+            const compositionArgs = [
+              ...starshineInvocation.argsPrefix,
+              options.passFlags[passIndex],
+              "--out",
+              finalCompositionRawPath,
+              compositionInputPath,
+            ];
+            await runStarshineWithRetry(
+              starshineInvocation,
+              compositionArgs,
+              finalCompositionRawPath,
+              repoRoot,
+              repoTmpEnv,
+            );
+            const compositionValidation = await runValidateAsync(
+              options.wasmToolsBin,
+              finalCompositionRawPath,
+              repoRoot,
+            );
+            if (!compositionValidation.ok) {
+              throw new Error(`composition step ${passIndex + 1} output failed validation: ${compositionValidation.stderr || "unknown error"}`);
+            }
+            compositionInputPath = finalCompositionRawPath;
+          }
+          await canonicalizeWasm(options.wasmOptBin, starshineRawPath, starshinePath, repoRoot);
+          await canonicalizeWasm(options.wasmOptBin, finalCompositionRawPath, compositionPath, repoRoot);
+          const combinedWat = await normalizePrintWat(
+            options.wasmOptBin,
+            starshinePath,
+            starshineWatPath,
+            repoRoot,
+          );
+          const sequentialWat = await normalizePrintWat(
+            options.wasmOptBin,
+            compositionPath,
+            compositionWatPath,
+            repoRoot,
+          );
+          if (combinedWat === sequentialWat) {
+            summary.compositionMatchCount += 1;
+          } else {
+            summary.propertyFailureCount += 1;
+            failures += 1;
+            const detail = "composition property failed: combined pass invocation differed from sequential single-pass invocations";
+            summary.failureDirs.push(
+              persistFailureArtifacts(
+                outDir,
+                caseNumber,
+                generator,
+                "property-failure",
+                detail,
+                workDir,
+                options.wasmToolsBin,
+                repoRoot,
+                options.passFlags,
+                genValidManifestEntry,
+                inputEffectTrapFacts,
+              ),
+            );
+            recordCase({
+              caseIndex: caseNumber,
+              generator,
+              status: "property-failure",
+              detail,
+              inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
+            });
+            return;
+          }
+        } catch (error) {
+          summary.propertyFailureCount += 1;
+          failures += 1;
+          const detail = `composition property command failed: ${commandFailureDetail(error)}`;
           summary.failureDirs.push(
             persistFailureArtifacts(
               outDir,
