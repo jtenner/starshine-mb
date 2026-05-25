@@ -366,6 +366,7 @@ pub enum MetamorphicValidTransform {
   AddFieldNamesSection
   AddUnusedI32LocalToDefinedFunctions
   AddLeadingNopToDefinedFunctions
+  AddTrailingNopToDefinedFunctions
   AddLeadingI32ConstDropToDefinedFunctions
 } derive(Eq, @debug.Debug)
 

@@ -22,6 +22,7 @@ pub enum MetamorphicValidTransform {
   AddFieldNamesSection
   AddUnusedI32LocalToDefinedFunctions
   AddLeadingNopToDefinedFunctions
+  AddTrailingNopToDefinedFunctions
   AddLeadingI32ConstDropToDefinedFunctions
 } derive(Eq, Debug)
 
@@ -54,6 +55,7 @@ pub fn metamorphic_valid_transform_id(
     AddUnusedI32LocalToDefinedFunctions =>
       "add-unused-i32-local-to-defined-functions"
     AddLeadingNopToDefinedFunctions => "add-leading-nop-to-defined-functions"
+    AddTrailingNopToDefinedFunctions => "add-trailing-nop-to-defined-functions"
     AddLeadingI32ConstDropToDefinedFunctions =>
       "add-leading-i32-const-drop-to-defined-functions"
   }
@@ -987,6 +989,30 @@ fn metamorphic_add_leading_nop_to_defined_functions(
 }
 
 ///|
+fn metamorphic_add_trailing_nop_to_defined_functions(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let funcs = []
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            let next_instrs = []
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            next_instrs.push(@lib.Instruction::nop())
+            funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
 fn metamorphic_add_leading_i32_const_drop_to_defined_functions(
   mod : @lib.Module,
 ) -> @lib.Module {
@@ -1077,6 +1103,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddFieldNamesSection,
     AddUnusedI32LocalToDefinedFunctions,
     AddLeadingNopToDefinedFunctions,
+    AddTrailingNopToDefinedFunctions,
     AddLeadingI32ConstDropToDefinedFunctions,
   ]
 }
@@ -1116,6 +1143,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_unused_i32_local_to_defined_functions(mod)
     AddLeadingNopToDefinedFunctions =>
       metamorphic_add_leading_nop_to_defined_functions(mod)
+    AddTrailingNopToDefinedFunctions =>
+      metamorphic_add_trailing_nop_to_defined_functions(mod)
     AddLeadingI32ConstDropToDefinedFunctions =>
       metamorphic_add_leading_i32_const_drop_to_defined_functions(mod)
   }
