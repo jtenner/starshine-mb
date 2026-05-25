@@ -56,6 +56,18 @@ pub enum MetamorphicValidTransform {
   AddTrailingI64x2AllTrueDropToDefinedFunctions
   AddLeadingI64x2BitmaskDropToDefinedFunctions
   AddTrailingI64x2BitmaskDropToDefinedFunctions
+  AddLeadingI8x16SplatDropToDefinedFunctions
+  AddTrailingI8x16SplatDropToDefinedFunctions
+  AddLeadingI16x8SplatDropToDefinedFunctions
+  AddTrailingI16x8SplatDropToDefinedFunctions
+  AddLeadingI32x4SplatDropToDefinedFunctions
+  AddTrailingI32x4SplatDropToDefinedFunctions
+  AddLeadingI64x2SplatDropToDefinedFunctions
+  AddTrailingI64x2SplatDropToDefinedFunctions
+  AddLeadingF32x4SplatDropToDefinedFunctions
+  AddTrailingF32x4SplatDropToDefinedFunctions
+  AddLeadingF64x2SplatDropToDefinedFunctions
+  AddTrailingF64x2SplatDropToDefinedFunctions
   AddUnusedGcReferenceLocalsToDefinedFunctions
   AddLeadingRefNullDropToDefinedFunctions
   AddTrailingRefNullDropToDefinedFunctions
@@ -410,6 +422,30 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-i64x2-bitmask-drop-to-defined-functions"
     AddTrailingI64x2BitmaskDropToDefinedFunctions =>
       "add-trailing-i64x2-bitmask-drop-to-defined-functions"
+    AddLeadingI8x16SplatDropToDefinedFunctions =>
+      "add-leading-i8x16-splat-drop-to-defined-functions"
+    AddTrailingI8x16SplatDropToDefinedFunctions =>
+      "add-trailing-i8x16-splat-drop-to-defined-functions"
+    AddLeadingI16x8SplatDropToDefinedFunctions =>
+      "add-leading-i16x8-splat-drop-to-defined-functions"
+    AddTrailingI16x8SplatDropToDefinedFunctions =>
+      "add-trailing-i16x8-splat-drop-to-defined-functions"
+    AddLeadingI32x4SplatDropToDefinedFunctions =>
+      "add-leading-i32x4-splat-drop-to-defined-functions"
+    AddTrailingI32x4SplatDropToDefinedFunctions =>
+      "add-trailing-i32x4-splat-drop-to-defined-functions"
+    AddLeadingI64x2SplatDropToDefinedFunctions =>
+      "add-leading-i64x2-splat-drop-to-defined-functions"
+    AddTrailingI64x2SplatDropToDefinedFunctions =>
+      "add-trailing-i64x2-splat-drop-to-defined-functions"
+    AddLeadingF32x4SplatDropToDefinedFunctions =>
+      "add-leading-f32x4-splat-drop-to-defined-functions"
+    AddTrailingF32x4SplatDropToDefinedFunctions =>
+      "add-trailing-f32x4-splat-drop-to-defined-functions"
+    AddLeadingF64x2SplatDropToDefinedFunctions =>
+      "add-leading-f64x2-splat-drop-to-defined-functions"
+    AddTrailingF64x2SplatDropToDefinedFunctions =>
+      "add-trailing-f64x2-splat-drop-to-defined-functions"
     AddUnusedGcReferenceLocalsToDefinedFunctions =>
       "add-unused-gc-reference-locals-to-defined-functions"
     AddLeadingRefNullDropToDefinedFunctions =>
@@ -2082,6 +2118,20 @@ fn metamorphic_add_v128_bitselect_drop_to_defined_functions(
 }
 
 ///|
+fn metamorphic_add_simd_splat_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+  scalar_const : @lib.Instruction,
+  splat : @lib.Instruction,
+) -> @lib.Module {
+  metamorphic_add_unary_drop_to_defined_functions(mod, leading, [
+    scalar_const,
+    splat,
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
 fn metamorphic_add_leading_ref_null_drop_to_defined_functions(
   mod : @lib.Module,
 ) -> @lib.Module {
@@ -3427,6 +3477,18 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingI64x2AllTrueDropToDefinedFunctions,
     AddLeadingI64x2BitmaskDropToDefinedFunctions,
     AddTrailingI64x2BitmaskDropToDefinedFunctions,
+    AddLeadingI8x16SplatDropToDefinedFunctions,
+    AddTrailingI8x16SplatDropToDefinedFunctions,
+    AddLeadingI16x8SplatDropToDefinedFunctions,
+    AddTrailingI16x8SplatDropToDefinedFunctions,
+    AddLeadingI32x4SplatDropToDefinedFunctions,
+    AddTrailingI32x4SplatDropToDefinedFunctions,
+    AddLeadingI64x2SplatDropToDefinedFunctions,
+    AddTrailingI64x2SplatDropToDefinedFunctions,
+    AddLeadingF32x4SplatDropToDefinedFunctions,
+    AddTrailingF32x4SplatDropToDefinedFunctions,
+    AddLeadingF64x2SplatDropToDefinedFunctions,
+    AddTrailingF64x2SplatDropToDefinedFunctions,
     AddUnusedGcReferenceLocalsToDefinedFunctions,
     AddLeadingRefNullDropToDefinedFunctions,
     AddTrailingRefNullDropToDefinedFunctions,
@@ -3890,6 +3952,90 @@ pub fn metamorphic_apply_transform(
         mod,
         false,
         @lib.Instruction::i64x2_bitmask(),
+      )
+    AddLeadingI8x16SplatDropToDefinedFunctions =>
+      metamorphic_add_simd_splat_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i32_const(1),
+        @lib.Instruction::i8x16_splat(),
+      )
+    AddTrailingI8x16SplatDropToDefinedFunctions =>
+      metamorphic_add_simd_splat_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i32_const(1),
+        @lib.Instruction::i8x16_splat(),
+      )
+    AddLeadingI16x8SplatDropToDefinedFunctions =>
+      metamorphic_add_simd_splat_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i32_const(2),
+        @lib.Instruction::i16x8_splat(),
+      )
+    AddTrailingI16x8SplatDropToDefinedFunctions =>
+      metamorphic_add_simd_splat_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i32_const(2),
+        @lib.Instruction::i16x8_splat(),
+      )
+    AddLeadingI32x4SplatDropToDefinedFunctions =>
+      metamorphic_add_simd_splat_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i32_const(3),
+        @lib.Instruction::i32x4_splat(),
+      )
+    AddTrailingI32x4SplatDropToDefinedFunctions =>
+      metamorphic_add_simd_splat_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i32_const(3),
+        @lib.Instruction::i32x4_splat(),
+      )
+    AddLeadingI64x2SplatDropToDefinedFunctions =>
+      metamorphic_add_simd_splat_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i64_const(4L),
+        @lib.Instruction::i64x2_splat(),
+      )
+    AddTrailingI64x2SplatDropToDefinedFunctions =>
+      metamorphic_add_simd_splat_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i64_const(4L),
+        @lib.Instruction::i64x2_splat(),
+      )
+    AddLeadingF32x4SplatDropToDefinedFunctions =>
+      metamorphic_add_simd_splat_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::f32_const(5.0),
+        @lib.Instruction::f32x4_splat(),
+      )
+    AddTrailingF32x4SplatDropToDefinedFunctions =>
+      metamorphic_add_simd_splat_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::f32_const(5.0),
+        @lib.Instruction::f32x4_splat(),
+      )
+    AddLeadingF64x2SplatDropToDefinedFunctions =>
+      metamorphic_add_simd_splat_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::f64_const(6.0),
+        @lib.Instruction::f64x2_splat(),
+      )
+    AddTrailingF64x2SplatDropToDefinedFunctions =>
+      metamorphic_add_simd_splat_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::f64_const(6.0),
+        @lib.Instruction::f64x2_splat(),
       )
     AddUnusedGcReferenceLocalsToDefinedFunctions =>
       metamorphic_add_unused_gc_reference_locals_to_defined_functions(mod)

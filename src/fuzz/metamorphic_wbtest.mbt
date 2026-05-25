@@ -2284,6 +2284,96 @@ test "metamorphic SIMD unary computed-drop transforms preserve validation and bi
 }
 
 ///|
+test "metamorphic SIMD splat computed-drop transforms use scalar constants and preserve validation" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+        ),
+      ]),
+    )
+  let cases : Array[
+    (MetamorphicValidTransform, String, @lib.Instruction, @lib.Instruction),
+  ] = [
+    (
+      AddLeadingI8x16SplatDropToDefinedFunctions,
+      "add-leading-i8x16-splat-drop-to-defined-functions",
+      @lib.Instruction::i32_const(1),
+      @lib.Instruction::i8x16_splat(),
+    ),
+    (
+      AddTrailingI16x8SplatDropToDefinedFunctions,
+      "add-trailing-i16x8-splat-drop-to-defined-functions",
+      @lib.Instruction::i32_const(2),
+      @lib.Instruction::i16x8_splat(),
+    ),
+    (
+      AddLeadingI32x4SplatDropToDefinedFunctions,
+      "add-leading-i32x4-splat-drop-to-defined-functions",
+      @lib.Instruction::i32_const(3),
+      @lib.Instruction::i32x4_splat(),
+    ),
+    (
+      AddTrailingI64x2SplatDropToDefinedFunctions,
+      "add-trailing-i64x2-splat-drop-to-defined-functions",
+      @lib.Instruction::i64_const(4L),
+      @lib.Instruction::i64x2_splat(),
+    ),
+    (
+      AddLeadingF32x4SplatDropToDefinedFunctions,
+      "add-leading-f32x4-splat-drop-to-defined-functions",
+      @lib.Instruction::f32_const(5.0),
+      @lib.Instruction::f32x4_splat(),
+    ),
+    (
+      AddTrailingF64x2SplatDropToDefinedFunctions,
+      "add-trailing-f64x2-splat-drop-to-defined-functions",
+      @lib.Instruction::f64_const(6.0),
+      @lib.Instruction::f64x2_splat(),
+    ),
+  ]
+  for case in cases {
+    let (transform, expected_id, scalar_const, expected_op) = case
+    let transformed = match metamorphic_apply_transform(base, transform) {
+      Ok(v) => v
+      Err(msg) => fail(msg)
+    }
+    @debug.assert_eq(transformed.transform_id, expected_id)
+    match transformed.wasm_module.code_sec {
+      Some(@lib.CodeSec(funcs)) =>
+        match funcs[0] {
+          @lib.Func(_, @lib.Expr(instrs)) => {
+            @debug.assert_eq(instrs.length(), 4)
+            if expected_id.contains("leading") {
+              @debug.assert_eq(instrs[0], scalar_const)
+              @debug.assert_eq(instrs[1], expected_op)
+              @debug.assert_eq(instrs[2], @lib.Instruction::drop())
+              @debug.assert_eq(instrs[3], @lib.Instruction::i32_const(7))
+            } else {
+              @debug.assert_eq(instrs[0], @lib.Instruction::i32_const(7))
+              @debug.assert_eq(instrs[1], scalar_const)
+              @debug.assert_eq(instrs[2], expected_op)
+              @debug.assert_eq(instrs[3], @lib.Instruction::drop())
+            }
+          }
+        }
+      None => fail("expected transformed code section")
+    }
+    match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+      Ok(_) => ()
+      Err(msg) => fail(msg)
+    }
+  }
+}
+
+///|
 test "metamorphic SIMD bitwise binary computed-drop transforms preserve validation and binary roundtrip" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
@@ -5667,13 +5757,18 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 311)
-  @debug.assert_eq(stats.validated, 311)
+  @debug.assert_eq(stats.transformed, 323)
+  @debug.assert_eq(stats.validated, 323)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
   )
   assert_true(stats.transform_ids.contains("add-custom-section-stress"))
+  assert_true(
+    stats.transform_ids.contains(
+      "add-leading-i8x16-splat-drop-to-defined-functions",
+    ),
+  )
   assert_true(
     stats.transform_ids.contains(
       "add-leading-i32-clz-drop-to-defined-functions",
