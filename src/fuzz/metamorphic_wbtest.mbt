@@ -3115,6 +3115,86 @@ test "metamorphic f32 and f64 add/sub/mul/div drop transforms preserve validatio
     Ok(_) => ()
     Err(msg) => fail(msg)
   }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF32MinDropToDefinedFunctions,
+      "add-leading-f32-min-drop-to-defined-functions",
+      @lib.Instruction::f32_min(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF32MinDropToDefinedFunctions,
+      "add-trailing-f32-min-drop-to-defined-functions",
+      @lib.Instruction::f32_min(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF32MaxDropToDefinedFunctions,
+      "add-leading-f32-max-drop-to-defined-functions",
+      @lib.Instruction::f32_max(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF32MaxDropToDefinedFunctions,
+      "add-trailing-f32-max-drop-to-defined-functions",
+      @lib.Instruction::f32_max(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF64MinDropToDefinedFunctions,
+      "add-leading-f64-min-drop-to-defined-functions",
+      @lib.Instruction::f64_min(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF64MinDropToDefinedFunctions,
+      "add-trailing-f64-min-drop-to-defined-functions",
+      @lib.Instruction::f64_min(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF64MaxDropToDefinedFunctions,
+      "add-leading-f64-max-drop-to-defined-functions",
+      @lib.Instruction::f64_max(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF64MaxDropToDefinedFunctions,
+      "add-trailing-f64-max-drop-to-defined-functions",
+      @lib.Instruction::f64_max(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
 }
 
 ///|
@@ -3704,8 +3784,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 101)
-  @debug.assert_eq(stats.validated, 101)
+  @debug.assert_eq(stats.transformed, 109)
+  @debug.assert_eq(stats.validated, 109)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -3859,6 +3939,46 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(
     stats.transform_ids.contains(
       "add-trailing-f64-nearest-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-leading-f32-min-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-trailing-f32-min-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-leading-f32-max-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-trailing-f32-max-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-leading-f64-min-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-trailing-f64-min-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-leading-f64-max-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-trailing-f64-max-drop-to-defined-functions",
     ),
   )
   assert_true(
