@@ -608,6 +608,144 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 
 ### FUZ - Fuzzer Hardening and GenValid Widening
 
+#### Named remaining FUZ slice index
+
+Use these slice ids when selecting or reporting future FUZ work. Parent tasks below keep the fuller goals, invariants, and historical evidence; this index names the remaining units so agents do not have to infer the next slice from long status paragraphs.
+
+p1 GenValid / valid-generation slices:
+- [FUZ]1036A (p1, GenValid) - Metamorphic Duplicate Equivalent Type Transform
+  - Unit: add a semantics-preserving transform that appends or duplicates an equivalent unused function type without retargeting existing type indices; prove validation, binary roundtrip, transform id reporting, and docs.
+- [FUZ]1036B (p1, GenValid) - Metamorphic Local Declaration Split/Merge Transform
+  - Unit: add a transform that changes defined-function local declaration grouping without shifting local indices or changing instructions; prove validation, binary roundtrip, and suite detail counts.
+- [FUZ]1036C (p1, GenValid) - Metamorphic Export Rename/Alias Stress Follow-Up
+  - Unit: widen export-name reshaping beyond the current alias transform while preserving existing entry points and unique export names.
+- [FUZ]1036D (p1, GenValid) - Metamorphic Identity Wrapper Expression Transform
+  - Unit: wrap safe body fragments in identity `block` / value-preserving wrappers where stack typing proves no semantic change; start with a narrow fixture before GenValid-wide use.
+- [FUZ]1036E (p1, GenValid) - Metamorphic Pass-Fuzz Integration
+  - Unit: let pass-fuzz or selected fuzz suites request transformed variants, preserve transform ids in reports/artifacts, and keep default direct-pass signoff behavior stable.
+- [FUZ]1037A (p1, GenValid) - Shared Const-Expression Generator Core
+  - Unit: factor a common const-expression generator with context allow-lists for numeric constants, `ref.null`, `ref.func`, and imported immutable `global.get`.
+- [FUZ]1037B (p1, GenValid) - Initializer Context Matrix Coverage
+  - Unit: apply the shared const-expression generator to globals, element offsets, data offsets, table initializers, and valid GC initializer contexts; record feature facts.
+- [FUZ]1039A (p1, GenValid) - Start Function Profile Matrix
+  - Unit: generate profiles with no start, imported/defined start candidates where valid, and start functions that call helpers while preserving `[] -> []` type rules.
+- [FUZ]1039B (p1, GenValid) - Imported-Global Offset Initialization Profiles
+  - Unit: generate active element/data offsets and global initializers that use imported immutable globals through the shared const-expression matrix.
+- [FUZ]1038A (p1, GenValid) - Valid Name String Edge Profiles
+  - Unit: generate empty, long, Unicode, and repeated import module names while preserving validation and roundtrip behavior.
+- [FUZ]1038B (p1, GenValid) - Custom Section Placement/Payload Stress
+  - Unit: generate multiple unknown custom sections with varied valid placement and payload bytes; keep text/binary roundtrip expectations explicit.
+- [FUZ]1046A (p1, GenValid) - Feature-Gate Matrix Harness
+  - Unit: define the central proposal feature-gate table and add the first enabled/disabled positive/negative fixtures.
+- [FUZ]1046B (p1, GenValid) - Feature-Gate Matrix Completion
+  - Unit: fill out GC, function references, tail calls, exceptions, SIMD, relaxed SIMD, atomics, bulk memory, multi-memory, memory64, extended const, and reference-types gates.
+- [FUZ]1051A (p1, tooling) - Fuzz Recipe Schema Core
+  - Unit: define and parse the checked-in recipe schema with predictable CLI override precedence.
+- [FUZ]1051B (p1, tooling) - Standard Checked-In Recipe Set
+  - Unit: add smoke, CI, nightly, pass-signoff, validator-stress, parser-stress, and Binaryen-oracle recipes plus docs/examples.
+- [FUZ]1058A (p1, GenValid/tooling) - Golden Seed Catalog Schema
+  - Unit: define how golden seeds, expected counters, and covered surfaces are recorded.
+- [FUZ]1058B (p1, GenValid/tooling) - Golden Seed Smoke Suite
+  - Unit: add a small deterministic suite that exercises major GenValid, invalid, text, binary, pass-fuzz metadata, and minimization surfaces.
+
+p1/p2 oracle, reporting, and infrastructure slices:
+- [FUZ]1040A (p1) - Effect/Trap Scanner Core
+  - Unit: add conservative scanner facts for calls, memory/table/global mutation, exceptions, atomics, unreachable regions, and possible traps.
+- [FUZ]1040B (p1) - Pass-Fuzz Effect/Trap Report Propagation
+  - Unit: thread effect/trap facts into pass-fuzz result metadata and mismatch summaries.
+- [FUZ]1031A (p2) - Fuzz Output Directory Layout
+  - Unit: add `--out-dir` plumbing for ordinary fuzz runs and write `result.json`, `cases.jsonl`, generated inputs, failures, and manifests only when requested.
+- [FUZ]1031B (p2) - Suite Ledgers And Replay Manifests
+  - Unit: write feature/strategy ledgers and suite-specific replay manifests under the output directory.
+- [FUZ]1032A (p2) - Optional External Validator Adapters
+  - Unit: add skip-clean adapters for `wasm-tools validate`, Binaryen `wasm-validate`, and WABT where available.
+- [FUZ]1032B (p2) - Optional Runtime Execution Adapter
+  - Unit: add an opt-in runtime adapter and basic import stubs for simple exported-function execution checks.
+- [FUZ]1033A (p2) - Pass-Fuzz Idempotence Property
+  - Unit: add an optional `pass(pass(m)) == pass(m)` property mode with separate classification from Binaryen mismatches.
+- [FUZ]1033B (p2) - Pass-Fuzz Repeated/Composition Properties
+  - Unit: add repeated validation and selected pass-composition checks with property-specific artifacts.
+- [FUZ]1042A (p2) - Corpus Promotion/Quarantine Policy Docs
+  - Unit: define promoted-valid, promoted-invalid, pass-mismatch, tool-failure, accepted-divergence, and quarantine metadata.
+- [FUZ]1042B (p2) - Corpus Replay-All Workflow
+  - Unit: add a deterministic replay entry point for promoted/quarantined cases without committing large noisy corpora.
+- [FUZ]1043A (p2) - Shared Reducer Interface
+  - Unit: define common predicates and result metadata for validation failure, parse failure, pass mismatch, crash, timeout, and property failure reduction.
+- [FUZ]1043B (p2) - Module/Binary/Text Reduction Backends
+  - Unit: add initial module deletion, byte-slice deletion, and text-token deletion reducers that preserve the reproducing predicate.
+- [FUZ]1047A (p2) - Normalization Contract Documentation
+  - Unit: document every pass-fuzz normalization step and its semantic risk boundary.
+- [FUZ]1047B (p2) - Normalization Fixture Matrix
+  - Unit: add equality/inequality fixtures for debug stripping, default locals, NaN formatting, block wrappers, local/name stripping, custom sections, and section order.
+- [FUZ]1048A (p2) - Fuzz Summary Report Schema
+  - Unit: write summary JSON for counters, strategy outcomes, failure classes, timings, and artifact counts.
+- [FUZ]1048B (p2) - Coverage Delta Diff Tool
+  - Unit: compare two fuzz reports and flag required coverage drops while tolerating optional counters.
+- [FUZ]1049A (p2) - Parallel Fuzz Shard Queue
+  - Unit: split suites/seeds/profiles into shard work items with non-overlapping artifact paths.
+- [FUZ]1049B (p2) - Deterministic Merge/Resume
+  - Unit: merge shard outputs in stable order and resume interrupted runs from completed case manifests.
+- [FUZ]1050A (p2) - Interestingness Hash Schema
+  - Unit: define raw, decoded-shape, feature-fact, normalized, predicate, and reduced-artifact hashes.
+- [FUZ]1050B (p2) - Corpus Dedup Index
+  - Unit: maintain a reversible index from hashes to source seeds/profiles and duplicate decisions.
+- [FUZ]1052A (p2) - Runtime Import Stub Generator
+  - Unit: generate deterministic numeric/ref/global/table/memory import stubs where feasible.
+- [FUZ]1052B (p2) - Export Invocation Result Matrix
+  - Unit: choose simple exported-function arguments and classify equal result, equal trap, unsupported runtime, nondeterministic import, and semantic mismatch.
+- [FUZ]1053A (p2) - Per-Case Timeout Classification
+  - Unit: add per-case budgets and timeout classifications for fuzz runner, pass-fuzz, and external adapters.
+- [FUZ]1053B (p2) - Resource-Limit Artifact Handling
+  - Unit: persist minimized timeout/resource repro metadata without blocking the full run.
+
+p2 invalid/binary/text slices:
+- [FUZ]1020A (MANUALLY BLOCKED TEMP, p2) - Remaining AST Type/Subtyping Invalid Strategies
+  - Unit: when unblocked, add focused invalid AST strategies for deeper subtype variance, descriptor cycles, and heap/ref type index failures not already covered.
+- [FUZ]1020B (MANUALLY BLOCKED TEMP, p2) - Remaining AST Section/Index Invalid Strategies
+  - Unit: when unblocked, add missing table/memory/tag/global/element/data/datacount/start/export/code/name-section rule variants beyond the landed families.
+- [FUZ]1020C (MANUALLY BLOCKED TEMP, p2) - Remaining AST Function-Body Proposal Strategies
+  - Unit: when unblocked, add remaining function-body GC, exception, atomics, memory64, relaxed SIMD, branch payload, and const-safety invalid variants not covered by previous slices.
+- [FUZ]1021A (MANUALLY BLOCKED TEMP, p2) - Remaining Invalid UTF-8 Binary Corruptions
+  - Unit: when unblocked, add invalid UTF-8 byte strategies for names/imports/exports/custom/name-section payloads.
+- [FUZ]1021B (MANUALLY BLOCKED TEMP, p2) - Remaining Opcode/Prefix/Subopcode Binary Corruptions
+  - Unit: when unblocked, add invalid opcode, bad prefix, malformed subopcode, and proposal-prefix corruption strategies beyond the landed atomics/SIMD samples.
+- [FUZ]1021C (MANUALLY BLOCKED TEMP, p2) - Remaining Lane/Blocktype/Heaptype Binary Corruptions
+  - Unit: when unblocked, add invalid lane immediates, blocktype encodings, heap/ref type encodings, and memarg/immediate families not already represented.
+- [FUZ]1022A (p2) - Decode-Accepted Body Validation Binary Strategies
+  - Unit: add binary-invalid strategies that decode successfully but fail validation for body stack, branch payload, call, local/global/table/memory/tag/type index, and GC/array/field errors.
+- [FUZ]1022B (p2) - Decode-Accepted Proposal Validation Binary Strategies
+  - Unit: add validator-rejected binary cases for exceptions, atomics on non-shared memory, memory64 address typing, const expressions, and relaxed SIMD where represented.
+- [FUZ]1023A (MANUALLY BLOCKED TEMP, p1) - Dynamic Invalid Text Valid-Before-Link Classification
+  - Unit: when unblocked, classify dynamic mutations that parse/lower/validate but fail at link/instantiation separately from parser or validator rejection.
+- [FUZ]1023B (MANUALLY BLOCKED TEMP, p1) - Dynamic Invalid Text Feature-Fact Widening
+  - Unit: when unblocked, broaden source feature facts beyond simple WAT field tags for generated/mutated dynamic text cases.
+- [FUZ]1023C (MANUALLY BLOCKED TEMP, p1) - Dynamic Invalid Text Mutation Matrix
+  - Unit: when unblocked, add bad type token, mutable global const-init, string/name, module-field, and additional memarg/lane/index mutations.
+- [FUZ]1025A (p2) - Invalid Repro Metadata Versioning
+  - Unit: extend `InvalidFuzzFailureReport` with variant id, issue kind, generator profile/config, feature facts, source artifacts, and backward-compatible parsing.
+- [FUZ]1025B (p2) - Actual Specimen Shrinking
+  - Unit: shrink AST modules, binary bytes, text assertions, and spec-seed extracts while preserving expected stage/family/issue.
+- [FUZ]1026A (p2) - Multi-Fault Invalid Composition Runner
+  - Unit: compose two or more AST/binary/text mutations in a stress-only lane and classify only broad outcomes.
+- [FUZ]1026B (p2) - Multi-Fault Repro Metadata
+  - Unit: persist all mutation ids and broad outcome data without weakening single-fault diagnostic floors.
+- [FUZ]1044A (p2) - N-Way Binary Validation Classification
+  - Unit: compare Starshine decode/validate with optional wasm-tools/WABT/Binaryen validators and classify proposal gaps, decoder-stage disagreements, validator-stage disagreements, and tool failures.
+- [FUZ]1045A (p2) - N-Way Text Parse/Print Classification
+  - Unit: compare local WAT/WAST parse/print/lower behavior with optional WABT and wasm-tools text commands.
+- [FUZ]1055A (p2) - Multi-Module WAST Valid Linking Lane
+  - Unit: generate multi-module WAST scripts with module names, register commands, and valid import/export wiring.
+- [FUZ]1055B (p2) - Multi-Module WAST Unlinkable Lane
+  - Unit: generate `assert_unlinkable` cases for missing or type-mismatched imports and classify them separately from invalid modules.
+- [FUZ]1056A (p2) - Curated Diagnostic Location Fixtures
+  - Unit: add exact byte offset/section/line/column checks for stable invalid binary/text fixtures.
+- [FUZ]1056B (p2) - Fuzz Diagnostic Location Metadata
+  - Unit: persist best-effort diagnostic locations in invalid text/binary repro artifacts without requiring exact randomized matches.
+- [FUZ]1057A (p2) - Binary Canonicality Policy Decision
+  - Unit: document decoder policy for overwide/noncanonical-but-well-formed encodings and expected external-tool disagreements.
+- [FUZ]1057B (p2) - Binary Canonicality Fixture Matrix
+  - Unit: add fixtures for canonical/overwide LEBs, signed boundary forms, section size encodings, NaN payload preservation, and custom-section byte preservation.
+
 - [FUZ]1020 (MANUALLY BLOCKED TEMP, p2) - Invalid AST Strategy Expansion Across Validator Families
   - Blocked: manually paused temporarily by user request; do not resume from cron until unblocked.
   - Run 23 continuation update: now added `codesec-length-mismatch-too-small` and `codesec-length-mismatch-too-large` strategies for function/code section length mismatches in both directions. TDD first failed in `moon test src/validate` because the new strategy constructors were missing, then passed after adding the strategy registry entries, stable ids, mutators, dispatcher cases, focused reject tests, `gen_invalid` generation tests, registry expected-id update, and wiki summaries. Final validation for this slice is in the commit message.
