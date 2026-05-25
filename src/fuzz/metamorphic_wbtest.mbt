@@ -3916,6 +3916,54 @@ fn assert_metamorphic_typed_unary_drop_transform(
 }
 
 ///|
+test "metamorphic demote/promote drop transforms preserve validation and binary roundtrip" {
+  match
+    assert_metamorphic_typed_unary_drop_transform(
+      AddLeadingF32DemoteF64DropToDefinedFunctions,
+      "add-leading-f32-demote-f64-drop-to-defined-functions",
+      @lib.Instruction::f64_const(1.0),
+      @lib.Instruction::f32_demote_f64(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_typed_unary_drop_transform(
+      AddTrailingF32DemoteF64DropToDefinedFunctions,
+      "add-trailing-f32-demote-f64-drop-to-defined-functions",
+      @lib.Instruction::f64_const(1.0),
+      @lib.Instruction::f32_demote_f64(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_typed_unary_drop_transform(
+      AddLeadingF64PromoteF32DropToDefinedFunctions,
+      "add-leading-f64-promote-f32-drop-to-defined-functions",
+      @lib.Instruction::f32_const(1.0),
+      @lib.Instruction::f64_promote_f32(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_typed_unary_drop_transform(
+      AddTrailingF64PromoteF32DropToDefinedFunctions,
+      "add-trailing-f64-promote-f32-drop-to-defined-functions",
+      @lib.Instruction::f32_const(1.0),
+      @lib.Instruction::f64_promote_f32(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic reinterpret drop transforms preserve validation and binary roundtrip" {
   match
     assert_metamorphic_typed_unary_drop_transform(
@@ -5230,8 +5278,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 251)
-  @debug.assert_eq(stats.validated, 251)
+  @debug.assert_eq(stats.transformed, 255)
+  @debug.assert_eq(stats.validated, 255)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -5275,6 +5323,16 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(
     stats.transform_ids.contains(
       "add-trailing-f64-convert-i64-u-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-leading-f32-demote-f64-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-trailing-f64-promote-f32-drop-to-defined-functions",
     ),
   )
   assert_true(

@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1036E6 metamorphic float demote/promote drop body reshaping
+
+- Completed `[FUZ]1036E6` by adding leading/trailing `f32.demote_f64` and `f64.promote_f32` computed/drop metamorphic-valid transforms. They insert pure matching-typed finite-one conversion stacks at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate transformed modules, and raise the active registry to 255 transforms per generated module.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the active metamorphic-valid transform registry names the scalar float demote/promote computed/drop surface alongside the existing scalar reinterpret, integer/float conversion, integer conversion/count/shift/rotate, bitwise, comparison, floating comparison, arithmetic, rounding, sqrt, neg, abs, const/drop, if, no-op, control-wrapper, locals, exports, custom sections, and metadata transforms.
+
 ## [2026-05-25] fuzzing | FUZ1036E5 metamorphic reinterpret drop body reshaping
 
 - Completed `[FUZ]1036E5` by adding leading/trailing `i32.reinterpret_f32`, `i64.reinterpret_f64`, `f32.reinterpret_i32`, and `f64.reinterpret_i64` computed/drop metamorphic-valid transforms. They insert pure matching-typed zero reinterpret stacks at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate transformed modules, and raise the active registry to 251 transforms per generated module.
