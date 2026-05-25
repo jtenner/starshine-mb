@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1036D metamorphic false-if body reshaping
+
+- Continued `[FUZ]1036D` by adding the `add-leading-false-if-to-defined-functions` and `add-trailing-false-if-to-defined-functions` metamorphic-valid transforms. They insert constant-false empty `if` instructions at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate the transformed modules, and report the new transform ids through `validate-valid-metamorphic` details.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the active metamorphic-valid transform registry names the false-if control/body reshaping surfaces alongside existing empty blocks/loops, identity blocks, const/drop pairs, no-ops, locals, exports, custom sections, and metadata transforms.
+
 ## [2026-05-25] fuzzing | FUZ1036D metamorphic f64 const drops
 
 - Continued `[FUZ]1036D` by adding the `add-leading-f64-const-drop-to-defined-functions` and `add-trailing-f64-const-drop-to-defined-functions` metamorphic-valid transforms. They insert pure `f64.const 0; drop` pairs at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate the transformed modules, and report the new transform ids through `validate-valid-metamorphic` details.
