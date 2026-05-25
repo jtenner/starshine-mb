@@ -3237,6 +3237,11 @@ fn sgo_loop_condition_independent_global_set_prefix_read_matches(
           scan = scan + 2
           continue
         }
+        @lib.LocalSet(_) => {
+          saw_independent_set = true
+          scan = scan + 2
+          continue
+        }
         _ => ()
       }
     }

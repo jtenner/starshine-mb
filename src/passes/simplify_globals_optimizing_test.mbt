@@ -12021,6 +12021,39 @@ test "simplify-globals-optimizing removes loop-wrapped independent global-set ef
 }
 
 ///|
+test "simplify-globals-optimizing removes loop-wrapped independent local-set effect prefixes" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (global $once (mut i32) (i32.const 0))
+      #|  (global $sink (export "sink") (mut i32) (i32.const 0))
+      #|  (func (export "run") (local $x i32)
+      #|    loop (result i32)
+      #|      i32.const 7
+      #|      local.set $x
+      #|      global.get $once
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $once
+      #|    end
+      #|    local.get $x
+      #|    global.set $sink))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing preserves branchy loop-wrapped self guards" {
   let optimized = sgo_test_run(
     (

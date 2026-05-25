@@ -560,6 +560,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO loop independent local-set prefix
+
+- Added research note [`0678`](./raw/research/0678-2026-05-25-sgo-loop-independent-local-set-prefix.md) for `[SGO]003C5`, extending the narrow direct-loop prefix matcher to the Binaryen-positive `const; local.set; global.get <candidate>` shape without enabling broad loop FlowScanner reuse.
+- Added a focused regression with an exported sink proving the independent local write remains semantically observable while the fake candidate-global guard traffic is removed. TDD failure was observed before implementation; `moon fmt`, `moon info`, full `moon test` (`3689/3689`), and direct SGO fuzz at `.tmp/pass-fuzz-sgo-loop-localset-0678-10000` passed the slice criteria (`6759/10000` compared before the configured `20` Binaryen/tool command-failure stop, `0` mismatches, `0` Starshine validation failures).
+
 ## [2026-05-25] binaryen | SGO loop independent global-set prefix
 
 - Added research note [`0677`](./raw/research/0677-2026-05-25-sgo-loop-independent-global-set-prefix.md) for `[SGO]003C5`, landing the narrow Binaryen-positive value-loop prefix from `0638` without enabling the broad loop FlowScanner.
