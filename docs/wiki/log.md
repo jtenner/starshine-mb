@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1037C ref initializer coverage anchors
+
+- Completed `[FUZ]1037C` by tightening the GenValid coverage-forced const-expression anchor so it explicitly proves `ref.null` and `ref.func` initializer expressions appear where valid: global initializers and table initializer expressions.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) to name the covered `ref.null` / `ref.func` initializer forms and kept `moon test src/validate` green.
+
 ## [2026-05-25] tooling | FUZ1036M2 pass-fuzz transform metadata
 
 - Completed `[FUZ]1036M2` by threading GenValid manifest `transform_id` values into compare-pass `cases.jsonl` records as `transformId`, persisted failure metadata, and transformed GenValid failure directory names.

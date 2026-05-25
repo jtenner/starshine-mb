@@ -5900,8 +5900,11 @@ priv struct ValidateTestConstExprForms {
   global_get_in_global : Bool
   prior_global_get_in_global : Bool
   ref_func_in_global : Bool
+  ref_null_in_global : Bool
   gc_ref_in_global : Bool
   global_get_in_table_init : Bool
+  ref_func_in_table_init : Bool
+  ref_null_in_table_init : Bool
   global_get_in_elem_offset : Bool
   imported_global_get_in_elem_offset : Bool
   global_get_in_data_offset : Bool
@@ -5914,8 +5917,11 @@ fn validate_test_const_expr_forms_empty() -> ValidateTestConstExprForms {
     global_get_in_global: false,
     prior_global_get_in_global: false,
     ref_func_in_global: false,
+    ref_null_in_global: false,
     gc_ref_in_global: false,
     global_get_in_table_init: false,
+    ref_func_in_table_init: false,
+    ref_null_in_table_init: false,
     global_get_in_elem_offset: false,
     imported_global_get_in_elem_offset: false,
     global_get_in_data_offset: false,
@@ -5941,6 +5947,18 @@ fn validate_test_expr_has_ref_func(expr : Expr) -> Bool {
   for instr in instrs {
     match instr {
       RefFunc(_) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn validate_test_expr_has_ref_null(expr : Expr) -> Bool {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      RefNull(_) => return true
       _ => ()
     }
   }
@@ -6041,6 +6059,8 @@ fn validate_test_const_expr_forms_module(
           ),
           ref_func_in_global: forms.ref_func_in_global ||
           validate_test_expr_has_ref_func(init),
+          ref_null_in_global: forms.ref_null_in_global ||
+          validate_test_expr_has_ref_null(init),
           gc_ref_in_global: forms.gc_ref_in_global ||
           validate_test_expr_has_gc_const(init),
         }
@@ -6057,6 +6077,10 @@ fn validate_test_const_expr_forms_module(
               ..forms,
               global_get_in_table_init: forms.global_get_in_table_init ||
               validate_test_expr_has_global_get(init),
+              ref_func_in_table_init: forms.ref_func_in_table_init ||
+              validate_test_expr_has_ref_func(init),
+              ref_null_in_table_init: forms.ref_null_in_table_init ||
+              validate_test_expr_has_ref_null(init),
             }
           None => ()
         }
@@ -6119,8 +6143,11 @@ test "gen_valid coverage-forced emits const-expression variants" {
   assert_true(forms.global_get_in_global)
   assert_true(forms.prior_global_get_in_global)
   assert_true(forms.ref_func_in_global)
+  assert_true(forms.ref_null_in_global)
   assert_true(forms.gc_ref_in_global)
   assert_true(forms.global_get_in_table_init)
+  assert_true(forms.ref_func_in_table_init)
+  assert_true(forms.ref_null_in_table_init)
   assert_true(forms.global_get_in_elem_offset)
   assert_true(forms.imported_global_get_in_elem_offset)
   assert_true(forms.global_get_in_data_offset)
