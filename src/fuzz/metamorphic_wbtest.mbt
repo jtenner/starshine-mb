@@ -2147,6 +2147,157 @@ test "metamorphic suffixed export aliases transform preserves validation and uni
 }
 
 ///|
+test "metamorphic kind-specific export alias transforms preserve unique names" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            @lib.RefType::abs(@lib.AbsHeapType::func()),
+            @lib.Limits::i32(1U, None),
+          ),
+          None,
+        ),
+      ]),
+    )
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), false),
+          @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("table"),
+          @lib.ExternIdx::table(@lib.TableIdx::new(0U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("mem"),
+          @lib.ExternIdx::mem(@lib.MemIdx::new(0U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("global"),
+          @lib.ExternIdx::global(@lib.GlobalIdx::new(0U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_func_alias_0"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+  let transformed = match
+    metamorphic_apply_transform(base, AddFunctionExportAliases) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "add-function-export-aliases")
+  match transformed.wasm_module.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      @debug.assert_eq(exports.length(), 7)
+      @debug.assert_eq(
+        exports[5],
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_func_alias_0_1"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      )
+      @debug.assert_eq(
+        exports[6],
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_func_alias_1"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      )
+    }
+    None => fail("expected transformed export section")
+  }
+  let table_transformed = match
+    metamorphic_apply_transform(transformed.wasm_module, AddTableExportAliases) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match table_transformed.wasm_module.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      @debug.assert_eq(exports.length(), 8)
+      @debug.assert_eq(
+        exports[7],
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_table_alias_0"),
+          @lib.ExternIdx::table(@lib.TableIdx::new(0U)),
+        ),
+      )
+    }
+    None => fail("expected transformed export section")
+  }
+  let mem_transformed = match
+    metamorphic_apply_transform(
+      table_transformed.wasm_module,
+      AddMemoryExportAliases,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match mem_transformed.wasm_module.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      @debug.assert_eq(exports.length(), 9)
+      @debug.assert_eq(
+        exports[8],
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_memory_alias_0"),
+          @lib.ExternIdx::mem(@lib.MemIdx::new(0U)),
+        ),
+      )
+    }
+    None => fail("expected transformed export section")
+  }
+  let global_transformed = match
+    metamorphic_apply_transform(
+      mem_transformed.wasm_module,
+      AddGlobalExportAliases,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match global_transformed.wasm_module.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      @debug.assert_eq(exports.length(), 10)
+      @debug.assert_eq(
+        exports[9],
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_global_alias_0"),
+          @lib.ExternIdx::global(@lib.GlobalIdx::new(0U)),
+        ),
+      )
+    }
+    None => fail("expected transformed export section")
+  }
+  match assert_metamorphic_roundtrip_valid(global_transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic export aliases transform preserves validation and binary roundtrip" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),
@@ -6733,8 +6884,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 395)
-  @debug.assert_eq(stats.validated, 395)
+  @debug.assert_eq(stats.transformed, 399)
+  @debug.assert_eq(stats.validated, 399)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),

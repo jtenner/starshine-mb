@@ -903,6 +903,10 @@ pub enum MetamorphicValidTransform {
   AddExportAliases
   AddPrefixedExportAliases
   AddSuffixedExportAliases
+  AddFunctionExportAliases
+  AddTableExportAliases
+  AddMemoryExportAliases
+  AddGlobalExportAliases
   ReverseCustomSections
 } derive(Eq, @debug.Debug)
 

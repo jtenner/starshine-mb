@@ -396,6 +396,10 @@ pub enum MetamorphicValidTransform {
   AddExportAliases
   AddPrefixedExportAliases
   AddSuffixedExportAliases
+  AddFunctionExportAliases
+  AddTableExportAliases
+  AddMemoryExportAliases
+  AddGlobalExportAliases
   ReverseCustomSections
 } derive(Eq, Debug)
 
@@ -1168,6 +1172,10 @@ pub fn metamorphic_valid_transform_id(
     AddExportAliases => "add-export-aliases"
     AddPrefixedExportAliases => "add-prefixed-export-aliases"
     AddSuffixedExportAliases => "add-suffixed-export-aliases"
+    AddFunctionExportAliases => "add-function-export-aliases"
+    AddTableExportAliases => "add-table-export-aliases"
+    AddMemoryExportAliases => "add-memory-export-aliases"
+    AddGlobalExportAliases => "add-global-export-aliases"
     ReverseCustomSections => "reverse-custom-sections"
   }
 }
@@ -3953,6 +3961,51 @@ fn metamorphic_add_prefixed_export_aliases(mod : @lib.Module) -> @lib.Module {
 }
 
 ///|
+fn metamorphic_export_matches_kind(
+  extern_idx : @lib.ExternIdx,
+  kind : String,
+) -> Bool {
+  match (extern_idx, kind) {
+    (@lib.FuncExternIdx(_), "func") => true
+    (@lib.TableExternIdx(_), "table") => true
+    (@lib.MemExternIdx(_), "memory") => true
+    (@lib.GlobalExternIdx(_), "global") => true
+    _ => false
+  }
+}
+
+///|
+fn metamorphic_add_kind_export_aliases(
+  mod : @lib.Module,
+  kind : String,
+) -> @lib.Module {
+  let exports = []
+  match mod.export_sec {
+    Some(@lib.ExportSec(existing)) => {
+      let mut alias_index = 0
+      for export_ in existing {
+        exports.push(export_)
+      }
+      for export_ in existing {
+        match export_ {
+          @lib.Export(_, extern_idx) =>
+            if metamorphic_export_matches_kind(extern_idx, kind) {
+              let alias_name = metamorphic_unique_export_name(
+                exports,
+                "metamorphic_\{kind}_alias_\{alias_index}",
+              )
+              exports.push(@lib.Export::new(alias_name, extern_idx))
+              alias_index += 1
+            }
+        }
+      }
+    }
+    None => ()
+  }
+  mod.with_export_sec(@lib.ExportSec::new(exports))
+}
+
+///|
 fn metamorphic_add_suffixed_export_aliases(mod : @lib.Module) -> @lib.Module {
   metamorphic_add_named_export_aliases(mod, "", "_metamorphic_alias")
 }
@@ -4468,6 +4521,10 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddExportAliases,
     AddPrefixedExportAliases,
     AddSuffixedExportAliases,
+    AddFunctionExportAliases,
+    AddTableExportAliases,
+    AddMemoryExportAliases,
+    AddGlobalExportAliases,
     ReverseCustomSections,
   ]
 }
@@ -6430,6 +6487,10 @@ pub fn metamorphic_apply_transform(
     AddExportAliases => metamorphic_add_export_aliases(mod)
     AddPrefixedExportAliases => metamorphic_add_prefixed_export_aliases(mod)
     AddSuffixedExportAliases => metamorphic_add_suffixed_export_aliases(mod)
+    AddFunctionExportAliases => metamorphic_add_kind_export_aliases(mod, "func")
+    AddTableExportAliases => metamorphic_add_kind_export_aliases(mod, "table")
+    AddMemoryExportAliases => metamorphic_add_kind_export_aliases(mod, "memory")
+    AddGlobalExportAliases => metamorphic_add_kind_export_aliases(mod, "global")
     ReverseCustomSections => metamorphic_reverse_custom_sections(mod)
   }
   match validate_module(transformed) {

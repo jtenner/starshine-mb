@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1036K2 kind-specific export alias transforms
+
+- Completed `[FUZ]1036K2` by adding function/table/memory/global-specific export alias transforms. They preserve existing export entries, append aliases to the same external indices, and use collision-free generated names for each kind.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 399 transforms per generated module, and kept focused `src/fuzz` validation green.
+
 ## [2026-05-25] fuzzing | FUZ1036J4 passive element-segment reshaping
 
 - Completed `[FUZ]1036J4` by adding `reshape-passive-element-segments`, a metamorphic-valid transform that rewrites one passive legacy function-index element segment into an equivalent typed `ref.func` expression segment without changing function indices or table declarations.
