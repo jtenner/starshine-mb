@@ -383,6 +383,8 @@ pub enum MetamorphicValidTransform {
   AddTrailingNopToDefinedFunctions
   AddLeadingI32ConstDropToDefinedFunctions
   AddTrailingI32ConstDropToDefinedFunctions
+  AddLeadingBlockWrappedI32ConstDropToDefinedFunctions
+  AddTrailingBlockWrappedI32ConstDropToDefinedFunctions
   AddLeadingMemorySizeDropToDefinedFunctions
   AddTrailingMemorySizeDropToDefinedFunctions
   AddLeadingTableSizeDropToDefinedFunctions
@@ -1152,6 +1154,10 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-i32-const-drop-to-defined-functions"
     AddTrailingI32ConstDropToDefinedFunctions =>
       "add-trailing-i32-const-drop-to-defined-functions"
+    AddLeadingBlockWrappedI32ConstDropToDefinedFunctions =>
+      "add-leading-block-wrapped-i32-const-drop-to-defined-functions"
+    AddTrailingBlockWrappedI32ConstDropToDefinedFunctions =>
+      "add-trailing-block-wrapped-i32-const-drop-to-defined-functions"
     AddLeadingMemorySizeDropToDefinedFunctions =>
       "add-leading-memory-size-drop-to-defined-functions"
     AddTrailingMemorySizeDropToDefinedFunctions =>
@@ -3554,6 +3560,19 @@ fn metamorphic_add_trailing_i32_const_drop_to_defined_functions(
 }
 
 ///|
+fn metamorphic_add_block_wrapped_i32_const_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+) -> @lib.Module {
+  metamorphic_add_unary_drop_to_defined_functions(mod, leading, [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([@lib.Instruction::i32_const(0), @lib.Instruction::drop()]),
+    ),
+  ])
+}
+
+///|
 fn metamorphic_total_memory_count(mod : @lib.Module) -> Int {
   let mut count = 0
   match mod.import_sec {
@@ -4578,6 +4597,8 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingNopToDefinedFunctions,
     AddLeadingI32ConstDropToDefinedFunctions,
     AddTrailingI32ConstDropToDefinedFunctions,
+    AddLeadingBlockWrappedI32ConstDropToDefinedFunctions,
+    AddTrailingBlockWrappedI32ConstDropToDefinedFunctions,
     AddLeadingMemorySizeDropToDefinedFunctions,
     AddTrailingMemorySizeDropToDefinedFunctions,
     AddLeadingTableSizeDropToDefinedFunctions,
@@ -6540,6 +6561,14 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_leading_i32_const_drop_to_defined_functions(mod)
     AddTrailingI32ConstDropToDefinedFunctions =>
       metamorphic_add_trailing_i32_const_drop_to_defined_functions(mod)
+    AddLeadingBlockWrappedI32ConstDropToDefinedFunctions =>
+      metamorphic_add_block_wrapped_i32_const_drop_to_defined_functions(
+        mod, true,
+      )
+    AddTrailingBlockWrappedI32ConstDropToDefinedFunctions =>
+      metamorphic_add_block_wrapped_i32_const_drop_to_defined_functions(
+        mod, false,
+      )
     AddLeadingMemorySizeDropToDefinedFunctions => abort("handled above")
     AddTrailingMemorySizeDropToDefinedFunctions => abort("handled above")
     AddLeadingTableSizeDropToDefinedFunctions => abort("handled above")

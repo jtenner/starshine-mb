@@ -890,6 +890,8 @@ pub enum MetamorphicValidTransform {
   AddTrailingNopToDefinedFunctions
   AddLeadingI32ConstDropToDefinedFunctions
   AddTrailingI32ConstDropToDefinedFunctions
+  AddLeadingBlockWrappedI32ConstDropToDefinedFunctions
+  AddTrailingBlockWrappedI32ConstDropToDefinedFunctions
   AddLeadingMemorySizeDropToDefinedFunctions
   AddTrailingMemorySizeDropToDefinedFunctions
   AddLeadingTableSizeDropToDefinedFunctions

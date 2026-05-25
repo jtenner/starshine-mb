@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1036L1 block-wrapped const/drop transforms
+
+- Completed `[FUZ]1036L1` by adding leading and trailing block-wrapped `i32.const 0; drop` metamorphic-valid transforms. They place the simple constant/drop debris inside a void identity `block`, preserving existing function result stacks and observable behavior while exercising stack-preserving control-wrapper shapes around simple debris.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 403 transforms per generated module, and kept focused `src/fuzz`, full Moon tests, and the targeted `validate-valid-metamorphic` smoke green.
+
 ## [2026-05-25] fuzzing | FUZ1036K3 imported/defined function export alias transforms
 
 - Completed `[FUZ]1036K3` by adding imported-function and defined-function-specific export alias transforms. They preserve existing import, function, code, and export entries, append aliases to the same function indices, and split imported vs defined functions by the current function-import count so no existing indices shift.
