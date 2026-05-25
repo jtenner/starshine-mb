@@ -3195,6 +3195,46 @@ test "metamorphic f32 and f64 add/sub/mul/div drop transforms preserve validatio
     Ok(_) => ()
     Err(msg) => fail(msg)
   }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF32CopysignDropToDefinedFunctions,
+      "add-leading-f32-copysign-drop-to-defined-functions",
+      @lib.Instruction::f32_copysign(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF32CopysignDropToDefinedFunctions,
+      "add-trailing-f32-copysign-drop-to-defined-functions",
+      @lib.Instruction::f32_copysign(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF64CopysignDropToDefinedFunctions,
+      "add-leading-f64-copysign-drop-to-defined-functions",
+      @lib.Instruction::f64_copysign(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF64CopysignDropToDefinedFunctions,
+      "add-trailing-f64-copysign-drop-to-defined-functions",
+      @lib.Instruction::f64_copysign(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
 }
 
 ///|
@@ -3784,8 +3824,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 109)
-  @debug.assert_eq(stats.validated, 109)
+  @debug.assert_eq(stats.transformed, 113)
+  @debug.assert_eq(stats.validated, 113)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -3979,6 +4019,26 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(
     stats.transform_ids.contains(
       "add-trailing-f64-max-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-leading-f32-copysign-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-trailing-f32-copysign-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-leading-f64-copysign-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-trailing-f64-copysign-drop-to-defined-functions",
     ),
   )
   assert_true(

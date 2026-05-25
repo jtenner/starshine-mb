@@ -95,6 +95,10 @@ pub enum MetamorphicValidTransform {
   AddTrailingF64MinDropToDefinedFunctions
   AddLeadingF64MaxDropToDefinedFunctions
   AddTrailingF64MaxDropToDefinedFunctions
+  AddLeadingF32CopysignDropToDefinedFunctions
+  AddTrailingF32CopysignDropToDefinedFunctions
+  AddLeadingF64CopysignDropToDefinedFunctions
+  AddTrailingF64CopysignDropToDefinedFunctions
   AddLeadingNopToDefinedFunctions
   AddTrailingNopToDefinedFunctions
   AddLeadingI32ConstDropToDefinedFunctions
@@ -286,6 +290,14 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-f64-max-drop-to-defined-functions"
     AddTrailingF64MaxDropToDefinedFunctions =>
       "add-trailing-f64-max-drop-to-defined-functions"
+    AddLeadingF32CopysignDropToDefinedFunctions =>
+      "add-leading-f32-copysign-drop-to-defined-functions"
+    AddTrailingF32CopysignDropToDefinedFunctions =>
+      "add-trailing-f32-copysign-drop-to-defined-functions"
+    AddLeadingF64CopysignDropToDefinedFunctions =>
+      "add-leading-f64-copysign-drop-to-defined-functions"
+    AddTrailingF64CopysignDropToDefinedFunctions =>
+      "add-trailing-f64-copysign-drop-to-defined-functions"
     AddLeadingNopToDefinedFunctions => "add-leading-nop-to-defined-functions"
     AddTrailingNopToDefinedFunctions => "add-trailing-nop-to-defined-functions"
     AddLeadingI32ConstDropToDefinedFunctions =>
@@ -2706,6 +2718,10 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingF64MinDropToDefinedFunctions,
     AddLeadingF64MaxDropToDefinedFunctions,
     AddTrailingF64MaxDropToDefinedFunctions,
+    AddLeadingF32CopysignDropToDefinedFunctions,
+    AddTrailingF32CopysignDropToDefinedFunctions,
+    AddLeadingF64CopysignDropToDefinedFunctions,
+    AddTrailingF64CopysignDropToDefinedFunctions,
     AddLeadingNopToDefinedFunctions,
     AddTrailingNopToDefinedFunctions,
     AddLeadingI32ConstDropToDefinedFunctions,
@@ -2998,6 +3014,30 @@ pub fn metamorphic_apply_transform(
         mod,
         false,
         @lib.Instruction::f64_max(),
+      )
+    AddLeadingF32CopysignDropToDefinedFunctions =>
+      metamorphic_add_f32_binary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::f32_copysign(),
+      )
+    AddTrailingF32CopysignDropToDefinedFunctions =>
+      metamorphic_add_f32_binary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::f32_copysign(),
+      )
+    AddLeadingF64CopysignDropToDefinedFunctions =>
+      metamorphic_add_f64_binary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::f64_copysign(),
+      )
+    AddTrailingF64CopysignDropToDefinedFunctions =>
+      metamorphic_add_f64_binary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::f64_copysign(),
       )
     AddLeadingNopToDefinedFunctions =>
       metamorphic_add_leading_nop_to_defined_functions(mod)
