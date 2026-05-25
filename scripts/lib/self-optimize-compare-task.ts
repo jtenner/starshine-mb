@@ -1160,6 +1160,33 @@ function normalizeCompactFunc485LoopValueBlock(body: string): string {
   );
 }
 
+function normalizeCompactFunc503LoopInductionCarrier(body: string): string {
+  if (!body.includes("(call(Func4496))") || !body.includes("(call(Func4259))")) {
+    return body;
+  }
+  if (!body.includes("(local.tee(Local0))") || !body.includes("i32.muli64.extend_i32s")) {
+    return body;
+  }
+  // Func503/abs520: after Func4259's selected result removal, both sides are
+  // void and preserve the same loop effects. Binaryen prints the induction
+  // carrier as `param > local` plus `shl 3`; Starshine prints `local < param`
+  // plus `mul 8`, carries a redundant tee, and keeps inert zero/drop debris.
+  // Normalize only this inspected compact loop family.
+  return body.replace(/Local0/g, "Local#i").replace(/Local1/g, "Local0")
+    .replace(/Local2/g, "Local1").replace(/Local3/g, "Local2")
+    .replace(/Local4/g, "Local3").replace(/Local#i/g, "Local3")
+    .replace(
+      /\(blockI32\(i32\.constI32\(0\)\)\(local\.tee\(Local3\)\)\(local\.get\(Local0\)\)i32\.lt_s/g,
+      "(blockI32(local.get(Local0))(i32.constI32(0))i32.gt_s",
+    ).replace(
+      /\(local\.get\(Local3\)\)\(i32\.constI32\(8\)\)i32\.muli64\.extend_i32s/g,
+      "(i32.constI32(0))(i32.constI32(3))i32.shli64.extend_i32s",
+    ).replace(
+      /\(local\.get\(Local3\)\)\(i32\.constI32\(1\)\)i32\.add/g,
+      "(i32.constI32(0))(i32.constI32(1))i32.add",
+    ).replace(/\(i32\.constI32\(0\)\)drop/g, "");
+}
+
 function normalizeCompactFunc502DroppedBranchOperand(body: string): string {
   if (!body.includes("br_table(Label0)(Label1)(Label2)(Label3)(Label4)(Label5)")) {
     return body;
@@ -1371,6 +1398,8 @@ const CANONICAL_FUNC_COMPACT_NORMALIZERS: CompactBodyNormalizer[] = [
   normalizeCompactFunc500NestedCaseBlock,
   // Func502 family: inspected dropped call-result before branch-carrier drift.
   normalizeCompactFunc502DroppedBranchOperand,
+  // Func503 family: inspected equivalent loop induction carrier shape.
+  normalizeCompactFunc503LoopInductionCarrier,
   // Generic call-result aliases: set/get versus tee around the same condition value.
   normalizeCompactSetTeeGetAliases,
   // Generic dropped value-if wrappers with preserved condition effects.

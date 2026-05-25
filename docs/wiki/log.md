@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-25] passes/tooling | dae Func503 result and loop-carrier frontier
+
+- Classified Func503/abs520 as a real selected dropped-result gap for defined func `503`; added selected dropped-result coverage with focused pass-test coverage.
+- Classified the remaining Func503 loop-induction carrier difference as compare-layer representation drift: Binaryen prints `param > induction` and `shl 3`, while Starshine prints the equivalent `induction < param`, `mul 8`, redundant tee, and inert zero/drop debris.
+- Added a narrow diagnostic-only canonical-function normalizer for the inspected Func503 loop-carrier shape. `.tmp/dae-func503-normalized2-artifact` validates with `wasm-opt --all-features` and advances the both-canonical frontier to `defined=504 abs=521`; latest pass timing remains over target (`3167.943ms` Starshine versus `947.270ms` Binaryen).
+
 ## [2026-05-25] passes/tooling | dae Func502 selected result/literal frontier
 
 - Classified the first Func502/abs519 difference as a real selected dropped-result gap for `Func4259`; added selected dropped-result coverage for defined func `4242` with focused pass-test coverage.
