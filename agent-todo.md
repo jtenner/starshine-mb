@@ -649,7 +649,6 @@ p1 next-up / active:
 - [FUZ]1036N3 - Prune or archive stale long-form [FUZ]1036 progress notes after the closeout evidence is durable.
 - [FUZ]1037B - BLOCKED - Cover numeric constants in global, data offset, element offset, and table initializer contexts.
   - Blocker/evidence: numeric constants are valid for global initializers and active data/element offsets, but a table initializer expression must produce the table element reference type, not a numeric value. `wasm-tools validate .tmp/fuz1037b-table-init-numeric.wat` rejects `(table 1 funcref (i32.const 0))` with `type mismatch: expected funcref, found i32`. Starshine's checked-in GenValid const-expression matrix already excludes `NumericConstExprOp` from `TableInitializerConstExpr` for this reason. Resume only if the slice is redefined to cover numeric table limits/indices instead of table initializer expressions, or split the valid global/data/element numeric coverage into a narrower task.
-- [FUZ]1037E - Add invalid const-expression fixtures for body-only ops in const contexts.
 - [FUZ]1038C - Generate varied unknown custom sections with different legal placements and payload bytes.
 - [FUZ]1038D - Generate name-section function/local/label payloads in metadata-heavy profiles.
 - [FUZ]1039C - Generate table initializers using `ref.func` and typed refs.

@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1037E body-only const-expression invalid text fixtures
+
+- Completed `[FUZ]1037E` by adding inline `validate-invalid-text` strategies for body-only operators in constant-expression contexts: `local.get` in a global initializer, `i32.add` in an active data offset, and `i32.add` in an active element offset.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) to record the widened text-invalid strategy set and kept focused `src/fuzz` tests green.
+
 ## [2026-05-25] fuzzing | FUZ1036N2 metamorphic suite signoff smoke
 
 - Completed `[FUZ]1036N2` by rerunning the metamorphic-valid suite closeout smoke and CI-representative Moon checks after the latest transform and harness metadata slices.

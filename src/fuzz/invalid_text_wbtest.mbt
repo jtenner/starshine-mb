@@ -17,6 +17,7 @@ test "validate_invalid_text_registry exposes curated stage-aware strategies" {
     "invalid-imported-start-func-funcref-param", "unlinkable-incompatible-global-import-f64",
     "unlinkable-incompatible-memory-import-max", "invalid-start-func-out-of-range",
     "unlinkable-incompatible-memory-import-min", "unlinkable-incompatible-table-import-limits",
+    "invalid-global-init-body-op", "invalid-data-offset-body-op", "invalid-element-offset-body-op",
   ])
   @debug.assert_eq(
     registry.map(fn(spec) {
@@ -32,11 +33,11 @@ test "validate_invalid_text_registry exposes curated stage-aware strategies" {
       "parse-or-lower-rejected", "validate-rejected", "valid-before-link", "parse-or-lower-rejected",
       "validate-rejected", "validate-rejected", "parse-or-lower-rejected", "validate-rejected",
       "valid-before-link", "valid-before-link", "validate-rejected", "valid-before-link",
-      "valid-before-link",
+      "valid-before-link", "validate-rejected", "validate-rejected", "validate-rejected",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
-  @debug.assert_eq(smoke_required.length(), 37)
+  @debug.assert_eq(smoke_required.length(), 40)
 }
 
 ///|
@@ -121,6 +122,19 @@ test "inline mutable global const-init strategy rejects during validation" {
     ) {
     Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
     Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "inline body-only const-expression strategies reject during validation" {
+  for
+    stable_id in [
+      "invalid-global-init-body-op", "invalid-data-offset-body-op", "invalid-element-offset-body-op",
+    ] {
+    match run_validate_invalid_text_case_by_stable_id(stable_id) {
+      Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
+      Err(msg) => fail(msg)
+    }
   }
 }
 
@@ -1192,7 +1206,7 @@ test "run_validate_invalid_text_fuzz returns deterministic fixed-seed strategy s
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  @debug.assert_eq(first.attempts, 37)
+  @debug.assert_eq(first.attempts, 40)
   let mut saw_parse_or_lower = false
   let mut saw_validate = false
   let mut saw_valid_before_link = false

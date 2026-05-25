@@ -276,6 +276,9 @@ pub enum ValidateInvalidTextStrategyId {
   InvalidStartFuncOutOfRange
   UnlinkableIncompatibleMemoryImportMin
   UnlinkableIncompatibleTableImportLimits
+  InvalidGlobalInitBodyOp
+  InvalidDataOffsetBodyOp
+  InvalidElementOffsetBodyOp
 } derive(Eq, Debug)
 
 ///|
@@ -568,6 +571,24 @@ pub fn validate_invalid_text_registry() -> Array[
       "valid text module with incompatible table import limits",
       ValidBeforeLinkStage,
     ),
+    validate_invalid_text_strategy_spec(
+      InvalidGlobalInitBodyOp,
+      "invalid-global-init-body-op",
+      "invalid const expression using a body-only local.get in a global initializer",
+      ValidateRejectedStage,
+    ),
+    validate_invalid_text_strategy_spec(
+      InvalidDataOffsetBodyOp,
+      "invalid-data-offset-body-op",
+      "invalid const expression using a body-only numeric op in a data offset",
+      ValidateRejectedStage,
+    ),
+    validate_invalid_text_strategy_spec(
+      InvalidElementOffsetBodyOp,
+      "invalid-element-offset-body-op",
+      "invalid const expression using a body-only numeric op in an element offset",
+      ValidateRejectedStage,
+    ),
   ]
 }
 
@@ -613,6 +634,9 @@ fn validate_invalid_text_strategy_index(
     InvalidStartFuncOutOfRange => 34
     UnlinkableIncompatibleMemoryImportMin => 35
     UnlinkableIncompatibleTableImportLimits => 36
+    InvalidGlobalInitBodyOp => 37
+    InvalidDataOffsetBodyOp => 38
+    InvalidElementOffsetBodyOp => 39
   }
 }
 
@@ -632,9 +656,9 @@ pub fn validate_invalid_text_run_config(
 ) -> Result[ValidateInvalidTextRunConfig, String] {
   let normalized = validate_invalid_text_ascii_lower(profile.trim().to_owned())
   let attempts = match normalized {
-    "smoke" => 37
-    "ci" => 370
-    "stress" => 3700
+    "smoke" => 40
+    "ci" => 400
+    "stress" => 4000
     _ =>
       return Err(
         "unknown validate-invalid-text fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -885,6 +909,24 @@ fn validate_invalid_text_strategy_source(
         "inline-text-invalid/unlinkable-incompatible-table-import-limits.wast",
         "(assert_unlinkable (module (import \"test-table-10-inf\" \"table-10-inf\" (table 11 funcref))) \"incompatible import type\")",
         UnlinkableTextAssertion,
+      )
+    InvalidGlobalInitBodyOp =>
+      (
+        "inline-text-invalid/invalid-global-init-body-op.wast",
+        "(assert_invalid (module (global i32 (local.get 0))) \"constant\")",
+        InvalidTextAssertion,
+      )
+    InvalidDataOffsetBodyOp =>
+      (
+        "inline-text-invalid/invalid-data-offset-body-op.wast",
+        "(assert_invalid (module (memory 1) (data (offset (i32.const 0) (i32.add)) \"x\")) \"constant\")",
+        InvalidTextAssertion,
+      )
+    InvalidElementOffsetBodyOp =>
+      (
+        "inline-text-invalid/invalid-element-offset-body-op.wast",
+        "(assert_invalid (module (table 1 funcref) (elem (offset (i32.const 0) (i32.add)) func)) \"constant\")",
+        InvalidTextAssertion,
       )
   }
 }
