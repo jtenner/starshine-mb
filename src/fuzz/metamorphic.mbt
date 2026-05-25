@@ -397,6 +397,7 @@ pub enum MetamorphicValidTransform {
   SplitMergeLocalDeclarations
   AddTrailingEmptyVoidLoopToDefinedFunctions
   WrapDefinedFunctionBodiesInIdentityBlock
+  WrapDefinedFunctionBodiesInNestedIdentityBlocks
   AddExportAliases
   AddPrefixedExportAliases
   AddSuffixedExportAliases
@@ -1183,6 +1184,8 @@ pub fn metamorphic_valid_transform_id(
       "add-trailing-empty-void-loop-to-defined-functions"
     WrapDefinedFunctionBodiesInIdentityBlock =>
       "wrap-defined-function-bodies-in-identity-block"
+    WrapDefinedFunctionBodiesInNestedIdentityBlocks =>
+      "wrap-defined-function-bodies-in-nested-identity-blocks"
     AddExportAliases => "add-export-aliases"
     AddPrefixedExportAliases => "add-prefixed-export-aliases"
     AddSuffixedExportAliases => "add-suffixed-export-aliases"
@@ -4153,8 +4156,9 @@ fn metamorphic_function_body_block_type(
 }
 
 ///|
-fn metamorphic_wrap_defined_function_bodies_in_identity_block(
+fn metamorphic_wrap_defined_function_bodies_in_identity_blocks(
   mod : @lib.Module,
+  depth : Int,
 ) -> @lib.Module {
   let subtypes = metamorphic_flatten_types(mod)
   let type_idxs = match mod.func_sec {
@@ -4173,13 +4177,15 @@ fn metamorphic_wrap_defined_function_bodies_in_identity_block(
               None => None
             }
             match block_type {
-              Some(bt) =>
-                funcs.push(
-                  @lib.Func::new(
-                    locals,
-                    @lib.Expr::new([@lib.Instruction::block(bt, expr)]),
-                  ),
-                )
+              Some(bt) => {
+                let mut wrapped = expr
+                for k = 0; k < depth; k = k + 1 {
+                  wrapped = @lib.Expr::new([
+                    @lib.Instruction::block(bt, wrapped),
+                  ])
+                }
+                funcs.push(@lib.Func::new(locals, wrapped))
+              }
               None => funcs.push(@lib.Func::new(locals, expr))
             }
           }
@@ -4188,6 +4194,20 @@ fn metamorphic_wrap_defined_function_bodies_in_identity_block(
     None => return mod
   }
   mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
+fn metamorphic_wrap_defined_function_bodies_in_identity_block(
+  mod : @lib.Module,
+) -> @lib.Module {
+  metamorphic_wrap_defined_function_bodies_in_identity_blocks(mod, 1)
+}
+
+///|
+fn metamorphic_wrap_defined_function_bodies_in_nested_identity_blocks(
+  mod : @lib.Module,
+) -> @lib.Module {
+  metamorphic_wrap_defined_function_bodies_in_identity_blocks(mod, 3)
 }
 
 ///|
@@ -4629,6 +4649,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddLeadingEmptyVoidLoopToDefinedFunctions,
     AddTrailingEmptyVoidLoopToDefinedFunctions,
     WrapDefinedFunctionBodiesInIdentityBlock,
+    WrapDefinedFunctionBodiesInNestedIdentityBlocks,
     SplitMergeLocalDeclarations,
     AddExportAliases,
     AddPrefixedExportAliases,
@@ -6612,6 +6633,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_trailing_empty_void_loop_to_defined_functions(mod)
     WrapDefinedFunctionBodiesInIdentityBlock =>
       metamorphic_wrap_defined_function_bodies_in_identity_block(mod)
+    WrapDefinedFunctionBodiesInNestedIdentityBlocks =>
+      metamorphic_wrap_defined_function_bodies_in_nested_identity_blocks(mod)
     SplitMergeLocalDeclarations =>
       metamorphic_split_merge_local_declarations(mod)
     AddExportAliases => metamorphic_add_export_aliases(mod)
