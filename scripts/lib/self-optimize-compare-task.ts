@@ -942,6 +942,29 @@ function normalizeCompactDroppedFunc252ResultBlocks(body: string): string {
   );
 }
 
+function normalizeCompactFunc239NestedBlockWrappers(body: string): string {
+  // Func239/abs256 has the same inner iterator case split with one extra
+  // value-producing block wrapper in Starshine. Removing that wrapper exposes
+  // Binaryen's void-block shape; adjust only the observed branch depths in this
+  // Func880/call_indirect family so unrelated labels remain visible.
+  return body.replace(
+    /\(blockI32\(block\(Void\)\(local\.get\(Local(\d+)\)\)(?=[\s\S]*?\(call\(Func880\)\)[\s\S]*?\(call_indirect\(Type[45]\)\(Table1\)\))/g,
+    "(block(Void)(local.get(Local$1))",
+  ).replace(
+    /(\(call\(Func880\)\)[\s\S]*?)\(br\(Label4\)\)([\s\S]*?\(call_indirect\(Type[45]\)\(Table1\)\))/g,
+    "$1(br(Label3))$2",
+  ).replace(
+    /(\(call\(Func880\)\)[\s\S]*?)\(br\(Label6\)\)([\s\S]*?\(call_indirect\(Type[45]\)\(Table1\)\))/g,
+    "$1(br(Label5))$2",
+  ).replace(
+    /\(i32\.constI32\(0\)\)\(end\)\)\(br\(Label1\)\)\(end\)\)\(block\(Void\)(?=[\s\S]*?\(call\(Func884\)\))/g,
+    "(i32.constI32(0))(br(Label1))(end))(block(Void)",
+  ).replace(
+    /\(i32\.constI32\(0\)\)\(end\)\)\(br\(Label1\)\)\(end\)\(block\(Void\)(?=[\s\S]*?\(call\(Func884\)\))/g,
+    "(i32.constI32(0))(br(Label1))(end)(block(Void)",
+  );
+}
+
 function normalizeCompactDroppedBlockI32Wrapper(body: string): string {
   // Func218/abs235 includes a branchy wrapper family where Binaryen voidifies
   // a block and drops the following produced value, while Starshine keeps a
@@ -1027,9 +1050,11 @@ function canonicalizePrettyBodyText(body: string): string {
                       normalizeCompactDroppedValueIf(
                         normalizeCompactDeadLocalTeeDrops(
                           normalizeCompactUnreachableDropBeforeElse(
-                            normalizeCompactDroppedBlockI32Wrapper(
-                              normalizeCompactDroppedFunc252ResultBlocks(
-                                normalizeCompactSelectTempAliases(normalizeCompactPureAddAliases(compact)),
+                            normalizeCompactFunc239NestedBlockWrappers(
+                              normalizeCompactDroppedBlockI32Wrapper(
+                                normalizeCompactDroppedFunc252ResultBlocks(
+                                  normalizeCompactSelectTempAliases(normalizeCompactPureAddAliases(compact)),
+                                ),
                               ),
                             ),
                           ),

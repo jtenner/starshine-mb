@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] tooling | dae Func239 canonical wrapper normalization
+
+- Extended the canonical-function fallback in [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts) for the inspected DAE Func239 nested iterator wrapper family: an extra value-producing block wrapper and corresponding branch-depth drift around the `Func880` / `call_indirect` shape are normalized against Binaryen's void-block representation.
+- Updated command coverage in [`../../scripts/test/self-optimize-compare-canonical-func-command.ts`](../../scripts/test/self-optimize-compare-canonical-func-command.ts).
+- `.tmp/dae-func239-next3-artifact` validates with `wasm-opt --all-features` and advances the both-canonical diagnostic frontier from `defined=239 abs=256` to `defined=259 abs=276`. The latest timing run was above the 2x target (`2004.309ms` Starshine versus `949.935ms` Binaryen), so repeat timing before signoff; the new Func259 frontier remains unclassified.
+
 ## [2026-05-24] tooling | dae Func218 canonical wrapper normalization
 
 - Extended the canonical-function fallback in [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts) for the inspected DAE Func218 writer family: branchy value-producing blocks whose result is immediately dropped are normalized against Binaryen's void-block form, and dead `local.tee; drop` wrapper temps are ignored when the tee local is never read again.
