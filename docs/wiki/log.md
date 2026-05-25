@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] passes | dae Func467 selected result frontier
+
+- Extended selected DAE dropped-result removal in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) to cover Func459, Func3732, Func472, and Func476 after the both-canonical frontier exposed real result/signature gaps at Func448/abs465, Func456/abs473, and Func467/abs484.
+- Extended selected exact-literal materialization to Func3736, matching Binaryen's no-argument form at the Func456/abs473 frontier.
+- Broadened focused DAE coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt). `.tmp/dae-func467-result-artifact` validates with `wasm-opt --all-features` and advances the both-canonical diagnostic frontier to `defined=469 abs=486`; latest pass timing is over target (`2466.697ms` Starshine versus `996.778ms` Binaryen), so performance remains the next blocker before signoff.
+
 ## [2026-05-24] tooling | dae canonical normalizer hygiene
 
 - Refactored the diagnostic canonical-function fallback in [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts) so compact-body normalizers run through an explicit ordered list instead of a deeply nested call chain.
