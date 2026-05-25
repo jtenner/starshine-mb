@@ -2845,6 +2845,71 @@ fn assert_metamorphic_unary_drop_transform(
 }
 
 ///|
+fn assert_metamorphic_binary_drop_transform(
+  transform : MetamorphicValidTransform,
+  expected_id : String,
+  binary : @lib.Instruction,
+  leading : Bool,
+) -> Result[Unit, String] {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+        ),
+      ]),
+    )
+  let transformed = match metamorphic_apply_transform(base, transform) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  if transformed.transform_id != expected_id {
+    return Err("unexpected transform id")
+  }
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(locals, @lib.Expr(instrs)) => {
+          if locals != @lib.Locals::new([]) {
+            return Err("unexpected locals")
+          }
+          if instrs.length() != 5 {
+            return Err("unexpected instruction count")
+          }
+          let zero = if expected_id.contains("f64") {
+            @lib.Instruction::f64_const(0.0)
+          } else {
+            @lib.Instruction::f32_const(0.0)
+          }
+          if leading {
+            if instrs[0] != zero ||
+              instrs[1] != zero ||
+              instrs[2] != binary ||
+              instrs[3] != @lib.Instruction::drop() ||
+              instrs[4] != @lib.Instruction::i32_const(7) {
+              return Err("unexpected leading binary/drop body")
+            }
+          } else if instrs[0] != @lib.Instruction::i32_const(7) ||
+            instrs[1] != zero ||
+            instrs[2] != zero ||
+            instrs[3] != binary ||
+            instrs[4] != @lib.Instruction::drop() {
+            return Err("unexpected trailing binary/drop body")
+          }
+        }
+      }
+    None => return Err("expected transformed code section")
+  }
+  assert_metamorphic_roundtrip_valid(transformed.wasm_module)
+}
+
+///|
 test "metamorphic f32 and f64 sqrt drop transforms preserve validation and binary roundtrip" {
   match
     assert_metamorphic_unary_drop_transform(
@@ -2881,6 +2946,90 @@ test "metamorphic f32 and f64 sqrt drop transforms preserve validation and binar
       AddTrailingF64SqrtDropToDefinedFunctions,
       "add-trailing-f64-sqrt-drop-to-defined-functions",
       @lib.Instruction::f64_sqrt(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic f32 and f64 add/sub drop transforms preserve validation and binary roundtrip" {
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF32AddDropToDefinedFunctions,
+      "add-leading-f32-add-drop-to-defined-functions",
+      @lib.Instruction::f32_add(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF32AddDropToDefinedFunctions,
+      "add-trailing-f32-add-drop-to-defined-functions",
+      @lib.Instruction::f32_add(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF32SubDropToDefinedFunctions,
+      "add-leading-f32-sub-drop-to-defined-functions",
+      @lib.Instruction::f32_sub(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF32SubDropToDefinedFunctions,
+      "add-trailing-f32-sub-drop-to-defined-functions",
+      @lib.Instruction::f32_sub(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF64AddDropToDefinedFunctions,
+      "add-leading-f64-add-drop-to-defined-functions",
+      @lib.Instruction::f64_add(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF64AddDropToDefinedFunctions,
+      "add-trailing-f64-add-drop-to-defined-functions",
+      @lib.Instruction::f64_add(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingF64SubDropToDefinedFunctions,
+      "add-leading-f64-sub-drop-to-defined-functions",
+      @lib.Instruction::f64_sub(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingF64SubDropToDefinedFunctions,
+      "add-trailing-f64-sub-drop-to-defined-functions",
+      @lib.Instruction::f64_sub(),
       false,
     ) {
     Ok(_) => ()
@@ -3475,8 +3624,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 85)
-  @debug.assert_eq(stats.validated, 85)
+  @debug.assert_eq(stats.transformed, 93)
+  @debug.assert_eq(stats.validated, 93)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
