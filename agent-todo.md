@@ -309,9 +309,10 @@ Execution rules for all DAE slices
 ### INL - Deferred Inliner Breadth
 
 - [INL]005 - Partial Inlining Splitter
-  - Status: deferred to v0.2.0; not a v0.1.0 blocker and not the next task after DAE. Starshine intentionally does not implement Binaryen's Pattern A / Pattern B partial splitting today.
-  - Resume only if a reduced Pattern A/B fixture demonstrates one of: semantic or validation correctness, a clear pass-local performance win, a downstream size/optimization win that offsets code growth, or a user-facing need for `no-partial-inline` splitter behavior.
-  - Deliverables when resumed: implement or explicitly reject/scope out Pattern A and Pattern B splitting, add reduced splitter and helper-cleanup fixtures, define `no-partial-inline` behavior against the splitter, and compare direct `--pass inlining` / `--pass inlining-optimizing` on split-family repros.
+  - Status: closed evidence-gated by the 0668 audit; not an active implementation task without a concrete Pattern A/B fixture.
+  - Decision: Starshine intentionally does not implement Binaryen's narrow Pattern A / Pattern B partial splitting today, and no current reduced fixture demonstrates semantic/validation need, pass-local performance win, downstream size win, or user-facing `no-partial-inline` need.
+  - Reopen only if: a specific Pattern A/B fixture demonstrates semantic or validation correctness need, clear pass-local performance or size benefit, downstream optimization win that offsets code growth, or user-facing `no-partial-inline` splitter behavior.
+  - Deliverables when resumed: add focused Pattern A/B tests first, preserve Binaryen's narrow syntactic/local-dependency gates, prove helper cleanup and no-partial-inline interaction, and compare direct `--pass inlining` / `--pass inlining-optimizing` on the reduced split family.
 
 - [INL]006 - Residual Name/Annotation Repair
   - Status: deferred to v0.2.0; not a v0.1.0 blocker and not a semantic parity prerequisite for the accepted direct surfaces. Tail-call and multi-result correctness subsets are already covered by focused tests; Starshine intentionally drops function-scoped local/label names after inlining body rewrites instead of preserving stale or collision-prone debug maps.
