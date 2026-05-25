@@ -11,6 +11,7 @@ pub enum MetamorphicValidTransform {
   AddUnusedPassiveFuncrefElementSegment
   AddFunctionNamesSection
   AddLocalNamesSection
+  AddLabelNamesSection
   AddTypeNamesSection
   AddGlobalNamesSection
   AddTableNamesSection
@@ -38,6 +39,7 @@ pub fn metamorphic_valid_transform_id(
       "add-unused-passive-funcref-element-segment"
     AddFunctionNamesSection => "add-function-names-section"
     AddLocalNamesSection => "add-local-names-section"
+    AddLabelNamesSection => "add-label-names-section"
     AddTypeNamesSection => "add-type-names-section"
     AddGlobalNamesSection => "add-global-names-section"
     AddTableNamesSection => "add-table-names-section"
@@ -148,6 +150,32 @@ fn metamorphic_with_name_sec_local_names(
         tag_names=existing.tag_names,
       )
     None => @lib.NameSec::new(local_names=Some(local_names))
+  }
+  mod.with_name_sec(name_sec)
+}
+
+///|
+fn metamorphic_with_name_sec_label_names(
+  mod : @lib.Module,
+  label_names : @lib.IndirectNameMap,
+) -> @lib.Module {
+  let name_sec = match mod.name_sec {
+    Some(existing) =>
+      @lib.NameSec::new(
+        module_name=existing.module_name,
+        func_names=existing.func_names,
+        local_names=existing.local_names,
+        label_names=Some(label_names),
+        type_names=existing.type_names,
+        table_names=existing.table_names,
+        memory_names=existing.memory_names,
+        global_names=existing.global_names,
+        elem_names=existing.elem_names,
+        data_names=existing.data_names,
+        field_names=existing.field_names,
+        tag_names=existing.tag_names,
+      )
+    None => @lib.NameSec::new(label_names=Some(label_names))
   }
   mod.with_name_sec(name_sec)
 }
@@ -643,6 +671,83 @@ fn metamorphic_add_field_names_section(mod : @lib.Module) -> @lib.Module {
 }
 
 ///|
+fn metamorphic_instr_label_count(instr : @lib.Instruction) -> Int {
+  match instr {
+    @lib.Block(_, body) | @lib.Loop(_, body) | @lib.TryTable(_, _, body) =>
+      1 + metamorphic_expr_label_count(body)
+    @lib.If(_, then_instrs, else_instrs) => {
+      let else_count = match else_instrs {
+        Some(instrs) => metamorphic_instrs_label_count(instrs)
+        None => 0
+      }
+      1 + metamorphic_instrs_label_count(then_instrs) + else_count
+    }
+    _ => 0
+  }
+}
+
+///|
+fn metamorphic_instrs_label_count(instrs : Array[@lib.Instruction]) -> Int {
+  let mut total = 0
+  for instr in instrs {
+    total += metamorphic_instr_label_count(instr)
+  }
+  total
+}
+
+///|
+fn metamorphic_expr_label_count(expr : @lib.Expr) -> Int {
+  let @lib.Expr(instrs) = expr
+  metamorphic_instrs_label_count(instrs)
+}
+
+///|
+fn metamorphic_add_label_names_section(mod : @lib.Module) -> @lib.Module {
+  let entries : Array[@lib.IndirectNameAssoc] = []
+  let mut abs_func_idx = 0
+  match mod.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.FuncExternType(_)) => abs_func_idx += 1
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let label_entries : Array[@lib.NameAssoc] = []
+        let label_count = match func {
+          @lib.Func(_, expr) => metamorphic_expr_label_count(expr)
+        }
+        for label_idx = 0; label_idx < label_count; label_idx = label_idx + 1 {
+          label_entries.push(
+            @lib.NameAssoc::new(
+              label_idx.reinterpret_as_uint(),
+              @lib.Name::from_string(
+                "metamorphic_label_\{abs_func_idx}_\{label_idx}",
+              ),
+            ),
+          )
+        }
+        if label_entries.length() > 0 {
+          entries.push(
+            @lib.IndirectNameAssoc::new(
+              abs_func_idx.reinterpret_as_uint(),
+              @lib.NameMap::new(label_entries),
+            ),
+          )
+        }
+        abs_func_idx += 1
+      }
+    None => ()
+  }
+  metamorphic_with_name_sec_label_names(mod, @lib.IndirectNameMap::new(entries))
+}
+
+///|
 fn metamorphic_add_local_names_section(mod : @lib.Module) -> @lib.Module {
   let subtypes = metamorphic_flatten_types(mod)
   let entries : Array[@lib.IndirectNameAssoc] = []
@@ -883,6 +988,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddUnusedPassiveFuncrefElementSegment,
     AddFunctionNamesSection,
     AddLocalNamesSection,
+    AddLabelNamesSection,
     AddTypeNamesSection,
     AddGlobalNamesSection,
     AddTableNamesSection,
@@ -916,6 +1022,7 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_unused_passive_funcref_element_segment(mod)
     AddFunctionNamesSection => metamorphic_add_function_names_section(mod)
     AddLocalNamesSection => metamorphic_add_local_names_section(mod)
+    AddLabelNamesSection => metamorphic_add_label_names_section(mod)
     AddTypeNamesSection => metamorphic_add_type_names_section(mod)
     AddGlobalNamesSection => metamorphic_add_global_names_section(mod)
     AddTableNamesSection => metamorphic_add_table_names_section(mod)

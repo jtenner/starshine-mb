@@ -355,6 +355,7 @@ pub enum MetamorphicValidTransform {
   AddUnusedPassiveFuncrefElementSegment
   AddFunctionNamesSection
   AddLocalNamesSection
+  AddLabelNamesSection
   AddTypeNamesSection
   AddGlobalNamesSection
   AddTableNamesSection

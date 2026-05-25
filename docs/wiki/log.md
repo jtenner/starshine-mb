@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-24] fuzzing | FUZ1036 metamorphic valid label names transform
+
+- Continued `[FUZ]1036` by adding the `add-label-names-section` metamorphic-valid transform. It starts from a validating module with control labels, writes deterministic structured label-name entries for counted labels in defined function bodies, validates the transformed module, and reports the new transform id through `validate-valid-metamorphic` details.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the active metamorphic-valid transform registry now names label-name metadata alongside custom-section, module-name, passive-data, unused-global, unused-function, unused-type, unused-table, passive-element, function-name, local-name, type-name, global-name, table-name, memory-name, data-name, element-name, tag-name, and field-name surfaces.
+
 ## [2026-05-24] fuzzing | FUZ1036 metamorphic valid field names transform
 
 - Continued `[FUZ]1036` by adding the `add-field-names-section` metamorphic-valid transform. It starts from a validating module with struct subtypes, writes deterministic structured field-name entries for every field of every flattened struct subtype, validates the transformed module, and reports the new transform id through `validate-valid-metamorphic` details.
