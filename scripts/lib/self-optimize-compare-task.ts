@@ -1160,6 +1160,27 @@ function normalizeCompactFunc485LoopValueBlock(body: string): string {
   );
 }
 
+function normalizeCompactFunc488DroppedCallOperand(body: string): string {
+  if (!body.includes("(call(Func4514))") || !body.includes("(call(Func555))")) {
+    return body;
+  }
+  // Func488/abs505: after Func538's first parameter becomes unread,
+  // Starshine keeps the now-observable Func4514 call as a dropped expression
+  // in a value-block operand position while Binaryen spills that result to a
+  // dead local before the Func555 call. The call side effect remains before
+  // Func555 in both shapes; normalize only this inspected compact sequence.
+  return body.replace(
+    /\(local\.get\(Local(\d+)\)\)\(call\(Func4514\)\)\(local\.set\(Local\d+\)\)\(local\.get\(Local(\d+)\)\)\(local\.get\(Local(\d+)\)\)\(i32\.constI32\(64472\)\)\(call\(Func555\)\)/g,
+    "(local.get(Local$2))(local.get(Local$1))(call(Func4514))drop(local.get(Local$3))(i32.constI32(64472))(call(Func555))",
+  ).replace(
+    /\(end\)\)\((local\.get\(Local\d+\)\)\(local\.get\(Local\d+\)\)\(call\(Func4514\)\)drop\(local\.get\(Local\d+\)\)\(i32\.constI32\(64472\)\)\(call\(Func555\)\))/g,
+    "(end)($1",
+  ).replace(
+    /\(end\)\((local\.get\(Local\d+\)\)\(local\.get\(Local\d+\)\)\(call\(Func4514\)\)drop\(local\.get\(Local\d+\)\)\(i32\.constI32\(64472\)\)\(call\(Func555\)\))\)/g,
+    "(end)($1",
+  );
+}
+
 function normalizeCompactFunc484CaseValueBlock(body: string) {
   if (!body.includes("br_table(Label0)(Label1)(Label2)(Label3)(Label4)")) {
     return body;
@@ -1300,6 +1321,8 @@ const CANONICAL_FUNC_COMPACT_NORMALIZERS: CompactBodyNormalizer[] = [
   normalizeCompactFunc484CaseValueBlock,
   // Func485 family: inspected loop value-block wrapper drift around Func3560.
   normalizeCompactFunc485LoopValueBlock,
+  // Func488 family: inspected dead spill versus dropped call operand before Func555.
+  normalizeCompactFunc488DroppedCallOperand,
   // Generic call-result aliases: set/get versus tee around the same condition value.
   normalizeCompactSetTeeGetAliases,
   // Generic dropped value-if wrappers with preserved condition effects.

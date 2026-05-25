@@ -80,8 +80,8 @@ Completed direct-pass slices
 Current checkpoints
 - Direct semantic baseline: `[DAE]001` is accepted. Keep it closed unless a new semantic mismatch, validation failure, or escaped-call correctness issue is reproduced.
 - Default raw debug-artifact helper: still first-diffs at `defined=336 abs=353` from raw type-section/type-index representation drift (`type $10/$2` versus `type $9/$1`). Do not treat this as a Func408 body issue.
-- Both-canonical diagnostic helper: `scripts/self-optimize-compare.ts --canonicalize-binaryen-output --dae-optimizing` currently advances to `.tmp/dae-func485-normalized-artifact`, first diff `defined=488 abs=505`, after classifying Func485/abs502 as another compare-layer loop value-block wrapper drift.
-- Latest diagnostic timing is over the 2x target after correctness-first Func485 diagnostic work: `2438.822ms` Starshine pass versus `900.121ms` Binaryen pass for `.tmp/dae-func485-normalized-artifact`. Per user direction, keep prioritizing correctness/frontier classification over pass time for now.
+- Both-canonical diagnostic helper: `scripts/self-optimize-compare.ts --canonicalize-binaryen-output --dae-optimizing` currently advances to `.tmp/dae-func488-normalized-artifact`, first diff `defined=499 abs=516`, after classifying Func488/abs505 as compare-layer dead-spill versus dropped-call-operand drift around the Func4514/Func555 region.
+- Latest diagnostic timing is over the 2x target after correctness-first Func488 diagnostic work: `2603.820ms` Starshine pass versus `954.735ms` Binaryen pass for `.tmp/dae-func488-normalized-artifact`. Per user direction, keep prioritizing correctness/frontier classification over pass time for now.
 - Latest validation before commit `0196531d`: script compare tests, `wasm-opt --all-features .tmp/dae-func447-normalized-artifact/starshine.wasm`, `git diff --check`, `moon info`, `moon fmt`, and `moon test` all passed; `moon info` still reports existing unused DAE helper warnings.
 - `[DAE]007` compare-tool normalization hygiene is closed for the current diagnostic helper: the canonical-function fallback now uses an explicit ordered normalizer list instead of a deeply nested call chain, with a diagnostic-only comment at the artifact-family cleanup point and unchanged fixture coverage.
 - Important classification: Func408/abs425 raw body is closed. With both sides passed through the same strip-debug writer, Func408 matches after type-id stripping; prior Func408 drift was compare-layer representation, not a DAE raw rewrite target.
@@ -149,9 +149,9 @@ Execution rules for all DAE slices
   - Exit criteria: raw type-section drift is either fixed, accepted as out of scope, or permanently documented as a known diagnostic boundary.
 
 - [DAE]006 - Both-Canonical Frontier Advancement
-  - Goal: continue the diagnostic both-canonical frontier from current `defined=488 abs=505`.
+  - Goal: continue the diagnostic both-canonical frontier from current `defined=499 abs=516`.
   - Next action:
-    - Inspect `.tmp/dae-func485-normalized-artifact/func-defined488-abs505.binaryen.pretty.txt` and `.starshine.pretty.txt` plus the `.wat` diff. Initial evidence shows a real-looking caller/body difference in Func488 around the Func4514/Func555 region rather than just the now-closed Func485 loop wrapper family; classify before coding.
+    - Inspect `.tmp/dae-func488-normalized-artifact/func-defined499-abs516.binaryen.pretty.txt` and `.starshine.pretty.txt` plus the `.wat` diff.
     - Classify before coding: compare-layer representation drift, true DAE output mismatch, type/signature drift, validation/tool issue, or unknown/risky.
   - Deliverables:
     - For representation-only drift, add a narrow script fixture and diagnostic-only normalizer.
