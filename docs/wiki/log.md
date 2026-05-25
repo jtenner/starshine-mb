@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] tooling | dae Func485 canonical loop normalization
+
+- Classified Func485/abs502 as compare-layer loop value-block wrapper drift around the `Func3560` branch family after the Func484 correctness slice.
+- Added a diagnostic-only canonical-function normalizer in [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts) and fixture coverage in [`../../scripts/test/self-optimize-compare-canonical-func-command.ts`](../../scripts/test/self-optimize-compare-canonical-func-command.ts). Raw WAT/wasm comparison remains unchanged.
+- `.tmp/dae-func485-normalized-artifact` validates with `wasm-opt --all-features` and advances the both-canonical frontier to `defined=488 abs=505`; latest pass timing remains over target (`2438.822ms` Starshine versus `900.121ms` Binaryen). The new Func488 frontier still needs classification and initially looks like a real caller/body difference near `Func4514`/`Func555`.
+
 ## [2026-05-24] passes | dae Func484 selected result/unread slice
 
 - Inspected the Func484/abs501 frontier and separated representation-only case-dispatch wrapper drift from real selected DAE gaps.

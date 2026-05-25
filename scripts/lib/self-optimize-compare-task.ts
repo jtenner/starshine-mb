@@ -1144,7 +1144,23 @@ function decrementCompactBranchLabels(segment: string): string {
   });
 }
 
-function normalizeCompactFunc484CaseValueBlock(body: string): string {
+function normalizeCompactFunc485LoopValueBlock(body: string): string {
+  if (!body.includes("(call(Func3560))")) {
+    return body;
+  }
+  return body.replace(
+    /\(blockI32\(block\(Void\)(?=[\s\S]{0,1600}?\(call\(Func3560\)\))/g,
+    "(block(Void)",
+  ).replace(
+    /\(call\(Func43\)\)\(br\(Label3\)\)/g,
+    "(call(Func43))(br(Label2))",
+  ).replace(
+    /\(end\)\)\(br\(Label1\)\)\(end\)/g,
+    "(br(Label1))(end)",
+  );
+}
+
+function normalizeCompactFunc484CaseValueBlock(body: string) {
   if (!body.includes("br_table(Label0)(Label1)(Label2)(Label3)(Label4)")) {
     return body;
   }
@@ -1161,8 +1177,14 @@ function normalizeCompactFunc484CaseValueBlock(body: string): string {
     /\(i32\.constI32\(0\)\)\(end\)\)\(br\(Label1\)\)\(end\)\)/g,
     "(i32.constI32(0))(br(Label1))(end)",
   ).replace(
+    /\(br\(Label#\)\)\(br\(Label1\)\(end\)/g,
+    "(br(Label#))(end)",
+  ).replace(
     /\(br\(Label#\)\)\(br\(Label1\)\)\(end\)/g,
     "(br(Label#))(end)",
+  ).replace(
+    /\(br\(Label3\)\)\)\(end\)\)\((local\.get\(Local\d+\)\)\(call\(Func43\)\)[\s\S]{0,120}?\(call\(Func4244\)\))\(end\)\)\(br\(Label1\)\)\(end\)\)/g,
+    "(br(Label2)))(end))($1(br(Label1))(end))",
   ).replace(
     /\(br\(Label1\)\)\(end\)\)\(block\(Void\)\(blockI32/g,
     "(br(Label1))(end)(block(Void)(blockI32",
@@ -1276,6 +1298,8 @@ const CANONICAL_FUNC_COMPACT_NORMALIZERS: CompactBodyNormalizer[] = [
   normalizeCompactFunc476AllocatorTemp,
   // Func484 family: inspected case-dispatch value-block wrapper drift.
   normalizeCompactFunc484CaseValueBlock,
+  // Func485 family: inspected loop value-block wrapper drift around Func3560.
+  normalizeCompactFunc485LoopValueBlock,
   // Generic call-result aliases: set/get versus tee around the same condition value.
   normalizeCompactSetTeeGetAliases,
   // Generic dropped value-if wrappers with preserved condition effects.
