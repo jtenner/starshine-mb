@@ -379,6 +379,8 @@ pub enum MetamorphicValidTransform {
   AddTrailingNopToDefinedFunctions
   AddLeadingI32ConstDropToDefinedFunctions
   AddTrailingI32ConstDropToDefinedFunctions
+  AddLeadingMemorySizeDropToDefinedFunctions
+  AddTrailingMemorySizeDropToDefinedFunctions
   AddTrailingEmptyVoidBlockToDefinedFunctions
   AddLeadingEmptyVoidBlockToDefinedFunctions
   AddLeadingEmptyVoidLoopToDefinedFunctions
@@ -1132,6 +1134,10 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-i32-const-drop-to-defined-functions"
     AddTrailingI32ConstDropToDefinedFunctions =>
       "add-trailing-i32-const-drop-to-defined-functions"
+    AddLeadingMemorySizeDropToDefinedFunctions =>
+      "add-leading-memory-size-drop-to-defined-functions"
+    AddTrailingMemorySizeDropToDefinedFunctions =>
+      "add-trailing-memory-size-drop-to-defined-functions"
     AddTrailingEmptyVoidBlockToDefinedFunctions =>
       "add-trailing-empty-void-block-to-defined-functions"
     AddLeadingEmptyVoidBlockToDefinedFunctions =>
@@ -3433,6 +3439,90 @@ fn metamorphic_add_trailing_i32_const_drop_to_defined_functions(
 }
 
 ///|
+fn metamorphic_total_memory_count(mod : @lib.Module) -> Int {
+  let mut count = 0
+  match mod.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.MemExternType(_)) => count += 1
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod.mem_sec {
+    Some(@lib.MemSec(mems)) => count += mems.length()
+    None => ()
+  }
+  count
+}
+
+///|
+fn metamorphic_add_memory_size_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+) -> @lib.Module {
+  let funcs = []
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            let next_instrs = []
+            if leading {
+              next_instrs.push(
+                @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+              )
+              next_instrs.push(@lib.Instruction::drop())
+            }
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            if !leading {
+              next_instrs.push(
+                @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+              )
+              next_instrs.push(@lib.Instruction::drop())
+            }
+            funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
+fn metamorphic_apply_memory_size_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+) -> Result[MetamorphicValidTransformResult, String] {
+  let transform = if leading {
+    AddLeadingMemorySizeDropToDefinedFunctions
+  } else {
+    AddTrailingMemorySizeDropToDefinedFunctions
+  }
+  let transform_id = metamorphic_valid_transform_id(transform)
+  if metamorphic_total_memory_count(mod) == 0 {
+    return Err(
+      "metamorphic transform \{transform_id} requires at least one valid memory index",
+    )
+  }
+  let transformed = metamorphic_add_memory_size_drop_to_defined_functions(
+    mod, leading,
+  )
+  match validate_module(transformed) {
+    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Err(err) =>
+      Err(
+        "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
 fn metamorphic_add_trailing_empty_void_block_to_defined_functions(
   mod : @lib.Module,
 ) -> @lib.Module {
@@ -4174,6 +4264,8 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingNopToDefinedFunctions,
     AddLeadingI32ConstDropToDefinedFunctions,
     AddTrailingI32ConstDropToDefinedFunctions,
+    AddLeadingMemorySizeDropToDefinedFunctions,
+    AddTrailingMemorySizeDropToDefinedFunctions,
     AddTrailingEmptyVoidBlockToDefinedFunctions,
     AddLeadingEmptyVoidBlockToDefinedFunctions,
     AddLeadingEmptyVoidLoopToDefinedFunctions,
@@ -4192,6 +4284,13 @@ pub fn metamorphic_apply_transform(
   mod : @lib.Module,
   transform : MetamorphicValidTransform,
 ) -> Result[MetamorphicValidTransformResult, String] {
+  match transform {
+    AddLeadingMemorySizeDropToDefinedFunctions =>
+      return metamorphic_apply_memory_size_drop_to_defined_functions(mod, true)
+    AddTrailingMemorySizeDropToDefinedFunctions =>
+      return metamorphic_apply_memory_size_drop_to_defined_functions(mod, false)
+    _ => ()
+  }
   let transformed = match transform {
     AddNonNameCustomSection => metamorphic_add_non_name_custom_section(mod)
     AddLeadingNonNameCustomSection =>
@@ -6103,6 +6202,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_leading_i32_const_drop_to_defined_functions(mod)
     AddTrailingI32ConstDropToDefinedFunctions =>
       metamorphic_add_trailing_i32_const_drop_to_defined_functions(mod)
+    AddLeadingMemorySizeDropToDefinedFunctions => abort("handled above")
+    AddTrailingMemorySizeDropToDefinedFunctions => abort("handled above")
     AddTrailingEmptyVoidBlockToDefinedFunctions =>
       metamorphic_add_trailing_empty_void_block_to_defined_functions(mod)
     AddLeadingEmptyVoidBlockToDefinedFunctions =>
@@ -6154,6 +6255,19 @@ fn metamorphic_profile_case_count(profile : String) -> Result[Int, String] {
 }
 
 ///|
+fn metamorphic_transform_applicable(
+  mod : @lib.Module,
+  transform : MetamorphicValidTransform,
+) -> Bool {
+  match transform {
+    AddLeadingMemorySizeDropToDefinedFunctions
+    | AddTrailingMemorySizeDropToDefinedFunctions =>
+      metamorphic_total_memory_count(mod) > 0
+    _ => true
+  }
+}
+
+///|
 pub fn run_validate_valid_metamorphic_fuzz(
   profile : String,
   seed : UInt64,
@@ -6183,6 +6297,9 @@ pub fn run_validate_valid_metamorphic_fuzz(
     attempts += generated.attempts
     generated_count += 1
     for transform in transforms {
+      if !metamorphic_transform_applicable(generated.wasm_module, transform) {
+        continue
+      }
       match metamorphic_apply_transform(generated.wasm_module, transform) {
         Ok(_) => {
           transformed_count += 1

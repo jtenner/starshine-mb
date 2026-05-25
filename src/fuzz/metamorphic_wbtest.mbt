@@ -1471,6 +1471,88 @@ test "metamorphic trailing i32 const drop transform preserves validation and bin
 }
 
 ///|
+test "metamorphic leading memory.size drop transform requires memory and roundtrips" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddLeadingMemorySizeDropToDefinedFunctions,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-leading-memory-size-drop-to-defined-functions",
+  )
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          @debug.assert_eq(instrs.length(), 3)
+          @debug.assert_eq(
+            instrs[0],
+            @lib.Instruction::memory_size(@lib.MemIdx::new(0U)),
+          )
+          @debug.assert_eq(instrs[1], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[2], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic trailing memory.size drop transform skips modules without memories" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  match
+    metamorphic_apply_transform(
+      base,
+      AddTrailingMemorySizeDropToDefinedFunctions,
+    ) {
+    Ok(_) =>
+      fail("expected memory.size transform without memory to be rejected")
+    Err(msg) =>
+      @debug.assert_eq(
+        msg, "metamorphic transform add-trailing-memory-size-drop-to-defined-functions requires at least one valid memory index",
+      )
+  }
+}
+
+///|
 test "metamorphic identity block expression transform wraps value body and roundtrips" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
@@ -6399,6 +6481,16 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
   )
   assert_true(stats.transform_ids.contains("add-custom-section-stress"))
+  assert_true(
+    stats.transform_ids.contains(
+      "add-leading-memory-size-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-trailing-memory-size-drop-to-defined-functions",
+    ),
+  )
   assert_true(
     stats.transform_ids.contains(
       "add-leading-ref-null-is-null-drop-to-defined-functions",

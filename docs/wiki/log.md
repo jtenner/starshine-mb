@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1036J1 metamorphic memory.size drop body reshaping
+
+- Completed `[FUZ]1036J1` by adding leading/trailing `memory.size 0; drop` metamorphic-valid transforms that are applicable only when the source module has at least one valid memory index. The transforms preserve existing locals, result stacks, and observable behavior while exercising harmless memory query debris.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md). The transform ids are always reported by the registry, but the suite skips them for generated modules without memories, so the current smoke profile's validated transform count remains `389`.
+
 ## [2026-05-25] fuzzing | FUZ1036I2 metamorphic i31 get drop body reshaping
 
 - Completed `[FUZ]1036I2` by adding leading/trailing `i32.const 31; ref.i31; i31.get_s/u; drop` metamorphic-valid transforms. They use a constant scalar and freshly constructed non-null i31 reference so signed and unsigned gets are nontrapping, then drop the computed `i32` without changing locals, result stacks, validation, or observable behavior.
