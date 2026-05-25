@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-25] passes | dae DAE008 Func237 historical closure
+
+- Closed `[DAE]008` as a backlog-only recovery slice: the DAE strategy already records the landed Func237 selected local/control sequence through `.tmp/dae-func237-common-branch-final-artifact`, where the direct debug-artifact frontier moved out of Func237 to `defined=242 abs=259` and Func237 matched the Binaryen normalized function.
+- Kept the intentionally deferred/reverted broad Func237 cleanup probes anchored to [`raw/research/0570-2026-05-18-dae002-func237-frontier-classification.md`](raw/research/0570-2026-05-18-dae002-func237-frontier-classification.md) instead of reattempting them without a current-frontier repro.
+- Pruned the active `[DAE]008` backlog item; future Func237 work should reopen only from a fresh semantic, validation, performance, or current-frontier artifact mismatch.
+
 ## [2026-05-25] passes | dae DAE010 direct fuzz refresh
 
 - Refreshed direct `dae-optimizing` fuzz evidence with `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dae-optimizing --out-dir .tmp/pass-fuzz-dae-optimizing-dae010-20260525-full2 --max-failures 10000 --keep-going-after-command-failures`.

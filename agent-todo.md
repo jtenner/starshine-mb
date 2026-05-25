@@ -85,6 +85,7 @@ Current checkpoints
 - Latest validation before commit `0196531d`: script compare tests, `wasm-opt --all-features .tmp/dae-func447-normalized-artifact/starshine.wasm`, `git diff --check`, `moon info`, `moon fmt`, and `moon test` all passed; `moon info` still reports existing unused DAE helper warnings.
 - `[DAE]007` compare-tool normalization hygiene is closed for the current diagnostic helper: the canonical-function fallback now uses an explicit ordered normalizer list instead of a deeply nested call chain, with a diagnostic-only comment at the artifact-family cleanup point and unchanged fixture coverage.
 - `[DAE]010` direct fuzz refresh is closed for the latest pass logic as of 2026-05-25: `.tmp/pass-fuzz-dae-optimizing-dae010-20260525-full2` compared `9975/10000`, with `6078` normalized matches, `3897` normalized mismatches, `0` validation failures, and `25` Binaryen/tool command failures (`22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, `1` `binaryen-invalid-tag-index`). Agent classification: all mismatches are `gen-valid` size-winning semantic-safe raw-cleanup drift from Starshine stripping the generator's leading dropped pure/nontrapping constant debris while Binaryen preserves it; all `wasm-smith` cases that Binaryen accepted matched.
+- `[DAE]008` Func237 historical frontier closure is closed as of 2026-05-25: the strategy now records landed Func237 selected local/control slices through `.tmp/dae-func237-common-branch-final-artifact`, the known reverted/deferred probes from research note `0570`, and the superseding direct debug-artifact frontiers (`defined=242`, then later `defined=505` in both-canonical diagnostics). Func237 is no longer an active leading blocker; reopen only with a new current-frontier Func237 repro.
 - Important classification: Func408/abs425 raw body is closed. With both sides passed through the same strip-debug writer, Func408 matches after type-id stripping; prior Func408 drift was compare-layer representation, not a DAE raw rewrite target.
 
 Execution rules for all DAE slices
@@ -167,22 +168,6 @@ Execution rules for all DAE slices
     - Func467: selected Func472/Func476 result removal.
     - Func469: selected Func4106 result removal plus selected Func4117/Func4134/Func4303/Func4320 exact-literal materialization.
   - Exit criteria: both-canonical diagnostic compare reaches full function equality or a documented non-normalizable semantic/shape boundary.
-
-- [DAE]008 - Func237 Historical Frontier Closure or Deferral
-  - Goal: decide whether the old direct artifact Func237 local/control-shape frontier should be closed, deferred, or superseded by the newer canonical diagnostic workflow.
-  - Why: many selected Func237 rewrites landed or were tried; several prototypes validated but did not move the first diff or exceeded the 2x target. The current raw/canonical frontiers have moved, but the historical Func237 investigation still documents important deferred shape families.
-  - Deliverables:
-    - Summarize which Func237 transformations are landed, reverted, or intentionally deferred.
-    - Avoid reattempting reverted prototypes unless new evidence shows they affect the current frontier and meet timing.
-    - If reopened, isolate one remaining local/control family at a time with a focused regression and artifact replay.
-  - Known reverted/deferred probes:
-    - Broad selected Func237 full cleanup and forced nested cleanup.
-    - Zero-result carrier-to-void prototype.
-    - Singleton exact-literal scheduler refactor.
-    - Boundary-wrapper singleton unread-param helper.
-    - Leading carrier and alias-vacuum prototypes.
-    - Reverse exact-literal scan-limit and selected-core min-scan-bound runtime prototypes.
-  - Exit criteria: Func237 is no longer mentioned as an active leading blocker, or a new current-frontier Func237 task supersedes the historical notes.
 
 - [DAE]009 - Raw Cleanup Policy and Size/Shape Tradeoff
   - Goal: maintain a clear policy for useful raw cleanup versus Binaryen-shape debris preservation.
