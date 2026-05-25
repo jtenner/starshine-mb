@@ -397,6 +397,8 @@ pub enum MetamorphicValidTransform {
   AddPrefixedExportAliases
   AddSuffixedExportAliases
   AddFunctionExportAliases
+  AddImportedFunctionExportAliases
+  AddDefinedFunctionExportAliases
   AddTableExportAliases
   AddMemoryExportAliases
   AddGlobalExportAliases
@@ -1173,6 +1175,8 @@ pub fn metamorphic_valid_transform_id(
     AddPrefixedExportAliases => "add-prefixed-export-aliases"
     AddSuffixedExportAliases => "add-suffixed-export-aliases"
     AddFunctionExportAliases => "add-function-export-aliases"
+    AddImportedFunctionExportAliases => "add-imported-function-export-aliases"
+    AddDefinedFunctionExportAliases => "add-defined-function-export-aliases"
     AddTableExportAliases => "add-table-export-aliases"
     AddMemoryExportAliases => "add-memory-export-aliases"
     AddGlobalExportAliases => "add-global-export-aliases"
@@ -4006,6 +4010,72 @@ fn metamorphic_add_kind_export_aliases(
 }
 
 ///|
+fn metamorphic_imported_function_count(mod : @lib.Module) -> UInt {
+  let mut count = 0U
+  match mod.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.FuncExternType(_)) => count += 1U
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  count
+}
+
+///|
+fn metamorphic_function_export_matches_import_region(
+  extern_idx : @lib.ExternIdx,
+  imported_count : UInt,
+  imported : Bool,
+) -> Bool {
+  match extern_idx {
+    @lib.FuncExternIdx(@lib.FuncIdx(raw)) => {
+      let is_imported = raw < imported_count
+      is_imported == imported
+    }
+    _ => false
+  }
+}
+
+///|
+fn metamorphic_add_imported_or_defined_function_export_aliases(
+  mod : @lib.Module,
+  imported : Bool,
+) -> @lib.Module {
+  let exports = []
+  let imported_count = metamorphic_imported_function_count(mod)
+  let kind = if imported { "imported_func" } else { "defined_func" }
+  match mod.export_sec {
+    Some(@lib.ExportSec(existing)) => {
+      let mut alias_index = 0
+      for export_ in existing {
+        exports.push(export_)
+      }
+      for export_ in existing {
+        match export_ {
+          @lib.Export(_, extern_idx) =>
+            if metamorphic_function_export_matches_import_region(
+                extern_idx, imported_count, imported,
+              ) {
+              let alias_name = metamorphic_unique_export_name(
+                exports,
+                "metamorphic_\{kind}_alias_\{alias_index}",
+              )
+              exports.push(@lib.Export::new(alias_name, extern_idx))
+              alias_index += 1
+            }
+        }
+      }
+    }
+    None => ()
+  }
+  mod.with_export_sec(@lib.ExportSec::new(exports))
+}
+
+///|
 fn metamorphic_add_suffixed_export_aliases(mod : @lib.Module) -> @lib.Module {
   metamorphic_add_named_export_aliases(mod, "", "_metamorphic_alias")
 }
@@ -4522,6 +4592,8 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddPrefixedExportAliases,
     AddSuffixedExportAliases,
     AddFunctionExportAliases,
+    AddImportedFunctionExportAliases,
+    AddDefinedFunctionExportAliases,
     AddTableExportAliases,
     AddMemoryExportAliases,
     AddGlobalExportAliases,
@@ -6488,6 +6560,10 @@ pub fn metamorphic_apply_transform(
     AddPrefixedExportAliases => metamorphic_add_prefixed_export_aliases(mod)
     AddSuffixedExportAliases => metamorphic_add_suffixed_export_aliases(mod)
     AddFunctionExportAliases => metamorphic_add_kind_export_aliases(mod, "func")
+    AddImportedFunctionExportAliases =>
+      metamorphic_add_imported_or_defined_function_export_aliases(mod, true)
+    AddDefinedFunctionExportAliases =>
+      metamorphic_add_imported_or_defined_function_export_aliases(mod, false)
     AddTableExportAliases => metamorphic_add_kind_export_aliases(mod, "table")
     AddMemoryExportAliases => metamorphic_add_kind_export_aliases(mod, "memory")
     AddGlobalExportAliases => metamorphic_add_kind_export_aliases(mod, "global")

@@ -2298,6 +2298,90 @@ test "metamorphic kind-specific export alias transforms preserve unique names" {
 }
 
 ///|
+test "metamorphic imported and defined function export aliases do not shift indices" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::new("env"),
+          @lib.Name::new("imported"),
+          @lib.ExternType::func(@lib.TypeIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("imp"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("def"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+        ),
+      ]),
+    )
+  let imported = match
+    metamorphic_apply_transform(base, AddImportedFunctionExportAliases) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    imported.transform_id,
+    "add-imported-function-export-aliases",
+  )
+  match imported.wasm_module.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      @debug.assert_eq(exports.length(), 3)
+      @debug.assert_eq(
+        exports[2],
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_imported_func_alias_0"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      )
+    }
+    None => fail("expected imported alias export section")
+  }
+  let defined = match
+    metamorphic_apply_transform(
+      imported.wasm_module,
+      AddDefinedFunctionExportAliases,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(defined.transform_id, "add-defined-function-export-aliases")
+  match defined.wasm_module.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      @debug.assert_eq(exports.length(), 4)
+      @debug.assert_eq(
+        exports[3],
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_defined_func_alias_0"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+        ),
+      )
+    }
+    None => fail("expected defined alias export section")
+  }
+  match assert_metamorphic_roundtrip_valid(defined.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic export aliases transform preserves validation and binary roundtrip" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),
@@ -6884,8 +6968,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 399)
-  @debug.assert_eq(stats.validated, 399)
+  @debug.assert_eq(stats.transformed, 401)
+  @debug.assert_eq(stats.validated, 401)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -7072,6 +7156,12 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(stats.transform_ids.contains("add-unused-empty-function-type"))
   assert_true(
     stats.transform_ids.contains("add-duplicate-equivalent-function-type"),
+  )
+  assert_true(
+    stats.transform_ids.contains("add-imported-function-export-aliases"),
+  )
+  assert_true(
+    stats.transform_ids.contains("add-defined-function-export-aliases"),
   )
   assert_true(
     stats.transform_ids.contains(
