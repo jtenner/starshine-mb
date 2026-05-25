@@ -2884,8 +2884,12 @@ fn assert_metamorphic_binary_drop_transform(
           }
           let zero = if expected_id.contains("f64") {
             @lib.Instruction::f64_const(0.0)
-          } else {
+          } else if expected_id.contains("f32") {
             @lib.Instruction::f32_const(0.0)
+          } else if expected_id.contains("i64") {
+            @lib.Instruction::i64_const(0L)
+          } else {
+            @lib.Instruction::i32_const(0)
           }
           if leading {
             if instrs[0] != zero ||
@@ -3230,6 +3234,90 @@ test "metamorphic f32 and f64 add/sub/mul/div drop transforms preserve validatio
       AddTrailingF64CopysignDropToDefinedFunctions,
       "add-trailing-f64-copysign-drop-to-defined-functions",
       @lib.Instruction::f64_copysign(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic i32 and i64 equality drop transforms preserve validation and binary roundtrip" {
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingI32EqDropToDefinedFunctions,
+      "add-leading-i32-eq-drop-to-defined-functions",
+      @lib.Instruction::i32_eq(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingI32EqDropToDefinedFunctions,
+      "add-trailing-i32-eq-drop-to-defined-functions",
+      @lib.Instruction::i32_eq(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingI32NeDropToDefinedFunctions,
+      "add-leading-i32-ne-drop-to-defined-functions",
+      @lib.Instruction::i32_ne(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingI32NeDropToDefinedFunctions,
+      "add-trailing-i32-ne-drop-to-defined-functions",
+      @lib.Instruction::i32_ne(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingI64EqDropToDefinedFunctions,
+      "add-leading-i64-eq-drop-to-defined-functions",
+      @lib.Instruction::i64_eq(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingI64EqDropToDefinedFunctions,
+      "add-trailing-i64-eq-drop-to-defined-functions",
+      @lib.Instruction::i64_eq(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddLeadingI64NeDropToDefinedFunctions,
+      "add-leading-i64-ne-drop-to-defined-functions",
+      @lib.Instruction::i64_ne(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_binary_drop_transform(
+      AddTrailingI64NeDropToDefinedFunctions,
+      "add-trailing-i64-ne-drop-to-defined-functions",
+      @lib.Instruction::i64_ne(),
       false,
     ) {
     Ok(_) => ()
@@ -4068,8 +4156,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 137)
-  @debug.assert_eq(stats.validated, 137)
+  @debug.assert_eq(stats.transformed, 145)
+  @debug.assert_eq(stats.validated, 145)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
