@@ -11,6 +11,8 @@ import {
 // Values
 pub fn apply_validate_invalid_binary_strategy(ValidateInvalidBinaryStrategyId, @lib.Module) -> Result[ValidateInvalidBinaryMutation, String]
 
+pub fn build_fuzz_resume_shard_queue(FuzzRecipe, String?, Array[String]) -> Result[Array[FuzzShardWorkItem], String]
+
 pub fn build_fuzz_shard_queue(FuzzRecipe, String?) -> Result[Array[FuzzShardWorkItem], String]
 
 pub fn build_invalid_fuzz_ast_failure_report_by_stable_id(String, UInt64, Int, profile? : String, params? : @validate.GenInvalidAstParams?) -> Result[InvalidFuzzFailureReport, String]
@@ -102,6 +104,8 @@ pub fn invalid_fuzz_spec_seed_source_kind() -> InvalidFuzzSourceKind
 pub fn invalid_fuzz_suite_name_for_source_kind(InvalidFuzzSourceKind) -> String
 
 pub fn invalid_fuzz_text_source_kind() -> InvalidFuzzSourceKind
+
+pub fn merge_fuzz_shard_results(Array[Array[FuzzSuiteResult]]) -> Array[FuzzSuiteResult]
 
 pub fn metamorphic_apply_transform(@lib.Module, MetamorphicValidTransform) -> Result[MetamorphicValidTransformResult, String]
 

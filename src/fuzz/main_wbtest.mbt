@@ -83,6 +83,121 @@ test "parse_fuzz_cli_args accepts seed sweep, shard, report, and out-dir flags" 
 }
 
 ///|
+test "build_fuzz_shard_queue assigns non-overlapping shard metadata and out dirs" {
+  let recipe = FuzzRecipe::new(
+    "nightly",
+    "validate-valid",
+    "stress",
+    0x5eedL,
+    output_mode=Jsonl,
+    seed_count=8,
+    shard_count=3,
+  )
+  let queue = match build_fuzz_shard_queue(recipe, Some("tmp/fuzz-nightly")) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(queue.length(), 3)
+  @debug.assert_eq(queue[0].name, "nightly-shard-000-of-003")
+  @debug.assert_eq(queue[0].suite, "validate-valid")
+  @debug.assert_eq(queue[0].profile, "stress")
+  @debug.assert_eq(queue[0].seed_i64, 0x5eedL)
+  @debug.assert_eq(queue[0].seed_count, 8)
+  @debug.assert_eq(queue[0].shard_index, 0)
+  @debug.assert_eq(queue[0].shard_count, 3)
+  @debug.assert_eq(queue[0].out_dir, Some("tmp/fuzz-nightly/shard-000-of-003"))
+  @debug.assert_eq(queue[1].name, "nightly-shard-001-of-003")
+  @debug.assert_eq(queue[1].shard_index, 1)
+  @debug.assert_eq(queue[1].out_dir, Some("tmp/fuzz-nightly/shard-001-of-003"))
+  @debug.assert_eq(queue[2].name, "nightly-shard-002-of-003")
+  @debug.assert_eq(queue[2].shard_index, 2)
+  @debug.assert_eq(queue[2].out_dir, Some("tmp/fuzz-nightly/shard-002-of-003"))
+}
+
+///|
+test "build_fuzz_shard_queue rejects empty shard counts" {
+  let recipe = FuzzRecipe::new("bad", "cmd-harness", "smoke", 1L, shard_count=0)
+  match build_fuzz_shard_queue(recipe, None) {
+    Ok(_) => fail("expected shard-count rejection")
+    Err(msg) =>
+      assert_true(msg.contains("shard-count must be greater than zero"))
+  }
+}
+
+///|
+test "build_fuzz_resume_shard_queue skips completed shard manifests" {
+  let recipe = FuzzRecipe::new(
+    "nightly",
+    "validate-valid",
+    "stress",
+    0x5eedL,
+    output_mode=Jsonl,
+    seed_count=8,
+    shard_count=3,
+  )
+  let completed = [
+    "{\"schema\":\"starshine.fuzz-output.v1\",\"files\":[\"result.json\",\"cases.jsonl\"]}",
+    "{\"schema\":\"starshine.fuzz-output.v1\",\"files\":[\"result.json\",\"cases.jsonl\"]}",
+  ]
+  let queue = match
+    build_fuzz_resume_shard_queue(recipe, Some("tmp/fuzz-nightly"), completed) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(queue.length(), 1)
+  @debug.assert_eq(queue[0].name, "nightly-shard-002-of-003")
+  @debug.assert_eq(queue[0].shard_index, 2)
+  @debug.assert_eq(queue[0].out_dir, Some("tmp/fuzz-nightly/shard-002-of-003"))
+}
+
+///|
+test "merge_fuzz_shard_results orders cases by seed index then suite" {
+  let late = FuzzSuiteResult::{
+    suite: "validate-valid",
+    profile: "smoke",
+    seed: 18L,
+    attempts: 1,
+    elapsed_ms: 1UL,
+    seed_index: 2,
+    seed_count: 4,
+    shard_index: 0,
+    shard_count: 2,
+    details_json: None,
+  }
+  let early = FuzzSuiteResult::{
+    suite: "validate-valid",
+    profile: "smoke",
+    seed: 17L,
+    attempts: 1,
+    elapsed_ms: 1UL,
+    seed_index: 1,
+    seed_count: 4,
+    shard_index: 1,
+    shard_count: 2,
+    details_json: None,
+  }
+  let same_seed_other_suite = FuzzSuiteResult::{
+    suite: "cmd-harness",
+    profile: "smoke",
+    seed: 17L,
+    attempts: 2,
+    elapsed_ms: 1UL,
+    seed_index: 1,
+    seed_count: 4,
+    shard_index: 1,
+    shard_count: 2,
+    details_json: None,
+  }
+  let merged = merge_fuzz_shard_results([[late], [early, same_seed_other_suite]])
+  @debug.assert_eq(merged.length(), 3)
+  @debug.assert_eq(merged[0].suite, "cmd-harness")
+  @debug.assert_eq(merged[0].seed_index, 1)
+  @debug.assert_eq(merged[1].suite, "validate-valid")
+  @debug.assert_eq(merged[1].seed_index, 1)
+  @debug.assert_eq(merged[2].seed_index, 2)
+}
+
+///|
 test "persist_fuzz_run_output writes result cases and manifest only when requested" {
   let ensured_dirs : Array[String] = []
   let writes : Array[(String, Bytes)] = []

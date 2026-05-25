@@ -43,6 +43,86 @@ pub fn FuzzRecipe::new(
 }
 
 ///|
+pub struct FuzzShardWorkItem {
+  name : String
+  suite : String
+  profile : String
+  seed_i64 : Int64
+  output_mode : FuzzOutputMode
+  seed_count : Int
+  shard_index : Int
+  shard_count : Int
+  out_dir : String?
+} derive(Eq, Debug)
+
+///|
+pub fn build_fuzz_shard_queue(
+  recipe : FuzzRecipe,
+  out_dir_root : String?,
+) -> Result[Array[FuzzShardWorkItem], String] {
+  if recipe.seed_count <= 0 {
+    return Err("seed-count must be greater than zero")
+  }
+  if recipe.shard_count <= 0 {
+    return Err("shard-count must be greater than zero")
+  }
+  let out : Array[FuzzShardWorkItem] = []
+  let total_label = fuzz_zero_pad_decimal(recipe.shard_count, 3)
+  let mut shard_index = 0
+  while shard_index < recipe.shard_count {
+    let shard_label = fuzz_zero_pad_decimal(shard_index, 3)
+    let shard_name = "\{recipe.name}-shard-\{shard_label}-of-\{total_label}"
+    let shard_out_dir = match out_dir_root {
+      Some(root) => Some("\{root}/shard-\{shard_label}-of-\{total_label}")
+      None => None
+    }
+    out.push({
+      name: shard_name,
+      suite: recipe.suite,
+      profile: recipe.profile,
+      seed_i64: recipe.seed_i64,
+      output_mode: recipe.output_mode,
+      seed_count: recipe.seed_count,
+      shard_index,
+      shard_count: recipe.shard_count,
+      out_dir: shard_out_dir,
+    })
+    shard_index += 1
+  }
+  Ok(out)
+}
+
+///|
+fn fuzz_output_manifest_is_complete(manifest_json : String) -> Bool {
+  manifest_json.contains("starshine.fuzz-output.v1") &&
+  manifest_json.contains("result.json") &&
+  manifest_json.contains("cases.jsonl")
+}
+
+///|
+pub fn build_fuzz_resume_shard_queue(
+  recipe : FuzzRecipe,
+  out_dir_root : String?,
+  completed_manifests : Array[String],
+) -> Result[Array[FuzzShardWorkItem], String] {
+  let full_queue = match build_fuzz_shard_queue(recipe, out_dir_root) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let out : Array[FuzzShardWorkItem] = []
+  let mut i = 0
+  while i < full_queue.length() {
+    let completed = i < completed_manifests.length() &&
+      fuzz_output_manifest_is_complete(completed_manifests[i])
+    if !completed {
+      out.push(full_queue[i])
+    }
+    i += 1
+  }
+  Ok(out)
+}
+
+///|
 pub fn fuzz_standard_recipe_text_by_name(name : String) -> String? {
   match fuzz_ascii_lower(name) {
     "smoke" =>
@@ -3086,6 +3166,50 @@ fn fuzz_suite_result_with_sweep_metadata(
     shard_count,
     details_json: result.details_json,
   }
+}
+
+///|
+fn fuzz_suite_result_less(a : FuzzSuiteResult, b : FuzzSuiteResult) -> Bool {
+  if a.seed_index != b.seed_index {
+    return a.seed_index < b.seed_index
+  }
+  if a.suite != b.suite {
+    return a.suite < b.suite
+  }
+  if a.profile != b.profile {
+    return a.profile < b.profile
+  }
+  if a.shard_index != b.shard_index {
+    return a.shard_index < b.shard_index
+  }
+  a.seed < b.seed
+}
+
+///|
+pub fn merge_fuzz_shard_results(
+  shard_results : Array[Array[FuzzSuiteResult]],
+) -> Array[FuzzSuiteResult] {
+  let remaining : Array[FuzzSuiteResult] = []
+  for shard in shard_results {
+    for result in shard {
+      remaining.push(result)
+    }
+  }
+  let merged : Array[FuzzSuiteResult] = []
+  while !remaining.is_empty() {
+    let mut best = 0
+    let mut i = 1
+    while i < remaining.length() {
+      if fuzz_suite_result_less(remaining[i], remaining[best]) {
+        best = i
+      }
+      i += 1
+    }
+    merged.push(remaining[best])
+    remaining[best] = remaining[remaining.length() - 1]
+    ignore(remaining.pop())
+  }
+  merged
 }
 
 ///|

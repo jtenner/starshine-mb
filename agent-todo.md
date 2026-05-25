@@ -616,10 +616,6 @@ p1 GenValid / valid-generation slices:
 - No active p1 GenValid recipe-catalog slices remain.
 
 p1/p2 oracle, reporting, and infrastructure slices:
-- [FUZ]1049A (p2) - Parallel Fuzz Shard Queue
-  - Unit: split suites/seeds/profiles into shard work items with non-overlapping artifact paths.
-- [FUZ]1049B (p2) - Deterministic Merge/Resume
-  - Unit: merge shard outputs in stable order and resume interrupted runs from completed case manifests.
 - [FUZ]1050A (p2) - Interestingness Hash Schema
   - Unit: define raw, decoded-shape, feature-fact, normalized, predicate, and reduced-artifact hashes.
 - [FUZ]1050B (p2) - Corpus Dedup Index
@@ -964,7 +960,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1049 (p2) - Parallel Long-Run Fuzz Queue And Stable Merge
   - Goal: support long fuzz runs that execute shards in parallel and merge results deterministically.
   - Why: seed sweeps and wide profiles will outgrow single-process interactive runs. Agents need parallelism without nondeterministic result ordering.
-  - Deliverables: add a work queue for suites/seeds/profiles; run shards independently; merge `result.json`, `cases.jsonl`, ledgers, minimized failures, and manifests in stable seed/profile/suite order; include resume behavior for completed cases.
+  - Deliverables: run queued shards independently; merge `result.json`, `cases.jsonl`, ledgers, minimized failures, and manifests in stable seed/profile/suite order; include resume behavior for completed cases. The `FuzzRecipe` shard queue API now creates deterministic shard work items with non-overlapping output subdirectories, resume-skips completed shard manifests, and exposes stable result merging.
   - Required APIs: fuzz runner sharding from [FUZ]1030, output directory workflow from [FUZ]1031, Bun task wrappers.
   - Invariants: no two workers should write the same artifact path; merged outputs must be deterministic independent of completion order.
   - Dependencies: [FUZ]1030 and [FUZ]1031.
