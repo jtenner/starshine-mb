@@ -486,6 +486,98 @@ export function runPassFuzzCompareHelpMentionsExternalValidatorsTest(): void {
       result.stdout.includes("wasm-tools | binaryen | wabt"),
     `expected external validator help, got:\n${result.stdout}`,
   );
+  assert(
+    result.stdout.includes("--runtime-execution <mode>") && result.stdout.includes("off | node"),
+    `expected runtime execution help, got:\n${result.stdout}`,
+  );
+}
+
+export function runPassFuzzCompareRuntimeExecutionNodeTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-runtime-"));
+  const outDir = path.join(tmpdir, "out");
+  const wasmBase64 = "AGFzbQEAAAABBAFgAAADAgEABwcBA2ZvbwAACgQBAgAL";
+
+  const fakeStarshine = makeExecutable(
+    path.join(tmpdir, "fake-starshine"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+const outIndex = args.indexOf("--out");
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+fs.copyFileSync(args[args.length - 1], args[outIndex + 1]);
+`,
+  );
+  const fakeWasmTools = makeExecutable(
+    path.join(tmpdir, "fake-wasm-tools"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+if (args[0] === "smith") {
+  const outIndex = args.indexOf("-o");
+  fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+  fs.writeFileSync(args[outIndex + 1], Buffer.from("${wasmBase64}", "base64"));
+}
+process.exit(0);
+`,
+  );
+  const fakeWasmOpt = makeExecutable(
+    path.join(tmpdir, "fake-wasm-opt"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+const outIndex = args.indexOf("-o");
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+if (args.includes("-S")) {
+  fs.writeFileSync(args[outIndex + 1], "(module (func (export \\\"foo\\\")))\\n");
+} else {
+  fs.copyFileSync(args[0], args[outIndex + 1]);
+}
+`,
+  );
+
+  const result = spawnSync(
+    "bun",
+    [
+      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--count",
+      "1",
+      "--out-dir",
+      outDir,
+      "--starshine-bin",
+      fakeStarshine,
+      "--wasm-opt-bin",
+      fakeWasmOpt,
+      "--wasm-tools-bin",
+      fakeWasmTools,
+      "--generator",
+      "wasm-smith",
+      "--runtime-execution",
+      "node",
+      "--remove-unused-brs",
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    fail(`pass-fuzz-compare runtime execution failed:\n${result.stderr}`);
+  }
+  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
+    runtimeExecution: string;
+    runtimeExecutionCounts: { checked: number; unsupported: number; failed: number };
+  };
+  assert(summary.runtimeExecution === "node", `unexpected runtime mode ${summary.runtimeExecution}`);
+  assert(
+    summary.runtimeExecutionCounts.checked === 1 &&
+      summary.runtimeExecutionCounts.unsupported === 0 &&
+      summary.runtimeExecutionCounts.failed === 0,
+    `unexpected runtime counts ${JSON.stringify(summary.runtimeExecutionCounts)}`,
+  );
 }
 
 export function runPassFuzzCompareListPassesCommandTest(): void {
@@ -3197,6 +3289,7 @@ if (import.meta.main) {
   runPassFuzzCompareDropConstsNormalizerCommandTest();
   runPassFuzzCompareUnreachableControlDebrisNormalizerCommandTest();
   runPassFuzzCompareHelpMentionsExternalValidatorsTest();
+  runPassFuzzCompareRuntimeExecutionNodeTest();
   runPassFuzzCompareListPassesCommandTest();
   runPassFuzzCompareListFailureClassesCommandTest();
   runPassFuzzComparePassAliasCommandTest();

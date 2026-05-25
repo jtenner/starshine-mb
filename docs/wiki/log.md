@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] tooling | FUZ1032B optional compare-pass runtime execution adapter
+
+- Completed `[FUZ]1032B` by adding `--runtime-execution off|node` to the pass-fuzz compare harness. The opt-in Node adapter instantiates validated Starshine outputs with deterministic basic import stubs and invokes up to eight zero-argument exported functions as a runtime smoke check while reporting checked/unsupported/failed counts in `result.json`.
+- Updated [`tooling/pass-fuzz-compare.md`](tooling/pass-fuzz-compare.md) and [`../README.md`](../README.md) so compare-pass docs describe the optional runtime adapter alongside the existing validation, Binaryen oracle, normalization, and reporting contract.
+
 ## [2026-05-25] fuzzing | FUZ1036D metamorphic f32/f64 ceil/floor drop body reshaping
 
 - Continued `[FUZ]1036D` by adding the leading/trailing f32/f64 `ceil` and `floor` computed/drop metamorphic-valid transforms. They insert pure `const 0; ceil/floor; drop` stacks at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate the transformed modules, and raise the active registry to 77 transforms per generated module.

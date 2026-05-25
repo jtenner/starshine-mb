@@ -616,8 +616,6 @@ p1 GenValid / valid-generation slices:
 - No active p1 GenValid recipe-catalog slices remain.
 
 p1/p2 oracle, reporting, and infrastructure slices:
-- [FUZ]1032B (p2) - Optional Runtime Execution Adapter
-  - Unit: add an opt-in runtime adapter and basic import stubs for simple exported-function execution checks.
 - [FUZ]1033A (p2) - Pass-Fuzz Idempotence Property
   - Unit: add an optional `pass(pass(m)) == pass(m)` property mode with separate classification from Binaryen mismatches.
 - [FUZ]1033B (p2) - Pass-Fuzz Repeated/Composition Properties

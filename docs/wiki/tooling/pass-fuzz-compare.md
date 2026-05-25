@@ -54,6 +54,7 @@ bun fuzz compare-pass \
   [--require-feature <feature>] [--exclude-feature <feature>] \
   [--gen-valid-metamorphic-transform <id>] \
   [--external-validator wasm-tools|binaryen|wabt] \
+  [--runtime-execution off|node] \
   [--min-compared <n>] \
   [--max-failures 20] \
   [--keep-going-after-command-failures] \
@@ -92,7 +93,7 @@ For each case, [`runPassFuzzCompare(...)`](../../../scripts/lib/pass-fuzz-compar
 
 1. **Input validation:** `wasm-tools validate --features all input.wasm` must pass before the case can compare.
 2. **Starshine run:** Starshine receives the requested pass flags and `--out <starshine.raw.wasm> <input.wasm>`.
-3. **Starshine output validation:** `wasm-tools validate --features all starshine.raw.wasm` must pass. A failure here is a Starshine validation failure, not a Binaryen semantic mismatch. Optional `--external-validator` adapters can also run skip-clean output checks with `wasm-tools`, Binaryen `wasm-validate`, or WABT `wasm-validate`; missing external validator binaries are recorded as skipped in `result.json` instead of failing the run.
+3. **Starshine output validation:** `wasm-tools validate --features all starshine.raw.wasm` must pass. A failure here is a Starshine validation failure, not a Binaryen semantic mismatch. Optional `--external-validator` adapters can also run skip-clean output checks with `wasm-tools`, Binaryen `wasm-validate`, or WABT `wasm-validate`; missing external validator binaries are recorded as skipped in `result.json` instead of failing the run. Optional `--runtime-execution node` then tries a Node WebAssembly smoke adapter with deterministic basic import stubs, instantiates the validated Starshine output, and invokes up to eight zero-argument exported functions while treating traps as observed execution outcomes rather than mismatches.
 4. **Binaryen oracle run:** `wasm-opt input.wasm --all-features <binaryen-pass-flags> -o binaryen.raw.wasm` produces the oracle output.
 5. **Canonicalization:** both raw outputs are passed through `wasm-opt --all-features --strip-debug -o <canonical.wasm>`.
 6. **Text normalization:** both canonical outputs are printed with `wasm-opt --all-features --strip-debug -S -o <wat>`.
@@ -121,7 +122,7 @@ Use `--list-passes` before starting a long lane; it is the script-owned list, no
 
 Every run writes:
 
-- `result.json` - aggregate counts, pass flags, Binaryen flags, generator mode, requested GenValid profile, feature filters, requested metamorphic transform ids, requested external validators plus skip counts, relative GenValid manifest path when present, generator counts, failure class counts, failure dirs, seed, requested count, and effective jobs.
+- `result.json` - aggregate counts, pass flags, Binaryen flags, generator mode, requested GenValid profile, feature filters, requested metamorphic transform ids, requested external validators plus skip counts, requested runtime execution mode plus checked/unsupported/failed counts, relative GenValid manifest path when present, generator counts, failure class counts, failure dirs, seed, requested count, and effective jobs.
 - `cases.jsonl` - one case record per attempted case, sorted by case index after the run.
 - `inputs/` - saved generator inputs for generated lanes.
 - `failures/case-<index>-<generator>/` - copied per-case workdir files for generator failures, validation failures, command failures, and normalized mismatches.

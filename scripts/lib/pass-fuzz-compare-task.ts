@@ -19,6 +19,7 @@ type GeneratorKind = "wasm-smith" | "gen-valid";
 type CompareNormalizer = "drop-consts" | "unreachable-control-debris";
 type CaseStatus = "match" | "mismatch" | "validation-failure" | "generator-failure" | "command-failure";
 type ExternalValidatorKind = "wasm-tools" | "binaryen" | "wabt";
+type RuntimeExecutionMode = "off" | "node";
 type CommandFailureClass =
   | "starshine-command-failed"
   | "starshine-invalid-limits"
@@ -44,6 +45,7 @@ type PassFuzzCompareOptions = {
   binaryenValidateBin: string;
   wabtValidateBin: string;
   externalValidators: ExternalValidatorKind[];
+  runtimeExecution: RuntimeExecutionMode;
   generator: GeneratorMode;
   genValidProfile: string | null;
   genValidRequiredFeatures: string[];
@@ -111,6 +113,12 @@ type PassFuzzCompareSummary = {
   genValidMetamorphicTransforms: string[];
   genValidManifestPath: string | null;
   externalValidators: ExternalValidatorKind[];
+  runtimeExecution: RuntimeExecutionMode;
+  runtimeExecutionCounts: {
+    checked: number;
+    unsupported: number;
+    failed: number;
+  };
   externalValidatorSkipped: Partial<Record<ExternalValidatorKind, number>>;
   generatorCounts: {
     wasmSmith: number;
@@ -135,6 +143,7 @@ const RESERVED_OPTIONS = new Set([
   "--binaryen-validate-bin",
   "--wabt-validate-bin",
   "--external-validator",
+  "--runtime-execution",
   "--generator",
   "--gen-valid-profile",
   "--require-feature",
@@ -212,6 +221,8 @@ const HELP_TEXT = [
   "  --out-dir <dir>       Output directory for artifacts and failures",
   "  --external-validator <id>",
   "                       Optional skip-clean output validator: wasm-tools | binaryen | wabt. May repeat",
+  "  --runtime-execution <mode>",
+  "                       Optional runtime smoke execution adapter: off | node. Default: off",
   "  --binaryen-validate-bin <path>",
   "                       Binaryen validator command for --external-validator binaryen. Default: wasm-validate",
   "  --wabt-validate-bin <path>",
@@ -347,6 +358,16 @@ function normalizeExternalValidator(raw: string): ExternalValidatorKind {
       return raw.trim();
     default:
       fail(`unsupported external validator for pass-fuzz-compare: ${raw}`);
+  }
+}
+
+function normalizeRuntimeExecutionMode(raw: string): RuntimeExecutionMode {
+  switch (raw.trim()) {
+    case "off":
+    case "node":
+      return raw.trim();
+    default:
+      fail(`unsupported runtime execution mode for pass-fuzz-compare: ${raw}`);
   }
 }
 
@@ -520,6 +541,61 @@ async function runExternalValidatorAsync(
       return { ok: true, skipped: true, stderr: `${kind} validator unavailable: ${command}` };
     }
     throw error;
+  }
+}
+
+async function smokeExecuteNodeRuntime(
+  wasmPath: string,
+): Promise<{ ok: boolean; unsupported: boolean; detail: string }> {
+  let bytes: Buffer;
+  try {
+    bytes = fs.readFileSync(wasmPath);
+    const module = await WebAssembly.compile(bytes);
+    const imports: Record<string, Record<string, unknown>> = {};
+    for (const descriptor of WebAssembly.Module.imports(module)) {
+      const moduleImports = (imports[descriptor.module] ??= {});
+      switch (descriptor.kind) {
+        case "function":
+          moduleImports[descriptor.name] = () => 0;
+          break;
+        case "global":
+          moduleImports[descriptor.name] = 0;
+          break;
+        case "memory":
+          moduleImports[descriptor.name] = new WebAssembly.Memory({ initial: 1, maximum: 1 });
+          break;
+        case "table":
+          moduleImports[descriptor.name] = new WebAssembly.Table({ element: "anyfunc", initial: 1 });
+          break;
+        default:
+          return { ok: false, unsupported: true, detail: `unsupported import kind ${descriptor.kind}` };
+      }
+    }
+    const instance = await WebAssembly.instantiate(module, imports);
+    let invoked = 0;
+    for (const value of Object.values(instance.exports)) {
+      if (typeof value === "function" && value.length === 0) {
+        try {
+          value();
+          invoked += 1;
+        } catch {
+          invoked += 1;
+        }
+      }
+      if (invoked >= 8) {
+        break;
+      }
+    }
+    return {
+      ok: true,
+      unsupported: false,
+      detail:
+        invoked === 0
+          ? "instantiated; no zero-arg function exports"
+          : `instantiated; invoked ${invoked} zero-arg function export(s)`,
+    };
+  } catch (error) {
+    return { ok: false, unsupported: true, detail: commandFailureDetail(error) };
   }
 }
 
@@ -1159,6 +1235,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let binaryenValidateBin = process.env.BINARYEN_WASM_VALIDATE_BIN || "wasm-validate";
   let wabtValidateBin = process.env.WABT_WASM_VALIDATE_BIN || "wasm-validate";
   const externalValidators: ExternalValidatorKind[] = [];
+  let runtimeExecution: RuntimeExecutionMode = "off";
   let generator: GeneratorMode = "both";
   let genValidProfile: string | null = null;
   const genValidRequiredFeatures: string[] = [];
@@ -1240,6 +1317,12 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         );
         i += 2;
         break;
+      case "--runtime-execution":
+        runtimeExecution = normalizeRuntimeExecutionMode(
+          argv[i + 1] ?? fail("missing value for --runtime-execution"),
+        );
+        i += 2;
+        break;
       case "--generator": {
         const value = argv[i + 1] ?? fail("missing value for --generator");
         if (value !== "both" && value !== "wasm-smith" && value !== "gen-valid") {
@@ -1317,6 +1400,13 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         if (token.startsWith("--external-validator=")) {
           externalValidators.push(
             normalizeExternalValidator(token.substring("--external-validator=".length)),
+          );
+          i += 1;
+          break;
+        }
+        if (token.startsWith("--runtime-execution=")) {
+          runtimeExecution = normalizeRuntimeExecutionMode(
+            token.substring("--runtime-execution=".length),
           );
           i += 1;
           break;
@@ -1404,6 +1494,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       binaryenValidateBin,
       wabtValidateBin,
       externalValidators,
+      runtimeExecution,
       generator,
       genValidProfile,
       genValidRequiredFeatures,
@@ -1547,6 +1638,12 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         ? path.relative(outDir, genValidManifestPath)
         : null,
     externalValidators: options.externalValidators,
+    runtimeExecution: options.runtimeExecution,
+    runtimeExecutionCounts: {
+      checked: 0,
+      unsupported: 0,
+      failed: 0,
+    },
     externalValidatorSkipped: {},
     generatorCounts: {
       wasmSmith: 0,
@@ -1746,6 +1843,41 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           detail,
         });
         return;
+      }
+
+      if (options.runtimeExecution === "node") {
+        const runtime = await smokeExecuteNodeRuntime(starshineRawPath);
+        if (runtime.ok) {
+          summary.runtimeExecutionCounts.checked += 1;
+        } else if (runtime.unsupported) {
+          summary.runtimeExecutionCounts.unsupported += 1;
+        } else {
+          summary.runtimeExecutionCounts.failed += 1;
+          summary.validationFailureCount += 1;
+          failures += 1;
+          const detail = `Starshine output failed runtime execution: ${runtime.detail}`;
+          summary.failureDirs.push(
+            persistFailureArtifacts(
+              outDir,
+              caseNumber,
+              generator,
+              "validation-failure",
+              detail,
+              workDir,
+              options.wasmToolsBin,
+              repoRoot,
+              options.passFlags,
+              genValidManifestEntry,
+            ),
+          );
+          recordCase({
+            caseIndex: caseNumber,
+            generator,
+            status: "validation-failure",
+            detail,
+          });
+          return;
+        }
       }
 
       let starshineWat = "";
