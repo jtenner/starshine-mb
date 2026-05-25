@@ -39,6 +39,7 @@ pub enum MetamorphicValidTransform {
   AddLeadingEmptyVoidLoopToDefinedFunctions
   SplitMergeLocalDeclarations
   AddTrailingEmptyVoidLoopToDefinedFunctions
+  WrapDefinedFunctionBodiesInIdentityBlock
   AddExportAliases
   AddPrefixedExportAliases
   AddSuffixedExportAliases
@@ -106,6 +107,8 @@ pub fn metamorphic_valid_transform_id(
     SplitMergeLocalDeclarations => "split-merge-local-declarations"
     AddTrailingEmptyVoidLoopToDefinedFunctions =>
       "add-trailing-empty-void-loop-to-defined-functions"
+    WrapDefinedFunctionBodiesInIdentityBlock =>
+      "wrap-defined-function-bodies-in-identity-block"
     AddExportAliases => "add-export-aliases"
     AddPrefixedExportAliases => "add-prefixed-export-aliases"
     AddSuffixedExportAliases => "add-suffixed-export-aliases"
@@ -1604,6 +1607,65 @@ fn metamorphic_export_name_exists(
 }
 
 ///|
+fn metamorphic_function_body_block_type(
+  subtypes : Array[@lib.SubType],
+  type_idx : @lib.TypeIdx,
+) -> @lib.BlockType? {
+  match type_idx {
+    @lib.TypeIdx(i) =>
+      match subtypes.get(i.reinterpret_as_int()) {
+        Some(sub_type) =>
+          match sub_type.get_comptype() {
+            @lib.FuncCompType(_, []) => Some(@lib.BlockType::void_())
+            @lib.FuncCompType(_, [result]) =>
+              Some(@lib.BlockType::val_type(result))
+            _ => None
+          }
+        None => None
+      }
+    @lib.RecIdx(_) => None
+  }
+}
+
+///|
+fn metamorphic_wrap_defined_function_bodies_in_identity_block(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let subtypes = metamorphic_flatten_types(mod)
+  let type_idxs = match mod.func_sec {
+    Some(@lib.FuncSec(existing)) => existing
+    None => return mod
+  }
+  let funcs = []
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for i = 0; i < existing.length(); i = i + 1 {
+        match existing[i] {
+          @lib.Func(locals, expr) => {
+            let block_type = match type_idxs.get(i) {
+              Some(type_idx) =>
+                metamorphic_function_body_block_type(subtypes, type_idx)
+              None => None
+            }
+            match block_type {
+              Some(bt) =>
+                funcs.push(
+                  @lib.Func::new(
+                    locals,
+                    @lib.Expr::new([@lib.Instruction::block(bt, expr)]),
+                  ),
+                )
+              None => funcs.push(@lib.Func::new(locals, expr))
+            }
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
 fn metamorphic_add_unused_empty_function(mod : @lib.Module) -> @lib.Module {
   let types = []
   match mod.type_sec {
@@ -1684,6 +1746,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddLeadingEmptyVoidBlockToDefinedFunctions,
     AddLeadingEmptyVoidLoopToDefinedFunctions,
     AddTrailingEmptyVoidLoopToDefinedFunctions,
+    WrapDefinedFunctionBodiesInIdentityBlock,
     SplitMergeLocalDeclarations,
     AddExportAliases,
     AddPrefixedExportAliases,
@@ -1759,6 +1822,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_leading_empty_void_loop_to_defined_functions(mod)
     AddTrailingEmptyVoidLoopToDefinedFunctions =>
       metamorphic_add_trailing_empty_void_loop_to_defined_functions(mod)
+    WrapDefinedFunctionBodiesInIdentityBlock =>
+      metamorphic_wrap_defined_function_bodies_in_identity_block(mod)
     SplitMergeLocalDeclarations =>
       metamorphic_split_merge_local_declarations(mod)
     AddExportAliases => metamorphic_add_export_aliases(mod)

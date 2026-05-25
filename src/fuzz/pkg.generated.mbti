@@ -383,6 +383,7 @@ pub enum MetamorphicValidTransform {
   AddLeadingEmptyVoidLoopToDefinedFunctions
   SplitMergeLocalDeclarations
   AddTrailingEmptyVoidLoopToDefinedFunctions
+  WrapDefinedFunctionBodiesInIdentityBlock
   AddExportAliases
   AddPrefixedExportAliases
   AddSuffixedExportAliases
