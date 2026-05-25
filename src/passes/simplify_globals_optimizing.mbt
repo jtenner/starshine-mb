@@ -3141,7 +3141,7 @@ fn sgo_count_direct_condition_body_read(
 }
 
 ///|
-fn sgo_count_block_condition_external_pure_read_with_index(
+fn sgo_count_block_or_try_condition_body_with_if_index(
   instrs : Array[@lib.Instruction],
   pos : Int,
   if_index : Int?,
@@ -3159,7 +3159,7 @@ fn sgo_count_block_condition_external_pure_read(
   pos : Int,
   safe_reads : Array[Int],
 ) -> Unit {
-  sgo_count_block_condition_external_pure_read_with_index(
+  sgo_count_block_or_try_condition_body_with_if_index(
     instrs,
     pos,
     sgo_block_condition_external_pure_if_index(instrs, pos),
@@ -3175,7 +3175,7 @@ fn sgo_count_block_condition_external_pure_if_return_read(
   pos : Int,
   safe_reads : Array[Int],
 ) -> Unit {
-  sgo_count_block_condition_external_pure_read_with_index(
+  sgo_count_block_or_try_condition_body_with_if_index(
     instrs,
     pos,
     sgo_block_condition_external_pure_if_index(instrs, pos),
@@ -3191,7 +3191,7 @@ fn sgo_count_block_condition_reverse_external_pure_read(
   pos : Int,
   safe_reads : Array[Int],
 ) -> Unit {
-  sgo_count_block_condition_external_pure_read_with_index(
+  sgo_count_block_or_try_condition_body_with_if_index(
     instrs,
     pos,
     sgo_block_condition_reverse_external_pure_if_index(instrs, pos),
@@ -3207,7 +3207,7 @@ fn sgo_count_block_condition_reverse_external_pure_if_return_read(
   pos : Int,
   safe_reads : Array[Int],
 ) -> Unit {
-  sgo_count_block_condition_external_pure_read_with_index(
+  sgo_count_block_or_try_condition_body_with_if_index(
     instrs,
     pos,
     sgo_block_condition_reverse_external_pure_if_index(instrs, pos),
