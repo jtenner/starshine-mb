@@ -256,6 +256,13 @@ export function runPassFuzzCompareDropConstsNormalizerCommandTest(): void {
   const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-drop-consts-"));
   const outDir = path.join(tmpdir, "out");
 
+export function runPassFuzzCompareIdempotencePropertyTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-idempotence-"));
+  const outDir = path.join(tmpdir, "out");
+  const starshineLog = path.join(tmpdir, "starshine.log");
+
+  const fakeMoon = makeExecutable(path.join(tmpdir, "fake-moon"), `process.exit(0);`);
   const fakeStarshine = makeExecutable(
     path.join(tmpdir, "fake-starshine"),
     `
@@ -270,6 +277,15 @@ process.exit(0);
 `,
   );
 
+fs.appendFileSync(process.env.FAKE_STARSHINE_LOG, JSON.stringify(args) + "\\n");
+const outIndex = args.indexOf("--out");
+if (outIndex === -1) process.exit(1);
+const input = fs.readFileSync(args[args.length - 1], "utf8");
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+fs.writeFileSync(args[outIndex + 1], input.startsWith("starshine:") ? input : "starshine:" + input);
+process.exit(0);
+`,
+  );
   const fakeWasmOpt = makeExecutable(
     path.join(tmpdir, "fake-wasm-opt"),
     `
@@ -288,6 +304,10 @@ if (args.includes("-S")) {
   }
 } else {
   fs.writeFileSync(output, "wasm:" + path.basename(args[0]));
+if (args.includes("-S")) {
+  fs.writeFileSync(args[outIndex + 1], fs.readFileSync(args[0], "utf8") + "\\n");
+} else {
+  fs.copyFileSync(args[0], args[outIndex + 1]);
 }
 process.exit(0);
 `,
@@ -318,6 +338,15 @@ process.exit(0);
       "0x5eed",
       "--out-dir",
       outDir,
+      "2",
+      "--generator",
+      "wasm-smith",
+      "--property",
+      "idempotence",
+      "--out-dir",
+      outDir,
+      "--moon",
+      fakeMoon,
       "--starshine-bin",
       fakeStarshine,
       "--wasm-opt-bin",
@@ -468,6 +497,27 @@ process.exit(0);
   );
   assert(summary.mismatchCount === 0, `expected no mismatches, got ${summary.mismatchCount}`);
   assert(JSON.stringify(summary.normalizers) === JSON.stringify(["unreachable-control-debris"]), `unexpected normalizers ${JSON.stringify(summary.normalizers)}`);
+      "--remove-unused-brs",
+    ],
+    { cwd: repoRoot, env: { ...process.env, FAKE_STARSHINE_LOG: starshineLog }, encoding: "utf8" },
+  );
+  if (result.error) throw result.error;
+  if (result.status !== 0) fail(`pass-fuzz-compare idempotence failed:\n${result.stderr}`);
+
+  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
+    propertyMode: string;
+    propertyFailureCount: number;
+    idempotenceCheckedCount: number;
+    idempotenceMatchCount: number;
+  };
+  assert(summary.propertyMode === "idempotence", `unexpected property mode ${summary.propertyMode}`);
+  assert(summary.propertyFailureCount === 0, `unexpected property failures ${summary.propertyFailureCount}`);
+  assert(summary.idempotenceCheckedCount === 2, `unexpected idempotence checks ${summary.idempotenceCheckedCount}`);
+  assert(summary.idempotenceMatchCount === 2, `unexpected idempotence matches ${summary.idempotenceMatchCount}`);
+  const starshineLogs = fs.readFileSync(starshineLog, "utf8").trim().split("\n").filter(Boolean);
+  assert(starshineLogs.length === 4, `expected first and second Starshine runs for 2 cases, got ${starshineLogs.length}`);
+}
+
 export function runPassFuzzCompareHelpMentionsExternalValidatorsTest(): void {
   const repoRoot = path.resolve(import.meta.dir, "..", "..");
   const result = spawnSync(
@@ -3288,6 +3338,7 @@ if (import.meta.main) {
   runPassFuzzCompareCommandTest();
   runPassFuzzCompareDropConstsNormalizerCommandTest();
   runPassFuzzCompareUnreachableControlDebrisNormalizerCommandTest();
+  runPassFuzzCompareIdempotencePropertyTest();
   runPassFuzzCompareHelpMentionsExternalValidatorsTest();
   runPassFuzzCompareRuntimeExecutionNodeTest();
   runPassFuzzCompareListPassesCommandTest();

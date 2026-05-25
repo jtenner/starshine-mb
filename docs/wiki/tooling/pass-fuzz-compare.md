@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-05-22
+last_reviewed: 2026-05-25
 sources:
   - ../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -55,6 +55,7 @@ bun fuzz compare-pass \
   [--gen-valid-metamorphic-transform <id>] \
   [--external-validator wasm-tools|binaryen|wabt] \
   [--runtime-execution off|node] \
+  [--property none|idempotence] \
   [--min-compared <n>] \
   [--max-failures 20] \
   [--keep-going-after-command-failures] \
@@ -97,7 +98,8 @@ For each case, [`runPassFuzzCompare(...)`](../../../scripts/lib/pass-fuzz-compar
 4. **Binaryen oracle run:** `wasm-opt input.wasm --all-features <binaryen-pass-flags> -o binaryen.raw.wasm` produces the oracle output.
 5. **Canonicalization:** both raw outputs are passed through `wasm-opt --all-features --strip-debug -o <canonical.wasm>`.
 6. **Text normalization:** both canonical outputs are printed with `wasm-opt --all-features --strip-debug -S -o <wat>`.
-7. **Compare:** matching WAT increments `normalizedMatchCount`; drift records a `mismatch` case unless an explicit compare normalizer also proves equality.
+7. **Optional property checks:** `--property idempotence` reruns Starshine on `starshine.raw.wasm`, validates that second output, canonicalizes both Starshine outputs, and compares normalized WAT for `pass(pass(m)) == pass(m)`. Property failures increment `propertyFailureCount` and persist as `property-failure` cases, separate from Binaryen `mismatch` cases.
+8. **Compare:** matching WAT increments `normalizedMatchCount`; drift records a `mismatch` case unless an explicit compare normalizer also proves equality.
 
 That order matters. A pass can be locally safe but still differ in raw binary layout, custom-section order, name stripping, or textual representation. The harness intentionally removes those surfaces before comparing.
 
@@ -122,7 +124,7 @@ Use `--list-passes` before starting a long lane; it is the script-owned list, no
 
 Every run writes:
 
-- `result.json` - aggregate counts, pass flags, Binaryen flags, generator mode, requested GenValid profile, feature filters, requested metamorphic transform ids, requested external validators plus skip counts, requested runtime execution mode plus checked/unsupported/failed counts, relative GenValid manifest path when present, generator counts, failure class counts, failure dirs, seed, requested count, and effective jobs.
+- `result.json` - aggregate counts, pass flags, Binaryen flags, generator mode, requested GenValid profile, feature filters, requested metamorphic transform ids, requested external validators plus skip counts, requested runtime execution mode plus checked/unsupported/failed counts, requested property mode plus idempotence checked/match counts and property failures, relative GenValid manifest path when present, generator counts, failure class counts, failure dirs, seed, requested count, and effective jobs.
 - `cases.jsonl` - one case record per attempted case, sorted by case index after the run.
 - `inputs/` - saved generator inputs for generated lanes.
 - `failures/case-<index>-<generator>/` - copied per-case workdir files for generator failures, validation failures, command failures, and normalized mismatches.
@@ -145,8 +147,9 @@ The generator ledger records this as `[FZG]029`; see [`../fuzzing/generator-cove
 | `validation-failure` | Starshine produced invalid wasm. | Correctness blocker for Starshine. |
 | `generator-failure` | The input generator failed or produced bytes that failed independent validation. | Tool/generator issue unless inspection says otherwise. |
 | `command-failure` | Starshine, Binaryen, or canonicalization command failed. | Classify by `failureClass`; replay before claiming pass semantics. |
+| `property-failure` | An optional property check failed independently of the Binaryen oracle comparison. Today this means `pass(pass(m))` differed from `pass(m)` or the second Starshine output failed validation/canonicalization under `--property idempotence`. | Report as property-specific evidence, not as a Binaryen semantic mismatch. |
 
-Replay defaults to historical command-failure behavior for backward compatibility. Use `--failure-status mismatch`, `--failure-status validation-failure`, or `--failure-status generator-failure` to replay other persisted failure kinds; combine with `--case-index <n>` to pick one saved case. `--failure-class <id>` is only meaningful for `command-failure` records.
+Replay defaults to historical command-failure behavior for backward compatibility. Use `--failure-status mismatch`, `--failure-status validation-failure`, `--failure-status generator-failure`, or `--failure-status property-failure` to replay other persisted failure kinds; combine with `--case-index <n>` to pick one saved case. `--failure-class <id>` is only meaningful for `command-failure` records.
 
 Command failures may or may not count toward `--max-failures`. By default they do; `--keep-going-after-command-failures` records them without spending the failure budget. That mode is useful when a known tool class, such as a Binaryen parser gap, would otherwise prevent collecting enough comparable cases.
 

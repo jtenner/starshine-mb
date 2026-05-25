@@ -17,9 +17,10 @@ import { type EffectTrapFacts, scanEffectTrapFactsFromWasmBytes } from "./effect
 type GeneratorMode = "both" | "wasm-smith" | "gen-valid";
 type GeneratorKind = "wasm-smith" | "gen-valid";
 type CompareNormalizer = "drop-consts" | "unreachable-control-debris";
-type CaseStatus = "match" | "mismatch" | "validation-failure" | "generator-failure" | "command-failure";
+type CaseStatus = "match" | "mismatch" | "validation-failure" | "generator-failure" | "command-failure" | "property-failure";
 type ExternalValidatorKind = "wasm-tools" | "binaryen" | "wabt";
 type RuntimeExecutionMode = "off" | "node";
+type PropertyMode = "none" | "idempotence";
 type CommandFailureClass =
   | "starshine-command-failed"
   | "starshine-invalid-limits"
@@ -46,6 +47,7 @@ type PassFuzzCompareOptions = {
   wabtValidateBin: string;
   externalValidators: ExternalValidatorKind[];
   runtimeExecution: RuntimeExecutionMode;
+  propertyMode: PropertyMode;
   generator: GeneratorMode;
   genValidProfile: string | null;
   genValidRequiredFeatures: string[];
@@ -114,6 +116,10 @@ type PassFuzzCompareSummary = {
   genValidManifestPath: string | null;
   externalValidators: ExternalValidatorKind[];
   runtimeExecution: RuntimeExecutionMode;
+  propertyMode: PropertyMode;
+  propertyFailureCount: number;
+  idempotenceCheckedCount: number;
+  idempotenceMatchCount: number;
   runtimeExecutionCounts: {
     checked: number;
     unsupported: number;
@@ -144,6 +150,7 @@ const RESERVED_OPTIONS = new Set([
   "--wabt-validate-bin",
   "--external-validator",
   "--runtime-execution",
+  "--property",
   "--generator",
   "--gen-valid-profile",
   "--require-feature",
@@ -223,6 +230,7 @@ const HELP_TEXT = [
   "                       Optional skip-clean output validator: wasm-tools | binaryen | wabt. May repeat",
   "  --runtime-execution <mode>",
   "                       Optional runtime smoke execution adapter: off | node. Default: off",
+  "  --property <mode>    Optional property checks: idempotence. May be repeated later; default: none",
   "  --binaryen-validate-bin <path>",
   "                       Binaryen validator command for --external-validator binaryen. Default: wasm-validate",
   "  --wabt-validate-bin <path>",
@@ -371,12 +379,23 @@ function normalizeRuntimeExecutionMode(raw: string): RuntimeExecutionMode {
   }
 }
 
+function normalizePropertyMode(raw: string): PropertyMode {
+  switch (raw.trim()) {
+    case "none":
+    case "idempotence":
+      return raw.trim();
+    default:
+      fail(`unsupported property mode for pass-fuzz-compare: ${raw}`);
+  }
+}
+
 function normalizeFailureStatus(raw: string): CaseStatus {
   switch (raw.trim()) {
     case "mismatch":
     case "validation-failure":
     case "generator-failure":
     case "command-failure":
+    case "property-failure":
       return raw.trim();
     default:
       fail(`unsupported failure status for pass-fuzz-compare: ${raw}`);
@@ -1236,6 +1255,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let wabtValidateBin = process.env.WABT_WASM_VALIDATE_BIN || "wasm-validate";
   const externalValidators: ExternalValidatorKind[] = [];
   let runtimeExecution: RuntimeExecutionMode = "off";
+  let propertyMode: PropertyMode = "none";
   let generator: GeneratorMode = "both";
   let genValidProfile: string | null = null;
   const genValidRequiredFeatures: string[] = [];
@@ -1321,6 +1341,10 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         runtimeExecution = normalizeRuntimeExecutionMode(
           argv[i + 1] ?? fail("missing value for --runtime-execution"),
         );
+        i += 2;
+        break;
+      case "--property":
+        propertyMode = normalizePropertyMode(argv[i + 1] ?? fail("missing value for --property"));
         i += 2;
         break;
       case "--generator": {
@@ -1411,6 +1435,11 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
           i += 1;
           break;
         }
+        if (token.startsWith("--property=")) {
+          propertyMode = normalizePropertyMode(token.substring("--property=".length));
+          i += 1;
+          break;
+        }
         if (token.startsWith("--binaryen-validate-bin=")) {
           binaryenValidateBin = token.substring("--binaryen-validate-bin=".length);
           i += 1;
@@ -1495,6 +1524,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       wabtValidateBin,
       externalValidators,
       runtimeExecution,
+      propertyMode,
       generator,
       genValidProfile,
       genValidRequiredFeatures,
@@ -1639,6 +1669,10 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         : null,
     externalValidators: options.externalValidators,
     runtimeExecution: options.runtimeExecution,
+    propertyMode: options.propertyMode,
+    propertyFailureCount: 0,
+    idempotenceCheckedCount: 0,
+    idempotenceMatchCount: 0,
     runtimeExecutionCounts: {
       checked: 0,
       unsupported: 0,
@@ -1684,6 +1718,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     const binaryenPath = path.join(workDir, "binaryen.wasm");
     const starshineWatPath = path.join(workDir, "starshine.wat");
     const binaryenWatPath = path.join(workDir, "binaryen.wat");
+    const idempotenceRawPath = path.join(workDir, "starshine.idempotence.raw.wasm");
+    const idempotencePath = path.join(workDir, "starshine.idempotence.wasm");
+    const idempotenceWatPath = path.join(workDir, "starshine.idempotence.wat");
     let genValidManifestEntry: unknown | null = null;
     let inputEffectTrapFacts: EffectTrapFacts | null = null;
 
@@ -1843,6 +1880,105 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           detail,
         });
         return;
+      }
+
+      if (options.propertyMode === "idempotence") {
+        summary.idempotenceCheckedCount += 1;
+        const idempotenceArgs = [
+          ...starshineInvocation.argsPrefix,
+          ...options.passFlags,
+          "--out",
+          idempotenceRawPath,
+          starshineRawPath,
+        ];
+        try {
+          await runStarshineWithRetry(
+            starshineInvocation,
+            idempotenceArgs,
+            idempotenceRawPath,
+            repoRoot,
+            repoTmpEnv,
+          );
+          const idempotenceValidation = await runValidateAsync(
+            options.wasmToolsBin,
+            idempotenceRawPath,
+            repoRoot,
+          );
+          if (!idempotenceValidation.ok) {
+            throw new Error(`second Starshine output failed validation: ${idempotenceValidation.stderr || "unknown error"}`);
+          }
+          await canonicalizeWasm(options.wasmOptBin, starshineRawPath, starshinePath, repoRoot);
+          await canonicalizeWasm(options.wasmOptBin, idempotenceRawPath, idempotencePath, repoRoot);
+          const firstWat = await normalizePrintWat(
+            options.wasmOptBin,
+            starshinePath,
+            starshineWatPath,
+            repoRoot,
+          );
+          const secondWat = await normalizePrintWat(
+            options.wasmOptBin,
+            idempotencePath,
+            idempotenceWatPath,
+            repoRoot,
+          );
+          if (firstWat === secondWat) {
+            summary.idempotenceMatchCount += 1;
+          } else {
+            summary.propertyFailureCount += 1;
+            failures += 1;
+            const detail = "idempotence property failed: pass(pass(input)) differed from pass(input)";
+            summary.failureDirs.push(
+              persistFailureArtifacts(
+                outDir,
+                caseNumber,
+                generator,
+                "property-failure",
+                detail,
+                workDir,
+                options.wasmToolsBin,
+                repoRoot,
+                options.passFlags,
+                genValidManifestEntry,
+                inputEffectTrapFacts,
+              ),
+            );
+            recordCase({
+              caseIndex: caseNumber,
+              generator,
+              status: "property-failure",
+              detail,
+              inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
+            });
+            return;
+          }
+        } catch (error) {
+          summary.propertyFailureCount += 1;
+          failures += 1;
+          const detail = `idempotence property command failed: ${commandFailureDetail(error)}`;
+          summary.failureDirs.push(
+            persistFailureArtifacts(
+              outDir,
+              caseNumber,
+              generator,
+              "property-failure",
+              detail,
+              workDir,
+              options.wasmToolsBin,
+              repoRoot,
+              options.passFlags,
+              genValidManifestEntry,
+              inputEffectTrapFacts,
+            ),
+          );
+          recordCase({
+            caseIndex: caseNumber,
+            generator,
+            status: "property-failure",
+            detail,
+            inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
+          });
+          return;
+        }
       }
 
       if (options.runtimeExecution === "node") {
@@ -2030,6 +2166,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   process.stdout.write(`Normalized matches: ${summary.normalizedMatchCount}\n`);
   process.stdout.write(`Compare-normalized matches: ${summary.cleanupNormalizedMatchCount}\n`);
   process.stdout.write(`Validation failures: ${summary.validationFailureCount}\n`);
+  process.stdout.write(`Property failures: ${summary.propertyFailureCount}\n`);
   process.stdout.write(`Generator failures: ${summary.generatorFailureCount}\n`);
   process.stdout.write(`Command failures: ${summary.commandFailureCount}\n`);
   process.stdout.write(`Mismatches: ${summary.mismatchCount}\n`);
