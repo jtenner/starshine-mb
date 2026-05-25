@@ -224,7 +224,7 @@ Execution rules for all DAE slices
   - Status: active/partial for v0.1.1 because the product goal changed toward broad Binaryen coverage; not a v0.1.0 blocker and not a rejection of the supported-surface signoff in `docs/wiki/raw/research/0573-2026-05-19-sgo-v010-signoff.md`.
   - Goal: broaden SGO toward fuller Binaryen `SimplifyGlobals.cpp` rewrite-family coverage while preserving the accepted v0.1.0 direct/nested/late-tail surface as a scoped signoff, not a full-parity claim.
   - Current matrix: `docs/wiki/binaryen/passes/simplify-globals-optimizing/parity-matrix.md` distinguishes implemented, partial, missing, intentionally conservative, and unknown families.
-  - Completed evidence: landed behavior, refactor, guardrail, research, and rebaseline slices are recorded in `docs/wiki/raw/research/0574` through `0663` where applicable, `docs/wiki/log.md`, and the SGO parity/readiness pages. Do not duplicate the full completed slice history here; use those docs as the source of truth.
+  - Completed evidence: landed behavior, refactor, guardrail, research, and rebaseline slices are recorded in `docs/wiki/raw/research/0574` through `0664` where applicable, `docs/wiki/log.md`, and the SGO parity/readiness pages. Do not duplicate the full completed slice history here; use those docs as the source of truth.
   - General deliverables for every SGO003 subtask: focused Binaryen probe or source fixture first, local test(s) before implementation for behavior-bearing work, paired negative guardrails for trapping/effectful/control-transfer boundaries, `moon test src/passes`, direct `--pass simplify-globals-optimizing` compare fuzz for nontrivial matcher/dataflow work, docs/wiki/log updates, and keep `[SGO]003` partial unless the user explicitly accepts a final bounded scope.
   - Open-work tracking rule: if a slice uncovers a blocker, prerequisite, deferred family, or refactor follow-up, add it explicitly under one of the SGO003 children below before commit; do not leave implicit "later" work hidden only in research-note prose.
 
@@ -232,7 +232,7 @@ Execution rules for all DAE slices
 - [SGO]003D - Read-Only-To-Write Safe Side-Effect Independence
   - Status: active/partial with explicit children only; no generic hidden work bucket remains.
   - Goal: admit additional side-effecting instructions only when stack/value-flow proves the candidate-derived value is independent of the side effect and still reaches only the final same-global guard.
-  - Current evidence: the 0644 guardrail slice pinned independent `memory.grow` / `table.grow` prefixes as already covered while preserving candidate-derived grow negatives; the 0661 audit closed scalar-load / `table.get` opcode-family work as already covered by source and tests; the 0662 audit closed the currently enumerated clean store/table/bulk opcode-family work as already covered by source and tests.
+  - Current evidence: the 0644 guardrail slice pinned independent `memory.grow` / `table.grow` prefixes as already covered while preserving candidate-derived grow negatives; the 0661 audit closed scalar-load / `table.get` opcode-family work as already covered by source and tests; the 0662 audit closed the currently enumerated clean store/table/bulk opcode-family work as already covered by source and tests; the 0664 gate audit found no current named, source-backed side-effect family candidate that should be admitted implicitly.
   - Explicit non-goals without fresh oracle evidence: atomics, SIMD memory ops, memory/table grow beyond the 0644 independent-prefix guardrails, relaxed SIMD, broad bulk ops beyond probed clean operands, calls with candidate-derived operands, and trapping casts/truncations/loads fed by the candidate.
   - Open-work rule: any future behavior must land as one of the explicit child slices below or as a newly filed child with a named Binaryen-positive shape, paired candidate-derived/global-steered negatives, no broad whitelist additions, `moon test src/passes`, direct SGO compare fuzz, and docs identifying the admitted opcode or wrapper family.
 
@@ -242,15 +242,12 @@ Execution rules for all DAE slices
   - Follow-up rule: future wrapper/control work must be filed as a new explicit child with a named Binaryen-positive grammar, paired candidate-derived/global-steered negatives, and direct SGO fuzz if behavior changes; do not reopen a generic wrapper-composition task.
 
 - [SGO]003D2 - Named New Side-Effect Family Probe Gate
-  - Status: deferred/discovery gate; not behavior-ready until a specific opcode family is named from source, Binaryen lit, or fuzz evidence.
-  - Hidden-work source: 0661/0662 phrase future side-effect independence as possible only for a specific uncovered opcode or wrapper grammar, not for a broad whitelist.
-  - Goal: prevent future discoveries from staying implicit by requiring a concrete child slice before any unlisted side-effect family is admitted.
-  - Candidate examples only with fresh oracle evidence: atomics, SIMD memory ops, relaxed SIMD memory ops, new bulk forms not already covered, calls or call-like effects with independently proven no-read/no-write facts, or other Binaryen-positive effect families not listed in current FlowScanner predicates.
-  - Required negatives: candidate-derived operands, global-steered execution, trapping/effectful consumers fed by the candidate global, unknown imported/dynamic effects, and any target/global aliasing ambiguity.
-  - Exit criteria: either close as Binaryen-negative/conservative, split a behavior-ready named child slice with fixtures and fuzz requirements, or document a prerequisite analysis blocker such as read/write summaries or dominance reasoning.
+  - Status: closed by the 0664 research gate; no current named side-effect family is behavior-ready from source, Binaryen lit, or fuzz evidence.
+  - Decision: do not admit atomics, SIMD memory operations, relaxed SIMD memory-shaped cases, new bulk forms, calls, or call-like effects by analogy. Future discoveries must become explicit child slices before behavior changes.
+  - Follow-up rule: each new child must name the exact opcode or wrapper grammar, cite fresh Binaryen-positive evidence, include candidate-derived/global-steered/trapping-consumer/unknown-effect/aliasing negatives, avoid broad whitelist additions, run `moon test src/passes`, and run direct SGO compare fuzz for behavior-bearing matcher or dataflow changes.
 
 - [SGO]003D3 - Side-Effect Independence Closeout Audit
-  - Status: deferred until `[SGO]003D1` is closed and `[SGO]003D2` has either no named candidates or only explicitly deferred children.
+  - Status: ready after `[SGO]003D1` closed by 0663 and `[SGO]003D2` closed by 0664 with no named behavior-ready candidates.
   - Goal: close `[SGO]003D` without claiming full `SimplifyGlobals.cpp` parity by checking that all side-effect-independence follow-ups from 0644, 0661, 0662, and any later child slices are either covered, explicitly conservative, or represented by separate backlog ids.
   - Exit criteria: update `agent-todo.md`, add a research note and `docs/wiki/log.md` entry, state remaining non-goals/blockers, and keep parent `[SGO]003` active/partial unless separately accepted by the user.
 

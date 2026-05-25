@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO named side-effect family probe gate
+
+- Added research note [`0664`](./raw/research/0664-2026-05-25-sgo-named-side-effect-family-probe-gate.md) for `[SGO]003D2`, auditing whether a newly named side-effect opcode or wrapper family was ready to split into a behavior-bearing child slice.
+- Closed `[SGO]003D2` as research-only with no current named candidates: atomics, SIMD memory operations, relaxed SIMD memory-shaped cases, new bulk forms, calls, and call-like effects remain conservative unless a future explicit child names exact Binaryen-positive evidence and paired negatives.
+- No optimizer behavior changed and no direct SGO fuzz was required because this was docs/backlog-only. `[SGO]003D3` is now ready for closeout audit, while `[SGO]003D` and `[SGO]003` remain active/partial.
+
 ## [2026-05-25] binaryen | SGO effect wrapper composition inventory
 
 - Added research note [`0663`](./raw/research/0663-2026-05-25-sgo-effect-wrapper-composition-inventory.md) for `[SGO]003D1`, auditing whether the side-effect independence work still had a generic wrapper/control-composition implementation bucket.
