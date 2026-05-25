@@ -1743,6 +1743,70 @@ test "metamorphic duplicate equivalent mutable global transform falls back to fr
 }
 
 ///|
+test "metamorphic duplicate equivalent mutable i64 global transform appends unused matching global" {
+  let original_global = @lib.Global::new(
+    @lib.GlobalType::new(@lib.ValType::i64(), true),
+    @lib.Expr::new([@lib.Instruction::i64_const(77L)]),
+  )
+  let base = @lib.Module::new().with_global_sec(
+    @lib.GlobalSec::new([original_global]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentMutableI64Global) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-duplicate-equivalent-mutable-i64-global",
+  )
+  match transformed.wasm_module.global_sec {
+    Some(@lib.GlobalSec(globals)) => {
+      @debug.assert_eq(globals.length(), 2)
+      @debug.assert_eq(globals[0], original_global)
+      @debug.assert_eq(globals[1], original_global)
+    }
+    None => fail("expected transformed globals")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic duplicate equivalent mutable i64 global transform falls back to fresh unused global" {
+  let transformed = match
+    metamorphic_apply_transform(
+      @lib.Module::new(),
+      AddDuplicateEquivalentMutableI64Global,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match transformed.wasm_module.global_sec {
+    Some(@lib.GlobalSec(globals)) => {
+      @debug.assert_eq(globals.length(), 1)
+      match globals[0] {
+        @lib.Global(@lib.GlobalType(type_, mut_), init) => {
+          @debug.assert_eq(type_, @lib.ValType::i64())
+          @debug.assert_eq(mut_, true)
+          @debug.assert_eq(
+            init,
+            @lib.Expr::new([@lib.Instruction::i64_const(@lib.I64(0L))]),
+          )
+        }
+      }
+    }
+    None => fail("expected fallback mutable i64 global")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic duplicate equivalent function-type transform preserves validation and binary roundtrip" {
   let original_func_type = @lib.RecType::new(
     @lib.SubType::comp_type(
@@ -8283,8 +8347,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 429)
-  @debug.assert_eq(stats.validated, 429)
+  @debug.assert_eq(stats.transformed, 430)
+  @debug.assert_eq(stats.validated, 430)
   assert_true(stats.transform_ids.contains("add-duplicate-equivalent-memory"))
   assert_true(
     stats.transform_ids.contains("add-duplicate-equivalent-mutable-i32-global"),
@@ -8293,6 +8357,9 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
     stats.transform_ids.contains(
       "add-duplicate-equivalent-immutable-i64-global",
     ),
+  )
+  assert_true(
+    stats.transform_ids.contains("add-duplicate-equivalent-mutable-i64-global"),
   )
   assert_true(stats.transform_ids.contains("add-duplicate-equivalent-tag"))
   assert_true(

@@ -10,6 +10,7 @@ pub enum MetamorphicValidTransform {
   AddDuplicateEquivalentImmutableI32Global
   AddDuplicateEquivalentImmutableI64Global
   AddDuplicateEquivalentMutableI32Global
+  AddDuplicateEquivalentMutableI64Global
   AddUnusedEmptyFunction
   AddUnusedEmptyFunctionType
   AddDuplicateEquivalentFunctionType
@@ -451,6 +452,8 @@ pub fn metamorphic_valid_transform_id(
       "add-duplicate-equivalent-immutable-i64-global"
     AddDuplicateEquivalentMutableI32Global =>
       "add-duplicate-equivalent-mutable-i32-global"
+    AddDuplicateEquivalentMutableI64Global =>
+      "add-duplicate-equivalent-mutable-i64-global"
     AddUnusedEmptyFunction => "add-unused-empty-function"
     AddUnusedEmptyFunctionType => "add-unused-empty-function-type"
     AddDuplicateEquivalentFunctionType =>
@@ -2289,6 +2292,46 @@ fn metamorphic_add_duplicate_equivalent_mutable_i32_global(
         @lib.Global::new(
           @lib.GlobalType::new(@lib.ValType::i32(), true),
           @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+      )
+  }
+  mod.with_global_sec(@lib.GlobalSec::new(globals))
+}
+
+///|
+fn metamorphic_add_duplicate_equivalent_mutable_i64_global(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let globals = []
+  match mod.global_sec {
+    Some(@lib.GlobalSec(existing)) => {
+      for global in existing {
+        globals.push(global)
+      }
+      let mut duplicated = false
+      for global in existing {
+        match global {
+          @lib.Global(@lib.GlobalType(type_, mut_), _) =>
+            if !duplicated && type_ == @lib.ValType::i64() && mut_ {
+              globals.push(global)
+              duplicated = true
+            }
+        }
+      }
+      if !duplicated {
+        globals.push(
+          @lib.Global::new(
+            @lib.GlobalType::new(@lib.ValType::i64(), true),
+            @lib.Expr::new([@lib.Instruction::i64_const(@lib.I64(0L))]),
+          ),
+        )
+      }
+    }
+    None =>
+      globals.push(
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i64(), true),
+          @lib.Expr::new([@lib.Instruction::i64_const(@lib.I64(0L))]),
         ),
       )
   }
@@ -4958,6 +5001,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddDuplicateEquivalentImmutableI32Global,
     AddDuplicateEquivalentImmutableI64Global,
     AddDuplicateEquivalentMutableI32Global,
+    AddDuplicateEquivalentMutableI64Global,
     AddUnusedEmptyFunction,
     AddUnusedEmptyFunctionType,
     AddDuplicateEquivalentFunctionType,
@@ -5416,6 +5460,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_duplicate_equivalent_immutable_i64_global(mod)
     AddDuplicateEquivalentMutableI32Global =>
       metamorphic_add_duplicate_equivalent_mutable_i32_global(mod)
+    AddDuplicateEquivalentMutableI64Global =>
+      metamorphic_add_duplicate_equivalent_mutable_i64_global(mod)
     AddUnusedEmptyFunction => metamorphic_add_unused_empty_function(mod)
     AddUnusedEmptyFunctionType =>
       metamorphic_add_unused_empty_function_type(mod)
