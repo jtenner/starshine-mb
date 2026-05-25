@@ -566,34 +566,75 @@ async function runExternalValidatorAsync(
   }
 }
 
-async function smokeExecuteNodeRuntime(
+export function runtimeImportStubCandidates(descriptor: WebAssembly.ModuleImportDescriptor): unknown[] {
+  switch (descriptor.kind) {
+    case "function":
+      return [() => 0, () => 0n, () => null];
+    case "global":
+      return [
+        0,
+        0n,
+        new WebAssembly.Global({ value: "i32", mutable: true }, 0),
+        new WebAssembly.Global({ value: "i64", mutable: true }, 0n),
+        new WebAssembly.Global({ value: "f32", mutable: true }, 0),
+        new WebAssembly.Global({ value: "f64", mutable: true }, 0),
+      ];
+    case "memory":
+      return [new WebAssembly.Memory({ initial: 1, maximum: 1 })];
+    case "table":
+      return [
+        new WebAssembly.Table({ element: "anyfunc", initial: 1 }),
+        new WebAssembly.Table({ element: "externref", initial: 1 }),
+      ];
+    default:
+      return [];
+  }
+}
+
+export async function smokeExecuteNodeRuntime(
   wasmPath: string,
 ): Promise<{ ok: boolean; unsupported: boolean; detail: string }> {
   let bytes: Buffer;
   try {
     bytes = fs.readFileSync(wasmPath);
     const module = await WebAssembly.compile(bytes);
-    const imports: Record<string, Record<string, unknown>> = {};
-    for (const descriptor of WebAssembly.Module.imports(module)) {
-      const moduleImports = (imports[descriptor.module] ??= {});
-      switch (descriptor.kind) {
-        case "function":
-          moduleImports[descriptor.name] = () => 0;
-          break;
-        case "global":
-          moduleImports[descriptor.name] = 0;
-          break;
-        case "memory":
-          moduleImports[descriptor.name] = new WebAssembly.Memory({ initial: 1, maximum: 1 });
-          break;
-        case "table":
-          moduleImports[descriptor.name] = new WebAssembly.Table({ element: "anyfunc", initial: 1 });
-          break;
-        default:
-          return { ok: false, unsupported: true, detail: `unsupported import kind ${descriptor.kind}` };
+    const descriptors = WebAssembly.Module.imports(module);
+    const importCandidates = descriptors.map((descriptor) => runtimeImportStubCandidates(descriptor));
+    if (importCandidates.some((candidates) => candidates.length === 0)) {
+      const unsupported = descriptors.find((descriptor, index) => importCandidates[index].length === 0)!;
+      return { ok: false, unsupported: true, detail: `unsupported import kind ${unsupported.kind}` };
+    }
+    let instance: WebAssembly.Instance | null = null;
+    let lastInstantiateError: unknown = null;
+    const maxInstantiateAttempts = 64;
+    for (let attempt = 0; attempt < maxInstantiateAttempts; attempt += 1) {
+      const imports: Record<string, Record<string, unknown>> = {};
+      let remaining = attempt;
+      let coveredAllCandidates = true;
+      for (let index = 0; index < descriptors.length; index += 1) {
+        const descriptor = descriptors[index];
+        const candidates = importCandidates[index];
+        const candidateIndex = remaining % candidates.length;
+        remaining = Math.floor(remaining / candidates.length);
+        const moduleImports = (imports[descriptor.module] ??= {});
+        moduleImports[descriptor.name] = candidates[candidateIndex];
+        if (remaining > 0 && index === descriptors.length - 1) {
+          coveredAllCandidates = false;
+        }
+      }
+      if (!coveredAllCandidates) {
+        break;
+      }
+      try {
+        instance = await WebAssembly.instantiate(module, imports);
+        break;
+      } catch (error) {
+        lastInstantiateError = error;
       }
     }
-    const instance = await WebAssembly.instantiate(module, imports);
+    if (instance === null) {
+      return { ok: false, unsupported: true, detail: commandFailureDetail(lastInstantiateError) };
+    }
     let invoked = 0;
     for (const value of Object.values(instance.exports)) {
       if (typeof value === "function" && value.length === 0) {

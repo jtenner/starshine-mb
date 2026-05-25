@@ -616,8 +616,6 @@ p1 GenValid / valid-generation slices:
 - No active p1 GenValid recipe-catalog slices remain.
 
 p1/p2 oracle, reporting, and infrastructure slices:
-- [FUZ]1052A (p2) - Runtime Import Stub Generator
-  - Unit: generate deterministic numeric/ref/global/table/memory import stubs where feasible.
 - [FUZ]1052B (p2) - Export Invocation Result Matrix
   - Unit: choose simple exported-function arguments and classify equal result, equal trap, unsupported runtime, nondeterministic import, and semantic mismatch.
 - [FUZ]1053A (p2) - Per-Case Timeout Classification
@@ -988,7 +986,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1052 (p2) - Runtime Import Stub Generator And Export Invocation Matrix
   - Goal: enable optional execution oracles by generating host stubs and calls for exported functions.
   - Why: validation and text/binary parity cannot prove semantic equivalence for optimizer outputs. Simple execution across generated inputs catches many wrong-code bugs when runtime tooling is available.
-  - Deliverables: generate deterministic imports for numeric/ref/global/table/memory functions where feasible; choose simple argument vectors for exported functions; execute Starshine and Binaryen outputs under the same runtime; classify equal result, equal trap, runtime unsupported, nondeterministic import, and semantic mismatch.
+  - Deliverables remaining: choose simple argument vectors for exported functions; execute Starshine and Binaryen outputs under the same runtime; classify equal result, equal trap, runtime unsupported, nondeterministic import, and semantic mismatch. Runtime import stubs for feasible function/global/memory/table imports landed in the [FUZ]1052A slice.
   - Required APIs: external runtime adapter from [FUZ]1032, import planning, effect/trap facts from [FUZ]1040, pass-fuzz result schema.
   - Invariants: execution remains opt-in; imports with host side effects or nondeterminism must be stubbed conservatively or skipped.
   - Dependencies: [FUZ]1032 and [FUZ]1040.
