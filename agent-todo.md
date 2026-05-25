@@ -616,8 +616,6 @@ p1 GenValid / valid-generation slices:
 - No active p1 GenValid recipe-catalog slices remain.
 
 p1/p2 oracle, reporting, and infrastructure slices:
-- [FUZ]1043A (p2) - Shared Reducer Interface
-  - Unit: define common predicates and result metadata for validation failure, parse failure, pass mismatch, crash, timeout, and property failure reduction.
 - [FUZ]1043B (p2) - Module/Binary/Text Reduction Backends
   - Unit: add initial module deletion, byte-slice deletion, and text-token deletion reducers that preserve the reproducing predicate.
 - [FUZ]1047A (p2) - Normalization Contract Documentation

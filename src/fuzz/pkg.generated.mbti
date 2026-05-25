@@ -41,6 +41,24 @@ pub fn format_golden_seed_catalog_entry_json(GoldenSeedCatalogEntry) -> String
 
 pub fn fuzz_active_suite_names() -> Array[String]
 
+pub fn fuzz_reduction_crash_kind() -> FuzzReductionFailureKind
+
+pub fn fuzz_reduction_failure_kind_name(FuzzReductionFailureKind) -> String
+
+pub fn fuzz_reduction_parse_failure_kind() -> FuzzReductionFailureKind
+
+pub fn fuzz_reduction_pass_mismatch_kind() -> FuzzReductionFailureKind
+
+pub fn fuzz_reduction_predicate_from_invalid_report(InvalidFuzzFailureReport) -> FuzzReductionPredicate
+
+pub fn fuzz_reduction_predicate_matches(FuzzReductionPredicate, FuzzReductionReplayResult) -> Bool
+
+pub fn fuzz_reduction_property_failure_kind() -> FuzzReductionFailureKind
+
+pub fn fuzz_reduction_timeout_kind() -> FuzzReductionFailureKind
+
+pub fn fuzz_reduction_validation_failure_kind() -> FuzzReductionFailureKind
+
 pub fn fuzz_reserved_suite_names() -> Array[String]
 
 pub fn fuzz_standard_recipe_by_name(String) -> FuzzRecipe?
@@ -72,6 +90,8 @@ pub fn golden_seed_smoke_suite_catalog() -> Array[GoldenSeedCatalogEntry]
 pub fn invalid_fuzz_ast_source_kind() -> InvalidFuzzSourceKind
 
 pub fn invalid_fuzz_binary_source_kind() -> InvalidFuzzSourceKind
+
+pub fn invalid_fuzz_replay_result_as_reduction_result(InvalidFuzzReplayResult) -> FuzzReductionReplayResult
 
 pub fn invalid_fuzz_source_kind_name(InvalidFuzzSourceKind) -> String
 
@@ -245,6 +265,31 @@ pub struct FuzzRecipe {
   shard_count : Int
 } derive(Eq, @debug.Debug)
 pub fn FuzzRecipe::new(String, String, String, Int64, output_mode? : FuzzOutputMode, seed_count? : Int, shard_count? : Int) -> Self
+
+pub enum FuzzReductionFailureKind {
+  ValidationFailure
+  ParseFailure
+  PassMismatch
+  Crash
+  Timeout
+  PropertyFailure
+} derive(Eq, @debug.Debug)
+
+pub struct FuzzReductionPredicate {
+  kind : FuzzReductionFailureKind
+  expected_stage : String
+  expected_family : String?
+  property : String?
+} derive(Eq, @debug.Debug)
+pub fn FuzzReductionPredicate::new(FuzzReductionFailureKind, String, expected_family? : String?, property? : String?) -> Self
+
+pub struct FuzzReductionReplayResult {
+  stage : String
+  family : String?
+  property : String?
+  message : String?
+} derive(Eq, @debug.Debug)
+pub fn FuzzReductionReplayResult::new(String, family? : String?, property? : String?, message? : String?) -> Self
 
 pub struct FuzzReplayCommand {
   suite : String

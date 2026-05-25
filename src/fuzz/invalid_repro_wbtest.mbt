@@ -622,6 +622,72 @@ test "replay_invalid_fuzz_failure_report prefers original artifact over later se
 }
 
 ///|
+test "shared reducer predicates classify stage and family metadata" {
+  let report = match invalid_repro_test_original_binary_report() {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let predicate = fuzz_reduction_predicate_from_invalid_report(report)
+  @debug.assert_eq(
+    fuzz_reduction_failure_kind_name(predicate.kind),
+    "validation-failure",
+  )
+  @debug.assert_eq(predicate.expected_stage, "validate-rejected")
+  @debug.assert_eq(predicate.expected_family, Some("function"))
+  let replay = FuzzReductionReplayResult::new(
+    "validate-rejected",
+    family=Some("function"),
+    message=Some("func type index out of range"),
+  )
+  assert_true(fuzz_reduction_predicate_matches(predicate, replay))
+  let wrong = FuzzReductionReplayResult::new(
+    "validate-rejected",
+    family=Some("table"),
+  )
+  assert_false(fuzz_reduction_predicate_matches(predicate, wrong))
+}
+
+///|
+test "shared reducer predicates cover parser failures mismatches crashes timeouts and property failures" {
+  let parser = FuzzReductionPredicate::new(
+    ParseFailure,
+    "parse-or-lower-rejected",
+  )
+  assert_true(
+    fuzz_reduction_predicate_matches(
+      parser,
+      FuzzReductionReplayResult::new("parse-or-lower-rejected"),
+    ),
+  )
+  let mismatch = FuzzReductionPredicate::new(
+    PassMismatch,
+    "mismatch",
+    property=Some("normalized-output"),
+  )
+  assert_true(
+    fuzz_reduction_predicate_matches(
+      mismatch,
+      FuzzReductionReplayResult::new(
+        "mismatch",
+        property=Some("normalized-output"),
+      ),
+    ),
+  )
+  assert_false(
+    fuzz_reduction_predicate_matches(
+      mismatch,
+      FuzzReductionReplayResult::new("mismatch", property=Some("raw-output")),
+    ),
+  )
+  @debug.assert_eq(fuzz_reduction_failure_kind_name(Crash), "crash")
+  @debug.assert_eq(fuzz_reduction_failure_kind_name(Timeout), "timeout")
+  @debug.assert_eq(
+    fuzz_reduction_failure_kind_name(PropertyFailure),
+    "property-failure",
+  )
+}
+
+///|
 test "shrink_invalid_fuzz_failure_report produces replayable AST reduced artifact" {
   let report = match invalid_repro_test_original_ast_report() {
     Ok(v) => v

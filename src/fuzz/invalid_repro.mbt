@@ -37,6 +37,142 @@ pub fn invalid_fuzz_spec_seed_source_kind() -> InvalidFuzzSourceKind {
 }
 
 ///|
+pub enum FuzzReductionFailureKind {
+  ValidationFailure
+  ParseFailure
+  PassMismatch
+  Crash
+  Timeout
+  PropertyFailure
+} derive(Eq, Debug)
+
+///|
+pub fn fuzz_reduction_validation_failure_kind() -> FuzzReductionFailureKind {
+  ValidationFailure
+}
+
+///|
+pub fn fuzz_reduction_parse_failure_kind() -> FuzzReductionFailureKind {
+  ParseFailure
+}
+
+///|
+pub fn fuzz_reduction_pass_mismatch_kind() -> FuzzReductionFailureKind {
+  PassMismatch
+}
+
+///|
+pub fn fuzz_reduction_crash_kind() -> FuzzReductionFailureKind {
+  Crash
+}
+
+///|
+pub fn fuzz_reduction_timeout_kind() -> FuzzReductionFailureKind {
+  Timeout
+}
+
+///|
+pub fn fuzz_reduction_property_failure_kind() -> FuzzReductionFailureKind {
+  PropertyFailure
+}
+
+///|
+pub fn fuzz_reduction_failure_kind_name(
+  kind : FuzzReductionFailureKind,
+) -> String {
+  match kind {
+    ValidationFailure => "validation-failure"
+    ParseFailure => "parse-failure"
+    PassMismatch => "pass-mismatch"
+    Crash => "crash"
+    Timeout => "timeout"
+    PropertyFailure => "property-failure"
+  }
+}
+
+///|
+pub struct FuzzReductionPredicate {
+  kind : FuzzReductionFailureKind
+  expected_stage : String
+  expected_family : String?
+  property : String?
+} derive(Eq, Debug)
+
+///|
+pub fn FuzzReductionPredicate::new(
+  kind : FuzzReductionFailureKind,
+  expected_stage : String,
+  expected_family? : String? = None,
+  property? : String? = None,
+) -> FuzzReductionPredicate {
+  { kind, expected_stage, expected_family, property }
+}
+
+///|
+pub struct FuzzReductionReplayResult {
+  stage : String
+  family : String?
+  property : String?
+  message : String?
+} derive(Eq, Debug)
+
+///|
+pub fn FuzzReductionReplayResult::new(
+  stage : String,
+  family? : String? = None,
+  property? : String? = None,
+  message? : String? = None,
+) -> FuzzReductionReplayResult {
+  { stage, family, property, message }
+}
+
+///|
+pub fn fuzz_reduction_predicate_matches(
+  predicate : FuzzReductionPredicate,
+  replay : FuzzReductionReplayResult,
+) -> Bool {
+  if replay.stage != predicate.expected_stage {
+    return false
+  }
+  match predicate.expected_family {
+    Some(expected) => if replay.family != Some(expected) { return false }
+    None => ()
+  }
+  match predicate.property {
+    Some(expected) => if replay.property != Some(expected) { return false }
+    None => ()
+  }
+  true
+}
+
+///|
+pub fn invalid_fuzz_replay_result_as_reduction_result(
+  replay : InvalidFuzzReplayResult,
+) -> FuzzReductionReplayResult {
+  FuzzReductionReplayResult::new(
+    replay.stage,
+    family=replay.diagnostic_family,
+    message=replay.message,
+  )
+}
+
+///|
+pub fn fuzz_reduction_predicate_from_invalid_report(
+  report : InvalidFuzzFailureReport,
+) -> FuzzReductionPredicate {
+  let kind = match report.actual_stage {
+    "parse-or-lower-rejected" | "decode-rejected" => ParseFailure
+    "valid-before-link" => PropertyFailure
+    _ => ValidationFailure
+  }
+  FuzzReductionPredicate::new(
+    kind,
+    report.actual_stage,
+    expected_family=report.actual_diagnostic_family,
+  )
+}
+
+///|
 pub fn invalid_fuzz_suite_name_for_source_kind(
   kind : InvalidFuzzSourceKind,
 ) -> String {
