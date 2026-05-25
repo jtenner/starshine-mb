@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO if-arm merge helper refactor
+
+- Added research note [`0650`](./raw/research/0650-2026-05-25-sgo-if-arm-merge-refactor.md) for another refactor-only `[SGO]003O` slice, centralizing the repeated value-producing `if` arm-result scan/merge helper.
+- No optimizer behavior changed: candidate-read accounting still comes from `sgo_flow_arm_result_taint_and_reads(...)`, while each caller preserves its existing read budget, stack effects, and call/control/trapping/effectful boundaries.
+- Direct SGO fuzz at `.tmp/pass-fuzz-sgo-if-arm-merge-refactor-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and the established `25` Binaryen/tool command failures. `[SGO]003` remains active/partial.
+
 ## [2026-05-25] binaryen | SGO FlowScanner effect predicate refactor
 
 - Added research note [`0649`](./raw/research/0649-2026-05-25-sgo-effect-predicate-refactor.md) for another refactor-only `[SGO]003O` slice, centralizing FlowScanner clean two-operand and three-operand side-effect opcode predicates.

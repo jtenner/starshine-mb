@@ -1458,17 +1458,14 @@ fn sgo_flow_scan_prefix_until(
         if !sgo_flow_pop_clean(stack) {
           return (false, reads, stack)
         }
-        let (then_ok, then_reads, then_tainted) = sgo_flow_arm_result_taint_and_reads(
-          then_body, idx,
+        let (arms_ok, arm_reads, arms_tainted) = sgo_flow_merge_value_if_arm_taint_and_reads(
+          then_body, else_body, idx,
         )
-        let (else_ok, else_reads, else_tainted) = sgo_flow_arm_result_taint_and_reads(
-          else_body, idx,
-        )
-        reads = reads + then_reads + else_reads
-        if !then_ok || !else_ok || reads > 1 {
+        reads = reads + arm_reads
+        if !arms_ok || reads > 1 {
           return (false, reads, stack)
         }
-        stack.push(sgo_flow_plain(then_tainted || else_tainted))
+        stack.push(sgo_flow_plain(arms_tainted))
         continue
       }
       _ => {
@@ -1489,6 +1486,22 @@ fn sgo_flow_scan_prefix_until(
     }
   }
   (true, reads, stack)
+}
+
+///|
+fn sgo_flow_merge_value_if_arm_taint_and_reads(
+  then_body : Array[@lib.Instruction],
+  else_body : Array[@lib.Instruction],
+  idx : @lib.GlobalIdx,
+) -> (Bool, Int, Bool) {
+  let (then_ok, then_reads, then_tainted) = sgo_flow_arm_result_taint_and_reads(
+    then_body, idx,
+  )
+  let (else_ok, else_reads, else_tainted) = sgo_flow_arm_result_taint_and_reads(
+    else_body, idx,
+  )
+  let reads = then_reads + else_reads
+  (then_ok && else_ok, reads, then_tainted || else_tainted)
 }
 
 ///|
@@ -1774,17 +1787,14 @@ fn sgo_flow_arm_result_taint_and_reads(
         if !sgo_flow_pop_clean(stack) {
           return (false, reads, false)
         }
-        let (then_ok, then_reads, then_tainted) = sgo_flow_arm_result_taint_and_reads(
-          then_body, idx,
+        let (arms_ok, arm_reads, arms_tainted) = sgo_flow_merge_value_if_arm_taint_and_reads(
+          then_body, else_body, idx,
         )
-        let (else_ok, else_reads, else_tainted) = sgo_flow_arm_result_taint_and_reads(
-          else_body, idx,
-        )
-        reads = reads + then_reads + else_reads
-        if !then_ok || !else_ok || reads > 1 {
+        reads = reads + arm_reads
+        if !arms_ok || reads > 1 {
           return (false, reads, false)
         }
-        stack.push(sgo_flow_plain(then_tainted || else_tainted))
+        stack.push(sgo_flow_plain(arms_tainted))
         continue
       }
       @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
@@ -2200,16 +2210,10 @@ fn sgo_count_nested_if_arm_flow_read(
         sgo_flow_stack_has_taint(prefix_stack) {
         return
       }
-      let (then_ok, then_reads, then_tainted) = sgo_flow_arm_result_taint_and_reads(
-        then_body, idx,
+      let (arms_ok, arm_reads, arms_tainted) = sgo_flow_merge_value_if_arm_taint_and_reads(
+        then_body, else_body, idx,
       )
-      let (else_ok, else_reads, else_tainted) = sgo_flow_arm_result_taint_and_reads(
-        else_body, idx,
-      )
-      if then_ok &&
-        else_ok &&
-        then_reads + else_reads == 1 &&
-        (then_tainted || else_tainted) {
+      if arms_ok && arm_reads == 1 && arms_tainted {
         sgo_count_read_only_to_write_safe_read(idx, safe_reads)
       }
     }
