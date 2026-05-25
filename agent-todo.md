@@ -315,9 +315,10 @@ Execution rules for all DAE slices
   - Deliverables when resumed: add focused Pattern A/B tests first, preserve Binaryen's narrow syntactic/local-dependency gates, prove helper cleanup and no-partial-inline interaction, and compare direct `--pass inlining` / `--pass inlining-optimizing` on the reduced split family.
 
 - [INL]006 - Residual Name/Annotation Repair
-  - Status: deferred to v0.2.0; not a v0.1.0 blocker and not a semantic parity prerequisite for the accepted direct surfaces. Tail-call and multi-result correctness subsets are already covered by focused tests; Starshine intentionally drops function-scoped local/label names after inlining body rewrites instead of preserving stale or collision-prone debug maps.
-  - Resume only with a concrete user-facing debug-name requirement, annotation-collision requirement, semantic mismatch, wasm validation failure, or proven pass-local performance/code-size issue.
-  - Deliverables when resumed: add focused repair tests first, then either implement deterministic Binaryen-like local/label name reconstruction and broader annotation collision repair or explicitly document the unsupported surface as rejected.
+  - Status: closed evidence-gated by the 0669 audit; not an active repair task without a concrete debug/name, annotation, semantic, validation, or performance requirement.
+  - Decision: Starshine intentionally drops function-scoped local/label names after inlining body rewrites instead of preserving stale or collision-prone debug maps. Tail-call and multi-result correctness subsets are already covered or separately represented and do not justify opportunistic name repair.
+  - Reopen only with: a concrete user-facing debug-name requirement, annotation-collision bug, semantic mismatch, wasm validation failure, or proven pass-local performance/code-size issue tied to residual names or annotations.
+  - Deliverables when resumed: add focused repair tests first, then either implement deterministic Binaryen-like local/label name reconstruction and broader annotation collision repair, or explicitly document the unsupported surface as rejected.
 
 - [TOOL]001 - Self-Optimize Compare Normalization Symmetry
   - Goal: make the exact artifact helper stop reporting harmless raw/debug-only outer-block drift as a pass blocker.

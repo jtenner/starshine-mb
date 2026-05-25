@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | Inlining residual name and annotation repair gate
+
+- Added research note [`0669`](./raw/research/0669-2026-05-25-inl-residual-name-annotation-repair-gate.md) for `[INL]006`, auditing whether residual local/label name and annotation repair should remain an active inlining task.
+- Closed `[INL]006` as evidence-gated: Starshine intentionally drops function-scoped local/label names after inlining rewrites today, and future repair work needs a concrete debug-name, annotation-collision, semantic, validation, performance, or code-size requirement.
+- No optimizer behavior changed and no direct inlining fuzz was required because this was docs/backlog-only.
+
 ## [2026-05-25] binaryen | Inlining partial splitter evidence gate
 
 - Added research note [`0668`](./raw/research/0668-2026-05-25-inl-partial-splitter-evidence-gate.md) for `[INL]005`, auditing whether Binaryen Pattern A / Pattern B partial inlining should remain an active implementation task.
