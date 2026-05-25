@@ -2969,7 +2969,9 @@ test "dae-optimizing removes selected Func298 dropped result from Func280 branch
 ///|
 test "dae-optimizing removes selected mid-prefix dropped callee results" {
   for
-    target_def in [299, 427, 459, 472, 476, 3566, 3732, 3814, 3834, 4106, 4229] {
+    target_def in [
+      299, 427, 459, 472, 476, 3566, 3732, 3814, 3834, 4106, 4229, 4232, 4249,
+    ] {
     let out = StringBuilder::new()
     out.write_string("(module\n")
     for i = 0; i < 8; i = i + 1 {
@@ -3021,7 +3023,8 @@ test "dae-optimizing removes selected mid-prefix dropped callee results" {
 test "dae-optimizing materializes selected mid-prefix exact-literal callees" {
   for
     target_def in [
-      311, 408, 428, 869, 1720, 1755, 1775, 1794, 2156, 3736, 4117, 4134, 4303, 4320,
+      311, 408, 428, 538, 869, 1720, 1755, 1775, 1794, 2156, 3736, 4117, 4134, 4303,
+      4320,
     ] {
     let out = StringBuilder::new()
     out.write_string("(module\n")

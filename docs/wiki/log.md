@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] passes | dae Func484 selected result/unread slice
+
+- Inspected the Func484/abs501 frontier and separated representation-only case-dispatch wrapper drift from real selected DAE gaps.
+- Added diagnostic-only canonical fallback coverage for the inspected Func484 wrapper/branch-label family in [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts) and fixture coverage in [`../../scripts/test/self-optimize-compare-canonical-func-command.ts`](../../scripts/test/self-optimize-compare-canonical-func-command.ts).
+- Extended selected dropped-result removal to Func4232/abs4249 and selected unread-parameter removal to Func538/abs555 in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), with focused coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt). `.tmp/dae-func538-unread-artifact` validates with `wasm-opt --all-features`; the frontier remains `defined=484 abs=501`, now at a later nested Func515 branch-wrapper/label representation family. Latest pass timing remains over target (`2583.446ms` Starshine versus `943.412ms` Binaryen).
+
 ## [2026-05-24] tooling | dae Func476 canonical local normalization
 
 - Classified the both-canonical Func476/abs493 frontier as compare-layer representation drift: both sides have the selected void signature, and the remaining body difference is Binaryen reusing a dead parameter local for the allocator result while Starshine keeps a fresh temp plus inert `nop`s.

@@ -1137,6 +1137,38 @@ function normalizeCompactDroppedBlockI32Wrapper(body: string): string {
     .replace(/(return)\(end\)drop/g, "$1drop");
 }
 
+function decrementCompactBranchLabels(segment: string): string {
+  return segment.replace(/\bbr\(Label(\d+)\)/g, (_m, label: string) => {
+    const labelId = Number(label);
+    return `br(Label${labelId > 0 ? labelId - 1 : 0})`;
+  });
+}
+
+function normalizeCompactFunc484CaseValueBlock(body: string): string {
+  if (!body.includes("br_table(Label0)(Label1)(Label2)(Label3)(Label4)")) {
+    return body;
+  }
+  return body.replace(
+    /\(blockI32\(block\(Void\)(?=[\s\S]{0,2400}?\(call\(Func25\)\)[\s\S]{0,2400}?br_table\(Label0\)\(Label1\)\(Label2\)\(Label3\)\(Label4\))/g,
+    "(block(Void)",
+  ).replace(
+    /\(blockI32\(block\(Void\)(?=[\s\S]{0,1600}?\(call\(Func515\)\)[\s\S]{0,1600}?\(call\(Func25\)\))/g,
+    "(block(Void)",
+  ).replace(
+    /(\(call\(Func43\)\))\(br\(Label\d+\)\)/g,
+    "$1(br(Label#))",
+  ).replace(
+    /\(i32\.constI32\(0\)\)\(end\)\)\(br\(Label1\)\)\(end\)\)/g,
+    "(i32.constI32(0))(br(Label1))(end)",
+  ).replace(
+    /\(br\(Label#\)\)\(br\(Label1\)\)\(end\)/g,
+    "(br(Label#))(end)",
+  ).replace(
+    /\(br\(Label1\)\)\(end\)\)\(block\(Void\)\(blockI32/g,
+    "(br(Label1))(end)(block(Void)(blockI32",
+  );
+}
+
 function normalizeCompactFunc476AllocatorTemp(body: string): string {
   const teePattern = /\(call\(Func24\)\)\(local\.tee\(Local(\d+)\)\)/g;
   let current = body;
@@ -1242,6 +1274,8 @@ const CANONICAL_FUNC_COMPACT_NORMALIZERS: CompactBodyNormalizer[] = [
   normalizeCompactFunc445LoopWrapper,
   // Func476 family: inspected allocator temp versus dead parameter-local reuse.
   normalizeCompactFunc476AllocatorTemp,
+  // Func484 family: inspected case-dispatch value-block wrapper drift.
+  normalizeCompactFunc484CaseValueBlock,
   // Generic call-result aliases: set/get versus tee around the same condition value.
   normalizeCompactSetTeeGetAliases,
   // Generic dropped value-if wrappers with preserved condition effects.

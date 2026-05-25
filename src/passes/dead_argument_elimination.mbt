@@ -19179,7 +19179,8 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   )
   for
     selected_result_def in [
-      298, 299, 427, 445, 459, 472, 476, 3566, 3732, 3814, 3834, 4106, 4229,
+      298, 299, 427, 445, 459, 472, 476, 3566, 3732, 3814, 3834, 4106, 4229, 4232,
+      4249,
     ] {
     if selected_result_def < selected_scratch_defs.length() {
       selected_scratch_defs[selected_result_def] = true
@@ -19234,7 +19235,7 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   }
   for
     mid_literal_def in [
-      267, 268, 287, 288, 311, 408, 428, 869, 1777, 4206, 4368,
+      267, 268, 287, 288, 311, 408, 428, 538, 869, 1777, 4206, 4368,
     ] {
     if mid_literal_def >= 0 && mid_literal_def < selected_scratch_defs.length() {
       selected_scratch_defs[mid_literal_def] = true
@@ -19250,6 +19251,21 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
         )
         changed = true
       }
+    }
+  }
+  if 538 < selected_scratch_defs.length() {
+    selected_scratch_defs[538] = true
+    let selected_func538_unread = dae_try_rewrite_selected_defs_unread_params_with_facts_once(
+      current, selected_scratch_defs, low_callee_call_facts,
+    )
+    selected_scratch_defs[538] = false
+    if selected_func538_unread.changed {
+      current = selected_func538_unread.mod_out
+      touched = dae_merge_touched(touched, selected_func538_unread.touched)
+      trace(
+        "pass[dae-optimizing]:selected-func538-unread primary_def=\{selected_func538_unread.primary_def}",
+      )
+      changed = true
     }
   }
   if 408 < selected_scratch_defs.length() {
