@@ -861,6 +861,36 @@ fn sgo_flow_pop_clean_triple(stack : Array[SgoFlowValue]) -> Bool {
 }
 
 ///|
+fn sgo_is_flow_clean_pair_effect_instr(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.TableSet(_)
+    | @lib.F32Store(_)
+    | @lib.F64Store(_)
+    | @lib.I32Store(_)
+    | @lib.I64Store(_)
+    | @lib.I32Store8(_)
+    | @lib.I32Store16(_)
+    | @lib.I64Store8(_)
+    | @lib.I64Store16(_)
+    | @lib.I64Store32(_) => true
+    _ => false
+  }
+}
+
+///|
+fn sgo_is_flow_clean_triple_effect_instr(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.MemoryCopy(_, _)
+    | @lib.MemoryFill(_)
+    | @lib.MemoryInit(_, _)
+    | @lib.TableFill(_)
+    | @lib.TableInit(_, _)
+    | @lib.TableCopy(_, _) => true
+    _ => false
+  }
+}
+
+///|
 fn sgo_flow_stack_has_taint(stack : Array[SgoFlowValue]) -> Bool {
   stack.any(fn(value) { value.tainted })
 }
@@ -1322,27 +1352,13 @@ fn sgo_flow_scan_prefix_until(
         }
         continue
       }
-      @lib.TableSet(_)
-      | @lib.F32Store(_)
-      | @lib.F64Store(_)
-      | @lib.I32Store(_)
-      | @lib.I64Store(_)
-      | @lib.I32Store8(_)
-      | @lib.I32Store16(_)
-      | @lib.I64Store8(_)
-      | @lib.I64Store16(_)
-      | @lib.I64Store32(_) =>
+      _ if sgo_is_flow_clean_pair_effect_instr(instr) =>
         if sgo_flow_pop_clean_pair(stack) {
           continue
         } else {
           return (false, reads, stack)
         }
-      @lib.MemoryCopy(_, _)
-      | @lib.MemoryFill(_)
-      | @lib.MemoryInit(_, _)
-      | @lib.TableFill(_)
-      | @lib.TableInit(_, _)
-      | @lib.TableCopy(_, _) =>
+      _ if sgo_is_flow_clean_triple_effect_instr(instr) =>
         if sgo_flow_pop_clean_triple(stack) {
           continue
         } else {
@@ -1491,27 +1507,13 @@ fn sgo_flow_scan_clean_prefix_until(
         sgo_flow_push_clean(stack)
         continue
       }
-      @lib.TableSet(_)
-      | @lib.F32Store(_)
-      | @lib.F64Store(_)
-      | @lib.I32Store(_)
-      | @lib.I64Store(_)
-      | @lib.I32Store8(_)
-      | @lib.I32Store16(_)
-      | @lib.I64Store8(_)
-      | @lib.I64Store16(_)
-      | @lib.I64Store32(_) =>
+      _ if sgo_is_flow_clean_pair_effect_instr(instr) =>
         if sgo_flow_pop_clean_pair(stack) {
           continue
         } else {
           return (false, stack)
         }
-      @lib.MemoryCopy(_, _)
-      | @lib.MemoryFill(_)
-      | @lib.MemoryInit(_, _)
-      | @lib.TableFill(_)
-      | @lib.TableInit(_, _)
-      | @lib.TableCopy(_, _) =>
+      _ if sgo_is_flow_clean_triple_effect_instr(instr) =>
         if sgo_flow_pop_clean_triple(stack) {
           continue
         } else {
@@ -1669,27 +1671,13 @@ fn sgo_flow_arm_result_taint_and_reads(
         }
         continue
       }
-      @lib.TableSet(_)
-      | @lib.F32Store(_)
-      | @lib.F64Store(_)
-      | @lib.I32Store(_)
-      | @lib.I64Store(_)
-      | @lib.I32Store8(_)
-      | @lib.I32Store16(_)
-      | @lib.I64Store8(_)
-      | @lib.I64Store16(_)
-      | @lib.I64Store32(_) =>
+      _ if sgo_is_flow_clean_pair_effect_instr(instr) =>
         if sgo_flow_pop_clean_pair(stack) {
           continue
         } else {
           return (false, reads, false)
         }
-      @lib.MemoryCopy(_, _)
-      | @lib.MemoryFill(_)
-      | @lib.MemoryInit(_, _)
-      | @lib.TableFill(_)
-      | @lib.TableInit(_, _)
-      | @lib.TableCopy(_, _) =>
+      _ if sgo_is_flow_clean_triple_effect_instr(instr) =>
         if sgo_flow_pop_clean_triple(stack) {
           continue
         } else {
