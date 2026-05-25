@@ -1480,6 +1480,51 @@ test "metamorphic leading empty void loop transform preserves validation and bin
 }
 
 ///|
+test "metamorphic export aliases transform preserves validation and binary roundtrip" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      ]),
+    )
+  let transformed = match metamorphic_apply_transform(base, AddExportAliases) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "add-export-aliases")
+  match transformed.wasm_module.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      @debug.assert_eq(exports.length(), 2)
+      @debug.assert_eq(
+        exports[1],
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_alias_0"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+      )
+    }
+    None => fail("expected transformed export section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic trailing empty void loop transform preserves validation and binary roundtrip" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
@@ -1535,8 +1580,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 29)
-  @debug.assert_eq(stats.validated, 29)
+  @debug.assert_eq(stats.transformed, 30)
+  @debug.assert_eq(stats.validated, 30)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -1600,4 +1645,5 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
       "add-trailing-empty-void-loop-to-defined-functions",
     ),
   )
+  assert_true(stats.transform_ids.contains("add-export-aliases"))
 }

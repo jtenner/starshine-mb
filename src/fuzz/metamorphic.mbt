@@ -29,6 +29,7 @@ pub enum MetamorphicValidTransform {
   AddLeadingEmptyVoidBlockToDefinedFunctions
   AddLeadingEmptyVoidLoopToDefinedFunctions
   AddTrailingEmptyVoidLoopToDefinedFunctions
+  AddExportAliases
 } derive(Eq, Debug)
 
 ///|
@@ -73,6 +74,7 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-empty-void-loop-to-defined-functions"
     AddTrailingEmptyVoidLoopToDefinedFunctions =>
       "add-trailing-empty-void-loop-to-defined-functions"
+    AddExportAliases => "add-export-aliases"
   }
 }
 
@@ -1193,6 +1195,51 @@ fn metamorphic_add_trailing_empty_void_loop_to_defined_functions(
 }
 
 ///|
+fn metamorphic_add_export_aliases(mod : @lib.Module) -> @lib.Module {
+  let exports = []
+  match mod.export_sec {
+    Some(@lib.ExportSec(existing)) => {
+      let mut alias_index = 0
+      for export_ in existing {
+        exports.push(export_)
+      }
+      for export_ in existing {
+        match export_ {
+          @lib.Export(_, extern_idx) => {
+            let mut alias_name = @lib.Name::from_string(
+              "metamorphic_alias_\{alias_index}",
+            )
+            while metamorphic_export_name_exists(exports, alias_name) {
+              alias_index += 1
+              alias_name = @lib.Name::from_string(
+                "metamorphic_alias_\{alias_index}",
+              )
+            }
+            exports.push(@lib.Export::new(alias_name, extern_idx))
+            alias_index += 1
+          }
+        }
+      }
+    }
+    None => ()
+  }
+  mod.with_export_sec(@lib.ExportSec::new(exports))
+}
+
+///|
+fn metamorphic_export_name_exists(
+  exports : Array[@lib.Export],
+  candidate : @lib.Name,
+) -> Bool {
+  for export_ in exports {
+    match export_ {
+      @lib.Export(name, _) => if name == candidate { return true }
+    }
+  }
+  false
+}
+
+///|
 fn metamorphic_add_unused_empty_function(mod : @lib.Module) -> @lib.Module {
   let types = []
   match mod.type_sec {
@@ -1264,6 +1311,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddLeadingEmptyVoidBlockToDefinedFunctions,
     AddLeadingEmptyVoidLoopToDefinedFunctions,
     AddTrailingEmptyVoidLoopToDefinedFunctions,
+    AddExportAliases,
   ]
 }
 
@@ -1316,6 +1364,7 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_leading_empty_void_loop_to_defined_functions(mod)
     AddTrailingEmptyVoidLoopToDefinedFunctions =>
       metamorphic_add_trailing_empty_void_loop_to_defined_functions(mod)
+    AddExportAliases => metamorphic_add_export_aliases(mod)
   }
   match validate_module(transformed) {
     Ok(_) =>
