@@ -50,6 +50,8 @@ pub fn gen_invalid_small_gen_valid_config(GenValidConfig) -> GenValidConfig
 
 pub fn gen_valid_config_label(GenValidConfig) -> String
 
+pub fn gen_valid_const_expr_allowed_op_matrix() -> Array[GenValidConstExprAllowedOps]
+
 pub fn gen_valid_coverage_template_signature(@lib.Module) -> String
 
 pub fn gen_valid_derive_stream_seed(UInt64, GenValidRandomStreamLabel) -> UInt64
@@ -346,6 +348,25 @@ pub fn GenValidConfig::portable_coverage_forced_default() -> Self
 pub fn GenValidConfig::profile(String) -> Result[Self, String]
 pub fn GenValidConfig::wat_text_roundtrip_default() -> Self
 pub impl Show for GenValidConfig
+
+pub struct GenValidConstExprAllowedOps {
+  context : GenValidConstExprUse
+  allowed_ops : Array[GenValidConstExprOpFamily]
+} derive(Eq, @debug.Debug)
+
+pub enum GenValidConstExprOpFamily {
+  NumericConstExprOp
+  RefNullConstExprOp
+  RefFuncConstExprOp
+  ImportedImmutableGlobalGetConstExprOp
+} derive(Eq, @debug.Debug)
+
+pub enum GenValidConstExprUse {
+  GlobalInitializerConstExpr
+  DataOffsetConstExpr
+  ElementOffsetConstExpr
+  TableInitializerConstExpr
+} derive(Eq, @debug.Debug)
 
 type GenValidContext
 

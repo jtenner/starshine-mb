@@ -158,6 +158,38 @@ test "gen-valid start profiles cover absent imported and defined starts" {
 }
 
 ///|
+test "gen-valid const-expression allowed-op matrix covers section contexts" {
+  let matrix = gen_valid_const_expr_allowed_op_matrix()
+  @debug.assert_eq(matrix.map(fn(row) { row.context }), [
+    GlobalInitializerConstExpr,
+    DataOffsetConstExpr,
+    ElementOffsetConstExpr,
+    TableInitializerConstExpr,
+  ])
+  @debug.assert_eq(matrix[0].allowed_ops, [
+    NumericConstExprOp,
+    RefNullConstExprOp,
+    RefFuncConstExprOp,
+    ImportedImmutableGlobalGetConstExprOp,
+  ])
+  @debug.assert_eq(matrix[1].allowed_ops, [
+    NumericConstExprOp,
+    ImportedImmutableGlobalGetConstExprOp,
+  ])
+  @debug.assert_eq(matrix[2].allowed_ops, [
+    NumericConstExprOp,
+    RefNullConstExprOp,
+    RefFuncConstExprOp,
+    ImportedImmutableGlobalGetConstExprOp,
+  ])
+  @debug.assert_eq(matrix[3].allowed_ops, [
+    RefNullConstExprOp,
+    RefFuncConstExprOp,
+    ImportedImmutableGlobalGetConstExprOp,
+  ])
+}
+
+///|
 test "gen-valid shared const-expression contexts select allowed op families" {
   let ctx = GenValidContext::new_streamed(0x1037AUL, {
     ..GenValidConfig::coverage_forced_default()

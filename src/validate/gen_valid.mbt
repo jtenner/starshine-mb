@@ -3354,6 +3354,66 @@ pub fn gen_valid_numtype(ctx : GenValidContext) -> NumType {
 }
 
 ///|
+pub enum GenValidConstExprUse {
+  GlobalInitializerConstExpr
+  DataOffsetConstExpr
+  ElementOffsetConstExpr
+  TableInitializerConstExpr
+} derive(Eq, Debug)
+
+///|
+pub enum GenValidConstExprOpFamily {
+  NumericConstExprOp
+  RefNullConstExprOp
+  RefFuncConstExprOp
+  ImportedImmutableGlobalGetConstExprOp
+} derive(Eq, Debug)
+
+///|
+pub struct GenValidConstExprAllowedOps {
+  context : GenValidConstExprUse
+  allowed_ops : Array[GenValidConstExprOpFamily]
+} derive(Eq, Debug)
+
+///|
+pub fn gen_valid_const_expr_allowed_op_matrix() -> Array[
+  GenValidConstExprAllowedOps,
+] {
+  [
+    {
+      context: GlobalInitializerConstExpr,
+      allowed_ops: [
+        NumericConstExprOp,
+        RefNullConstExprOp,
+        RefFuncConstExprOp,
+        ImportedImmutableGlobalGetConstExprOp,
+      ],
+    },
+    {
+      context: DataOffsetConstExpr,
+      allowed_ops: [NumericConstExprOp, ImportedImmutableGlobalGetConstExprOp],
+    },
+    {
+      context: ElementOffsetConstExpr,
+      allowed_ops: [
+        NumericConstExprOp,
+        RefNullConstExprOp,
+        RefFuncConstExprOp,
+        ImportedImmutableGlobalGetConstExprOp,
+      ],
+    },
+    {
+      context: TableInitializerConstExpr,
+      allowed_ops: [
+        RefNullConstExprOp,
+        RefFuncConstExprOp,
+        ImportedImmutableGlobalGetConstExprOp,
+      ],
+    },
+  ]
+}
+
+///|
 priv struct GenValidConstExprContext {
   allow_numeric_const : Bool
   allow_ref_null : Bool

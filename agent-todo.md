@@ -647,7 +647,6 @@ p1 next-up / active:
 - [FUZ]1036N1 - Update generator-ledger/wiki docs with the completed metamorphic transform families.
 - [FUZ]1036N2 - Run and record metamorphic suite signoff smoke/CI evidence.
 - [FUZ]1036N3 - Prune or archive stale long-form [FUZ]1036 progress notes after the closeout evidence is durable.
-- [FUZ]1037A - Define the shared const-expression generator interface and allowed-op matrix.
 - [FUZ]1037B - Cover numeric constants in global, data offset, element offset, and table initializer contexts.
 - [FUZ]1037C - Cover `ref.null` and `ref.func` initializer expressions where valid.
 - [FUZ]1037D - Cover imported immutable `global.get` initializer expressions.
