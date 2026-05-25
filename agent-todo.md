@@ -224,7 +224,7 @@ Execution rules for all DAE slices
   - Status: active/partial for v0.1.1 because the product goal changed toward broad Binaryen coverage; not a v0.1.0 blocker and not a rejection of the supported-surface signoff in `docs/wiki/raw/research/0573-2026-05-19-sgo-v010-signoff.md`.
   - Goal: broaden SGO toward fuller Binaryen `SimplifyGlobals.cpp` rewrite-family coverage while preserving the accepted v0.1.0 direct/nested/late-tail surface as a scoped signoff, not a full-parity claim.
   - Current matrix: `docs/wiki/binaryen/passes/simplify-globals-optimizing/parity-matrix.md` distinguishes implemented, partial, missing, intentionally conservative, and unknown families.
-  - Completed evidence: landed behavior, refactor, guardrail, research, and rebaseline slices are recorded in `docs/wiki/raw/research/0574` through `0662` where applicable, `docs/wiki/log.md`, and the SGO parity/readiness pages. Do not duplicate the full completed slice history here; use those docs as the source of truth.
+  - Completed evidence: landed behavior, refactor, guardrail, research, and rebaseline slices are recorded in `docs/wiki/raw/research/0574` through `0663` where applicable, `docs/wiki/log.md`, and the SGO parity/readiness pages. Do not duplicate the full completed slice history here; use those docs as the source of truth.
   - General deliverables for every SGO003 subtask: focused Binaryen probe or source fixture first, local test(s) before implementation for behavior-bearing work, paired negative guardrails for trapping/effectful/control-transfer boundaries, `moon test src/passes`, direct `--pass simplify-globals-optimizing` compare fuzz for nontrivial matcher/dataflow work, docs/wiki/log updates, and keep `[SGO]003` partial unless the user explicitly accepts a final bounded scope.
   - Open-work tracking rule: if a slice uncovers a blocker, prerequisite, deferred family, or refactor follow-up, add it explicitly under one of the SGO003 children below before commit; do not leave implicit "later" work hidden only in research-note prose.
 
@@ -237,12 +237,9 @@ Execution rules for all DAE slices
   - Open-work rule: any future behavior must land as one of the explicit child slices below or as a newly filed child with a named Binaryen-positive shape, paired candidate-derived/global-steered negatives, no broad whitelist additions, `moon test src/passes`, direct SGO compare fuzz, and docs identifying the admitted opcode or wrapper family.
 
 - [SGO]003D1 - Wrapper/Control Composition Inventory For Already-Covered Independent Effects
-  - Status: active research-first candidate; behavior-bearing only if a precise uncovered Binaryen-positive shape is found.
-  - Hidden-work source: 0661 and 0662 both note that they did not prove every wrapper/control composition around already-covered independent scalar-load, `table.get`, store, table, bulk, `elem.drop`, and `data.drop` effects.
-  - Goal: decide whether any recursive wrapper/control composition around already-supported independent effects is actually uncovered and worth implementing, without reopening opcode-family whitelists.
-  - Required probes before coding: one exact wrapper/control grammar at a time, such as transparent result-block composition, clean void wrapper prefixes, clean value-producing wrappers, no-catch `try_table` wrappers, or already-supported pure-prefix recursion around an already-covered effect.
-  - Required negatives: candidate-derived operand to the effect, global-steered execution of the effect, control transfer (`br`, `br_if`, `return`, throw-like constructs), caught `try_table`, extra same-global reads/writes, post-join observable uses, and trapping/effectful consumers fed by the candidate global.
-  - Exit criteria: either close as already covered/conservative with research evidence, or land fixture pairs plus the narrow matcher change, direct SGO fuzz, docs/wiki/log updates, and keep `[SGO]003` partial.
+  - Status: closed by the 0663 research inventory; no generic wrapper/control-composition bucket remains open.
+  - Decision: transparent result-block wrappers and no-catch `try_table` block-wrapper composition are already source-aligned by 0636/0637, current FlowScanner recursion already covers clean block/loop/if wrapper families at the supported boundaries, and existing conservative tests preserve branchy, caught, tainted, global-steered, trapping-consumer, and post-join boundaries.
+  - Follow-up rule: future wrapper/control work must be filed as a new explicit child with a named Binaryen-positive grammar, paired candidate-derived/global-steered negatives, and direct SGO fuzz if behavior changes; do not reopen a generic wrapper-composition task.
 
 - [SGO]003D2 - Named New Side-Effect Family Probe Gate
   - Status: deferred/discovery gate; not behavior-ready until a specific opcode family is named from source, Binaryen lit, or fuzz evidence.

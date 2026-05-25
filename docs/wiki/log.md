@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO effect wrapper composition inventory
+
+- Added research note [`0663`](./raw/research/0663-2026-05-25-sgo-effect-wrapper-composition-inventory.md) for `[SGO]003D1`, auditing whether the side-effect independence work still had a generic wrapper/control-composition implementation bucket.
+- Closed `[SGO]003D1` as research-only: 0636/0637 already source-aligned the named transparent block and no-catch `try_table` wrapper compositions, current FlowScanner recursion covers the supported clean wrapper boundaries, and future wrapper/control discoveries must be filed as exact new child slices.
+- No optimizer behavior changed and no direct SGO fuzz was required because this was docs/backlog-only. `[SGO]003D` and `[SGO]003` remain active/partial.
+
 ## [2026-05-25] binaryen | SGO store/bulk independence audit
 
 - Added research note [`0662`](./raw/research/0662-2026-05-25-sgo-store-bulk-independence-audit.md) for `[SGO]003D`, auditing the currently enumerated clean store/table/bulk side-effect families.
