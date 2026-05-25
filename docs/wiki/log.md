@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-25] passes | dae DAE014 backlog frontier sync
+
+- Completed a DAE014 recovery/documentation slice by syncing the active `[DAE]006` backlog item with the current strategy/log truth: the both-canonical frontier is now `.tmp/dae-func504-tail-control-artifact` at `defined=505 abs=522`, not the superseded `.tmp/dae-func504-selected5-artifact` Func504 caller-local/control frontier.
+- Kept `[DAE]006` open for the next implementation/classification run and narrowed its next action to the Func505 loop/local cleanup frontier; no pass behavior changed.
+- Validation for this docs/backlog-only slice: `git diff --check`, `moon info`, `moon fmt`, and `moon test`.
+
 ## [2026-05-25] passes | dae DAE008 Func237 historical closure
 
 - Closed `[DAE]008` as a backlog-only recovery slice: the DAE strategy already records the landed Func237 selected local/control sequence through `.tmp/dae-func237-common-branch-final-artifact`, where the direct debug-artifact frontier moved out of Func237 to `defined=242 abs=259` and Func237 matched the Binaryen normalized function.

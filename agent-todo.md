@@ -151,9 +151,9 @@ Execution rules for all DAE slices
   - Exit criteria: raw type-section drift is either fixed, accepted as out of scope, or permanently documented as a known diagnostic boundary.
 
 - [DAE]006 - Both-Canonical Frontier Advancement
-  - Goal: continue the diagnostic both-canonical frontier from current `defined=504 abs=521`.
+  - Goal: continue the diagnostic both-canonical frontier from current `defined=505 abs=522`.
   - Next action:
-    - Inspect `.tmp/dae-func504-selected5-artifact/func-defined504-abs521.binaryen.pretty.txt` and `.starshine.pretty.txt` plus the `.wat` diff; callee signatures for `$3799` and `$505` now match, so focus on the remaining caller-local/control cleanup.
+    - Inspect `.tmp/dae-func504-tail-control-artifact/func-defined505-abs522.binaryen.pretty.txt` and `.starshine.pretty.txt` plus the `.wat` diff; the previous Func504 caller-local/control cleanup is closed as compare-layer tail-control/unreachable-allocation drift, so focus on the new Func505 loop/local cleanup frontier.
     - Classify before coding: compare-layer representation drift, true DAE output mismatch, type/signature drift, validation/tool issue, or unknown/risky.
   - Deliverables:
     - For representation-only drift, add a narrow script fixture and diagnostic-only normalizer.
@@ -167,6 +167,7 @@ Execution rules for all DAE slices
     - Func456: selected Func3732 result removal plus selected Func3736 exact-literal materialization.
     - Func467: selected Func472/Func476 result removal.
     - Func469: selected Func4106 result removal plus selected Func4117/Func4134/Func4303/Func4320 exact-literal materialization.
+    - Func476, Func484, Func485, Func488, Func500, Func502, Func503, Func504: inspected compare-layer wrapper/local/control normalizers plus the real selected result/literal/unread gaps recorded in the strategy page and log.
   - Exit criteria: both-canonical diagnostic compare reaches full function equality or a documented non-normalizable semantic/shape boundary.
 
 - [DAE]009 - Raw Cleanup Policy and Size/Shape Tradeoff
