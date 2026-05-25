@@ -3300,8 +3300,16 @@ pub fn format_fuzz_run_report_json(
   results : Array[FuzzSuiteResult],
 ) -> String {
   let out = StringBuilder::new()
+  let mut total_attempts = 0
+  let mut total_elapsed_ms = 0UL
+  let mut summary_i = 0
+  while summary_i < results.length() {
+    total_attempts += results[summary_i].attempts
+    total_elapsed_ms += results[summary_i].elapsed_ms
+    summary_i += 1
+  }
   out.write_string(
-    "{\"suite\":\"\{fuzz_json_escape(suite)}\",\"profile\":\"\{fuzz_json_escape(profile)}\",\"base_seed\":\{base_seed},\"seed_count\":\{seed_count},\"shard_index\":\{shard_index},\"shard_count\":\{shard_count},\"pass\":true,\"run_count\":\{results.length()},\"runs\":[",
+    "{\"schema\":\"starshine.fuzz.summary.v1\",\"suite\":\"\{fuzz_json_escape(suite)}\",\"profile\":\"\{fuzz_json_escape(profile)}\",\"base_seed\":\{base_seed},\"seed_count\":\{seed_count},\"shard_index\":\{shard_index},\"shard_count\":\{shard_count},\"pass\":true,\"run_count\":\{results.length()},\"summary\":{\"total_attempts\":\{total_attempts},\"total_elapsed_ms\":\{total_elapsed_ms},\"failure_classes\":{},\"strategy_outcomes\":{},\"artifact_counts\":{\"runs\":\{results.length()},\"ledgers\":1,\"replay_manifests\":1,\"inputs\":0,\"failures\":0}},\"runs\":[",
   )
   let mut i = 0
   while i < results.length() {
