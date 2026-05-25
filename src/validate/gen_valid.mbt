@@ -203,6 +203,88 @@ pub fn GenValidFeatureToggles::coverage_forced_default() -> GenValidFeatureToggl
 }
 
 ///|
+pub enum GenValidProposalFeature {
+  GcFeature
+  FunctionReferencesFeature
+  TailCallsFeature
+  ExceptionsFeature
+  SimdFeature
+  RelaxedSimdFeature
+  AtomicsFeature
+  BulkMemoryFeature
+  MultiMemoryFeature
+  Memory64Feature
+  ExtendedConstFeature
+  ReferenceTypesFeature
+} derive(Eq, Debug)
+
+///|
+pub fn gen_valid_proposal_features() -> Array[GenValidProposalFeature] {
+  [
+    GcFeature,
+    FunctionReferencesFeature,
+    TailCallsFeature,
+    ExceptionsFeature,
+    SimdFeature,
+    RelaxedSimdFeature,
+    AtomicsFeature,
+    BulkMemoryFeature,
+    MultiMemoryFeature,
+    Memory64Feature,
+    ExtendedConstFeature,
+    ReferenceTypesFeature,
+  ]
+}
+
+///|
+pub fn gen_valid_proposal_feature_label(
+  feature : GenValidProposalFeature,
+) -> String {
+  match feature {
+    GcFeature => "gc"
+    FunctionReferencesFeature => "function-references"
+    TailCallsFeature => "tail-calls"
+    ExceptionsFeature => "exceptions"
+    SimdFeature => "simd"
+    RelaxedSimdFeature => "relaxed-simd"
+    AtomicsFeature => "atomics"
+    BulkMemoryFeature => "bulk-memory"
+    MultiMemoryFeature => "multi-memory"
+    Memory64Feature => "memory64"
+    ExtendedConstFeature => "extended-const"
+    ReferenceTypesFeature => "reference-types"
+  }
+}
+
+///|
+pub fn gen_valid_proposal_feature_enabled(
+  toggles : GenValidFeatureToggles,
+  feature : GenValidProposalFeature,
+) -> Bool {
+  match feature {
+    GcFeature => toggles.allow_ref_types && toggles.allow_subtyping_topology
+    FunctionReferencesFeature =>
+      toggles.allow_ref_types && toggles.allow_call_indirect
+    TailCallsFeature => toggles.allow_tail_calls
+    ExceptionsFeature => toggles.allow_tags
+    SimdFeature => toggles.allow_v128
+    RelaxedSimdFeature => toggles.allow_v128 && toggles.allow_relaxed_simd
+    AtomicsFeature =>
+      toggles.allow_mems &&
+      toggles.allow_shared_memories &&
+      toggles.allow_atomics
+    BulkMemoryFeature =>
+      toggles.allow_mems &&
+      (toggles.allow_datas || toggles.allow_tables || toggles.allow_elems)
+    MultiMemoryFeature =>
+      toggles.allow_mems && toggles.allow_memory_limit_variants
+    Memory64Feature => toggles.allow_mems && toggles.allow_memory64
+    ExtendedConstFeature => toggles.allow_const_expr_variants
+    ReferenceTypesFeature => toggles.allow_ref_types
+  }
+}
+
+///|
 pub struct GenValidConfig {
   mode : GenValidMode
   max_type_defs : Int

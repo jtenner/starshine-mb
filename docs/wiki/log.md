@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1046A GenValid proposal gate matrix
+
+- Started `[FUZ]1046A` by adding the central `GenValidProposalFeature` matrix and helpers that map existing GenValid feature toggles onto proposal gates for GC, function references, tail calls, exceptions, SIMD, relaxed SIMD, atomics, bulk memory, multi-memory, memory64, extended const, and reference types.
+- Added focused positive/negative fixtures in [`src/validate/gen_valid_tests.mbt`](../../src/validate/gen_valid_tests.mbt) and updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) with the new gate-matrix contract.
+
 ## [2026-05-25] fuzzing | FUZ1036D metamorphic false-if body reshaping
 
 - Continued `[FUZ]1036D` by adding the `add-leading-false-if-to-defined-functions` and `add-trailing-false-if-to-defined-functions` metamorphic-valid transforms. They insert constant-false empty `if` instructions at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate the transformed modules, and report the new transform ids through `validate-valid-metamorphic` details.

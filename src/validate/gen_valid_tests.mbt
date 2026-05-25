@@ -219,6 +219,55 @@ test "gen-valid shared const-expression contexts select allowed op families" {
 }
 
 ///|
+test "gen-valid proposal feature-gate matrix maps central gates to toggles" {
+  let all = GenValidFeatureToggles::coverage_forced_default()
+  assert_true(gen_valid_proposal_feature_enabled(all, GcFeature))
+  assert_true(
+    gen_valid_proposal_feature_enabled(all, FunctionReferencesFeature),
+  )
+  assert_true(gen_valid_proposal_feature_enabled(all, TailCallsFeature))
+  assert_true(gen_valid_proposal_feature_enabled(all, ExceptionsFeature))
+  assert_true(gen_valid_proposal_feature_enabled(all, SimdFeature))
+  assert_false(gen_valid_proposal_feature_enabled(all, RelaxedSimdFeature))
+  let relaxed = GenValidFeatureToggles::{ ..all, allow_relaxed_simd: true }
+  assert_true(gen_valid_proposal_feature_enabled(relaxed, RelaxedSimdFeature))
+  assert_true(gen_valid_proposal_feature_enabled(all, AtomicsFeature))
+  assert_true(gen_valid_proposal_feature_enabled(all, BulkMemoryFeature))
+  assert_true(gen_valid_proposal_feature_enabled(all, MultiMemoryFeature))
+  assert_true(gen_valid_proposal_feature_enabled(all, Memory64Feature))
+  assert_true(gen_valid_proposal_feature_enabled(all, ExtendedConstFeature))
+  assert_true(gen_valid_proposal_feature_enabled(all, ReferenceTypesFeature))
+  let no_refs = GenValidFeatureToggles::{
+    ..all,
+    allow_ref_types: false,
+    allow_subtyping_topology: false,
+  }
+  assert_false(gen_valid_proposal_feature_enabled(no_refs, GcFeature))
+  assert_false(
+    gen_valid_proposal_feature_enabled(no_refs, FunctionReferencesFeature),
+  )
+  assert_false(
+    gen_valid_proposal_feature_enabled(no_refs, ReferenceTypesFeature),
+  )
+  assert_true(gen_valid_proposal_feature_enabled(no_refs, SimdFeature))
+  let no_memory = GenValidFeatureToggles::{
+    ..all,
+    allow_mems: false,
+    allow_datas: false,
+    allow_memory_limit_variants: false,
+    allow_memory64: false,
+    allow_atomics: false,
+    allow_shared_memories: false,
+  }
+  assert_false(gen_valid_proposal_feature_enabled(no_memory, BulkMemoryFeature))
+  assert_false(
+    gen_valid_proposal_feature_enabled(no_memory, MultiMemoryFeature),
+  )
+  assert_false(gen_valid_proposal_feature_enabled(no_memory, Memory64Feature))
+  assert_false(gen_valid_proposal_feature_enabled(no_memory, AtomicsFeature))
+}
+
+///|
 test "gen-valid feature facts scan table initializer expressions" {
   let struct_idx = TypeIdx::new(0U)
   let mod_ = Module::new()

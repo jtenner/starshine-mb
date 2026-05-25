@@ -74,6 +74,12 @@ pub fn gen_valid_profile_names() -> Array[String]
 
 pub fn gen_valid_profiles() -> Array[GenValidProfile]
 
+pub fn gen_valid_proposal_feature_enabled(GenValidFeatureToggles, GenValidProposalFeature) -> Bool
+
+pub fn gen_valid_proposal_feature_label(GenValidProposalFeature) -> String
+
+pub fn gen_valid_proposal_features() -> Array[GenValidProposalFeature]
+
 pub fn gen_valid_random_stream_label_name(GenValidRandomStreamLabel) -> String
 
 pub fn gen_valid_random_stream_labels() -> Array[GenValidRandomStreamLabel]
@@ -968,6 +974,21 @@ pub enum GenValidProfile {
   ControlHeavyProfile
   TopologyHeavyProfile
   PathologicalValidProfile
+} derive(Eq, @debug.Debug)
+
+pub enum GenValidProposalFeature {
+  GcFeature
+  FunctionReferencesFeature
+  TailCallsFeature
+  ExceptionsFeature
+  SimdFeature
+  RelaxedSimdFeature
+  AtomicsFeature
+  BulkMemoryFeature
+  MultiMemoryFeature
+  Memory64Feature
+  ExtendedConstFeature
+  ReferenceTypesFeature
 } derive(Eq, @debug.Debug)
 
 pub enum GenValidRandomStreamLabel {
