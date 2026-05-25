@@ -3774,6 +3774,195 @@ test "metamorphic i32 and i64 bitwise drop transforms preserve validation and bi
 }
 
 ///|
+fn assert_metamorphic_integer_shift_drop_transform(
+  transform : MetamorphicValidTransform,
+  expected_id : String,
+  shift : @lib.Instruction,
+  leading : Bool,
+) -> Result[Unit, String] {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+        ),
+      ]),
+    )
+  let transformed = match metamorphic_apply_transform(base, transform) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  if transformed.transform_id != expected_id {
+    return Err("unexpected transform id")
+  }
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(locals, @lib.Expr(instrs)) => {
+          if locals != @lib.Locals::new([]) {
+            return Err("unexpected locals")
+          }
+          if instrs.length() != 5 {
+            return Err("unexpected instruction count")
+          }
+          let value = if expected_id.contains("i64") {
+            @lib.Instruction::i64_const(0L)
+          } else {
+            @lib.Instruction::i32_const(0)
+          }
+          if leading {
+            if instrs[0] != value ||
+              instrs[1] != value ||
+              instrs[2] != shift ||
+              instrs[3] != @lib.Instruction::drop() ||
+              instrs[4] != @lib.Instruction::i32_const(7) {
+              return Err("unexpected leading shift/drop body")
+            }
+          } else if instrs[0] != @lib.Instruction::i32_const(7) ||
+            instrs[1] != value ||
+            instrs[2] != value ||
+            instrs[3] != shift ||
+            instrs[4] != @lib.Instruction::drop() {
+            return Err("unexpected trailing shift/drop body")
+          }
+        }
+      }
+    None => return Err("expected transformed code section")
+  }
+  assert_metamorphic_roundtrip_valid(transformed.wasm_module)
+}
+
+///|
+test "metamorphic i32 and i64 shift drop transforms preserve validation and binary roundtrip" {
+  match
+    assert_metamorphic_integer_shift_drop_transform(
+      AddLeadingI32ShlDropToDefinedFunctions,
+      "add-leading-i32-shl-drop-to-defined-functions",
+      @lib.Instruction::i32_shl(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_shift_drop_transform(
+      AddTrailingI32ShlDropToDefinedFunctions,
+      "add-trailing-i32-shl-drop-to-defined-functions",
+      @lib.Instruction::i32_shl(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_shift_drop_transform(
+      AddLeadingI32ShrSDropToDefinedFunctions,
+      "add-leading-i32-shr-s-drop-to-defined-functions",
+      @lib.Instruction::i32_shr_s(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_shift_drop_transform(
+      AddTrailingI32ShrSDropToDefinedFunctions,
+      "add-trailing-i32-shr-s-drop-to-defined-functions",
+      @lib.Instruction::i32_shr_s(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_shift_drop_transform(
+      AddLeadingI32ShrUDropToDefinedFunctions,
+      "add-leading-i32-shr-u-drop-to-defined-functions",
+      @lib.Instruction::i32_shr_u(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_shift_drop_transform(
+      AddTrailingI32ShrUDropToDefinedFunctions,
+      "add-trailing-i32-shr-u-drop-to-defined-functions",
+      @lib.Instruction::i32_shr_u(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_shift_drop_transform(
+      AddLeadingI64ShlDropToDefinedFunctions,
+      "add-leading-i64-shl-drop-to-defined-functions",
+      @lib.Instruction::i64_shl(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_shift_drop_transform(
+      AddTrailingI64ShlDropToDefinedFunctions,
+      "add-trailing-i64-shl-drop-to-defined-functions",
+      @lib.Instruction::i64_shl(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_shift_drop_transform(
+      AddLeadingI64ShrSDropToDefinedFunctions,
+      "add-leading-i64-shr-s-drop-to-defined-functions",
+      @lib.Instruction::i64_shr_s(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_shift_drop_transform(
+      AddTrailingI64ShrSDropToDefinedFunctions,
+      "add-trailing-i64-shr-s-drop-to-defined-functions",
+      @lib.Instruction::i64_shr_s(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_shift_drop_transform(
+      AddLeadingI64ShrUDropToDefinedFunctions,
+      "add-leading-i64-shr-u-drop-to-defined-functions",
+      @lib.Instruction::i64_shr_u(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_shift_drop_transform(
+      AddTrailingI64ShrUDropToDefinedFunctions,
+      "add-trailing-i64-shr-u-drop-to-defined-functions",
+      @lib.Instruction::i64_shr_u(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic f32 and f64 equality drop transforms preserve validation and binary roundtrip" {
   match
     assert_metamorphic_binary_drop_transform(
@@ -4604,8 +4793,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 189)
-  @debug.assert_eq(stats.validated, 189)
+  @debug.assert_eq(stats.transformed, 201)
+  @debug.assert_eq(stats.validated, 201)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),

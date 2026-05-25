@@ -1169,6 +1169,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Completed `[FUZ]1049B` by adding fuzz-runner helpers for shard resume and stable merge: completed output manifests can now be used to skip already-finished shard work items, and shard result arrays can be flattened deterministically by seed index, suite, profile, shard index, and seed.
 - Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) to document the resume and merge contracts alongside the existing shard queue behavior.
 
+## [2026-05-25] fuzzing | FUZ1036D metamorphic integer shift drop body reshaping
+
+- Continued `[FUZ]1036D` by adding the leading/trailing i32/i64 `shl`, `shr_s`, and `shr_u` computed/drop metamorphic-valid transforms. They insert pure integer zero shift stacks at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate transformed modules, and raise the active registry to 201 transforms per generated module.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the active metamorphic-valid transform registry names integer shift computed/drop body reshaping alongside the existing integer bitwise, comparison, floating comparison, arithmetic, rounding, sqrt, neg, abs, const/drop, if, no-op, control-wrapper, locals, exports, custom sections, and metadata transforms.
+
 ## [2026-05-25] fuzzing | FUZ1036D metamorphic integer bitwise drop body reshaping
 
 - Continued `[FUZ]1036D` by adding the leading/trailing i32/i64 `and`, `or`, and `xor` computed/drop metamorphic-valid transforms. They insert pure integer `const 0; const 0; and/or/xor; drop` stacks at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate transformed modules, and raise the active registry to 189 transforms per generated module.
