@@ -1553,6 +1553,92 @@ test "metamorphic trailing memory.size drop transform skips modules without memo
 }
 
 ///|
+test "metamorphic leading table.size drop transform requires table and roundtrips" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            @lib.RefType::abs(@lib.AbsHeapType::func()),
+            @lib.Limits::i32(0U, None),
+          ),
+          None,
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let transformed = match
+    metamorphic_apply_transform(base, AddLeadingTableSizeDropToDefinedFunctions) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-leading-table-size-drop-to-defined-functions",
+  )
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          @debug.assert_eq(instrs.length(), 3)
+          @debug.assert_eq(
+            instrs[0],
+            @lib.Instruction::table_size(@lib.TableIdx::new(0U)),
+          )
+          @debug.assert_eq(instrs[1], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[2], @lib.Instruction::nop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic trailing table.size drop transform skips modules without tables" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  match
+    metamorphic_apply_transform(
+      base,
+      AddTrailingTableSizeDropToDefinedFunctions,
+    ) {
+    Ok(_) => fail("expected table.size transform without table to be rejected")
+    Err(msg) =>
+      @debug.assert_eq(
+        msg, "metamorphic transform add-trailing-table-size-drop-to-defined-functions requires at least one valid table index",
+      )
+  }
+}
+
+///|
 test "metamorphic identity block expression transform wraps value body and roundtrips" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
@@ -6474,8 +6560,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 389)
-  @debug.assert_eq(stats.validated, 389)
+  @debug.assert_eq(stats.transformed, 391)
+  @debug.assert_eq(stats.validated, 391)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -6484,6 +6570,16 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(
     stats.transform_ids.contains(
       "add-leading-memory-size-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-leading-table-size-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-trailing-table-size-drop-to-defined-functions",
     ),
   )
   assert_true(

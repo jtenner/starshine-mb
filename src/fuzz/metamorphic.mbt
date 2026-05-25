@@ -381,6 +381,8 @@ pub enum MetamorphicValidTransform {
   AddTrailingI32ConstDropToDefinedFunctions
   AddLeadingMemorySizeDropToDefinedFunctions
   AddTrailingMemorySizeDropToDefinedFunctions
+  AddLeadingTableSizeDropToDefinedFunctions
+  AddTrailingTableSizeDropToDefinedFunctions
   AddTrailingEmptyVoidBlockToDefinedFunctions
   AddLeadingEmptyVoidBlockToDefinedFunctions
   AddLeadingEmptyVoidLoopToDefinedFunctions
@@ -1138,6 +1140,10 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-memory-size-drop-to-defined-functions"
     AddTrailingMemorySizeDropToDefinedFunctions =>
       "add-trailing-memory-size-drop-to-defined-functions"
+    AddLeadingTableSizeDropToDefinedFunctions =>
+      "add-leading-table-size-drop-to-defined-functions"
+    AddTrailingTableSizeDropToDefinedFunctions =>
+      "add-trailing-table-size-drop-to-defined-functions"
     AddTrailingEmptyVoidBlockToDefinedFunctions =>
       "add-trailing-empty-void-block-to-defined-functions"
     AddLeadingEmptyVoidBlockToDefinedFunctions =>
@@ -3459,6 +3465,26 @@ fn metamorphic_total_memory_count(mod : @lib.Module) -> Int {
 }
 
 ///|
+fn metamorphic_total_table_count(mod : @lib.Module) -> Int {
+  let mut count = 0
+  match mod.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.TableExternType(_)) => count += 1
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod.table_sec {
+    Some(@lib.TableSec(tables)) => count += tables.length()
+    None => ()
+  }
+  count
+}
+
+///|
 fn metamorphic_add_memory_size_drop_to_defined_functions(
   mod : @lib.Module,
   leading : Bool,
@@ -3511,6 +3537,70 @@ fn metamorphic_apply_memory_size_drop_to_defined_functions(
     )
   }
   let transformed = metamorphic_add_memory_size_drop_to_defined_functions(
+    mod, leading,
+  )
+  match validate_module(transformed) {
+    Ok(_) => Ok({ transform_id, wasm_module: transformed })
+    Err(err) =>
+      Err(
+        "metamorphic transform \{transform_id} produced invalid module: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+fn metamorphic_add_table_size_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+) -> @lib.Module {
+  let funcs = []
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            let next_instrs = []
+            if leading {
+              next_instrs.push(
+                @lib.Instruction::table_size(@lib.TableIdx::new(0U)),
+              )
+              next_instrs.push(@lib.Instruction::drop())
+            }
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            if !leading {
+              next_instrs.push(
+                @lib.Instruction::table_size(@lib.TableIdx::new(0U)),
+              )
+              next_instrs.push(@lib.Instruction::drop())
+            }
+            funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
+fn metamorphic_apply_table_size_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+) -> Result[MetamorphicValidTransformResult, String] {
+  let transform = if leading {
+    AddLeadingTableSizeDropToDefinedFunctions
+  } else {
+    AddTrailingTableSizeDropToDefinedFunctions
+  }
+  let transform_id = metamorphic_valid_transform_id(transform)
+  if metamorphic_total_table_count(mod) == 0 {
+    return Err(
+      "metamorphic transform \{transform_id} requires at least one valid table index",
+    )
+  }
+  let transformed = metamorphic_add_table_size_drop_to_defined_functions(
     mod, leading,
   )
   match validate_module(transformed) {
@@ -4266,6 +4356,8 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingI32ConstDropToDefinedFunctions,
     AddLeadingMemorySizeDropToDefinedFunctions,
     AddTrailingMemorySizeDropToDefinedFunctions,
+    AddLeadingTableSizeDropToDefinedFunctions,
+    AddTrailingTableSizeDropToDefinedFunctions,
     AddTrailingEmptyVoidBlockToDefinedFunctions,
     AddLeadingEmptyVoidBlockToDefinedFunctions,
     AddLeadingEmptyVoidLoopToDefinedFunctions,
@@ -4289,6 +4381,10 @@ pub fn metamorphic_apply_transform(
       return metamorphic_apply_memory_size_drop_to_defined_functions(mod, true)
     AddTrailingMemorySizeDropToDefinedFunctions =>
       return metamorphic_apply_memory_size_drop_to_defined_functions(mod, false)
+    AddLeadingTableSizeDropToDefinedFunctions =>
+      return metamorphic_apply_table_size_drop_to_defined_functions(mod, true)
+    AddTrailingTableSizeDropToDefinedFunctions =>
+      return metamorphic_apply_table_size_drop_to_defined_functions(mod, false)
     _ => ()
   }
   let transformed = match transform {
@@ -6204,6 +6300,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_trailing_i32_const_drop_to_defined_functions(mod)
     AddLeadingMemorySizeDropToDefinedFunctions => abort("handled above")
     AddTrailingMemorySizeDropToDefinedFunctions => abort("handled above")
+    AddLeadingTableSizeDropToDefinedFunctions => abort("handled above")
+    AddTrailingTableSizeDropToDefinedFunctions => abort("handled above")
     AddTrailingEmptyVoidBlockToDefinedFunctions =>
       metamorphic_add_trailing_empty_void_block_to_defined_functions(mod)
     AddLeadingEmptyVoidBlockToDefinedFunctions =>
@@ -6263,6 +6361,9 @@ fn metamorphic_transform_applicable(
     AddLeadingMemorySizeDropToDefinedFunctions
     | AddTrailingMemorySizeDropToDefinedFunctions =>
       metamorphic_total_memory_count(mod) > 0
+    AddLeadingTableSizeDropToDefinedFunctions
+    | AddTrailingTableSizeDropToDefinedFunctions =>
+      metamorphic_total_table_count(mod) > 0
     _ => true
   }
 }

@@ -888,6 +888,8 @@ pub enum MetamorphicValidTransform {
   AddTrailingI32ConstDropToDefinedFunctions
   AddLeadingMemorySizeDropToDefinedFunctions
   AddTrailingMemorySizeDropToDefinedFunctions
+  AddLeadingTableSizeDropToDefinedFunctions
+  AddTrailingTableSizeDropToDefinedFunctions
   AddTrailingEmptyVoidBlockToDefinedFunctions
   AddLeadingEmptyVoidBlockToDefinedFunctions
   AddLeadingEmptyVoidLoopToDefinedFunctions
