@@ -518,6 +518,7 @@ pub enum MetamorphicValidTransform {
   AddUnusedPassiveDataSegment
   AddPassiveDataSegmentShapeStress
   AddUnusedImmutableI32Global
+  AddDuplicateEquivalentImmutableI32Global
   AddUnusedEmptyFunction
   AddUnusedEmptyFunctionType
   AddDuplicateEquivalentFunctionType

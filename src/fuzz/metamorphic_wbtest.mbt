@@ -1068,6 +1068,38 @@ test "metamorphic unused empty function-type transform preserves validation and 
 }
 
 ///|
+test "metamorphic duplicate equivalent immutable global transform appends unused matching global" {
+  let base = @lib.Module::new().with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), false),
+        @lib.Expr::new([@lib.Instruction::i32_const(42)]),
+      ),
+    ]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentImmutableI32Global) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-duplicate-equivalent-immutable-i32-global",
+  )
+  match transformed.wasm_module.global_sec {
+    Some(@lib.GlobalSec(globals)) => {
+      @debug.assert_eq(globals.length(), 2)
+      @debug.assert_eq(globals[0], globals[1])
+    }
+    None => fail("expected transformed globals")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic duplicate equivalent function-type transform preserves validation and binary roundtrip" {
   let original_func_type = @lib.RecType::new(
     @lib.SubType::comp_type(
@@ -7608,8 +7640,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 418)
-  @debug.assert_eq(stats.validated, 418)
+  @debug.assert_eq(stats.transformed, 419)
+  @debug.assert_eq(stats.validated, 419)
   assert_true(
     stats.transform_ids.contains(
       "add-leading-block-wrapped-i32-const-drop-to-defined-functions",
