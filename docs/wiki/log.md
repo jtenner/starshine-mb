@@ -1215,6 +1215,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Completed `[FUZ]1036L3` by adding a fixed-depth-three nested identity-block metamorphic-valid transform for defined function bodies with zero or one result. It wraps the original body in three value-preserving `block` layers using the function-result block type, preserving locals, body instruction order, result stacks, validation, and observable behavior.
 - Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 406 transforms per generated module, and kept focused `src/fuzz` validation green.
 
+## [2026-05-25] fuzzing | FUZ1036K6 duplicate equivalent memory transform
+
+- Completed `[FUZ]1036K6` by adding `add-duplicate-equivalent-memory`. The transform appends an unused memory equal to the first existing memory when available, or a fresh zero-length bounded memory fallback otherwise, without retargeting existing memory indices.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 421 transforms per generated module, and kept focused `src/fuzz` validation green.
+
 ## [2026-05-25] fuzzing | FUZ1036L2 loop-wrapped const/drop transforms
 
 - Completed `[FUZ]1036L2` by adding leading and trailing loop-wrapped `i32.const 0; drop` metamorphic-valid transforms. They place the simple constant/drop debris inside a void identity `loop`, preserving existing function result stacks and observable behavior while exercising stack-preserving loop-wrapper shapes around simple debris.

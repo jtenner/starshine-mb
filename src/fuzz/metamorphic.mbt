@@ -14,6 +14,7 @@ pub enum MetamorphicValidTransform {
   AddDuplicateEquivalentEmptyFunctionTypes
   AddDuplicateEquivalentScalarFunctionTypes
   AddUnusedFuncrefTable
+  AddDuplicateEquivalentMemory
   AddDuplicateEquivalentFuncrefTable
   AddUnusedPassiveFuncrefElementSegment
   ReshapePassiveElementSegments
@@ -447,6 +448,7 @@ pub fn metamorphic_valid_transform_id(
     AddDuplicateEquivalentScalarFunctionTypes =>
       "add-duplicate-equivalent-scalar-function-types"
     AddUnusedFuncrefTable => "add-unused-funcref-table"
+    AddDuplicateEquivalentMemory => "add-duplicate-equivalent-memory"
     AddDuplicateEquivalentFuncrefTable =>
       "add-duplicate-equivalent-funcref-table"
     AddUnusedPassiveFuncrefElementSegment =>
@@ -2201,6 +2203,26 @@ fn metamorphic_count_flat_types(rec_types : Array[@lib.RecType]) -> Int {
     }
   }
   count
+}
+
+///|
+fn metamorphic_add_duplicate_equivalent_memory(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let mems = []
+  match mod.mem_sec {
+    Some(@lib.MemSec(existing)) => {
+      for mem in existing {
+        mems.push(mem)
+      }
+      match existing.get(0) {
+        Some(mem) => mems.push(mem)
+        None => mems.push(@lib.MemType::new(@lib.Limits::i32(0U, Some(0U))))
+      }
+    }
+    None => mems.push(@lib.MemType::new(@lib.Limits::i32(0U, Some(0U))))
+  }
+  mod.with_mem_sec(@lib.MemSec::new(mems))
 }
 
 ///|
@@ -4622,6 +4644,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddDuplicateEquivalentEmptyFunctionTypes,
     AddDuplicateEquivalentScalarFunctionTypes,
     AddUnusedFuncrefTable,
+    AddDuplicateEquivalentMemory,
     AddDuplicateEquivalentFuncrefTable,
     AddUnusedPassiveFuncrefElementSegment,
     ReshapePassiveElementSegments,
@@ -5077,6 +5100,8 @@ pub fn metamorphic_apply_transform(
         [@lib.ValType::i64()],
       )
     AddUnusedFuncrefTable => metamorphic_add_unused_funcref_table(mod)
+    AddDuplicateEquivalentMemory =>
+      metamorphic_add_duplicate_equivalent_memory(mod)
     AddDuplicateEquivalentFuncrefTable =>
       metamorphic_add_duplicate_equivalent_funcref_table(mod)
     AddUnusedPassiveFuncrefElementSegment =>

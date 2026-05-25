@@ -1068,6 +1068,32 @@ test "metamorphic unused empty function-type transform preserves validation and 
 }
 
 ///|
+test "metamorphic duplicate equivalent memory transform appends unused matching memory" {
+  let original_memory = @lib.MemType::new(@lib.Limits::i32(1U, Some(2U)))
+  let base = @lib.Module::new().with_mem_sec(
+    @lib.MemSec::new([original_memory]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentMemory) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "add-duplicate-equivalent-memory")
+  match transformed.wasm_module.mem_sec {
+    Some(@lib.MemSec(mems)) => {
+      @debug.assert_eq(mems.length(), 2)
+      @debug.assert_eq(mems[0], original_memory)
+      @debug.assert_eq(mems[1], original_memory)
+    }
+    None => fail("expected transformed memories")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic duplicate equivalent table transform appends unused matching table" {
   let original_table = @lib.Table::new(
     @lib.TableType::new(
@@ -7675,8 +7701,9 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 420)
-  @debug.assert_eq(stats.validated, 420)
+  @debug.assert_eq(stats.transformed, 421)
+  @debug.assert_eq(stats.validated, 421)
+  assert_true(stats.transform_ids.contains("add-duplicate-equivalent-memory"))
   assert_true(
     stats.transform_ids.contains(
       "add-leading-block-wrapped-i32-const-drop-to-defined-functions",
