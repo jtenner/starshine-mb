@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1038C custom-section stress payloads
+
+- Completed `[FUZ]1038C` by widening the metamorphic `add-custom-section-stress` transform from four to eight unknown non-`name` custom sections, adding name-like, high-byte, repeated, and ASCII payload shapes alongside the existing empty, raw-byte, UTF-8-name, and long-payload cases.
+- Added focused roundtrip assertions in `src/fuzz/metamorphic_wbtest.mbt` and updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) to record the normalized-placement limitation and stronger payload-variety contract.
+
 ## [2026-05-25] fuzzing | FUZ1037E body-only const-expression invalid text fixtures
 
 - Completed `[FUZ]1037E` by adding inline `validate-invalid-text` strategies for body-only operators in constant-expression contexts: `local.get` in a global initializer, `i32.add` in an active data offset, and `i32.add` in an active element offset.

@@ -1313,6 +1313,30 @@ fn metamorphic_add_custom_section_stress(mod : @lib.Module) -> @lib.Module {
       b"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     ),
   )
+  custom_secs.push(
+    @lib.CustomSec::new(
+      @lib.Name::from_string("starshine.fuzz.after-header.empty-name-like"),
+      b"name\x00\x01payload-but-not-name-section",
+    ),
+  )
+  custom_secs.push(
+    @lib.CustomSec::new(
+      @lib.Name::from_string("starshine.fuzz.before-type.high-bytes"),
+      b"\xff\x00\x80\x7f\xfe\xfd\xfc\x00",
+    ),
+  )
+  custom_secs.push(
+    @lib.CustomSec::new(
+      @lib.Name::from_string("starshine.fuzz.before-import.repeat"),
+      b"repeat\x00repeat\x00repeat",
+    ),
+  )
+  custom_secs.push(
+    @lib.CustomSec::new(
+      @lib.Name::from_string("starshine.fuzz.before-code.ascii"),
+      b"legal custom section payload near core sections",
+    ),
+  )
   mod.with_custom_secs(custom_secs)
 }
 

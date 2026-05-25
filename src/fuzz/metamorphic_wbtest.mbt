@@ -123,7 +123,7 @@ test "metamorphic custom-section stress transform preserves varied payloads and 
   @debug.assert_eq(transformed.transform_id, "add-custom-section-stress")
   @debug.assert_eq(
     transformed.wasm_module.custom_secs.length(),
-    generated.wasm_module.custom_secs.length() + 4,
+    generated.wasm_module.custom_secs.length() + 8,
   )
   let first = generated.wasm_module.custom_secs.length()
   match transformed.wasm_module.custom_secs[first] {
@@ -154,6 +154,44 @@ test "metamorphic custom-section stress transform preserves varied payloads and 
         @lib.Name::from_string("starshine.fuzz.long-payload"),
       )
       @debug.assert_eq(payload.length(), 96)
+    }
+  }
+  match transformed.wasm_module.custom_secs[first + 4] {
+    @lib.CustomSec(name, payload) => {
+      @debug.assert_eq(
+        name,
+        @lib.Name::from_string("starshine.fuzz.after-header.empty-name-like"),
+      )
+      @debug.assert_eq(payload, b"name\x00\x01payload-but-not-name-section")
+    }
+  }
+  match transformed.wasm_module.custom_secs[first + 5] {
+    @lib.CustomSec(name, payload) => {
+      @debug.assert_eq(
+        name,
+        @lib.Name::from_string("starshine.fuzz.before-type.high-bytes"),
+      )
+      @debug.assert_eq(payload, b"\xff\x00\x80\x7f\xfe\xfd\xfc\x00")
+    }
+  }
+  match transformed.wasm_module.custom_secs[first + 6] {
+    @lib.CustomSec(name, payload) => {
+      @debug.assert_eq(
+        name,
+        @lib.Name::from_string("starshine.fuzz.before-import.repeat"),
+      )
+      @debug.assert_eq(payload, b"repeat\x00repeat\x00repeat")
+    }
+  }
+  match transformed.wasm_module.custom_secs[first + 7] {
+    @lib.CustomSec(name, payload) => {
+      @debug.assert_eq(
+        name,
+        @lib.Name::from_string("starshine.fuzz.before-code.ascii"),
+      )
+      @debug.assert_eq(
+        payload, b"legal custom section payload near core sections",
+      )
     }
   }
   match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
