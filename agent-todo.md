@@ -293,11 +293,10 @@ Execution rules for all DAE slices
   - Historical rules: no tests required if truly refactor-only and existing tests/fuzz prove behavior preservation; do not use refactors to sneak in new matcher breadth.
 
 - [SGO]004 - Nested Cleanup Runtime And Exact-Scheduler Experiment
-  - Status: deferred to v0.1.1; not a v0.1.0 blocker because the accepted nested lane is valid, smaller than Binaryen on the direct artifact, and inside the direct pass-local runtime floor.
-  - Goal: decide whether to optimize remaining nested cleanup wrapper overhead or intentionally restore more exact Binaryen default-function scheduler slots despite measured runtime cost.
-  - Resume when: a measured SGO-specific wall-time owner appears, the nested `vacuum` wrapper overhead becomes a concrete runtime target, or an artifact/code-size case demonstrates value from omitted nested default-function slots.
-  - Candidate work: reduce nested `vacuum` / lift-lower wrapper cost, add cheaper function-filtered adapters for currently module-shaped cleanup passes, or run a controlled exact-scheduler experiment with artifact and fuzz evidence.
-  - Deliverables when resumed: trace before/after nested timers, preserve validation and direct 10k SGO fuzz parity, and document whether the accepted artifact-tuned lane changes.
+  - Status: closed evidence-gated by the 0666 deferral audit; not an active backlog item without fresh scheduler evidence.
+  - Decision: keep the accepted nested cleanup lane as-is. It remains valid, smaller than Binaryen on the direct artifact, inside the direct pass-local runtime floor, and protected by source/test evidence for the current large-function and value-block/control safety filters.
+  - Reopen only when: a semantic mismatch or validation failure is attributable to nested cleanup scheduling, a targeted artifact/code-size case needs omitted exact Binaryen nested default-function slots, measured SGO-specific wall-time identifies nested wrapper overhead as the bottleneck, or a minimal verifier reproduction names a filter/HOT/lift-lower bug.
+  - Required future deliverables: trace before/after nested timers, preserve validation and direct 10k SGO fuzz parity, identify whether the fix lives in SGO scheduling, HOT lift/lower safety, or a nested cleanup pass, and document whether the accepted artifact-tuned lane changes.
 
 - [SGO]005 - Default-Local Compare Normalization
   - Status: deferred to v0.1.1 tooling/cosmetic follow-up; not a v0.1.0 correctness blocker.

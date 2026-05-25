@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO nested cleanup scheduler deferral audit
+
+- Added research note [`0666`](./raw/research/0666-2026-05-25-sgo-nested-cleanup-scheduler-deferral-audit.md) for `[SGO]004`, auditing whether the nested cleanup runtime / exact-scheduler experiment should remain active.
+- Closed `[SGO]004` as evidence-gated: the accepted SGO nested lane remains valid and within the pass-local runtime floor, current safety filters should not be lifted opportunistically, and future work needs a concrete mismatch, validation failure, artifact/code-size target, wall-time owner, or verifier reproduction.
+- No optimizer behavior changed and no direct SGO fuzz was required because this was docs/backlog-only.
+
 ## [2026-05-25] binaryen | SGO side-effect independence closeout
 
 - Added research note [`0665`](./raw/research/0665-2026-05-25-sgo-side-effect-independence-closeout.md) for `[SGO]003D3`, auditing all visible `[SGO]003D` follow-ups after 0644, 0661, 0662, 0663, and 0664.
