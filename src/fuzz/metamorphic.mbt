@@ -26,6 +26,8 @@ pub enum MetamorphicValidTransform {
   AddUnusedNumericLocalsToDefinedFunctions
   AddUnusedReferenceLocalsToDefinedFunctions
   AddUnusedV128LocalToDefinedFunctions
+  AddLeadingV128ConstDropToDefinedFunctions
+  AddTrailingV128ConstDropToDefinedFunctions
   AddUnusedGcReferenceLocalsToDefinedFunctions
   AddLeadingRefNullDropToDefinedFunctions
   AddTrailingRefNullDropToDefinedFunctions
@@ -320,6 +322,10 @@ pub fn metamorphic_valid_transform_id(
       "add-unused-reference-locals-to-defined-functions"
     AddUnusedV128LocalToDefinedFunctions =>
       "add-unused-v128-local-to-defined-functions"
+    AddLeadingV128ConstDropToDefinedFunctions =>
+      "add-leading-v128-const-drop-to-defined-functions"
+    AddTrailingV128ConstDropToDefinedFunctions =>
+      "add-trailing-v128-const-drop-to-defined-functions"
     AddUnusedGcReferenceLocalsToDefinedFunctions =>
       "add-unused-gc-reference-locals-to-defined-functions"
     AddLeadingRefNullDropToDefinedFunctions =>
@@ -1869,6 +1875,65 @@ fn metamorphic_add_unused_v128_local_to_defined_functions(
 }
 
 ///|
+fn metamorphic_v128_zero_const() -> @lib.Instruction {
+  @lib.Instruction::v128_const(
+    b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+  )
+}
+
+///|
+fn metamorphic_add_leading_v128_const_drop_to_defined_functions(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let funcs = []
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            let next_instrs = [
+              metamorphic_v128_zero_const(),
+              @lib.Instruction::drop(),
+            ]
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
+fn metamorphic_add_trailing_v128_const_drop_to_defined_functions(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let funcs = []
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            let next_instrs = []
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            next_instrs.push(metamorphic_v128_zero_const())
+            next_instrs.push(@lib.Instruction::drop())
+            funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
 fn metamorphic_add_unused_gc_reference_locals_to_defined_functions(
   mod : @lib.Module,
 ) -> @lib.Module {
@@ -3207,6 +3272,8 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddUnusedNumericLocalsToDefinedFunctions,
     AddUnusedReferenceLocalsToDefinedFunctions,
     AddUnusedV128LocalToDefinedFunctions,
+    AddLeadingV128ConstDropToDefinedFunctions,
+    AddTrailingV128ConstDropToDefinedFunctions,
     AddUnusedGcReferenceLocalsToDefinedFunctions,
     AddLeadingRefNullDropToDefinedFunctions,
     AddTrailingRefNullDropToDefinedFunctions,
@@ -3507,6 +3574,10 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_unused_reference_locals_to_defined_functions(mod)
     AddUnusedV128LocalToDefinedFunctions =>
       metamorphic_add_unused_v128_local_to_defined_functions(mod)
+    AddLeadingV128ConstDropToDefinedFunctions =>
+      metamorphic_add_leading_v128_const_drop_to_defined_functions(mod)
+    AddTrailingV128ConstDropToDefinedFunctions =>
+      metamorphic_add_trailing_v128_const_drop_to_defined_functions(mod)
     AddUnusedGcReferenceLocalsToDefinedFunctions =>
       metamorphic_add_unused_gc_reference_locals_to_defined_functions(mod)
     AddLeadingRefNullDropToDefinedFunctions =>

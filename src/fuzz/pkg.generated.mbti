@@ -533,6 +533,8 @@ pub enum MetamorphicValidTransform {
   AddUnusedNumericLocalsToDefinedFunctions
   AddUnusedReferenceLocalsToDefinedFunctions
   AddUnusedV128LocalToDefinedFunctions
+  AddLeadingV128ConstDropToDefinedFunctions
+  AddTrailingV128ConstDropToDefinedFunctions
   AddUnusedGcReferenceLocalsToDefinedFunctions
   AddLeadingRefNullDropToDefinedFunctions
   AddTrailingRefNullDropToDefinedFunctions

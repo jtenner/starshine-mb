@@ -2100,6 +2100,108 @@ test "metamorphic leading ref null drop transform preserves validation and binar
 }
 
 ///|
+test "metamorphic leading v128 const drop transform preserves validation and binary roundtrip" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+        ),
+      ]),
+    )
+  let transformed = match
+    metamorphic_apply_transform(base, AddLeadingV128ConstDropToDefinedFunctions) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-leading-v128-const-drop-to-defined-functions",
+  )
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(locals, @lib.Expr(instrs)) => {
+          @debug.assert_eq(locals, @lib.Locals::new([]))
+          @debug.assert_eq(instrs.length(), 3)
+          @debug.assert_eq(
+            instrs[0],
+            @lib.Instruction::v128_const(
+              b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+              b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+            ),
+          )
+          @debug.assert_eq(instrs[1], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[2], @lib.Instruction::i32_const(7))
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic trailing v128 const drop transform preserves validation and binary roundtrip" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+        ),
+      ]),
+    )
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddTrailingV128ConstDropToDefinedFunctions,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-trailing-v128-const-drop-to-defined-functions",
+  )
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          @debug.assert_eq(instrs.length(), 3)
+          @debug.assert_eq(instrs[0], @lib.Instruction::i32_const(7))
+          @debug.assert_eq(
+            instrs[1],
+            @lib.Instruction::v128_const(
+              b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+              b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+            ),
+          )
+          @debug.assert_eq(instrs[2], @lib.Instruction::drop())
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic leading i64 const drop transform preserves validation and binary roundtrip" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
@@ -5382,8 +5484,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 281)
-  @debug.assert_eq(stats.validated, 281)
+  @debug.assert_eq(stats.transformed, 283)
+  @debug.assert_eq(stats.validated, 283)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -5523,6 +5625,16 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   )
   assert_true(
     stats.transform_ids.contains("add-unused-v128-local-to-defined-functions"),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-leading-v128-const-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-trailing-v128-const-drop-to-defined-functions",
+    ),
   )
   assert_true(
     stats.transform_ids.contains(

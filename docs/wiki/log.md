@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1036G1 metamorphic SIMD const/drop body reshaping
+
+- Completed `[FUZ]1036G1` by adding leading/trailing `v128.const` zero/drop metamorphic-valid transforms. They insert a 16-byte zero SIMD constant followed by `drop` at the selected edge of every defined function body without changing locals, result stacks, validation, or observable behavior.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened the metamorphic smoke expectations to 283 transforms per generated module, and kept focused `src/fuzz` validation green.
+
 ## [2026-05-25] fuzzing | FUZ1036F2 metamorphic trunc-sat drop body reshaping
 
 - Completed `[FUZ]1036F2` by adding leading/trailing computed/drop transforms for all eight scalar saturating truncation opcodes (`i32`/`i64` from `f32`/`f64`, signed and unsigned). They insert finite `1.0` operands in representable ranges before the `trunc_sat` opcode and `drop`, preserving stack effects and observable behavior while exercising the `0xFC` scalar saturating conversion family.
