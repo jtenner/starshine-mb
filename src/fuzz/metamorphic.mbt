@@ -28,6 +28,24 @@ pub enum MetamorphicValidTransform {
   AddUnusedV128LocalToDefinedFunctions
   AddLeadingV128ConstDropToDefinedFunctions
   AddTrailingV128ConstDropToDefinedFunctions
+  AddLeadingV128NotDropToDefinedFunctions
+  AddTrailingV128NotDropToDefinedFunctions
+  AddLeadingI8x16AllTrueDropToDefinedFunctions
+  AddTrailingI8x16AllTrueDropToDefinedFunctions
+  AddLeadingI8x16BitmaskDropToDefinedFunctions
+  AddTrailingI8x16BitmaskDropToDefinedFunctions
+  AddLeadingI16x8AllTrueDropToDefinedFunctions
+  AddTrailingI16x8AllTrueDropToDefinedFunctions
+  AddLeadingI16x8BitmaskDropToDefinedFunctions
+  AddTrailingI16x8BitmaskDropToDefinedFunctions
+  AddLeadingI32x4AllTrueDropToDefinedFunctions
+  AddTrailingI32x4AllTrueDropToDefinedFunctions
+  AddLeadingI32x4BitmaskDropToDefinedFunctions
+  AddTrailingI32x4BitmaskDropToDefinedFunctions
+  AddLeadingI64x2AllTrueDropToDefinedFunctions
+  AddTrailingI64x2AllTrueDropToDefinedFunctions
+  AddLeadingI64x2BitmaskDropToDefinedFunctions
+  AddTrailingI64x2BitmaskDropToDefinedFunctions
   AddUnusedGcReferenceLocalsToDefinedFunctions
   AddLeadingRefNullDropToDefinedFunctions
   AddTrailingRefNullDropToDefinedFunctions
@@ -326,6 +344,42 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-v128-const-drop-to-defined-functions"
     AddTrailingV128ConstDropToDefinedFunctions =>
       "add-trailing-v128-const-drop-to-defined-functions"
+    AddLeadingV128NotDropToDefinedFunctions =>
+      "add-leading-v128-not-drop-to-defined-functions"
+    AddTrailingV128NotDropToDefinedFunctions =>
+      "add-trailing-v128-not-drop-to-defined-functions"
+    AddLeadingI8x16AllTrueDropToDefinedFunctions =>
+      "add-leading-i8x16-all-true-drop-to-defined-functions"
+    AddTrailingI8x16AllTrueDropToDefinedFunctions =>
+      "add-trailing-i8x16-all-true-drop-to-defined-functions"
+    AddLeadingI8x16BitmaskDropToDefinedFunctions =>
+      "add-leading-i8x16-bitmask-drop-to-defined-functions"
+    AddTrailingI8x16BitmaskDropToDefinedFunctions =>
+      "add-trailing-i8x16-bitmask-drop-to-defined-functions"
+    AddLeadingI16x8AllTrueDropToDefinedFunctions =>
+      "add-leading-i16x8-all-true-drop-to-defined-functions"
+    AddTrailingI16x8AllTrueDropToDefinedFunctions =>
+      "add-trailing-i16x8-all-true-drop-to-defined-functions"
+    AddLeadingI16x8BitmaskDropToDefinedFunctions =>
+      "add-leading-i16x8-bitmask-drop-to-defined-functions"
+    AddTrailingI16x8BitmaskDropToDefinedFunctions =>
+      "add-trailing-i16x8-bitmask-drop-to-defined-functions"
+    AddLeadingI32x4AllTrueDropToDefinedFunctions =>
+      "add-leading-i32x4-all-true-drop-to-defined-functions"
+    AddTrailingI32x4AllTrueDropToDefinedFunctions =>
+      "add-trailing-i32x4-all-true-drop-to-defined-functions"
+    AddLeadingI32x4BitmaskDropToDefinedFunctions =>
+      "add-leading-i32x4-bitmask-drop-to-defined-functions"
+    AddTrailingI32x4BitmaskDropToDefinedFunctions =>
+      "add-trailing-i32x4-bitmask-drop-to-defined-functions"
+    AddLeadingI64x2AllTrueDropToDefinedFunctions =>
+      "add-leading-i64x2-all-true-drop-to-defined-functions"
+    AddTrailingI64x2AllTrueDropToDefinedFunctions =>
+      "add-trailing-i64x2-all-true-drop-to-defined-functions"
+    AddLeadingI64x2BitmaskDropToDefinedFunctions =>
+      "add-leading-i64x2-bitmask-drop-to-defined-functions"
+    AddTrailingI64x2BitmaskDropToDefinedFunctions =>
+      "add-trailing-i64x2-bitmask-drop-to-defined-functions"
     AddUnusedGcReferenceLocalsToDefinedFunctions =>
       "add-unused-gc-reference-locals-to-defined-functions"
     AddLeadingRefNullDropToDefinedFunctions =>
@@ -1957,6 +2011,19 @@ fn metamorphic_add_unused_gc_reference_locals_to_defined_functions(
 }
 
 ///|
+fn metamorphic_add_v128_unary_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+  unary : @lib.Instruction,
+) -> @lib.Module {
+  metamorphic_add_unary_drop_to_defined_functions(mod, leading, [
+    metamorphic_v128_zero_const(),
+    unary,
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
 fn metamorphic_add_leading_ref_null_drop_to_defined_functions(
   mod : @lib.Module,
 ) -> @lib.Module {
@@ -3274,6 +3341,24 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddUnusedV128LocalToDefinedFunctions,
     AddLeadingV128ConstDropToDefinedFunctions,
     AddTrailingV128ConstDropToDefinedFunctions,
+    AddLeadingV128NotDropToDefinedFunctions,
+    AddTrailingV128NotDropToDefinedFunctions,
+    AddLeadingI8x16AllTrueDropToDefinedFunctions,
+    AddTrailingI8x16AllTrueDropToDefinedFunctions,
+    AddLeadingI8x16BitmaskDropToDefinedFunctions,
+    AddTrailingI8x16BitmaskDropToDefinedFunctions,
+    AddLeadingI16x8AllTrueDropToDefinedFunctions,
+    AddTrailingI16x8AllTrueDropToDefinedFunctions,
+    AddLeadingI16x8BitmaskDropToDefinedFunctions,
+    AddTrailingI16x8BitmaskDropToDefinedFunctions,
+    AddLeadingI32x4AllTrueDropToDefinedFunctions,
+    AddTrailingI32x4AllTrueDropToDefinedFunctions,
+    AddLeadingI32x4BitmaskDropToDefinedFunctions,
+    AddTrailingI32x4BitmaskDropToDefinedFunctions,
+    AddLeadingI64x2AllTrueDropToDefinedFunctions,
+    AddTrailingI64x2AllTrueDropToDefinedFunctions,
+    AddLeadingI64x2BitmaskDropToDefinedFunctions,
+    AddTrailingI64x2BitmaskDropToDefinedFunctions,
     AddUnusedGcReferenceLocalsToDefinedFunctions,
     AddLeadingRefNullDropToDefinedFunctions,
     AddTrailingRefNullDropToDefinedFunctions,
@@ -3578,6 +3663,114 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_leading_v128_const_drop_to_defined_functions(mod)
     AddTrailingV128ConstDropToDefinedFunctions =>
       metamorphic_add_trailing_v128_const_drop_to_defined_functions(mod)
+    AddLeadingV128NotDropToDefinedFunctions =>
+      metamorphic_add_v128_unary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::v128_not(),
+      )
+    AddTrailingV128NotDropToDefinedFunctions =>
+      metamorphic_add_v128_unary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::v128_not(),
+      )
+    AddLeadingI8x16AllTrueDropToDefinedFunctions =>
+      metamorphic_add_v128_unary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i8x16_all_true(),
+      )
+    AddTrailingI8x16AllTrueDropToDefinedFunctions =>
+      metamorphic_add_v128_unary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i8x16_all_true(),
+      )
+    AddLeadingI8x16BitmaskDropToDefinedFunctions =>
+      metamorphic_add_v128_unary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i8x16_bitmask(),
+      )
+    AddTrailingI8x16BitmaskDropToDefinedFunctions =>
+      metamorphic_add_v128_unary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i8x16_bitmask(),
+      )
+    AddLeadingI16x8AllTrueDropToDefinedFunctions =>
+      metamorphic_add_v128_unary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i16x8_all_true(),
+      )
+    AddTrailingI16x8AllTrueDropToDefinedFunctions =>
+      metamorphic_add_v128_unary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i16x8_all_true(),
+      )
+    AddLeadingI16x8BitmaskDropToDefinedFunctions =>
+      metamorphic_add_v128_unary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i16x8_bitmask(),
+      )
+    AddTrailingI16x8BitmaskDropToDefinedFunctions =>
+      metamorphic_add_v128_unary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i16x8_bitmask(),
+      )
+    AddLeadingI32x4AllTrueDropToDefinedFunctions =>
+      metamorphic_add_v128_unary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i32x4_all_true(),
+      )
+    AddTrailingI32x4AllTrueDropToDefinedFunctions =>
+      metamorphic_add_v128_unary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i32x4_all_true(),
+      )
+    AddLeadingI32x4BitmaskDropToDefinedFunctions =>
+      metamorphic_add_v128_unary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i32x4_bitmask(),
+      )
+    AddTrailingI32x4BitmaskDropToDefinedFunctions =>
+      metamorphic_add_v128_unary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i32x4_bitmask(),
+      )
+    AddLeadingI64x2AllTrueDropToDefinedFunctions =>
+      metamorphic_add_v128_unary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i64x2_all_true(),
+      )
+    AddTrailingI64x2AllTrueDropToDefinedFunctions =>
+      metamorphic_add_v128_unary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i64x2_all_true(),
+      )
+    AddLeadingI64x2BitmaskDropToDefinedFunctions =>
+      metamorphic_add_v128_unary_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i64x2_bitmask(),
+      )
+    AddTrailingI64x2BitmaskDropToDefinedFunctions =>
+      metamorphic_add_v128_unary_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i64x2_bitmask(),
+      )
     AddUnusedGcReferenceLocalsToDefinedFunctions =>
       metamorphic_add_unused_gc_reference_locals_to_defined_functions(mod)
     AddLeadingRefNullDropToDefinedFunctions =>
