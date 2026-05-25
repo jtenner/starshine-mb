@@ -337,6 +337,77 @@ test "metamorphic tag-names transform preserves validation and binary roundtrip"
 }
 
 ///|
+test "metamorphic field-names transform preserves validation and binary roundtrip" {
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Const,
+        ),
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i64()),
+          @lib.Var,
+        ),
+      ]),
+    ),
+  )
+  let array_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Var,
+        ),
+      ),
+    ),
+  )
+  let base = @lib.Module::new().with_type_sec(
+    @lib.TypeSec::new([struct_type, array_type]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(base, AddFieldNamesSection) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "add-field-names-section")
+  match transformed.wasm_module.name_sec {
+    Some(name_sec) =>
+      match name_sec.field_names {
+        Some(@lib.IndirectNameMap(entries)) => {
+          @debug.assert_eq(entries.length(), 1)
+          match entries[0] {
+            @lib.IndirectNameAssoc(type_idx, @lib.NameMap(field_entries)) => {
+              @debug.assert_eq(type_idx, 0U)
+              @debug.assert_eq(field_entries.length(), 2)
+              @debug.assert_eq(
+                field_entries[0],
+                @lib.NameAssoc::new(
+                  0U,
+                  @lib.Name::from_string("metamorphic_field_0_0"),
+                ),
+              )
+              @debug.assert_eq(
+                field_entries[1],
+                @lib.NameAssoc::new(
+                  1U,
+                  @lib.Name::from_string("metamorphic_field_0_1"),
+                ),
+              )
+            }
+          }
+        }
+        None => fail("expected transformed field names")
+      }
+    None => fail("expected transformed name section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic elem-names transform preserves validation and binary roundtrip" {
   let generated = match
     gen_valid_module_result_from_seed(
@@ -995,8 +1066,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 18)
-  @debug.assert_eq(stats.validated, 18)
+  @debug.assert_eq(stats.transformed, 19)
+  @debug.assert_eq(stats.validated, 19)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -1019,4 +1090,5 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(stats.transform_ids.contains("add-data-names-section"))
   assert_true(stats.transform_ids.contains("add-elem-names-section"))
   assert_true(stats.transform_ids.contains("add-tag-names-section"))
+  assert_true(stats.transform_ids.contains("add-field-names-section"))
 }

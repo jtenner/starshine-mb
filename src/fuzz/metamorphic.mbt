@@ -18,6 +18,7 @@ pub enum MetamorphicValidTransform {
   AddDataNamesSection
   AddElemNamesSection
   AddTagNamesSection
+  AddFieldNamesSection
 } derive(Eq, Debug)
 
 ///|
@@ -44,6 +45,7 @@ pub fn metamorphic_valid_transform_id(
     AddDataNamesSection => "add-data-names-section"
     AddElemNamesSection => "add-elem-names-section"
     AddTagNamesSection => "add-tag-names-section"
+    AddFieldNamesSection => "add-field-names-section"
   }
 }
 
@@ -333,6 +335,32 @@ fn metamorphic_with_name_sec_tag_names(
 }
 
 ///|
+fn metamorphic_with_name_sec_field_names(
+  mod : @lib.Module,
+  field_names : @lib.IndirectNameMap,
+) -> @lib.Module {
+  let name_sec = match mod.name_sec {
+    Some(existing) =>
+      @lib.NameSec::new(
+        module_name=existing.module_name,
+        func_names=existing.func_names,
+        local_names=existing.local_names,
+        label_names=existing.label_names,
+        type_names=existing.type_names,
+        table_names=existing.table_names,
+        memory_names=existing.memory_names,
+        global_names=existing.global_names,
+        elem_names=existing.elem_names,
+        data_names=existing.data_names,
+        field_names=Some(field_names),
+        tag_names=existing.tag_names,
+      )
+    None => @lib.NameSec::new(field_names=Some(field_names))
+  }
+  mod.with_name_sec(name_sec)
+}
+
+///|
 fn metamorphic_add_module_name_section(mod : @lib.Module) -> @lib.Module {
   mod.with_name_sec(
     @lib.NameSec::new(
@@ -579,6 +607,39 @@ fn metamorphic_add_tag_names_section(mod : @lib.Module) -> @lib.Module {
     )
   }
   metamorphic_with_name_sec_tag_names(mod, @lib.NameMap::new(names))
+}
+
+///|
+fn metamorphic_add_field_names_section(mod : @lib.Module) -> @lib.Module {
+  let entries : Array[@lib.IndirectNameAssoc] = []
+  let subtypes = metamorphic_flatten_types(mod)
+  for type_idx = 0; type_idx < subtypes.length(); type_idx = type_idx + 1 {
+    match subtypes[type_idx].get_comptype() {
+      @lib.StructCompType(fields) => {
+        let field_entries : Array[@lib.NameAssoc] = []
+        for field_idx = 0
+            field_idx < fields.length()
+            field_idx = field_idx + 1 {
+          field_entries.push(
+            @lib.NameAssoc::new(
+              field_idx.reinterpret_as_uint(),
+              @lib.Name::from_string(
+                "metamorphic_field_\{type_idx}_\{field_idx}",
+              ),
+            ),
+          )
+        }
+        entries.push(
+          @lib.IndirectNameAssoc::new(
+            type_idx.reinterpret_as_uint(),
+            @lib.NameMap::new(field_entries),
+          ),
+        )
+      }
+      _ => ()
+    }
+  }
+  metamorphic_with_name_sec_field_names(mod, @lib.IndirectNameMap::new(entries))
 }
 
 ///|
@@ -829,6 +890,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddDataNamesSection,
     AddElemNamesSection,
     AddTagNamesSection,
+    AddFieldNamesSection,
   ]
 }
 
@@ -861,6 +923,7 @@ pub fn metamorphic_apply_transform(
     AddDataNamesSection => metamorphic_add_data_names_section(mod)
     AddElemNamesSection => metamorphic_add_elem_names_section(mod)
     AddTagNamesSection => metamorphic_add_tag_names_section(mod)
+    AddFieldNamesSection => metamorphic_add_field_names_section(mod)
   }
   match validate_module(transformed) {
     Ok(_) =>
