@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-25] passes | dae DAE006 Func505 frontier classification
+
+- Classified the current both-canonical DAE frontier at `.tmp/dae-func504-tail-control-artifact`, `defined=505 abs=522`, in [`raw/research/0576-2026-05-25-dae-func505-frontier-classification.md`](raw/research/0576-2026-05-25-dae-func505-frontier-classification.md).
+- Agent classification: unknown/risky output-shape drift, not a safe compare-layer-only normalizer candidate yet. The function signatures match, but the live loop induction, digit/error guard, accumulator bounds check, high-temp carrier, and dropped-zero debris differences need a reduced WAT/Moon fixture before pass logic or tooling changes.
+- No pass behavior changed; `[DAE]006` remains open with the next step narrowed to reduction and source attribution for the Func505 loop/local cleanup frontier.
+- Validation for this docs/classification-only slice: `git diff --check`, `wasm-opt --all-features` on the saved Starshine and Binaryen artifact outputs, `moon info` (existing DAE unused-helper warnings only), `moon fmt`, and `moon test`.
+
 ## [2026-05-25] passes | dae DAE014 backlog frontier sync
 
 - Completed a DAE014 recovery/documentation slice by syncing the active `[DAE]006` backlog item with the current strategy/log truth: the both-canonical frontier is now `.tmp/dae-func504-tail-control-artifact` at `defined=505 abs=522`, not the superseded `.tmp/dae-func504-selected5-artifact` Func504 caller-local/control frontier.

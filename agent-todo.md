@@ -80,7 +80,7 @@ Completed direct-pass slices
 Current checkpoints
 - Direct semantic baseline: `[DAE]001` is accepted. Keep it closed unless a new semantic mismatch, validation failure, or escaped-call correctness issue is reproduced.
 - Default raw debug-artifact helper: still first-diffs at `defined=336 abs=353` from raw type-section/type-index representation drift (`type $10/$2` versus `type $9/$1`). Do not treat this as a Func408 body issue.
-- Both-canonical diagnostic helper: `scripts/self-optimize-compare.ts --canonicalize-binaryen-output --dae-optimizing` currently first-diffs at `defined=505 abs=522` in `.tmp/dae-func504-tail-control-artifact`, after a diagnostic-only Func504 normalizer classified the remaining Func504 body as representation-only tail-control/unreachable-allocation drift around the now-specialized `Func3816`/`Func524`/`Func522` family. The new Func505 frontier needs classification.
+- Both-canonical diagnostic helper: `scripts/self-optimize-compare.ts --canonicalize-binaryen-output --dae-optimizing` currently first-diffs at `defined=505 abs=522` in `.tmp/dae-func504-tail-control-artifact`, after a diagnostic-only Func504 normalizer classified the remaining Func504 body as representation-only tail-control/unreachable-allocation drift around the now-specialized `Func3816`/`Func524`/`Func522` family. Research note `0576` classifies the new Func505 frontier as unknown/risky output-shape drift, not safe compare-layer-only normalization yet.
 - Latest diagnostic timing is over the 2x target after correctness-first Func504 tail-control classification: `2749.652ms` Starshine pass versus `896.944ms` Binaryen pass for `.tmp/dae-func504-tail-control-artifact`. Per user direction, keep prioritizing correctness/frontier classification over pass time for now.
 - Latest validation before commit `0196531d`: script compare tests, `wasm-opt --all-features .tmp/dae-func447-normalized-artifact/starshine.wasm`, `git diff --check`, `moon info`, `moon fmt`, and `moon test` all passed; `moon info` still reports existing unused DAE helper warnings.
 - `[DAE]007` compare-tool normalization hygiene is closed for the current diagnostic helper: the canonical-function fallback now uses an explicit ordered normalizer list instead of a deeply nested call chain, with a diagnostic-only comment at the artifact-family cleanup point and unchanged fixture coverage.
@@ -152,9 +152,12 @@ Execution rules for all DAE slices
 
 - [DAE]006 - Both-Canonical Frontier Advancement
   - Goal: continue the diagnostic both-canonical frontier from current `defined=505 abs=522`.
+  - Current classification:
+    - `0576-2026-05-25-dae-func505-frontier-classification.md` inspected `.tmp/dae-func504-tail-control-artifact/func-defined505-abs522.*` and classifies the frontier as unknown/risky current DAE output-shape drift: signatures match, but the loop induction, digit/error guard, accumulator bounds check, high-temp carrier, and dropped-zero debris differences are too broad and live to normalize away from artifact evidence alone.
   - Next action:
-    - Inspect `.tmp/dae-func504-tail-control-artifact/func-defined505-abs522.binaryen.pretty.txt` and `.starshine.pretty.txt` plus the `.wat` diff; the previous Func504 caller-local/control cleanup is closed as compare-layer tail-control/unreachable-allocation drift, so focus on the new Func505 loop/local cleanup frontier.
-    - Classify before coding: compare-layer representation drift, true DAE output mismatch, type/signature drift, validation/tool issue, or unknown/risky.
+    - Reduce Func505 into a focused WAT/Moon fixture before changing pass logic; preserve the loop-carrier and digit/error branch shape rather than the whole artifact function.
+    - Split whether the diff comes from DAE raw/local-copy cleanup, touched nested cleanup scheduling, or HOT lowering after DAE rewrites.
+    - If reduction proves semantic-equivalent local/control cleanup, implement a pass-side cleanup with TDD; if it proves a true condition/local-carrier mismatch, add the smallest regression and repair the pass.
   - Deliverables:
     - For representation-only drift, add a narrow script fixture and diagnostic-only normalizer.
     - For real DAE drift, add a focused Moon regression where practical and implement the smallest safe selected or generalized pass change.
