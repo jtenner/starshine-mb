@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1043B initial reduction backends
+
+- Completed `[FUZ]1043B` by adding reusable script-side reducers for module-field deletion, raw byte-slice deletion, and WAT/WAST-like token deletion. Each reducer accepts a caller-owned reproduction predicate and only keeps deletions that preserve that predicate.
+- Added [`fuzzing/reduction-backends.md`](fuzzing/reduction-backends.md) and indexed it so future fuzz, pass-fuzz, and invalid-fuzz reduction work can share the same backend contract.
+
 ## [2026-05-25] fuzzing | FUZ1036D metamorphic signed integer le/ge drop body reshaping
 
 - Continued `[FUZ]1036D` by adding the leading/trailing i32/i64 signed `le` and `ge` computed/drop metamorphic-valid transforms. They insert pure integer `const 0; const 0; le_s/ge_s; drop` stacks at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate transformed modules, and raise the active registry to 161 transforms per generated module.
