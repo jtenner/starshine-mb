@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO full-parity backlog reactivation
+
+- Added research note [`0674`](./raw/research/0674-2026-05-25-sgo-full-parity-backlog-reactivation.md) to document the cron recovery decision to keep the in-progress `agent-todo.md` edit that reactivates full Binaryen `SimplifyGlobals.cpp` parity as a v0.1.0 product-goal backlog.
+- Updated the SGO parity matrix and port-readiness page to keep the accepted 0573 supported-surface signoff distinct from the newly active full-parity backlog; `[SGO]003A` source/fact-table audit is the next child.
+- No optimizer behavior, tests, registry entries, or public APIs changed; Moon/fuzz validation was not required for this docs/backlog-only recovery.
+
 ## [2026-05-25] binaryen | SGO003 call breadth closeout
 
 - Added research note [`0673`](./raw/research/0673-2026-05-25-sgo003-call-breadth-closeout.md) to close the currently enumerated `[SGO]003` / `[SGO]003E2` active queue as evidence-gated after the direct-call read/write summary and constant-argument guardrail slices.
