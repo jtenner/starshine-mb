@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1036I2 metamorphic i31 get drop body reshaping
+
+- Completed `[FUZ]1036I2` by adding leading/trailing `i32.const 31; ref.i31; i31.get_s/u; drop` metamorphic-valid transforms. They use a constant scalar and freshly constructed non-null i31 reference so signed and unsigned gets are nontrapping, then drop the computed `i32` without changing locals, result stacks, validation, or observable behavior.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 381 transforms per generated module, and kept focused `src/fuzz` validation green.
+
 ## [2026-05-25] fuzzing | FUZ1036I1 metamorphic ref-null is-null drop body reshaping
 
 - Completed `[FUZ]1036I1` by adding leading/trailing `ref.null extern; ref.is_null; drop` metamorphic-valid transforms. They insert a nullable reference null, compute a nontrapping null test, and drop the `i32` result at the selected edge of every defined function body without changing locals, result stacks, validation, or observable behavior.
