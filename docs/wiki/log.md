@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1051A recipe schema core
+
+- Completed `[FUZ]1051A` by adding the initial `FuzzRecipe` model, `parse_fuzz_recipe_text` core `key=value` schema parser, and `parse_fuzz_cli_args_with_recipe` default layering so explicit CLI flags override recipe defaults predictably.
+- Added [`fuzzing/recipe-schema.md`](fuzzing/recipe-schema.md) to document required/optional keys, comment handling, fail-fast unknown-key behavior, and the reserved `--recipe` lookup flag for the follow-up standard recipe catalog.
+
 ## [2026-05-25] fuzzing | FUZ1036D metamorphic f32.abs drop body reshaping
 
 - Continued `[FUZ]1036D` by adding the `add-leading-f32-abs-drop-to-defined-functions` and `add-trailing-f32-abs-drop-to-defined-functions` metamorphic-valid transforms. They insert a pure `f32.const 0; f32.abs; drop` stack at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate the transformed modules, and report the new transform ids through `validate-valid-metamorphic` details.

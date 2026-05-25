@@ -315,6 +315,51 @@ test "format_fuzz_run_report_json includes detailed suite ledgers" {
 }
 
 ///|
+test "parse_fuzz_recipe_text parses core key value schema" {
+  let recipe = match
+    parse_fuzz_recipe_text(
+      "# standard smoke\nname=smoke\nsuite=validate-valid\nprofile=ci\nseed=0x5eed\nseed-count=4\nshard-count=2\noutput=jsonl\n",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(recipe.name, "smoke")
+  @debug.assert_eq(recipe.suite, "validate-valid")
+  @debug.assert_eq(recipe.profile, "ci")
+  @debug.assert_eq(recipe.seed_i64, 0x5eedL)
+  @debug.assert_eq(recipe.seed_count, 4)
+  @debug.assert_eq(recipe.shard_count, 2)
+  match recipe.output_mode {
+    Jsonl => ()
+    _ => fail("expected jsonl recipe output")
+  }
+}
+
+///|
+test "parse_fuzz_cli_args applies recipe defaults before cli overrides" {
+  let recipe = match
+    parse_fuzz_recipe_text(
+      "name=ci\nsuite=validate-valid\nprofile=ci\nseed=0x10\nseed-count=8\nshard-count=4\noutput=jsonl\n",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let parsed = parse_fuzz_cli_args_with_recipe(
+    ["--recipe", "ci", "--profile=stress", "--seed-count=2", "--output=text"],
+    Some(recipe),
+  )
+  @debug.assert_eq(parsed.suite, "validate-valid")
+  @debug.assert_eq(parsed.profile, "stress")
+  @debug.assert_eq(parsed.seed_i64, 0x10L)
+  @debug.assert_eq(parsed.seed_count, 2)
+  @debug.assert_eq(parsed.shard_count, 4)
+  match parsed.output_mode {
+    Text => ()
+    _ => fail("expected cli output override")
+  }
+}
+
+///|
 test "parse_fuzz_cli_command detects control commands" {
   match parse_fuzz_cli_command(["--help"]) {
     Help => ()

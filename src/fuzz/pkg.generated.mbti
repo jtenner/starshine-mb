@@ -81,7 +81,11 @@ pub fn metamorphic_valid_transform_id(MetamorphicValidTransform) -> String
 
 pub fn parse_fuzz_cli_args(Array[String]) -> FuzzCliArgs
 
+pub fn parse_fuzz_cli_args_with_recipe(Array[String], FuzzRecipe?) -> FuzzCliArgs
+
 pub fn parse_fuzz_cli_command(Array[String]) -> FuzzCliCommand
+
+pub fn parse_fuzz_recipe_text(String) -> Result[FuzzRecipe, String]
 
 pub fn parse_gen_valid_batch_manifest_stream_derivations(String) -> Result[Array[GenValidStreamDerivation], String]
 
@@ -214,6 +218,17 @@ pub enum FuzzOutputMode {
   Text
   Jsonl
 } derive(Eq, @debug.Debug)
+
+pub struct FuzzRecipe {
+  name : String
+  suite : String
+  profile : String
+  seed_i64 : Int64
+  output_mode : FuzzOutputMode
+  seed_count : Int
+  shard_count : Int
+} derive(Eq, @debug.Debug)
+pub fn FuzzRecipe::new(String, String, String, Int64, output_mode? : FuzzOutputMode, seed_count? : Int, shard_count? : Int) -> Self
 
 pub struct FuzzSuiteResult {
   suite : String

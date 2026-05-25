@@ -18,6 +18,30 @@ pub struct FuzzCliArgs {
 } derive(Eq, Debug)
 
 ///|
+pub struct FuzzRecipe {
+  name : String
+  suite : String
+  profile : String
+  seed_i64 : Int64
+  output_mode : FuzzOutputMode
+  seed_count : Int
+  shard_count : Int
+} derive(Eq, Debug)
+
+///|
+pub fn FuzzRecipe::new(
+  name : String,
+  suite : String,
+  profile : String,
+  seed_i64 : Int64,
+  output_mode? : FuzzOutputMode = FuzzOutputMode::Text,
+  seed_count? : Int = 1,
+  shard_count? : Int = 1,
+) -> FuzzRecipe {
+  { name, suite, profile, seed_i64, output_mode, seed_count, shard_count }
+}
+
+///|
 pub struct EmitGenValidBatchArgs {
   count : Int
   seed : UInt64
@@ -170,7 +194,7 @@ pub fn fuzz_usage_text() -> String {
     fuzz_join(reserved, ", ")
   }
   let profiles = fuzz_join(fuzz_profile_names(), ", ")
-  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--seed <int64>|--seed=<int64>] [--seed-count <n>] [--shard-index <i> --shard-count <n>] [--report-json <path>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> [--manifest <path>] (portable coverage-forced batch) | --emit-invalid-repro --suite <suite|ast|binary|text|spec-seed> --strategy <stable-id> --seed <uint64> --attempt <n> --out-dir <dir> [--profile <name>]\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}"
+  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--recipe <name>] [--suite <name>] [--profile <name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>] [--shard-index <i> --shard-count <n>] [--report-json <path>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> [--manifest <path>] (portable coverage-forced batch) | --emit-invalid-repro --suite <suite|ast|binary|text|spec-seed> --strategy <stable-id> --seed <uint64> --attempt <n> --out-dir <dir> [--profile <name>]\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}"
 }
 
 ///|
@@ -1167,7 +1191,110 @@ pub fn parse_fuzz_cli_command(args : Array[String]) -> FuzzCliCommand {
 }
 
 ///|
+pub fn parse_fuzz_recipe_text(text : String) -> Result[FuzzRecipe, String] {
+  let mut name : String? = None
+  let mut suite : String? = None
+  let mut profile : String? = None
+  let mut seed : Int64? = None
+  let mut output_mode : FuzzOutputMode? = None
+  let mut seed_count : Int? = None
+  let mut shard_count : Int? = None
+  for raw_line in text.split("\n") {
+    let line = raw_line.trim().to_owned()
+    if line.length() == 0 || line[0] == '#' {
+      continue
+    }
+    let parts : Array[String] = []
+    for part in line.split("=") {
+      parts.push(part.to_owned())
+    }
+    if parts.length() != 2 {
+      return Err("recipe lines must be key=value: \{line}")
+    }
+    let key = fuzz_ascii_lower(parts[0].trim().to_owned())
+    let value = parts[1].trim().to_owned()
+    match key {
+      "name" => name = Some(value)
+      "suite" => suite = Some(fuzz_ascii_lower(value))
+      "profile" => profile = Some(fuzz_ascii_lower(value))
+      "seed" =>
+        match fuzz_parse_seed(value) {
+          Ok(v) => seed = Some(v)
+          Err(e) => return Err(e)
+        }
+      "output" =>
+        match fuzz_parse_output_mode(value) {
+          Ok(v) => output_mode = Some(v)
+          Err(e) => return Err(e)
+        }
+      "seed-count" =>
+        seed_count = Some(
+          fuzz_parse_non_negative_decimal_or_abort("seed-count", value),
+        )
+      "shard-count" =>
+        shard_count = Some(
+          fuzz_parse_non_negative_decimal_or_abort("shard-count", value),
+        )
+      _ => return Err("unknown recipe key '\{key}'")
+    }
+  }
+  let resolved_name = match name {
+    Some(v) => v
+    None => return Err("recipe missing name")
+  }
+  let resolved_suite = match suite {
+    Some(v) => v
+    None => return Err("recipe missing suite")
+  }
+  let resolved_profile = match profile {
+    Some(v) => v
+    None => "smoke"
+  }
+  let resolved_seed = match seed {
+    Some(v) => v
+    None => 0L
+  }
+  let resolved_output = match output_mode {
+    Some(v) => v
+    None => FuzzOutputMode::Text
+  }
+  let resolved_seed_count = match seed_count {
+    Some(v) => v
+    None => 1
+  }
+  let resolved_shard_count = match shard_count {
+    Some(v) => v
+    None => 1
+  }
+  if resolved_seed_count <= 0 {
+    return Err("seed-count must be greater than zero")
+  }
+  if resolved_shard_count <= 0 {
+    return Err("shard-count must be greater than zero")
+  }
+  Ok(
+    FuzzRecipe::new(
+      resolved_name,
+      resolved_suite,
+      resolved_profile,
+      resolved_seed,
+      output_mode=resolved_output,
+      seed_count=resolved_seed_count,
+      shard_count=resolved_shard_count,
+    ),
+  )
+}
+
+///|
 pub fn parse_fuzz_cli_args(args : Array[String]) -> FuzzCliArgs {
+  parse_fuzz_cli_args_with_recipe(args, None)
+}
+
+///|
+pub fn parse_fuzz_cli_args_with_recipe(
+  args : Array[String],
+  recipe : FuzzRecipe?,
+) -> FuzzCliArgs {
   let positional : Array[String] = []
   let mut flag_seed : Int64? = None
   let mut output_mode : FuzzOutputMode? = None
@@ -1175,9 +1302,60 @@ pub fn parse_fuzz_cli_args(args : Array[String]) -> FuzzCliArgs {
   let mut shard_index : Int? = None
   let mut shard_count : Int? = None
   let mut report_json_path : String? = None
+  let mut flag_suite : String? = None
+  let mut flag_profile : String? = None
   let mut i = 0
   while i < args.length() {
     let arg = args[i].trim().to_owned()
+    if arg == "--recipe" {
+      if i + 1 >= args.length() {
+        abort("missing value for --recipe")
+      }
+      i += 2
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--recipe=") {
+      i += 1
+      continue
+    }
+    if arg == "--suite" {
+      if i + 1 >= args.length() {
+        abort("missing value for --suite")
+      }
+      if flag_suite is Some(_) {
+        abort("duplicate --suite flag")
+      }
+      flag_suite = Some(fuzz_ascii_lower(args[i + 1].trim().to_owned()))
+      i += 2
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--suite=") {
+      if flag_suite is Some(_) {
+        abort("duplicate --suite flag")
+      }
+      flag_suite = Some(fuzz_ascii_lower(fuzz_tail_string(arg, 8)))
+      i += 1
+      continue
+    }
+    if arg == "--profile" {
+      if i + 1 >= args.length() {
+        abort("missing value for --profile")
+      }
+      if flag_profile is Some(_) {
+        abort("duplicate --profile flag")
+      }
+      flag_profile = Some(fuzz_ascii_lower(args[i + 1].trim().to_owned()))
+      i += 2
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--profile=") {
+      if flag_profile is Some(_) {
+        abort("duplicate --profile flag")
+      }
+      flag_profile = Some(fuzz_ascii_lower(fuzz_tail_string(arg, 10)))
+      i += 1
+      continue
+    }
     if arg == "--seed" {
       if i + 1 >= args.length() {
         abort("missing value for --seed")
@@ -1330,15 +1508,37 @@ pub fn parse_fuzz_cli_args(args : Array[String]) -> FuzzCliArgs {
   if positional.length() > 3 {
     abort("\{fuzz_usage_text()}")
   }
-  let suite = if positional.length() >= 1 {
-    fuzz_ascii_lower(positional[0].trim().to_owned())
-  } else {
-    "all"
+  let recipe_suite = match recipe {
+    Some(v) => Some(v.suite)
+    None => None
   }
-  let profile = if positional.length() >= 2 {
-    fuzz_ascii_lower(positional[1].trim().to_owned())
-  } else {
-    "smoke"
+  let recipe_profile = match recipe {
+    Some(v) => Some(v.profile)
+    None => None
+  }
+  let suite = match flag_suite {
+    Some(v) => v
+    None =>
+      if positional.length() >= 1 {
+        fuzz_ascii_lower(positional[0].trim().to_owned())
+      } else {
+        match recipe_suite {
+          Some(v) => v
+          None => "all"
+        }
+      }
+  }
+  let profile = match flag_profile {
+    Some(v) => v
+    None =>
+      if positional.length() >= 2 {
+        fuzz_ascii_lower(positional[1].trim().to_owned())
+      } else {
+        match recipe_profile {
+          Some(v) => v
+          None => "smoke"
+        }
+      }
   }
   let positional_seed = if positional.length() >= 3 {
     Some(fuzz_parse_seed_or_abort(positional[2]))
@@ -1350,23 +1550,39 @@ pub fn parse_fuzz_cli_args(args : Array[String]) -> FuzzCliArgs {
       abort("seed provided both as positional argument and --seed flag")
     (Some(v), None) => v
     (None, Some(v)) => v
-    (None, None) => fuzz_generate_seed_i64()
+    (None, None) =>
+      match recipe {
+        Some(v) => v.seed_i64
+        None => fuzz_generate_seed_i64()
+      }
   }
   let seed = seed_i64.reinterpret_as_uint64()
   let out_mode = match output_mode {
     Some(mode) => mode
-    None => FuzzOutputMode::Text
+    None =>
+      match recipe {
+        Some(v) => v.output_mode
+        None => FuzzOutputMode::Text
+      }
   }
   let resolved_seed_count = match seed_count {
     Some(v) => v
-    None => 1
+    None =>
+      match recipe {
+        Some(v) => v.seed_count
+        None => 1
+      }
   }
   if resolved_seed_count <= 0 {
     abort("seed-count must be greater than zero")
   }
   let resolved_shard_count = match shard_count {
     Some(v) => v
-    None => 1
+    None =>
+      match recipe {
+        Some(v) => v.shard_count
+        None => 1
+      }
   }
   if resolved_shard_count <= 0 {
     abort("shard-count must be greater than zero")
