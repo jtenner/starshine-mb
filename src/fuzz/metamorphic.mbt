@@ -30,6 +30,7 @@ pub enum MetamorphicValidTransform {
   AddDuplicateEquivalentImportedImmutableI64Global
   AddDuplicateEquivalentImportedMutableI32Global
   AddDuplicateEquivalentImportedMutableF32Global
+  AddDuplicateEquivalentImportedMutableF64Global
   AddDuplicateEquivalentImportedMutableI64Global
   AddDuplicateEquivalentImportedFuncrefTable
   AddDuplicateEquivalentImportedTag
@@ -498,6 +499,8 @@ pub fn metamorphic_valid_transform_id(
       "add-duplicate-equivalent-imported-mutable-i32-global"
     AddDuplicateEquivalentImportedMutableF32Global =>
       "add-duplicate-equivalent-imported-mutable-f32-global"
+    AddDuplicateEquivalentImportedMutableF64Global =>
+      "add-duplicate-equivalent-imported-mutable-f64-global"
     AddDuplicateEquivalentImportedMutableI64Global =>
       "add-duplicate-equivalent-imported-mutable-i64-global"
     AddDuplicateEquivalentImportedFuncrefTable =>
@@ -2785,6 +2788,44 @@ fn metamorphic_add_duplicate_equivalent_imported_mutable_f32_global(
                       @lib.Import::new(
                         module_name,
                         @lib.Name::new("global32f_mut_metamorphic_duplicate"),
+                        @lib.global_extern_type(global_type),
+                      ),
+                    )
+                    duplicated = true
+                  }
+              }
+            }
+          _ => ()
+        }
+      }
+    }
+    None => ()
+  }
+  mod.with_import_sec(@lib.ImportSec::new(imports))
+}
+
+///|
+fn metamorphic_add_duplicate_equivalent_imported_mutable_f64_global(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let imports = []
+  let mut duplicated = false
+  match mod.import_sec {
+    Some(@lib.ImportSec(existing)) => {
+      for import_ in existing {
+        imports.push(import_)
+      }
+      for import_ in existing {
+        match import_ {
+          @lib.Import(module_name, _, @lib.GlobalExternType(global_type)) =>
+            if !duplicated {
+              match global_type {
+                @lib.GlobalType(type_, mut_) =>
+                  if type_ == @lib.ValType::f64() && mut_ {
+                    imports.push(
+                      @lib.Import::new(
+                        module_name,
+                        @lib.Name::new("global64f_mut_metamorphic_duplicate"),
                         @lib.global_extern_type(global_type),
                       ),
                     )
@@ -5383,6 +5424,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddDuplicateEquivalentImportedImmutableI64Global,
     AddDuplicateEquivalentImportedMutableI32Global,
     AddDuplicateEquivalentImportedMutableF32Global,
+    AddDuplicateEquivalentImportedMutableF64Global,
     AddDuplicateEquivalentImportedMutableI64Global,
     AddDuplicateEquivalentImportedFuncrefTable,
     AddDuplicateEquivalentImportedTag,
@@ -5874,6 +5916,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_duplicate_equivalent_imported_mutable_i32_global(mod)
     AddDuplicateEquivalentImportedMutableF32Global =>
       metamorphic_add_duplicate_equivalent_imported_mutable_f32_global(mod)
+    AddDuplicateEquivalentImportedMutableF64Global =>
+      metamorphic_add_duplicate_equivalent_imported_mutable_f64_global(mod)
     AddDuplicateEquivalentImportedMutableI64Global =>
       metamorphic_add_duplicate_equivalent_imported_mutable_i64_global(mod)
     AddDuplicateEquivalentImportedFuncrefTable =>
