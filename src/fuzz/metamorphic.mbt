@@ -125,6 +125,10 @@ pub enum MetamorphicValidTransform {
   AddTrailingRefNullDropToDefinedFunctions
   AddLeadingRefNullIsNullDropToDefinedFunctions
   AddTrailingRefNullIsNullDropToDefinedFunctions
+  AddLeadingAnyConvertExternDropToDefinedFunctions
+  AddTrailingAnyConvertExternDropToDefinedFunctions
+  AddLeadingExternConvertAnyDropToDefinedFunctions
+  AddTrailingExternConvertAnyDropToDefinedFunctions
   AddLeadingRefI31GetSDropToDefinedFunctions
   AddTrailingRefI31GetSDropToDefinedFunctions
   AddLeadingRefI31GetUDropToDefinedFunctions
@@ -618,6 +622,14 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-ref-null-is-null-drop-to-defined-functions"
     AddTrailingRefNullIsNullDropToDefinedFunctions =>
       "add-trailing-ref-null-is-null-drop-to-defined-functions"
+    AddLeadingAnyConvertExternDropToDefinedFunctions =>
+      "add-leading-any-convert-extern-drop-to-defined-functions"
+    AddTrailingAnyConvertExternDropToDefinedFunctions =>
+      "add-trailing-any-convert-extern-drop-to-defined-functions"
+    AddLeadingExternConvertAnyDropToDefinedFunctions =>
+      "add-leading-extern-convert-any-drop-to-defined-functions"
+    AddTrailingExternConvertAnyDropToDefinedFunctions =>
+      "add-trailing-extern-convert-any-drop-to-defined-functions"
     AddLeadingRefI31GetSDropToDefinedFunctions =>
       "add-leading-ref-i31-get-s-drop-to-defined-functions"
     AddTrailingRefI31GetSDropToDefinedFunctions =>
@@ -2369,6 +2381,48 @@ fn metamorphic_add_ref_null_is_null_drop_to_defined_functions(
 }
 
 ///|
+fn metamorphic_any_convert_extern_drop_instrs() -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::extern_())),
+    @lib.Instruction::any_convert_extern(),
+    @lib.Instruction::drop(),
+  ]
+}
+
+///|
+fn metamorphic_add_any_convert_extern_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+) -> @lib.Module {
+  metamorphic_add_unary_drop_to_defined_functions(
+    mod,
+    leading,
+    metamorphic_any_convert_extern_drop_instrs(),
+  )
+}
+
+///|
+fn metamorphic_extern_convert_any_drop_instrs() -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::any())),
+    @lib.Instruction::extern_convert_any(),
+    @lib.Instruction::drop(),
+  ]
+}
+
+///|
+fn metamorphic_add_extern_convert_any_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+) -> @lib.Module {
+  metamorphic_add_unary_drop_to_defined_functions(
+    mod,
+    leading,
+    metamorphic_extern_convert_any_drop_instrs(),
+  )
+}
+
+///|
 fn metamorphic_ref_i31_get_drop_instrs(
   signed : Bool,
 ) -> Array[@lib.Instruction] {
@@ -3812,6 +3866,10 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingRefNullDropToDefinedFunctions,
     AddLeadingRefNullIsNullDropToDefinedFunctions,
     AddTrailingRefNullIsNullDropToDefinedFunctions,
+    AddLeadingAnyConvertExternDropToDefinedFunctions,
+    AddTrailingAnyConvertExternDropToDefinedFunctions,
+    AddLeadingExternConvertAnyDropToDefinedFunctions,
+    AddTrailingExternConvertAnyDropToDefinedFunctions,
     AddLeadingRefI31GetSDropToDefinedFunctions,
     AddTrailingRefI31GetSDropToDefinedFunctions,
     AddLeadingRefI31GetUDropToDefinedFunctions,
@@ -4695,6 +4753,14 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_ref_null_is_null_drop_to_defined_functions(mod, true)
     AddTrailingRefNullIsNullDropToDefinedFunctions =>
       metamorphic_add_ref_null_is_null_drop_to_defined_functions(mod, false)
+    AddLeadingAnyConvertExternDropToDefinedFunctions =>
+      metamorphic_add_any_convert_extern_drop_to_defined_functions(mod, true)
+    AddTrailingAnyConvertExternDropToDefinedFunctions =>
+      metamorphic_add_any_convert_extern_drop_to_defined_functions(mod, false)
+    AddLeadingExternConvertAnyDropToDefinedFunctions =>
+      metamorphic_add_extern_convert_any_drop_to_defined_functions(mod, true)
+    AddTrailingExternConvertAnyDropToDefinedFunctions =>
+      metamorphic_add_extern_convert_any_drop_to_defined_functions(mod, false)
     AddLeadingRefI31GetSDropToDefinedFunctions =>
       metamorphic_add_ref_i31_get_drop_to_defined_functions(mod, true, true)
     AddTrailingRefI31GetSDropToDefinedFunctions =>
