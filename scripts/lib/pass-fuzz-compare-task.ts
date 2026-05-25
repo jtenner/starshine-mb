@@ -12,6 +12,7 @@ import {
   resolveWorkspaceRoot,
   runOrThrow,
 } from "./task-runtime";
+import { type EffectTrapFacts, scanEffectTrapFactsFromWasmBytes } from "./effect-trap-scanner";
 
 type GeneratorMode = "both" | "wasm-smith" | "gen-valid";
 type GeneratorKind = "wasm-smith" | "gen-valid";
@@ -67,12 +68,15 @@ type StarshineInvocation = {
   retryMissingOutput: boolean;
 };
 
+type EffectTrapCounts = Record<keyof EffectTrapFacts, number>;
+
 type CaseRecord = {
   caseIndex: number;
   generator: GeneratorKind;
   status: CaseStatus;
   detail: string;
   failureClass?: CommandFailureClass;
+  inputEffectTrapFacts?: EffectTrapFacts;
 };
 
 type ReplayCase = {
@@ -106,6 +110,7 @@ type PassFuzzCompareSummary = {
     wasmSmith: number;
     genValid: number;
   };
+  inputEffectTrapCounts: EffectTrapCounts;
   passFlags: string[];
   binaryenPassFlags: string[];
   normalizers: CompareNormalizer[];
@@ -923,6 +928,30 @@ function listGeneratedGenValidInputs(dir: string): string[] {
     .map((entry) => path.join(dir, entry));
 }
 
+function emptyEffectTrapCounts(): EffectTrapCounts {
+  return {
+    hasCall: 0,
+    mutatesMemory: 0,
+    mutatesTable: 0,
+    mutatesGlobal: 0,
+    hasException: 0,
+    hasAtomics: 0,
+    hasUnreachable: 0,
+    mayTrap: 0,
+  };
+}
+
+function noteInputEffectTrapFacts(summary: PassFuzzCompareSummary, facts: EffectTrapFacts): void {
+  if (facts.hasCall) summary.inputEffectTrapCounts.hasCall += 1;
+  if (facts.mutatesMemory) summary.inputEffectTrapCounts.mutatesMemory += 1;
+  if (facts.mutatesTable) summary.inputEffectTrapCounts.mutatesTable += 1;
+  if (facts.mutatesGlobal) summary.inputEffectTrapCounts.mutatesGlobal += 1;
+  if (facts.hasException) summary.inputEffectTrapCounts.hasException += 1;
+  if (facts.hasAtomics) summary.inputEffectTrapCounts.hasAtomics += 1;
+  if (facts.hasUnreachable) summary.inputEffectTrapCounts.hasUnreachable += 1;
+  if (facts.mayTrap) summary.inputEffectTrapCounts.mayTrap += 1;
+}
+
 function persistFailureArtifacts(
   outDir: string,
   caseIndex: number,
@@ -934,6 +963,7 @@ function persistFailureArtifacts(
   repoRoot: string,
   passFlags: string[],
   genValidManifestEntry: unknown | null = null,
+  inputEffectTrapFacts: EffectTrapFacts | null = null,
 ): string {
   const failureDir = path.join(
     outDir,
@@ -975,6 +1005,7 @@ function persistFailureArtifacts(
         detail,
         artifacts: artifacts.sort(),
         genValidManifestEntry,
+        inputEffectTrapFacts,
         replay: {
           input: "input.wasm",
           passFlags,
@@ -1411,6 +1442,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       wasmSmith: 0,
       genValid: 0,
     },
+    inputEffectTrapCounts: emptyEffectTrapCounts(),
     passFlags: options.passFlags,
     binaryenPassFlags,
     normalizers: options.normalizers,
@@ -1446,6 +1478,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     const starshineWatPath = path.join(workDir, "starshine.wat");
     const binaryenWatPath = path.join(workDir, "binaryen.wat");
     let genValidManifestEntry: unknown | null = null;
+    let inputEffectTrapFacts: EffectTrapFacts | null = null;
 
     try {
       if (replayCase !== null) {
@@ -1489,6 +1522,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           return;
         }
       }
+
+      inputEffectTrapFacts = scanEffectTrapFactsFromWasmBytes(fs.readFileSync(inputPath));
+      noteInputEffectTrapFacts(summary, inputEffectTrapFacts);
 
       const baselineValidation = await runValidateAsync(options.wasmToolsBin, inputPath, repoRoot);
       if (!baselineValidation.ok) {
@@ -1667,6 +1703,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           generator,
           status: "match",
           detail: "normalized outputs matched",
+          inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
         });
       } else if (options.normalizers.length > 0 && starshineCompareWat === binaryenCompareWat) {
         summary.cleanupNormalizedMatchCount += 1;
@@ -1692,6 +1729,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             repoRoot,
             options.passFlags,
             genValidManifestEntry,
+            inputEffectTrapFacts,
           ),
         );
         recordCase({
@@ -1699,6 +1737,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           generator,
           status: "mismatch",
           detail,
+          inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
         });
       }
     } finally {

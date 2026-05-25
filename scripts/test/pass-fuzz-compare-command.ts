@@ -198,6 +198,7 @@ process.exit(0);
     genValidExcludedFeatures: string[];
     genValidMetamorphicTransforms: string[];
     genValidManifestPath: string | null;
+    inputEffectTrapCounts: Record<string, number>;
     passFlags: string[];
     binaryenPassFlags: string[];
   };
@@ -213,6 +214,20 @@ process.exit(0);
   assert(JSON.stringify(summary.genValidExcludedFeatures) === JSON.stringify(["imports"]), `unexpected excluded features ${JSON.stringify(summary.genValidExcludedFeatures)}`);
   assert(JSON.stringify(summary.genValidMetamorphicTransforms) === JSON.stringify(["add-non-name-custom-section"]), `unexpected metamorphic transforms ${JSON.stringify(summary.genValidMetamorphicTransforms)}`);
   assert(summary.genValidManifestPath === path.join("inputs", "gen-valid", "manifest.json"), `unexpected manifest path ${summary.genValidManifestPath}`);
+  assert(
+    summary.inputEffectTrapCounts.mayTrap === 4,
+    `expected four may-trap fake byte-stream inputs, got ${JSON.stringify(summary.inputEffectTrapCounts)}`,
+  );
+  assert(
+    summary.inputEffectTrapCounts.hasUnreachable === 0,
+    `unexpected unreachable count ${JSON.stringify(summary.inputEffectTrapCounts)}`,
+  );
+  const cases = fs.readFileSync(path.join(outDir, "cases.jsonl"), "utf8").trim().split("\n").map((line) => JSON.parse(line) as { inputEffectTrapFacts?: Record<string, boolean> });
+  assert(cases.length === 4, `expected 4 case records, got ${cases.length}`);
+  assert(
+    cases.every((record) => record.inputEffectTrapFacts && typeof record.inputEffectTrapFacts.mayTrap === "boolean"),
+    `expected per-case effect/trap facts in cases.jsonl, got ${JSON.stringify(cases, null, 2)}`,
+  );
   assert(
     JSON.stringify(summary.passFlags) === JSON.stringify(["--remove-unused-brs"]),
     `unexpected pass flags ${JSON.stringify(summary.passFlags)}`,

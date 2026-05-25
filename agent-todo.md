@@ -616,8 +616,6 @@ p1 GenValid / valid-generation slices:
 - No active p1 GenValid recipe-catalog slices remain.
 
 p1/p2 oracle, reporting, and infrastructure slices:
-- [FUZ]1040B (p1) - Pass-Fuzz Effect/Trap Report Propagation
-  - Unit: thread effect/trap facts into pass-fuzz result metadata and mismatch summaries.
 - [FUZ]1031A (p2) - Fuzz Output Directory Layout
   - Unit: add `--out-dir` plumbing for ordinary fuzz runs and write `result.json`, `cases.jsonl`, generated inputs, failures, and manifests only when requested.
 - [FUZ]1031B (p2) - Suite Ledgers And Replay Manifests
@@ -914,18 +912,6 @@ p2 invalid/binary/text slices:
   - Dependencies: [FUZ]1037 and [FUZ]1019 recommended.
   - Suggested Tests: valid start/global/segment fixtures, invalid wrong-start-type and wrong-offset-type fixtures, pass-fuzz smoke for passes that remove unused elements.
   - Exit Criteria: initialization-heavy modules can be generated reproducibly and invalid tests cover the common bad cross-section references.
-
-- [FUZ]1040 (p1) - Effect And Trap Feature Facts For Optimizer Oracles
-  - Goal: annotate generated modules with approximate effect/trap facts for safer mismatch classification.
-  - Why: pass-fuzz mismatches cannot be judged solely by validation and size. Agents need to know whether a case contains calls, memory effects, table effects, globals, throws, atomics, traps, unreachable code, or floating NaNs before deciding if a transform is semantic-risky.
-  - Status: scanner core landed in `scripts/lib/effect-trap-scanner.ts`; remaining work is pass-fuzz metadata/report propagation under [FUZ]1040B.
-  - Deliverables remaining: thread scanner facts into feature ledgers, pass-fuzz `result.json`/case metadata, and command harness reports; add later facts for nondeterministic host imports and NaN-sensitive float ops if/when import and float classifiers are available.
-  - Required APIs: feature ledger, pass-fuzz result schema, command harness reports.
-  - Invariants: facts are conservative; `mayTrap=false` must only be used when confidently proven, otherwise default to `unknown/mayTrap`.
-  - Dependencies: [FUZ]1013 exact coverage ledger and [FUZ]1016 pass-fuzz metadata.
-  - Suggested Tests: result.json fact propagation tests and report summary tests.
-  - Exit Criteria: mismatch reports include enough effect/trap context for agents to prioritize semantic review.
-
 
 - [FUZ]1042 (p2) - Corpus Promotion, Quarantine, And Regression Replay Workflow
   - Goal: define how interesting fuzz findings become durable regression inputs.
