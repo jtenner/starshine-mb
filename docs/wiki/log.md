@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO try_table block-wrapper guardrails
+
+- Added research note [`0637`](./raw/research/0637-2026-05-25-sgo-try-table-block-wrapper-guardrails.md) for `[SGO]003G`, probing a no-catch `try_table (result i32)` whose body is a transparent `block (result i32)` around the candidate global read.
+- Binaryen and Starshine both remove the fake self-guard traffic for the no-catch wrapper composition, while the paired caught `try_table` fixture preserves the mutable global and guard traffic.
+- Completed `[SGO]003G` as a source-alignment/guardrail slice without implementation broadening; catch-bearing `try_table`, post-join facts, control-transfer handlers, calls, trapping/effectful candidate consumers, extra reads, and `else` arms remain out of scope. `[SGO]003` remains active/partial.
+
 ## [2026-05-25] binaryen | SGO transparent block wrapper guardrails
 
 - Added research note [`0636`](./raw/research/0636-2026-05-25-sgo-transparent-block-wrapper-guardrails.md) for `[SGO]003B`, probing nested transparent `block (result i32)` wrappers around a read-only-to-write guard condition.

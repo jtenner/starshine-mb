@@ -257,12 +257,6 @@ Execution rules for all DAE slices
   - Required probes: loop with `br_if`, loop with branch-free but effectful body, loop with candidate-consuming load after wrapper, post-loop join/backedge observable read, and loop-carried facts.
   - Exit criteria: either focused implementation with strict no-branch/no-backedge guards, or a guardrail-only research note preserving current conservatism.
 
-- [SGO]003G - TryTable Transparency Beyond No-Catch Wrapper
-  - Status: active research candidate; high risk.
-  - Goal: determine whether any additional `try_table` condition/read-only-to-write shapes beyond no-catch transparent wrappers are Binaryen-positive and safe.
-  - Candidate shapes: no-catch recursive wrapper combinations not already covered, no-catch wrapper around additional supported pure/control wrappers, and exact source-backed if-return tails.
-  - Explicit non-goals without fresh oracle evidence: catch-bearing condition wrappers, post-`try_table` join facts, catch/control-transfer matching, branch/return through handlers, and exception-observable body effects.
-  - Exit criteria: exact tests and docs; caught `try_table` negatives must remain paired with any new positive.
 
 - [SGO]003H - Runtime Trace Local Fact Propagation Beyond Official Dominance Lit
   - Status: active candidate; behavior-bearing and medium/high risk.
