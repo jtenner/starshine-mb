@@ -2891,6 +2891,70 @@ test "metamorphic leading ref.eq over i31 drop transform preserves validation an
 }
 
 ///|
+test "metamorphic leading ref.eq over empty struct drop transform preserves validation and binary roundtrip" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+        ),
+      ]),
+    )
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddLeadingRefEqEmptyStructDropToDefinedFunctions,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-leading-ref-eq-empty-struct-drop-to-defined-functions",
+  )
+  match transformed.wasm_module.type_sec {
+    Some(@lib.TypeSec(types)) => {
+      @debug.assert_eq(types.length(), 2)
+      @debug.assert_eq(
+        types[1],
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::struct_([]))),
+      )
+    }
+    None => fail("expected transformed type section")
+  }
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          @debug.assert_eq(instrs.length(), 5)
+          @debug.assert_eq(
+            instrs[0],
+            @lib.Instruction::struct_new_default(@lib.TypeIdx::new(1U)),
+          )
+          @debug.assert_eq(
+            instrs[1],
+            @lib.Instruction::struct_new_default(@lib.TypeIdx::new(1U)),
+          )
+          @debug.assert_eq(instrs[2], @lib.Instruction::ref_eq())
+          @debug.assert_eq(instrs[3], @lib.Instruction::drop())
+          @debug.assert_eq(instrs[4], @lib.Instruction::i32_const(7))
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic leading ref.eq drop transform preserves validation and binary roundtrip" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
@@ -7320,8 +7384,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 412)
-  @debug.assert_eq(stats.validated, 412)
+  @debug.assert_eq(stats.transformed, 414)
+  @debug.assert_eq(stats.validated, 414)
   assert_true(
     stats.transform_ids.contains(
       "add-leading-block-wrapped-i32-const-drop-to-defined-functions",
@@ -7407,6 +7471,11 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(
     stats.transform_ids.contains(
       "add-leading-ref-eq-i31-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-leading-ref-eq-empty-struct-drop-to-defined-functions",
     ),
   )
   assert_true(

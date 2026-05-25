@@ -139,6 +139,8 @@ pub enum MetamorphicValidTransform {
   AddTrailingRefEqFuncDropToDefinedFunctions
   AddLeadingRefEqI31DropToDefinedFunctions
   AddTrailingRefEqI31DropToDefinedFunctions
+  AddLeadingRefEqEmptyStructDropToDefinedFunctions
+  AddTrailingRefEqEmptyStructDropToDefinedFunctions
   AddLeadingAnyConvertExternDropToDefinedFunctions
   AddTrailingAnyConvertExternDropToDefinedFunctions
   AddLeadingExternConvertAnyDropToDefinedFunctions
@@ -677,6 +679,10 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-ref-eq-i31-drop-to-defined-functions"
     AddTrailingRefEqI31DropToDefinedFunctions =>
       "add-trailing-ref-eq-i31-drop-to-defined-functions"
+    AddLeadingRefEqEmptyStructDropToDefinedFunctions =>
+      "add-leading-ref-eq-empty-struct-drop-to-defined-functions"
+    AddTrailingRefEqEmptyStructDropToDefinedFunctions =>
+      "add-trailing-ref-eq-empty-struct-drop-to-defined-functions"
     AddLeadingAnyConvertExternDropToDefinedFunctions =>
       "add-leading-any-convert-extern-drop-to-defined-functions"
     AddTrailingAnyConvertExternDropToDefinedFunctions =>
@@ -2674,6 +2680,69 @@ fn metamorphic_add_ref_eq_i31_drop_to_defined_functions(
 }
 
 ///|
+fn metamorphic_type_sec_flat_count(type_sec : @lib.TypeSec?) -> UInt {
+  let mut count = 0U
+  match type_sec {
+    Some(@lib.TypeSec(rec_types)) =>
+      for rec_type in rec_types {
+        match rec_type {
+          @lib.SingleRecType(_) => count += 1U
+          @lib.GroupRecType(subtypes) =>
+            count += subtypes.length().reinterpret_as_uint()
+        }
+      }
+    None => ()
+  }
+  count
+}
+
+///|
+fn metamorphic_with_appended_empty_struct_type(
+  mod : @lib.Module,
+) -> (@lib.Module, @lib.TypeIdx) {
+  let type_idx = @lib.TypeIdx::new(
+    metamorphic_type_sec_flat_count(mod.type_sec),
+  )
+  let next_types = []
+  match mod.type_sec {
+    Some(@lib.TypeSec(rec_types)) =>
+      for rec_type in rec_types {
+        next_types.push(rec_type)
+      }
+    None => ()
+  }
+  next_types.push(
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::struct_([]))),
+  )
+  (mod.with_type_sec(@lib.TypeSec::new(next_types)), type_idx)
+}
+
+///|
+fn metamorphic_ref_eq_empty_struct_drop_instrs(
+  type_idx : @lib.TypeIdx,
+) -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::struct_new_default(type_idx),
+    @lib.Instruction::struct_new_default(type_idx),
+    @lib.Instruction::ref_eq(),
+    @lib.Instruction::drop(),
+  ]
+}
+
+///|
+fn metamorphic_add_ref_eq_empty_struct_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+) -> @lib.Module {
+  let (typed_mod, type_idx) = metamorphic_with_appended_empty_struct_type(mod)
+  metamorphic_add_unary_drop_to_defined_functions(
+    typed_mod,
+    leading,
+    metamorphic_ref_eq_empty_struct_drop_instrs(type_idx),
+  )
+}
+
+///|
 fn metamorphic_any_convert_extern_drop_instrs() -> Array[@lib.Instruction] {
   [
     @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::extern_())),
@@ -4495,6 +4564,8 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingRefEqFuncDropToDefinedFunctions,
     AddLeadingRefEqI31DropToDefinedFunctions,
     AddTrailingRefEqI31DropToDefinedFunctions,
+    AddLeadingRefEqEmptyStructDropToDefinedFunctions,
+    AddTrailingRefEqEmptyStructDropToDefinedFunctions,
     AddLeadingAnyConvertExternDropToDefinedFunctions,
     AddTrailingAnyConvertExternDropToDefinedFunctions,
     AddLeadingExternConvertAnyDropToDefinedFunctions,
@@ -5440,6 +5511,10 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_ref_eq_i31_drop_to_defined_functions(mod, true)
     AddTrailingRefEqI31DropToDefinedFunctions =>
       metamorphic_add_ref_eq_i31_drop_to_defined_functions(mod, false)
+    AddLeadingRefEqEmptyStructDropToDefinedFunctions =>
+      metamorphic_add_ref_eq_empty_struct_drop_to_defined_functions(mod, true)
+    AddTrailingRefEqEmptyStructDropToDefinedFunctions =>
+      metamorphic_add_ref_eq_empty_struct_drop_to_defined_functions(mod, false)
     AddLeadingAnyConvertExternDropToDefinedFunctions =>
       metamorphic_add_any_convert_extern_drop_to_defined_functions(mod, true)
     AddTrailingAnyConvertExternDropToDefinedFunctions =>
