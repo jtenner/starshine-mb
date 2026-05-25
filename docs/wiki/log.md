@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO direct-call constant-argument guardrails
+
+- Added research note [`0672`](./raw/research/0672-2026-05-25-sgo-direct-call-const-arg-guardrails.md) for a `[SGO]003E2` follow-up, pinning the source-backed direct-call constant-argument read-only-to-write shape.
+- No optimizer behavior changed: the existing SGO FlowScanner/direct-call path already removes the fake global guard for independent direct calls with clean constant operands, while preserving candidate-derived call operands.
+- Added focused positive and negative tests in `src/passes/simplify_globals_optimizing_test.mbt`; `moon test src/passes` passed (`1608/1608`) and full `moon test` passed (`3684/3684`). `[SGO]003` remains active/partial.
+
 ## [2026-05-25] binaryen | SGO direct-call read summary implementation
 
 - Added research note [`0671`](./raw/research/0671-2026-05-25-sgo-direct-call-read-summary.md) for `[SGO]003E2`, implementing the first summary-backed direct-call read-only-to-write subset.

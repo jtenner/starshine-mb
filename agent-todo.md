@@ -251,7 +251,8 @@ Execution rules for all DAE slices
 - [SGO]003E2 - Direct-Call Read/Write Summary Implementation
   - Status: partial behavior slice landed in 0671. Starshine now builds fixed-point `SgoFunctionGlobalEffects` summaries with per-global `reads` plus `mutates`, conservative imported/dynamic-call rows, direct-call transitive closure, and function arities for the syntactic call matcher.
   - Landed behavior: read-only-to-write self-guards may count a direct ordinary zero-param/one-result call as independent when the transitive callee summary neither reads nor mutates the candidate global. This covers the 0634/0635 no-read/no-write and wrong-global-read positives while keeping candidate-derived operands, callee candidate reads, imported calls, indirect calls, `call_ref`, and `return_call` conservative.
-  - Remaining deferred breadth: callee-write/no-remaining-read positives, imported-call positives, indirect-call positives, generated-effects/visibility modeling, richer call arities, and broader call placement still need explicit child slices with Binaryen-positive evidence and paired guardrails. Parent `[SGO]003` remains active/partial and this is not full `SimplifyGlobals.cpp` parity.
+  - Follow-up guardrails: 0672 pins that the existing matcher already accepts source-backed independent direct calls with clean constant operands and preserves candidate-derived direct-call operands plus callee-candidate-read calls; no optimizer behavior changed.
+  - Remaining deferred breadth: callee-write/no-remaining-read positives, imported-call positives, indirect-call positives, generated-effects/visibility modeling, richer non-constant call operands, and broader call placement still need explicit child slices with Binaryen-positive evidence and paired guardrails. Parent `[SGO]003` remains active/partial and this is not full `SimplifyGlobals.cpp` parity.
 
 
 
