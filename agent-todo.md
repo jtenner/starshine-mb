@@ -287,17 +287,10 @@ Execution rules for all DAE slices
   - Exit criteria: exact expression grammar, tests before implementation, docs stating one-run vs repeated-run behavior.
 
 - [SGO]003K - Startup And Single-Use Initializer Follow-Ups
-  - Status: active candidate; medium risk.
-  - Goal: extend startup/global-initializer propagation only for source-backed single-use or copy-chain cases not already covered.
-  - Candidate shapes: additional parser-supported GC/ref initializer forms, nested single-use chains, and multi-input folds where all inputs are proven local and single-use.
-  - Guardrails: no nested cleanup solely from startup-only rewrites; preserve second global use, function-code second use, imported source, and function-code-only single-use negatives.
-  - Open checklist:
-    - Mine only parser-supported, source-backed startup/global-initializer shapes.
-    - Keep function-code-only single-use out of this slice.
-    - Add second-use/imported-source negatives for each new initializer fold.
-    - Confirm startup-only rewrites still do not mark functions for nested cleanup.
-    - Keep GC/ref initializer follow-ups that require refinalization under `[SGO]003L`, not here.
-  - Exit criteria: lit-derived tests and docs; no runtime/code-body broadening mixed into this slice.
+  - Status: closed by the 0657 closeout audit; no new behavior slice remains open here.
+  - Decision: the parser-supported, source-backed startup/global-initializer single-use and copy-chain families from Binaryen's official lit coverage are already pinned by the 0584 through 0589 guardrail/regression slices. Do not keep `[SGO]003K` open as a generic startup bucket.
+  - Completed evidence: 0584 through 0588 covered the positive parser-supported single-use, nested, multiple independent, multi-input, and copy-chain startup/global-initializer shapes; 0589 covered second global use, function-code second use, imported source, and function-code-only negative guardrails. Those startup-only rewrites do not trigger nested cleanup.
+  - Follow-up rule: file any future startup/global-initializer discovery as a new explicit child slice with source fixture, paired negatives, and direct SGO validation if behavior changes. Keep refinalization-sensitive GC work under the `[SGO]003L` prerequisite path and keep runtime/code-body broadening under the runtime/dataflow slices.
 
 - [SGO]003L - GC Refinalization-Safe Replacement Surfaces
   - Status: closed blocked/research-only by the 0656 audit; no SGO behavior changed.

@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO startup single-use closeout
+
+- Added research note [`0657`](./raw/research/0657-2026-05-25-sgo-startup-single-use-closeout.md) for `[SGO]003K`, auditing the startup/global-initializer single-use follow-ups after the 0584 through 0589 official-lit guardrails.
+- Closed `[SGO]003K`: parser-supported positive single-use, nested, multiple independent, multi-input, and copy-chain startup initializer shapes plus second-use/imported/function-code negatives are already pinned, and future startup discoveries should be explicit new child slices.
+- No optimizer behavior changed and no direct SGO fuzz was required because this was docs/backlog-only. `[SGO]003` remains active/partial.
+
 ## [2026-05-25] binaryen | SGO GC refinalization blocker audit
 
 - Added research note [`0656`](./raw/research/0656-2026-05-25-sgo-gc-refinalization-blocker-audit.md) for `[SGO]003L`, converting the prior `ref.cast(ref.func-global)` probe into an explicit parser/validation/refinalization blocker.
