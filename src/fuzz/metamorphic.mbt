@@ -68,6 +68,30 @@ pub enum MetamorphicValidTransform {
   AddTrailingF32x4SplatDropToDefinedFunctions
   AddLeadingF64x2SplatDropToDefinedFunctions
   AddTrailingF64x2SplatDropToDefinedFunctions
+  AddLeadingI8x16ShlDropToDefinedFunctions
+  AddTrailingI8x16ShlDropToDefinedFunctions
+  AddLeadingI8x16ShrSDropToDefinedFunctions
+  AddTrailingI8x16ShrSDropToDefinedFunctions
+  AddLeadingI8x16ShrUDropToDefinedFunctions
+  AddTrailingI8x16ShrUDropToDefinedFunctions
+  AddLeadingI16x8ShlDropToDefinedFunctions
+  AddTrailingI16x8ShlDropToDefinedFunctions
+  AddLeadingI16x8ShrSDropToDefinedFunctions
+  AddTrailingI16x8ShrSDropToDefinedFunctions
+  AddLeadingI16x8ShrUDropToDefinedFunctions
+  AddTrailingI16x8ShrUDropToDefinedFunctions
+  AddLeadingI32x4ShlDropToDefinedFunctions
+  AddTrailingI32x4ShlDropToDefinedFunctions
+  AddLeadingI32x4ShrSDropToDefinedFunctions
+  AddTrailingI32x4ShrSDropToDefinedFunctions
+  AddLeadingI32x4ShrUDropToDefinedFunctions
+  AddTrailingI32x4ShrUDropToDefinedFunctions
+  AddLeadingI64x2ShlDropToDefinedFunctions
+  AddTrailingI64x2ShlDropToDefinedFunctions
+  AddLeadingI64x2ShrSDropToDefinedFunctions
+  AddTrailingI64x2ShrSDropToDefinedFunctions
+  AddLeadingI64x2ShrUDropToDefinedFunctions
+  AddTrailingI64x2ShrUDropToDefinedFunctions
   AddUnusedGcReferenceLocalsToDefinedFunctions
   AddLeadingRefNullDropToDefinedFunctions
   AddTrailingRefNullDropToDefinedFunctions
@@ -446,6 +470,54 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-f64x2-splat-drop-to-defined-functions"
     AddTrailingF64x2SplatDropToDefinedFunctions =>
       "add-trailing-f64x2-splat-drop-to-defined-functions"
+    AddLeadingI8x16ShlDropToDefinedFunctions =>
+      "add-leading-i8x16-shl-drop-to-defined-functions"
+    AddTrailingI8x16ShlDropToDefinedFunctions =>
+      "add-trailing-i8x16-shl-drop-to-defined-functions"
+    AddLeadingI8x16ShrSDropToDefinedFunctions =>
+      "add-leading-i8x16-shr-s-drop-to-defined-functions"
+    AddTrailingI8x16ShrSDropToDefinedFunctions =>
+      "add-trailing-i8x16-shr-s-drop-to-defined-functions"
+    AddLeadingI8x16ShrUDropToDefinedFunctions =>
+      "add-leading-i8x16-shr-u-drop-to-defined-functions"
+    AddTrailingI8x16ShrUDropToDefinedFunctions =>
+      "add-trailing-i8x16-shr-u-drop-to-defined-functions"
+    AddLeadingI16x8ShlDropToDefinedFunctions =>
+      "add-leading-i16x8-shl-drop-to-defined-functions"
+    AddTrailingI16x8ShlDropToDefinedFunctions =>
+      "add-trailing-i16x8-shl-drop-to-defined-functions"
+    AddLeadingI16x8ShrSDropToDefinedFunctions =>
+      "add-leading-i16x8-shr-s-drop-to-defined-functions"
+    AddTrailingI16x8ShrSDropToDefinedFunctions =>
+      "add-trailing-i16x8-shr-s-drop-to-defined-functions"
+    AddLeadingI16x8ShrUDropToDefinedFunctions =>
+      "add-leading-i16x8-shr-u-drop-to-defined-functions"
+    AddTrailingI16x8ShrUDropToDefinedFunctions =>
+      "add-trailing-i16x8-shr-u-drop-to-defined-functions"
+    AddLeadingI32x4ShlDropToDefinedFunctions =>
+      "add-leading-i32x4-shl-drop-to-defined-functions"
+    AddTrailingI32x4ShlDropToDefinedFunctions =>
+      "add-trailing-i32x4-shl-drop-to-defined-functions"
+    AddLeadingI32x4ShrSDropToDefinedFunctions =>
+      "add-leading-i32x4-shr-s-drop-to-defined-functions"
+    AddTrailingI32x4ShrSDropToDefinedFunctions =>
+      "add-trailing-i32x4-shr-s-drop-to-defined-functions"
+    AddLeadingI32x4ShrUDropToDefinedFunctions =>
+      "add-leading-i32x4-shr-u-drop-to-defined-functions"
+    AddTrailingI32x4ShrUDropToDefinedFunctions =>
+      "add-trailing-i32x4-shr-u-drop-to-defined-functions"
+    AddLeadingI64x2ShlDropToDefinedFunctions =>
+      "add-leading-i64x2-shl-drop-to-defined-functions"
+    AddTrailingI64x2ShlDropToDefinedFunctions =>
+      "add-trailing-i64x2-shl-drop-to-defined-functions"
+    AddLeadingI64x2ShrSDropToDefinedFunctions =>
+      "add-leading-i64x2-shr-s-drop-to-defined-functions"
+    AddTrailingI64x2ShrSDropToDefinedFunctions =>
+      "add-trailing-i64x2-shr-s-drop-to-defined-functions"
+    AddLeadingI64x2ShrUDropToDefinedFunctions =>
+      "add-leading-i64x2-shr-u-drop-to-defined-functions"
+    AddTrailingI64x2ShrUDropToDefinedFunctions =>
+      "add-trailing-i64x2-shr-u-drop-to-defined-functions"
     AddUnusedGcReferenceLocalsToDefinedFunctions =>
       "add-unused-gc-reference-locals-to-defined-functions"
     AddLeadingRefNullDropToDefinedFunctions =>
@@ -2132,6 +2204,20 @@ fn metamorphic_add_simd_splat_drop_to_defined_functions(
 }
 
 ///|
+fn metamorphic_add_simd_shift_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+  shift : @lib.Instruction,
+) -> @lib.Module {
+  metamorphic_add_unary_drop_to_defined_functions(mod, leading, [
+    metamorphic_v128_zero_const(),
+    @lib.Instruction::i32_const(3),
+    shift,
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
 fn metamorphic_add_leading_ref_null_drop_to_defined_functions(
   mod : @lib.Module,
 ) -> @lib.Module {
@@ -3489,6 +3575,30 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingF32x4SplatDropToDefinedFunctions,
     AddLeadingF64x2SplatDropToDefinedFunctions,
     AddTrailingF64x2SplatDropToDefinedFunctions,
+    AddLeadingI8x16ShlDropToDefinedFunctions,
+    AddTrailingI8x16ShlDropToDefinedFunctions,
+    AddLeadingI8x16ShrSDropToDefinedFunctions,
+    AddTrailingI8x16ShrSDropToDefinedFunctions,
+    AddLeadingI8x16ShrUDropToDefinedFunctions,
+    AddTrailingI8x16ShrUDropToDefinedFunctions,
+    AddLeadingI16x8ShlDropToDefinedFunctions,
+    AddTrailingI16x8ShlDropToDefinedFunctions,
+    AddLeadingI16x8ShrSDropToDefinedFunctions,
+    AddTrailingI16x8ShrSDropToDefinedFunctions,
+    AddLeadingI16x8ShrUDropToDefinedFunctions,
+    AddTrailingI16x8ShrUDropToDefinedFunctions,
+    AddLeadingI32x4ShlDropToDefinedFunctions,
+    AddTrailingI32x4ShlDropToDefinedFunctions,
+    AddLeadingI32x4ShrSDropToDefinedFunctions,
+    AddTrailingI32x4ShrSDropToDefinedFunctions,
+    AddLeadingI32x4ShrUDropToDefinedFunctions,
+    AddTrailingI32x4ShrUDropToDefinedFunctions,
+    AddLeadingI64x2ShlDropToDefinedFunctions,
+    AddTrailingI64x2ShlDropToDefinedFunctions,
+    AddLeadingI64x2ShrSDropToDefinedFunctions,
+    AddTrailingI64x2ShrSDropToDefinedFunctions,
+    AddLeadingI64x2ShrUDropToDefinedFunctions,
+    AddTrailingI64x2ShrUDropToDefinedFunctions,
     AddUnusedGcReferenceLocalsToDefinedFunctions,
     AddLeadingRefNullDropToDefinedFunctions,
     AddTrailingRefNullDropToDefinedFunctions,
@@ -4036,6 +4146,150 @@ pub fn metamorphic_apply_transform(
         false,
         @lib.Instruction::f64_const(6.0),
         @lib.Instruction::f64x2_splat(),
+      )
+    AddLeadingI8x16ShlDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i8x16_shl(),
+      )
+    AddTrailingI8x16ShlDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i8x16_shl(),
+      )
+    AddLeadingI8x16ShrSDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i8x16_shr_s(),
+      )
+    AddTrailingI8x16ShrSDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i8x16_shr_s(),
+      )
+    AddLeadingI8x16ShrUDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i8x16_shr_u(),
+      )
+    AddTrailingI8x16ShrUDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i8x16_shr_u(),
+      )
+    AddLeadingI16x8ShlDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i16x8_shl(),
+      )
+    AddTrailingI16x8ShlDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i16x8_shl(),
+      )
+    AddLeadingI16x8ShrSDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i16x8_shr_s(),
+      )
+    AddTrailingI16x8ShrSDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i16x8_shr_s(),
+      )
+    AddLeadingI16x8ShrUDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i16x8_shr_u(),
+      )
+    AddTrailingI16x8ShrUDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i16x8_shr_u(),
+      )
+    AddLeadingI32x4ShlDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i32x4_shl(),
+      )
+    AddTrailingI32x4ShlDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i32x4_shl(),
+      )
+    AddLeadingI32x4ShrSDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i32x4_shr_s(),
+      )
+    AddTrailingI32x4ShrSDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i32x4_shr_s(),
+      )
+    AddLeadingI32x4ShrUDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i32x4_shr_u(),
+      )
+    AddTrailingI32x4ShrUDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i32x4_shr_u(),
+      )
+    AddLeadingI64x2ShlDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i64x2_shl(),
+      )
+    AddTrailingI64x2ShlDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i64x2_shl(),
+      )
+    AddLeadingI64x2ShrSDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i64x2_shr_s(),
+      )
+    AddTrailingI64x2ShrSDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i64x2_shr_s(),
+      )
+    AddLeadingI64x2ShrUDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        true,
+        @lib.Instruction::i64x2_shr_u(),
+      )
+    AddTrailingI64x2ShrUDropToDefinedFunctions =>
+      metamorphic_add_simd_shift_drop_to_defined_functions(
+        mod,
+        false,
+        @lib.Instruction::i64x2_shr_u(),
       )
     AddUnusedGcReferenceLocalsToDefinedFunctions =>
       metamorphic_add_unused_gc_reference_locals_to_defined_functions(mod)

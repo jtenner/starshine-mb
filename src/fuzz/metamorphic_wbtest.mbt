@@ -2374,6 +2374,80 @@ test "metamorphic SIMD splat computed-drop transforms use scalar constants and p
 }
 
 ///|
+test "metamorphic SIMD shift computed-drop transforms use constant vectors and legal counts" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+        ),
+      ]),
+    )
+  let cases : Array[(MetamorphicValidTransform, String, @lib.Instruction)] = [
+    (
+      AddLeadingI8x16ShlDropToDefinedFunctions,
+      "add-leading-i8x16-shl-drop-to-defined-functions",
+      @lib.Instruction::i8x16_shl(),
+    ),
+    (
+      AddTrailingI16x8ShrSDropToDefinedFunctions,
+      "add-trailing-i16x8-shr-s-drop-to-defined-functions",
+      @lib.Instruction::i16x8_shr_s(),
+    ),
+    (
+      AddLeadingI32x4ShrUDropToDefinedFunctions,
+      "add-leading-i32x4-shr-u-drop-to-defined-functions",
+      @lib.Instruction::i32x4_shr_u(),
+    ),
+    (
+      AddTrailingI64x2ShlDropToDefinedFunctions,
+      "add-trailing-i64x2-shl-drop-to-defined-functions",
+      @lib.Instruction::i64x2_shl(),
+    ),
+  ]
+  for case in cases {
+    let (transform, expected_id, expected_op) = case
+    let transformed = match metamorphic_apply_transform(base, transform) {
+      Ok(v) => v
+      Err(msg) => fail(msg)
+    }
+    @debug.assert_eq(transformed.transform_id, expected_id)
+    match transformed.wasm_module.code_sec {
+      Some(@lib.CodeSec(funcs)) =>
+        match funcs[0] {
+          @lib.Func(_, @lib.Expr(instrs)) => {
+            @debug.assert_eq(instrs.length(), 5)
+            if expected_id.contains("leading") {
+              @debug.assert_eq(instrs[0], metamorphic_v128_zero_const())
+              @debug.assert_eq(instrs[1], @lib.Instruction::i32_const(3))
+              @debug.assert_eq(instrs[2], expected_op)
+              @debug.assert_eq(instrs[3], @lib.Instruction::drop())
+              @debug.assert_eq(instrs[4], @lib.Instruction::i32_const(7))
+            } else {
+              @debug.assert_eq(instrs[0], @lib.Instruction::i32_const(7))
+              @debug.assert_eq(instrs[1], metamorphic_v128_zero_const())
+              @debug.assert_eq(instrs[2], @lib.Instruction::i32_const(3))
+              @debug.assert_eq(instrs[3], expected_op)
+              @debug.assert_eq(instrs[4], @lib.Instruction::drop())
+            }
+          }
+        }
+      None => fail("expected transformed code section")
+    }
+    match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+      Ok(_) => ()
+      Err(msg) => fail(msg)
+    }
+  }
+}
+
+///|
 test "metamorphic SIMD bitwise binary computed-drop transforms preserve validation and binary roundtrip" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
@@ -5757,8 +5831,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 323)
-  @debug.assert_eq(stats.validated, 323)
+  @debug.assert_eq(stats.transformed, 347)
+  @debug.assert_eq(stats.validated, 347)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -5767,6 +5841,16 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(
     stats.transform_ids.contains(
       "add-leading-i8x16-splat-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-leading-i8x16-shl-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-trailing-i64x2-shr-u-drop-to-defined-functions",
     ),
   )
   assert_true(
