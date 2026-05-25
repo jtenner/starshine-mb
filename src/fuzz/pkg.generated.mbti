@@ -61,6 +61,8 @@ pub fn gen_invalid_binary_seed_module(@splitmix.RandomState, GenInvalidBinaryPar
 
 pub fn golden_seed_catalog_schema_json() -> String
 
+pub fn golden_seed_smoke_suite_catalog() -> Array[GoldenSeedCatalogEntry]
+
 pub fn invalid_fuzz_ast_source_kind() -> InvalidFuzzSourceKind
 
 pub fn invalid_fuzz_binary_source_kind() -> InvalidFuzzSourceKind

@@ -613,6 +613,32 @@ test "golden seed catalog schema records deterministic coverage contract" {
 }
 
 ///|
+test "golden seed smoke suite catalog covers major deterministic surfaces" {
+  let catalog = golden_seed_smoke_suite_catalog()
+  @debug.assert_eq(catalog.length(), 7)
+  let expected_ids = [
+    "gen-valid-coverage-forced-smoke", "invalid-ast-repro-smoke", "invalid-binary-repro-smoke",
+    "invalid-text-repro-smoke", "pass-fuzz-metadata-smoke", "minimization-repro-smoke",
+    "wast-roundtrip-smoke",
+  ]
+  let mut i = 0
+  while i < expected_ids.length() {
+    @debug.assert_eq(catalog[i].id, expected_ids[i])
+    @debug.assert_eq(catalog[i].seed > 0UL, true)
+    assert_true(catalog[i].covered_surfaces.length() >= 2)
+    i += 1
+  }
+  assert_true(catalog[0].covered_surfaces.contains("GenValid"))
+  assert_true(catalog[0].artifacts.contains("inputs/gen-valid/manifest.json"))
+  assert_true(catalog[1].covered_surfaces.contains("invalid-ast"))
+  assert_true(catalog[2].covered_surfaces.contains("invalid-binary"))
+  assert_true(catalog[3].covered_surfaces.contains("invalid-text"))
+  assert_true(catalog[4].covered_surfaces.contains("pass-fuzz-metadata"))
+  assert_true(catalog[5].covered_surfaces.contains("minimization"))
+  assert_true(catalog[6].covered_surfaces.contains("text"))
+}
+
+///|
 test "golden seed catalog example formats expected counters and surfaces" {
   let entry = GoldenSeedCatalogEntry::new(
     "gen-valid-smoke-v128",

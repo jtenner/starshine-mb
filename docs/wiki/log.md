@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1058B golden seed smoke suite
+
+- Completed `[FUZ]1058B` by adding `golden_seed_smoke_suite_catalog()` with seven deterministic entries covering coverage-forced GenValid, invalid AST, invalid binary, invalid text, pass-fuzz metadata, minimization/reducer replay, and WAST roundtrip smoke surfaces.
+- Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) so the golden-seed section now documents the checked-in smoke-suite catalog in addition to the schema/formatter contract.
+
 ## [2026-05-25] fuzzing | FUZ1051A recipe schema core
 
 - Completed `[FUZ]1051A` by adding the initial `FuzzRecipe` model, `parse_fuzz_recipe_text` core `key=value` schema parser, and `parse_fuzz_cli_args_with_recipe` default layering so explicit CLI flags override recipe defaults predictably.

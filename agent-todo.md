@@ -615,8 +615,6 @@ Use these slice ids when selecting or reporting future FUZ work. Parent tasks be
 p1 GenValid / valid-generation slices:
 - [FUZ]1051B (p1, tooling) - Standard Checked-In Recipe Set
   - Unit: add smoke, CI, nightly, pass-signoff, validator-stress, parser-stress, and Binaryen-oracle recipes plus docs/examples.
-- [FUZ]1058B (p1, GenValid/tooling) - Golden Seed Smoke Suite
-  - Unit: add a small deterministic suite that exercises major GenValid, invalid, text, binary, pass-fuzz metadata, and minimization surfaces.
 
 p1/p2 oracle, reporting, and infrastructure slices:
 - [FUZ]1040A (p1) - Effect/Trap Scanner Core

@@ -1867,6 +1867,95 @@ pub fn GoldenSeedCatalogEntry::new(
 }
 
 ///|
+pub fn golden_seed_smoke_suite_catalog() -> Array[GoldenSeedCatalogEntry] {
+  [
+    GoldenSeedCatalogEntry::new(
+      "gen-valid-coverage-forced-smoke",
+      "validate-valid",
+      "smoke",
+      0xf71004UL,
+      expected_counters=[
+        GoldenSeedExpectedCounter::minimum("validated", 1),
+        GoldenSeedExpectedCounter::minimum("features.v128", 1),
+      ],
+      covered_surfaces=["GenValid", "valid-generation", "coverage-forced"],
+      artifacts=["inputs/gen-valid/manifest.json", "result.json"],
+      notes="coverage-forced GenValid seed that anchors the portable valid-module smoke lane",
+    ),
+    GoldenSeedCatalogEntry::new(
+      "invalid-ast-repro-smoke",
+      "validate-invalid-ast",
+      "smoke",
+      0x10d69UL,
+      expected_counters=[
+        GoldenSeedExpectedCounter::minimum("rejected_expected", 1),
+      ],
+      covered_surfaces=["invalid-ast", "validator", "repro-metadata"],
+      artifacts=["failure.json", "input.wasm"],
+      notes="deterministic invalid-AST repro seed covering strategy metadata and validator rejection",
+    ),
+    GoldenSeedCatalogEntry::new(
+      "invalid-binary-repro-smoke",
+      "validate-invalid-binary",
+      "smoke",
+      0xb1a27UL,
+      expected_counters=[
+        GoldenSeedExpectedCounter::minimum("decode_or_validate_failures", 1),
+      ],
+      covered_surfaces=["invalid-binary", "decoder", "validator"],
+      artifacts=["failure.json", "input.wasm"],
+      notes="binary-invalid seed for decode and validation-stage repro metadata",
+    ),
+    GoldenSeedCatalogEntry::new(
+      "invalid-text-repro-smoke",
+      "validate-invalid-text",
+      "smoke",
+      0x7e57UL,
+      expected_counters=[
+        GoldenSeedExpectedCounter::minimum("rejected_expected", 1),
+      ],
+      covered_surfaces=["invalid-text", "parser", "lowerer"],
+      artifacts=["failure.json", "input.wat"],
+      notes="text-invalid seed spanning parse/lower/validate diagnostics",
+    ),
+    GoldenSeedCatalogEntry::new(
+      "pass-fuzz-metadata-smoke",
+      "pass-fuzz-compare",
+      "smoke",
+      0x5eedUL,
+      expected_counters=[GoldenSeedExpectedCounter::minimum("compared", 1)],
+      covered_surfaces=[
+        "pass-fuzz-metadata", "Binaryen-oracle", "normalization",
+      ],
+      artifacts=["result.json", "cases.jsonl"],
+      notes="pass-fuzz metadata seed used by optimizer parity smoke checks",
+    ),
+    GoldenSeedCatalogEntry::new(
+      "minimization-repro-smoke",
+      "reducer",
+      "smoke",
+      0x1043UL,
+      expected_counters=[
+        GoldenSeedExpectedCounter::minimum("predicate_reproduced", 1),
+      ],
+      covered_surfaces=["minimization", "replay", "failure-predicate"],
+      artifacts=["reduced.wasm", "reduction.json"],
+      notes="reserved deterministic minimization surface for reducer smoke replay",
+    ),
+    GoldenSeedCatalogEntry::new(
+      "wast-roundtrip-smoke",
+      "wast-roundtrip",
+      "smoke",
+      0x51a7UL,
+      expected_counters=[GoldenSeedExpectedCounter::minimum("parsed", 1)],
+      covered_surfaces=["text", "wast", "roundtrip"],
+      artifacts=["result.json"],
+      notes="text/WAST roundtrip seed covering non-binary fuzz infrastructure",
+    ),
+  ]
+}
+
+///|
 fn gen_valid_coverage_feature_label(key : ValidateValidFeatureKey) -> String {
   match key {
     @validate.ValidateValidFeatureKey::Imports => "imports"
