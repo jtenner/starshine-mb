@@ -10,6 +10,8 @@ pub enum MetamorphicValidTransform {
   AddUnusedEmptyFunction
   AddUnusedEmptyFunctionType
   AddDuplicateEquivalentFunctionType
+  AddDuplicateEquivalentEmptyFunctionTypes
+  AddDuplicateEquivalentScalarFunctionTypes
   AddUnusedFuncrefTable
   AddUnusedPassiveFuncrefElementSegment
   ReshapePassiveElementSegments
@@ -413,6 +415,10 @@ pub fn metamorphic_valid_transform_id(
     AddUnusedEmptyFunctionType => "add-unused-empty-function-type"
     AddDuplicateEquivalentFunctionType =>
       "add-duplicate-equivalent-function-type"
+    AddDuplicateEquivalentEmptyFunctionTypes =>
+      "add-duplicate-equivalent-empty-function-types"
+    AddDuplicateEquivalentScalarFunctionTypes =>
+      "add-duplicate-equivalent-scalar-function-types"
     AddUnusedFuncrefTable => "add-unused-funcref-table"
     AddUnusedPassiveFuncrefElementSegment =>
       "add-unused-passive-funcref-element-segment"
@@ -2183,6 +2189,28 @@ fn metamorphic_add_duplicate_equivalent_function_type(
         @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
       )
   }
+  mod.with_type_sec(@lib.TypeSec::new(types))
+}
+
+///|
+fn metamorphic_add_duplicate_equivalent_fixed_function_types(
+  mod : @lib.Module,
+  params : Array[@lib.ValType],
+  results : Array[@lib.ValType],
+) -> @lib.Module {
+  let types = []
+  match mod.type_sec {
+    Some(@lib.TypeSec(existing)) =>
+      for rec_type in existing {
+        types.push(rec_type)
+      }
+    None => ()
+  }
+  let rec_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func(params, results)),
+  )
+  types.push(rec_type)
+  types.push(rec_type)
   mod.with_type_sec(@lib.TypeSec::new(types))
 }
 
@@ -4054,6 +4082,8 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddUnusedEmptyFunction,
     AddUnusedEmptyFunctionType,
     AddDuplicateEquivalentFunctionType,
+    AddDuplicateEquivalentEmptyFunctionTypes,
+    AddDuplicateEquivalentScalarFunctionTypes,
     AddUnusedFuncrefTable,
     AddUnusedPassiveFuncrefElementSegment,
     ReshapePassiveElementSegments,
@@ -4475,6 +4505,14 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_unused_empty_function_type(mod)
     AddDuplicateEquivalentFunctionType =>
       metamorphic_add_duplicate_equivalent_function_type(mod)
+    AddDuplicateEquivalentEmptyFunctionTypes =>
+      metamorphic_add_duplicate_equivalent_fixed_function_types(mod, [], [])
+    AddDuplicateEquivalentScalarFunctionTypes =>
+      metamorphic_add_duplicate_equivalent_fixed_function_types(
+        mod,
+        [@lib.ValType::i32()],
+        [@lib.ValType::i64()],
+      )
     AddUnusedFuncrefTable => metamorphic_add_unused_funcref_table(mod)
     AddUnusedPassiveFuncrefElementSegment =>
       metamorphic_add_unused_passive_funcref_element_segment(mod)

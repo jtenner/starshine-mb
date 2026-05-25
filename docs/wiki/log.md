@@ -1449,6 +1449,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Completed `[FUZ]1036C` by adding `add-prefixed-export-aliases` and `add-suffixed-export-aliases` metamorphic-valid transforms. Both preserve every original export entry, append deterministic name-derived aliases to the same extern indices, repair name collisions with numeric suffixes, validate the transformed module, and report the new transform ids through `validate-valid-metamorphic` details.
 - Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the active metamorphic-valid transform registry names the widened export-name reshaping surface alongside the earlier index-based export alias transform.
 
+## [2026-05-25] fuzzing | FUZ1036K1 duplicate equivalent type declarations
+
+- Completed `[FUZ]1036K1` by adding `add-duplicate-equivalent-empty-function-types` and `add-duplicate-equivalent-scalar-function-types`. Each transform appends a pair of equivalent unused function type declarations without retargeting existing type indices.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the metamorphic-valid registry records the new declaration-aliasing surface and the smoke transform count increase to 395 transforms per generated module.
+
 ## [2026-05-24] fuzzing | FUZ1036B metamorphic local declaration split
 
 - Completed `[FUZ]1036B` by adding the `split-merge-local-declarations` metamorphic-valid transform. It splits the first multi-count local declaration run in each defined function into adjacent declarations of the same value type without changing local indices or instructions, validates the transformed module, and reports the new transform id through `validate-valid-metamorphic` details.

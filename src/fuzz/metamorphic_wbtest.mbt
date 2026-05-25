@@ -1063,6 +1063,73 @@ test "metamorphic duplicate equivalent function-type transform preserves validat
 }
 
 ///|
+test "metamorphic duplicate equivalent fixed function-type transforms append unused declaration pairs" {
+  let base = @lib.Module::new()
+  let empty = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentEmptyFunctionTypes) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    empty.transform_id,
+    "add-duplicate-equivalent-empty-function-types",
+  )
+  match empty.wasm_module.type_sec {
+    Some(@lib.TypeSec(types)) => {
+      @debug.assert_eq(types.length(), 2)
+      @debug.assert_eq(types[0], types[1])
+      match types[0] {
+        @lib.SingleRecType(
+          @lib.CompTypeSubType(_, @lib.FuncCompType(params, results))
+        ) => {
+          @debug.assert_eq(params, [])
+          @debug.assert_eq(results, [])
+        }
+        _ => fail("expected duplicate [] -> [] function types")
+      }
+    }
+    None => fail("expected transformed type section")
+  }
+  match assert_metamorphic_roundtrip_valid(empty.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+
+  let scalar = match
+    metamorphic_apply_transform(
+      @lib.Module::new(),
+      AddDuplicateEquivalentScalarFunctionTypes,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    scalar.transform_id,
+    "add-duplicate-equivalent-scalar-function-types",
+  )
+  match scalar.wasm_module.type_sec {
+    Some(@lib.TypeSec(types)) => {
+      @debug.assert_eq(types.length(), 2)
+      @debug.assert_eq(types[0], types[1])
+      match types[0] {
+        @lib.SingleRecType(
+          @lib.CompTypeSubType(_, @lib.FuncCompType(params, results))
+        ) => {
+          @debug.assert_eq(params, [@lib.ValType::i32()])
+          @debug.assert_eq(results, [@lib.ValType::i64()])
+        }
+        _ => fail("expected duplicate i32 -> i64 function types")
+      }
+    }
+    None => fail("expected transformed type section")
+  }
+  match assert_metamorphic_roundtrip_valid(scalar.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic unused empty-function transform preserves validation and binary roundtrip" {
   let generated = match
     gen_valid_module_result_from_seed(
@@ -6666,8 +6733,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 393)
-  @debug.assert_eq(stats.validated, 393)
+  @debug.assert_eq(stats.transformed, 395)
+  @debug.assert_eq(stats.validated, 395)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -6854,6 +6921,16 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(stats.transform_ids.contains("add-unused-empty-function-type"))
   assert_true(
     stats.transform_ids.contains("add-duplicate-equivalent-function-type"),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-duplicate-equivalent-empty-function-types",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-duplicate-equivalent-scalar-function-types",
+    ),
   )
   assert_true(stats.transform_ids.contains("add-unused-funcref-table"))
   assert_true(

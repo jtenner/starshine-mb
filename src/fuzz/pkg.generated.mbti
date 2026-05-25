@@ -517,6 +517,8 @@ pub enum MetamorphicValidTransform {
   AddUnusedEmptyFunction
   AddUnusedEmptyFunctionType
   AddDuplicateEquivalentFunctionType
+  AddDuplicateEquivalentEmptyFunctionTypes
+  AddDuplicateEquivalentScalarFunctionTypes
   AddUnusedFuncrefTable
   AddUnusedPassiveFuncrefElementSegment
   ReshapePassiveElementSegments
