@@ -6,7 +6,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added optional `--canonicalize-binaryen-output` support in [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts), preserving `binaryen.raw.wasm` while allowing diagnostic compares against a `wasm-opt --strip-debug` canonicalized `binaryen.wasm` instead of the default raw Binaryen byte reference.
 - Added command coverage in [`../../scripts/test/self-optimize-compare-canonical-binaryen-output.ts`](../../scripts/test/self-optimize-compare-canonical-binaryen-output.ts).
-- `.tmp/dae-func408-canonical-binaryen-artifact` validates with `wasm-opt --all-features`, runs within the DAE pass-local 2x target (`1756.838ms` Starshine versus `925.410ms` Binaryen), and shows Func408/abs425 matches after both sides use the same strip-debug writer; the next both-canonical first diff is `defined=208 abs=225`, so the prior Func408 accepted/normalized drift is compare-layer representation drift rather than a remaining DAE raw rewrite target.
+- `.tmp/dae-func408-canonical-binaryen-artifact` validates with `wasm-opt --all-features`, runs within the DAE pass-local 2x target (`1756.838ms` Starshine versus `925.410ms` Binaryen), and shows Func408/abs425 matches after both sides use the same strip-debug writer; the next both-canonical first diff is `defined=208 abs=225`, so the prior Func408 accepted/normalized drift is compare-layer representation drift rather than a remaining DAE raw rewrite target. The durable audit is [`raw/research/0575-2026-05-24-dae-func408-compare-layer-audit.md`](raw/research/0575-2026-05-24-dae-func408-compare-layer-audit.md).
 
 ## [2026-05-24] passes | dae Func408 pair-if carrier
 
