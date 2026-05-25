@@ -3178,6 +3178,69 @@ pub fn format_fuzz_run_report_json(
 }
 
 ///|
+fn format_fuzz_suite_ledger_json(
+  suite : String,
+  profile : String,
+  base_seed : Int64,
+  seed_count : Int,
+  shard_index : Int,
+  shard_count : Int,
+  results : Array[FuzzSuiteResult],
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "{\"schema\":\"starshine.fuzz-suite-ledger.v1\",\"suite\":\"\{fuzz_json_escape(suite)}\",\"profile\":\"\{fuzz_json_escape(profile)}\",\"base_seed\":\{base_seed},\"seed_count\":\{seed_count},\"shard_index\":\{shard_index},\"shard_count\":\{shard_count},\"run_count\":\{results.length()},\"runs\":[",
+  )
+  let mut i = 0
+  while i < results.length() {
+    if i > 0 {
+      out.write_string(",")
+    }
+    let result = results[i]
+    out.write_string(
+      "{\"suite\":\"\{fuzz_json_escape(result.suite)}\",\"profile\":\"\{fuzz_json_escape(result.profile)}\",\"seed\":\{result.seed},\"seed_index\":\{result.seed_index},\"attempts\":\{result.attempts},\"elapsed_ms\":\{result.elapsed_ms},\"details\":",
+    )
+    match result.details_json {
+      Some(details) => out.write_string(details)
+      None => out.write_string("null")
+    }
+    out.write_string("}")
+    i += 1
+  }
+  out.write_string("]}")
+  out.to_string()
+}
+
+///|
+fn format_fuzz_replay_manifest_json(
+  suite : String,
+  profile : String,
+  base_seed : Int64,
+  seed_count : Int,
+  shard_index : Int,
+  shard_count : Int,
+  results : Array[FuzzSuiteResult],
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "{\"schema\":\"starshine.fuzz-replay-manifest.v1\",\"suite\":\"\{fuzz_json_escape(suite)}\",\"profile\":\"\{fuzz_json_escape(profile)}\",\"base_seed\":\{base_seed},\"seed_count\":\{seed_count},\"shard_index\":\{shard_index},\"shard_count\":\{shard_count},\"commands\":[",
+  )
+  let mut i = 0
+  while i < results.length() {
+    if i > 0 {
+      out.write_string(",")
+    }
+    let result = results[i]
+    out.write_string(
+      "{\"suite\":\"\{fuzz_json_escape(result.suite)}\",\"profile\":\"\{fuzz_json_escape(result.profile)}\",\"seed\":\{result.seed},\"seed_index\":\{result.seed_index},\"command\":\"moon run src/fuzz --\",\"args\":[\"\{fuzz_json_escape(result.suite)}\",\"\{fuzz_json_escape(result.profile)}\",\"--seed\",\"\{result.seed}\",\"--seed-count\",\"1\",\"--shard-index\",\"0\",\"--shard-count\",\"1\"]}",
+    )
+    i += 1
+  }
+  out.write_string("]}")
+  out.to_string()
+}
+
+///|
 pub fn persist_fuzz_run_output(
   out_dir : String,
   suite : String,
@@ -3197,6 +3260,16 @@ pub fn persist_fuzz_run_output(
     Ok(_) => ()
     Err(e) => return Err("failed to create fuzz output dir \{dir}: \{e}")
   }
+  let ledger_dir = fuzz_join_path(dir, "ledgers")
+  match (io.ensure_dir)(ledger_dir) {
+    Ok(_) => ()
+    Err(e) => return Err("failed to create fuzz ledger dir \{ledger_dir}: \{e}")
+  }
+  let replay_dir = fuzz_join_path(dir, "replay")
+  match (io.ensure_dir)(replay_dir) {
+    Ok(_) => ()
+    Err(e) => return Err("failed to create fuzz replay dir \{replay_dir}: \{e}")
+  }
   let result_json = format_fuzz_run_report_json(
     suite, profile, base_seed, seed_count, shard_index, shard_count, results,
   )
@@ -3209,11 +3282,21 @@ pub fn persist_fuzz_run_output(
     cases.write_char('\n')
     i += 1
   }
-  let manifest = "{\"schema\":\"starshine.fuzz-output.v1\",\"files\":[\"result.json\",\"cases.jsonl\"],\"artifact_dirs\":[\"inputs\",\"failures\"]}"
+  let ledger_path = "ledgers/\{suite}-ledger.json"
+  let replay_path = "replay/\{suite}-replay.json"
+  let suite_ledger = format_fuzz_suite_ledger_json(
+    suite, profile, base_seed, seed_count, shard_index, shard_count, results,
+  )
+  let replay_manifest = format_fuzz_replay_manifest_json(
+    suite, profile, base_seed, seed_count, shard_index, shard_count, results,
+  )
+  let manifest = "{\"schema\":\"starshine.fuzz-output.v1\",\"files\":[\"result.json\",\"cases.jsonl\",\"\{ledger_path}\",\"\{replay_path}\"],\"artifact_dirs\":[\"inputs\",\"failures\",\"ledgers\",\"replay\"]}"
   let writes = [
     ("result.json", fuzz_string_to_bytes(result_json)),
     ("cases.jsonl", fuzz_string_to_bytes(cases.to_string())),
     ("manifest.json", fuzz_string_to_bytes(manifest)),
+    (ledger_path, fuzz_string_to_bytes(suite_ledger)),
+    (replay_path, fuzz_string_to_bytes(replay_manifest)),
   ]
   for item in writes {
     let path = fuzz_join_path(dir, item.0)

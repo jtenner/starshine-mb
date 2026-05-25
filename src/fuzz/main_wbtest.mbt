@@ -123,11 +123,15 @@ test "persist_fuzz_run_output writes result cases and manifest only when request
     Ok(_) => ()
     Err(msg) => fail(msg)
   }
-  @debug.assert_eq(ensured_dirs, ["tmp/fuzz-out"])
-  @debug.assert_eq(writes.length(), 3)
+  @debug.assert_eq(ensured_dirs, [
+    "tmp/fuzz-out", "tmp/fuzz-out/ledgers", "tmp/fuzz-out/replay",
+  ])
+  @debug.assert_eq(writes.length(), 5)
   let mut saw_result = false
   let mut saw_cases = false
   let mut saw_manifest = false
+  let mut saw_suite_ledger = false
+  let mut saw_replay_manifest = false
   for entry in writes {
     let path = entry.0
     let text = bytes_to_ascii(entry.1)
@@ -144,11 +148,30 @@ test "persist_fuzz_run_output writes result cases and manifest only when request
       assert_true(text.contains("\"schema\":\"starshine.fuzz-output.v1\""))
       assert_true(text.contains("result.json"))
       assert_true(text.contains("cases.jsonl"))
+      assert_true(text.contains("ledgers/cmd-harness-ledger.json"))
+      assert_true(text.contains("replay/cmd-harness-replay.json"))
+    } else if path == "tmp/fuzz-out/ledgers/cmd-harness-ledger.json" {
+      saw_suite_ledger = true
+      assert_true(
+        text.contains("\"schema\":\"starshine.fuzz-suite-ledger.v1\""),
+      )
+      assert_true(text.contains("\"suite\":\"cmd-harness\""))
+      assert_true(text.contains("\"details\":{\"optimized\":3}"))
+    } else if path == "tmp/fuzz-out/replay/cmd-harness-replay.json" {
+      saw_replay_manifest = true
+      assert_true(
+        text.contains("\"schema\":\"starshine.fuzz-replay-manifest.v1\""),
+      )
+      assert_true(text.contains("\"suite\":\"cmd-harness\""))
+      assert_true(text.contains("\"seed\":16"))
+      assert_true(text.contains("\"args\":["))
     }
   }
   assert_true(saw_result)
   assert_true(saw_cases)
   assert_true(saw_manifest)
+  assert_true(saw_suite_ledger)
+  assert_true(saw_replay_manifest)
 }
 
 ///|
