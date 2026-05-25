@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-25] passes | dae DAE006 Func505 successor frontier
+
+- Completed the `[DAE]006` successor artifact replay requested after the default-zero guard cleanup. `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --starshine-bin target/native/release/build/cmd/cmd.exe --dae-optimizing --canonicalize-binaryen-output --out-dir .tmp/dae-func505-recovery-artifact` now completes and reports first diff `defined=505 abs=522`.
+- Evidence is recorded in [`raw/research/0579-2026-05-25-dae-func505-successor-frontier.md`](raw/research/0579-2026-05-25-dae-func505-successor-frontier.md). The prior high-bound guard is gone, but the remaining loop induction, lower-bound digit guard, error-construction, and final empty-input branch differences are live/effectful and remain agent-classified unknown/risky rather than representation-only.
+- Both canonical wasm outputs validated with `wasm-opt --all-features` with only the existing large-local-count VM warning for function 518. Pass-local timing remains over target: `3264.383ms` Starshine versus `1033.990ms` Binaryen.
+
 ## [2026-05-25] passes | dae DAE006 Func505 default-zero guard cleanup
 
 - Verified the suspicious Func505 high-bound carrier from [`raw/research/0577-2026-05-25-dae-func505-reduction-attribution.md`](raw/research/0577-2026-05-25-dae-func505-reduction-attribution.md): the printed `local.get $5; i32.const 57; i32.gt_s` reads an unwritten non-param local that defaults to zero after DAE parameter removal, so the branch is semantic-safe cleanup rather than a correctness repair.

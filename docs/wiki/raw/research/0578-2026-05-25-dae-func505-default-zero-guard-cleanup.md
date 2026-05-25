@@ -1,6 +1,6 @@
 ---
 kind: research
-status: working
+status: complete
 date: 2026-05-25
 sources:
   - ../../binaryen/passes/dae-optimizing/starshine-strategy.md
@@ -64,4 +64,4 @@ Agent classification: **semantic-safe, representation/cleanup improvement for th
 
 Rationale: the removed high-bound branch read an unwritten non-parameter local whose WebAssembly default value is zero, and the comparison was exactly signed `0 > 57`, which is false. The cleanup does not remove or reorder effectful operations and is guarded against parameters and written locals.
 
-The broader Func505 frontier is not fully closed by this slice because the full both-canonical compare timed out before producing a new first-diff report, and Func505 still has other local/control/debris differences. The next `[DAE]006` run should rerun a bounded artifact comparison or a more targeted Func505 extraction to determine whether this cleanup advances the first frontier.
+The broader Func505 frontier was not fully closed by this slice because the full both-canonical compare timed out before producing a new first-diff report, and Func505 still had other local/control/debris differences. Follow-up note `0579` reran the both-canonical artifact comparison successfully and confirmed the first frontier remains `defined=505 abs=522` after this cleanup.
