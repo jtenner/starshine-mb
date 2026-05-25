@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-24] fuzzing | FUZ1036D metamorphic trailing i64 const drop
+
+- Continued `[FUZ]1036D` by adding the `add-trailing-i64-const-drop-to-defined-functions` metamorphic-valid transform. It appends a pure `i64.const 0; drop` pair to every defined function body without shifting locals, changing stack effects, or changing observable behavior, validates the transformed module, and reports the new transform id through `validate-valid-metamorphic` details.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the active metamorphic-valid transform registry names both leading and trailing `i64.const 0; drop` body reshaping surfaces alongside reference-null/drop, no-op, local-declaration, custom-section, metadata, export-alias, and passive-segment transforms.
+
 ## [2026-05-24] fuzzing | FUZ1036D metamorphic leading i64 const drop
 
 - Continued `[FUZ]1036D` by adding the `add-leading-i64-const-drop-to-defined-functions` metamorphic-valid transform. It prepends a pure `i64.const 0; drop` pair to every defined function body without shifting locals, changing stack effects, or changing observable behavior, validates the transformed module, and reports the new transform id through `validate-valid-metamorphic` details.
