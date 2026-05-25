@@ -613,8 +613,7 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 Use these slice ids when selecting or reporting future FUZ work. Parent tasks below keep the fuller goals, invariants, and historical evidence; this index names the remaining units so agents do not have to infer the next slice from long status paragraphs.
 
 p1 GenValid / valid-generation slices:
-- [FUZ]1051B (p1, tooling) - Standard Checked-In Recipe Set
-  - Unit: add smoke, CI, nightly, pass-signoff, validator-stress, parser-stress, and Binaryen-oracle recipes plus docs/examples.
+- No active p1 GenValid recipe-catalog slices remain.
 
 p1/p2 oracle, reporting, and infrastructure slices:
 - [FUZ]1040A (p1) - Effect/Trap Scanner Core

@@ -42,6 +42,61 @@ pub fn FuzzRecipe::new(
 }
 
 ///|
+pub fn fuzz_standard_recipe_text_by_name(name : String) -> String? {
+  match fuzz_ascii_lower(name) {
+    "smoke" =>
+      Some(
+        "name=smoke\nsuite=validate-valid\nprofile=smoke\nseed=0x5eed\nseed-count=1\nshard-count=1\noutput=text\n",
+      )
+    "ci" =>
+      Some(
+        "name=ci\nsuite=cmd-harness\nprofile=ci+gen-valid=natural-small+passes=common-clusters\nseed=0x5eed\nseed-count=4\nshard-count=1\noutput=jsonl\n",
+      )
+    "nightly" =>
+      Some(
+        "name=nightly\nsuite=validate-valid-metamorphic\nprofile=stress\nseed=0x1eed\nseed-count=32\nshard-count=8\noutput=jsonl\n",
+      )
+    "pass-signoff" =>
+      Some(
+        "name=pass-signoff\nsuite=cmd-harness\nprofile=ci+gen-valid=binaryen-oracle-portable+passes=each-pass+check-idempotence\nseed=0x5eed\nseed-count=8\nshard-count=4\noutput=jsonl\n",
+      )
+    "validator-stress" =>
+      Some(
+        "name=validator-stress\nsuite=validate-valid\nprofile=stress\nseed=0x10d69\nseed-count=16\nshard-count=4\noutput=jsonl\n",
+      )
+    "parser-stress" =>
+      Some(
+        "name=parser-stress\nsuite=wast-roundtrip\nprofile=stress+parser-stress+scripts\nseed=0x5eed\nseed-count=16\nshard-count=4\noutput=jsonl\n",
+      )
+    "binaryen-oracle" =>
+      Some(
+        "name=binaryen-oracle\nsuite=gen-valid-wat-validate-roundtrip\nprofile=binaryen-oracle-portable\nseed=0x5eed\nseed-count=8\nshard-count=4\noutput=jsonl\n",
+      )
+    _ => None
+  }
+}
+
+///|
+pub fn fuzz_standard_recipe_names() -> Array[String] {
+  [
+    "smoke", "ci", "nightly", "pass-signoff", "validator-stress", "parser-stress",
+    "binaryen-oracle",
+  ]
+}
+
+///|
+pub fn fuzz_standard_recipe_by_name(name : String) -> FuzzRecipe? {
+  match fuzz_standard_recipe_text_by_name(name) {
+    Some(text) =>
+      match parse_fuzz_recipe_text(text) {
+        Ok(recipe) => Some(recipe)
+        Err(_) => None
+      }
+    None => None
+  }
+}
+
+///|
 pub struct EmitGenValidBatchArgs {
   count : Int
   seed : UInt64
@@ -1204,15 +1259,20 @@ pub fn parse_fuzz_recipe_text(text : String) -> Result[FuzzRecipe, String] {
     if line.length() == 0 || line[0] == '#' {
       continue
     }
-    let parts : Array[String] = []
-    for part in line.split("=") {
-      parts.push(part.to_owned())
+    let mut eq_index = -1
+    let mut scan_index = 0
+    while scan_index < line.length() {
+      if line[scan_index] == '=' {
+        eq_index = scan_index
+        break
+      }
+      scan_index += 1
     }
-    if parts.length() != 2 {
+    if eq_index < 0 {
       return Err("recipe lines must be key=value: \{line}")
     }
-    let key = fuzz_ascii_lower(parts[0].trim().to_owned())
-    let value = parts[1].trim().to_owned()
+    let key = fuzz_ascii_lower(line[:eq_index].to_owned().trim().to_owned())
+    let value = line[eq_index + 1:].to_owned().trim().to_owned()
     match key {
       "name" => name = Some(value)
       "suite" => suite = Some(fuzz_ascii_lower(value))

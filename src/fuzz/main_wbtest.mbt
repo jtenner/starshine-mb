@@ -336,6 +336,43 @@ test "parse_fuzz_recipe_text parses core key value schema" {
 }
 
 ///|
+test "standard fuzz recipe catalog includes required checked-in recipes" {
+  let names = fuzz_standard_recipe_names()
+  assert_true(names.contains("smoke"))
+  assert_true(names.contains("ci"))
+  assert_true(names.contains("nightly"))
+  assert_true(names.contains("pass-signoff"))
+  assert_true(names.contains("validator-stress"))
+  assert_true(names.contains("parser-stress"))
+  assert_true(names.contains("binaryen-oracle"))
+  let recipe = match fuzz_standard_recipe_by_name("pass-signoff") {
+    Some(v) => v
+    None => fail("expected pass-signoff recipe")
+  }
+  @debug.assert_eq(recipe.suite, "cmd-harness")
+  assert_true(recipe.profile.contains("passes=each-pass"))
+  @debug.assert_eq(recipe.seed_i64, 0x5eedL)
+}
+
+///|
+test "standard fuzz recipe texts parse through the public recipe parser" {
+  for name in fuzz_standard_recipe_names() {
+    let text = match fuzz_standard_recipe_text_by_name(name) {
+      Some(v) => v
+      None => fail("missing standard recipe text for \{name}")
+    }
+    let recipe = match parse_fuzz_recipe_text(text) {
+      Ok(v) => v
+      Err(msg) => fail("standard recipe \{name} did not parse: \{msg}")
+    }
+    @debug.assert_eq(recipe.name, name)
+    assert_true(fuzz_active_suite_names().contains(recipe.suite))
+    assert_true(recipe.seed_count > 0)
+    assert_true(recipe.shard_count > 0)
+  }
+}
+
+///|
 test "parse_fuzz_cli_args applies recipe defaults before cli overrides" {
   let recipe = match
     parse_fuzz_recipe_text(

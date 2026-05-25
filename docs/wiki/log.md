@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1051B standard checked-in recipe set
+
+- Completed `[FUZ]1051B` by adding the standard fuzz recipe catalog helpers for `smoke`, `ci`, `nightly`, `pass-signoff`, `validator-stress`, `parser-stress`, and `binaryen-oracle`.
+- Updated [`fuzzing/recipe-schema.md`](fuzzing/recipe-schema.md) so the recipe docs now cover the checked-in ids and the parser's first-`=` split for profile modifiers such as `passes=each-pass`.
+
 ## [2026-05-25] fuzzing | FUZ1058B golden seed smoke suite
 
 - Completed `[FUZ]1058B` by adding `golden_seed_smoke_suite_catalog()` with seven deterministic entries covering coverage-forced GenValid, invalid AST, invalid binary, invalid text, pass-fuzz metadata, minimization/reducer replay, and WAST roundtrip smoke surfaces.

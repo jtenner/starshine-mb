@@ -12,9 +12,13 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 ## Concepts
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 - [`wast/index.md`](wast/index.md) - Namespace catalog for WAST authoring pages: module declarations, type/reference/GC surfaces, control/call families, memory/table/data/element instructions, numeric/SIMD/variable instructions, current text-surface caveats, and maintenance rules that keep parser, lowerer, binary, validator, generator, arbitrary-WAST, and pass evidence separate; now also routes reference-branch readers to the refreshed branch-label versus fallthrough type split, the current official-vs-local name-section metadata split, and the `CastOp` nullability caveat.
 =======
 - [`fuzzing/recipe-schema.md`](fuzzing/recipe-schema.md) - Core checked-in fuzz recipe `key=value` schema, parser defaults, and CLI override precedence for repeatable fuzz runs; the standard recipe catalog remains a follow-up slice.
+=======
+- [`fuzzing/recipe-schema.md`](fuzzing/recipe-schema.md) - Core checked-in fuzz recipe `key=value` schema, parser defaults, CLI override precedence, and standard recipe catalog ids for smoke, CI, nightly, pass-signoff, validator-stress, parser-stress, and Binaryen-oracle repeatable fuzz runs.
+>>>>>>> 754916cd (FUZ1051B standard checked-in fuzz recipe set)
 - [`wast/index.md`](wast/index.md) - Namespace catalog for WAST authoring pages: module declarations, type/reference/GC surfaces, control/call families, memory/table/data/element instructions, numeric/SIMD/variable instructions, current text-surface caveats, and maintenance rules that keep parser, lowerer, binary, validator, generator, arbitrary-WAST, and pass evidence separate; now also routes reference-branch readers to the refreshed branch-label versus fallthrough type split and `CastOp` nullability caveat.
 >>>>>>> 145412c0 (Complete FUZ1051A fuzz recipe schema core)
 - [`ir2/architecture-rules.md`](ir2/architecture-rules.md) - Single-owned `HotFunc` contract, overlay model, and module-split rule for IR2.

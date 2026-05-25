@@ -43,6 +43,12 @@ pub fn fuzz_active_suite_names() -> Array[String]
 
 pub fn fuzz_reserved_suite_names() -> Array[String]
 
+pub fn fuzz_standard_recipe_by_name(String) -> FuzzRecipe?
+
+pub fn fuzz_standard_recipe_names() -> Array[String]
+
+pub fn fuzz_standard_recipe_text_by_name(String) -> String?
+
 pub fn fuzz_suite_inventory_lines() -> Array[String]
 
 pub fn fuzz_usage_text() -> String
