@@ -2889,6 +2889,90 @@ test "metamorphic f32 and f64 sqrt drop transforms preserve validation and binar
 }
 
 ///|
+test "metamorphic f32 and f64 ceil/floor drop transforms preserve validation and binary roundtrip" {
+  match
+    assert_metamorphic_unary_drop_transform(
+      AddLeadingF32CeilDropToDefinedFunctions,
+      "add-leading-f32-ceil-drop-to-defined-functions",
+      @lib.Instruction::f32_ceil(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_unary_drop_transform(
+      AddTrailingF32CeilDropToDefinedFunctions,
+      "add-trailing-f32-ceil-drop-to-defined-functions",
+      @lib.Instruction::f32_ceil(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_unary_drop_transform(
+      AddLeadingF32FloorDropToDefinedFunctions,
+      "add-leading-f32-floor-drop-to-defined-functions",
+      @lib.Instruction::f32_floor(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_unary_drop_transform(
+      AddTrailingF32FloorDropToDefinedFunctions,
+      "add-trailing-f32-floor-drop-to-defined-functions",
+      @lib.Instruction::f32_floor(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_unary_drop_transform(
+      AddLeadingF64CeilDropToDefinedFunctions,
+      "add-leading-f64-ceil-drop-to-defined-functions",
+      @lib.Instruction::f64_ceil(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_unary_drop_transform(
+      AddTrailingF64CeilDropToDefinedFunctions,
+      "add-trailing-f64-ceil-drop-to-defined-functions",
+      @lib.Instruction::f64_ceil(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_unary_drop_transform(
+      AddLeadingF64FloorDropToDefinedFunctions,
+      "add-leading-f64-floor-drop-to-defined-functions",
+      @lib.Instruction::f64_floor(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_unary_drop_transform(
+      AddTrailingF64FloorDropToDefinedFunctions,
+      "add-trailing-f64-floor-drop-to-defined-functions",
+      @lib.Instruction::f64_floor(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic leading f64 abs drop transform preserves validation and binary roundtrip" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
@@ -3311,8 +3395,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 69)
-  @debug.assert_eq(stats.validated, 69)
+  @debug.assert_eq(stats.transformed, 77)
+  @debug.assert_eq(stats.validated, 77)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),

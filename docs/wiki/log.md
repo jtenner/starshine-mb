@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1036D metamorphic f32/f64 ceil/floor drop body reshaping
+
+- Continued `[FUZ]1036D` by adding the leading/trailing f32/f64 `ceil` and `floor` computed/drop metamorphic-valid transforms. They insert pure `const 0; ceil/floor; drop` stacks at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate the transformed modules, and raise the active registry to 77 transforms per generated module.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the active metamorphic-valid transform registry names the new rounding computed/drop body reshaping surface alongside the existing sqrt, neg, abs, eqz, const/drop, if, no-op, control-wrapper, locals, exports, custom sections, and metadata transforms.
+
 ## [2026-05-25] fuzzing | FUZ1036D metamorphic f32/f64 sqrt drop body reshaping
 
 - Continued `[FUZ]1036D` by adding the `add-leading-f32-sqrt-drop-to-defined-functions`, `add-trailing-f32-sqrt-drop-to-defined-functions`, `add-leading-f64-sqrt-drop-to-defined-functions`, and `add-trailing-f64-sqrt-drop-to-defined-functions` metamorphic-valid transforms. They insert pure floating-point square-root/drop stacks at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate the transformed modules, and report the new transform ids through `validate-valid-metamorphic` details.

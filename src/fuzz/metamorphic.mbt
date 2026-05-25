@@ -55,6 +55,14 @@ pub enum MetamorphicValidTransform {
   AddTrailingF32SqrtDropToDefinedFunctions
   AddLeadingF64SqrtDropToDefinedFunctions
   AddTrailingF64SqrtDropToDefinedFunctions
+  AddLeadingF32CeilDropToDefinedFunctions
+  AddTrailingF32CeilDropToDefinedFunctions
+  AddLeadingF32FloorDropToDefinedFunctions
+  AddTrailingF32FloorDropToDefinedFunctions
+  AddLeadingF64CeilDropToDefinedFunctions
+  AddTrailingF64CeilDropToDefinedFunctions
+  AddLeadingF64FloorDropToDefinedFunctions
+  AddTrailingF64FloorDropToDefinedFunctions
   AddLeadingNopToDefinedFunctions
   AddTrailingNopToDefinedFunctions
   AddLeadingI32ConstDropToDefinedFunctions
@@ -166,6 +174,22 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-f64-sqrt-drop-to-defined-functions"
     AddTrailingF64SqrtDropToDefinedFunctions =>
       "add-trailing-f64-sqrt-drop-to-defined-functions"
+    AddLeadingF32CeilDropToDefinedFunctions =>
+      "add-leading-f32-ceil-drop-to-defined-functions"
+    AddTrailingF32CeilDropToDefinedFunctions =>
+      "add-trailing-f32-ceil-drop-to-defined-functions"
+    AddLeadingF32FloorDropToDefinedFunctions =>
+      "add-leading-f32-floor-drop-to-defined-functions"
+    AddTrailingF32FloorDropToDefinedFunctions =>
+      "add-trailing-f32-floor-drop-to-defined-functions"
+    AddLeadingF64CeilDropToDefinedFunctions =>
+      "add-leading-f64-ceil-drop-to-defined-functions"
+    AddTrailingF64CeilDropToDefinedFunctions =>
+      "add-trailing-f64-ceil-drop-to-defined-functions"
+    AddLeadingF64FloorDropToDefinedFunctions =>
+      "add-leading-f64-floor-drop-to-defined-functions"
+    AddTrailingF64FloorDropToDefinedFunctions =>
+      "add-trailing-f64-floor-drop-to-defined-functions"
     AddLeadingNopToDefinedFunctions => "add-leading-nop-to-defined-functions"
     AddTrailingNopToDefinedFunctions => "add-trailing-nop-to-defined-functions"
     AddLeadingI32ConstDropToDefinedFunctions =>
@@ -1625,6 +1649,62 @@ fn metamorphic_add_trailing_f64_sqrt_drop_to_defined_functions(
 }
 
 ///|
+fn metamorphic_add_leading_f32_ceil_drop_to_defined_functions(
+  mod : @lib.Module,
+) -> @lib.Module {
+  metamorphic_add_f32_ceil_drop_to_defined_functions(mod, true)
+}
+
+///|
+fn metamorphic_add_trailing_f32_ceil_drop_to_defined_functions(
+  mod : @lib.Module,
+) -> @lib.Module {
+  metamorphic_add_f32_ceil_drop_to_defined_functions(mod, false)
+}
+
+///|
+fn metamorphic_add_leading_f32_floor_drop_to_defined_functions(
+  mod : @lib.Module,
+) -> @lib.Module {
+  metamorphic_add_f32_floor_drop_to_defined_functions(mod, true)
+}
+
+///|
+fn metamorphic_add_trailing_f32_floor_drop_to_defined_functions(
+  mod : @lib.Module,
+) -> @lib.Module {
+  metamorphic_add_f32_floor_drop_to_defined_functions(mod, false)
+}
+
+///|
+fn metamorphic_add_leading_f64_ceil_drop_to_defined_functions(
+  mod : @lib.Module,
+) -> @lib.Module {
+  metamorphic_add_f64_ceil_drop_to_defined_functions(mod, true)
+}
+
+///|
+fn metamorphic_add_trailing_f64_ceil_drop_to_defined_functions(
+  mod : @lib.Module,
+) -> @lib.Module {
+  metamorphic_add_f64_ceil_drop_to_defined_functions(mod, false)
+}
+
+///|
+fn metamorphic_add_leading_f64_floor_drop_to_defined_functions(
+  mod : @lib.Module,
+) -> @lib.Module {
+  metamorphic_add_f64_floor_drop_to_defined_functions(mod, true)
+}
+
+///|
+fn metamorphic_add_trailing_f64_floor_drop_to_defined_functions(
+  mod : @lib.Module,
+) -> @lib.Module {
+  metamorphic_add_f64_floor_drop_to_defined_functions(mod, false)
+}
+
+///|
 fn metamorphic_add_i32_eqz_drop_to_defined_functions(
   mod : @lib.Module,
   leading : Bool,
@@ -1716,6 +1796,54 @@ fn metamorphic_add_f64_sqrt_drop_to_defined_functions(
   metamorphic_add_unary_drop_to_defined_functions(mod, leading, [
     @lib.Instruction::f64_const(0.0),
     @lib.Instruction::f64_sqrt(),
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
+fn metamorphic_add_f32_ceil_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+) -> @lib.Module {
+  metamorphic_add_unary_drop_to_defined_functions(mod, leading, [
+    @lib.Instruction::f32_const(0.0),
+    @lib.Instruction::f32_ceil(),
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
+fn metamorphic_add_f32_floor_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+) -> @lib.Module {
+  metamorphic_add_unary_drop_to_defined_functions(mod, leading, [
+    @lib.Instruction::f32_const(0.0),
+    @lib.Instruction::f32_floor(),
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
+fn metamorphic_add_f64_ceil_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+) -> @lib.Module {
+  metamorphic_add_unary_drop_to_defined_functions(mod, leading, [
+    @lib.Instruction::f64_const(0.0),
+    @lib.Instruction::f64_ceil(),
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
+fn metamorphic_add_f64_floor_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+) -> @lib.Module {
+  metamorphic_add_unary_drop_to_defined_functions(mod, leading, [
+    @lib.Instruction::f64_const(0.0),
+    @lib.Instruction::f64_floor(),
     @lib.Instruction::drop(),
   ])
 }
@@ -2310,6 +2438,14 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingF32SqrtDropToDefinedFunctions,
     AddLeadingF64SqrtDropToDefinedFunctions,
     AddTrailingF64SqrtDropToDefinedFunctions,
+    AddLeadingF32CeilDropToDefinedFunctions,
+    AddTrailingF32CeilDropToDefinedFunctions,
+    AddLeadingF32FloorDropToDefinedFunctions,
+    AddTrailingF32FloorDropToDefinedFunctions,
+    AddLeadingF64CeilDropToDefinedFunctions,
+    AddTrailingF64CeilDropToDefinedFunctions,
+    AddLeadingF64FloorDropToDefinedFunctions,
+    AddTrailingF64FloorDropToDefinedFunctions,
     AddLeadingNopToDefinedFunctions,
     AddTrailingNopToDefinedFunctions,
     AddLeadingI32ConstDropToDefinedFunctions,
@@ -2427,6 +2563,22 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_leading_f64_sqrt_drop_to_defined_functions(mod)
     AddTrailingF64SqrtDropToDefinedFunctions =>
       metamorphic_add_trailing_f64_sqrt_drop_to_defined_functions(mod)
+    AddLeadingF32CeilDropToDefinedFunctions =>
+      metamorphic_add_leading_f32_ceil_drop_to_defined_functions(mod)
+    AddTrailingF32CeilDropToDefinedFunctions =>
+      metamorphic_add_trailing_f32_ceil_drop_to_defined_functions(mod)
+    AddLeadingF32FloorDropToDefinedFunctions =>
+      metamorphic_add_leading_f32_floor_drop_to_defined_functions(mod)
+    AddTrailingF32FloorDropToDefinedFunctions =>
+      metamorphic_add_trailing_f32_floor_drop_to_defined_functions(mod)
+    AddLeadingF64CeilDropToDefinedFunctions =>
+      metamorphic_add_leading_f64_ceil_drop_to_defined_functions(mod)
+    AddTrailingF64CeilDropToDefinedFunctions =>
+      metamorphic_add_trailing_f64_ceil_drop_to_defined_functions(mod)
+    AddLeadingF64FloorDropToDefinedFunctions =>
+      metamorphic_add_leading_f64_floor_drop_to_defined_functions(mod)
+    AddTrailingF64FloorDropToDefinedFunctions =>
+      metamorphic_add_trailing_f64_floor_drop_to_defined_functions(mod)
     AddLeadingNopToDefinedFunctions =>
       metamorphic_add_leading_nop_to_defined_functions(mod)
     AddTrailingNopToDefinedFunctions =>
