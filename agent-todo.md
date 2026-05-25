@@ -224,17 +224,8 @@ Execution rules for all DAE slices
   - Status: active/partial for v0.1.1 because the product goal changed toward broad Binaryen coverage; not a v0.1.0 blocker and not a rejection of the supported-surface signoff in `docs/wiki/raw/research/0573-2026-05-19-sgo-v010-signoff.md`.
   - Goal: broaden SGO toward fuller Binaryen `SimplifyGlobals.cpp` rewrite-family coverage while preserving the accepted v0.1.0 direct/nested/late-tail surface as a scoped signoff, not a full-parity claim.
   - Current matrix: `docs/wiki/binaryen/passes/simplify-globals-optimizing/parity-matrix.md` distinguishes implemented, partial, missing, intentionally conservative, and unknown families.
-  - Completed evidence: landed behavior and refactor slices are recorded in `docs/wiki/raw/research/0574` through `0632` where applicable, `docs/wiki/log.md`, and the SGO parity/readiness pages. Do not duplicate the full completed slice history here; use those docs as the source of truth.
+  - Completed evidence: landed behavior and refactor slices are recorded in `docs/wiki/raw/research/0574` through `0633` where applicable, `docs/wiki/log.md`, and the SGO parity/readiness pages. Do not duplicate the full completed slice history here; use those docs as the source of truth.
   - General deliverables for every SGO003 subtask: focused Binaryen probe or source fixture first, local test(s) before implementation for behavior-bearing work, paired negative guardrails for trapping/effectful/control-transfer boundaries, `moon test src/passes`, direct `--pass simplify-globals-optimizing` compare fuzz for nontrivial matcher/dataflow work, docs/wiki/log updates, and keep `[SGO]003` partial unless the user explicitly accepts a final bounded scope.
-
-- [SGO]003A - Next-Slice Probe Inventory Refresh
-  - Status: active; start here before behavior-bearing implementation if no exact target is already chosen.
-  - Goal: refresh the post-0632 gap list from Binaryen `SimplifyGlobals.cpp`, official lit files, and current Starshine tests so the next implementation batch is source-backed rather than inferred from analogy.
-  - Tasks:
-    - Compare current `src/passes/simplify_globals_optimizing.mbt` matchers against `docs/wiki/binaryen/passes/simplify-globals-optimizing/parity-matrix.md`.
-    - Identify exact positive/negative fixture pairs for the next 2-3 implementation slices.
-    - Separate behavior gaps from refactor-only cleanup and parser/tool blockers.
-  - Exit criteria: a short research note with ranked candidate slices, each with exact fixture shapes, expected Binaryen behavior, local current behavior, and risk classification.
 
 - [SGO]003B - Read-Only-To-Write Broader Control Wrappers
   - Status: active candidate; behavior-bearing.

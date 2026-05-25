@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO next-slice probe inventory refresh
+
+- Added research note [`0633`](./raw/research/0633-2026-05-25-sgo-next-slice-probe-inventory-refresh.md) for `[SGO]003A`, comparing the current SGO source/test/matrix state after the 0632 refactor streak.
+- Ranked the next source-backed candidates as narrow transparent wrapper composition (`[SGO]003B`), no-catch `try_table` wrapper composition (`[SGO]003G`), and callee global-read/write summary research (`[SGO]003I`) before any call-shaped read-only-to-write implementation.
+- Removed completed `[SGO]003A` from active backlog while keeping parent `[SGO]003` active/partial; no optimizer behavior changed.
+
 ## [2026-05-24] binaryen | SGO block/loop guarded read refactor
 
 - Added research note [`0632`](./raw/research/0632-2026-05-24-sgo-block-loop-guarded-read-refactor.md) and centralized block/no-catch-`try_table` body extraction plus loop fallback for direct, `i32.eqz`, compare, and reverse-compare read-only-to-write guards.
