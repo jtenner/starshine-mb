@@ -1087,6 +1087,29 @@ fn gen_valid_test_import_module_count(mod_ : Module) -> Int {
 }
 
 ///|
+fn gen_valid_test_distinct_export_name_count(mod_ : Module) -> Int {
+  match mod_.export_sec {
+    Some(ExportSec(exports)) => {
+      let seen : Array[Name] = []
+      for export_ in exports {
+        let Export(name, _) = export_
+        let mut exists = false
+        for prior in seen {
+          if prior == name {
+            exists = true
+          }
+        }
+        if !exists {
+          seen.push(name)
+        }
+      }
+      seen.length()
+    }
+    None => 0
+  }
+}
+
+///|
 fn gen_valid_test_has_repeated_export_idx(mod_ : Module) -> Bool {
   match mod_.export_sec {
     Some(ExportSec(exports)) => {
@@ -2029,6 +2052,10 @@ test "topology-heavy profile emits high-index import export topology" {
   assert_true(
     gen_valid_test_has_repeated_export_idx(generated.wasm_module),
     msg="topology-heavy profile should export the same item under distinct names",
+  )
+  assert_true(
+    gen_valid_test_distinct_export_name_count(generated.wasm_module) >= 16,
+    msg="topology-heavy profile should emit many distinct export aliases",
   )
   assert_true(
     gen_valid_test_has_nonzero_resource_export(generated.wasm_module),

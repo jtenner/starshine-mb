@@ -10990,6 +10990,18 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
           ExternIdx::func(first_defined_func_idx),
         ),
       )
+      exports.push(
+        Export::new(
+          gen_valid_name(ctx, "entrypoint.alias.0"),
+          ExternIdx::func(first_defined_func_idx),
+        ),
+      )
+      exports.push(
+        Export::new(
+          gen_valid_name(ctx, "entrypoint.alias.1"),
+          ExternIdx::func(first_defined_func_idx),
+        ),
+      )
       if import_func_count > 0 {
         exports.push(
           Export::new(
@@ -11006,6 +11018,14 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
           ExternIdx::table(TableIdx::new(0U)),
         ),
       )
+      if gen_valid_is_topology_heavy_config(config) {
+        exports.push(
+          Export::new(
+            gen_valid_name(ctx, "table0.alias"),
+            ExternIdx::table(TableIdx::new(0U)),
+          ),
+        )
+      }
       if gen_valid_is_topology_heavy_config(config) && total_table_count > 1 {
         exports.push(
           Export::new(
@@ -11022,6 +11042,14 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
           ExternIdx::mem(MemIdx::new(0U)),
         ),
       )
+      if gen_valid_is_topology_heavy_config(config) {
+        exports.push(
+          Export::new(
+            gen_valid_name(ctx, "memory0.alias"),
+            ExternIdx::mem(MemIdx::new(0U)),
+          ),
+        )
+      }
       if gen_valid_is_topology_heavy_config(config) && total_mem_count > 1 {
         exports.push(
           Export::new(
@@ -11038,6 +11066,14 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
           ExternIdx::global(GlobalIdx::new(0U)),
         ),
       )
+      if gen_valid_is_topology_heavy_config(config) {
+        exports.push(
+          Export::new(
+            gen_valid_name(ctx, "global0.alias"),
+            ExternIdx::global(GlobalIdx::new(0U)),
+          ),
+        )
+      }
       if gen_valid_is_topology_heavy_config(config) && total_global_count > 1 {
         exports.push(
           Export::new(
@@ -11054,6 +11090,14 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
           ExternIdx::tag(TagIdx::new(0U)),
         ),
       )
+      if gen_valid_is_topology_heavy_config(config) {
+        exports.push(
+          Export::new(
+            gen_valid_name(ctx, "tag0.alias"),
+            ExternIdx::tag(TagIdx::new(0U)),
+          ),
+        )
+      }
       if gen_valid_is_topology_heavy_config(config) && total_tag_count > 1 {
         exports.push(
           Export::new(

@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1038B topology-heavy export alias pressure
+
+- Completed `[FUZ]1038B` by widening the topology-heavy GenValid export surface with extra duplicate-index-safe entrypoint aliases and resource aliases for table, memory, global, and tag index `0` when those spaces exist.
+- Added focused validation coverage requiring the fixed topology-heavy seed to validate while emitting at least sixteen distinct export names, and updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) to record the stronger export-alias contract.
+
 ## [2026-05-25] fuzzing | FUZ1037C ref initializer coverage anchors
 
 - Completed `[FUZ]1037C` by tightening the GenValid coverage-forced const-expression anchor so it explicitly proves `ref.null` and `ref.func` initializer expressions appear where valid: global initializers and table initializer expressions.
