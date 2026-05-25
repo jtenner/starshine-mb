@@ -23,6 +23,141 @@ test "gen_valid_module_result reports success diagnostics" {
 }
 
 ///|
+test "gen-valid start profiles cover absent imported and defined starts" {
+  let base = GenValidConfig::{
+    ..GenValidConfig::natural_default(),
+    max_imports: 2,
+    max_defined_funcs: 3,
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: 0,
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: 0,
+    features: GenValidFeatureToggles::{
+      ..GenValidFeatureToggles::natural_default(),
+      allow_imports: true,
+      allow_start: true,
+      allow_tables: false,
+      allow_mems: false,
+      allow_globals: false,
+      allow_tags: false,
+      allow_elems: false,
+      allow_datas: false,
+    },
+    section_bias: GenValidSectionBias::{
+      ..GenValidSectionBias::coverage_forced_default(),
+      imports_percent: 100,
+      start_percent: 100,
+    },
+  }
+  let no_start = match
+    gen_valid_module_result_from_seed(0x51039A0UL, GenValidConfig::{
+      ..base,
+      max_imports: 0,
+      section_bias: GenValidSectionBias::{
+        ..base.section_bias,
+        imports_percent: 0,
+      },
+      features: GenValidFeatureToggles::{
+        ..base.features,
+        allow_imports: false,
+        allow_start: false,
+      },
+    }) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  @debug.assert_eq(no_start.wasm_module.start_sec, None)
+  match validate_module(no_start.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+
+  let defined_start_config = GenValidConfig::{
+    ..base,
+    max_imports: 0,
+    section_bias: GenValidSectionBias::{
+      ..base.section_bias,
+      imports_percent: 0,
+    },
+    features: GenValidFeatureToggles::{ ..base.features, allow_imports: false },
+  }
+  let defined_start = match
+    gen_valid_module_result_from_seed(0x51039A1UL, defined_start_config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(defined_start.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  let defined_import_count = gen_valid_test_imported_func_count(
+    defined_start.wasm_module,
+  )
+  match defined_start.wasm_module.start_sec {
+    Some(StartSec(FuncIdx(func_idx))) =>
+      assert_true(func_idx.reinterpret_as_int() >= defined_import_count)
+    None => fail("expected forced defined start section")
+  }
+
+  let imported_start_config = GenValidConfig::{
+    ..GenValidConfig::for_profile(TopologyHeavyProfile),
+    max_imports: 2,
+    max_defined_funcs: 3,
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: 0,
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: 0,
+    features: GenValidFeatureToggles::{
+      ..GenValidConfig::for_profile(TopologyHeavyProfile).features,
+      allow_imports: true,
+      allow_start: true,
+      allow_tables: false,
+      allow_mems: false,
+      allow_globals: false,
+      allow_tags: false,
+      allow_elems: false,
+      allow_datas: false,
+    },
+    section_bias: GenValidSectionBias::{
+      ..GenValidConfig::for_profile(TopologyHeavyProfile).section_bias,
+      imports_percent: 100,
+      start_percent: 100,
+    },
+  }
+  let mut saw_imported = false
+  for offset in 0..<64 {
+    let imported_start = match
+      gen_valid_module_result_from_seed(
+        0x51039A2UL + offset.to_uint64(),
+        imported_start_config,
+      ) {
+      Ok(v) => v
+      Err(failure) => fail(failure.validation_error_message)
+    }
+    match validate_module(imported_start.wasm_module) {
+      Ok(_) => ()
+      Err(err) => fail(validation_error_message(err))
+    }
+    let imported_count = gen_valid_test_imported_func_count(
+      imported_start.wasm_module,
+    )
+    if imported_count > 0 {
+      match imported_start.wasm_module.start_sec {
+        Some(StartSec(FuncIdx(func_idx))) =>
+          assert_true(func_idx.reinterpret_as_int() < imported_count)
+        None => fail("expected forced imported start section")
+      }
+      saw_imported = true
+    }
+  }
+  assert_true(saw_imported)
+}
+
+///|
 test "gen-valid shared const-expression contexts select allowed op families" {
   let ctx = GenValidContext::new_streamed(0x1037AUL, {
     ..GenValidConfig::coverage_forced_default()

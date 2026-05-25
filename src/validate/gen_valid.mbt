@@ -10037,9 +10037,28 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
     None => ()
   }
 
+  let use_imported_start = has_start &&
+    import_func_count > 0 &&
+    config.section_bias.imports_percent == 100 &&
+    config.section_bias.start_percent == 100 &&
+    config.max_tables == 0 &&
+    config.max_mems == 0 &&
+    config.max_globals == 0 &&
+    config.max_tags == 0 &&
+    config.max_elems == 0 &&
+    config.max_datas == 0
+  let start_func_idx = if use_imported_start {
+    FuncIdx::new(0U)
+  } else {
+    FuncIdx::new(import_func_count.reinterpret_as_uint())
+  }
   let imports : Array[Import] = []
   for i = 0; i < import_func_count; i = i + 1 {
-    let type_idx = gen_valid_pick_func_type_idx(ctx, func_type_count)
+    let type_idx = if use_imported_start && i == 0 {
+      TypeIdx::new(0U)
+    } else {
+      gen_valid_pick_func_type_idx(ctx, func_type_count)
+    }
     imports.push(
       Import::new(
         gen_valid_import_module_name(ctx, i),
@@ -10806,7 +10825,7 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
     mod = mod.with_tag_sec(TagSec::new(tags))
   }
   if has_start {
-    mod = mod.with_start_sec(StartSec::new(first_defined_func_idx))
+    mod = mod.with_start_sec(StartSec::new(start_func_idx))
   }
   if !elems.is_empty() {
     mod = mod.with_elem_sec(ElemSec::new(elems))
