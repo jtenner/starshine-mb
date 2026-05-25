@@ -3223,6 +3223,33 @@ fn sgo_count_block_condition_reverse_external_pure_if_return_read(
 }
 
 ///|
+fn sgo_count_block_or_loop_condition_read(
+  instr : @lib.Instruction,
+  idx : @lib.GlobalIdx,
+  count_flow_scanner : Bool,
+  safe_reads : Array[Int],
+) -> Unit {
+  match sgo_block_or_no_catch_try_table_body(instr) {
+    Some(body) =>
+      if count_flow_scanner {
+        sgo_count_direct_condition_body_read(body, idx, true, safe_reads)
+      } else {
+        sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+      }
+    None =>
+      match instr {
+        @lib.Loop(_, @lib.Expr(body)) =>
+          if count_flow_scanner {
+            sgo_count_direct_condition_body_read(body, idx, false, safe_reads)
+          } else if sgo_block_condition_pure_read_matches(body, idx) {
+            sgo_count_read_only_to_write_safe_read(idx, safe_reads)
+          }
+        _ => ()
+      }
+  }
+}
+
+///|
 fn sgo_count_block_condition_read_only_to_write_read(
   instr : @lib.Instruction,
   next : @lib.Instruction,
@@ -3232,18 +3259,7 @@ fn sgo_count_block_condition_read_only_to_write_read(
     @lib.If(_, then_body, None) =>
       match sgo_single_const_global_set_idx(then_body) {
         Some(idx) =>
-          match sgo_block_or_no_catch_try_table_body(instr) {
-            Some(body) =>
-              sgo_count_direct_condition_body_read(body, idx, true, safe_reads)
-            None =>
-              match instr {
-                @lib.Loop(_, @lib.Expr(body)) =>
-                  sgo_count_direct_condition_body_read(
-                    body, idx, false, safe_reads,
-                  )
-                _ => ()
-              }
-          }
+          sgo_count_block_or_loop_condition_read(instr, idx, true, safe_reads)
         None => ()
       }
     _ => ()
@@ -3348,34 +3364,39 @@ fn sgo_count_block_condition_if_return_body_read(
 }
 
 ///|
-fn sgo_count_block_condition_eqz_read_only_to_write_read(
+fn sgo_count_block_condition_guarded_read(
   instr : @lib.Instruction,
-  eqz : @lib.Instruction,
   if_instr : @lib.Instruction,
+  guard_ok : Bool,
   safe_reads : Array[Int],
 ) -> Unit {
-  if eqz != @lib.Instruction::i32_eqz() {
+  if !guard_ok {
     return
   }
   match if_instr {
     @lib.If(_, then_body, None) =>
       match sgo_single_const_global_set_idx(then_body) {
         Some(idx) =>
-          match sgo_block_or_no_catch_try_table_body(instr) {
-            Some(body) =>
-              sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-            None =>
-              match instr {
-                @lib.Loop(_, @lib.Expr(body)) if sgo_block_condition_pure_read_matches(
-                    body, idx,
-                  ) => sgo_count_read_only_to_write_safe_read(idx, safe_reads)
-                _ => ()
-              }
-          }
+          sgo_count_block_or_loop_condition_read(instr, idx, false, safe_reads)
         None => ()
       }
     _ => ()
   }
+}
+
+///|
+fn sgo_count_block_condition_eqz_read_only_to_write_read(
+  instr : @lib.Instruction,
+  eqz : @lib.Instruction,
+  if_instr : @lib.Instruction,
+  safe_reads : Array[Int],
+) -> Unit {
+  sgo_count_block_condition_guarded_read(
+    instr,
+    if_instr,
+    eqz == @lib.Instruction::i32_eqz(),
+    safe_reads,
+  )
 }
 
 ///|
@@ -3685,28 +3706,12 @@ fn sgo_count_block_condition_compare_read_only_to_write_read(
   if_instr : @lib.Instruction,
   safe_reads : Array[Int],
 ) -> Unit {
-  if sgo_const_instr(const_instr) == None || !sgo_is_compare_instr(cmp_instr) {
-    return
-  }
-  match if_instr {
-    @lib.If(_, then_body, None) =>
-      match sgo_single_const_global_set_idx(then_body) {
-        Some(idx) =>
-          match sgo_block_or_no_catch_try_table_body(instr) {
-            Some(body) =>
-              sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-            None =>
-              match instr {
-                @lib.Loop(_, @lib.Expr(body)) if sgo_block_condition_pure_read_matches(
-                    body, idx,
-                  ) => sgo_count_read_only_to_write_safe_read(idx, safe_reads)
-                _ => ()
-              }
-          }
-        None => ()
-      }
-    _ => ()
-  }
+  sgo_count_block_condition_guarded_read(
+    instr,
+    if_instr,
+    sgo_const_instr(const_instr) != None && sgo_is_compare_instr(cmp_instr),
+    safe_reads,
+  )
 }
 
 ///|
