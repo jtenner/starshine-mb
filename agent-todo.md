@@ -224,7 +224,7 @@ Execution rules for all DAE slices
   - Status: active/partial for v0.1.1 because the product goal changed toward broad Binaryen coverage; not a v0.1.0 blocker and not a rejection of the supported-surface signoff in `docs/wiki/raw/research/0573-2026-05-19-sgo-v010-signoff.md`.
   - Goal: broaden SGO toward fuller Binaryen `SimplifyGlobals.cpp` rewrite-family coverage while preserving the accepted v0.1.0 direct/nested/late-tail surface as a scoped signoff, not a full-parity claim.
   - Current matrix: `docs/wiki/binaryen/passes/simplify-globals-optimizing/parity-matrix.md` distinguishes implemented, partial, missing, intentionally conservative, and unknown families.
-  - Completed evidence: landed behavior and refactor slices are recorded in `docs/wiki/raw/research/0574` through `0634` where applicable, `docs/wiki/log.md`, and the SGO parity/readiness pages. Do not duplicate the full completed slice history here; use those docs as the source of truth.
+  - Completed evidence: landed behavior and refactor slices are recorded in `docs/wiki/raw/research/0574` through `0635` where applicable, `docs/wiki/log.md`, and the SGO parity/readiness pages. Do not duplicate the full completed slice history here; use those docs as the source of truth.
   - General deliverables for every SGO003 subtask: focused Binaryen probe or source fixture first, local test(s) before implementation for behavior-bearing work, paired negative guardrails for trapping/effectful/control-transfer boundaries, `moon test src/passes`, direct `--pass simplify-globals-optimizing` compare fuzz for nontrivial matcher/dataflow work, docs/wiki/log updates, and keep `[SGO]003` partial unless the user explicitly accepts a final bounded scope.
 
 - [SGO]003B - Read-Only-To-Write Broader Control Wrappers
@@ -248,16 +248,13 @@ Execution rules for all DAE slices
   - Explicit non-goals without fresh oracle evidence: atomics, SIMD memory ops, memory/table grow, relaxed SIMD, broad bulk ops beyond probed clean operands, calls with candidate-derived operands, and trapping casts/truncations/loads fed by the candidate.
   - Exit criteria: fixture pairs for each admitted instruction family, no broad whitelist additions, direct SGO fuzz, docs identifying every newly admitted opcode family.
 
-- [SGO]003E - Read-Only-To-Write Call And Effect Boundary Study
-  - Status: active research candidate; likely behavior-bearing later.
-  - Goal: decide whether any call-shaped read-only-to-write positives are Binaryen-backed and safe under Starshine's current effect summaries.
-  - Dependency: read-summary design in `docs/wiki/raw/research/0634-2026-05-25-sgo-function-effect-read-summary-study.md`; do not implement call-shaped positives with the current write-only summary alone.
-  - Tasks:
-    - Add tests first if accepting the direct no-read/no-write positive shape from 0634.
-    - Keep callee-read, imported, indirect, `call_ref`, return-call, recursive-cycle, and candidate-derived operand negatives paired with any positive.
-    - Decide separately whether callee-write/no-remaining-read fixtures are worth modeling or should stay deferred despite Binaryen's narrow probe-positive behavior.
-  - Required negatives: imported calls, indirect calls, `call_ref`, `return_call`, recursive cycles, callee reads candidate global, callee mutates candidate global unless separately proven safe, and candidate-derived call operands.
-  - Exit criteria: behavior tests, fixed-point read/write summaries if implementation proceeds, direct SGO fuzz, and docs naming every accepted call boundary.
+- [SGO]003E2 - Direct-Call Read/Write Summary Implementation
+  - Status: deferred behavior candidate after the `[SGO]003E`/`[SGO]003I` studies in `docs/wiki/raw/research/0634-2026-05-25-sgo-function-effect-read-summary-study.md` and `docs/wiki/raw/research/0635-2026-05-25-sgo-call-effect-boundary-study.md`.
+  - Goal: implement only the direct ordinary-call subset after fixed-point per-global read/write summaries exist.
+  - Candidate positives: direct no-read/no-write call and wrong-global-read call in read-only-to-write conditions, with candidate-clean operands and transitive callee summaries that neither read nor mutate the candidate global.
+  - Required negatives: candidate-derived call operands, callee reads candidate global, imported calls, indirect calls, `call_ref`, `return_call`, recursive cycles with unknown summaries, and callee writes candidate global unless separately proven safe.
+  - Explicit deferrals: imported-call, indirect-call, and callee-write/no-remaining-read Binaryen-positive probes from 0635 need generated-effects or whole-module no-read/fake-traffic modeling before implementation.
+  - Exit criteria: tests first, fixed-point read/write summaries, direct SGO fuzz, and docs naming every accepted call boundary.
 
 - [SGO]003F - Loop Self-Guard Breadth Beyond Current Symmetry
   - Status: active research candidate; high risk.

@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO call and effect boundary study
+
+- Added research note [`0635`](./raw/research/0635-2026-05-25-sgo-call-effect-boundary-study.md) for `[SGO]003E`, probing call-shaped read-only-to-write boundaries after the 0634 read-summary design.
+- Binaryen probes found positives for direct no-read/no-write, wrong-global-read, imported-call, and indirect-call condition shapes, but candidate-derived operands and callee reads of the candidate global remain hard negatives.
+- Deferred behavior to new `[SGO]003E2` direct-call read/write-summary implementation; imported/indirect/generated-effects and callee-write positives remain out of scope until separately modeled. `[SGO]003` remains active/partial; no optimizer behavior changed.
+
 ## [2026-05-25] binaryen | SGO function-effect read summary study
 
 - Added research note [`0634`](./raw/research/0634-2026-05-25-sgo-function-effect-read-summary-study.md) for `[SGO]003I`, auditing Starshine's direct-call mutation summaries and probing Binaryen call-shaped read-only-to-write boundaries.
