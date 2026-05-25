@@ -616,8 +616,6 @@ p1 GenValid / valid-generation slices:
 - No active p1 GenValid recipe-catalog slices remain.
 
 p1/p2 oracle, reporting, and infrastructure slices:
-- [FUZ]1032A (p2) - Optional External Validator Adapters
-  - Unit: add skip-clean adapters for `wasm-tools validate`, Binaryen `wasm-validate`, and WABT where available.
 - [FUZ]1032B (p2) - Optional Runtime Execution Adapter
   - Unit: add an opt-in runtime adapter and basic import stubs for simple exported-function execution checks.
 - [FUZ]1033A (p2) - Pass-Fuzz Idempotence Property

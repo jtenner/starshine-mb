@@ -18,6 +18,7 @@ type GeneratorMode = "both" | "wasm-smith" | "gen-valid";
 type GeneratorKind = "wasm-smith" | "gen-valid";
 type CompareNormalizer = "drop-consts" | "unreachable-control-debris";
 type CaseStatus = "match" | "mismatch" | "validation-failure" | "generator-failure" | "command-failure";
+type ExternalValidatorKind = "wasm-tools" | "binaryen" | "wabt";
 type CommandFailureClass =
   | "starshine-command-failed"
   | "starshine-invalid-limits"
@@ -40,6 +41,9 @@ type PassFuzzCompareOptions = {
   starshineBin: string | null;
   wasmOptBin: string;
   wasmToolsBin: string;
+  binaryenValidateBin: string;
+  wabtValidateBin: string;
+  externalValidators: ExternalValidatorKind[];
   generator: GeneratorMode;
   genValidProfile: string | null;
   genValidRequiredFeatures: string[];
@@ -106,6 +110,8 @@ type PassFuzzCompareSummary = {
   genValidExcludedFeatures: string[];
   genValidMetamorphicTransforms: string[];
   genValidManifestPath: string | null;
+  externalValidators: ExternalValidatorKind[];
+  externalValidatorSkipped: Partial<Record<ExternalValidatorKind, number>>;
   generatorCounts: {
     wasmSmith: number;
     genValid: number;
@@ -126,6 +132,9 @@ const RESERVED_OPTIONS = new Set([
   "--starshine-bin",
   "--wasm-opt-bin",
   "--wasm-tools-bin",
+  "--binaryen-validate-bin",
+  "--wabt-validate-bin",
+  "--external-validator",
   "--generator",
   "--gen-valid-profile",
   "--require-feature",
@@ -201,6 +210,12 @@ const HELP_TEXT = [
   "  --seed <value>        Non-negative deterministic seed. Default: 0x5eed",
   "  --min-compared <n>    Require at least this many successful comparisons",
   "  --out-dir <dir>       Output directory for artifacts and failures",
+  "  --external-validator <id>",
+  "                       Optional skip-clean output validator: wasm-tools | binaryen | wabt. May repeat",
+  "  --binaryen-validate-bin <path>",
+  "                       Binaryen validator command for --external-validator binaryen. Default: wasm-validate",
+  "  --wabt-validate-bin <path>",
+  "                       WABT validator command for --external-validator wabt. Default: wasm-validate",
   "  --generator <mode>    both | wasm-smith | gen-valid. Default: both",
   "  --gen-valid-profile <name>",
   "                       Forward a named GenValid profile to batch generation",
@@ -321,6 +336,17 @@ function normalizeCompareNormalizer(raw: string): CompareNormalizer {
       return "unreachable-control-debris";
     default:
       fail(`unsupported pass-fuzz-compare normalizer: ${raw}`);
+  }
+}
+
+function normalizeExternalValidator(raw: string): ExternalValidatorKind {
+  switch (raw.trim()) {
+    case "wasm-tools":
+    case "binaryen":
+    case "wabt":
+      return raw.trim();
+    default:
+      fail(`unsupported external validator for pass-fuzz-compare: ${raw}`);
   }
 }
 
@@ -469,6 +495,51 @@ async function runValidateAsync(
     ok: result.status === 0,
     stderr: result.stderr.trim(),
   };
+}
+
+async function runExternalValidatorAsync(
+  kind: ExternalValidatorKind,
+  options: PassFuzzCompareOptions,
+  wasmPath: string,
+  repoRoot: string,
+): Promise<{ ok: boolean; skipped: boolean; stderr: string }> {
+  const env = makeRepoTmpEnv(repoRoot);
+  const command =
+    kind === "wasm-tools"
+      ? options.wasmToolsBin
+      : kind === "binaryen"
+        ? options.binaryenValidateBin
+        : options.wabtValidateBin;
+  const args = kind === "wasm-tools" ? ["validate", "--features", "all", wasmPath] : [wasmPath];
+  try {
+    const result = await runProcess(command, args, { cwd: repoRoot, env });
+    return { ok: result.status === 0, skipped: false, stderr: result.stderr.trim() };
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      return { ok: true, skipped: true, stderr: `${kind} validator unavailable: ${command}` };
+    }
+    throw error;
+  }
+}
+
+async function runExternalValidatorsAsync(
+  options: PassFuzzCompareOptions,
+  wasmPath: string,
+  repoRoot: string,
+  summary: PassFuzzCompareSummary,
+): Promise<{ ok: boolean; stderr: string }> {
+  for (const kind of options.externalValidators) {
+    const result = await runExternalValidatorAsync(kind, options, wasmPath, repoRoot);
+    if (result.skipped) {
+      summary.externalValidatorSkipped[kind] = (summary.externalValidatorSkipped[kind] ?? 0) + 1;
+      continue;
+    }
+    if (!result.ok) {
+      return { ok: false, stderr: `${kind}: ${result.stderr}` };
+    }
+  }
+  return { ok: true, stderr: "" };
 }
 
 function commandFailureDetail(error: unknown): string {
@@ -1085,6 +1156,9 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let starshineBin: string | null = null;
   let wasmOptBin = process.env.WASM_OPT_BIN || "wasm-opt";
   let wasmToolsBin = process.env.WASM_TOOLS_BIN || "wasm-tools";
+  let binaryenValidateBin = process.env.BINARYEN_WASM_VALIDATE_BIN || "wasm-validate";
+  let wabtValidateBin = process.env.WABT_WASM_VALIDATE_BIN || "wasm-validate";
+  const externalValidators: ExternalValidatorKind[] = [];
   let generator: GeneratorMode = "both";
   let genValidProfile: string | null = null;
   const genValidRequiredFeatures: string[] = [];
@@ -1150,6 +1224,20 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         break;
       case "--wasm-tools-bin":
         wasmToolsBin = argv[i + 1] ?? fail("missing value for --wasm-tools-bin");
+        i += 2;
+        break;
+      case "--binaryen-validate-bin":
+        binaryenValidateBin = argv[i + 1] ?? fail("missing value for --binaryen-validate-bin");
+        i += 2;
+        break;
+      case "--wabt-validate-bin":
+        wabtValidateBin = argv[i + 1] ?? fail("missing value for --wabt-validate-bin");
+        i += 2;
+        break;
+      case "--external-validator":
+        externalValidators.push(
+          normalizeExternalValidator(argv[i + 1] ?? fail("missing value for --external-validator")),
+        );
         i += 2;
         break;
       case "--generator": {
@@ -1226,6 +1314,23 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         i += 2;
         break;
       default:
+        if (token.startsWith("--external-validator=")) {
+          externalValidators.push(
+            normalizeExternalValidator(token.substring("--external-validator=".length)),
+          );
+          i += 1;
+          break;
+        }
+        if (token.startsWith("--binaryen-validate-bin=")) {
+          binaryenValidateBin = token.substring("--binaryen-validate-bin=".length);
+          i += 1;
+          break;
+        }
+        if (token.startsWith("--wabt-validate-bin=")) {
+          wabtValidateBin = token.substring("--wabt-validate-bin=".length);
+          i += 1;
+          break;
+        }
         if (token.startsWith("--gen-valid-profile=")) {
           genValidProfile = token.substring("--gen-valid-profile=".length);
           i += 1;
@@ -1296,6 +1401,9 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       starshineBin,
       wasmOptBin,
       wasmToolsBin,
+      binaryenValidateBin,
+      wabtValidateBin,
+      externalValidators,
       generator,
       genValidProfile,
       genValidRequiredFeatures,
@@ -1438,6 +1546,8 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       genValidCount > 0 && fs.existsSync(genValidManifestPath)
         ? path.relative(outDir, genValidManifestPath)
         : null,
+    externalValidators: options.externalValidators,
+    externalValidatorSkipped: {},
     generatorCounts: {
       wasmSmith: 0,
       genValid: 0,
@@ -1606,10 +1716,15 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         starshineRawPath,
         repoRoot,
       );
-      if (!starshineValidation.ok) {
+      const externalValidation = starshineValidation.ok
+        ? await runExternalValidatorsAsync(options, starshineRawPath, repoRoot, summary)
+        : { ok: true, stderr: "" };
+      if (!starshineValidation.ok || !externalValidation.ok) {
         summary.validationFailureCount += 1;
         failures += 1;
-        const detail = `Starshine output failed validation: ${starshineValidation.stderr || "unknown error"}`;
+        const detail = !starshineValidation.ok
+          ? `Starshine output failed validation: ${starshineValidation.stderr || "unknown error"}`
+          : `Starshine output failed external validation: ${externalValidation.stderr || "unknown error"}`;
         summary.failureDirs.push(
           persistFailureArtifacts(
             outDir,

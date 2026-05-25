@@ -468,6 +468,24 @@ process.exit(0);
   );
   assert(summary.mismatchCount === 0, `expected no mismatches, got ${summary.mismatchCount}`);
   assert(JSON.stringify(summary.normalizers) === JSON.stringify(["unreachable-control-debris"]), `unexpected normalizers ${JSON.stringify(summary.normalizers)}`);
+export function runPassFuzzCompareHelpMentionsExternalValidatorsTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const result = spawnSync(
+    "bun",
+    [path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"), "--help"],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    fail(`pass-fuzz-compare --help failed:\n${result.stderr}`);
+  }
+  assert(
+    result.stdout.includes("--external-validator <id>") &&
+      result.stdout.includes("wasm-tools | binaryen | wabt"),
+    `expected external validator help, got:\n${result.stdout}`,
+  );
 }
 
 export function runPassFuzzCompareListPassesCommandTest(): void {
@@ -3178,6 +3196,7 @@ if (import.meta.main) {
   runPassFuzzCompareCommandTest();
   runPassFuzzCompareDropConstsNormalizerCommandTest();
   runPassFuzzCompareUnreachableControlDebrisNormalizerCommandTest();
+  runPassFuzzCompareHelpMentionsExternalValidatorsTest();
   runPassFuzzCompareListPassesCommandTest();
   runPassFuzzCompareListFailureClassesCommandTest();
   runPassFuzzComparePassAliasCommandTest();
