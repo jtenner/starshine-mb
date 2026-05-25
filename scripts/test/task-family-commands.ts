@@ -322,6 +322,8 @@ process.exit(0);
       fakeStarshinePath,
       "--out-dir",
       comparePassOutDir,
+      "--gen-valid-metamorphic-transform",
+      "add-non-name-custom-section",
       "--moon",
       fakeMoonPath,
     ],
@@ -333,7 +335,7 @@ process.exit(0);
     path.join(comparePassOutDir, "inputs", "gen-valid"),
   );
   assert(
-    actualComparePass === `run --target native --release src/fuzz -- --emit-gen-valid-batch --count 16 --seed 0x5eed --out-dir ${comparePassGenValidDir} --manifest ${path.join(comparePassGenValidDir, "manifest.json")}`,
+    actualComparePass === `run --target native --release src/fuzz -- --emit-gen-valid-batch --count 16 --seed 0x5eed --metamorphic-transform add-non-name-custom-section --out-dir ${comparePassGenValidDir} --manifest ${path.join(comparePassGenValidDir, "manifest.json")}`,
     `unexpected compare-pass command log:\n${actualComparePass}`,
   );
 
