@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO plain family exposure audit
+
+- Added research note [`0655`](./raw/research/0655-2026-05-25-sgo-plain-family-exposure-audit.md) for `[SGO]003M`, comparing the plain `simplify-globals`, active partial `simplify-globals-optimizing`, and startup-only `propagate-globals-globally` contracts.
+- Kept plain `simplify-globals` and `propagate-globals-globally` boundary-only instead of aliasing them to Starshine's partial optimizing sibling; a future exposure must land as an explicit slice with public tests and direct-pass fuzz for the newly active name.
+- No optimizer behavior, registry, dispatcher, preset, or normative pass docs changed. `[SGO]003` remains active/partial.
+
 ## [2026-05-25] binaryen | SGO refactor queue closeout
 
 - Added research note [`0654`](./raw/research/0654-2026-05-25-sgo-refactor-queue-closeout.md) for `[SGO]003O4`, auditing the refactor-only matcher maintainability queue after `[SGO]003O1` through `[SGO]003O3` were resolved.

@@ -313,16 +313,10 @@ Execution rules for all DAE slices
   - Exit criteria: either landed narrow positive with validation/refinalization tests or documented blocker with next required parser/type API change.
 
 - [SGO]003M - Plain `simplify-globals` / `propagate-globals-globally` Engine Exposure
-  - Status: deferred active candidate; interface/scheduling work.
-  - Goal: decide whether the shared SGO engine should expose additional Binaryen pass names or plain-pass behavior.
-  - Open checklist:
-    - Compare Binaryen plain `simplify-globals`, `simplify-globals-optimizing`, and `propagate-globals-globally` contracts.
-    - Identify which Starshine engine pieces are safe without optimizing nested cleanup.
-    - Decide whether to expose new pass names or keep them boundary-only.
-    - Add registry/dispatcher/CLI tests if any public surface changes.
-    - Run direct-pass fuzz for any newly exposed public behavior.
-    - Do not widen `optimize` / `shrink` presets until direct behavior is separately signed.
-  - Exit criteria: public behavior tests and docs; no preset widening until direct pass behavior is separately signed.
+  - Status: closed research-only by the 0655 exposure audit; no public surface changed.
+  - Decision: keep plain `simplify-globals` and `propagate-globals-globally` boundary-only for now instead of aliasing them to Starshine's partial `simplify-globals-optimizing` engine.
+  - Rationale: Binaryen keeps three distinct contracts in the shared `SimplifyGlobals.cpp` family: plain `simplify-globals` runs the shared global rewrite engine without the optimizing nested default-function rerun; `simplify-globals-optimizing` adds the optimizing rerun; `propagate-globals-globally` is the startup/module-level propagation-only sibling. Starshine's active SGO implementation is partial and currently shaped around the optimizing sibling, so exposing the plain/startup names would imply unsupported stop points and/or behavior.
+  - Follow-up rule: add a new explicit slice before moving either name out of boundary-only status. That slice must start with public registry/dispatcher tests, implement the exact smaller contract, and run direct-pass fuzz for the newly exposed pass name.
 
 - [SGO]003O - Refactor-Only Matcher Maintainability Queue
   - Status: closed by the 0654 closeout audit after commits `0f8b8902` through `b1e1c7b5`. The 0641 and 0645 clean-pop helper slices centralized repeated FlowScanner pop/taint checks without behavior broadening, the 0643 call-result helper slice centralized repeated call-boundary stack handling while preserving the adjacent-`global.get` arm-result exception, the 0646 wrapper helper slice centralized repeated block/no-catch `try_table` extraction plus external-pure condition index handling, the 0647 exact-tail helper slice centralized direct `if return; set` tail dispatch, the 0648 clean-leaf helper slice centralized repeated FlowScanner constant/nullary/local leaf pushes, the 0649 effect-predicate helper slice centralized clean pair/triple side-effect opcode groups, the 0650 if-arm merge helper slice centralized repeated value-producing `if` arm-result scan/merge handling, the 0651 predicate-grouping audit closed the remaining FlowScanner predicate grouping question as research-only, the 0652 condition body helper rename clarified the shared block/no-catch-`try_table` body-plus-`if`-index wrapper, the 0653 clean-leaf replacement helper rename clarified the one-clean-pop / one-clean-push stack contract, and the 0654 audit found no hidden maintainability blockers requiring another `[SGO]003O*` child.
