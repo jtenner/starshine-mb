@@ -243,19 +243,10 @@ Execution rules for all DAE slices
   - Exit criteria: fixture pairs for each admitted instruction family, no broad whitelist additions, direct SGO fuzz, docs identifying every newly admitted opcode family.
 
 - [SGO]003E2 - Direct-Call Read/Write Summary Implementation
-  - Status: deferred behavior candidate after the `[SGO]003E`/`[SGO]003I` studies in `docs/wiki/raw/research/0634-2026-05-25-sgo-function-effect-read-summary-study.md` and `docs/wiki/raw/research/0635-2026-05-25-sgo-call-effect-boundary-study.md`.
-  - Goal: implement only the direct ordinary-call subset after fixed-point per-global read/write summaries exist.
-  - Candidate positives: direct no-read/no-write call and wrong-global-read call in read-only-to-write conditions, with candidate-clean operands and transitive callee summaries that neither read nor mutate the candidate global.
-  - Required negatives: candidate-derived call operands, callee reads candidate global, imported calls, indirect calls, `call_ref`, `return_call`, recursive cycles with unknown summaries, and callee writes candidate global unless separately proven safe.
-  - Explicit deferrals: imported-call, indirect-call, and callee-write/no-remaining-read Binaryen-positive probes from 0635 need generated-effects or whole-module no-read/fake-traffic modeling before implementation.
-  - Open checklist:
-    - Design per-global read/write summaries separate from the existing mutation-only runtime fact invalidation summaries.
-    - Compute summaries to fixed point for direct ordinary calls, including recursion/cycle handling.
-    - Treat imported calls, indirect calls, `call_ref`, and `return_call` as unknown until a separate generated-effects/no-read model exists.
-    - Add positive tests only for direct calls proven not to read or write the candidate global.
-    - Add negatives for candidate-derived operands, candidate-global reads, imported/indirect/ref calls, unknown recursion, and callee writes.
-    - Revisit the imported-call / indirect-call / callee-write Binaryen positives from 0635 only after whole-module no-read/fake-traffic modeling exists.
-  - Exit criteria: tests first, fixed-point read/write summaries, direct SGO fuzz, and docs naming every accepted call boundary.
+  - Status: deferred/closed by the 0660 prerequisite audit; not an active behavior slice until the read/write summary prerequisite is explicitly scheduled.
+  - Decision: do not implement call-shaped read-only-to-write positives opportunistically. The 0634/0635 studies showed the only safe near-term behavior needs fixed-point per-global `reads` plus `mutates` summaries; the current mutation-only runtime fact summary is insufficient for syntactic read-only-to-write call transparency.
+  - Future prerequisite slice: design and implement `SgoFunctionGlobalEffects`-style fixed-point summaries with `reads` and `mutates`, conservative all-read/all-write rows for imports/dynamic calls/escaping targets, direct-call transitive closure, and recursion/cycle handling. Only after that should a behavior slice add direct ordinary-call positives for no-read/no-write and wrong-global-read callees.
+  - Required future negatives: candidate-derived call operands, callee reads candidate global, imported calls, indirect calls, `call_ref`, `return_call`, unknown recursive cycles, and callee writes candidate global unless a separate whole-module no-read/fake-traffic proof exists. Imported-call, indirect-call, and callee-write/no-remaining-read Binaryen positives remain deferred to generated-effects or whole-module modeling.
 
 
 

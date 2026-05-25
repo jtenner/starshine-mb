@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO call summary prerequisite closeout
+
+- Added research note [`0660`](./raw/research/0660-2026-05-25-sgo-call-summary-prerequisite-closeout.md) for `[SGO]003E2`, converting direct-call read-only-to-write behavior into an explicit read/write-summary prerequisite.
+- Closed `[SGO]003E2` as deferred/prerequisite-only: call-shaped positives require fixed-point per-global reads plus mutates summaries, conservative unknown-call handling, transitive direct-call closure, and paired negatives before matcher behavior changes.
+- No optimizer behavior changed and no direct SGO fuzz was required because this was docs/backlog-only. `[SGO]003` remains active/partial.
+
 ## [2026-05-25] binaryen | SGO runtime fact closeout
 
 - Added research note [`0659`](./raw/research/0659-2026-05-25-sgo-runtime-fact-closeout.md) for `[SGO]003H`, auditing runtime fact propagation after the dominance, direct-call mutation-filter, else-local, loop-local, and `try_table`-local slices.
