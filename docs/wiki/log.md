@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] tooling | dae canonical normalizer hygiene
+
+- Refactored the diagnostic canonical-function fallback in [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts) so compact-body normalizers run through an explicit ordered list instead of a deeply nested call chain.
+- Preserved the existing diagnostic-only scope: the normalizers still apply only to canonical-function fallback output and do not change raw WAT or wasm equality checks.
+- Re-ran the focused compare-tool fixtures: `bun scripts/test/self-optimize-compare-canonical-func-command.ts`, `bun scripts/test/self-optimize-compare-canonical-binaryen-output.ts`, and `bun scripts/test/self-optimize-compare-command.ts`.
+
 ## [2026-05-24] tooling | dae Func403 canonical wrapper normalization
 
 - Extended the diagnostic canonical-function fallback in [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts) for the inspected post-Func333 frontier family: printed-body comparison now strips equivalent type ids, ignores unreachable `drop`/`br` debris after `return`, and normalizes the observed Func372 loop wrapper plus Func396/Func400 dropped-block branch-depth wrappers.

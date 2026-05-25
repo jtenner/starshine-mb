@@ -1173,10 +1173,76 @@ function normalizeCompactPureIfToSelect(body: string): string {
   return current;
 }
 
+type CompactBodyNormalizer = (body: string) => string;
+
+function applyCompactNormalizers(body: string, normalizers: CompactBodyNormalizer[]): string {
+  let current = body;
+  for (const normalizer of normalizers) {
+    current = normalizer(current);
+  }
+  return current;
+}
+
+const CANONICAL_FUNC_COMPACT_NORMALIZERS: CompactBodyNormalizer[] = [
+  // Generic pure expression aliases: compact spill choices only, no effect-order changes.
+  normalizeCompactPureAddAliases,
+  // Generic select temp aliases: Starshine temp store/get versus direct selected value.
+  normalizeCompactSelectTempAliases,
+  // Func208 family: equivalent post-`call Func252; drop` block-result writer forms.
+  normalizeCompactDroppedFunc252ResultBlocks,
+  // Func218 family: dropped `block I32` wrappers around equivalent branchy side effects.
+  normalizeCompactDroppedBlockI32Wrapper,
+  // Func239 family: inspected nested iterator value-block wrapper drift.
+  normalizeCompactFunc239NestedBlockWrappers,
+  // Func259 family: inspected smaller case-carrier value-block wrapper drift.
+  normalizeCompactFunc259NestedBlockWrappers,
+  // Func333 family: inspected iterator loop nested block wrapper drift.
+  normalizeCompactFunc333NestedBlockWrappers,
+  // Func372 family: inspected loop/body block wrapper drift around Func390.
+  normalizeCompactFunc372LoopBlockWrappers,
+  // Generic unreachable debris: dropped value before an already-unconditional else edge.
+  normalizeCompactUnreachableDropBeforeElse,
+  // Generic dead tee temps: `local.tee; drop` when the tee local is otherwise unread.
+  normalizeCompactDeadLocalTeeDrops,
+  // Func396 family: inspected dropped block wrapper in the Func412/Func4245 branch arm.
+  normalizeCompactFunc396DroppedBlockWrapper,
+  // Func427 family: inspected tail temp versus parameter-local storeback alias.
+  normalizeCompactFunc427TailTemp,
+  // Func444 family: inspected parser-dispatch branch wrapper drift.
+  normalizeCompactFunc444BranchWrapper,
+  // Func445 family: inspected whitespace-scanner void loop versus dropped block wrapper.
+  normalizeCompactFunc445LoopWrapper,
+  // Generic call-result aliases: set/get versus tee around the same condition value.
+  normalizeCompactSetTeeGetAliases,
+  // Generic dropped value-if wrappers with preserved condition effects.
+  normalizeCompactDroppedValueIf,
+  // Generic tail-return lowering: unreachable/drop debris after equivalent returns.
+  normalizeCompactTailReturnLowering,
+  // Generic trap-if inversion: equivalent branch polarity around unconditional traps.
+  normalizeCompactTrapIfInversion,
+  // Generic pure if/select shape drift for pure operands.
+  normalizeCompactPureIfToSelect,
+  // Generic dropped pure add debris.
+  normalizeCompactPureAddDrops,
+  // Generic global.get temp aliasing with no intervening effects.
+  normalizeCompactGlobalGetAliases,
+  // Generic compact loop-load/if placement drift in inspected canonical output.
+  normalizeCompactLoopLoadIfDrift,
+  // Generic adjacent load/set run ordering for independent compact spill chains.
+  normalizeCompactLoadSetRuns,
+  // Generic local copy aliases with matching get/set local ids.
+  normalizeCompactCopyAliases,
+  // Generic adjacent set/get collapsed to tee for the same local.
+  normalizeCompactAdjacentSetGetTees,
+];
+
 function canonicalizePrettyBodyText(body: string): string {
   let compact = normalizeCompactTailMultivalueSpills(reorderScalarLadders(
     canonicalizeBodyLocals(normalizeLoweredTempDrift(body)),
   ).replace(/\bType\d+\b/g, "Type#").replace(/\s+/g, "")
+    // Diagnostic-only compare-layer cleanup for inspected DAE artifact families:
+    // these rewrites preserve visible call/control order in canonical-function
+    // fallback output and never affect the raw WAT or wasm equality checks.
     .replace(/returndrop(?=else|\)|$)/g, "return")
     .replace(/return\(br\(Label\d+\)\)(?=\(end\))/g, "return")
     .replace(/\(call\(Func4257\)\)drop(?=else|\(br\(Label\d+\)\))/g, "(call(Func4257))")
@@ -1184,53 +1250,7 @@ function canonicalizePrettyBodyText(body: string): string {
     .replace(/\(call\(Func493\)\)drop(?=\(i32\.constI32\(0\)\))/g, "(call(Func493))")
     .replace(/\(i32\.constI32\(0\)\)drop/g, ""));
   for (let idx = 0; idx < 3; idx += 1) {
-    const next = normalizeCompactAdjacentSetGetTees(
-      normalizeCompactCopyAliases(
-        normalizeCompactLoadSetRuns(
-          normalizeCompactLoopLoadIfDrift(
-            normalizeCompactGlobalGetAliases(
-              normalizeCompactPureAddDrops(
-                normalizeCompactPureIfToSelect(
-                  normalizeCompactTrapIfInversion(
-                    normalizeCompactTailReturnLowering(
-                      normalizeCompactDroppedValueIf(
-                        normalizeCompactSetTeeGetAliases(
-                          normalizeCompactFunc445LoopWrapper(
-                            normalizeCompactFunc444BranchWrapper(
-                            normalizeCompactFunc427TailTemp(
-                              normalizeCompactFunc396DroppedBlockWrapper(
-                            normalizeCompactDeadLocalTeeDrops(
-                          normalizeCompactUnreachableDropBeforeElse(
-                            normalizeCompactFunc372LoopBlockWrappers(
-                              normalizeCompactFunc333NestedBlockWrappers(
-                                normalizeCompactFunc259NestedBlockWrappers(
-                                normalizeCompactFunc239NestedBlockWrappers(
-                                  normalizeCompactDroppedBlockI32Wrapper(
-                                    normalizeCompactDroppedFunc252ResultBlocks(
-                                      normalizeCompactSelectTempAliases(normalizeCompactPureAddAliases(compact)),
-                                    ),
-                                  ),
-                                ),
-                                ),
-                              ),
-                            ),
-                              ),
-                            ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      ),
-                    ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+    const next = applyCompactNormalizers(compact, CANONICAL_FUNC_COMPACT_NORMALIZERS);
     if (next === compact) break;
     compact = next;
   }
