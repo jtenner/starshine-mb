@@ -21,6 +21,7 @@ pub enum MetamorphicValidTransform {
   AddTagNamesSection
   AddFieldNamesSection
   AddUnusedI32LocalToDefinedFunctions
+  AddLeadingNopToDefinedFunctions
 } derive(Eq, Debug)
 
 ///|
@@ -51,6 +52,7 @@ pub fn metamorphic_valid_transform_id(
     AddFieldNamesSection => "add-field-names-section"
     AddUnusedI32LocalToDefinedFunctions =>
       "add-unused-i32-local-to-defined-functions"
+    AddLeadingNopToDefinedFunctions => "add-leading-nop-to-defined-functions"
   }
 }
 
@@ -959,6 +961,29 @@ fn metamorphic_add_unused_i32_local_to_defined_functions(
 }
 
 ///|
+fn metamorphic_add_leading_nop_to_defined_functions(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let funcs = []
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            let next_instrs = [@lib.Instruction::nop()]
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
 fn metamorphic_add_unused_empty_function(mod : @lib.Module) -> @lib.Module {
   let types = []
   match mod.type_sec {
@@ -1022,6 +1047,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTagNamesSection,
     AddFieldNamesSection,
     AddUnusedI32LocalToDefinedFunctions,
+    AddLeadingNopToDefinedFunctions,
   ]
 }
 
@@ -1058,6 +1084,8 @@ pub fn metamorphic_apply_transform(
     AddFieldNamesSection => metamorphic_add_field_names_section(mod)
     AddUnusedI32LocalToDefinedFunctions =>
       metamorphic_add_unused_i32_local_to_defined_functions(mod)
+    AddLeadingNopToDefinedFunctions =>
+      metamorphic_add_leading_nop_to_defined_functions(mod)
   }
   match validate_module(transformed) {
     Ok(_) =>
