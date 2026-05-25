@@ -7925,6 +7925,67 @@ test "simplify-globals-optimizing keeps global-derived load and table get" {
 }
 
 ///|
+test "simplify-globals-optimizing removes guard after independent memory grow" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (memory 1 10)
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    i32.const 0
+      #|    memory.grow
+      #|    drop
+      #|    global.get $guard
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("memory.grow"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes guard after independent table grow" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (table 1 10 funcref)
+      #|  (global $guard (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    ref.null func
+      #|    i32.const 0
+      #|    table.grow 0
+      #|    drop
+      #|    global.get $guard
+      #|    if
+      #|      i32.const 1
+      #|      global.set $guard
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(pretty.contains("table.grow"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps memory grow fed by the global" {
   let optimized = sgo_test_run(
     (
