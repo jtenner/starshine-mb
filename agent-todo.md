@@ -224,7 +224,7 @@ Execution rules for all DAE slices
   - Status: active/partial for v0.1.1 because the product goal changed toward broad Binaryen coverage; not a v0.1.0 blocker and not a rejection of the supported-surface signoff in `docs/wiki/raw/research/0573-2026-05-19-sgo-v010-signoff.md`.
   - Goal: broaden SGO toward fuller Binaryen `SimplifyGlobals.cpp` rewrite-family coverage while preserving the accepted v0.1.0 direct/nested/late-tail surface as a scoped signoff, not a full-parity claim.
   - Current matrix: `docs/wiki/binaryen/passes/simplify-globals-optimizing/parity-matrix.md` distinguishes implemented, partial, missing, intentionally conservative, and unknown families.
-  - Completed evidence: landed behavior, refactor, guardrail, research, and rebaseline slices are recorded in `docs/wiki/raw/research/0574` through `0649` where applicable, `docs/wiki/log.md`, and the SGO parity/readiness pages. Do not duplicate the full completed slice history here; use those docs as the source of truth.
+  - Completed evidence: landed behavior, refactor, guardrail, research, and rebaseline slices are recorded in `docs/wiki/raw/research/0574` through `0661` where applicable, `docs/wiki/log.md`, and the SGO parity/readiness pages. Do not duplicate the full completed slice history here; use those docs as the source of truth.
   - General deliverables for every SGO003 subtask: focused Binaryen probe or source fixture first, local test(s) before implementation for behavior-bearing work, paired negative guardrails for trapping/effectful/control-transfer boundaries, `moon test src/passes`, direct `--pass simplify-globals-optimizing` compare fuzz for nontrivial matcher/dataflow work, docs/wiki/log updates, and keep `[SGO]003` partial unless the user explicitly accepts a final bounded scope.
   - Open-work tracking rule: if a slice uncovers a blocker, prerequisite, deferred family, or refactor follow-up, add it explicitly under one of the SGO003 children below before commit; do not leave implicit "later" work hidden only in research-note prose.
 
@@ -232,12 +232,11 @@ Execution rules for all DAE slices
 - [SGO]003D - Read-Only-To-Write Safe Side-Effect Independence
   - Status: active candidate; behavior-bearing.
   - Goal: admit additional side-effecting instructions only when stack/value-flow proves the candidate-derived value is independent of the side effect and still reaches only the final same-global guard.
-  - Candidate shapes: remaining clean store/table/bulk forms if exact Binaryen positives exist, additional scalar-load/table.get independence forms, and recursive combinations with already-supported pure prefixes. The 0644 guardrail slice pinned independent `memory.grow` / `table.grow` prefixes as already covered while preserving candidate-derived grow negatives.
+  - Candidate shapes: remaining clean store/table/bulk forms if exact Binaryen positives exist and recursive combinations with already-supported pure prefixes. The 0644 guardrail slice pinned independent `memory.grow` / `table.grow` prefixes as already covered while preserving candidate-derived grow negatives; the 0661 audit closed the scalar-load / `table.get` checklist as already covered by current source and tests.
   - Explicit non-goals without fresh oracle evidence: atomics, SIMD memory ops, memory/table grow, relaxed SIMD, broad bulk ops beyond probed clean operands, calls with candidate-derived operands, and trapping casts/truncations/loads fed by the candidate.
   - Open checklist:
     - Probe one exact remaining clean side-effect family at a time against Binaryen before coding.
     - For every Binaryen-positive family, add a paired candidate-derived negative before implementation.
-    - Decide whether any scalar-load / `table.get` independence forms are truly uncovered after the existing clean scalar-load, `table.get`, and grow guardrails.
     - If a probed family is already covered, land only guardrail tests/research and do not broaden code.
     - If a probed family is Binaryen-negative or unsafe, document it as conservative and keep it out of the whitelist.
   - Exit criteria: fixture pairs for each admitted instruction family, no broad whitelist additions, direct SGO fuzz, docs identifying every newly admitted opcode family.
