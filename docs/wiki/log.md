@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO transparent block wrapper guardrails
+
+- Added research note [`0636`](./raw/research/0636-2026-05-25-sgo-transparent-block-wrapper-guardrails.md) for `[SGO]003B`, probing nested transparent `block (result i32)` wrappers around a read-only-to-write guard condition.
+- Added focused Starshine regressions for the nested transparent result-block positive and a branchy result-block negative; the tests confirmed the existing collector already covers the positive and preserves the branchy boundary, so no matcher broadening was needed.
+- Completed `[SGO]003B` as a source-alignment/guardrail slice while keeping `[SGO]003` active/partial; broader control-transfer, call, caught-`try_table`, trapping/effectful, extra-read, and post-join surfaces remain out of scope.
+
 ## [2026-05-25] binaryen | SGO call and effect boundary study
 
 - Added research note [`0635`](./raw/research/0635-2026-05-25-sgo-call-effect-boundary-study.md) for `[SGO]003E`, probing call-shaped read-only-to-write boundaries after the 0634 read-summary design.

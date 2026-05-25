@@ -227,12 +227,6 @@ Execution rules for all DAE slices
   - Completed evidence: landed behavior and refactor slices are recorded in `docs/wiki/raw/research/0574` through `0635` where applicable, `docs/wiki/log.md`, and the SGO parity/readiness pages. Do not duplicate the full completed slice history here; use those docs as the source of truth.
   - General deliverables for every SGO003 subtask: focused Binaryen probe or source fixture first, local test(s) before implementation for behavior-bearing work, paired negative guardrails for trapping/effectful/control-transfer boundaries, `moon test src/passes`, direct `--pass simplify-globals-optimizing` compare fuzz for nontrivial matcher/dataflow work, docs/wiki/log updates, and keep `[SGO]003` partial unless the user explicitly accepts a final bounded scope.
 
-- [SGO]003B - Read-Only-To-Write Broader Control Wrappers
-  - Status: active candidate; behavior-bearing.
-  - Goal: add only probed wrapper shapes where the candidate `global.get` still flows exclusively to the final same-global branch decision.
-  - Candidate shapes: additional transparent `block` result wrappers, clean no-value wrapper prefixes, nested wrapper combinations around already-supported FlowScanner chains, and source-backed recursive no-else patterns beyond the landed two-/three-layer subset.
-  - Required negatives: wrapper contains branch/return, wrapper contains candidate-consuming load/table op, wrapper contains candidate-consuming call/call_indirect/call_ref, wrapper contains extra same-global read, wrapper has `else` or post-join observable use.
-  - Exit criteria: focused tests, minimal matcher broadening, direct SGO 10k fuzz, docs update stating the exact accepted wrapper grammar.
 
 - [SGO]003C - Read-Only-To-Write Nested If Arm Breadth
   - Status: active candidate; behavior-bearing.
