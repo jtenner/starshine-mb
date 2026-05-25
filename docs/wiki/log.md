@@ -1520,6 +1520,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Continued `[FUZ]1036D` by adding the `add-leading-f32-neg-drop-to-defined-functions`, `add-trailing-f32-neg-drop-to-defined-functions`, `add-leading-f64-neg-drop-to-defined-functions`, and `add-trailing-f64-neg-drop-to-defined-functions` metamorphic-valid transforms. They insert pure floating-point negation/drop stacks at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate the transformed modules, and report the new transform ids through `validate-valid-metamorphic` details.
 - Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the active metamorphic-valid transform registry names the new f32/f64 neg computed/drop body reshaping surface alongside the existing abs, eqz, const/drop, if, no-op, control-wrapper, locals, exports, custom sections, and metadata transforms.
 
+## [2026-05-25] fuzzing | FUZ1051C pass-signoff and validator-stress recipes
+
+- Completed `[FUZ]1051C` by tightening the checked-in `pass-signoff` and `validator-stress` recipes with focused assertions for Binaryen-oracle pass-signoff modifiers, idempotence checking, shard defaults, and the validator-stress recipe's `validate-valid` stress profile.
+- Updated [`fuzzing/recipe-schema.md`](fuzzing/recipe-schema.md) so the catalog documents how validator-stress reaches the named GenValid profile through the `validate-valid` stress profile and records the expanded recipe test coverage.
+
 ## [2026-05-25] fuzzing | FUZ1051A explicit recipe schema version
 
 - Tightened `[FUZ]1051A` by requiring checked-in fuzz recipes to declare `schema=starshine.fuzz.recipe.v1`, rejecting missing or unsupported schema versions, and exposing `fuzz_recipe_schema_version()` as the single parser/catalog constant.

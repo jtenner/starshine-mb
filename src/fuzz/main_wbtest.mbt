@@ -1139,8 +1139,22 @@ test "standard fuzz recipe catalog includes required checked-in recipes" {
     None => fail("expected pass-signoff recipe")
   }
   @debug.assert_eq(recipe.suite, "cmd-harness")
+  assert_true(recipe.profile.contains("gen-valid=binaryen-oracle-portable"))
   assert_true(recipe.profile.contains("passes=each-pass"))
+  assert_true(recipe.profile.contains("check-idempotence"))
   @debug.assert_eq(recipe.seed_i64, 0x5eedL)
+  @debug.assert_eq(recipe.seed_count, 8)
+  @debug.assert_eq(recipe.shard_count, 4)
+  let validator_recipe = match
+    fuzz_standard_recipe_by_name("validator-stress") {
+    Some(v) => v
+    None => fail("expected validator-stress recipe")
+  }
+  @debug.assert_eq(validator_recipe.suite, "validate-valid")
+  @debug.assert_eq(validator_recipe.profile, "stress")
+  @debug.assert_eq(validator_recipe.seed_i64, 0x10d69L)
+  @debug.assert_eq(validator_recipe.seed_count, 16)
+  @debug.assert_eq(validator_recipe.shard_count, 4)
 }
 
 ///|

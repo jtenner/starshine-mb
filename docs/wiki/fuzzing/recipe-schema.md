@@ -29,11 +29,11 @@ The `--recipe <name>` / `--recipe=<name>` flag is recognized by the parser layer
 - `default-ci`: four-seed `all`-suite CI sweep over every active default fuzz suite, emitted as JSONL.
 - `nightly`: broader `validate-valid-metamorphic` stress sweep.
 - `pass-signoff`: pass-oriented `cmd-harness` run with Binaryen-oracle-portable GenValid input, each-pass coverage, idempotence checking, and shard defaults.
-- `validator-stress`: `validate-valid` stress recipe.
+- `validator-stress`: `validate-valid` stress recipe. The `validate-valid` stress profile maps to the named validator-stress GenValid config in the validator runner.
 - `parser-stress`: `wast-roundtrip` parser-stress/script recipe.
 - `binaryen-oracle`: portable GenValid WAT validation roundtrip recipe for Binaryen-oracle-aligned inputs.
 
 ## Evidence
 
-- `src/fuzz/main_wbtest.mbt` covers required schema-version parsing, unsupported schema rejection, `=` inside profile values, standard catalog ids including default smoke/CI all-suite recipes, catalog-text parsing, and CLI-over-recipe precedence.
-- `moon test src/fuzz` passed for the default smoke/CI recipe slice.
+- `src/fuzz/main_wbtest.mbt` covers required schema-version parsing, unsupported schema rejection, `=` inside profile values, standard catalog ids including default smoke/CI all-suite recipes, pass-signoff and validator-stress recipe intent, catalog-text parsing, and CLI-over-recipe precedence.
+- `moon test src/fuzz` passed for the recipe slices.
