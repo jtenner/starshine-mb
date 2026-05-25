@@ -190,6 +190,27 @@ test "gen-valid const-expression allowed-op matrix covers section contexts" {
 }
 
 ///|
+test "gen-valid active segments can use imported immutable global offsets" {
+  let config = GenValidConfig::coverage_forced_default()
+  let generated = match gen_valid_module_result_from_seed(0x1039BUL, config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(
+    gen_valid_test_has_imported_global_active_data_offset(generated.wasm_module),
+    msg="coverage-forced GenValid should cover active data offsets that read an imported immutable i32 global",
+  )
+  assert_true(
+    gen_valid_test_has_imported_global_active_elem_offset(generated.wasm_module),
+    msg="coverage-forced GenValid should cover active element offsets that read an imported immutable i32 global",
+  )
+}
+
+///|
 test "gen-valid shared const-expression contexts select allowed op families" {
   let ctx = GenValidContext::new_streamed(0x1037AUL, {
     ..GenValidConfig::coverage_forced_default()
@@ -3015,6 +3036,81 @@ fn gen_valid_test_imported_func_count(mod_ : Module) -> Int {
     None => ()
   }
   count
+}
+
+///|
+fn gen_valid_test_imported_global_count(mod_ : Module) -> Int {
+  let mut count = 0
+  match mod_.import_sec {
+    Some(ImportSec(imports)) =>
+      for import_ in imports {
+        let Import(_, _, extern_type) = import_
+        match extern_type {
+          GlobalExternType(_) => count += 1
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  count
+}
+
+///|
+fn gen_valid_test_expr_is_imported_global_get(
+  expr : Expr,
+  imported_global_count : Int,
+) -> Bool {
+  match expr {
+    Expr([GlobalGet(GlobalIdx(idx))]) =>
+      idx.reinterpret_as_int() < imported_global_count
+    _ => false
+  }
+}
+
+///|
+fn gen_valid_test_has_imported_global_active_elem_offset(mod_ : Module) -> Bool {
+  let imported_global_count = gen_valid_test_imported_global_count(mod_)
+  if imported_global_count == 0 {
+    return false
+  }
+  match mod_.elem_sec {
+    Some(ElemSec(elems)) => {
+      for elem in elems {
+        let Elem(mode, _) = elem
+        match mode {
+          Active(_, offset) if gen_valid_test_expr_is_imported_global_get(
+              offset, imported_global_count,
+            ) => return true
+          _ => ()
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_has_imported_global_active_data_offset(mod_ : Module) -> Bool {
+  let imported_global_count = gen_valid_test_imported_global_count(mod_)
+  if imported_global_count == 0 {
+    return false
+  }
+  match mod_.data_sec {
+    Some(DataSec(datas)) => {
+      for data in datas {
+        let Data(mode, _) = data
+        match mode {
+          Active(_, offset) if gen_valid_test_expr_is_imported_global_get(
+              offset, imported_global_count,
+            ) => return true
+          _ => ()
+        }
+      }
+      false
+    }
+    None => false
+  }
 }
 
 ///|

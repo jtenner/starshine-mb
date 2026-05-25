@@ -652,7 +652,6 @@ p1 next-up / active:
 - [FUZ]1037E - Add invalid const-expression fixtures for body-only ops in const contexts.
 - [FUZ]1038C - Generate varied unknown custom sections with different legal placements and payload bytes.
 - [FUZ]1038D - Generate name-section function/local/label payloads in metadata-heavy profiles.
-- [FUZ]1039B - Generate active data/element offsets using imported immutable globals.
 - [FUZ]1039C - Generate table initializers using `ref.func` and typed refs.
 - [FUZ]1051A - Define checked-in fuzz recipe schema version and parser tests.
 - [FUZ]1051B - Add smoke and CI recipes for current default fuzz suites.
