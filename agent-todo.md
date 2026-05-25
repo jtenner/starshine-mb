@@ -224,17 +224,15 @@ Execution rules for all DAE slices
   - Status: active/partial for v0.1.1 because the product goal changed toward broad Binaryen coverage; not a v0.1.0 blocker and not a rejection of the supported-surface signoff in `docs/wiki/raw/research/0573-2026-05-19-sgo-v010-signoff.md`.
   - Goal: broaden SGO toward fuller Binaryen `SimplifyGlobals.cpp` rewrite-family coverage while preserving the accepted v0.1.0 direct/nested/late-tail surface as a scoped signoff, not a full-parity claim.
   - Current matrix: `docs/wiki/binaryen/passes/simplify-globals-optimizing/parity-matrix.md` distinguishes implemented, partial, missing, intentionally conservative, and unknown families.
-  - Completed evidence: landed behavior, refactor, guardrail, research, and rebaseline slices are recorded in `docs/wiki/raw/research/0574` through `0664` where applicable, `docs/wiki/log.md`, and the SGO parity/readiness pages. Do not duplicate the full completed slice history here; use those docs as the source of truth.
+  - Completed evidence: landed behavior, refactor, guardrail, research, and rebaseline slices are recorded in `docs/wiki/raw/research/0574` through `0665` where applicable, `docs/wiki/log.md`, and the SGO parity/readiness pages. Do not duplicate the full completed slice history here; use those docs as the source of truth.
   - General deliverables for every SGO003 subtask: focused Binaryen probe or source fixture first, local test(s) before implementation for behavior-bearing work, paired negative guardrails for trapping/effectful/control-transfer boundaries, `moon test src/passes`, direct `--pass simplify-globals-optimizing` compare fuzz for nontrivial matcher/dataflow work, docs/wiki/log updates, and keep `[SGO]003` partial unless the user explicitly accepts a final bounded scope.
   - Open-work tracking rule: if a slice uncovers a blocker, prerequisite, deferred family, or refactor follow-up, add it explicitly under one of the SGO003 children below before commit; do not leave implicit "later" work hidden only in research-note prose.
 
 
 - [SGO]003D - Read-Only-To-Write Safe Side-Effect Independence
-  - Status: active/partial with explicit children only; no generic hidden work bucket remains.
-  - Goal: admit additional side-effecting instructions only when stack/value-flow proves the candidate-derived value is independent of the side effect and still reaches only the final same-global guard.
-  - Current evidence: the 0644 guardrail slice pinned independent `memory.grow` / `table.grow` prefixes as already covered while preserving candidate-derived grow negatives; the 0661 audit closed scalar-load / `table.get` opcode-family work as already covered by source and tests; the 0662 audit closed the currently enumerated clean store/table/bulk opcode-family work as already covered by source and tests; the 0664 gate audit found no current named, source-backed side-effect family candidate that should be admitted implicitly.
-  - Explicit non-goals without fresh oracle evidence: atomics, SIMD memory ops, memory/table grow beyond the 0644 independent-prefix guardrails, relaxed SIMD, broad bulk ops beyond probed clean operands, calls with candidate-derived operands, and trapping casts/truncations/loads fed by the candidate.
-  - Open-work rule: any future behavior must land as one of the explicit child slices below or as a newly filed child with a named Binaryen-positive shape, paired candidate-derived/global-steered negatives, no broad whitelist additions, `moon test src/passes`, direct SGO compare fuzz, and docs identifying the admitted opcode or wrapper family.
+  - Status: closed by the 0665 closeout audit for the currently enumerated side-effect-independence scope; no generic hidden work bucket remains.
+  - Decision: the 0644 grow guardrails, 0661 scalar-load/table-get audit, 0662 store/table/bulk audit, 0663 wrapper/control inventory, and 0664 named-family gate cover or conservatively defer every visible `[SGO]003D` follow-up. Parent `[SGO]003` remains active/partial and this is not a full `SimplifyGlobals.cpp` parity claim.
+  - Follow-up rule: future side-effect independence behavior must land as a newly filed explicit child with a named Binaryen-positive opcode or wrapper grammar, paired candidate-derived/global-steered/unknown-effect/aliasing negatives, no broad whitelist additions, `moon test src/passes`, direct SGO compare fuzz, and docs identifying the admitted family.
 
 - [SGO]003D1 - Wrapper/Control Composition Inventory For Already-Covered Independent Effects
   - Status: closed by the 0663 research inventory; no generic wrapper/control-composition bucket remains open.
@@ -247,9 +245,8 @@ Execution rules for all DAE slices
   - Follow-up rule: each new child must name the exact opcode or wrapper grammar, cite fresh Binaryen-positive evidence, include candidate-derived/global-steered/trapping-consumer/unknown-effect/aliasing negatives, avoid broad whitelist additions, run `moon test src/passes`, and run direct SGO compare fuzz for behavior-bearing matcher or dataflow changes.
 
 - [SGO]003D3 - Side-Effect Independence Closeout Audit
-  - Status: ready after `[SGO]003D1` closed by 0663 and `[SGO]003D2` closed by 0664 with no named behavior-ready candidates.
-  - Goal: close `[SGO]003D` without claiming full `SimplifyGlobals.cpp` parity by checking that all side-effect-independence follow-ups from 0644, 0661, 0662, and any later child slices are either covered, explicitly conservative, or represented by separate backlog ids.
-  - Exit criteria: update `agent-todo.md`, add a research note and `docs/wiki/log.md` entry, state remaining non-goals/blockers, and keep parent `[SGO]003` active/partial unless separately accepted by the user.
+  - Status: closed by the 0665 research closeout.
+  - Decision: all visible side-effect-independence follow-ups from 0644, 0661, 0662, 0663, and 0664 are covered, explicitly conservative, or separately represented by `[SGO]003E2` for call read/write summaries. Keep parent `[SGO]003` active/partial unless separately accepted by the user.
 
 - [SGO]003E2 - Direct-Call Read/Write Summary Implementation
   - Status: deferred/closed by the 0660 prerequisite audit; not an active behavior slice until the read/write summary prerequisite is explicitly scheduled.

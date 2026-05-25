@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO side-effect independence closeout
+
+- Added research note [`0665`](./raw/research/0665-2026-05-25-sgo-side-effect-independence-closeout.md) for `[SGO]003D3`, auditing all visible `[SGO]003D` follow-ups after 0644, 0661, 0662, 0663, and 0664.
+- Closed `[SGO]003D` and `[SGO]003D3` for the currently enumerated side-effect-independence scope: covered families are source/test-backed, conservative families require future explicit child slices, and call read/write summary work remains separately represented by `[SGO]003E2`.
+- No optimizer behavior changed and no direct SGO fuzz was required because this was docs/backlog-only. `[SGO]003` remains active/partial and this is not a full `SimplifyGlobals.cpp` parity claim.
+
 ## [2026-05-25] binaryen | SGO named side-effect family probe gate
 
 - Added research note [`0664`](./raw/research/0664-2026-05-25-sgo-named-side-effect-family-probe-gate.md) for `[SGO]003D2`, auditing whether a newly named side-effect opcode or wrapper family was ready to split into a behavior-bearing child slice.
