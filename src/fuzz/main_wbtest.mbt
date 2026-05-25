@@ -192,6 +192,38 @@ test "run_fuzz_suite_sweep derives deterministic shard seeds" {
 }
 
 ///|
+test "parse_fuzz_replay_manifest_commands keeps deterministic corpus order" {
+  let manifest = "{\"schema\":\"starshine.fuzz-replay-manifest.v1\",\"commands\":[{\"suite\":\"cmd-harness\",\"profile\":\"smoke\",\"seed\":16,\"seed_index\":0},{\"suite\":\"validate-valid\",\"profile\":\"ci\",\"seed\":17,\"seed_index\":1}]}"
+  let commands = match parse_fuzz_replay_manifest_commands(manifest) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(commands.length(), 2)
+  @debug.assert_eq(commands[0].suite, "cmd-harness")
+  @debug.assert_eq(commands[0].profile, "smoke")
+  @debug.assert_eq(commands[0].seed, 16L)
+  @debug.assert_eq(commands[0].seed_index, 0)
+  @debug.assert_eq(commands[1].suite, "validate-valid")
+  @debug.assert_eq(commands[1].seed, 17L)
+}
+
+///|
+test "run_fuzz_replay_manifest replays every manifest command once" {
+  let manifest = "{\"schema\":\"starshine.fuzz-replay-manifest.v1\",\"commands\":[{\"suite\":\"cmd-harness\",\"profile\":\"smoke\",\"seed\":16,\"seed_index\":0},{\"suite\":\"cmd-harness\",\"profile\":\"smoke\",\"seed\":17,\"seed_index\":1}]}"
+  let results = match run_fuzz_replay_manifest(manifest) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(results.length(), 2)
+  @debug.assert_eq(results[0].suite, "cmd-harness")
+  @debug.assert_eq(results[0].seed, 16L)
+  @debug.assert_eq(results[0].seed_index, 0)
+  @debug.assert_eq(results[0].seed_count, 1)
+  @debug.assert_eq(results[1].seed, 17L)
+  @debug.assert_eq(results[1].seed_index, 1)
+}
+
+///|
 test "format_fuzz_run_report_json summarizes sweep results" {
   let results = match
     run_fuzz_suite_sweep("cmd-harness", "smoke", 7L, 2, 0, 1) {

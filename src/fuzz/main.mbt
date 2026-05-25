@@ -165,6 +165,7 @@ pub enum FuzzCliCommand {
   ListProfiles
   EmitGenValidBatch(EmitGenValidBatchArgs)
   EmitInvalidRepro(EmitInvalidReproArgs)
+  ReplayCorpus(String)
 } derive(Eq, Debug)
 
 ///|
@@ -197,6 +198,14 @@ pub struct FuzzSuiteResult {
   shard_index : Int
   shard_count : Int
   details_json : String?
+} derive(Eq, Debug)
+
+///|
+pub struct FuzzReplayCommand {
+  suite : String
+  profile : String
+  seed : Int64
+  seed_index : Int
 } derive(Eq, Debug)
 
 ///|
@@ -268,7 +277,7 @@ pub fn fuzz_usage_text() -> String {
     fuzz_join(reserved, ", ")
   }
   let profiles = fuzz_join(fuzz_profile_names(), ", ")
-  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--recipe <name>] [--suite <name>] [--profile <name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>] [--shard-index <i> --shard-count <n>] [--report-json <path>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> [--manifest <path>] (portable coverage-forced batch) | --emit-invalid-repro --suite <suite|ast|binary|text|spec-seed> --strategy <stable-id> --seed <uint64> --attempt <n> --out-dir <dir> [--profile <name>]\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}"
+  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--recipe <name>] [--suite <name>] [--profile <name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>] [--shard-index <i> --shard-count <n>] [--report-json <path>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> [--manifest <path>] (portable coverage-forced batch) | --emit-invalid-repro --suite <suite|ast|binary|text|spec-seed> --strategy <stable-id> --seed <uint64> --attempt <n> --out-dir <dir> [--profile <name>] | --replay-corpus <replay-manifest.json>\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}"
 }
 
 ///|
@@ -1237,6 +1246,12 @@ pub fn parse_fuzz_cli_command(args : Array[String]) -> FuzzCliCommand {
       return FuzzCliCommand::EmitInvalidRepro(
         fuzz_parse_emit_invalid_repro_args(args),
       )
+    }
+    if command == "--replay-corpus" {
+      if args.length() != 2 {
+        abort("usage: --replay-corpus <replay-manifest.json>")
+      }
+      return FuzzCliCommand::ReplayCorpus(args[1])
     }
   }
   let mut control : FuzzCliCommand? = None
@@ -2484,6 +2499,24 @@ fn fuzz_find_text_from(text : String, needle : String, start : Int) -> Int {
 }
 
 ///|
+fn fuzz_find_text_last_from(text : String, needle : String, start : Int) -> Int {
+  if needle.length() == 0 {
+    return text.length()
+  }
+  let mut last = -1
+  let mut pos = start
+  while pos >= 0 {
+    let found = fuzz_find_text_from(text, needle, pos)
+    if found < 0 {
+      break
+    }
+    last = found
+    pos = found + 1
+  }
+  last
+}
+
+///|
 fn fuzz_parse_uint64_decimal_at(text : String, start : Int) -> (UInt64, Int)? {
   let mut i = start
   let mut value = 0UL
@@ -3127,6 +3160,113 @@ fn fuzz_json_escape(input : String) -> String {
 }
 
 ///|
+pub fn parse_fuzz_replay_manifest_commands(
+  manifest_json : String,
+) -> Result[Array[FuzzReplayCommand], String] {
+  let array_key = "\"commands\":["
+  let array_start = fuzz_find_text_from(manifest_json, array_key, 0)
+  if array_start < 0 {
+    return Err("missing commands array")
+  }
+  let body_start = array_start + array_key.length()
+  let array_end = fuzz_find_text_last_from(manifest_json, "]", body_start)
+  if array_end < 0 {
+    return Err("unterminated commands array")
+  }
+  let suite_key = "\"suite\":"
+  let profile_key = "\"profile\":"
+  let seed_key = "\"seed\":"
+  let index_key = "\"seed_index\":"
+  let commands : Array[FuzzReplayCommand] = []
+  let mut pos = body_start
+  while pos < array_end {
+    let suite_pos = fuzz_find_text_from(manifest_json, suite_key, pos)
+    if suite_pos < 0 || suite_pos >= array_end {
+      break
+    }
+    let suite = match
+      fuzz_parse_simple_json_string_at(
+        manifest_json,
+        suite_pos + suite_key.length(),
+      ) {
+      Some(v) => v
+      None => return Err("malformed replay suite")
+    }
+    let profile_pos = fuzz_find_text_from(manifest_json, profile_key, suite.1)
+    if profile_pos < 0 || profile_pos >= array_end {
+      return Err("missing replay profile for \{suite.0}")
+    }
+    let profile = match
+      fuzz_parse_simple_json_string_at(
+        manifest_json,
+        profile_pos + profile_key.length(),
+      ) {
+      Some(v) => v
+      None => return Err("malformed replay profile")
+    }
+    let seed_pos = fuzz_find_text_from(manifest_json, seed_key, profile.1)
+    if seed_pos < 0 || seed_pos >= array_end {
+      return Err("missing replay seed for \{suite.0}")
+    }
+    let seed = match
+      fuzz_parse_uint64_decimal_at(manifest_json, seed_pos + seed_key.length()) {
+      Some(v) => v
+      None => return Err("malformed replay seed")
+    }
+    let index_pos = fuzz_find_text_from(manifest_json, index_key, seed.1)
+    if index_pos < 0 || index_pos >= array_end {
+      return Err("missing replay seed_index for \{suite.0}")
+    }
+    let seed_index = match
+      fuzz_parse_uint64_decimal_at(
+        manifest_json,
+        index_pos + index_key.length(),
+      ) {
+      Some(v) => v
+      None => return Err("malformed replay seed_index")
+    }
+    commands.push({
+      suite: suite.0,
+      profile: profile.0,
+      seed: seed.0.reinterpret_as_int64(),
+      seed_index: seed_index.0.to_int(),
+    })
+    pos = seed_index.1
+  }
+  if commands.is_empty() {
+    return Err("replay manifest has no commands")
+  }
+  Ok(commands)
+}
+
+///|
+pub fn run_fuzz_replay_manifest(
+  manifest_json : String,
+) -> Result[Array[FuzzSuiteResult], String] {
+  let commands = match parse_fuzz_replay_manifest_commands(manifest_json) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let out : Array[FuzzSuiteResult] = []
+  for command in commands {
+    match run_single_suite(command.suite, command.profile, command.seed) {
+      Ok(result) =>
+        out.push(
+          fuzz_suite_result_with_sweep_metadata(
+            result,
+            command.seed_index,
+            1,
+            0,
+            1,
+          ),
+        )
+      Err(e) => return Err(e)
+    }
+  }
+  Ok(out)
+}
+
+///|
 pub fn format_fuzz_suite_result(
   result : FuzzSuiteResult,
   output_mode : FuzzOutputMode,
@@ -3381,6 +3521,19 @@ fn main {
           )
         Err(e) => abort(e)
       }
+    FuzzCliCommand::ReplayCorpus(path) => {
+      let manifest = match read_file_sync(path) {
+        Ok(text) => text
+        Err(e) => abort("failed to read replay manifest \{path}: \{e}")
+      }
+      match run_fuzz_replay_manifest(manifest) {
+        Ok(results) =>
+          for result in results {
+            print_fuzz_suite_result(result, FuzzOutputMode::Text)
+          }
+        Err(e) => abort(e)
+      }
+    }
     FuzzCliCommand::Run(parsed) => {
       let output_mode = parsed.output_mode
       match
