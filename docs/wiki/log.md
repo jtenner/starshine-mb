@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-25] passes | dae DAE010 direct fuzz refresh
+
+- Refreshed direct `dae-optimizing` fuzz evidence with `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dae-optimizing --out-dir .tmp/pass-fuzz-dae-optimizing-dae010-20260525-full2 --max-failures 10000 --keep-going-after-command-failures`.
+- Result: `9975/10000` compared, `6078` normalized matches, `3897` normalized mismatches, `0` validation failures, and `25` Binaryen/tool command failures (`22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, `1` `binaryen-invalid-tag-index`). All mismatches are `gen-valid`; all Binaryen-accepted `wasm-smith` cases matched.
+- Agent classification: size-winning semantic-safe raw-cleanup drift. Inspected samples differ by Starshine stripping the generator's leading dropped pure/nontrapping constant debris while Binaryen preserves it; this is useful cleanup, not a semantic or validation blocker.
+
 ## [2026-05-25] tooling | dae Func504 tail-control normalization
 
 - Classified the post-callee Func504/abs521 body drift as compare-layer representation: both sides preserve the same side-effect order through `Func3816`, `Func4300`, and final `Func524`/`Func522`; Starshine keeps a branch-through block and unreachable allocation wrapper after return-lowered arms, while Binaryen prints the final value-if directly.

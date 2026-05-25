@@ -84,6 +84,7 @@ Current checkpoints
 - Latest diagnostic timing is over the 2x target after correctness-first Func504 tail-control classification: `2749.652ms` Starshine pass versus `896.944ms` Binaryen pass for `.tmp/dae-func504-tail-control-artifact`. Per user direction, keep prioritizing correctness/frontier classification over pass time for now.
 - Latest validation before commit `0196531d`: script compare tests, `wasm-opt --all-features .tmp/dae-func447-normalized-artifact/starshine.wasm`, `git diff --check`, `moon info`, `moon fmt`, and `moon test` all passed; `moon info` still reports existing unused DAE helper warnings.
 - `[DAE]007` compare-tool normalization hygiene is closed for the current diagnostic helper: the canonical-function fallback now uses an explicit ordered normalizer list instead of a deeply nested call chain, with a diagnostic-only comment at the artifact-family cleanup point and unchanged fixture coverage.
+- `[DAE]010` direct fuzz refresh is closed for the latest pass logic as of 2026-05-25: `.tmp/pass-fuzz-dae-optimizing-dae010-20260525-full2` compared `9975/10000`, with `6078` normalized matches, `3897` normalized mismatches, `0` validation failures, and `25` Binaryen/tool command failures (`22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, `1` `binaryen-invalid-tag-index`). Agent classification: all mismatches are `gen-valid` size-winning semantic-safe raw-cleanup drift from Starshine stripping the generator's leading dropped pure/nontrapping constant debris while Binaryen preserves it; all `wasm-smith` cases that Binaryen accepted matched.
 - Important classification: Func408/abs425 raw body is closed. With both sides passed through the same strip-debug writer, Func408 matches after type-id stripping; prior Func408 drift was compare-layer representation, not a DAE raw rewrite target.
 
 Execution rules for all DAE slices
@@ -195,18 +196,6 @@ Execution rules for all DAE slices
     - 10k compare-pass run with mismatch counts and Starshine/Binaryen size deltas.
     - Focused tests for each newly stripped operation family.
   - Exit criteria: no open DAE task depends on unclear debris policy, and new cleanup work is either usefulness-signable or explicitly shape-parity-scoped.
-
-- [DAE]010 - Direct Fuzz Signoff and Mismatch Classification
-  - Goal: refresh full direct `dae-optimizing` fuzz evidence after the selected Func445 result-removal change and any further pass logic changes.
-  - Required command:
-    - `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dae-optimizing --out-dir .tmp/pass-fuzz-dae-optimizing-<slice>`
-  - Classification requirements:
-    - Report compared count, normalized matches, mismatches, validation failures, and Binaryen/tool failures.
-    - Classify mismatches as agent judgments: representation-only, size-winning semantic-safe, size-losing, unknown/risky, validation failure, tool/Binaryen failure, or true semantic mismatch.
-    - Do not call a mismatch semantic-safe only because both outputs validate or Starshine is smaller.
-  - Current historical baseline:
-    - Recent full active fuzz shape before the latest selected Func445 change: `9975/10000` compared, `9622` normalized matches, `353` normalized mismatches, `0` validation failures, `25` Binaryen/tool failures.
-  - Exit criteria: latest DAE pass logic has a fresh 10k direct fuzz run or an explicit reason it was deferred.
 
 - [DAE]011 - Performance Stabilization
   - Goal: keep DAE artifact and direct-pass runtime inside `Starshine <= 2x Binaryen`, preferably with headroom.
