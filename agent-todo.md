@@ -327,12 +327,35 @@ Execution rules for all DAE slices
 - [SGO]003O - Refactor-Only Matcher Maintainability Queue
   - Status: opportunistic; lower priority than behavior-bearing slices after commits `0f8b8902` through `39fa0a22`. The 0641 and 0645 clean-pop helper slices centralized repeated FlowScanner pop/taint checks without behavior broadening, the 0643 call-result helper slice centralized repeated call-boundary stack handling while preserving the adjacent-`global.get` arm-result exception, the 0646 wrapper helper slice centralized repeated block/no-catch `try_table` extraction plus external-pure condition index handling, the 0647 exact-tail helper slice centralized direct `if return; set` tail dispatch, the 0648 clean-leaf helper slice centralized repeated FlowScanner constant/nullary/local leaf pushes, the 0649 effect-predicate helper slice centralized clean pair/triple side-effect opcode groups, and the 0650 if-arm merge helper slice centralized repeated value-producing `if` arm-result scan/merge handling.
   - Goal: keep SGO maintainable without changing behavior.
-  - Open checklist:
-    - Remaining FlowScanner predicate grouping beyond the 0648 clean-leaf and 0649 clean-effect helper slices.
-    - Clearer helper naming around condition/value-stack matchers.
-    - Keep refactors behavior-preserving; any behavior-bearing discovery must move to `[SGO]003D`, `[SGO]003H`, or another explicit behavior slice.
   - Rules: no tests required if truly refactor-only and existing tests/fuzz prove behavior preservation; do not use refactors to sneak in new matcher breadth.
-  - Exit criteria: small commits with research notes, `moon test src/passes`, direct SGO fuzz when matcher logic is touched, and docs/log updates.
+  - Shared exit criteria: one small commit per child slice with research note, wiki log update, backlog update, `moon test src/passes`, direct SGO fuzz when matcher logic is touched, and no behavior broadening.
+
+- [SGO]003O1 - FlowScanner Predicate Grouping Audit
+  - Status: open refactor-only slice.
+  - Goal: inspect remaining FlowScanner opcode predicate clusters after the 0648 clean-leaf and 0649 clean pair/triple effect helper slices, then extract exactly one obviously duplicated pure/effect predicate group if it improves readability.
+  - Scope boundaries: preserve existing stack checks, taint propagation, candidate-read accounting, and all call/control/trapping barriers; do not add opcodes to any accepted family.
+  - Deliverables: either a small helper extraction plus docs/log/backlog updates, or a research-only note documenting that no remaining predicate group is worth extracting right now.
+  - Exit criteria: behavior-preserving diff, `moon test src/passes`, direct SGO fuzz if matcher code changes.
+
+- [SGO]003O2 - Condition Matcher Naming Cleanup
+  - Status: open refactor-only slice.
+  - Goal: make condition-reader helper names around block/no-catch wrappers, external-pure guard readers, reverse-compare readers, and exact `if return; set` tail readers clearer without changing matcher behavior.
+  - Scope boundaries: renames/wrapper reshaping only; preserve accepted condition shapes, same-global checks, `try_table` catch boundaries, and guard-tail dispatch.
+  - Deliverables: focused rename/extraction commit plus docs/log/backlog updates, or a research-only note if current names are already adequate.
+  - Exit criteria: behavior-preserving diff, `moon test src/passes`, direct SGO fuzz if matcher code changes.
+
+- [SGO]003O3 - Value-Stack Matcher Naming Cleanup
+  - Status: open refactor-only slice.
+  - Goal: clarify helper names around FlowScanner value-stack operations such as clean/tainted pushes, clean pops, clean replacement pushes, call-result stack handling, and value-producing arm merges.
+  - Scope boundaries: renames/wrapper reshaping only; preserve stack-underflow failure behavior, tainted-value rejection, read budgets, and adjacent-`global.get` call-result exception.
+  - Deliverables: focused rename/extraction commit plus docs/log/backlog updates, or a research-only note if current names are already adequate.
+  - Exit criteria: behavior-preserving diff, `moon test src/passes`, direct SGO fuzz if matcher code changes.
+
+- [SGO]003O4 - Refactor Queue Closeout Audit
+  - Status: open bookkeeping/research slice after `[SGO]003O1` through `[SGO]003O3` are resolved or explicitly skipped.
+  - Goal: decide whether `[SGO]003O` should remain open for opportunistic maintainability or be closed with remaining discoveries moved to explicit behavior slices.
+  - Deliverables: update this backlog with a clear close/keep-open decision; add any newly discovered blocker/prerequisite/deferred family under the appropriate `[SGO]003*` child before commit.
+  - Exit criteria: docs-only commit if no code changes, `git diff --check`, and tests only if code or normative pass docs changed.
 
 - [SGO]004 - Nested Cleanup Runtime And Exact-Scheduler Experiment
   - Status: deferred to v0.1.1; not a v0.1.0 blocker because the accepted nested lane is valid, smaller than Binaryen on the direct artifact, and inside the direct pass-local runtime floor.
