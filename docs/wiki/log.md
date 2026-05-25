@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO store/bulk independence audit
+
+- Added research note [`0662`](./raw/research/0662-2026-05-25-sgo-store-bulk-independence-audit.md) for `[SGO]003D`, auditing the currently enumerated clean store/table/bulk side-effect families.
+- Closed that checklist branch as already covered: shared clean pair/triple effect predicates cover scalar stores, `table.set`, memory/table bulk operations, and tests pin clean positives plus tainted/global-steered negatives for the named families.
+- No optimizer behavior changed and no direct SGO fuzz was required because this was docs/backlog-only. `[SGO]003D` remains active only for exact future side-effect families or wrapper grammars with fresh Binaryen probes, and `[SGO]003` remains active/partial.
+
 ## [2026-05-25] binaryen | SGO load/table-get independence audit
 
 - Added research note [`0661`](./raw/research/0661-2026-05-25-sgo-load-table-get-independence-audit.md) for `[SGO]003D`, auditing whether scalar-load or `table.get` independence forms remain visibly uncovered after the current FlowScanner and guardrail tests.
