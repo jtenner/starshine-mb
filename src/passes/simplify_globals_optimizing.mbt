@@ -3728,24 +3728,49 @@ fn sgo_count_block_condition_reverse_compare_read_only_to_write_read(
 }
 
 ///|
+fn sgo_count_block_condition_if_return_idx_read(
+  instr : @lib.Instruction,
+  if_instr : @lib.Instruction,
+  idx : @lib.GlobalIdx?,
+  safe_reads : Array[Int],
+) -> Unit {
+  if !sgo_is_return_guard(if_instr) {
+    return
+  }
+  match (sgo_block_or_no_catch_try_table_body(instr), idx) {
+    (Some(body), Some(idx)) =>
+      sgo_count_block_condition_if_return_body_read(body, idx, safe_reads)
+    _ => ()
+  }
+}
+
+///|
+fn sgo_set_tail_idx_with_const_value(
+  value : @lib.Instruction,
+  set : @lib.Instruction,
+) -> @lib.GlobalIdx? {
+  if sgo_const_instr(value) == None {
+    return None
+  }
+  match set {
+    @lib.GlobalSet(idx) => Some(idx)
+    _ => None
+  }
+}
+
+///|
 fn sgo_count_block_condition_if_return_block_set_read(
   instr : @lib.Instruction,
   next : @lib.Instruction,
   block_tail : @lib.Instruction,
   safe_reads : Array[Int],
 ) -> Unit {
-  if !sgo_is_return_guard(next) {
-    return
-  }
-  match
-    (
-      sgo_block_or_no_catch_try_table_body(instr),
-      sgo_block_set_tail_idx(block_tail),
-    ) {
-    (Some(body), Some(idx)) =>
-      sgo_count_block_condition_if_return_body_read(body, idx, safe_reads)
-    _ => ()
-  }
+  sgo_count_block_condition_if_return_idx_read(
+    instr,
+    next,
+    sgo_block_set_tail_idx(block_tail),
+    safe_reads,
+  )
 }
 
 ///|
@@ -3756,14 +3781,12 @@ fn sgo_count_block_condition_if_return_set_read(
   set : @lib.Instruction,
   safe_reads : Array[Int],
 ) -> Unit {
-  if !sgo_is_return_guard(next) || sgo_const_instr(value) == None {
-    return
-  }
-  match (sgo_block_or_no_catch_try_table_body(instr), set) {
-    (Some(body), @lib.GlobalSet(idx)) =>
-      sgo_count_block_condition_if_return_body_read(body, idx, safe_reads)
-    _ => ()
-  }
+  sgo_count_block_condition_if_return_idx_read(
+    instr,
+    next,
+    sgo_set_tail_idx_with_const_value(value, set),
+    safe_reads,
+  )
 }
 
 ///|
@@ -3775,16 +3798,15 @@ fn sgo_count_block_condition_eqz_if_return_set_read(
   set : @lib.Instruction,
   safe_reads : Array[Int],
 ) -> Unit {
-  if eqz != @lib.Instruction::i32_eqz() ||
-    !sgo_is_return_guard(if_instr) ||
-    sgo_const_instr(value) == None {
+  if eqz != @lib.Instruction::i32_eqz() {
     return
   }
-  match (sgo_block_or_no_catch_try_table_body(instr), set) {
-    (Some(body), @lib.GlobalSet(idx)) =>
-      sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-    _ => ()
-  }
+  sgo_count_block_condition_if_return_idx_read(
+    instr,
+    if_instr,
+    sgo_set_tail_idx_with_const_value(value, set),
+    safe_reads,
+  )
 }
 
 ///|
@@ -3804,18 +3826,15 @@ fn sgo_count_block_condition_eqz_if_return_block_set_read(
   block_tail : @lib.Instruction,
   safe_reads : Array[Int],
 ) -> Unit {
-  if eqz != @lib.Instruction::i32_eqz() || !sgo_is_return_guard(if_instr) {
+  if eqz != @lib.Instruction::i32_eqz() {
     return
   }
-  match
-    (
-      sgo_block_or_no_catch_try_table_body(instr),
-      sgo_block_set_tail_idx(block_tail),
-    ) {
-    (Some(body), Some(idx)) =>
-      sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-    _ => ()
-  }
+  sgo_count_block_condition_if_return_idx_read(
+    instr,
+    if_instr,
+    sgo_block_set_tail_idx(block_tail),
+    safe_reads,
+  )
 }
 
 ///|
@@ -3828,17 +3847,15 @@ fn sgo_count_block_condition_compare_if_return_set_read(
   set : @lib.Instruction,
   safe_reads : Array[Int],
 ) -> Unit {
-  if sgo_const_instr(const_instr) == None ||
-    !sgo_is_compare_instr(cmp_instr) ||
-    !sgo_is_return_guard(if_instr) ||
-    sgo_const_instr(value) == None {
+  if sgo_const_instr(const_instr) == None || !sgo_is_compare_instr(cmp_instr) {
     return
   }
-  match (sgo_block_or_no_catch_try_table_body(instr), set) {
-    (Some(body), @lib.GlobalSet(idx)) =>
-      sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-    _ => ()
-  }
+  sgo_count_block_condition_if_return_idx_read(
+    instr,
+    if_instr,
+    sgo_set_tail_idx_with_const_value(value, set),
+    safe_reads,
+  )
 }
 
 ///|
@@ -3850,20 +3867,15 @@ fn sgo_count_block_condition_compare_if_return_block_set_read(
   block_tail : @lib.Instruction,
   safe_reads : Array[Int],
 ) -> Unit {
-  if sgo_const_instr(const_instr) == None ||
-    !sgo_is_compare_instr(cmp_instr) ||
-    !sgo_is_return_guard(if_instr) {
+  if sgo_const_instr(const_instr) == None || !sgo_is_compare_instr(cmp_instr) {
     return
   }
-  match
-    (
-      sgo_block_or_no_catch_try_table_body(instr),
-      sgo_block_set_tail_idx(block_tail),
-    ) {
-    (Some(body), Some(idx)) =>
-      sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-    _ => ()
-  }
+  sgo_count_block_condition_if_return_idx_read(
+    instr,
+    if_instr,
+    sgo_block_set_tail_idx(block_tail),
+    safe_reads,
+  )
 }
 
 ///|

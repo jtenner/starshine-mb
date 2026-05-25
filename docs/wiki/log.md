@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-24] binaryen | SGO if-return tail index refactor
+
+- Added research note [`0631`](./raw/research/0631-2026-05-24-sgo-if-return-tail-idx-refactor.md) and centralized exact `if return; set` target-index handling for block/no-catch-`try_table` read-only-to-write tail helpers.
+- This is a refactor-only slice: it preserves exact whole-function tail placement, return-guard checks, constant `global.set` values, block-wrapped-set extraction, no-catch wrapper extraction, caught `try_table` conservatism, and loop boundaries.
+- Direct SGO fuzz at `.tmp/pass-fuzz-sgo-if-return-tail-idx-refactor-10k` matched `9975/9975` compared cases with `0` mismatches and `0` validation failures; `[SGO]003` remains active/partial.
+
 ## [2026-05-24] binaryen | SGO try_table guard dispatch inline
 
 - Added research note [`0630`](./raw/research/0630-2026-05-24-sgo-try-table-guard-dispatch-inline.md) and inlined the no-catch `try_table` specific guard-family wrappers into the grouped dispatcher through the shared optional guard-index applier.
