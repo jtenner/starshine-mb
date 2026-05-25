@@ -2374,6 +2374,98 @@ test "metamorphic SIMD splat computed-drop transforms use scalar constants and p
 }
 
 ///|
+test "metamorphic SIMD lane extract computed-drop transforms use legal lane immediates" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+        ),
+      ]),
+    )
+  let cases : Array[(MetamorphicValidTransform, String, @lib.Instruction)] = [
+    (
+      AddLeadingI8x16ExtractLaneSDropToDefinedFunctions,
+      "add-leading-i8x16-extract-lane-s-drop-to-defined-functions",
+      @lib.Instruction::i8x16_extract_lane_s(@lib.LaneIdx::new(15)),
+    ),
+    (
+      AddTrailingI8x16ExtractLaneUDropToDefinedFunctions,
+      "add-trailing-i8x16-extract-lane-u-drop-to-defined-functions",
+      @lib.Instruction::i8x16_extract_lane_u(@lib.LaneIdx::new(14)),
+    ),
+    (
+      AddLeadingI16x8ExtractLaneSDropToDefinedFunctions,
+      "add-leading-i16x8-extract-lane-s-drop-to-defined-functions",
+      @lib.Instruction::i16x8_extract_lane_s(@lib.LaneIdx::new(7)),
+    ),
+    (
+      AddTrailingI16x8ExtractLaneUDropToDefinedFunctions,
+      "add-trailing-i16x8-extract-lane-u-drop-to-defined-functions",
+      @lib.Instruction::i16x8_extract_lane_u(@lib.LaneIdx::new(6)),
+    ),
+    (
+      AddLeadingI32x4ExtractLaneDropToDefinedFunctions,
+      "add-leading-i32x4-extract-lane-drop-to-defined-functions",
+      @lib.Instruction::i32x4_extract_lane(@lib.LaneIdx::new(3)),
+    ),
+    (
+      AddTrailingI64x2ExtractLaneDropToDefinedFunctions,
+      "add-trailing-i64x2-extract-lane-drop-to-defined-functions",
+      @lib.Instruction::i64x2_extract_lane(@lib.LaneIdx::new(1)),
+    ),
+    (
+      AddLeadingF32x4ExtractLaneDropToDefinedFunctions,
+      "add-leading-f32x4-extract-lane-drop-to-defined-functions",
+      @lib.Instruction::f32x4_extract_lane(@lib.LaneIdx::new(3)),
+    ),
+    (
+      AddTrailingF64x2ExtractLaneDropToDefinedFunctions,
+      "add-trailing-f64x2-extract-lane-drop-to-defined-functions",
+      @lib.Instruction::f64x2_extract_lane(@lib.LaneIdx::new(1)),
+    ),
+  ]
+  for case in cases {
+    let (transform, expected_id, expected_op) = case
+    let transformed = match metamorphic_apply_transform(base, transform) {
+      Ok(v) => v
+      Err(msg) => fail(msg)
+    }
+    @debug.assert_eq(transformed.transform_id, expected_id)
+    match transformed.wasm_module.code_sec {
+      Some(@lib.CodeSec(funcs)) =>
+        match funcs[0] {
+          @lib.Func(_, @lib.Expr(instrs)) => {
+            @debug.assert_eq(instrs.length(), 4)
+            if expected_id.contains("leading") {
+              @debug.assert_eq(instrs[0], metamorphic_v128_zero_const())
+              @debug.assert_eq(instrs[1], expected_op)
+              @debug.assert_eq(instrs[2], @lib.Instruction::drop())
+              @debug.assert_eq(instrs[3], @lib.Instruction::i32_const(7))
+            } else {
+              @debug.assert_eq(instrs[0], @lib.Instruction::i32_const(7))
+              @debug.assert_eq(instrs[1], metamorphic_v128_zero_const())
+              @debug.assert_eq(instrs[2], expected_op)
+              @debug.assert_eq(instrs[3], @lib.Instruction::drop())
+            }
+          }
+        }
+      None => fail("expected transformed code section")
+    }
+    match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+      Ok(_) => ()
+      Err(msg) => fail(msg)
+    }
+  }
+}
+
+///|
 test "metamorphic SIMD shift computed-drop transforms use constant vectors and legal counts" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
@@ -5831,8 +5923,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 347)
-  @debug.assert_eq(stats.validated, 347)
+  @debug.assert_eq(stats.transformed, 363)
+  @debug.assert_eq(stats.validated, 363)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -5846,6 +5938,11 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(
     stats.transform_ids.contains(
       "add-leading-i8x16-shl-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-leading-i8x16-extract-lane-s-drop-to-defined-functions",
     ),
   )
   assert_true(
