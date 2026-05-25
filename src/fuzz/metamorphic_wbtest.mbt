@@ -1480,6 +1480,33 @@ test "metamorphic leading empty void loop transform preserves validation and bin
 }
 
 ///|
+test "metamorphic reverse custom sections transform preserves validation and binary roundtrip" {
+  let base = @lib.Module::new().with_custom_secs([
+    @lib.CustomSec::new(@lib.Name::from_string("alpha"), b"a"),
+    @lib.CustomSec::new(@lib.Name::from_string("beta"), b"b"),
+  ])
+  let transformed = match
+    metamorphic_apply_transform(base, ReverseCustomSections) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "reverse-custom-sections")
+  match transformed.wasm_module.custom_secs {
+    [@lib.CustomSec(name0, payload0), @lib.CustomSec(name1, payload1)] => {
+      @debug.assert_eq(name0, @lib.Name::from_string("beta"))
+      @debug.assert_eq(payload0, b"b")
+      @debug.assert_eq(name1, @lib.Name::from_string("alpha"))
+      @debug.assert_eq(payload1, b"a")
+    }
+    _ => fail("expected reversed custom sections")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic export aliases transform preserves validation and binary roundtrip" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),
@@ -1580,8 +1607,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 30)
-  @debug.assert_eq(stats.validated, 30)
+  @debug.assert_eq(stats.transformed, 31)
+  @debug.assert_eq(stats.validated, 31)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -1646,4 +1673,5 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
     ),
   )
   assert_true(stats.transform_ids.contains("add-export-aliases"))
+  assert_true(stats.transform_ids.contains("reverse-custom-sections"))
 }

@@ -30,6 +30,7 @@ pub enum MetamorphicValidTransform {
   AddLeadingEmptyVoidLoopToDefinedFunctions
   AddTrailingEmptyVoidLoopToDefinedFunctions
   AddExportAliases
+  ReverseCustomSections
 } derive(Eq, Debug)
 
 ///|
@@ -75,6 +76,7 @@ pub fn metamorphic_valid_transform_id(
     AddTrailingEmptyVoidLoopToDefinedFunctions =>
       "add-trailing-empty-void-loop-to-defined-functions"
     AddExportAliases => "add-export-aliases"
+    ReverseCustomSections => "reverse-custom-sections"
   }
 }
 
@@ -1195,6 +1197,17 @@ fn metamorphic_add_trailing_empty_void_loop_to_defined_functions(
 }
 
 ///|
+fn metamorphic_reverse_custom_sections(mod : @lib.Module) -> @lib.Module {
+  let custom_secs = []
+  let mut index = mod.custom_secs.length()
+  while index > 0 {
+    index -= 1
+    custom_secs.push(mod.custom_secs[index])
+  }
+  mod.with_custom_secs(custom_secs)
+}
+
+///|
 fn metamorphic_add_export_aliases(mod : @lib.Module) -> @lib.Module {
   let exports = []
   match mod.export_sec {
@@ -1312,6 +1325,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddLeadingEmptyVoidLoopToDefinedFunctions,
     AddTrailingEmptyVoidLoopToDefinedFunctions,
     AddExportAliases,
+    ReverseCustomSections,
   ]
 }
 
@@ -1365,6 +1379,7 @@ pub fn metamorphic_apply_transform(
     AddTrailingEmptyVoidLoopToDefinedFunctions =>
       metamorphic_add_trailing_empty_void_loop_to_defined_functions(mod)
     AddExportAliases => metamorphic_add_export_aliases(mod)
+    ReverseCustomSections => metamorphic_reverse_custom_sections(mod)
   }
   match validate_module(transformed) {
     Ok(_) =>

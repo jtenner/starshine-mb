@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-24] fuzzing | FUZ1036 metamorphic valid reverse custom sections transform
+
+- Continued `[FUZ]1036` by adding the `reverse-custom-sections` metamorphic-valid transform. It starts from a validating module, reverses the custom-section list without touching core semantic sections, validates the transformed module, and reports the new transform id through `validate-valid-metamorphic` details.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the active metamorphic-valid transform registry now names custom-section reordering alongside custom-section insertion, module/name-section metadata, export aliasing, passive-data, unused globals/functions/types/tables/elements, structured name maps, unused locals, and no-op body reshaping surfaces.
+
 ## [2026-05-24] fuzzing | FUZ1036 metamorphic valid trailing empty loop transform
 
 - Continued `[FUZ]1036` by adding the `add-trailing-empty-void-loop-to-defined-functions` metamorphic-valid transform. It starts from a validating module, appends an empty `loop` with `void` block type to every defined function body, preserves any existing result-stack values because the loop has no body or backedge, validates the transformed module, and reports the new transform id through `validate-valid-metamorphic` details.

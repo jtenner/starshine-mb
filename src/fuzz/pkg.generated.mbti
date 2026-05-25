@@ -374,6 +374,7 @@ pub enum MetamorphicValidTransform {
   AddLeadingEmptyVoidLoopToDefinedFunctions
   AddTrailingEmptyVoidLoopToDefinedFunctions
   AddExportAliases
+  ReverseCustomSections
 } derive(Eq, @debug.Debug)
 
 pub struct MetamorphicValidTransformResult {
