@@ -9,6 +9,7 @@ pub enum MetamorphicValidTransform {
   AddUnusedImmutableI32Global
   AddDuplicateEquivalentImmutableI32Global
   AddDuplicateEquivalentImmutableF32Global
+  AddDuplicateEquivalentImmutableF64Global
   AddDuplicateEquivalentImmutableI64Global
   AddDuplicateEquivalentMutableI32Global
   AddDuplicateEquivalentMutableI64Global
@@ -456,6 +457,8 @@ pub fn metamorphic_valid_transform_id(
       "add-duplicate-equivalent-immutable-i32-global"
     AddDuplicateEquivalentImmutableF32Global =>
       "add-duplicate-equivalent-immutable-f32-global"
+    AddDuplicateEquivalentImmutableF64Global =>
+      "add-duplicate-equivalent-immutable-f64-global"
     AddDuplicateEquivalentImmutableI64Global =>
       "add-duplicate-equivalent-immutable-i64-global"
     AddDuplicateEquivalentMutableI32Global =>
@@ -2251,6 +2254,32 @@ fn metamorphic_add_duplicate_equivalent_immutable_f32_global(
         match global {
           @lib.Global(@lib.GlobalType(type_, mut_), _) =>
             if !duplicated && type_ == @lib.ValType::f32() && !mut_ {
+              globals.push(global)
+              duplicated = true
+            }
+        }
+      }
+    }
+    None => ()
+  }
+  mod.with_global_sec(@lib.GlobalSec::new(globals))
+}
+
+///|
+fn metamorphic_add_duplicate_equivalent_immutable_f64_global(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let globals = []
+  match mod.global_sec {
+    Some(@lib.GlobalSec(existing)) => {
+      for global in existing {
+        globals.push(global)
+      }
+      let mut duplicated = false
+      for global in existing {
+        match global {
+          @lib.Global(@lib.GlobalType(type_, mut_), _) =>
+            if !duplicated && type_ == @lib.ValType::f64() && !mut_ {
               globals.push(global)
               duplicated = true
             }
@@ -5242,6 +5271,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddDuplicateEquivalentEmptyFunctionTypes,
     AddDuplicateEquivalentScalarFunctionTypes,
     AddDuplicateEquivalentImmutableF32Global,
+    AddDuplicateEquivalentImmutableF64Global,
     AddUnusedFuncrefTable,
     AddDuplicateEquivalentMemory,
     AddDuplicateEquivalentImportedMemory,
@@ -5698,6 +5728,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_duplicate_equivalent_immutable_i32_global(mod)
     AddDuplicateEquivalentImmutableF32Global =>
       metamorphic_add_duplicate_equivalent_immutable_f32_global(mod)
+    AddDuplicateEquivalentImmutableF64Global =>
+      metamorphic_add_duplicate_equivalent_immutable_f64_global(mod)
     AddDuplicateEquivalentImmutableI64Global =>
       metamorphic_add_duplicate_equivalent_immutable_i64_global(mod)
     AddDuplicateEquivalentMutableI32Global =>
