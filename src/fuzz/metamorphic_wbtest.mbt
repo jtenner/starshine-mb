@@ -4120,6 +4120,110 @@ test "metamorphic i32.wrap_i64 and i64.extend_i32 drop transforms preserve valid
 }
 
 ///|
+test "metamorphic i32 and i64 sign-extension drop transforms preserve validation and binary roundtrip" {
+  match
+    assert_metamorphic_integer_unary_drop_transform(
+      AddLeadingI32Extend8SDropToDefinedFunctions,
+      "add-leading-i32-extend8-s-drop-to-defined-functions",
+      @lib.Instruction::i32_extend8s(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_unary_drop_transform(
+      AddTrailingI32Extend8SDropToDefinedFunctions,
+      "add-trailing-i32-extend8-s-drop-to-defined-functions",
+      @lib.Instruction::i32_extend8s(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_unary_drop_transform(
+      AddLeadingI32Extend16SDropToDefinedFunctions,
+      "add-leading-i32-extend16-s-drop-to-defined-functions",
+      @lib.Instruction::i32_extend16s(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_unary_drop_transform(
+      AddTrailingI32Extend16SDropToDefinedFunctions,
+      "add-trailing-i32-extend16-s-drop-to-defined-functions",
+      @lib.Instruction::i32_extend16s(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_unary_drop_transform(
+      AddLeadingI64Extend8SDropToDefinedFunctions,
+      "add-leading-i64-extend8-s-drop-to-defined-functions",
+      @lib.Instruction::i64_extend8s(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_unary_drop_transform(
+      AddTrailingI64Extend8SDropToDefinedFunctions,
+      "add-trailing-i64-extend8-s-drop-to-defined-functions",
+      @lib.Instruction::i64_extend8s(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_unary_drop_transform(
+      AddLeadingI64Extend16SDropToDefinedFunctions,
+      "add-leading-i64-extend16-s-drop-to-defined-functions",
+      @lib.Instruction::i64_extend16s(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_unary_drop_transform(
+      AddTrailingI64Extend16SDropToDefinedFunctions,
+      "add-trailing-i64-extend16-s-drop-to-defined-functions",
+      @lib.Instruction::i64_extend16s(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_unary_drop_transform(
+      AddLeadingI64Extend32SDropToDefinedFunctions,
+      "add-leading-i64-extend32-s-drop-to-defined-functions",
+      @lib.Instruction::i64_extend32s(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_integer_unary_drop_transform(
+      AddTrailingI64Extend32SDropToDefinedFunctions,
+      "add-trailing-i64-extend32-s-drop-to-defined-functions",
+      @lib.Instruction::i64_extend32s(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic i32 and i64 clz/ctz/popcnt drop transforms preserve validation and binary roundtrip" {
   match
     assert_metamorphic_integer_unary_drop_transform(
@@ -5278,8 +5382,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 255)
-  @debug.assert_eq(stats.validated, 255)
+  @debug.assert_eq(stats.transformed, 265)
+  @debug.assert_eq(stats.validated, 265)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -5293,6 +5397,16 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(
     stats.transform_ids.contains(
       "add-trailing-i64-popcnt-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-leading-i32-extend8-s-drop-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-trailing-i64-extend32-s-drop-to-defined-functions",
     ),
   )
   assert_true(
