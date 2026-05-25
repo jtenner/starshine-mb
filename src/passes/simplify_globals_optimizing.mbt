@@ -44,7 +44,10 @@ priv struct SgoFlowValue {
 
 ///|
 priv struct SgoFunctionGlobalEffects {
+  reads : Array[Bool]
   mutates : Array[Bool]
+  param_count : Int
+  result_count : Int
 }
 
 ///|
@@ -440,6 +443,7 @@ fn sgo_mark_same_init_write(
 fn sgo_read_only_to_write_flags(
   code_sec : @lib.CodeSec?,
   infos : Array[SgoGlobalInfo],
+  effects : Array[SgoFunctionGlobalEffects],
 ) -> Array[Bool] {
   let safe_reads = Array::make(infos.length(), 0)
   match code_sec {
@@ -447,7 +451,7 @@ fn sgo_read_only_to_write_flags(
       for func_ in funcs {
         let @lib.Func(_, body) = func_
         if sgo_expr_may_reference_global(body) {
-          sgo_count_read_only_to_write_expr(body, safe_reads)
+          sgo_count_read_only_to_write_expr(body, safe_reads, effects)
         }
       }
     None => ()
@@ -464,9 +468,10 @@ fn sgo_read_only_to_write_flags(
 fn sgo_count_read_only_to_write_expr(
   expr : @lib.Expr,
   safe_reads : Array[Int],
+  effects : Array[SgoFunctionGlobalEffects],
 ) -> Unit {
   let @lib.Expr(instrs) = expr
-  sgo_count_read_only_to_write_instrs(instrs, safe_reads)
+  sgo_count_read_only_to_write_instrs(instrs, safe_reads, effects)
 }
 
 ///|
@@ -651,12 +656,14 @@ fn sgo_count_no_catch_try_table_specific_condition_guards(
 fn sgo_count_read_only_to_write_instrs(
   instrs : Array[@lib.Instruction],
   safe_reads : Array[Int],
+  effects : Array[SgoFunctionGlobalEffects],
 ) -> Unit {
   for pos = 0; pos < instrs.length(); pos = pos + 1 {
     let instr = instrs[pos]
     match instr {
-      @lib.GlobalGet(idx) if sgo_read_only_to_write_read_at(instrs, pos, idx) =>
-        sgo_count_read_only_to_write_safe_read(idx, safe_reads)
+      @lib.GlobalGet(idx) if sgo_read_only_to_write_read_at(
+          instrs, pos, idx, effects,
+        ) => sgo_count_read_only_to_write_safe_read(idx, safe_reads)
       @lib.Block(_, body) => {
         sgo_count_block_or_no_catch_try_table_external_pure_guards(
           instrs, pos, safe_reads,
@@ -664,7 +671,7 @@ fn sgo_count_read_only_to_write_instrs(
         sgo_count_block_or_no_catch_try_table_tail_guards(
           instrs, pos, true, safe_reads,
         )
-        sgo_count_read_only_to_write_expr(body, safe_reads)
+        sgo_count_read_only_to_write_expr(body, safe_reads, effects)
       }
       @lib.Loop(_, body) => {
         if pos + 1 < instrs.length() {
@@ -699,13 +706,14 @@ fn sgo_count_read_only_to_write_instrs(
         sgo_count_block_condition_reverse_compare_read_only_to_write_read(
           instrs, pos, safe_reads,
         )
-        sgo_count_read_only_to_write_expr(body, safe_reads)
+        sgo_count_read_only_to_write_expr(body, safe_reads, effects)
       }
       @lib.If(_, then_body, else_body) => {
         sgo_count_nested_if_arm_flow_read(instrs, pos, safe_reads)
-        sgo_count_read_only_to_write_instrs(then_body, safe_reads)
+        sgo_count_read_only_to_write_instrs(then_body, safe_reads, effects)
         match else_body {
-          Some(body) => sgo_count_read_only_to_write_instrs(body, safe_reads)
+          Some(body) =>
+            sgo_count_read_only_to_write_instrs(body, safe_reads, effects)
           None => ()
         }
       }
@@ -719,7 +727,7 @@ fn sgo_count_read_only_to_write_instrs(
         sgo_count_block_or_no_catch_try_table_tail_guards(
           instrs, pos, false, safe_reads,
         )
-        sgo_count_read_only_to_write_expr(body, safe_reads)
+        sgo_count_read_only_to_write_expr(body, safe_reads, effects)
       }
       _ => ()
     }
@@ -2493,11 +2501,64 @@ fn sgo_read_only_to_write_select_side_effect_read_at(
 }
 
 ///|
+fn sgo_direct_call_independent_for_global(
+  effects : Array[SgoFunctionGlobalEffects],
+  callee : @lib.FuncIdx,
+  idx : @lib.GlobalIdx,
+) -> Bool {
+  let callee_slot = sgo_func_idx_slot(callee)
+  let global_slot = sgo_global_idx_slot(idx)
+  if callee_slot < 0 ||
+    callee_slot >= effects.length() ||
+    global_slot < 0 ||
+    global_slot >= effects[callee_slot].reads.length() ||
+    global_slot >= effects[callee_slot].mutates.length() {
+    return false
+  }
+  effects[callee_slot].param_count == 0 &&
+  effects[callee_slot].result_count == 1 &&
+  !effects[callee_slot].reads[global_slot] &&
+  !effects[callee_slot].mutates[global_slot]
+}
+
+///|
+fn sgo_read_only_to_write_direct_call_binary_read_at(
+  instrs : Array[@lib.Instruction],
+  pos : Int,
+  idx : @lib.GlobalIdx,
+  effects : Array[SgoFunctionGlobalEffects],
+) -> Bool {
+  if pos + 3 < instrs.length() {
+    match instrs[pos + 1] {
+      @lib.Call(callee) =>
+        if sgo_direct_call_independent_for_global(effects, callee, idx) &&
+          sgo_is_flowscanner_binary_pure_instr(instrs[pos + 2]) &&
+          sgo_if_is_read_only_to_write_set(instrs[pos + 3], idx) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  if pos > 0 && pos + 2 < instrs.length() {
+    match instrs[pos - 1] {
+      @lib.Call(callee) =>
+        return sgo_direct_call_independent_for_global(effects, callee, idx) &&
+          sgo_is_flowscanner_binary_pure_instr(instrs[pos + 1]) &&
+          sgo_if_is_read_only_to_write_set(instrs[pos + 2], idx)
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn sgo_read_only_to_write_read_at(
   instrs : Array[@lib.Instruction],
   pos : Int,
   idx : @lib.GlobalIdx,
+  effects : Array[SgoFunctionGlobalEffects],
 ) -> Bool {
+  sgo_read_only_to_write_direct_call_binary_read_at(instrs, pos, idx, effects) ||
   sgo_read_only_to_write_flow_scanner_read_at(instrs, pos, idx) ||
   sgo_is_exact_if_return_set(instrs, pos, idx) ||
   sgo_is_pure_condition_if_return_set(instrs, pos, idx) ||
@@ -4460,30 +4521,118 @@ fn sgo_effect_union_into(dst : Array[Bool], src : Array[Bool]) -> Bool {
 }
 
 ///|
+fn sgo_flatten_type_sec(type_sec : @lib.TypeSec?) -> Array[@lib.SubType] {
+  let out : Array[@lib.SubType] = []
+  match type_sec {
+    Some(@lib.TypeSec(rec_types)) =>
+      for rec_type in rec_types {
+        match rec_type {
+          @lib.SingleRecType(sub_type) => out.push(sub_type)
+          @lib.GroupRecType(sub_types) =>
+            for sub_type in sub_types {
+              out.push(sub_type)
+            }
+        }
+      }
+    None => ()
+  }
+  out
+}
+
+///|
+fn sgo_type_idx_slot(idx : @lib.TypeIdx) -> Int {
+  match idx {
+    @lib.TypeIdx(raw) => raw.reinterpret_as_int()
+    _ => -1
+  }
+}
+
+///|
+fn sgo_func_type_arity(
+  subtypes : Array[@lib.SubType],
+  type_idx : @lib.TypeIdx,
+) -> (Int, Int)? {
+  let slot = sgo_type_idx_slot(type_idx)
+  if slot < 0 || slot >= subtypes.length() {
+    return None
+  }
+  match subtypes[slot].get_comptype() {
+    @lib.FuncCompType(params, results) =>
+      Some((params.length(), results.length()))
+    _ => None
+  }
+}
+
+///|
+fn sgo_collect_function_arities(mod_ : @lib.Module) -> Array[(Int, Int)] {
+  let subtypes = sgo_flatten_type_sec(mod_.type_sec)
+  let arities : Array[(Int, Int)] = []
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.FuncExternType(type_idx)) =>
+            match sgo_func_type_arity(subtypes, type_idx) {
+              Some(arity) => arities.push(arity)
+              None => arities.push((0, 0))
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.func_sec {
+    Some(@lib.FuncSec(type_idxs)) =>
+      for type_idx in type_idxs {
+        match sgo_func_type_arity(subtypes, type_idx) {
+          Some(arity) => arities.push(arity)
+          None => arities.push((0, 0))
+        }
+      }
+    None => ()
+  }
+  arities
+}
+
+///|
 fn sgo_collect_direct_global_effects_instr(
   instr : @lib.Instruction,
-  row : Array[Bool],
+  reads : Array[Bool],
+  mutates : Array[Bool],
   direct_calls : Array[@lib.FuncIdx],
 ) -> Unit {
   match instr {
+    @lib.GlobalGet(idx) => {
+      let slot = sgo_global_idx_slot(idx)
+      if slot >= 0 && slot < reads.length() {
+        reads[slot] = true
+      }
+    }
     @lib.GlobalSet(idx) => {
       let slot = sgo_global_idx_slot(idx)
-      if slot >= 0 && slot < row.length() {
-        row[slot] = true
+      if slot >= 0 && slot < mutates.length() {
+        mutates[slot] = true
       }
     }
     @lib.Call(idx) | @lib.ReturnCall(idx) => direct_calls.push(idx)
     @lib.CallIndirect(_, _)
     | @lib.CallRef(_)
     | @lib.ReturnCallIndirect(_, _)
-    | @lib.ReturnCallRef(_) => sgo_effect_mark_all(row)
+    | @lib.ReturnCallRef(_) => {
+      sgo_effect_mark_all(reads)
+      sgo_effect_mark_all(mutates)
+    }
     @lib.Block(_, body) | @lib.Loop(_, body) | @lib.TryTable(_, _, body) =>
-      sgo_collect_direct_global_effects_expr(body, row, direct_calls)
+      sgo_collect_direct_global_effects_expr(body, reads, mutates, direct_calls)
     @lib.If(_, then_body, else_body) => {
-      sgo_collect_direct_global_effects_instrs(then_body, row, direct_calls)
+      sgo_collect_direct_global_effects_instrs(
+        then_body, reads, mutates, direct_calls,
+      )
       match else_body {
         Some(body) =>
-          sgo_collect_direct_global_effects_instrs(body, row, direct_calls)
+          sgo_collect_direct_global_effects_instrs(
+            body, reads, mutates, direct_calls,
+          )
         None => ()
       }
     }
@@ -4494,22 +4643,24 @@ fn sgo_collect_direct_global_effects_instr(
 ///|
 fn sgo_collect_direct_global_effects_instrs(
   instrs : Array[@lib.Instruction],
-  row : Array[Bool],
+  reads : Array[Bool],
+  mutates : Array[Bool],
   direct_calls : Array[@lib.FuncIdx],
 ) -> Unit {
   for instr in instrs {
-    sgo_collect_direct_global_effects_instr(instr, row, direct_calls)
+    sgo_collect_direct_global_effects_instr(instr, reads, mutates, direct_calls)
   }
 }
 
 ///|
 fn sgo_collect_direct_global_effects_expr(
   expr : @lib.Expr,
-  row : Array[Bool],
+  reads : Array[Bool],
+  mutates : Array[Bool],
   direct_calls : Array[@lib.FuncIdx],
 ) -> Unit {
   let @lib.Expr(instrs) = expr
-  sgo_collect_direct_global_effects_instrs(instrs, row, direct_calls)
+  sgo_collect_direct_global_effects_instrs(instrs, reads, mutates, direct_calls)
 }
 
 ///|
@@ -4523,14 +4674,27 @@ fn sgo_collect_function_global_effects(
     None => 0
   }
   let total_funcs = imported_funcs + defined_funcs
+  let arities = sgo_collect_function_arities(mod_)
   let effects : Array[SgoFunctionGlobalEffects] = []
   let calls : Array[Array[@lib.FuncIdx]] = []
   for idx = 0; idx < total_funcs; idx = idx + 1 {
-    let row = Array::make(global_count, false)
+    let reads = Array::make(global_count, false)
+    let mutates = Array::make(global_count, false)
     if idx < imported_funcs {
-      sgo_effect_mark_all(row)
+      sgo_effect_mark_all(reads)
+      sgo_effect_mark_all(mutates)
     }
-    effects.push(SgoFunctionGlobalEffects::{ mutates: row })
+    let (param_count, result_count) = if idx < arities.length() {
+      arities[idx]
+    } else {
+      (0, 0)
+    }
+    effects.push(SgoFunctionGlobalEffects::{
+      reads,
+      mutates,
+      param_count,
+      result_count,
+    })
     calls.push([])
   }
   match mod_.code_sec {
@@ -4542,6 +4706,7 @@ fn sgo_collect_function_global_effects(
         let @lib.Func(_, body) = funcs[defined_idx]
         sgo_collect_direct_global_effects_expr(
           body,
+          effects[abs_idx].reads,
           effects[abs_idx].mutates,
           calls[abs_idx],
         )
@@ -4556,15 +4721,24 @@ fn sgo_collect_function_global_effects(
         let callee_slot = sgo_func_idx_slot(callee)
         if callee_slot >= 0 && callee_slot < effects.length() {
           if sgo_effect_union_into(
+              effects[idx].reads,
+              effects[callee_slot].reads,
+            ) {
+            changed = true
+          }
+          if sgo_effect_union_into(
               effects[idx].mutates,
               effects[callee_slot].mutates,
             ) {
             changed = true
           }
         } else {
-          let before = effects[idx].mutates.copy()
+          let before_reads = effects[idx].reads.copy()
+          let before_mutates = effects[idx].mutates.copy()
+          sgo_effect_mark_all(effects[idx].reads)
           sgo_effect_mark_all(effects[idx].mutates)
-          if before != effects[idx].mutates {
+          if before_reads != effects[idx].reads ||
+            before_mutates != effects[idx].mutates {
             changed = true
           }
         }
@@ -4911,9 +5085,14 @@ fn sgo_run_core(
   )
   let (infos, imported_globals) = sgo_collect_global_infos(mod_)
   perf_stop_timer_opt(perf, "detail:sgo:collect-global-infos", collect_start_us)
+  let effects = sgo_collect_function_global_effects(mod_, infos.length())
   let flags_start_us = perf_start_timer_opt(perf, "detail:sgo:plan-flags")
   let same_init_writes = sgo_same_init_write_flags(mod_.code_sec, infos)
-  let read_only_to_write = sgo_read_only_to_write_flags(mod_.code_sec, infos)
+  let read_only_to_write = sgo_read_only_to_write_flags(
+    mod_.code_sec,
+    infos,
+    effects,
+  )
   let remove_sets = sgo_plan_remove_sets(
     infos, same_init_writes, read_only_to_write,
   )
@@ -4948,7 +5127,6 @@ fn sgo_run_core(
   )
   perf_stop_timer_opt(perf, "detail:sgo:rewrite-startup", startup_start_us)
   let code_start_us = perf_start_timer_opt(perf, "detail:sgo:rewrite-code")
-  let effects = sgo_collect_function_global_effects(mod_, infos.length())
   let (next_code_sec, touched, code_changed) = sgo_rewrite_code_sec(
     mod_.code_sec,
     infos,

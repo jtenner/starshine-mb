@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO direct-call read summary implementation
+
+- Added research note [`0671`](./raw/research/0671-2026-05-25-sgo-direct-call-read-summary.md) for `[SGO]003E2`, implementing the first summary-backed direct-call read-only-to-write subset.
+- Upgraded SGO function effects to fixed-point per-global `reads` plus `mutates` summaries with conservative imported/dynamic handling and function arities, then admitted only zero-param/one-result direct calls that neither read nor mutate the candidate global.
+- Added positive tests for no-read/no-write and wrong-global-read direct calls plus negatives for candidate-reading callees, imported calls, and candidate-derived operands. `moon test src/passes` passed (`1605/1605`), and direct SGO fuzz at `.tmp/pass-fuzz-sgo-direct-call-read-summary-10k` compared `9975/10000` with `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures. `[SGO]003` remains active/partial.
+
 ## [2026-05-25] tooling | Self-optimize compare normalization symmetry gate
 
 - Added research note [`0670`](./raw/research/0670-2026-05-25-self-optimize-compare-normalization-symmetry-gate.md) for `[TOOL]001`, auditing the harmless raw/debug-only outer-block drift normalization follow-up.

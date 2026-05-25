@@ -2570,6 +2570,127 @@ test "simplify-globals-optimizing uses direct function effects across safe calls
 }
 
 ///|
+test "simplify-globals-optimizing removes direct no-read call read-only-to-write guard" {
+  let optimized = sgo_test_run(
+    (
+      #|  (module
+      #|  (global $global (mut i32) (i32.const 0))
+      #|  (func $tick (result i32)
+      #|    (i32.const 0))
+      #|  (func (export "run")
+      #|    (if
+      #|      (i32.add
+      #|        (global.get $global)
+      #|        (call $tick))
+      #|      (then
+      #|        (i32.const 1)
+      #|        (global.set $global)))))
+      #|
+    ),
+  )
+  let run_pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(run_pretty.contains("call (Func 0)"), msg=run_pretty)
+  assert_false(run_pretty.contains("global.get"), msg=run_pretty)
+  assert_false(run_pretty.contains("global.set"), msg=run_pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes direct wrong-global read call guard" {
+  let optimized = sgo_test_run(
+    (
+      #|  (module
+      #|  (global $global (mut i32) (i32.const 0))
+      #|  (global $other (mut i32) (i32.const 0))
+      #|  (func $read_other (result i32)
+      #|    (global.get $other))
+      #|  (func (export "run")
+      #|    (if
+      #|      (i32.add
+      #|        (call $read_other)
+      #|        (global.get $global))
+      #|      (then
+      #|        (i32.const 1)
+      #|        (global.set $global)))))
+      #|
+    ),
+  )
+  let run_pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(run_pretty.contains("call (Func 0)"), msg=run_pretty)
+  assert_false(run_pretty.contains("global.get (Global 0)"), msg=run_pretty)
+  assert_false(run_pretty.contains("global.set (Global 0)"), msg=run_pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps direct callee candidate-read guard" {
+  let optimized = sgo_test_run(
+    (
+      #|  (module
+      #|  (global $global (mut i32) (i32.const 0))
+      #|  (func $read (result i32)
+      #|    (global.get $global))
+      #|  (func (export "run")
+      #|    (if
+      #|      (i32.add
+      #|        (global.get $global)
+      #|        (call $read))
+      #|      (then
+      #|        (i32.const 1)
+      #|        (global.set $global)))))
+      #|
+    ),
+  )
+  let run_pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(run_pretty.contains("global.get"), msg=run_pretty)
+  assert_true(run_pretty.contains("global.set"), msg=run_pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps imported call read-only-to-write guard" {
+  let optimized = sgo_test_run(
+    (
+      #|  (module
+      #|  (import "env" "tick" (func $tick (result i32)))
+      #|  (global $global (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    (if
+      #|      (i32.add
+      #|        (global.get $global)
+      #|        (call $tick))
+      #|      (then
+      #|        (i32.const 1)
+      #|        (global.set $global)))))
+      #|
+    ),
+  )
+  let run_pretty = optimized.pretty_print_defined_func(0U)
+  assert_true(run_pretty.contains("global.get"), msg=run_pretty)
+  assert_true(run_pretty.contains("global.set"), msg=run_pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps candidate-derived direct call operand guard" {
+  let optimized = sgo_test_run(
+    (
+      #|  (module
+      #|  (global $global (mut i32) (i32.const 0))
+      #|  (func $use (param i32) (result i32)
+      #|    (local.get 0))
+      #|  (func (export "run")
+      #|    (if
+      #|      (call $use
+      #|        (global.get $global))
+      #|      (then
+      #|        (i32.const 1)
+      #|        (global.set $global)))))
+      #|
+    ),
+  )
+  let run_pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(run_pretty.contains("global.get"), msg=run_pretty)
+  assert_true(run_pretty.contains("global.set"), msg=run_pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps function-effects get-call read-only-to-write negative" {
   let optimized = sgo_test_run(
     (
