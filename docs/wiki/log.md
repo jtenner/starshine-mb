@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1036K21 duplicate defined immutable f32 global transform
+
+- Completed `[FUZ]1036K21` by adding `add-duplicate-equivalent-immutable-f32-global`. The transform appends an unused defined immutable f32 global equivalent to the first existing matching global and intentionally no-ops without a matching global so it does not invent unrelated state while preserving existing global indices.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 436 transforms per generated module, and kept focused `src/fuzz` validation green.
+
 ## [2026-05-25] fuzzing | FUZ1036K20 duplicate imported immutable f64 global transform
 
 - Completed `[FUZ]1036K20` by adding `add-duplicate-equivalent-imported-immutable-f64-global`. The transform appends an unused import with the same module name and immutable f64 global type as the first existing matching global import, while intentionally no-oping without a matching import so valid metamorphic modules do not gain a new link requirement or shift defined-global indices.
