@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO same-init expression closeout
+
+- Added research note [`0658`](./raw/research/0658-2026-05-25-sgo-same-init-expression-closeout.md) for `[SGO]003J`, auditing same-as-init expression-equivalence broadening after the 0574/0576 probes and 0594 through 0596 official non-init guardrails.
+- Closed `[SGO]003J` as conservative/research-only: current evidence supports direct literal/ref-null/ref.func and source-backed guardrails, not generic expression equivalence, block-wrapped values, alias-init one-shot removal, imported-provenance initializers, object-identity-sensitive GC expressions, or trapping/effectful expressions.
+- No optimizer behavior changed and no direct SGO fuzz was required because this was docs/backlog-only. `[SGO]003` remains active/partial.
+
 ## [2026-05-25] binaryen | SGO startup single-use closeout
 
 - Added research note [`0657`](./raw/research/0657-2026-05-25-sgo-startup-single-use-closeout.md) for `[SGO]003K`, auditing the startup/global-initializer single-use follow-ups after the 0584 through 0589 official-lit guardrails.

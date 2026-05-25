@@ -273,18 +273,10 @@ Execution rules for all DAE slices
   - Exit criteria: clear dataflow contract, tests for both rewritten and value-observable preserved reads, direct SGO fuzz, docs naming every join/barrier boundary.
 
 - [SGO]003J - Same-As-Init Expression Equivalence Broadening
-  - Status: active candidate; high risk.
-  - Goal: broaden same-init write removal beyond direct literal / `ref.null` / `ref.func` only where Binaryen proves equivalence.
-  - Candidate shapes: simple nontrapping const expressions, exact `global.get` initializer chains with local provenance, and source-backed repeated-run boundaries.
-  - Known guardrails: imported initializer provenance matters; block-wrapped runtime-set operands were Binaryen-negative; alias-init direct-literal one-shot behavior is pinned; multiple previous expression-equivalence probes were negative.
-  - Required negatives: imported source, changed intermediate write, function-code-only single use, block-wrapped values with real reads, expressions with object identity, and trapping/effectful expressions.
-  - Open checklist:
-    - Re-probe any candidate expression grammar with exact Binaryen fixtures before coding.
-    - Keep imported initializer provenance as a hard boundary unless a source-backed positive proves otherwise.
-    - Separate one-run and repeated-run behavior in tests and docs.
-    - Avoid object-identity-sensitive GC/ref expressions and any trapping/effectful expression.
-    - If probes remain negative, land research/guardrails only and leave behavior unchanged.
-  - Exit criteria: exact expression grammar, tests before implementation, docs stating one-run vs repeated-run behavior.
+  - Status: closed conservative/research-only by the 0658 audit; no same-init expression broadening is authorized inside `[SGO]003` without a new explicit Binaryen-positive grammar.
+  - Decision: keep the current same-init removable-write surface limited to the already-covered direct literal / `ref.null` / `ref.func` and approved source-backed guardrail shapes. Do not broaden to generic expression equivalence, block-wrapped values, alias-init one-shot removal, imported-provenance initializers, object-identity-sensitive GC expressions, or trapping/effectful expressions.
+  - Completed evidence: 0574 and 0576 found and pinned expression-looking negatives for block-wrapped same-init/runtime-set operands and alias-init one-shot behavior; 0594 through 0596 mapped the official parser-supported non-init same-init positive plus changed-write and imported-initializer negatives. Prior probes found more negatives than positives beyond direct literals.
+  - Follow-up rule: file a new explicit child slice before changing this surface. It must start from an exact Binaryen-positive expression grammar, add one-run vs repeated-run tests and paired provenance/effect/trapping/object-identity negatives, then run direct SGO fuzz if behavior changes.
 
 - [SGO]003K - Startup And Single-Use Initializer Follow-Ups
   - Status: closed by the 0657 closeout audit; no new behavior slice remains open here.
