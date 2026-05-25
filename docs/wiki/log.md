@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO loop independent global-set prefix
+
+- Added research note [`0677`](./raw/research/0677-2026-05-25-sgo-loop-independent-global-set-prefix.md) for `[SGO]003C5`, landing the narrow Binaryen-positive value-loop prefix from `0638` without enabling the broad loop FlowScanner.
+- Added a loop-specific matcher for `const; global.set <other>; global.get <candidate>` bodies consumed by a direct no-else same-global constant-set guard, while branchy loops, trapping candidate consumers, calls, growth, and broader loop effects stay conservative.
+- Updated the focused loop-prefix regression so `$once` becomes immutable and fake guard traffic disappears while the exported independent `$other` write remains observable. `moon fmt`, `moon info`, full `moon test` (`3688/3688`), and direct SGO fuzz at `.tmp/pass-fuzz-sgo-loop-prefix-0677-10000` passed the slice criteria (`6759/10000` compared before the configured `20` Binaryen/tool command-failure stop, `0` mismatches, `0` Starshine validation failures).
+
 ## [2026-05-25] binaryen | SGO same-init expression guardrails
 
 - Added research note [`0676`](./raw/research/0676-2026-05-25-sgo-same-init-expression-guardrails.md) for `[SGO]003B`, probing arithmetic and `select` same-init expression candidates and confirming they are Binaryen negatives.

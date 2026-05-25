@@ -11991,12 +11991,12 @@ test "simplify-globals-optimizing removes loop-wrapped read-only-to-write self g
 }
 
 ///|
-test "simplify-globals-optimizing keeps loop-wrapped independent effect prefixes conservative" {
+test "simplify-globals-optimizing removes loop-wrapped independent global-set effect prefixes" {
   let optimized = sgo_test_run(
     (
       #|(module
       #|  (global $once (mut i32) (i32.const 0))
-      #|  (global $other (mut i32) (i32.const 0))
+      #|  (global $other (export "other") (mut i32) (i32.const 0))
       #|  (func (export "run")
       #|    loop (result i32)
       #|      i32.const 7
@@ -12013,10 +12013,10 @@ test "simplify-globals-optimizing keeps loop-wrapped independent effect prefixes
 
   @debug.assert_eq(
     try! sgo_test_defined_global_type(optimized, 0),
-    @lib.GlobalType::new(@lib.ValType::i32(), true),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
   )
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
   assert_true(pretty.contains("global.set"), msg=pretty)
 }
 

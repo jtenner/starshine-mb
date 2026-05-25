@@ -3203,6 +3203,49 @@ fn sgo_block_condition_flow_scanner_read_matches(
 }
 
 ///|
+fn sgo_loop_condition_independent_global_set_prefix_read_matches(
+  instrs : Array[@lib.Instruction],
+  idx : @lib.GlobalIdx,
+) -> Bool {
+  let flat : Array[@lib.Instruction] = []
+  if !sgo_collect_read_only_to_write_condition_body(instrs, flat) {
+    return false
+  }
+  let start = sgo_skip_noop_const_drops(flat)
+  if start >= flat.length() {
+    return false
+  }
+  let end_ = flat.length() - 1
+  match flat[end_] {
+    @lib.GlobalGet(get_idx) if get_idx == idx => ()
+    _ => return false
+  }
+  let mut scan = start
+  let mut saw_independent_set = false
+  while scan < end_ {
+    match flat[scan] {
+      @lib.Nop => {
+        scan = scan + 1
+        continue
+      }
+      _ => ()
+    }
+    if scan + 1 < end_ && sgo_const_instr(flat[scan]) != None {
+      match flat[scan + 1] {
+        @lib.GlobalSet(set_idx) if set_idx != idx => {
+          saw_independent_set = true
+          scan = scan + 2
+          continue
+        }
+        _ => ()
+      }
+    }
+    return false
+  }
+  scan == end_ && saw_independent_set
+}
+
+///|
 fn sgo_external_condition_stack_after(
   instr : @lib.Instruction,
   depth : Int,
@@ -3489,6 +3532,11 @@ fn sgo_count_block_or_loop_condition_read(
         @lib.Loop(_, @lib.Expr(body)) =>
           if count_flow_scanner {
             sgo_count_direct_condition_body_read(body, idx, false, safe_reads)
+            if sgo_loop_condition_independent_global_set_prefix_read_matches(
+                body, idx,
+              ) {
+              sgo_count_read_only_to_write_safe_read(idx, safe_reads)
+            }
           } else if sgo_block_condition_pure_read_matches(body, idx) {
             sgo_count_read_only_to_write_safe_read(idx, safe_reads)
           }
