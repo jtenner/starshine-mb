@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO clean leaf replacement helper rename
+
+- Added research note [`0653`](./raw/research/0653-2026-05-25-sgo-clean-leaf-replacement-rename.md) for `[SGO]003O3`, renaming the FlowScanner one-clean-pop / one-clean-push helper to make the clean leaf replacement contract explicit.
+- No optimizer behavior changed: stack-underflow failure, tainted operand rejection, clean replacement pushes, read budgets, call-result handling, clean pair/triple effects, and value-producing arm merges are unchanged.
+- Direct SGO fuzz at `.tmp/pass-fuzz-sgo-clean-leaf-replacement-rename-10k` reported `9975/10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and the established `25` Binaryen/tool command failures. `[SGO]003` remains active/partial.
+
 ## [2026-05-25] binaryen | SGO condition body helper rename
 
 - Added research note [`0652`](./raw/research/0652-2026-05-25-sgo-condition-body-helper-rename.md) for `[SGO]003O2`, renaming the shared block/no-catch-`try_table` condition-body helper to make its body-plus-`if`-index wrapper contract explicit.

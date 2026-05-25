@@ -818,7 +818,7 @@ fn sgo_flow_pop_clean(stack : Array[SgoFlowValue]) -> Bool {
 }
 
 ///|
-fn sgo_flow_pop_clean_then_push_clean(stack : Array[SgoFlowValue]) -> Bool {
+fn sgo_flow_pop_clean_then_push_clean_leaf(stack : Array[SgoFlowValue]) -> Bool {
   if sgo_flow_pop_clean(stack) {
     sgo_flow_push_clean(stack)
     true
@@ -1399,13 +1399,13 @@ fn sgo_flow_scan_prefix_until(
           return (false, reads, stack)
         }
       @lib.LocalTee(_) =>
-        if sgo_flow_pop_clean_then_push_clean(stack) {
+        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
           continue
         } else {
           return (false, reads, stack)
         }
       _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
-        if sgo_flow_pop_clean_then_push_clean(stack) {
+        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
           continue
         } else {
           return (false, reads, stack)
@@ -1566,13 +1566,13 @@ fn sgo_flow_scan_clean_prefix_until(
           return (false, stack)
         }
       @lib.LocalTee(_) =>
-        if sgo_flow_pop_clean_then_push_clean(stack) {
+        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
           continue
         } else {
           return (false, stack)
         }
       _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
-        if sgo_flow_pop_clean_then_push_clean(stack) {
+        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
           continue
         } else {
           return (false, stack)
@@ -1755,13 +1755,13 @@ fn sgo_flow_arm_result_taint_and_reads(
           return (false, reads, false)
         }
       @lib.LocalTee(_) =>
-        if sgo_flow_pop_clean_then_push_clean(stack) {
+        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
           continue
         } else {
           return (false, reads, false)
         }
       _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
-        if sgo_flow_pop_clean_then_push_clean(stack) {
+        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
           continue
         } else {
           return (false, reads, false)
@@ -1938,13 +1938,13 @@ fn sgo_nested_if_arm_flow_outer_if_index(
           return None
         }
       @lib.LocalTee(_) =>
-        if sgo_flow_pop_clean_then_push_clean(stack) {
+        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
           continue
         } else {
           return None
         }
       _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
-        if sgo_flow_pop_clean_then_push_clean(stack) {
+        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
           continue
         } else {
           return None
@@ -2059,13 +2059,13 @@ fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
           return (false, reads, false)
         }
       @lib.LocalTee(_) =>
-        if sgo_flow_pop_clean_then_push_clean(stack) {
+        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
           continue
         } else {
           return (false, reads, false)
         }
       _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
-        if sgo_flow_pop_clean_then_push_clean(stack) {
+        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
           continue
         } else {
           return (false, reads, false)
@@ -2315,13 +2315,13 @@ fn sgo_read_only_to_write_flow_scanner_read_at(
           return false
         }
       @lib.LocalTee(_) =>
-        if sgo_flow_pop_clean_then_push_clean(stack) {
+        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
           continue
         } else {
           return false
         }
       _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
-        if sgo_flow_pop_clean_then_push_clean(stack) {
+        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
           continue
         } else {
           return false
