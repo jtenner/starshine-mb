@@ -105,6 +105,64 @@ test "metamorphic leading custom-section transform preserves validation and bina
 }
 
 ///|
+test "metamorphic custom-section stress transform preserves varied payloads and binary roundtrip" {
+  let generated = match
+    gen_valid_module_result_from_seed(
+      0x1038BUL,
+      GenValidConfig::natural_default(),
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected valid GenValid seed, got \{e.validation_error_message}")
+  }
+  let transformed = match
+    metamorphic_apply_transform(generated.wasm_module, AddCustomSectionStress) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "add-custom-section-stress")
+  @debug.assert_eq(
+    transformed.wasm_module.custom_secs.length(),
+    generated.wasm_module.custom_secs.length() + 4,
+  )
+  let first = generated.wasm_module.custom_secs.length()
+  match transformed.wasm_module.custom_secs[first] {
+    @lib.CustomSec(name, payload) => {
+      @debug.assert_eq(name, @lib.Name::from_string("starshine.fuzz.empty"))
+      @debug.assert_eq(payload.length(), 0)
+    }
+  }
+  match transformed.wasm_module.custom_secs[first + 1] {
+    @lib.CustomSec(name, payload) => {
+      @debug.assert_eq(name, @lib.Name::from_string("starshine.fuzz.bytes"))
+      @debug.assert_eq(payload, b"\x00\x01\x7f\x80\xffpayload")
+    }
+  }
+  match transformed.wasm_module.custom_secs[first + 2] {
+    @lib.CustomSec(name, payload) => {
+      @debug.assert_eq(
+        name,
+        @lib.Name::from_string("starshine.fuzz.unicode-☄"),
+      )
+      @debug.assert_eq(payload, b"utf8-name custom payload")
+    }
+  }
+  match transformed.wasm_module.custom_secs[first + 3] {
+    @lib.CustomSec(name, payload) => {
+      @debug.assert_eq(
+        name,
+        @lib.Name::from_string("starshine.fuzz.long-payload"),
+      )
+      @debug.assert_eq(payload.length(), 96)
+    }
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic type-names transform preserves validation and binary roundtrip" {
   let generated = match
     gen_valid_module_result_from_seed(
@@ -2418,12 +2476,13 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 48)
-  @debug.assert_eq(stats.validated, 48)
+  @debug.assert_eq(stats.transformed, 49)
+  @debug.assert_eq(stats.validated, 49)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
   )
+  assert_true(stats.transform_ids.contains("add-custom-section-stress"))
   assert_true(stats.transform_ids.contains("add-module-name-section"))
   assert_true(stats.transform_ids.contains("add-unused-passive-data-segment"))
   assert_true(stats.transform_ids.contains("add-unused-immutable-i32-global"))

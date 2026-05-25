@@ -613,8 +613,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 Use these slice ids when selecting or reporting future FUZ work. Parent tasks below keep the fuller goals, invariants, and historical evidence; this index names the remaining units so agents do not have to infer the next slice from long status paragraphs.
 
 p1 GenValid / valid-generation slices:
-- [FUZ]1038B (p1, GenValid) - Custom Section Placement/Payload Stress
-  - Unit: generate multiple unknown custom sections with varied valid placement and payload bytes; keep text/binary roundtrip expectations explicit.
 - [FUZ]1046A (p1, GenValid) - Feature-Gate Matrix Harness
   - Unit: define the central proposal feature-gate table and add the first enabled/disabled positive/negative fixtures.
 - [FUZ]1046B (p1, GenValid) - Feature-Gate Matrix Completion

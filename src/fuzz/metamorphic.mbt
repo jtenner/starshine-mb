@@ -2,6 +2,7 @@
 pub enum MetamorphicValidTransform {
   AddNonNameCustomSection
   AddLeadingNonNameCustomSection
+  AddCustomSectionStress
   AddModuleNameSection
   AddUnusedPassiveDataSegment
   AddUnusedImmutableI32Global
@@ -57,6 +58,7 @@ pub fn metamorphic_valid_transform_id(
   match transform {
     AddNonNameCustomSection => "add-non-name-custom-section"
     AddLeadingNonNameCustomSection => "add-leading-non-name-custom-section"
+    AddCustomSectionStress => "add-custom-section-stress"
     AddModuleNameSection => "add-module-name-section"
     AddUnusedPassiveDataSegment => "add-unused-passive-data-segment"
     AddUnusedImmutableI32Global => "add-unused-immutable-i32-global"
@@ -188,6 +190,36 @@ fn metamorphic_add_leading_non_name_custom_section(
   for sec in mod.custom_secs {
     custom_secs.push(sec)
   }
+  mod.with_custom_secs(custom_secs)
+}
+
+///|
+fn metamorphic_add_custom_section_stress(mod : @lib.Module) -> @lib.Module {
+  let custom_secs = []
+  for sec in mod.custom_secs {
+    custom_secs.push(sec)
+  }
+  custom_secs.push(
+    @lib.CustomSec::new(@lib.Name::from_string("starshine.fuzz.empty"), b""),
+  )
+  custom_secs.push(
+    @lib.CustomSec::new(
+      @lib.Name::from_string("starshine.fuzz.bytes"),
+      b"\x00\x01\x7f\x80\xffpayload",
+    ),
+  )
+  custom_secs.push(
+    @lib.CustomSec::new(
+      @lib.Name::from_string("starshine.fuzz.unicode-☄"),
+      b"utf8-name custom payload",
+    ),
+  )
+  custom_secs.push(
+    @lib.CustomSec::new(
+      @lib.Name::from_string("starshine.fuzz.long-payload"),
+      b"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    ),
+  )
   mod.with_custom_secs(custom_secs)
 }
 
@@ -1836,6 +1868,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
   [
     AddNonNameCustomSection,
     AddLeadingNonNameCustomSection,
+    AddCustomSectionStress,
     AddModuleNameSection,
     AddUnusedPassiveDataSegment,
     AddUnusedImmutableI32Global,
@@ -1894,6 +1927,7 @@ pub fn metamorphic_apply_transform(
     AddNonNameCustomSection => metamorphic_add_non_name_custom_section(mod)
     AddLeadingNonNameCustomSection =>
       metamorphic_add_leading_non_name_custom_section(mod)
+    AddCustomSectionStress => metamorphic_add_custom_section_stress(mod)
     AddModuleNameSection => metamorphic_add_module_name_section(mod)
     AddUnusedPassiveDataSegment =>
       metamorphic_add_unused_passive_data_segment(mod)

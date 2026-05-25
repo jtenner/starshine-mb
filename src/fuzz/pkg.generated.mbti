@@ -350,6 +350,7 @@ pub enum InvalidFuzzSourceKind {
 pub enum MetamorphicValidTransform {
   AddNonNameCustomSection
   AddLeadingNonNameCustomSection
+  AddCustomSectionStress
   AddModuleNameSection
   AddUnusedPassiveDataSegment
   AddUnusedImmutableI32Global

@@ -45,6 +45,7 @@ The live suite inventory is owned by [`fuzz_active_suite_names()`](../../../src/
 | `wast-validate-roundtrip` | WAST AST print/parse/lower/validate reporting, including lower and validation failure counters. |
 | `gen-valid-wat-validate-roundtrip` | GenValid lib-module generation through the first-class WAT text printer, WAT parse, WAST-to-lib lowering, and validation counters. |
 | `validate-valid` | Valid-module generation plus direct validator checks and profile-dependent WAT companion checks. |
+| `validate-valid-metamorphic` | GenValid source modules plus semantics-preserving transforms, including custom-section stress variants with empty, binary, UTF-8-name, and larger opaque payloads that must survive binary roundtrip validation. |
 | `validate-invalid-ast` | AST-level invalid mutation coverage. |
 | `validate-invalid-binary` | Byte-level invalid or validator-rejected binary coverage. |
 | `validate-invalid-text` | Inline malformed/invalid/unlinkable text coverage. |
