@@ -351,6 +351,7 @@ pub enum MetamorphicValidTransform {
   AddUnusedImmutableI32Global
   AddUnusedEmptyFunction
   AddUnusedEmptyFunctionType
+  AddDuplicateEquivalentFunctionType
   AddUnusedFuncrefTable
   AddUnusedPassiveFuncrefElementSegment
   AddFunctionNamesSection

@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-24] fuzzing | FUZ1036 metamorphic duplicate equivalent function type
+
+- Completed `[FUZ]1036A` by adding the `add-duplicate-equivalent-function-type` metamorphic-valid transform. It appends an unused duplicate of the first existing single function type when one is available, or a fresh unused `[] -> []` fallback otherwise, without retargeting existing type indices.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the active metamorphic-valid transform registry includes duplicate equivalent type metadata alongside unused type declarations, unused functions, passive segments, name metadata, custom-section, export-alias, local-declaration, and no-op body reshaping surfaces.
+
 ## [2026-05-24] fuzzing | FUZ1036 metamorphic valid leading ref-null drop transform
 
 - Continued `[FUZ]1036` by adding the `add-leading-ref-null-drop-to-defined-functions` metamorphic-valid transform. It prepends a pure `ref.null extern; drop` pair to every defined function body without shifting locals, changing stack effects, or changing observable behavior, validates the transformed module, and reports the new transform id through `validate-valid-metamorphic` details.

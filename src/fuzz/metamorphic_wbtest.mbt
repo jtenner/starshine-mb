@@ -924,6 +924,39 @@ test "metamorphic unused empty function-type transform preserves validation and 
 }
 
 ///|
+test "metamorphic duplicate equivalent function-type transform preserves validation and binary roundtrip" {
+  let original_func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i64()]),
+    ),
+  )
+  let base = @lib.Module::new().with_type_sec(
+    @lib.TypeSec::new([original_func_type]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentFunctionType) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-duplicate-equivalent-function-type",
+  )
+  match transformed.wasm_module.type_sec {
+    Some(@lib.TypeSec(types)) => {
+      @debug.assert_eq(types.length(), 2)
+      @debug.assert_eq(types[0], original_func_type)
+      @debug.assert_eq(types[1], original_func_type)
+    }
+    None => fail("expected transformed type section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic unused empty-function transform preserves validation and binary roundtrip" {
   let generated = match
     gen_valid_module_result_from_seed(
@@ -1901,8 +1934,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 37)
-  @debug.assert_eq(stats.validated, 37)
+  @debug.assert_eq(stats.transformed, 38)
+  @debug.assert_eq(stats.validated, 38)
   assert_true(stats.transform_ids.contains("add-non-name-custom-section"))
   assert_true(
     stats.transform_ids.contains("add-leading-non-name-custom-section"),
@@ -1912,6 +1945,9 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(stats.transform_ids.contains("add-unused-immutable-i32-global"))
   assert_true(stats.transform_ids.contains("add-unused-empty-function"))
   assert_true(stats.transform_ids.contains("add-unused-empty-function-type"))
+  assert_true(
+    stats.transform_ids.contains("add-duplicate-equivalent-function-type"),
+  )
   assert_true(stats.transform_ids.contains("add-unused-funcref-table"))
   assert_true(
     stats.transform_ids.contains("add-unused-passive-funcref-element-segment"),

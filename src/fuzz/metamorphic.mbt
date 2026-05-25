@@ -7,6 +7,7 @@ pub enum MetamorphicValidTransform {
   AddUnusedImmutableI32Global
   AddUnusedEmptyFunction
   AddUnusedEmptyFunctionType
+  AddDuplicateEquivalentFunctionType
   AddUnusedFuncrefTable
   AddUnusedPassiveFuncrefElementSegment
   AddFunctionNamesSection
@@ -51,6 +52,8 @@ pub fn metamorphic_valid_transform_id(
     AddUnusedImmutableI32Global => "add-unused-immutable-i32-global"
     AddUnusedEmptyFunction => "add-unused-empty-function"
     AddUnusedEmptyFunctionType => "add-unused-empty-function-type"
+    AddDuplicateEquivalentFunctionType =>
+      "add-duplicate-equivalent-function-type"
     AddUnusedFuncrefTable => "add-unused-funcref-table"
     AddUnusedPassiveFuncrefElementSegment =>
       "add-unused-passive-funcref-element-segment"
@@ -982,6 +985,36 @@ fn metamorphic_add_unused_empty_function_type(mod : @lib.Module) -> @lib.Module 
 }
 
 ///|
+fn metamorphic_add_duplicate_equivalent_function_type(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let types = []
+  let mut duplicate : @lib.RecType? = None
+  match mod.type_sec {
+    Some(@lib.TypeSec(existing)) =>
+      for rec_type in existing {
+        types.push(rec_type)
+        if duplicate is None {
+          match rec_type {
+            @lib.SingleRecType(@lib.CompTypeSubType(_, @lib.FuncCompType(_, _))) =>
+              duplicate = Some(rec_type)
+            _ => ()
+          }
+        }
+      }
+    None => ()
+  }
+  match duplicate {
+    Some(rec_type) => types.push(rec_type)
+    None =>
+      types.push(
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      )
+  }
+  mod.with_type_sec(@lib.TypeSec::new(types))
+}
+
+///|
 fn metamorphic_add_unused_i32_local_to_defined_functions(
   mod : @lib.Module,
 ) -> @lib.Module {
@@ -1466,6 +1499,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddUnusedImmutableI32Global,
     AddUnusedEmptyFunction,
     AddUnusedEmptyFunctionType,
+    AddDuplicateEquivalentFunctionType,
     AddUnusedFuncrefTable,
     AddUnusedPassiveFuncrefElementSegment,
     AddFunctionNamesSection,
@@ -1516,6 +1550,8 @@ pub fn metamorphic_apply_transform(
     AddUnusedEmptyFunction => metamorphic_add_unused_empty_function(mod)
     AddUnusedEmptyFunctionType =>
       metamorphic_add_unused_empty_function_type(mod)
+    AddDuplicateEquivalentFunctionType =>
+      metamorphic_add_duplicate_equivalent_function_type(mod)
     AddUnusedFuncrefTable => metamorphic_add_unused_funcref_table(mod)
     AddUnusedPassiveFuncrefElementSegment =>
       metamorphic_add_unused_passive_funcref_element_segment(mod)

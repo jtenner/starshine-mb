@@ -613,8 +613,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 Use these slice ids when selecting or reporting future FUZ work. Parent tasks below keep the fuller goals, invariants, and historical evidence; this index names the remaining units so agents do not have to infer the next slice from long status paragraphs.
 
 p1 GenValid / valid-generation slices:
-- [FUZ]1036A (p1, GenValid) - Metamorphic Duplicate Equivalent Type Transform
-  - Unit: add a semantics-preserving transform that appends or duplicates an equivalent unused function type without retargeting existing type indices; prove validation, binary roundtrip, transform id reporting, and docs.
 - [FUZ]1036B (p1, GenValid) - Metamorphic Local Declaration Split/Merge Transform
   - Unit: add a transform that changes defined-function local declaration grouping without shifting local indices or changing instructions; prove validation, binary roundtrip, and suite detail counts.
 - [FUZ]1036C (p1, GenValid) - Metamorphic Export Rename/Alias Stress Follow-Up
