@@ -43,6 +43,8 @@ pub enum MetamorphicValidTransform {
   AddTrailingI32EqzDropToDefinedFunctions
   AddLeadingI64EqzDropToDefinedFunctions
   AddTrailingI64EqzDropToDefinedFunctions
+  AddLeadingF32AbsDropToDefinedFunctions
+  AddTrailingF32AbsDropToDefinedFunctions
   AddLeadingNopToDefinedFunctions
   AddTrailingNopToDefinedFunctions
   AddLeadingI32ConstDropToDefinedFunctions
@@ -130,6 +132,10 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-i64-eqz-drop-to-defined-functions"
     AddTrailingI64EqzDropToDefinedFunctions =>
       "add-trailing-i64-eqz-drop-to-defined-functions"
+    AddLeadingF32AbsDropToDefinedFunctions =>
+      "add-leading-f32-abs-drop-to-defined-functions"
+    AddTrailingF32AbsDropToDefinedFunctions =>
+      "add-trailing-f32-abs-drop-to-defined-functions"
     AddLeadingNopToDefinedFunctions => "add-leading-nop-to-defined-functions"
     AddTrailingNopToDefinedFunctions => "add-trailing-nop-to-defined-functions"
     AddLeadingI32ConstDropToDefinedFunctions =>
@@ -1505,6 +1511,20 @@ fn metamorphic_add_trailing_i64_eqz_drop_to_defined_functions(
 }
 
 ///|
+fn metamorphic_add_leading_f32_abs_drop_to_defined_functions(
+  mod : @lib.Module,
+) -> @lib.Module {
+  metamorphic_add_f32_abs_drop_to_defined_functions(mod, true)
+}
+
+///|
+fn metamorphic_add_trailing_f32_abs_drop_to_defined_functions(
+  mod : @lib.Module,
+) -> @lib.Module {
+  metamorphic_add_f32_abs_drop_to_defined_functions(mod, false)
+}
+
+///|
 fn metamorphic_add_i32_eqz_drop_to_defined_functions(
   mod : @lib.Module,
   leading : Bool,
@@ -1524,6 +1544,18 @@ fn metamorphic_add_i64_eqz_drop_to_defined_functions(
   metamorphic_add_unary_drop_to_defined_functions(mod, leading, [
     @lib.Instruction::i64_const(0L),
     @lib.Instruction::i64_eqz(),
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
+fn metamorphic_add_f32_abs_drop_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+) -> @lib.Module {
+  metamorphic_add_unary_drop_to_defined_functions(mod, leading, [
+    @lib.Instruction::f32_const(0.0),
+    @lib.Instruction::f32_abs(),
     @lib.Instruction::drop(),
   ])
 }
@@ -2106,6 +2138,8 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingI32EqzDropToDefinedFunctions,
     AddLeadingI64EqzDropToDefinedFunctions,
     AddTrailingI64EqzDropToDefinedFunctions,
+    AddLeadingF32AbsDropToDefinedFunctions,
+    AddTrailingF32AbsDropToDefinedFunctions,
     AddLeadingNopToDefinedFunctions,
     AddTrailingNopToDefinedFunctions,
     AddLeadingI32ConstDropToDefinedFunctions,
@@ -2199,6 +2233,10 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_leading_i64_eqz_drop_to_defined_functions(mod)
     AddTrailingI64EqzDropToDefinedFunctions =>
       metamorphic_add_trailing_i64_eqz_drop_to_defined_functions(mod)
+    AddLeadingF32AbsDropToDefinedFunctions =>
+      metamorphic_add_leading_f32_abs_drop_to_defined_functions(mod)
+    AddTrailingF32AbsDropToDefinedFunctions =>
+      metamorphic_add_trailing_f32_abs_drop_to_defined_functions(mod)
     AddLeadingNopToDefinedFunctions =>
       metamorphic_add_leading_nop_to_defined_functions(mod)
     AddTrailingNopToDefinedFunctions =>
