@@ -616,8 +616,6 @@ p1 GenValid / valid-generation slices:
 - No active p1 GenValid recipe-catalog slices remain.
 
 p1/p2 oracle, reporting, and infrastructure slices:
-- [FUZ]1047A (p2) - Normalization Contract Documentation
-  - Unit: document every pass-fuzz normalization step and its semantic risk boundary.
 - [FUZ]1047B (p2) - Normalization Fixture Matrix
   - Unit: add equality/inequality fixtures for debug stripping, default locals, NaN formatting, block wrappers, local/name stripping, custom sections, and section order.
 - [FUZ]1048A (p2) - Fuzz Summary Report Schema

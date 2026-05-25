@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] tooling | FUZ1047A pass-fuzz normalization contract
+
+- Completed `[FUZ]1047A` by expanding [`tooling/pass-fuzz-compare.md`](tooling/pass-fuzz-compare.md) with an explicit normalization contract table covering input/output validation, Binaryen oracle execution, binary canonicalization, text printing, debug/name stripping, default-local and wrapper shape normalization, NaN/numeric formatting, local/name report boundaries, and optional property normalization.
+- The new section records the semantic risk boundary for each step so future pass signoff reports do not overclaim raw-byte, debug-name, custom-section, diagnostic-location, runtime-import, or unexercised-proposal parity from a normalized compare-pass match.
+
 ## [2026-05-25] fuzzing | FUZ1043B initial reduction backends
 
 - Completed `[FUZ]1043B` by adding reusable script-side reducers for module-field deletion, raw byte-slice deletion, and WAT/WAST-like token deletion. Each reducer accepts a caller-owned reproduction predicate and only keeps deletions that preserve that predicate.
