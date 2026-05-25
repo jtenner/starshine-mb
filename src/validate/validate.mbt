@@ -5898,6 +5898,7 @@ test "gen_valid table limit variants obey toggle" {
 ///|
 priv struct ValidateTestConstExprForms {
   global_get_in_global : Bool
+  imported_global_get_in_global : Bool
   prior_global_get_in_global : Bool
   ref_func_in_global : Bool
   ref_null_in_global : Bool
@@ -5915,6 +5916,7 @@ priv struct ValidateTestConstExprForms {
 fn validate_test_const_expr_forms_empty() -> ValidateTestConstExprForms {
   {
     global_get_in_global: false,
+    imported_global_get_in_global: false,
     prior_global_get_in_global: false,
     ref_func_in_global: false,
     ref_null_in_global: false,
@@ -6052,6 +6054,10 @@ fn validate_test_const_expr_forms_module(
           ..forms,
           global_get_in_global: forms.global_get_in_global ||
           validate_test_expr_has_global_get(init),
+          imported_global_get_in_global: forms.imported_global_get_in_global ||
+          validate_test_expr_has_imported_global_get(
+            init, imported_global_count,
+          ),
           prior_global_get_in_global: forms.prior_global_get_in_global ||
           validate_test_expr_has_prior_global_get(
             init,
@@ -6141,6 +6147,7 @@ test "gen_valid coverage-forced emits const-expression variants" {
   }
   let forms = validate_test_const_expr_forms_module(mod)
   assert_true(forms.global_get_in_global)
+  assert_true(forms.imported_global_get_in_global)
   assert_true(forms.prior_global_get_in_global)
   assert_true(forms.ref_func_in_global)
   assert_true(forms.ref_null_in_global)

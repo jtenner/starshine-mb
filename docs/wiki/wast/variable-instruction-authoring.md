@@ -126,7 +126,7 @@ Starshine's codec maps these directly in [`src/binary/decode.mbt`](../../../src/
 Starshine allows an extended immutable-`global.get` constant-expression subset in selected initializer/offset positions. The key local rules are:
 
 - immutable imported globals may be read in constant expressions;
-- coverage-forced GenValid modules deliberately use imported immutable `i32` globals in active element and data offsets so that the imported-global offset profile stays exercised;
+- coverage-forced GenValid modules deliberately use imported immutable `i32` globals in global initializers and active element/data offsets so that the imported-global constant-expression profile stays exercised;
 - immutable earlier defined globals may be read by later globals or segment/table initializers;
 - mutable `global.get` is rejected in constant expressions;
 - ordinary function-body `global.get` remains just a normal instruction.
