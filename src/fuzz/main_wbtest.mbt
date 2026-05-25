@@ -1108,6 +1108,7 @@ test "parse_fuzz_cli_command detects emit-gen-valid-batch command" {
       @debug.assert_eq(args.required_features.length(), 0)
       @debug.assert_eq(args.excluded_features.length(), 0)
       @debug.assert_eq(args.max_attempts, 2)
+      @debug.assert_eq(args.metamorphic_transform_ids.length(), 0)
     }
     _ => fail("expected emit-gen-valid-batch command")
   }
@@ -1120,6 +1121,7 @@ test "parse_fuzz_cli_command parses gen-valid batch profile and feature filters"
       "--emit-gen-valid-batch", "--count=3", "--seed=0xf71004", "--out-dir=tmp/gen-valid",
       "--gen-valid-profile=coverage-forced", "--require-feature", "v128", "--require-feature=mems:2",
       "--exclude-feature=imports", "--max-attempts", "12", "--manifest=tmp/gen-valid/manifest.json",
+      "--metamorphic-transform", "add-non-name-custom-section", "--metamorphic-transform=add-module-name-section",
     ]) {
     EmitGenValidBatch(args) => {
       @debug.assert_eq(args.count, 3)
@@ -1132,9 +1134,46 @@ test "parse_fuzz_cli_command parses gen-valid batch profile and feature filters"
       @debug.assert_eq(args.excluded_features.length(), 1)
       @debug.assert_eq(args.max_attempts, 12)
       @debug.assert_eq(args.manifest_path, Some("tmp/gen-valid/manifest.json"))
+      @debug.assert_eq(args.metamorphic_transform_ids.length(), 2)
+      @debug.assert_eq(
+        args.metamorphic_transform_ids[0],
+        "add-non-name-custom-section",
+      )
+      @debug.assert_eq(
+        args.metamorphic_transform_ids[1],
+        "add-module-name-section",
+      )
     }
     _ => fail("expected emit-gen-valid-batch command")
   }
+}
+
+///|
+test "gen-valid batch manifest reports requested and applied metamorphic transforms" {
+  let args = EmitGenValidBatchArgs::new(
+    2,
+    0x1036UL,
+    "tmp/gen-valid",
+    profile="natural-small",
+    max_attempts=8,
+    metamorphic_transform_ids=[
+      "add-non-name-custom-section", "add-module-name-section",
+    ],
+  )
+  let selection = match emit_gen_valid_batch_selection(args) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let manifest = format_gen_valid_batch_manifest_json(args, selection)
+  assert_true(
+    manifest.contains(
+      "\"metamorphic_transform_ids\":[\"add-non-name-custom-section\",\"add-module-name-section\"]",
+    ),
+  )
+  assert_true(
+    manifest.contains("\"transform_id\":\"add-non-name-custom-section\""),
+  )
+  assert_true(manifest.contains("\"transform_id\":\"add-module-name-section\""))
 }
 
 ///|

@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1036M1 GenValid batch metamorphic transform selection
+
+- Completed `[FUZ]1036M1` by locking the Moon and Bun `--emit-gen-valid-batch` selection surface for repeated `--metamorphic-transform <id>` flags. Batch emission already applies requested transform ids round-robin; the manifest now records requested `metamorphic_transform_ids` at top level and applied per-record `transform_id` values for replay/reporting.
+- Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) with the batch CLI/report contract and kept focused `src/fuzz` plus Bun wrapper command validation green.
+
 ## [2026-05-25] fuzzing | FUZ1036L3 nested identity block wrappers
 
 - Completed `[FUZ]1036L3` by adding a fixed-depth-three nested identity-block metamorphic-valid transform for defined function bodies with zero or one result. It wraps the original body in three value-preserving `block` layers using the function-result block type, preserving locals, body instruction order, result stacks, validation, and observable behavior.

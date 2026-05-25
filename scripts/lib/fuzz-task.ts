@@ -27,6 +27,7 @@ export type FuzzOptions = {
   excludeFeatures: string[];
   maxAttempts: string | null;
   manifestPath: string | null;
+  metamorphicTransforms: string[];
 };
 
 // Parse CLI arguments into validated command settings; defaults are kept conservative
@@ -55,6 +56,7 @@ function defaultFuzzOptions(): FuzzOptions {
     excludeFeatures: [],
     maxAttempts: null,
     manifestPath: null,
+    metamorphicTransforms: [],
   };
 }
 
@@ -114,6 +116,11 @@ function parseEmitGenValidBatchArgs(argv: string[]): FuzzOptions {
       i += 1;
       continue;
     }
+    if (token.startsWith("--metamorphic-transform=")) {
+      options.metamorphicTransforms.push(token.substring("--metamorphic-transform=".length));
+      i += 1;
+      continue;
+    }
     switch (token) {
       case "--count":
         options.batchCount = argv[i + 1] ?? fail("missing value for --count");
@@ -153,6 +160,10 @@ function parseEmitGenValidBatchArgs(argv: string[]): FuzzOptions {
         break;
       case "--manifest":
         options.manifestPath = argv[i + 1] ?? fail("missing value for --manifest");
+        i += 2;
+        break;
+      case "--metamorphic-transform":
+        options.metamorphicTransforms.push(argv[i + 1] ?? fail("missing value for --metamorphic-transform"));
         i += 2;
         break;
       default:
@@ -390,6 +401,9 @@ export function runFuzz(options: FuzzOptions, repoRoot = resolveWorkspaceRoot())
     }
     if (options.manifestPath !== null) {
       args.push("--manifest", options.manifestPath);
+    }
+    for (const transform of options.metamorphicTransforms) {
+      args.push("--metamorphic-transform", transform);
     }
     runOrThrow(options.moonBin, args, { cwd: repoRoot });
     return;
