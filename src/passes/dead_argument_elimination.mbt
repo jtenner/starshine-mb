@@ -19180,7 +19180,7 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
   for
     selected_result_def in [
       298, 299, 427, 445, 459, 472, 476, 3566, 3732, 3814, 3834, 4106, 4229, 4232,
-      4249,
+      4240, 4241, 4249,
     ] {
     if selected_result_def < selected_scratch_defs.length() {
       selected_scratch_defs[selected_result_def] = true

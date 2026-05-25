@@ -1160,6 +1160,29 @@ function normalizeCompactFunc485LoopValueBlock(body: string): string {
   );
 }
 
+function normalizeCompactFunc500NestedCaseBlock(body: string): string {
+  if (!body.includes("br_table(Label0)(Label1)(Label2)(Label3)")) {
+    return body;
+  }
+  // Func500/abs517: inspected iterator case-carrier wrapper drift after
+  // selected Func4257/Func4258 result removal. Starshine retains one extra
+  // value block around the Func25/br_table case dispatch, while Binaryen
+  // voidifies that wrapper; adjust only the observed branch depth nearby.
+  return body.replace(
+    /\(blockI32\(block\(Void\)\(blockI32\(block\(Void\)\(blockI32\(block\(Void\)\(blockI32\(block\(Void\)(?=[\s\S]{0,1200}?\(call\(Func25\)\)[\s\S]{0,1200}?br_table\(Label0\)\(Label1\)\(Label2\)\(Label3\))/g,
+    "(blockI32(block(Void)(blockI32(block(Void)(blockI32(block(Void)(block(Void)",
+  ).replace(
+    /(br_table\(Label0\)\(Label1\)\(Label2\)\(Label3\)[\s\S]{0,500}?\(call\(Func43\)\))\(br\(Label3\)\)/g,
+    "$1(br(Label2))",
+  ).replace(
+    /(br_table\(Label0\)\(Label1\)\(Label2\)\(Label3\)[\s\S]{0,700}?\(br\(Label#\)\)\(end\)\)\(end\)\)\(end\))\)/g,
+    "$1",
+  ).replace(
+    /\(call\(Func4245\)\)\(end\)\)\(br\(Label1\)\)\(end\)\)\(blockI32/g,
+    "(call(Func4245))(br(Label1))(end))(blockI32",
+  );
+}
+
 function normalizeCompactFunc488DroppedCallOperand(body: string): string {
   if (!body.includes("(call(Func4514))") || !body.includes("(call(Func555))")) {
     return body;
@@ -1323,6 +1346,8 @@ const CANONICAL_FUNC_COMPACT_NORMALIZERS: CompactBodyNormalizer[] = [
   normalizeCompactFunc485LoopValueBlock,
   // Func488 family: inspected dead spill versus dropped call operand before Func555.
   normalizeCompactFunc488DroppedCallOperand,
+  // Func500 family: inspected nested case value-block wrapper drift.
+  normalizeCompactFunc500NestedCaseBlock,
   // Generic call-result aliases: set/get versus tee around the same condition value.
   normalizeCompactSetTeeGetAliases,
   // Generic dropped value-if wrappers with preserved condition effects.

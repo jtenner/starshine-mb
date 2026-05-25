@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-25] passes/tooling | dae Func499-Func500 result and wrapper frontier
+
+- Classified Func499/abs516 as a real selected DAE result-removal gap for `Func4257`/`Func4258`; added selected dropped-result coverage for defined funcs `4240` and `4241` with focused pass-test coverage.
+- Classified the remaining Func500/abs517 drift as compare-layer nested case-carrier wrapper drift around the `Func25`/`br_table` family and added a narrow diagnostic-only canonical-function normalizer plus fixture coverage.
+- `.tmp/dae-func500-normalized2-artifact` validates with `wasm-opt --all-features` and advances the both-canonical frontier to `defined=502 abs=519`; latest pass timing remains over target (`2922.652ms` Starshine versus `983.498ms` Binaryen).
+
 ## [2026-05-25] tooling | dae Func488 canonical call-operand normalization
 
 - Classified Func488/abs505 as compare-layer representation drift after the selected Func538 unread-parameter slice: Binaryen spills the side-effecting `Func4514` result to a dead local before `Func555`, while Starshine keeps the same effect as a dropped operand-position expression before `Func555`.
