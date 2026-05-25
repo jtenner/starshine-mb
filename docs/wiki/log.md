@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO FlowScanner predicate grouping audit
+
+- Added research note [`0651`](./raw/research/0651-2026-05-25-sgo-flowscanner-predicate-grouping-audit.md) for `[SGO]003O1`, auditing remaining FlowScanner predicate groups after the 0648 clean-leaf and 0649 clean-effect helper slices.
+- No optimizer behavior changed: the remaining unary/binary pure lists are single-source classifiers rather than duplicated predicate clusters, so this slice closed as research-only and left condition/value-stack naming work to `[SGO]003O2` and `[SGO]003O3`.
+- Focused pass validation: `moon test src/passes` reported `1600/1600` passed. Direct SGO fuzz was not required because no matcher code changed. `[SGO]003` remains active/partial.
+
 ## [2026-05-25] binaryen | SGO if-arm merge helper refactor
 
 - Added research note [`0650`](./raw/research/0650-2026-05-25-sgo-if-arm-merge-refactor.md) for another refactor-only `[SGO]003O` slice, centralizing the repeated value-producing `if` arm-result scan/merge helper.

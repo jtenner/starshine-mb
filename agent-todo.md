@@ -325,17 +325,10 @@ Execution rules for all DAE slices
   - Exit criteria: public behavior tests and docs; no preset widening until direct pass behavior is separately signed.
 
 - [SGO]003O - Refactor-Only Matcher Maintainability Queue
-  - Status: opportunistic; lower priority than behavior-bearing slices after commits `0f8b8902` through `39fa0a22`. The 0641 and 0645 clean-pop helper slices centralized repeated FlowScanner pop/taint checks without behavior broadening, the 0643 call-result helper slice centralized repeated call-boundary stack handling while preserving the adjacent-`global.get` arm-result exception, the 0646 wrapper helper slice centralized repeated block/no-catch `try_table` extraction plus external-pure condition index handling, the 0647 exact-tail helper slice centralized direct `if return; set` tail dispatch, the 0648 clean-leaf helper slice centralized repeated FlowScanner constant/nullary/local leaf pushes, the 0649 effect-predicate helper slice centralized clean pair/triple side-effect opcode groups, and the 0650 if-arm merge helper slice centralized repeated value-producing `if` arm-result scan/merge handling.
+  - Status: opportunistic; lower priority than behavior-bearing slices after commits `0f8b8902` through `39fa0a22`. The 0641 and 0645 clean-pop helper slices centralized repeated FlowScanner pop/taint checks without behavior broadening, the 0643 call-result helper slice centralized repeated call-boundary stack handling while preserving the adjacent-`global.get` arm-result exception, the 0646 wrapper helper slice centralized repeated block/no-catch `try_table` extraction plus external-pure condition index handling, the 0647 exact-tail helper slice centralized direct `if return; set` tail dispatch, the 0648 clean-leaf helper slice centralized repeated FlowScanner constant/nullary/local leaf pushes, the 0649 effect-predicate helper slice centralized clean pair/triple side-effect opcode groups, the 0650 if-arm merge helper slice centralized repeated value-producing `if` arm-result scan/merge handling, and the 0651 predicate-grouping audit closed the remaining FlowScanner predicate grouping question as research-only.
   - Goal: keep SGO maintainable without changing behavior.
   - Rules: no tests required if truly refactor-only and existing tests/fuzz prove behavior preservation; do not use refactors to sneak in new matcher breadth.
   - Shared exit criteria: one small commit per child slice with research note, wiki log update, backlog update, `moon test src/passes`, direct SGO fuzz when matcher logic is touched, and no behavior broadening.
-
-- [SGO]003O1 - FlowScanner Predicate Grouping Audit
-  - Status: open refactor-only slice.
-  - Goal: inspect remaining FlowScanner opcode predicate clusters after the 0648 clean-leaf and 0649 clean pair/triple effect helper slices, then extract exactly one obviously duplicated pure/effect predicate group if it improves readability.
-  - Scope boundaries: preserve existing stack checks, taint propagation, candidate-read accounting, and all call/control/trapping barriers; do not add opcodes to any accepted family.
-  - Deliverables: either a small helper extraction plus docs/log/backlog updates, or a research-only note documenting that no remaining predicate group is worth extracting right now.
-  - Exit criteria: behavior-preserving diff, `moon test src/passes`, direct SGO fuzz if matcher code changes.
 
 - [SGO]003O2 - Condition Matcher Naming Cleanup
   - Status: open refactor-only slice.
