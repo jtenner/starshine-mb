@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] tooling | dae Func208 canonical wrapper normalization
+
+- Extended the canonical-function fallback in [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts) for the inspected DAE Func208 writer family: `call $252; drop; block(result i32) ...; drop` is normalized against Binaryen's void-block plus explicit dropped-value form, and unreachable `drop` before an `else` arm is ignored after an unconditional branch.
+- Updated command coverage in [`../../scripts/test/self-optimize-compare-canonical-func-command.ts`](../../scripts/test/self-optimize-compare-canonical-func-command.ts).
+- `.tmp/dae-func208-canonical-normalized2-artifact` validates with `wasm-opt --all-features`, keeps DAE pass-local timing within 2x (`1806.078ms` Starshine versus `937.241ms` Binaryen), and advances the both-canonical diagnostic frontier from `defined=208 abs=225` to `defined=218 abs=235`.
+
 ## [2026-05-24] tooling | dae Func408 canonical Binaryen audit
 
 - Added optional `--canonicalize-binaryen-output` support in [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts), preserving `binaryen.raw.wasm` while allowing diagnostic compares against a `wasm-opt --strip-debug` canonicalized `binaryen.wasm` instead of the default raw Binaryen byte reference.

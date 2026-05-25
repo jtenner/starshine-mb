@@ -69,7 +69,9 @@ Because the nop-roundtrip changes the effective input and worsens timing, it is 
 
 The selected Func408 pair-carrier frontier is closed at the DAE raw rewrite layer. The remaining default helper first diff at `defined=336 abs=353` remains the known raw type-section/type-index representation drift. The former accepted/normalized Func408 local-numbering/tuple-local mismatch should not drive another DAE rewrite unless a future raw-output comparison reopens it.
 
-The next both-canonical diagnostic frontier is `defined=208 abs=225`, a block/result wrapper representation family around a dropped `call $252` followed by a value-block wrapper. Initial inspection shows Binaryen's canonical writer lowers this region to a void block with an explicit dropped final value, while Starshine's canonicalized output preserves a dropped `block (result i32)` wrapper. This is currently classified only as representation drift; no semantic-safe claim beyond this inspected local shape is made here.
+The first both-canonical diagnostic frontier was `defined=208 abs=225`, a block/result wrapper representation family around a dropped `call $252` followed by a value-block wrapper. Initial inspection showed Binaryen's canonical writer lowers this region to a void block with an explicit dropped final value, while Starshine's canonicalized output preserves a dropped `block (result i32)` wrapper. This was classified only as representation drift; no semantic-safe claim beyond this inspected local shape is made here.
+
+A follow-up canonical-function normalizer for that exact inspected family, plus the unreachable `drop` before `else` left behind after an unconditional branch, advanced the both-canonical diagnostic frontier to `defined=218 abs=235` in `.tmp/dae-func208-canonical-normalized2-artifact`. That artifact validates and stays inside the pass-local 2x target (`1806.078ms` Starshine versus `937.241ms` Binaryen). The new both-canonical frontier is another block/result wrapper family in Func218, not Func408.
 
 ## Validation evidence
 

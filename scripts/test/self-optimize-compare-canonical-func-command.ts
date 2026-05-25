@@ -66,9 +66,9 @@ if (args[0] === "--print-func") {
   process.stderr.write("      [0] I32 (local)\\n");
   process.stderr.write("    body_raw:\\n");
   if (args[2].endsWith("binaryen.wasm")) {
-    process.stderr.write("      (local.get (Local 0))(i32.const I32(10))i32.lt_u(if I32 (local.get (Local 0))(i32.const I32(1))i32.add else (local.get (Local 0)))(i32.const I32(1))(if I32 (i32.const I32(2)) else (i32.const I32(3)))(local.get (Local 0))(i32.const I32(0))i32.ge_si32.eqz(if (Void) unreachable)(global.get (Global 0))(end)\\n");
+    process.stderr.write("      (local.get (Local 0))(i32.const I32(10))i32.lt_u(if I32 (local.get (Local 0))(i32.const I32(1))i32.add else (local.get (Local 0)))(i32.const I32(1))(if I32 (i32.const I32(2)) else (i32.const I32(3)))(local.get (Local 0))(i32.const I32(0))i32.ge_si32.eqz(if (Void) unreachable)(global.get (Global 0))(call (Func 252))drop(block (Void) (local.get (Local 0)) (call (Func 45)) (local.get (Local 0)) drop)(end)\\n");
   } else {
-    process.stderr.write("      (local.get (Local 0))(i32.const I32(1))i32.add(local.get (Local 0))(local.get (Local 0))(i32.const I32(10))i32.lt_uselect(local.set (Local 3))(local.get (Local 3))(local.get (Local 0))(i32.const I32(1))i32.adddrop(i32.const I32(1))(if (Void) (i32.const I32(2))return else (i32.const I32(3))return)unreachable(local.get (Local 0))(i32.const I32(0))i32.ge_s(if (Void) else unreachable)(global.get (Global 0))(local.set (Local 4))(local.get (Local 4))(end)\\n");
+    process.stderr.write("      (local.get (Local 0))(i32.const I32(1))i32.add(local.get (Local 0))(local.get (Local 0))(i32.const I32(10))i32.lt_uselect(local.set (Local 3))(local.get (Local 3))(local.get (Local 0))(i32.const I32(1))i32.adddrop(i32.const I32(1))(if (Void) (i32.const I32(2))return else (i32.const I32(3))return)unreachable(local.get (Local 0))(i32.const I32(0))i32.ge_s(if (Void) else unreachable)(global.get (Global 0))(local.set (Local 4))(local.get (Local 4))(call (Func 252))drop(block I32 (block (Void) (local.get (Local 0)) (call (Func 45)) (local.get (Local 0)) (end))drop)(end)\\n");
   }
   process.exit(0);
 }

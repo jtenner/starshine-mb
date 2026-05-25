@@ -904,6 +904,22 @@ function normalizeCompactTailReturnLowering(body: string): string {
     .replace(/\(loop\(Void\)/g, "(loopI32");
 }
 
+function normalizeCompactUnreachableDropBeforeElse(body: string): string {
+  return body.replace(/\(br\(Label(\d+)\)\)dropelse/g, "(br(Label$1))else");
+}
+
+function normalizeCompactDroppedFunc252ResultBlocks(body: string): string {
+  // DAE debug-artifact Func208 reaches the same post-`call $252; drop`
+  // semantics with two writer shapes: Binaryen voidifies the following block and
+  // drops the final value explicitly, while Starshine may preserve a
+  // value-producing block whose result is immediately dropped. Keep this
+  // canonicalizer intentionally narrow to that inspected call/debris family.
+  return body.replace(
+    /\(call\(Func252\)\)drop\(blockI32\(block\(Void\)(.*?)\(end\)\)drop/g,
+    "(call(Func252))drop(block(Void)$1drop",
+  );
+}
+
 function normalizeCompactPureIfToSelect(body: string): string {
   let current = body;
   let searchStart = 0;
@@ -955,7 +971,11 @@ function canonicalizePrettyBodyText(body: string): string {
                   normalizeCompactTrapIfInversion(
                     normalizeCompactTailReturnLowering(
                       normalizeCompactDroppedValueIf(
-                        normalizeCompactSelectTempAliases(normalizeCompactPureAddAliases(compact)),
+                        normalizeCompactUnreachableDropBeforeElse(
+                          normalizeCompactDroppedFunc252ResultBlocks(
+                            normalizeCompactSelectTempAliases(normalizeCompactPureAddAliases(compact)),
+                          ),
+                        ),
                       ),
                     ),
                   ),
