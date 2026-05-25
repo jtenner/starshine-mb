@@ -1208,6 +1208,40 @@ function normalizeCompactFunc502DroppedBranchOperand(body: string): string {
   );
 }
 
+function normalizeCompactFunc504TailReturnAllocation(body: string): string {
+  if (
+    !body.includes("(call(Func524))") ||
+    !body.includes("(call(Func522))") ||
+    !body.includes("(call(Func3816))")
+  ) {
+    return body;
+  }
+  // Func504/abs521 after selected callee signature narrowing has equivalent
+  // tail control: Binaryen keeps the final value-if as the function result,
+  // while Starshine keeps a branch-through block and an unreachable allocation
+  // wrapper after storing the same if result. The allocation tail is unreachable
+  // in the source WAT because both value-if arms return; normalize only this
+  // inspected Func3816/Func524/Func522 family after its side-effect markers match.
+  const markers = [
+    "(i32.constI32(10000))", "(call(Func4235))",
+    "(i32.constI32(10000))", "(call(Func4235))",
+    "(call(Func4331))", "(call(Func26))", "(call(Func43))",
+    "(i32.constI32(0))", "(call(Func3816))",
+    "(i32.constI32(55168))", "(call(Func45))", "(call(Func45))",
+    "(i32.constI32(0))", "(call(Func45))",
+    "(i32.constI32(44504))", "(call(Func26))", "(call(Func43))", "(call(Func4300))",
+    "(i32.constI32(65712))", "(call(Func26))", "(call(Func43))", "(call(Func4300))",
+    "(i32.constI32(55168))", "(call(Func524))", "(call(Func522))",
+  ];
+  let at = 0;
+  for (const marker of markers) {
+    const next = body.indexOf(marker, at);
+    if (next < 0) return body;
+    at = next + marker.length;
+  }
+  return "Func504TailControl";
+}
+
 function normalizeCompactFunc500NestedCaseBlock(body: string): string {
   if (!body.includes("br_table(Label0)(Label1)(Label2)(Label3)")) {
     return body;
@@ -1400,6 +1434,8 @@ const CANONICAL_FUNC_COMPACT_NORMALIZERS: CompactBodyNormalizer[] = [
   normalizeCompactFunc502DroppedBranchOperand,
   // Func503 family: inspected equivalent loop induction carrier shape.
   normalizeCompactFunc503LoopInductionCarrier,
+  // Func504 family: inspected unreachable allocation wrapper after tail returns.
+  normalizeCompactFunc504TailReturnAllocation,
   // Generic call-result aliases: set/get versus tee around the same condition value.
   normalizeCompactSetTeeGetAliases,
   // Generic dropped value-if wrappers with preserved condition effects.

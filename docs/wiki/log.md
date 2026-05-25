@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-25] tooling | dae Func504 tail-control normalization
+
+- Classified the post-callee Func504/abs521 body drift as compare-layer representation: both sides preserve the same side-effect order through `Func3816`, `Func4300`, and final `Func524`/`Func522`; Starshine keeps a branch-through block and unreachable allocation wrapper after return-lowered arms, while Binaryen prints the final value-if directly.
+- Added a narrow diagnostic-only canonical-function normalizer for the inspected Func504 tail-control/unreachable-allocation family in [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts). Raw WAT/wasm comparison remains unchanged.
+- `.tmp/dae-func504-tail-control-artifact` validates with `wasm-opt --all-features` and advances the both-canonical frontier to `defined=505 abs=522`; latest pass timing remains over target (`2749.652ms` Starshine versus `896.944ms` Binaryen).
+
 ## [2026-05-25] passes | dae Func504 selected callee narrowing
 
 - Classified the leading Func504/abs521 callee-signature differences as true selected exact-literal gaps for defined funcs `505` and `3799`; added focused exact-literal coverage for defined func `505` and routed those late selected literals through fresh current call facts.
