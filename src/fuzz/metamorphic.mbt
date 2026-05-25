@@ -20,6 +20,7 @@ pub enum MetamorphicValidTransform {
   AddDuplicateEquivalentImportedImmutableI32Global
   AddDuplicateEquivalentImportedFuncrefTable
   AddDuplicateEquivalentImportedTag
+  AddDuplicateEquivalentTag
   AddDuplicateEquivalentFuncrefTable
   AddUnusedPassiveFuncrefElementSegment
   ReshapePassiveElementSegments
@@ -463,6 +464,7 @@ pub fn metamorphic_valid_transform_id(
     AddDuplicateEquivalentImportedFuncrefTable =>
       "add-duplicate-equivalent-imported-funcref-table"
     AddDuplicateEquivalentImportedTag => "add-duplicate-equivalent-imported-tag"
+    AddDuplicateEquivalentTag => "add-duplicate-equivalent-tag"
     AddDuplicateEquivalentFuncrefTable =>
       "add-duplicate-equivalent-funcref-table"
     AddUnusedPassiveFuncrefElementSegment =>
@@ -2418,6 +2420,41 @@ fn metamorphic_add_duplicate_equivalent_imported_tag(
     None => ()
   }
   mod.with_import_sec(@lib.ImportSec::new(imports))
+}
+
+///|
+fn metamorphic_add_duplicate_equivalent_tag(mod : @lib.Module) -> @lib.Module {
+  let tags = []
+  match mod.tag_sec {
+    Some(@lib.TagSec(existing)) => {
+      for tag in existing {
+        tags.push(tag)
+      }
+      match existing.get(0) {
+        Some(tag) => tags.push(tag)
+        None => ()
+      }
+      return mod.with_tag_sec(@lib.TagSec::new(tags))
+    }
+    None => ()
+  }
+  let type_idx = @lib.TypeIdx::new(
+    metamorphic_type_sec_flat_count(mod.type_sec),
+  )
+  let types = []
+  match mod.type_sec {
+    Some(@lib.TypeSec(existing)) =>
+      for rec_type in existing {
+        types.push(rec_type)
+      }
+    None => ()
+  }
+  types.push(
+    @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+  )
+  mod
+  .with_type_sec(@lib.TypeSec::new(types))
+  .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(type_idx)]))
 }
 
 ///|
@@ -4845,6 +4882,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddDuplicateEquivalentImportedImmutableI32Global,
     AddDuplicateEquivalentImportedFuncrefTable,
     AddDuplicateEquivalentImportedTag,
+    AddDuplicateEquivalentTag,
     AddDuplicateEquivalentFuncrefTable,
     AddUnusedPassiveFuncrefElementSegment,
     ReshapePassiveElementSegments,
@@ -5312,6 +5350,7 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_duplicate_equivalent_imported_funcref_table(mod)
     AddDuplicateEquivalentImportedTag =>
       metamorphic_add_duplicate_equivalent_imported_tag(mod)
+    AddDuplicateEquivalentTag => metamorphic_add_duplicate_equivalent_tag(mod)
     AddDuplicateEquivalentFuncrefTable =>
       metamorphic_add_duplicate_equivalent_funcref_table(mod)
     AddUnusedPassiveFuncrefElementSegment =>
