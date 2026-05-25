@@ -45,6 +45,8 @@ pub fn format_golden_seed_catalog_entry_json(GoldenSeedCatalogEntry) -> String
 
 pub fn fuzz_active_suite_names() -> Array[String]
 
+pub fn fuzz_interestingness_hash_schema() -> FuzzInterestingnessHashSchema
+
 pub fn fuzz_reduction_crash_kind() -> FuzzReductionFailureKind
 
 pub fn fuzz_reduction_failure_kind_name(FuzzReductionFailureKind) -> String
@@ -254,6 +256,27 @@ pub enum FuzzCliCommand {
   EmitGenValidBatch(EmitGenValidBatchArgs)
   EmitInvalidRepro(EmitInvalidReproArgs)
   ReplayCorpus(String)
+} derive(Eq, @debug.Debug)
+
+pub struct FuzzInterestingnessCaseKey {
+  raw_hash : String
+  decoded_shape_hash : String
+  feature_fact_hash : String
+  normalized_hash : String
+  predicate_hash : String
+  reduced_artifact_hash : String
+} derive(Eq, @debug.Debug)
+pub fn FuzzInterestingnessCaseKey::new(String, String, String, String, String, String) -> Self
+
+pub struct FuzzInterestingnessHashLayer {
+  name : String
+  digest : String
+  description : String
+} derive(Eq, @debug.Debug)
+
+pub struct FuzzInterestingnessHashSchema {
+  schema_id : String
+  layers : Array[FuzzInterestingnessHashLayer]
 } derive(Eq, @debug.Debug)
 
 pub enum FuzzOutputMode {

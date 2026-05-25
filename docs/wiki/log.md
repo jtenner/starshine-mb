@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1050A interestingness hash schema
+
+- Completed `[FUZ]1050A` by adding the in-package `starshine.fuzz-interestingness.v1` schema definition and `FuzzInterestingnessCaseKey` shape for raw, decoded-shape, feature-fact, normalized, predicate, and reduced-artifact hashes.
+- Added [`fuzzing/interestingness-hash-schema.md`](fuzzing/interestingness-hash-schema.md) and indexed it so future corpus dedup and runtime import/result-matrix work has a stable field contract instead of inferring hash meanings from runner-specific metadata.
+
 ## [2026-05-25] tooling | FUZ1049B deterministic merge/resume helpers
 
 - Completed `[FUZ]1049B` by adding fuzz-runner helpers for shard resume and stable merge: completed output manifests can now be used to skip already-finished shard work items, and shard result arrays can be flattened deterministically by seed index, suite, profile, shard index, and seed.

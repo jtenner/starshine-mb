@@ -30,6 +30,87 @@ pub struct FuzzRecipe {
 } derive(Eq, Debug)
 
 ///|
+pub struct FuzzInterestingnessHashLayer {
+  name : String
+  digest : String
+  description : String
+} derive(Eq, Debug)
+
+///|
+pub struct FuzzInterestingnessHashSchema {
+  schema_id : String
+  layers : Array[FuzzInterestingnessHashLayer]
+} derive(Eq, Debug)
+
+///|
+pub struct FuzzInterestingnessCaseKey {
+  raw_hash : String
+  decoded_shape_hash : String
+  feature_fact_hash : String
+  normalized_hash : String
+  predicate_hash : String
+  reduced_artifact_hash : String
+} derive(Eq, Debug)
+
+///|
+pub fn FuzzInterestingnessCaseKey::new(
+  raw_hash : String,
+  decoded_shape_hash : String,
+  feature_fact_hash : String,
+  normalized_hash : String,
+  predicate_hash : String,
+  reduced_artifact_hash : String,
+) -> FuzzInterestingnessCaseKey {
+  {
+    raw_hash,
+    decoded_shape_hash,
+    feature_fact_hash,
+    normalized_hash,
+    predicate_hash,
+    reduced_artifact_hash,
+  }
+}
+
+///|
+pub fn fuzz_interestingness_hash_schema() -> FuzzInterestingnessHashSchema {
+  {
+    schema_id: "starshine.fuzz-interestingness.v1",
+    layers: [
+      {
+        name: "raw",
+        digest: "fnv1a64-hex",
+        description: "Hash of original specimen bytes before decoding, normalization, or reduction.",
+      },
+      {
+        name: "decoded-shape",
+        digest: "fnv1a64-hex",
+        description: "Hash of decoded module/script shape: section and instruction families without preserving incidental payload bytes.",
+      },
+      {
+        name: "feature-fact",
+        digest: "fnv1a64-hex",
+        description: "Hash of sorted feature facts such as GC, exception, memory64, SIMD, string, import, export, and proposal markers.",
+      },
+      {
+        name: "normalized",
+        digest: "fnv1a64-hex",
+        description: "Hash of canonical normalized comparison text or bytes after accepted representation-only cleanup.",
+      },
+      {
+        name: "predicate",
+        digest: "fnv1a64-hex",
+        description: "Hash of the oracle outcome, interestingness predicate, failure class, pass name, and relevant tool verdicts.",
+      },
+      {
+        name: "reduced-artifact",
+        digest: "fnv1a64-hex",
+        description: "Hash of the minimized or otherwise reduced artifact that still satisfies the predicate.",
+      },
+    ],
+  }
+}
+
+///|
 pub fn FuzzRecipe::new(
   name : String,
   suite : String,

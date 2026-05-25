@@ -1,4 +1,34 @@
 ///|
+test "fuzz interestingness schema exposes stable ordered hash layers" {
+  let schema = fuzz_interestingness_hash_schema()
+  @debug.assert_eq(schema.schema_id, "starshine.fuzz-interestingness.v1")
+  @debug.assert_eq(schema.layers.length(), 6)
+  @debug.assert_eq(schema.layers[0].name, "raw")
+  @debug.assert_eq(schema.layers[1].name, "decoded-shape")
+  @debug.assert_eq(schema.layers[2].name, "feature-fact")
+  @debug.assert_eq(schema.layers[3].name, "normalized")
+  @debug.assert_eq(schema.layers[4].name, "predicate")
+  @debug.assert_eq(schema.layers[5].name, "reduced-artifact")
+  @debug.assert_eq(schema.layers[0].digest, "fnv1a64-hex")
+  assert_true(schema.layers[0].description.contains("original specimen bytes"))
+  assert_true(schema.layers[4].description.contains("oracle outcome"))
+}
+
+///|
+test "fuzz interestingness case key keeps all schema hashes reversible" {
+  let key = FuzzInterestingnessCaseKey::new(
+    "raw:0011", "decoded:module-func", "features:gc+simd", "norm:abcd", "pred:pass-mismatch",
+    "reduced:tiny",
+  )
+  @debug.assert_eq(key.raw_hash, "raw:0011")
+  @debug.assert_eq(key.decoded_shape_hash, "decoded:module-func")
+  @debug.assert_eq(key.feature_fact_hash, "features:gc+simd")
+  @debug.assert_eq(key.normalized_hash, "norm:abcd")
+  @debug.assert_eq(key.predicate_hash, "pred:pass-mismatch")
+  @debug.assert_eq(key.reduced_artifact_hash, "reduced:tiny")
+}
+
+///|
 fn bytes_to_ascii(bytes : Bytes) -> String {
   let out = StringBuilder::new()
   for b in bytes {
