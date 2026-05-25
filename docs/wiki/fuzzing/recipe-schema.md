@@ -6,6 +6,7 @@ Fuzz recipes are a small checked-in `key=value` schema for naming repeatable fuz
 
 The parser lives in [`src/fuzz/main.mbt`](../../../src/fuzz/main.mbt) as `parse_fuzz_recipe_text` and currently accepts one field per line:
 
+- `schema=starshine.fuzz.recipe.v1`: required schema version. Unknown or missing schema versions are rejected before recipe defaults are applied.
 - `name=<id>`: required recipe id.
 - `suite=<suite>`: required fuzz suite, normalized to lowercase.
 - `profile=<profile>`: optional profile, default `smoke`, normalized to lowercase. Values may contain `=` characters for suite-specific modifiers such as `passes=each-pass`.
@@ -14,7 +15,7 @@ The parser lives in [`src/fuzz/main.mbt`](../../../src/fuzz/main.mbt) as `parse_
 - `shard-count=<n>`: optional positive count, default `1`.
 - `output=text|jsonl`: optional output mode, default `text`.
 
-Blank lines and `#` comments are ignored. Unknown keys and malformed non-`key=value` lines are rejected so checked-in recipes fail fast.
+Blank lines and `#` comments are ignored. Unknown keys, unsupported schema versions, missing schema versions, and malformed non-`key=value` lines are rejected so checked-in recipes fail fast.
 
 ## CLI Override Precedence
 
@@ -32,5 +33,5 @@ The `--recipe <name>` / `--recipe=<name>` flag is recognized by the parser layer
 
 ## Evidence
 
-- `src/fuzz/main_wbtest.mbt` covers schema parsing, `=` inside profile values, standard catalog ids, catalog-text parsing, and CLI-over-recipe precedence.
+- `src/fuzz/main_wbtest.mbt` covers required schema-version parsing, unsupported schema rejection, `=` inside profile values, standard catalog ids, catalog-text parsing, and CLI-over-recipe precedence.
 - `moon test src/fuzz` passed for the standard catalog slice.

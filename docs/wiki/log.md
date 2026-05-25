@@ -1435,6 +1435,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Continued `[FUZ]1036D` by adding the `add-leading-f32-neg-drop-to-defined-functions`, `add-trailing-f32-neg-drop-to-defined-functions`, `add-leading-f64-neg-drop-to-defined-functions`, and `add-trailing-f64-neg-drop-to-defined-functions` metamorphic-valid transforms. They insert pure floating-point negation/drop stacks at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate the transformed modules, and report the new transform ids through `validate-valid-metamorphic` details.
 - Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the active metamorphic-valid transform registry names the new f32/f64 neg computed/drop body reshaping surface alongside the existing abs, eqz, const/drop, if, no-op, control-wrapper, locals, exports, custom sections, and metadata transforms.
 
+## [2026-05-25] fuzzing | FUZ1051A explicit recipe schema version
+
+- Tightened `[FUZ]1051A` by requiring checked-in fuzz recipes to declare `schema=starshine.fuzz.recipe.v1`, rejecting missing or unsupported schema versions, and exposing `fuzz_recipe_schema_version()` as the single parser/catalog constant.
+- Updated [`fuzzing/recipe-schema.md`](fuzzing/recipe-schema.md) and focused parser tests so recipe-version handling is documented and regression-covered alongside the existing catalog and CLI override behavior.
+
 ## [2026-05-25] fuzzing | FUZ1036D metamorphic f64.abs drop body reshaping
 
 - Continued `[FUZ]1036D` by adding the `add-leading-f64-abs-drop-to-defined-functions` and `add-trailing-f64-abs-drop-to-defined-functions` metamorphic-valid transforms. They insert a pure `f64.const 0; f64.abs; drop` stack at the start or end of every defined function body without shifting locals, changing stack effects, or changing observable behavior, validate the transformed modules, and report the new transform ids through `validate-valid-metamorphic` details.

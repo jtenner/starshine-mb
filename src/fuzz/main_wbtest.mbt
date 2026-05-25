@@ -1015,7 +1015,7 @@ test "format_fuzz_run_report_json includes detailed suite ledgers" {
 test "parse_fuzz_recipe_text parses core key value schema" {
   let recipe = match
     parse_fuzz_recipe_text(
-      "# standard smoke\nname=smoke\nsuite=validate-valid\nprofile=ci\nseed=0x5eed\nseed-count=4\nshard-count=2\noutput=jsonl\n",
+      "# standard smoke\nschema=starshine.fuzz.recipe.v1\nname=smoke\nsuite=validate-valid\nprofile=ci\nseed=0x5eed\nseed-count=4\nshard-count=2\noutput=jsonl\n",
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -1029,6 +1029,21 @@ test "parse_fuzz_recipe_text parses core key value schema" {
   match recipe.output_mode {
     Jsonl => ()
     _ => fail("expected jsonl recipe output")
+  }
+}
+
+///|
+test "parse_fuzz_recipe_text requires supported schema version" {
+  match parse_fuzz_recipe_text("name=smoke\nsuite=validate-valid\n") {
+    Ok(_) => fail("expected missing schema to fail")
+    Err(msg) => assert_true(msg.contains("recipe missing schema"))
+  }
+  match
+    parse_fuzz_recipe_text(
+      "schema=starshine.fuzz.recipe.v2\nname=smoke\nsuite=validate-valid\n",
+    ) {
+    Ok(_) => fail("expected unsupported schema to fail")
+    Err(msg) => assert_true(msg.contains("unsupported recipe schema"))
   }
 }
 
@@ -1073,7 +1088,7 @@ test "standard fuzz recipe texts parse through the public recipe parser" {
 test "parse_fuzz_cli_args applies recipe defaults before cli overrides" {
   let recipe = match
     parse_fuzz_recipe_text(
-      "name=ci\nsuite=validate-valid\nprofile=ci\nseed=0x10\nseed-count=8\nshard-count=4\noutput=jsonl\n",
+      "schema=starshine.fuzz.recipe.v1\nname=ci\nsuite=validate-valid\nprofile=ci\nseed=0x10\nseed-count=8\nshard-count=4\noutput=jsonl\n",
     ) {
     Ok(v) => v
     Err(msg) => fail(msg)

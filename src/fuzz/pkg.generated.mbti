@@ -49,6 +49,8 @@ pub fn fuzz_active_suite_names() -> Array[String]
 
 pub fn fuzz_interestingness_hash_schema() -> FuzzInterestingnessHashSchema
 
+pub fn fuzz_recipe_schema_version() -> String
+
 pub fn fuzz_reduction_crash_kind() -> FuzzReductionFailureKind
 
 pub fn fuzz_reduction_failure_kind_name(FuzzReductionFailureKind) -> String

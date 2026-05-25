@@ -204,34 +204,47 @@ pub fn build_fuzz_resume_shard_queue(
 }
 
 ///|
+pub fn fuzz_recipe_schema_version() -> String {
+  "starshine.fuzz.recipe.v1"
+}
+
+///|
 pub fn fuzz_standard_recipe_text_by_name(name : String) -> String? {
+  let schema_line = "schema=\{fuzz_recipe_schema_version()}\n"
   match fuzz_ascii_lower(name) {
     "smoke" =>
       Some(
+        schema_line +
         "name=smoke\nsuite=validate-valid\nprofile=smoke\nseed=0x5eed\nseed-count=1\nshard-count=1\noutput=text\n",
       )
     "ci" =>
       Some(
+        schema_line +
         "name=ci\nsuite=cmd-harness\nprofile=ci+gen-valid=natural-small+passes=common-clusters\nseed=0x5eed\nseed-count=4\nshard-count=1\noutput=jsonl\n",
       )
     "nightly" =>
       Some(
+        schema_line +
         "name=nightly\nsuite=validate-valid-metamorphic\nprofile=stress\nseed=0x1eed\nseed-count=32\nshard-count=8\noutput=jsonl\n",
       )
     "pass-signoff" =>
       Some(
+        schema_line +
         "name=pass-signoff\nsuite=cmd-harness\nprofile=ci+gen-valid=binaryen-oracle-portable+passes=each-pass+check-idempotence\nseed=0x5eed\nseed-count=8\nshard-count=4\noutput=jsonl\n",
       )
     "validator-stress" =>
       Some(
+        schema_line +
         "name=validator-stress\nsuite=validate-valid\nprofile=stress\nseed=0x10d69\nseed-count=16\nshard-count=4\noutput=jsonl\n",
       )
     "parser-stress" =>
       Some(
+        schema_line +
         "name=parser-stress\nsuite=wast-roundtrip\nprofile=stress+parser-stress+scripts\nseed=0x5eed\nseed-count=16\nshard-count=4\noutput=jsonl\n",
       )
     "binaryen-oracle" =>
       Some(
+        schema_line +
         "name=binaryen-oracle\nsuite=gen-valid-wat-validate-roundtrip\nprofile=binaryen-oracle-portable\nseed=0x5eed\nseed-count=8\nshard-count=4\noutput=jsonl\n",
       )
     _ => None
@@ -1442,6 +1455,7 @@ pub fn parse_fuzz_cli_command(args : Array[String]) -> FuzzCliCommand {
 
 ///|
 pub fn parse_fuzz_recipe_text(text : String) -> Result[FuzzRecipe, String] {
+  let mut schema : String? = None
   let mut name : String? = None
   let mut suite : String? = None
   let mut profile : String? = None
@@ -1469,6 +1483,7 @@ pub fn parse_fuzz_recipe_text(text : String) -> Result[FuzzRecipe, String] {
     let key = fuzz_ascii_lower(line[:eq_index].to_owned().trim().to_owned())
     let value = line[eq_index + 1:].to_owned().trim().to_owned()
     match key {
+      "schema" => schema = Some(value)
       "name" => name = Some(value)
       "suite" => suite = Some(fuzz_ascii_lower(value))
       "profile" => profile = Some(fuzz_ascii_lower(value))
@@ -1492,6 +1507,13 @@ pub fn parse_fuzz_recipe_text(text : String) -> Result[FuzzRecipe, String] {
         )
       _ => return Err("unknown recipe key '\{key}'")
     }
+  }
+  let resolved_schema = match schema {
+    Some(v) => v
+    None => return Err("recipe missing schema")
+  }
+  if resolved_schema != fuzz_recipe_schema_version() {
+    return Err("unsupported recipe schema '\{resolved_schema}'")
   }
   let resolved_name = match name {
     Some(v) => v
