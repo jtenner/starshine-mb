@@ -15,6 +15,7 @@ pub enum MetamorphicValidTransform {
   AddDuplicateEquivalentScalarFunctionTypes
   AddUnusedFuncrefTable
   AddDuplicateEquivalentMemory
+  AddDuplicateEquivalentImportedMemory
   AddDuplicateEquivalentFuncrefTable
   AddUnusedPassiveFuncrefElementSegment
   ReshapePassiveElementSegments
@@ -449,6 +450,8 @@ pub fn metamorphic_valid_transform_id(
       "add-duplicate-equivalent-scalar-function-types"
     AddUnusedFuncrefTable => "add-unused-funcref-table"
     AddDuplicateEquivalentMemory => "add-duplicate-equivalent-memory"
+    AddDuplicateEquivalentImportedMemory =>
+      "add-duplicate-equivalent-imported-memory"
     AddDuplicateEquivalentFuncrefTable =>
       "add-duplicate-equivalent-funcref-table"
     AddUnusedPassiveFuncrefElementSegment =>
@@ -2223,6 +2226,39 @@ fn metamorphic_add_duplicate_equivalent_memory(
     None => mems.push(@lib.MemType::new(@lib.Limits::i32(0U, Some(0U))))
   }
   mod.with_mem_sec(@lib.MemSec::new(mems))
+}
+
+///|
+fn metamorphic_add_duplicate_equivalent_imported_memory(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let imports = []
+  let mut duplicated = false
+  match mod.import_sec {
+    Some(@lib.ImportSec(existing)) => {
+      for import_ in existing {
+        imports.push(import_)
+      }
+      for import_ in existing {
+        match import_ {
+          @lib.Import(module_name, _, @lib.MemExternType(mem_type)) =>
+            if !duplicated {
+              imports.push(
+                @lib.Import::new(
+                  module_name,
+                  @lib.Name::new("memory_metamorphic_duplicate"),
+                  @lib.mem_extern_type(mem_type),
+                ),
+              )
+              duplicated = true
+            }
+          _ => ()
+        }
+      }
+    }
+    None => ()
+  }
+  mod.with_import_sec(@lib.ImportSec::new(imports))
 }
 
 ///|
@@ -4645,6 +4681,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddDuplicateEquivalentScalarFunctionTypes,
     AddUnusedFuncrefTable,
     AddDuplicateEquivalentMemory,
+    AddDuplicateEquivalentImportedMemory,
     AddDuplicateEquivalentFuncrefTable,
     AddUnusedPassiveFuncrefElementSegment,
     ReshapePassiveElementSegments,
@@ -5102,6 +5139,8 @@ pub fn metamorphic_apply_transform(
     AddUnusedFuncrefTable => metamorphic_add_unused_funcref_table(mod)
     AddDuplicateEquivalentMemory =>
       metamorphic_add_duplicate_equivalent_memory(mod)
+    AddDuplicateEquivalentImportedMemory =>
+      metamorphic_add_duplicate_equivalent_imported_memory(mod)
     AddDuplicateEquivalentFuncrefTable =>
       metamorphic_add_duplicate_equivalent_funcref_table(mod)
     AddUnusedPassiveFuncrefElementSegment =>

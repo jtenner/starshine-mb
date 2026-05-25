@@ -1068,6 +1068,76 @@ test "metamorphic unused empty function-type transform preserves validation and 
 }
 
 ///|
+test "metamorphic duplicate equivalent imported memory transform appends unused matching import" {
+  let original_import = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("memory"),
+    @lib.mem_extern_type(@lib.MemType::new(@lib.Limits::i32(1U, Some(2U)))),
+  )
+  let base = @lib.Module::new().with_import_sec(
+    @lib.ImportSec::new([original_import]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentImportedMemory) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-duplicate-equivalent-imported-memory",
+  )
+  match transformed.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => {
+      @debug.assert_eq(imports.length(), 2)
+      @debug.assert_eq(imports[0], original_import)
+      match imports[1] {
+        @lib.Import(module_name, item_name, @lib.MemExternType(mem_type)) => {
+          @debug.assert_eq(module_name, @lib.Name::new("env"))
+          @debug.assert_eq(
+            item_name,
+            @lib.Name::new("memory_metamorphic_duplicate"),
+          )
+          @debug.assert_eq(
+            mem_type,
+            @lib.MemType::new(@lib.Limits::i32(1U, Some(2U))),
+          )
+        }
+        _ => fail("expected duplicate imported memory")
+      }
+    }
+    None => fail("expected transformed imports")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic duplicate equivalent imported memory transform avoids defined-memory index shifts" {
+  let base = @lib.Module::new().with_mem_sec(
+    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, Some(1U)))]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentImportedMemory) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match transformed.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => @debug.assert_eq(imports.length(), 0)
+    None => ()
+  }
+  match transformed.wasm_module.mem_sec {
+    Some(@lib.MemSec(mems)) => @debug.assert_eq(mems.length(), 1)
+    None => fail("expected original memory")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic duplicate equivalent memory transform appends unused matching memory" {
   let original_memory = @lib.MemType::new(@lib.Limits::i32(1U, Some(2U)))
   let base = @lib.Module::new().with_mem_sec(
@@ -7701,9 +7771,12 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 421)
-  @debug.assert_eq(stats.validated, 421)
+  @debug.assert_eq(stats.transformed, 422)
+  @debug.assert_eq(stats.validated, 422)
   assert_true(stats.transform_ids.contains("add-duplicate-equivalent-memory"))
+  assert_true(
+    stats.transform_ids.contains("add-duplicate-equivalent-imported-memory"),
+  )
   assert_true(
     stats.transform_ids.contains(
       "add-leading-block-wrapped-i32-const-drop-to-defined-functions",
