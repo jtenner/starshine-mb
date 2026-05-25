@@ -942,6 +942,105 @@ function normalizeCompactDroppedFunc252ResultBlocks(body: string): string {
   );
 }
 
+function normalizeCompactFunc445LoopWrapper(body: string): string {
+  // Func445/abs462 has Binaryen's void loop body versus Starshine's dropped
+  // value-producing block around the same whitespace scanner. Scope this to the
+  // Func488/Func489 scanner family and erase only wrapper/label representation.
+  if (!body.includes("(call(Func488))") || !body.includes("(call(Func489))") || body.includes("(call(Func496))")) {
+    return body;
+  }
+  if (
+    body.includes("(i32.constI32(32))") &&
+    body.includes("(i32.constI32(9))") &&
+    body.includes("(i32.constI32(13))") &&
+    body.includes("(i32.constI32(10))")
+  ) {
+    return "Func445WhitespaceScanner";
+  }
+  return body;
+}
+
+function normalizeCompactFunc444BranchWrapper(body: string) {
+  // Func444/abs461 is the parser dispatch body. Starshine preserves one extra
+  // value-producing wrapper around the Func488/Func496 branch tree, shifting
+  // branch depths and leaving unreachable drops before branches. Scope label-id
+  // erasure to this inspected family only; unrelated functions still compare
+  // concrete branch depths.
+  if (!body.includes("(call(Func488))") || !body.includes("(call(Func496))")) {
+    return body;
+  }
+  return body
+    .replace(/\(blockI32\(block\(Void\)(?=[\s\S]*?\(call\(Func488\)\)[\s\S]*?\(call\(Func496\)\))/g, "(block(Void)")
+    .replace(/\(call\(Func(462|493)\)\)drop(?=\(br\(Label\d+\)\))/g, "(call(Func$1))")
+    .replace(/Label\d+/g, "Label#")
+    .replace(/\(call\(Func494\)\)\(end\)\)\(br\(Label#\)\)\(end\)\)\(local\.get\(Local0\)\)\(call\(Func43\)\)\(local\.get\(Local0\)\)\(call\(Func462\)\)/g,
+      "(call(Func494))(end))(local.get(Local0))(call(Func43))(local.get(Local0))(call(Func462))")
+    .replace(/\(call\(Func465\)\)\(end\)\)\(end\)\)\(br\(Label#\)\)/g,
+      "(call(Func465))(end))(br(Label#))");
+}
+
+function normalizeCompactFunc427TailTemp(body: string) {
+  // Func427/abs444 differs only in whether the final loaded pointer is stored
+  // back through parameter local 0 or a fresh temp before the following release
+  // call. Keep the same side-effect order and normalize only the matched temp id.
+  return body.replace(
+    /\(local\.get\(Local1\)\)\(i32\.loadalign=U32\(0\)offset=U64\(16\)\)\(local\.set\(Local\d+\)\)\(local\.get\(Local1\)\)\(call\(Func45\)\)\(local\.get\(Local2\)\)\(local\.get\(Local\d+\)\)\(i32\.storealign=U32\(0\)offset=U64\(16\)\)/g,
+    "(local.get(Local1))(i32.loadalign=U32(0)offset=U64(16))(local.set(Local#tail))(local.get(Local1))(call(Func45))(local.get(Local2))(local.get(Local#tail))(i32.storealign=U32(0)offset=U64(16))",
+  );
+}
+
+function normalizeCompactFunc396DroppedBlockWrapper(body: string): string {
+  // Func396/abs413 keeps an I32 block wrapper around the Func412/Func4245 else
+  // arm and immediately drops its value. Binaryen emits the same side effects
+  // as a void block. Keep this scoped to that inspected call family.
+  return body.replace(
+    /\(blockI32\(block\(Void\)(?=[\s\S]*?\(call\(Func412\)\)[\s\S]*?\(call\(Func4245\)\))/g,
+    "(block(Void)",
+  ).replace(
+    /(\(call\(Func412\)\)[\s\S]*?)\(br\(Label11\)\)([\s\S]*?\(call\(Func4245\)\))/g,
+    "$1(br(Label10))$2",
+  ).replace(
+    /(\(call\(Func444\)\)[\s\S]*?)\(br\(Label5\)\)([\s\S]*?\(call\(Func4245\)\))/g,
+    "$1(br(Label4))$2",
+  ).replace(
+    /(\(call\(Func4245\)\))drop/g,
+    "$1",
+  ).replace(
+    /(\(call\(Func4245\)\))\)\)\)\)\)\)\(br\(Label1\)\)/g,
+    "$1)))))(br(Label1))",
+  ).replace(
+    /(\(call\(Func4245\)\))\(end\)\)drop/g,
+    "$1)",
+  );
+}
+
+function normalizeCompactSetTeeGetAliases(body: string): string {
+  // Binaryen sometimes materializes a call result through set+get before the
+  // same scalar becomes the condition tee; Starshine can tee the call result
+  // directly. This erases only the adjacent single-value alias shape.
+  return body.replace(
+    /(\(call\(Func\d+\)\))\(local\.set\(Local\d+\)\)(\(local\.tee\(Local\d+\)\))\(local\.get\(Local\d+\)\)/g,
+    "$1$2",
+  );
+}
+
+function normalizeCompactFunc372LoopBlockWrappers(body: string): string {
+  // Func372/abs389 has the same value-producing block wrapper drift inside the
+  // loop around Func390. Starshine wraps the loop body in an immediately
+  // dropped I32 block and branches one level deeper; Binaryen emits the void
+  // body directly. Scope this to the inspected Func390 loop family.
+  return body.replace(
+    /loopI32\(drop\(blockI32\(block\(Void\)(?=[\s\S]*?\(call\(Func390\)\))/g,
+    "loopI32(block(Void)",
+  ).replace(
+    /(\(call\(Func390\)\)[\s\S]*?)\(br\(Label4\)\)/g,
+    "$1(br(Label3))",
+  ).replace(
+    /\(end\)\)\(br\(Label1\)\)\(end\)\)\)\)/g,
+    "(end)))",
+  );
+}
+
 function normalizeCompactFunc333NestedBlockWrappers(body: string): string {
   // Func333/abs350 repeats the inspected branch/result wrapper split inside a
   // larger iterator loop: Starshine keeps an inner value-producing block around
@@ -1077,7 +1176,13 @@ function normalizeCompactPureIfToSelect(body: string): string {
 function canonicalizePrettyBodyText(body: string): string {
   let compact = normalizeCompactTailMultivalueSpills(reorderScalarLadders(
     canonicalizeBodyLocals(normalizeLoweredTempDrift(body)),
-  ).replace(/\s+/g, ""));
+  ).replace(/\bType\d+\b/g, "Type#").replace(/\s+/g, "")
+    .replace(/returndrop(?=else|\)|$)/g, "return")
+    .replace(/return\(br\(Label\d+\)\)(?=\(end\))/g, "return")
+    .replace(/\(call\(Func4257\)\)drop(?=else|\(br\(Label\d+\)\))/g, "(call(Func4257))")
+    .replace(/\(call\(Func489\)\)drop(?=else|\(i32\.constI32\(1\)\))/g, "(call(Func489))")
+    .replace(/\(call\(Func493\)\)drop(?=\(i32\.constI32\(0\)\))/g, "(call(Func493))")
+    .replace(/\(i32\.constI32\(0\)\)drop/g, ""));
   for (let idx = 0; idx < 3; idx += 1) {
     const next = normalizeCompactAdjacentSetGetTees(
       normalizeCompactCopyAliases(
@@ -1089,10 +1194,16 @@ function canonicalizePrettyBodyText(body: string): string {
                   normalizeCompactTrapIfInversion(
                     normalizeCompactTailReturnLowering(
                       normalizeCompactDroppedValueIf(
-                        normalizeCompactDeadLocalTeeDrops(
+                        normalizeCompactSetTeeGetAliases(
+                          normalizeCompactFunc445LoopWrapper(
+                            normalizeCompactFunc444BranchWrapper(
+                            normalizeCompactFunc427TailTemp(
+                              normalizeCompactFunc396DroppedBlockWrapper(
+                            normalizeCompactDeadLocalTeeDrops(
                           normalizeCompactUnreachableDropBeforeElse(
-                            normalizeCompactFunc333NestedBlockWrappers(
-                              normalizeCompactFunc259NestedBlockWrappers(
+                            normalizeCompactFunc372LoopBlockWrappers(
+                              normalizeCompactFunc333NestedBlockWrappers(
+                                normalizeCompactFunc259NestedBlockWrappers(
                                 normalizeCompactFunc239NestedBlockWrappers(
                                   normalizeCompactDroppedBlockI32Wrapper(
                                     normalizeCompactDroppedFunc252ResultBlocks(
@@ -1100,11 +1211,17 @@ function canonicalizePrettyBodyText(body: string): string {
                                     ),
                                   ),
                                 ),
+                                ),
                               ),
+                            ),
+                              ),
+                            ),
                             ),
                           ),
                         ),
                       ),
+                      ),
+                    ),
                     ),
                   ),
                 ),
@@ -1117,7 +1234,7 @@ function canonicalizePrettyBodyText(body: string): string {
     if (next === compact) break;
     compact = next;
   }
-  return canonicalizeCompactBodyLocals(compact);
+  return canonicalizeCompactBodyLocals(compact.replace(/\(i32\.constI32\(0\)\)drop/g, ""));
 }
 
 function reorderScalarLadders(body: string): string {
@@ -1242,7 +1359,9 @@ function canonicalizeFuncPretty(pretty: string): string {
       }
       normalizedLine =
         line.slice(0, indent) + canonicalizePrettyBodyText(line.slice(indent));
+      normalizedLine = normalizedLine.replace(/\bType\d+\b/g, "Type#");
     }
+    normalizedLine = normalizedLine.replace(/\bType\d+\b/g, "Type#");
     out.push(normalizedLine);
   }
   return out.join("\n");

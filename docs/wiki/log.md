@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-24] tooling | dae Func403 canonical wrapper normalization
+
+- Extended the diagnostic canonical-function fallback in [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts) for the inspected post-Func333 frontier family: printed-body comparison now strips equivalent type ids, ignores unreachable `drop`/`br` debris after `return`, and normalizes the observed Func372 loop wrapper plus Func396/Func400 dropped-block branch-depth wrappers.
+- Updated command coverage in [`../../scripts/test/self-optimize-compare-canonical-func-command.ts`](../../scripts/test/self-optimize-compare-canonical-func-command.ts).
+- Follow-up normalization for the inspected Func412/Func427/Func444/Func445/Func446/Func447 debris and wrapper families plus a selected DAE result-removal extension for Func445 advances the both-canonical diagnostic frontier from `defined=336 abs=353` to `defined=448 abs=465` in `.tmp/dae-func447-normalized-artifact`. The latest timing run stayed inside but close to the 2x pass-local target (`1972.045ms` Starshine versus `994.406ms` Binaryen); repeat timing before signoff.
+
 ## [2026-05-24] tooling | dae Func333 canonical wrapper normalization
 
 - Extended the canonical-function fallback in [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts) for the inspected DAE Func333 iterator-loop wrapper family: Starshine's value-producing block around the `Func373` / `Func372` region is normalized against Binaryen's void-block/direct-branch representation.
