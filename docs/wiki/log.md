@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-25] passes | dae DAE006 Func505 underscore guard reduction
+
+- Reduced the next `[DAE]006` Func505 live region in [`raw/research/0582-2026-05-25-dae-func505-underscore-guard-reduction.md`](raw/research/0582-2026-05-25-dae-func505-underscore-guard-reduction.md) using the saved `.tmp/dae-func505-bool-carrier-artifact` first-diff pretty dumps.
+- Agent classification: the underscore guard polarity around `Func4495` is representation-only control inversion. Starshine's `if (predicate) br K else BODY` and Binaryen's `if (eqz predicate) BODY` call the predicate once with the same operands, preserve the digit/error parse body effects, and join at the same continuation.
+- No pass behavior or compare tooling changed. The overall Func505 frontier remains unknown/risky because loop induction/exit-carrier and overflow/error-return/temp-local drift are still live; `[DAE]006` remains open. Validation for this docs/reduction-only slice: `git diff --check`, `moon info`, `moon fmt`, and `moon test`.
+
 ## [2026-05-25] passes | dae DAE006 Func505 bool-carrier cleanup
 
 - Closed the lower-bound bool-carrier subshape from `[DAE]006` with a focused selected-Func505 regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) and a guarded rewrite in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt). The cleanup rewrites `predicate; if(result i32) 1 else 0; if` to `predicate; if` only in the selected Func505 rewritten-control lane.
