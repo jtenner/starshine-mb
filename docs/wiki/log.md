@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] docs | dae DAE004 fallback gap classification
+
+- Closed classification subtask `[DAE004-B]` by adding [`raw/research/0629-2026-05-26-dae004-fallback-gap-classification.md`](raw/research/0629-2026-05-26-dae004-fallback-gap-classification.md). The note records the latest debug-artifact trace where the fact-driven large-module lane spent its eight productive descending attempts on `4651..4644` before the handpicked selected dropped-result fallback still changed `298`, `299`, `427`, `445`, `459`, `472`, `476`, `3566`, `3732`, `3814`, `3834`, `4106`, `4229`, `4232`, `503`, `4240`, `4241`, `4242`, and `4249`.
+- Agent classification: the still-productive fallback set is blocked first by large-module descending ordering plus the eight-productive-attempt cap in the current trace; no trace evidence in this docs-only slice points to stale facts, mixed dropped/undropped calls, dead-suffix repair, signature repair, or type-liveness as the first blocker.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md). No pass behavior changed; `[DAE]004` remains open with `[DAE004-C]` next.
+
 ## [2026-05-26] docs | dae DAE004 selected fallback inventory
 
 - Closed inventory subtask `[DAE004-A]` by adding [`raw/research/0628-2026-05-26-dae004-selected-fallback-inventory.md`](raw/research/0628-2026-05-26-dae004-selected-fallback-inventory.md). The note records the source fallback list in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) and the latest traced debug-artifact productivity set.
