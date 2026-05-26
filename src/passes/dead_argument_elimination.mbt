@@ -1447,7 +1447,8 @@ fn dae_materializable_control_const(
       }
     @lib.Block(_, @lib.Expr(body)) =>
       dae_materializable_dropped_const_prefix_leaf(body, resolve_leaf)
-    @lib.Loop(_, @lib.Expr(body)) if body.length() == 1 => resolve_leaf(body[0])
+    @lib.Loop(_, @lib.Expr(body)) =>
+      dae_materializable_dropped_const_prefix_leaf(body, resolve_leaf)
     @lib.TryTable(_, _, @lib.Expr(body)) =>
       dae_materializable_dropped_const_prefix_leaf(body, resolve_leaf)
     @lib.If(_, then_body, Some(else_body)) => {
