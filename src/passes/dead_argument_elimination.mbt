@@ -8457,7 +8457,6 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
   call_facts : DaeCurrentCallFacts,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
-  let defined = dae_defined_func_count(mod_)
   let escaped = call_facts.escaped
   let direct_calls = call_facts.direct_calls
   let tail_calls = call_facts.tail_calls
@@ -8533,19 +8532,6 @@ fn dae_try_rewrite_selected_defs_unread_params_with_facts_once(
     def_idx += 1
   }
   { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-}
-
-///|
-fn dae_try_rewrite_selected_defs_unread_params_once(
-  mod_ : @lib.Module,
-  selected_defs : Array[Bool],
-) -> DaePassResult {
-  let imported = dae_imported_func_count(mod_)
-  let defined = dae_defined_func_count(mod_)
-  let call_facts = dae_collect_current_call_facts(mod_, imported + defined)
-  dae_try_rewrite_selected_defs_unread_params_with_facts_once(
-    mod_, selected_defs, call_facts,
-  )
 }
 
 ///|
@@ -17353,7 +17339,6 @@ fn dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
   allow_immutable_global_get? : Bool = false,
 ) -> DaePassResult {
   let imported = dae_imported_func_count(mod_)
-  let defined = dae_defined_func_count(mod_)
   let escaped = call_facts.escaped
   let direct_calls = call_facts.direct_calls
   let tail_calls = call_facts.tail_calls
@@ -17452,19 +17437,6 @@ fn dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
     def_idx += 1
   }
   { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
-}
-
-///|
-fn dae_try_rewrite_selected_defs_exact_literal_once(
-  mod_ : @lib.Module,
-  selected_defs : Array[Bool],
-) -> DaePassResult {
-  let imported = dae_imported_func_count(mod_)
-  let defined = dae_defined_func_count(mod_)
-  let call_facts = dae_collect_current_call_facts(mod_, imported + defined)
-  dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
-    mod_, selected_defs, call_facts,
-  )
 }
 
 ///|
