@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] docs | dae DAE004 large fact-queue recovery probe
+
+- Probed the remaining `[DAE]004` large-artifact fallback removal path without landing behavior changes. A test-first experiment moved `dae-optimizing removes high fact-discovered dropped callee result outside selected list` from defined function `3000` to `4500`; it failed before widening the fact queue with the target still reporting one result (`1 != 0`).
+- Rejected the naive implementation of widening the fact-driven dropped-result queue from `defined <= 4096` to `<= 8192`: the focused synthetic test passed, but the debug-artifact timing-only replay exited with code `1` after the widened ascending queue spent its 32 iterations on low candidates, still fell through to the handpicked high-def fallback, and produced an invalid/failed artifact dump.
+- Recorded the recovery evidence and next required subtasks in [`raw/research/0607-2026-05-26-dae004-large-fact-queue-recovery.md`](raw/research/0607-2026-05-26-dae004-large-fact-queue-recovery.md), then reverted the experimental code/test edits. `[DAE]004` remains open; future work needs an ordered large-module candidate scheduler plus artifact timing/validation evidence before removing the selected fallback.
+
 ## [2026-05-26] passes | dae DAE003 high exact-literal revisit
 
 - Broadened `[DAE]003` in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) so the low-forwarded-const exact-literal revisit now runs for modules up to `4096` defined functions and scans the first `4096` candidate defs instead of stopping at the first `64` definitions.
