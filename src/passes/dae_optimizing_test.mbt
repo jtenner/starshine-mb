@@ -3250,6 +3250,45 @@ test "dae-optimizing materializes non-adjacent try-table constant carrier" {
 }
 
 ///|
+test "dae-optimizing materializes non-adjacent try-table dropped-prefix constant carrier" {
+  let target_def = 1500
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (tag $e (param i32))
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0
+      #|    i32.const 1
+      #|    i32.add)
+      #|  (func $caller (export "run") (result i32) (local i32)
+      #|    block $exit (result i32)
+      #|      try_table (result i32) (catch $e $exit)
+      #|        i32.const 7
+      #|        drop
+      #|        i32.const 88
+      #|      end
+      #|    end
+      #|    local.set 0
+      #|    local.get 0
+      #|    call $target)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  let @lib.FuncType(params, _) = dae_test_func_type(optimized, target_def)
+  @debug.assert_eq(params.length(), 0)
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  assert_true(target.contains("I32(88)"), msg=target)
+  assert_false(target.contains("local.get"), msg=target)
+}
+
+///|
 test "dae-optimizing materializes non-adjacent pure dropped-prefix block carrier" {
   let target_def = 1500
   let out = StringBuilder::new()
