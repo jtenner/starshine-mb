@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE011 caller-filtered dropped results
+
+- Optimized the selected dropped-result helper in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) by threading precomputed `direct_callers[callee]` into `dae_try_remove_dropped_results(...)` and limiting undropped-call checks, dropped-call rewrites, `call; drop` cleanup, and no-param dead-suffix repair to the caller set when facts are available.
+- Updated white-box coverage in [`../../src/passes/pass_manager_wbtest.mbt`](../../src/passes/pass_manager_wbtest.mbt) so the selected helper supplies consistent direct-caller facts and returns caller touched flags from the caller-filtered rewrite.
+- Recorded closure evidence in [`raw/research/0601-2026-05-26-dae011-caller-filtered-dropped-results.md`](raw/research/0601-2026-05-26-dae011-caller-filtered-dropped-results.md) and synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) plus [`../../agent-todo.md`](../../agent-todo.md): repeated timing-only debug-artifact replays now report `1461.100ms` vs `864.852ms` and `1577.403ms` vs `851.431ms`, both inside the `Starshine <= 2x Binaryen` pass-local target. The 10k compare refresh at `.tmp/pass-fuzz-dae011-caller-filtered-20260526-full` reproduced the accepted `[DAE]010` mismatch family with `0` validation failures. `[DAE]011` is closed for the current selected dropped-result helper performance slice.
+
 ## [2026-05-26] passes | dae DAE011 dropped-result helper timers
 
 - Added helper-internal DAE selected dropped-result timers in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), threading the existing perf session through `dae_try_remove_selected_defs_dropped_results_with_facts_once(...)` and `dae_try_remove_dropped_results(...)`.

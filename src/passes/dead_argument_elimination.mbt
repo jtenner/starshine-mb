@@ -3259,20 +3259,43 @@ fn dae_rewrite_dropped_result_calls_anywhere_instrs(
 }
 
 ///|
+fn dae_remove_dropped_result_call_drops_in_func(
+  funcs : Array[@lib.Func],
+  caller_def : Int,
+  callee_abs : Int,
+) -> Unit {
+  if caller_def < 0 || caller_def >= funcs.length() {
+    return
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = funcs[caller_def]
+  let (rewritten_body, rewrites) = dae_rewrite_dropped_result_calls_anywhere_instrs(
+    body, callee_abs,
+  )
+  if rewrites > 0 {
+    funcs[caller_def] = @lib.Func::new(locals, @lib.Expr::new(rewritten_body))
+  }
+}
+
+///|
 fn dae_remove_dropped_result_call_drops_in_funcs(
   funcs : Array[@lib.Func],
   callee_abs : Int,
 ) -> Unit {
   let mut caller_def = 0
   while caller_def < funcs.length() {
-    let @lib.Func(locals, @lib.Expr(body)) = funcs[caller_def]
-    let (rewritten_body, rewrites) = dae_rewrite_dropped_result_calls_anywhere_instrs(
-      body, callee_abs,
-    )
-    if rewrites > 0 {
-      funcs[caller_def] = @lib.Func::new(locals, @lib.Expr::new(rewritten_body))
-    }
+    dae_remove_dropped_result_call_drops_in_func(funcs, caller_def, callee_abs)
     caller_def += 1
+  }
+}
+
+///|
+fn dae_remove_dropped_result_call_drops_in_callers(
+  funcs : Array[@lib.Func],
+  callee_abs : Int,
+  caller_defs : Array[Int],
+) -> Unit {
+  for caller_def in caller_defs {
+    dae_remove_dropped_result_call_drops_in_func(funcs, caller_def, callee_abs)
   }
 }
 
@@ -3283,6 +3306,7 @@ fn dae_try_remove_dropped_results(
   direct_call_count : Int,
   dropped_call_count : Int,
   perf? : HotPerfSession? = None,
+  caller_defs? : Array[Int]? = None,
 ) -> DaePassResult {
   if direct_call_count == 0 || dropped_call_count != direct_call_count {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
@@ -3333,9 +3357,14 @@ fn dae_try_remove_dropped_results(
   let undropped_scan_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:undropped-scan",
   )
-  let has_undropped = dae_module_has_undropped_direct_call_to_except(
-    funcs, callee_abs, def_idx,
-  )
+  let has_undropped = match caller_defs {
+    Some(callers) =>
+      dae_callers_have_undropped_direct_call_to_except(
+        funcs, callers, callee_abs, def_idx,
+      )
+    None =>
+      dae_module_has_undropped_direct_call_to_except(funcs, callee_abs, def_idx)
+  }
   perf_stop_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:undropped-scan",
     undropped_scan_start_us,
@@ -3360,19 +3389,38 @@ fn dae_try_remove_dropped_results(
   let rewrite_calls_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:rewrite-calls",
   )
-  while caller_def < rewritten_funcs.length() {
-    let @lib.Func(locals, @lib.Expr(body)) = rewritten_funcs[caller_def]
-    let (rewritten_body, rewrites) = dae_rewrite_dropped_result_calls_instrs(
-      body, callee_abs,
-    )
-    if rewrites > 0 {
-      rewritten_funcs[caller_def] = @lib.Func::new(
-        locals,
-        @lib.Expr::new(rewritten_body),
-      )
-      rewritten_call_count += rewrites
-    }
-    caller_def += 1
+  match caller_defs {
+    Some(callers) =>
+      for caller in callers {
+        if caller >= 0 && caller < rewritten_funcs.length() {
+          let @lib.Func(locals, @lib.Expr(body)) = rewritten_funcs[caller]
+          let (rewritten_body, rewrites) = dae_rewrite_dropped_result_calls_instrs(
+            body, callee_abs,
+          )
+          if rewrites > 0 {
+            rewritten_funcs[caller] = @lib.Func::new(
+              locals,
+              @lib.Expr::new(rewritten_body),
+            )
+            rewritten_call_count += rewrites
+          }
+        }
+      }
+    None =>
+      while caller_def < rewritten_funcs.length() {
+        let @lib.Func(locals, @lib.Expr(body)) = rewritten_funcs[caller_def]
+        let (rewritten_body, rewrites) = dae_rewrite_dropped_result_calls_instrs(
+          body, callee_abs,
+        )
+        if rewrites > 0 {
+          rewritten_funcs[caller_def] = @lib.Func::new(
+            locals,
+            @lib.Expr::new(rewritten_body),
+          )
+          rewritten_call_count += rewrites
+        }
+        caller_def += 1
+      }
   }
   perf_stop_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:rewrite-calls",
@@ -3384,7 +3432,14 @@ fn dae_try_remove_dropped_results(
   let remove_call_drops_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:remove-call-drops",
   )
-  dae_remove_dropped_result_call_drops_in_funcs(rewritten_funcs, callee_abs)
+  match caller_defs {
+    Some(callers) =>
+      dae_remove_dropped_result_call_drops_in_callers(
+        rewritten_funcs, callee_abs, callers,
+      )
+    None =>
+      dae_remove_dropped_result_call_drops_in_funcs(rewritten_funcs, callee_abs)
+  }
   perf_stop_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:remove-call-drops",
     remove_call_drops_start_us,
@@ -3392,9 +3447,16 @@ fn dae_try_remove_dropped_results(
   let dead_suffix_repair_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:dead-suffix-repair",
   )
-  dae_repair_dead_suffix_calls_in_no_param_funcs_except(
-    rewritten_funcs, type_indices, type_sec, imported, callee_abs, def_idx,
-  )
+  match caller_defs {
+    Some(callers) =>
+      dae_repair_dead_suffix_calls_in_no_param_callers_except(
+        rewritten_funcs, type_indices, type_sec, imported, callee_abs, def_idx, callers,
+      )
+    None =>
+      dae_repair_dead_suffix_calls_in_no_param_funcs_except(
+        rewritten_funcs, type_indices, type_sec, imported, callee_abs, def_idx,
+      )
+  }
   perf_stop_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:dead-suffix-repair",
     dead_suffix_repair_start_us,
@@ -3638,6 +3700,37 @@ fn dae_repair_dead_suffix_calls_in_funcs_except(
 }
 
 ///|
+fn dae_repair_dead_suffix_calls_in_no_param_func_except(
+  funcs : Array[@lib.Func],
+  type_indices : Array[@lib.TypeIdx],
+  type_sec : @lib.TypeSec,
+  imported : Int,
+  callee_abs : Int,
+  skip_def : Int,
+  func_idx : Int,
+) -> Unit {
+  if func_idx == skip_def || func_idx < 0 || func_idx >= funcs.length() {
+    return
+  }
+  let abs_idx = imported + func_idx
+  let has_no_params = if abs_idx >= 0 && abs_idx < type_indices.length() {
+    match dae_type_sec_func_type(type_sec, type_indices[abs_idx]) {
+      Some(@lib.FuncType(params, _)) => params.length() == 0
+      None => false
+    }
+  } else {
+    false
+  }
+  if has_no_params {
+    let (repaired, _) = dae_repair_dead_suffix_calls_func(
+      funcs[func_idx],
+      callee_abs,
+    )
+    funcs[func_idx] = repaired
+  }
+}
+
+///|
 fn dae_repair_dead_suffix_calls_in_no_param_funcs_except(
   funcs : Array[@lib.Func],
   type_indices : Array[@lib.TypeIdx],
@@ -3648,25 +3741,27 @@ fn dae_repair_dead_suffix_calls_in_no_param_funcs_except(
 ) -> Unit {
   let mut func_idx = 0
   while func_idx < funcs.length() {
-    if func_idx != skip_def {
-      let abs_idx = imported + func_idx
-      let has_no_params = if abs_idx >= 0 && abs_idx < type_indices.length() {
-        match dae_type_sec_func_type(type_sec, type_indices[abs_idx]) {
-          Some(@lib.FuncType(params, _)) => params.length() == 0
-          None => false
-        }
-      } else {
-        false
-      }
-      if has_no_params {
-        let (repaired, _) = dae_repair_dead_suffix_calls_func(
-          funcs[func_idx],
-          callee_abs,
-        )
-        funcs[func_idx] = repaired
-      }
-    }
+    dae_repair_dead_suffix_calls_in_no_param_func_except(
+      funcs, type_indices, type_sec, imported, callee_abs, skip_def, func_idx,
+    )
     func_idx += 1
+  }
+}
+
+///|
+fn dae_repair_dead_suffix_calls_in_no_param_callers_except(
+  funcs : Array[@lib.Func],
+  type_indices : Array[@lib.TypeIdx],
+  type_sec : @lib.TypeSec,
+  imported : Int,
+  callee_abs : Int,
+  skip_def : Int,
+  caller_defs : Array[Int],
+) -> Unit {
+  for func_idx in caller_defs {
+    dae_repair_dead_suffix_calls_in_no_param_func_except(
+      funcs, type_indices, type_sec, imported, callee_abs, skip_def, func_idx,
+    )
   }
 }
 
@@ -3812,6 +3907,24 @@ fn dae_module_has_undropped_direct_call_to_except(
       }
     }
     def_idx += 1
+  }
+  false
+}
+
+///|
+fn dae_callers_have_undropped_direct_call_to_except(
+  funcs : Array[@lib.Func],
+  caller_defs : Array[Int],
+  callee_abs : Int,
+  skip_def : Int,
+) -> Bool {
+  for def_idx in caller_defs {
+    if def_idx != skip_def && def_idx >= 0 && def_idx < funcs.length() {
+      let @lib.Func(_, @lib.Expr(body)) = funcs[def_idx]
+      if dae_has_live_undropped_direct_call_to(body, callee_abs) {
+        return true
+      }
+    }
   }
   false
 }
@@ -17395,17 +17508,28 @@ fn dae_try_remove_selected_defs_dropped_results_with_facts_once(
         } else {
           0
         }
+        let caller_defs = if callee_abs < call_facts.direct_callers.length() {
+          call_facts.direct_callers[callee_abs]
+        } else {
+          []
+        }
         let result = dae_try_remove_dropped_results(
           mod_,
           callee_abs,
           direct_call_count,
           dropped_call_count,
           perf~,
+          caller_defs=Some(caller_defs),
         )
         if result.changed {
-          let touched = Array::make(defined, false)
-          if def_idx < touched.length() {
-            touched[def_idx] = true
+          let touched = if result.touched.length() == defined {
+            result.touched
+          } else {
+            let fallback = Array::make(defined, false)
+            if def_idx < fallback.length() {
+              fallback[def_idx] = true
+            }
+            fallback
           }
           perf_stop_timer_opt(
             perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",

@@ -3,6 +3,14 @@ kind: entity
 status: supported
 last_reviewed: 2026-05-26
 sources:
+  - ../../../raw/research/0601-2026-05-26-dae011-caller-filtered-dropped-results.md
+  - ../../../raw/research/0600-2026-05-26-dae011-dropped-result-helper-timers.md
+  - ../../../raw/research/0599-2026-05-26-dae011-dropped-call-fact-guard.md
+  - ../../../raw/research/0598-2026-05-26-dae011-dropped-result-detail-timers.md
+  - ../../../raw/research/0597-2026-05-26-dae011-selected-lane-perf-timers.md
+  - ../../../raw/research/0596-2026-05-26-dae011-core-family-perf-timers.md
+  - ../../../raw/research/0595-2026-05-26-dae011-detail-perf-timers.md
+  - ../../../raw/research/0594-2026-05-26-dae011-recovery-profile-repeat.md
   - ../../../raw/research/0593-2026-05-26-dae011-timing-only-helper.md
   - ../../../raw/research/0592-2026-05-26-dae011-recovery-timing-blocker.md
   - ../../../raw/research/0591-2026-05-26-dae-func509-lowering-boundary-closure.md
