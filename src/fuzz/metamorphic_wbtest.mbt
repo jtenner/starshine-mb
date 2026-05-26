@@ -3127,6 +3127,100 @@ test "metamorphic duplicate equivalent mutable i64 global transform appends unus
 }
 
 ///|
+test "metamorphic duplicate equivalent immutable v128 global transform appends unused matching global" {
+  let original_global = @lib.Global::new(
+    @lib.GlobalType::new(@lib.ValType::v128(), false),
+    @lib.Expr::new([metamorphic_v128_zero_const()]),
+  )
+  let base = @lib.Module::new().with_global_sec(
+    @lib.GlobalSec::new([original_global]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentImmutableV128Global) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-duplicate-equivalent-immutable-v128-global",
+  )
+  match transformed.wasm_module.global_sec {
+    Some(@lib.GlobalSec(globals)) => {
+      @debug.assert_eq(globals.length(), 2)
+      @debug.assert_eq(globals[0], original_global)
+      @debug.assert_eq(globals[1], original_global)
+    }
+    None => fail("expected transformed globals")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic duplicate equivalent mutable v128 global transform appends unused matching global" {
+  let original_global = @lib.Global::new(
+    @lib.GlobalType::new(@lib.ValType::v128(), true),
+    @lib.Expr::new([metamorphic_v128_zero_const()]),
+  )
+  let base = @lib.Module::new().with_global_sec(
+    @lib.GlobalSec::new([original_global]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentMutableV128Global) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-duplicate-equivalent-mutable-v128-global",
+  )
+  match transformed.wasm_module.global_sec {
+    Some(@lib.GlobalSec(globals)) => {
+      @debug.assert_eq(globals.length(), 2)
+      @debug.assert_eq(globals[0], original_global)
+      @debug.assert_eq(globals[1], original_global)
+    }
+    None => fail("expected transformed globals")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic duplicate equivalent v128 global transforms no-op without matching globals" {
+  let base = @lib.Module::new().with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), false),
+        @lib.Expr::new([@lib.Instruction::i32_const(1)]),
+      ),
+    ]),
+  )
+  let immutable_transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentImmutableV128Global) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let mutable_transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentMutableV128Global) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match immutable_transformed.wasm_module.global_sec {
+    Some(@lib.GlobalSec(globals)) => @debug.assert_eq(globals.length(), 1)
+    None => fail("expected unchanged globals")
+  }
+  match mutable_transformed.wasm_module.global_sec {
+    Some(@lib.GlobalSec(globals)) => @debug.assert_eq(globals.length(), 1)
+    None => fail("expected unchanged globals")
+  }
+}
+
+///|
 test "metamorphic duplicate equivalent mutable i64 global transform falls back to fresh unused global" {
   let transformed = match
     metamorphic_apply_transform(
@@ -9699,8 +9793,16 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 449)
-  @debug.assert_eq(stats.validated, 449)
+  @debug.assert_eq(stats.transformed, 451)
+  @debug.assert_eq(stats.validated, 451)
+  assert_true(
+    stats.transform_ids.contains(
+      "add-duplicate-equivalent-immutable-v128-global",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains("add-duplicate-equivalent-mutable-v128-global"),
+  )
   assert_true(stats.transform_ids.contains("add-duplicate-equivalent-memory"))
   assert_true(stats.transform_ids.contains("add-duplicate-equivalent-memory64"))
   assert_true(

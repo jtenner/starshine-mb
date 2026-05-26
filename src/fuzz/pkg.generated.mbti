@@ -522,10 +522,12 @@ pub enum MetamorphicValidTransform {
   AddDuplicateEquivalentImmutableF32Global
   AddDuplicateEquivalentImmutableF64Global
   AddDuplicateEquivalentImmutableI64Global
+  AddDuplicateEquivalentImmutableV128Global
   AddDuplicateEquivalentMutableI32Global
   AddDuplicateEquivalentMutableF32Global
   AddDuplicateEquivalentMutableF64Global
   AddDuplicateEquivalentMutableI64Global
+  AddDuplicateEquivalentMutableV128Global
   AddUnusedEmptyFunction
   AddUnusedEmptyFunctionType
   AddDuplicateEquivalentFunctionType

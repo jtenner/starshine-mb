@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1036K34 duplicate v128 global transforms
+
+- Completed `[FUZ]1036K34` by adding `add-duplicate-equivalent-immutable-v128-global` and `add-duplicate-equivalent-mutable-v128-global`. Both transforms append an unused duplicate only when the module already has a matching defined v128 global, preserving existing global indices while avoiding invented SIMD global state in modules without that surface.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 451 transforms per generated module, and kept focused `src/fuzz` validation green.
+
 ## [2026-05-25] fuzzing | FUZ1051D recipe override docs
 
 - Completed `[FUZ]1051D` by expanding [`fuzzing/recipe-schema.md`](fuzzing/recipe-schema.md) with the explicit parser-defaults -> recipe -> CLI override precedence ladder, duplicate/unknown recipe behavior, and common `moon run src/fuzz` / `bun fuzz run` commands for smoke, pass-signoff, validator-stress, and default-CI-style runs.
