@@ -12154,6 +12154,74 @@ test "simplify-globals-optimizing removes loop-wrapped independent subword store
 }
 
 ///|
+test "simplify-globals-optimizing removes loop-wrapped independent float store effect prefixes" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (memory (export "mem") 1)
+      #|  (global $once (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    loop (result i32)
+      #|      i32.const 0
+      #|      f32.const 1.5
+      #|      f32.store
+      #|      i32.const 8
+      #|      f64.const 2.5
+      #|      f64.store
+      #|      global.get $once
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $once
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("f32.store"), msg=pretty)
+  assert_true(pretty.contains("f64.store"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps loop-wrapped candidate-derived float store prefixes conservative" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (memory (export "mem") 1)
+      #|  (global $once (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    loop (result i32)
+      #|      global.get $once
+      #|      f32.const 1.5
+      #|      f32.store
+      #|      global.get $once
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $once
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("f32.store"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps loop-wrapped candidate-derived subword store prefixes conservative" {
   let optimized = sgo_test_run(
     (
