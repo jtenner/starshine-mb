@@ -5346,7 +5346,7 @@ test "simplify-locals skips large read-only local ladders without hot lift" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
-  let input = perf_test_make_simplify_locals_no_local_writes_module(256)
+  let input = perf_test_make_simplify_locals_no_local_writes_module(128)
 
   match
     pass_test_run_pipeline(

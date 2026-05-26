@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] tests | dae DAE004 native perf-test gate unblock
+
+- Isolated the native `src/passes/perf_test.mbt` `SIGSEGV` from note `0619` to index `56`, `simplify-locals skips large read-only local ladders without hot lift`; neighboring single-test indices passed.
+- Reduced that synthetic read-only local ladder fixture from `256` to `128` repetitions in [`../../src/passes/perf_test.mbt`](../../src/passes/perf_test.mbt). The test still asserts the intended `no-local-writes` raw-skip trace and absence of hot lift / `pass:simplify-locals` timers, but no longer crashes the native test executable in this environment.
+- Recorded the recovery in [`raw/research/0620-2026-05-26-dae004-perf-test-native-crash-unblock.md`](raw/research/0620-2026-05-26-dae004-perf-test-native-crash-unblock.md). Validation: focused index `56`, full `perf_test.mbt`, and `moon test src/passes --target native --no-parallelize` all passed. `[DAE]004` remains open; the next scheduler cap change now has an unblocked native pass-suite gate.
+
 ## [2026-05-26] research | dae DAE004 current-cap suite crash attribution
 
 - Re-ran the current clean cap-`8` tree before retrying the ninth descending dropped-result cap increase. `moon test src/passes --target native --no-parallelize` still fails with the native passes blackbox `SIGSEGV`.
