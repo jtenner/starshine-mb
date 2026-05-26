@@ -50,6 +50,7 @@ pub enum MetamorphicValidTransform {
   AddDuplicateEquivalentExternrefTable
   AddDuplicateEquivalentEqrefTable
   AddDuplicateEquivalentAnyrefTable
+  AddDuplicateEquivalentNofuncTable
   AddUnusedPassiveFuncrefElementSegment
   ReshapePassiveElementSegments
   AddFunctionNamesSection
@@ -548,6 +549,7 @@ pub fn metamorphic_valid_transform_id(
       "add-duplicate-equivalent-externref-table"
     AddDuplicateEquivalentEqrefTable => "add-duplicate-equivalent-eqref-table"
     AddDuplicateEquivalentAnyrefTable => "add-duplicate-equivalent-anyref-table"
+    AddDuplicateEquivalentNofuncTable => "add-duplicate-equivalent-nofunc-table"
     AddUnusedPassiveFuncrefElementSegment =>
       "add-unused-passive-funcref-element-segment"
     ReshapePassiveElementSegments => "reshape-passive-element-segments"
@@ -3407,6 +3409,17 @@ fn metamorphic_add_duplicate_equivalent_anyref_table(
 }
 
 ///|
+fn metamorphic_add_duplicate_equivalent_nofunc_table(
+  mod : @lib.Module,
+) -> @lib.Module {
+  metamorphic_add_duplicate_equivalent_ref_table(
+    mod,
+    @lib.RefType::abs(@lib.AbsHeapType::no_func()),
+    false,
+  )
+}
+
+///|
 fn metamorphic_add_duplicate_equivalent_ref_table(
   mod : @lib.Module,
   target_ref_type : @lib.RefType,
@@ -5836,6 +5849,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddDuplicateEquivalentExternrefTable,
     AddDuplicateEquivalentEqrefTable,
     AddDuplicateEquivalentAnyrefTable,
+    AddDuplicateEquivalentNofuncTable,
     AddUnusedPassiveFuncrefElementSegment,
     ReshapePassiveElementSegments,
     AddFunctionNamesSection,
@@ -6361,6 +6375,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_duplicate_equivalent_eqref_table(mod)
     AddDuplicateEquivalentAnyrefTable =>
       metamorphic_add_duplicate_equivalent_anyref_table(mod)
+    AddDuplicateEquivalentNofuncTable =>
+      metamorphic_add_duplicate_equivalent_nofunc_table(mod)
     AddUnusedPassiveFuncrefElementSegment =>
       metamorphic_add_unused_passive_funcref_element_segment(mod)
     ReshapePassiveElementSegments =>

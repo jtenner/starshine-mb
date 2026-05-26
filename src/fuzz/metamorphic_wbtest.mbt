@@ -3192,6 +3192,68 @@ test "metamorphic duplicate equivalent anyref table transform no-ops without mat
 }
 
 ///|
+test "metamorphic duplicate equivalent nofunc table transform appends unused matching table" {
+  let original_table = @lib.Table::new(
+    @lib.TableType::new(
+      @lib.RefType::abs(@lib.AbsHeapType::no_func()),
+      @lib.Limits::i32(0U, Some(4U)),
+    ),
+    None,
+  )
+  let base = @lib.Module::new().with_table_sec(
+    @lib.TableSec::new([original_table]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentNofuncTable) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-duplicate-equivalent-nofunc-table",
+  )
+  match transformed.wasm_module.table_sec {
+    Some(@lib.TableSec(tables)) => {
+      @debug.assert_eq(tables.length(), 2)
+      @debug.assert_eq(tables[0], original_table)
+      @debug.assert_eq(tables[1], original_table)
+    }
+    None => fail("expected transformed tables")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic duplicate equivalent nofunc table transform no-ops without matching table" {
+  let funcref_table = @lib.Table::new(
+    @lib.TableType::new(
+      @lib.RefType::abs(@lib.AbsHeapType::func()),
+      @lib.Limits::i32(1U, Some(6U)),
+    ),
+    None,
+  )
+  let base = @lib.Module::new().with_table_sec(
+    @lib.TableSec::new([funcref_table]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentNofuncTable) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match transformed.wasm_module.table_sec {
+    Some(@lib.TableSec(tables)) => @debug.assert_eq(tables.length(), 1)
+    None => fail("expected original table")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic duplicate equivalent eqref table transform no-ops without matching table" {
   let externref_table = @lib.Table::new(
     @lib.TableType::new(
@@ -10104,8 +10166,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 455)
-  @debug.assert_eq(stats.validated, 455)
+  @debug.assert_eq(stats.transformed, 456)
+  @debug.assert_eq(stats.validated, 456)
   assert_true(
     stats.transform_ids.contains(
       "add-duplicate-equivalent-immutable-v128-global",
@@ -10115,6 +10177,9 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
     stats.transform_ids.contains(
       "add-duplicate-equivalent-imported-immutable-v128-global",
     ),
+  )
+  assert_true(
+    stats.transform_ids.contains("add-duplicate-equivalent-nofunc-table"),
   )
   assert_true(
     stats.transform_ids.contains(
