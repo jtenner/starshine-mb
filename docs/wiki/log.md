@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1036K32 duplicate imported shared memory64 transform
+
+- Completed `[FUZ]1036K32` by adding `add-duplicate-equivalent-imported-shared-memory64`. The transform appends an unused import with the same module name and shared memory64 type as the first existing shared memory64 import, while intentionally no-oping without a matching import so valid metamorphic modules do not gain a new link requirement or shift defined-memory indices.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 447 transforms per generated module, and kept focused `src/fuzz` validation green.
+
 ## [2026-05-25] fuzzing | FUZ1036K30 duplicate imported memory64 transform
 
 - Completed `[FUZ]1036K30` by adding `add-duplicate-equivalent-imported-memory64`. The transform appends an unused import with the same module name and memory64 type as the first existing memory64 import, while intentionally no-oping without a matching import so valid metamorphic modules do not gain a new link requirement or shift defined-memory indices.

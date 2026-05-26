@@ -1211,6 +1211,90 @@ test "metamorphic duplicate equivalent imported shared memory transform appends 
 }
 
 ///|
+test "metamorphic duplicate equivalent imported shared memory64 transform appends unused matching import" {
+  let original_import = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("shared_memory64"),
+    @lib.mem_extern_type(
+      @lib.MemType::new(@lib.Limits::i64(1UL, Some(2UL)), shared=true),
+    ),
+  )
+  let base = @lib.Module::new().with_import_sec(
+    @lib.ImportSec::new([original_import]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddDuplicateEquivalentImportedSharedMemory64,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-duplicate-equivalent-imported-shared-memory64",
+  )
+  match transformed.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => {
+      @debug.assert_eq(imports.length(), 2)
+      @debug.assert_eq(imports[0], original_import)
+      match imports[1] {
+        @lib.Import(module_name, item_name, @lib.MemExternType(mem_type)) => {
+          @debug.assert_eq(module_name, @lib.Name::new("env"))
+          @debug.assert_eq(
+            item_name,
+            @lib.Name::new("shared_memory64_metamorphic_duplicate"),
+          )
+          @debug.assert_eq(
+            mem_type,
+            @lib.MemType::new(@lib.Limits::i64(1UL, Some(2UL)), shared=true),
+          )
+        }
+        _ => fail("expected duplicate imported shared memory64")
+      }
+    }
+    None => fail("expected transformed imports")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic duplicate equivalent imported shared memory64 transform no-ops without shared memory64 import" {
+  let original_import = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("shared_memory"),
+    @lib.mem_extern_type(
+      @lib.MemType::new(@lib.Limits::i32(1U, Some(2U)), shared=true),
+    ),
+  )
+  let base = @lib.Module::new().with_import_sec(
+    @lib.ImportSec::new([original_import]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddDuplicateEquivalentImportedSharedMemory64,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match transformed.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => {
+      @debug.assert_eq(imports.length(), 1)
+      @debug.assert_eq(imports[0], original_import)
+    }
+    None => fail("expected original import")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic duplicate equivalent imported shared memory transform no-ops without shared import" {
   let original_import = @lib.Import::new(
     @lib.Name::new("env"),
@@ -9469,8 +9553,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 446)
-  @debug.assert_eq(stats.validated, 446)
+  @debug.assert_eq(stats.transformed, 447)
+  @debug.assert_eq(stats.validated, 447)
   assert_true(stats.transform_ids.contains("add-duplicate-equivalent-memory"))
   assert_true(stats.transform_ids.contains("add-duplicate-equivalent-memory64"))
   assert_true(
@@ -9479,6 +9563,11 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(
     stats.transform_ids.contains(
       "add-duplicate-equivalent-imported-shared-memory",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-duplicate-equivalent-imported-shared-memory64",
     ),
   )
   assert_true(

@@ -26,6 +26,7 @@ pub enum MetamorphicValidTransform {
   AddDuplicateEquivalentImportedMemory
   AddDuplicateEquivalentImportedMemory64
   AddDuplicateEquivalentImportedSharedMemory
+  AddDuplicateEquivalentImportedSharedMemory64
   AddDuplicateEquivalentImportedFunction
   AddDuplicateEquivalentImportedImmutableI32Global
   AddDuplicateEquivalentImportedImmutableF32Global
@@ -495,6 +496,8 @@ pub fn metamorphic_valid_transform_id(
       "add-duplicate-equivalent-imported-memory64"
     AddDuplicateEquivalentImportedSharedMemory =>
       "add-duplicate-equivalent-imported-shared-memory"
+    AddDuplicateEquivalentImportedSharedMemory64 =>
+      "add-duplicate-equivalent-imported-shared-memory64"
     AddDuplicateEquivalentImportedFunction =>
       "add-duplicate-equivalent-imported-function"
     AddDuplicateEquivalentImportedImmutableI32Global =>
@@ -2639,6 +2642,43 @@ fn metamorphic_add_duplicate_equivalent_imported_shared_memory(
                     @lib.Import::new(
                       module_name,
                       @lib.Name::new("shared_memory_metamorphic_duplicate"),
+                      @lib.mem_extern_type(mem_type),
+                    ),
+                  )
+                  duplicated = true
+                }
+              _ => ()
+            }
+          _ => ()
+        }
+      }
+    }
+    None => ()
+  }
+  mod.with_import_sec(@lib.ImportSec::new(imports))
+}
+
+///|
+fn metamorphic_add_duplicate_equivalent_imported_shared_memory64(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let imports = []
+  let mut duplicated = false
+  match mod.import_sec {
+    Some(@lib.ImportSec(existing)) => {
+      for import_ in existing {
+        imports.push(import_)
+      }
+      for import_ in existing {
+        match import_ {
+          @lib.Import(module_name, _, @lib.MemExternType(mem_type)) =>
+            match mem_type {
+              @lib.MemType(@lib.I64Limits(_), true) =>
+                if !duplicated {
+                  imports.push(
+                    @lib.Import::new(
+                      module_name,
+                      @lib.Name::new("shared_memory64_metamorphic_duplicate"),
                       @lib.mem_extern_type(mem_type),
                     ),
                   )
@@ -5578,6 +5618,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddDuplicateEquivalentImportedMemory,
     AddDuplicateEquivalentImportedMemory64,
     AddDuplicateEquivalentImportedSharedMemory,
+    AddDuplicateEquivalentImportedSharedMemory64,
     AddDuplicateEquivalentImportedFunction,
     AddDuplicateEquivalentImportedImmutableI32Global,
     AddDuplicateEquivalentImportedImmutableF32Global,
@@ -6071,6 +6112,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_duplicate_equivalent_imported_memory64(mod)
     AddDuplicateEquivalentImportedSharedMemory =>
       metamorphic_add_duplicate_equivalent_imported_shared_memory(mod)
+    AddDuplicateEquivalentImportedSharedMemory64 =>
+      metamorphic_add_duplicate_equivalent_imported_shared_memory64(mod)
     AddDuplicateEquivalentImportedFunction =>
       metamorphic_add_duplicate_equivalent_imported_function(mod)
     AddDuplicateEquivalentImportedImmutableI32Global =>
