@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] docs | dae DAE003 constant/unread inventory
+
+- Closed inventory subtask `[DAE003-A]` by adding [`raw/research/0627-2026-05-26-dae003-constant-unread-inventory.md`](raw/research/0627-2026-05-26-dae003-constant-unread-inventory.md). The note maps the current exact-literal, guarded forwarded-`local.get`, unread-parameter, selected immutable-`global.get`, and selected default-argument surfaces to `src/passes/dead_argument_elimination.mbt` helpers, focused tests/traces, and prior research notes.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md), and [`../../agent-todo.md`](../../agent-todo.md). No pass behavior changed; remaining DAE003 tasks start with current artifact/frontier attribution rather than duplicating closed selected lanes.
+- Validation: `git diff --check`, `moon info`, `moon fmt`, and `moon test` passed.
+
 ## [2026-05-26] passes | dae DAE004 guarded fourteenth descending candidate
 
 - Broadened `[DAE]004` in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) by raising the large-module descending fact-driven dropped-result cap from thirteen to fourteen only for the narrow `4096 < defined <= 4608` band. Larger artifact modules remain at cap `8` to avoid reopening the DAE011 runtime cliff.
