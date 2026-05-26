@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE004 wider mid-size fact-dropped result batching
+
+- Broadened `[DAE]004` in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) by widening the bounded fact-driven dropped-result candidate queue from `defined <= 2048` to `defined <= 4096`. The queue still uses current direct-call facts, private/non-tail/all-direct-calls-dropped candidate guards, and the caller-filtered result-removal helper.
+- Updated `dae-optimizing removes high fact-discovered dropped callee result outside selected list` in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) so the target callee is defined function `3000`; it failed before the implementation with the target still reporting one result (`1 != 0`) and passes after the guard widening.
+- Recorded the slice in [`raw/research/0605-2026-05-26-dae004-wider-mid-size-fact-dropped-results.md`](raw/research/0605-2026-05-26-dae004-wider-mid-size-fact-dropped-results.md) and synced [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md), [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), and [`../../agent-todo.md`](../../agent-todo.md). Validation included `git diff --check`, `moon info`, `moon fmt`, `moon test`, and `.tmp/pass-fuzz-dae004-4096-20260526-full2` (`9975/10000` compared, `6078` normalized matches, `3897` known gen-valid raw-cleanup mismatches, `0` validation failures, `25` Binaryen/tool command failures). `[DAE]004` remains open for measured evidence that the selected-def fallback can be removed or that no result-removal scheduling gap remains.
+
 ## [2026-05-26] passes | dae DAE004 mid-size fact-dropped result batching
 
 - Broadened `[DAE]004` in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) by widening the bounded fact-driven dropped-result candidate queue from `defined <= 1024` to `defined <= 2048`. Mid-size modules now get a fact-driven dropped-result pass before the historical selected-def fallback, while preserving the existing private/non-tail/all-direct-calls-dropped guard and caller-filtered result-removal helper.

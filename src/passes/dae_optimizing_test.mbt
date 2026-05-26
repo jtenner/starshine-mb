@@ -3090,7 +3090,7 @@ test "dae-optimizing removes fact-discovered dropped callee result outside selec
 
 ///|
 test "dae-optimizing removes high fact-discovered dropped callee result outside selected list" {
-  let target_def = 1500
+  let target_def = 3000
   let out = StringBuilder::new()
   out.write_string("(module\n")
   for i = 0; i < 8; i = i + 1 {
