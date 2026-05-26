@@ -22,6 +22,7 @@ pub enum MetamorphicValidTransform {
   AddDuplicateEquivalentScalarFunctionTypes
   AddUnusedFuncrefTable
   AddDuplicateEquivalentMemory
+  AddDuplicateEquivalentMemory64
   AddDuplicateEquivalentImportedMemory
   AddDuplicateEquivalentImportedFunction
   AddDuplicateEquivalentImportedImmutableI32Global
@@ -485,6 +486,7 @@ pub fn metamorphic_valid_transform_id(
       "add-duplicate-equivalent-scalar-function-types"
     AddUnusedFuncrefTable => "add-unused-funcref-table"
     AddDuplicateEquivalentMemory => "add-duplicate-equivalent-memory"
+    AddDuplicateEquivalentMemory64 => "add-duplicate-equivalent-memory64"
     AddDuplicateEquivalentImportedMemory =>
       "add-duplicate-equivalent-imported-memory"
     AddDuplicateEquivalentImportedFunction =>
@@ -2509,6 +2511,33 @@ fn metamorphic_add_duplicate_equivalent_memory(
       }
     }
     None => mems.push(@lib.MemType::new(@lib.Limits::i32(0U, Some(0U))))
+  }
+  mod.with_mem_sec(@lib.MemSec::new(mems))
+}
+
+///|
+fn metamorphic_add_duplicate_equivalent_memory64(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let mems = []
+  match mod.mem_sec {
+    Some(@lib.MemSec(existing)) => {
+      for mem in existing {
+        mems.push(mem)
+      }
+      let mut duplicated = false
+      for mem in existing {
+        match mem {
+          @lib.MemType(@lib.I64Limits(_), _) =>
+            if !duplicated {
+              mems.push(mem)
+              duplicated = true
+            }
+          _ => ()
+        }
+      }
+    }
+    None => ()
   }
   mod.with_mem_sec(@lib.MemSec::new(mems))
 }
@@ -5465,6 +5494,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddDuplicateEquivalentImmutableF64Global,
     AddUnusedFuncrefTable,
     AddDuplicateEquivalentMemory,
+    AddDuplicateEquivalentMemory64,
     AddDuplicateEquivalentImportedMemory,
     AddDuplicateEquivalentImportedFunction,
     AddDuplicateEquivalentImportedImmutableI32Global,
@@ -5951,6 +5981,8 @@ pub fn metamorphic_apply_transform(
     AddUnusedFuncrefTable => metamorphic_add_unused_funcref_table(mod)
     AddDuplicateEquivalentMemory =>
       metamorphic_add_duplicate_equivalent_memory(mod)
+    AddDuplicateEquivalentMemory64 =>
+      metamorphic_add_duplicate_equivalent_memory64(mod)
     AddDuplicateEquivalentImportedMemory =>
       metamorphic_add_duplicate_equivalent_imported_memory(mod)
     AddDuplicateEquivalentImportedFunction =>
