@@ -20056,6 +20056,8 @@ fn dae_run_core(
   if original_defined <= 8192 {
     let fact_dropped_result_limit = if original_defined <= 4096 {
       32
+    } else if original_defined <= 4608 {
+      9
     } else {
       8
     }
