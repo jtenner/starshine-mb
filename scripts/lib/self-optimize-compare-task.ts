@@ -22,6 +22,7 @@ type SelfOptimizeCompareOptions = {
   binaryenNopUntilStableMaxRoundtrips: number | null;
   requireBinaryenNopConverged: boolean;
   canonicalizeBinaryenOutput: boolean;
+  timingOnly: boolean;
   passFlags: string[];
 };
 
@@ -35,6 +36,7 @@ type ComparisonSummary = {
   binaryenNopConverged: boolean | null;
   binaryenNopUntilStableMaxRoundtrips: number | null;
   canonicalizeBinaryenOutput: boolean;
+  timingOnly: boolean;
   starshineCommand: string[];
   binaryenCommand: string[];
   starshineSize: number;
@@ -47,9 +49,9 @@ type ComparisonSummary = {
   starshinePassSkippedRaw: boolean;
   binaryenPassElapsedMs: number;
   starshinePassAtLeastAsFast: boolean;
-  normalizedWatTextEqual: boolean;
+  normalizedWatTextEqual: boolean | null;
   canonicalFuncPrettyEqual: boolean | null;
-  normalizedWatEqual: boolean;
+  normalizedWatEqual: boolean | null;
   firstDifferingFuncDefinedIndex: number | null;
   firstDifferingFuncAbsIndex: number | null;
 };
@@ -1971,6 +1973,7 @@ export function parseSelfOptimizeCompareArgs(argv: string[]): SelfOptimizeCompar
   let binaryenNopUntilStableMaxRoundtrips: number | null = null;
   let requireBinaryenNopConverged = false;
   let canonicalizeBinaryenOutput = false;
+  let timingOnly = false;
   const passFlags: string[] = [];
 
   for (let i = 0; i < argv.length; ) {
@@ -2010,6 +2013,10 @@ export function parseSelfOptimizeCompareArgs(argv: string[]): SelfOptimizeCompar
         break;
       case "--canonicalize-binaryen-output":
         canonicalizeBinaryenOutput = true;
+        i += 1;
+        break;
+      case "--timing-only":
+        timingOnly = true;
         i += 1;
         break;
       default:
@@ -2054,6 +2061,7 @@ export function parseSelfOptimizeCompareArgs(argv: string[]): SelfOptimizeCompar
     binaryenNopUntilStableMaxRoundtrips,
     requireBinaryenNopConverged,
     canonicalizeBinaryenOutput,
+    timingOnly,
     passFlags,
   };
 }
@@ -2174,23 +2182,28 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     fs.copyFileSync(binaryenRawOutputPath, binaryenOutputPath);
   }
 
-  printNormalizedWat(options.wasmOptBin, starshineOutputPath, repoRoot, starshineWatPath);
-  printNormalizedWat(options.wasmOptBin, binaryenOutputPath, repoRoot, binaryenWatPath);
   const wasmEqual =
     fs.readFileSync(starshineOutputPath).equals(fs.readFileSync(binaryenOutputPath));
-  const normalizedWatTextEqual = filesEqual(starshineWatPath, binaryenWatPath);
-  const canonicalFuncCompare = normalizedWatTextEqual
-    ? null
-    : await compareNormalizedWatByCanonicalFuncs(
-        starshineWatPath,
-        binaryenWatPath,
-        starshineInvocation,
-        starshineOutputPath,
-        binaryenOutputPath,
-        repoRoot,
-      );
-  const normalizedWatEqual =
-    normalizedWatTextEqual || canonicalFuncCompare?.equal === true;
+  let normalizedWatTextEqual: boolean | null = null;
+  let canonicalFuncCompare: CanonicalFuncCompareResult | null = null;
+  let normalizedWatEqual: boolean | null = null;
+  if (!options.timingOnly) {
+    printNormalizedWat(options.wasmOptBin, starshineOutputPath, repoRoot, starshineWatPath);
+    printNormalizedWat(options.wasmOptBin, binaryenOutputPath, repoRoot, binaryenWatPath);
+    normalizedWatTextEqual = filesEqual(starshineWatPath, binaryenWatPath);
+    canonicalFuncCompare = normalizedWatTextEqual
+      ? null
+      : await compareNormalizedWatByCanonicalFuncs(
+          starshineWatPath,
+          binaryenWatPath,
+          starshineInvocation,
+          starshineOutputPath,
+          binaryenOutputPath,
+          repoRoot,
+        );
+    normalizedWatEqual =
+      normalizedWatTextEqual || canonicalFuncCompare?.equal === true;
+  }
   if (canonicalFuncCompare && !canonicalFuncCompare.equal) {
     const definedIndex = canonicalFuncCompare.firstDiffDefinedIndex;
     const absIndex = canonicalFuncCompare.firstDiffAbsIndex;
@@ -2233,6 +2246,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     binaryenNopConverged: binaryenNopPrep.converged,
     binaryenNopUntilStableMaxRoundtrips: binaryenNopPrep.untilStableMaxRoundtrips,
     canonicalizeBinaryenOutput: options.canonicalizeBinaryenOutput,
+    timingOnly: options.timingOnly,
     starshineCommand: [starshineInvocation.command, ...starshineArgs],
     binaryenCommand: [options.wasmOptBin, ...binaryenArgs],
     starshineSize: fs.statSync(starshineOutputPath).size,
@@ -2278,8 +2292,10 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     );
   }
   process.stdout.write(`Effective input wasm: ${summary.effectiveInputPath}\n`);
-  process.stdout.write(`Starshine normalized WAT: ${starshineWatPath}\n`);
-  process.stdout.write(`Binaryen normalized WAT: ${binaryenWatPath}\n`);
+  if (!summary.timingOnly) {
+    process.stdout.write(`Starshine normalized WAT: ${starshineWatPath}\n`);
+    process.stdout.write(`Binaryen normalized WAT: ${binaryenWatPath}\n`);
+  }
   process.stdout.write(`Canonical wasm equal: ${summary.wasmEqual ? "yes" : "no"}\n`);
   process.stdout.write(`Starshine runtime (ms): ${summary.starshineElapsedMs.toFixed(3)}\n`);
   process.stdout.write(`Binaryen runtime (ms): ${summary.binaryenElapsedMs.toFixed(3)}\n`);
@@ -2288,8 +2304,12 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   process.stdout.write(`Starshine pass skipped raw: ${summary.starshinePassSkippedRaw ? "yes" : "no"}\n`);
   process.stdout.write(`Binaryen pass runtime (ms): ${summary.binaryenPassElapsedMs.toFixed(3)}\n`);
   process.stdout.write(`Starshine pass at least as fast: ${summary.starshinePassAtLeastAsFast ? "yes" : "no"}\n`);
-  process.stdout.write(`Normalized WAT text equal: ${summary.normalizedWatTextEqual ? "yes" : "no"}\n`);
-  process.stdout.write(`Normalized WAT equal: ${summary.normalizedWatEqual ? "yes" : "no"}\n`);
+  if (summary.normalizedWatTextEqual !== null) {
+    process.stdout.write(`Normalized WAT text equal: ${summary.normalizedWatTextEqual ? "yes" : "no"}\n`);
+  }
+  if (summary.normalizedWatEqual !== null) {
+    process.stdout.write(`Normalized WAT equal: ${summary.normalizedWatEqual ? "yes" : "no"}\n`);
+  }
   if (summary.canonicalFuncPrettyEqual !== null) {
     process.stdout.write(
       `Canonical function compare equal: ${summary.canonicalFuncPrettyEqual ? "yes" : "no"}\n`,

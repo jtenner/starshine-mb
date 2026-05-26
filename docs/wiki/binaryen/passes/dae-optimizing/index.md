@@ -3,6 +3,8 @@ kind: entity
 status: supported
 last_reviewed: 2026-05-26
 sources:
+  - ../../../raw/research/0593-2026-05-26-dae011-timing-only-helper.md
+  - ../../../raw/research/0592-2026-05-26-dae011-recovery-timing-blocker.md
   - ../../../raw/research/0591-2026-05-26-dae-func509-lowering-boundary-closure.md
   - ../../../raw/research/0590-2026-05-26-dae-func509-inmemory-block-suffix-boundary.md
   - ../../../raw/research/0589-2026-05-26-dae-func509-final-cleanup-input-reduction.md

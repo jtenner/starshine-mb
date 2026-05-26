@@ -571,6 +571,157 @@ process.exit(0);
   );
 }
 
+export function runSelfOptimizeCompareTimingOnlyTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-self-opt-compare-timing-only-"));
+  const inputPath = path.join(tmpdir, "input.wasm");
+  const outDir = path.join(tmpdir, "out");
+  const moonLog = path.join(tmpdir, "moon.log");
+  const starshineLog = path.join(tmpdir, "starshine.log");
+  const binaryenLog = path.join(tmpdir, "binaryen.log");
+  const wasmToolsLog = path.join(tmpdir, "wasm-tools.log");
+  fs.writeFileSync(inputPath, "input");
+
+  const fakeMoon = makeExecutable(
+    path.join(tmpdir, "fake-moon"),
+    `
+const fs = require("node:fs");
+fs.writeFileSync(process.env.FAKE_MOON_LOG, JSON.stringify(process.argv.slice(2), null, 2));
+process.exit(0);
+`,
+  );
+
+  const fakeStarshine = makeExecutable(
+    path.join(tmpdir, "fake-starshine"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+process.stderr.write("[trace] input fixture:opt perf:timer name=pass:dead-argument-elimination-optimizing elapsed_us=25000 total_us=25000\\n");
+fs.writeFileSync(process.env.FAKE_STARSHINE_LOG, JSON.stringify(args, null, 2));
+const outIndex = args.indexOf("--out");
+if (outIndex === -1 || outIndex + 1 >= args.length) {
+  process.stderr.write("missing --out\\n");
+  process.exit(1);
+}
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+fs.writeFileSync(args[outIndex + 1], "starshine-wasm");
+`,
+  );
+
+  const fakeWasmOpt = makeExecutable(
+    path.join(tmpdir, "fake-wasm-opt"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_BINARYEN_LOG, JSON.stringify(args) + "\\n");
+const outIndex = args.indexOf("-o");
+if (outIndex === -1 || outIndex + 1 >= args.length) {
+  process.stderr.write("missing -o\\n");
+  process.exit(1);
+}
+if (args.includes("-S")) {
+  process.stderr.write("timing-only mode should not print normalized WAT\\n");
+  process.exit(2);
+}
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+if (args.includes("--strip-debug")) {
+  fs.writeFileSync(args[outIndex + 1], "canonical-wasm");
+  process.exit(0);
+}
+process.stderr.write("[PassRunner] passes took 0.012000 seconds.\\n");
+fs.writeFileSync(args[outIndex + 1], "binaryen-wasm");
+`,
+  );
+
+  const fakeWasmTools = makeExecutable(
+    path.join(tmpdir, "fake-wasm-tools"),
+    `
+const fs = require("node:fs");
+fs.writeFileSync(process.env.FAKE_WASM_TOOLS_LOG, JSON.stringify(process.argv.slice(2), null, 2));
+process.exit(0);
+`,
+  );
+
+  const result = spawnSync(
+    "bun",
+    [
+      path.join(repoRoot, "scripts", "self-optimize-compare.ts"),
+      inputPath,
+      "--out-dir",
+      outDir,
+      "--moon",
+      fakeMoon,
+      "--starshine-bin",
+      fakeStarshine,
+      "--wasm-opt-bin",
+      fakeWasmOpt,
+      "--wasm-tools-bin",
+      fakeWasmTools,
+      "--timing-only",
+      "--dae-optimizing",
+    ],
+    {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        FAKE_MOON_LOG: moonLog,
+        FAKE_STARSHINE_LOG: starshineLog,
+        FAKE_BINARYEN_LOG: binaryenLog,
+        FAKE_WASM_TOOLS_LOG: wasmToolsLog,
+      },
+      encoding: "utf8",
+    },
+  );
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    fail(`self-optimize-compare timing-only run failed:\n${result.stderr}`);
+  }
+
+  const starshineArgs = JSON.parse(fs.readFileSync(starshineLog, "utf8")) as string[];
+  assert(
+    JSON.stringify(starshineArgs) === JSON.stringify([
+      "--dead-argument-elimination-optimizing",
+      "--out",
+      path.join(outDir, "starshine.raw.wasm"),
+      inputPath,
+    ]),
+    `unexpected Starshine timing-only args:\n${JSON.stringify(starshineArgs, null, 2)}`,
+  );
+
+  const binaryenLogs = fs
+    .readFileSync(binaryenLog, "utf8")
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as string[]);
+  assert(binaryenLogs.length === 2, `expected compare plus Starshine canonicalization calls, got ${binaryenLogs.length}`);
+  assert(!fs.existsSync(path.join(outDir, "starshine.print.wat")), "timing-only mode should skip Starshine WAT output");
+  assert(!fs.existsSync(path.join(outDir, "binaryen.print.wat")), "timing-only mode should skip Binaryen WAT output");
+
+  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
+    timingOnly: boolean;
+    normalizedWatTextEqual: boolean | null;
+    canonicalFuncPrettyEqual: boolean | null;
+    normalizedWatEqual: boolean | null;
+    firstDifferingFuncDefinedIndex: number | null;
+    firstDifferingFuncAbsIndex: number | null;
+    starshinePassElapsedMs: number;
+    binaryenPassElapsedMs: number;
+  };
+  assert(summary.timingOnly === true, `expected timingOnly summary flag:\n${JSON.stringify(summary, null, 2)}`);
+  assert(summary.normalizedWatTextEqual === null, "expected timing-only normalized text equality to be null");
+  assert(summary.canonicalFuncPrettyEqual === null, "expected timing-only canonical function equality to be null");
+  assert(summary.normalizedWatEqual === null, "expected timing-only normalized equality to be null");
+  assert(summary.firstDifferingFuncDefinedIndex === null, "expected timing-only first diff defined index to be null");
+  assert(summary.firstDifferingFuncAbsIndex === null, "expected timing-only first diff abs index to be null");
+  assert(summary.starshinePassElapsedMs === 25, `expected Starshine pass timing, got ${summary.starshinePassElapsedMs}`);
+  assert(summary.binaryenPassElapsedMs === 12, `expected Binaryen pass timing, got ${summary.binaryenPassElapsedMs}`);
+}
+
 export function runSelfOptimizeCompareDefaultStarshineInvocationTest(): void {
   const repoRoot = path.resolve(import.meta.dir, "..", "..");
   const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-self-opt-compare-default-"));

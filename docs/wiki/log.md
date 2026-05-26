@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] tooling | dae DAE011 timing-only helper
+
+- Added `--timing-only` to [`../../scripts/self-optimize-compare.ts`](../../scripts/self-optimize-compare.ts) / [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts) so DAE debug-artifact runs can write pass-local timings and validated canonical wasm outputs without the huge normalized-WAT comparison that timed out in [`raw/research/0592-2026-05-26-dae011-recovery-timing-blocker.md`](raw/research/0592-2026-05-26-dae011-recovery-timing-blocker.md).
+- Recorded the result in [`raw/research/0593-2026-05-26-dae011-timing-only-helper.md`](raw/research/0593-2026-05-26-dae011-timing-only-helper.md) and synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) plus [`../../agent-todo.md`](../../agent-todo.md).
+- Timing-only replay `.tmp/dae011-timing-only-20260526` completed and reported `2785.602ms` Starshine pass-local time versus `836.627ms` Binaryen pass-local time, so `[DAE]011` remains open for DAE-owned profiling/hotspot attribution. Validation: `bun scripts/test/self-optimize-compare-command.ts` plus the timing-only artifact replay.
+
 ## [2026-05-26] docs | dae DAE009 raw cleanup policy closure
 
 - Closed `[DAE]009` as a docs/backlog recovery slice: the DAE strategy now states the active raw-cleanup policy explicitly as correctness first, useful audited pure/nontrapping cleanup by default, and Binaryen-shape debris preservation only for documented diagnostic or active frontier needs.
