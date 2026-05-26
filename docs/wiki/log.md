@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] docs | dae DAE014 stale readiness/index wording cleanup
+
+- Refreshed [`binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md) so it no longer presents `dae-optimizing` as a pre-port boundary-only task; the current hold point is the remaining parity/runtime breadth of an active partial module pass.
+- Synced the DAE catalog summaries in [`index.md`](index.md), [`binaryen/passes/index.md`](binaryen/passes/index.md), and [`../../agent-todo.md`](../../agent-todo.md) with the active local spellings (`dae-optimizing` plus `dead-argument-elimination-optimizing`) and the closed `[DAE]006` Func509 lowerer/diagnostic-boundary classification.
+- No pass behavior changed; this is a recovery/docs hygiene slice for stale DAE task state.
+
 ## [2026-05-26] docs | dae DAE006 Func509 lowering-boundary closure
 
 - Added [`raw/research/0591-2026-05-26-dae-func509-lowering-boundary-closure.md`](raw/research/0591-2026-05-26-dae-func509-lowering-boundary-closure.md) to close the current `[DAE]006` both-canonical frontier slice.
