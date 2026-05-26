@@ -1445,8 +1445,20 @@ fn dae_materializable_control_const(
             allow_immutable_global_get,
           )
       }
-    @lib.Block(_, @lib.Expr(body)) =>
-      dae_materializable_dropped_const_prefix_leaf(body, resolve_leaf)
+    @lib.Block(_, @lib.Expr(body)) => {
+      let resolve_control_leaf = fn(
+        candidate : @lib.Instruction,
+      ) -> @lib.Instruction? {
+        match resolve_leaf(candidate) {
+          Some(leaf) => Some(leaf)
+          None =>
+            dae_materializable_control_const(
+              mod_, candidate, allow_immutable_global_get,
+            )
+        }
+      }
+      dae_materializable_dropped_const_prefix_leaf(body, resolve_control_leaf)
+    }
     @lib.Loop(_, @lib.Expr(body)) if body.length() == 1 =>
       match resolve_leaf(body[0]) {
         Some(leaf) => Some(leaf)
@@ -1457,8 +1469,20 @@ fn dae_materializable_control_const(
             allow_immutable_global_get,
           )
       }
-    @lib.Loop(_, @lib.Expr(body)) =>
-      dae_materializable_dropped_const_prefix_leaf(body, resolve_leaf)
+    @lib.Loop(_, @lib.Expr(body)) => {
+      let resolve_control_leaf = fn(
+        candidate : @lib.Instruction,
+      ) -> @lib.Instruction? {
+        match resolve_leaf(candidate) {
+          Some(leaf) => Some(leaf)
+          None =>
+            dae_materializable_control_const(
+              mod_, candidate, allow_immutable_global_get,
+            )
+        }
+      }
+      dae_materializable_dropped_const_prefix_leaf(body, resolve_control_leaf)
+    }
     @lib.TryTable(_, _, @lib.Expr(body)) if body.length() == 1 =>
       match resolve_leaf(body[0]) {
         Some(leaf) => Some(leaf)
@@ -1469,8 +1493,20 @@ fn dae_materializable_control_const(
             allow_immutable_global_get,
           )
       }
-    @lib.TryTable(_, _, @lib.Expr(body)) =>
-      dae_materializable_dropped_const_prefix_leaf(body, resolve_leaf)
+    @lib.TryTable(_, _, @lib.Expr(body)) => {
+      let resolve_control_leaf = fn(
+        candidate : @lib.Instruction,
+      ) -> @lib.Instruction? {
+        match resolve_leaf(candidate) {
+          Some(leaf) => Some(leaf)
+          None =>
+            dae_materializable_control_const(
+              mod_, candidate, allow_immutable_global_get,
+            )
+        }
+      }
+      dae_materializable_dropped_const_prefix_leaf(body, resolve_control_leaf)
+    }
     @lib.If(_, then_body, Some(else_body)) => {
       let resolve_arm_leaf = fn(
         candidate : @lib.Instruction,
