@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE006 Func509 in-memory block suffix boundary
+
+- Added a focused safety regression in [`../../src/passes/dead_argument_elimination_wbtest.mbt`](../../src/passes/dead_argument_elimination_wbtest.mbt) for the exact function-level `block I64` plus wrapper suffix shape implied by `.tmp/dae-print-func526.err` `body_raw`.
+- Recorded the result in [`raw/research/0590-2026-05-26-dae-func509-inmemory-block-suffix-boundary.md`](raw/research/0590-2026-05-26-dae-func509-inmemory-block-suffix-boundary.md) and synced [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md), [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), and [`../../agent-todo.md`](../../agent-todo.md).
+- A broad DAE final-hook strip of that value-block suffix made `.tmp/dae006-inmemory-suffix-20260526` invalid (`block (result i64)` left in statement position in functions 509 and 514), so the probe was reverted and the new regression now preserves the shape. `[DAE]006` remains open for a later post-lowering cleanup hook or explicit lowerer/diagnostic-boundary classification. Validation: focused `moon test src/passes -f 'dae final return suffix cleanup preserves func509 in-memory block suffix'` plus the expected failing artifact replay from the unsafe probe.
+
 ## [2026-05-26] passes | dae DAE006 Func509 final-cleanup input reduction
 
 - Added a focused white-box reduction in [`../../src/passes/dead_argument_elimination_wbtest.mbt`](../../src/passes/dead_argument_elimination_wbtest.mbt) for the printed `--print-func 526` outer-block/fallthrough-return/post-return-wrapper shape from the live Func509 frontier.
