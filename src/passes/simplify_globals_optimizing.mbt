@@ -3203,7 +3203,7 @@ fn sgo_block_condition_flow_scanner_read_matches(
 }
 
 ///|
-fn sgo_loop_independent_prefix_i32_store_matches(
+fn sgo_loop_independent_prefix_scalar_store_matches(
   flat : Array[@lib.Instruction],
   scan : Int,
   end_ : Int,
@@ -3214,7 +3214,7 @@ fn sgo_loop_independent_prefix_i32_store_matches(
     return false
   }
   match flat[scan + 2] {
-    @lib.I32Store(_) => true
+    @lib.I32Store(_) | @lib.I64Store(_) => true
     _ => false
   }
 }
@@ -3262,7 +3262,7 @@ fn sgo_loop_condition_independent_global_set_prefix_read_matches(
         _ => ()
       }
     }
-    if sgo_loop_independent_prefix_i32_store_matches(flat, scan, end_) {
+    if sgo_loop_independent_prefix_scalar_store_matches(flat, scan, end_) {
       saw_independent_set = true
       scan = scan + 3
       continue
