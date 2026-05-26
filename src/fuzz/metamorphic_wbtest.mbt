@@ -2487,6 +2487,41 @@ test "metamorphic duplicate equivalent table transform appends unused matching t
 }
 
 ///|
+test "metamorphic duplicate equivalent externref table transform appends unused matching table" {
+  let original_table = @lib.Table::new(
+    @lib.TableType::new(
+      @lib.RefType::abs(@lib.AbsHeapType::extern_()),
+      @lib.Limits::i32(2U, Some(4U)),
+    ),
+    None,
+  )
+  let base = @lib.Module::new().with_table_sec(
+    @lib.TableSec::new([original_table]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentExternrefTable) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-duplicate-equivalent-externref-table",
+  )
+  match transformed.wasm_module.table_sec {
+    Some(@lib.TableSec(tables)) => {
+      @debug.assert_eq(tables.length(), 2)
+      @debug.assert_eq(tables[0], original_table)
+      @debug.assert_eq(tables[1], original_table)
+    }
+    None => fail("expected transformed tables")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic duplicate equivalent immutable global transform appends unused matching global" {
   let base = @lib.Module::new().with_global_sec(
     @lib.GlobalSec::new([
@@ -9251,9 +9286,12 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 442)
-  @debug.assert_eq(stats.validated, 442)
+  @debug.assert_eq(stats.transformed, 443)
+  @debug.assert_eq(stats.validated, 443)
   assert_true(stats.transform_ids.contains("add-duplicate-equivalent-memory"))
+  assert_true(
+    stats.transform_ids.contains("add-duplicate-equivalent-externref-table"),
+  )
   assert_true(
     stats.transform_ids.contains(
       "add-duplicate-equivalent-imported-externref-table",

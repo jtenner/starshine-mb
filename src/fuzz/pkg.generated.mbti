@@ -548,6 +548,7 @@ pub enum MetamorphicValidTransform {
   AddDuplicateEquivalentImportedTag
   AddDuplicateEquivalentTag
   AddDuplicateEquivalentFuncrefTable
+  AddDuplicateEquivalentExternrefTable
   AddUnusedPassiveFuncrefElementSegment
   ReshapePassiveElementSegments
   AddFunctionNamesSection
