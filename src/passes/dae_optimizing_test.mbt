@@ -3505,6 +3505,71 @@ test "dae-optimizing reaches four high dropped-result callees after low candidat
 }
 
 ///|
+test "dae-optimizing reaches five high dropped-result callees after low candidate budget" {
+  let first_target_def = 4500
+  let second_target_def = 4501
+  let third_target_def = 4502
+  let fourth_target_def = 4503
+  let fifth_target_def = 4504
+  let low_candidates = 40
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < low_candidates; i = i + 1 {
+    out.write_string("  (func $low\{i} (result i32)\n    i32.const \{i})\n")
+  }
+  for i = low_candidates; i < first_target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  for i = 0; i < 5; i = i + 1 {
+    out.write_string(
+      "  (func $target\{i} (param i32 i32) (result i32)\n    local.get 0\n    call $side\n    local.get 1\n    call $side\n    local.get 0\n    local.get 1\n    i32.add)\n",
+    )
+  }
+  out.write_string("  (func $side (param i32))\n  (func (export \"run\")\n")
+  for i = 0; i < low_candidates; i = i + 1 {
+    out.write_string("    call $low\{i}\n    drop\n")
+  }
+  for i = 0; i < 5; i = i + 1 {
+    out.write_string(
+      "    i32.const \{10 + i}\n    i32.const \{32 - i}\n    call $target\{i}\n    drop\n",
+    )
+  }
+  out.write_string("  )\n)\n")
+  let optimized = dae_test_run(out.to_string())
+  @debug.assert_eq(
+    dae_test_func_results(optimized, first_target_def).length(),
+    0,
+  )
+  @debug.assert_eq(
+    dae_test_func_results(optimized, second_target_def).length(),
+    0,
+  )
+  @debug.assert_eq(
+    dae_test_func_results(optimized, third_target_def).length(),
+    0,
+  )
+  @debug.assert_eq(
+    dae_test_func_results(optimized, fourth_target_def).length(),
+    0,
+  )
+  @debug.assert_eq(
+    dae_test_func_results(optimized, fifth_target_def).length(),
+    0,
+  )
+  let caller = optimized.pretty_print_defined_func(
+    (fifth_target_def + 2).reinterpret_as_uint(),
+  )
+  assert_true(caller.contains("(call (Func \{first_target_def}))"), msg=caller)
+  assert_true(caller.contains("(call (Func \{second_target_def}))"), msg=caller)
+  assert_true(caller.contains("(call (Func \{third_target_def}))"), msg=caller)
+  assert_true(caller.contains("(call (Func \{fourth_target_def}))"), msg=caller)
+  assert_true(
+    caller.contains("(call (Func \{fifth_target_def}))(end)"),
+    msg=caller,
+  )
+}
+
+///|
 test "dae-optimizing materializes selected mid-prefix exact-literal callees" {
   for
     target_def in [

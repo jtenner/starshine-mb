@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-05-26
 sources:
+  - ../../../raw/research/0612-2026-05-26-dae004-five-high-descending-candidates.md
   - ../../../raw/research/0611-2026-05-26-dae004-four-high-descending-candidates.md
   - ../../../raw/research/0610-2026-05-26-dae004-three-high-descending-candidates.md
   - ../../../raw/research/0609-2026-05-26-dae004-two-high-descending-candidates.md
@@ -104,7 +105,7 @@ related:
   - `24` nested `local-cse` executions
   - `12` nested `code-folding` executions
   - `36` nested `precompute-propagate` executions
-- The backlog already tracks this as slice `DAE` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md), with explicit work for call-graph pruning / touched-function tracking and nested `optimizeAfterInlining` replay. The active `[DAE]004` result-removal broadening now includes bounded descending large-module candidate scheduling from [`0608`](../../../raw/research/0608-2026-05-26-dae004-descending-large-candidate-scheduler.md), [`0609`](../../../raw/research/0609-2026-05-26-dae004-two-high-descending-candidates.md), [`0610`](../../../raw/research/0610-2026-05-26-dae004-three-high-descending-candidates.md), and [`0611`](../../../raw/research/0611-2026-05-26-dae004-four-high-descending-candidates.md), currently reaching four high fact-driven candidates before the handpicked selected-def fallback; the fallback remains until broader artifact/fuzz evidence proves it can be removed safely.
+- The backlog already tracks this as slice `DAE` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md), with explicit work for call-graph pruning / touched-function tracking and nested `optimizeAfterInlining` replay. The active `[DAE]004` result-removal broadening now includes bounded descending large-module candidate scheduling from [`0608`](../../../raw/research/0608-2026-05-26-dae004-descending-large-candidate-scheduler.md), [`0609`](../../../raw/research/0609-2026-05-26-dae004-two-high-descending-candidates.md), [`0610`](../../../raw/research/0610-2026-05-26-dae004-three-high-descending-candidates.md), [`0611`](../../../raw/research/0611-2026-05-26-dae004-four-high-descending-candidates.md), and [`0612`](../../../raw/research/0612-2026-05-26-dae004-five-high-descending-candidates.md), currently reaching five high fact-driven candidates before the handpicked selected-def fallback; the fallback remains until broader artifact/fuzz evidence proves it can be removed safely.
 - It is also the first missing pass in the current late boundary-only neighborhood:
   - `dae-optimizing`
   - `inlining-optimizing`
