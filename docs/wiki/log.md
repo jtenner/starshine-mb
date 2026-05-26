@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] tests | dae DAE003 iteration-budget guard
+
+- Added [`raw/research/0660-2026-05-26-dae003-iteration-budget-guard.md`](raw/research/0660-2026-05-26-dae003-iteration-budget-guard.md) and a focused regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt).
+- Closed `[DAE003-H]` for the current v0.1.0 surface as an evidence/guard slice: a mid-size module with 73 earlier productive exact-literal rewrites still reaches a later exact-literal target without raising the core fixed-loop budget or broadening large-artifact scheduling.
+- Validation: `moon test src/passes --target native` passed (`1471` tests); `git diff --check`, `moon info`, `moon fmt`, and `moon test` passed (`3488` tests).
+
 ## [2026-05-26] docs | dae DAE003 structured-carrier closeout
 
 - Added [`raw/research/0659-2026-05-26-dae003-structured-carrier-closeout.md`](raw/research/0659-2026-05-26-dae003-structured-carrier-closeout.md) and updated [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) plus [`../../agent-todo.md`](../../agent-todo.md).

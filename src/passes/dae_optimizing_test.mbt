@@ -3099,6 +3099,56 @@ test "dae-optimizing materializes high fact-discovered exact literal outside sel
 }
 
 ///|
+test "dae-optimizing reaches exact literal after more than fixed core plus low revisit budget" {
+  let early_count = 73
+  let caller_def = 1600
+  let target_def = 1610
+  let total_defs = 1612
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < early_count; i = i + 1 {
+    out.write_string(
+      "  (func $early\{i} (param i32) (result i32) local.get 0)\n",
+    )
+  }
+  for i = early_count; i < caller_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string("  (func $caller (export \"run\") (result i32)\n")
+  for i = 0; i < early_count; i = i + 1 {
+    out.write_string("    i32.const \{i}\n    call $early\{i}\n    drop\n")
+  }
+  out.write_string(
+    (
+      #|    i32.const 73
+      #|    call $target)
+    ),
+  )
+  for i = caller_def + 1; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0
+      #|    i32.const 1
+      #|    i32.add)
+    ),
+  )
+  for i = target_def + 1; i < total_defs; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(")")
+  let optimized = dae_test_run(out.to_string())
+  let @lib.FuncType(params, _) = dae_test_func_type(optimized, target_def)
+  @debug.assert_eq(params.length(), 0)
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  assert_true(target.contains("I32(73)"), msg=target)
+}
+
+///|
 test "dae-optimizing materializes non-adjacent local-set constant actual" {
   let target_def = 1500
   let caller_def = 1501
