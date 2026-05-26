@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE006 Func509 final-cleanup input reduction
+
+- Added a focused white-box reduction in [`../../src/passes/dead_argument_elimination_wbtest.mbt`](../../src/passes/dead_argument_elimination_wbtest.mbt) for the printed `--print-func 526` outer-block/fallthrough-return/post-return-wrapper shape from the live Func509 frontier.
+- Recorded the result in [`raw/research/0589-2026-05-26-dae-func509-final-cleanup-input-reduction.md`](raw/research/0589-2026-05-26-dae-func509-final-cleanup-input-reduction.md) and synced [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md), [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), and [`../../agent-todo.md`](../../agent-todo.md).
+- The new reduction passes with the existing helper, proving the printed textual shape is not the missing matcher. `[DAE]006` remains open for exact final-hook input instrumentation or proof that lowering/encoding reintroduces the suffix after the final DAE cleanup. Validation: focused `moon test src/passes -f 'dae final return suffix cleanup strips func509 printed outer block shape'`.
+
 ## [2026-05-26] passes | dae DAE006 Func509 outer-block reduction follow-up
 
 - Added a focused white-box reduction in [`../../src/passes/dead_argument_elimination_wbtest.mbt`](../../src/passes/dead_argument_elimination_wbtest.mbt) and a narrow helper in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) for the outer-block/no-fallthrough wrapper suffix family identified by the previous Func509 print probe.
