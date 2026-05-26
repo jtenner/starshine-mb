@@ -21,7 +21,20 @@ Blank lines and `#` comments are ignored. Unknown keys, unsupported schema versi
 
 `parse_fuzz_cli_args_with_recipe` applies recipe values as defaults, then lets explicit CLI values win. This means a recipe can define a stable suite/profile/seed/shard/output baseline while callers override profile, seed count, output mode, or other ordinary flags for a run.
 
-The `--recipe <name>` / `--recipe=<name>` flag is recognized by the parser layer. The checked-in catalog currently provides these recipe ids:
+Precedence is:
+
+1. Parser defaults: suite `all`, profile `smoke`, generated seed when no recipe is supplied, seed count `1`, shard count `1`, and text output.
+2. Checked-in recipe values from `--recipe <name>` or `--recipe=<name>`.
+3. Positional suite/profile/seed arguments and explicit flags such as `--suite`, `--profile`, `--seed`, `--seed-count`, `--shard-count`, `--shard-index`, `--output`, `--jsonl`, and `--report-json`.
+
+Examples:
+
+- `moon run src/fuzz -- --recipe smoke --seed 0x1234 --seed-count 8` keeps the `smoke` recipe suite/profile/output defaults but overrides the seed and number of generated cases.
+- `bun fuzz run -- --recipe pass-signoff --profile passes=merge-blocks --seed-count 100` keeps the pass-signoff suite and output mode while narrowing the profile and count for a focused pass lane.
+- `moon run src/fuzz -- validate-valid stress --recipe validator-stress --seed 0x5eed` uses the explicit positional suite/profile and seed over the recipe defaults.
+- `moon run src/fuzz -- --recipe default-ci --jsonl --report-json .tmp/fuzz-default-ci/result.json` keeps the all-suite CI sweep recipe while requesting JSONL/report output explicitly.
+
+The `--recipe <name>` / `--recipe=<name>` flag is recognized by the parser layer. Duplicate recipe flags are rejected, unknown recipe names abort, and recipes still validate their own schema before CLI overrides apply. The checked-in catalog currently provides these recipe ids:
 
 - `smoke`: short `validate-valid` smoke run.
 - `default-smoke`: one-seed `all`-suite smoke sweep over every active default fuzz suite.

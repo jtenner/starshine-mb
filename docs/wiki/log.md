@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-25] fuzzing | FUZ1051D recipe override docs
+
+- Completed `[FUZ]1051D` by expanding [`fuzzing/recipe-schema.md`](fuzzing/recipe-schema.md) with the explicit parser-defaults -> recipe -> CLI override precedence ladder, duplicate/unknown recipe behavior, and common `moon run src/fuzz` / `bun fuzz run` commands for smoke, pass-signoff, validator-stress, and default-CI-style runs.
+- Refreshed [`index.md`](index.md) so the recipe page advertises the command examples and precedence contract.
+
 ## [2026-05-25] fuzzing | FUZ1036K33 duplicate eqref table transforms
 
 - Completed `[FUZ]1036K33` by adding `add-duplicate-equivalent-imported-eqref-table` and `add-duplicate-equivalent-eqref-table`. The imported transform appends an unused import with the same module name and eqref table type as the first existing eqref table import, while no-oping without a matching import to avoid new link requirements or defined-table index shifts; the defined transform appends an unused duplicate only when a matching defined eqref table already exists.

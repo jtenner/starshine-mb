@@ -11,8 +11,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 ## Concepts
 
-- [`fuzzing/recipe-schema.md`](fuzzing/recipe-schema.md) - Core checked-in fuzz recipe `key=value` schema, parser defaults, and CLI override precedence for repeatable fuzz runs; the standard recipe catalog remains a follow-up slice.
-- [`fuzzing/recipe-schema.md`](fuzzing/recipe-schema.md) - Core checked-in fuzz recipe `key=value` schema, parser defaults, CLI override precedence, and standard recipe catalog ids for smoke, CI, nightly, pass-signoff, validator-stress, parser-stress, and Binaryen-oracle repeatable fuzz runs.
+- [`fuzzing/recipe-schema.md`](fuzzing/recipe-schema.md) - Core checked-in fuzz recipe `key=value` schema, parser defaults, CLI-over-recipe precedence ladder, common override commands, and standard recipe catalog ids for smoke, CI, nightly, pass-signoff, validator-stress, parser-stress, and Binaryen-oracle repeatable fuzz runs.
 - [`fuzzing/golden-seed-catalog.md`](fuzzing/golden-seed-catalog.md) - Maintained `starshine.fuzz.golden-seed-catalog.v1` smoke seed catalog for representative GenValid, invalid-input, pass-fuzz, reduction, and text roundtrip surfaces, with the checked-in JSON document at `fuzzing/golden-seed-catalog.json`.
 - [`fuzzing/interestingness-hash-schema.md`](fuzzing/interestingness-hash-schema.md) - Stable `starshine.fuzz-interestingness.v1` six-layer hash schema and `FuzzInterestingnessCaseKey` field contract for raw, decoded-shape, feature-fact, normalized, predicate, and reduced-artifact corpus keys.
 - [`fuzzing/reduction-backends.md`](fuzzing/reduction-backends.md) - Initial reusable module-field, binary byte-slice, and text-token reducer contracts for preserving caller-supplied fuzz reproduction predicates.
