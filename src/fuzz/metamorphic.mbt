@@ -45,6 +45,7 @@ pub enum MetamorphicValidTransform {
   AddDuplicateEquivalentImportedEqrefTable
   AddDuplicateEquivalentImportedAnyrefTable
   AddDuplicateEquivalentImportedNofuncTable
+  AddDuplicateEquivalentImportedNoneTable
   AddDuplicateEquivalentImportedTag
   AddDuplicateEquivalentTag
   AddDuplicateEquivalentFuncrefTable
@@ -545,6 +546,8 @@ pub fn metamorphic_valid_transform_id(
       "add-duplicate-equivalent-imported-anyref-table"
     AddDuplicateEquivalentImportedNofuncTable =>
       "add-duplicate-equivalent-imported-nofunc-table"
+    AddDuplicateEquivalentImportedNoneTable =>
+      "add-duplicate-equivalent-imported-none-table"
     AddDuplicateEquivalentImportedTag => "add-duplicate-equivalent-imported-tag"
     AddDuplicateEquivalentTag => "add-duplicate-equivalent-tag"
     AddDuplicateEquivalentFuncrefTable =>
@@ -3248,6 +3251,17 @@ fn metamorphic_add_duplicate_equivalent_imported_nofunc_table(
 }
 
 ///|
+fn metamorphic_add_duplicate_equivalent_imported_none_table(
+  mod : @lib.Module,
+) -> @lib.Module {
+  metamorphic_add_duplicate_equivalent_imported_ref_table(
+    mod,
+    @lib.RefType::abs(@lib.AbsHeapType::none()),
+    @lib.Name::new("none_table_metamorphic_duplicate"),
+  )
+}
+
+///|
 fn metamorphic_add_duplicate_equivalent_imported_ref_table(
   mod : @lib.Module,
   target_ref_type : @lib.RefType,
@@ -5871,6 +5885,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddDuplicateEquivalentImportedEqrefTable,
     AddDuplicateEquivalentImportedAnyrefTable,
     AddDuplicateEquivalentImportedNofuncTable,
+    AddDuplicateEquivalentImportedNoneTable,
     AddDuplicateEquivalentImportedTag,
     AddDuplicateEquivalentTag,
     AddDuplicateEquivalentFuncrefTable,
@@ -6395,6 +6410,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_duplicate_equivalent_imported_anyref_table(mod)
     AddDuplicateEquivalentImportedNofuncTable =>
       metamorphic_add_duplicate_equivalent_imported_nofunc_table(mod)
+    AddDuplicateEquivalentImportedNoneTable =>
+      metamorphic_add_duplicate_equivalent_imported_none_table(mod)
     AddDuplicateEquivalentImportedTag =>
       metamorphic_add_duplicate_equivalent_imported_tag(mod)
     AddDuplicateEquivalentTag => metamorphic_add_duplicate_equivalent_tag(mod)
