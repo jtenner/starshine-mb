@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-05-26
 sources:
+  - ../../../raw/research/0606-2026-05-26-dae003-high-exact-literal-revisit.md
   - ../../../raw/research/0605-2026-05-26-dae004-wider-mid-size-fact-dropped-results.md
   - ../../../raw/research/0604-2026-05-26-dae004-mid-size-fact-dropped-results.md
   - ../../../raw/research/0603-2026-05-26-dae013-preset-boundary-closure.md

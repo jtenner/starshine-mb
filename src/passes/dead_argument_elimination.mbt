@@ -19576,7 +19576,7 @@ fn dae_run_core(
     }
   }
   let mut low_revisit_iter = 0
-  while original_defined <= 1024 && low_revisit_iter < 64 {
+  while original_defined <= 4096 && low_revisit_iter < 64 {
     let low_revisit_result = dae_try_rewrite_reverse_exact_literal_once(
       current,
       original_param_counts,
@@ -19602,7 +19602,7 @@ fn dae_run_core(
       original_dead_suffix_escaped_result_operand_call_counts,
       original_dead_suffix_dropped_calls_from_parameterized_self_callers,
       reverse=false,
-      max_def_exclusive=64,
+      max_def_exclusive=4096,
     )
     if !low_revisit_result.changed {
       break

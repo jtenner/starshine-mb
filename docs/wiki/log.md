@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE003 high exact-literal revisit
+
+- Broadened `[DAE]003` in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) so the low-forwarded-const exact-literal revisit now runs for modules up to `4096` defined functions and scans the first `4096` candidate defs instead of stopping at the first `64` definitions.
+- Added `dae-optimizing materializes high fact-discovered exact literal outside selected list` in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt). It failed before the implementation with the target at defined function `1500` still reporting one parameter (`1 != 0`) after nine earlier productive exact-literal rewrites, and passes after the wider revisit.
+- Recorded the slice in [`raw/research/0606-2026-05-26-dae003-high-exact-literal-revisit.md`](raw/research/0606-2026-05-26-dae003-high-exact-literal-revisit.md) and synced [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md), [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), and [`../../agent-todo.md`](../../agent-todo.md). Validation included `moon info`, `moon fmt`, `moon test`, and `.tmp/pass-fuzz-dae003-high-exact-20260526-full` (`9975/10000` compared, `6078` normalized matches, `3897` known gen-valid raw-cleanup mismatches, `0` validation failures, `25` Binaryen/tool command failures). `[DAE]003` remains open for broader carrier shapes and artifact-frontier closure.
+
 ## [2026-05-26] passes | dae DAE004 wider mid-size fact-dropped result batching
 
 - Broadened `[DAE]004` in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) by widening the bounded fact-driven dropped-result candidate queue from `defined <= 2048` to `defined <= 4096`. The queue still uses current direct-call facts, private/non-tail/all-direct-calls-dropped candidate guards, and the caller-filtered result-removal helper.
