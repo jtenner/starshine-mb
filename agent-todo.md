@@ -155,7 +155,7 @@ Execution rules for all DAE slices
   - Deliverables:
     - [x] Add a lightweight timing/report mode for `scripts/self-optimize-compare.ts` so huge DAE artifacts can record timings without full normalized-WAT comparison (`--timing-only`, covered by `scripts/test/self-optimize-compare-command.ts`, research note `0593`).
     - [x] Repeat timing on the latest artifact with that mode: `.tmp/dae011-timing-only-20260526` reported `2785.602ms` Starshine pass versus `836.627ms` Binaryen pass, so Starshine is still over the 2x floor.
-    - [ ] Attribute whole-command wall-time separately from pass-local runtime unless the root cause is inside DAE; current timing-only evidence points at a DAE pass-local gap, not only compare-helper WAT printing.
+    - [x] Attribute whole-command wall-time separately from pass-local runtime unless the root cause is inside DAE; research note `0593` records whole-command timings (`3148.883ms` Starshine versus `1138.266ms` Binaryen) separately from pass-local timings (`2785.602ms` versus `836.627ms`), confirming the current blocker is DAE pass-local rather than compare-helper WAT printing.
     - [ ] Profile the DAE-owned portion before changing pass logic.
     - [ ] Avoid broad rescans, per-def bitmap churn, whole-module untouched cleanup, and selected-loop expansions that previously caused cliffs.
   - Known useful runtime strategies:
