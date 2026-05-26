@@ -3222,7 +3222,8 @@ fn sgo_loop_independent_prefix_scalar_store_matches(
     | @lib.I64Store16(_)
     | @lib.I64Store32(_)
     | @lib.F32Store(_)
-    | @lib.F64Store(_) => true
+    | @lib.F64Store(_)
+    | @lib.TableSet(_) => true
     _ => false
   }
 }
