@@ -5292,6 +5292,58 @@ test "metamorphic kind-specific export alias transforms preserve unique names" {
 }
 
 ///|
+test "metamorphic tag export aliases transform preserves validation and unique names" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(0U))]))
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("event"),
+          @lib.ExternIdx::tag(@lib.TagIdx::new(0U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_tag_alias_0"),
+          @lib.ExternIdx::tag(@lib.TagIdx::new(0U)),
+        ),
+      ]),
+    )
+  let transformed = match
+    metamorphic_apply_transform(base, AddTagExportAliases) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(transformed.transform_id, "add-tag-export-aliases")
+  match transformed.wasm_module.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      @debug.assert_eq(exports.length(), 4)
+      @debug.assert_eq(
+        exports[2],
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_tag_alias_0_1"),
+          @lib.ExternIdx::tag(@lib.TagIdx::new(0U)),
+        ),
+      )
+      @debug.assert_eq(
+        exports[3],
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_tag_alias_1"),
+          @lib.ExternIdx::tag(@lib.TagIdx::new(0U)),
+        ),
+      )
+    }
+    None => fail("expected transformed export section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic imported and defined function export aliases do not shift indices" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),
@@ -10396,8 +10448,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 459)
-  @debug.assert_eq(stats.validated, 459)
+  @debug.assert_eq(stats.transformed, 460)
+  @debug.assert_eq(stats.validated, 460)
   assert_true(
     stats.transform_ids.contains(
       "add-duplicate-equivalent-immutable-v128-global",

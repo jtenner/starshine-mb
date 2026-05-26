@@ -994,6 +994,7 @@ pub enum MetamorphicValidTransform {
   AddTableExportAliases
   AddMemoryExportAliases
   AddGlobalExportAliases
+  AddTagExportAliases
   ReverseCustomSections
 } derive(Eq, @debug.Debug)
 

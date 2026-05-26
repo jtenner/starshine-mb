@@ -460,6 +460,7 @@ pub enum MetamorphicValidTransform {
   AddTableExportAliases
   AddMemoryExportAliases
   AddGlobalExportAliases
+  AddTagExportAliases
   ReverseCustomSections
 } derive(Eq, Debug)
 
@@ -1346,6 +1347,7 @@ pub fn metamorphic_valid_transform_id(
     AddTableExportAliases => "add-table-export-aliases"
     AddMemoryExportAliases => "add-memory-export-aliases"
     AddGlobalExportAliases => "add-global-export-aliases"
+    AddTagExportAliases => "add-tag-export-aliases"
     ReverseCustomSections => "reverse-custom-sections"
   }
 }
@@ -5602,6 +5604,7 @@ fn metamorphic_export_matches_kind(
     (@lib.TableExternIdx(_), "table") => true
     (@lib.MemExternIdx(_), "memory") => true
     (@lib.GlobalExternIdx(_), "global") => true
+    (@lib.TagExternIdx(_), "tag") => true
     _ => false
   }
 }
@@ -6300,6 +6303,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTableExportAliases,
     AddMemoryExportAliases,
     AddGlobalExportAliases,
+    AddTagExportAliases,
     ReverseCustomSections,
   ]
 }
@@ -8393,6 +8397,7 @@ pub fn metamorphic_apply_transform(
     AddTableExportAliases => metamorphic_add_kind_export_aliases(mod, "table")
     AddMemoryExportAliases => metamorphic_add_kind_export_aliases(mod, "memory")
     AddGlobalExportAliases => metamorphic_add_kind_export_aliases(mod, "global")
+    AddTagExportAliases => metamorphic_add_kind_export_aliases(mod, "tag")
     ReverseCustomSections => metamorphic_reverse_custom_sections(mod)
   }
   match validate_module(transformed) {
