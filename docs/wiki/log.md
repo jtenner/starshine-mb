@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] docs | dae DAE004 selected fallback inventory
+
+- Closed inventory subtask `[DAE004-A]` by adding [`raw/research/0628-2026-05-26-dae004-selected-fallback-inventory.md`](raw/research/0628-2026-05-26-dae004-selected-fallback-inventory.md). The note records the source fallback list in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) and the latest traced debug-artifact productivity set.
+- The current artifact still reports selected dropped-result changes for `298`, `299`, `427`, `445`, `459`, `472`, `476`, `3566`, `3732`, `3814`, `3834`, `4106`, `4229`, `4232`, `503`, `4240`, `4241`, `4242`, and `4249`; `3799` is the only listed entry not observed as productive in this trace and should be retired only with artifact validation.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md). No pass behavior changed; `[DAE]004` remains open with `[DAE004-B]` next.
+
 ## [2026-05-26] docs | dae DAE003 constant/unread inventory
 
 - Closed inventory subtask `[DAE003-A]` by adding [`raw/research/0627-2026-05-26-dae003-constant-unread-inventory.md`](raw/research/0627-2026-05-26-dae003-constant-unread-inventory.md). The note maps the current exact-literal, guarded forwarded-`local.get`, unread-parameter, selected immutable-`global.get`, and selected default-argument surfaces to `src/passes/dead_argument_elimination.mbt` helpers, focused tests/traces, and prior research notes.
