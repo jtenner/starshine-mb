@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-26
 sources:
+  - ../../../raw/research/0654-2026-05-26-dae003-try-table-throwing-prefix-guard.md
   - ../../../raw/research/0653-2026-05-26-dae003-try-table-dropped-prefix-carrier.md
   - ../../../raw/research/0652-2026-05-26-dae003-if-dropped-prefix-carrier.md
   - ../../../raw/research/0651-2026-05-26-dae003-try-table-carrier.md

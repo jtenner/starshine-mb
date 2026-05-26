@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] tests | dae DAE003 try_table throwing-prefix guard
+
+- Added [`raw/research/0654-2026-05-26-dae003-try-table-throwing-prefix-guard.md`](raw/research/0654-2026-05-26-dae003-try-table-throwing-prefix-guard.md) and a focused negative guard in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt).
+- The guard keeps `try_table` carriers conservative when the body has a throwing/control-transfer prefix before a materializable leaf; the target parameter remains live because the trailing constant is not the guaranteed call actual.
+- Validation: `moon test src/passes` passed (`1411` tests). No optimizer behavior changed.
+
 ## [2026-05-26] passes | dae DAE003 try_table dropped-prefix carrier
 
 - Added [`raw/research/0653-2026-05-26-dae003-try-table-dropped-prefix-carrier.md`](raw/research/0653-2026-05-26-dae003-try-table-dropped-prefix-carrier.md), a focused regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), and a narrow helper reuse in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
