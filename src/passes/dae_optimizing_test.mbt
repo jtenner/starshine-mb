@@ -3099,6 +3099,28 @@ test "dae-optimizing materializes high fact-discovered exact literal outside sel
 }
 
 ///|
+test "dae-optimizing preserves fact-discovered results with mixed dropped and live callers" {
+  let source =
+    #|(module
+    #|  (func $dropper (export "dropper")
+    #|    i32.const 7
+    #|    call $target
+    #|    drop)
+    #|  (func $keeper (export "keeper") (result i32)
+    #|    i32.const 9
+    #|    call $target)
+    #|  (func $target (param i32) (result i32)
+    #|    local.get 0))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_results(optimized, 2).length(), 1)
+  let dropper = optimized.pretty_print_defined_func(0U)
+  let keeper = optimized.pretty_print_defined_func(1U)
+  assert_true(dropper.contains("call"), msg=dropper)
+  assert_true(dropper.contains("drop"), msg=dropper)
+  assert_true(keeper.contains("call"), msg=keeper)
+}
+
+///|
 test "dae-optimizing removes fact-discovered dropped callee result outside selected list" {
   let target_def = 512
   let out = StringBuilder::new()

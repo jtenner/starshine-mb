@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] tests | dae DAE004 mixed live call guard
+
+- Added [`raw/research/0633-2026-05-26-dae004-mixed-live-call-guard.md`](raw/research/0633-2026-05-26-dae004-mixed-live-call-guard.md) and a focused [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) regression proving fact-driven dropped-result removal preserves a callee result when any live caller still observes it.
+- No optimizer behavior changed; the live mixed-call guard already passes on current code. A speculative undropped-dead-suffix variant failed against current accepted DAE dead-suffix cleanup behavior, so `[DAE004-E]` is advanced but not closed.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md). Final validation for this slice: `moon test src/passes`, `moon info`, `moon fmt`, and `moon test`.
+
 ## [2026-05-26] passes | dae DAE004 bucketed large worklist preparation
 
 - Added [`raw/research/0632-2026-05-26-dae004-bucketed-large-worklist-first-slice.md`](raw/research/0632-2026-05-26-dae004-bucketed-large-worklist-first-slice.md) plus a white-box ordering regression in [`../../src/passes/dead_argument_elimination_wbtest.mbt`](../../src/passes/dead_argument_elimination_wbtest.mbt). The initial test failed because the bucketed collector was unimplemented.
