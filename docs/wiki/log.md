@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] tests | dae DAE003 structured-carrier guards
+
+- Added [`raw/research/0646-2026-05-26-dae003-structured-carrier-negative-guards.md`](raw/research/0646-2026-05-26-dae003-structured-carrier-negative-guards.md) and two focused [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) regressions for `[DAE003-F]`.
+- The new tests keep multi-instruction block carriers and equal-arm `if` carriers conservative: the target parameter remains live until a broader expression materialization and condition-preservation proof lands.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md). Validation so far: `moon test src/passes` passed (`1404` tests).
+
 ## [2026-05-26] docs | dae DAE003 local-carrier closeout
 
 - Added [`raw/research/0645-2026-05-26-dae003-local-carrier-closeout.md`](raw/research/0645-2026-05-26-dae003-local-carrier-closeout.md) to close `[DAE003-C]` for the current conservative non-structured local-carrier surface.
