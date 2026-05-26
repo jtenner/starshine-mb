@@ -19698,9 +19698,18 @@ fn dae_run_core(
   let dropped_results_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results",
   )
+  let dropped_result_call_facts_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:call-facts",
+  )
   let selected_dropped_result_call_facts = dae_collect_current_call_facts(
     current,
     original_imported + original_defined,
+  )
+  perf_stop_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:call-facts", dropped_result_call_facts_start_us,
+  )
+  let dropped_result_selected_defs_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs",
   )
   for
     selected_result_def in [
@@ -19743,6 +19752,12 @@ fn dae_run_core(
       changed = true
     }
   }
+  perf_stop_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs", dropped_result_selected_defs_start_us,
+  )
+  let dropped_result_func299_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:func299-if",
+  )
   if 299 < selected_scratch_defs.length() {
     selected_scratch_defs[299] = true
     let selected_func299_if = dae_try_swap_selected_func299_inverted_result_if_once(
@@ -19758,6 +19773,9 @@ fn dae_run_core(
       changed = true
     }
   }
+  perf_stop_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:func299-if", dropped_result_func299_start_us,
+  )
   perf_stop_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results", dropped_results_start_us,
   )

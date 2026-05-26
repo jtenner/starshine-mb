@@ -5915,6 +5915,24 @@ test "dae-optimizing perf trace breaks down core, nested cleanup, and type pruni
   )
   assert_true(
     text.contains(
+      "perf:timer name=detail:dae:core:selected-lanes:dropped-results:call-facts",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:dae:core:selected-lanes:dropped-results:selected-defs",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:dae:core:selected-lanes:dropped-results:func299-if",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
       "perf:timer name=detail:dae:core:selected-lanes:literal-unread",
     ),
     msg=text,
