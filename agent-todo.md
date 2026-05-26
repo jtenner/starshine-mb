@@ -294,19 +294,17 @@ Active v0.1.0 slices for full Binaryen parity
     - self-optimize read-only-to-write diffs are gone or explicitly classified.
 
 - [SGO]003D - Call, Generated-Effects, And Function-Effect Parity
-  - Status: active after `[SGO]003A`; depends on or extends the current fixed-point direct-call read/write summaries.
-  - Goal: match Binaryen's call-related SGO behavior for runtime facts and read-only-to-write detection, including generated/effect metadata where supported.
-  - Why: current Starshine admits only narrow zero-param/one-result direct calls that neither read nor mutate the candidate global; imported, indirect, `call_ref`, `return_call`, callee-write/no-remaining-read positives, richer operands, and generated-effects cases remain conservative.
-  - Tasks:
-    - audit Binaryen `LinearExecutionWalker`, call effect, and generated-effects handling for `SimplifyGlobals.cpp`;
-    - add focused positives for direct-call cases beyond the current zero-param/one-result subset if Binaryen accepts them;
-    - add imported-call, indirect-call, `call_ref`, `return_call`, and generated-effects positives only with exact Binaryen evidence;
-    - add guardrails for candidate-derived call operands, candidate-reading callees, unknown/dynamic callees, table/element escapes, exported/open-world functions, recursive cycles, and call results consumed by trapping/effectful operations;
-    - preserve or improve current fixed-point per-global `reads` / `mutates` summaries.
-  - Exit criteria:
-    - call/effect rows in the parity matrix are implemented or source-classified;
-    - direct SGO 10k fuzz green;
-    - any Binaryen/tool failures are classified separately from semantic mismatches.
+  - Status: accepted / evidence-gated on 2026-05-25. Evidence and closeout live in `docs/wiki/raw/research/0693-2026-05-25-sgo-call-effect-parity-closeout.md`, building on the direct-call read-summary implementation in `0671`, constant-argument guardrails in `0672`, and prior call-breadth closeout in `0673`.
+  - Goal: keep the current fixed-point direct-call read/write summaries as the supported v0.1.0 call/effect surface, while requiring fresh exact Binaryen-positive evidence before broader call behavior is implemented.
+  - Completed tasks:
+    - [x] audited the existing `LinearExecutionWalker` / function-effect evidence and Starshine implementation state for ordinary direct calls, runtime fact preservation, and read-only-to-write call participation;
+    - [x] confirmed focused tests already cover fixed-point per-global read/write summaries, zero-param one-result calls, clean constant-argument direct calls, wrong-global reads, candidate-reading callees, imported calls, and candidate-derived operands;
+    - [x] kept imported calls, indirect calls, `call_ref`, return-call variants, generated-effects metadata, target-set modeling, and broader placements conservative without fresh positive evidence;
+    - [x] recorded a spot direct `--simplify-globals-optimizing` probe showing a zero-result independent call before a later candidate read is not an immediate Starshine/Binaryen normalized-output gap.
+  - Future reopen criteria:
+    - an exact Binaryen-positive fixture for imported-call, indirect-call, `call_ref`, return-call, generated-effects, target-set, or broader placement behavior;
+    - paired guardrails for candidate-derived call operands, candidate-reading callees, unknown/dynamic callees, table/element escapes, exported/open-world functions, recursive cycles, trapping/effectful operands, multi-read conditions, and non-branch consumers;
+    - direct SGO 10k fuzz and validation evidence for any behavior change.
 
 - [SGO]003E - Runtime ConstantGlobalApplier / Linear-Trace Parity
   - Status: active after `[SGO]003A` and `[SGO]003D` foundations.

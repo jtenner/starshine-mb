@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO call/effect closeout
+
+- Added research note [`0693`](./raw/research/0693-2026-05-25-sgo-call-effect-parity-closeout.md) to close `[SGO]003D` as accepted / evidence-gated for the currently evidenced direct-call summary and constant-argument surface.
+- No optimizer behavior changed. Imported calls, indirect calls, `call_ref`, return-call variants, generated-effects metadata, target-set modeling, and broader placements remain conservative until a future exact Binaryen-positive child slice supplies paired guardrails and direct SGO fuzz evidence.
+- No Moon or fuzz validation was required for this docs/backlog-only closeout; latest behavior-bearing evidence remains the 0671 direct-call read-summary fuzz lane and 0672 constant-argument guardrails.
+
 ## [2026-05-25] binaryen | SGO try_table wrapper closeout
 
 - Added research note [`0692`](./raw/research/0692-2026-05-25-sgo-try-table-wrapper-closeout.md) to close `[SGO]003C6` as accepted / evidence-gated for the currently evidenced no-catch `try_table` wrapper surface from the 0603 through 0632 micro-slices.
