@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-26] binaryen | SGO typed element guardrail closeout
+
+- Added research note [`0697`](./raw/research/0697-2026-05-26-sgo-typed-element-guardrail-closeout.md) for `[SGO]003F`, closing typed element broadening as evidence-gated after the exact-type subset.
+- Added focused guardrails proving SGO preserves refinalization-sensitive `global.get; ref.as_non_null` typed element item expressions and object-identity-sensitive `struct.new_default` typed element globals; no optimizer behavior changed.
+- Validation passed: `moon test src/passes` (`1644/1644`) and direct SGO fuzz at `.tmp/pass-fuzz-sgo-typed-element-guardrails-0697-10000` (`6759/10000` compared before the configured 20 Binaryen/tool command-failure stop, `0` mismatches, `0` Starshine validation failures).
+
 ## [2026-05-26] binaryen | SGO exact typed element replacement
 
 - Added research note [`0696`](./raw/research/0696-2026-05-26-sgo-exact-typed-element-replacement.md) for `[SGO]003F`, implementing the narrow exact-type typed element item-expression subset.

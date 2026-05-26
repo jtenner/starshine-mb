@@ -319,7 +319,7 @@ Active v0.1.0 slices for full Binaryen parity
     - focused tests plus direct SGO 10k fuzz and validation evidence for any behavior change.
 
 - [SGO]003F - Reference, GC, Type-Refinalization, And Element-Expression Parity
-  - Status: active / partial. The ordinary `ref.cast` parser prerequisite and first validating `ref.func`-through-`ref.cast` SGO fixture landed on 2026-05-25 in `docs/wiki/raw/research/0695-2026-05-25-sgo-ref-cast-parser-and-fixture.md`; the narrow exact-type typed element item-expression subset landed on 2026-05-26 in `docs/wiki/raw/research/0696-2026-05-26-sgo-exact-typed-element-replacement.md`. Broader typed element, less-refined alias, object-identity, descriptor, and module-retagging-sensitive cases remain open.
+  - Status: accepted / evidence-gated on 2026-05-26. The ordinary `ref.cast` parser prerequisite and first validating `ref.func`-through-`ref.cast` SGO fixture landed on 2026-05-25 in `docs/wiki/raw/research/0695-2026-05-25-sgo-ref-cast-parser-and-fixture.md`; the narrow exact-type typed element item-expression subset landed on 2026-05-26 in `docs/wiki/raw/research/0696-2026-05-26-sgo-exact-typed-element-replacement.md`; and typed element broadening was closed as evidence-gated in `docs/wiki/raw/research/0697-2026-05-26-sgo-typed-element-guardrail-closeout.md` after adding refinalization-sensitive and object-identity-sensitive guardrails. Broader less-refined alias, descriptor, object-identity, and module-retagging-sensitive cases require a future exact Binaryen-positive fixture before reopening.
   - Goal: safely implement Binaryen's reference-typed replacement breadth, including typed element item expressions and GC/refinalization-sensitive cases.
   - Why: reference replacements are partial; typed element item expressions and broader type-changing replacements are intentionally conservative. The old ordinary `ref.cast` WAT blocker is removed, but full `[SGO]003F` parity still needs exact Binaryen-positive fixtures and paired guardrails.
   - Tasks:
@@ -327,13 +327,13 @@ Active v0.1.0 slices for full Binaryen parity
     - [x] add a minimal validating fixture where SGO replacement changes reference precision and refinalization repairs the function (`0695` covers a typed `ref.func` global read feeding `ref.cast (ref $t)`);
     - [x] implement the narrow `ref.cast(ref.func-global)` path only after the fixture validates (existing SGO replacement is now covered by the parser-supported fixture);
     - [x] audit and implement the exact-type typed element item-expression subset: single `global.get` items whose global value type exactly equals the element segment `RefType`, including exact immutable aliases after startup constant rewriting (`0696`);
-    - [ ] audit broader typed element item-expression replacements and prove type legality before replacing non-exact, nested, subtype/refinalization-sensitive, descriptor-sensitive, or object-identity-sensitive reference `global.get`s there;
-    - [ ] add guardrails for less-refined aliases, nullable/non-null mismatches, object-identity-sensitive allocations, descriptor operations, `struct.new_default` duplication, subtype changes needing module-wide retagging, and any replacement that would invalidate element/table/global types;
-    - [ ] run direct SGO 10k fuzz for the completed `[SGO]003F` behavior set after the remaining guardrails/deferrals are finalized.
+    - [x] audit broader typed element item-expression replacements and keep non-exact, nested, subtype/refinalization-sensitive, descriptor-sensitive, or object-identity-sensitive reference `global.get`s conservative without fresh exact Binaryen-positive evidence (`0697`);
+    - [x] add guardrails for nullable/non-null refinalization-sensitive typed element expressions and object-identity-sensitive `struct.new_default` typed element globals; existing less-refined alias guardrails remain active (`0697`);
+    - [x] run direct SGO 10k fuzz for the completed `[SGO]003F` behavior set after the remaining guardrails/deferrals are finalized: `.tmp/pass-fuzz-sgo-typed-element-guardrails-0697-10000` reported `6759/10000` compared, `0` mismatches, and `0` Starshine validation failures before the configured 20 Binaryen/tool command-failure stop.
   - Exit criteria:
-    - reference/GC rows in the parity matrix are implemented or explicitly deferred by user decision;
+    - reference/GC rows in the parity matrix are implemented or evidence-gated with focused guardrails;
     - `wasm-tools validate` and Binaryen validation accept outputs;
-    - direct SGO 10k fuzz green.
+    - direct SGO 10k fuzz green for the completed behavior set.
 
 - [SGO]003G - Startup Propagation, Single-Use, Copy-Chain, And Segment Parity
   - Status: active after `[SGO]003A`; likely mostly audit/guardrail but must be proven for full parity.

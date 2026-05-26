@@ -231,24 +231,34 @@ fn sgo_test_defined_global_init_instrs(
 }
 
 ///|
-fn sgo_test_first_typed_elem_expr_instr(
+fn sgo_test_first_typed_elem_expr_instrs(
   mod_ : @lib.Module,
-) -> @lib.Instruction raise {
+) -> Array[@lib.Instruction] raise {
   match mod_.elem_sec {
     Some(@lib.ElemSec(elems)) =>
       match elems.get(0) {
         Some(@lib.Elem(_, @lib.TypedExprsElemKind(_, exprs))) =>
           match exprs.get(0) {
-            Some(@lib.Expr([instr])) => instr
-            other =>
-              fail(
-                "expected first single-instruction elem expr, got \{@debug.to_string(other)}",
-              )
+            Some(@lib.Expr(instrs)) => instrs
+            None => fail("expected first elem expr")
           }
         other =>
           fail("expected typed elem segment, got \{@debug.to_string(other)}")
       }
     None => fail("expected elem section")
+  }
+}
+
+///|
+fn sgo_test_first_typed_elem_expr_instr(
+  mod_ : @lib.Module,
+) -> @lib.Instruction raise {
+  match (try! sgo_test_first_typed_elem_expr_instrs(mod_)) {
+    [instr] => instr
+    other =>
+      fail(
+        "expected first single-instruction elem expr, got \{@debug.to_string(other)}",
+      )
   }
 }
 
@@ -1382,6 +1392,119 @@ test "simplify-globals-optimizing rewrites exact ref-func typed element aliases"
   let pretty = optimized.pretty_print_defined_func(1U)
   assert_false(pretty.contains("global.get"), msg=pretty)
   assert_true(pretty.contains("ref.func"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps typed element refinalization expressions conservative" {
+  let fn_type = @lib.TypeIdx::new(0U)
+  let run_type = @lib.TypeIdx::new(1U)
+  let fn_rt = @lib.RefType::new(true, @lib.HeapType::new(fn_type))
+  let nullable_fn_rt = @lib.RefType::new(false, @lib.HeapType::new(fn_type))
+  let optimized = sgo_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::ref_type(fn_rt)]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([fn_type, run_type]))
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::ref_type(nullable_fn_rt), false),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(0U))]),
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::typed_exprs(fn_rt, [
+            @lib.Expr::new([
+              @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+              @lib.Instruction::ref_as_non_null(),
+            ]),
+          ]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("run"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::ref_as_non_null(),
+          ]),
+        ),
+      ]),
+    ),
+  )
+
+  @debug.assert_eq(try! sgo_test_first_typed_elem_expr_instrs(optimized), [
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::ref_as_non_null(),
+  ])
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("ref.func"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps object-identity typed element globals conservative" {
+  let struct_type = @lib.TypeIdx::new(0U)
+  let struct_rt = @lib.RefType::new(true, @lib.HeapType::new(struct_type))
+  let optimized = sgo_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::struct_([]))),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::ref_type(struct_rt), false),
+          @lib.Expr::new([@lib.Instruction::struct_new_default(struct_type)]),
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::typed_exprs(struct_rt, [
+            @lib.Expr::new([
+              @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+            ]),
+          ]),
+        ),
+      ]),
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_first_typed_elem_expr_instr(optimized),
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+  )
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 0), [
+    @lib.Instruction::struct_new_default(struct_type),
+  ])
 }
 
 ///|
