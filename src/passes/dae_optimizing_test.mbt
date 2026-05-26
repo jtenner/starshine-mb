@@ -2990,8 +2990,8 @@ test "dae-optimizing removes selected Func298 dropped result from Func280 branch
 test "dae-optimizing removes selected mid-prefix dropped callee results" {
   for
     target_def in [
-      299, 427, 459, 472, 476, 3566, 3732, 3799, 3814, 3834, 4106, 4229, 4232, 4240,
-      4241, 4242, 4249, 503,
+      299, 427, 459, 472, 476, 3566, 3732, 3814, 3834, 4106, 4229, 4232, 4240, 4241,
+      4242, 4249, 503,
     ] {
     let out = StringBuilder::new()
     out.write_string("(module\n")

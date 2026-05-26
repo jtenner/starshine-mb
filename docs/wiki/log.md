@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] tests | dae DAE004 fallback fixture sync
+
+- Added [`raw/research/0663-2026-05-26-dae004-test-fixture-fallback-sync.md`](raw/research/0663-2026-05-26-dae004-test-fixture-fallback-sync.md) and removed stale fallback entry `3799` from the selected mid-prefix dropped-result fixture list in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt).
+- No optimizer behavior changed; note `0662` already removed `3799` from the implementation fallback and added the white-box guard. `[DAE004-D]` remains open for the remaining productive fallback families.
+- Validation: `moon test src/passes`, `moon info`, `moon fmt`, and `moon test` passed.
+
 ## [2026-05-26] passes | dae DAE004 unobserved fallback retirement
 
 - Added [`raw/research/0662-2026-05-26-dae004-retire-unobserved-selected-fallback.md`](raw/research/0662-2026-05-26-dae004-retire-unobserved-selected-fallback.md), removed stale unobserved selected dropped-result fallback entry `3799` from [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), and added a white-box guard in [`../../src/passes/dead_argument_elimination_wbtest.mbt`](../../src/passes/dead_argument_elimination_wbtest.mbt).
