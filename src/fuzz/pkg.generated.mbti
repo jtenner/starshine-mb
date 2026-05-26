@@ -578,6 +578,7 @@ pub enum MetamorphicValidTransform {
   AddDuplicateEquivalentImportedExternrefTable
   AddDuplicateEquivalentImportedEqrefTable
   AddDuplicateEquivalentImportedAnyrefTable
+  AddDuplicateEquivalentImportedNofuncTable
   AddDuplicateEquivalentImportedTag
   AddDuplicateEquivalentTag
   AddDuplicateEquivalentFuncrefTable

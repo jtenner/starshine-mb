@@ -2749,6 +2749,90 @@ test "metamorphic duplicate equivalent imported anyref table transform no-ops wi
 }
 
 ///|
+test "metamorphic duplicate equivalent imported nofunc table transform appends unused matching import" {
+  let original_import = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("nofunc_table"),
+    @lib.table_extern_type(
+      @lib.TableType::new(
+        @lib.RefType::abs(@lib.AbsHeapType::no_func()),
+        @lib.Limits::i32(0U, Some(4U)),
+      ),
+    ),
+  )
+  let base = @lib.Module::new().with_import_sec(
+    @lib.ImportSec::new([original_import]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentImportedNofuncTable) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-duplicate-equivalent-imported-nofunc-table",
+  )
+  match transformed.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => {
+      @debug.assert_eq(imports.length(), 2)
+      @debug.assert_eq(imports[0], original_import)
+      match imports[1] {
+        @lib.Import(module_name, item_name, @lib.TableExternType(table_type)) => {
+          @debug.assert_eq(module_name, @lib.Name::new("env"))
+          @debug.assert_eq(
+            item_name,
+            @lib.Name::new("nofunc_table_metamorphic_duplicate"),
+          )
+          @debug.assert_eq(
+            table_type,
+            @lib.TableType::new(
+              @lib.RefType::abs(@lib.AbsHeapType::no_func()),
+              @lib.Limits::i32(0U, Some(4U)),
+            ),
+          )
+        }
+        _ => fail("expected duplicate imported nofunc table")
+      }
+    }
+    None => fail("expected transformed imports")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic duplicate equivalent imported nofunc table transform no-ops without matching import" {
+  let funcref_import = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("func_table"),
+    @lib.table_extern_type(
+      @lib.TableType::new(
+        @lib.RefType::abs(@lib.AbsHeapType::func()),
+        @lib.Limits::i32(0U, Some(1U)),
+      ),
+    ),
+  )
+  let base = @lib.Module::new().with_import_sec(
+    @lib.ImportSec::new([funcref_import]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentImportedNofuncTable) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match transformed.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => @debug.assert_eq(imports.length(), 1)
+    None => fail("expected original imports")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic duplicate equivalent imported eqref table transform appends unused matching import" {
   let original_import = @lib.Import::new(
     @lib.Name::new("env"),
@@ -10166,8 +10250,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 456)
-  @debug.assert_eq(stats.validated, 456)
+  @debug.assert_eq(stats.transformed, 457)
+  @debug.assert_eq(stats.validated, 457)
   assert_true(
     stats.transform_ids.contains(
       "add-duplicate-equivalent-immutable-v128-global",
@@ -10180,6 +10264,11 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   )
   assert_true(
     stats.transform_ids.contains("add-duplicate-equivalent-nofunc-table"),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-duplicate-equivalent-imported-nofunc-table",
+    ),
   )
   assert_true(
     stats.transform_ids.contains(
