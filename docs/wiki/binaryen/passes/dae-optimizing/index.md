@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-05-26
 sources:
+  - ../../../raw/research/0603-2026-05-26-dae013-preset-boundary-closure.md
   - ../../../raw/research/0602-2026-05-26-dae002-scheduler-boundary-closure.md
   - ../../../raw/research/0601-2026-05-26-dae011-caller-filtered-dropped-results.md
   - ../../../raw/research/0600-2026-05-26-dae011-dropped-result-helper-timers.md
@@ -79,7 +80,7 @@ related:
 ## Role
 
 - `dae-optimizing` is an upstream Binaryen late global optimizing pass.
-- It is currently **partially implemented** in Starshine as an active module pass.
+- It is currently **partially implemented** in Starshine as an active module pass, but remains direct-pass-only for v0.1.0 rather than part of public `optimize` / `shrink` presets.
 - The exact upstream spelling `dae-optimizing` appears in Binaryen, the saved generated-artifact audit, the canonical no-DWARF path, backlog language, and now the local active registry.
 - The descriptive local name `dead-argument-elimination-optimizing` remains as an active compatibility alias for the same optimizing module pass; see [`./starshine-strategy.md`](./starshine-strategy.md) for the current scope and remaining parity caveats.
 - Binaryen also exposes the related plain pass name `dae`, tracked locally and in the neighboring dossier as `dead-argument-elimination`.
@@ -159,6 +160,6 @@ That is much closer to the real Binaryen pass than “just remove unused argumen
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `dae-optimizing` research and port planning.
-- Keep it explicitly marked as **partial** until the remaining direct DAE breadth and preset / ordered-neighborhood integration are signed off; `[DAE]002` only closes the current guarded touched scheduler boundary, not full Binaryen byte/shape replay.
+- Keep it explicitly marked as **partial** until the remaining direct DAE breadth is signed off; `[DAE]002` only closes the current guarded touched scheduler boundary, and `[DAE]013` keeps preset / ordered-neighborhood integration direct-pass-only for v0.1.0 rather than claiming full Binaryen byte/shape replay.
 - Describe `dae-optimizing` as an exact current Starshine registry spelling, but do not claim full Binaryen parity yet.
 - New `dae-optimizing` findings should update the strategy page, implementation/test-map page, signature/rerun page, and readiness bridge so the source ownership, boundary algorithm, scheduler story, and implementation checklist stay aligned.

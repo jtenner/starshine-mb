@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] docs | dae DAE013 preset boundary closure
+
+- Closed `[DAE]013` as a docs/backlog recovery slice: `dae-optimizing` remains direct-pass-only for v0.1.0 under `dae-optimizing` and `dead-argument-elimination-optimizing`, and public `optimize` / `shrink` presets intentionally skip it until new ordered-prefix or artifact evidence proves default-preset safety and runtime.
+- Added [`raw/research/0603-2026-05-26-dae013-preset-boundary-closure.md`](raw/research/0603-2026-05-26-dae013-preset-boundary-closure.md) and synced [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md), [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), [`binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md), and [`../../agent-todo.md`](../../agent-todo.md).
+- No pass behavior changed; no new fuzz/compare classification was needed. Broader DAE work remains active in `[DAE]003` and `[DAE]004`.
+
 ## [2026-05-26] docs | dae DAE002 scheduler boundary closure
 
 - Closed `[DAE]002` as a docs/backlog recovery slice for the current v0.1.0 touched nested scheduler boundary: the guarded DAE nested lane has trace-order and touched-only coverage, uses the private `precompute-propagate-prefix` helper, and later evidence attributes the leading both-canonical artifact frontier to the closed Func509 lowerer/diagnostic boundary rather than to a scheduler miss.
