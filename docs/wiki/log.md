@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE003 try_table carrier
+
+- Added [`raw/research/0651-2026-05-26-dae003-try-table-carrier.md`](raw/research/0651-2026-05-26-dae003-try-table-carrier.md), a focused regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), and a narrow helper extension in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
+- DAE now materializes a non-adjacent constant actual through an outer typed block containing a single-leaf `try_table`; broader throwing, computed, branchy, and multi-instruction try/try_table carriers remain deferred under `[DAE003-F]`.
+- Validation: test-first focused `moon test src/passes -f 'dae-optimizing materializes non-adjacent try-table constant carrier' --target native` failed with the target still taking one parameter, then passed after implementation. `git diff --check`, `moon info`, `moon fmt`, and `moon test` passed (`3480` tests) with existing unrelated unused-helper warnings. A 1000-case direct compare stopped at the known threshold with `45/1000` compared, `26` normalized matches, `19` accepted raw-cleanup mismatches, `0` validation failures, and `1` Binaryen/tool command failure.
+
 ## [2026-05-26] passes | dae DAE003 pure dropped-prefix block carrier
 
 - Added [`raw/research/0650-2026-05-26-dae003-pure-dropped-prefix-block-carrier.md`](raw/research/0650-2026-05-26-dae003-pure-dropped-prefix-block-carrier.md), a focused regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), and a narrow helper in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
