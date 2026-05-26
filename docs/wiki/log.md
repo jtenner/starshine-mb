@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-26] binaryen | SGO full parity signoff attempt
+
+- Added research note [`0700`](./raw/research/0700-2026-05-26-sgo-full-parity-signoff-attempt.md) for `[SGO]005`, recording the final signoff attempt and keeping the slice active because artifact pass-local timing is slightly beyond the 2x Binaryen floor and the self-optimize helper rejects `--optimize` preset comparison.
+- Validation passed: `moon info` (with existing DAE unused warnings), `moon fmt`, full `moon test` (`3723/3723`), direct SGO fuzz at `.tmp/pass-fuzz-sgo-full-parity-10000` (`6759/10000`, `0` mismatches, `0` Starshine validation failures), and ordered late-tail fuzz at `.tmp/pass-fuzz-sgo-late-tail-full-parity-10000` (`6597/10000`, `0` mismatches, `0` Starshine validation failures).
+- Direct and late-tail debug artifact replays validate and first differ at `defined=55 abs=76`, agent-classified as representation-only default-local/carrier drift, but direct SGO timing was `249.120ms` vs Binaryen `115.912ms` (repeat `257.074ms` vs `112.087ms`) and late-tail timing was `376.989ms` vs `176.568ms` (repeat `385.680ms` vs `177.497ms`), so `[SGO]005` remains open.
+
 ## [2026-05-26] binaryen | SGO shared family exposure
 
 - Added research note [`0699`](./raw/research/0699-2026-05-26-sgo-shared-family-exposure.md) for `[SGO]003H`, activating `simplify-globals` as the shared core without optimizing cleanup and `propagate-globals-globally` as the startup/global-only sibling.

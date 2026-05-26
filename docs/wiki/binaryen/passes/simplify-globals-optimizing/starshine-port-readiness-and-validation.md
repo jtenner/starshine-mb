@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-21
 sources:
+  - ../../../raw/research/0700-2026-05-26-sgo-full-parity-signoff-attempt.md
   - ../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md
   - ../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md
@@ -167,8 +168,9 @@ Run isolated oracle comparison before late-tail replay:
 - reduced fixtures from Binaryen's `simplify-globals-*` lit family;
 - targeted debug-artifact runs once the module-boundary harness accepts the pass.
 
-Current signed-off supported-surface evidence (with direct artifact drift accepted as representation-only):
+Current signed-off supported-surface evidence (with direct artifact drift accepted as representation-only) plus the latest full-parity attempt:
 
+- [`0700`](../../../raw/research/0700-2026-05-26-sgo-full-parity-signoff-attempt.md) is the current `[SGO]005` final-signoff attempt. It keeps SGO active: `moon info`, `moon fmt`, full `moon test`, direct SGO fuzz, and ordered late-tail fuzz passed with zero mismatches and zero Starshine validation failures, and the regenerated debug artifact validates, but direct artifact pass-local timing (`249.120ms` vs Binaryen `115.912ms`, repeat `257.074ms` vs `112.087ms`) and late-tail artifact pass-local timing (`376.989ms` vs `176.568ms`, repeat `385.680ms` vs `177.497ms`) are slightly beyond the repo 2x floor. The first artifact diff is `defined=55 abs=76`, classified as representation-only default-local/carrier drift. The self-optimize helper still rejects `--optimize`, so the full optimize-path comparison remains blocked until preset support or an explicit-pass equivalent is available.
 - `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --simplify-globals-optimizing --out-dir .tmp/sgo-direct-debug-artifact-nested-pruned --starshine-bin _build/native/release/build/cmd/cmd.exe` completed direct debug-artifact replay after pruning expensive SGO nested cleanup slots. It stayed valid; canonical wasm/WAT/function compare were unequal and the first difference remained `defined=48 abs=69`, now accepted by user decision as local/default-init representation drift. Starshine stayed smaller than Binaryen (`2,860,269` bytes versus `2,861,435`) and pass-local runtime moved inside the 2x Binaryen floor (`153.143ms` versus Binaryen `107.210ms`). The paired trace `.tmp/sgo-nested-pruned-trace.txt` reported total SGO pass time `139.507ms` and `detail:sgo:nested-total=86.104ms`; the remaining largest nested wrapper slot is `vacuum=45.538ms`. Previous attribution in `.tmp/sgo-nested-timers-trace.txt` showed the unpruned nested lane at `detail:sgo:nested-total=213.664ms`, led by `simplify-locals=60.031ms`, `vacuum=47.410ms`, and `remove-unused-brs=20.042ms`; this motivated the artifact-tuned nested-list pruning.
 - `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-local-threshold-192-10k` compared `9975/10000` mixed-generator modules after the SGO local-heavy nested cleanup threshold slice, matched all `9975`, found `0` validation failures, and hit `25` Binaryen/tool command failures.
 - `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-sgo-nested-pruned-10k` compared `9975/10000` mixed-generator modules after pruning the SGO nested cleanup list, matched all `9975`, found `0` mismatches, `0` validation failures, and hit `25` Binaryen/tool command failures.

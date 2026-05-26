@@ -379,16 +379,19 @@ Active v0.1.0 slices for full Binaryen parity
     - self-optimize no longer has unexplained SGO-cleanup diffs.
 
 - [SGO]005 - Full v0.1.0 Self-Optimization And 10k Fuzzer Signoff
-  - Status: active final signoff slice; depends on `[SGO]003A` through `[SGO]003H` and `[SGO]004`.
+  - Status: active final signoff slice with blockers from the 2026-05-26 signoff attempt in `docs/wiki/raw/research/0700-2026-05-26-sgo-full-parity-signoff-attempt.md`; depends on `[SGO]003A` through `[SGO]003H` and `[SGO]004`.
   - Goal: prove full Binaryen parity for SGO's role in the v0.1.0 no-DWARF default optimize path.
   - Tasks:
-    - run `moon info`, `moon fmt`, and `moon test` serially;
-    - run direct pass fuzz: `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --out-dir .tmp/pass-fuzz-sgo-full-parity-10000`;
-    - run ordered late-tail neighborhood fuzz/replay for `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`;
-    - run direct debug artifact replay with `--simplify-globals-optimizing` and record first diff, sizes, validation, and pass-local timings;
-    - run full self-optimization / optimize-path comparison on `tests/node/dist/starshine-debug-wasi.wasm` and classify any remaining diffs;
-    - update `docs/wiki/raw/research/[next]-YYYY-MM-DD-sgo-full-binaryen-parity-signoff.md`, `docs/wiki/log.md`, parity matrix, and this backlog;
-    - commit only after reviewing status and staged diff.
+    - [x] run `moon info`, `moon fmt`, and `moon test` serially for the 2026-05-26 attempt (`moon test` passed `3723/3723`, with existing DAE unused warnings in `moon info`);
+    - [x] run direct pass fuzz: `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --out-dir .tmp/pass-fuzz-sgo-full-parity-10000` (`6759/10000` compared, `0` mismatches, `0` Starshine validation failures, `20` Binaryen/tool command failures);
+    - [x] run ordered late-tail neighborhood fuzz for `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`: `.tmp/pass-fuzz-sgo-late-tail-full-parity-10000` (`6597/10000` compared, `0` mismatches, `0` Starshine validation failures, `20` Binaryen/tool command failures);
+    - [x] run direct debug artifact replay with `--simplify-globals-optimizing` and record first diff, sizes, validation, and pass-local timings: `.tmp/sgo-full-parity-direct-artifact-native` validates and first differs at `defined=55 abs=76`, classified as representation-only default-local/carrier drift, but Starshine pass time is over the 2x floor (`249.120ms` vs Binaryen `115.912ms`; repeat `257.074ms` vs `112.087ms`);
+    - [x] run ordered late-tail debug artifact replay: `.tmp/sgo-full-parity-late-tail-artifact` first differs at the same `defined=55 abs=76` representation-only family, but Starshine pass time is over the 2x floor (`376.989ms` vs Binaryen `176.568ms`; repeat `385.680ms` vs `177.497ms`);
+    - [ ] fix or explicitly accept the SGO direct/late-tail artifact pass-local runtime gap before final closeout; current evidence is slightly beyond the repo 2x floor and should not be hidden;
+    - [ ] decide whether the `defined=55 abs=76` default-local/carrier drift is accepted for final SGO artifact signoff or needs compare-normalization/cosmetic parity work;
+    - [ ] run full self-optimization / optimize-path comparison on `tests/node/dist/starshine-debug-wasi.wasm` and classify any remaining diffs; current helper rejects `--optimize` with `unsupported preset flag for self-optimize compare: --optimize`, so either add preset support to the helper or provide an explicit-pass equivalent before rerunning;
+    - [x] update `docs/wiki/raw/research/[next]-YYYY-MM-DD-sgo-full-binaryen-parity-signoff.md`, `docs/wiki/log.md`, parity matrix, and this backlog for the 2026-05-26 attempt;
+    - [x] commit the 2026-05-26 signoff-attempt docs/backlog update after reviewing status and staged diff (`c109a728`).
   - Required mismatch classification:
     - semantic-safe / representation-only only with explicit transform-contract or replay evidence;
     - validation failure, tool/Binaryen failure, size-losing, unknown/risky, and true semantic mismatch must stay visible until fixed or explicitly accepted.
