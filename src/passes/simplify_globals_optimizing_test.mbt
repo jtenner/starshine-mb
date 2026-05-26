@@ -12427,6 +12427,69 @@ test "simplify-globals-optimizing removes loop-wrapped independent table-copy ef
 }
 
 ///|
+test "simplify-globals-optimizing removes loop-wrapped independent elem-drop effect prefixes" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (table (export "tab") 2 funcref)
+      #|  (func $f)
+      #|  (elem $e func $f)
+      #|  (global $once (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    loop (result i32)
+      #|      elem.drop $e
+      #|      global.get $once
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $once
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("elem.drop"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes loop-wrapped independent data-drop effect prefixes" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (memory (export "mem") 1)
+      #|  (data $d "abc")
+      #|  (global $once (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    loop (result i32)
+      #|      data.drop $d
+      #|      global.get $once
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $once
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("data.drop"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing removes loop-wrapped independent memory-grow effect prefixes" {
   let optimized = sgo_test_run(
     (

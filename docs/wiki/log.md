@@ -560,6 +560,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO loop independent segment-drop prefix
+
+- Added research note [`0690`](./raw/research/0690-2026-05-25-sgo-loop-independent-segment-drop-prefix.md) for `[SGO]003C5`, extending the narrow direct-loop prefix matcher from independent grow/drop effects to Binaryen-positive operandless `elem.drop; global.get <candidate>` and `data.drop; global.get <candidate>` shapes.
+- Added focused positives so independent segment-drop effects are preserved while fake candidate-global guard traffic is removed. TDD failure was observed before implementation; `moon test src/passes` passed after implementation (`1641/1641`), then `moon fmt`, `moon info`, full `moon test` (`3717/3717`), and direct SGO fuzz at `.tmp/pass-fuzz-sgo-loop-segment-drop-0690-10000` passed the slice criteria (`6759/10000` compared before the configured `20` Binaryen/tool command-failure stop, `0` mismatches, `0` Starshine validation failures; command failures were the established Binaryen/tool classes: `17` rec-group-zero plus one each bad-section-size, table-index-out-of-range, and invalid-tag-index).
+
 ## [2026-05-25] binaryen | SGO loop independent memory/table grow prefix
 
 - Added research note [`0689`](./raw/research/0689-2026-05-25-sgo-loop-independent-grow-prefix.md) for `[SGO]003C5`, extending the narrow direct-loop prefix matcher from table bulk operations to the Binaryen-positive `const; memory.grow; drop; global.get <candidate>` and `ref.func/ref.null; const; table.grow; drop; global.get <candidate>` shapes.

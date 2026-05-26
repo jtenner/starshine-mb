@@ -3334,6 +3334,14 @@ fn sgo_loop_condition_independent_global_set_prefix_read_matches(
       }
       continue
     }
+    match flat[scan] {
+      @lib.ElemDrop(_) | @lib.DataDrop(_) => {
+        saw_independent_set = true
+        scan = scan + 1
+        continue
+      }
+      _ => ()
+    }
     return false
   }
   scan == end_ && saw_independent_set
