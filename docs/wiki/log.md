@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-26] fuzzing | FUZ1036K44 imported/defined global export alias transforms
+
+- Completed `[FUZ]1036K44` by adding `add-imported-global-export-aliases` and `add-defined-global-export-aliases`. The transforms split global alias coverage by imported versus defined global index regions, append unique unused aliases for existing matching global exports, and preserve global indices without adding new imports or globals.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 462 transforms per generated module, and kept focused `src/fuzz` validation green.
+
 ## [2026-05-25] fuzzing | FUZ1036K43 tag export alias transform
 
 - Completed `[FUZ]1036K43` by adding `add-tag-export-aliases`. The transform mirrors the existing function/table/memory/global export alias family for exception tags, appending unique unused aliases for existing tag exports without changing tag indices or referenced tag types.

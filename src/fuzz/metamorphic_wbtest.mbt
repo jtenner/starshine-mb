@@ -5428,6 +5428,87 @@ test "metamorphic imported and defined function export aliases do not shift indi
 }
 
 ///|
+test "metamorphic imported and defined global export aliases do not shift indices" {
+  let base = @lib.Module::new()
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::new("env"),
+          @lib.Name::new("imported_global"),
+          @lib.ExternType::global(
+            @lib.GlobalType::new(@lib.ValType::i32(), false),
+          ),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::i32(), false),
+          @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("imp_global"),
+          @lib.ExternIdx::global(@lib.GlobalIdx::new(0U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("def_global"),
+          @lib.ExternIdx::global(@lib.GlobalIdx::new(1U)),
+        ),
+      ]),
+    )
+  let imported = match
+    metamorphic_apply_transform(base, AddImportedGlobalExportAliases) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(imported.transform_id, "add-imported-global-export-aliases")
+  match imported.wasm_module.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      @debug.assert_eq(exports.length(), 3)
+      @debug.assert_eq(
+        exports[2],
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_imported_global_alias_0"),
+          @lib.ExternIdx::global(@lib.GlobalIdx::new(0U)),
+        ),
+      )
+    }
+    None => fail("expected imported global alias export section")
+  }
+  let defined = match
+    metamorphic_apply_transform(
+      imported.wasm_module,
+      AddDefinedGlobalExportAliases,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(defined.transform_id, "add-defined-global-export-aliases")
+  match defined.wasm_module.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      @debug.assert_eq(exports.length(), 4)
+      @debug.assert_eq(
+        exports[3],
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_defined_global_alias_0"),
+          @lib.ExternIdx::global(@lib.GlobalIdx::new(1U)),
+        ),
+      )
+    }
+    None => fail("expected defined global alias export section")
+  }
+  match assert_metamorphic_roundtrip_valid(defined.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic export aliases transform preserves validation and binary roundtrip" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),
@@ -10448,8 +10529,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 460)
-  @debug.assert_eq(stats.validated, 460)
+  @debug.assert_eq(stats.transformed, 462)
+  @debug.assert_eq(stats.validated, 462)
   assert_true(
     stats.transform_ids.contains(
       "add-duplicate-equivalent-immutable-v128-global",
