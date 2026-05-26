@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-26] fuzzing | FUZ1036K45 imported/defined memory export alias transforms
+
+- Completed `[FUZ]1036K45` by adding `add-imported-memory-export-aliases` and `add-defined-memory-export-aliases`. The transforms split memory alias coverage by imported versus defined memory index regions, append unique unused aliases for existing matching memory exports, and preserve memory indices without adding imports or memory definitions.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 464 transforms per generated module, and kept focused `src/fuzz` validation green.
+
 ## [2026-05-26] fuzzing | FUZ1058D golden seed update docs
 
 - Completed `[FUZ]1058D` by expanding [`fuzzing/golden-seed-catalog.md`](fuzzing/golden-seed-catalog.md) with explicit triggers for updating golden seeds, cases that should stay out of the catalog, and the step-by-step update flow across `src/fuzz/main.mbt`, `golden-seed-catalog.json`, docs, tests, and smoke validation.

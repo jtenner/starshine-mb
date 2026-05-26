@@ -459,6 +459,8 @@ pub enum MetamorphicValidTransform {
   AddDefinedFunctionExportAliases
   AddImportedGlobalExportAliases
   AddDefinedGlobalExportAliases
+  AddImportedMemoryExportAliases
+  AddDefinedMemoryExportAliases
   AddTableExportAliases
   AddMemoryExportAliases
   AddGlobalExportAliases
@@ -1348,6 +1350,8 @@ pub fn metamorphic_valid_transform_id(
     AddDefinedFunctionExportAliases => "add-defined-function-export-aliases"
     AddImportedGlobalExportAliases => "add-imported-global-export-aliases"
     AddDefinedGlobalExportAliases => "add-defined-global-export-aliases"
+    AddImportedMemoryExportAliases => "add-imported-memory-export-aliases"
+    AddDefinedMemoryExportAliases => "add-defined-memory-export-aliases"
     AddTableExportAliases => "add-table-export-aliases"
     AddMemoryExportAliases => "add-memory-export-aliases"
     AddGlobalExportAliases => "add-global-export-aliases"
@@ -5677,6 +5681,22 @@ fn metamorphic_imported_global_count(mod : @lib.Module) -> UInt {
 }
 
 ///|
+fn metamorphic_imported_memory_count(mod : @lib.Module) -> UInt {
+  let mut count = 0U
+  match mod.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.MemExternType(_)) => count += 1U
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  count
+}
+
+///|
 fn metamorphic_function_export_matches_import_region(
   extern_idx : @lib.ExternIdx,
   imported_count : UInt,
@@ -5759,6 +5779,56 @@ fn metamorphic_add_imported_or_defined_global_export_aliases(
         match export_ {
           @lib.Export(_, extern_idx) =>
             if metamorphic_global_export_matches_import_region(
+                extern_idx, imported_count, imported,
+              ) {
+              let alias_name = metamorphic_unique_export_name(
+                exports,
+                "metamorphic_\{kind}_alias_\{alias_index}",
+              )
+              exports.push(@lib.Export::new(alias_name, extern_idx))
+              alias_index += 1
+            }
+        }
+      }
+    }
+    None => ()
+  }
+  mod.with_export_sec(@lib.ExportSec::new(exports))
+}
+
+///|
+fn metamorphic_memory_export_matches_import_region(
+  extern_idx : @lib.ExternIdx,
+  imported_count : UInt,
+  imported : Bool,
+) -> Bool {
+  match extern_idx {
+    @lib.MemExternIdx(@lib.MemIdx(raw)) => {
+      let is_imported = raw < imported_count
+      is_imported == imported
+    }
+    _ => false
+  }
+}
+
+///|
+fn metamorphic_add_imported_or_defined_memory_export_aliases(
+  mod : @lib.Module,
+  imported : Bool,
+) -> @lib.Module {
+  let exports = []
+  let imported_count = metamorphic_imported_memory_count(mod)
+  let kind = if imported { "imported_memory" } else { "defined_memory" }
+  match mod.export_sec {
+    Some(@lib.ExportSec(existing)) => {
+      let mut alias_index = 0
+      for export_ in existing {
+        exports.push(export_)
+      }
+      for export_ in existing {
+        match export_ {
+          @lib.Export(_, extern_idx) =>
+            if metamorphic_memory_export_matches_import_region(
                 extern_idx, imported_count, imported,
               ) {
               let alias_name = metamorphic_unique_export_name(
@@ -6372,6 +6442,8 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddDefinedFunctionExportAliases,
     AddImportedGlobalExportAliases,
     AddDefinedGlobalExportAliases,
+    AddImportedMemoryExportAliases,
+    AddDefinedMemoryExportAliases,
     AddTableExportAliases,
     AddMemoryExportAliases,
     AddGlobalExportAliases,
@@ -8470,6 +8542,10 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_imported_or_defined_global_export_aliases(mod, true)
     AddDefinedGlobalExportAliases =>
       metamorphic_add_imported_or_defined_global_export_aliases(mod, false)
+    AddImportedMemoryExportAliases =>
+      metamorphic_add_imported_or_defined_memory_export_aliases(mod, true)
+    AddDefinedMemoryExportAliases =>
+      metamorphic_add_imported_or_defined_memory_export_aliases(mod, false)
     AddTableExportAliases => metamorphic_add_kind_export_aliases(mod, "table")
     AddMemoryExportAliases => metamorphic_add_kind_export_aliases(mod, "memory")
     AddGlobalExportAliases => metamorphic_add_kind_export_aliases(mod, "global")

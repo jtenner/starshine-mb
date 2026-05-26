@@ -5509,6 +5509,82 @@ test "metamorphic imported and defined global export aliases do not shift indice
 }
 
 ///|
+test "metamorphic imported and defined memory export aliases do not shift indices" {
+  let base = @lib.Module::new()
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::new("env"),
+          @lib.Name::new("imported_memory"),
+          @lib.ExternType::mem(
+            @lib.MemType::new(@lib.Limits::i32(1U, Some(2U))),
+          ),
+        ),
+      ]),
+    )
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, Some(3U)))]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("imp_memory"),
+          @lib.ExternIdx::mem(@lib.MemIdx::new(0U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("def_memory"),
+          @lib.ExternIdx::mem(@lib.MemIdx::new(1U)),
+        ),
+      ]),
+    )
+  let imported = match
+    metamorphic_apply_transform(base, AddImportedMemoryExportAliases) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(imported.transform_id, "add-imported-memory-export-aliases")
+  match imported.wasm_module.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      @debug.assert_eq(exports.length(), 3)
+      @debug.assert_eq(
+        exports[2],
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_imported_memory_alias_0"),
+          @lib.ExternIdx::mem(@lib.MemIdx::new(0U)),
+        ),
+      )
+    }
+    None => fail("expected imported memory alias export section")
+  }
+  let defined = match
+    metamorphic_apply_transform(
+      imported.wasm_module,
+      AddDefinedMemoryExportAliases,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(defined.transform_id, "add-defined-memory-export-aliases")
+  match defined.wasm_module.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      @debug.assert_eq(exports.length(), 4)
+      @debug.assert_eq(
+        exports[3],
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_defined_memory_alias_0"),
+          @lib.ExternIdx::mem(@lib.MemIdx::new(1U)),
+        ),
+      )
+    }
+    None => fail("expected defined memory alias export section")
+  }
+  match assert_metamorphic_roundtrip_valid(defined.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic export aliases transform preserves validation and binary roundtrip" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [])),
@@ -10529,8 +10605,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 462)
-  @debug.assert_eq(stats.validated, 462)
+  @debug.assert_eq(stats.transformed, 464)
+  @debug.assert_eq(stats.validated, 464)
   assert_true(
     stats.transform_ids.contains(
       "add-duplicate-equivalent-immutable-v128-global",

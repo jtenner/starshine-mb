@@ -993,6 +993,8 @@ pub enum MetamorphicValidTransform {
   AddDefinedFunctionExportAliases
   AddImportedGlobalExportAliases
   AddDefinedGlobalExportAliases
+  AddImportedMemoryExportAliases
+  AddDefinedMemoryExportAliases
   AddTableExportAliases
   AddMemoryExportAliases
   AddGlobalExportAliases
