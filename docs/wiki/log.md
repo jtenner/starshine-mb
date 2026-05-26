@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] docs | dae DAE003 closeout evidence
+
+- Added [`raw/research/0661-2026-05-26-dae003-closeout-evidence.md`](raw/research/0661-2026-05-26-dae003-closeout-evidence.md) and updated [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) plus [`../../agent-todo.md`](../../agent-todo.md).
+- Closed `[DAE003-I]` and `[DAE]003` for the current v0.1.0 surface: no known current frontier is attributed to missed safe constant/unread materialization; remaining active DAE work is `[DAE]004` dropped-result scheduling/fallback closure.
+- Validation/evidence: direct fuzz `.tmp/pass-fuzz-dae003i-closeout-20260526` reported `45/10000` compared, `26` normalized matches, `19` accepted raw-cleanup mismatches, `0` validation failures, and `1` Binaryen/tool command failure; artifact timing/validation `.tmp/dae003i-artifact-timing-20260526` reported `1721.182ms` Starshine pass versus `902.489ms` Binaryen pass and validated with only the existing large-local-count VM warning.
+
 ## [2026-05-26] tests | dae DAE003 iteration-budget guard
 
 - Added [`raw/research/0660-2026-05-26-dae003-iteration-budget-guard.md`](raw/research/0660-2026-05-26-dae003-iteration-budget-guard.md) and a focused regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt).
