@@ -63,7 +63,7 @@ Starshine currently has:
 
 - public pass names `dae-optimizing` and `dead-argument-elimination-optimizing` in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt);
 - a live module-pass dispatcher path in [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) that runs the shared DAE boundary rewrite plus a guarded touched-function nested cleanup slice;
-- focused regressions for touched-only nested cleanup order, size-skip tracing, touched-only `optimize-casts` / `coalesce-locals` / `reorder-locals` behavior, and a narrow every-direct-caller-same-literal constant-actual family in [`src/passes/dae_optimizing_test.mbt`](../../../../../src/passes/dae_optimizing_test.mbt);
+- focused regressions for touched-only nested cleanup order, size-skip tracing, touched-only `optimize-casts` / `coalesce-locals` / `reorder-locals` behavior, a narrow every-direct-caller-same-literal constant-actual family, and a small-module fact-discovered dropped-result candidate outside the artifact selected-def list in [`src/passes/dae_optimizing_test.mbt`](../../../../../src/passes/dae_optimizing_test.mbt);
 - a touched-only private `precompute-propagate-prefix` helper that folds SSA-backed default-init and direct local constant facts, then reruns plain `precompute`, but still not the real public `precompute-propagate` pass family itself;
 - a narrow constant-actual materialization slice for exact literals on read-only params, now including scalar memory-load sibling carriers and typed single-result `TypeIdxBlockType` wrappers in the callsite-slice recovery path, but no broader operand localization, GC refinement, or result-refinement family yet;
 - a usefully shrinking raw-cleanup slice in [`src/passes/dead_argument_elimination_wbtest.mbt`](../../../../../src/passes/dead_argument_elimination_wbtest.mbt) that strips live integer identities (`+0`, `-0`, `|0`, `^0`, `<<0`, `>>0`, `rotl0`, `rotr0`, `*1`, and `& -1`) on DAE-touched functions, including guarded left-constant forms when the constant producer is a stack-neutral value leaf, but still deliberately stops short of Binaryen's full optimizing replay;
@@ -129,7 +129,7 @@ After the scalar slice is green, port the remaining Binaryen families one at a t
 - **recursive and forwarding cycles**: remove parameters forwarded through direct-call cycles only when the entry value is never otherwise observed;
 - **GC parameter refinement**: keep live parameters but narrow their reference type from call-operand least-upper-bound evidence;
 - **result refinement**: narrow result types from returned-value evidence and repair call expression types;
-- **dropped-result removal**: remove results only when all owned callers drop them and tail-call constraints allow it;
+- **dropped-result removal**: remove results only when all owned callers drop them and tail-call constraints allow it; the current small-module queue now discovers such private direct candidates from current call facts, while the large-artifact selected list remains intentionally separate until it can be batched without regressing pass-local runtime;
 - **uninhabited-result preservation**: emit the needed `call; unreachable`-style repair when deleting an uninhabited result would otherwise lose control-flow knowledge;
 - **operand localization and retry**: localize hard operands first, then rerun the boundary core when the localized form exposes a legal deletion;
 - **unprofitable-chain throttle**: preserve Binaryen's one-caller chain throttle rather than making Starshine an unbounded signature-churn pass;

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE004 small-module dropped-result candidates
+
+- Broadened `[DAE]004` in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) with a bounded small-module fact-driven dropped-result candidate queue. The new queue selects private non-tail direct callees whose current direct calls all drop the single result, then reuses the existing caller-filtered result-removal helper; the large debug-artifact selected-def list remains in place until a batched fact-driven path can preserve the closed DAE011 runtime target.
+- Added a focused regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) for a target outside the handpicked selected-def list. It failed before the fact-driven queue (`1 != 0` result count) and passes after the change.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), [`binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md), and [`../../agent-todo.md`](../../agent-todo.md). Validation included `git diff --check`, `moon info`, `moon fmt`, `moon test`, and `.tmp/pass-fuzz-dae004-fact-dropped-20260526-full` (`9975/10000` compared, `6078` normalized matches, `3897` known gen-valid raw-cleanup mismatches, `0` validation failures, `25` Binaryen/tool command failures). `[DAE]004` remains open for a safe large-artifact replacement/batching of the handpicked selected-def list.
+
 ## [2026-05-26] docs | dae DAE013 preset boundary closure
 
 - Closed `[DAE]013` as a docs/backlog recovery slice: `dae-optimizing` remains direct-pass-only for v0.1.0 under `dae-optimizing` and `dead-argument-elimination-optimizing`, and public `optimize` / `shrink` presets intentionally skip it until new ordered-prefix or artifact evidence proves default-preset safety and runtime.

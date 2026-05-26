@@ -3041,6 +3041,54 @@ test "dae-optimizing removes selected mid-prefix dropped callee results" {
 }
 
 ///|
+test "dae-optimizing removes fact-discovered dropped callee result outside selected list" {
+  let target_def = 512
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < 8; i = i + 1 {
+    out.write_string(
+      "  (func $g\{i} (param i32 i32)\n    local.get 0\n    drop)\n",
+    )
+  }
+  for i = 8; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32 i32) (result i32)
+      #|    local.get 0
+      #|    call $side
+      #|    local.get 1
+      #|    call $side
+      #|    local.get 0
+      #|    local.get 1
+      #|    i32.add)
+      #|  (func $side (param i32))
+      #|  (func (export "run")
+    ),
+  )
+  for i = 0; i < 8; i = i + 1 {
+    out.write_string("    i32.const 1\n    i32.const 2\n    call $g\{i}\n")
+  }
+  out.write_string(
+    (
+      #|    i32.const 10
+      #|    i32.const 32
+      #|    call $target
+      #|    drop)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  @debug.assert_eq(dae_test_func_results(optimized, target_def).length(), 0)
+  let caller = optimized.pretty_print_defined_func(
+    (target_def + 2).reinterpret_as_uint(),
+  )
+  assert_true(caller.contains("(call (Func \{target_def}))"), msg=caller)
+  assert_false(caller.contains("drop"), msg=caller)
+}
+
+///|
 test "dae-optimizing materializes selected mid-prefix exact-literal callees" {
   for
     target_def in [

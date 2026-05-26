@@ -122,7 +122,8 @@ Execution rules for all DAE slices
   - Goal: convert the selected dropped-result lane into a principled, broader result-removal scheduler.
   - Why: selected defs now include artifact families such as `298`, `299`, `427`, `445`, `459`, `472`, `476`, `3566`, `3732`, `3814`, `3834`, `4106`, and `4229`; Func445 and Func459/3732/472/476/4106 proved the both-canonical frontier can still expose real result/signature gaps.
   - Deliverables:
-    - Replace the handpicked selected-def list with a fact-driven candidate queue when safe.
+    - [x] Add a bounded small-module fact-driven candidate queue for private direct callees whose current direct calls all drop the single result, outside the artifact handpicked selected-def list; covered by `dae-optimizing removes fact-discovered dropped callee result outside selected list` on 2026-05-26. Direct 10k compare `.tmp/pass-fuzz-dae004-fact-dropped-20260526-full` reproduced the accepted DAE010/DAE011 counts with `0` validation failures.
+    - [ ] Replace or batch the large-artifact handpicked selected-def list with a fact-driven candidate queue when safe, without reopening the DAE011 pass-local runtime cliff.
     - Preserve signatures when any live/undropped call result still exists, including undropped dead-suffix calls.
     - Repair `call; drop` sites after a callee becomes void.
     - Keep table/global/element/local/ref heap type references live when result/function type rewriting changes type ownership.

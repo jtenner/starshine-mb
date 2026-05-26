@@ -17485,6 +17485,37 @@ fn dae_try_simplify_selected_const_if_defs_once(
 }
 
 ///|
+fn dae_collect_fact_dropped_result_candidate_defs(
+  mod_ : @lib.Module,
+  call_facts : DaeCurrentCallFacts,
+) -> Array[Bool] {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let selected = Array::make(defined, false)
+  let mut def_idx = 0
+  while def_idx < defined {
+    let callee_abs = imported + def_idx
+    if callee_abs < call_facts.direct_calls.length() &&
+      callee_abs < call_facts.dropped_calls.length() {
+      let direct_call_count = call_facts.direct_calls[callee_abs]
+      let dropped_call_count = call_facts.dropped_calls[callee_abs]
+      let escaped = callee_abs < call_facts.escaped.length() &&
+        call_facts.escaped[callee_abs]
+      let has_tail_call = callee_abs < call_facts.tail_calls.length() &&
+        call_facts.tail_calls[callee_abs]
+      if direct_call_count > 0 &&
+        dropped_call_count == direct_call_count &&
+        !escaped &&
+        !has_tail_call {
+        selected[def_idx] = true
+      }
+    }
+    def_idx += 1
+  }
+  selected
+}
+
+///|
 fn dae_try_remove_selected_defs_dropped_results_with_facts_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -19933,6 +19964,34 @@ fn dae_run_core(
   let dropped_result_selected_defs_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs",
   )
+  if original_defined <= 1024 {
+    let mut fact_dropped_result_iter = 0
+    while fact_dropped_result_iter < 32 {
+      let fact_dropped_result_call_facts = dae_collect_current_call_facts(
+        current,
+        original_imported + original_defined,
+      )
+      let fact_dropped_result_defs = dae_collect_fact_dropped_result_candidate_defs(
+        current, fact_dropped_result_call_facts,
+      )
+      let fact_dropped_result = dae_try_remove_selected_defs_dropped_results_with_facts_once(
+        current,
+        fact_dropped_result_defs,
+        fact_dropped_result_call_facts,
+        perf~,
+      )
+      if !fact_dropped_result.changed {
+        break
+      }
+      current = fact_dropped_result.mod_out
+      touched = dae_merge_touched(touched, fact_dropped_result.touched)
+      trace(
+        "pass[dae-optimizing]:fact-dropped-result iter=\{fact_dropped_result_iter} primary_def=\{fact_dropped_result.primary_def}",
+      )
+      changed = true
+      fact_dropped_result_iter += 1
+    }
+  }
   for
     selected_result_def in [
       298, 299, 427, 445, 459, 472, 476, 3566, 3732, 3799, 3814, 3834, 4106, 4229,
