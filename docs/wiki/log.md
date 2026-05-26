@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE004 guarded fourteenth descending candidate
+
+- Broadened `[DAE]004` in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) by raising the large-module descending fact-driven dropped-result cap from thirteen to fourteen only for the narrow `4096 < defined <= 4608` band. Larger artifact modules remain at cap `8` to avoid reopening the DAE011 runtime cliff.
+- Updated the focused regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) to `dae-optimizing reaches fourteen high dropped-result callees after low candidate budget`. It failed before implementation with the fourteenth high callee still reporting one result (`1 != 0`) and passes after the guarded cap increase. Refreshed the white-box bounded scheduler unit in [`../../src/passes/pass_manager_wbtest.mbt`](../../src/passes/pass_manager_wbtest.mbt) to cover the fourteen-attempt view.
+- Recorded the slice in [`raw/research/0626-2026-05-26-dae004-guarded-fourteenth-descending-candidate.md`](raw/research/0626-2026-05-26-dae004-guarded-fourteenth-descending-candidate.md). Debug-artifact timing stayed inside the project pass-local `<= 2x` target (`1704.905ms` Starshine pass vs `862.911ms` Binaryen pass), artifact validation passed, `moon test src/passes` passed, and a 200-case direct compare smoke found `0` validation failures before stopping early at `45/200`. `[DAE]004` remains open until evidence proves the selected-def fallback can be removed or no dropped-result scheduling gap remains.
+
 ## [2026-05-26] passes | dae DAE004 guarded thirteenth descending candidate
 
 - Broadened `[DAE]004` in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) by raising the large-module descending fact-driven dropped-result cap from twelve to thirteen only for the narrow `4096 < defined <= 4608` band. Larger artifact modules remain at cap `8` to avoid reopening the DAE011 runtime cliff.
