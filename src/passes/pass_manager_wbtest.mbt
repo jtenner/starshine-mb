@@ -1,4 +1,33 @@
 ///|
+test "dae selected dropped-result helper respects precomputed dropped-call facts" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $callee (result i32)
+      #|    i32.const 7)
+      #|  (func (export "run")
+      #|    call $callee
+      #|    drop))
+    ),
+  )
+  let selected_defs = Array::make(2, false)
+  selected_defs[0] = true
+  let direct_calls = Array::make(2, 0)
+  direct_calls[0] = 1
+  let facts = DaeCurrentCallFacts::{
+    direct_calls,
+    tail_calls: Array::make(2, false),
+    direct_callers: dae_make_direct_callers(2),
+    dropped_calls: Array::make(2, 0),
+    escaped: Array::make(2, false),
+  }
+  let result = dae_try_remove_selected_defs_dropped_results_with_facts_once(
+    mod_, selected_defs, facts,
+  )
+  assert_false(result.changed)
+}
+
+///|
 test "raw vacuum preclean removes stacked pure local drops in one pass" {
   let (cleaned, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs([
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),

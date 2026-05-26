@@ -17309,8 +17309,14 @@ fn dae_try_remove_selected_defs_dropped_results_with_facts_once(
       let callee_abs = imported + def_idx
       if callee_abs < call_facts.direct_calls.length() {
         let direct_call_count = call_facts.direct_calls[callee_abs]
+        let dropped_call_count = if callee_abs <
+          call_facts.dropped_calls.length() {
+          call_facts.dropped_calls[callee_abs]
+        } else {
+          0
+        }
         let result = dae_try_remove_dropped_results(
-          mod_, callee_abs, direct_call_count, direct_call_count,
+          mod_, callee_abs, direct_call_count, dropped_call_count,
         )
         if result.changed {
           let touched = Array::make(defined, false)

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE011 dropped-call fact guard
+
+- Fixed the selected dropped-result helper in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) so it passes shared `dropped_calls` facts into `dae_try_remove_dropped_results(...)` instead of treating every direct call as dropped.
+- Added a white-box regression in [`../../src/passes/pass_manager_wbtest.mbt`](../../src/passes/pass_manager_wbtest.mbt) that failed before the fix by rewriting despite precomputed `dropped_calls[callee]=0` and now proves the helper respects the shared fact contract.
+- Recorded the result in [`raw/research/0599-2026-05-26-dae011-dropped-call-fact-guard.md`](raw/research/0599-2026-05-26-dae011-dropped-call-fact-guard.md) and synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) plus [`../../agent-todo.md`](../../agent-todo.md). Rebuilt timing-only replay `.tmp/dae011-dropped-facts-timing-rebuilt-20260526` still reports `2807.905ms` Starshine pass-local time versus `850.135ms` Binaryen, so `[DAE]011` remains open.
+
 ## [2026-05-26] passes | dae DAE011 dropped-result detail timers
 
 - Split the DAE dropped-result selected-lane bucket in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) into shared call-fact collection, selected-def candidate checks, and adjacent Func299 cleanup timers.
