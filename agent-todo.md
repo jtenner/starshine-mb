@@ -307,18 +307,16 @@ Active v0.1.0 slices for full Binaryen parity
     - direct SGO 10k fuzz and validation evidence for any behavior change.
 
 - [SGO]003E - Runtime ConstantGlobalApplier / Linear-Trace Parity
-  - Status: active after `[SGO]003A` and `[SGO]003D` foundations.
-  - Goal: complete Binaryen-style runtime global constant propagation across linear traces.
-  - Why: Starshine covers straight-line, top-level noise, plain blocks, then/else-local, loop-local, and `try_table` body-local facts, but broader `ConstantGlobalApplier` adjacency remains open.
-  - Tasks:
-    - inventory Binaryen-positive runtime propagation across blocks, if arms, loops, `try_table`, calls, and writes;
-    - implement only facts that dominate the read in the same linear execution without crossing invalidating joins/backedges/control transfers;
-    - broaden direct-call fact preservation using `[SGO]003D` summaries;
-    - add negatives for pre-`if` facts entering else arms, post-if joins, pre-loop facts entering loops, loop facts escaping/backedge reuse, post-`try_table` joins, imported/indirect/reference calls, dynamic return calls, branches, returns, throws, and non-constant writes to tracked globals.
-  - Exit criteria:
-    - runtime propagation tests cover each positive/negative boundary;
-    - direct SGO 10k fuzz green;
-    - no new mismatch family in generated `gen-valid` or `wasm-smith` cases.
+  - Status: accepted / evidence-gated on 2026-05-25. Evidence and closeout live in `docs/wiki/raw/research/0694-2026-05-25-sgo-runtime-linear-trace-closeout.md`, building on the 0598 through 0602 runtime slices and `[SGO]003D` call/effect summary closeout.
+  - Goal: keep the current runtime linear-trace propagation surface as the supported v0.1.0 behavior while requiring fresh exact Binaryen-positive evidence before broader `ConstantGlobalApplier` adjacency is implemented.
+  - Completed tasks:
+    - [x] audited the landed runtime implementation and tests for straight-line, top-level-noise, plain-block, no-else, then-with-else, else-local, loop-local, `try_table`-local, imported/exported/reference fact, and direct-call-summary propagation;
+    - [x] confirmed conservative guardrails remain for pre-`if` facts entering else arms, post-if joins, pre-loop facts entering loops, loop facts escaping/backedge reuse, post-`try_table` joins, imported/indirect/reference calls, dynamic return calls, branches, returns, throws, and non-constant writes;
+    - [x] kept optimizer behavior unchanged because no active exact Binaryen-positive runtime-adjacency child fixture remains.
+  - Future reopen criteria:
+    - an exact Binaryen-positive fixture for a specific runtime propagation shape not already covered;
+    - paired guardrails for joins/backedges, candidate-derived operands, unknown calls, branches, returns, throws, non-constant writes, and type/refinalization-sensitive replacements as relevant;
+    - focused tests plus direct SGO 10k fuzz and validation evidence for any behavior change.
 
 - [SGO]003F - Reference, GC, Type-Refinalization, And Element-Expression Parity
   - Status: active; depends on parser/lowering/refinalization prerequisites as needed.

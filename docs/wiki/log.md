@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO runtime linear-trace closeout
+
+- Added research note [`0694`](./raw/research/0694-2026-05-25-sgo-runtime-linear-trace-closeout.md) to close `[SGO]003E` as accepted / evidence-gated for the currently evidenced runtime `ConstantGlobalApplier` / linear-trace surface.
+- No optimizer behavior changed. Straight-line, plain-block, then/else-local, loop-local, `try_table`-local, direct-call-summary, and conservative join/control barriers remain the supported runtime surface; broader adjacency now requires a fresh exact Binaryen-positive child slice with paired guardrails.
+- No Moon or fuzz validation was required for this docs/backlog-only closeout; latest behavior-bearing evidence remains the 0598 through 0602 runtime slices and 0693 call/effect closeout.
+
 ## [2026-05-25] binaryen | SGO call/effect closeout
 
 - Added research note [`0693`](./raw/research/0693-2026-05-25-sgo-call-effect-parity-closeout.md) to close `[SGO]003D` as accepted / evidence-gated for the currently evidenced direct-call summary and constant-argument surface.
