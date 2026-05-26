@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] research | dae DAE004 current-cap suite crash attribution
+
+- Re-ran the current clean cap-`8` tree before retrying the ninth descending dropped-result cap increase. `moon test src/passes --target native --no-parallelize` still fails with the native passes blackbox `SIGSEGV`.
+- A serial per-file loop localized the current crash to `src/passes/perf_test.mbt`, while `moon test src/passes/dae_optimizing_test.mbt --target native --no-parallelize --test-failure-json` passed `158/158` and `moon test src/passes/pass_manager_wbtest.mbt --target native --no-parallelize --test-failure-json` passed `94/94`.
+- Recorded the attribution in [`raw/research/0619-2026-05-26-dae004-current-cap-suite-crash-attribution.md`](raw/research/0619-2026-05-26-dae004-current-cap-suite-crash-attribution.md). `[DAE]004` remains blocked/unknown-risky for a cap increase, but the full-suite crash is now known to reproduce on the current cap-`8` tree and should be isolated as the native `perf_test.mbt` package crash before treating it as DAE-owned.
+
 ## [2026-05-26] passes | dae DAE004 productive attempt unit
 
 - Extracted `dae_collect_descending_selected_def_attempts` in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), a bounded helper for the large-module descending selected-def scheduler; the existing unbounded collector now delegates through it without changing the active productive cap or fallback behavior.
