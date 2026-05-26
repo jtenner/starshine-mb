@@ -350,6 +350,7 @@ pub enum FuzzCliCommand {
   EmitGenValidBatch(EmitGenValidBatchArgs)
   EmitInvalidRepro(EmitInvalidReproArgs)
   ReplayCorpus(String)
+  GoldenSeedSmoke
 } derive(Eq, Debug)
 
 ///|
@@ -382,6 +383,36 @@ pub struct FuzzSuiteResult {
   shard_index : Int
   shard_count : Int
   details_json : String?
+} derive(Eq, Debug)
+
+///|
+pub struct FuzzGoldenSeedSmokeCase {
+  suite : String
+  profile : String
+  seed : Int64
+  seed_index : Int
+  attempts : Int
+  details_required : Bool
+  details_json : String?
+} derive(Eq, Debug)
+
+///|
+pub fn FuzzGoldenSeedSmokeCase::details_json_contains(
+  self : FuzzGoldenSeedSmokeCase,
+  needle : String,
+) -> Bool {
+  match self.details_json {
+    Some(details) => details.contains(needle)
+    None => false
+  }
+}
+
+///|
+pub struct FuzzGoldenSeedSmokeReport {
+  schema_id : String
+  recipe_name : String
+  seed : Int64
+  cases : Array[FuzzGoldenSeedSmokeCase]
 } derive(Eq, Debug)
 
 ///|
@@ -461,7 +492,7 @@ pub fn fuzz_usage_text() -> String {
     fuzz_join(reserved, ", ")
   }
   let profiles = fuzz_join(fuzz_profile_names(), ", ")
-  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--recipe <name>] [--suite <name>] [--profile <name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>] [--shard-index <i> --shard-count <n>] [--report-json <path>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> [--manifest <path>] (portable coverage-forced batch) | --emit-invalid-repro --suite <suite|ast|binary|text|spec-seed> --strategy <stable-id> --seed <uint64> --attempt <n> --out-dir <dir> [--profile <name>] | --replay-corpus <replay-manifest.json>\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}"
+  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--recipe <name>] [--suite <name>] [--profile <name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>] [--shard-index <i> --shard-count <n>] [--report-json <path>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --golden-seed-smoke | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> [--manifest <path>] (portable coverage-forced batch) | --emit-invalid-repro --suite <suite|ast|binary|text|spec-seed> --strategy <stable-id> --seed <uint64> --attempt <n> --out-dir <dir> [--profile <name>] | --replay-corpus <replay-manifest.json>\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}"
 }
 
 ///|
@@ -1436,6 +1467,12 @@ pub fn parse_fuzz_cli_command(args : Array[String]) -> FuzzCliCommand {
         abort("usage: --replay-corpus <replay-manifest.json>")
       }
       return FuzzCliCommand::ReplayCorpus(args[1])
+    }
+    if command == "--golden-seed-smoke" {
+      if args.length() != 1 {
+        abort("usage: --golden-seed-smoke")
+      }
+      return FuzzCliCommand::GoldenSeedSmoke
     }
   }
   let mut control : FuzzCliCommand? = None
@@ -3091,6 +3128,81 @@ pub fn run_fuzz_suite(
 }
 
 ///|
+pub fn format_fuzz_golden_seed_smoke_report(
+  report : FuzzGoldenSeedSmokeReport,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "schema=\{report.schema_id} recipe=\{report.recipe_name} seed=\{report.seed}\n",
+  )
+  for case in report.cases {
+    out.write_string(
+      "suite=\{case.suite} profile=\{case.profile} seed=\{case.seed} seed_index=\{case.seed_index} attempts=\{case.attempts} details_required=\{case.details_required}\n",
+    )
+  }
+  out.to_string()
+}
+
+///|
+pub fn run_fuzz_golden_seed_smoke() -> Result[FuzzGoldenSeedSmokeReport, String] {
+  let recipe = match fuzz_standard_recipe_by_name("smoke") {
+    Some(v) => v
+    None => return Err("missing smoke recipe")
+  }
+  let results = match
+    run_fuzz_suite_sweep(
+      recipe.suite,
+      recipe.profile,
+      recipe.seed_i64,
+      recipe.seed_count,
+      0,
+      recipe.shard_count,
+    ) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let cases : Array[FuzzGoldenSeedSmokeCase] = []
+  for result in results {
+    if result.attempts != 128 {
+      return Err(
+        "golden seed smoke counter drift: suite=\{result.suite} seed_index=\{result.seed_index} expected attempts=128 got \{result.attempts}",
+      )
+    }
+    let details_required = result.suite == "validate-valid"
+    if details_required {
+      match result.details_json {
+        Some(details) =>
+          if !details.contains("\"validated\":128") ||
+            !details.contains("\"generator_config\":\"coverage-forced\"") {
+            return Err(
+              "golden seed smoke detail drift: suite=\{result.suite} seed_index=\{result.seed_index}",
+            )
+          }
+        None =>
+          return Err(
+            "golden seed smoke missing details: suite=\{result.suite} seed_index=\{result.seed_index}",
+          )
+      }
+    }
+    cases.push({
+      suite: result.suite,
+      profile: result.profile,
+      seed: result.seed,
+      seed_index: result.seed_index,
+      attempts: result.attempts,
+      details_required,
+      details_json: result.details_json,
+    })
+  }
+  Ok({
+    schema_id: "starshine.fuzz-golden-seed-smoke.v1",
+    recipe_name: recipe.name,
+    seed: recipe.seed_i64,
+    cases,
+  })
+}
+
+///|
 fn fuzz_seed_add(base : Int64, offset : Int) -> Int64 {
   (base.reinterpret_as_uint64() + offset.to_uint64()).reinterpret_as_int64()
 }
@@ -3846,6 +3958,11 @@ fn main {
         Err(e) => abort(e)
       }
     }
+    FuzzCliCommand::GoldenSeedSmoke =>
+      match run_fuzz_golden_seed_smoke() {
+        Ok(report) => println(format_fuzz_golden_seed_smoke_report(report))
+        Err(e) => abort(e)
+      }
     FuzzCliCommand::Run(parsed) => {
       let output_mode = parsed.output_mode
       match

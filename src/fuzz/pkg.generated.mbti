@@ -37,6 +37,8 @@ pub fn emit_gen_valid_batch_artifacts_with_manifest(Int, UInt64) -> Result[GenVa
 
 pub fn evaluate_validate_invalid_text_assertion_source(String, String, ValidateInvalidTextAssertionKind) -> Result[ValidateInvalidTextStage, String]
 
+pub fn format_fuzz_golden_seed_smoke_report(FuzzGoldenSeedSmokeReport) -> String
+
 pub fn format_fuzz_run_report_json(String, String, Int64, Int, Int, Int, Array[FuzzSuiteResult]) -> String
 
 pub fn format_fuzz_suite_result(FuzzSuiteResult, FuzzOutputMode) -> String
@@ -138,6 +140,8 @@ pub fn persist_fuzz_run_output(String, String, String, Int64, Int, Int, Int, Arr
 pub fn persist_invalid_fuzz_failure_report(InvalidFuzzFailureReport, InvalidFuzzPersistIO, corpus_dir? : String) -> Result[(String, Array[String]), String]
 
 pub fn replay_invalid_fuzz_failure_report(InvalidFuzzFailureReport, prefer_reduced? : Bool) -> Result[InvalidFuzzReplayResult, String]
+
+pub fn run_fuzz_golden_seed_smoke() -> Result[FuzzGoldenSeedSmokeReport, String]
 
 pub fn run_fuzz_replay_manifest(String) -> Result[Array[FuzzSuiteResult], String]
 
@@ -260,6 +264,25 @@ pub enum FuzzCliCommand {
   EmitGenValidBatch(EmitGenValidBatchArgs)
   EmitInvalidRepro(EmitInvalidReproArgs)
   ReplayCorpus(String)
+  GoldenSeedSmoke
+} derive(Eq, @debug.Debug)
+
+pub struct FuzzGoldenSeedSmokeCase {
+  suite : String
+  profile : String
+  seed : Int64
+  seed_index : Int
+  attempts : Int
+  details_required : Bool
+  details_json : String?
+} derive(Eq, @debug.Debug)
+pub fn FuzzGoldenSeedSmokeCase::details_json_contains(Self, String) -> Bool
+
+pub struct FuzzGoldenSeedSmokeReport {
+  schema_id : String
+  recipe_name : String
+  seed : Int64
+  cases : Array[FuzzGoldenSeedSmokeCase]
 } derive(Eq, @debug.Debug)
 
 pub struct FuzzInterestingnessCaseKey {

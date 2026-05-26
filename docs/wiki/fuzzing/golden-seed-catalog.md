@@ -17,7 +17,7 @@ Each entry records:
 - `artifacts` - logical output files expected from the suite or adapter.
 - `notes` - human maintenance note explaining why the seed exists.
 
-The checked-in smoke catalog lives in [`golden-seed-catalog.json`](golden-seed-catalog.json). The source of truth for the same entries is `golden_seed_smoke_suite_catalog()` so tests and docs stay aligned.
+The checked-in smoke catalog lives in [`golden-seed-catalog.json`](golden-seed-catalog.json). The source of truth for the same entries is `golden_seed_smoke_suite_catalog()` so tests and docs stay aligned. The executable smoke runner is `moon run src/fuzz -- --golden-seed-smoke`; it currently locks the standard `smoke` recipe's high-level `validate-valid` counters (`attempts=128`, `validated=128`, and `coverage-forced` generator config) and fails if those drift unexpectedly.
 
 ## Current smoke entries
 
@@ -34,4 +34,4 @@ The checked-in smoke catalog lives in [`golden-seed-catalog.json`](golden-seed-c
 - Keep the catalog small and intentional; do not add bulk coverage seeds here.
 - Update the MoonBit catalog, the JSON document, and this page together when entries change.
 - Prefer minimum counters for smoke-stable coverage unless an exact counter is deliberately part of the contract.
-- Add or update runner assertions under a follow-up smoke-runner slice when counters become executable.
+- Add or update `--golden-seed-smoke` assertions when counters become executable or when the stable smoke recipe intentionally changes.

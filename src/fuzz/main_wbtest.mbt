@@ -1194,6 +1194,36 @@ test "standard fuzz recipe catalog includes required checked-in recipes" {
 }
 
 ///|
+test "parse_fuzz_cli_command accepts golden seed smoke runner" {
+  match parse_fuzz_cli_command(["--golden-seed-smoke"]) {
+    FuzzCliCommand::GoldenSeedSmoke => ()
+    _ => fail("expected golden seed smoke command")
+  }
+}
+
+///|
+test "golden seed smoke runner asserts stable high-level counters" {
+  let report = match run_fuzz_golden_seed_smoke() {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(report.schema_id, "starshine.fuzz-golden-seed-smoke.v1")
+  @debug.assert_eq(report.recipe_name, "smoke")
+  @debug.assert_eq(report.seed, 0x5eedL)
+  @debug.assert_eq(report.cases.length(), 1)
+  let case = report.cases[0]
+  @debug.assert_eq(case.suite, "validate-valid")
+  @debug.assert_eq(case.profile, "smoke")
+  @debug.assert_eq(case.seed_index, 0)
+  @debug.assert_eq(case.attempts, 128)
+  @debug.assert_eq(case.details_required, true)
+  assert_true(case.details_json_contains("\"validated\":128"))
+  assert_true(
+    case.details_json_contains("\"generator_config\":\"coverage-forced\""),
+  )
+}
+
+///|
 test "standard fuzz recipe texts parse through the public recipe parser" {
   for name in fuzz_standard_recipe_names() {
     let text = match fuzz_standard_recipe_text_by_name(name) {
