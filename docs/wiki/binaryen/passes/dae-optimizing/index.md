@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-05-26
 sources:
+  - ../../../raw/research/0609-2026-05-26-dae004-two-high-descending-candidates.md
   - ../../../raw/research/0608-2026-05-26-dae004-descending-large-candidate-scheduler.md
   - ../../../raw/research/0606-2026-05-26-dae003-high-exact-literal-revisit.md
   - ../../../raw/research/0605-2026-05-26-dae004-wider-mid-size-fact-dropped-results.md
@@ -101,7 +102,7 @@ related:
   - `24` nested `local-cse` executions
   - `12` nested `code-folding` executions
   - `36` nested `precompute-propagate` executions
-- The backlog already tracks this as slice `DAE` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md), with explicit work for call-graph pruning / touched-function tracking and nested `optimizeAfterInlining` replay. The active `[DAE]004` result-removal broadening now includes a first bounded descending large-module candidate scheduler from [`0608`](../../../raw/research/0608-2026-05-26-dae004-descending-large-candidate-scheduler.md), while the handpicked selected-def fallback remains until broader artifact/fuzz evidence proves it can be removed safely.
+- The backlog already tracks this as slice `DAE` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md), with explicit work for call-graph pruning / touched-function tracking and nested `optimizeAfterInlining` replay. The active `[DAE]004` result-removal broadening now includes bounded descending large-module candidate scheduling from [`0608`](../../../raw/research/0608-2026-05-26-dae004-descending-large-candidate-scheduler.md) and [`0609`](../../../raw/research/0609-2026-05-26-dae004-two-high-descending-candidates.md), currently reaching two high fact-driven candidates before the handpicked selected-def fallback; the fallback remains until broader artifact/fuzz evidence proves it can be removed safely.
 - It is also the first missing pass in the current late boundary-only neighborhood:
   - `dae-optimizing`
   - `inlining-optimizing`

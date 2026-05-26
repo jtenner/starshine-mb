@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE004 two-high descending candidates
+
+- Broadened `[DAE]004` in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) by raising the large-module descending fact-driven dropped-result cap from one to two productive rewrites for `4096 < defined <= 8192`. The ascending `defined <= 4096` queue and historical selected-def fallback remain unchanged.
+- Added `dae-optimizing reaches two high dropped-result callees after low candidate budget` in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt). The recovered intended failure was that the old one-candidate cap rewrote only the first high target while the second still reported one result; the test passes after the cap increase.
+- Recorded the slice in [`raw/research/0609-2026-05-26-dae004-two-high-descending-candidates.md`](raw/research/0609-2026-05-26-dae004-two-high-descending-candidates.md) and synced [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md), [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), and [`../../agent-todo.md`](../../agent-todo.md). Validation included focused/pass-suite Moon tests, debug-artifact validation/timing at `.tmp/dae004-descending-large-limit2-timing-20260526` (`1688.317ms` Starshine pass vs `953.230ms` Binaryen pass, inside `<= 2x`), and `.tmp/pass-fuzz-dae004-descending-large-limit2-20260526-full` (`9975/10000` compared, `6078` normalized matches, `3897` known gen-valid raw-cleanup mismatches, `0` validation failures, `25` Binaryen/tool command failures). `[DAE]004` remains open until evidence proves the selected-def fallback can be removed or no dropped-result scheduling gap remains.
+
 ## [2026-05-26] docs | dae DAE003 and DAE004 required
 
 - Updated the DAE completion policy: `[DAE]003` constant-actual/unread-parameter generalization and `[DAE]004` selected result-removal broadening are required before DAE is considered complete/signed off.
