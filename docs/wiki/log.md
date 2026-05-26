@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE006 Func509 outer-block recovery probe
+
+- Rebuilt the native CLI and printed the live pre-encode Func509 body with `target/native/release/build/cmd/cmd.exe --dae-optimizing --print-func 526 --out .tmp/dae-print-func526.wasm tests/node/dist/starshine-debug-wasi.wasm`, capturing stderr in `.tmp/dae-print-func526.err`.
+- Updated [`raw/research/0587-2026-05-26-dae-func509-return-suffix-cleanup-attempt.md`](raw/research/0587-2026-05-26-dae-func509-return-suffix-cleanup-attempt.md), [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), and [`../../agent-todo.md`](../../agent-todo.md) with the result: the pass-side helper misses a pre-encode outer `block I64` / inner `block (Void)` shape with `br Label 1` exits, fallthrough `local.get $20; return`, then `local.set $2` and the wrapper suffix.
+- No pass behavior changed. `[DAE]006` remains open because a safe rewrite now requires a focused white-box reduction and proof that the `Label 1` exits cannot make the wrapper suffix live. Validation for this docs/recovery slice: native CLI rebuild/print, `git diff --check`, `moon info`, `moon fmt`, and `moon test`.
+
 ## [2026-05-26] passes | dae DAE006 Func509 cleanup attempt remains open
 
 - Added focused DAE cleanup coverage in [`../../src/passes/dead_argument_elimination_wbtest.mbt`](../../src/passes/dead_argument_elimination_wbtest.mbt) and [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), plus narrow root-return and terminal-wrapper cleanup helpers in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt). A recovery follow-up fixed the pending lowered-return helper tuple/length bug and added a block-wrapped terminal-wrapper regression.

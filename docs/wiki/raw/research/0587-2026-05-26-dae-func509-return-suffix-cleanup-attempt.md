@@ -54,6 +54,24 @@ Trace spot-checking with `--tracing pass` still reports the earlier `module-raw-
 
 The current Func509 frontier remains **semantic-safe, size-losing dead/fallthrough wrapper cleanup gap** by the prior `0586` reasoning, but this run does **not** close it. The observed flat `body_raw` in the compare artifact still ends with the wrapper allocation/store/value sequence while Binaryen ends with the earlier result object.
 
+## Follow-up recovery probe
+
+A later recovery run rebuilt the native CLI and printed the live pre-encode Func509 shape with:
+
+```sh
+moon build --target native --release && \
+  target/native/release/build/cmd/cmd.exe \
+    --dae-optimizing \
+    --print-func 526 \
+    --out .tmp/dae-print-func526.wasm \
+    tests/node/dist/starshine-debug-wasi.wasm \
+    2> .tmp/dae-print-func526.err
+```
+
+The print confirmed the helper miss is structural, not just local-index drift. Before canonicalization, Func509 is an outer `block I64` whose first child is an inner `block (Void)`. The inner block contains branches to `Label 1`, an `unreachable`, and a fallthrough parser-object path ending in `local.get $20; return`. After that inner block, the outer block still has `local.set $2` plus the same `i32.const 8; call $alloc; local.tee $18; tag store; local.get $18; local.get $2; i64.store; local.get $18` wrapper suffix. The canonical compare artifact flattens this to the known suffix (`local10` object versus wrapper `local11`), but the pass-side cleanup currently runs on the pre-encode nested block/return form.
+
+This run did **not** add a new cleanup. The `br Label 1` exits in the printed inner block mean a safe rewrite needs an explicit control-flow proof for the outer block result path, not just a suffix pattern. In particular, the next implementation must prove whether the `Label 1` branches can reach the wrapper-producing suffix with a live value that must be wrapped, or whether the printed branch/value shape is an artifact of return lowering and the wrapper remains dead for every real exit.
+
 ## Next step
 
-Reduce the actual pre-encode Starshine Func509 `@lib.Instruction` sequence printed by `--print-func 526`: the live raw shape is an outer `block I64` whose inner body reaches `local.get $20; return`, followed by `local.set $2` and an 8-byte wrapper allocation/store suffix. Prove whether all exits return the earlier object or whether a branch can still make the wrapper live before writing a cleanup for that exact outer-block shape. The current helpers cover plausible root-return and simple terminal-wrapper shapes but still miss the real lowered sequence used by the debug artifact.
+Reduce the actual pre-encode Starshine Func509 `@lib.Instruction` sequence printed by `--print-func 526` into a focused white-box fixture before changing behavior again. The fixture should keep the outer `block I64`, inner `block (Void)`, `br Label 1` exits, fallthrough `local.get $20; return`, and post-inner `local.set $2` plus wrapper suffix. Prove whether all exits return the earlier object or whether a branch can still make the wrapper live. Only after that proof should the pass either extend `dae_strip_root_return_suffix_instrs` for this exact outer-block shape or document the frontier as non-normalizable/currently unsafe. The existing helpers cover plausible root-return and simple terminal-wrapper shapes but still miss the real lowered sequence used by the debug artifact.
