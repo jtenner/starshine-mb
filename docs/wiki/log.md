@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] docs | dae DAE004 remaining work split
+
+- Split remaining `[DAE004-D]`, `[DAE004-H]`, and `[DAE004-I]` work in [`../../agent-todo.md`](../../agent-todo.md) into enumerated subtasks covering trace metadata, family grouping, test-first family replacement, artifact timing/validation, direct compare refresh, fallback removal, and final closeout/cron-disable criteria.
+- No optimizer behavior changed; this is backlog planning only.
+
 ## [2026-05-26] tests | dae DAE004 fallback fixture sync
 
 - Added [`raw/research/0663-2026-05-26-dae004-test-fixture-fallback-sync.md`](raw/research/0663-2026-05-26-dae004-test-fixture-fallback-sync.md) and removed stale fallback entry `3799` from the selected mid-prefix dropped-result fixture list in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt).
