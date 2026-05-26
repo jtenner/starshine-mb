@@ -1316,13 +1316,6 @@ fn wt_numeric_noarg(op : Opcode) -> Result[@lib.Instruction, String] {
     I64TruncSatF32U => Ok(@lib.Instruction::i64_trunc_sat_f32u())
     I64TruncSatF64S => Ok(@lib.Instruction::i64_trunc_sat_f64s())
     I64TruncSatF64U => Ok(@lib.Instruction::i64_trunc_sat_f64u())
-    V128Not => Ok(@lib.Instruction::v128_not())
-    V128And => Ok(@lib.Instruction::v128_and())
-    V128AndNot => Ok(@lib.Instruction::v128_andnot())
-    V128Or => Ok(@lib.Instruction::v128_or())
-    V128Xor => Ok(@lib.Instruction::v128_xor())
-    V128Bitselect => Ok(@lib.Instruction::v128_bitselect())
-    V128AnyTrue => Ok(@lib.Instruction::v128_any_true())
     RefEq => Ok(@lib.Instruction::ref_eq())
     RefAsNonNull => Ok(@lib.Instruction::ref_as_non_null())
     StringConst => Err("string.const requires a literal")
@@ -1412,10 +1405,6 @@ fn wt_numeric_noarg(op : Opcode) -> Result[@lib.Instruction, String] {
     I16x8ExtmulHighI8x16S => Ok(@lib.Instruction::i16x8_extmul_high_i8x16s())
     I16x8ExtmulLowI8x16U => Ok(@lib.Instruction::i16x8_extmul_low_i8x16u())
     I16x8ExtmulHighI8x16U => Ok(@lib.Instruction::i16x8_extmul_high_i8x16u())
-    I16x8ExtaddPairwiseI8x16S =>
-      Ok(@lib.Instruction::i16x8_extadd_pairwise_i8x16s())
-    I16x8ExtaddPairwiseI8x16U =>
-      Ok(@lib.Instruction::i16x8_extadd_pairwise_i8x16u())
     I32x4Eq => Ok(@lib.Instruction::i32x4_eq())
     I32x4Ne => Ok(@lib.Instruction::i32x4_ne())
     I32x4LtS => Ok(@lib.Instruction::i32x4_lt_s())
@@ -1449,10 +1438,6 @@ fn wt_numeric_noarg(op : Opcode) -> Result[@lib.Instruction, String] {
     I32x4ExtmulHighI16x8S => Ok(@lib.Instruction::i32x4_extmul_high_i16x8s())
     I32x4ExtmulLowI16x8U => Ok(@lib.Instruction::i32x4_extmul_low_i16x8u())
     I32x4ExtmulHighI16x8U => Ok(@lib.Instruction::i32x4_extmul_high_i16x8u())
-    I32x4ExtaddPairwiseI16x8S =>
-      Ok(@lib.Instruction::i32x4_extadd_pairwise_i16x8s())
-    I32x4ExtaddPairwiseI16x8U =>
-      Ok(@lib.Instruction::i32x4_extadd_pairwise_i16x8u())
     I32x4TruncSatF32x4S => Ok(@lib.Instruction::i32x4_trunc_sat_f32x4s())
     I32x4TruncSatF32x4U => Ok(@lib.Instruction::i32x4_trunc_sat_f32x4u())
     I32x4TruncSatF64x2SZero =>
@@ -1975,13 +1960,6 @@ fn wt_instr_to_lib(
         ),
       )
     }
-    CallRef(type_use) => {
-      let ti = match wt_resolve_type_use(ctx, type_use) {
-        Ok(v) => v
-        Err(e) => return Err(e)
-      }
-      Ok(@lib.Instruction::call_ref(@lib.TypeIdx::new(ti)))
-    }
     ReturnCall(idx) => {
       let fi = match
         wt_resolve_named_or_num_index(
@@ -2500,22 +2478,6 @@ fn wt_instr_to_lib(
           "type",
         ) {
         Ok(v) => Ok(@lib.Instruction::ref_get_desc(@lib.TypeIdx::new(v)))
-        Err(e) => Err(e)
-      }
-    RefTest(vt) | RefCast(vt) =>
-      match wt_value_type(ctx, vt) {
-        Ok(@lib.RefTypeValType(rt)) =>
-          if instr is RefTest(_) {
-            Ok(@lib.Instruction::ref_test(rt.is_nullable(), rt.get_heap_type()))
-          } else {
-            Ok(@lib.Instruction::ref_cast(rt.is_nullable(), rt.get_heap_type()))
-          }
-        Ok(_) =>
-          if instr is RefTest(_) {
-            Err("ref.test target must be a reference type")
-          } else {
-            Err("ref.cast target must be a reference type")
-          }
         Err(e) => Err(e)
       }
     RefTestDesc(nullable, idx) | RefCastDescEq(nullable, idx) => {
@@ -4169,50 +4131,6 @@ test "wast_to_binary_module lowers SIMD non-lane memory prefixed ops" {
 }
 
 ///|
-test "wast_to_binary_module lowers SIMD v128 core ops" {
-  let src =
-    #|(module
-    #|  (func (param v128 v128 v128) (result i32)
-    #|    local.get 0
-    #|    v128.not
-    #|    local.get 1
-    #|    v128.and
-    #|    local.get 2
-    #|    v128.andnot
-    #|    local.get 0
-    #|    v128.or
-    #|    local.get 1
-    #|    v128.xor
-    #|    local.get 2
-    #|    v128.bitselect
-    #|    v128.any_true))
-  let lowered = match wast_to_binary_module(src) {
-    Ok(m) => m
-    Err(e) => fail("expected SIMD v128 core lowering success: \{e}")
-  }
-  match lowered.code_sec {
-    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) => {
-      let lowered_ops : Array[@lib.Instruction] = []
-      for instr in body {
-        match instr {
-          @lib.LocalGet(_) => ()
-          _ => lowered_ops.push(instr)
-        }
-      }
-      @debug.assert_eq(lowered_ops.length(), 7)
-      @debug.assert_eq(lowered_ops[0], @lib.Instruction::v128_not())
-      @debug.assert_eq(lowered_ops[1], @lib.Instruction::v128_and())
-      @debug.assert_eq(lowered_ops[2], @lib.Instruction::v128_andnot())
-      @debug.assert_eq(lowered_ops[3], @lib.Instruction::v128_or())
-      @debug.assert_eq(lowered_ops[4], @lib.Instruction::v128_xor())
-      @debug.assert_eq(lowered_ops[5], @lib.Instruction::v128_bitselect())
-      @debug.assert_eq(lowered_ops[6], @lib.Instruction::v128_any_true())
-    }
-    _ => fail("expected lowered module v128 core function body")
-  }
-}
-
-///|
 test "wast_to_binary_module lowers SIMD shuffle and swizzle ops" {
   let src =
     #|(module
@@ -4549,9 +4467,7 @@ test "wast_to_binary_module lowers SIMD no-immediate ops for i16x8 i32x4 i64x2 f
     #|    local.get 0 local.get 1 i16x8.extmul_low_i8x16_s drop
     #|    local.get 0 local.get 1 i16x8.extmul_high_i8x16_s drop
     #|    local.get 0 local.get 1 i16x8.extmul_low_i8x16_u drop
-    #|    local.get 0 local.get 1 i16x8.extmul_high_i8x16_u drop
-    #|    local.get 0 i16x8.extadd_pairwise_i8x16_s drop
-    #|    local.get 0 i16x8.extadd_pairwise_i8x16_u drop)
+    #|    local.get 0 local.get 1 i16x8.extmul_high_i8x16_u drop)
     #|  (func (param v128 v128 i32)
     #|    local.get 0 local.get 1 i32x4.eq drop
     #|    local.get 0 local.get 1 i32x4.ne drop
@@ -4586,8 +4502,6 @@ test "wast_to_binary_module lowers SIMD no-immediate ops for i16x8 i32x4 i64x2 f
     #|    local.get 0 local.get 1 i32x4.extmul_high_i16x8_s drop
     #|    local.get 0 local.get 1 i32x4.extmul_low_i16x8_u drop
     #|    local.get 0 local.get 1 i32x4.extmul_high_i16x8_u drop
-    #|    local.get 0 i32x4.extadd_pairwise_i16x8_s drop
-    #|    local.get 0 i32x4.extadd_pairwise_i16x8_u drop
     #|    local.get 0 i32x4.trunc_sat_f32x4_s drop
     #|    local.get 0 i32x4.trunc_sat_f32x4_u drop
     #|    local.get 0 i32x4.trunc_sat_f64x2_s_zero drop
@@ -4698,14 +4612,6 @@ test "wast_to_binary_module lowers SIMD no-immediate ops for i16x8 i32x4 i64x2 f
             lowered_ops[39],
             @lib.Instruction::i16x8_extmul_high_i8x16u(),
           )
-          @debug.assert_eq(
-            lowered_ops[40],
-            @lib.Instruction::i16x8_extadd_pairwise_i8x16s(),
-          )
-          @debug.assert_eq(
-            lowered_ops[41],
-            @lib.Instruction::i16x8_extadd_pairwise_i8x16u(),
-          )
         }
       }
 
@@ -4726,18 +4632,10 @@ test "wast_to_binary_module lowers SIMD no-immediate ops for i16x8 i32x4 i64x2 f
           )
           @debug.assert_eq(
             lowered_ops[33],
-            @lib.Instruction::i32x4_extadd_pairwise_i16x8s(),
-          )
-          @debug.assert_eq(
-            lowered_ops[34],
-            @lib.Instruction::i32x4_extadd_pairwise_i16x8u(),
-          )
-          @debug.assert_eq(
-            lowered_ops[35],
             @lib.Instruction::i32x4_trunc_sat_f32x4s(),
           )
           @debug.assert_eq(
-            lowered_ops[38],
+            lowered_ops[36],
             @lib.Instruction::i32x4_trunc_sat_f64x2u_zero(),
           )
         }
@@ -4938,39 +4836,6 @@ test "wast_text_binary_roundtrip preserves descriptor instruction families" {
   assert_true(normalized.contains("ref.get_desc"))
   assert_true(normalized.contains("ref.test_desc 0"))
   assert_true(normalized.contains("ref.cast_desc_eq_null 0"))
-}
-
-///|
-test "wast_text_binary_roundtrip preserves ordinary ref.test and ref.cast immediates" {
-  let src =
-    #|(module
-    #|  (func (param eqref) (result i32)
-    #|    local.get 0
-    #|    ref.test (ref i31)
-    #|    drop
-    #|    local.get 0
-    #|    ref.test (ref null eq)
-    #|    drop
-    #|    local.get 0
-    #|    ref.cast (ref i31)
-    #|    drop
-    #|    local.get 0
-    #|    ref.cast (ref null eq)
-    #|    drop
-    #|    (i32.const 0))
-    #|  (export "f" (func 0)))
-  let (normalized, _) = match
-    wast_text_binary_roundtrip(src, filename="roundtrip-ref-test-cast.wast") {
-    Ok(m) => m
-    Err(e) =>
-      fail(
-        "expected ref.test/ref.cast fixture full text/binary roundtrip to succeed: \{e}",
-      )
-  }
-  assert_true(normalized.contains("ref.test (ref i31)"))
-  assert_true(normalized.contains("ref.test (ref null eq)"))
-  assert_true(normalized.contains("ref.cast (ref i31)"))
-  assert_true(normalized.contains("ref.cast (ref null eq)"))
 }
 
 ///|

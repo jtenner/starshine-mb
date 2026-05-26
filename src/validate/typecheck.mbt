@@ -1844,8 +1844,8 @@ fn typecheck_ref_as_non_null(st : TcState) -> TcResult {
       match rt {
         HeapTypeRefType(true, exact, ht) =>
           Ok(st1.push1(ValType::ref_type(RefType::new(false, ht, exact~))))
-        HeapTypeRefType(false, exact, ht) =>
-          Ok(st1.push1(ValType::ref_type(RefType::new(false, ht, exact~))))
+        HeapTypeRefType(false, _, _) =>
+          Err("ref.as_non_null expects (ref null ht), got non-null ref")
         AbsHeapTypeRefType(_) =>
           Err("ref.as_non_null expects (ref null ht), got abstract ref type")
       }
@@ -5740,16 +5740,6 @@ test "Typecheck RefAsNonNull" {
   match result {
     Ok(new_state) => @debug.assert_eq(new_state.stack.length(), 1)
     Err(_) => ()
-  }
-}
-
-///|
-test "Typecheck RefAsNonNull accepts already non-null references" {
-  let state = make_state(empty_env(), [i31ref_type()])
-  let result = Typecheck::typecheck(Instruction::ref_as_non_null(), state)
-  match result {
-    Ok(new_state) => assert_stack(new_state, [i31ref_type()])
-    Err(err) => fail("expected non-null ref.as_non_null to validate: \{err}")
   }
 }
 

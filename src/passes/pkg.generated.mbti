@@ -225,8 +225,6 @@ pub fn precompute_propagate_prefix_run(HotPassContext, @ir.HotFunc) -> HotPassRe
 
 pub fn precompute_summary() -> String
 
-pub fn propagate_globals_globally_summary() -> String
-
 pub fn remove_unused_brs_descriptor() -> @ir.HotPassDescriptor
 
 pub fn remove_unused_brs_summary() -> String
@@ -264,8 +262,6 @@ pub fn run_hot_pipeline_debug_dump_enabled(HotPipelineOptions, @lib.FuncIdx, Str
 pub fn shrink_preset_passes(HotPipelineOptions) -> Array[String]
 
 pub fn simplify_globals_optimizing_summary() -> String
-
-pub fn simplify_globals_summary() -> String
 
 pub fn simplify_locals_descriptor() -> @ir.HotPassDescriptor
 

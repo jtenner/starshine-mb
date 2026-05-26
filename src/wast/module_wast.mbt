@@ -364,7 +364,6 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     Call(idx) => "call \{index_text(idx)}"
     CallIndirect(table_idx, type_use) =>
       "call_indirect \{index_text(table_idx)}\{render_type_use(type_use)}"
-    CallRef(type_use) => "call_ref\{render_type_use(type_use)}"
     ReturnCall(idx) => "return_call \{index_text(idx)}"
     ReturnCallIndirect(table_idx, type_use) =>
       "return_call_indirect \{index_text(table_idx)}\{render_type_use(type_use)}"
@@ -415,8 +414,6 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     RefNull(vt) => "ref.null \{keyword_from_ref_null_immediate(vt)}"
     RefIsNull => "ref.is_null"
     RefFunc(idx) => "ref.func \{index_text(idx)}"
-    RefTest(vt) => "ref.test \{keyword_from_value_type(vt)}"
-    RefCast(vt) => "ref.cast \{keyword_from_value_type(vt)}"
     StringConst(bytes) => "string.const \{quote_wast_bytes(bytes)}"
     StringNewUtf8Array => "string.new_utf8_array"
     StringNewWtf16Array => "string.new_wtf16_array"

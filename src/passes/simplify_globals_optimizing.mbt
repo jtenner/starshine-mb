@@ -1,16 +1,6 @@
 ///|
-pub fn simplify_globals_summary() -> String {
-  "Simplify private global state without the optimizing nested cleanup rerun."
-}
-
-///|
 pub fn simplify_globals_optimizing_summary() -> String {
   "Simplify private global state and rerun default function cleanup on changed functions."
-}
-
-///|
-pub fn propagate_globals_globally_summary() -> String {
-  "Propagate immutable global constants through startup-level expressions."
 }
 
 ///|
@@ -22,15 +12,6 @@ priv struct SgoGlobalInfo {
   mut init : @lib.Expr?
   mut read_count : Int
   mut write_count : Int
-  mut function_read_count : Int
-  mut function_write_count : Int
-  mut global_init_read_count : Int
-  mut table_init_read_count : Int
-  mut elem_offset_read_count : Int
-  mut elem_item_read_count : Int
-  mut data_offset_read_count : Int
-  mut same_init_writes : Bool
-  mut read_only_to_write : Bool
 }
 
 ///|
@@ -53,20 +34,6 @@ priv struct SgoGlobalInitRewriteState {
 priv struct SgoPassResult {
   mod_out : @lib.Module
   touched : Array[Bool]
-}
-
-///|
-priv struct SgoFlowValue {
-  tainted : Bool
-  i31_ref : Bool
-}
-
-///|
-priv struct SgoFunctionGlobalEffects {
-  reads : Array[Bool]
-  mutates : Array[Bool]
-  param_count : Int
-  result_count : Int
 }
 
 ///|
@@ -136,84 +103,6 @@ fn sgo_scan_global_idx(
 }
 
 ///|
-fn sgo_scan_global_idx_in_function(
-  infos : Array[SgoGlobalInfo],
-  idx : @lib.GlobalIdx,
-  read : Bool,
-) -> Unit {
-  sgo_scan_global_idx(infos, idx, read)
-  let slot = sgo_global_idx_slot(idx)
-  if slot < 0 || slot >= infos.length() {
-    return
-  }
-  if read {
-    infos[slot].function_read_count = infos[slot].function_read_count + 1
-  } else {
-    infos[slot].function_write_count = infos[slot].function_write_count + 1
-  }
-}
-
-///|
-fn sgo_note_global_section_read(
-  infos : Array[SgoGlobalInfo],
-  idx : @lib.GlobalIdx,
-) -> Unit {
-  sgo_scan_global_idx(infos, idx, true)
-  let slot = sgo_global_idx_slot(idx)
-  if slot >= 0 && slot < infos.length() {
-    infos[slot].global_init_read_count = infos[slot].global_init_read_count + 1
-  }
-}
-
-///|
-fn sgo_note_table_init_read(
-  infos : Array[SgoGlobalInfo],
-  idx : @lib.GlobalIdx,
-) -> Unit {
-  sgo_scan_global_idx(infos, idx, true)
-  let slot = sgo_global_idx_slot(idx)
-  if slot >= 0 && slot < infos.length() {
-    infos[slot].table_init_read_count = infos[slot].table_init_read_count + 1
-  }
-}
-
-///|
-fn sgo_note_elem_offset_read(
-  infos : Array[SgoGlobalInfo],
-  idx : @lib.GlobalIdx,
-) -> Unit {
-  sgo_scan_global_idx(infos, idx, true)
-  let slot = sgo_global_idx_slot(idx)
-  if slot >= 0 && slot < infos.length() {
-    infos[slot].elem_offset_read_count = infos[slot].elem_offset_read_count + 1
-  }
-}
-
-///|
-fn sgo_note_elem_item_read(
-  infos : Array[SgoGlobalInfo],
-  idx : @lib.GlobalIdx,
-) -> Unit {
-  sgo_scan_global_idx(infos, idx, true)
-  let slot = sgo_global_idx_slot(idx)
-  if slot >= 0 && slot < infos.length() {
-    infos[slot].elem_item_read_count = infos[slot].elem_item_read_count + 1
-  }
-}
-
-///|
-fn sgo_note_data_offset_read(
-  infos : Array[SgoGlobalInfo],
-  idx : @lib.GlobalIdx,
-) -> Unit {
-  sgo_scan_global_idx(infos, idx, true)
-  let slot = sgo_global_idx_slot(idx)
-  if slot >= 0 && slot < infos.length() {
-    infos[slot].data_offset_read_count = infos[slot].data_offset_read_count + 1
-  }
-}
-
-///|
 fn sgo_scan_instr(
   instr : @lib.Instruction,
   infos : Array[SgoGlobalInfo],
@@ -248,90 +137,6 @@ fn sgo_scan_instrs(
 fn sgo_scan_expr(expr : @lib.Expr, infos : Array[SgoGlobalInfo]) -> Unit {
   let @lib.Expr(instrs) = expr
   sgo_scan_instrs(instrs, infos)
-}
-
-///|
-fn sgo_scan_instr_in_function(
-  instr : @lib.Instruction,
-  infos : Array[SgoGlobalInfo],
-) -> Unit {
-  match instr {
-    @lib.GlobalGet(idx) => sgo_scan_global_idx_in_function(infos, idx, true)
-    @lib.GlobalSet(idx) => sgo_scan_global_idx_in_function(infos, idx, false)
-    @lib.Block(_, body) | @lib.Loop(_, body) =>
-      sgo_scan_expr_in_function(body, infos)
-    @lib.If(_, then_body, else_body) => {
-      sgo_scan_instrs_in_function(then_body, infos)
-      match else_body {
-        Some(body) => sgo_scan_instrs_in_function(body, infos)
-        None => ()
-      }
-    }
-    @lib.TryTable(_, _, body) => sgo_scan_expr_in_function(body, infos)
-    _ => ()
-  }
-}
-
-///|
-fn sgo_scan_instrs_in_function(
-  instrs : Array[@lib.Instruction],
-  infos : Array[SgoGlobalInfo],
-) -> Unit {
-  for instr in instrs {
-    sgo_scan_instr_in_function(instr, infos)
-  }
-}
-
-///|
-fn sgo_scan_expr_in_function(
-  expr : @lib.Expr,
-  infos : Array[SgoGlobalInfo],
-) -> Unit {
-  let @lib.Expr(instrs) = expr
-  sgo_scan_instrs_in_function(instrs, infos)
-}
-
-///|
-fn sgo_scan_expr_reads_with(
-  expr : @lib.Expr,
-  infos : Array[SgoGlobalInfo],
-  note_read : (Array[SgoGlobalInfo], @lib.GlobalIdx) -> Unit,
-) -> Unit {
-  let @lib.Expr(instrs) = expr
-  sgo_scan_instrs_reads_with(instrs, infos, note_read)
-}
-
-///|
-fn sgo_scan_instrs_reads_with(
-  instrs : Array[@lib.Instruction],
-  infos : Array[SgoGlobalInfo],
-  note_read : (Array[SgoGlobalInfo], @lib.GlobalIdx) -> Unit,
-) -> Unit {
-  for instr in instrs {
-    sgo_scan_instr_reads_with(instr, infos, note_read)
-  }
-}
-
-///|
-fn sgo_scan_instr_reads_with(
-  instr : @lib.Instruction,
-  infos : Array[SgoGlobalInfo],
-  note_read : (Array[SgoGlobalInfo], @lib.GlobalIdx) -> Unit,
-) -> Unit {
-  match instr {
-    @lib.GlobalGet(idx) => note_read(infos, idx)
-    @lib.GlobalSet(idx) => sgo_scan_global_idx(infos, idx, false)
-    @lib.Block(_, body) | @lib.Loop(_, body) | @lib.TryTable(_, _, body) =>
-      sgo_scan_expr_reads_with(body, infos, note_read)
-    @lib.If(_, then_body, else_body) => {
-      sgo_scan_instrs_reads_with(then_body, infos, note_read)
-      match else_body {
-        Some(body) => sgo_scan_instrs_reads_with(body, infos, note_read)
-        None => ()
-      }
-    }
-    _ => ()
-  }
 }
 
 ///|
@@ -383,15 +188,6 @@ fn sgo_collect_global_infos(mod_ : @lib.Module) -> (Array[SgoGlobalInfo], Int) {
               init: None,
               read_count: 0,
               write_count: 0,
-              function_read_count: 0,
-              function_write_count: 0,
-              global_init_read_count: 0,
-              table_init_read_count: 0,
-              elem_offset_read_count: 0,
-              elem_item_read_count: 0,
-              data_offset_read_count: 0,
-              same_init_writes: true,
-              read_only_to_write: false,
             })
             imported_globals += 1
           }
@@ -412,15 +208,6 @@ fn sgo_collect_global_infos(mod_ : @lib.Module) -> (Array[SgoGlobalInfo], Int) {
           init: Some(init),
           read_count: 0,
           write_count: 0,
-          function_read_count: 0,
-          function_write_count: 0,
-          global_init_read_count: 0,
-          table_init_read_count: 0,
-          elem_offset_read_count: 0,
-          elem_item_read_count: 0,
-          data_offset_read_count: 0,
-          same_init_writes: true,
-          read_only_to_write: false,
         })
       }
     None => ()
@@ -458,8 +245,7 @@ fn sgo_scan_table_sec(
     Some(@lib.TableSec(tables)) =>
       for table in tables {
         match table {
-          @lib.Table(_, Some(init)) =>
-            sgo_scan_expr_reads_with(init, infos, sgo_note_table_init_read)
+          @lib.Table(_, Some(init)) => sgo_scan_expr(init, infos)
           _ => ()
         }
       }
@@ -476,7 +262,7 @@ fn sgo_scan_global_sec(
     Some(@lib.GlobalSec(globals)) =>
       for global_ in globals {
         let @lib.Global(_, init) = global_
-        sgo_scan_expr_reads_with(init, infos, sgo_note_global_section_read)
+        sgo_scan_expr(init, infos)
       }
     None => ()
   }
@@ -488,8 +274,7 @@ fn sgo_scan_elem_mode(
   infos : Array[SgoGlobalInfo],
 ) -> Unit {
   match mode {
-    @lib.Active(_, offset) =>
-      sgo_scan_expr_reads_with(offset, infos, sgo_note_elem_offset_read)
+    @lib.Active(_, offset) => sgo_scan_expr(offset, infos)
     _ => ()
   }
 }
@@ -502,7 +287,7 @@ fn sgo_scan_elem_kind(
   match kind {
     @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
       for expr in exprs {
-        sgo_scan_expr_reads_with(expr, infos, sgo_note_elem_item_read)
+        sgo_scan_expr(expr, infos)
       }
     _ => ()
   }
@@ -534,8 +319,7 @@ fn sgo_scan_data_sec(
       for data in datas {
         let @lib.Data(mode, _) = data
         match mode {
-          @lib.Active(_, offset) =>
-            sgo_scan_expr_reads_with(offset, infos, sgo_note_data_offset_read)
+          @lib.Active(_, offset) => sgo_scan_expr(offset, infos)
           _ => ()
         }
       }
@@ -552,24 +336,9 @@ fn sgo_scan_code_sec(
     Some(@lib.CodeSec(funcs)) =>
       for func_ in funcs {
         let @lib.Func(_, body) = func_
-        sgo_scan_expr_in_function(body, infos)
+        sgo_scan_expr(body, infos)
       }
     None => ()
-  }
-}
-
-///|
-fn sgo_code_global_ref_flags(code_sec : @lib.CodeSec?) -> Array[Bool] {
-  match code_sec {
-    Some(@lib.CodeSec(funcs)) => {
-      let flags = Array::make(funcs.length(), false)
-      for idx = 0; idx < funcs.length(); idx = idx + 1 {
-        let @lib.Func(_, body) = funcs[idx]
-        flags[idx] = sgo_expr_may_reference_global(body)
-      }
-      flags
-    }
-    None => []
   }
 }
 
@@ -577,15 +346,14 @@ fn sgo_code_global_ref_flags(code_sec : @lib.CodeSec?) -> Array[Bool] {
 fn sgo_same_init_write_flags(
   code_sec : @lib.CodeSec?,
   infos : Array[SgoGlobalInfo],
-  global_ref_flags : Array[Bool],
 ) -> Array[Bool] {
   let init_consts = sgo_build_initial_startup_consts(infos)
   let flags = Array::make(infos.length(), true)
   match code_sec {
     Some(@lib.CodeSec(funcs)) =>
-      for idx = 0; idx < funcs.length(); idx = idx + 1 {
-        if idx < global_ref_flags.length() && global_ref_flags[idx] {
-          let @lib.Func(_, body) = funcs[idx]
+      for func_ in funcs {
+        let @lib.Func(_, body) = func_
+        if sgo_expr_may_reference_global(body) {
           sgo_mark_same_init_writes_expr(body, init_consts, flags)
         }
       }
@@ -661,16 +429,14 @@ fn sgo_mark_same_init_write(
 fn sgo_read_only_to_write_flags(
   code_sec : @lib.CodeSec?,
   infos : Array[SgoGlobalInfo],
-  effects : Array[SgoFunctionGlobalEffects],
-  global_ref_flags : Array[Bool],
 ) -> Array[Bool] {
   let safe_reads = Array::make(infos.length(), 0)
   match code_sec {
     Some(@lib.CodeSec(funcs)) =>
-      for idx = 0; idx < funcs.length(); idx = idx + 1 {
-        if idx < global_ref_flags.length() && global_ref_flags[idx] {
-          let @lib.Func(_, body) = funcs[idx]
-          sgo_count_read_only_to_write_expr(body, safe_reads, effects)
+      for func_ in funcs {
+        let @lib.Func(_, body) = func_
+        if sgo_expr_may_reference_global(body) {
+          sgo_count_read_only_to_write_expr(body, safe_reads)
         }
       }
     None => ()
@@ -687,10 +453,9 @@ fn sgo_read_only_to_write_flags(
 fn sgo_count_read_only_to_write_expr(
   expr : @lib.Expr,
   safe_reads : Array[Int],
-  effects : Array[SgoFunctionGlobalEffects],
 ) -> Unit {
   let @lib.Expr(instrs) = expr
-  sgo_count_read_only_to_write_instrs(instrs, safe_reads, effects)
+  sgo_count_read_only_to_write_instrs(instrs, safe_reads)
 }
 
 ///|
@@ -705,215 +470,72 @@ fn sgo_count_read_only_to_write_safe_read(
 }
 
 ///|
-fn sgo_count_block_or_no_catch_try_table_external_pure_guards(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
-) -> Unit {
-  sgo_count_block_condition_external_pure_read(instrs, pos, safe_reads)
-  sgo_count_block_condition_external_pure_if_return_read(
-    instrs, pos, safe_reads,
-  )
-  sgo_count_block_condition_reverse_external_pure_read(instrs, pos, safe_reads)
-  sgo_count_block_condition_reverse_external_pure_if_return_read(
-    instrs, pos, safe_reads,
-  )
-}
-
-///|
-fn sgo_count_block_or_no_catch_try_table_tail_guards(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  count_wrapped_nested_if_arm_flow : Bool,
-  safe_reads : Array[Int],
-) -> Unit {
-  let instr = instrs[pos]
-  if pos + 1 < instrs.length() {
-    sgo_count_block_condition_read_only_to_write_read(
-      instr,
-      instrs[pos + 1],
-      safe_reads,
-    )
-    if count_wrapped_nested_if_arm_flow {
-      sgo_count_block_wrapped_nested_if_arm_flow_read(
-        instr,
-        instrs[pos + 1],
-        safe_reads,
-      )
-    }
-  }
-  if pos + 2 < instrs.length() {
-    if pos + 3 == instrs.length() {
-      sgo_count_block_condition_if_return_block_set_read(
-        instr,
-        instrs[pos + 1],
-        instrs[pos + 2],
-        safe_reads,
-      )
-    }
-    sgo_count_block_condition_eqz_read_only_to_write_read(
-      instr,
-      instrs[pos + 1],
-      instrs[pos + 2],
-      safe_reads,
-    )
-    sgo_count_block_condition_reverse_compare_read_only_to_write_read(
-      instrs, pos, safe_reads,
-    )
-  }
-  if pos + 3 < instrs.length() {
-    if pos + 4 == instrs.length() {
-      sgo_count_block_condition_if_return_set_read(
-        instr,
-        instrs[pos + 1],
-        instrs[pos + 2],
-        instrs[pos + 3],
-        safe_reads,
-      )
-      sgo_count_block_condition_eqz_if_return_block_set_read(
-        instr,
-        instrs[pos + 1],
-        instrs[pos + 2],
-        instrs[pos + 3],
-        safe_reads,
-      )
-      sgo_count_block_condition_reverse_compare_if_return_block_set_read(
-        instrs, pos, safe_reads,
-      )
-    }
-    sgo_count_block_condition_compare_read_only_to_write_read(
-      instr,
-      instrs[pos + 1],
-      instrs[pos + 2],
-      instrs[pos + 3],
-      safe_reads,
-    )
-  }
-  if pos + 4 < instrs.length() {
-    if pos + 5 == instrs.length() {
-      sgo_count_block_condition_eqz_if_return_set_read(
-        instr,
-        instrs[pos + 1],
-        instrs[pos + 2],
-        instrs[pos + 3],
-        instrs[pos + 4],
-        safe_reads,
-      )
-      sgo_count_block_condition_reverse_compare_if_return_set_read(
-        instrs, pos, safe_reads,
-      )
-      sgo_count_block_condition_compare_if_return_block_set_read(
-        instr,
-        instrs[pos + 1],
-        instrs[pos + 2],
-        instrs[pos + 3],
-        instrs[pos + 4],
-        safe_reads,
-      )
-    }
-  }
-  if pos + 5 < instrs.length() {
-    if pos + 6 == instrs.length() {
-      sgo_count_block_condition_compare_if_return_set_read(
-        instr,
-        instrs[pos + 1],
-        instrs[pos + 2],
-        instrs[pos + 3],
-        instrs[pos + 4],
-        instrs[pos + 5],
-        safe_reads,
-      )
-    }
-  }
-}
-
-///|
-fn sgo_count_no_catch_try_table_specific_condition_guards(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
-) -> Unit {
-  sgo_count_try_table_guard_if_index_read(
-    instrs,
-    pos,
-    sgo_try_table_select_guard_if_index(instrs, pos),
-    safe_reads,
-  )
-  sgo_count_try_table_guard_if_index_read(
-    instrs,
-    pos,
-    sgo_try_table_select_reverse_compare_guard_if_index(instrs, pos),
-    safe_reads,
-  )
-  sgo_count_try_table_guard_if_index_read(
-    instrs,
-    pos,
-    sgo_try_table_ref_is_null_compare_guard_if_index(instrs, pos),
-    safe_reads,
-  )
-  sgo_count_try_table_guard_if_index_read(
-    instrs,
-    pos,
-    sgo_try_table_ref_is_null_select_guard_if_index(instrs, pos),
-    safe_reads,
-  )
-  sgo_count_try_table_guard_if_index_read(
-    instrs,
-    pos,
-    sgo_try_table_ref_is_null_select_reverse_compare_guard_if_index(instrs, pos),
-    safe_reads,
-  )
-  sgo_count_try_table_guard_if_index_read(
-    instrs,
-    pos,
-    sgo_try_table_ref_is_null_guard_if_index(instrs, pos),
-    safe_reads,
-  )
-}
-
-///|
 fn sgo_count_read_only_to_write_instrs(
   instrs : Array[@lib.Instruction],
   safe_reads : Array[Int],
-  effects : Array[SgoFunctionGlobalEffects],
 ) -> Unit {
   for pos = 0; pos < instrs.length(); pos = pos + 1 {
     let instr = instrs[pos]
     match instr {
-      @lib.GlobalGet(idx) if sgo_read_only_to_write_read_at(
-          instrs, pos, idx, effects,
-        ) => sgo_count_read_only_to_write_safe_read(idx, safe_reads)
+      @lib.GlobalGet(idx) if sgo_read_only_to_write_read_at(instrs, pos, idx) =>
+        sgo_count_read_only_to_write_safe_read(idx, safe_reads)
       @lib.Block(_, body) => {
-        sgo_count_block_or_no_catch_try_table_external_pure_guards(
+        sgo_count_block_condition_external_pure_read(instrs, pos, safe_reads)
+        sgo_count_block_condition_external_pure_if_return_read(
           instrs, pos, safe_reads,
         )
-        sgo_count_block_or_no_catch_try_table_tail_guards(
-          instrs, pos, true, safe_reads,
+        sgo_count_block_condition_reverse_external_pure_read(
+          instrs, pos, safe_reads,
         )
-        sgo_count_read_only_to_write_expr(body, safe_reads, effects)
-      }
-      @lib.Loop(_, body) => {
+        sgo_count_block_condition_reverse_external_pure_if_return_read(
+          instrs, pos, safe_reads,
+        )
         if pos + 1 < instrs.length() {
           sgo_count_block_condition_read_only_to_write_read(
             instr,
             instrs[pos + 1],
             safe_reads,
           )
-          sgo_count_block_wrapped_nested_if_arm_flow_read(
-            instr,
-            instrs[pos + 1],
-            safe_reads,
-          )
         }
         if pos + 2 < instrs.length() {
+          if pos + 3 == instrs.length() {
+            sgo_count_block_condition_if_return_block_set_read(
+              instr,
+              instrs[pos + 1],
+              instrs[pos + 2],
+              safe_reads,
+            )
+          }
           sgo_count_block_condition_eqz_read_only_to_write_read(
             instr,
             instrs[pos + 1],
             instrs[pos + 2],
             safe_reads,
           )
+          sgo_count_block_condition_reverse_compare_read_only_to_write_read(
+            instrs, pos, safe_reads,
+          )
         }
         if pos + 3 < instrs.length() {
+          if pos + 4 == instrs.length() {
+            sgo_count_block_condition_if_return_set_read(
+              instr,
+              instrs[pos + 1],
+              instrs[pos + 2],
+              instrs[pos + 3],
+              safe_reads,
+            )
+            sgo_count_block_condition_eqz_if_return_block_set_read(
+              instr,
+              instrs[pos + 1],
+              instrs[pos + 2],
+              instrs[pos + 3],
+              safe_reads,
+            )
+            sgo_count_block_condition_reverse_compare_if_return_block_set_read(
+              instrs, pos, safe_reads,
+            )
+          }
           sgo_count_block_condition_compare_read_only_to_write_read(
             instr,
             instrs[pos + 1],
@@ -922,32 +544,54 @@ fn sgo_count_read_only_to_write_instrs(
             safe_reads,
           )
         }
-        sgo_count_block_condition_reverse_compare_read_only_to_write_read(
-          instrs, pos, safe_reads,
-        )
-        sgo_count_read_only_to_write_expr(body, safe_reads, effects)
+        if pos + 4 < instrs.length() {
+          if pos + 5 == instrs.length() {
+            sgo_count_block_condition_eqz_if_return_set_read(
+              instr,
+              instrs[pos + 1],
+              instrs[pos + 2],
+              instrs[pos + 3],
+              instrs[pos + 4],
+              safe_reads,
+            )
+            sgo_count_block_condition_reverse_compare_if_return_set_read(
+              instrs, pos, safe_reads,
+            )
+            sgo_count_block_condition_compare_if_return_block_set_read(
+              instr,
+              instrs[pos + 1],
+              instrs[pos + 2],
+              instrs[pos + 3],
+              instrs[pos + 4],
+              safe_reads,
+            )
+          }
+        }
+        if pos + 5 < instrs.length() {
+          if pos + 6 == instrs.length() {
+            sgo_count_block_condition_compare_if_return_set_read(
+              instr,
+              instrs[pos + 1],
+              instrs[pos + 2],
+              instrs[pos + 3],
+              instrs[pos + 4],
+              instrs[pos + 5],
+              safe_reads,
+            )
+          }
+        }
+        sgo_count_read_only_to_write_expr(body, safe_reads)
       }
+      @lib.Loop(_, body) => sgo_count_read_only_to_write_expr(body, safe_reads)
       @lib.If(_, then_body, else_body) => {
-        sgo_count_nested_if_arm_flow_read(instrs, pos, safe_reads)
-        sgo_count_read_only_to_write_instrs(then_body, safe_reads, effects)
+        sgo_count_read_only_to_write_instrs(then_body, safe_reads)
         match else_body {
-          Some(body) =>
-            sgo_count_read_only_to_write_instrs(body, safe_reads, effects)
+          Some(body) => sgo_count_read_only_to_write_instrs(body, safe_reads)
           None => ()
         }
       }
-      @lib.TryTable(_, _, body) => {
-        sgo_count_block_or_no_catch_try_table_external_pure_guards(
-          instrs, pos, safe_reads,
-        )
-        sgo_count_no_catch_try_table_specific_condition_guards(
-          instrs, pos, safe_reads,
-        )
-        sgo_count_block_or_no_catch_try_table_tail_guards(
-          instrs, pos, false, safe_reads,
-        )
-        sgo_count_read_only_to_write_expr(body, safe_reads, effects)
-      }
+      @lib.TryTable(_, _, body) =>
+        sgo_count_read_only_to_write_expr(body, safe_reads)
       _ => ()
     }
   }
@@ -966,1819 +610,11 @@ fn sgo_if_is_read_only_to_write_set(
 }
 
 ///|
-fn sgo_flow_plain(tainted : Bool) -> SgoFlowValue {
-  SgoFlowValue::{ tainted, i31_ref: false }
-}
-
-///|
-fn sgo_flow_i31_ref(tainted : Bool) -> SgoFlowValue {
-  SgoFlowValue::{ tainted, i31_ref: true }
-}
-
-///|
-fn sgo_flow_pop(stack : Array[SgoFlowValue]) -> SgoFlowValue? {
-  stack.pop()
-}
-
-///|
-fn sgo_flow_push_clean(stack : Array[SgoFlowValue]) -> Unit {
-  stack.push(sgo_flow_plain(false))
-}
-
-///|
-fn sgo_flow_push_tainted(stack : Array[SgoFlowValue]) -> Unit {
-  stack.push(sgo_flow_plain(true))
-}
-
-///|
-fn sgo_flow_apply_unary(
-  stack : Array[SgoFlowValue],
-  instr : @lib.Instruction,
-) -> Bool {
-  match sgo_flow_pop(stack) {
-    Some(value) =>
-      match instr {
-        @lib.RefI31 => {
-          stack.push(sgo_flow_i31_ref(value.tainted))
-          true
-        }
-        @lib.I31GetS | @lib.I31GetU =>
-          if value.i31_ref {
-            stack.push(sgo_flow_plain(value.tainted))
-            true
-          } else {
-            false
-          }
-        @lib.RefAsNonNull =>
-          if value.i31_ref {
-            stack.push(value)
-            true
-          } else {
-            false
-          }
-        _ => {
-          stack.push(sgo_flow_plain(value.tainted))
-          true
-        }
-      }
-    None => false
-  }
-}
-
-///|
-fn sgo_flow_apply_binary(stack : Array[SgoFlowValue]) -> Bool {
-  match (sgo_flow_pop(stack), sgo_flow_pop(stack)) {
-    (Some(rhs), Some(lhs)) => {
-      stack.push(sgo_flow_plain(lhs.tainted || rhs.tainted))
-      true
-    }
-    _ => false
-  }
-}
-
-///|
-fn sgo_flow_pop_clean(stack : Array[SgoFlowValue]) -> Bool {
-  match sgo_flow_pop(stack) {
-    Some(value) => !value.tainted
-    _ => false
-  }
-}
-
-///|
-fn sgo_flow_pop_clean_then_push_clean_leaf(stack : Array[SgoFlowValue]) -> Bool {
-  if sgo_flow_pop_clean(stack) {
-    sgo_flow_push_clean(stack)
-    true
-  } else {
-    false
-  }
-}
-
-///|
-fn sgo_flow_apply_clean_call_result(
-  stack : Array[SgoFlowValue],
-  push_result? : Bool = true,
-) -> Bool {
-  if sgo_flow_stack_has_taint(stack) {
-    false
-  } else {
-    sgo_flow_clear_stack(stack)
-    if push_result {
-      sgo_flow_push_clean(stack)
-    }
-    true
-  }
-}
-
-///|
-fn sgo_flow_pop_clean_pair(stack : Array[SgoFlowValue]) -> Bool {
-  match (sgo_flow_pop(stack), sgo_flow_pop(stack)) {
-    (Some(rhs), Some(lhs)) => !rhs.tainted && !lhs.tainted
-    _ => false
-  }
-}
-
-///|
-fn sgo_flow_pop_clean_triple(stack : Array[SgoFlowValue]) -> Bool {
-  match (sgo_flow_pop(stack), sgo_flow_pop(stack), sgo_flow_pop(stack)) {
-    (Some(third), Some(second), Some(first)) =>
-      !third.tainted && !second.tainted && !first.tainted
-    _ => false
-  }
-}
-
-///|
-fn sgo_is_flow_clean_pair_effect_instr(instr : @lib.Instruction) -> Bool {
-  match instr {
-    @lib.TableSet(_)
-    | @lib.F32Store(_)
-    | @lib.F64Store(_)
-    | @lib.I32Store(_)
-    | @lib.I64Store(_)
-    | @lib.I32Store8(_)
-    | @lib.I32Store16(_)
-    | @lib.I64Store8(_)
-    | @lib.I64Store16(_)
-    | @lib.I64Store32(_) => true
-    _ => false
-  }
-}
-
-///|
-fn sgo_is_flow_clean_triple_effect_instr(instr : @lib.Instruction) -> Bool {
-  match instr {
-    @lib.MemoryCopy(_, _)
-    | @lib.MemoryFill(_)
-    | @lib.MemoryInit(_, _)
-    | @lib.TableFill(_)
-    | @lib.TableInit(_, _)
-    | @lib.TableCopy(_, _) => true
-    _ => false
-  }
-}
-
-///|
-fn sgo_flow_stack_has_taint(stack : Array[SgoFlowValue]) -> Bool {
-  stack.any(fn(value) { value.tainted })
-}
-
-///|
-fn sgo_flow_stack_single_taint(stack : Array[SgoFlowValue]) -> Bool {
-  match stack {
-    [value] => value.tainted
-    _ => false
-  }
-}
-
-///|
-fn sgo_flow_clear_stack(stack : Array[SgoFlowValue]) -> Unit {
-  while stack.length() > 0 {
-    ignore(stack.pop())
-  }
-}
-
-///|
-fn sgo_is_flowscanner_nullary_pure_instr(instr : @lib.Instruction) -> Bool {
-  match instr {
-    @lib.MemorySize(_) | @lib.TableSize(_) => true
-    _ => false
-  }
-}
-
-///|
-fn sgo_flow_push_clean_leaf_if_known(
-  stack : Array[SgoFlowValue],
-  instr : @lib.Instruction,
-) -> Bool {
-  if sgo_const_instr(instr) != None ||
-    sgo_is_flowscanner_nullary_pure_instr(instr) {
-    sgo_flow_push_clean(stack)
-    true
-  } else {
-    match instr {
-      @lib.LocalGet(_) => {
-        sgo_flow_push_clean(stack)
-        true
-      }
-      _ => false
-    }
-  }
-}
-
-///|
-fn sgo_flow_apply_select(stack : Array[SgoFlowValue]) -> Bool {
-  match (sgo_flow_pop(stack), sgo_flow_pop(stack), sgo_flow_pop(stack)) {
-    (Some(condition), Some(second), Some(first)) => {
-      stack.push(SgoFlowValue::{
-        tainted: first.tainted || second.tainted || condition.tainted,
-        i31_ref: first.i31_ref && second.i31_ref,
-      })
-      true
-    }
-    _ => false
-  }
-}
-
-///|
-fn sgo_is_flowscanner_unary_pure_instr(instr : @lib.Instruction) -> Bool {
-  match instr {
-    @lib.RefIsNull
-    | @lib.RefTest(_, _)
-    | @lib.RefAsNonNull
-    | @lib.I31GetS
-    | @lib.I31GetU
-    | @lib.AnyConvertExtern
-    | @lib.ExternConvertAny
-    | @lib.RefI31
-    | @lib.I32Clz
-    | @lib.I32Ctz
-    | @lib.I32Popcnt
-    | @lib.I32Eqz
-    | @lib.I64Clz
-    | @lib.I64Ctz
-    | @lib.I64Popcnt
-    | @lib.I64Eqz
-    | @lib.F32Abs
-    | @lib.F32Neg
-    | @lib.F32Ceil
-    | @lib.F32Floor
-    | @lib.F32Trunc
-    | @lib.F32Nearest
-    | @lib.F32Sqrt
-    | @lib.F32ConvertI32S
-    | @lib.F32ConvertI32U
-    | @lib.F32ConvertI64S
-    | @lib.F32ConvertI64U
-    | @lib.F32DemoteF64
-    | @lib.F64Abs
-    | @lib.F64Neg
-    | @lib.F64Ceil
-    | @lib.F64Floor
-    | @lib.F64Trunc
-    | @lib.F64Nearest
-    | @lib.F64Sqrt
-    | @lib.F64ConvertI32S
-    | @lib.F64ConvertI32U
-    | @lib.F64ConvertI64S
-    | @lib.F64ConvertI64U
-    | @lib.F64PromoteF32
-    | @lib.I32WrapI64
-    | @lib.I64ExtendI32S
-    | @lib.I64ExtendI32U
-    | @lib.I32ReinterpretF32
-    | @lib.I64ReinterpretF64
-    | @lib.F32ReinterpretI32
-    | @lib.F64ReinterpretI64
-    | @lib.I32Extend8S
-    | @lib.I32Extend16S
-    | @lib.I64Extend8S
-    | @lib.I64Extend16S
-    | @lib.I64Extend32S
-    | @lib.I32TruncSatF32S
-    | @lib.I32TruncSatF32U
-    | @lib.I32TruncSatF64S
-    | @lib.I32TruncSatF64U
-    | @lib.I64TruncSatF32S
-    | @lib.I64TruncSatF32U
-    | @lib.I64TruncSatF64S
-    | @lib.I64TruncSatF64U
-    | @lib.I8x16Splat
-    | @lib.I16x8Splat
-    | @lib.I32x4Splat
-    | @lib.I64x2Splat
-    | @lib.F32x4Splat
-    | @lib.F64x2Splat
-    | @lib.I8x16Abs
-    | @lib.I8x16Neg
-    | @lib.I8x16Popcnt
-    | @lib.I8x16Bitmask
-    | @lib.I8x16AllTrue
-    | @lib.F32x4Ceil
-    | @lib.F32x4Floor
-    | @lib.F32x4Trunc
-    | @lib.F32x4Nearest
-    | @lib.F64x2Ceil
-    | @lib.F64x2Floor
-    | @lib.F64x2Trunc
-    | @lib.F64x2Nearest
-    | @lib.I16x8Abs
-    | @lib.I16x8Neg
-    | @lib.I16x8AllTrue
-    | @lib.I16x8Bitmask
-    | @lib.I32x4Abs
-    | @lib.I32x4Neg
-    | @lib.I32x4AllTrue
-    | @lib.I32x4Bitmask
-    | @lib.F32x4DemoteF64x2Zero
-    | @lib.F64x2PromoteLowF32x4
-    | @lib.I16x8ExtendLowI8x16S
-    | @lib.I16x8ExtendHighI8x16S
-    | @lib.I16x8ExtendLowI8x16U
-    | @lib.I16x8ExtendHighI8x16U
-    | @lib.I32x4ExtendLowI16x8S
-    | @lib.I32x4ExtendHighI16x8S
-    | @lib.I32x4ExtendLowI16x8U
-    | @lib.I32x4ExtendHighI16x8U
-    | @lib.I64x2ExtendLowI32x4S
-    | @lib.I64x2ExtendHighI32x4S
-    | @lib.I64x2ExtendLowI32x4U
-    | @lib.I64x2ExtendHighI32x4U
-    | @lib.I16x8ExtaddPairwiseI8x16S
-    | @lib.I16x8ExtaddPairwiseI8x16U
-    | @lib.I32x4ExtaddPairwiseI16x8S
-    | @lib.I32x4ExtaddPairwiseI16x8U
-    | @lib.I32x4TruncSatF32x4S
-    | @lib.I32x4TruncSatF32x4U
-    | @lib.I32x4TruncSatF64x2SZero
-    | @lib.I32x4TruncSatF64x2UZero
-    | @lib.V128Not
-    | @lib.V128AnyTrue
-    | @lib.F32x4ConvertI32x4S
-    | @lib.F32x4ConvertI32x4U
-    | @lib.F64x2ConvertLowI32x4S
-    | @lib.F64x2ConvertLowI32x4U
-    | @lib.I8x16ExtractLaneS(_)
-    | @lib.I8x16ExtractLaneU(_)
-    | @lib.I16x8ExtractLaneS(_)
-    | @lib.I16x8ExtractLaneU(_)
-    | @lib.I32x4ExtractLane(_)
-    | @lib.I64x2ExtractLane(_)
-    | @lib.I64x2Abs
-    | @lib.F32x4ExtractLane(_)
-    | @lib.F64x2ExtractLane(_)
-    | @lib.I64x2Neg
-    | @lib.I64x2AllTrue
-    | @lib.I64x2Bitmask
-    | @lib.F32x4Abs
-    | @lib.F32x4Neg
-    | @lib.F32x4Sqrt
-    | @lib.F64x2Abs
-    | @lib.F64x2Neg
-    | @lib.F64x2Sqrt => true
-    _ => false
-  }
-}
-
-///|
-fn sgo_is_flowscanner_binary_pure_instr(instr : @lib.Instruction) -> Bool {
-  match instr {
-    @lib.RefEq
-    | @lib.I32Eq
-    | @lib.I32Ne
-    | @lib.I32LtS
-    | @lib.I32LtU
-    | @lib.I32GtS
-    | @lib.I32GtU
-    | @lib.I32LeS
-    | @lib.I32LeU
-    | @lib.I32GeS
-    | @lib.I32GeU
-    | @lib.I32Add
-    | @lib.I32Sub
-    | @lib.I32Mul
-    | @lib.I32And
-    | @lib.I32Or
-    | @lib.I32Xor
-    | @lib.I32Shl
-    | @lib.I32ShrS
-    | @lib.I32ShrU
-    | @lib.I32Rotl
-    | @lib.I32Rotr
-    | @lib.I64Eq
-    | @lib.I64Ne
-    | @lib.I64LtS
-    | @lib.I64LtU
-    | @lib.I64GtS
-    | @lib.I64GtU
-    | @lib.I64LeS
-    | @lib.I64LeU
-    | @lib.I64GeS
-    | @lib.I64GeU
-    | @lib.I64Add
-    | @lib.I64Sub
-    | @lib.I64Mul
-    | @lib.I64And
-    | @lib.I64Or
-    | @lib.I64Xor
-    | @lib.I64Shl
-    | @lib.I64ShrS
-    | @lib.I64ShrU
-    | @lib.I64Rotl
-    | @lib.I64Rotr
-    | @lib.F32Eq
-    | @lib.F32Ne
-    | @lib.F32Lt
-    | @lib.F32Gt
-    | @lib.F32Le
-    | @lib.F32Ge
-    | @lib.F32Add
-    | @lib.F32Sub
-    | @lib.F32Mul
-    | @lib.F32Min
-    | @lib.F32Max
-    | @lib.F32Copysign
-    | @lib.F32Div
-    | @lib.F64Eq
-    | @lib.F64Ne
-    | @lib.F64Lt
-    | @lib.F64Gt
-    | @lib.F64Le
-    | @lib.F64Ge
-    | @lib.F64Add
-    | @lib.F64Sub
-    | @lib.F64Mul
-    | @lib.F64Min
-    | @lib.F64Max
-    | @lib.F64Copysign
-    | @lib.F64Div
-    | @lib.I8x16Eq
-    | @lib.I8x16Ne
-    | @lib.I8x16LtS
-    | @lib.I8x16LtU
-    | @lib.I8x16GtS
-    | @lib.I8x16GtU
-    | @lib.I8x16LeS
-    | @lib.I8x16LeU
-    | @lib.I8x16GeS
-    | @lib.I8x16GeU
-    | @lib.I16x8Ne
-    | @lib.I16x8LtS
-    | @lib.I16x8LtU
-    | @lib.I16x8GtS
-    | @lib.I16x8GtU
-    | @lib.I16x8LeS
-    | @lib.I16x8LeU
-    | @lib.I16x8GeS
-    | @lib.I16x8GeU
-    | @lib.I32x4Ne
-    | @lib.I32x4LtS
-    | @lib.I32x4LtU
-    | @lib.I32x4GtS
-    | @lib.I32x4GtU
-    | @lib.I32x4LeS
-    | @lib.I32x4LeU
-    | @lib.I32x4GeS
-    | @lib.I32x4GeU
-    | @lib.I64x2Ne
-    | @lib.I64x2LtS
-    | @lib.I64x2GtS
-    | @lib.I64x2LeS
-    | @lib.I64x2GeS
-    | @lib.F32x4Eq
-    | @lib.F32x4Lt
-    | @lib.F32x4Gt
-    | @lib.F32x4Le
-    | @lib.F32x4Ge
-    | @lib.F64x2Eq
-    | @lib.F64x2Lt
-    | @lib.F64x2Gt
-    | @lib.F64x2Le
-    | @lib.F64x2Ge
-    | @lib.V128And
-    | @lib.V128Andnot
-    | @lib.V128Or
-    | @lib.V128Xor
-    | @lib.I8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
-    | @lib.I8x16Swizzle
-    | @lib.I8x16ReplaceLane(_)
-    | @lib.I16x8ReplaceLane(_)
-    | @lib.I32x4ReplaceLane(_)
-    | @lib.I64x2ReplaceLane(_)
-    | @lib.F32x4ReplaceLane(_)
-    | @lib.F64x2ReplaceLane(_)
-    | @lib.I8x16Shl
-    | @lib.I8x16ShrS
-    | @lib.I8x16ShrU
-    | @lib.I16x8Shl
-    | @lib.I16x8ShrS
-    | @lib.I16x8ShrU
-    | @lib.I32x4Shl
-    | @lib.I32x4ShrS
-    | @lib.I32x4ShrU
-    | @lib.I64x2Shl
-    | @lib.I64x2ShrS
-    | @lib.I64x2ShrU
-    | @lib.I8x16NarrowI16x8S
-    | @lib.I8x16NarrowI16x8U
-    | @lib.I16x8NarrowI32x4S
-    | @lib.I16x8NarrowI32x4U
-    | @lib.I16x8ExtmulLowI8x16S
-    | @lib.I16x8ExtmulHighI8x16S
-    | @lib.I16x8ExtmulLowI8x16U
-    | @lib.I16x8ExtmulHighI8x16U
-    | @lib.I32x4ExtmulLowI16x8S
-    | @lib.I32x4ExtmulHighI16x8S
-    | @lib.I32x4ExtmulLowI16x8U
-    | @lib.I32x4ExtmulHighI16x8U
-    | @lib.I64x2ExtmulLowI32x4S
-    | @lib.I64x2ExtmulHighI32x4S
-    | @lib.I64x2ExtmulLowI32x4U
-    | @lib.I64x2ExtmulHighI32x4U
-    | @lib.I8x16Add
-    | @lib.I8x16AddSatS
-    | @lib.I8x16AddSatU
-    | @lib.I8x16Sub
-    | @lib.I8x16SubSatS
-    | @lib.I8x16SubSatU
-    | @lib.I8x16MinS
-    | @lib.I8x16MinU
-    | @lib.I8x16MaxS
-    | @lib.I8x16MaxU
-    | @lib.I8x16AvgrU
-    | @lib.I16x8Add
-    | @lib.I16x8AddSatS
-    | @lib.I16x8AddSatU
-    | @lib.I16x8Sub
-    | @lib.I16x8SubSatS
-    | @lib.I16x8SubSatU
-    | @lib.I16x8Mul
-    | @lib.I16x8MinS
-    | @lib.I16x8MinU
-    | @lib.I16x8MaxS
-    | @lib.I16x8MaxU
-    | @lib.I16x8AvgrU
-    | @lib.I16x8Q15mulrSatS
-    | @lib.I16x8Eq
-    | @lib.I32x4Add
-    | @lib.I32x4Sub
-    | @lib.I32x4Mul
-    | @lib.I32x4MinS
-    | @lib.I32x4MinU
-    | @lib.I32x4MaxS
-    | @lib.I32x4MaxU
-    | @lib.I32x4DotI16x8S
-    | @lib.I32x4Eq
-    | @lib.I64x2Add
-    | @lib.I64x2Sub
-    | @lib.I64x2Mul
-    | @lib.I64x2Eq
-    | @lib.F32x4Add
-    | @lib.F32x4Sub
-    | @lib.F32x4Mul
-    | @lib.F32x4Div
-    | @lib.F32x4Min
-    | @lib.F32x4Max
-    | @lib.F32x4Pmin
-    | @lib.F32x4Pmax
-    | @lib.F32x4Ne
-    | @lib.F64x2Add
-    | @lib.F64x2Sub
-    | @lib.F64x2Mul
-    | @lib.F64x2Div
-    | @lib.F64x2Min
-    | @lib.F64x2Max
-    | @lib.F64x2Pmin
-    | @lib.F64x2Pmax
-    | @lib.F64x2Ne => true
-    _ => false
-  }
-}
-
-///|
-fn sgo_is_flowscanner_trapping_read_instr(instr : @lib.Instruction) -> Bool {
-  match instr {
-    @lib.TableGet(_)
-    | @lib.I32Load(_)
-    | @lib.I64Load(_)
-    | @lib.F32Load(_)
-    | @lib.F64Load(_)
-    | @lib.I32Load8S(_)
-    | @lib.I32Load8U(_)
-    | @lib.I32Load16S(_)
-    | @lib.I32Load16U(_)
-    | @lib.I64Load8S(_)
-    | @lib.I64Load8U(_)
-    | @lib.I64Load16S(_)
-    | @lib.I64Load16U(_)
-    | @lib.I64Load32S(_)
-    | @lib.I64Load32U(_) => true
-    _ => false
-  }
-}
-
-///|
-fn sgo_flow_scan_prefix_until(
-  instrs : Array[@lib.Instruction],
-  end_ : Int,
-  idx : @lib.GlobalIdx,
-) -> (Bool, Int, Array[SgoFlowValue]) {
-  let stack : Array[SgoFlowValue] = []
-  let mut reads = 0
-  for scan = 0; scan < end_; scan = scan + 1 {
-    let instr = instrs[scan]
-    if sgo_flow_push_clean_leaf_if_known(stack, instr) {
-      continue
-    }
-    match instr {
-      @lib.GlobalGet(get_idx) => {
-        if get_idx == idx {
-          reads += 1
-          sgo_flow_push_tainted(stack)
-        } else {
-          sgo_flow_push_clean(stack)
-        }
-        continue
-      }
-      _ if sgo_is_flow_clean_pair_effect_instr(instr) =>
-        if sgo_flow_pop_clean_pair(stack) {
-          continue
-        } else {
-          return (false, reads, stack)
-        }
-      _ if sgo_is_flow_clean_triple_effect_instr(instr) =>
-        if sgo_flow_pop_clean_triple(stack) {
-          continue
-        } else {
-          return (false, reads, stack)
-        }
-      @lib.Block(@lib.VoidBlockType, @lib.Expr(body))
-      | @lib.Loop(@lib.VoidBlockType, @lib.Expr(body)) => {
-        let (block_ok, block_reads, block_stack) = sgo_flow_scan_prefix_until(
-          body,
-          body.length(),
-          idx,
-        )
-        reads = reads + block_reads
-        if block_ok && block_reads == 0 && block_stack.length() == 0 {
-          continue
-        } else {
-          return (false, reads, stack)
-        }
-      }
-      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body))
-      | @lib.Loop(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
-        let (block_ok, block_reads, block_tainted) = sgo_flow_arm_result_taint_and_reads(
-          body, idx,
-        )
-        reads = reads + block_reads
-        if block_ok && reads <= 1 {
-          stack.push(sgo_flow_plain(block_tainted))
-          continue
-        } else {
-          return (false, reads, stack)
-        }
-      }
-      @lib.Nop | @lib.ElemDrop(_) | @lib.DataDrop(_) => continue
-      @lib.GlobalSet(_) | @lib.LocalSet(_) =>
-        if sgo_flow_pop_clean(stack) {
-          continue
-        } else {
-          return (false, reads, stack)
-        }
-      @lib.LocalTee(_) =>
-        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
-          continue
-        } else {
-          return (false, reads, stack)
-        }
-      _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
-        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
-          continue
-        } else {
-          return (false, reads, stack)
-        }
-      @lib.Drop =>
-        if sgo_flow_pop_clean(stack) {
-          continue
-        } else {
-          return (false, reads, stack)
-        }
-      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
-        if !sgo_flow_apply_clean_call_result(stack) {
-          return (false, reads, stack)
-        }
-        continue
-      }
-      @lib.Select(_) | @lib.V128Bitselect => {
-        if !sgo_flow_apply_select(stack) {
-          return (false, reads, stack)
-        }
-        continue
-      }
-      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
-        if !sgo_flow_pop_clean(stack) {
-          return (false, reads, stack)
-        }
-        let (then_ok, then_reads, then_stack) = sgo_flow_scan_prefix_until(
-          then_body,
-          then_body.length(),
-          idx,
-        )
-        let (else_ok, else_reads, else_stack) = sgo_flow_scan_prefix_until(
-          else_body,
-          else_body.length(),
-          idx,
-        )
-        reads = reads + then_reads + else_reads
-        if then_ok &&
-          else_ok &&
-          then_reads == 0 &&
-          else_reads == 0 &&
-          then_stack.length() == 0 &&
-          else_stack.length() == 0 {
-          continue
-        } else {
-          return (false, reads, stack)
-        }
-      }
-      @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
-        if !sgo_flow_pop_clean(stack) {
-          return (false, reads, stack)
-        }
-        let (arms_ok, arm_reads, arms_tainted) = sgo_flow_merge_value_if_arm_taint_and_reads(
-          then_body, else_body, idx,
-        )
-        reads = reads + arm_reads
-        if !arms_ok || reads > 1 {
-          return (false, reads, stack)
-        }
-        stack.push(sgo_flow_plain(arms_tainted))
-        continue
-      }
-      _ => {
-        if sgo_is_flowscanner_unary_pure_instr(instr) {
-          if !sgo_flow_apply_unary(stack, instr) {
-            return (false, reads, stack)
-          }
-          continue
-        }
-        if sgo_is_flowscanner_binary_pure_instr(instr) {
-          if !sgo_flow_apply_binary(stack) {
-            return (false, reads, stack)
-          }
-          continue
-        }
-        return (false, reads, stack)
-      }
-    }
-  }
-  (true, reads, stack)
-}
-
-///|
-fn sgo_flow_merge_value_if_arm_taint_and_reads(
-  then_body : Array[@lib.Instruction],
-  else_body : Array[@lib.Instruction],
-  idx : @lib.GlobalIdx,
-) -> (Bool, Int, Bool) {
-  let (then_ok, then_reads, then_tainted) = sgo_flow_arm_result_taint_and_reads(
-    then_body, idx,
-  )
-  let (else_ok, else_reads, else_tainted) = sgo_flow_arm_result_taint_and_reads(
-    else_body, idx,
-  )
-  let reads = then_reads + else_reads
-  (then_ok && else_ok, reads, then_tainted || else_tainted)
-}
-
-///|
-fn sgo_flow_scan_clean_prefix_until(
-  instrs : Array[@lib.Instruction],
-  end_ : Int,
-) -> (Bool, Array[SgoFlowValue]) {
-  let stack : Array[SgoFlowValue] = []
-  for scan = 0; scan < end_; scan = scan + 1 {
-    let instr = instrs[scan]
-    if sgo_flow_push_clean_leaf_if_known(stack, instr) {
-      continue
-    }
-    match instr {
-      @lib.GlobalGet(_) => {
-        sgo_flow_push_clean(stack)
-        continue
-      }
-      _ if sgo_is_flow_clean_pair_effect_instr(instr) =>
-        if sgo_flow_pop_clean_pair(stack) {
-          continue
-        } else {
-          return (false, stack)
-        }
-      _ if sgo_is_flow_clean_triple_effect_instr(instr) =>
-        if sgo_flow_pop_clean_triple(stack) {
-          continue
-        } else {
-          return (false, stack)
-        }
-      @lib.Block(@lib.VoidBlockType, @lib.Expr(body))
-      | @lib.Loop(@lib.VoidBlockType, @lib.Expr(body)) => {
-        let (block_ok, block_stack) = sgo_flow_scan_clean_prefix_until(
-          body,
-          body.length(),
-        )
-        if block_ok && block_stack.length() == 0 {
-          continue
-        } else {
-          return (false, stack)
-        }
-      }
-      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body))
-      | @lib.Loop(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
-        let (block_ok, block_stack) = sgo_flow_scan_clean_prefix_until(
-          body,
-          body.length(),
-        )
-        match block_stack {
-          [value] if block_ok && !value.tainted => {
-            sgo_flow_push_clean(stack)
-            continue
-          }
-          _ => return (false, stack)
-        }
-      }
-      @lib.Nop | @lib.ElemDrop(_) | @lib.DataDrop(_) => continue
-      @lib.GlobalSet(_) | @lib.LocalSet(_) =>
-        if sgo_flow_pop_clean(stack) {
-          continue
-        } else {
-          return (false, stack)
-        }
-      @lib.LocalTee(_) =>
-        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
-          continue
-        } else {
-          return (false, stack)
-        }
-      _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
-        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
-          continue
-        } else {
-          return (false, stack)
-        }
-      @lib.Drop =>
-        if sgo_flow_pop_clean(stack) {
-          continue
-        } else {
-          return (false, stack)
-        }
-      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
-        if !sgo_flow_apply_clean_call_result(stack) {
-          return (false, stack)
-        }
-        continue
-      }
-      @lib.Select(_) | @lib.V128Bitselect => {
-        if !sgo_flow_apply_select(stack) {
-          return (false, stack)
-        }
-        continue
-      }
-      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
-        if !sgo_flow_pop_clean(stack) {
-          return (false, stack)
-        }
-        let (then_ok, then_stack) = sgo_flow_scan_clean_prefix_until(
-          then_body,
-          then_body.length(),
-        )
-        let (else_ok, else_stack) = sgo_flow_scan_clean_prefix_until(
-          else_body,
-          else_body.length(),
-        )
-        if then_ok &&
-          else_ok &&
-          then_stack.length() == 0 &&
-          else_stack.length() == 0 {
-          continue
-        } else {
-          return (false, stack)
-        }
-      }
-      @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
-        if !sgo_flow_pop_clean(stack) {
-          return (false, stack)
-        }
-        let (then_ok, then_stack) = sgo_flow_scan_clean_prefix_until(
-          then_body,
-          then_body.length(),
-        )
-        let (else_ok, else_stack) = sgo_flow_scan_clean_prefix_until(
-          else_body,
-          else_body.length(),
-        )
-        match (then_stack, else_stack) {
-          ([then_value], [else_value]) if then_ok &&
-            else_ok &&
-            !then_value.tainted &&
-            !else_value.tainted => {
-            sgo_flow_push_clean(stack)
-            continue
-          }
-          _ => return (false, stack)
-        }
-      }
-      _ => {
-        if sgo_is_flowscanner_unary_pure_instr(instr) {
-          if !sgo_flow_apply_unary(stack, instr) {
-            return (false, stack)
-          }
-          continue
-        }
-        if sgo_is_flowscanner_binary_pure_instr(instr) {
-          if !sgo_flow_apply_binary(stack) {
-            return (false, stack)
-          }
-          continue
-        }
-        return (false, stack)
-      }
-    }
-  }
-  (true, stack)
-}
-
-///|
-fn sgo_flow_arm_result_taint_and_reads(
-  instrs : Array[@lib.Instruction],
-  idx : @lib.GlobalIdx,
-) -> (Bool, Int, Bool) {
-  let stack : Array[SgoFlowValue] = []
-  let mut reads = 0
-  for scan = 0; scan < instrs.length(); scan = scan + 1 {
-    let instr = instrs[scan]
-    if sgo_flow_push_clean_leaf_if_known(stack, instr) {
-      continue
-    }
-    match instr {
-      @lib.GlobalGet(get_idx) => {
-        if get_idx == idx {
-          reads += 1
-          if reads > 1 {
-            return (false, reads, false)
-          }
-          sgo_flow_push_tainted(stack)
-        } else {
-          sgo_flow_push_clean(stack)
-        }
-        continue
-      }
-      _ if sgo_is_flow_clean_pair_effect_instr(instr) =>
-        if sgo_flow_pop_clean_pair(stack) {
-          continue
-        } else {
-          return (false, reads, false)
-        }
-      _ if sgo_is_flow_clean_triple_effect_instr(instr) =>
-        if sgo_flow_pop_clean_triple(stack) {
-          continue
-        } else {
-          return (false, reads, false)
-        }
-      @lib.Block(@lib.VoidBlockType, @lib.Expr(body))
-      | @lib.Loop(@lib.VoidBlockType, @lib.Expr(body)) => {
-        let (block_ok, block_reads, block_tainted) = sgo_flow_arm_result_taint_and_reads(
-          body, idx,
-        )
-        reads = reads + block_reads
-        if block_ok && block_reads == 0 && !block_tainted {
-          continue
-        } else {
-          return (false, reads, false)
-        }
-      }
-      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body))
-      | @lib.Loop(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
-        let (block_ok, block_reads, block_tainted) = sgo_flow_arm_result_taint_and_reads(
-          body, idx,
-        )
-        reads = reads + block_reads
-        if block_ok && reads <= 1 {
-          stack.push(sgo_flow_plain(block_tainted))
-          continue
-        } else {
-          return (false, reads, false)
-        }
-      }
-      @lib.If(@lib.VoidBlockType, then_body, Some(else_body)) => {
-        if !sgo_flow_pop_clean(stack) {
-          return (false, reads, false)
-        }
-        let (then_ok, then_reads, then_stack) = sgo_flow_scan_prefix_until(
-          then_body,
-          then_body.length(),
-          idx,
-        )
-        let (else_ok, else_reads, else_stack) = sgo_flow_scan_prefix_until(
-          else_body,
-          else_body.length(),
-          idx,
-        )
-        reads = reads + then_reads + else_reads
-        if then_ok &&
-          else_ok &&
-          then_reads == 0 &&
-          else_reads == 0 &&
-          then_stack.length() == 0 &&
-          else_stack.length() == 0 {
-          continue
-        } else {
-          return (false, reads, false)
-        }
-      }
-      @lib.Nop | @lib.ElemDrop(_) | @lib.DataDrop(_) => continue
-      @lib.GlobalSet(_) | @lib.LocalSet(_) =>
-        if sgo_flow_pop_clean(stack) {
-          continue
-        } else {
-          return (false, reads, false)
-        }
-      @lib.LocalTee(_) =>
-        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
-          continue
-        } else {
-          return (false, reads, false)
-        }
-      _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
-        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
-          continue
-        } else {
-          return (false, reads, false)
-        }
-      @lib.Drop =>
-        if sgo_flow_pop_clean(stack) {
-          continue
-        } else {
-          return (false, reads, false)
-        }
-      @lib.Block(_, @lib.Expr(body)) => {
-        let (block_ok, block_reads, block_tainted) = sgo_flow_arm_result_taint_and_reads(
-          body, idx,
-        )
-        reads = reads + block_reads
-        if !block_ok || reads > 1 {
-          return (false, reads, false)
-        }
-        stack.push(sgo_flow_plain(block_tainted))
-        continue
-      }
-      @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
-        if !sgo_flow_pop_clean(stack) {
-          return (false, reads, false)
-        }
-        let (arms_ok, arm_reads, arms_tainted) = sgo_flow_merge_value_if_arm_taint_and_reads(
-          then_body, else_body, idx,
-        )
-        reads = reads + arm_reads
-        if !arms_ok || reads > 1 {
-          return (false, reads, false)
-        }
-        stack.push(sgo_flow_plain(arms_tainted))
-        continue
-      }
-      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
-        let push_result = if scan + 1 == instrs.length() {
-          true
-        } else {
-          match instrs[scan + 1] {
-            @lib.GlobalGet(_) => false
-            _ => true
-          }
-        }
-        if !sgo_flow_apply_clean_call_result(stack, push_result~) {
-          return (false, reads, false)
-        }
-        continue
-      }
-      @lib.Select(_) | @lib.V128Bitselect => {
-        if !sgo_flow_apply_select(stack) {
-          return (false, reads, false)
-        }
-        continue
-      }
-      _ => {
-        if sgo_is_flowscanner_unary_pure_instr(instr) {
-          if !sgo_flow_apply_unary(stack, instr) {
-            return (false, reads, false)
-          }
-          continue
-        }
-        if sgo_is_flowscanner_binary_pure_instr(instr) {
-          if !sgo_flow_apply_binary(stack) {
-            return (false, reads, false)
-          }
-          continue
-        }
-        return (false, reads, false)
-      }
-    }
-  }
-  match stack {
-    [value] => (true, reads, value.tainted)
-    _ => (false, reads, false)
-  }
-}
-
-///|
-fn sgo_nested_if_arm_flow_outer_if_index(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  prefix_stack : Array[SgoFlowValue],
-) -> Int? {
-  if pos + 1 >= instrs.length() || prefix_stack.length() == 0 {
-    return None
-  }
-  let stack : Array[SgoFlowValue] = []
-  for i = 0; i + 1 < prefix_stack.length(); i = i + 1 {
-    stack.push(prefix_stack[i])
-  }
-  sgo_flow_push_tainted(stack)
-  for scan = pos + 1; scan < instrs.length(); scan = scan + 1 {
-    let instr = instrs[scan]
-    if sgo_const_instr(instr) != None ||
-      sgo_is_flowscanner_nullary_pure_instr(instr) {
-      sgo_flow_push_clean(stack)
-      continue
-    }
-    match instr {
-      @lib.If(_, _, _) =>
-        return if sgo_flow_stack_single_taint(stack) {
-          Some(scan)
-        } else {
-          None
-        }
-      @lib.LocalGet(_) => {
-        sgo_flow_push_clean(stack)
-        continue
-      }
-      @lib.TableSet(_)
-      | @lib.F32Store(_)
-      | @lib.F64Store(_)
-      | @lib.I32Store(_)
-      | @lib.I64Store(_)
-      | @lib.I32Store8(_)
-      | @lib.I32Store16(_)
-      | @lib.I64Store8(_)
-      | @lib.I64Store16(_)
-      | @lib.I64Store32(_) =>
-        if sgo_flow_pop_clean_pair(stack) {
-          continue
-        } else {
-          return None
-        }
-      @lib.MemoryCopy(_, _)
-      | @lib.MemoryFill(_)
-      | @lib.MemoryInit(_, _)
-      | @lib.TableFill(_)
-      | @lib.TableInit(_, _)
-      | @lib.TableCopy(_, _) =>
-        if sgo_flow_pop_clean_triple(stack) {
-          continue
-        } else {
-          return None
-        }
-      @lib.Block(@lib.VoidBlockType, @lib.Expr(body))
-      | @lib.Loop(@lib.VoidBlockType, @lib.Expr(body)) => {
-        if sgo_instrs_may_reference_global(body) {
-          return None
-        }
-        let (block_ok, block_stack) = sgo_flow_scan_clean_prefix_until(
-          body,
-          body.length(),
-        )
-        if block_ok && block_stack.length() == 0 {
-          continue
-        } else {
-          return None
-        }
-      }
-      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body))
-      | @lib.Loop(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
-        if sgo_instrs_may_reference_global(body) {
-          return None
-        }
-        let (block_ok, block_stack) = sgo_flow_scan_clean_prefix_until(
-          body,
-          body.length(),
-        )
-        match block_stack {
-          [value] if block_ok && !value.tainted => {
-            sgo_flow_push_clean(stack)
-            continue
-          }
-          _ => return None
-        }
-      }
-      @lib.Nop | @lib.ElemDrop(_) | @lib.DataDrop(_) => continue
-      @lib.GlobalSet(_) | @lib.LocalSet(_) =>
-        if sgo_flow_pop_clean(stack) {
-          continue
-        } else {
-          return None
-        }
-      @lib.LocalTee(_) =>
-        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
-          continue
-        } else {
-          return None
-        }
-      _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
-        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
-          continue
-        } else {
-          return None
-        }
-      @lib.Drop =>
-        if sgo_flow_pop_clean(stack) {
-          continue
-        } else {
-          return None
-        }
-      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
-        if !sgo_flow_apply_clean_call_result(stack) {
-          return None
-        }
-        continue
-      }
-      @lib.Select(_) | @lib.V128Bitselect => {
-        if !sgo_flow_apply_select(stack) {
-          return None
-        }
-        continue
-      }
-      _ => {
-        if sgo_is_flowscanner_unary_pure_instr(instr) {
-          if !sgo_flow_apply_unary(stack, instr) {
-            return None
-          }
-          continue
-        }
-        if sgo_is_flowscanner_binary_pure_instr(instr) {
-          if !sgo_flow_apply_binary(stack) {
-            return None
-          }
-          continue
-        }
-        return None
-      }
-    }
-  }
-  None
-}
-
-///|
-fn sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
-  instrs : Array[@lib.Instruction],
-  idx : @lib.GlobalIdx,
-) -> (Bool, Int, Bool) {
-  let stack : Array[SgoFlowValue] = []
-  let mut reads = 0
-  for scan = 0; scan < instrs.length(); scan = scan + 1 {
-    let instr = instrs[scan]
-    if sgo_const_instr(instr) != None ||
-      sgo_is_flowscanner_nullary_pure_instr(instr) {
-      sgo_flow_push_clean(stack)
-      continue
-    }
-    match instr {
-      @lib.GlobalGet(get_idx) => {
-        if get_idx == idx {
-          return (false, reads, false)
-        }
-        sgo_flow_push_clean(stack)
-        continue
-      }
-      @lib.LocalGet(_) => {
-        sgo_flow_push_clean(stack)
-        continue
-      }
-      @lib.TableSet(_)
-      | @lib.F32Store(_)
-      | @lib.F64Store(_)
-      | @lib.I32Store(_)
-      | @lib.I64Store(_)
-      | @lib.I32Store8(_)
-      | @lib.I32Store16(_)
-      | @lib.I64Store8(_)
-      | @lib.I64Store16(_)
-      | @lib.I64Store32(_) =>
-        if sgo_flow_pop_clean_pair(stack) {
-          continue
-        } else {
-          return (false, reads, false)
-        }
-      @lib.MemoryCopy(_, _)
-      | @lib.MemoryFill(_)
-      | @lib.MemoryInit(_, _)
-      | @lib.TableFill(_)
-      | @lib.TableInit(_, _)
-      | @lib.TableCopy(_, _) =>
-        if sgo_flow_pop_clean_triple(stack) {
-          continue
-        } else {
-          return (false, reads, false)
-        }
-      @lib.Block(@lib.VoidBlockType, @lib.Expr(body))
-      | @lib.Loop(@lib.VoidBlockType, @lib.Expr(body)) => {
-        let (block_ok, block_reads, block_tainted) = sgo_flow_arm_result_taint_and_reads(
-          body, idx,
-        )
-        reads = reads + block_reads
-        if block_ok && block_reads == 0 && !block_tainted {
-          continue
-        } else {
-          return (false, reads, false)
-        }
-      }
-      @lib.Nop | @lib.ElemDrop(_) | @lib.DataDrop(_) => continue
-      @lib.GlobalSet(_) | @lib.LocalSet(_) =>
-        if sgo_flow_pop_clean(stack) {
-          continue
-        } else {
-          return (false, reads, false)
-        }
-      @lib.LocalTee(_) =>
-        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
-          continue
-        } else {
-          return (false, reads, false)
-        }
-      _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
-        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
-          continue
-        } else {
-          return (false, reads, false)
-        }
-      @lib.Drop =>
-        if sgo_flow_pop_clean(stack) {
-          continue
-        } else {
-          return (false, reads, false)
-        }
-      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body))
-      | @lib.Loop(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
-        let (block_ok, block_reads, block_tainted) = sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
-          body, idx,
-        )
-        reads = reads + block_reads
-        if !block_ok || reads > 1 {
-          return (false, reads, false)
-        }
-        stack.push(sgo_flow_plain(block_tainted))
-        continue
-      }
-      @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
-        if !sgo_flow_pop_clean(stack) {
-          return (false, reads, false)
-        }
-        let (then_ok, then_reads, then_tainted) = sgo_flow_arm_result_taint_and_reads(
-          then_body, idx,
-        )
-        let (else_ok, else_reads, else_tainted) = sgo_flow_arm_result_taint_and_reads(
-          else_body, idx,
-        )
-        reads = reads + then_reads + else_reads
-        if !then_ok || !else_ok || reads > 1 {
-          return (false, reads, false)
-        }
-        stack.push(sgo_flow_plain(then_tainted || else_tainted))
-        continue
-      }
-      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
-        if !sgo_flow_apply_clean_call_result(stack) {
-          return (false, reads, false)
-        }
-        continue
-      }
-      @lib.Select(_) | @lib.V128Bitselect => {
-        if !sgo_flow_apply_select(stack) {
-          return (false, reads, false)
-        }
-        continue
-      }
-      _ => {
-        if sgo_is_flowscanner_unary_pure_instr(instr) {
-          if !sgo_flow_apply_unary(stack, instr) {
-            return (false, reads, false)
-          }
-          continue
-        }
-        if sgo_is_flowscanner_binary_pure_instr(instr) {
-          if !sgo_flow_apply_binary(stack) {
-            return (false, reads, false)
-          }
-          continue
-        }
-        return (false, reads, false)
-      }
-    }
-  }
-  match stack {
-    [value] => (true, reads, value.tainted)
-    _ => (false, reads, false)
-  }
-}
-
-///|
-fn sgo_count_block_wrapped_nested_if_arm_flow_read(
-  instr : @lib.Instruction,
-  next : @lib.Instruction,
-  safe_reads : Array[Int],
-) -> Unit {
-  match (instr, next) {
-    (
-      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body))
-      | @lib.Loop(@lib.ValTypeBlockType(_), @lib.Expr(body)),
-      @lib.If(_, outer_then, None),
-    ) => {
-      let idx = match sgo_single_const_global_set_idx(outer_then) {
-        Some(set_idx) => set_idx
-        None => return
-      }
-      let (ok, reads, tainted) = sgo_block_wrapped_nested_if_arm_flow_taint_and_reads(
-        body, idx,
-      )
-      let matched_by_block_condition_scanner = match instr {
-        @lib.Loop(_, _) => false
-        _ => sgo_block_condition_flow_scanner_read_matches(body, idx)
-      }
-      if ok && reads == 1 && tainted && !matched_by_block_condition_scanner {
-        sgo_count_read_only_to_write_safe_read(idx, safe_reads)
-      }
-    }
-    _ => ()
-  }
-}
-
-///|
-fn sgo_count_nested_if_arm_flow_read(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  safe_reads : Array[Int],
-) -> Unit {
-  if pos + 1 >= instrs.length() {
-    return
-  }
-  match instrs[pos] {
-    @lib.If(@lib.ValTypeBlockType(_), then_body, Some(else_body)) => {
-      let (clean_prefix_ok, clean_prefix_stack) = sgo_flow_scan_clean_prefix_until(
-        instrs, pos,
-      )
-      if !clean_prefix_ok || clean_prefix_stack.length() == 0 {
-        return
-      }
-      let if_index = match
-        sgo_nested_if_arm_flow_outer_if_index(instrs, pos, clean_prefix_stack) {
-        Some(index) => index
-        None => return
-      }
-      let idx = match instrs[if_index] {
-        @lib.If(_, outer_then, None) =>
-          match sgo_single_const_global_set_idx(outer_then) {
-            Some(set_idx) => set_idx
-            None => return
-          }
-        _ => return
-      }
-      let (prefix_ok, prefix_reads, prefix_stack) = sgo_flow_scan_prefix_until(
-        instrs, pos, idx,
-      )
-      if !prefix_ok ||
-        prefix_reads != 0 ||
-        prefix_stack.length() == 0 ||
-        sgo_flow_stack_has_taint(prefix_stack) {
-        return
-      }
-      let (arms_ok, arm_reads, arms_tainted) = sgo_flow_merge_value_if_arm_taint_and_reads(
-        then_body, else_body, idx,
-      )
-      if arms_ok && arm_reads == 1 && arms_tainted {
-        sgo_count_read_only_to_write_safe_read(idx, safe_reads)
-      }
-    }
-    _ => ()
-  }
-}
-
-///|
-fn sgo_read_only_to_write_flow_scanner_read_at(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  idx : @lib.GlobalIdx,
-) -> Bool {
-  let stack : Array[SgoFlowValue] = []
-  for scan = 0; scan < instrs.length(); scan = scan + 1 {
-    let instr = instrs[scan]
-    if scan == pos {
-      match instr {
-        @lib.GlobalGet(get_idx) if get_idx == idx => {
-          sgo_flow_push_tainted(stack)
-          continue
-        }
-        _ => return false
-      }
-    }
-    if sgo_const_instr(instr) != None ||
-      sgo_is_flowscanner_nullary_pure_instr(instr) {
-      sgo_flow_push_clean(stack)
-      continue
-    }
-    match instr {
-      @lib.GlobalGet(get_idx) => {
-        if get_idx == idx {
-          return false
-        }
-        sgo_flow_push_clean(stack)
-        continue
-      }
-      @lib.LocalGet(_) => {
-        sgo_flow_push_clean(stack)
-        continue
-      }
-      @lib.TableSet(_)
-      | @lib.F32Store(_)
-      | @lib.F64Store(_)
-      | @lib.I32Store(_)
-      | @lib.I64Store(_)
-      | @lib.I32Store8(_)
-      | @lib.I32Store16(_)
-      | @lib.I64Store8(_)
-      | @lib.I64Store16(_)
-      | @lib.I64Store32(_) =>
-        if sgo_flow_pop_clean_pair(stack) {
-          continue
-        } else {
-          return false
-        }
-      @lib.MemoryCopy(_, _)
-      | @lib.MemoryFill(_)
-      | @lib.MemoryInit(_, _)
-      | @lib.TableFill(_)
-      | @lib.TableInit(_, _)
-      | @lib.TableCopy(_, _) =>
-        if sgo_flow_pop_clean_triple(stack) {
-          continue
-        } else {
-          return false
-        }
-      @lib.Block(@lib.VoidBlockType, @lib.Expr(body))
-      | @lib.Loop(@lib.VoidBlockType, @lib.Expr(body)) => {
-        let (block_ok, block_reads, block_stack) = sgo_flow_scan_prefix_until(
-          body,
-          body.length(),
-          idx,
-        )
-        if block_ok && block_reads == 0 && block_stack.length() == 0 {
-          continue
-        } else {
-          return false
-        }
-      }
-      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body))
-      | @lib.Loop(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
-        let (block_ok, block_reads, block_tainted) = sgo_flow_arm_result_taint_and_reads(
-          body, idx,
-        )
-        if block_ok && block_reads == 0 {
-          stack.push(sgo_flow_plain(block_tainted))
-          continue
-        } else {
-          return false
-        }
-      }
-      @lib.Nop | @lib.ElemDrop(_) | @lib.DataDrop(_) => continue
-      @lib.GlobalSet(_) | @lib.LocalSet(_) =>
-        if sgo_flow_pop_clean(stack) {
-          continue
-        } else {
-          return false
-        }
-      @lib.LocalTee(_) =>
-        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
-          continue
-        } else {
-          return false
-        }
-      _ if sgo_is_flowscanner_trapping_read_instr(instr) =>
-        if sgo_flow_pop_clean_then_push_clean_leaf(stack) {
-          continue
-        } else {
-          return false
-        }
-      @lib.Drop =>
-        if sgo_flow_pop_clean(stack) {
-          continue
-        } else {
-          return false
-        }
-      @lib.Select(_) | @lib.V128Bitselect => {
-        if !sgo_flow_apply_select(stack) {
-          return false
-        }
-        continue
-      }
-      @lib.If(_, _, _) =>
-        match sgo_flow_pop(stack) {
-          Some(value) if value.tainted =>
-            return sgo_if_is_read_only_to_write_set(instr, idx)
-          Some(value) if !value.tainted => return false
-          _ => return false
-        }
-      _ => {
-        if sgo_is_flowscanner_unary_pure_instr(instr) {
-          if !sgo_flow_apply_unary(stack, instr) {
-            return false
-          }
-          continue
-        }
-        if sgo_is_flowscanner_binary_pure_instr(instr) {
-          if !sgo_flow_apply_binary(stack) {
-            return false
-          }
-          continue
-        }
-        return false
-      }
-    }
-  }
-  false
-}
-
-///|
-fn sgo_read_only_to_write_pure_select_read_at(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  idx : @lib.GlobalIdx,
-) -> Bool {
-  let global_is_condition = pos >= 2 &&
-    pos + 2 < instrs.length() &&
-    sgo_const_instr(instrs[pos - 2]) != None &&
-    sgo_const_instr(instrs[pos - 1]) != None &&
-    instrs[pos + 1] == @lib.Instruction::select() &&
-    sgo_if_is_read_only_to_write_set(instrs[pos + 2], idx)
-  let global_is_first_value = pos + 4 < instrs.length() &&
-    sgo_const_instr(instrs[pos + 1]) != None &&
-    sgo_const_instr(instrs[pos + 2]) != None &&
-    instrs[pos + 3] == @lib.Instruction::select() &&
-    sgo_if_is_read_only_to_write_set(instrs[pos + 4], idx)
-  let global_is_second_value = pos >= 1 &&
-    pos + 3 < instrs.length() &&
-    sgo_const_instr(instrs[pos - 1]) != None &&
-    sgo_const_instr(instrs[pos + 1]) != None &&
-    instrs[pos + 2] == @lib.Instruction::select() &&
-    sgo_if_is_read_only_to_write_set(instrs[pos + 3], idx)
-  global_is_condition || global_is_first_value || global_is_second_value
-}
-
-///|
-fn sgo_read_only_to_write_select_condition_read_at(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  idx : @lib.GlobalIdx,
-) -> Bool {
-  if pos < 4 || pos + 5 >= instrs.length() {
-    return false
-  }
-  if sgo_const_instr(instrs[pos - 4]) == None {
-    return false
-  }
-  match instrs[pos - 3] {
-    @lib.LocalTee(_) => ()
-    _ => return false
-  }
-  if sgo_const_instr(instrs[pos - 2]) == None {
-    return false
-  }
-  match instrs[pos - 1] {
-    @lib.I32Load(_) => ()
-    _ => return false
-  }
-  sgo_const_instr(instrs[pos + 1]) != None &&
-  instrs[pos + 2] == @lib.Instruction::i32_add() &&
-  instrs[pos + 3] == @lib.Instruction::select() &&
-  instrs[pos + 4] == @lib.Instruction::i32_eqz() &&
-  sgo_if_is_read_only_to_write_set(instrs[pos + 5], idx)
-}
-
-///|
-fn sgo_read_only_to_write_select_value_read_at(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  idx : @lib.GlobalIdx,
-) -> Bool {
-  if pos + 9 >= instrs.length() {
-    return false
-  }
-  if sgo_const_instr(instrs[pos + 1]) == None ||
-    instrs[pos + 2] != @lib.Instruction::i32_add() ||
-    sgo_const_instr(instrs[pos + 3]) == None {
-    return false
-  }
-  match instrs[pos + 4] {
-    @lib.LocalTee(_) => ()
-    _ => return false
-  }
-  if sgo_const_instr(instrs[pos + 5]) == None {
-    return false
-  }
-  match instrs[pos + 6] {
-    @lib.I32Load(_) => ()
-    _ => return false
-  }
-  instrs[pos + 7] == @lib.Instruction::select() &&
-  instrs[pos + 8] == @lib.Instruction::i32_eqz() &&
-  sgo_if_is_read_only_to_write_set(instrs[pos + 9], idx)
-}
-
-///|
-fn sgo_read_only_to_write_select_second_value_read_at(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  idx : @lib.GlobalIdx,
-) -> Bool {
-  if pos < 2 || pos + 7 >= instrs.length() {
-    return false
-  }
-  if sgo_const_instr(instrs[pos - 2]) == None {
-    return false
-  }
-  match instrs[pos - 1] {
-    @lib.LocalTee(_) => ()
-    _ => return false
-  }
-  if sgo_const_instr(instrs[pos + 1]) == None ||
-    instrs[pos + 2] != @lib.Instruction::i32_add() ||
-    sgo_const_instr(instrs[pos + 3]) == None {
-    return false
-  }
-  match instrs[pos + 4] {
-    @lib.I32Load(_) => ()
-    _ => return false
-  }
-  instrs[pos + 5] == @lib.Instruction::select() &&
-  instrs[pos + 6] == @lib.Instruction::i32_eqz() &&
-  sgo_if_is_read_only_to_write_set(instrs[pos + 7], idx)
-}
-
-///|
-fn sgo_read_only_to_write_select_side_effect_read_at(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  idx : @lib.GlobalIdx,
-) -> Bool {
-  sgo_read_only_to_write_select_condition_read_at(instrs, pos, idx) ||
-  sgo_read_only_to_write_select_value_read_at(instrs, pos, idx) ||
-  sgo_read_only_to_write_select_second_value_read_at(instrs, pos, idx)
-}
-
-///|
-fn sgo_direct_call_independent_for_global(
-  effects : Array[SgoFunctionGlobalEffects],
-  callee : @lib.FuncIdx,
-  idx : @lib.GlobalIdx,
-) -> Bool {
-  let callee_slot = sgo_func_idx_slot(callee)
-  let global_slot = sgo_global_idx_slot(idx)
-  if callee_slot < 0 ||
-    callee_slot >= effects.length() ||
-    global_slot < 0 ||
-    global_slot >= effects[callee_slot].reads.length() ||
-    global_slot >= effects[callee_slot].mutates.length() {
-    return false
-  }
-  effects[callee_slot].param_count == 0 &&
-  effects[callee_slot].result_count == 1 &&
-  !effects[callee_slot].reads[global_slot] &&
-  !effects[callee_slot].mutates[global_slot]
-}
-
-///|
-fn sgo_read_only_to_write_direct_call_binary_read_at(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  idx : @lib.GlobalIdx,
-  effects : Array[SgoFunctionGlobalEffects],
-) -> Bool {
-  if pos + 3 < instrs.length() {
-    match instrs[pos + 1] {
-      @lib.Call(callee) =>
-        if sgo_direct_call_independent_for_global(effects, callee, idx) &&
-          sgo_is_flowscanner_binary_pure_instr(instrs[pos + 2]) &&
-          sgo_if_is_read_only_to_write_set(instrs[pos + 3], idx) {
-          return true
-        }
-      _ => ()
-    }
-  }
-  if pos > 0 && pos + 2 < instrs.length() {
-    match instrs[pos - 1] {
-      @lib.Call(callee) =>
-        return sgo_direct_call_independent_for_global(effects, callee, idx) &&
-          sgo_is_flowscanner_binary_pure_instr(instrs[pos + 1]) &&
-          sgo_if_is_read_only_to_write_set(instrs[pos + 2], idx)
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn sgo_read_only_to_write_read_at(
   instrs : Array[@lib.Instruction],
   pos : Int,
   idx : @lib.GlobalIdx,
-  effects : Array[SgoFunctionGlobalEffects],
 ) -> Bool {
-  sgo_read_only_to_write_direct_call_binary_read_at(instrs, pos, idx, effects) ||
-  sgo_read_only_to_write_flow_scanner_read_at(instrs, pos, idx) ||
   sgo_is_exact_if_return_set(instrs, pos, idx) ||
   sgo_is_pure_condition_if_return_set(instrs, pos, idx) ||
   (
@@ -2809,9 +645,7 @@ fn sgo_read_only_to_write_read_at(
     ) &&
     sgo_if_is_read_only_to_write_set(instrs[pos + 2], idx)
   ) ||
-  sgo_read_only_to_write_pure_condition_read_at(instrs, pos, idx) ||
-  sgo_read_only_to_write_pure_select_read_at(instrs, pos, idx) ||
-  sgo_read_only_to_write_select_side_effect_read_at(instrs, pos, idx)
+  sgo_read_only_to_write_pure_condition_read_at(instrs, pos, idx)
 }
 
 ///|
@@ -2902,7 +736,6 @@ fn sgo_is_read_only_to_write_pure_condition_instr(
   instr : @lib.Instruction,
 ) -> Bool {
   sgo_const_instr(instr) != None ||
-  instr is @lib.RefTest(_, _) ||
   sgo_is_i32_pure_condition_instr(instr) ||
   sgo_is_i64_pure_condition_instr(instr) ||
   sgo_is_float_compare_condition_instr(instr)
@@ -2965,44 +798,62 @@ fn sgo_is_compare_instr(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
-fn sgo_if_return_guard_and_tail_match(
-  if_instr : @lib.Instruction,
-  tail_start : Int,
-  instrs : Array[@lib.Instruction],
-  idx : @lib.GlobalIdx,
-) -> Bool {
-  sgo_is_return_guard(if_instr) &&
-  sgo_if_return_tail_matches(instrs, tail_start, idx)
-}
-
-///|
 fn sgo_is_exact_if_return_set(
   instrs : Array[@lib.Instruction],
   pos : Int,
   idx : @lib.GlobalIdx,
 ) -> Bool {
   match instrs {
-    [@lib.GlobalGet(get_idx), first, if_instr, ..] if first ==
+    [@lib.GlobalGet(get_idx), if_instr, block_tail] =>
+      pos == 0 &&
+      get_idx == idx &&
+      sgo_is_return_guard(if_instr) &&
+      sgo_if_return_block_tail_matches(block_tail, idx)
+    [@lib.GlobalGet(get_idx), first, second, third] if first ==
       @lib.Instruction::i32_eqz() =>
       pos == 0 &&
       get_idx == idx &&
-      sgo_if_return_guard_and_tail_match(if_instr, 3, instrs, idx)
-    [@lib.GlobalGet(get_idx), const_instr, cmp_instr, if_instr, ..] =>
+      sgo_is_return_guard(second) &&
+      sgo_if_return_block_tail_matches(third, idx)
+    [@lib.GlobalGet(get_idx), if_instr, value, set] =>
+      pos == 0 &&
+      get_idx == idx &&
+      sgo_is_return_guard(if_instr) &&
+      sgo_if_return_set_tail_matches(value, set, idx)
+    [@lib.GlobalGet(get_idx), first, second, value, set] if first ==
+      @lib.Instruction::i32_eqz() =>
+      pos == 0 &&
+      get_idx == idx &&
+      sgo_is_return_guard(second) &&
+      sgo_if_return_set_tail_matches(value, set, idx)
+    [@lib.GlobalGet(get_idx), const_instr, cmp_instr, if_instr, block_tail] =>
       pos == 0 &&
       get_idx == idx &&
       sgo_const_instr(const_instr) != None &&
       sgo_is_compare_instr(cmp_instr) &&
-      sgo_if_return_guard_and_tail_match(if_instr, 4, instrs, idx)
-    [const_instr, @lib.GlobalGet(get_idx), cmp_instr, if_instr, ..] =>
+      sgo_is_return_guard(if_instr) &&
+      sgo_if_return_block_tail_matches(block_tail, idx)
+    [const_instr, @lib.GlobalGet(get_idx), cmp_instr, if_instr, block_tail] =>
       pos == 1 &&
       get_idx == idx &&
       sgo_const_instr(const_instr) != None &&
       sgo_is_compare_instr(cmp_instr) &&
-      sgo_if_return_guard_and_tail_match(if_instr, 4, instrs, idx)
-    [@lib.GlobalGet(get_idx), if_instr, ..] =>
+      sgo_is_return_guard(if_instr) &&
+      sgo_if_return_block_tail_matches(block_tail, idx)
+    [@lib.GlobalGet(get_idx), const_instr, cmp_instr, if_instr, value, set] =>
       pos == 0 &&
       get_idx == idx &&
-      sgo_if_return_guard_and_tail_match(if_instr, 2, instrs, idx)
+      sgo_const_instr(const_instr) != None &&
+      sgo_is_compare_instr(cmp_instr) &&
+      sgo_is_return_guard(if_instr) &&
+      sgo_if_return_set_tail_matches(value, set, idx)
+    [const_instr, @lib.GlobalGet(get_idx), cmp_instr, if_instr, value, set] =>
+      pos == 1 &&
+      get_idx == idx &&
+      sgo_const_instr(const_instr) != None &&
+      sgo_is_compare_instr(cmp_instr) &&
+      sgo_is_return_guard(if_instr) &&
+      sgo_if_return_set_tail_matches(value, set, idx)
     _ => false
   }
 }
@@ -3217,164 +1068,6 @@ fn sgo_block_condition_pure_read_matches(
 }
 
 ///|
-fn sgo_block_condition_flow_scanner_read_matches(
-  instrs : Array[@lib.Instruction],
-  idx : @lib.GlobalIdx,
-) -> Bool {
-  let flat : Array[@lib.Instruction] = []
-  if !sgo_collect_read_only_to_write_condition_body(instrs, flat) {
-    return false
-  }
-  let (ok, reads, stack) = sgo_flow_scan_prefix_until(flat, flat.length(), idx)
-  ok && reads == 1 && sgo_flow_stack_single_taint(stack)
-}
-
-///|
-fn sgo_loop_independent_prefix_scalar_store_matches(
-  flat : Array[@lib.Instruction],
-  scan : Int,
-  end_ : Int,
-) -> Bool {
-  if scan + 2 >= end_ ||
-    sgo_const_instr(flat[scan]) == None ||
-    sgo_const_instr(flat[scan + 1]) == None {
-    return false
-  }
-  match flat[scan + 2] {
-    @lib.I32Store(_)
-    | @lib.I64Store(_)
-    | @lib.I32Store8(_)
-    | @lib.I32Store16(_)
-    | @lib.I64Store8(_)
-    | @lib.I64Store16(_)
-    | @lib.I64Store32(_)
-    | @lib.F32Store(_)
-    | @lib.F64Store(_)
-    | @lib.TableSet(_) => true
-    _ => false
-  }
-}
-
-///|
-fn sgo_loop_independent_prefix_triple_effect_matches(
-  flat : Array[@lib.Instruction],
-  scan : Int,
-  end_ : Int,
-) -> Bool {
-  if scan + 3 >= end_ ||
-    sgo_const_instr(flat[scan]) == None ||
-    sgo_const_instr(flat[scan + 1]) == None ||
-    sgo_const_instr(flat[scan + 2]) == None {
-    return false
-  }
-  match flat[scan + 3] {
-    @lib.MemoryFill(_)
-    | @lib.MemoryCopy(_, _)
-    | @lib.MemoryInit(_, _)
-    | @lib.TableFill(_)
-    | @lib.TableInit(_, _)
-    | @lib.TableCopy(_, _) => true
-    _ => false
-  }
-}
-
-///|
-fn sgo_loop_independent_prefix_grow_drop_matches(
-  flat : Array[@lib.Instruction],
-  scan : Int,
-  end_ : Int,
-) -> Bool {
-  if scan + 2 >= end_ || sgo_const_instr(flat[scan]) == None {
-    return false
-  }
-  match (flat[scan + 1], flat[scan + 2]) {
-    (@lib.MemoryGrow(_), @lib.Drop) => return true
-    _ => ()
-  }
-  if scan + 3 >= end_ || sgo_const_instr(flat[scan + 1]) == None {
-    return false
-  }
-  match (flat[scan + 2], flat[scan + 3]) {
-    (@lib.TableGrow(_), @lib.Drop) => true
-    _ => false
-  }
-}
-
-///|
-fn sgo_loop_condition_independent_global_set_prefix_read_matches(
-  instrs : Array[@lib.Instruction],
-  idx : @lib.GlobalIdx,
-) -> Bool {
-  let flat : Array[@lib.Instruction] = []
-  if !sgo_collect_read_only_to_write_condition_body(instrs, flat) {
-    return false
-  }
-  let start = sgo_skip_noop_const_drops(flat)
-  if start >= flat.length() {
-    return false
-  }
-  let end_ = flat.length() - 1
-  match flat[end_] {
-    @lib.GlobalGet(get_idx) if get_idx == idx => ()
-    _ => return false
-  }
-  let mut scan = start
-  let mut saw_independent_set = false
-  while scan < end_ {
-    match flat[scan] {
-      @lib.Nop => {
-        scan = scan + 1
-        continue
-      }
-      _ => ()
-    }
-    if scan + 1 < end_ && sgo_const_instr(flat[scan]) != None {
-      match flat[scan + 1] {
-        @lib.GlobalSet(set_idx) if set_idx != idx => {
-          saw_independent_set = true
-          scan = scan + 2
-          continue
-        }
-        @lib.LocalSet(_) => {
-          saw_independent_set = true
-          scan = scan + 2
-          continue
-        }
-        _ => ()
-      }
-    }
-    if sgo_loop_independent_prefix_scalar_store_matches(flat, scan, end_) {
-      saw_independent_set = true
-      scan = scan + 3
-      continue
-    }
-    if sgo_loop_independent_prefix_triple_effect_matches(flat, scan, end_) {
-      saw_independent_set = true
-      scan = scan + 4
-      continue
-    }
-    if sgo_loop_independent_prefix_grow_drop_matches(flat, scan, end_) {
-      saw_independent_set = true
-      match flat[scan + 1] {
-        @lib.MemoryGrow(_) => scan = scan + 3
-        _ => scan = scan + 4
-      }
-      continue
-    }
-    match flat[scan] {
-      @lib.ElemDrop(_) | @lib.DataDrop(_) => {
-        saw_independent_set = true
-        scan = scan + 1
-        continue
-      }
-      _ => ()
-    }
-    return false
-  }
-  scan == end_ && saw_independent_set
-}
-
-///|
 fn sgo_external_condition_stack_after(
   instr : @lib.Instruction,
   depth : Int,
@@ -3391,8 +1084,7 @@ fn sgo_external_condition_stack_after(
     | @lib.I64Clz
     | @lib.I64Ctz
     | @lib.I64Popcnt
-    | @lib.I64Eqz
-    | @lib.RefTest(_, _) => if depth >= 1 { Some(depth) } else { None }
+    | @lib.I64Eqz => if depth >= 1 { Some(depth) } else { None }
     _ =>
       if sgo_is_read_only_to_write_pure_condition_instr(instr) && depth >= 2 {
         Some(depth - 1)
@@ -3492,106 +1184,30 @@ fn sgo_block_condition_reverse_external_pure_if_index(
 }
 
 ///|
-fn sgo_block_or_no_catch_try_table_body(
-  instr : @lib.Instruction,
-) -> Array[@lib.Instruction]? {
-  match instr {
-    @lib.Block(_, @lib.Expr(body)) => Some(body)
-    @lib.TryTable(_, catches, @lib.Expr(body)) if catches.length() == 0 =>
-      Some(body)
-    _ => None
-  }
-}
-
-///|
-fn sgo_count_body_direct_if_set_read(
-  body : Array[@lib.Instruction],
-  if_instr : @lib.Instruction,
-  safe_reads : Array[Int],
-) -> Unit {
-  match if_instr {
-    @lib.If(_, then_body, None) =>
-      match sgo_single_const_global_set_idx(then_body) {
-        Some(idx) =>
-          sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-        None => ()
-      }
-    _ => ()
-  }
-}
-
-///|
-fn sgo_count_body_if_return_tail_read(
-  instrs : Array[@lib.Instruction],
-  body : Array[@lib.Instruction],
-  if_index : Int,
-  safe_reads : Array[Int],
-) -> Unit {
-  if !sgo_is_return_guard(instrs[if_index]) {
-    return
-  }
-  if if_index + 3 == instrs.length() {
-    match instrs[if_index + 2] {
-      @lib.GlobalSet(idx) if sgo_const_instr(instrs[if_index + 1]) != None =>
-        sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-      _ => ()
-    }
-  } else if if_index + 2 == instrs.length() {
-    match sgo_block_set_tail_idx(instrs[if_index + 1]) {
-      Some(idx) =>
-        sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-      None => ()
-    }
-  }
-}
-
-///|
-fn sgo_count_direct_condition_body_read(
-  body : Array[@lib.Instruction],
-  idx : @lib.GlobalIdx,
-  allow_flow : Bool,
-  safe_reads : Array[Int],
-) -> Unit {
-  if sgo_block_condition_final_read_matches(body, idx) ||
-    sgo_block_condition_pure_read_matches(body, idx) ||
-    (allow_flow && sgo_block_condition_flow_scanner_read_matches(body, idx)) {
-    sgo_count_read_only_to_write_safe_read(idx, safe_reads)
-  } else {
-    match sgo_block_condition_single_read_idx(body) {
-      Some(read_idx) if read_idx == idx =>
-        sgo_count_read_only_to_write_safe_read(idx, safe_reads)
-      _ => ()
-    }
-  }
-}
-
-///|
-fn sgo_count_block_or_try_condition_body_with_if_index(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  if_index : Int?,
-  count : (Array[@lib.Instruction], Int) -> Unit,
-) -> Unit {
-  match (sgo_block_or_no_catch_try_table_body(instrs[pos]), if_index) {
-    (Some(body), Some(if_index)) => count(body, if_index)
-    _ => ()
-  }
-}
-
-///|
 fn sgo_count_block_condition_external_pure_read(
   instrs : Array[@lib.Instruction],
   pos : Int,
   safe_reads : Array[Int],
 ) -> Unit {
-  sgo_count_block_or_try_condition_body_with_if_index(
-    instrs,
-    pos,
-    sgo_block_condition_external_pure_if_index(instrs, pos),
-    fn(body, if_index) {
-      sgo_count_body_direct_if_set_read(body, instrs[if_index], safe_reads)
-    },
-  )
+  match instrs[pos] {
+    @lib.Block(_, @lib.Expr(body)) =>
+      match sgo_block_condition_external_pure_if_index(instrs, pos) {
+        Some(if_index) =>
+          match instrs[if_index] {
+            @lib.If(_, then_body, None) =>
+              match sgo_single_const_global_set_idx(then_body) {
+                Some(idx) =>
+                  sgo_count_block_condition_safe_body_read(
+                    body, idx, safe_reads,
+                  )
+                None => ()
+              }
+            _ => ()
+          }
+        None => ()
+      }
+    _ => ()
+  }
 }
 
 ///|
@@ -3600,14 +1216,28 @@ fn sgo_count_block_condition_external_pure_if_return_read(
   pos : Int,
   safe_reads : Array[Int],
 ) -> Unit {
-  sgo_count_block_or_try_condition_body_with_if_index(
-    instrs,
-    pos,
-    sgo_block_condition_external_pure_if_index(instrs, pos),
-    fn(body, if_index) {
-      sgo_count_body_if_return_tail_read(instrs, body, if_index, safe_reads)
-    },
-  )
+  match instrs[pos] {
+    @lib.Block(_, @lib.Expr(body)) =>
+      match sgo_block_condition_external_pure_if_index(instrs, pos) {
+        Some(if_index) if sgo_is_return_guard(instrs[if_index]) =>
+          if if_index + 3 == instrs.length() {
+            match instrs[if_index + 2] {
+              @lib.GlobalSet(idx) if sgo_const_instr(instrs[if_index + 1]) !=
+                None =>
+                sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+              _ => ()
+            }
+          } else if if_index + 2 == instrs.length() {
+            match sgo_block_set_tail_idx(instrs[if_index + 1]) {
+              Some(idx) =>
+                sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+              None => ()
+            }
+          }
+        _ => ()
+      }
+    _ => ()
+  }
 }
 
 ///|
@@ -3616,14 +1246,25 @@ fn sgo_count_block_condition_reverse_external_pure_read(
   pos : Int,
   safe_reads : Array[Int],
 ) -> Unit {
-  sgo_count_block_or_try_condition_body_with_if_index(
-    instrs,
-    pos,
-    sgo_block_condition_reverse_external_pure_if_index(instrs, pos),
-    fn(body, if_index) {
-      sgo_count_body_direct_if_set_read(body, instrs[if_index], safe_reads)
-    },
-  )
+  match instrs[pos] {
+    @lib.Block(_, @lib.Expr(body)) =>
+      match sgo_block_condition_reverse_external_pure_if_index(instrs, pos) {
+        Some(if_index) =>
+          match instrs[if_index] {
+            @lib.If(_, then_body, None) =>
+              match sgo_single_const_global_set_idx(then_body) {
+                Some(idx) =>
+                  sgo_count_block_condition_safe_body_read(
+                    body, idx, safe_reads,
+                  )
+                None => ()
+              }
+            _ => ()
+          }
+        None => ()
+      }
+    _ => ()
+  }
 }
 
 ///|
@@ -3632,45 +1273,27 @@ fn sgo_count_block_condition_reverse_external_pure_if_return_read(
   pos : Int,
   safe_reads : Array[Int],
 ) -> Unit {
-  sgo_count_block_or_try_condition_body_with_if_index(
-    instrs,
-    pos,
-    sgo_block_condition_reverse_external_pure_if_index(instrs, pos),
-    fn(body, if_index) {
-      sgo_count_body_if_return_tail_read(instrs, body, if_index, safe_reads)
-    },
-  )
-}
-
-///|
-fn sgo_count_block_or_loop_condition_read(
-  instr : @lib.Instruction,
-  idx : @lib.GlobalIdx,
-  count_flow_scanner : Bool,
-  safe_reads : Array[Int],
-) -> Unit {
-  match sgo_block_or_no_catch_try_table_body(instr) {
-    Some(body) =>
-      if count_flow_scanner {
-        sgo_count_direct_condition_body_read(body, idx, true, safe_reads)
-      } else {
-        sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
-      }
-    None =>
-      match instr {
-        @lib.Loop(_, @lib.Expr(body)) =>
-          if count_flow_scanner {
-            sgo_count_direct_condition_body_read(body, idx, false, safe_reads)
-            if sgo_loop_condition_independent_global_set_prefix_read_matches(
-                body, idx,
-              ) {
-              sgo_count_read_only_to_write_safe_read(idx, safe_reads)
+  match instrs[pos] {
+    @lib.Block(_, @lib.Expr(body)) =>
+      match sgo_block_condition_reverse_external_pure_if_index(instrs, pos) {
+        Some(if_index) if sgo_is_return_guard(instrs[if_index]) =>
+          if if_index + 3 == instrs.length() {
+            match instrs[if_index + 2] {
+              @lib.GlobalSet(idx) if sgo_const_instr(instrs[if_index + 1]) !=
+                None =>
+                sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+              _ => ()
             }
-          } else if sgo_block_condition_pure_read_matches(body, idx) {
-            sgo_count_read_only_to_write_safe_read(idx, safe_reads)
+          } else if if_index + 2 == instrs.length() {
+            match sgo_block_set_tail_idx(instrs[if_index + 1]) {
+              Some(idx) =>
+                sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+              None => ()
+            }
           }
         _ => ()
       }
+    _ => ()
   }
 }
 
@@ -3680,82 +1303,21 @@ fn sgo_count_block_condition_read_only_to_write_read(
   next : @lib.Instruction,
   safe_reads : Array[Int],
 ) -> Unit {
-  match next {
-    @lib.If(_, then_body, None) =>
+  match (instr, next) {
+    (@lib.Block(_, @lib.Expr(body)), @lib.If(_, then_body, None)) =>
       match sgo_single_const_global_set_idx(then_body) {
+        Some(idx) if sgo_block_condition_final_read_matches(body, idx) ||
+          sgo_block_condition_pure_read_matches(body, idx) =>
+          sgo_count_read_only_to_write_safe_read(idx, safe_reads)
         Some(idx) =>
-          sgo_count_block_or_loop_condition_read(instr, idx, true, safe_reads)
+          match sgo_block_condition_single_read_idx(body) {
+            Some(read_idx) if read_idx == idx =>
+              sgo_count_read_only_to_write_safe_read(idx, safe_reads)
+            _ => ()
+          }
         None => ()
       }
     _ => ()
-  }
-}
-
-///|
-fn sgo_prefix_has_only_nested_read_only_to_write_patterns(
-  instrs : Array[@lib.Instruction],
-  end_ : Int,
-  idx : @lib.GlobalIdx,
-) -> Bool {
-  let mut scan = 0
-  while scan < end_ {
-    match instrs[scan] {
-      @lib.Nop => {
-        scan = scan + 1
-        continue
-      }
-      _ => ()
-    }
-    if scan + 1 < end_ &&
-      sgo_const_instr(instrs[scan]) != None &&
-      instrs[scan + 1] == @lib.Instruction::drop() {
-      scan = scan + 2
-      continue
-    }
-    match instrs[scan] {
-      @lib.GlobalGet(get_idx) if get_idx == idx => {
-        if scan + 1 < end_ &&
-          sgo_if_is_read_only_to_write_set(instrs[scan + 1], idx) {
-          scan = scan + 2
-          continue
-        }
-        if scan + 2 < end_ &&
-          instrs[scan + 1] == @lib.Instruction::i32_eqz() &&
-          sgo_if_is_read_only_to_write_set(instrs[scan + 2], idx) {
-          scan = scan + 3
-          continue
-        }
-        return false
-      }
-      _ => return false
-    }
-  }
-  true
-}
-
-///|
-fn sgo_block_condition_nested_final_direct_read_matches(
-  instrs : Array[@lib.Instruction],
-  idx : @lib.GlobalIdx,
-) -> Bool {
-  let mut end_ = instrs.length()
-  while end_ > 0 {
-    match instrs[end_ - 1] {
-      @lib.Nop => end_ = end_ - 1
-      _ => break
-    }
-  }
-  if end_ <= 0 {
-    return false
-  }
-  match instrs[end_ - 1] {
-    @lib.GlobalGet(get_idx) if get_idx == idx =>
-      sgo_prefix_has_only_nested_read_only_to_write_patterns(
-        instrs,
-        end_ - 1,
-        idx,
-      )
-    _ => false
   }
 }
 
@@ -3766,9 +1328,7 @@ fn sgo_count_block_condition_safe_body_read(
   safe_reads : Array[Int],
 ) -> Unit {
   if sgo_block_condition_final_read_matches(body, idx) ||
-    sgo_block_condition_pure_read_matches(body, idx) ||
-    sgo_block_condition_flow_scanner_read_matches(body, idx) ||
-    sgo_block_condition_nested_final_direct_read_matches(body, idx) {
+    sgo_block_condition_pure_read_matches(body, idx) {
     sgo_count_read_only_to_write_safe_read(idx, safe_reads)
   } else {
     match sgo_block_condition_single_read_idx(body) {
@@ -3789,337 +1349,21 @@ fn sgo_count_block_condition_if_return_body_read(
 }
 
 ///|
-fn sgo_count_block_condition_guarded_read(
-  instr : @lib.Instruction,
-  if_instr : @lib.Instruction,
-  guard_ok : Bool,
-  safe_reads : Array[Int],
-) -> Unit {
-  if !guard_ok {
-    return
-  }
-  match if_instr {
-    @lib.If(_, then_body, None) =>
-      match sgo_single_const_global_set_idx(then_body) {
-        Some(idx) =>
-          sgo_count_block_or_loop_condition_read(instr, idx, false, safe_reads)
-        None => ()
-      }
-    _ => ()
-  }
-}
-
-///|
 fn sgo_count_block_condition_eqz_read_only_to_write_read(
   instr : @lib.Instruction,
   eqz : @lib.Instruction,
   if_instr : @lib.Instruction,
   safe_reads : Array[Int],
 ) -> Unit {
-  sgo_count_block_condition_guarded_read(
-    instr,
-    if_instr,
-    eqz == @lib.Instruction::i32_eqz(),
-    safe_reads,
-  )
-}
-
-///|
-fn sgo_try_table_ref_is_null_prefix_matches(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-) -> Bool {
-  if pos + 1 >= instrs.length() {
-    return false
-  }
-  match (instrs[pos], instrs[pos + 1]) {
-    (@lib.TryTable(_, catches, @lib.Expr(_)), @lib.RefIsNull) =>
-      catches.length() == 0
-    _ => false
-  }
-}
-
-///|
-fn sgo_scan_optional_external_pure_if_index(
-  instrs : Array[@lib.Instruction],
-  start : Int,
-) -> Int? {
-  if start >= instrs.length() {
-    return None
-  }
-  match instrs[start] {
-    @lib.If(_, _, _) => return Some(start)
+  match (instr, if_instr) {
+    (@lib.Block(_, @lib.Expr(body)), @lib.If(_, then_body, None)) if eqz ==
+      @lib.Instruction::i32_eqz() =>
+      match sgo_single_const_global_set_idx(then_body) {
+        Some(idx) =>
+          sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+        None => ()
+      }
     _ => ()
-  }
-  let mut depth = 1
-  let mut pure_count = 0
-  for scan = start; scan < instrs.length(); scan = scan + 1 {
-    match instrs[scan] {
-      @lib.If(_, _, _) =>
-        if pure_count > 0 && depth == 1 {
-          return Some(scan)
-        } else {
-          return None
-        }
-      instr =>
-        match sgo_external_condition_stack_after(instr, depth) {
-          Some(next_depth) => {
-            depth = next_depth
-            pure_count = pure_count + 1
-          }
-          None => return None
-        }
-    }
-  }
-  None
-}
-
-///|
-fn sgo_count_try_table_guard_read(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  if_index : Int,
-  safe_reads : Array[Int],
-) -> Unit {
-  match instrs[pos] {
-    @lib.TryTable(_, _, @lib.Expr(body)) => {
-      sgo_count_body_direct_if_set_read(body, instrs[if_index], safe_reads)
-      sgo_count_body_if_return_tail_read(instrs, body, if_index, safe_reads)
-    }
-    _ => ()
-  }
-}
-
-///|
-fn sgo_count_try_table_guard_if_index_read(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-  if_index : Int?,
-  safe_reads : Array[Int],
-) -> Unit {
-  match if_index {
-    Some(if_index) =>
-      sgo_count_try_table_guard_read(instrs, pos, if_index, safe_reads)
-    None => ()
-  }
-}
-
-///|
-fn sgo_try_table_ref_is_null_guard_if_index(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-) -> Int? {
-  if sgo_try_table_ref_is_null_prefix_matches(instrs, pos) &&
-    pos + 2 < instrs.length() {
-    match instrs[pos + 2] {
-      @lib.If(_, _, _) => Some(pos + 2)
-      _ => None
-    }
-  } else {
-    None
-  }
-}
-
-///|
-fn sgo_try_table_ref_is_null_compare_guard_if_index(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-) -> Int? {
-  if !sgo_try_table_ref_is_null_prefix_matches(instrs, pos) {
-    return None
-  }
-  if pos + 3 < instrs.length() &&
-    sgo_const_instr(instrs[pos + 2]) != None &&
-    sgo_is_compare_instr(instrs[pos + 3]) {
-    return sgo_scan_optional_external_pure_if_index(instrs, pos + 4)
-  }
-  if pos > 0 &&
-    pos + 2 < instrs.length() &&
-    sgo_const_instr(instrs[pos - 1]) != None &&
-    sgo_is_compare_instr(instrs[pos + 2]) {
-    return sgo_scan_optional_external_pure_if_index(instrs, pos + 3)
-  }
-  None
-}
-
-///|
-fn sgo_is_select_instr(instr : @lib.Instruction) -> Bool {
-  match instr {
-    @lib.Select(_) => true
-    _ => false
-  }
-}
-
-///|
-fn sgo_select_pos_around_value(
-  instrs : Array[@lib.Instruction],
-  value_start : Int,
-  after_value : Int,
-) -> Int? {
-  if after_value + 2 < instrs.length() &&
-    sgo_const_instr(instrs[after_value]) != None &&
-    sgo_const_instr(instrs[after_value + 1]) != None &&
-    sgo_is_select_instr(instrs[after_value + 2]) {
-    return Some(after_value + 2)
-  }
-  if value_start > 0 &&
-    after_value + 1 < instrs.length() &&
-    sgo_const_instr(instrs[value_start - 1]) != None &&
-    sgo_const_instr(instrs[after_value]) != None &&
-    sgo_is_select_instr(instrs[after_value + 1]) {
-    return Some(after_value + 1)
-  }
-  if value_start > 1 &&
-    after_value < instrs.length() &&
-    sgo_const_instr(instrs[value_start - 2]) != None &&
-    sgo_const_instr(instrs[value_start - 1]) != None &&
-    sgo_is_select_instr(instrs[after_value]) {
-    return Some(after_value)
-  }
-  None
-}
-
-///|
-fn sgo_select_reverse_compare_pos_around_value(
-  instrs : Array[@lib.Instruction],
-  value_start : Int,
-  after_value : Int,
-) -> Int? {
-  if value_start > 2 &&
-    after_value + 1 < instrs.length() &&
-    sgo_const_instr(instrs[value_start - 3]) != None &&
-    sgo_const_instr(instrs[value_start - 2]) != None &&
-    sgo_const_instr(instrs[value_start - 1]) != None &&
-    sgo_is_select_instr(instrs[after_value]) &&
-    sgo_is_compare_instr(instrs[after_value + 1]) {
-    return Some(after_value + 1)
-  }
-  if value_start > 0 &&
-    after_value + 3 < instrs.length() &&
-    sgo_const_instr(instrs[value_start - 1]) != None &&
-    sgo_const_instr(instrs[after_value]) != None &&
-    sgo_const_instr(instrs[after_value + 1]) != None &&
-    sgo_is_select_instr(instrs[after_value + 2]) &&
-    sgo_is_compare_instr(instrs[after_value + 3]) {
-    return Some(after_value + 3)
-  }
-  if value_start > 1 &&
-    after_value + 2 < instrs.length() &&
-    sgo_const_instr(instrs[value_start - 2]) != None &&
-    sgo_const_instr(instrs[value_start - 1]) != None &&
-    sgo_const_instr(instrs[after_value]) != None &&
-    sgo_is_select_instr(instrs[after_value + 1]) &&
-    sgo_is_compare_instr(instrs[after_value + 2]) {
-    return Some(after_value + 2)
-  }
-  None
-}
-
-///|
-fn sgo_try_table_select_pos(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-) -> Int? {
-  if pos >= instrs.length() {
-    return None
-  }
-  match instrs[pos] {
-    @lib.TryTable(_, catches, @lib.Expr(_)) if catches.length() == 0 =>
-      sgo_select_pos_around_value(instrs, pos, pos + 1)
-    _ => None
-  }
-}
-
-///|
-fn sgo_try_table_select_guard_if_index(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-) -> Int? {
-  match sgo_try_table_select_pos(instrs, pos) {
-    Some(select_pos) =>
-      sgo_scan_optional_external_pure_if_index(instrs, select_pos + 1)
-    None => None
-  }
-}
-
-///|
-fn sgo_try_table_select_reverse_compare_if_index(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-) -> Int? {
-  if pos >= instrs.length() {
-    return None
-  }
-  match instrs[pos] {
-    @lib.TryTable(_, catches, @lib.Expr(_)) if catches.length() == 0 =>
-      sgo_select_reverse_compare_pos_around_value(instrs, pos, pos + 1)
-    _ => None
-  }
-}
-
-///|
-fn sgo_try_table_select_reverse_compare_guard_if_index(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-) -> Int? {
-  match sgo_try_table_select_reverse_compare_if_index(instrs, pos) {
-    Some(cmp_index) =>
-      sgo_scan_optional_external_pure_if_index(instrs, cmp_index + 1)
-    None => None
-  }
-}
-
-///|
-fn sgo_try_table_ref_is_null_select_pos(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-) -> Int? {
-  if pos >= instrs.length() || pos + 1 >= instrs.length() {
-    return None
-  }
-  match (instrs[pos], instrs[pos + 1]) {
-    (@lib.TryTable(_, catches, @lib.Expr(_)), @lib.RefIsNull) if catches.length() ==
-      0 => sgo_select_pos_around_value(instrs, pos, pos + 2)
-    _ => None
-  }
-}
-
-///|
-fn sgo_try_table_ref_is_null_select_guard_if_index(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-) -> Int? {
-  match sgo_try_table_ref_is_null_select_pos(instrs, pos) {
-    Some(select_pos) =>
-      sgo_scan_optional_external_pure_if_index(instrs, select_pos + 1)
-    None => None
-  }
-}
-
-///|
-fn sgo_try_table_ref_is_null_select_reverse_compare_if_index(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-) -> Int? {
-  if pos >= instrs.length() || pos + 1 >= instrs.length() {
-    return None
-  }
-  match (instrs[pos], instrs[pos + 1]) {
-    (@lib.TryTable(_, catches, @lib.Expr(_)), @lib.RefIsNull) if catches.length() ==
-      0 => sgo_select_reverse_compare_pos_around_value(instrs, pos, pos + 2)
-    _ => None
-  }
-}
-
-///|
-fn sgo_try_table_ref_is_null_select_reverse_compare_guard_if_index(
-  instrs : Array[@lib.Instruction],
-  pos : Int,
-) -> Int? {
-  match sgo_try_table_ref_is_null_select_reverse_compare_if_index(instrs, pos) {
-    Some(cmp_index) =>
-      sgo_scan_optional_external_pure_if_index(instrs, cmp_index + 1)
-    None => None
   }
 }
 
@@ -4131,12 +1375,19 @@ fn sgo_count_block_condition_compare_read_only_to_write_read(
   if_instr : @lib.Instruction,
   safe_reads : Array[Int],
 ) -> Unit {
-  sgo_count_block_condition_guarded_read(
-    instr,
-    if_instr,
-    sgo_const_instr(const_instr) != None && sgo_is_compare_instr(cmp_instr),
-    safe_reads,
-  )
+  match (instr, if_instr) {
+    (@lib.Block(_, @lib.Expr(body)), @lib.If(_, then_body, None)) if sgo_const_instr(
+        const_instr,
+      ) !=
+      None &&
+      sgo_is_compare_instr(cmp_instr) =>
+      match sgo_single_const_global_set_idx(then_body) {
+        Some(idx) =>
+          sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+        None => ()
+      }
+    _ => ()
+  }
 }
 
 ///|
@@ -4148,43 +1399,22 @@ fn sgo_count_block_condition_reverse_compare_read_only_to_write_read(
   if pos <= 0 || pos + 2 >= instrs.length() {
     return
   }
-  sgo_count_block_condition_compare_read_only_to_write_read(
-    instrs[pos],
-    instrs[pos - 1],
-    instrs[pos + 1],
-    instrs[pos + 2],
-    safe_reads,
-  )
-}
-
-///|
-fn sgo_count_block_condition_if_return_idx_read(
-  instr : @lib.Instruction,
-  if_instr : @lib.Instruction,
-  idx : @lib.GlobalIdx?,
-  safe_reads : Array[Int],
-) -> Unit {
-  if !sgo_is_return_guard(if_instr) {
-    return
-  }
-  match (sgo_block_or_no_catch_try_table_body(instr), idx) {
-    (Some(body), Some(idx)) =>
-      sgo_count_block_condition_if_return_body_read(body, idx, safe_reads)
+  let const_instr = instrs[pos - 1]
+  let instr = instrs[pos]
+  let cmp_instr = instrs[pos + 1]
+  let if_instr = instrs[pos + 2]
+  match (instr, if_instr) {
+    (@lib.Block(_, @lib.Expr(body)), @lib.If(_, then_body, None)) if sgo_const_instr(
+        const_instr,
+      ) !=
+      None &&
+      sgo_is_compare_instr(cmp_instr) =>
+      match sgo_single_const_global_set_idx(then_body) {
+        Some(idx) =>
+          sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+        None => ()
+      }
     _ => ()
-  }
-}
-
-///|
-fn sgo_set_tail_idx_with_const_value(
-  value : @lib.Instruction,
-  set : @lib.Instruction,
-) -> @lib.GlobalIdx? {
-  if sgo_const_instr(value) == None {
-    return None
-  }
-  match set {
-    @lib.GlobalSet(idx) => Some(idx)
-    _ => None
   }
 }
 
@@ -4195,12 +1425,19 @@ fn sgo_count_block_condition_if_return_block_set_read(
   block_tail : @lib.Instruction,
   safe_reads : Array[Int],
 ) -> Unit {
-  sgo_count_block_condition_if_return_idx_read(
-    instr,
-    next,
-    sgo_block_set_tail_idx(block_tail),
-    safe_reads,
-  )
+  match (instr, next, block_tail) {
+    (
+      @lib.Block(_, @lib.Expr(body)),
+      if_instr,
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(tail)),
+    ) if sgo_is_return_guard(if_instr) =>
+      match sgo_single_const_global_set_idx(tail) {
+        Some(idx) =>
+          sgo_count_block_condition_if_return_body_read(body, idx, safe_reads)
+        None => ()
+      }
+    _ => ()
+  }
 }
 
 ///|
@@ -4211,12 +1448,14 @@ fn sgo_count_block_condition_if_return_set_read(
   set : @lib.Instruction,
   safe_reads : Array[Int],
 ) -> Unit {
-  sgo_count_block_condition_if_return_idx_read(
-    instr,
-    next,
-    sgo_set_tail_idx_with_const_value(value, set),
-    safe_reads,
-  )
+  match (instr, next, set) {
+    (@lib.Block(_, @lib.Expr(body)), if_instr, @lib.GlobalSet(idx)) if sgo_is_return_guard(
+        if_instr,
+      ) &&
+      sgo_const_instr(value) != None =>
+      sgo_count_block_condition_if_return_body_read(body, idx, safe_reads)
+    _ => ()
+  }
 }
 
 ///|
@@ -4228,15 +1467,14 @@ fn sgo_count_block_condition_eqz_if_return_set_read(
   set : @lib.Instruction,
   safe_reads : Array[Int],
 ) -> Unit {
-  if eqz != @lib.Instruction::i32_eqz() {
-    return
+  match (instr, set) {
+    (@lib.Block(_, @lib.Expr(body)), @lib.GlobalSet(idx)) if eqz ==
+      @lib.Instruction::i32_eqz() &&
+      sgo_is_return_guard(if_instr) &&
+      sgo_const_instr(value) != None =>
+      sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+    _ => ()
   }
-  sgo_count_block_condition_if_return_idx_read(
-    instr,
-    if_instr,
-    sgo_set_tail_idx_with_const_value(value, set),
-    safe_reads,
-  )
 }
 
 ///|
@@ -4256,15 +1494,16 @@ fn sgo_count_block_condition_eqz_if_return_block_set_read(
   block_tail : @lib.Instruction,
   safe_reads : Array[Int],
 ) -> Unit {
-  if eqz != @lib.Instruction::i32_eqz() {
-    return
+  match instr {
+    @lib.Block(_, @lib.Expr(body)) if eqz == @lib.Instruction::i32_eqz() &&
+      sgo_is_return_guard(if_instr) =>
+      match sgo_block_set_tail_idx(block_tail) {
+        Some(idx) =>
+          sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+        None => ()
+      }
+    _ => ()
   }
-  sgo_count_block_condition_if_return_idx_read(
-    instr,
-    if_instr,
-    sgo_block_set_tail_idx(block_tail),
-    safe_reads,
-  )
 }
 
 ///|
@@ -4277,15 +1516,17 @@ fn sgo_count_block_condition_compare_if_return_set_read(
   set : @lib.Instruction,
   safe_reads : Array[Int],
 ) -> Unit {
-  if sgo_const_instr(const_instr) == None || !sgo_is_compare_instr(cmp_instr) {
-    return
+  match (instr, set) {
+    (@lib.Block(_, @lib.Expr(body)), @lib.GlobalSet(idx)) if sgo_const_instr(
+        const_instr,
+      ) !=
+      None &&
+      sgo_is_compare_instr(cmp_instr) &&
+      sgo_is_return_guard(if_instr) &&
+      sgo_const_instr(value) != None =>
+      sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+    _ => ()
   }
-  sgo_count_block_condition_if_return_idx_read(
-    instr,
-    if_instr,
-    sgo_set_tail_idx_with_const_value(value, set),
-    safe_reads,
-  )
 }
 
 ///|
@@ -4297,15 +1538,17 @@ fn sgo_count_block_condition_compare_if_return_block_set_read(
   block_tail : @lib.Instruction,
   safe_reads : Array[Int],
 ) -> Unit {
-  if sgo_const_instr(const_instr) == None || !sgo_is_compare_instr(cmp_instr) {
-    return
+  match instr {
+    @lib.Block(_, @lib.Expr(body)) if sgo_const_instr(const_instr) != None &&
+      sgo_is_compare_instr(cmp_instr) &&
+      sgo_is_return_guard(if_instr) =>
+      match sgo_block_set_tail_idx(block_tail) {
+        Some(idx) =>
+          sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+        None => ()
+      }
+    _ => ()
   }
-  sgo_count_block_condition_if_return_idx_read(
-    instr,
-    if_instr,
-    sgo_block_set_tail_idx(block_tail),
-    safe_reads,
-  )
 }
 
 ///|
@@ -4317,15 +1560,23 @@ fn sgo_count_block_condition_reverse_compare_if_return_set_read(
   if pos <= 0 || pos + 4 >= instrs.length() {
     return
   }
-  sgo_count_block_condition_compare_if_return_set_read(
-    instrs[pos],
-    instrs[pos - 1],
-    instrs[pos + 1],
-    instrs[pos + 2],
-    instrs[pos + 3],
-    instrs[pos + 4],
-    safe_reads,
-  )
+  let const_instr = instrs[pos - 1]
+  let instr = instrs[pos]
+  let cmp_instr = instrs[pos + 1]
+  let if_instr = instrs[pos + 2]
+  let value = instrs[pos + 3]
+  let set = instrs[pos + 4]
+  match (instr, set) {
+    (@lib.Block(_, @lib.Expr(body)), @lib.GlobalSet(idx)) if sgo_const_instr(
+        const_instr,
+      ) !=
+      None &&
+      sgo_is_compare_instr(cmp_instr) &&
+      sgo_is_return_guard(if_instr) &&
+      sgo_const_instr(value) != None =>
+      sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+    _ => ()
+  }
 }
 
 ///|
@@ -4337,27 +1588,21 @@ fn sgo_count_block_condition_reverse_compare_if_return_block_set_read(
   if pos <= 0 || pos + 3 >= instrs.length() {
     return
   }
-  sgo_count_block_condition_compare_if_return_block_set_read(
-    instrs[pos],
-    instrs[pos - 1],
-    instrs[pos + 1],
-    instrs[pos + 2],
-    instrs[pos + 3],
-    safe_reads,
-  )
-}
-
-///|
-fn sgo_record_write_fact_flags(
-  infos : Array[SgoGlobalInfo],
-  same_init_writes : Array[Bool],
-  read_only_to_write : Array[Bool],
-) -> Unit {
-  for idx = 0; idx < infos.length(); idx = idx + 1 {
-    infos[idx].same_init_writes = idx < same_init_writes.length() &&
-      same_init_writes[idx]
-    infos[idx].read_only_to_write = idx < read_only_to_write.length() &&
-      read_only_to_write[idx]
+  let const_instr = instrs[pos - 1]
+  let instr = instrs[pos]
+  let cmp_instr = instrs[pos + 1]
+  let if_instr = instrs[pos + 2]
+  let block_tail = instrs[pos + 3]
+  match instr {
+    @lib.Block(_, @lib.Expr(body)) if sgo_const_instr(const_instr) != None &&
+      sgo_is_compare_instr(cmp_instr) &&
+      sgo_is_return_guard(if_instr) =>
+      match sgo_block_set_tail_idx(block_tail) {
+        Some(idx) =>
+          sgo_count_block_condition_safe_body_read(body, idx, safe_reads)
+        None => ()
+      }
+    _ => ()
   }
 }
 
@@ -4367,14 +1612,13 @@ fn sgo_plan_remove_sets(
   same_init_writes : Array[Bool],
   read_only_to_write : Array[Bool],
 ) -> Array[Bool] {
-  sgo_record_write_fact_flags(infos, same_init_writes, read_only_to_write)
   let remove_sets = Array::make(infos.length(), false)
   for idx = 0; idx < infos.length(); idx = idx + 1 {
     let info = infos[idx]
     if !info.imported &&
       !info.exported &&
       info.write_count > 0 &&
-      (info.read_count == 0 || info.same_init_writes || info.read_only_to_write) {
+      (info.read_count == 0 || same_init_writes[idx] || read_only_to_write[idx]) {
       remove_sets[idx] = true
     }
   }
@@ -4690,7 +1934,6 @@ fn sgo_rewrite_global_sec(
   global_sec : @lib.GlobalSec?,
   infos : Array[SgoGlobalInfo],
   imported_globals : Int,
-  allow_single_use_inlines? : Bool = true,
 ) -> (@lib.GlobalSec?, Array[@lib.Instruction?], Array[@lib.GlobalIdx?], Bool) {
   let startup_consts = sgo_build_initial_startup_consts(infos)
   let aliases = sgo_empty_global_idx_array(infos.length())
@@ -4717,10 +1960,7 @@ fn sgo_rewrite_global_sec(
         infos[abs_idx].init = Some(rewritten_init)
         startup_consts[abs_idx] = sgo_expr_single_const(rewritten_init)
         sgo_record_alias_for_global(aliases, infos, abs_idx, rewritten_init)
-        if allow_single_use_inlines &&
-          !info.imported &&
-          !info.mutable_ &&
-          info.read_count == 1 {
+        if !info.imported && !info.mutable_ && info.read_count == 1 {
           init_inlines[abs_idx] = Some(rewritten_init)
         }
         out.push(
@@ -4792,57 +2032,11 @@ fn sgo_rewrite_elem_mode(
 }
 
 ///|
-fn sgo_rewrite_exact_typed_elem_expr(
-  expr : @lib.Expr,
-  elem_rt : @lib.RefType,
-  infos : Array[SgoGlobalInfo],
-  consts : Array[@lib.Instruction?],
-) -> (@lib.Expr, Bool) {
-  match expr {
-    @lib.Expr([@lib.GlobalGet(idx)]) => {
-      let slot = sgo_global_idx_slot(idx)
-      if slot < 0 || slot >= infos.length() || slot >= consts.length() {
-        return (expr, false)
-      }
-      if infos[slot].value_type != @lib.ValType::ref_type(elem_rt) {
-        return (expr, false)
-      }
-      match consts[slot] {
-        Some(replacement) => (@lib.Expr::new([replacement]), true)
-        None => (expr, false)
-      }
-    }
-    _ => (expr, false)
-  }
-}
-
-///|
-fn sgo_rewrite_elem_kind(
-  kind : @lib.ElemKind,
-  infos : Array[SgoGlobalInfo],
-  consts : Array[@lib.Instruction?],
-) -> (@lib.ElemKind, Bool) {
-  match kind {
-    @lib.TypedExprsElemKind(rt, exprs) => {
-      let out : Array[@lib.Expr] = []
-      let mut changed = false
-      for expr in exprs {
-        let (rewritten, expr_changed) = sgo_rewrite_exact_typed_elem_expr(
-          expr, rt, infos, consts,
-        )
-        if expr_changed {
-          changed = true
-        }
-        out.push(rewritten)
-      }
-      if changed {
-        (@lib.ElemKind::typed_exprs(rt, out), true)
-      } else {
-        (kind, false)
-      }
-    }
-    _ => (kind, false)
-  }
+fn sgo_rewrite_elem_kind(kind : @lib.ElemKind) -> (@lib.ElemKind, Bool) {
+  // Element item expressions are reference-typed and need exact type/refinalize
+  // care. Keep them unchanged in the first SGO slice; element offsets are still
+  // rewritten through sgo_rewrite_elem_mode.
+  (kind, false)
 }
 
 ///|
@@ -4850,7 +2044,6 @@ fn sgo_rewrite_elem_sec(
   elem_sec : @lib.ElemSec?,
   consts : Array[@lib.Instruction?],
   remove_sets : Array[Bool],
-  infos : Array[SgoGlobalInfo],
 ) -> (@lib.ElemSec?, Bool) {
   match elem_sec {
     Some(@lib.ElemSec(elems)) => {
@@ -4861,9 +2054,7 @@ fn sgo_rewrite_elem_sec(
         let (next_mode, mode_changed) = sgo_rewrite_elem_mode(
           mode, consts, remove_sets,
         )
-        let (next_kind, kind_changed) = sgo_rewrite_elem_kind(
-          kind, infos, consts,
-        )
+        let (next_kind, kind_changed) = sgo_rewrite_elem_kind(kind)
         if mode_changed || kind_changed {
           changed = true
         }
@@ -4912,311 +2103,6 @@ fn sgo_rewrite_data_sec(
 }
 
 ///|
-fn sgo_imported_func_count(mod_ : @lib.Module) -> Int {
-  let mut count = 0
-  match mod_.import_sec {
-    Some(@lib.ImportSec(imports)) =>
-      for import_ in imports {
-        match import_ {
-          @lib.Import(_, _, @lib.FuncExternType(_)) => count += 1
-          _ => ()
-        }
-      }
-    None => ()
-  }
-  count
-}
-
-///|
-fn sgo_func_idx_slot(idx : @lib.FuncIdx) -> Int {
-  let @lib.FuncIdx(raw) = idx
-  raw.reinterpret_as_int()
-}
-
-///|
-fn sgo_effect_mark_all(row : Array[Bool]) -> Unit {
-  for idx = 0; idx < row.length(); idx = idx + 1 {
-    row[idx] = true
-  }
-}
-
-///|
-fn sgo_effect_mark_all_changed(row : Array[Bool]) -> Bool {
-  let mut changed = false
-  for idx = 0; idx < row.length(); idx = idx + 1 {
-    if !row[idx] {
-      row[idx] = true
-      changed = true
-    }
-  }
-  changed
-}
-
-///|
-fn sgo_effect_union_into(dst : Array[Bool], src : Array[Bool]) -> Bool {
-  let mut changed = false
-  let limit = if dst.length() < src.length() {
-    dst.length()
-  } else {
-    src.length()
-  }
-  for idx = 0; idx < limit; idx = idx + 1 {
-    if src[idx] && !dst[idx] {
-      dst[idx] = true
-      changed = true
-    }
-  }
-  changed
-}
-
-///|
-fn sgo_flatten_type_sec(type_sec : @lib.TypeSec?) -> Array[@lib.SubType] {
-  let out : Array[@lib.SubType] = []
-  match type_sec {
-    Some(@lib.TypeSec(rec_types)) =>
-      for rec_type in rec_types {
-        match rec_type {
-          @lib.SingleRecType(sub_type) => out.push(sub_type)
-          @lib.GroupRecType(sub_types) =>
-            for sub_type in sub_types {
-              out.push(sub_type)
-            }
-        }
-      }
-    None => ()
-  }
-  out
-}
-
-///|
-fn sgo_type_idx_slot(idx : @lib.TypeIdx) -> Int {
-  match idx {
-    @lib.TypeIdx(raw) => raw.reinterpret_as_int()
-    _ => -1
-  }
-}
-
-///|
-fn sgo_func_type_arity(
-  subtypes : Array[@lib.SubType],
-  type_idx : @lib.TypeIdx,
-) -> (Int, Int)? {
-  let slot = sgo_type_idx_slot(type_idx)
-  if slot < 0 || slot >= subtypes.length() {
-    return None
-  }
-  match subtypes[slot].get_comptype() {
-    @lib.FuncCompType(params, results) =>
-      Some((params.length(), results.length()))
-    _ => None
-  }
-}
-
-///|
-fn sgo_collect_function_arities(mod_ : @lib.Module) -> Array[(Int, Int)] {
-  let subtypes = sgo_flatten_type_sec(mod_.type_sec)
-  let arities : Array[(Int, Int)] = []
-  match mod_.import_sec {
-    Some(@lib.ImportSec(imports)) =>
-      for import_ in imports {
-        match import_ {
-          @lib.Import(_, _, @lib.FuncExternType(type_idx)) =>
-            match sgo_func_type_arity(subtypes, type_idx) {
-              Some(arity) => arities.push(arity)
-              None => arities.push((0, 0))
-            }
-          _ => ()
-        }
-      }
-    None => ()
-  }
-  match mod_.func_sec {
-    Some(@lib.FuncSec(type_idxs)) =>
-      for type_idx in type_idxs {
-        match sgo_func_type_arity(subtypes, type_idx) {
-          Some(arity) => arities.push(arity)
-          None => arities.push((0, 0))
-        }
-      }
-    None => ()
-  }
-  arities
-}
-
-///|
-fn sgo_collect_direct_global_effects_instr(
-  instr : @lib.Instruction,
-  reads : Array[Bool],
-  mutates : Array[Bool],
-  direct_calls : Array[@lib.FuncIdx],
-) -> Unit {
-  match instr {
-    @lib.GlobalGet(idx) => {
-      let slot = sgo_global_idx_slot(idx)
-      if slot >= 0 && slot < reads.length() {
-        reads[slot] = true
-      }
-    }
-    @lib.GlobalSet(idx) => {
-      let slot = sgo_global_idx_slot(idx)
-      if slot >= 0 && slot < mutates.length() {
-        mutates[slot] = true
-      }
-    }
-    @lib.Call(idx) | @lib.ReturnCall(idx) => direct_calls.push(idx)
-    @lib.CallIndirect(_, _)
-    | @lib.CallRef(_)
-    | @lib.ReturnCallIndirect(_, _)
-    | @lib.ReturnCallRef(_) => {
-      sgo_effect_mark_all(reads)
-      sgo_effect_mark_all(mutates)
-    }
-    @lib.Block(_, body) | @lib.Loop(_, body) | @lib.TryTable(_, _, body) =>
-      sgo_collect_direct_global_effects_expr(body, reads, mutates, direct_calls)
-    @lib.If(_, then_body, else_body) => {
-      sgo_collect_direct_global_effects_instrs(
-        then_body, reads, mutates, direct_calls,
-      )
-      match else_body {
-        Some(body) =>
-          sgo_collect_direct_global_effects_instrs(
-            body, reads, mutates, direct_calls,
-          )
-        None => ()
-      }
-    }
-    _ => ()
-  }
-}
-
-///|
-fn sgo_collect_direct_global_effects_instrs(
-  instrs : Array[@lib.Instruction],
-  reads : Array[Bool],
-  mutates : Array[Bool],
-  direct_calls : Array[@lib.FuncIdx],
-) -> Unit {
-  for instr in instrs {
-    sgo_collect_direct_global_effects_instr(instr, reads, mutates, direct_calls)
-  }
-}
-
-///|
-fn sgo_collect_direct_global_effects_expr(
-  expr : @lib.Expr,
-  reads : Array[Bool],
-  mutates : Array[Bool],
-  direct_calls : Array[@lib.FuncIdx],
-) -> Unit {
-  let @lib.Expr(instrs) = expr
-  sgo_collect_direct_global_effects_instrs(instrs, reads, mutates, direct_calls)
-}
-
-///|
-fn sgo_collect_function_global_effects(
-  mod_ : @lib.Module,
-  global_count : Int,
-) -> Array[SgoFunctionGlobalEffects] {
-  let imported_funcs = sgo_imported_func_count(mod_)
-  let defined_funcs = match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => funcs.length()
-    None => 0
-  }
-  let total_funcs = imported_funcs + defined_funcs
-  let arities = sgo_collect_function_arities(mod_)
-  let effects : Array[SgoFunctionGlobalEffects] = []
-  let calls : Array[Array[@lib.FuncIdx]] = []
-  for idx = 0; idx < total_funcs; idx = idx + 1 {
-    let reads = Array::make(global_count, false)
-    let mutates = Array::make(global_count, false)
-    if idx < imported_funcs {
-      sgo_effect_mark_all(reads)
-      sgo_effect_mark_all(mutates)
-    }
-    let (param_count, result_count) = if idx < arities.length() {
-      arities[idx]
-    } else {
-      (0, 0)
-    }
-    effects.push(SgoFunctionGlobalEffects::{
-      reads,
-      mutates,
-      param_count,
-      result_count,
-    })
-    calls.push([])
-  }
-  match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) =>
-      for defined_idx = 0
-          defined_idx < funcs.length()
-          defined_idx = defined_idx + 1 {
-        let abs_idx = imported_funcs + defined_idx
-        let @lib.Func(_, body) = funcs[defined_idx]
-        sgo_collect_direct_global_effects_expr(
-          body,
-          effects[abs_idx].reads,
-          effects[abs_idx].mutates,
-          calls[abs_idx],
-        )
-      }
-    None => ()
-  }
-  let callers : Array[Array[Int]] = []
-  for _idx = 0; _idx < total_funcs; _idx = _idx + 1 {
-    callers.push([])
-  }
-  let queue : Array[Int] = []
-  let queued = Array::make(total_funcs, false)
-  for idx = 0; idx < total_funcs; idx = idx + 1 {
-    queue.push(idx)
-    queued[idx] = true
-  }
-  for idx = imported_funcs; idx < total_funcs; idx = idx + 1 {
-    for callee in calls[idx] {
-      let callee_slot = sgo_func_idx_slot(callee)
-      if callee_slot >= 0 && callee_slot < callers.length() {
-        callers[callee_slot].push(idx)
-      } else {
-        let changed_reads = sgo_effect_mark_all_changed(effects[idx].reads)
-        let changed_mutates = sgo_effect_mark_all_changed(effects[idx].mutates)
-        if (changed_reads || changed_mutates) && !queued[idx] {
-          queue.push(idx)
-          queued[idx] = true
-        }
-      }
-    }
-  }
-  let mut cursor = 0
-  while cursor < queue.length() {
-    let callee = queue[cursor]
-    cursor = cursor + 1
-    queued[callee] = false
-    if callee < 0 || callee >= callers.length() {
-      continue
-    }
-    for caller in callers[callee] {
-      if caller < 0 || caller >= effects.length() {
-        continue
-      }
-      let changed_reads = sgo_effect_union_into(
-        effects[caller].reads,
-        effects[callee].reads,
-      )
-      let changed_mutates = sgo_effect_union_into(
-        effects[caller].mutates,
-        effects[callee].mutates,
-      )
-      if (changed_reads || changed_mutates) && !queued[caller] {
-        queue.push(caller)
-        queued[caller] = true
-      }
-    }
-  }
-  effects
-}
-
-///|
 fn sgo_runtime_trace_clear(facts : Array[@lib.Instruction?]) -> Unit {
   for idx = 0; idx < facts.length(); idx = idx + 1 {
     facts[idx] = None
@@ -5247,13 +2133,11 @@ fn sgo_runtime_trace_barrier(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
-fn sgo_runtime_trace_expr_has_uncarryable_barrier(expr : @lib.Expr) -> Bool {
+fn sgo_runtime_trace_expr_has_barrier(expr : @lib.Expr) -> Bool {
   let @lib.Expr(instrs) = expr
   instrs.any(fn(instr) {
     match instr {
-      @lib.Call(_) => false
-      @lib.Block(_, body) =>
-        sgo_runtime_trace_expr_has_uncarryable_barrier(body)
+      @lib.Block(_, body) => sgo_runtime_trace_expr_has_barrier(body)
       _ => sgo_runtime_trace_barrier(instr)
     }
   })
@@ -5283,44 +2167,18 @@ fn sgo_runtime_trace_trackable(
 }
 
 ///|
-fn sgo_runtime_trace_clear_call_effects(
-  facts : Array[@lib.Instruction?],
-  effects : Array[SgoFunctionGlobalEffects],
-  callee : @lib.FuncIdx,
-) -> Unit {
-  let slot = sgo_func_idx_slot(callee)
-  if slot < 0 || slot >= effects.length() {
-    sgo_runtime_trace_clear(facts)
-    return
-  }
-  let mutates = effects[slot].mutates
-  let limit = if facts.length() < mutates.length() {
-    facts.length()
-  } else {
-    mutates.length()
-  }
-  for idx = 0; idx < limit; idx = idx + 1 {
-    if mutates[idx] {
-      facts[idx] = None
-    }
-  }
-}
-
-///|
 fn sgo_rewrite_runtime_trace_expr(
   expr : @lib.Expr,
   infos : Array[SgoGlobalInfo],
-  effects : Array[SgoFunctionGlobalEffects],
 ) -> (@lib.Expr, Bool) {
   let facts = sgo_empty_const_array(infos.length())
-  sgo_rewrite_runtime_trace_expr_with_facts(expr, infos, effects, facts)
+  sgo_rewrite_runtime_trace_expr_with_facts(expr, infos, facts)
 }
 
 ///|
 fn sgo_rewrite_runtime_trace_expr_with_facts(
   expr : @lib.Expr,
   infos : Array[SgoGlobalInfo],
-  effects : Array[SgoFunctionGlobalEffects],
   facts : Array[@lib.Instruction?],
 ) -> (@lib.Expr, Bool) {
   let @lib.Expr(instrs) = expr
@@ -5355,12 +2213,10 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
         }
       }
       @lib.Block(block_type, body) => {
-        let body_has_uncarryable_barrier = sgo_runtime_trace_expr_has_uncarryable_barrier(
-          body,
-        )
+        let body_has_barrier = sgo_runtime_trace_expr_has_barrier(body)
         let body_facts = facts.copy()
         let (next_body, body_changed) = sgo_rewrite_runtime_trace_expr_with_facts(
-          body, infos, effects, body_facts,
+          body, infos, body_facts,
         )
         out.push(
           if body_changed {
@@ -5370,71 +2226,28 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
           },
         )
         changed = changed || body_changed
-        if body_has_uncarryable_barrier {
+        if body_has_barrier {
           sgo_runtime_trace_clear(facts)
         } else {
           sgo_runtime_trace_copy_facts(facts, body_facts)
         }
-      }
-      @lib.Loop(block_type, body) => {
-        let body_facts = sgo_empty_const_array(infos.length())
-        let (next_body, body_changed) = sgo_rewrite_runtime_trace_expr_with_facts(
-          body, infos, effects, body_facts,
-        )
-        out.push(
-          if body_changed {
-            @lib.Instruction::loop_(block_type, next_body)
-          } else {
-            instr
-          },
-        )
-        changed = changed || body_changed
-        sgo_runtime_trace_clear(facts)
-      }
-      @lib.TryTable(block_type, catches, body) => {
-        let body_facts = facts.copy()
-        let (next_body, body_changed) = sgo_rewrite_runtime_trace_expr_with_facts(
-          body, infos, effects, body_facts,
-        )
-        out.push(
-          if body_changed {
-            @lib.Instruction::try_table(block_type, catches, next_body)
-          } else {
-            instr
-          },
-        )
-        changed = changed || body_changed
-        sgo_runtime_trace_clear(facts)
       }
       @lib.If(block_type, then_body, Some(else_body)) => {
         let then_facts = facts.copy()
         let (next_then, then_changed) = sgo_rewrite_runtime_trace_expr_with_facts(
           @lib.Expr::new(then_body),
           infos,
-          effects,
           then_facts,
         )
         let @lib.Expr(next_then_body) = next_then
-        let else_facts = sgo_empty_const_array(infos.length())
-        let (next_else, else_changed) = sgo_rewrite_runtime_trace_expr_with_facts(
-          @lib.Expr::new(else_body),
-          infos,
-          effects,
-          else_facts,
-        )
-        let @lib.Expr(next_else_body) = next_else
         out.push(
-          if then_changed || else_changed {
-            @lib.Instruction::if_(
-              block_type,
-              next_then_body,
-              Some(next_else_body),
-            )
+          if then_changed {
+            @lib.Instruction::if_(block_type, next_then_body, Some(else_body))
           } else {
             instr
           },
         )
-        changed = changed || then_changed || else_changed
+        changed = changed || then_changed
         sgo_runtime_trace_clear(facts)
       }
       @lib.If(block_type, then_body, None) => {
@@ -5442,7 +2255,6 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
         let (next_then, then_changed) = sgo_rewrite_runtime_trace_expr_with_facts(
           @lib.Expr::new(then_body),
           infos,
-          effects,
           then_facts,
         )
         let @lib.Expr(next_then_body) = next_then
@@ -5455,10 +2267,6 @@ fn sgo_rewrite_runtime_trace_expr_with_facts(
         )
         changed = changed || then_changed
         sgo_runtime_trace_clear(facts)
-      }
-      @lib.Call(callee) => {
-        out.push(instr)
-        sgo_runtime_trace_clear_call_effects(facts, effects, callee)
       }
       _ => {
         out.push(instr)
@@ -5478,8 +2286,6 @@ fn sgo_rewrite_code_sec(
   consts : Array[@lib.Instruction?],
   aliases : Array[@lib.GlobalIdx?],
   remove_sets : Array[Bool],
-  effects : Array[SgoFunctionGlobalEffects],
-  global_ref_flags : Array[Bool],
 ) -> (@lib.CodeSec?, Array[Bool], Bool) {
   match code_sec {
     Some(@lib.CodeSec(funcs)) => {
@@ -5488,7 +2294,7 @@ fn sgo_rewrite_code_sec(
       let mut changed = false
       for idx = 0; idx < funcs.length(); idx = idx + 1 {
         let @lib.Func(locals, body) = funcs[idx]
-        if idx >= global_ref_flags.length() || !global_ref_flags[idx] {
+        if !sgo_expr_may_reference_global(body) {
           out.push(funcs[idx])
           continue
         }
@@ -5496,7 +2302,7 @@ fn sgo_rewrite_code_sec(
           body, consts, aliases, remove_sets, true,
         )
         let (runtime_rewritten, runtime_changed) = sgo_rewrite_runtime_trace_expr(
-          rewritten, infos, effects,
+          rewritten, infos,
         )
         if func_changed || runtime_changed {
           touched[idx] = true
@@ -5544,46 +2350,6 @@ fn sgo_build_module(
 }
 
 ///|
-fn sgo_run_startup_only_core(mod_ : @lib.Module) -> @lib.Module {
-  let (infos, imported_globals) = sgo_collect_global_infos(mod_)
-  let (next_global_sec, startup_consts, _, global_changed) = sgo_rewrite_global_sec(
-    mod_.global_sec,
-    infos,
-    imported_globals,
-    allow_single_use_inlines=false,
-  )
-  let remove_sets = Array::make(infos.length(), false)
-  let (next_table_sec, table_changed) = sgo_rewrite_table_sec(
-    mod_.table_sec,
-    startup_consts,
-    remove_sets,
-  )
-  let (next_elem_sec, elem_changed) = sgo_rewrite_elem_sec(
-    mod_.elem_sec,
-    startup_consts,
-    remove_sets,
-    infos,
-  )
-  let (next_data_sec, data_changed) = sgo_rewrite_data_sec(
-    mod_.data_sec,
-    startup_consts,
-    remove_sets,
-  )
-  if !(global_changed || table_changed || elem_changed || data_changed) {
-    mod_
-  } else {
-    sgo_build_module(
-      mod_,
-      next_global_sec,
-      next_table_sec,
-      next_elem_sec,
-      next_data_sec,
-      mod_.code_sec,
-    )
-  }
-}
-
-///|
 fn sgo_run_core(
   mod_ : @lib.Module,
   trace : (String) -> Unit,
@@ -5594,26 +2360,9 @@ fn sgo_run_core(
   )
   let (infos, imported_globals) = sgo_collect_global_infos(mod_)
   perf_stop_timer_opt(perf, "detail:sgo:collect-global-infos", collect_start_us)
-  let effects_start_us = perf_start_timer_opt(
-    perf, "detail:sgo:collect-function-effects",
-  )
-  let effects = sgo_collect_function_global_effects(mod_, infos.length())
-  perf_stop_timer_opt(
-    perf, "detail:sgo:collect-function-effects", effects_start_us,
-  )
   let flags_start_us = perf_start_timer_opt(perf, "detail:sgo:plan-flags")
-  let global_ref_flags = sgo_code_global_ref_flags(mod_.code_sec)
-  let same_init_writes = sgo_same_init_write_flags(
-    mod_.code_sec,
-    infos,
-    global_ref_flags,
-  )
-  let read_only_to_write = sgo_read_only_to_write_flags(
-    mod_.code_sec,
-    infos,
-    effects,
-    global_ref_flags,
-  )
+  let same_init_writes = sgo_same_init_write_flags(mod_.code_sec, infos)
+  let read_only_to_write = sgo_read_only_to_write_flags(mod_.code_sec, infos)
   let remove_sets = sgo_plan_remove_sets(
     infos, same_init_writes, read_only_to_write,
   )
@@ -5640,7 +2389,6 @@ fn sgo_run_core(
     mod_.elem_sec,
     startup_consts,
     remove_sets,
-    infos,
   )
   let (next_data_sec, data_changed) = sgo_rewrite_data_sec(
     mod_.data_sec,
@@ -5655,8 +2403,6 @@ fn sgo_run_core(
     code_consts,
     aliases,
     remove_sets,
-    effects,
-    global_ref_flags,
   )
   perf_stop_timer_opt(perf, "detail:sgo:rewrite-code", code_start_us)
   changed = changed ||

@@ -365,7 +365,6 @@ pub enum Instruction {
   Return
   Call(Index)
   CallIndirect(Index, TypeUse)
-  CallRef(TypeUse)
   ReturnCall(Index)
   ReturnCallIndirect(Index, TypeUse)
   ReturnCallRef(TypeUse)
@@ -418,8 +417,6 @@ pub enum Instruction {
   RefNull(ValueType)
   RefIsNull
   RefFunc(Index)
-  RefTest(ValueType)
-  RefCast(ValueType)
   StringConst(Bytes)
   StringNewUtf8Array
   StringNewWtf16Array
@@ -1881,18 +1878,6 @@ fn WastParser::parse_opcode_instruction(
       let type_use = self.parse_type_use()
       CallIndirect(table_index, type_use)
     }
-    CallRef => {
-      let type_use = if self.current.token_type is (Nat | Var) {
-        {
-          type_index: Some(self.parse_index()),
-          func_type: { params: [], results: [] },
-          param_ids: [],
-        }
-      } else {
-        self.parse_type_use()
-      }
-      CallRef(type_use)
-    }
     ReturnCall => ReturnCall(self.parse_index())
     ReturnCallIndirect => {
       let table_index = self.try_parse_index().unwrap_or(Index::Num(0))
@@ -1923,8 +1908,6 @@ fn WastParser::parse_opcode_instruction(
     StructNewDesc => StructNewDesc(self.parse_index())
     StructNewDefaultDesc => StructNewDefaultDesc(self.parse_index())
     RefGetDesc => RefGetDesc(self.parse_index())
-    RefTest => RefTest(self.parse_value_type())
-    RefCast => RefCast(self.parse_value_type())
     RefTestDesc => RefTestDesc(false, self.parse_index())
     RefTestDescNull => RefTestDesc(true, self.parse_index())
     RefCastDescEq => RefCastDescEq(false, self.parse_index())
@@ -3806,10 +3789,6 @@ fn WastParser::parse_simd_instruction(
     | I32x4ExtmulHighI16x8S
     | I32x4ExtmulLowI16x8U
     | I32x4ExtmulHighI16x8U
-    | I16x8ExtaddPairwiseI8x16S
-    | I16x8ExtaddPairwiseI8x16U
-    | I32x4ExtaddPairwiseI16x8S
-    | I32x4ExtaddPairwiseI16x8U
     | I64x2ExtmulLowI32x4S
     | I64x2ExtmulHighI32x4S
     | I64x2ExtmulLowI32x4U
@@ -5280,42 +5259,6 @@ test "parse ref test desc and cast desc eq" {
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
-}
-
-///|
-test "parse ordinary ref.test and ref.cast reftype immediates" {
-  let source =
-    #|(module
-    #|  (func (param eqref) (result i32)
-    #|    (drop (ref.test (ref i31) (local.get 0)))
-    #|    (drop (ref.test (ref null eq) (local.get 0)))
-    #|    (drop (ref.cast (ref i31) (local.get 0)))
-    #|    (drop (ref.cast (ref null eq) (local.get 0)))
-    #|    (i32.const 0)))
-  let lexer = make_lexer(source)
-  let parser = WastParser::new(lexer)
-  let mod = parser.parse_module()
-  assert_false(parser.has_errors())
-  match mod.fields {
-    [FuncField(func)] =>
-      @debug.assert_eq(func.body, [
-        LocalGet(Num(0U)),
-        RefTest(NonNullTypedFuncRef(HeapTypeRef::I31)),
-        Drop,
-        LocalGet(Num(0U)),
-        RefTest(TypedFuncRef(HeapTypeRef::Eq)),
-        Drop,
-        LocalGet(Num(0U)),
-        RefCast(NonNullTypedFuncRef(HeapTypeRef::I31)),
-        Drop,
-        LocalGet(Num(0U)),
-        RefCast(TypedFuncRef(HeapTypeRef::Eq)),
-        Drop,
-        Const(I32Const, "0"),
-      ])
-    _ =>
-      fail("expected single function field in ref.test/ref.cast parse fixture")
-  }
 }
 
 ///|

@@ -124,7 +124,7 @@ The 2026-05-05 current-main recheck on `SimplifyGlobals.cpp`, `pass.cpp`, and `p
 
 ## Relationship to Starshine
 
-Starshine now exposes this pass as an active module pass over the shared startup/global propagation subset. It rewrites startup-level expressions and preserves function bodies; see [`./starshine-strategy.md`](./starshine-strategy.md) and [`../../../raw/research/0699-2026-05-26-sgo-shared-family-exposure.md`](../../../raw/research/0699-2026-05-26-sgo-shared-family-exposure.md).
+Starshine currently keeps this pass as boundary-only and rejects explicit requests before dispatch. The implementation path, if chosen later, should be a module pass over `GlobalSec`, active `ElemSec` offsets, and active `DataSec` offsets, not a HOT function pass. See [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Superseded older claims
 

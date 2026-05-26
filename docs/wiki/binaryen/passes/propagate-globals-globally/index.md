@@ -32,7 +32,7 @@ related:
 
 ## Role
 
-`propagate-globals-globally` is a real public Binaryen module pass that rewrites **startup-level constant global uses** in other globals and active segment offsets. It is currently **active** in Starshine as the startup/global-only SimplifyGlobals sibling; see [`../../../raw/research/0699-2026-05-26-sgo-shared-family-exposure.md`](../../../raw/research/0699-2026-05-26-sgo-shared-family-exposure.md).
+`propagate-globals-globally` is a real public Binaryen module pass that rewrites **startup-level constant global uses** in other globals and active segment offsets. It is currently **unimplemented** in Starshine and lives only as a boundary-only registry name in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 
 It is not part of this repo's current canonical no-DWARF `-O` / `-Os` path and does not appear in the saved generated-artifact `-O4z` skip queue. The folder exists because the pass is named locally, sits beside `simplify-globals*`, and is easy to mis-teach from its broad name.
 
@@ -111,7 +111,7 @@ A future local port should validate at least:
 
 ## Current maintenance rule
 
-Keep this folder explicit about the public-pass stop point: `propagate-globals-globally` must stay startup/global-only and must not silently become plain `simplify-globals`.
+Keep this folder explicitly marked as **unimplemented** until Starshine grows a real module pass for it. If a future port shares code with `simplify-globals*`, preserve the public-pass stop point: `propagate-globals-globally` must not silently become plain `simplify-globals`.
 
 ## Sources
 

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-21
+last_reviewed: 2026-05-18
 sources:
   - ../../../raw/research/0570-2026-05-18-simplify-globals-optimizing-current-main-refresh.md
   - ../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md
@@ -214,7 +214,6 @@ After conceptually:
 Why it works:
 
 - Binaryen proved the write does not change state relative to the initializer
-- this remains narrower than general expression equivalence: alias initializers that canonicalize to the same literal can still keep the mutable global and direct literal set in a one-shot run, and block-wrapped same-init values with real reads are preserved
 
 ## 7. `read-only-to-write` self-guard collapses away the stateful part
 
@@ -271,81 +270,6 @@ A transparent value-producing block can provide the same self-guard condition:
 
 The current Starshine SGO subset treats that single yielded `global.get` as the same read-only-to-write condition when the adjacent `if` writes one constant to the same global. The same narrow family also accepts `i32.eqz` inside the block.
 
-### Recursive nested-pattern variation
-
-Binaryen's `FlowScanner` has a specific carveout for another no-else read-only-to-write pattern nested inside the current condition. This lets the outer final read still count as safe:
-
-```wat
-(global $once (mut i32) (i32.const 0))
-(func
-  (if
-    (block (result i32)
-      (if
-        (i32.eqz (global.get $once))
-        (then (global.set $once (i32.const 1)))
-      )
-      (i32.eq (global.get $once) (i32.const 0))
-    )
-    (then (global.set $once (i32.const 1)))
-  )
-)
-```
-
-Starshine now accepts this two-layer family plus the lit-style three-layer version where the inner condition is itself a result block containing a no-else same-global self-guard and then yielding another `global.get`. It still rejects near misses where the nested `if` has an `else`, or where an extra dropped `global.get $once` makes the number of actual reads exceed the number of safe pattern reads. The public SGO wrapper may skip nested cleanup for the resulting value-block/control body, including value-producing `if` bodies that themselves contain nested `if` control, and return the valid core rewrite directly.
-
-### Nested-arm FlowScanner block-result variation
-
-A side-effecting condition can also hide the candidate read in a nested `if (result i32)` arm, then wrap that nested condition in a transparent result block before the final self-guard branch:
-
-```wat
-(global $once (mut i32) (i32.const 0))
-(func
-  (if
-    (block (result i32)
-      (if (result i32)
-        (call $cond)
-        (then (i32.const 0))
-        (else (global.get $once))
-      )
-      (i32.eqz)
-    )
-    (then (global.set $once (i32.const 1)))
-  )
-)
-```
-
-Binaryen promotes this family because the call decides which arm runs, while `$once` only flows out to the final branch condition. Related 2026-05-23 probes showed Binaryen also promotes a non-branching `loop (result i32)` yielding `global.get $once` when an adjacent `i32.eqz`, compare-const, or reverse compare-const feeds the final same-global branch, and also promotes a loop body where the candidate read flows through a simple nontrapping pure `i32.const 1; i32.add` before adjacent `i32.eqz`, compare-const, or reverse compare-const; it preserves the mutable/read-write shape when that loop yields a trapping `i32.load(global.get $once)` before the adjacent consumer. Starshine's current subset accepts one or more transparent block-result wrappers for supported pure post-consumers like `i32.eqz`, the matching non-branching value-loop wrapper for direct self-guards, adjacent direct compare/reverse-compare guards, and adjacent simple pure `i32.eqz`, compare-const, or reverse compare-const guards, and the supported clean-sibling `select` value form; it preserves the neighboring negative where the block- or loop-wrapped post-consumer is a trapping `i32.load` whose address comes from the global-derived value.
-
-The 2026-05-23 loop inventory intentionally stopped there until later source-backed slices extended the same narrow direct-loop prefix matcher to independent constant writes: `global.set <other>`, `local.set`, `i32.store`, `i64.store`, integer subword stores, `f32.store`, `f64.store`, `table.set`, `memory.fill`, and `memory.copy`. No-op const/drop prefixes before the yielded candidate read are already handled by the shared direct/pure condition matchers (`sgo_skip_noop_const_drops`) and do not need another syntactic loop rule. The loop paths still do not reuse the broader block FlowScanner matcher, so branch/control bodies, `br_if`, returns, trapping global-derived loads, growth operations, atomics, SIMD memory operations, relaxed SIMD, other broad unprobed bulk operations, and calls whose operands consume the candidate value remain deferred until a future Binaryen-backed slice proves the exact shape and guardrails.
-
-The 2026-05-23 next-breadth inventory also gives useful negative WAT shapes: Binaryen preserves a read-present `global.set $g (block (result i32) (i32.const 7))` even when `$g`'s initializer is `i32.const 7`, preserves an alias-initialized mutable global after a direct literal same-init write in the one-shot probe, preserves a runtime `global.get` in an `else` arm after a constant `global.set`, and preserves a runtime read after `global.set $g (block (result i32) (i32.const 5))`. Those shapes should be guardrail negatives unless a later oracle fixture proves a narrower positive.
-
-The 2026-05-21 indirect-call and call-ref follow-ups extend the independent nested-if condition family to `call_indirect` and ordinary `call_ref` when all call operands are clean; they preserve global-derived indirect-call parameter/index operands and global-derived `call_ref` parameters because the call may trap or execute different code before the final guard.
-
-A `br_if` probe on 2026-05-21 did not become a Starshine rule: Binaryen preserved direct `global.get; br_if; global.set` and block/return variants, so branch-target control remains outside the current FlowScanner subset.
-
-The clean `nop` follow-up accepts an independent no-op in the same local stack/value-flow scanner paths. Binaryen v129 promoted the clean `nop` neighbor while preserving a global-steered `if (then nop)` control wrapper, so Starshine keeps control-dependent `nop` wrappers conservative instead of broadening branch reasoning. The clean void-block and void-loop follow-ups apply the same rule recursively to `block` / `loop` bodies that have void type, contain no candidate-global read, and leave the local scan stack empty; bodies with candidate-global reads remain conservative. The clean void-`if` follow-up applies the same restriction to two-arm void `if` prefixes or arm-local effects with an independent clean condition and no remaining arm stack values; candidate-global reads in the void-`if` prefix or arm-local effect keep the later same-global write mutable. The clean result-block and result-loop follow-ups accept value-producing `block` / `loop` only through the local stack scanner: the body must scan to one value, clean results can be consumed by existing clean consumers such as `drop`, and tainted results remain conservative when they flow to `drop` or other non-condition consumers. Result-loop support remains non-branching in practice because branch/control contents are rejected by the existing scanner. The clean result-`if` follow-up is narrower: it only widens the preliminary clean-prefix scanner for independent value-producing `if` expressions before a nested-if arm-flow guard; the later candidate-aware scan still rejects an `if` arm that reads the candidate global.
-
-The clean local/global-set follow-ups extend the same stack/value-flow accounting to `local.set` and non-candidate `global.set` when the stored value is independent of the candidate global. The local/global write and later read may remain in the output, but the fake candidate-global read/write state is removed. Starshine preserves neighboring shapes where the candidate global is stored through `local.set` or another `global.set`, because that tainted storage can carry the global-derived value to later consumers.
-
-The clean `table.set` follow-up applies the same conservative stack rule to table writes: both the table index and stored reference must be independent of the candidate global. Binaryen v129 promoted the clean exported-table write neighbor and preserved the global-derived table-index neighbor, so Starshine accepts only that exact clean-operand side-effect shape and keeps tainted `table.set` operands conservative.
-
-The clean `table.fill`, `table.init`, and `table.copy` follow-ups apply the same three-clean-operand rule used by bulk table writes: table index/destination, fill reference or element source, copy source, and size must all be independent of the candidate global. Binaryen v129 promoted the clean exported-table fill/init/copy neighbors and preserved global-derived destination, value/source, and size neighbors, so Starshine accepts only clean `table.fill` / `table.init` / `table.copy` and keeps tainted table operands conservative. The clean `elem.drop` and `data.drop` follow-ups are narrower: they are accepted only as operandless segment side effects independent of the candidate global, while a global-steered control wrapper around either drop remains conservative.
-
-The clean `i32.store`, `i64.store`, `i32.store8`, `i32.store16`, `i64.store8`, `i64.store16`, `i64.store32`, `f32.store`, and `f64.store` follow-ups apply the same two-clean-operand rule to a tiny scalar memory-store family: the address and stored value must both be independent of the candidate global. The clean `memory.fill`, `memory.copy`, and `memory.init` follow-ups extend that rule to three operands: fill destination/value/size, copy destination/source/size, or init destination/source/size must all be independent of the candidate global. Binaryen v129 promoted the clean exported-memory write neighbors and preserved global-derived address/value/size or destination/source/size neighbors for each probed shape, so Starshine currently accepts only clean `i32.store` / `i64.store` / `i32.store8` / `i32.store16` / `i64.store8` / `i64.store16` / `i64.store32` / `f32.store` / `f64.store` / `memory.fill` / `memory.copy` / `memory.init` and keeps tainted store, fill, copy, or init operands conservative; remaining bulk memory operations, SIMD stores, atomics, and growth operations still need separate probes.
-
-The clean trapping-read follow-up extends the same stack/value-flow accounting from `i32.load` to source-backed scalar memory loads and `table.get` when their address or table index is independent of the candidate global. The load or table read remains in the output, but the fake global read/write state is removed. Starshine preserves neighboring shapes where the candidate global supplies the load address or `table.get` index, because that value may decide whether a trap occurs before the final guard.
-
-The 2026-05-20 if-wrapper follow-up covers another adjacent FlowScanner parent-walk family: a clean value-producing `if` arm can itself contain the supported nested-if arm-flow result, then yield to a supported pure post-consumer or clean-sibling `select` before the outer same-global write guard. Starshine preserves the paired negatives where the wrapper result feeds a trapping `i32.load` or the candidate `global.get` steers the inner wrapper condition.
-
-The reference-typed post-consumer slices admit the same nested-if arm flow when a `funcref` candidate flows through nontrapping `ref.is_null`, an `eqref` candidate flows through nontrapping ordinary `ref.test` or `ref.eq`, an `i32` candidate flows through nontrapping `ref.i31` and then `ref.eq`, fact-sensitive `ref.as_non_null`, `i31.get_s` / `i31.get_u`, or typed `select` results whose value operands are both proven `ref.i31`, or an `anyref` candidate flows through nontrapping `extern.convert_any` / `any.convert_extern` / `ref.is_null`, with transparent result-block wrappers around the supported conversion chain when covered, before the outer same-global write guard. The paired negatives keep the global mutable when the ordinary `ref.test` / reference-test boolean result feeds a post-consumer call before the final branch, preserve `ref.as_non_null`-fed `ref.test` because the operand may trap first, and preserve nullable, mixed-select, or otherwise non-`ref.i31`-proven `i31.get_s` because it can trap. The `ref.eq` / conversion fixtures use `ref.i31` initializers or non-null-to-null writes where needed so the tests prove read-only-to-write FlowScanner behavior instead of same-as-init null cleanup.
-
-The numeric post-consumer follow-up applies the same rule to nontrapping numeric conversions and float arithmetic: int-to-float conversions, `f32.demote_f64`, `f64.promote_f32`, saturating float-to-int truncations, and `f32.div` / `f64.div` may sit between the nested-if arm result and the final branch condition. Starshine still preserves regular float-to-int truncations such as `i32.trunc_f32_s`, because they can trap before the final branch and therefore cannot be treated as removable condition-only flow.
-
-The size-query follow-up treats `memory.size` and `table.size` as clean nullary values in the same stack/value-flow scanner, so a direct self-guard, nested-if arm result, or nested transparent block-wrapped condition may combine the candidate read with those size queries before the final branch. The paired guardrails keep `memory.grow` and `table.grow` conservative when the global-derived value determines the size-changing side effect.
-
-The SIMD follow-ups admit a parser-backed nontrapping subset: `i32` candidates can flow through `i32x4.splat` and then `i32x4.all_true`, `i32x4.bitmask`, `i32x4.extract_lane`, a clean `i32x4.add` or `i32x4.eq` chain, or `i8x16.splat` plus `i8x16.add` / `i8x16.popcnt` / `i8x16.bitmask` / `i8x16.all_true`; `i16x8.splat` / `i16x8.abs` / `i16x8.neg` / `i16x8.eq` / `i16x8.all_true` / `i16x8.bitmask`, `i64x2.splat` / `i64x2.neg` / `i64x2.eq` / `i64x2.bitmask` / `i64x2.all_true`, `f32x4.splat` / `f32x4.abs` / `f32x4.neg` / `f32x4.sqrt` / `f32x4.div` / compare / all-true, and `f64x2.splat` / `f64x2.abs` / `f64x2.neg` / `f64x2.add` / compare / all-true chains are also covered. The 2026-05-21 lane/shift/replace slice adds nontrapping lane extracts for `i8x16`, `i16x8`, `i64x2`, `f32x4`, and `f64x2`, all six `*.replace_lane` forms, and `shl` / `shr_s` / `shr_u` for `i8x16`, `i16x8`, `i32x4`, and `i64x2`. The SIMD comparison follow-up fills in the remaining parser-backed integer and float lane comparisons for `i8x16`, `i16x8`, `i32x4`, `i64x2`, `f32x4`, and `f64x2`. The SIMD arithmetic follow-up adds basic nontrapping SIMD arithmetic/unary ops (integer lane abs/neg, saturating add/sub, sub/mul/min/max/avgr, `i64x2.add`/`sub`/`mul`, f32/f64 ceil/floor/trunc/nearest/sqrt and add/sub/mul/div/min/max/pmin/pmax). The SIMD core-bitwise follow-up adds WAT-lowered `v128.not`, `v128.any_true`, bitwise `v128.and` / `v128.andnot` / `v128.or` / `v128.xor`, `i8x16.shuffle`, `i8x16.swizzle`, and ternary `v128.bitselect` chains; focused guardrails preserve post-consumer calls and trapping-load side effects. The SIMD extension/conversion follow-up adds parser-backed nontrapping `extend_low/high`, demote/promote, saturating vector truncation, integer-to-float vector conversion, `narrow`, `extmul`, and `i32x4.dot_i16x8_s` chains. The extadd-pairwise follow-up adds WAT parsing/lowering and FlowScanner coverage for `i16x8.extadd_pairwise_i8x16_s/u` and `i32x4.extadd_pairwise_i16x8_s/u`. Starshine now has a generic block-yielded FlowScanner check for flat or nested transparent result blocks, so supported size-query and SIMD chains can be wrapped in a transparent result block before the final branch. The same supported chains can now guard exact `if return; set` bodies, including external `i32.eqz` and block-wrapped-set variants. A clean value-producing `if` inside such a block condition may also yield a supported size-query or SIMD chain from one arm when the wrapper condition is independent of the candidate global; the same subset applies to exact `if return; set` block conditions. Starshine preserves the paired negatives where the SIMD lane/shift/replace-lane/compare/arithmetic/core-bitwise/extadd-pairwise/extension/conversion result or boolean feeds a post-consumer call, where the global-derived value is a SIMD load address, where a block-yielded if-return condition feeds a trapping load, or where a clean wrapper arm feeds the candidate global to a trapping load.
-
 ### No-op const/drop condition-prefix variation
 
 A block-wrapped condition can also contain side-effect-free constant/drop pairs before the yielded self-guard read:
@@ -389,7 +313,7 @@ Binaryen's source accepts more than adjacent `global.get`, `i32.eqz`, or compare
 )
 ```
 
-The 2026-05-18 unary, bitwise, shift/rotate, i64-compare, i64-value, and float-compare slices were backed by local Binaryen probes showing `wasm-opt --simplify-globals` promotes matching `i32.clz` / `i32.ctz` / `i32.popcnt`, `i32.and` / `i32.or` / `i32.xor`, `i32.shl` / `i32.shr_s` / `i32.shr_u` / `i32.rotl` / `i32.rotr`, `i64.eqz` / `i64` compare guards, non-trapping i64 value operators feeding `i64.eqz`, and `f32` / `f64` compare guards to immutable globals while replacing the get/set uses. The same pure-condition subset now also applies when the condition chain is inside a transparent result block, and to both direct and block-wrapped exact whole-body `if return; set` families, where the return guard precedes the same-global constant write and trailing code still blocks the match. Starshine now also accepts pure `select` self-guards where the other two select operands are constants and the global-derived value is the select condition input, first selected value input, or second selected value input. Keep that distinct from the official safe-side-effect family because broader side-effect cases need Binaryen-style upward value-flow reasoning. As of 2026-05-20, Starshine accepts a conservative side-effecting subset from the official family: independent `local.tee` and `i32.load` operands are preserved, while a single actual `global.get $g` may flow through supported non-trapping pure ops such as `i32.add` and `i32.xor`, then through `select; i32.eqz`, and finally into the outer same-global write guard. The global-derived value may be the `select` condition input, the first selected value input, or the second selected value input in the covered stack forms. Starshine also accepts lit-style nested `if (result i32)` arm-flow cases where a call with clean operands, supported pure chain, local tee, or load decides the nested arm and the candidate global appears only in a value arm, not as the nested condition; independent arm-local calls are preserved when they do not consume the global-derived value. Narrow follow-ups allow clean arm-local `local.tee` / `i32.load` effects, transparent value blocks around the arm result, post-if `select` value use with clean sibling operands, and nested-if results that pass through supported pure post-if consumers such as `i32.eqz` before the outer branch. Starshine preserves those side effects while removing the fake global state, and still keeps negatives where the global is consumed by a trapping memory load before the branch, escapes through `local.tee` / `drop`, appears multiple times in one condition, steers the nested `if`, feeds a post-if call operand, feeds a trapping post-if load after `select`, feeds a trapping load inside a transparent arm block, or reaches unsupported value-flow shapes.
+The 2026-05-18 unary, bitwise, shift/rotate, i64-compare, i64-value, and float-compare slices were backed by local Binaryen probes showing `wasm-opt --simplify-globals` promotes matching `i32.clz` / `i32.ctz` / `i32.popcnt`, `i32.and` / `i32.or` / `i32.xor`, `i32.shl` / `i32.shr_s` / `i32.shr_u` / `i32.rotl` / `i32.rotr`, `i64.eqz` / `i64` compare guards, non-trapping i64 value operators feeding `i64.eqz`, and `f32` / `f64` compare guards to immutable globals while replacing the get/set uses. The same pure-condition subset now also applies when the condition chain is inside a transparent result block, and to both direct and block-wrapped exact whole-body `if return; set` families, where the return guard precedes the same-global constant write and trailing code still blocks the match. Keep this separate from the official safe-side-effect positive (`select` / `local.tee` / `i32.load` in `simplify-globals-read_only_to_write.wast`), because that broader family needs Binaryen-style upward value-flow reasoning. Starshine also keeps negatives where the global value flows into `local.tee` or `select`, and where a trapping memory load consumes the value before the branch.
 
 ### No-op const/drop body variation
 
@@ -472,7 +396,6 @@ After conceptually:
 Why it works:
 
 - Binaryen tracks a cheap current-value map along the current linear trace
-- result-block-wrapped set operands are not treated as current constants by this pass alone, even if another cleanup could later simplify them to a literal
 
 ## 10. Some dominated adjacent blocks are included in that same runtime proof
 
@@ -507,7 +430,6 @@ After conceptually:
 Why it works:
 
 - `LinearExecutionWalker` connects some adjacent dominated blocks cheaply
-- the official dominance lit also permits the dominated read before a recursive call barrier to see the current value; calls still clear facts for later reads, and else-arm reads remain conservative
 
 ## 11. GC / reference-type constant replacement can be more refined than the old `global.get`
 
