@@ -2987,6 +2987,55 @@ test "dae-optimizing removes selected Func298 dropped result from Func280 branch
 }
 
 ///|
+test "dae-optimizing traces selected dropped-result fallback metadata" {
+  let target_def = 299
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < 8; i = i + 1 {
+    out.write_string(
+      "  (func $g\{i} (param i32 i32)\n    local.get 0\n    drop)\n",
+    )
+  }
+  for i = 8; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32 i32) (result i32)
+      #|    local.get 0
+      #|    local.get 1
+      #|    i32.add)
+      #|  (func (export "run")
+      #|    i32.const 10
+      #|    i32.const 32
+      #|    call $target
+      #|    drop)
+      #|)
+    ),
+  )
+  let trace = match
+    pass_test_capture_trace(out.to_string(), ["dae-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected traced DAE success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[dae-optimizing]:selected-dropped-result-candidate") &&
+      line.contains("def=299") &&
+      line.contains("callee_abs=299") &&
+      line.contains("callers=[300]") &&
+      line.contains("direct=1") &&
+      line.contains("dropped=0") &&
+      line.contains("live=1") &&
+      line.contains("dead_suffix=unknown") &&
+      line.contains("bucket=selected-fallback") &&
+      line.contains("fact_attempted=false")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "dae-optimizing removes selected mid-prefix dropped callee results" {
   for
     target_def in [

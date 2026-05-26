@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] tests | dae DAE004 selected fallback trace metadata
+
+- Added [`raw/research/0664-2026-05-26-dae004-selected-fallback-trace-metadata.md`](raw/research/0664-2026-05-26-dae004-selected-fallback-trace-metadata.md), a focused trace regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), and selected dropped-result candidate metadata in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
+- Closed `[DAE004-D1]` for the current schema: selected fallback attempts now report callee/caller/fact/bucket metadata for later family grouping, without changing optimizer behavior.
+- Validation: test-first `moon test src/passes -f 'dae-optimizing traces selected dropped-result fallback metadata' --target native` failed before implementation, then passed after implementation.
+
 ## [2026-05-26] docs | dae DAE004 remaining work split
 
 - Split remaining `[DAE004-D]`, `[DAE004-H]`, and `[DAE004-I]` work in [`../../agent-todo.md`](../../agent-todo.md) into enumerated subtasks covering trace metadata, family grouping, test-first family replacement, artifact timing/validation, direct compare refresh, fallback removal, and final closeout/cron-disable criteria.

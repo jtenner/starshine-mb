@@ -20474,6 +20474,30 @@ fn dae_run_core(
       } else {
         selected_dropped_result_call_facts
       }
+      let selected_result_callee_abs = original_imported + selected_result_def
+      let selected_result_direct = if selected_result_callee_abs <
+        selected_result_call_facts.direct_calls.length() {
+        selected_result_call_facts.direct_calls[selected_result_callee_abs]
+      } else {
+        0
+      }
+      let selected_result_dropped = if selected_result_callee_abs <
+        selected_result_call_facts.dropped_calls.length() {
+        selected_result_call_facts.dropped_calls[selected_result_callee_abs]
+      } else {
+        0
+      }
+      let selected_result_callers = if selected_result_callee_abs <
+        selected_result_call_facts.direct_callers.length() {
+        selected_result_call_facts.direct_callers[selected_result_callee_abs]
+      } else {
+        []
+      }
+      let selected_result_live = selected_result_direct -
+        selected_result_dropped
+      trace(
+        "pass[dae-optimizing]:selected-dropped-result-candidate def=\{selected_result_def} callee_abs=\{selected_result_callee_abs} callers=\{selected_result_callers} direct=\{selected_result_direct} dropped=\{selected_result_dropped} live=\{selected_result_live} dead_suffix=unknown facts=current bucket=selected-fallback fact_attempted=false",
+      )
       let selected_result = dae_try_remove_selected_defs_dropped_results_with_facts_once(
         current,
         selected_scratch_defs,
