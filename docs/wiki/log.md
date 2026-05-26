@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] docs | dae DAE004 runtime-neutral worklist design
+
+- Closed design subtask `[DAE004-C]` by adding [`raw/research/0631-2026-05-26-dae004-runtime-neutral-worklist-design.md`](raw/research/0631-2026-05-26-dae004-runtime-neutral-worklist-design.md). The note specifies a bucketed, caller-filtered, fact-refreshing large-module dropped-result worklist that preserves high descending reach, selected-fallback-neighborhood coverage, and low ascending guards without raising the broad `4608 < defined <= 8192` productive cap.
+- Rejected immediate broad cap increases and fallback deletion until a behavior-changing slice has focused failing tests, artifact validation/timing, direct compare evidence, and trace proof that the fact-driven worklist covers a formerly selected-only family.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md). No optimizer behavior changed; `[DAE]004` remains open with `[DAE004-D]` next.
+
 ## [2026-05-26] tests | dae DAE004 large low-candidate guard
 
 - Added [`raw/research/0630-2026-05-26-dae004-large-low-candidate-regression-guard.md`](raw/research/0630-2026-05-26-dae004-large-low-candidate-regression-guard.md) and a focused [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) regression proving the current large-module DAE scheduler still removes a lower-index fact-discovered dropped-result target when eight higher dropped-result targets are also present.
