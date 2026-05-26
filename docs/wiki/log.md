@@ -2,6 +2,18 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] docs | dae DAE003 and DAE004 required
+
+- Updated the DAE completion policy: `[DAE]003` constant-actual/unread-parameter generalization and `[DAE]004` selected result-removal broadening are required before DAE is considered complete/signed off.
+- Synced [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md), [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), and [`../../agent-todo.md`](../../agent-todo.md) so future agents do not treat the remaining DAE breadth as optional.
+- No pass behavior changed; no validation was required for this docs/backlog decision.
+
+## [2026-05-26] passes | dae DAE004 descending large candidate scheduler
+
+- Broadened `[DAE]004` in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) with a bounded large-module ordered step: for `4096 < defined <= 8192`, DAE now tries one descending fact-driven dropped-result candidate before the historical handpicked selected-def fallback. The existing ascending queue remains unchanged for `defined <= 4096`.
+- Added `dae-optimizing reaches high dropped-result callee after low candidate budget` in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt). It failed before implementation with the high target still reporting one result (`1 != 0`) after low candidates consumed the old ascending budget, and passes after the descending lane.
+- Recorded the slice in [`raw/research/0608-2026-05-26-dae004-descending-large-candidate-scheduler.md`](raw/research/0608-2026-05-26-dae004-descending-large-candidate-scheduler.md) and synced [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md), [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), and [`../../agent-todo.md`](../../agent-todo.md). Validation included focused/pass-suite Moon tests, debug-artifact validation/timing at `.tmp/dae004-descending-large-limit1-timing-20260526` (`1485.439ms` Starshine pass vs `858.552ms` Binaryen pass, inside `<= 2x`), and `.tmp/pass-fuzz-dae004-descending-large-20260526-full2` (`9975/10000` compared, `6078` normalized matches, `3897` known gen-valid raw-cleanup mismatches, `0` validation failures, `25` Binaryen/tool command failures). A post-implementation trace showed the descending lane removes high candidate `4651` and the selected-def fallback remains productive, so `[DAE]004` remains open until evidence proves the selected-def fallback can be removed or no dropped-result scheduling gap remains.
+
 ## [2026-05-26] docs | dae DAE004 large fact-queue recovery probe
 
 - Probed the remaining `[DAE]004` large-artifact fallback removal path without landing behavior changes. A test-first experiment moved `dae-optimizing removes high fact-discovered dropped callee result outside selected list` from defined function `3000` to `4500`; it failed before widening the fact queue with the target still reporting one result (`1 != 0`).

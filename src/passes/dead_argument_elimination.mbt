@@ -17516,6 +17516,60 @@ fn dae_collect_fact_dropped_result_candidate_defs(
 }
 
 ///|
+fn dae_try_remove_dropped_result_def_with_facts(
+  mod_ : @lib.Module,
+  def_idx : Int,
+  call_facts : DaeCurrentCallFacts,
+  perf? : HotPerfSession? = None,
+) -> DaePassResult {
+  let imported = dae_imported_func_count(mod_)
+  let defined = dae_defined_func_count(mod_)
+  let callee_abs = imported + def_idx
+  if def_idx < 0 ||
+    def_idx >= defined ||
+    callee_abs >= call_facts.direct_calls.length() {
+    return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  let direct_call_count = call_facts.direct_calls[callee_abs]
+  let dropped_call_count = if callee_abs < call_facts.dropped_calls.length() {
+    call_facts.dropped_calls[callee_abs]
+  } else {
+    0
+  }
+  let caller_defs = if callee_abs < call_facts.direct_callers.length() {
+    call_facts.direct_callers[callee_abs]
+  } else {
+    []
+  }
+  let result = dae_try_remove_dropped_results(
+    mod_,
+    callee_abs,
+    direct_call_count,
+    dropped_call_count,
+    perf~,
+    caller_defs=Some(caller_defs),
+  )
+  if result.changed {
+    let touched = if result.touched.length() == defined {
+      result.touched
+    } else {
+      let fallback = Array::make(defined, false)
+      if def_idx < fallback.length() {
+        fallback[def_idx] = true
+      }
+      fallback
+    }
+    return {
+      mod_out: result.mod_out,
+      touched,
+      changed: true,
+      primary_def: result.primary_def,
+    }
+  }
+  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+}
+
+///|
 fn dae_try_remove_selected_defs_dropped_results_with_facts_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -17525,57 +17579,67 @@ fn dae_try_remove_selected_defs_dropped_results_with_facts_once(
   let helper_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",
   )
-  let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
   let mut def_idx = 0
   while def_idx < defined && def_idx < selected_defs.length() {
     if selected_defs[def_idx] {
-      let callee_abs = imported + def_idx
-      if callee_abs < call_facts.direct_calls.length() {
-        let direct_call_count = call_facts.direct_calls[callee_abs]
-        let dropped_call_count = if callee_abs <
-          call_facts.dropped_calls.length() {
-          call_facts.dropped_calls[callee_abs]
-        } else {
-          0
-        }
-        let caller_defs = if callee_abs < call_facts.direct_callers.length() {
-          call_facts.direct_callers[callee_abs]
-        } else {
-          []
-        }
-        let result = dae_try_remove_dropped_results(
-          mod_,
-          callee_abs,
-          direct_call_count,
-          dropped_call_count,
-          perf~,
-          caller_defs=Some(caller_defs),
+      let result = dae_try_remove_dropped_result_def_with_facts(
+        mod_,
+        def_idx,
+        call_facts,
+        perf~,
+      )
+      if result.changed {
+        perf_stop_timer_opt(
+          perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",
+          helper_start_us,
         )
-        if result.changed {
-          let touched = if result.touched.length() == defined {
-            result.touched
-          } else {
-            let fallback = Array::make(defined, false)
-            if def_idx < fallback.length() {
-              fallback[def_idx] = true
-            }
-            fallback
-          }
-          perf_stop_timer_opt(
-            perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",
-            helper_start_us,
-          )
-          return {
-            mod_out: result.mod_out,
-            touched,
-            changed: true,
-            primary_def: result.primary_def,
-          }
-        }
+        return result
       }
     }
     def_idx += 1
+  }
+  perf_stop_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",
+    helper_start_us,
+  )
+  { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+}
+
+///|
+fn dae_try_remove_descending_dropped_results_with_facts_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+  call_facts : DaeCurrentCallFacts,
+  perf? : HotPerfSession? = None,
+) -> DaePassResult {
+  let helper_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",
+  )
+  let defined = dae_defined_func_count(mod_)
+  let limit = if defined < selected_defs.length() {
+    defined
+  } else {
+    selected_defs.length()
+  }
+  let mut def_idx = limit - 1
+  while def_idx >= 0 {
+    if selected_defs[def_idx] {
+      let result = dae_try_remove_dropped_result_def_with_facts(
+        mod_,
+        def_idx,
+        call_facts,
+        perf~,
+      )
+      if result.changed {
+        perf_stop_timer_opt(
+          perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",
+          helper_start_us,
+        )
+        return result
+      }
+    }
+    def_idx -= 1
   }
   perf_stop_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",
@@ -19964,9 +20028,14 @@ fn dae_run_core(
   let dropped_result_selected_defs_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs",
   )
-  if original_defined <= 4096 {
+  if original_defined <= 8192 {
+    let fact_dropped_result_limit = if original_defined <= 4096 {
+      32
+    } else {
+      1
+    }
     let mut fact_dropped_result_iter = 0
-    while fact_dropped_result_iter < 32 {
+    while fact_dropped_result_iter < fact_dropped_result_limit {
       let fact_dropped_result_call_facts = dae_collect_current_call_facts(
         current,
         original_imported + original_defined,
@@ -19974,12 +20043,21 @@ fn dae_run_core(
       let fact_dropped_result_defs = dae_collect_fact_dropped_result_candidate_defs(
         current, fact_dropped_result_call_facts,
       )
-      let fact_dropped_result = dae_try_remove_selected_defs_dropped_results_with_facts_once(
-        current,
-        fact_dropped_result_defs,
-        fact_dropped_result_call_facts,
-        perf~,
-      )
+      let fact_dropped_result = if original_defined <= 4096 {
+        dae_try_remove_selected_defs_dropped_results_with_facts_once(
+          current,
+          fact_dropped_result_defs,
+          fact_dropped_result_call_facts,
+          perf~,
+        )
+      } else {
+        dae_try_remove_descending_dropped_results_with_facts_once(
+          current,
+          fact_dropped_result_defs,
+          fact_dropped_result_call_facts,
+          perf~,
+        )
+      }
       if !fact_dropped_result.changed {
         break
       }
