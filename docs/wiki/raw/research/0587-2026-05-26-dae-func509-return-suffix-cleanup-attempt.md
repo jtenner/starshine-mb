@@ -11,7 +11,7 @@ This recovery run added focused coverage for two related cleanup shapes:
 - root `return` followed by allocation/store/value debris in `src/passes/dead_argument_elimination_wbtest.mbt` and a public `dae-optimizing` fixture in `src/passes/dae_optimizing_test.mbt`;
 - a narrow terminal wrapper-suffix shape that keeps an earlier result object after a tag/store sequence and drops the later `i32.const 8; call alloc; local.tee wrapper; tag store; i64.store; local.get wrapper` suffix.
 
-The implementation adds a final DAE cleanup hook plus narrow helpers in `src/passes/dead_argument_elimination.mbt`. The focused Moon tests pass and protect the intended syntactic cleanups.
+The implementation adds a final DAE cleanup hook plus narrow helpers in `src/passes/dead_argument_elimination.mbt`. A recovery follow-up fixed the pending lowered-return helper tuple/length bug and added a block-wrapped terminal-wrapper regression. The focused Moon tests now pass and protect the intended syntactic cleanups.
 
 ## Artifact replay
 
@@ -40,7 +40,7 @@ Result:
 - Binaryen pass runtime: `841.003ms`
 - Pass-local target: still missed (`Starshine > 2x Binaryen`)
 
-Trace spot-checking with `--tracing pass` still reports the earlier `module-raw-cleanup primary_def=215` but no final-return-suffix cleanup hit on the debug artifact, so the new syntactic helpers do not match the actual in-memory Func509 body shape before encoding/canonical printing.
+Trace spot-checking with `--tracing pass` still reports the earlier `module-raw-cleanup primary_def=215` but no final-return-suffix cleanup hit on the debug artifact, so the new syntactic helpers do not match the actual in-memory Func509 body shape before encoding/canonical printing. The recovery replay `.tmp/dae006-return-suffix-recovery-20260526` likewise stayed at `defined=509 abs=526` (`2870.440ms` Starshine pass versus `867.327ms` Binaryen pass).
 
 ## Validation
 
@@ -56,4 +56,4 @@ The current Func509 frontier remains **semantic-safe, size-losing dead/fallthrou
 
 ## Next step
 
-Instrument or reduce the actual pre-encode Starshine `@lib.Instruction` sequence for Func509, then write the next focused test against that exact flat shape. The current helpers cover plausible root-return and simple terminal-wrapper shapes but evidently miss the real lowered sequence used by the debug artifact.
+Reduce the actual pre-encode Starshine Func509 `@lib.Instruction` sequence printed by `--print-func 526`: the live raw shape is an outer `block I64` whose inner body reaches `local.get $20; return`, followed by `local.set $2` and an 8-byte wrapper allocation/store suffix. Prove whether all exits return the earlier object or whether a branch can still make the wrapper live before writing a cleanup for that exact outer-block shape. The current helpers cover plausible root-return and simple terminal-wrapper shapes but still miss the real lowered sequence used by the debug artifact.

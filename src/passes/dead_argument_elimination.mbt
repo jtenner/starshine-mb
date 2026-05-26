@@ -10292,11 +10292,70 @@ fn dae_try_strip_terminal_dead_wrapper_suffix_at(
 }
 
 ///|
+fn dae_try_strip_terminal_lowered_return_wrapper_suffix_at(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+) -> Array[@lib.Instruction]? {
+  if idx < 1 || idx + 11 != instrs.length() {
+    return None
+  }
+  let returned_local = match instrs[idx - 1] {
+    @lib.LocalGet(local_idx) => local_idx
+    _ => return None
+  }
+  let return_temp = match instrs[idx + 1] {
+    @lib.LocalTee(local_idx) => local_idx
+    _ => return None
+  }
+  let wrapper_local = match instrs[idx + 4] {
+    @lib.LocalTee(local_idx) => local_idx
+    _ => return None
+  }
+  match
+    (
+      instrs[idx],
+      instrs[idx + 2],
+      instrs[idx + 3],
+      instrs[idx + 5],
+      instrs[idx + 6],
+      instrs[idx + 7],
+      instrs[idx + 8],
+      instrs[idx + 9],
+      instrs[idx + 10],
+    ) {
+    (
+      @lib.Return,
+      @lib.I32Const(@lib.I32(8)),
+      @lib.Call(_),
+      @lib.I32Const(@lib.I32(2097153)),
+      @lib.I32Store(_),
+      @lib.LocalGet(wrapper_addr),
+      @lib.LocalGet(stored_value),
+      @lib.I64Store(_),
+      @lib.LocalGet(wrapper_result),
+    ) if dae_local_idx_equal(wrapper_addr, wrapper_local) &&
+      dae_local_idx_equal(wrapper_result, wrapper_local) &&
+      dae_local_idx_equal(stored_value, return_temp) => ()
+    _ => return None
+  }
+  let out = dae_copy_instr_prefix(instrs, idx)
+  ignore(returned_local)
+  Some(out)
+}
+
+///|
 fn dae_strip_root_return_suffix_instrs(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
   let mut suffix_idx = 0
   while suffix_idx < instrs.length() {
+    match
+      dae_try_strip_terminal_lowered_return_wrapper_suffix_at(
+        instrs, suffix_idx,
+      ) {
+      Some(rewritten) => return (rewritten, true)
+      None => ()
+    }
     match dae_try_strip_terminal_dead_wrapper_suffix_at(instrs, suffix_idx) {
       Some(rewritten) => return (rewritten, true)
       None => ()

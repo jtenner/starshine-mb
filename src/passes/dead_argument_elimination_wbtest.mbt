@@ -1990,6 +1990,103 @@ test "dae final return suffix cleanup strips dead wrapper allocation debris" {
 }
 
 ///|
+test "dae final return suffix cleanup strips block wrapped terminal wrapper debris" {
+  let store4 = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(4UL))
+  let store8 = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(8UL))
+  let body = [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(7U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(45U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(8U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(45U)),
+        @lib.Instruction::i32_const(@lib.I32(4)),
+        @lib.Instruction::call(@lib.FuncIdx::new(24U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(10U)),
+        @lib.Instruction::i32_const(@lib.I32(1048832)),
+        @lib.Instruction::i32_store(store4),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(10U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(9U)),
+        @lib.Instruction::i32_store(store8),
+        @lib.Instruction::i32_const(@lib.I32(8)),
+        @lib.Instruction::call(@lib.FuncIdx::new(24U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(11U)),
+        @lib.Instruction::i32_const(@lib.I32(2097153)),
+        @lib.Instruction::i32_store(store4),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(11U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(10U)),
+        @lib.Instruction::i64_store(store8),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(11U)),
+      ]),
+    ),
+  ]
+  let (rewritten, changed) = dae_strip_root_return_suffix_instrs(body)
+  assert_true(changed)
+  assert_eq(rewritten, [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(7U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(45U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(8U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(45U)),
+        @lib.Instruction::i32_const(@lib.I32(4)),
+        @lib.Instruction::call(@lib.FuncIdx::new(24U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(10U)),
+        @lib.Instruction::i32_const(@lib.I32(1048832)),
+        @lib.Instruction::i32_store(store4),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(10U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(9U)),
+        @lib.Instruction::i32_store(store8),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(10U)),
+      ]),
+    ),
+  ])
+}
+
+///|
+test "dae final return suffix cleanup strips lowered return wrapper debris" {
+  let store4 = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(4UL))
+  let store8 = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(8UL))
+  let body = [
+    @lib.Instruction::i32_const(@lib.I32(4)),
+    @lib.Instruction::call(@lib.FuncIdx::new(7U)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(10U)),
+    @lib.Instruction::i32_const(@lib.I32(1048832)),
+    @lib.Instruction::i32_store(store4),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(10U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(9U)),
+    @lib.Instruction::i32_store(store8),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(10U)),
+    @lib.Instruction::return_(),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::i32_const(@lib.I32(8)),
+    @lib.Instruction::call(@lib.FuncIdx::new(7U)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(11U)),
+    @lib.Instruction::i32_const(@lib.I32(2097153)),
+    @lib.Instruction::i32_store(store4),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(11U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::i64_store(store8),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(11U)),
+  ]
+  let (rewritten, changed) = dae_strip_root_return_suffix_instrs(body)
+  assert_true(changed)
+  assert_eq(rewritten, [
+    @lib.Instruction::i32_const(@lib.I32(4)),
+    @lib.Instruction::call(@lib.FuncIdx::new(7U)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(10U)),
+    @lib.Instruction::i32_const(@lib.I32(1048832)),
+    @lib.Instruction::i32_store(store4),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(10U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(9U)),
+    @lib.Instruction::i32_store(store8),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(10U)),
+  ])
+}
+
+///|
 test "dae terminal call local set operands inline in order" {
   let temp0 = @lib.LocalIdx::new(3U)
   let temp1 = @lib.LocalIdx::new(4U)
