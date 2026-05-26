@@ -3265,6 +3265,41 @@ test "dae-optimizing materializes selected Func505 literal actual" {
 }
 
 ///|
+test "dae-optimizing inverts zero-eq value branch after selected Func505 rewrite" {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < 505; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32 i32) (result i32)
+      #|    (local i32)
+      #|    i32.const 1
+      #|    local.set 2
+      #|    local.get 2
+      #|    i32.const 0
+      #|    i32.eq
+      #|    if (result i32)
+      #|      i32.const -1
+      #|    else
+      #|      local.get 0
+      #|    end)
+      #|  (func (export "run") (param i32) (result i32)
+      #|    local.get 0
+      #|    i32.const 55168
+      #|    call $target)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  @debug.assert_eq(dae_test_func_params(optimized, 505).length(), 1)
+  let target = optimized.pretty_print_defined_func(505U)
+  assert_false(target.contains("55168"), msg=target)
+  assert_false(target.contains("i32.eq"), msg=target)
+}
+
+///|
 test "dae-optimizing materializes immutable global actuals for the mid-prefix exact literal slice" {
   let out = StringBuilder::new()
   out.write_string("(module\n")

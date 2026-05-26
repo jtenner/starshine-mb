@@ -1142,6 +1142,7 @@ fn dae_simplify_default_zero_high_guard_instrs(
 ///|
 fn dae_simplify_rewritten_control_instrs(
   instrs : Array[@lib.Instruction],
+  invert_zero_eq_if : Bool,
 ) -> Array[@lib.Instruction] {
   let rewritten : Array[@lib.Instruction] = []
   for instr in instrs {
@@ -1150,29 +1151,39 @@ fn dae_simplify_rewritten_control_instrs(
         @lib.Block(block_type, @lib.Expr(body)) =>
           @lib.Instruction::block(
             block_type,
-            @lib.Expr::new(dae_simplify_rewritten_control_instrs(body)),
+            @lib.Expr::new(
+              dae_simplify_rewritten_control_instrs(body, invert_zero_eq_if),
+            ),
           )
         @lib.Loop(block_type, @lib.Expr(body)) =>
           @lib.Instruction::loop_(
             block_type,
-            @lib.Expr::new(dae_simplify_rewritten_control_instrs(body)),
+            @lib.Expr::new(
+              dae_simplify_rewritten_control_instrs(body, invert_zero_eq_if),
+            ),
           )
         @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
           @lib.Instruction::try_table(
             block_type,
             catches,
-            @lib.Expr::new(dae_simplify_rewritten_control_instrs(body)),
+            @lib.Expr::new(
+              dae_simplify_rewritten_control_instrs(body, invert_zero_eq_if),
+            ),
           )
         @lib.If(block_type, then_body, Some(else_body)) =>
           @lib.Instruction::if_(
             block_type,
-            dae_simplify_rewritten_control_instrs(then_body),
-            Some(dae_simplify_rewritten_control_instrs(else_body)),
+            dae_simplify_rewritten_control_instrs(then_body, invert_zero_eq_if),
+            Some(
+              dae_simplify_rewritten_control_instrs(
+                else_body, invert_zero_eq_if,
+              ),
+            ),
           )
         @lib.If(block_type, then_body, None) =>
           @lib.Instruction::if_(
             block_type,
-            dae_simplify_rewritten_control_instrs(then_body),
+            dae_simplify_rewritten_control_instrs(then_body, invert_zero_eq_if),
             None,
           )
         _ => instr
@@ -1182,6 +1193,22 @@ fn dae_simplify_rewritten_control_instrs(
   let out : Array[@lib.Instruction] = []
   let mut idx = 0
   while idx < rewritten.length() {
+    if invert_zero_eq_if && idx + 2 < rewritten.length() {
+      match (rewritten[idx], rewritten[idx + 1], rewritten[idx + 2]) {
+        (
+          @lib.I32Const(@lib.I32(0)),
+          @lib.I32Eq,
+          @lib.If(block_type, then_body, Some(else_body)),
+        ) => {
+          out.push(
+            @lib.Instruction::if_(block_type, else_body, Some(then_body)),
+          )
+          idx += 3
+          continue
+        }
+        _ => ()
+      }
+    }
     if idx + 1 < rewritten.length() {
       match (dae_negate_compare_instr(rewritten[idx]), rewritten[idx + 1]) {
         (Some(negated), @lib.If(block_type, then_body, Some(else_body))) if block_type ==
@@ -2920,6 +2947,7 @@ fn dae_try_rewrite_candidate(
         kept_params.length(),
         rewritten_written_locals,
       ),
+      def_idx == 505,
     ),
   )
   rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
@@ -16817,6 +16845,7 @@ fn dae_try_rewrite_selected_func323_global_suffix_once(
         dae_rewrite_param_const_instrs(old_body, const_params),
         local_map,
       ),
+      false,
     ),
   )
   let new_locals = @lib.Locals::from_types(removed_written_types)
@@ -18660,6 +18689,7 @@ fn dae_try_remove_func3737_wrapper_suffix_param_once(
         kept_params.length(),
         rewritten_written_locals,
       ),
+      def_idx == 505,
     ),
   )
   rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(

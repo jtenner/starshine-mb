@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-25] passes | dae DAE006 Func505 empty-count branch cleanup
+
+- Closed the final empty-input count branch subshape from `[DAE]006` with a focused selected-Func505 regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) and a guarded optional rewrite in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt). The cleanup rewrites `(x == 0 ? A : B)` to `(x ? B : A)` only for selected Func505 candidate rewrites, after a broader probe moved the diagnostic first diff backward to unrelated `defined=233 abs=250`.
+- Evidence is recorded in [`raw/research/0580-2026-05-25-dae-func505-empty-count-branch-inversion.md`](raw/research/0580-2026-05-25-dae-func505-empty-count-branch-inversion.md). The current both-canonical replay `.tmp/dae-func505-inverted-count-artifact` still first-diffs at `defined=505 abs=522`; both canonical wasm outputs validate, and pass-local timing remains over target (`3068.534ms` Starshine versus `955.834ms` Binaryen).
+- Agent classification: the branch inversion subshape is semantic-safe representation/cleanup improvement; the remaining Func505 loop induction, digit/underscore guard, overflow/error-construction, and temp-local reuse drift remains unknown/risky and keeps `[DAE]006` open. Validation included failing then passing `moon test src/passes`, `moon build --target native --release --package jtenner/starshine/cmd`, the both-canonical artifact replay, and `wasm-opt --all-features` on both canonical outputs.
+
 ## [2026-05-25] passes | dae DAE006 Func505 successor frontier
 
 - Completed the `[DAE]006` successor artifact replay requested after the default-zero guard cleanup. `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --starshine-bin target/native/release/build/cmd/cmd.exe --dae-optimizing --canonicalize-binaryen-output --out-dir .tmp/dae-func505-recovery-artifact` now completes and reports first diff `defined=505 abs=522`.
