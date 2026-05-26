@@ -221,7 +221,9 @@ export function runPassFuzzCompareListPassesCommandTest(): void {
   assert(result.stdout.includes("code-pushing"), `expected code-pushing in list output:\n${result.stdout}`);
   assert(result.stdout.includes("tuple-optimization"), `expected tuple-optimization in list output:\n${result.stdout}`);
   assert(result.stdout.includes("dae-optimizing"), `expected dae-optimizing in list output:\n${result.stdout}`);
+  assert(result.stdout.includes("simplify-globals"), `expected simplify-globals in list output:\n${result.stdout}`);
   assert(result.stdout.includes("simplify-globals-optimizing"), `expected simplify-globals-optimizing in list output:\n${result.stdout}`);
+  assert(result.stdout.includes("propagate-globals-globally"), `expected propagate-globals-globally in list output:\n${result.stdout}`);
   assert(result.stdout.includes("simplify-locals-notee-nostructure"), `expected simplify-locals-notee-nostructure in list output:\n${result.stdout}`);
   assert(!result.stdout.includes("--remove-unused-brs"), `expected canonical names without -- prefix:\n${result.stdout}`);
 }

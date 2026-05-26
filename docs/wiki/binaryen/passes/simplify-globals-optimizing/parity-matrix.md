@@ -37,6 +37,7 @@ sources:
   - ../../../raw/research/0696-2026-05-26-sgo-exact-typed-element-replacement.md
   - ../../../raw/research/0697-2026-05-26-sgo-typed-element-guardrail-closeout.md
   - ../../../raw/research/0698-2026-05-26-sgo-startup-copy-chain-closeout.md
+  - ../../../raw/research/0699-2026-05-26-sgo-shared-family-exposure.md
   - ../../../../../src/passes/simplify_globals_optimizing.mbt
   - ../../../../../src/passes/simplify_globals_optimizing_test.mbt
 related:
@@ -79,7 +80,7 @@ Status labels:
 | Typed element item-expression preservation | **partially implemented / exact-type subset; broader cases evidence-gated** | Starshine now rewrites exact-type immutable constant `global.get` item expressions in typed element segments, including exact aliases, per [`0696`](../../../raw/research/0696-2026-05-26-sgo-exact-typed-element-replacement.md). [`0697`](../../../raw/research/0697-2026-05-26-sgo-typed-element-guardrail-closeout.md) pins the conservative boundary with focused guardrails for nested/refinalization-sensitive `global.get; ref.as_non_null` and object-identity-sensitive `struct.new_default` typed element globals. It still preserves non-exact, non-constant, nested, subtype/refinalization-sensitive, descriptor-sensitive, and object-identity-sensitive typed element expressions to avoid invalid type/refinalization drift. |
 | Optimizing wrapper touched-function tracking | **implemented for current scheduler** | Code rewrites mark touched functions; startup-only rewrites do not. Nested cleanup is function-filtered. |
 | Nested default cleanup sequence | **partially implemented / artifact-tuned** | Starshine uses an accepted pruned nested list without `precompute-propagate`; Binaryen runs the full default function optimization pipeline per changed function. Exact scheduler parity remains `[SGO]004`, not `[SGO]003`. |
-| Plain `simplify-globals` / `propagate-globals-globally` shared-engine relationship | **missing as a shared local engine** | `simplify-globals-optimizing` owns the current active implementation. Plain `simplify-globals` and `propagate-globals-globally` remain boundary-only; a future shared substrate should expose the same core with variant-specific wrappers. |
+| Plain `simplify-globals` / `propagate-globals-globally` shared-engine relationship | **implemented for v0.1.0 / `[SGO]003H` accepted** | [`0699`](../../../raw/research/0699-2026-05-26-sgo-shared-family-exposure.md) activates `simplify-globals` as the shared SGO core without the optimizing nested cleanup rerun, keeps `simplify-globals-optimizing` on the existing core-plus-cleanup wrapper, and activates `propagate-globals-globally` as the startup/global-only wrapper that preserves function bodies and disables single-use complex-initializer inlining. Direct fuzz for both newly active siblings had `0` mismatches and `0` Starshine validation failures under the configured command-failure stop. |
 
 ## 2026-05-20 implementation slices
 

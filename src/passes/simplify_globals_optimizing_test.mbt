@@ -263,14 +263,104 @@ fn sgo_test_first_typed_elem_expr_instr(
 }
 
 ///|
-test "simplify-globals-optimizing registers as an active module pass" {
-  match pass_registry_lookup("simplify-globals-optimizing") {
-    Some(entry) => {
-      @debug.assert_eq(entry.category, HotPassRegistryCategory::module_pass())
-      @debug.assert_eq(entry.descriptor, None)
+test "simplify-globals family registers distinct active module passes" {
+  for
+    pass_name in [
+      "simplify-globals", "simplify-globals-optimizing", "propagate-globals-globally",
+    ] {
+    match pass_registry_lookup(pass_name) {
+      Some(entry) => {
+        @debug.assert_eq(entry.category, HotPassRegistryCategory::module_pass())
+        @debug.assert_eq(entry.descriptor, None)
+      }
+      None => fail("expected \{pass_name} registry entry")
     }
-    None => fail("expected simplify-globals-optimizing registry entry")
   }
+}
+
+///|
+test "plain simplify-globals rewrites code without optimizing nested cleanup" {
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(
+        (
+          #|(module
+          #|  (global $g (mut i32) (i32.const 41))
+          #|  (func (export "run") (result i32)
+          #|    global.get $g
+          #|    i32.const 1
+          #|    i32.add))
+          #|,
+        ),
+      ),
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["simplify-globals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => abort("expected simplify-globals success, got \{err}")
+  }
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(41)"), msg=pretty)
+  assert_true(pretty.contains("i32.add"), msg=pretty)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(
+    trace.any(fn(line) {
+      line.contains("pass[simplify-globals-optimizing]:nested-pass")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "propagate-globals-globally rewrites startup expressions but preserves function bodies" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (global $root i32 (i32.const 42))
+        #|  (global $copy i32 (global.get $root))
+        #|  (func (export "run") (result i32)
+        #|    global.get $root))
+        #|,
+      ),
+      ["propagate-globals-globally"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => abort("expected propagate-globals-globally success, got \{err}")
+  }
+
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 1), [
+    @lib.Instruction::i32_const(42),
+  ])
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "propagate-globals-globally does not single-use inline complex initializer expressions" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (global $expr i32 (i32.mul (i32.const 6) (i32.const 7)))
+        #|  (global $copy i32 (global.get $expr)))
+        #|,
+      ),
+      ["propagate-globals-globally"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => abort("expected propagate-globals-globally success, got \{err}")
+  }
+
+  @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 1), [
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+  ])
 }
 
 ///|

@@ -1,6 +1,16 @@
 ///|
+pub fn simplify_globals_summary() -> String {
+  "Simplify private global state without the optimizing nested cleanup rerun."
+}
+
+///|
 pub fn simplify_globals_optimizing_summary() -> String {
   "Simplify private global state and rerun default function cleanup on changed functions."
+}
+
+///|
+pub fn propagate_globals_globally_summary() -> String {
+  "Propagate immutable global constants through startup-level expressions."
 }
 
 ///|
@@ -4663,6 +4673,7 @@ fn sgo_rewrite_global_sec(
   global_sec : @lib.GlobalSec?,
   infos : Array[SgoGlobalInfo],
   imported_globals : Int,
+  allow_single_use_inlines? : Bool = true,
 ) -> (@lib.GlobalSec?, Array[@lib.Instruction?], Array[@lib.GlobalIdx?], Bool) {
   let startup_consts = sgo_build_initial_startup_consts(infos)
   let aliases = sgo_empty_global_idx_array(infos.length())
@@ -4689,7 +4700,10 @@ fn sgo_rewrite_global_sec(
         infos[abs_idx].init = Some(rewritten_init)
         startup_consts[abs_idx] = sgo_expr_single_const(rewritten_init)
         sgo_record_alias_for_global(aliases, infos, abs_idx, rewritten_init)
-        if !info.imported && !info.mutable_ && info.read_count == 1 {
+        if allow_single_use_inlines &&
+          !info.imported &&
+          !info.mutable_ &&
+          info.read_count == 1 {
           init_inlines[abs_idx] = Some(rewritten_init)
         }
         out.push(
@@ -5478,6 +5492,46 @@ fn sgo_build_module(
     name_sec=mod_.name_sec,
     raw_name_sec_payload=mod_.raw_name_sec_payload,
   )
+}
+
+///|
+fn sgo_run_startup_only_core(mod_ : @lib.Module) -> @lib.Module {
+  let (infos, imported_globals) = sgo_collect_global_infos(mod_)
+  let (next_global_sec, startup_consts, _, global_changed) = sgo_rewrite_global_sec(
+    mod_.global_sec,
+    infos,
+    imported_globals,
+    allow_single_use_inlines=false,
+  )
+  let remove_sets = Array::make(infos.length(), false)
+  let (next_table_sec, table_changed) = sgo_rewrite_table_sec(
+    mod_.table_sec,
+    startup_consts,
+    remove_sets,
+  )
+  let (next_elem_sec, elem_changed) = sgo_rewrite_elem_sec(
+    mod_.elem_sec,
+    startup_consts,
+    remove_sets,
+    infos,
+  )
+  let (next_data_sec, data_changed) = sgo_rewrite_data_sec(
+    mod_.data_sec,
+    startup_consts,
+    remove_sets,
+  )
+  if !(global_changed || table_changed || elem_changed || data_changed) {
+    mod_
+  } else {
+    sgo_build_module(
+      mod_,
+      next_global_sec,
+      next_table_sec,
+      next_elem_sec,
+      next_data_sec,
+      mod_.code_sec,
+    )
+  }
 }
 
 ///|

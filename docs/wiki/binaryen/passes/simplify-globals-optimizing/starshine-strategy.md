@@ -49,7 +49,7 @@ The current local strategy is therefore a partial-implementation map:
 - treat it as a module/global pass rather than a HOT-local peephole,
 - preserve the canonical late-post-pass slot without widening public `optimize` / `shrink` presets yet,
 - keep the `SGO` backlog split visible because the shared global engine and artifact parity remain incomplete,
-- keep the sibling relation to plain `simplify-globals` and `propagate-globals-globally` explicit,
+- keep the sibling relation to plain `simplify-globals` and `propagate-globals-globally` explicit through the shared local core,
 - document any active subset instead of implying the current implementation already models the full Binaryen late global pass.
 
 ## Exact local code map today
@@ -58,7 +58,7 @@ The fast read-along path is:
 
 - active module-pass registry entry
   - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-    - `pass_registry_entries()` includes `"simplify-globals-optimizing"` as a module pass, while plain `"simplify-globals"` remains boundary-only.
+    - `pass_registry_entries()` includes `"simplify-globals"`, `"simplify-globals-optimizing"`, and `"propagate-globals-globally"` as distinct active module passes.
 - module-pass dispatcher
   - [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
     - `run_hot_pipeline_apply_module_pass(...)` routes the pass to the SGO core and then to a touched-function nested cleanup lane.
@@ -84,7 +84,7 @@ The fast read-along path is:
 
 `src/passes/optimize.mbt` now keeps `simplify-globals-optimizing` in the active module-pass registry.
 This is the correct shape for the first implementation slice because the pass needs module-wide global facts, startup-order rewrites, function-body substitutions, and an optimizer rerun over changed functions.
-Plain `simplify-globals` remains boundary-only until the shared engine is exposed deliberately under that smaller public contract.
+Plain `simplify-globals` is now deliberately exposed under the smaller public contract: it runs the shared global-simplification core and skips the optimizing nested cleanup rerun. `propagate-globals-globally` is also exposed as the startup/global-only wrapper that preserves function bodies and disables complex single-use initializer inlining.
 
 ### 2. Explicit requests run the partial implementation
 
@@ -147,7 +147,7 @@ The pass must eventually compose with boundary/module scheduling next to `duplic
 Do not overread the active registry entry.
 Starshine still lacks:
 
-- a shared owner for the plain `simplify-globals` / optimizing / `propagate-globals-globally` family,
+- broader sibling-specific behavior beyond the accepted shared-core `simplify-globals` wrapper and startup-only `propagate-globals-globally` wrapper from [`0699`](../../../raw/research/0699-2026-05-26-sgo-shared-family-exposure.md),
 - broader same-as-init expression matching beyond the landed direct literal/ref-null/ref.func write shape and the probed defined-`global.get`/alias-init repeated-run boundary; the 2026-05-23 probe inventory found read-present block-wrapped same-init and alias-init one-shot shapes were not Binaryen positives, so future same-init work needs a fresh positive rather than an expression-equivalence assumption,
 - any full-loop FlowScanner claim beyond the current non-branching value-loop self-guard subset; direct reads and simple nontrapping pure chains into adjacent direct, `i32.eqz`, compare-const, or reverse compare-const consumers are covered, no-op const/drop prefixes are already handled by the shared condition matchers, the exact independent `global.set`, `local.set`, `i32.store`, `i64.store`, integer subword store, `f32.store`, `f64.store`, `table.set`, `memory.fill`, `memory.copy`, `memory.init`, `table.fill`, `table.init`, `table.copy`, dropped-result `memory.grow` / `table.grow`, and operandless `elem.drop` / `data.drop` prefix shapes are covered and closed as an evidence-gated micro-series in 0691, and broader branch/control/trapping/effectful loop bodies remain deferred without fresh oracle fixtures,
 - broader `read-only-to-write` structural matching and its whole-pass iteration beyond the landed adjacent/eqz/bidirectional compare-const/simple-pure-condition (now including i32 unary/bitwise/shift-rotate ops, i64 equality/compare and non-trapping value ops, plus f32/f64 compares), pure select self-guards, transparent, nested, block-wrapped-condition, block-yielded-condition, block-yielded operators after pure block condition bodies, block-yielded external pure-condition chains, block-yielded short external pure operators, block-yielded reverse external pure operators, no-op-condition-prefix, const-drop-body, and the conservative side-effecting-but-safe stack/value-flow positives where independent `local.set` / non-candidate `global.set` / `local.tee` / `i32.load` operands are preserved and a single actual `global.get` reaches only the final branch decision through supported pure/select/nested-arm flow, now including independent `call_indirect` / `call_ref` conditions with clean operands, clean arm-local `local.set` / non-candidate `global.set` / `local.tee`, scalar memory-load, `table.get`, or clean `table.set` / `i32.store` / `i64.store` / `i32.store8` / `i32.store16` / `i64.store8` / `i64.store16` / `i64.store32` / `f32.store` / `f64.store` / `memory.fill` / `memory.copy` / `memory.init` / `table.fill` / `table.init` / `table.copy` / `elem.drop` / `data.drop` effects, transparent arm value blocks, post-if `select` value uses, pure/ref/numeric post-if consumers after a nested-if arm result (`i32.eqz`, `ref.is_null`, ordinary `ref.test`, `ref.eq`, `ref.i31`, fact-sensitive `ref.i31`-fed `ref.as_non_null` / `i31.get_s` / `i31.get_u` including typed `select` results whose value operands are both proven `ref.i31`, `extern.convert_any`, `any.convert_extern`, int-to-float conversions, float demote/promote, saturating float-to-int truncations, float div), nested transparent block-result wrappers and matching non-branching value-loop wrappers around direct self-guards or supported nested-if flow, block-yielded supported size-query/SIMD FlowScanner chains in exact `if return; set` bodies, and clean condition if-wrappers that yield those supported size-query/SIMD chains; the remaining source-backed gap is the rest of Binaryen's `FlowScanner` surface rather than more isolated syntactic variants,
@@ -174,8 +174,9 @@ When implementation begins, validate in this order:
    - nested default function cleanup runs only where needed,
    - no `precompute-propagate` prefix is inserted for `SGO`;
 3. public-surface tests:
-   - `simplify-globals-optimizing` remains an active module pass,
-   - plain `simplify-globals` remains boundary-only until deliberately exposed,
+   - `simplify-globals`, `simplify-globals-optimizing`, and `propagate-globals-globally` remain distinct active module passes,
+   - plain `simplify-globals` skips optimizing nested cleanup,
+   - `propagate-globals-globally` remains startup/global-only and preserves function bodies,
    - `optimize` / `shrink` preset expansion changes only when the late-tail gap is intentionally closed;
 4. oracle comparison:
    - compare `--simplify-globals-optimizing` against Binaryen on reduced fixtures,

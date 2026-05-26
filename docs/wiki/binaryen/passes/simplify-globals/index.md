@@ -30,7 +30,7 @@ related:
 ## Role
 
 - `simplify-globals` is an upstream Binaryen late boundary/module pass.
-- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+- It is currently **active** in Starshine as the shared global-simplification core without the optimizing nested cleanup rerun; see [`../../../raw/research/0699-2026-05-26-sgo-shared-family-exposure.md`](../../../raw/research/0699-2026-05-26-sgo-shared-family-exposure.md).
 - The pass shares its upstream implementation file with [`../simplify-globals-optimizing/index.md`](../simplify-globals-optimizing/index.md) and [`../propagate-globals-globally/index.md`](../propagate-globals-globally/index.md).
 - The key semantic split is simple but important:
   - `simplify-globals` runs the global rewrite engine only
@@ -98,14 +98,14 @@ That final “then stop” is the big difference from `simplify-globals-optimizi
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the main positive, bailout, preserved, and easy-to-misread rewrite families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Exact current Starshine status and port map: boundary-only registry tracking, request-guard behavior, neighboring planning surfaces, and the practical local landing shape for a future module-pass port.
+  Exact current Starshine status and port map: active shared-core module-pass behavior, sibling boundaries, neighboring planning surfaces, and future parity work.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Practical first-slice and validation ladder for a future plain-pass port: fact-table analysis, startup propagation, runtime trace propagation, write cleanup, and late-neighborhood replay.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `simplify-globals` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real boundary/module pass for it.
+- Keep it marked as an active shared-core module pass unless a future regression reclassifies the sibling boundary.
 - Keep the relationship to [`../simplify-globals-optimizing/index.md`](../simplify-globals-optimizing/index.md) and [`../propagate-globals-globally/index.md`](../propagate-globals-globally/index.md) explicit instead of silently teaching the plain pass only through one sibling.
 
 ## Sources

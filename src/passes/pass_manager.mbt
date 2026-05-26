@@ -10881,11 +10881,14 @@ fn run_hot_pipeline_apply_module_pass(
     "local-cse" => local_cse_run_module_pass(mod_)
     "merge-locals" => merge_locals_run_module_pass(mod_)
     "duplicate-import-elimination" => die_run_module_pass(mod_)
+    "simplify-globals" =>
+      sgo_run_core(mod_, options.trace, perf=options.perf).mod_out
     "simplify-globals-optimizing" =>
       match run_hot_pipeline_apply_sgo_optimizing_module_pass(mod_, options) {
         Ok(next) => next
         Err(err) => return Err(err)
       }
+    "propagate-globals-globally" => sgo_run_startup_only_core(mod_)
     "dae-optimizing" | "dead-argument-elimination-optimizing" =>
       match run_hot_pipeline_apply_dae_optimizing_module_pass(mod_, options) {
         Ok(next) => next

@@ -55,9 +55,9 @@ The useful local status is:
 
 | Surface | Current state | Code / doc anchor |
 | --- | --- | --- |
-| Public pass name | known as boundary-only | [`src/passes/optimize.mbt#L127-L141`](../../../../../src/passes/optimize.mbt#L127-L141) |
-| Active request behavior | rejected honestly as boundary-only | [`src/passes/optimize.mbt#L518-L524`](../../../../../src/passes/optimize.mbt#L518-L524) |
-| Active presets | local `optimize` / `shrink` stop before the late Binaryen post-pass tail | [`docs/wiki/binaryen/no-dwarf-default-optimize-path.md#L35-L41`](../../no-dwarf-default-optimize-path.md#L35-L41) |
+| Public pass name | active module pass | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), [`0699`](../../../raw/research/0699-2026-05-26-sgo-shared-family-exposure.md) |
+| Active request behavior | runs the shared SGO core without optimizing nested cleanup | [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) |
+| Active presets | local `optimize` / `shrink` use the optimizing sibling in the late Binaryen post-pass tail | [`docs/wiki/binaryen/no-dwarf-default-optimize-path.md#L35-L41`](../../no-dwarf-default-optimize-path.md#L35-L41) |
 | Backlog | only the optimizing sibling has a dedicated slice today | [`agent-todo.md#L176-L182`](../../../../../agent-todo.md#L176-L182) |
 | Canonical placement | late global cleanup, before the module cleanup tail | [`docs/wiki/binaryen/no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md) |
 
@@ -108,9 +108,9 @@ Use this validation order when implementation starts.
 
 Before the pass is implemented, existing behavior should remain:
 
-- `simplify-globals` is boundary-only;
-- explicit active requests fail with the boundary-only error;
-- presets do not silently include it.
+- `simplify-globals` is an active module pass;
+- explicit active requests run the shared core and skip optimizing nested cleanup;
+- presets use `simplify-globals-optimizing`, not the plain sibling.
 
 When the implementation lands, update the registry classification and add the classification-change test in the same commit.
 

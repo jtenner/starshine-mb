@@ -276,8 +276,8 @@ Active v0.1.0 slices for full Binaryen parity
     - direct SGO 10k fuzz for any behavior change.
 
 - [SGO]003C - Full Read-Only-To-Write FlowScanner Parity
-  - Status: active after `[SGO]003A`; can proceed in small sub-slices.
-  - Goal: replace the remaining syntactic and partial FlowScanner gaps with a source-faithful value/effect scanner for Binaryen read-only-to-write detection.
+  - Status: accepted / evidence-gated for the currently evidenced v0.1.0 surface. Broad FlowScanner parity remains source-backed but future broadening now requires a fresh exact Binaryen-positive child slice with paired guardrails and direct SGO fuzz evidence.
+  - Goal: replace the remaining syntactic and partial FlowScanner gaps with a source-faithful value/effect scanner for Binaryen read-only-to-write detection when fresh evidence identifies a concrete missing shape.
   - Why: `read-only-to-write` and side-effecting-but-safe condition value-flow remain partial; full Binaryen parity requires recognizing all safe candidate-read-to-branch/control shapes while preserving traps, side effects, and extra reads.
   - Subtasks:
     - `[SGO]003C1` condition/control inventory: enumerate Binaryen-positive direct, `i32.eqz`, normal/reverse compare, `select`, block, loop, if, `try_table`, and exact `if return; set` shapes not yet covered;
@@ -349,24 +349,21 @@ Active v0.1.0 slices for full Binaryen parity
     - focused tests plus direct SGO 10k fuzz and validation evidence for any behavior change.
 
 - [SGO]003H - Shared Engine And Sibling Pass Exposure
-  - Status: active after SGO optimizing core parity is stable.
+  - Status: accepted on 2026-05-26. Evidence lives in `docs/wiki/raw/research/0699-2026-05-26-sgo-shared-family-exposure.md`.
   - Goal: expose Binaryen-family parity for plain `simplify-globals` and `propagate-globals-globally` without aliasing them incorrectly to the optimizing sibling.
-  - Why: Binaryen has related public surfaces using the same shared engine with different wrappers; Starshine currently keeps the plain/startup names boundary-only.
-  - Tasks:
-    - factor shared global-simplification machinery out of optimizing-only scheduling;
-    - add public registry/dispatcher tests proving `simplify-globals`, `simplify-globals-optimizing`, and `propagate-globals-globally` have distinct behavior;
-    - implement plain `simplify-globals` without nested cleanup;
-    - implement `propagate-globals-globally` as the startup/global-initializer subset if Binaryen exposes it for the target feature set;
-    - run direct 10k fuzz for each newly active pass name;
-    - update CLI/help/preset docs if public request behavior changes.
-  - Exit criteria:
-    - no boundary-only sibling remains unless explicitly out of scope;
-    - unknown pass names still reject;
-    - direct pass fuzz is green for every newly exposed sibling.
+  - Completed tasks:
+    - [x] kept the shared global-simplification core in `src/passes/simplify_globals_optimizing.mbt` while adding distinct wrappers;
+    - [x] added public registry/dispatcher tests proving `simplify-globals`, `simplify-globals-optimizing`, and `propagate-globals-globally` are distinct active module passes;
+    - [x] implemented plain `simplify-globals` as the shared core without nested cleanup;
+    - [x] implemented `propagate-globals-globally` as the startup/global-only subset, preserving function bodies and disabling SGO single-use complex-initializer inlining for this sibling;
+    - [x] added pass-fuzz-compare support for both newly active pass names;
+    - [x] ran direct 10k fuzz lanes: `.tmp/pass-fuzz-sgo-plain-sibling-0699-10000` and `.tmp/pass-fuzz-pgg-sibling-0699b-10000` both reported `6759/10000` compared, `0` mismatches, and `0` Starshine validation failures before the configured 20 Binaryen/tool command-failure stop.
+  - Future reopen criteria:
+    - a new direct fuzz mismatch, validation failure, source-backed sibling behavior gap, or preset scheduling requirement.
 
 - [SGO]004 - Exact Nested Default Cleanup Scheduler And Performance Parity
-  - Status: active for full self-optimization parity.
-  - Goal: match Binaryen's SGO optimizing wrapper: rerun the correct default function optimization sequence on every changed function, with no extra functions and no missing required cleanup slots.
+  - Status: accepted / evidence-gated on 2026-05-25. Evidence lives in `docs/wiki/raw/research/0666-2026-05-25-sgo-nested-cleanup-scheduler-deferral-audit.md`; future scheduler broadening needs a concrete mismatch, validation failure, artifact/code-size target, wall-time owner, or verifier reproduction.
+  - Goal: match or deliberately justify divergence from Binaryen's SGO optimizing wrapper: rerun the correct default function optimization sequence on every changed function, with no extra functions and no missing required cleanup slots.
   - Why: Starshine currently uses an accepted artifact-tuned pruned nested list and structural filters; Binaryen runs the full default function optimization pipeline per changed function. Full self-optimization parity may require exact scheduler behavior or a proven semantically equivalent schedule.
   - Tasks:
     - re-audit Binaryen `simplify-globals-optimizing` nested rerun source and saved no-DWARF optimize-path docs;

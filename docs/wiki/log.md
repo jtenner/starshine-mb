@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-26] binaryen | SGO shared family exposure
+
+- Added research note [`0699`](./raw/research/0699-2026-05-26-sgo-shared-family-exposure.md) for `[SGO]003H`, activating `simplify-globals` as the shared core without optimizing cleanup and `propagate-globals-globally` as the startup/global-only sibling.
+- Added focused tests proving the three SimplifyGlobals-family names are active module passes, plain `simplify-globals` rewrites code without nested cleanup, `propagate-globals-globally` rewrites startup expressions while preserving function bodies, and the startup-only sibling does not single-use-inline complex initializer expressions.
+- Validation passed: `moon test src/passes` (`1647/1647`), `moon fmt`, `moon info`, full `moon test` (`3723/3723`), direct `simplify-globals` fuzz at `.tmp/pass-fuzz-sgo-plain-sibling-0699-10000` (`6759/10000`, `0` mismatches, `0` Starshine validation failures), and direct `propagate-globals-globally` fuzz at `.tmp/pass-fuzz-pgg-sibling-0699b-10000` (`6759/10000`, `0` mismatches, `0` Starshine validation failures). The initial startup-only sibling mismatches were true pass-boundary mismatches and were fixed by disabling SGO single-use complex-initializer inlining for that wrapper.
+
 ## [2026-05-26] binaryen | SGO startup and copy-chain closeout
 
 - Added research note [`0698`](./raw/research/0698-2026-05-26-sgo-startup-copy-chain-closeout.md) for `[SGO]003G`, closing startup propagation, single-use initializer folding, and exact-type immutable copy-chain canonicalization as accepted / evidence-gated for v0.1.0.
