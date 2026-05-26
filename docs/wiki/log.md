@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE006 Func509 dead-return suffix frontier
+
+- Completed the successor both-canonical `dae-optimizing` artifact replay after the Func505 diagnostic normalizer. `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --starshine-bin target/native/release/build/cmd/cmd.exe --dae-optimizing --canonicalize-binaryen-output --out-dir .tmp/dae006-next-frontier-20260526` now first-diffs at `defined=509 abs=526` and writes `result.json`.
+- Recorded evidence in [`raw/research/0586-2026-05-26-dae-func509-dead-return-suffix-frontier.md`](raw/research/0586-2026-05-26-dae-func509-dead-return-suffix-frontier.md) and synced [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md), [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), and [`../../agent-todo.md`](../../agent-todo.md).
+- Agent classification: semantic-safe, size-losing dead-return-suffix cleanup gap. Starshine returns the same result object as Binaryen but leaves unreachable allocation/store/value debris after the function `return`; the next DAE006 step is a TDD pass cleanup for syntactically post-return suffix instructions, not a diagnostic normalizer. Both canonical outputs validate with only the existing large-local-count VM warning. Pass-local timing remains over target (`2923.619ms` Starshine versus `891.787ms` Binaryen).
+
 ## [2026-05-26] tooling | dae DAE006 Func505 diagnostic normalizer
 
 - Added a marker-rich diagnostic-only canonical-function normalizer in [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts) for the inspected Func505 parser-loop family from [`raw/research/0585-2026-05-26-dae-func505-diagnostic-normalizer.md`](raw/research/0585-2026-05-26-dae-func505-diagnostic-normalizer.md).
