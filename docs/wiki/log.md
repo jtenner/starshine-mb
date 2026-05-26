@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] docs | dae DAE005 raw frontier policy closure
+
+- Closed `[DAE]005` as a docs/backlog recovery slice: the default raw debug-artifact helper's `defined=336 abs=353` type-section/type-index first diff is now explicitly documented as a diagnostic boundary rather than active Func408/Func336 body work.
+- Synced [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md), [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), [`binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md), and [`../../agent-todo.md`](../../agent-todo.md) so future DAE recovery runs use both-canonical diagnostics for body-frontier work unless the raw byte-reference contract changes.
+- No pass behavior changed; no new fuzz/compare classification was needed for this policy-only closure.
+
 ## [2026-05-26] docs | dae DAE014 stale readiness/index wording cleanup
 
 - Refreshed [`binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md) so it no longer presents `dae-optimizing` as a pre-port boundary-only task; the current hold point is the remaining parity/runtime breadth of an active partial module pass.
