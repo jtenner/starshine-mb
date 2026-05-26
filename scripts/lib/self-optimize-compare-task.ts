@@ -103,7 +103,15 @@ const STARSHINE_FLAG_ALIASES = new Map<string, string>([
   ["--simplify-locals-no-structure", "--simplify-locals-nostructure"],
 ]);
 
-const UNSUPPORTED_PRESET_FLAGS = new Set(["--optimize", "--shrink"]);
+const BINARYEN_PRESET_FLAG_ALIASES = new Map<string, string>([
+  ["--optimize", "-O"],
+  ["--shrink", "-Os"],
+]);
+
+const STARSHINE_PRESET_FLAG_ALIASES = new Map<string, string>([
+  ["-O", "--optimize"],
+  ["-Os", "--shrink"],
+]);
 
 // Build a deterministic temp directory name so multiple runs can run without
 // clobbering each other (and still be easy to clean up).
@@ -113,19 +121,20 @@ function defaultOutDir(inputPath: string): string {
 }
 
 function normalizeBinaryenPassFlag(flag: string): string {
-  // Translate compatible Starshine-style flags to Binaryen CLI names; reject
-  // preset-style options that would alter whole-tool behavior.
-  if (UNSUPPORTED_PRESET_FLAGS.has(flag) || /^-O\d/.test(flag)) {
+  // Translate compatible Starshine-style flags to Binaryen CLI names. Preset
+  // flags are allowed so artifact signoff can compare the same public
+  // optimize/shrink modes on both tools.
+  if (/^-O\d/.test(flag)) {
     fail(`unsupported preset flag for self-optimize compare: ${flag}`);
   }
-  return BINARYEN_FLAG_ALIASES.get(flag) ?? flag;
+  return BINARYEN_PRESET_FLAG_ALIASES.get(flag) ?? BINARYEN_FLAG_ALIASES.get(flag) ?? flag;
 }
 
 function normalizeStarshinePassFlag(flag: string): string {
-  if (UNSUPPORTED_PRESET_FLAGS.has(flag) || /^-O\d/.test(flag)) {
+  if (/^-O\d/.test(flag)) {
     fail(`unsupported preset flag for self-optimize compare: ${flag}`);
   }
-  return STARSHINE_FLAG_ALIASES.get(flag) ?? flag;
+  return STARSHINE_PRESET_FLAG_ALIASES.get(flag) ?? STARSHINE_FLAG_ALIASES.get(flag) ?? flag;
 }
 
 function defaultBuiltStarshineBinPath(repoRoot: string): string {

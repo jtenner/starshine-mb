@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-26] tooling | Self-optimize preset helper and SGO retry
+
+- Added research note [`0701`](./raw/research/0701-2026-05-26-self-optimize-preset-helper-and-sgo-retry.md) for the `[SGO]005` compare-tooling blocker: `scripts/self-optimize-compare.ts` now accepts public preset flags, passing Starshine `--optimize` / `--shrink` through and mapping them to Binaryen `-O` / `-Os`; Binaryen-style `-O` / `-Os` inputs normalize back to Starshine's public preset flags, while numeric `-O2` remains rejected.
+- Added focused script coverage proving `--optimize` invokes Starshine with `--optimize` and Binaryen with `-O`; `bun scripts/test/self-optimize-compare-command.ts` passed.
+- The direct SGO artifact rerun at `.tmp/sgo005-direct-rerun-20260526` kept the same representation-only `defined=55 abs=76` default-local/carrier drift and still exceeded the 2x pass-local floor (`248.050ms` Starshine vs `112.609ms` Binaryen). The full `--optimize` self-compare now reaches execution instead of rejecting the flag, but timed out after 300s at `.tmp/sgo005-optimize-helper-20260526`, so the remaining full-preset blocker is the known `[WALL]001` runtime/attribution problem rather than helper argument parsing.
+
 ## [2026-05-26] binaryen | SGO full parity signoff attempt
 
 - Added research note [`0700`](./raw/research/0700-2026-05-26-sgo-full-parity-signoff-attempt.md) for `[SGO]005`, recording the final signoff attempt and keeping the slice active because artifact pass-local timing is slightly beyond the 2x Binaryen floor and the self-optimize helper rejects `--optimize` preset comparison.
