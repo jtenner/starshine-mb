@@ -3,6 +3,8 @@ kind: entity
 status: supported
 last_reviewed: 2026-05-26
 sources:
+  - ../../../raw/research/0617-2026-05-26-dae004-descending-order-unit.md
+  - ../../../raw/research/0616-2026-05-26-dae004-ninth-descending-candidate-probe.md
   - ../../../raw/research/0615-2026-05-26-dae004-eight-high-descending-candidates.md
   - ../../../raw/research/0614-2026-05-26-dae004-seven-high-descending-candidates.md
   - ../../../raw/research/0613-2026-05-26-dae004-six-high-descending-candidates.md

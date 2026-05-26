@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE004 descending order unit
+
+- Extracted the large-module descending selected-def traversal in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) into `dae_collect_descending_selected_def_candidates` and routed the dropped-result helper through it without changing the productive cap or fallback behavior.
+- Added `dae descending dropped-result scheduler orders high candidates without huge module` in [`../../src/passes/pass_manager_wbtest.mbt`](../../src/passes/pass_manager_wbtest.mbt), a narrow whitebox unit that proves high defs `4508..4500` are ordered before low candidates without constructing another 4k+ function optimizer fixture.
+- Recorded the diagnostic scaffold in [`raw/research/0617-2026-05-26-dae004-descending-order-unit.md`](raw/research/0617-2026-05-26-dae004-descending-order-unit.md). `[DAE]004` remains open; the note `0616` ninth-cap crash remains blocked/unknown-risky until the bounded productive-attempt loop or crashing full-suite case is isolated.
+
 ## [2026-05-26] research | dae DAE004 ninth descending candidate probe
 
 - Probed the next `[DAE]004` large-module scheduler step after the eight-high cap by temporarily extending the focused regression to nine high dropped-result callees and raising the `4096 < defined <= 8192` descending cap from `8` to `9`.

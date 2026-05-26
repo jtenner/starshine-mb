@@ -1,4 +1,23 @@
 ///|
+test "dae descending dropped-result scheduler orders high candidates without huge module" {
+  let selected_defs = Array::make(4600, false)
+  for i = 0; i < 40; i = i + 1 {
+    selected_defs[i] = true
+  }
+  for i = 4500; i < 4509; i = i + 1 {
+    selected_defs[i] = true
+  }
+  let candidates = dae_collect_descending_selected_def_candidates(
+    selected_defs, 4600,
+  )
+  @debug.assert_eq(candidates.length(), 49)
+  @debug.assert_eq(candidates[0], 4508)
+  @debug.assert_eq(candidates[1], 4507)
+  @debug.assert_eq(candidates[8], 4500)
+  @debug.assert_eq(candidates[9], 39)
+}
+
+///|
 test "dae selected dropped-result helper respects precomputed dropped-call facts" {
   let mod_ = pass_test_module_from_wat(
     (

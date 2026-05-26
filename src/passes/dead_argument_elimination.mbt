@@ -17607,6 +17607,27 @@ fn dae_try_remove_selected_defs_dropped_results_with_facts_once(
 }
 
 ///|
+fn dae_collect_descending_selected_def_candidates(
+  selected_defs : Array[Bool],
+  defined : Int,
+) -> Array[Int] {
+  let candidates : Array[Int] = []
+  let limit = if defined < selected_defs.length() {
+    defined
+  } else {
+    selected_defs.length()
+  }
+  let mut def_idx = limit - 1
+  while def_idx >= 0 {
+    if selected_defs[def_idx] {
+      candidates.push(def_idx)
+    }
+    def_idx -= 1
+  }
+  candidates
+}
+
+///|
 fn dae_try_remove_descending_dropped_results_with_facts_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
@@ -17617,29 +17638,23 @@ fn dae_try_remove_descending_dropped_results_with_facts_once(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",
   )
   let defined = dae_defined_func_count(mod_)
-  let limit = if defined < selected_defs.length() {
-    defined
-  } else {
-    selected_defs.length()
-  }
-  let mut def_idx = limit - 1
-  while def_idx >= 0 {
-    if selected_defs[def_idx] {
-      let result = dae_try_remove_dropped_result_def_with_facts(
-        mod_,
-        def_idx,
-        call_facts,
-        perf~,
+  for
+    def_idx in dae_collect_descending_selected_def_candidates(
+      selected_defs, defined,
+    ) {
+    let result = dae_try_remove_dropped_result_def_with_facts(
+      mod_,
+      def_idx,
+      call_facts,
+      perf~,
+    )
+    if result.changed {
+      perf_stop_timer_opt(
+        perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",
+        helper_start_us,
       )
-      if result.changed {
-        perf_stop_timer_opt(
-          perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",
-          helper_start_us,
-        )
-        return result
-      }
+      return result
     }
-    def_idx -= 1
   }
   perf_stop_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",
