@@ -12359,6 +12359,74 @@ test "simplify-globals-optimizing removes loop-wrapped independent table-fill ef
 }
 
 ///|
+test "simplify-globals-optimizing removes loop-wrapped independent table-init effect prefixes" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (table (export "tab") 2 funcref)
+      #|  (func $f)
+      #|  (elem $e func $f)
+      #|  (global $once (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    loop (result i32)
+      #|      i32.const 0
+      #|      i32.const 0
+      #|      i32.const 1
+      #|      table.init $e
+      #|      global.get $once
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $once
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("table.init"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing removes loop-wrapped independent table-copy effect prefixes" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (table (export "tab") 4 funcref)
+      #|  (global $once (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    loop (result i32)
+      #|      i32.const 0
+      #|      i32.const 1
+      #|      i32.const 1
+      #|      table.copy 0 0
+      #|      global.get $once
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $once
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), false),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_false(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("table.copy"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing keeps loop-wrapped candidate-derived table-fill prefixes conservative" {
   let optimized = sgo_test_run(
     (
@@ -12391,6 +12459,74 @@ test "simplify-globals-optimizing keeps loop-wrapped candidate-derived table-fil
   assert_true(pretty.contains("global.get"), msg=pretty)
   assert_true(pretty.contains("global.set"), msg=pretty)
   assert_true(pretty.contains("table.fill"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps loop-wrapped candidate-derived table-init prefixes conservative" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (table (export "tab") 2 funcref)
+      #|  (func $f)
+      #|  (elem $e func $f)
+      #|  (global $once (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    loop (result i32)
+      #|      global.get $once
+      #|      i32.const 0
+      #|      i32.const 1
+      #|      table.init $e
+      #|      global.get $once
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $once
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("table.init"), msg=pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps loop-wrapped candidate-derived table-copy prefixes conservative" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (table (export "tab") 4 funcref)
+      #|  (global $once (mut i32) (i32.const 0))
+      #|  (func (export "run")
+      #|    loop (result i32)
+      #|      global.get $once
+      #|      i32.const 1
+      #|      i32.const 1
+      #|      table.copy 0 0
+      #|      global.get $once
+      #|    end
+      #|    if
+      #|      i32.const 1
+      #|      global.set $once
+      #|    end))
+      #|,
+    ),
+  )
+
+  @debug.assert_eq(
+    try! sgo_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(@lib.ValType::i32(), true),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("global.set"), msg=pretty)
+  assert_true(pretty.contains("table.copy"), msg=pretty)
 }
 
 ///|
