@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] docs | dae DAE006 Func509 lowering-boundary closure
+
+- Added [`raw/research/0591-2026-05-26-dae-func509-lowering-boundary-closure.md`](raw/research/0591-2026-05-26-dae-func509-lowering-boundary-closure.md) to close the current `[DAE]006` both-canonical frontier slice.
+- Synced [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md), [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), and [`../../agent-todo.md`](../../agent-todo.md): the remaining Func509 `defined=509 abs=526` diff is now documented as a lowerer/diagnostic boundary rather than a DAE final-hook matcher miss.
+- Agent classification remains semantic-safe/size-losing: Starshine returns the same object as Binaryen, but the pre-encode IR still needs the value-block suffix that produces the later lowered wrapper debris. No pass behavior changed; validation for this docs/backlog closure slice reused the landed regressions and evidence from notes `0587` through `0590`, plus passing `git diff --check`, `moon info`, `moon fmt`, and `moon test` in this run.
+
 ## [2026-05-26] passes | dae DAE006 Func509 in-memory block suffix boundary
 
 - Added a focused safety regression in [`../../src/passes/dead_argument_elimination_wbtest.mbt`](../../src/passes/dead_argument_elimination_wbtest.mbt) for the exact function-level `block I64` plus wrapper suffix shape implied by `.tmp/dae-print-func526.err` `body_raw`.
