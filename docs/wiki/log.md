@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] tooling | dae DAE006 Func505 diagnostic normalizer
+
+- Added a marker-rich diagnostic-only canonical-function normalizer in [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts) for the inspected Func505 parser-loop family from [`raw/research/0585-2026-05-26-dae-func505-diagnostic-normalizer.md`](raw/research/0585-2026-05-26-dae-func505-diagnostic-normalizer.md).
+- Added [`../../scripts/test/self-optimize-compare-dae-func505-normalizer.ts`](../../scripts/test/self-optimize-compare-dae-func505-normalizer.ts), a fake-tool fixture that keeps normalized WAT text unequal while proving the canonical-function fallback now treats the classified Func505 representation-only family as equal.
+- No pass behavior, raw WAT equality, or wasm equality changed. A full both-canonical artifact replay with the normalizer timed out after 300s in this recovery run, so `[DAE]006` remains open for a future next-frontier replay/classification.
+
 ## [2026-05-26] docs | dae DAE014 index/source sync
 
 - Completed a DAE014 documentation recovery slice by syncing [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md) and [`../../agent-todo.md`](../../agent-todo.md) with the recent Func505 reduction notes [`0580`](raw/research/0580-2026-05-25-dae-func505-empty-count-branch-inversion.md) through [`0584`](raw/research/0584-2026-05-26-dae-func505-loop-carrier-reduction.md).

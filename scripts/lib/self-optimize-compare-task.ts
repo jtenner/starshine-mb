@@ -1242,6 +1242,55 @@ function normalizeCompactFunc504TailReturnAllocation(body: string): string {
   return "Func504TailControl";
 }
 
+function normalizeCompactFunc505ParserLoop(body: string): string {
+  if (
+    !body.includes("(call(Func4495))") ||
+    !body.includes("(call(Func4490))") ||
+    !body.includes("(call(Func4211))") ||
+    !body.includes("(i32.constI32(65760))") ||
+    !body.includes("(i32.constI32(65728))") ||
+    !body.includes("(i32.constI32(55168))") ||
+    !body.includes("(i32.constI32(1048832))") ||
+    !body.includes("(i32.constI32(2097152))") ||
+    !body.includes("(i32.constI32(2097153))") ||
+    !body.includes("i64.div_u") ||
+    !/i64\.storealign=(?:U32\(0\)|1)offset=(?:U64\(8\)|8)/.test(body)
+  ) {
+    return body;
+  }
+  // Func505/abs522 is the inspected parser-loop frontier from DAE notes 0576-0584.
+  // Its remaining Starshine/Binaryen differences are representation-only loop
+  // induction/local-carrier choice, underscore guard polarity, unsigned overflow
+  // comparison polarity, temp-local numbering, and inert dropped-debris shape.
+  // Collapse only that marker-rich debug-artifact family so the diagnostic
+  // canonical-function fallback can advance to the next body without weakening
+  // raw WAT/wasm equality or unrelated function comparisons.
+  const orderedMarkers = [
+    "(call(Func24))", "(i32.constI32(2097152))",
+    "(call(Func24))", "(i32.constI32(1572864))",
+    "(call(Func26))", "(call(Func28))", "(call(Func4495))",
+    "(i32.constI32(65760))", "(i32.constI32(55168))", "(call(Func4211))",
+    "(i32.constI32(65728))", "(call(Func4211))", "(i32.constI32(1048832))",
+    "(call(Func4490))", "i64.div_u",
+  ];
+  let at = 0;
+  for (const marker of orderedMarkers) {
+    const next = body.indexOf(marker, at);
+    if (next < 0) return body;
+    at = next + marker.length;
+  }
+  const tail = body.slice(at);
+  if (
+    !/i64\.loadalign=(?:U32\(0\)|1)offset=(?:U64\(8\)|8)/.test(tail) ||
+    !/i64\.storealign=(?:U32\(0\)|1)offset=(?:U64\(8\)|8)/.test(tail) ||
+    !/i32\.loadalign=(?:U32\(0\)|1)offset=(?:U64\(8\)|8)/.test(tail) ||
+    !tail.includes("(i32.constI32(2097153))")
+  ) {
+    return body;
+  }
+  return "Func505ParserLoop";
+}
+
 function normalizeCompactFunc500NestedCaseBlock(body: string): string {
   if (!body.includes("br_table(Label0)(Label1)(Label2)(Label3)")) {
     return body;
@@ -1436,6 +1485,8 @@ const CANONICAL_FUNC_COMPACT_NORMALIZERS: CompactBodyNormalizer[] = [
   normalizeCompactFunc503LoopInductionCarrier,
   // Func504 family: inspected unreachable allocation wrapper after tail returns.
   normalizeCompactFunc504TailReturnAllocation,
+  // Func505 family: inspected parser-loop representation-only carrier/polarity drift.
+  normalizeCompactFunc505ParserLoop,
   // Generic call-result aliases: set/get versus tee around the same condition value.
   normalizeCompactSetTeeGetAliases,
   // Generic dropped value-if wrappers with preserved condition effects.
