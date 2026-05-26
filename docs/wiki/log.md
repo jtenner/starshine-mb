@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] tests | dae DAE003 local-carrier negative guards
+
+- Added [`raw/research/0640-2026-05-26-dae003-local-carrier-negative-guards.md`](raw/research/0640-2026-05-26-dae003-local-carrier-negative-guards.md) and two focused [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) regressions.
+- The new DAE003-C negative guards prove the current non-adjacent constant carrier recognizer preserves the target parameter for `local.tee` prefixes and multiple same-local writes before the call actual.
+- Validation: `moon test src/passes` passed after fixing the first `local.tee` fixture to drop the tee result before the call actual. `[DAE003-C]` remains open for broader carrier policy and remaining negative surfaces.
+
 ## [2026-05-26] passes | dae DAE003 non-adjacent local-set carrier
 
 - Added [`raw/research/0639-2026-05-26-dae003-non-adjacent-local-set-carrier.md`](raw/research/0639-2026-05-26-dae003-non-adjacent-local-set-carrier.md), a focused regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), and a narrow local-set constant carrier recognizer in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
