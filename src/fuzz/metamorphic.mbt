@@ -24,6 +24,7 @@ pub enum MetamorphicValidTransform {
   AddDuplicateEquivalentMemory
   AddDuplicateEquivalentMemory64
   AddDuplicateEquivalentImportedMemory
+  AddDuplicateEquivalentImportedMemory64
   AddDuplicateEquivalentImportedFunction
   AddDuplicateEquivalentImportedImmutableI32Global
   AddDuplicateEquivalentImportedImmutableF32Global
@@ -489,6 +490,8 @@ pub fn metamorphic_valid_transform_id(
     AddDuplicateEquivalentMemory64 => "add-duplicate-equivalent-memory64"
     AddDuplicateEquivalentImportedMemory =>
       "add-duplicate-equivalent-imported-memory"
+    AddDuplicateEquivalentImportedMemory64 =>
+      "add-duplicate-equivalent-imported-memory64"
     AddDuplicateEquivalentImportedFunction =>
       "add-duplicate-equivalent-imported-function"
     AddDuplicateEquivalentImportedImmutableI32Global =>
@@ -2565,6 +2568,43 @@ fn metamorphic_add_duplicate_equivalent_imported_memory(
                 ),
               )
               duplicated = true
+            }
+          _ => ()
+        }
+      }
+    }
+    None => ()
+  }
+  mod.with_import_sec(@lib.ImportSec::new(imports))
+}
+
+///|
+fn metamorphic_add_duplicate_equivalent_imported_memory64(
+  mod : @lib.Module,
+) -> @lib.Module {
+  let imports = []
+  let mut duplicated = false
+  match mod.import_sec {
+    Some(@lib.ImportSec(existing)) => {
+      for import_ in existing {
+        imports.push(import_)
+      }
+      for import_ in existing {
+        match import_ {
+          @lib.Import(module_name, _, @lib.MemExternType(mem_type)) =>
+            match mem_type {
+              @lib.MemType(@lib.I64Limits(_), _) =>
+                if !duplicated {
+                  imports.push(
+                    @lib.Import::new(
+                      module_name,
+                      @lib.Name::new("memory64_metamorphic_duplicate"),
+                      @lib.mem_extern_type(mem_type),
+                    ),
+                  )
+                  duplicated = true
+                }
+              _ => ()
             }
           _ => ()
         }
@@ -5496,6 +5536,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddDuplicateEquivalentMemory,
     AddDuplicateEquivalentMemory64,
     AddDuplicateEquivalentImportedMemory,
+    AddDuplicateEquivalentImportedMemory64,
     AddDuplicateEquivalentImportedFunction,
     AddDuplicateEquivalentImportedImmutableI32Global,
     AddDuplicateEquivalentImportedImmutableF32Global,
@@ -5985,6 +6026,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_duplicate_equivalent_memory64(mod)
     AddDuplicateEquivalentImportedMemory =>
       metamorphic_add_duplicate_equivalent_imported_memory(mod)
+    AddDuplicateEquivalentImportedMemory64 =>
+      metamorphic_add_duplicate_equivalent_imported_memory64(mod)
     AddDuplicateEquivalentImportedFunction =>
       metamorphic_add_duplicate_equivalent_imported_function(mod)
     AddDuplicateEquivalentImportedImmutableI32Global =>
