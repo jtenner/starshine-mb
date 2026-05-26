@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] docs | dae DAE003 local-carrier closeout
+
+- Added [`raw/research/0645-2026-05-26-dae003-local-carrier-closeout.md`](raw/research/0645-2026-05-26-dae003-local-carrier-closeout.md) to close `[DAE003-C]` for the current conservative non-structured local-carrier surface.
+- The closed surface includes the positive straight-line `const; local.set; local.get; call` carrier plus local-tee, multiple-write, earlier-read, trapping/effectful producer, self-recursive, and escaped-callee guards from notes `0639` through `0643`. Structured carriers remain open under `[DAE003-F]`.
+- Validation: `moon test src/passes` passed (`1402` tests). A 10k requested direct compare stopped at the known early failure threshold with `45/10000` compared, `26` normalized matches, `19` normalized mismatches, `0` validation failures, and one known Binaryen/tool `binaryen-rec-group-zero` command failure; agent classification keeps the mismatches in the accepted DAE010/DAE011 gen-valid raw-cleanup/size-winning semantic-safe family.
+
 ## [2026-05-26] passes | dae DAE003 typed block carrier
 
 - Added [`raw/research/0644-2026-05-26-dae003-typed-block-carrier.md`](raw/research/0644-2026-05-26-dae003-typed-block-carrier.md), focused typed-block positive coverage, and a conservative loop-carrier negative test in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt).
