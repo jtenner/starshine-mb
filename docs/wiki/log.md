@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE011 core-family perf timers
+
+- Added deeper DAE core perf timers in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) and threaded the existing perf session from [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) into `dae_run_core(...)`.
+- Extended [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) to require `detail:dae:core:setup`, `detail:dae:core:fixed-loop`, `detail:dae:core:selected-lanes`, and `detail:dae:core:raw-cleanup` alongside the existing top-level DAE timers.
+- Recorded attribution in [`raw/research/0596-2026-05-26-dae011-core-family-perf-timers.md`](raw/research/0596-2026-05-26-dae011-core-family-perf-timers.md): the latest traced debug artifact spends `85798us` in setup, `486741us` in the fixed primary loop, `1917924us` in selected artifact-specific lanes, and `96963us` in module raw cleanup. `[DAE]011` remains open for selected-lane rewrite-family profiling before optimization.
+
 ## [2026-05-26] passes | dae DAE011 detail perf timers
 
 - Added DAE optimizing detail perf timers in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) for `detail:dae:core`, `detail:dae:nested-total`, per nested cleanup pass names, and `detail:dae:prune-unused-simple-func-types`.

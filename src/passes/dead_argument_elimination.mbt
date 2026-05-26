@@ -19081,10 +19081,15 @@ fn dae_restore_dead_suffix_self_operand_params(
 }
 
 ///|
-fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
+fn dae_run_core(
+  mod_ : @lib.Module,
+  trace : (String) -> Unit,
+  perf? : HotPerfSession? = None,
+) -> DaePassResult {
   let mut current = mod_
   let mut touched : Array[Bool] = []
   let mut changed = false
+  let setup_start_us = perf_start_timer_opt(perf, "detail:dae:core:setup")
   let original_imported = dae_imported_func_count(mod_)
   let original_defined = dae_defined_func_count(mod_)
   let original_type_indices = dae_collect_func_type_indices(mod_)
@@ -19200,6 +19205,10 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     original_dead_suffix_undropped_self_call_param_operands, original_dead_suffix_result_other_calls,
     original_dead_suffix_mutual_calls,
   )
+  perf_stop_timer_opt(perf, "detail:dae:core:setup", setup_start_us)
+  let fixed_loop_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:fixed-loop",
+  )
   let mut iter = 0
   // No caller in the fixed core loop marks defs as already rewritten between
   // scans; an empty skip bitmap is equivalent to a freshly allocated all-false
@@ -19238,6 +19247,10 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     changed = true
     iter += 1
   }
+  perf_stop_timer_opt(perf, "detail:dae:core:fixed-loop", fixed_loop_start_us)
+  let selected_lanes_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:selected-lanes",
+  )
   let restored = dae_restore_dead_suffix_self_operand_params(mod_, current)
   if restored.changed {
     current = restored.mod_out
@@ -20048,6 +20061,12 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
       }
     }
   }
+  perf_stop_timer_opt(
+    perf, "detail:dae:core:selected-lanes", selected_lanes_start_us,
+  )
+  let raw_cleanup_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:raw-cleanup",
+  )
   let module_raw_cleanup = dae_strip_module_nops_and_dropped_pure_leaf_once(
     current,
     touched,
@@ -20063,6 +20082,7 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
     )
     changed = true
   }
+  perf_stop_timer_opt(perf, "detail:dae:core:raw-cleanup", raw_cleanup_start_us)
   for zero_tee_def in [215, 260, 261, 1137, 1978] {
     if zero_tee_def >= 0 && zero_tee_def < selected_scratch_defs.length() {
       selected_scratch_defs[zero_tee_def] = true

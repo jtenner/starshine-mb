@@ -5882,6 +5882,19 @@ test "dae-optimizing perf trace breaks down core, nested cleanup, and type pruni
   )
   let text = trace.to_string()
   assert_true(text.contains("perf:timer name=detail:dae:core"), msg=text)
+  assert_true(text.contains("perf:timer name=detail:dae:core:setup"), msg=text)
+  assert_true(
+    text.contains("perf:timer name=detail:dae:core:fixed-loop"),
+    msg=text,
+  )
+  assert_true(
+    text.contains("perf:timer name=detail:dae:core:selected-lanes"),
+    msg=text,
+  )
+  assert_true(
+    text.contains("perf:timer name=detail:dae:core:raw-cleanup"),
+    msg=text,
+  )
   assert_true(
     text.contains("perf:timer name=detail:dae:nested-total"),
     msg=text,
