@@ -7746,3 +7746,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Reran the targeted tail replay: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --out-dir .tmp/self-opt-string-reorder-directize-preset-20260518 --string-gathering --reorder-globals --directize`.
 - Result: canonical wasm equal `yes`, normalized WAT text/equality `yes`, Starshine runtime `456.605ms`, Binaryen runtime `451.017ms`, Starshine pass runtime `62.619ms`, Binaryen pass runtime `28.215ms`. Treat the combined-tail pass-runtime gap as a performance follow-up candidate, not a semantic or preset-order blocker.
 - Refreshed the `string-gathering` living pages and `agent-todo.md` to remove the stale missing-debug-artifact caveat.
+
+## [2026-05-26] recovery | close DAE003 current-frontier classification
+
+- Added `docs/wiki/raw/research/0636-2026-05-26-dae003-current-frontier-classification.md` to close `[DAE003-B]` as a classification slice.
+- Recorded that the current leading DAE artifact/frontier misses are not missed safe constant-actual or unread-parameter materialization: raw/default diffs remain type-section/type-index diagnostic drift, both-canonical Func509 remains the closed lowerer/diagnostic boundary, selected fallback changes remain `[DAE]004` dropped-result scheduling gaps, and direct fuzz mismatches remain accepted raw-cleanup drift.
+- Refreshed `docs/wiki/binaryen/passes/dae-optimizing/starshine-strategy.md` and `agent-todo.md` so future DAE003 work starts from the remaining generalization subtasks instead of reopening the current artifact frontier.
