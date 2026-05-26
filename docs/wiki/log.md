@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] tests | dae DAE003 trapping/effectful carrier guards
+
+- Added [`raw/research/0642-2026-05-26-dae003-trapping-effectful-carrier-guards.md`](raw/research/0642-2026-05-26-dae003-trapping-effectful-carrier-guards.md) and two focused [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) regressions for trapping and effectful non-adjacent local-set carrier producers.
+- The new DAE003-C guards prove the current recognizer preserves the target parameter for `i32.div_s; local.set; local.get; call` and `call $effect; local.set; local.get; call` shapes; no optimizer behavior changed after correcting the effectful fixture's target index.
+- Validation: `moon test src/passes` passed (`1398` tests). `[DAE003-C]` remains open for self/escaped cycles, structured carriers, and closeout artifact/fuzz evidence.
+
 ## [2026-05-26] tests | dae DAE003 earlier-read carrier guard
 
 - Added [`raw/research/0641-2026-05-26-dae003-earlier-read-negative-guard.md`](raw/research/0641-2026-05-26-dae003-earlier-read-negative-guard.md) and a focused [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) regression for the explicit earlier same-local read shape.
