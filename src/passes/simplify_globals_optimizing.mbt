@@ -3252,6 +3252,28 @@ fn sgo_loop_independent_prefix_triple_effect_matches(
 }
 
 ///|
+fn sgo_loop_independent_prefix_grow_drop_matches(
+  flat : Array[@lib.Instruction],
+  scan : Int,
+  end_ : Int,
+) -> Bool {
+  if scan + 2 >= end_ || sgo_const_instr(flat[scan]) == None {
+    return false
+  }
+  match (flat[scan + 1], flat[scan + 2]) {
+    (@lib.MemoryGrow(_), @lib.Drop) => return true
+    _ => ()
+  }
+  if scan + 3 >= end_ || sgo_const_instr(flat[scan + 1]) == None {
+    return false
+  }
+  match (flat[scan + 2], flat[scan + 3]) {
+    (@lib.TableGrow(_), @lib.Drop) => true
+    _ => false
+  }
+}
+
+///|
 fn sgo_loop_condition_independent_global_set_prefix_read_matches(
   instrs : Array[@lib.Instruction],
   idx : @lib.GlobalIdx,
@@ -3302,6 +3324,14 @@ fn sgo_loop_condition_independent_global_set_prefix_read_matches(
     if sgo_loop_independent_prefix_triple_effect_matches(flat, scan, end_) {
       saw_independent_set = true
       scan = scan + 4
+      continue
+    }
+    if sgo_loop_independent_prefix_grow_drop_matches(flat, scan, end_) {
+      saw_independent_set = true
+      match flat[scan + 1] {
+        @lib.MemoryGrow(_) => scan = scan + 3
+        _ => scan = scan + 4
+      }
       continue
     }
     return false
