@@ -3636,6 +3636,47 @@ test "dae-optimizing reaches fourteen high dropped-result callees after low cand
 }
 
 ///|
+test "dae-optimizing reaches low dropped-result callee after large descending budget" {
+  let low_target_def = 600
+  let high_target_start = 4644
+  let high_target_count = 8
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < low_target_def; i = i + 1 {
+    out.write_string("  (func $pad_low\{i})\n")
+  }
+  out.write_string(
+    "  (func $low_target (param i32 i32) (result i32)\n    local.get 0\n    call $side\n    local.get 1\n    call $side\n    local.get 0\n    local.get 1\n    i32.add)\n",
+  )
+  for i = low_target_def + 1; i < high_target_start; i = i + 1 {
+    out.write_string("  (func $pad_high\{i})\n")
+  }
+  for i = 0; i < high_target_count; i = i + 1 {
+    out.write_string(
+      "  (func $high_target\{i} (param i32 i32) (result i32)\n    local.get 0\n    call $side\n    local.get 1\n    call $side\n    local.get 0\n    local.get 1\n    i32.add)\n",
+    )
+  }
+  out.write_string("  (func $side (param i32))\n  (func (export \"run\")\n")
+  out.write_string(
+    "    i32.const 1\n    i32.const 2\n    call $low_target\n    drop\n",
+  )
+  for i = 0; i < high_target_count; i = i + 1 {
+    out.write_string(
+      "    i32.const \{10 + i}\n    i32.const \{32 - i}\n    call $high_target\{i}\n    drop\n",
+    )
+  }
+  out.write_string("  )\n)\n")
+  let optimized = dae_test_run(out.to_string())
+  @debug.assert_eq(dae_test_func_results(optimized, low_target_def).length(), 0)
+  for i = 0; i < high_target_count; i = i + 1 {
+    @debug.assert_eq(
+      dae_test_func_results(optimized, high_target_start + i).length(),
+      0,
+    )
+  }
+}
+
+///|
 test "dae-optimizing materializes selected mid-prefix exact-literal callees" {
   for
     target_def in [

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] tests | dae DAE004 large low-candidate guard
+
+- Added [`raw/research/0630-2026-05-26-dae004-large-low-candidate-regression-guard.md`](raw/research/0630-2026-05-26-dae004-large-low-candidate-regression-guard.md) and a focused [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) regression proving the current large-module DAE scheduler still removes a lower-index fact-discovered dropped-result target when eight higher dropped-result targets are also present.
+- No optimizer behavior changed; the guard already passes on current code and protects the scheduling boundary before `[DAE004-C]` attempts to retire the handpicked selected dropped-result fallback.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md). Validation: `moon test src/passes` passed (`1388` tests).
+
 ## [2026-05-26] docs | dae DAE004 fallback gap classification
 
 - Closed classification subtask `[DAE004-B]` by adding [`raw/research/0629-2026-05-26-dae004-fallback-gap-classification.md`](raw/research/0629-2026-05-26-dae004-fallback-gap-classification.md). The note records the latest debug-artifact trace where the fact-driven large-module lane spent its eight productive descending attempts on `4651..4644` before the handpicked selected dropped-result fallback still changed `298`, `299`, `427`, `445`, `459`, `472`, `476`, `3566`, `3732`, `3814`, `3834`, `4106`, `4229`, `4232`, `503`, `4240`, `4241`, `4242`, and `4249`.

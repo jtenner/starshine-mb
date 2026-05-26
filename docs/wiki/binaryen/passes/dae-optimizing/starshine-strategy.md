@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-26
 sources:
+  - ../../../raw/research/0630-2026-05-26-dae004-large-low-candidate-regression-guard.md
   - ../../../raw/research/0629-2026-05-26-dae004-fallback-gap-classification.md
   - ../../../raw/research/0628-2026-05-26-dae004-selected-fallback-inventory.md
   - ../../../raw/research/0627-2026-05-26-dae003-constant-unread-inventory.md
