@@ -1425,6 +1425,105 @@ test "metamorphic duplicate equivalent imported function transform appends unuse
 }
 
 ///|
+test "metamorphic duplicate equivalent imported empty function transform selects only empty signatures" {
+  let empty_type_idx = @lib.TypeIdx::new(0)
+  let scalar_type_idx = @lib.TypeIdx::new(1)
+  let empty_import = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("empty"),
+    @lib.func_extern_type(empty_type_idx),
+  )
+  let scalar_import = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("scalar"),
+    @lib.func_extern_type(scalar_type_idx),
+  )
+  let empty_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let scalar_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([empty_type, scalar_type]))
+    .with_import_sec(@lib.ImportSec::new([scalar_import, empty_import]))
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddDuplicateEquivalentImportedEmptyFunction,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-duplicate-equivalent-imported-empty-function",
+  )
+  match transformed.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => {
+      @debug.assert_eq(imports.length(), 3)
+      @debug.assert_eq(imports[0], scalar_import)
+      @debug.assert_eq(imports[1], empty_import)
+      match imports[2] {
+        @lib.Import(module_name, item_name, @lib.FuncExternType(dup_type_idx)) => {
+          @debug.assert_eq(module_name, @lib.Name::new("env"))
+          @debug.assert_eq(
+            item_name,
+            @lib.Name::new("empty_func_metamorphic_duplicate"),
+          )
+          @debug.assert_eq(dup_type_idx, empty_type_idx)
+        }
+        _ => fail("expected duplicate imported empty function")
+      }
+    }
+    None => fail("expected transformed imports")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic duplicate equivalent imported empty function transform avoids defined-function index shifts" {
+  let type_idx = @lib.TypeIdx::new(0)
+  let original_import = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("empty"),
+    @lib.func_extern_type(type_idx),
+  )
+  let defined = @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([]))
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_import_sec(@lib.ImportSec::new([original_import]))
+    .with_func_sec(@lib.FuncSec::new([type_idx]))
+    .with_code_sec(@lib.CodeSec::new([defined]))
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddDuplicateEquivalentImportedEmptyFunction,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match transformed.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => @debug.assert_eq(imports.length(), 1)
+    None => fail("expected original import")
+  }
+  match transformed.wasm_module.func_sec {
+    Some(@lib.FuncSec(funcs)) => @debug.assert_eq(funcs.length(), 1)
+    None => fail("expected original function section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic duplicate equivalent imported function transform avoids defined-function index shifts" {
   let type_idx = @lib.TypeIdx::new(0)
   let original_import = @lib.Import::new(
@@ -10769,8 +10868,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 468)
-  @debug.assert_eq(stats.validated, 468)
+  @debug.assert_eq(stats.transformed, 469)
+  @debug.assert_eq(stats.validated, 469)
   assert_true(
     stats.transform_ids.contains(
       "add-duplicate-equivalent-immutable-v128-global",

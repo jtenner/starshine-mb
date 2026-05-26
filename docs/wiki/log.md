@@ -1315,11 +1315,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added focused whitebox coverage proving the new leading transform appends the expected empty struct type, emits `struct.new_default; struct.new_default; ref.eq; drop`, and preserves validation plus binary roundtrip. Refreshed metamorphic smoke counters from `412` to `414` transformed/validated variants and asserted the new transform id appears in suite JSON.
 - Validation: `moon test src/fuzz`, `moon info`, `moon fmt`, `moon test`, and `bun fuzz run --suite validate-valid-metamorphic --profile smoke --seed 0x1036 --seed-count 1` pass.
 
-## [2026-05-26] fuzzing | FUZ1036K46/K47 imported and defined table/tag export aliases
+## [2026-05-26] fuzzing | FUZ1036K46-K48 imported/defined aliases and empty imported function duplicate
 
 - Completed `[FUZ]1036K46` by adding `add-imported-table-export-aliases` and `add-defined-table-export-aliases`. The transforms append deterministic unused aliases for existing imported or defined table exports, preserving table indices and no-oping when the selected index region has no exported table.
 - Completed `[FUZ]1036K47` by adding `add-imported-tag-export-aliases` and `add-defined-tag-export-aliases`. The transforms append deterministic unused aliases for existing imported or defined exception tag exports, preserving tag indices and no-oping when the selected index region has no exported tag.
-- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 468 transforms per generated module, and kept focused `src/fuzz` validation green.
+- Completed `[FUZ]1036K48` by adding `add-duplicate-equivalent-imported-empty-function`, which duplicates only imported empty `[] -> []` function declarations, preserves the original type index, and no-ops when defined functions are present to avoid shifting defined function indices.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 469 transforms per generated module, and kept focused `src/fuzz` validation green.
 
 ## [2026-05-25] fuzzing | FUZ1036K11 duplicate equivalent imported tag transform
 

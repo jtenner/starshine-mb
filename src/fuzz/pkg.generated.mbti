@@ -561,6 +561,7 @@ pub enum MetamorphicValidTransform {
   AddDuplicateEquivalentMemory64
   AddDuplicateEquivalentImportedMemory
   AddDuplicateEquivalentImportedMemory64
+  AddDuplicateEquivalentImportedEmptyFunction
   AddDuplicateEquivalentImportedSharedMemory
   AddDuplicateEquivalentImportedSharedMemory64
   AddDuplicateEquivalentImportedFunction
