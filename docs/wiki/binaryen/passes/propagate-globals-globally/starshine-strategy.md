@@ -30,27 +30,24 @@ related:
 
 ## Current status
 
-Starshine currently has **no implementation** of `propagate-globals-globally`.
+Starshine now implements `propagate-globals-globally` as an active module pass through the shared SGO owner. The 2026-05-26 `[SGO]003H` slice in [`0699`](../../../raw/research/0699-2026-05-26-sgo-shared-family-exposure.md) moved it out of boundary-only status.
 
 The exact local behavior is:
 
-- the name is present in the boundary-only registry
-- explicit requests are rejected before pass execution
+- the name is present as an active module-pass registry entry
+- explicit requests dispatch through `run_hot_pipeline_apply_module_pass(...)`
 - the pass is omitted from the active `optimize` and `shrink` presets
-- there is no module-dispatcher case
-- there is no owner file
-- there is no active backlog slice in `agent-todo.md`
-
-A 2026-05-05 current-main recheck of `SimplifyGlobals.cpp`, `pass.cpp`, and `propagate-globals-globally.wast` kept this status unchanged.
+- the implementation owner is `src/passes/simplify_globals_optimizing.mbt`, via a startup-only core wrapper
+- startup/global expressions are rewritten, while ordinary function bodies are preserved
+- single-use complex-initializer inlining is disabled for this sibling to match Binaryen's startup-only boundary
 
 ## Exact code map
 
 | Local file | What to read | Why it matters |
 | --- | --- | --- |
-| [`src/passes/optimize.mbt#L127-L149`](../../../../../src/passes/optimize.mbt#L127-L149) | `pass_registry_boundary_only_names()` includes `propagate-globals-globally`. | Source of truth for current boundary-only status. |
-| [`src/passes/optimize.mbt#L434-L454`](../../../../../src/passes/optimize.mbt#L434-L454) | `optimize_preset_passes(...)` and `shrink_preset_passes(...)`. | The pass has no active preset role. |
-| [`src/passes/optimize.mbt#L520-L524`](../../../../../src/passes/optimize.mbt#L520-L524) | `run_hot_pipeline_expand_passes(...)`. | Boundary-only requests return the standard not-implemented error before dispatch. |
-| [`src/passes/pass_manager.mbt#L8912-L8930`](../../../../../src/passes/pass_manager.mbt#L8912-L8930) | `run_hot_pipeline_apply_module_pass(...)`. | There is no module-pass case for this name. |
+| [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) | `pass_registry_entries()` includes `propagate-globals-globally` as a module pass. | Source of truth for current active status. |
+| [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) | `optimize_preset_passes(...)` and `shrink_preset_passes(...)`. | The pass has no active preset role. |
+| [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) | `run_hot_pipeline_apply_module_pass(...)`. | Dispatches the name to the startup-only SGO wrapper. |
 | [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt) | `GlobalSec`, `Global`, `Expr`, `ElemSec`, `DataSec`, `ElemMode`, `DataMode`, `Instruction::GlobalGet`. | These are the structural surfaces a future module pass would rewrite. |
 | [`../../../../../src/validate/validate.mbt`](../../../../../src/validate/validate.mbt) | constant-expression validation, immutable-global `global.get` checks, active data/elem offset checks. | These validators define important safety boundaries for tests and future rewrites. |
 | [`../../../../../src/wast/parser.mbt`](../../../../../src/wast/parser.mbt) and [`../../../../../src/wast/lower_to_lib.mbt`](../../../../../src/wast/lower_to_lib.mbt) | global declarations, `global.get`, active segments, and WAT-to-lib lowering. | These make focused WAT fixtures possible for future TDD. |
@@ -67,43 +64,27 @@ Binaryen's public pass rewrites module-level startup expressions:
 
 It deliberately does not walk ordinary function bodies. Starshine's HOT pipeline is function-local and is the wrong home for a faithful first port. A future implementation should be a module pass beside existing module passes such as `global-refining`, `global-struct-inference`, `memory-packing`, and `once-reduction`.
 
-## Future port outline
+## Implemented shape
 
-A conservative Starshine port could land in small TDD slices:
+The active Starshine wrapper:
 
-1. **Registry change**
-   - move `propagate-globals-globally` from boundary-only to module-pass registration only when implementation tests exist
-   - add a dispatcher case in `run_hot_pipeline_apply_module_pass(...)`
-2. **Known-global collection**
-   - scan defined globals in declaration order
-   - record values only for initializers the local validator / helper layer can prove are constant expressions
-   - avoid knowing imported global runtime values
-3. **Global initializer substitution**
-   - replace `global.get` uses inside later global initializer expressions when the target has a recorded literal expression
-   - preserve type and validation invariants
-4. **Active segment offsets**
-   - apply the same substitution to active `ElemMode` offsets
-   - apply the same substitution to active `DataMode` offsets
-5. **Negative boundaries**
-   - do not rewrite function bodies
-   - do not rewrite mutable-global values
-   - do not touch passive/declarative segment payloads except through existing validation-preserving structure
-6. **Parity signoff**
-   - compare against `wasm-opt --propagate-globals-globally`
-   - only consider preset scheduling if a broader global-pass strategy later justifies it
+1. scans globals and startup/module-level global reads using the shared SGO fact collector;
+2. rewrites later global initializers, table initializers, active element/data offsets, and exact typed element item expressions through the existing startup propagation helpers;
+3. skips function-body rewriting entirely;
+4. skips optimizing nested cleanup entirely;
+5. disables single-use complex-initializer inlining for this startup-only sibling; and
+6. compares green against `wasm-opt --propagate-globals-globally` in the direct 10k fuzz lane recorded in `0699`.
 
-## Tests a future implementation should add first
+## Tests to preserve
 
-Use TDD and start with failing tests before implementation:
+Keep focused tests for:
 
-- direct immutable-global chain positive
-- arithmetic constant-expression chain positive
-- active data offset positive
-- active elem offset positive
-- function-body `global.get` remains unchanged
-- mutable-global or unknown-value negative
-- imported-global no-known-literal caveat
-- passive/declarative segment no-op
+- active module-pass registration;
+- direct immutable-global chain propagation;
+- startup expression propagation with function-body `global.get` preserved;
+- no single-use inlining of complex initializer expressions;
+- imported/global/value-type guardrails inherited from the SGO startup tests; and
+- direct pass-fuzz comparison against Binaryen.
 
 ## Differences from Binaryen to preserve explicitly
 
@@ -118,4 +99,4 @@ If Starshine later implements `simplify-globals`, that sibling may share helpers
 
 ## Current limitation statement for users
 
-Today, `--pass propagate-globals-globally` is a recognized but boundary-only name in Starshine. It is useful for registry honesty and future planning, but not for optimization. Users should expect the standard boundary-only rejection until a real module pass lands.
+`--pass propagate-globals-globally` is active, but intentionally narrower than `simplify-globals`: it rewrites startup/global expressions and active segment offsets, not ordinary function bodies or optimizing cleanup.

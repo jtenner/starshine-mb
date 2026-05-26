@@ -218,6 +218,7 @@ pub enum Opcode {
   Return
   Call
   CallIndirect
+  CallRef
   ReturnCall
   ReturnCallIndirect
   ReturnCallRef
@@ -229,6 +230,8 @@ pub enum Opcode {
   RefNull
   RefIsNull
   RefFunc
+  RefTest
+  RefCast
   RefEq
   RefAsNonNull
   StringConst
@@ -578,6 +581,8 @@ pub enum Opcode {
   I16x8ExtmulHighI8x16S
   I16x8ExtmulLowI8x16U
   I16x8ExtmulHighI8x16U
+  I16x8ExtaddPairwiseI8x16S
+  I16x8ExtaddPairwiseI8x16U
 
   // ========== SIMD - i32x4 Operations ==========
   I32x4Splat
@@ -616,6 +621,8 @@ pub enum Opcode {
   I32x4ExtmulHighI16x8S
   I32x4ExtmulLowI16x8U
   I32x4ExtmulHighI16x8U
+  I32x4ExtaddPairwiseI16x8S
+  I32x4ExtaddPairwiseI16x8U
   I32x4TruncSatF32x4S
   I32x4TruncSatF32x4U
   I32x4TruncSatF64x2SZero
@@ -751,6 +758,7 @@ pub impl Show for Opcode with output(self, logger) {
     Return => logger.write_string("Return")
     Call => logger.write_string("Call")
     CallIndirect => logger.write_string("CallIndirect")
+    CallRef => logger.write_string("CallRef")
     ReturnCall => logger.write_string("ReturnCall")
     ReturnCallIndirect => logger.write_string("ReturnCallIndirect")
     ReturnCallRef => logger.write_string("ReturnCallRef")
@@ -760,6 +768,8 @@ pub impl Show for Opcode with output(self, logger) {
     RefNull => logger.write_string("RefNull")
     RefIsNull => logger.write_string("RefIsNull")
     RefFunc => logger.write_string("RefFunc")
+    RefTest => logger.write_string("RefTest")
+    RefCast => logger.write_string("RefCast")
     RefEq => logger.write_string("RefEq")
     RefAsNonNull => logger.write_string("RefAsNonNull")
     StringConst => logger.write_string("StringConst")
@@ -1078,6 +1088,10 @@ pub impl Show for Opcode with output(self, logger) {
     I16x8ExtmulHighI8x16S => logger.write_string("I16x8ExtmulHighI8x16S")
     I16x8ExtmulLowI8x16U => logger.write_string("I16x8ExtmulLowI8x16U")
     I16x8ExtmulHighI8x16U => logger.write_string("I16x8ExtmulHighI8x16U")
+    I16x8ExtaddPairwiseI8x16S =>
+      logger.write_string("I16x8ExtaddPairwiseI8x16S")
+    I16x8ExtaddPairwiseI8x16U =>
+      logger.write_string("I16x8ExtaddPairwiseI8x16U")
     I32x4Splat => logger.write_string("I32x4Splat")
     I32x4ExtractLane => logger.write_string("I32x4ExtractLane")
     I32x4ReplaceLane => logger.write_string("I32x4ReplaceLane")
@@ -1114,6 +1128,10 @@ pub impl Show for Opcode with output(self, logger) {
     I32x4ExtmulHighI16x8S => logger.write_string("I32x4ExtmulHighI16x8S")
     I32x4ExtmulLowI16x8U => logger.write_string("I32x4ExtmulLowI16x8U")
     I32x4ExtmulHighI16x8U => logger.write_string("I32x4ExtmulHighI16x8U")
+    I32x4ExtaddPairwiseI16x8S =>
+      logger.write_string("I32x4ExtaddPairwiseI16x8S")
+    I32x4ExtaddPairwiseI16x8U =>
+      logger.write_string("I32x4ExtaddPairwiseI16x8U")
     I32x4TruncSatF32x4S => logger.write_string("I32x4TruncSatF32x4S")
     I32x4TruncSatF32x4U => logger.write_string("I32x4TruncSatF32x4U")
     I32x4TruncSatF64x2SZero => logger.write_string("I32x4TruncSatF64x2SZero")

@@ -32,33 +32,32 @@ The new port-readiness page, [`./starshine-port-readiness-and-validation.md`](./
 
 ## The honest current status
 
-`simplify-globals` is still **unimplemented** in Starshine.
-There is no `src/passes/simplify_globals.mbt` owner file today.
+`simplify-globals` is now **active** in Starshine as the plain shared-core sibling of `simplify-globals-optimizing`.
+There is still no separate `src/passes/simplify_globals.mbt` owner file; the implementation intentionally lives in `src/passes/simplify_globals_optimizing.mbt` so the plain, optimizing, and startup-only public names share one core with distinct wrappers.
 
-That does **not** mean there is no Starshine strategy surface.
-The current local strategy is boundary-only status plus a concrete port map:
+The current local strategy is:
 
-- keep the pass spelling tracked in the registry surface
-- keep the boundary-only classification explicit, because the pass needs whole-module global analysis, startup-order reasoning, and function-boundary rewrites rather than HOT-region local rewrites
-- keep active pipeline requests honest by rejecting the pass name instead of pretending it already exists
+- keep the pass spelling as an active module-pass registry entry
+- dispatch explicit requests to the shared SGO core without the optimizing nested cleanup rerun
 - keep the shared-engine relation to `simplify-globals-optimizing` and `propagate-globals-globally` explicit
-- keep the current planning gap explicit: unlike the optimizing sibling, the repo still has **no dedicated plain-`simplify-globals` backlog slice** in `agent-todo.md`
+- preserve direct fuzz evidence for the plain sibling before broadening behavior
+- keep future sibling-specific gaps evidence-driven rather than implying full Binaryen breadth beyond the accepted shared core
 
-So this page is intentionally a **status-and-port-map** page rather than a fake implementation page.
+This active status landed in [`0699`](../../../raw/research/0699-2026-05-26-sgo-shared-family-exposure.md).
 
 ## Exact local code map today
 
 The fastest read-along path through the current Starshine status is:
 
-- tracked boundary-only pass-name status
-  - [`src/passes/optimize.mbt#L127-L141`](../../../../../src/passes/optimize.mbt#L127-L141)
-    - `pass_registry_boundary_only_names()` includes `"simplify-globals"`
-- active request guard for not-yet-ported boundary passes
-  - [`src/passes/optimize.mbt#L458-L463`](../../../../../src/passes/optimize.mbt#L458-L463)
-    - `run_hot_pipeline_expand_passes(...)` returns `pass flag {name} is boundary-only and is not implemented in the hot pipeline`
-- boundary-only portfolio planning
-  - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L56-L59`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L56-L59)
-    - `simplify-globals` is grouped with type/global/signature shaping and whole-module transforms, not HOT-local cleanup
+- active module-pass status
+  - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+    - `pass_registry_entries()` includes `"simplify-globals"` as a module pass
+- active module-pass dispatch
+  - [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
+    - `run_hot_pipeline_apply_module_pass(...)` routes `"simplify-globals"` to the shared SGO core and returns without nested cleanup
+- shared owner
+  - [`src/passes/simplify_globals_optimizing.mbt`](../../../../../src/passes/simplify_globals_optimizing.mbt)
+    - `sgo_run_core(...)` owns the plain shared-core behavior
 - scheduler context for the shared optimizing sibling
   - [`../../no-dwarf-default-optimize-path.md#L35-L41`](../../no-dwarf-default-optimize-path.md#L35-L41)
     - the canonical no-DWARF late path uses `simplify-globals-optimizing`, not plain `simplify-globals`, and the optimizing sibling owns the extra nested default-function rerun
@@ -75,70 +74,39 @@ That code-and-doc map is the practical addition in this follow-up: readers can n
 
 Today Starshine's behavior for `simplify-globals` is deliberately limited.
 
-### 1. The name is tracked, not forgotten
+### 1. The name is active as a module pass
 
-`src/passes/optimize.mbt` keeps `simplify-globals` in `pass_registry_boundary_only_names()`.
-That means:
+`src/passes/optimize.mbt` keeps `simplify-globals` in `pass_registry_entries()` as a module pass. Explicit requests no longer reject as boundary-only.
 
-- the project still treats `simplify-globals` as a real known pass
-- the spelling is preserved in the registry-level compatibility surface
-- the pass remains visible in tracker and planning work instead of silently falling out of scope
-- the current local classification already teaches an important semantic fact: this is not expected to fit naturally into the existing HOT-only function pipeline
+### 2. The active pipeline runs the shared core without optimizing cleanup
 
-That is the right current behavior for an unimplemented whole-module late-global pass.
+`src/passes/pass_manager.mbt` dispatches the name to `sgo_run_core(...)` and returns the rewritten module directly. That means plain `simplify-globals` gets the shared global fact collection, startup propagation, code substitutions, dead/same-init write repair, and read-only-to-write behavior from the accepted SGO core, but it does **not** run `simplify-globals-optimizing`'s touched-function nested default cleanup lane.
 
-### 2. The active pipeline rejects the pass honestly
-
-The same file's `run_hot_pipeline_expand_passes(...)` path returns a specific boundary-only error when a user requests `simplify-globals`.
-That matters because it keeps three things honest at once:
-
-- explicit pass selection does not silently no-op
-- the CLI and API surface do not imply the pass already exists locally
-- the boundary-only classification remains executable documentation rather than dead metadata
-
-For this pass family, that is currently the most important in-repo behavior after name tracking.
+The focused 0699 tests prove this with a function-body rewrite that still contains cleanup residue (`i32.add`) under the plain pass but is cleaned by the optimizing sibling.
 
 ### 3. The current local planning story is intentionally thinner than the optimizing sibling's
 
-Unlike `simplify-globals-optimizing`, plain `simplify-globals` does **not** currently have a dedicated backlog slice in `agent-todo.md`.
-That absence is worth teaching explicitly because it prevents two common mistakes:
-
-- assuming the optimizing `SGO` slice already covers the plain pass contract exactly
-- assuming the repo has already committed to shipping both siblings separately rather than landing shared machinery first
-
 The honest status is:
 
-- boundary-only name tracked
-- request guard tracked
-- planning bucket tracked
+- active module-pass name tracked
+- shared-core dispatch tracked
 - sibling relation tracked
-- dedicated plain-pass backlog slice still absent
+- direct plain-pass fuzz evidence tracked in `0699`
 
-That gap should stay explicit until the repo chooses a concrete local landing sequence.
+Future work should still avoid assuming full Binaryen breadth beyond the accepted shared-core behavior.
 
-## The right future Starshine implementation shape
+## The active Starshine implementation shape
 
-The current docs and neighboring passes strongly suggest that a future local `simplify-globals` port should be taught as a **boundary/module pass**, not as a HOT peephole and not as a scheduler wrapper only.
+The local `simplify-globals` pass is a **boundary/module pass**, not a HOT peephole and not the optimizing scheduler wrapper.
 
-Why:
+The local strategy is:
 
-- Binaryen runs it as a whole-module global analysis and rewrite pass
-- correctness depends on module-wide global traffic facts, startup-order reasoning, and function-boundary substitutions
-- the public contract includes startup rewrites into later global initializers and active offsets, not just ordinary function-body cleanup
-- the same upstream engine also underlies `simplify-globals-optimizing` and `propagate-globals-globally`
-- the pass sits conceptually beside `duplicate-import-elimination`, `remove-unused-module-elements`, `string-gathering`, `reorder-globals`, and `directize`, where boundary/module scheduling matters as much as local instruction rewriting
-
-So the local strategy should be thought of as:
-
-1. build whole-module global fact summaries
-2. implement startup-only folding and offset propagation first
-3. implement runtime cheap-trace substitution in function bodies with the same conservative barriers
-4. preserve `drop(value)` when erasing dead or same-as-init writes
-5. keep the exact `read-only-to-write` legality and actual-node matching rules explicit
-6. repair affected function types after refined substitutions
-7. stop there, without accidentally inheriting the optimizing sibling's nested default-function rerun
-
-That is a much tighter and safer future plan than the vague mental model “add global constant propagation later.”
+1. reuse the whole-module SGO fact summaries;
+2. reuse startup folding and offset propagation;
+3. reuse runtime cheap-trace substitution in function bodies with conservative barriers;
+4. preserve `drop(value)` when erasing dead or same-as-init writes;
+5. keep the `read-only-to-write` legality and actual-node matching rules from the shared core; and
+6. stop there, without inheriting the optimizing sibling's nested default-function rerun.
 
 ## The most important local dependency map
 
@@ -151,9 +119,9 @@ See:
 Why it matters locally:
 
 - both public passes come from the same upstream `SimplifyGlobals.cpp` engine
-- a future Starshine port should likely share most low-level global-analysis and rewrite machinery between the siblings
+- Starshine shares low-level global-analysis and rewrite machinery between the siblings
 - the most important semantic difference to preserve is the stop point: plain `simplify-globals` stops after global rewrites and type repair, while `simplify-globals-optimizing` continues into the nested default-function rerun
-- the current repo now exposes a partial optimizing-wrapper slice first, so a future contributor must decide whether to extract shared primitives for plain `simplify-globals` or continue broadening the optimizing sibling before exposing the smaller plain stop point
+- future broadening should keep both direct pass fuzz lanes current
 
 ### `propagate-globals-globally` is the startup-only sibling, not a random helper
 
@@ -164,8 +132,8 @@ See:
 Why it matters locally:
 
 - plain `simplify-globals` includes the startup-only propagation surface but also owns more than that
-- `propagate-globals-globally` is a useful design hint for decomposition: startup propagation is a real sub-algorithm with a meaningful stop point
-- a future port can use that split to stage implementation work without pretending the startup-only subset already covers the full plain pass
+- `propagate-globals-globally` is now the active startup-only decomposition: startup propagation is a real sub-algorithm with a meaningful stop point
+- the split keeps the startup-only subset from pretending to cover the full plain pass
 
 ### Late-global neighbors define the eventual boundary landing zone
 
@@ -188,53 +156,34 @@ Why it matters locally:
 A future contributor should be careful not to overread the current local surface.
 Starshine does **not** currently have:
 
-- a MoonBit owner file for `simplify-globals`
-- module-wide global fact collection for the plain pass
-- startup initializer / active-offset rewrite code for this family
-- runtime global-value substitution logic for this family
-- `read-only-to-write` matcher code or dead-`global.set` cleanup code for this family
-- targeted type-repair code tied to a plain-`simplify-globals` boundary transform
-- reduced plain-`simplify-globals` regression tests or artifact replay coverage
-- a dedicated plain-`simplify-globals` backlog slice distinct from the optimizing sibling's `SGO` work
+- a separate MoonBit owner file for `simplify-globals`;
+- a claim that plain `simplify-globals` covers more than the accepted shared SGO core;
+- self-optimize artifact evidence specific to the plain sibling; or
+- a reason to add the plain sibling to `optimize` / `shrink` presets.
 
 So the current repo status is best summarized as:
 
-- name tracked
-- boundary-only status tracked
-- request guard tracked
-- planning neighborhood tracked
-- transform itself not yet landed
+- active shared-core module pass;
+- no optimizing nested cleanup;
+- focused sibling-boundary tests; and
+- direct 10k fuzz with zero mismatches under the configured command-failure stop.
 
-## Validation plan for the eventual port
+## Validation plan for future broadening
 
-The existing dossier plus the local status surfaces imply the right validation ladder.
-A future real implementation should validate in this order:
+Keep this validation ladder for future behavior changes:
 
-1. reduced rewrite tests for the reviewed upstream plain-pass families
-   - startup-only single-use folding into later globals
-   - startup propagation into active data and elem offsets
-   - dead and same-as-init write removal with `drop(value)` preservation
-   - `read-only-to-write` positives and bailout families
-   - cheap runtime-trace positives plus call / nonlinear-control barriers
-   - GC/type-refinement cases that require post-rewrite repair
-2. sibling-boundary tests
-   - plain `simplify-globals` stops without the optimizing sibling's nested default-function rerun
-   - any shared machinery also composes with a future `propagate-globals-globally` subset
-3. oracle comparison
-   - compare `--simplify-globals` output against Binaryen rather than only `--simplify-globals-optimizing`
-4. late-neighborhood checks
-   - verify that the local scheduler still composes with the surrounding late global passes once the boundary implementation exists
-
-That is more useful locally than a generic “compare with Binaryen later” note because it points directly at the exact families the repo will need to prove.
+1. reduced rewrite tests for any newly broadened plain-pass family;
+2. sibling-boundary tests proving plain `simplify-globals` still stops without the optimizing nested default-function rerun;
+3. direct `--simplify-globals` fuzz against Binaryen; and
+4. late-neighborhood checks only if the public scheduler changes.
 
 ## Bottom line
 
-Current Starshine `simplify-globals` strategy is honest boundary-only tracking plus a concrete port map:
+Current Starshine `simplify-globals` strategy is active shared-core module-pass exposure:
 
-- preserve the name and classification in the registry
-- reject the unimplemented boundary pass honestly at runtime
-- keep the shared-engine split from `simplify-globals-optimizing` and `propagate-globals-globally` explicit
-- keep the lack of a dedicated plain-pass backlog slice explicit
-- land any future implementation as a boundary/module pass with startup and runtime sub-algorithms, not as a HOT peephole
+- preserve the active registry classification;
+- keep the shared-engine split from `simplify-globals-optimizing` and `propagate-globals-globally` explicit;
+- keep direct plain-pass fuzz evidence current for behavior changes; and
+- do not add optimizing cleanup or public preset scheduling by accident.
 
 That is the clearest source-backed local story the repo can truthfully teach today.

@@ -185,8 +185,215 @@ Execution rules for all DAE slices
 
 #### SGO - Simplify Globals Optimizing
 
-- No active v0.1.0 SGO correctness or preset-scheduling blocker. `[SGO]001` and `[SGO]002` are signed off for the current Starshine v0.1.0 supported direct-pass / nested-runtime / late-tail scheduling surface. Direct `--simplify-globals-optimizing` replay at `.tmp/sgo-direct-debug-artifact-nested-pruned` validated, stayed smaller than Binaryen (`2,860,269` vs `2,861,435` bytes), and met the pass-local runtime floor (`153.143ms` vs `107.210ms`). The remaining direct first diff `defined=48 abs=69` is accepted representation-only local/default-init drift by user decision. Standard direct fuzz `.tmp/pass-fuzz-sgo-nested-pruned-10k` reported `9975/10000` compared, `9975` matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures. The late-tail sequence `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` has 10k ordered-neighborhood parity and is now scheduled by public `optimize` / `shrink`. Signoff is recorded in `docs/wiki/raw/research/0573-2026-05-19-sgo-v010-signoff.md`.
-- Future SGO work should require new evidence: a semantic mismatch, wasm validation failure, targeted artifact/code-size need, string/GC/refinalization breadth requirement, or measured SGO-specific wall-time owner. Broader Binaryen `SimplifyGlobals.cpp` families, exact default-function scheduler parity, nested `vacuum` wrapper overhead, and compare-harness normalization for explicit default local initialization are non-blocking follow-ups, not active v0.1.0 release blockers.
+Goal
+- Make `simplify-globals-optimizing` match Binaryen `SimplifyGlobals.cpp` behavior for the v0.1.0 no-DWARF default optimize path, then prove it with both direct 10k pass fuzz and self-optimization / artifact comparison.
+- Treat the existing v0.1.0 supported-surface signoff as a baseline only. It is not full Binaryen feature parity.
+- Preserve correctness first: every new rewrite must validate, preserve side effects and traps, and either match Binaryen semantics or document an explicitly approved divergence.
+
+Required APIs
+- `src/passes/simplify_globals_optimizing.mbt` for the SGO core, fact table, matchers, replacements, touched-function reporting, and tests.
+- `src/passes/simplify_globals_optimizing_test.mbt` for focused WAT regressions and guardrails.
+- `src/passes/pass_manager.mbt` for module-pass dispatch and nested cleanup scheduling.
+- `src/passes/optimize.mbt` and `src/passes/registry_test.mbt` for pass classification, `optimize` / `shrink` preset ordering, and sibling pass exposure.
+- `src/cmd/cmd.mbt` when public CLI behavior, help, or preset flags change.
+- `scripts/pass-fuzz-compare.ts`, `bun fuzz compare-pass`, and `scripts/self-optimize-compare.ts` for oracle and artifact signoff.
+- `docs/wiki/binaryen/passes/simplify-globals-optimizing/*`, especially `parity-matrix.md`, `starshine-strategy.md`, and `starshine-port-readiness-and-validation.md`, for source-backed scope and status.
+
+Invariants
+- Direct pass semantic parity with Binaryen is required before claiming any slice complete.
+- Standard direct signoff for behavior slices: `moon test src/passes`, then `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --out-dir .tmp/pass-fuzz-sgo-<slice>`; classify Binaryen/tool command failures separately.
+- Final full-parity signoff: `moon info`, `moon fmt`, `moon test`, direct SGO 10k fuzz, ordered late-tail 10k replay where applicable, and self-optimization comparison on `tests/node/dist/starshine-debug-wasi.wasm` through the v0.1.0 optimize path.
+- Record pass-local Starshine/Binaryen timing for direct artifact and preset/self-optimize runs; keep Starshine within the 2x Binaryen pass-local floor unless the gap is attributed to `[WALL]001` or explicitly accepted.
+- Do not collapse repeated Binaryen cleanup slots or widen `optimize` / `shrink` ordering without dedicated preset tests and artifact evidence.
+- Preserve startup/global-initializer rewrites as module-only changes unless a function body is actually changed; touched-function nested cleanup must run only for touched functions.
+- Keep `precompute-propagate` out of SGO nested cleanup unless Binaryen source evidence proves it belongs there for this pass.
+- Prefer adding one Binaryen-positive shape plus paired negatives per child slice. Do not broaden by analogy across trapping, effectful, branchy, reference-typed, or object-identity-sensitive families.
+- Update `docs/wiki/binaryen/passes/simplify-globals-optimizing/parity-matrix.md`, `docs/wiki/log.md`, and `agent-todo.md` whenever a slice lands or is reclassified.
+
+Suggested tests
+- Focused WAT tests in `src/passes/simplify_globals_optimizing_test.mbt` for every positive and guardrail negative.
+- Registry/preset tests in `src/passes/registry_test.mbt` and `src/passes/optimize.mbt` tests when sibling passes or public preset behavior changes.
+- CLI tests in `src/cmd` when public flags/help change.
+- Reduced mismatch tests promoted from any `pass-fuzz-compare` failure dirs.
+- Direct artifact replays with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --simplify-globals-optimizing --out-dir .tmp/sgo-<slice>-artifact` for slices that may affect the debug artifact.
+- Final full optimize/self-optimize replay after direct pass and late-tail parity are green.
+
+Active v0.1.0 slices for full Binaryen parity
+
+- [SGO]003 - Full `SimplifyGlobals.cpp` Breadth Coordination
+  - Status: accepted for v0.1.0 SGO-owned work on 2026-05-26 after `[SGO]005`; future breadth requires fresh exact Binaryen-positive evidence, semantic mismatch, validation failure, or release-QA requirement.
+  - Goal: coordinate all remaining source-backed Binaryen SGO feature gaps until direct `simplify-globals-optimizing` 10k fuzz and v0.1.0 self-optimization/artifact comparison are green under the pass-signoff rules.
+  - Why: the existing SGO implementation is accepted for a supported subset, but the parity matrix still marks full Binaryen breadth as partial or missing.
+  - Deliverables:
+    - keep a live checklist of child slices `[SGO]003A` through `[SGO]003H` and `[SGO]004` / `[SGO]005`;
+    - after each child, update the parity matrix and close or narrow completed rows;
+    - preserve latest direct 10k fuzz and artifact evidence paths;
+    - maintain a current mismatch classification table if direct fuzz or self-optimize is red.
+  - Exit criteria met for SGO-owned work:
+    - all child slices are complete, accepted, or explicitly assigned outside SGO (`[WALL]001` for the full public `--optimize` timeout);
+    - direct SGO 10k has zero Starshine validation failures and zero semantic mismatches;
+    - direct/late-tail v0.1.0 artifact diffs are classified as representation-only, and full-preset execution remains a `[WALL]001` runtime/attribution blocker rather than an SGO pass-local blocker.
+
+- [SGO]003A - Binaryen Source Audit And Fact-Table Parity
+  - Status: accepted on 2026-05-25. Source audit, fact-row refactor, focused tests, Moon validation, and direct SGO fuzz evidence live in `docs/wiki/raw/research/0675-2026-05-25-sgo-fact-table-source-audit.md`.
+  - Goal: align Starshine's module-wide global fact table with Binaryen's `SimplifyGlobals.cpp` facts before adding more matcher breadth.
+  - Why: the parity matrix says Binaryen's `nonInitWritten` and `readOnlyToWrite` are modeled locally by separate flag paths rather than one faithful source-shaped fact table; later slices should not pile more ad hoc flags onto that gap.
+  - Tasks:
+    - [x] re-read Binaryen `version_129` `SimplifyGlobals.cpp`, `pass.cpp`, and current-main SGO no-drift evidence for this run;
+    - [x] map Binaryen's per-global facts and Starshine's source-specific fact needs in research note `0675`;
+    - [x] add/adjust whitebox tests that expose current Starshine fact rows for imported/exported, data/elem offsets, typed element item expressions, and function-body reads/writes;
+    - [x] refactor SGO collection so source-specific counters and existing same-init/read-only-to-write plan flags live in one coherent `SgoGlobalInfo` row;
+    - [x] run direct SGO fuzz to confirm behavior parity after the fact-row refactor: `.tmp/pass-fuzz-sgo-fact-table-003a-10000` compared `6759/10000` before the configured 20 Binaryen/tool command-failure stop, with `0` mismatches and `0` Starshine validation failures.
+  - Required guardrails:
+    - imported initializer provenance must remain conservative;
+    - exported mutable globals must not be made private by fact refactoring;
+    - element item reference expressions must remain conservative until `[SGO]003F`.
+  - Exit criteria:
+    - focused fact-table tests pass (`moon test src/passes` passed `1610/1610` after the refactor);
+    - no intended behavior broadening without tests;
+    - direct SGO fuzz remains green under the configured command-failure stop (`0` mismatches, `0` validation failures).
+
+- [SGO]003B - Same-As-Init Expression Equivalence Parity
+  - Status: accepted / evidence-gated on 2026-05-25. Fresh arithmetic and `select` same-init probes were Binaryen negatives, and the existing block/result, alias one-shot, imported-provenance, changed-write, and object-identity guardrails remain the active boundary. Evidence lives in `docs/wiki/raw/research/0676-2026-05-25-sgo-same-init-expression-guardrails.md`, with prior closeout context in `0658`.
+  - Goal: avoid broadening same-init write removal beyond the currently proven direct literal / `ref.null` / `ref.func` and exact repeated-run alias surfaces unless a future exact Binaryen-positive expression grammar appears.
+  - Completed tasks:
+    - [x] inventoried current official/generated evidence and prior closeouts for direct literals, canonicalized aliases, block/result wrappers, arithmetic expressions, `select` expressions, imported-provenance cases, changed-write cases, and repeated-run behavior;
+    - [x] added focused guardrail tests for arithmetic and `select` expression-shaped same-init writes, both preserving the mutable global and later read;
+    - [x] kept implementation unchanged because no new Binaryen-positive expression grammar was found.
+  - Future reopen criteria:
+    - a new exact Binaryen-positive fixture for a specific expression grammar;
+    - paired negatives for provenance, trapping/effectful expressions, block/result wrappers, changed non-init writes, and object-identity-sensitive GC expressions;
+    - direct SGO 10k fuzz for any behavior change.
+
+- [SGO]003C - Full Read-Only-To-Write FlowScanner Parity
+  - Status: accepted / evidence-gated for the currently evidenced v0.1.0 surface. Broad FlowScanner parity remains source-backed but future broadening now requires a fresh exact Binaryen-positive child slice with paired guardrails and direct SGO fuzz evidence.
+  - Goal: replace the remaining syntactic and partial FlowScanner gaps with a source-faithful value/effect scanner for Binaryen read-only-to-write detection when fresh evidence identifies a concrete missing shape.
+  - Why: `read-only-to-write` and side-effecting-but-safe condition value-flow remain partial; full Binaryen parity requires recognizing all safe candidate-read-to-branch/control shapes while preserving traps, side effects, and extra reads.
+  - Subtasks:
+    - `[SGO]003C1` condition/control inventory: enumerate Binaryen-positive direct, `i32.eqz`, normal/reverse compare, `select`, block, loop, if, `try_table`, and exact `if return; set` shapes not yet covered;
+    - `[SGO]003C2` pure/nontrapping operator closure: audit remaining scalar, reference, GC, SIMD, and conversion operators that Binaryen accepts as nontrapping pure condition consumers; add one operator-family test set at a time;
+    - `[SGO]003C3` side-effect-preserving prefixes: complete safe independent side-effect families including stores, table/memory bulk ops, grows, drops, local/global writes, and clean calls only when operands are independent of the candidate global;
+    - `[SGO]003C4` nested-if and arm-flow completion: cover any remaining first-arm/second-arm/nested-arm placements, transparent wrappers, and post-if consumers;
+    - `[SGO]003C5` loop-specific scanner: accepted / evidence-gated on 2026-05-25 in `docs/wiki/raw/research/0691-2026-05-25-sgo-loop-prefix-closeout.md`. Direct loop self-guards and simple pure adjacent consumers are covered, and the narrow independent `const; global.set <other>` value-loop prefix from 0638/0677, the Binaryen-positive independent `const; local.set` prefix from 0678, the constant-operand `i32.store` prefix from 0679, the matching constant-operand `i64.store` prefix from 0680, the integer subword store family (`i32.store8`, `i32.store16`, `i64.store8`, `i64.store16`, and `i64.store32`) from 0681, the float store family (`f32.store` and `f64.store`) from 0682, the clean `table.set` prefix from 0683, the three-constant `memory.fill` prefix from 0684, the three-constant `memory.copy` prefix from 0685, the three-constant `memory.init` prefix from 0686, the clean `table.fill` prefix from 0687, the three-constant `table.init` / `table.copy` prefixes from 0688, the independent `memory.grow` / `table.grow` plus dropped-result prefixes from 0689, and the operandless `elem.drop` / `data.drop` segment-drop prefixes from 0690 are now implemented without reusing the full block scanner. Do not continue the prefix micro-series implicitly; future loop broadening needs a new exact Binaryen-positive child slice plus branch/trap/effect guardrails;
+    - `[SGO]003C6` `try_table` and exception-wrapper completion: accepted / evidence-gated on 2026-05-25 in `docs/wiki/raw/research/0692-2026-05-25-sgo-try-table-wrapper-closeout.md`. The no-catch wrapper surface from 0603 through 0632 covers direct, `i32.eqz`, compare/reverse-compare, select-position, supported pure-post-consumer, exact `if return; set`, and `ref.is_null` families; catch-bearing/delegate/control-transfer wrappers remain conservative until a future exact Binaryen-positive child slice supplies paired guardrails and direct SGO fuzz evidence;
+    - `[SGO]003C7` branch/control guardrails: preserve negatives for branchy wrappers, returns, throws, `br_if`, extra same-global reads, wrong target globals, non-constant writes, tainted operands, trapping consumers, and post-join uses.
+  - Exit criteria:
+    - focused tests cover every implemented FlowScanner grammar plus paired negatives;
+    - direct SGO 10k fuzz green;
+    - no Starshine validation failures;
+    - self-optimize read-only-to-write diffs are gone or explicitly classified.
+
+- [SGO]003D - Call, Generated-Effects, And Function-Effect Parity
+  - Status: accepted / evidence-gated on 2026-05-25. Evidence and closeout live in `docs/wiki/raw/research/0693-2026-05-25-sgo-call-effect-parity-closeout.md`, building on the direct-call read-summary implementation in `0671`, constant-argument guardrails in `0672`, and prior call-breadth closeout in `0673`.
+  - Goal: keep the current fixed-point direct-call read/write summaries as the supported v0.1.0 call/effect surface, while requiring fresh exact Binaryen-positive evidence before broader call behavior is implemented.
+  - Completed tasks:
+    - [x] audited the existing `LinearExecutionWalker` / function-effect evidence and Starshine implementation state for ordinary direct calls, runtime fact preservation, and read-only-to-write call participation;
+    - [x] confirmed focused tests already cover fixed-point per-global read/write summaries, zero-param one-result calls, clean constant-argument direct calls, wrong-global reads, candidate-reading callees, imported calls, and candidate-derived operands;
+    - [x] kept imported calls, indirect calls, `call_ref`, return-call variants, generated-effects metadata, target-set modeling, and broader placements conservative without fresh positive evidence;
+    - [x] recorded a spot direct `--simplify-globals-optimizing` probe showing a zero-result independent call before a later candidate read is not an immediate Starshine/Binaryen normalized-output gap.
+  - Future reopen criteria:
+    - an exact Binaryen-positive fixture for imported-call, indirect-call, `call_ref`, return-call, generated-effects, target-set, or broader placement behavior;
+    - paired guardrails for candidate-derived call operands, candidate-reading callees, unknown/dynamic callees, table/element escapes, exported/open-world functions, recursive cycles, trapping/effectful operands, multi-read conditions, and non-branch consumers;
+    - direct SGO 10k fuzz and validation evidence for any behavior change.
+
+- [SGO]003E - Runtime ConstantGlobalApplier / Linear-Trace Parity
+  - Status: accepted / evidence-gated on 2026-05-25. Evidence and closeout live in `docs/wiki/raw/research/0694-2026-05-25-sgo-runtime-linear-trace-closeout.md`, building on the 0598 through 0602 runtime slices and `[SGO]003D` call/effect summary closeout.
+  - Goal: keep the current runtime linear-trace propagation surface as the supported v0.1.0 behavior while requiring fresh exact Binaryen-positive evidence before broader `ConstantGlobalApplier` adjacency is implemented.
+  - Completed tasks:
+    - [x] audited the landed runtime implementation and tests for straight-line, top-level-noise, plain-block, no-else, then-with-else, else-local, loop-local, `try_table`-local, imported/exported/reference fact, and direct-call-summary propagation;
+    - [x] confirmed conservative guardrails remain for pre-`if` facts entering else arms, post-if joins, pre-loop facts entering loops, loop facts escaping/backedge reuse, post-`try_table` joins, imported/indirect/reference calls, dynamic return calls, branches, returns, throws, and non-constant writes;
+    - [x] kept optimizer behavior unchanged because no active exact Binaryen-positive runtime-adjacency child fixture remains.
+  - Future reopen criteria:
+    - an exact Binaryen-positive fixture for a specific runtime propagation shape not already covered;
+    - paired guardrails for joins/backedges, candidate-derived operands, unknown calls, branches, returns, throws, non-constant writes, and type/refinalization-sensitive replacements as relevant;
+    - focused tests plus direct SGO 10k fuzz and validation evidence for any behavior change.
+
+- [SGO]003F - Reference, GC, Type-Refinalization, And Element-Expression Parity
+  - Status: accepted / evidence-gated on 2026-05-26. The ordinary `ref.cast` parser prerequisite and first validating `ref.func`-through-`ref.cast` SGO fixture landed on 2026-05-25 in `docs/wiki/raw/research/0695-2026-05-25-sgo-ref-cast-parser-and-fixture.md`; the narrow exact-type typed element item-expression subset landed on 2026-05-26 in `docs/wiki/raw/research/0696-2026-05-26-sgo-exact-typed-element-replacement.md`; and typed element broadening was closed as evidence-gated in `docs/wiki/raw/research/0697-2026-05-26-sgo-typed-element-guardrail-closeout.md` after adding refinalization-sensitive and object-identity-sensitive guardrails. Broader less-refined alias, descriptor, object-identity, and module-retagging-sensitive cases require a future exact Binaryen-positive fixture before reopening.
+  - Goal: safely implement Binaryen's reference-typed replacement breadth, including typed element item expressions and GC/refinalization-sensitive cases.
+  - Why: reference replacements are partial; typed element item expressions and broader type-changing replacements are intentionally conservative. The old ordinary `ref.cast` WAT blocker is removed, but full `[SGO]003F` parity still needs exact Binaryen-positive fixtures and paired guardrails.
+  - Tasks:
+    - [x] isolate parser/lowering support needed for normal `ref.cast` fixtures (`0695` adds WAST opcode/parser/lowering/rendering and roundtrip coverage);
+    - [x] add a minimal validating fixture where SGO replacement changes reference precision and refinalization repairs the function (`0695` covers a typed `ref.func` global read feeding `ref.cast (ref $t)`);
+    - [x] implement the narrow `ref.cast(ref.func-global)` path only after the fixture validates (existing SGO replacement is now covered by the parser-supported fixture);
+    - [x] audit and implement the exact-type typed element item-expression subset: single `global.get` items whose global value type exactly equals the element segment `RefType`, including exact immutable aliases after startup constant rewriting (`0696`);
+    - [x] audit broader typed element item-expression replacements and keep non-exact, nested, subtype/refinalization-sensitive, descriptor-sensitive, or object-identity-sensitive reference `global.get`s conservative without fresh exact Binaryen-positive evidence (`0697`);
+    - [x] add guardrails for nullable/non-null refinalization-sensitive typed element expressions and object-identity-sensitive `struct.new_default` typed element globals; existing less-refined alias guardrails remain active (`0697`);
+    - [x] run direct SGO 10k fuzz for the completed `[SGO]003F` behavior set after the remaining guardrails/deferrals are finalized: `.tmp/pass-fuzz-sgo-typed-element-guardrails-0697-10000` reported `6759/10000` compared, `0` mismatches, and `0` Starshine validation failures before the configured 20 Binaryen/tool command-failure stop.
+  - Exit criteria:
+    - reference/GC rows in the parity matrix are implemented or evidence-gated with focused guardrails;
+    - `wasm-tools validate` and Binaryen validation accept outputs;
+    - direct SGO 10k fuzz green for the completed behavior set.
+
+- [SGO]003G - Startup Propagation, Single-Use, Copy-Chain, And Segment Parity
+  - Status: accepted / evidence-gated on 2026-05-26. Evidence and closeout live in `docs/wiki/raw/research/0698-2026-05-26-sgo-startup-copy-chain-closeout.md`, building on the 0580 through 0589 startup/single-use/copy-chain lit regressions, `[SGO]003A` fact-table audit, and `[SGO]003F` typed element exactness/guardrail slices.
+  - Goal: keep the current source-backed startup-only propagation, single-use initializer folding, exact-type immutable copy-chain canonicalization, and segment/table initializer behavior as the v0.1.0 supported surface while requiring fresh exact Binaryen-positive evidence before broader startup or copy-chain behavior is implemented.
+  - Completed tasks:
+    - [x] audited Binaryen-backed startup propagation into later globals, table initializer expressions, active data offsets, active element offsets, typed element item expressions, and nested GC initializer children against the current Starshine implementation and tests;
+    - [x] confirmed existing focused positives cover supported startup constants, active segment offsets, nested GC initializers, single-use GC initializer folding, and prefer-earlier exact-type copy chains;
+    - [x] preserved function-code second-use, imported source, second global use, passive-data, non-exact typed element item, object-identity, subtype/refinalization, descriptor-sensitive, exported/open-world, and startup-only nested-cleanup guardrails;
+    - [x] kept optimizer behavior unchanged because no fresh exact Binaryen-positive startup/copy-chain fixture remained in the active evidence set.
+  - Future reopen criteria:
+    - an exact Binaryen-positive fixture for a specific startup/copy-chain/segment shape not already covered;
+    - paired guardrails for imported/exported provenance, second uses, function-code uses, passive segments, type/refinalization sensitivity, object identity, descriptor operations, and touched-function cleanup behavior as relevant;
+    - focused tests plus direct SGO 10k fuzz and validation evidence for any behavior change.
+
+- [SGO]003H - Shared Engine And Sibling Pass Exposure
+  - Status: accepted on 2026-05-26. Evidence lives in `docs/wiki/raw/research/0699-2026-05-26-sgo-shared-family-exposure.md`.
+  - Goal: expose Binaryen-family parity for plain `simplify-globals` and `propagate-globals-globally` without aliasing them incorrectly to the optimizing sibling.
+  - Completed tasks:
+    - [x] kept the shared global-simplification core in `src/passes/simplify_globals_optimizing.mbt` while adding distinct wrappers;
+    - [x] added public registry/dispatcher tests proving `simplify-globals`, `simplify-globals-optimizing`, and `propagate-globals-globally` are distinct active module passes;
+    - [x] implemented plain `simplify-globals` as the shared core without nested cleanup;
+    - [x] implemented `propagate-globals-globally` as the startup/global-only subset, preserving function bodies and disabling SGO single-use complex-initializer inlining for this sibling;
+    - [x] added pass-fuzz-compare support for both newly active pass names;
+    - [x] ran direct 10k fuzz lanes: `.tmp/pass-fuzz-sgo-plain-sibling-0699-10000` and `.tmp/pass-fuzz-pgg-sibling-0699b-10000` both reported `6759/10000` compared, `0` mismatches, and `0` Starshine validation failures before the configured 20 Binaryen/tool command-failure stop.
+  - Future reopen criteria:
+    - a new direct fuzz mismatch, validation failure, source-backed sibling behavior gap, or preset scheduling requirement.
+
+- [SGO]004 - Exact Nested Default Cleanup Scheduler And Performance Parity
+  - Status: accepted / evidence-gated on 2026-05-25. Evidence lives in `docs/wiki/raw/research/0666-2026-05-25-sgo-nested-cleanup-scheduler-deferral-audit.md`; future scheduler broadening needs a concrete mismatch, validation failure, artifact/code-size target, wall-time owner, or verifier reproduction.
+  - Goal: match or deliberately justify divergence from Binaryen's SGO optimizing wrapper: rerun the correct default function optimization sequence on every changed function, with no extra functions and no missing required cleanup slots.
+  - Why: Starshine currently uses an accepted artifact-tuned pruned nested list and structural filters; Binaryen runs the full default function optimization pipeline per changed function. Full self-optimization parity may require exact scheduler behavior or a proven semantically equivalent schedule.
+  - Tasks:
+    - re-audit Binaryen `simplify-globals-optimizing` nested rerun source and saved no-DWARF optimize-path docs;
+    - add trace tests for the expected nested pass list, order, repeated cleanup slots, and no `precompute-propagate` prefix;
+    - characterize current filters: large touched function, value-block-control, module size, touched count, startup-only no-cleanup;
+    - remove or narrow filters only with validation and pass-local timing evidence;
+    - compare full nested list versus current pruned list on reduced modules and the debug artifact;
+    - if exact Binaryen list is too slow but semantically equivalent, document accepted scheduler divergence with timing and artifact evidence.
+  - Exit criteria:
+    - nested cleanup produces valid wasm for all focused guardrail families;
+    - direct artifact pass-local timing meets the 2x Binaryen floor or is attributed;
+    - direct SGO 10k fuzz green;
+    - self-optimize no longer has unexplained SGO-cleanup diffs.
+
+- [SGO]005 - Full v0.1.0 Self-Optimization And 10k Fuzzer Signoff
+  - Status: accepted for SGO-owned direct and late-tail work on 2026-05-26 after `docs/wiki/raw/research/0702-2026-05-26-sgo-worklist-effects-closeout.md`; depends on `[SGO]003A` through `[SGO]003H` and `[SGO]004`. Full public `--optimize` replay remains blocked by `[WALL]001` whole-preset runtime/attribution, not by an SGO pass-local issue.
+  - Goal: prove full Binaryen parity for SGO's role in the v0.1.0 no-DWARF default optimize path.
+  - Tasks:
+    - [x] run `moon info`, `moon fmt`, and `moon test` serially for the 2026-05-26 attempt (`moon test` passed `3723/3723`, with existing DAE unused warnings in `moon info`);
+    - [x] run direct pass fuzz: `bun fuzz compare-pass --count 10000 --seed 0x5eed --pass simplify-globals-optimizing --max-failures 20 --out-dir .tmp/pass-fuzz-sgo-full-parity-10000` (`6759/10000` compared, `0` mismatches, `0` Starshine validation failures, `20` Binaryen/tool command failures);
+    - [x] run ordered late-tail neighborhood fuzz for `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`: `.tmp/pass-fuzz-sgo-late-tail-full-parity-10000` (`6597/10000` compared, `0` mismatches, `0` Starshine validation failures, `20` Binaryen/tool command failures);
+    - [x] run direct debug artifact replay with `--simplify-globals-optimizing` and record first diff, sizes, validation, and pass-local timings: `.tmp/sgo-full-parity-direct-artifact-native` validates and first differs at `defined=55 abs=76`, classified as representation-only default-local/carrier drift, but Starshine pass time is over the 2x floor (`249.120ms` vs Binaryen `115.912ms`; repeat `257.074ms` vs `112.087ms`);
+    - [x] run ordered late-tail debug artifact replay: `.tmp/sgo-full-parity-late-tail-artifact` first differs at the same `defined=55 abs=76` representation-only family, but Starshine pass time is over the 2x floor (`376.989ms` vs Binaryen `176.568ms`; repeat `385.680ms` vs `177.497ms`);
+    - [x] fix or explicitly accept the SGO direct/late-tail artifact pass-local runtime gap before final closeout; `0702` replaced the transitive direct-call effect fixed-point sweep with a reverse-call worklist and reused per-function global-reference scans, bringing direct replay to `120.392ms` Starshine vs `111.796ms` Binaryen and late-tail replay to `251.204ms` Starshine vs `178.442ms` Binaryen.
+    - [x] decide whether the `defined=55 abs=76` default-local/carrier drift is accepted for final SGO artifact signoff or needs compare-normalization/cosmetic parity work; it remains agent-classified representation-only default-local/carrier drift with no semantic mismatch or validation failure evidence, so exact cosmetic parity is not an SGO v0.1.0 blocker.
+    - [x] unblock preset-flag parsing in `scripts/self-optimize-compare.ts` and add focused helper coverage; `--optimize` now maps to Binaryen `-O` while remaining Starshine `--optimize`, and `--shrink` maps to Binaryen `-Os`; evidence lives in `docs/wiki/raw/research/0701-2026-05-26-self-optimize-preset-helper-and-sgo-retry.md`.
+    - [x] rerun the full self-optimization / optimize-path comparison after helper support; the command now reaches execution instead of rejecting `--optimize`, but `.tmp/sgo005-optimize-helper-20260526` timed out after 300s before artifacts, so the remaining full-preset replay blocker is the known `[WALL]001` runtime/attribution problem rather than helper argument parsing.
+    - [x] defer the full public `--optimize` replay to `[WALL]001`: after the helper fix, `.tmp/sgo005-optimize-helper-20260526` reached execution but timed out after 300s before artifacts; rerun `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --optimize --out-dir .tmp/sgo-full-parity-optimize-artifact --starshine-bin _build/native/release/build/cmd/cmd.exe` from `[WALL]001` once full-preset execution is viable, then classify any remaining optimize-path diffs.
+    - [x] update `docs/wiki/raw/research/[next]-YYYY-MM-DD-sgo-full-binaryen-parity-signoff.md`, `docs/wiki/log.md`, parity matrix, and this backlog for the 2026-05-26 attempt;
+    - [x] commit the 2026-05-26 signoff-attempt docs/backlog update after reviewing status and staged diff (`c109a728`).
+    - [x] reduce direct/late-tail SGO artifact pass-local time under the 2x floor or record an explicit accepted exception with evidence; `0702` keeps direct `.tmp/sgo-worklist-effects-final-direct-artifact` and late-tail `.tmp/sgo-worklist-effects-latetail-artifact` under the 2x floor.
+    - [x] keep the `defined=55 abs=76` default-local/carrier diff classified as representation-only unless a future release-QA requirement demands exact cosmetic parity.
+  - Required mismatch classification:
+    - semantic-safe / representation-only only with explicit transform-contract or replay evidence;
+    - validation failure, tool/Binaryen failure, size-losing, unknown/risky, and true semantic mismatch must stay visible until fixed or explicitly accepted.
+  - Exit criteria met for SGO-owned work on 2026-05-26:
+    - `moon test` green (`3724/3724` in `0702`);
+    - direct SGO 10k has zero semantic mismatches and zero Starshine validation failures (`.tmp/pass-fuzz-sgo-worklist-effects-final-10000`);
+    - remaining direct/late-tail Binaryen difference is classified as representation-only `defined=55 abs=76` default-local/carrier drift with concrete artifact dirs in `0702`;
+    - SGO pass-local runtime meets the 2x Binaryen floor on direct and late-tail artifact comparison; the only remaining full self-optimization replay blocker is assigned to `[WALL]001` with evidence.
 
 #### SG / RG / DIR late-tail scheduling
 
@@ -196,7 +403,7 @@ Execution rules for all DAE slices
 
 - [WALL]001 - Cross-Pass Runtime Budget And Attribution
   - Deliverables: own whole-command Starshine-vs-Binaryen wall-time measurement outside individual pass parity slices; separate pass-local runtime, harness/tool startup, parse/emit, validation, HOT lift/lower, analysis cache, and artifact representation costs; maintain a prioritized list of cross-cutting runtime fixes without blocking pass correctness signoff on aggregate wall time.
-  - Current status: direct pass slices may record timing evidence when available, but unresolved whole-command wall-time gaps should be filed here unless the root cause is clearly inside one pass implementation. A 2026-05-19 full self-optimize attempt showed the current compare harness rejects preset flags (`--optimize`/`--shrink`), and an expanded optimize-preset compare/direct Starshine optimize attempt exceeded 30 minutes while still in `ssa-nomerge` near function `2977`; this is a full-preset runtime/attribution issue, not an SG decoder blocker. A follow-up direct `--ssa-nomerge` compare on the debug artifact timed out after 300s before producing artifacts, and a 120s traced direct replay again stopped inside Func 2977 after `analysis:ssa`, while Binaryen direct `--ssa-nomerge` completed in about 851ms wall / 385.935ms pass time. `--print-func 2977` identifies the body as the large branchy Wast opcode parser (`_M0MP37jtenner9starshine4wast10WastParser26parse__opcode__instruction`) with 394 locals and a 71,463-character raw body line, so the next `[WALL]001` slice should isolate or guard `ssa-nomerge` on that function shape before retrying full preset comparison. Follow-up non-pass slices now cover raw wasm no-op copies in `src/cmd/cmd.mbt`, remove standard-section/stringref whole-payload copies in `src/binary/decode.mbt`, and thread reachable escape-depth summaries through `src/validate/typecheck.mbt` so nested control validation no longer recursively rescans subtrees for merge-reaching branches; the remaining non-pass candidate is encoder size/backpatch or code-section buffering reduction.
+  - Current status: direct pass slices may record timing evidence when available, but unresolved whole-command wall-time gaps should be filed here unless the root cause is clearly inside one pass implementation. A 2026-05-19 expanded optimize-preset compare/direct Starshine optimize attempt exceeded 30 minutes while still in `ssa-nomerge` near function `2977`; this is a full-preset runtime/attribution issue, not an SG decoder blocker. A follow-up direct `--ssa-nomerge` compare on the debug artifact timed out after 300s before producing artifacts, and a 120s traced direct replay again stopped inside Func 2977 after `analysis:ssa`, while Binaryen direct `--ssa-nomerge` completed in about 851ms wall / 385.935ms pass time. `--print-func 2977` identifies the body as the large branchy Wast opcode parser (`_M0MP37jtenner9starshine4wast10WastParser26parse__opcode__instruction`) with 394 locals and a 71,463-character raw body line, so the next `[WALL]001` slice should isolate or guard `ssa-nomerge` on that function shape before retrying full preset comparison. The 2026-05-26 `[SGO]005` helper-unblock run fixed the self-optimize compare preset-flag rejection (`--optimize` now reaches execution as Starshine `--optimize` vs Binaryen `-O`), but the full-preset replay still timed out after 300s at `.tmp/sgo005-optimize-helper-20260526` before writing artifacts. Follow-up non-pass slices now cover raw wasm no-op copies in `src/cmd/cmd.mbt`, remove standard-section/stringref whole-payload copies in `src/binary/decode.mbt`, and thread reachable escape-depth summaries through `src/validate/typecheck.mbt` so nested control validation no longer recursively rescans subtrees for merge-reaching branches; the remaining non-pass candidate is encoder size/backpatch or code-section buffering reduction.
 
 ## Deferred Until MoonBit Threading Support
 
@@ -210,45 +417,15 @@ Execution rules for all DAE slices
 
 ### SGO - Follow-Up Improvements
 
-- [SGO]003 - Optional Binaryen `SimplifyGlobals.cpp` Breadth
-  - Status: deferred to v0.1.1; not a v0.1.0 blocker after `docs/wiki/raw/research/0573-2026-05-19-sgo-v010-signoff.md`.
-  - Goal: broaden the signed-off SGO supported surface only when a targeted need appears, without reopening the accepted v0.1.0 direct/nested/late-tail signoff by default.
-  - Resume when: a new semantic mismatch, wasm validation failure, targeted artifact/code-size need, or string/GC/refinalization requirement points at SGO breadth.
-  - Candidate families: side-effecting-but-safe `read-only-to-write` value-flow positives, broader same-as-init expression matching beyond direct literal / `ref.null` / `ref.func`, broader runtime linear-trace propagation, and additional GC/refinalization-safe replacement surfaces.
-  - Deliverables when resumed: add focused shape tests first, rerun direct `--pass simplify-globals-optimizing` oracle fuzz for the new family, and update the SGO wiki pages with the exact accepted subset.
-
-- [SGO]004 - Nested Cleanup Runtime And Exact-Scheduler Experiment
-  - Status: deferred to v0.1.1; not a v0.1.0 blocker because the accepted nested lane is valid, smaller than Binaryen on the direct artifact, and inside the direct pass-local runtime floor.
-  - Goal: decide whether to optimize remaining nested cleanup wrapper overhead or intentionally restore more exact Binaryen default-function scheduler slots despite measured runtime cost.
-  - Resume when: a measured SGO-specific wall-time owner appears, the nested `vacuum` wrapper overhead becomes a concrete runtime target, or an artifact/code-size case demonstrates value from omitted nested default-function slots.
-  - Candidate work: reduce nested `vacuum` / lift-lower wrapper cost, add cheaper function-filtered adapters for currently module-shaped cleanup passes, or run a controlled exact-scheduler experiment with artifact and fuzz evidence.
-  - Deliverables when resumed: trace before/after nested timers, preserve validation and direct 10k SGO fuzz parity, and document whether the accepted artifact-tuned lane changes.
-
-- [SGO]005 - Default-Local Compare Normalization
-  - Status: deferred to v0.1.1 tooling/cosmetic follow-up; not a v0.1.0 correctness blocker.
-  - Goal: eliminate or normalize the accepted direct SGO `defined=48 abs=69` artifact diff where Binaryen preserves an explicit `local.set $0 (i32.const 0)` and Starshine relies on WebAssembly default local zero-initialization.
-  - Resume when: exact artifact diffs need to become quieter for release QA or compare-harness work.
-  - Deliverables when resumed: either teach the compare helper to ignore explicit default local initialization when semantically equivalent, or add a deliberate Starshine emission/canonicalization option if preserving the explicit set proves more useful.
+No separate v0.1.1 SGO follow-up task is currently tracked. Full Binaryen parity work has been moved into the active v0.1.0 SGO slice above.
 
 ## v0.2.0 Backlog
 
 ### INL - Deferred Inliner Breadth
 
-- [INL]005 - Partial Inlining Splitter
-  - Status: deferred to v0.2.0; not a v0.1.0 blocker and not the next task after DAE. Starshine intentionally does not implement Binaryen's Pattern A / Pattern B partial splitting today.
-  - Resume only if a reduced Pattern A/B fixture demonstrates one of: semantic or validation correctness, a clear pass-local performance win, a downstream size/optimization win that offsets code growth, or a user-facing need for `no-partial-inline` splitter behavior.
-  - Deliverables when resumed: implement or explicitly reject/scope out Pattern A and Pattern B splitting, add reduced splitter and helper-cleanup fixtures, define `no-partial-inline` behavior against the splitter, and compare direct `--pass inlining` / `--pass inlining-optimizing` on split-family repros.
+No active v0.2.0 INL backlog slices remain.
 
-- [INL]006 - Residual Name/Annotation Repair
-  - Status: deferred to v0.2.0; not a v0.1.0 blocker and not a semantic parity prerequisite for the accepted direct surfaces. Tail-call and multi-result correctness subsets are already covered by focused tests; Starshine intentionally drops function-scoped local/label names after inlining body rewrites instead of preserving stale or collision-prone debug maps.
-  - Resume only with a concrete user-facing debug-name requirement, annotation-collision requirement, semantic mismatch, wasm validation failure, or proven pass-local performance/code-size issue.
-  - Deliverables when resumed: add focused repair tests first, then either implement deterministic Binaryen-like local/label name reconstruction and broader annotation collision repair or explicitly document the unsupported surface as rejected.
-
-- [TOOL]001 - Self-Optimize Compare Normalization Symmetry
-  - Goal: make the exact artifact helper stop reporting harmless raw/debug-only outer-block drift as a pass blocker.
-  - Why deferred: the current `[TO]005` residual is not a Starshine optimizer bug and is not needed for v0.1.0.
-  - Deliverables: either canonicalize Binaryen through the same strip-debug path before canonical-function comparison while preserving `binaryen.raw.wasm`, or teach the canonical-function fallback to ignore transparent unused-label void block wrappers.
-  - Acceptance: the exact-slot artifact command no longer reports `defined=200 abs=217` solely because Binaryen raw `--debug` kept an outer block that symmetric normalization removes.
+### HOT - Deferred Worker Queue
 
 - [HOT]003 - Node-Package Worker Queue Port
   - Status: deferred behind [HOT]002 and future Node package rebuild work.

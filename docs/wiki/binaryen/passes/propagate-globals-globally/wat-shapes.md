@@ -257,7 +257,7 @@ After, conceptually:
 
 ## Binaryen versus Starshine caveat
 
-Current Starshine does not implement this pass. The local registry rejects explicit requests before any module rewrite runs; see [`./starshine-strategy.md`](./starshine-strategy.md). These WAT examples are therefore future-port targets, not descriptions of current Starshine behavior.
+Current Starshine implements this pass as the startup/global-only shared SGO sibling; see [`./starshine-strategy.md`](./starshine-strategy.md) and [`../../../raw/research/0699-2026-05-26-sgo-shared-family-exposure.md`](../../../raw/research/0699-2026-05-26-sgo-shared-family-exposure.md). These WAT examples now describe the active wrapper boundary: startup expressions may rewrite, while ordinary function bodies stay unchanged.
 
 ## Validation checklist for these shapes
 
