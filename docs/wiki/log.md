@@ -1320,7 +1320,8 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Completed `[FUZ]1036K46` by adding `add-imported-table-export-aliases` and `add-defined-table-export-aliases`. The transforms append deterministic unused aliases for existing imported or defined table exports, preserving table indices and no-oping when the selected index region has no exported table.
 - Completed `[FUZ]1036K47` by adding `add-imported-tag-export-aliases` and `add-defined-tag-export-aliases`. The transforms append deterministic unused aliases for existing imported or defined exception tag exports, preserving tag indices and no-oping when the selected index region has no exported tag.
 - Completed `[FUZ]1036K48` by adding `add-duplicate-equivalent-imported-empty-function`, which duplicates only imported empty `[] -> []` function declarations, preserves the original type index, and no-ops when defined functions are present to avoid shifting defined function indices.
-- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 469 transforms per generated module, and kept focused `src/fuzz` validation green.
+- Completed `[FUZ]1036K49` by adding `add-duplicate-equivalent-imported-i32-param-empty-function`, which duplicates only imported `(i32) -> []` function declarations, preserves the original type index, and no-ops when defined functions are present to avoid shifting defined function indices.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), widened metamorphic smoke expectations to 470 transforms per generated module, and kept focused `src/fuzz` validation green.
 
 ## [2026-05-25] fuzzing | FUZ1036K11 duplicate equivalent imported tag transform
 

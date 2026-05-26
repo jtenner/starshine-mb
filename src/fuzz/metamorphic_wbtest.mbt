@@ -1485,6 +1485,107 @@ test "metamorphic duplicate equivalent imported empty function transform selects
 }
 
 ///|
+test "metamorphic duplicate equivalent imported i32-param empty-result function transform selects only matching scalar signatures" {
+  let i32_param_empty_type_idx = @lib.TypeIdx::new(0)
+  let f64_param_empty_type_idx = @lib.TypeIdx::new(1)
+  let i32_import = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("i32_param_empty"),
+    @lib.func_extern_type(i32_param_empty_type_idx),
+  )
+  let f64_import = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("f64_param_empty"),
+    @lib.func_extern_type(f64_param_empty_type_idx),
+  )
+  let i32_param_empty_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+  )
+  let f64_param_empty_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::f64()], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([i32_param_empty_type, f64_param_empty_type]),
+    )
+    .with_import_sec(@lib.ImportSec::new([f64_import, i32_import]))
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddDuplicateEquivalentImportedI32ParamEmptyFunction,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-duplicate-equivalent-imported-i32-param-empty-function",
+  )
+  match transformed.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => {
+      @debug.assert_eq(imports.length(), 3)
+      @debug.assert_eq(imports[0], f64_import)
+      @debug.assert_eq(imports[1], i32_import)
+      match imports[2] {
+        @lib.Import(module_name, item_name, @lib.FuncExternType(dup_type_idx)) => {
+          @debug.assert_eq(module_name, @lib.Name::new("env"))
+          @debug.assert_eq(
+            item_name,
+            @lib.Name::new("i32_param_empty_func_metamorphic_duplicate"),
+          )
+          @debug.assert_eq(dup_type_idx, i32_param_empty_type_idx)
+        }
+        _ => fail("expected duplicate imported i32-param empty-result function")
+      }
+    }
+    None => fail("expected transformed imports")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic duplicate equivalent imported i32-param empty-result function transform avoids defined-function index shifts" {
+  let import_type_idx = @lib.TypeIdx::new(0)
+  let defined_type_idx = @lib.TypeIdx::new(1)
+  let original_import = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("i32_param_empty"),
+    @lib.func_extern_type(import_type_idx),
+  )
+  let defined = @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([]))
+  let import_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+  )
+  let defined_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([import_type, defined_type]))
+    .with_import_sec(@lib.ImportSec::new([original_import]))
+    .with_func_sec(@lib.FuncSec::new([defined_type_idx]))
+    .with_code_sec(@lib.CodeSec::new([defined]))
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddDuplicateEquivalentImportedI32ParamEmptyFunction,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match transformed.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => @debug.assert_eq(imports.length(), 1)
+    None => fail("expected original import")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic duplicate equivalent imported empty function transform avoids defined-function index shifts" {
   let type_idx = @lib.TypeIdx::new(0)
   let original_import = @lib.Import::new(
@@ -10868,8 +10969,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 469)
-  @debug.assert_eq(stats.validated, 469)
+  @debug.assert_eq(stats.transformed, 470)
+  @debug.assert_eq(stats.validated, 470)
   assert_true(
     stats.transform_ids.contains(
       "add-duplicate-equivalent-immutable-v128-global",

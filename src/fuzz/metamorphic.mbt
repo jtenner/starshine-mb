@@ -28,6 +28,7 @@ pub enum MetamorphicValidTransform {
   AddDuplicateEquivalentImportedMemory
   AddDuplicateEquivalentImportedMemory64
   AddDuplicateEquivalentImportedEmptyFunction
+  AddDuplicateEquivalentImportedI32ParamEmptyFunction
   AddDuplicateEquivalentImportedSharedMemory
   AddDuplicateEquivalentImportedSharedMemory64
   AddDuplicateEquivalentImportedFunction
@@ -522,6 +523,8 @@ pub fn metamorphic_valid_transform_id(
       "add-duplicate-equivalent-imported-memory64"
     AddDuplicateEquivalentImportedEmptyFunction =>
       "add-duplicate-equivalent-imported-empty-function"
+    AddDuplicateEquivalentImportedI32ParamEmptyFunction =>
+      "add-duplicate-equivalent-imported-i32-param-empty-function"
     AddDuplicateEquivalentImportedSharedMemory =>
       "add-duplicate-equivalent-imported-shared-memory"
     AddDuplicateEquivalentImportedSharedMemory64 =>
@@ -3342,6 +3345,25 @@ fn metamorphic_imported_function_has_empty_signature(
 }
 
 ///|
+fn metamorphic_imported_function_has_i32_param_empty_signature(
+  subtypes : Array[@lib.SubType],
+  type_idx : @lib.TypeIdx,
+) -> Bool {
+  match type_idx {
+    @lib.TypeIdx(i) =>
+      match subtypes.get(i.reinterpret_as_int()) {
+        Some(sub_type) =>
+          match sub_type.get_comptype() {
+            @lib.FuncCompType([param], []) => param == @lib.ValType::i32()
+            _ => false
+          }
+        None => false
+      }
+    @lib.RecIdx(_) => false
+  }
+}
+
+///|
 fn metamorphic_add_duplicate_equivalent_imported_empty_function(
   mod : @lib.Module,
 ) -> @lib.Module {
@@ -3367,6 +3389,46 @@ fn metamorphic_add_duplicate_equivalent_imported_empty_function(
                 @lib.Import::new(
                   module_name,
                   @lib.Name::new("empty_func_metamorphic_duplicate"),
+                  @lib.func_extern_type(type_idx),
+                ),
+              )
+              duplicated = true
+            }
+          _ => ()
+        }
+      }
+    }
+    None => ()
+  }
+  mod.with_import_sec(@lib.ImportSec::new(imports))
+}
+
+///|
+fn metamorphic_add_duplicate_equivalent_imported_i32_param_empty_function(
+  mod : @lib.Module,
+) -> @lib.Module {
+  if mod.func_sec is Some(_) || mod.code_sec is Some(_) {
+    return mod
+  }
+  let imports = []
+  let subtypes = metamorphic_flatten_types(mod)
+  let mut duplicated = false
+  match mod.import_sec {
+    Some(@lib.ImportSec(existing)) => {
+      for import_ in existing {
+        imports.push(import_)
+      }
+      for import_ in existing {
+        match import_ {
+          @lib.Import(module_name, _, @lib.FuncExternType(type_idx)) =>
+            if !duplicated &&
+              metamorphic_imported_function_has_i32_param_empty_signature(
+                subtypes, type_idx,
+              ) {
+              imports.push(
+                @lib.Import::new(
+                  module_name,
+                  @lib.Name::new("i32_param_empty_func_metamorphic_duplicate"),
                   @lib.func_extern_type(type_idx),
                 ),
               )
@@ -6213,6 +6275,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddDuplicateEquivalentImportedMemory,
     AddDuplicateEquivalentImportedMemory64,
     AddDuplicateEquivalentImportedEmptyFunction,
+    AddDuplicateEquivalentImportedI32ParamEmptyFunction,
     AddDuplicateEquivalentImportedSharedMemory,
     AddDuplicateEquivalentImportedSharedMemory64,
     AddDuplicateEquivalentImportedFunction,
@@ -6731,6 +6794,10 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_duplicate_equivalent_imported_memory64(mod)
     AddDuplicateEquivalentImportedEmptyFunction =>
       metamorphic_add_duplicate_equivalent_imported_empty_function(mod)
+    AddDuplicateEquivalentImportedI32ParamEmptyFunction =>
+      metamorphic_add_duplicate_equivalent_imported_i32_param_empty_function(
+        mod,
+      )
     AddDuplicateEquivalentImportedSharedMemory =>
       metamorphic_add_duplicate_equivalent_imported_shared_memory(mod)
     AddDuplicateEquivalentImportedSharedMemory64 =>
