@@ -21,10 +21,77 @@ test "dae selected dropped-result helper respects precomputed dropped-call facts
     dropped_calls: Array::make(2, 0),
     escaped: Array::make(2, false),
   }
+  let trace : Array[String] = []
+  let perf = HotPerfSession::new(
+    trace=fn(line) { trace.push(line) },
+    dump_options=HotPerfDumpOptions::new(),
+  )
   let result = dae_try_remove_selected_defs_dropped_results_with_facts_once(
-    mod_, selected_defs, facts,
+    mod_,
+    selected_defs,
+    facts,
+    perf=Some(perf),
   )
   assert_false(result.changed)
+  let text = trace.to_string()
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",
+    ),
+    msg=text,
+  )
+}
+
+///|
+test "dae selected dropped-result helper times candidate type-index collection" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (func $callee (result i32)
+      #|    i32.const 7)
+      #|  (func (export "run")
+      #|    call $callee
+      #|    drop))
+    ),
+  )
+  let selected_defs = Array::make(2, false)
+  selected_defs[0] = true
+  let direct_calls = Array::make(2, 0)
+  direct_calls[0] = 1
+  let dropped_calls = Array::make(2, 0)
+  dropped_calls[0] = 1
+  let facts = DaeCurrentCallFacts::{
+    direct_calls,
+    tail_calls: Array::make(2, false),
+    direct_callers: dae_make_direct_callers(2),
+    dropped_calls,
+    escaped: Array::make(2, false),
+  }
+  let trace : Array[String] = []
+  let perf = HotPerfSession::new(
+    trace=fn(line) { trace.push(line) },
+    dump_options=HotPerfDumpOptions::new(),
+  )
+  let result = dae_try_remove_selected_defs_dropped_results_with_facts_once(
+    mod_,
+    selected_defs,
+    facts,
+    perf=Some(perf),
+  )
+  assert_true(result.changed)
+  let text = trace.to_string()
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:type-indices",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:rewrite-calls",
+    ),
+    msg=text,
+  )
 }
 
 ///|

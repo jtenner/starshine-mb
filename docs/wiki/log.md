@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE011 dropped-result helper timers
+
+- Added helper-internal DAE selected dropped-result timers in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), threading the existing perf session through `dae_try_remove_selected_defs_dropped_results_with_facts_once(...)` and `dae_try_remove_dropped_results(...)`.
+- Extended white-box coverage in [`../../src/passes/pass_manager_wbtest.mbt`](../../src/passes/pass_manager_wbtest.mbt) so rejected and mutating selected dropped-result candidates prove the new helper/subphase timer names are emitted.
+- Recorded attribution in [`raw/research/0600-2026-05-26-dae011-dropped-result-helper-timers.md`](raw/research/0600-2026-05-26-dae011-dropped-result-helper-timers.md) and synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) plus [`../../agent-todo.md`](../../agent-todo.md): `.tmp/dae011-helper-detail-trace/stderr.txt` attributes `1629234us` to repeated helper calls, dominated by whole-module call rewrites/cleanup and undropped-call scans. `[DAE]011` remains open for a caller-filtered or batched dropped-result rewrite path.
+
 ## [2026-05-26] passes | dae DAE011 dropped-call fact guard
 
 - Fixed the selected dropped-result helper in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) so it passes shared `dropped_calls` facts into `dae_try_remove_dropped_results(...)` instead of treating every direct call as dropped.

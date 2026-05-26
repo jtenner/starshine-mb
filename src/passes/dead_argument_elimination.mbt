@@ -3282,13 +3282,21 @@ fn dae_try_remove_dropped_results(
   callee_abs : Int,
   direct_call_count : Int,
   dropped_call_count : Int,
+  perf? : HotPerfSession? = None,
 ) -> DaePassResult {
   if direct_call_count == 0 || dropped_call_count != direct_call_count {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let imported = dae_imported_func_count(mod_)
   let def_idx = callee_abs - imported
+  let type_indices_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:type-indices",
+  )
   let type_indices = dae_collect_func_type_indices(mod_)
+  perf_stop_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:type-indices",
+    type_indices_start_us,
+  )
   let func_type = match dae_resolve_func_type(mod_, type_indices, callee_abs) {
     Some(ft) => ft
     None =>
@@ -3298,24 +3306,60 @@ fn dae_try_remove_dropped_results(
   if results.length() != 1 {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  let section_copy_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:section-copy",
+  )
   let (type_idxs, funcs, type_sec) = match
     (mod_.func_sec, mod_.code_sec, mod_.type_sec) {
-    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs)), Some(type_sec)) =>
-      (type_idxs.copy(), funcs.copy(), type_sec)
-    _ => return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs)), Some(type_sec)) => {
+      let copied = (type_idxs.copy(), funcs.copy(), type_sec)
+      perf_stop_timer_opt(
+        perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:section-copy",
+        section_copy_start_us,
+      )
+      copied
+    }
+    _ => {
+      perf_stop_timer_opt(
+        perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:section-copy",
+        section_copy_start_us,
+      )
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+    }
   }
   if dae_should_skip_large_result_unreachable_cleanup(funcs[def_idx], results) {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  if dae_module_has_undropped_direct_call_to_except(funcs, callee_abs, def_idx) {
+  let undropped_scan_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:undropped-scan",
+  )
+  let has_undropped = dae_module_has_undropped_direct_call_to_except(
+    funcs, callee_abs, def_idx,
+  )
+  perf_stop_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:undropped-scan",
+    undropped_scan_start_us,
+  )
+  if has_undropped {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
-  if direct_call_count == dae_count_self_calls(funcs[def_idx], callee_abs) {
+  let self_call_count_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:self-call-count",
+  )
+  let self_call_count = dae_count_self_calls(funcs[def_idx], callee_abs)
+  perf_stop_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:self-call-count",
+    self_call_count_start_us,
+  )
+  if direct_call_count == self_call_count {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let rewritten_funcs = funcs.copy()
   let mut rewritten_call_count = 0
   let mut caller_def = 0
+  let rewrite_calls_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:rewrite-calls",
+  )
   while caller_def < rewritten_funcs.length() {
     let @lib.Func(locals, @lib.Expr(body)) = rewritten_funcs[caller_def]
     let (rewritten_body, rewrites) = dae_rewrite_dropped_result_calls_instrs(
@@ -3330,18 +3374,46 @@ fn dae_try_remove_dropped_results(
     }
     caller_def += 1
   }
+  perf_stop_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:rewrite-calls",
+    rewrite_calls_start_us,
+  )
   if rewritten_call_count != direct_call_count {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
+  let remove_call_drops_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:remove-call-drops",
+  )
   dae_remove_dropped_result_call_drops_in_funcs(rewritten_funcs, callee_abs)
+  perf_stop_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:remove-call-drops",
+    remove_call_drops_start_us,
+  )
+  let dead_suffix_repair_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:dead-suffix-repair",
+  )
   dae_repair_dead_suffix_calls_in_no_param_funcs_except(
     rewritten_funcs, type_indices, type_sec, imported, callee_abs, def_idx,
+  )
+  perf_stop_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:dead-suffix-repair",
+    dead_suffix_repair_start_us,
   )
   let @lib.Func(callee_locals, @lib.Expr(callee_body)) = rewritten_funcs[def_idx]
   let next_callee_body = callee_body.copy()
   next_callee_body.push(@lib.Instruction::drop())
+  let callee_rewrite_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:callee-rewrite",
+  )
   rewritten_funcs[def_idx] = dae_simplify_to_unreachable_when_prefix_unobservable(
     @lib.Func::new(callee_locals, @lib.Expr::new(next_callee_body)),
+  )
+  perf_stop_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:callee-rewrite",
+    callee_rewrite_start_us,
+  )
+  let type_update_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:type-update",
   )
   let (next_type_sec, new_type_idx) = dae_update_defined_func_type(
     mod_,
@@ -3350,6 +3422,10 @@ fn dae_try_remove_dropped_results(
     def_idx,
     params,
     [],
+  )
+  perf_stop_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper:type-update",
+    type_update_start_us,
   )
   type_idxs[def_idx] = new_type_idx
   let touched = Array::make(funcs.length(), false)
@@ -17300,7 +17376,11 @@ fn dae_try_remove_selected_defs_dropped_results_with_facts_once(
   mod_ : @lib.Module,
   selected_defs : Array[Bool],
   call_facts : DaeCurrentCallFacts,
+  perf? : HotPerfSession? = None,
 ) -> DaePassResult {
+  let helper_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",
+  )
   let imported = dae_imported_func_count(mod_)
   let defined = dae_defined_func_count(mod_)
   let mut def_idx = 0
@@ -17316,13 +17396,21 @@ fn dae_try_remove_selected_defs_dropped_results_with_facts_once(
           0
         }
         let result = dae_try_remove_dropped_results(
-          mod_, callee_abs, direct_call_count, dropped_call_count,
+          mod_,
+          callee_abs,
+          direct_call_count,
+          dropped_call_count,
+          perf~,
         )
         if result.changed {
           let touched = Array::make(defined, false)
           if def_idx < touched.length() {
             touched[def_idx] = true
           }
+          perf_stop_timer_opt(
+            perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",
+            helper_start_us,
+          )
           return {
             mod_out: result.mod_out,
             touched,
@@ -17334,6 +17422,10 @@ fn dae_try_remove_selected_defs_dropped_results_with_facts_once(
     }
     def_idx += 1
   }
+  perf_stop_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",
+    helper_start_us,
+  )
   { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
 }
 
@@ -19730,7 +19822,10 @@ fn dae_run_core(
         selected_dropped_result_call_facts
       }
       let selected_result = dae_try_remove_selected_defs_dropped_results_with_facts_once(
-        current, selected_scratch_defs, selected_result_call_facts,
+        current,
+        selected_scratch_defs,
+        selected_result_call_facts,
+        perf~,
       )
       selected_scratch_defs[selected_result_def] = false
       if selected_result.changed {
