@@ -4761,11 +4761,57 @@ fn sgo_rewrite_elem_mode(
 }
 
 ///|
-fn sgo_rewrite_elem_kind(kind : @lib.ElemKind) -> (@lib.ElemKind, Bool) {
-  // Element item expressions are reference-typed and need exact type/refinalize
-  // care. Keep them unchanged in the first SGO slice; element offsets are still
-  // rewritten through sgo_rewrite_elem_mode.
-  (kind, false)
+fn sgo_rewrite_exact_typed_elem_expr(
+  expr : @lib.Expr,
+  elem_rt : @lib.RefType,
+  infos : Array[SgoGlobalInfo],
+  consts : Array[@lib.Instruction?],
+) -> (@lib.Expr, Bool) {
+  match expr {
+    @lib.Expr([@lib.GlobalGet(idx)]) => {
+      let slot = sgo_global_idx_slot(idx)
+      if slot < 0 || slot >= infos.length() || slot >= consts.length() {
+        return (expr, false)
+      }
+      if infos[slot].value_type != @lib.ValType::ref_type(elem_rt) {
+        return (expr, false)
+      }
+      match consts[slot] {
+        Some(replacement) => (@lib.Expr::new([replacement]), true)
+        None => (expr, false)
+      }
+    }
+    _ => (expr, false)
+  }
+}
+
+///|
+fn sgo_rewrite_elem_kind(
+  kind : @lib.ElemKind,
+  infos : Array[SgoGlobalInfo],
+  consts : Array[@lib.Instruction?],
+) -> (@lib.ElemKind, Bool) {
+  match kind {
+    @lib.TypedExprsElemKind(rt, exprs) => {
+      let out : Array[@lib.Expr] = []
+      let mut changed = false
+      for expr in exprs {
+        let (rewritten, expr_changed) = sgo_rewrite_exact_typed_elem_expr(
+          expr, rt, infos, consts,
+        )
+        if expr_changed {
+          changed = true
+        }
+        out.push(rewritten)
+      }
+      if changed {
+        (@lib.ElemKind::typed_exprs(rt, out), true)
+      } else {
+        (kind, false)
+      }
+    }
+    _ => (kind, false)
+  }
 }
 
 ///|
@@ -4773,6 +4819,7 @@ fn sgo_rewrite_elem_sec(
   elem_sec : @lib.ElemSec?,
   consts : Array[@lib.Instruction?],
   remove_sets : Array[Bool],
+  infos : Array[SgoGlobalInfo],
 ) -> (@lib.ElemSec?, Bool) {
   match elem_sec {
     Some(@lib.ElemSec(elems)) => {
@@ -4783,7 +4830,9 @@ fn sgo_rewrite_elem_sec(
         let (next_mode, mode_changed) = sgo_rewrite_elem_mode(
           mode, consts, remove_sets,
         )
-        let (next_kind, kind_changed) = sgo_rewrite_elem_kind(kind)
+        let (next_kind, kind_changed) = sgo_rewrite_elem_kind(
+          kind, infos, consts,
+        )
         if mode_changed || kind_changed {
           changed = true
         }
@@ -5476,6 +5525,7 @@ fn sgo_run_core(
     mod_.elem_sec,
     startup_consts,
     remove_sets,
+    infos,
   )
   let (next_data_sec, data_changed) = sgo_rewrite_data_sec(
     mod_.data_sec,

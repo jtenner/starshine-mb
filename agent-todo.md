@@ -319,14 +319,15 @@ Active v0.1.0 slices for full Binaryen parity
     - focused tests plus direct SGO 10k fuzz and validation evidence for any behavior change.
 
 - [SGO]003F - Reference, GC, Type-Refinalization, And Element-Expression Parity
-  - Status: active / partial. The ordinary `ref.cast` parser prerequisite and first validating `ref.func`-through-`ref.cast` SGO fixture landed on 2026-05-25 in `docs/wiki/raw/research/0695-2026-05-25-sgo-ref-cast-parser-and-fixture.md`; broader typed element, less-refined alias, object-identity, descriptor, and module-retagging-sensitive cases remain open.
+  - Status: active / partial. The ordinary `ref.cast` parser prerequisite and first validating `ref.func`-through-`ref.cast` SGO fixture landed on 2026-05-25 in `docs/wiki/raw/research/0695-2026-05-25-sgo-ref-cast-parser-and-fixture.md`; the narrow exact-type typed element item-expression subset landed on 2026-05-26 in `docs/wiki/raw/research/0696-2026-05-26-sgo-exact-typed-element-replacement.md`. Broader typed element, less-refined alias, object-identity, descriptor, and module-retagging-sensitive cases remain open.
   - Goal: safely implement Binaryen's reference-typed replacement breadth, including typed element item expressions and GC/refinalization-sensitive cases.
   - Why: reference replacements are partial; typed element item expressions and broader type-changing replacements are intentionally conservative. The old ordinary `ref.cast` WAT blocker is removed, but full `[SGO]003F` parity still needs exact Binaryen-positive fixtures and paired guardrails.
   - Tasks:
     - [x] isolate parser/lowering support needed for normal `ref.cast` fixtures (`0695` adds WAST opcode/parser/lowering/rendering and roundtrip coverage);
     - [x] add a minimal validating fixture where SGO replacement changes reference precision and refinalization repairs the function (`0695` covers a typed `ref.func` global read feeding `ref.cast (ref $t)`);
     - [x] implement the narrow `ref.cast(ref.func-global)` path only after the fixture validates (existing SGO replacement is now covered by the parser-supported fixture);
-    - [ ] audit typed element item-expression replacements and prove type legality before replacing reference `global.get`s there;
+    - [x] audit and implement the exact-type typed element item-expression subset: single `global.get` items whose global value type exactly equals the element segment `RefType`, including exact immutable aliases after startup constant rewriting (`0696`);
+    - [ ] audit broader typed element item-expression replacements and prove type legality before replacing non-exact, nested, subtype/refinalization-sensitive, descriptor-sensitive, or object-identity-sensitive reference `global.get`s there;
     - [ ] add guardrails for less-refined aliases, nullable/non-null mismatches, object-identity-sensitive allocations, descriptor operations, `struct.new_default` duplication, subtype changes needing module-wide retagging, and any replacement that would invalidate element/table/global types;
     - [ ] run direct SGO 10k fuzz for the completed `[SGO]003F` behavior set after the remaining guardrails/deferrals are finalized.
   - Exit criteria:

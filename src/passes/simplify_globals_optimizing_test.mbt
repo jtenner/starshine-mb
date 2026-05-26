@@ -1246,7 +1246,7 @@ test "simplify-globals-optimizing keeps reference global gets in typed element i
 }
 
 ///|
-test "simplify-globals-optimizing keeps ref-func typed element item expressions conservative" {
+test "simplify-globals-optimizing rewrites exact ref-func typed element item expressions" {
   let fn_type = @lib.TypeIdx::new(0U)
   let run_type = @lib.TypeIdx::new(1U)
   let fn_rt = @lib.RefType::new(true, @lib.HeapType::new(fn_type))
@@ -1304,7 +1304,7 @@ test "simplify-globals-optimizing keeps ref-func typed element item expressions 
 
   @debug.assert_eq(
     try! sgo_test_first_typed_elem_expr_instr(optimized),
-    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
   )
   let pretty = optimized.pretty_print_defined_func(1U)
   assert_false(pretty.contains("global.get"), msg=pretty)
@@ -1312,7 +1312,7 @@ test "simplify-globals-optimizing keeps ref-func typed element item expressions 
 }
 
 ///|
-test "simplify-globals-optimizing keeps ref-func typed element aliases conservative" {
+test "simplify-globals-optimizing rewrites exact ref-func typed element aliases" {
   let fn_type = @lib.TypeIdx::new(0U)
   let run_type = @lib.TypeIdx::new(1U)
   let fn_rt = @lib.RefType::new(true, @lib.HeapType::new(fn_type))
@@ -1374,7 +1374,7 @@ test "simplify-globals-optimizing keeps ref-func typed element aliases conservat
 
   @debug.assert_eq(
     try! sgo_test_first_typed_elem_expr_instr(optimized),
-    @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
+    @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
   )
   @debug.assert_eq(try! sgo_test_defined_global_init_instrs(optimized, 1), [
     @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),

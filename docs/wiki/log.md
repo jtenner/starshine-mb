@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-26] binaryen | SGO exact typed element replacement
+
+- Added research note [`0696`](./raw/research/0696-2026-05-26-sgo-exact-typed-element-replacement.md) for `[SGO]003F`, implementing the narrow exact-type typed element item-expression subset.
+- SGO now rewrites single-instruction typed element `global.get` items only when the global value type exactly equals the element segment `RefType`, including exact immutable aliases after startup constant rewriting; non-exact, non-constant, nested, subtype/refinalization-sensitive, descriptor-sensitive, and object-identity-sensitive item expressions remain conservative.
+- TDD failure was observed in `moon test src/passes` before implementation. Validation passed after implementation: `moon test src/passes` (`1642/1642`), `moon fmt`, `moon info`, full `moon test` (`3718/3718`), and direct SGO fuzz at `.tmp/pass-fuzz-sgo-typed-elem-exact-0696-10000` (`6759/10000` compared before the configured 20 Binaryen/tool command-failure stop, `0` mismatches, `0` Starshine validation failures).
+
 ## [2026-05-25] binaryen | SGO ref.cast parser prerequisite and fixture
 
 - Added research note [`0695`](./raw/research/0695-2026-05-25-sgo-ref-cast-parser-and-fixture.md) for `[SGO]003F`, removing the ordinary `ref.cast` WAT parser/lowering blocker and adding a minimal validating SGO fixture where a typed `ref.func` global replacement feeds `ref.cast (ref $t)`.
