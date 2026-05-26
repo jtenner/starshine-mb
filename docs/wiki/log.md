@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE006 Func505 overflow/temp reduction
+
+- Reduced the next `[DAE]006` Func505 live region in [`raw/research/0583-2026-05-26-dae-func505-overflow-temp-reduction.md`](raw/research/0583-2026-05-26-dae-func505-overflow-temp-reduction.md) using the saved `.tmp/dae-func505-bool-carrier-artifact` first-diff pretty dumps.
+- Agent classification: the overflow/error-return subshape is representation-only comparison-polarity plus temp-local drift. Starshine's `acc > limit` and Binaryen's `limit < acc` guard the same parse-error construction path around the same `((-1 - digit) / 10)` unsigned limit expression.
+- No pass behavior or compare tooling changed. The overall Func505 frontier remains unknown/risky because loop induction/exit-carrier drift is still live; `[DAE]006` remains open. Validation for this docs/reduction-only slice: `git diff --check`, `moon info`, `moon fmt`, and `moon test`.
+
 ## [2026-05-25] passes | dae DAE006 Func505 underscore guard reduction
 
 - Reduced the next `[DAE]006` Func505 live region in [`raw/research/0582-2026-05-25-dae-func505-underscore-guard-reduction.md`](raw/research/0582-2026-05-25-dae-func505-underscore-guard-reduction.md) using the saved `.tmp/dae-func505-bool-carrier-artifact` first-diff pretty dumps.
