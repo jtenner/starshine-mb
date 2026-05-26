@@ -2087,6 +2087,46 @@ test "dae final return suffix cleanup strips lowered return wrapper debris" {
 }
 
 ///|
+test "dae final return suffix cleanup strips outer block return wrapper debris" {
+  let store4 = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(4UL))
+  let store8 = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(8UL))
+  let inner = @lib.Instruction::block(
+    @lib.BlockType::void_(),
+    @lib.Expr::new([
+      @lib.Instruction::local_get(@lib.LocalIdx::new(19U)),
+      @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+      @lib.Instruction::return_(),
+    ]),
+  )
+  let body = [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i64()),
+      @lib.Expr::new([
+        inner,
+        @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::i32_const(@lib.I32(8)),
+        @lib.Instruction::call(@lib.FuncIdx::new(24U)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(18U)),
+        @lib.Instruction::i32_const(@lib.I32(2097153)),
+        @lib.Instruction::i32_store(store4),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(18U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::i64_store(store8),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(18U)),
+      ]),
+    ),
+  ]
+  let (rewritten, changed) = dae_strip_root_return_suffix_instrs(body)
+  assert_true(changed)
+  assert_eq(rewritten, [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i64()),
+      @lib.Expr::new([inner]),
+    ),
+  ])
+}
+
+///|
 test "dae terminal call local set operands inline in order" {
   let temp0 = @lib.LocalIdx::new(3U)
   let temp1 = @lib.LocalIdx::new(4U)

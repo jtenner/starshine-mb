@@ -10344,9 +10344,72 @@ fn dae_try_strip_terminal_lowered_return_wrapper_suffix_at(
 }
 
 ///|
+fn dae_instrs_end_without_fallthrough(instrs : Array[@lib.Instruction]) -> Bool {
+  if instrs.length() == 0 {
+    return false
+  }
+  match instrs[instrs.length() - 1] {
+    @lib.Return | @lib.Unreachable | @lib.Br(_) => true
+    _ => false
+  }
+}
+
+///|
+fn dae_try_strip_outer_block_no_fallthrough_wrapper_suffix(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction]? {
+  if instrs.length() != 11 {
+    return None
+  }
+  let inner = match instrs[0] {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(inner_body)) if dae_instrs_end_without_fallthrough(
+        inner_body,
+      ) => instrs[0]
+    _ => return None
+  }
+  let stored_local = match instrs[1] {
+    @lib.LocalSet(local_idx) => local_idx
+    _ => return None
+  }
+  let wrapper_local = match instrs[4] {
+    @lib.LocalTee(local_idx) => local_idx
+    _ => return None
+  }
+  match
+    (
+      instrs[2],
+      instrs[3],
+      instrs[5],
+      instrs[6],
+      instrs[7],
+      instrs[8],
+      instrs[9],
+      instrs[10],
+    ) {
+    (
+      @lib.I32Const(@lib.I32(8)),
+      @lib.Call(_),
+      @lib.I32Const(@lib.I32(2097153)),
+      @lib.I32Store(_),
+      @lib.LocalGet(wrapper_addr),
+      @lib.LocalGet(stored_value),
+      @lib.I64Store(_),
+      @lib.LocalGet(wrapper_result),
+    ) if dae_local_idx_equal(wrapper_addr, wrapper_local) &&
+      dae_local_idx_equal(wrapper_result, wrapper_local) &&
+      dae_local_idx_equal(stored_value, stored_local) => Some([inner])
+    _ => None
+  }
+}
+
+///|
 fn dae_strip_root_return_suffix_instrs(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
+  match dae_try_strip_outer_block_no_fallthrough_wrapper_suffix(instrs) {
+    Some(rewritten) => return (rewritten, true)
+    None => ()
+  }
   let mut suffix_idx = 0
   while suffix_idx < instrs.length() {
     match

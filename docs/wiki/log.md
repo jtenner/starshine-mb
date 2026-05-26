@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE006 Func509 outer-block reduction follow-up
+
+- Added a focused white-box reduction in [`../../src/passes/dead_argument_elimination_wbtest.mbt`](../../src/passes/dead_argument_elimination_wbtest.mbt) and a narrow helper in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) for the outer-block/no-fallthrough wrapper suffix family identified by the previous Func509 print probe.
+- Recorded the attempt in [`raw/research/0588-2026-05-26-dae-func509-outer-block-reduction.md`](raw/research/0588-2026-05-26-dae-func509-outer-block-reduction.md) and synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) plus [`../../agent-todo.md`](../../agent-todo.md).
+- The both-canonical artifact replay `.tmp/dae006-outer-block-suffix2-20260526` still first-diffs at `defined=509 abs=526`; tracing still shows no final-return-suffix cleanup hit, so `[DAE]006` remains open for exact final-cleanup input/lowering-boundary investigation. Validation included failing then passing `moon test src/passes`, `moon build --target native --release`, and the both-canonical replay; pass-local timing remains over target (`2791.086ms` Starshine versus `843.419ms` Binaryen).
+
 ## [2026-05-26] passes | dae DAE006 Func509 outer-block recovery probe
 
 - Rebuilt the native CLI and printed the live pre-encode Func509 body with `target/native/release/build/cmd/cmd.exe --dae-optimizing --print-func 526 --out .tmp/dae-print-func526.wasm tests/node/dist/starshine-debug-wasi.wasm`, capturing stderr in `.tmp/dae-print-func526.err`.
