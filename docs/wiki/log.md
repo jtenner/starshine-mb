@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE006 Func505 loop carrier reduction
+
+- Reduced the remaining `[DAE]006` Func505 loop induction and exit-carrier region in [`raw/research/0584-2026-05-26-dae-func505-loop-carrier-reduction.md`](raw/research/0584-2026-05-26-dae-func505-loop-carrier-reduction.md) using the saved `.tmp/dae-func505-bool-carrier-artifact` first-diff WAT dumps.
+- Agent classification: the loop carrier is representation-only control/local-carrier drift. Starshine's `index < length` guard, high-local `$99`/`$76` carrier, underscore-skip branch, extra exit block, and dropped-zero debris align with Binaryen's `length > index`, low-local `$3` carrier, `eqz` parse branch, and direct exit block under the same parse-loop effects and continuation.
+- No pass behavior or compare tooling changed. The saved Func505 first-diff body is now classified representation-only after inspected subshape reductions, but canonical compare still first-diffs at Func505 until a future diagnostic normalizer or pass-shape cleanup is chosen. Validation for this docs/reduction-only slice: `git diff --check`, `moon info`, `moon fmt`, and `moon test`.
+
 ## [2026-05-26] passes | dae DAE006 Func505 overflow/temp reduction
 
 - Reduced the next `[DAE]006` Func505 live region in [`raw/research/0583-2026-05-26-dae-func505-overflow-temp-reduction.md`](raw/research/0583-2026-05-26-dae-func505-overflow-temp-reduction.md) using the saved `.tmp/dae-func505-bool-carrier-artifact` first-diff pretty dumps.
