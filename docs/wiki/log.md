@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] docs | dae DAE004 dead-suffix mixed call policy
+
+- Added [`raw/research/0634-2026-05-26-dae004-dead-suffix-mixed-call-policy.md`](raw/research/0634-2026-05-26-dae004-dead-suffix-mixed-call-policy.md) to close the remaining `[DAE004-E]` classification after the live mixed-call guard from `0633`.
+- Agent classification: root-unreachable undropped suffix calls are dead observations under the accepted DAE cleanup policy and intentionally do not block dropped-result removal; the existing regression `dae-optimizing ignores undropped calls in root-unreachable dead suffixes` preserves that behavior, while `dae-optimizing preserves fact-discovered results with mixed dropped and live callers` protects the live-call case.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md). No optimizer behavior changed.
+
 ## [2026-05-26] tests | dae DAE004 mixed live call guard
 
 - Added [`raw/research/0633-2026-05-26-dae004-mixed-live-call-guard.md`](raw/research/0633-2026-05-26-dae004-mixed-live-call-guard.md) and a focused [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) regression proving fact-driven dropped-result removal preserves a callee result when any live caller still observes it.
