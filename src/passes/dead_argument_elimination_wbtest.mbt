@@ -51,6 +51,26 @@ test "dae original call summary counts repeated undropped callees once per calle
 }
 
 ///|
+test "dae large dropped-result bucket order interleaves fallback neighborhood before low tail" {
+  let selected = Array::make(5000, false)
+  selected[1] = true
+  selected[2] = true
+  selected[298] = true
+  selected[299] = true
+  selected[427] = true
+  selected[445] = true
+  selected[4644] = true
+  selected[4645] = true
+  selected[4646] = true
+  selected[4647] = true
+  selected[4648] = true
+  assert_eq(
+    dae_collect_bucketed_large_dropped_result_attempts(selected, 5000, 8),
+    [4648, 4647, 4646, 4645, 298, 299, 427, 445],
+  )
+}
+
+///|
 test "dae raw cleanup preserves nops and strips selected dropped pure leaves after any DAE touch" {
   let v128_zero = @lib.Instruction::v128_const(
     b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',

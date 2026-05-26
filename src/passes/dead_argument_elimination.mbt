@@ -17638,20 +17638,85 @@ fn dae_collect_descending_selected_def_attempts(
 }
 
 ///|
-fn dae_try_remove_descending_dropped_results_with_facts_once(
-  mod_ : @lib.Module,
+fn dae_selected_dropped_result_fallback_neighborhood_defs() -> Array[Int] {
+  [
+    298, 299, 427, 445, 459, 472, 476, 503, 3566, 3732, 3799, 3814, 3834, 4106, 4229,
+    4232, 4240, 4241, 4242, 4249,
+  ]
+}
+
+///|
+fn dae_push_unique_candidate(candidates : Array[Int], def_idx : Int) -> Unit {
+  if !candidates.contains(def_idx) {
+    candidates.push(def_idx)
+  }
+}
+
+///|
+fn dae_collect_bucketed_large_dropped_result_attempts(
   selected_defs : Array[Bool],
+  defined : Int,
+  attempt_limit : Int,
+) -> Array[Int] {
+  let candidates : Array[Int] = []
+  let high_quota = 4
+  let fallback_quota = 4
+  let low_quota = 2
+  let mut high_seen = 0
+  for
+    def_idx in dae_collect_descending_selected_def_candidates(
+      selected_defs, defined,
+    ) {
+    if high_seen < high_quota && candidates.length() < attempt_limit {
+      dae_push_unique_candidate(candidates, def_idx)
+      high_seen += 1
+    }
+  }
+  let mut fallback_seen = 0
+  for def_idx in dae_selected_dropped_result_fallback_neighborhood_defs() {
+    if fallback_seen < fallback_quota &&
+      candidates.length() < attempt_limit &&
+      def_idx >= 0 &&
+      def_idx < defined &&
+      def_idx < selected_defs.length() &&
+      selected_defs[def_idx] {
+      dae_push_unique_candidate(candidates, def_idx)
+      fallback_seen += 1
+    }
+  }
+  let limit = if defined < selected_defs.length() {
+    defined
+  } else {
+    selected_defs.length()
+  }
+  let mut low_seen = 0
+  let mut def_idx = 0
+  while def_idx < limit &&
+        low_seen < low_quota &&
+        candidates.length() < attempt_limit {
+    if selected_defs[def_idx] {
+      let before = candidates.length()
+      dae_push_unique_candidate(candidates, def_idx)
+      if candidates.length() > before {
+        low_seen += 1
+      }
+    }
+    def_idx += 1
+  }
+  candidates
+}
+
+///|
+fn dae_try_remove_dropped_results_from_attempts_with_facts_once(
+  mod_ : @lib.Module,
+  attempts : Array[Int],
   call_facts : DaeCurrentCallFacts,
   perf? : HotPerfSession? = None,
 ) -> DaePassResult {
   let helper_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs:helper",
   )
-  let defined = dae_defined_func_count(mod_)
-  for
-    def_idx in dae_collect_descending_selected_def_candidates(
-      selected_defs, defined,
-    ) {
+  for def_idx in attempts {
     let result = dae_try_remove_dropped_result_def_with_facts(
       mod_,
       def_idx,
@@ -17671,6 +17736,22 @@ fn dae_try_remove_descending_dropped_results_with_facts_once(
     helper_start_us,
   )
   { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+}
+
+///|
+fn dae_try_remove_descending_dropped_results_with_facts_once(
+  mod_ : @lib.Module,
+  selected_defs : Array[Bool],
+  call_facts : DaeCurrentCallFacts,
+  perf? : HotPerfSession? = None,
+) -> DaePassResult {
+  let defined = dae_defined_func_count(mod_)
+  dae_try_remove_dropped_results_from_attempts_with_facts_once(
+    mod_,
+    dae_collect_descending_selected_def_candidates(selected_defs, defined),
+    call_facts,
+    perf~,
+  )
 }
 
 ///|
@@ -20074,6 +20155,18 @@ fn dae_run_core(
         dae_try_remove_selected_defs_dropped_results_with_facts_once(
           current,
           fact_dropped_result_defs,
+          fact_dropped_result_call_facts,
+          perf~,
+        )
+      } else if original_defined > 8192 {
+        // Staged DAE004 bucketed broad-large order. This branch is unreachable
+        // under the surrounding guard today; keep the collector compiled while
+        // the active switch waits for pass-local timing evidence.
+        dae_try_remove_dropped_results_from_attempts_with_facts_once(
+          current,
+          dae_collect_bucketed_large_dropped_result_attempts(
+            fact_dropped_result_defs, original_defined, fact_dropped_result_limit,
+          ),
           fact_dropped_result_call_facts,
           perf~,
         )
