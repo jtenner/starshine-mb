@@ -33,6 +33,7 @@ pub enum MetamorphicValidTransform {
   AddDuplicateEquivalentImportedMutableF64Global
   AddDuplicateEquivalentImportedMutableI64Global
   AddDuplicateEquivalentImportedFuncrefTable
+  AddDuplicateEquivalentImportedExternrefTable
   AddDuplicateEquivalentImportedTag
   AddDuplicateEquivalentTag
   AddDuplicateEquivalentFuncrefTable
@@ -505,6 +506,8 @@ pub fn metamorphic_valid_transform_id(
       "add-duplicate-equivalent-imported-mutable-i64-global"
     AddDuplicateEquivalentImportedFuncrefTable =>
       "add-duplicate-equivalent-imported-funcref-table"
+    AddDuplicateEquivalentImportedExternrefTable =>
+      "add-duplicate-equivalent-imported-externref-table"
     AddDuplicateEquivalentImportedTag => "add-duplicate-equivalent-imported-tag"
     AddDuplicateEquivalentTag => "add-duplicate-equivalent-tag"
     AddDuplicateEquivalentFuncrefTable =>
@@ -2884,6 +2887,30 @@ fn metamorphic_add_duplicate_equivalent_imported_mutable_i64_global(
 fn metamorphic_add_duplicate_equivalent_imported_funcref_table(
   mod : @lib.Module,
 ) -> @lib.Module {
+  metamorphic_add_duplicate_equivalent_imported_ref_table(
+    mod,
+    @lib.RefType::abs(@lib.AbsHeapType::func()),
+    @lib.Name::new("table_metamorphic_duplicate"),
+  )
+}
+
+///|
+fn metamorphic_add_duplicate_equivalent_imported_externref_table(
+  mod : @lib.Module,
+) -> @lib.Module {
+  metamorphic_add_duplicate_equivalent_imported_ref_table(
+    mod,
+    @lib.RefType::abs(@lib.AbsHeapType::extern_()),
+    @lib.Name::new("extern_table_metamorphic_duplicate"),
+  )
+}
+
+///|
+fn metamorphic_add_duplicate_equivalent_imported_ref_table(
+  mod : @lib.Module,
+  target_ref_type : @lib.RefType,
+  duplicate_name : @lib.Name,
+) -> @lib.Module {
   let imports = []
   let mut duplicated = false
   match mod.import_sec {
@@ -2897,11 +2924,11 @@ fn metamorphic_add_duplicate_equivalent_imported_funcref_table(
             if !duplicated {
               match table_type {
                 @lib.TableType(ref_type, _) =>
-                  if ref_type == @lib.RefType::abs(@lib.AbsHeapType::func()) {
+                  if ref_type == target_ref_type {
                     imports.push(
                       @lib.Import::new(
                         module_name,
-                        @lib.Name::new("table_metamorphic_duplicate"),
+                        duplicate_name,
                         @lib.table_extern_type(table_type),
                       ),
                     )
@@ -5427,6 +5454,7 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddDuplicateEquivalentImportedMutableF64Global,
     AddDuplicateEquivalentImportedMutableI64Global,
     AddDuplicateEquivalentImportedFuncrefTable,
+    AddDuplicateEquivalentImportedExternrefTable,
     AddDuplicateEquivalentImportedTag,
     AddDuplicateEquivalentTag,
     AddDuplicateEquivalentFuncrefTable,
@@ -5922,6 +5950,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_duplicate_equivalent_imported_mutable_i64_global(mod)
     AddDuplicateEquivalentImportedFuncrefTable =>
       metamorphic_add_duplicate_equivalent_imported_funcref_table(mod)
+    AddDuplicateEquivalentImportedExternrefTable =>
+      metamorphic_add_duplicate_equivalent_imported_externref_table(mod)
     AddDuplicateEquivalentImportedTag =>
       metamorphic_add_duplicate_equivalent_imported_tag(mod)
     AddDuplicateEquivalentTag => metamorphic_add_duplicate_equivalent_tag(mod)
