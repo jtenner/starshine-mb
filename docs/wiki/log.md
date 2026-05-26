@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE003 non-adjacent local-set carrier
+
+- Added [`raw/research/0639-2026-05-26-dae003-non-adjacent-local-set-carrier.md`](raw/research/0639-2026-05-26-dae003-non-adjacent-local-set-carrier.md), a focused regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), and a narrow local-set constant carrier recognizer in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
+- The new DAE003-C slice materializes a caller-local constant carrier of the form `const; local.set; local.get; call`, guarded to one prior constant-producing `local.set` with no earlier same-local read, tee, or multiple write before the call actual.
+- Validation: `moon test src/passes` first failed on the new regression, then `moon fmt`, `moon test src/passes`, `git diff --check`, `moon info`, and full `moon test` passed. A 1000-case direct compare refresh stopped at the known max-failure threshold with no validation failures; agent classification keeps the mismatches in the accepted gen-valid raw-cleanup family and the sole wasm-smith failure as Binaryen/tool parse failure. `[DAE003-C]` remains open for negative tests and broader carrier policy.
+
 ## [2026-05-26] docs | dae DAE003 wrapper-chain closure
 
 - Added [`raw/research/0638-2026-05-26-dae003-wrapper-chain-closure.md`](raw/research/0638-2026-05-26-dae003-wrapper-chain-closure.md) to close `[DAE003-D]` as an already-tested current-surface slice.

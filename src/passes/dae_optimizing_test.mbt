@@ -3099,6 +3099,44 @@ test "dae-optimizing materializes high fact-discovered exact literal outside sel
 }
 
 ///|
+test "dae-optimizing materializes non-adjacent local-set constant actual" {
+  let target_def = 1500
+  let caller_def = 1501
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0
+      #|    i32.const 1
+      #|    i32.add)
+      #|  (func $caller (export "run") (result i32) (local i32)
+      #|    i32.const 77
+      #|    local.set 0
+      #|    local.get 0
+      #|    call $target)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  let @lib.FuncType(params, _) = dae_test_func_type(optimized, target_def)
+  @debug.assert_eq(params.length(), 0)
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  let caller = optimized.pretty_print_defined_func(
+    caller_def.reinterpret_as_uint(),
+  )
+  assert_true(target.contains("I32(77)"), msg=target)
+  assert_false(target.contains("local.get"), msg=target)
+  assert_true(caller.contains("(call (Func \{target_def}))"), msg=caller)
+  assert_false(caller.contains("local.get"), msg=caller)
+}
+
+///|
 test "dae-optimizing preserves fact-discovered results with mixed dropped and live callers" {
   let source =
     #|(module

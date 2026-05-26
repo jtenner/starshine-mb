@@ -1817,6 +1817,53 @@ fn dae_resolve_forwarded_uniform_const_local_get(
 }
 
 ///|
+fn dae_resolve_local_set_const_carrier(
+  instrs : Array[@lib.Instruction],
+  end : Int,
+  local_slot : Int,
+  mod_ : @lib.Module,
+  allow_immutable_global_get : Bool,
+) -> @lib.Instruction? {
+  let mut idx = 0
+  let mut found : @lib.Instruction? = None
+  while idx < end {
+    match instrs[idx] {
+      @lib.LocalGet(local_idx) if dae_local_idx_slot(local_idx) == local_slot =>
+        return None
+      @lib.LocalTee(local_idx) if dae_local_idx_slot(local_idx) == local_slot =>
+        return None
+      @lib.LocalSet(local_idx) if dae_local_idx_slot(local_idx) == local_slot => {
+        if idx == 0 {
+          return None
+        }
+        let candidate = instrs[idx - 1]
+        let materializable = if allow_immutable_global_get {
+          dae_instr_is_materializable_const_with_immutable_global(
+            mod_, candidate,
+          )
+        } else {
+          dae_instr_is_materializable_const(candidate)
+        }
+        if !materializable {
+          return None
+        }
+        match found {
+          Some(_) => return None
+          None => found = Some(candidate)
+        }
+      }
+      @lib.LocalSet(local_idx) | @lib.LocalTee(local_idx) if dae_local_idx_slot(
+          local_idx,
+        ) ==
+        local_slot => return None
+      _ => ()
+    }
+    idx += 1
+  }
+  found
+}
+
+///|
 fn dae_resolve_uniform_const_candidate(
   mod_ : @lib.Module,
   caller_abs : Int,
@@ -1913,7 +1960,36 @@ fn dae_collect_uniform_const_actuals_instrs(
                           None => invalid[p] = true
                         }
                       }
-                    None => invalid[p] = true
+                    None =>
+                      match instrs[shape.start] {
+                        @lib.LocalGet(local_idx) =>
+                          match
+                            dae_resolve_local_set_const_carrier(
+                              instrs,
+                              shape.start,
+                              dae_local_idx_slot(local_idx),
+                              mod_,
+                              allow_immutable_global_get,
+                            ) {
+                            Some(candidate) =>
+                              if !seen[p] {
+                                seen[p] = true
+                                candidates[p] = Some(candidate)
+                              } else {
+                                match candidates[p] {
+                                  Some(existing) =>
+                                    if !dae_materialized_const_equal(
+                                        existing, candidate,
+                                      ) {
+                                      invalid[p] = true
+                                    }
+                                  None => invalid[p] = true
+                                }
+                              }
+                            None => invalid[p] = true
+                          }
+                        _ => invalid[p] = true
+                      }
                   }
                 }
               }
