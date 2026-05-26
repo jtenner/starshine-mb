@@ -17611,6 +17611,15 @@ fn dae_collect_descending_selected_def_candidates(
   selected_defs : Array[Bool],
   defined : Int,
 ) -> Array[Int] {
+  dae_collect_descending_selected_def_attempts(selected_defs, defined, -1)
+}
+
+///|
+fn dae_collect_descending_selected_def_attempts(
+  selected_defs : Array[Bool],
+  defined : Int,
+  attempt_limit : Int,
+) -> Array[Int] {
   let candidates : Array[Int] = []
   let limit = if defined < selected_defs.length() {
     defined
@@ -17618,7 +17627,8 @@ fn dae_collect_descending_selected_def_candidates(
     selected_defs.length()
   }
   let mut def_idx = limit - 1
-  while def_idx >= 0 {
+  while def_idx >= 0 &&
+        (attempt_limit < 0 || candidates.length() < attempt_limit) {
     if selected_defs[def_idx] {
       candidates.push(def_idx)
     }

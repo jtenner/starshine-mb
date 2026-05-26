@@ -18,6 +18,23 @@ test "dae descending dropped-result scheduler orders high candidates without hug
 }
 
 ///|
+test "dae descending dropped-result scheduler caps productive attempts after ordering" {
+  let selected_defs = Array::make(4600, false)
+  for i = 0; i < 40; i = i + 1 {
+    selected_defs[i] = true
+  }
+  for i = 4500; i < 4510; i = i + 1 {
+    selected_defs[i] = true
+  }
+  let attempts = dae_collect_descending_selected_def_attempts(
+    selected_defs, 4600, 9,
+  )
+  @debug.assert_eq(attempts.length(), 9)
+  @debug.assert_eq(attempts[0], 4509)
+  @debug.assert_eq(attempts[8], 4501)
+}
+
+///|
 test "dae selected dropped-result helper respects precomputed dropped-call facts" {
   let mod_ = pass_test_module_from_wat(
     (
