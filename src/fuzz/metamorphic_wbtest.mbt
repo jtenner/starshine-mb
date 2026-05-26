@@ -2500,6 +2500,90 @@ test "metamorphic duplicate equivalent imported externref table transform no-ops
 }
 
 ///|
+test "metamorphic duplicate equivalent imported eqref table transform appends unused matching import" {
+  let original_import = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("eq_table"),
+    @lib.table_extern_type(
+      @lib.TableType::new(
+        @lib.RefType::abs(@lib.AbsHeapType::eq()),
+        @lib.Limits::i32(2U, Some(5U)),
+      ),
+    ),
+  )
+  let base = @lib.Module::new().with_import_sec(
+    @lib.ImportSec::new([original_import]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentImportedEqrefTable) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-duplicate-equivalent-imported-eqref-table",
+  )
+  match transformed.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => {
+      @debug.assert_eq(imports.length(), 2)
+      @debug.assert_eq(imports[0], original_import)
+      match imports[1] {
+        @lib.Import(module_name, item_name, @lib.TableExternType(table_type)) => {
+          @debug.assert_eq(module_name, @lib.Name::new("env"))
+          @debug.assert_eq(
+            item_name,
+            @lib.Name::new("eq_table_metamorphic_duplicate"),
+          )
+          @debug.assert_eq(
+            table_type,
+            @lib.TableType::new(
+              @lib.RefType::abs(@lib.AbsHeapType::eq()),
+              @lib.Limits::i32(2U, Some(5U)),
+            ),
+          )
+        }
+        _ => fail("expected duplicate imported eqref table")
+      }
+    }
+    None => fail("expected transformed imports")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic duplicate equivalent imported eqref table transform no-ops without matching import" {
+  let externref_import = @lib.Import::new(
+    @lib.Name::new("env"),
+    @lib.Name::new("extern_table"),
+    @lib.table_extern_type(
+      @lib.TableType::new(
+        @lib.RefType::abs(@lib.AbsHeapType::extern_()),
+        @lib.Limits::i32(0U, Some(1U)),
+      ),
+    ),
+  )
+  let base = @lib.Module::new().with_import_sec(
+    @lib.ImportSec::new([externref_import]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentImportedEqrefTable) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match transformed.wasm_module.import_sec {
+    Some(@lib.ImportSec(imports)) => @debug.assert_eq(imports.length(), 1)
+    None => fail("expected original imports")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic duplicate equivalent imported tag transform appends unused matching import when no defined tags can shift" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
@@ -2754,6 +2838,68 @@ test "metamorphic duplicate equivalent externref table transform appends unused 
       @debug.assert_eq(tables[1], original_table)
     }
     None => fail("expected transformed tables")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic duplicate equivalent eqref table transform appends unused matching table" {
+  let original_table = @lib.Table::new(
+    @lib.TableType::new(
+      @lib.RefType::abs(@lib.AbsHeapType::eq()),
+      @lib.Limits::i32(1U, Some(6U)),
+    ),
+    None,
+  )
+  let base = @lib.Module::new().with_table_sec(
+    @lib.TableSec::new([original_table]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentEqrefTable) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "add-duplicate-equivalent-eqref-table",
+  )
+  match transformed.wasm_module.table_sec {
+    Some(@lib.TableSec(tables)) => {
+      @debug.assert_eq(tables.length(), 2)
+      @debug.assert_eq(tables[0], original_table)
+      @debug.assert_eq(tables[1], original_table)
+    }
+    None => fail("expected transformed tables")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic duplicate equivalent eqref table transform no-ops without matching table" {
+  let externref_table = @lib.Table::new(
+    @lib.TableType::new(
+      @lib.RefType::abs(@lib.AbsHeapType::extern_()),
+      @lib.Limits::i32(1U, Some(6U)),
+    ),
+    None,
+  )
+  let base = @lib.Module::new().with_table_sec(
+    @lib.TableSec::new([externref_table]),
+  )
+  let transformed = match
+    metamorphic_apply_transform(base, AddDuplicateEquivalentEqrefTable) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match transformed.wasm_module.table_sec {
+    Some(@lib.TableSec(tables)) => @debug.assert_eq(tables.length(), 1)
+    None => fail("expected original table")
   }
   match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
     Ok(_) => ()
@@ -9553,8 +9699,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 447)
-  @debug.assert_eq(stats.validated, 447)
+  @debug.assert_eq(stats.transformed, 449)
+  @debug.assert_eq(stats.validated, 449)
   assert_true(stats.transform_ids.contains("add-duplicate-equivalent-memory"))
   assert_true(stats.transform_ids.contains("add-duplicate-equivalent-memory64"))
   assert_true(
@@ -9577,6 +9723,14 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
     stats.transform_ids.contains(
       "add-duplicate-equivalent-imported-externref-table",
     ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-duplicate-equivalent-imported-eqref-table",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains("add-duplicate-equivalent-eqref-table"),
   )
   assert_true(
     stats.transform_ids.contains(

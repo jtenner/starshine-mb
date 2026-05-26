@@ -38,10 +38,12 @@ pub enum MetamorphicValidTransform {
   AddDuplicateEquivalentImportedMutableI64Global
   AddDuplicateEquivalentImportedFuncrefTable
   AddDuplicateEquivalentImportedExternrefTable
+  AddDuplicateEquivalentImportedEqrefTable
   AddDuplicateEquivalentImportedTag
   AddDuplicateEquivalentTag
   AddDuplicateEquivalentFuncrefTable
   AddDuplicateEquivalentExternrefTable
+  AddDuplicateEquivalentEqrefTable
   AddUnusedPassiveFuncrefElementSegment
   ReshapePassiveElementSegments
   AddFunctionNamesSection
@@ -520,12 +522,15 @@ pub fn metamorphic_valid_transform_id(
       "add-duplicate-equivalent-imported-funcref-table"
     AddDuplicateEquivalentImportedExternrefTable =>
       "add-duplicate-equivalent-imported-externref-table"
+    AddDuplicateEquivalentImportedEqrefTable =>
+      "add-duplicate-equivalent-imported-eqref-table"
     AddDuplicateEquivalentImportedTag => "add-duplicate-equivalent-imported-tag"
     AddDuplicateEquivalentTag => "add-duplicate-equivalent-tag"
     AddDuplicateEquivalentFuncrefTable =>
       "add-duplicate-equivalent-funcref-table"
     AddDuplicateEquivalentExternrefTable =>
       "add-duplicate-equivalent-externref-table"
+    AddDuplicateEquivalentEqrefTable => "add-duplicate-equivalent-eqref-table"
     AddUnusedPassiveFuncrefElementSegment =>
       "add-unused-passive-funcref-element-segment"
     ReshapePassiveElementSegments => "reshape-passive-element-segments"
@@ -3058,6 +3063,17 @@ fn metamorphic_add_duplicate_equivalent_imported_externref_table(
 }
 
 ///|
+fn metamorphic_add_duplicate_equivalent_imported_eqref_table(
+  mod : @lib.Module,
+) -> @lib.Module {
+  metamorphic_add_duplicate_equivalent_imported_ref_table(
+    mod,
+    @lib.RefType::abs(@lib.AbsHeapType::eq()),
+    @lib.Name::new("eq_table_metamorphic_duplicate"),
+  )
+}
+
+///|
 fn metamorphic_add_duplicate_equivalent_imported_ref_table(
   mod : @lib.Module,
   target_ref_type : @lib.RefType,
@@ -3208,6 +3224,17 @@ fn metamorphic_add_duplicate_equivalent_externref_table(
   metamorphic_add_duplicate_equivalent_ref_table(
     mod,
     @lib.RefType::abs(@lib.AbsHeapType::extern_()),
+    false,
+  )
+}
+
+///|
+fn metamorphic_add_duplicate_equivalent_eqref_table(
+  mod : @lib.Module,
+) -> @lib.Module {
+  metamorphic_add_duplicate_equivalent_ref_table(
+    mod,
+    @lib.RefType::abs(@lib.AbsHeapType::eq()),
     false,
   )
 }
@@ -5630,10 +5657,12 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddDuplicateEquivalentImportedMutableI64Global,
     AddDuplicateEquivalentImportedFuncrefTable,
     AddDuplicateEquivalentImportedExternrefTable,
+    AddDuplicateEquivalentImportedEqrefTable,
     AddDuplicateEquivalentImportedTag,
     AddDuplicateEquivalentTag,
     AddDuplicateEquivalentFuncrefTable,
     AddDuplicateEquivalentExternrefTable,
+    AddDuplicateEquivalentEqrefTable,
     AddUnusedPassiveFuncrefElementSegment,
     ReshapePassiveElementSegments,
     AddFunctionNamesSection,
@@ -6136,6 +6165,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_duplicate_equivalent_imported_funcref_table(mod)
     AddDuplicateEquivalentImportedExternrefTable =>
       metamorphic_add_duplicate_equivalent_imported_externref_table(mod)
+    AddDuplicateEquivalentImportedEqrefTable =>
+      metamorphic_add_duplicate_equivalent_imported_eqref_table(mod)
     AddDuplicateEquivalentImportedTag =>
       metamorphic_add_duplicate_equivalent_imported_tag(mod)
     AddDuplicateEquivalentTag => metamorphic_add_duplicate_equivalent_tag(mod)
@@ -6143,6 +6174,8 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_duplicate_equivalent_funcref_table(mod)
     AddDuplicateEquivalentExternrefTable =>
       metamorphic_add_duplicate_equivalent_externref_table(mod)
+    AddDuplicateEquivalentEqrefTable =>
+      metamorphic_add_duplicate_equivalent_eqref_table(mod)
     AddUnusedPassiveFuncrefElementSegment =>
       metamorphic_add_unused_passive_funcref_element_segment(mod)
     ReshapePassiveElementSegments =>
