@@ -35,3 +35,26 @@ The checked-in smoke catalog lives in [`golden-seed-catalog.json`](golden-seed-c
 - Update the MoonBit catalog, the JSON document, and this page together when entries change.
 - Prefer minimum counters for smoke-stable coverage unless an exact counter is deliberately part of the contract.
 - Add or update `--golden-seed-smoke` assertions when counters become executable or when the stable smoke recipe intentionally changes.
+
+## When to update golden seeds
+
+Update the catalog when a smoke-level seed stops representing the surface it is meant to protect, not simply because broader fuzzing found an unrelated case. Typical update triggers are:
+
+- A GenValid, invalid-input, pass-fuzz, reducer, or text-roundtrip smoke recipe intentionally changes its deterministic profile, seed derivation, generated artifacts, or stable top-level counters.
+- A new durable fuzz surface needs a tiny replayable smoke example and cannot be covered by an existing catalog entry without making that entry ambiguous.
+- An existing seed becomes obsolete because the feature, strategy, artifact layout, or oracle it documents was renamed, removed, split, or superseded.
+- A counter changes from best-effort observational data into an executable smoke assertion, or an exact assertion must be relaxed to a minimum counter because harmless generator breadth changes make exact equality too brittle.
+
+Do not update this catalog for temporary local failures, one-off stress seeds, bulk coverage expansion, or minimized bug repros that belong in a failure corpus or a focused regression test instead.
+
+## How to update golden seeds
+
+1. Choose the smallest deterministic seed that exercises the intended smoke surface. Prefer reusing an existing entry when the suite/profile purpose is unchanged.
+2. Update `golden_seed_smoke_suite_catalog()` in [`src/fuzz/main.mbt`](../../../src/fuzz/main.mbt). Keep the `id` stable unless the old purpose was retired; make `notes` explain why the seed exists.
+3. Regenerate or manually synchronize [`golden-seed-catalog.json`](golden-seed-catalog.json) from `format_golden_seed_catalog_json(golden_seed_smoke_suite_catalog())` so the checked-in document matches the MoonBit source of truth exactly.
+4. Update the “Current smoke entries” bullets above if an entry is added, removed, renamed, or materially changes purpose.
+5. Add or adjust whitebox tests in [`src/fuzz/main_wbtest.mbt`](../../../src/fuzz/main_wbtest.mbt) when catalog shape, expected ids, executable counters, or formatter behavior changes.
+6. Run the focused smoke and package checks, normally:
+   - `moon test src/fuzz`
+   - `moon run src/fuzz -- --golden-seed-smoke`
+   - broader `moon info`, `moon fmt`, and `moon test` when the catalog or runner behavior changed beyond documentation.

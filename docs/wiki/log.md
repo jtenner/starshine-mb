@@ -1159,6 +1159,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-05-20] fuzzing | ref.cast heaptype invalid-binary coverage
 ## [2026-05-21] fuzzing | FUZ1007 nonzero bulk resources
 ## [2026-05-24] fuzzing | FUZ1028 WAST arbitrary FZG mirror counters
+## [2026-05-26] fuzzing | FUZ1058D golden seed update docs
+
+- Completed `[FUZ]1058D` by expanding [`fuzzing/golden-seed-catalog.md`](fuzzing/golden-seed-catalog.md) with explicit triggers for updating golden seeds, cases that should stay out of the catalog, and the step-by-step update flow across `src/fuzz/main.mbt`, `golden-seed-catalog.json`, docs, tests, and smoke validation.
+- Refreshed [`index.md`](index.md) so the golden-seed catalog advertises the new maintenance guidance.
+
 ## [2026-05-26] fuzzing | FUZ1036K44 imported/defined global export alias transforms
 
 - Completed `[FUZ]1036K44` by adding `add-imported-global-export-aliases` and `add-defined-global-export-aliases`. The transforms split global alias coverage by imported versus defined global index regions, append unique unused aliases for existing matching global exports, and preserve global indices without adding new imports or globals.
