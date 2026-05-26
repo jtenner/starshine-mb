@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] docs | dae DAE003 structured-carrier closeout
+
+- Added [`raw/research/0659-2026-05-26-dae003-structured-carrier-closeout.md`](raw/research/0659-2026-05-26-dae003-structured-carrier-closeout.md) and updated [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) plus [`../../agent-todo.md`](../../agent-todo.md).
+- Closed `[DAE003-F]` for the current v0.1.0 surface: the supported structured-carrier subset is the tested single-leaf, equal-arm, branch-free, dropped-prefix, and recursively nested materializable-constant family from notes `0644`, `0646`, `0647`, and `0649` through `0658`; broader branchy/computed/control-sensitive shapes are deferred unless new artifact/fuzz evidence attributes a miss to them.
+- Validation: `git diff --check`, `moon info`, `moon fmt`, and `moon test` passed (`3487` tests); this was a docs/classification closeout with no optimizer behavior change.
+
 ## [2026-05-26] passes | dae DAE003 nested dropped-prefix block carrier
 
 - Added [`raw/research/0658-2026-05-26-dae003-nested-dropped-prefix-block-carrier.md`](raw/research/0658-2026-05-26-dae003-nested-dropped-prefix-block-carrier.md), a focused regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), and a recursive dropped-prefix carrier resolver in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
