@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] docs | dae DAE003 wrapper-chain closure
+
+- Added [`raw/research/0638-2026-05-26-dae003-wrapper-chain-closure.md`](raw/research/0638-2026-05-26-dae003-wrapper-chain-closure.md) to close `[DAE003-D]` as an already-tested current-surface slice.
+- The closure ties the existing `dae-optimizing can chase a later exact-literal forwarding-wrapper chain` regression to the guarded recursive parameter-local `local.get` resolver and trace-pinned `run* -> wrap1 -> wrap2 -> check` rewrite evidence. Non-adjacent temporary-local forwarding, recursive cycles, and structured carriers remain separate DAE003 tasks.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md). Validation: attempted focused `moon test src/passes -p ...` was invalid for Moon CLI; `git diff --check`, `moon info`, `moon fmt`, and `moon test` passed.
+
 ## [2026-05-26] tests | dae DAE004 type-liveness coverage
 
 - Added [`raw/research/0637-2026-05-26-dae004-type-liveness-coverage.md`](raw/research/0637-2026-05-26-dae004-type-liveness-coverage.md) and a focused [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) regression for `[DAE004-G]`.
