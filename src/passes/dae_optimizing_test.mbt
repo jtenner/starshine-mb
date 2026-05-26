@@ -6534,6 +6534,55 @@ test "dae-optimizing keeps simple function types referenced by table and global 
 }
 
 ///|
+test "dae-optimizing keeps simple function types referenced by elem locals and ref ops" {
+  let type_idx = @lib.TypeIdx::new(0U)
+  let ref_type = @lib.RefType::new(true, @lib.HeapType::new(type_idx))
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([type_idx]))
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::typed_exprs(ref_type, [
+            @lib.Expr::new([@lib.Instruction::ref_null_type(ref_type)]),
+          ]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([
+            @lib.LocalRun::new(1U, @lib.ValType::ref_null_type(ref_type)),
+          ]),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null_type(ref_type),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) => fail("expected input module to validate, got \{err}")
+  }
+  let optimized = dae_run_module_pass(mod_)
+  match optimized.type_sec {
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 1)
+    None => fail("expected type section")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected DAE output to validate, got \{err}")
+  }
+}
+
+///|
 test "dae-optimizing emits nested cleanup trace for touched functions" {
   let source =
     #|(module

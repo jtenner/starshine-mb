@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-05-26
 sources:
+  - ../../../raw/research/0637-2026-05-26-dae004-type-liveness-coverage.md
   - ../../../raw/research/0627-2026-05-26-dae003-constant-unread-inventory.md
   - ../../../raw/research/0622-2026-05-26-dae004-guarded-tenth-descending-candidate.md
   - ../../../raw/research/0621-2026-05-26-dae004-guarded-ninth-descending-candidate.md

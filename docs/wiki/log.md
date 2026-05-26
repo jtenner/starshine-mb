@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] tests | dae DAE004 type-liveness coverage
+
+- Added [`raw/research/0637-2026-05-26-dae004-type-liveness-coverage.md`](raw/research/0637-2026-05-26-dae004-type-liveness-coverage.md) and a focused [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) regression for `[DAE004-G]`.
+- The new coverage keeps a simple function type live when referenced by a typed element segment, local declaration, and `ref.null` expressions, complementing the existing table/global reference guard. No optimizer behavior changed.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md). Validation so far: `moon test src/passes` passed.
+
 ## [2026-05-26] tests | dae DAE004 dead-suffix call-drop repair
 
 - Added [`raw/research/0635-2026-05-26-dae004-dead-suffix-call-drop-repair.md`](raw/research/0635-2026-05-26-dae004-dead-suffix-call-drop-repair.md) and a focused [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) regression for `[DAE004-F]`.
