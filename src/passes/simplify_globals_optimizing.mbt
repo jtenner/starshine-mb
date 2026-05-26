@@ -3229,6 +3229,24 @@ fn sgo_loop_independent_prefix_scalar_store_matches(
 }
 
 ///|
+fn sgo_loop_independent_prefix_triple_effect_matches(
+  flat : Array[@lib.Instruction],
+  scan : Int,
+  end_ : Int,
+) -> Bool {
+  if scan + 3 >= end_ ||
+    sgo_const_instr(flat[scan]) == None ||
+    sgo_const_instr(flat[scan + 1]) == None ||
+    sgo_const_instr(flat[scan + 2]) == None {
+    return false
+  }
+  match flat[scan + 3] {
+    @lib.MemoryFill(_) => true
+    _ => false
+  }
+}
+
+///|
 fn sgo_loop_condition_independent_global_set_prefix_read_matches(
   instrs : Array[@lib.Instruction],
   idx : @lib.GlobalIdx,
@@ -3274,6 +3292,11 @@ fn sgo_loop_condition_independent_global_set_prefix_read_matches(
     if sgo_loop_independent_prefix_scalar_store_matches(flat, scan, end_) {
       saw_independent_set = true
       scan = scan + 3
+      continue
+    }
+    if sgo_loop_independent_prefix_triple_effect_matches(flat, scan, end_) {
+      saw_independent_set = true
+      scan = scan + 4
       continue
     }
     return false

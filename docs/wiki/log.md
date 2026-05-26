@@ -560,6 +560,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO loop independent memory-fill prefix
+
+- Added research note [`0684`](./raw/research/0684-2026-05-25-sgo-loop-independent-memory-fill-prefix.md) for `[SGO]003C5`, extending the narrow direct-loop prefix matcher from constant store/table-set families to the Binaryen-positive `const; const; const; memory.fill; global.get <candidate>` shape.
+- Added focused positive and candidate-derived destination negative regressions so independent memory fills are preserved while fake candidate-global guard traffic is removed, and fills steered by the candidate global remain conservative. TDD failure was observed before implementation; `moon test src/passes` passed after implementation (`1625/1625`), then `moon fmt`, `moon info`, full `moon test` (`3701/3701`), and direct SGO fuzz at `.tmp/pass-fuzz-sgo-loop-memory-fill-0684-10000` passed the slice criteria (`6759/10000` compared before the configured `20` Binaryen/tool command-failure stop, `0` mismatches, `0` Starshine validation failures).
+
 ## [2026-05-25] binaryen | SGO loop independent table-set prefix
 
 - Added research note [`0683`](./raw/research/0683-2026-05-25-sgo-loop-independent-table-set-prefix.md) for `[SGO]003C5`, extending the narrow direct-loop prefix matcher from constant store families to the Binaryen-positive `const; ref.func; table.set; global.get <candidate>` shape.
