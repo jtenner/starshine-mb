@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE003 typed block carrier
+
+- Added [`raw/research/0644-2026-05-26-dae003-typed-block-carrier.md`](raw/research/0644-2026-05-26-dae003-typed-block-carrier.md), focused typed-block positive coverage, and a conservative loop-carrier negative test in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt).
+- `src/passes/dead_argument_elimination.mbt` now accepts the non-adjacent `block; local.set; local.get; call` carrier only when the block contains exactly one materializable constant instruction; loops, ifs, try/try_table, branchy blocks, and multi-instruction wrappers remain deferred.
+- Validation: test-first `moon test src/passes` failed on the new positive regression; after implementation, `moon test src/passes`, `git diff --check`, `moon info`, `moon fmt`, and full `moon test` passed. A 1000-case direct compare refresh stopped at the known mismatch threshold with `45/1000` compared, `26` normalized matches, `19` normalized mismatches, `0` validation failures, and one known Binaryen/tool `binaryen-rec-group-zero` command failure; agent classification keeps the mismatches in the accepted DAE010 gen-valid raw-cleanup/size-winning family. `[DAE003-F]` remains open for the rest of the structured-carrier surface.
+
 ## [2026-05-26] tests | dae DAE003 self/escaped local-carrier policy
 
 - Added [`raw/research/0643-2026-05-26-dae003-self-escaped-local-carrier-policy.md`](raw/research/0643-2026-05-26-dae003-self-escaped-local-carrier-policy.md) and two focused [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) regressions for self-recursive local-carrier cycles and `ref.func` escaped callees.

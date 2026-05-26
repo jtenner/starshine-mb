@@ -1388,6 +1388,33 @@ fn dae_instr_is_materializable_const_with_immutable_global(
 }
 
 ///|
+fn dae_materializable_block_const(
+  mod_ : @lib.Module,
+  instr : @lib.Instruction,
+  allow_immutable_global_get : Bool,
+) -> @lib.Instruction? {
+  match instr {
+    @lib.Block(_, @lib.Expr(body)) if body.length() == 1 => {
+      let candidate = body[0]
+      if allow_immutable_global_get {
+        if dae_instr_is_materializable_const_with_immutable_global(
+            mod_, candidate,
+          ) {
+          Some(candidate)
+        } else {
+          None
+        }
+      } else if dae_instr_is_materializable_const(candidate) {
+        Some(candidate)
+      } else {
+        None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
 fn dae_rewrite_instruction_param_consts(
   instr : @lib.Instruction,
   const_params : Array[@lib.Instruction?],
@@ -1837,19 +1864,28 @@ fn dae_resolve_local_set_const_carrier(
           return None
         }
         let candidate = instrs[idx - 1]
-        let materializable = if allow_immutable_global_get {
-          dae_instr_is_materializable_const_with_immutable_global(
-            mod_, candidate,
-          )
-        } else {
-          dae_instr_is_materializable_const(candidate)
-        }
-        if !materializable {
-          return None
+        let resolved_candidate = match
+          dae_materializable_block_const(
+            mod_, candidate, allow_immutable_global_get,
+          ) {
+          Some(inner) => inner
+          None => {
+            let materializable = if allow_immutable_global_get {
+              dae_instr_is_materializable_const_with_immutable_global(
+                mod_, candidate,
+              )
+            } else {
+              dae_instr_is_materializable_const(candidate)
+            }
+            if !materializable {
+              return None
+            }
+            candidate
+          }
         }
         match found {
           Some(_) => return None
-          None => found = Some(candidate)
+          None => found = Some(resolved_candidate)
         }
       }
       @lib.LocalSet(local_idx) | @lib.LocalTee(local_idx) if dae_local_idx_slot(
