@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE003 equal-arm if carrier
+
+- Added [`raw/research/0647-2026-05-26-dae003-equal-arm-if-carrier.md`](raw/research/0647-2026-05-26-dae003-equal-arm-if-carrier.md), a focused [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) regression, and a narrow helper extension in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
+- DAE now accepts a non-adjacent caller-local constant carrier when the prior `local.set` producer is an `if` whose then/else arms each contain the same single materializable constant; loops, try/try_table, multi-instruction blocks, and broader control carriers remain deferred.
+- Validation: test-first `moon test src/passes` failed on the new positive regression, then `moon test src/passes`, `git diff --check`, `moon info`, `moon fmt`, and full `moon test` passed. A 1000-case direct compare stopped at the known mismatch threshold with `45/1000` compared, `26` normalized matches, `19` accepted raw-cleanup mismatches, `0` validation failures, and `1` Binaryen/tool command failure.
+
 ## [2026-05-26] tests | dae DAE003 structured-carrier guards
 
 - Added [`raw/research/0646-2026-05-26-dae003-structured-carrier-negative-guards.md`](raw/research/0646-2026-05-26-dae003-structured-carrier-negative-guards.md) and two focused [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) regressions for `[DAE003-F]`.

@@ -1388,28 +1388,40 @@ fn dae_instr_is_materializable_const_with_immutable_global(
 }
 
 ///|
-fn dae_materializable_block_const(
+fn dae_materializable_control_const(
   mod_ : @lib.Module,
   instr : @lib.Instruction,
   allow_immutable_global_get : Bool,
 ) -> @lib.Instruction? {
-  match instr {
-    @lib.Block(_, @lib.Expr(body)) if body.length() == 1 => {
-      let candidate = body[0]
-      if allow_immutable_global_get {
-        if dae_instr_is_materializable_const_with_immutable_global(
-            mod_, candidate,
-          ) {
-          Some(candidate)
-        } else {
-          None
-        }
-      } else if dae_instr_is_materializable_const(candidate) {
+  let resolve_leaf = fn(candidate : @lib.Instruction) -> @lib.Instruction? {
+    if allow_immutable_global_get {
+      if dae_instr_is_materializable_const_with_immutable_global(
+          mod_, candidate,
+        ) {
         Some(candidate)
       } else {
         None
       }
+    } else if dae_instr_is_materializable_const(candidate) {
+      Some(candidate)
+    } else {
+      None
     }
+  }
+  match instr {
+    @lib.Block(_, @lib.Expr(body)) if body.length() == 1 =>
+      resolve_leaf(body[0])
+    @lib.If(_, then_body, Some(else_body)) if then_body.length() == 1 &&
+      else_body.length() == 1 =>
+      match (resolve_leaf(then_body[0]), resolve_leaf(else_body[0])) {
+        (Some(then_const), Some(else_const)) =>
+          if dae_materialized_const_equal(then_const, else_const) {
+            Some(then_const)
+          } else {
+            None
+          }
+        _ => None
+      }
     _ => None
   }
 }
@@ -1865,7 +1877,7 @@ fn dae_resolve_local_set_const_carrier(
         }
         let candidate = instrs[idx - 1]
         let resolved_candidate = match
-          dae_materializable_block_const(
+          dae_materializable_control_const(
             mod_, candidate, allow_immutable_global_get,
           ) {
           Some(inner) => inner

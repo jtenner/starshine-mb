@@ -3240,7 +3240,7 @@ test "dae-optimizing rejects non-adjacent multi-instruction block carrier" {
 }
 
 ///|
-test "dae-optimizing rejects non-adjacent if constant carrier" {
+test "dae-optimizing materializes non-adjacent equal-arm if constant carrier" {
   let target_def = 1500
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -3269,7 +3269,12 @@ test "dae-optimizing rejects non-adjacent if constant carrier" {
   )
   let optimized = dae_test_run(out.to_string())
   let @lib.FuncType(params, _) = dae_test_func_type(optimized, target_def)
-  @debug.assert_eq(params.length(), 1)
+  @debug.assert_eq(params.length(), 0)
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  assert_true(target.contains("I32(88)"), msg=target)
+  assert_false(target.contains("local.get"), msg=target)
 }
 
 ///|
