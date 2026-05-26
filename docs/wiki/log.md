@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE006 Func509 cleanup attempt remains open
+
+- Added focused DAE cleanup coverage in [`../../src/passes/dead_argument_elimination_wbtest.mbt`](../../src/passes/dead_argument_elimination_wbtest.mbt) and [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), plus narrow root-return and terminal-wrapper cleanup helpers in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
+- Recorded the attempt in [`raw/research/0587-2026-05-26-dae-func509-return-suffix-cleanup-attempt.md`](raw/research/0587-2026-05-26-dae-func509-return-suffix-cleanup-attempt.md) and synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) plus [`../../agent-todo.md`](../../agent-todo.md).
+- The both-canonical artifact replay `.tmp/dae006-wrapper-suffix2-20260526` still first-diffs at `defined=509 abs=526`; the landed syntactic helpers do not hit the actual debug-artifact flat instruction shape. `[DAE]006` remains open. Validation: failing then passing `moon test src/passes`, `moon build --target native --release`, and the both-canonical replay; pass-local timing remains over target (`2829.276ms` Starshine versus `841.003ms` Binaryen).
+
 ## [2026-05-26] passes | dae DAE006 Func509 dead-return suffix frontier
 
 - Completed the successor both-canonical `dae-optimizing` artifact replay after the Func505 diagnostic normalizer. `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --starshine-bin target/native/release/build/cmd/cmd.exe --dae-optimizing --canonicalize-binaryen-output --out-dir .tmp/dae006-next-frontier-20260526` now first-diffs at `defined=509 abs=526` and writes `result.json`.

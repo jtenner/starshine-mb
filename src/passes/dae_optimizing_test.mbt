@@ -4048,6 +4048,36 @@ test "dae-optimizing removes dropped large dead-prefix result bodies like Binary
 }
 
 ///|
+test "dae-optimizing drops root-return dead suffix debris after touched rewrite" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $alloc (param i32) (result i32)
+    #|    i32.const 64)
+    #|  (func $f (param i32) (result i32)
+    #|    (local i32)
+    #|    i32.const 7
+    #|    return
+    #|    i32.const 8
+    #|    call $alloc
+    #|    local.set 1
+    #|    local.get 1
+    #|    i32.const 4
+    #|    i32.store
+    #|    local.get 1)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 42
+    #|    call $f))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_params(optimized, 1).length(), 0)
+  let body = optimized.pretty_print_defined_func(1U)
+  assert_true(body.contains("i32.const I32(7)"), msg=body)
+  assert_false(body.contains("call"), msg=body)
+  assert_false(body.contains("i32.store"), msg=body)
+  assert_false(body.contains("i32.const I32(8)"), msg=body)
+}
+
+///|
 test "dae-optimizing ignores undropped calls in root-unreachable dead suffixes" {
   let source =
     #|(module

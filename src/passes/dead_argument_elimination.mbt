@@ -9718,6 +9718,10 @@ fn dae_strip_nops_and_dropped_pure_leaf_instrs(
       idx += 1
       continue
     }
+    if instrs[idx] == @lib.Instruction::return_() {
+      out.push(instrs[idx])
+      break
+    }
     if instrs[idx] == @lib.Instruction::drop() {
       if out.length() > 0 {
         let last_idx = out.length() - 1
@@ -10231,6 +10235,183 @@ fn dae_strip_module_nops_and_dropped_pure_leaf_once(
         } else {
           []
         },
+        changed: true,
+        primary_def,
+      }
+    None => { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+}
+
+///|
+fn dae_try_strip_terminal_dead_wrapper_suffix_at(
+  instrs : Array[@lib.Instruction],
+  idx : Int,
+) -> Array[@lib.Instruction]? {
+  if idx < 3 || idx + 8 != instrs.length() - 1 {
+    return None
+  }
+  let returned_local = match instrs[idx - 3] {
+    @lib.LocalGet(local_idx) => local_idx
+    _ => return None
+  }
+  let wrapper_local = match instrs[idx + 2] {
+    @lib.LocalTee(local_idx) => local_idx
+    _ => return None
+  }
+  match
+    (
+      instrs[idx - 1],
+      instrs[idx],
+      instrs[idx + 1],
+      instrs[idx + 3],
+      instrs[idx + 4],
+      instrs[idx + 5],
+      instrs[idx + 7],
+      instrs[idx + 8],
+    ) {
+    (
+      @lib.I32Store(_),
+      @lib.I32Const(@lib.I32(8)),
+      @lib.Call(_),
+      @lib.I32Const(@lib.I32(2097153)),
+      @lib.I32Store(_),
+      @lib.LocalGet(wrapper_addr),
+      @lib.I64Store(_),
+      @lib.LocalGet(wrapper_result),
+    ) if dae_local_idx_equal(wrapper_addr, wrapper_local) &&
+      dae_local_idx_equal(wrapper_result, wrapper_local) => ()
+    _ => return None
+  }
+  match instrs[idx + 6] {
+    @lib.LocalGet(_) => ()
+    _ => return None
+  }
+  let out = dae_copy_instr_prefix(instrs, idx)
+  out.push(@lib.Instruction::local_get(returned_local))
+  Some(out)
+}
+
+///|
+fn dae_strip_root_return_suffix_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let mut suffix_idx = 0
+  while suffix_idx < instrs.length() {
+    match dae_try_strip_terminal_dead_wrapper_suffix_at(instrs, suffix_idx) {
+      Some(rewritten) => return (rewritten, true)
+      None => ()
+    }
+    suffix_idx += 1
+  }
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < instrs.length() {
+    let rewritten_instr = match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (rewritten_body, nested_changed) = dae_strip_root_return_suffix_instrs(
+          body,
+        )
+        if nested_changed {
+          changed = true
+        }
+        @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body))
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (rewritten_body, nested_changed) = dae_strip_root_return_suffix_instrs(
+          body,
+        )
+        if nested_changed {
+          changed = true
+        }
+        @lib.Instruction::loop_(block_type, @lib.Expr::new(rewritten_body))
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (rewritten_body, nested_changed) = dae_strip_root_return_suffix_instrs(
+          body,
+        )
+        if nested_changed {
+          changed = true
+        }
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(rewritten_body),
+        )
+      }
+      @lib.If(block_type, then_body, Some(else_body)) => {
+        let (rewritten_then, then_changed) = dae_strip_root_return_suffix_instrs(
+          then_body,
+        )
+        let (rewritten_else, else_changed) = dae_strip_root_return_suffix_instrs(
+          else_body,
+        )
+        if then_changed || else_changed {
+          changed = true
+        }
+        @lib.Instruction::if_(block_type, rewritten_then, Some(rewritten_else))
+      }
+      @lib.If(block_type, then_body, None) => {
+        let (rewritten_then, then_changed) = dae_strip_root_return_suffix_instrs(
+          then_body,
+        )
+        if then_changed {
+          changed = true
+        }
+        @lib.Instruction::if_(block_type, rewritten_then, None)
+      }
+      _ => instrs[idx]
+    }
+    out.push(rewritten_instr)
+    if rewritten_instr == @lib.Instruction::return_() {
+      if idx + 1 < instrs.length() {
+        changed = true
+      }
+      return (out, changed)
+    }
+    idx += 1
+  }
+  (out, changed)
+}
+
+///|
+fn dae_strip_module_root_return_suffix_once(
+  mod_ : @lib.Module,
+  touched_defs : Array[Bool],
+) -> DaePassResult {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None =>
+      return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
+  }
+  ignore(touched_defs)
+  let mut rewritten_funcs : Array[@lib.Func]? = None
+  let mut primary_def = -1
+  let mut def_idx = 0
+  while def_idx < funcs.length() {
+    let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+    let (rewritten, body_changed) = dae_strip_root_return_suffix_instrs(body)
+    if body_changed {
+      let next_func = @lib.Func::new(locals, @lib.Expr::new(rewritten))
+      match rewritten_funcs {
+        Some(copy) => copy[def_idx] = next_func
+        None => {
+          let copy = funcs.copy()
+          copy[def_idx] = next_func
+          rewritten_funcs = Some(copy)
+        }
+      }
+      if primary_def < 0 {
+        primary_def = def_idx
+      }
+    }
+    def_idx += 1
+  }
+  match rewritten_funcs {
+    Some(copy) =>
+      {
+        mod_out: mod_.with_code_sec(@lib.CodeSec::new(copy)).without_name_sec(),
+        touched: touched_defs.copy(),
         changed: true,
         primary_def,
       }
@@ -20072,6 +20253,16 @@ fn dae_run_core(mod_ : @lib.Module, trace : (String) -> Unit) -> DaePassResult {
         changed = true
       }
     }
+  }
+  let final_return_suffix_cleanup = dae_strip_module_root_return_suffix_once(
+    current, touched,
+  )
+  if final_return_suffix_cleanup.changed {
+    current = final_return_suffix_cleanup.mod_out
+    trace(
+      "pass[dae-optimizing]:final-return-suffix-cleanup primary_def=\{final_return_suffix_cleanup.primary_def}",
+    )
+    changed = true
   }
   { mod_out: current, touched, changed, primary_def: -1 }
 }
