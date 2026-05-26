@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE003 immutable global generalization
+
+- Added [`raw/research/0648-2026-05-26-dae003-immutable-global-generalization.md`](raw/research/0648-2026-05-26-dae003-immutable-global-generalization.md), focused positive/negative coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), and a bounded mid-size immutable-global revisit in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
+- DAE now materializes immutable `global.get` actuals for fact-discovered high callees outside the old selected Func313 lane when `defined <= 4096`, while preserving mutable global actuals and leaving large-artifact timing-sensitive paths on the existing selected policy.
+- Validation: test-first `moon test src/passes` failed on the new immutable-global positive regression, then `moon test src/passes` passed (`1406` tests) with existing unrelated unused-helper warnings; `git diff --check`, `moon info`, `moon fmt`, and `moon test` passed; 1000-case direct compare stopped at the known threshold with `45/1000` compared, `26` matches, `19` accepted raw-cleanup mismatches, `0` validation failures, and `1` Binaryen/tool command failure.
+
 ## [2026-05-26] passes | dae DAE003 equal-arm if carrier
 
 - Added [`raw/research/0647-2026-05-26-dae003-equal-arm-if-carrier.md`](raw/research/0647-2026-05-26-dae003-equal-arm-if-carrier.md), a focused [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) regression, and a narrow helper extension in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).

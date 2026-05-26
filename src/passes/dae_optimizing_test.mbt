@@ -4455,6 +4455,60 @@ test "dae-optimizing materializes immutable global actuals for the mid-prefix ex
 }
 
 ///|
+test "dae-optimizing materializes high immutable global actuals outside selected list" {
+  let target_def = 1500
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (global $g i32 (i32.const 99))\n")
+  for i = 0; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0
+      #|    i32.const 1
+      #|    i32.add)
+      #|  (func (export "run") (result i32)
+      #|    global.get $g
+      #|    call $target)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  @debug.assert_eq(dae_test_func_params(optimized, target_def).length(), 0)
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  assert_true(target.contains("global.get"), msg=target)
+}
+
+///|
+test "dae-optimizing keeps mutable global actuals outside selected list" {
+  let target_def = 1500
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (global $g (mut i32) (i32.const 99))\n")
+  for i = 0; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0
+      #|    i32.const 1
+      #|    i32.add)
+      #|  (func (export "run") (result i32)
+      #|    global.get $g
+      #|    call $target)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  @debug.assert_eq(dae_test_func_params(optimized, target_def).length(), 1)
+}
+
+///|
 test "dae-optimizing materializes a high exact-literal callee after the mid-prefix slices" {
   let out = StringBuilder::new()
   out.write_string("(module\n")

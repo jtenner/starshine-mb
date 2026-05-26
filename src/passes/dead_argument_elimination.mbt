@@ -19909,6 +19909,39 @@ fn dae_run_core(
     changed = true
     low_revisit_iter += 1
   }
+  let mut immutable_global_revisit_iter = 0
+  while original_defined <= 4096 && immutable_global_revisit_iter < 64 {
+    let immutable_global_call_facts = dae_collect_current_call_facts(
+      current,
+      original_imported + original_defined,
+    )
+    let mut found = false
+    let mut candidate_def = 0
+    while candidate_def < original_defined && candidate_def < 4096 && !found {
+      selected_scratch_defs[candidate_def] = true
+      let global_result = dae_try_rewrite_selected_defs_exact_literal_with_facts_once(
+        current,
+        selected_scratch_defs,
+        immutable_global_call_facts,
+        allow_immutable_global_get=true,
+      )
+      selected_scratch_defs[candidate_def] = false
+      if global_result.changed {
+        current = global_result.mod_out
+        touched = dae_merge_touched(touched, global_result.touched)
+        trace(
+          "pass[dae-optimizing]:immutable-global-revisit iter=\{immutable_global_revisit_iter} primary_def=\{global_result.primary_def}",
+        )
+        changed = true
+        found = true
+      }
+      candidate_def += 1
+    }
+    if !found {
+      break
+    }
+    immutable_global_revisit_iter += 1
+  }
   perf_stop_timer_opt(
     perf, "detail:dae:core:selected-lanes:reverse-exact-literal", reverse_exact_literal_start_us,
   )
