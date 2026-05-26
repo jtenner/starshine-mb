@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] docs | dae DAE009 raw cleanup policy closure
+
+- Closed `[DAE]009` as a docs/backlog recovery slice: the DAE strategy now states the active raw-cleanup policy explicitly as correctness first, useful audited pure/nontrapping cleanup by default, and Binaryen-shape debris preservation only for documented diagnostic or active frontier needs.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md) so future raw-cleanup changes reopen concrete implementation or measurement slices instead of treating the policy itself as unclear.
+- No pass behavior changed; no new fuzz/compare classification was needed for this policy-only closure.
+
 ## [2026-05-26] docs | dae DAE012 local-subtyping closure
 
 - Closed `[DAE]012` as a docs/backlog recovery slice for the current validated local-subtyping surface: focused regressions already cover the known touched-local/refinalization families, and the `--dae-optimizing --local-subtyping` 1000-case combo reproduced only the known DAE local-declaration mismatch set with `0` validation failures.

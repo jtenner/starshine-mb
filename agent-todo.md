@@ -88,6 +88,7 @@ Current checkpoints
 - `[DAE]008` Func237 historical frontier closure is closed as of 2026-05-25: the strategy now records landed Func237 selected local/control slices through `.tmp/dae-func237-common-branch-final-artifact`, the known reverted/deferred probes from research note `0570`, and the superseding direct debug-artifact frontiers (`defined=242`, then later `defined=505` in both-canonical diagnostics). Func237 is no longer an active leading blocker; reopen only with a new current-frontier Func237 repro.
 - `[DAE]014` latest source/index sync is closed as of 2026-05-26: `docs/wiki/binaryen/passes/dae-optimizing/index.md` and `starshine-strategy.md` now link research notes `0576` through `0591` and record the current Func509 diagnostic frontier as a lowerer/diagnostic boundary rather than a DAE final-hook blocker. The wiki catalogs and `starshine-port-readiness-and-validation.md` were also refreshed so future agents no longer see stale pre-port/boundary-only wording for active `dae-optimizing`.
 - `[DAE]012` local-subtyping / refinalization follow-up is closed as of 2026-05-26 for the current validated surface: focused regressions already cover write-site, tee-driven, optimize-casts-adjacent, `ref.as_non_null(local.get ...)`, loop-carried, block-wrapped `try_table`, lib-constructed `call_ref`, and dominated/undominated sibling-join ref-local families; the `--dae-optimizing --local-subtyping` 1000-case combo reproduced only the known DAE local-declaration mismatch set with `0` validation failures. Reopen only for a new validated DAE/local-subtyping semantic or validation repro.
+- `[DAE]009` raw cleanup policy is closed as of 2026-05-26 as a docs/backlog recovery slice. The strategy now states the active policy explicitly: correctness first; useful pure/nontrapping cleanup is allowed and preferred when semantically proved; Binaryen-shape debris is preserved only for documented diagnostic/frontier needs; possibly trapping/effectful operand stacks stay live; future raw-cleanup behavior changes need focused tests plus size/mismatch evidence.
 - Important classification: Func408/abs425 raw body is closed. With both sides passed through the same strip-debug writer, Func408 matches after type-id stripping; prior Func408 drift was compare-layer representation, not a DAE raw rewrite target.
 
 Execution rules for all DAE slices
@@ -146,18 +147,7 @@ Execution rules for all DAE slices
 
 - `[DAE]006` both-canonical frontier advancement is closed as of 2026-05-26 by research note `0591`: the live Func509 `defined=509 abs=526` diff is a documented lowerer/diagnostic boundary, not a safe DAE final-hook matcher miss. Agent classification remains semantic-safe/size-losing: Starshine returns the same object as Binaryen, but leaves lowered post-return wrapper debris; the pre-encode DAE IR still needs the value-block suffix to consume the `block (result i64)` result, and the broad final-hook strip from note `0590` made functions `509` and `514` invalid. Future cleanup belongs to a separate post-lowering or writer-side dead-code cleanup investigation, not the active DAE final hook.
 
-- [DAE]009 - Raw Cleanup Policy and Size/Shape Tradeoff
-  - Goal: maintain a clear policy for useful raw cleanup versus Binaryen-shape debris preservation.
-  - Why: DAE has alternated between useful cleanup (smaller Starshine output) and Binaryen-shape debris preservation for artifact parity. Some broad cleanup improved size and fuzz shape, while some parity-preserving choices kept `nop`, dropped constants, and local-read debris.
-  - Deliverables:
-    - Keep the current policy explicit: correctness and usefulness first; raw byte parity only when it supports a documented frontier.
-    - Separate module-wide useful cleanup from selected strict-debris cleanup used for inspected artifact functions.
-    - Preserve possibly trapping/effectful operand stacks; only strip audited pure/nontrapping debris.
-    - Track size and mismatch counts for 10k compare runs when raw cleanup policy changes.
-  - Suggested evidence:
-    - 10k compare-pass run with mismatch counts and Starshine/Binaryen size deltas.
-    - Focused tests for each newly stripped operation family.
-  - Exit criteria: no open DAE task depends on unclear debris policy, and new cleanup work is either usefulness-signable or explicitly shape-parity-scoped.
+- `[DAE]009` raw cleanup policy is closed as of 2026-05-26. Future cleanup work should reopen a concrete implementation or measurement slice only when it changes behavior; keep the policy from `docs/wiki/binaryen/passes/dae-optimizing/starshine-strategy.md`: correctness first, useful audited pure/nontrapping cleanup by default, documented Binaryen-shape preservation only for active diagnostics/frontiers, focused tests for each new stripped operation family, and size/mismatch evidence for any policy-changing 10k compare refresh.
 
 - [DAE]011 - Performance Stabilization
   - Goal: keep DAE artifact and direct-pass runtime inside `Starshine <= 2x Binaryen`, preferably with headroom.

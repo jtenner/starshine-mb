@@ -64,7 +64,7 @@ related:
 
 ## Current status
 
-Starshine now has a **partial active module-pass implementation** for Binaryen's upstream `dae-optimizing` pass. After a user-requested pivot back toward Binaryen behavior/shape, the current raw-cleanup frontier prioritizes matching Binaryen's preserved debris over the earlier usefulness-oriented artifact shrink where those goals conflict.
+Starshine now has a **partial active module-pass implementation** for Binaryen's upstream `dae-optimizing` pass. The current raw-cleanup policy is explicit: correctness comes first; audited pure/nontrapping cleanup is useful and should be kept when semantically proved; Binaryen-shape debris preservation is narrow and only justified by a documented diagnostic or active artifact frontier. Possibly trapping or effectful operand stacks must remain live, and any future policy-changing cleanup needs focused tests plus size/mismatch evidence from the relevant compare lane. This closes `[DAE]009` as a policy/backlog task; future raw-cleanup work should reopen only for a concrete implementation, measurement, or frontier need.
 
 The local naming caveat was resolved in the first implementation slice:
 
