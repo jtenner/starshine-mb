@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] tests | dae DAE004 dead-suffix call-drop repair
+
+- Added [`raw/research/0635-2026-05-26-dae004-dead-suffix-call-drop-repair.md`](raw/research/0635-2026-05-26-dae004-dead-suffix-call-drop-repair.md) and a focused [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) regression for `[DAE004-F]`.
+- The new test proves DAE preserves a live prefix call while deleting a root-unreachable suffix `call; drop` after the callee result is removed. No optimizer behavior changed; the refreshed coverage already passes on current code.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md). Validation: `moon test src/passes`, `moon info`, `moon fmt`, and `moon test` passed.
+
 ## [2026-05-26] docs | dae DAE004 dead-suffix mixed call policy
 
 - Added [`raw/research/0634-2026-05-26-dae004-dead-suffix-mixed-call-policy.md`](raw/research/0634-2026-05-26-dae004-dead-suffix-mixed-call-policy.md) to close the remaining `[DAE004-E]` classification after the live mixed-call guard from `0633`.

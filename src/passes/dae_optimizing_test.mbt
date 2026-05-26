@@ -4807,6 +4807,33 @@ test "dae-optimizing collapses dropped dead-suffix calls when removing result" {
 }
 
 ///|
+test "dae-optimizing repairs live-prefix dead-suffix call drops after result removal" {
+  let source =
+    #|(module
+    #|  (func $side (param i32))
+    #|  (func (export "main")
+    #|    i32.const 3
+    #|    call $side
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    call $f
+    #|    drop)
+    #|  (func $f (result i32)
+    #|    block
+    #|      unreachable
+    #|    end
+    #|    i32.const 9))
+  let optimized = dae_test_run(source)
+  @debug.assert_eq(dae_test_func_results(optimized, 2).length(), 0)
+  let caller = optimized.pretty_print_defined_func(1U)
+  assert_true(caller.contains("(call (Func 0))"), msg=caller)
+  assert_true(caller.contains("unreachable"), msg=caller)
+  assert_false(caller.contains("(call (Func 2))"), msg=caller)
+  assert_false(caller.contains("drop"), msg=caller)
+}
+
+///|
 test "dae-optimizing removes unobserved params and results from unreachable private functions" {
   let source =
     #|(module
