@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE004 six-high descending candidates
+
+- Broadened `[DAE]004` in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) by raising the large-module descending fact-driven dropped-result cap from five to six productive rewrites for `4096 < defined <= 8192`. The ascending `defined <= 4096` queue and historical selected-def fallback remain unchanged.
+- Updated the large-module ordering regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) to `dae-optimizing reaches six high dropped-result callees after low candidate budget`. It failed before implementation with the sixth high target still reporting one result (`1 != 0`) and passes after the cap increase.
+- Recorded the slice in [`raw/research/0613-2026-05-26-dae004-six-high-descending-candidates.md`](raw/research/0613-2026-05-26-dae004-six-high-descending-candidates.md) and synced [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md), [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), and [`../../agent-todo.md`](../../agent-todo.md). Validation included focused Moon testing, debug-artifact validation/timing at `.tmp/dae004-six-descending-timing-repeat-20260526` (`1604.475ms` Starshine pass vs `864.990ms` Binaryen pass, inside `<= 2x`), and `.tmp/pass-fuzz-dae004-six-descending-20260526-full2` (`9975/10000` compared, `6078` normalized matches, `3897` known gen-valid raw-cleanup mismatches, `0` validation failures, `25` Binaryen/tool command failures). `[DAE]004` remains open until evidence proves the selected-def fallback can be removed or no dropped-result scheduling gap remains.
+
 ## [2026-05-26] passes | dae DAE004 five-high descending candidates
 
 - Broadened `[DAE]004` in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) by raising the large-module descending fact-driven dropped-result cap from four to five productive rewrites for `4096 < defined <= 8192`. The ascending `defined <= 4096` queue and historical selected-def fallback remain unchanged.

@@ -20032,7 +20032,7 @@ fn dae_run_core(
     let fact_dropped_result_limit = if original_defined <= 4096 {
       32
     } else {
-      5
+      6
     }
     let mut fact_dropped_result_iter = 0
     while fact_dropped_result_iter < fact_dropped_result_limit {
