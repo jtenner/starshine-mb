@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE003 branch-free loop carrier
+
+- Added [`raw/research/0649-2026-05-26-dae003-branch-free-loop-carrier.md`](raw/research/0649-2026-05-26-dae003-branch-free-loop-carrier.md), converted the existing loop-carrier regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) from a negative guard into a narrow positive, and extended [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
+- DAE now materializes non-adjacent branch-free `loop` carriers when the loop body contains exactly one materializable constant/global leaf before `local.set; local.get; call`; broader branchy, multi-instruction, try/try_table, trapping/effectful, and control-sensitive structured carriers remain deferred under `[DAE003-F]`.
+- Validation: test-first focused `moon test src/passes --filter 'dae-optimizing materializes non-adjacent branch-free loop constant carrier'` failed with the target still taking one parameter, then the same focused test passed after implementation. `git diff --check`, `moon info`, `moon fmt`, and `moon test` passed. A 1000-case direct compare stopped at the known threshold with `45/1000` compared, `26` normalized matches, `19` accepted raw-cleanup mismatches, `0` validation failures, and `1` Binaryen/tool command failure.
+
 ## [2026-05-26] passes | dae DAE003 immutable global generalization
 
 - Added [`raw/research/0648-2026-05-26-dae003-immutable-global-generalization.md`](raw/research/0648-2026-05-26-dae003-immutable-global-generalization.md), focused positive/negative coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), and a bounded mid-size immutable-global revisit in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).

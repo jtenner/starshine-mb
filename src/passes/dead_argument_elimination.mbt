@@ -1411,6 +1411,7 @@ fn dae_materializable_control_const(
   match instr {
     @lib.Block(_, @lib.Expr(body)) if body.length() == 1 =>
       resolve_leaf(body[0])
+    @lib.Loop(_, @lib.Expr(body)) if body.length() == 1 => resolve_leaf(body[0])
     @lib.If(_, then_body, Some(else_body)) if then_body.length() == 1 &&
       else_body.length() == 1 =>
       match (resolve_leaf(then_body[0]), resolve_leaf(else_body[0])) {
