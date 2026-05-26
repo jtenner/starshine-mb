@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-26
 sources:
+  - ../../../raw/research/0604-2026-05-26-dae004-mid-size-fact-dropped-results.md
   - ../../../raw/research/0603-2026-05-26-dae013-preset-boundary-closure.md
   - ../../../raw/research/0602-2026-05-26-dae002-scheduler-boundary-closure.md
   - ../../../raw/research/0601-2026-05-26-dae011-caller-filtered-dropped-results.md
@@ -93,7 +94,7 @@ Current implemented behavior is intentionally narrower than full Binaryen DAE:
 - export and `ref.func` / element escape bailouts;
 - value-producing `if` operands are preserved with `drop` repair when their parameter is removed, after which the optimizing cleanup lane may remove pure value debris while retaining side effects;
 - no-param dropped/uncalled result removal with conservative unreachable-prefix cleanup;
-- a bounded small-module dropped-result scheduler that derives candidate callees from current call facts instead of only the artifact handpicked selected-def list, gated to private non-tail direct callees whose current direct calls all drop the single result; the large debug-artifact path still keeps the selected list until a fact-driven batch can preserve the closed DAE011 runtime target;
+- a bounded dropped-result scheduler that derives candidate callees from current call facts before the artifact handpicked selected-def fallback, gated to private non-tail direct callees whose current direct calls all drop the single result; as of [`0604`](../../../raw/research/0604-2026-05-26-dae004-mid-size-fact-dropped-results.md), the fact-driven queue runs for modules up to `2048` defined functions while the huge debug artifact remains on the selected-list fallback until a measured batch can preserve the closed DAE011 runtime target;
 - local-use scanning ignores dead suffixes after a root `unreachable`;
 - case-000690-style escaped-result self-call operand preservation: if the original single `f64` parameter is stranded under an escaped direct-call result that becomes an undropped dead-suffix self-call operand, Starshine preserves that parameter while still pruning direct simple self-call operands and dropped self-call escaped-result operands, matching the observed Binaryen shape in [`../../../raw/research/0557-2026-05-12-dae-case-000690-escaped-self-operand.md`](../../../raw/research/0557-2026-05-12-dae-case-000690-escaped-self-operand.md);
 - unused simple function type pruning after signature changes;

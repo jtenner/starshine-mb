@@ -19964,7 +19964,7 @@ fn dae_run_core(
   let dropped_result_selected_defs_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes:dropped-results:selected-defs",
   )
-  if original_defined <= 1024 {
+  if original_defined <= 2048 {
     let mut fact_dropped_result_iter = 0
     while fact_dropped_result_iter < 32 {
       let fact_dropped_result_call_facts = dae_collect_current_call_facts(

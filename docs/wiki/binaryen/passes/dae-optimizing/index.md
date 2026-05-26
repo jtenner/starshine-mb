@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-05-26
 sources:
+  - ../../../raw/research/0604-2026-05-26-dae004-mid-size-fact-dropped-results.md
   - ../../../raw/research/0603-2026-05-26-dae013-preset-boundary-closure.md
   - ../../../raw/research/0602-2026-05-26-dae002-scheduler-boundary-closure.md
   - ../../../raw/research/0601-2026-05-26-dae011-caller-filtered-dropped-results.md
