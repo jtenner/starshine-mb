@@ -3505,7 +3505,7 @@ test "dae-optimizing reaches four high dropped-result callees after low candidat
 }
 
 ///|
-test "dae-optimizing reaches seven high dropped-result callees after low candidate budget" {
+test "dae-optimizing reaches eight high dropped-result callees after low candidate budget" {
   let first_target_def = 4500
   let second_target_def = 4501
   let third_target_def = 4502
@@ -3513,6 +3513,7 @@ test "dae-optimizing reaches seven high dropped-result callees after low candida
   let fifth_target_def = 4504
   let sixth_target_def = 4505
   let seventh_target_def = 4506
+  let eighth_target_def = 4507
   let low_candidates = 40
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -3522,7 +3523,7 @@ test "dae-optimizing reaches seven high dropped-result callees after low candida
   for i = low_candidates; i < first_target_def; i = i + 1 {
     out.write_string("  (func $pad\{i})\n")
   }
-  for i = 0; i < 7; i = i + 1 {
+  for i = 0; i < 8; i = i + 1 {
     out.write_string(
       "  (func $target\{i} (param i32 i32) (result i32)\n    local.get 0\n    call $side\n    local.get 1\n    call $side\n    local.get 0\n    local.get 1\n    i32.add)\n",
     )
@@ -3531,7 +3532,7 @@ test "dae-optimizing reaches seven high dropped-result callees after low candida
   for i = 0; i < low_candidates; i = i + 1 {
     out.write_string("    call $low\{i}\n    drop\n")
   }
-  for i = 0; i < 7; i = i + 1 {
+  for i = 0; i < 8; i = i + 1 {
     out.write_string(
       "    i32.const \{10 + i}\n    i32.const \{32 - i}\n    call $target\{i}\n    drop\n",
     )
@@ -3566,8 +3567,12 @@ test "dae-optimizing reaches seven high dropped-result callees after low candida
     dae_test_func_results(optimized, seventh_target_def).length(),
     0,
   )
+  @debug.assert_eq(
+    dae_test_func_results(optimized, eighth_target_def).length(),
+    0,
+  )
   let caller = optimized.pretty_print_defined_func(
-    (seventh_target_def + 2).reinterpret_as_uint(),
+    (eighth_target_def + 2).reinterpret_as_uint(),
   )
   assert_true(caller.contains("(call (Func \{first_target_def}))"), msg=caller)
   assert_true(caller.contains("(call (Func \{second_target_def}))"), msg=caller)
@@ -3576,7 +3581,11 @@ test "dae-optimizing reaches seven high dropped-result callees after low candida
   assert_true(caller.contains("(call (Func \{fifth_target_def}))"), msg=caller)
   assert_true(caller.contains("(call (Func \{sixth_target_def}))"), msg=caller)
   assert_true(
-    caller.contains("(call (Func \{seventh_target_def}))(end)"),
+    caller.contains("(call (Func \{seventh_target_def}))"),
+    msg=caller,
+  )
+  assert_true(
+    caller.contains("(call (Func \{eighth_target_def}))(end)"),
     msg=caller,
   )
 }
