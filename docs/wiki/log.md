@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE004 unobserved fallback retirement
+
+- Added [`raw/research/0662-2026-05-26-dae004-retire-unobserved-selected-fallback.md`](raw/research/0662-2026-05-26-dae004-retire-unobserved-selected-fallback.md), removed stale unobserved selected dropped-result fallback entry `3799` from [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), and added a white-box guard in [`../../src/passes/dead_argument_elimination_wbtest.mbt`](../../src/passes/dead_argument_elimination_wbtest.mbt).
+- Advanced `[DAE004-D]` by deleting the only fallback entry that note `0628` did not observe as productive; productive selected fallback entries remain active pending artifact validation, pass-local timing, and direct compare evidence.
+- Validation: test-first `moon test src/passes` failed on the new guard before implementation, then `moon test src/passes` passed (`1417` tests) after implementation.
+
 ## [2026-05-26] docs | dae DAE003 closeout evidence
 
 - Added [`raw/research/0661-2026-05-26-dae003-closeout-evidence.md`](raw/research/0661-2026-05-26-dae003-closeout-evidence.md) and updated [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) plus [`../../agent-todo.md`](../../agent-todo.md).

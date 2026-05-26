@@ -51,6 +51,13 @@ test "dae original call summary counts repeated undropped callees once per calle
 }
 
 ///|
+test "dae selected dropped-result fallback skips unobserved Func3799" {
+  assert_false(
+    dae_selected_dropped_result_fallback_neighborhood_defs().contains(3799),
+  )
+}
+
+///|
 test "dae large dropped-result bucket order interleaves fallback neighborhood before low tail" {
   let selected = Array::make(5000, false)
   selected[1] = true
