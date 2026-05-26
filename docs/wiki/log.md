@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] docs | dae DAE002 scheduler boundary closure
+
+- Closed `[DAE]002` as a docs/backlog recovery slice for the current v0.1.0 touched nested scheduler boundary: the guarded DAE nested lane has trace-order and touched-only coverage, uses the private `precompute-propagate-prefix` helper, and later evidence attributes the leading both-canonical artifact frontier to the closed Func509 lowerer/diagnostic boundary rather than to a scheduler miss.
+- Added [`raw/research/0602-2026-05-26-dae002-scheduler-boundary-closure.md`](raw/research/0602-2026-05-26-dae002-scheduler-boundary-closure.md) and synced [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md), [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), and [`../../agent-todo.md`](../../agent-todo.md).
+- No pass behavior changed; no new fuzz/compare classification was needed. Broader DAE work remains active in `[DAE]003`, `[DAE]004`, and `[DAE]013`.
+
 ## [2026-05-26] passes | dae DAE011 caller-filtered dropped results
 
 - Optimized the selected dropped-result helper in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) by threading precomputed `direct_callers[callee]` into `dae_try_remove_dropped_results(...)` and limiting undropped-call checks, dropped-call rewrites, `call; drop` cleanup, and no-param dead-suffix repair to the caller set when facts are available.
