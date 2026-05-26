@@ -19251,6 +19251,9 @@ fn dae_run_core(
   let selected_lanes_start_us = perf_start_timer_opt(
     perf, "detail:dae:core:selected-lanes",
   )
+  let reverse_exact_literal_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:selected-lanes:reverse-exact-literal",
+  )
   let restored = dae_restore_dead_suffix_self_operand_params(mod_, current)
   if restored.changed {
     current = restored.mod_out
@@ -19359,6 +19362,12 @@ fn dae_run_core(
     changed = true
     low_revisit_iter += 1
   }
+  perf_stop_timer_opt(
+    perf, "detail:dae:core:selected-lanes:reverse-exact-literal", reverse_exact_literal_start_us,
+  )
+  let low_wrapper_callees_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:selected-lanes:low-wrapper-callees",
+  )
   let mut low_callee_iter = 0
   let low_callee_selected_defs = dae_collect_direct_callee_defs_from_caller_prefix(
     current, 64,
@@ -19457,6 +19466,12 @@ fn dae_run_core(
     }
     boundary_order_idx += 1
   }
+  perf_stop_timer_opt(
+    perf, "detail:dae:core:selected-lanes:low-wrapper-callees", low_wrapper_callees_start_us,
+  )
+  let early_shapes_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:selected-lanes:early-shapes",
+  )
   if 236 < selected_scratch_defs.length() {
     selected_scratch_defs[236] = true
     let selected_func236_locals = dae_try_retarget_selected_func236_locals_once(
@@ -19677,6 +19692,12 @@ fn dae_run_core(
       changed = true
     }
   }
+  perf_stop_timer_opt(
+    perf, "detail:dae:core:selected-lanes:early-shapes", early_shapes_start_us,
+  )
+  let dropped_results_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results",
+  )
   let selected_dropped_result_call_facts = dae_collect_current_call_facts(
     current,
     original_imported + original_defined,
@@ -19737,6 +19758,12 @@ fn dae_run_core(
       changed = true
     }
   }
+  perf_stop_timer_opt(
+    perf, "detail:dae:core:selected-lanes:dropped-results", dropped_results_start_us,
+  )
+  let literal_unread_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:selected-lanes:literal-unread",
+  )
   for selected_unread_def in [505, 3799] {
     if selected_unread_def >= 0 &&
       selected_unread_def < selected_scratch_defs.length() {
@@ -19802,6 +19829,12 @@ fn dae_run_core(
       changed = true
     }
   }
+  perf_stop_timer_opt(
+    perf, "detail:dae:core:selected-lanes:literal-unread", literal_unread_start_us,
+  )
+  let late_shapes_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:selected-lanes:late-shapes",
+  )
   if 408 < selected_scratch_defs.length() {
     let mut func408_const_iter = 0
     while func408_const_iter < 4 {
@@ -20062,6 +20095,9 @@ fn dae_run_core(
     }
   }
   perf_stop_timer_opt(
+    perf, "detail:dae:core:selected-lanes:late-shapes", late_shapes_start_us,
+  )
+  perf_stop_timer_opt(
     perf, "detail:dae:core:selected-lanes", selected_lanes_start_us,
   )
   let raw_cleanup_start_us = perf_start_timer_opt(
@@ -20083,6 +20119,9 @@ fn dae_run_core(
     changed = true
   }
   perf_stop_timer_opt(perf, "detail:dae:core:raw-cleanup", raw_cleanup_start_us)
+  let post_raw_selected_lanes_start_us = perf_start_timer_opt(
+    perf, "detail:dae:core:post-raw-selected-lanes",
+  )
   for zero_tee_def in [215, 260, 261, 1137, 1978] {
     if zero_tee_def >= 0 && zero_tee_def < selected_scratch_defs.length() {
       selected_scratch_defs[zero_tee_def] = true
@@ -20378,6 +20417,9 @@ fn dae_run_core(
     )
     changed = true
   }
+  perf_stop_timer_opt(
+    perf, "detail:dae:core:post-raw-selected-lanes", post_raw_selected_lanes_start_us,
+  )
   { mod_out: current, touched, changed, primary_def: -1 }
 }
 

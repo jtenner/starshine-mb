@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE011 selected-lane perf timers
+
+- Split the DAE selected-lane perf bucket in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) into reverse exact-literal, low-wrapper callee, early-shape, dropped-result, literal/unread, late-shape, and post-raw selected-lane timers.
+- Extended [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) so the DAE perf regression requires the new selected-lane timer names.
+- Recorded attribution in [`raw/research/0597-2026-05-26-dae011-selected-lane-perf-timers.md`](raw/research/0597-2026-05-26-dae011-selected-lane-perf-timers.md): the latest traced debug artifact spends `1654447us` in selected dropped-result removal out of `1897993us` selected-lane aggregate and `2753535us` DAE core total. `[DAE]011` remains open for dropped-result lane optimization or micro-profiling.
+
 ## [2026-05-26] passes | dae DAE011 core-family perf timers
 
 - Added deeper DAE core perf timers in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) and threaded the existing perf session from [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) into `dae_run_core(...)`.

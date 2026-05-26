@@ -5892,7 +5892,43 @@ test "dae-optimizing perf trace breaks down core, nested cleanup, and type pruni
     msg=text,
   )
   assert_true(
+    text.contains(
+      "perf:timer name=detail:dae:core:selected-lanes:reverse-exact-literal",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:dae:core:selected-lanes:low-wrapper-callees",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains("perf:timer name=detail:dae:core:selected-lanes:early-shapes"),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:dae:core:selected-lanes:dropped-results",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains(
+      "perf:timer name=detail:dae:core:selected-lanes:literal-unread",
+    ),
+    msg=text,
+  )
+  assert_true(
+    text.contains("perf:timer name=detail:dae:core:selected-lanes:late-shapes"),
+    msg=text,
+  )
+  assert_true(
     text.contains("perf:timer name=detail:dae:core:raw-cleanup"),
+    msg=text,
+  )
+  assert_true(
+    text.contains("perf:timer name=detail:dae:core:post-raw-selected-lanes"),
     msg=text,
   )
   assert_true(
