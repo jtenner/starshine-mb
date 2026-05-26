@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] research | dae DAE004 ninth descending candidate probe
+
+- Probed the next `[DAE]004` large-module scheduler step after the eight-high cap by temporarily extending the focused regression to nine high dropped-result callees and raising the `4096 < defined <= 8192` descending cap from `8` to `9`.
+- The nine-high focused filter passed after the temporary cap bump, but the full native passes suite still crashed with `SIGSEGV`, including `--no-parallelize`; the code/test probe was reverted and not signed off.
+- Recorded the blocked/unknown-risky result in [`raw/research/0616-2026-05-26-dae004-ninth-descending-candidate-probe.md`](raw/research/0616-2026-05-26-dae004-ninth-descending-candidate-probe.md). `[DAE]004` remains open; next work should isolate the full-suite instability or add a narrower scheduler unit before retrying a cap increase.
+
 ## [2026-05-26] passes | dae DAE004 eight-high descending candidates
 
 - Broadened `[DAE]004` in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) by raising the large-module descending fact-driven dropped-result cap from seven to eight productive rewrites for `4096 < defined <= 8192`. The ascending `defined <= 4096` queue and historical selected-def fallback remain unchanged.
