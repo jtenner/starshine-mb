@@ -560,6 +560,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-26] binaryen | SGO worklist effects closeout
+
+- Added research note [`0702`](./raw/research/0702-2026-05-26-sgo-worklist-effects-closeout.md) for `[SGO]005`, replacing SGO's transitive direct-call effect fixed-point sweep with a reverse-call worklist and caching per-function global-reference scans across SGO planning/rewrite phases.
+- Added focused coverage for the new `detail:sgo:collect-function-effects` perf timer and for transitive direct-callee candidate-read propagation through a `run -> mid -> read_global` chain.
+- Validation passed: `moon fmt`, `moon test src/passes` (`1648/1648`), `moon info`, full `moon test` (`3724/3724`), direct SGO fuzz at `.tmp/pass-fuzz-sgo-worklist-effects-final-10000` (`6759/10000`, `0` mismatches, `0` Starshine validation failures), and ordered late-tail fuzz at `.tmp/pass-fuzz-sgo-latetail-worklist-effects-10000` (`6597/10000`, `0` mismatches, `0` Starshine validation failures).
+- Direct and late-tail debug-artifact replays still first differ at `defined=55 abs=76`, agent-classified as representation-only default-local/carrier drift, but pass-local timing now meets the 2x floor: direct `.tmp/sgo-worklist-effects-final-direct-artifact` was `120.392ms` Starshine vs `111.796ms` Binaryen, and late-tail `.tmp/sgo-worklist-effects-latetail-artifact` was `251.204ms` Starshine vs `178.442ms` Binaryen. The remaining full `--optimize` replay timeout stays assigned to `[WALL]001`, not SGO pass-local work.
+
 ## [2026-05-26] tooling | Self-optimize preset helper and SGO retry
 
 - Added research note [`0701`](./raw/research/0701-2026-05-26-self-optimize-preset-helper-and-sgo-retry.md) for the `[SGO]005` compare-tooling blocker: `scripts/self-optimize-compare.ts` now accepts public preset flags, passing Starshine `--optimize` / `--shrink` through and mapping them to Binaryen `-O` / `-Os`; Binaryen-style `-O` / `-Os` inputs normalize back to Starshine's public preset flags, while numeric `-O2` remains rejected.

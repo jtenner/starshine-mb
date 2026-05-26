@@ -382,6 +382,10 @@ test "simplify-globals-optimizing perf trace breaks down core phases" {
     msg=text,
   )
   assert_true(
+    text.contains("perf:timer name=detail:sgo:collect-function-effects"),
+    msg=text,
+  )
+  assert_true(
     text.contains("perf:timer name=detail:sgo:rewrite-code"),
     msg=text,
   )
@@ -2928,6 +2932,33 @@ test "simplify-globals-optimizing keeps direct callee candidate-read guard" {
     ),
   )
   let run_pretty = optimized.pretty_print_defined_func(1U)
+  assert_true(run_pretty.contains("global.get"), msg=run_pretty)
+  assert_true(run_pretty.contains("global.set"), msg=run_pretty)
+}
+
+///|
+test "simplify-globals-optimizing keeps transitive direct callee candidate-read guard" {
+  let optimized = sgo_test_run(
+    (
+      #|  (module
+      #|  (global $global (mut i32) (i32.const 0))
+      #|  (func $read (result i32)
+      #|    (global.get $global))
+      #|  (func $mid (result i32)
+      #|    (call $read))
+      #|  (func (export "run")
+      #|    (if
+      #|      (i32.add
+      #|        (global.get $global)
+      #|        (call $mid))
+      #|      (then
+      #|        (i32.const 1)
+      #|        (global.set $global)))))
+      #|
+    ),
+  )
+  let run_pretty = optimized.pretty_print_defined_func(2U)
+  assert_true(run_pretty.contains("call (Func 1)"), msg=run_pretty)
   assert_true(run_pretty.contains("global.get"), msg=run_pretty)
   assert_true(run_pretty.contains("global.set"), msg=run_pretty)
 }

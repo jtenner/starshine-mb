@@ -559,17 +559,33 @@ fn sgo_scan_code_sec(
 }
 
 ///|
+fn sgo_code_global_ref_flags(code_sec : @lib.CodeSec?) -> Array[Bool] {
+  match code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let flags = Array::make(funcs.length(), false)
+      for idx = 0; idx < funcs.length(); idx = idx + 1 {
+        let @lib.Func(_, body) = funcs[idx]
+        flags[idx] = sgo_expr_may_reference_global(body)
+      }
+      flags
+    }
+    None => []
+  }
+}
+
+///|
 fn sgo_same_init_write_flags(
   code_sec : @lib.CodeSec?,
   infos : Array[SgoGlobalInfo],
+  global_ref_flags : Array[Bool],
 ) -> Array[Bool] {
   let init_consts = sgo_build_initial_startup_consts(infos)
   let flags = Array::make(infos.length(), true)
   match code_sec {
     Some(@lib.CodeSec(funcs)) =>
-      for func_ in funcs {
-        let @lib.Func(_, body) = func_
-        if sgo_expr_may_reference_global(body) {
+      for idx = 0; idx < funcs.length(); idx = idx + 1 {
+        if idx < global_ref_flags.length() && global_ref_flags[idx] {
+          let @lib.Func(_, body) = funcs[idx]
           sgo_mark_same_init_writes_expr(body, init_consts, flags)
         }
       }
@@ -646,13 +662,14 @@ fn sgo_read_only_to_write_flags(
   code_sec : @lib.CodeSec?,
   infos : Array[SgoGlobalInfo],
   effects : Array[SgoFunctionGlobalEffects],
+  global_ref_flags : Array[Bool],
 ) -> Array[Bool] {
   let safe_reads = Array::make(infos.length(), 0)
   match code_sec {
     Some(@lib.CodeSec(funcs)) =>
-      for func_ in funcs {
-        let @lib.Func(_, body) = func_
-        if sgo_expr_may_reference_global(body) {
+      for idx = 0; idx < funcs.length(); idx = idx + 1 {
+        if idx < global_ref_flags.length() && global_ref_flags[idx] {
+          let @lib.Func(_, body) = funcs[idx]
           sgo_count_read_only_to_write_expr(body, safe_reads, effects)
         }
       }
@@ -4924,6 +4941,18 @@ fn sgo_effect_mark_all(row : Array[Bool]) -> Unit {
 }
 
 ///|
+fn sgo_effect_mark_all_changed(row : Array[Bool]) -> Bool {
+  let mut changed = false
+  for idx = 0; idx < row.length(); idx = idx + 1 {
+    if !row[idx] {
+      row[idx] = true
+      changed = true
+    }
+  }
+  changed
+}
+
+///|
 fn sgo_effect_union_into(dst : Array[Bool], src : Array[Bool]) -> Bool {
   let mut changed = false
   let limit = if dst.length() < src.length() {
@@ -5133,35 +5162,54 @@ fn sgo_collect_function_global_effects(
       }
     None => ()
   }
-  let mut changed = true
-  while changed {
-    changed = false
-    for idx = imported_funcs; idx < total_funcs; idx = idx + 1 {
-      for callee in calls[idx] {
-        let callee_slot = sgo_func_idx_slot(callee)
-        if callee_slot >= 0 && callee_slot < effects.length() {
-          if sgo_effect_union_into(
-              effects[idx].reads,
-              effects[callee_slot].reads,
-            ) {
-            changed = true
-          }
-          if sgo_effect_union_into(
-              effects[idx].mutates,
-              effects[callee_slot].mutates,
-            ) {
-            changed = true
-          }
-        } else {
-          let before_reads = effects[idx].reads.copy()
-          let before_mutates = effects[idx].mutates.copy()
-          sgo_effect_mark_all(effects[idx].reads)
-          sgo_effect_mark_all(effects[idx].mutates)
-          if before_reads != effects[idx].reads ||
-            before_mutates != effects[idx].mutates {
-            changed = true
-          }
+  let callers : Array[Array[Int]] = []
+  for _idx = 0; _idx < total_funcs; _idx = _idx + 1 {
+    callers.push([])
+  }
+  let queue : Array[Int] = []
+  let queued = Array::make(total_funcs, false)
+  for idx = 0; idx < total_funcs; idx = idx + 1 {
+    queue.push(idx)
+    queued[idx] = true
+  }
+  for idx = imported_funcs; idx < total_funcs; idx = idx + 1 {
+    for callee in calls[idx] {
+      let callee_slot = sgo_func_idx_slot(callee)
+      if callee_slot >= 0 && callee_slot < callers.length() {
+        callers[callee_slot].push(idx)
+      } else {
+        let changed_reads = sgo_effect_mark_all_changed(effects[idx].reads)
+        let changed_mutates = sgo_effect_mark_all_changed(effects[idx].mutates)
+        if (changed_reads || changed_mutates) && !queued[idx] {
+          queue.push(idx)
+          queued[idx] = true
         }
+      }
+    }
+  }
+  let mut cursor = 0
+  while cursor < queue.length() {
+    let callee = queue[cursor]
+    cursor = cursor + 1
+    queued[callee] = false
+    if callee < 0 || callee >= callers.length() {
+      continue
+    }
+    for caller in callers[callee] {
+      if caller < 0 || caller >= effects.length() {
+        continue
+      }
+      let changed_reads = sgo_effect_union_into(
+        effects[caller].reads,
+        effects[callee].reads,
+      )
+      let changed_mutates = sgo_effect_union_into(
+        effects[caller].mutates,
+        effects[callee].mutates,
+      )
+      if (changed_reads || changed_mutates) && !queued[caller] {
+        queue.push(caller)
+        queued[caller] = true
       }
     }
   }
@@ -5431,6 +5479,7 @@ fn sgo_rewrite_code_sec(
   aliases : Array[@lib.GlobalIdx?],
   remove_sets : Array[Bool],
   effects : Array[SgoFunctionGlobalEffects],
+  global_ref_flags : Array[Bool],
 ) -> (@lib.CodeSec?, Array[Bool], Bool) {
   match code_sec {
     Some(@lib.CodeSec(funcs)) => {
@@ -5439,7 +5488,7 @@ fn sgo_rewrite_code_sec(
       let mut changed = false
       for idx = 0; idx < funcs.length(); idx = idx + 1 {
         let @lib.Func(locals, body) = funcs[idx]
-        if !sgo_expr_may_reference_global(body) {
+        if idx >= global_ref_flags.length() || !global_ref_flags[idx] {
           out.push(funcs[idx])
           continue
         }
@@ -5545,13 +5594,25 @@ fn sgo_run_core(
   )
   let (infos, imported_globals) = sgo_collect_global_infos(mod_)
   perf_stop_timer_opt(perf, "detail:sgo:collect-global-infos", collect_start_us)
+  let effects_start_us = perf_start_timer_opt(
+    perf, "detail:sgo:collect-function-effects",
+  )
   let effects = sgo_collect_function_global_effects(mod_, infos.length())
+  perf_stop_timer_opt(
+    perf, "detail:sgo:collect-function-effects", effects_start_us,
+  )
   let flags_start_us = perf_start_timer_opt(perf, "detail:sgo:plan-flags")
-  let same_init_writes = sgo_same_init_write_flags(mod_.code_sec, infos)
+  let global_ref_flags = sgo_code_global_ref_flags(mod_.code_sec)
+  let same_init_writes = sgo_same_init_write_flags(
+    mod_.code_sec,
+    infos,
+    global_ref_flags,
+  )
   let read_only_to_write = sgo_read_only_to_write_flags(
     mod_.code_sec,
     infos,
     effects,
+    global_ref_flags,
   )
   let remove_sets = sgo_plan_remove_sets(
     infos, same_init_writes, read_only_to_write,
@@ -5595,6 +5656,7 @@ fn sgo_run_core(
     aliases,
     remove_sets,
     effects,
+    global_ref_flags,
   )
   perf_stop_timer_opt(perf, "detail:sgo:rewrite-code", code_start_us)
   changed = changed ||
