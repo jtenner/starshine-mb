@@ -560,6 +560,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO loop independent subword store prefix
+
+- Added research note [`0681`](./raw/research/0681-2026-05-25-sgo-loop-independent-subword-store-prefix.md) for `[SGO]003C5`, extending the narrow direct-loop prefix matcher from full-width scalar stores to Binaryen-positive constant-operand integer subword stores: `i32.store8`, `i32.store16`, `i64.store8`, `i64.store16`, and `i64.store32`.
+- Added focused positive and candidate-derived negative regressions so independent subword stores are preserved while fake candidate-global guard traffic is removed, and store operands fed by the candidate global remain conservative. TDD failure was observed before implementation; `moon fmt`, `moon info`, full `moon test` (`3695/3695`), and direct SGO fuzz at `.tmp/pass-fuzz-sgo-loop-subword-store-0681-10000` passed the slice criteria (`6759/10000` compared before the configured `20` Binaryen/tool command-failure stop, `0` mismatches, `0` Starshine validation failures; command failures were the established Binaryen/tool classes: `17` rec-group-zero plus one each bad-section-size, table-index-out-of-range, and invalid-tag-index).
+
 ## [2026-05-25] binaryen | SGO loop independent i64 store prefix
 
 - Added research note [`0680`](./raw/research/0680-2026-05-25-sgo-loop-independent-i64-store-prefix.md) for `[SGO]003C5`, extending the narrow direct-loop prefix matcher from the prior `i32.store` case to the Binaryen-positive `const; const; i64.store; global.get <candidate>` shape without enabling broad loop FlowScanner reuse.

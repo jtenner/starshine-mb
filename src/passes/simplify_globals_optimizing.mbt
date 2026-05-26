@@ -3214,7 +3214,13 @@ fn sgo_loop_independent_prefix_scalar_store_matches(
     return false
   }
   match flat[scan + 2] {
-    @lib.I32Store(_) | @lib.I64Store(_) => true
+    @lib.I32Store(_)
+    | @lib.I64Store(_)
+    | @lib.I32Store8(_)
+    | @lib.I32Store16(_)
+    | @lib.I64Store8(_)
+    | @lib.I64Store16(_)
+    | @lib.I64Store32(_) => true
     _ => false
   }
 }
