@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] docs | dae DAE014 index/source sync
+
+- Completed a DAE014 documentation recovery slice by syncing [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md) and [`../../agent-todo.md`](../../agent-todo.md) with the recent Func505 reduction notes [`0580`](raw/research/0580-2026-05-25-dae-func505-empty-count-branch-inversion.md) through [`0584`](raw/research/0584-2026-05-26-dae-func505-loop-carrier-reduction.md).
+- The index now records that the saved `.tmp/dae-func505-bool-carrier-artifact` first-diff body is classified representation-only after inspected default-zero, branch-inversion, bool-carrier, underscore-guard, overflow/temp, and loop/exit-carrier reductions, while the both-canonical helper still first-diffs at `defined=505 abs=522` until a diagnostic normalizer or pass-shape cleanup advances it.
+- No pass behavior changed; active DAE implementation slices remain open in `agent-todo.md`.
+
 ## [2026-05-26] passes | dae DAE006 Func505 loop carrier reduction
 
 - Reduced the remaining `[DAE]006` Func505 loop induction and exit-carrier region in [`raw/research/0584-2026-05-26-dae-func505-loop-carrier-reduction.md`](raw/research/0584-2026-05-26-dae-func505-loop-carrier-reduction.md) using the saved `.tmp/dae-func505-bool-carrier-artifact` first-diff WAT dumps.
