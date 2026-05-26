@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] docs | dae DAE012 local-subtyping closure
+
+- Closed `[DAE]012` as a docs/backlog recovery slice for the current validated local-subtyping surface: focused regressions already cover the known touched-local/refinalization families, and the `--dae-optimizing --local-subtyping` 1000-case combo reproduced only the known DAE local-declaration mismatch set with `0` validation failures.
+- Synced [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`../../agent-todo.md`](../../agent-todo.md) so future DAE recovery runs reopen local-subtyping only for a new validated semantic or validation repro; the stale active `[DAE]014` docs-cleanup block was also pruned because the checkpoint is already closed.
+- No pass behavior changed; no new fuzz/compare classification was needed for this status cleanup.
+
 ## [2026-05-26] docs | dae DAE005 raw frontier policy closure
 
 - Closed `[DAE]005` as a docs/backlog recovery slice: the default raw debug-artifact helper's `defined=336 abs=353` type-section/type-index first diff is now explicitly documented as a diagnostic boundary rather than active Func408/Func336 body work.

@@ -87,6 +87,7 @@ Current checkpoints
 - `[DAE]010` direct fuzz refresh is closed for the latest pass logic as of 2026-05-25: `.tmp/pass-fuzz-dae-optimizing-dae010-20260525-full2` compared `9975/10000`, with `6078` normalized matches, `3897` normalized mismatches, `0` validation failures, and `25` Binaryen/tool command failures (`22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, `1` `binaryen-invalid-tag-index`). Agent classification: all mismatches are `gen-valid` size-winning semantic-safe raw-cleanup drift from Starshine stripping the generator's leading dropped pure/nontrapping constant debris while Binaryen preserves it; all `wasm-smith` cases that Binaryen accepted matched.
 - `[DAE]008` Func237 historical frontier closure is closed as of 2026-05-25: the strategy now records landed Func237 selected local/control slices through `.tmp/dae-func237-common-branch-final-artifact`, the known reverted/deferred probes from research note `0570`, and the superseding direct debug-artifact frontiers (`defined=242`, then later `defined=505` in both-canonical diagnostics). Func237 is no longer an active leading blocker; reopen only with a new current-frontier Func237 repro.
 - `[DAE]014` latest source/index sync is closed as of 2026-05-26: `docs/wiki/binaryen/passes/dae-optimizing/index.md` and `starshine-strategy.md` now link research notes `0576` through `0591` and record the current Func509 diagnostic frontier as a lowerer/diagnostic boundary rather than a DAE final-hook blocker. The wiki catalogs and `starshine-port-readiness-and-validation.md` were also refreshed so future agents no longer see stale pre-port/boundary-only wording for active `dae-optimizing`.
+- `[DAE]012` local-subtyping / refinalization follow-up is closed as of 2026-05-26 for the current validated surface: focused regressions already cover write-site, tee-driven, optimize-casts-adjacent, `ref.as_non_null(local.get ...)`, loop-carried, block-wrapped `try_table`, lib-constructed `call_ref`, and dominated/undominated sibling-join ref-local families; the `--dae-optimizing --local-subtyping` 1000-case combo reproduced only the known DAE local-declaration mismatch set with `0` validation failures. Reopen only for a new validated DAE/local-subtyping semantic or validation repro.
 - Important classification: Func408/abs425 raw body is closed. With both sides passed through the same strip-debug writer, Func408 matches after type-id stripping; prior Func408 drift was compare-layer representation, not a DAE raw rewrite target.
 
 Execution rules for all DAE slices
@@ -174,14 +175,6 @@ Execution rules for all DAE slices
     - Boundary queue precomputation and original suffix-target stamp tables.
   - Exit criteria: repeated artifact timings are stable within target after the current slice, or a performance blocker is opened with a concrete profile/repro.
 
-- [DAE]012 - Local-Subtyping / Refinalization Follow-up
-  - Goal: keep DAE touched-only nested cleanup valid when local-subtyping, typed refs, `try_table`, and `call_ref` interact.
-  - Current state: focused regressions cover simple write-site, tee-driven, optimize-casts-adjacent, `ref.as_non_null(local.get ...)`, loop-carried, block-wrapped `try_table`, lib-constructed `call_ref`, and dominated/undominated sibling-join ref-local families. The `--dae-optimizing --local-subtyping` 1000-case combo matched the known DAE mismatch set with `0` validation failures.
-  - Deliverables:
-    - Add new regressions only when a valid repro appears; ignore fixture-invalid `try_table catch_all` arity cases.
-    - Keep declared function type slots live in HOT context so duplicate same-shape signatures do not widen `ref.func` incorrectly.
-    - Preserve catch-depth lowering against the active local label stack after nested rewrites.
-  - Exit criteria: no current validated DAE/local-subtyping validation blocker remains.
 
 - [DAE]013 - Preset / Ordered-Neighborhood Integration
   - Goal: only widen public `optimize`/`shrink` preset behavior after direct DAE evidence is strong enough and the surrounding ordered neighborhood is representable.
@@ -195,14 +188,6 @@ Execution rules for all DAE slices
     - Update `src/cmd/cmd.mbt` only if public flags or preset expansion changes.
   - Exit criteria: DAE participates in the preset path with documented parity/performance evidence or remains explicitly direct-pass-only for v0.1.0.
 
-- [DAE]014 - Documentation and Research Note Cleanup
-  - Goal: prevent DAE knowledge from living only in chat or stale one-off notes.
-  - Deliverables:
-    - Keep `docs/wiki/binaryen/passes/dae-optimizing/starshine-strategy.md` as the current status narrative.
-    - Keep durable research notes such as `0574` and `0575` linked from the strategy when they justify deferral.
-    - Move fully absorbed active research notes to `docs/wiki/raw/research/` and repoint live references.
-    - Keep this `agent-todo.md` as active unreleased work only; prune completed sub-slices after commit.
-  - Exit criteria: a future agent can resume DAE from this sliced backlog plus the strategy page without reading old transcripts.
 
 #### INL - Inlining Optimizing
 
