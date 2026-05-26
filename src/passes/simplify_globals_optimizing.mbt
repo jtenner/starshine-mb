@@ -3241,7 +3241,10 @@ fn sgo_loop_independent_prefix_triple_effect_matches(
     return false
   }
   match flat[scan + 3] {
-    @lib.MemoryFill(_) | @lib.MemoryCopy(_, _) | @lib.MemoryInit(_, _) => true
+    @lib.MemoryFill(_)
+    | @lib.MemoryCopy(_, _)
+    | @lib.MemoryInit(_, _)
+    | @lib.TableFill(_) => true
     _ => false
   }
 }

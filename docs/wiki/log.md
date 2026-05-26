@@ -560,6 +560,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO loop independent table-fill prefix
+
+- Added research note [`0687`](./raw/research/0687-2026-05-25-sgo-loop-independent-table-fill-prefix.md) for `[SGO]003C5`, extending the narrow direct-loop prefix matcher from memory bulk effects to the Binaryen-positive `const; ref.func; const; table.fill <table>; global.get <candidate>` shape.
+- Added focused positive and candidate-derived destination/index negative regressions so independent table fills are preserved while fake candidate-global guard traffic is removed, and table fills steered by the candidate global remain conservative. TDD failure was observed before implementation; `moon test src/passes` passed after implementation (`1631/1631`), then `moon fmt`, `moon info`, full `moon test` (`3707/3707`), and direct SGO fuzz at `.tmp/pass-fuzz-sgo-loop-table-fill-0687-10000` passed the slice criteria (`6759/10000` compared before the configured `20` Binaryen/tool command-failure stop, `0` mismatches, `0` Starshine validation failures; command failures were the established Binaryen/tool classes: `17` rec-group-zero plus one each bad-section-size, table-index-out-of-range, and invalid-tag-index).
+
 ## [2026-05-25] binaryen | SGO loop independent memory-init prefix
 
 - Added research note [`0686`](./raw/research/0686-2026-05-25-sgo-loop-independent-memory-init-prefix.md) for `[SGO]003C5`, extending the narrow direct-loop prefix matcher from `memory.copy` to the Binaryen-positive `const; const; const; memory.init <data>; global.get <candidate>` shape.
