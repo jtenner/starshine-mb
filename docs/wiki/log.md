@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO loop-prefix closeout
+
+- Added research note [`0691`](./raw/research/0691-2026-05-25-sgo-loop-prefix-closeout.md) to close `[SGO]003C5` as accepted for the currently evidenced direct-loop prefix surface after the 0677 through 0690 micro-slices.
+- No optimizer behavior changed. The closeout keeps broad loop FlowScanner reuse, branch/control loop bodies, candidate-derived operands, atomics, SIMD memory, relaxed SIMD, and unsafe call/effect cases out of scope until a future exact Binaryen-positive child slice supplies paired guardrails and direct SGO fuzz evidence.
+- No Moon or fuzz validation was required for this docs/backlog-only closeout; latest behavior-bearing evidence remains the 0690 segment-drop slice (`moon fmt`, `moon info`, full `moon test` `3717/3717`, and direct SGO fuzz at `.tmp/pass-fuzz-sgo-loop-segment-drop-0690-10000` with `0` mismatches and `0` Starshine validation failures).
+
 ## [2026-05-25] binaryen | SGO loop independent segment-drop prefix
 
 - Added research note [`0690`](./raw/research/0690-2026-05-25-sgo-loop-independent-segment-drop-prefix.md) for `[SGO]003C5`, extending the narrow direct-loop prefix matcher from independent grow/drop effects to Binaryen-positive operandless `elem.drop; global.get <candidate>` and `data.drop; global.get <candidate>` shapes.
