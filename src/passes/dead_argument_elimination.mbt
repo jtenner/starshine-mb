@@ -1388,6 +1388,29 @@ fn dae_instr_is_materializable_const_with_immutable_global(
 }
 
 ///|
+fn dae_materializable_dropped_const_prefix_leaf(
+  body : Array[@lib.Instruction],
+  resolve_leaf : (@lib.Instruction) -> @lib.Instruction?,
+) -> @lib.Instruction? {
+  if body.length() < 3 || body.length() % 2 == 0 {
+    return None
+  }
+  let mut idx = 0
+  while idx + 1 < body.length() {
+    match resolve_leaf(body[idx]) {
+      Some(_) => ()
+      None => return None
+    }
+    match body[idx + 1] {
+      @lib.Drop => ()
+      _ => return None
+    }
+    idx += 2
+  }
+  resolve_leaf(body[body.length() - 1])
+}
+
+///|
 fn dae_materializable_control_const(
   mod_ : @lib.Module,
   instr : @lib.Instruction,
@@ -1411,6 +1434,8 @@ fn dae_materializable_control_const(
   match instr {
     @lib.Block(_, @lib.Expr(body)) if body.length() == 1 =>
       resolve_leaf(body[0])
+    @lib.Block(_, @lib.Expr(body)) =>
+      dae_materializable_dropped_const_prefix_leaf(body, resolve_leaf)
     @lib.Loop(_, @lib.Expr(body)) if body.length() == 1 => resolve_leaf(body[0])
     @lib.If(_, then_body, Some(else_body)) if then_body.length() == 1 &&
       else_body.length() == 1 =>

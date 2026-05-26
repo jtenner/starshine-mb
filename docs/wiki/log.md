@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE003 pure dropped-prefix block carrier
+
+- Added [`raw/research/0650-2026-05-26-dae003-pure-dropped-prefix-block-carrier.md`](raw/research/0650-2026-05-26-dae003-pure-dropped-prefix-block-carrier.md), a focused regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), and a narrow helper in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
+- DAE now materializes non-adjacent block carriers whose prefix is only dropped materializable constants and whose final leaf is materializable; computed/branchy multi-instruction blocks, try/try_table, and broader control-sensitive carriers remain deferred under `[DAE003-F]`.
+- Validation: test-first `moon test src/passes` failed on the new regression with the target still taking one parameter, then `moon test src/passes` passed (`1407` tests) after implementation with existing unrelated unused-helper warnings. `git diff --check`, `moon info`, `moon fmt`, and `moon test` passed. A 1000-case direct compare stopped at the known threshold with `45/1000` compared, `26` normalized matches, `19` accepted raw-cleanup mismatches, `0` validation failures, and `1` Binaryen/tool command failure.
+
 ## [2026-05-26] passes | dae DAE003 branch-free loop carrier
 
 - Added [`raw/research/0649-2026-05-26-dae003-branch-free-loop-carrier.md`](raw/research/0649-2026-05-26-dae003-branch-free-loop-carrier.md), converted the existing loop-carrier regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) from a negative guard into a narrow positive, and extended [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
