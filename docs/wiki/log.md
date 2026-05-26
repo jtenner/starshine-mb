@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE011 detail perf timers
+
+- Added DAE optimizing detail perf timers in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) for `detail:dae:core`, `detail:dae:nested-total`, per nested cleanup pass names, and `detail:dae:prune-unused-simple-func-types`.
+- Added focused coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) proving a perf session emits the top-level DAE detail timers plus a representative nested-pass timer when the guarded nested lane runs.
+- Recorded attribution in [`raw/research/0595-2026-05-26-dae011-detail-perf-timers.md`](raw/research/0595-2026-05-26-dae011-detail-perf-timers.md): the release traced debug artifact spends `2748777us` in DAE core, `4us` in skipped nested cleanup, and `47855us` in simple function type pruning. `[DAE]011` remains open for deeper `detail:dae:core:*` profiling before logic changes.
+
 ## [2026-05-26] tooling | dae DAE011 timing-only helper
 
 - Added `--timing-only` to [`../../scripts/self-optimize-compare.ts`](../../scripts/self-optimize-compare.ts) / [`../../scripts/lib/self-optimize-compare-task.ts`](../../scripts/lib/self-optimize-compare-task.ts) so DAE debug-artifact runs can write pass-local timings and validated canonical wasm outputs without the huge normalized-WAT comparison that timed out in [`raw/research/0592-2026-05-26-dae011-recovery-timing-blocker.md`](raw/research/0592-2026-05-26-dae011-recovery-timing-blocker.md).

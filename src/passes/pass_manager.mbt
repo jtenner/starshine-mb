@@ -10463,6 +10463,10 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
   (options.trace)(
     "pass[dae-optimizing]:nested-cleanup touched=\{touched_count} prefix=precompute-propagate",
   )
+  let nested_total_start_us = perf_start_timer_opt(
+    options.perf,
+    "detail:dae:nested-total",
+  )
   if touched_count > 8 {
     // The large-touched-set guard wins over per-function size reasons. Return
     // before scanning touched bodies so artifact-sized DAE runs do not pay for a
@@ -10472,6 +10476,11 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
       "dae-optimizing",
       "nested-cleanup-skip",
       payload="reason=large-touched-set touched=\{touched_count}",
+    )
+    perf_stop_timer_opt(
+      options.perf,
+      "detail:dae:nested-total",
+      nested_total_start_us,
     )
     return Ok(mod_)
   }
@@ -10485,10 +10494,19 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
       "nested-cleanup-skip",
       payload="reason=\{size_skip_reason.unwrap()} touched=\{touched_count}",
     )
+    perf_stop_timer_opt(
+      options.perf,
+      "detail:dae:nested-total",
+      nested_total_start_us,
+    )
     return Ok(mod_)
   }
   let mut current = mod_
   for pass_name in run_hot_pipeline_dae_nested_cleanup_passes() {
+    let nested_pass_start_us = perf_start_timer_opt(
+      options.perf,
+      "detail:dae:nested:\{pass_name}",
+    )
     pipeline_trace_hook(
       options.trace,
       "dae-optimizing",
@@ -10504,47 +10522,149 @@ fn run_hot_pipeline_apply_dae_nested_cleanup(
           options,
         ) {
         Ok(next) => next
-        Err(err) => return Err("DAE nested cleanup pass \{pass_name}: \{err}")
+        Err(err) => {
+          perf_stop_timer_opt(
+            options.perf,
+            "detail:dae:nested:\{pass_name}",
+            nested_pass_start_us,
+          )
+          perf_stop_timer_opt(
+            options.perf,
+            "detail:dae:nested-total",
+            nested_total_start_us,
+          )
+          return Err("DAE nested cleanup pass \{pass_name}: \{err}")
+        }
       }
+      perf_stop_timer_opt(
+        options.perf,
+        "detail:dae:nested:\{pass_name}",
+        nested_pass_start_us,
+      )
       continue
     }
     if pass_name == "local-cse" {
       current = match
         run_hot_pipeline_apply_local_cse_to_touched(current, touched, options) {
         Ok(next) => next
-        Err(err) => return Err("DAE nested cleanup pass \{pass_name}: \{err}")
+        Err(err) => {
+          perf_stop_timer_opt(
+            options.perf,
+            "detail:dae:nested:\{pass_name}",
+            nested_pass_start_us,
+          )
+          perf_stop_timer_opt(
+            options.perf,
+            "detail:dae:nested-total",
+            nested_total_start_us,
+          )
+          return Err("DAE nested cleanup pass \{pass_name}: \{err}")
+        }
       }
+      perf_stop_timer_opt(
+        options.perf,
+        "detail:dae:nested:\{pass_name}",
+        nested_pass_start_us,
+      )
       continue
     }
     if pass_name == "coalesce-locals" {
       current = match
         run_hot_pipeline_apply_coalesce_locals_to_touched(current, touched) {
         Ok(next) => next
-        Err(err) => return Err("DAE nested cleanup pass \{pass_name}: \{err}")
+        Err(err) => {
+          perf_stop_timer_opt(
+            options.perf,
+            "detail:dae:nested:\{pass_name}",
+            nested_pass_start_us,
+          )
+          perf_stop_timer_opt(
+            options.perf,
+            "detail:dae:nested-total",
+            nested_total_start_us,
+          )
+          return Err("DAE nested cleanup pass \{pass_name}: \{err}")
+        }
       }
+      perf_stop_timer_opt(
+        options.perf,
+        "detail:dae:nested:\{pass_name}",
+        nested_pass_start_us,
+      )
       continue
     }
     if pass_name == "reorder-locals" {
       current = match
         run_hot_pipeline_apply_reorder_locals_to_touched(current, touched) {
         Ok(next) => next
-        Err(err) => return Err("DAE nested cleanup pass \{pass_name}: \{err}")
+        Err(err) => {
+          perf_stop_timer_opt(
+            options.perf,
+            "detail:dae:nested:\{pass_name}",
+            nested_pass_start_us,
+          )
+          perf_stop_timer_opt(
+            options.perf,
+            "detail:dae:nested-total",
+            nested_total_start_us,
+          )
+          return Err("DAE nested cleanup pass \{pass_name}: \{err}")
+        }
       }
+      perf_stop_timer_opt(
+        options.perf,
+        "detail:dae:nested:\{pass_name}",
+        nested_pass_start_us,
+      )
       continue
     }
     let descriptor = match
       run_hot_pipeline_dae_nested_cleanup_descriptor(pass_name) {
       Ok(descriptor) => descriptor
-      Err(err) => return Err(err)
+      Err(err) => {
+        perf_stop_timer_opt(
+          options.perf,
+          "detail:dae:nested:\{pass_name}",
+          nested_pass_start_us,
+        )
+        perf_stop_timer_opt(
+          options.perf,
+          "detail:dae:nested-total",
+          nested_total_start_us,
+        )
+        return Err(err)
+      }
     }
     current = match
       run_hot_pipeline_apply_hot_pass_to_touched(
         current, descriptor, touched, options,
       ) {
       Ok(next) => next
-      Err(err) => return Err("DAE nested cleanup pass \{pass_name}: \{err}")
+      Err(err) => {
+        perf_stop_timer_opt(
+          options.perf,
+          "detail:dae:nested:\{pass_name}",
+          nested_pass_start_us,
+        )
+        perf_stop_timer_opt(
+          options.perf,
+          "detail:dae:nested-total",
+          nested_total_start_us,
+        )
+        return Err("DAE nested cleanup pass \{pass_name}: \{err}")
+      }
     }
+    perf_stop_timer_opt(
+      options.perf,
+      "detail:dae:nested:\{pass_name}",
+      nested_pass_start_us,
+    )
   }
+  perf_stop_timer_opt(
+    options.perf,
+    "detail:dae:nested-total",
+    nested_total_start_us,
+  )
   Ok(current)
 }
 
@@ -10771,7 +10891,9 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
   mod_ : @lib.Module,
   options : HotPipelineOptions,
 ) -> Result[@lib.Module, String] {
+  let core_start_us = perf_start_timer_opt(options.perf, "detail:dae:core")
   let result = dae_run_core(mod_, options.trace)
+  perf_stop_timer_opt(options.perf, "detail:dae:core", core_start_us)
   let cleaned = match
     run_hot_pipeline_apply_dae_nested_cleanup(
       result.mod_out,
@@ -10781,7 +10903,17 @@ fn run_hot_pipeline_apply_dae_optimizing_module_pass(
     Ok(next) => next
     Err(err) => return Err(err)
   }
-  Ok(dae_prune_unused_simple_func_types(cleaned))
+  let prune_start_us = perf_start_timer_opt(
+    options.perf,
+    "detail:dae:prune-unused-simple-func-types",
+  )
+  let pruned = dae_prune_unused_simple_func_types(cleaned)
+  perf_stop_timer_opt(
+    options.perf,
+    "detail:dae:prune-unused-simple-func-types",
+    prune_start_us,
+  )
+  Ok(pruned)
 }
 
 ///|

@@ -69,6 +69,26 @@ fn dae_test_run(
 }
 
 ///|
+fn dae_test_run_with_perf_trace(text : String) -> (@lib.Module, Array[String]) {
+  let trace : Array[String] = []
+  let trace_fn = fn(line) { trace.push(line) }
+  let perf = HotPerfSession::new(
+    trace=trace_fn,
+    dump_options=HotPerfDumpOptions::new(),
+  )
+  let mod_ = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(text),
+      HotPipelineOptions::new(trace=Some(trace_fn), perf=Some(perf)),
+      ["dae-optimizing"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => abort("expected perf-traced DAE success, got \{err}")
+  }
+  (mod_, trace)
+}
+
+///|
 fn dae_test_defined_func(mod_ : @lib.Module, def_idx : Int) -> @lib.Func {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => funcs[def_idx]
@@ -5844,6 +5864,35 @@ test "dae-optimizing emits nested cleanup trace for touched functions" {
   assert_true(
     trace.any(fn(line) { line.contains("pass[dae-optimizing]:nested-cleanup") }),
     msg=trace.to_string(),
+  )
+}
+
+///|
+test "dae-optimizing perf trace breaks down core, nested cleanup, and type pruning" {
+  let (_, trace) = dae_test_run_with_perf_trace(
+    (
+      #|(module
+      #|  (func $f (param i32 i32) (result i32)
+      #|    local.get 0)
+      #|  (func (export "run") (result i32)
+      #|    i32.const 10
+      #|    i32.const 20
+      #|    call $f))
+    ),
+  )
+  let text = trace.to_string()
+  assert_true(text.contains("perf:timer name=detail:dae:core"), msg=text)
+  assert_true(
+    text.contains("perf:timer name=detail:dae:nested-total"),
+    msg=text,
+  )
+  assert_true(
+    text.contains("perf:timer name=detail:dae:nested:vacuum"),
+    msg=text,
+  )
+  assert_true(
+    text.contains("perf:timer name=detail:dae:prune-unused-simple-func-types"),
+    msg=text,
   )
 }
 
