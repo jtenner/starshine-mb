@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] tests | dae DAE003 self/escaped local-carrier policy
+
+- Added [`raw/research/0643-2026-05-26-dae003-self-escaped-local-carrier-policy.md`](raw/research/0643-2026-05-26-dae003-self-escaped-local-carrier-policy.md) and two focused [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) regressions for self-recursive local-carrier cycles and `ref.func` escaped callees.
+- The new policy is conservative: the non-adjacent local-set carrier recognizer preserves target parameters for self-recursive local-carrier cycles and escaped callees; broader recursive-cycle materialization is deferred as behavior-widening work.
+- Validation so far: `moon test src/passes` passed (`1400` tests). `[DAE003-E]` is closed for the current conservative local-carrier subset; `[DAE003-C]` remains open for closeout validation/classification and `[DAE003-F]` structured carriers.
+
 ## [2026-05-26] tests | dae DAE003 trapping/effectful carrier guards
 
 - Added [`raw/research/0642-2026-05-26-dae003-trapping-effectful-carrier-guards.md`](raw/research/0642-2026-05-26-dae003-trapping-effectful-carrier-guards.md) and two focused [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) regressions for trapping and effectful non-adjacent local-set carrier producers.

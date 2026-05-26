@@ -3316,6 +3316,56 @@ test "dae-optimizing rejects non-adjacent effectful local-set carrier" {
 }
 
 ///|
+test "dae-optimizing rejects non-adjacent self-recursive local-set constant cycle" {
+  let source =
+    #|(module
+    #|  (func $target (param i32) (result i32) (local i32)
+    #|    local.get 0
+    #|    i32.eqz
+    #|    if (result i32)
+    #|      i32.const 1
+    #|    else
+    #|      i32.const 77
+    #|      local.set 0
+    #|      local.get 0
+    #|      call $target
+    #|    end)
+    #|  (func (export "run") (result i32)
+    #|    i32.const 77
+    #|    call $target))
+  let optimized = dae_test_run(source)
+  let @lib.FuncType(params, _) = dae_test_func_type(optimized, 0)
+  @debug.assert_eq(params.length(), 1)
+  let target = optimized.pretty_print_defined_func(0U)
+  assert_true(target.contains("local.get"), msg=target)
+  assert_true(target.contains("call (Func 0)"), msg=target)
+}
+
+///|
+test "dae-optimizing rejects non-adjacent local carrier when callee escapes through ref.func" {
+  let source =
+    #|(module
+    #|  (type $target_ty (func (param i32) (result i32)))
+    #|  (elem declare func $target)
+    #|  (func $target (type $target_ty) (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func (export "run") (result i32) (local i32)
+    #|    i32.const 77
+    #|    local.set 0
+    #|    local.get 0
+    #|    call $target)
+    #|  (func (export "escape") (result funcref)
+    #|    ref.func $target))
+  let optimized = dae_test_run(source)
+  let @lib.FuncType(params, _) = dae_test_func_type(optimized, 0)
+  @debug.assert_eq(params.length(), 1)
+  let target = optimized.pretty_print_defined_func(0U)
+  let caller = optimized.pretty_print_defined_func(1U)
+  assert_true(target.contains("local.get"), msg=target)
+  assert_true(caller.contains("local.get"), msg=caller)
+}
+
+///|
 test "dae-optimizing preserves fact-discovered results with mixed dropped and live callers" {
   let source =
     #|(module
