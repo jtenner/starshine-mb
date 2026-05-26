@@ -3172,6 +3172,42 @@ test "dae-optimizing rejects non-adjacent local-tee constant actual carrier" {
 }
 
 ///|
+test "dae-optimizing rejects non-adjacent local-set carrier with earlier read" {
+  let target_def = 1500
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0
+      #|    i32.const 1
+      #|    i32.add)
+      #|  (func $caller (export "run") (result i32) (local i32)
+      #|    i32.const 77
+      #|    local.set 0
+      #|    local.get 0
+      #|    drop
+      #|    local.get 0
+      #|    call $target)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  let @lib.FuncType(params, _) = dae_test_func_type(optimized, target_def)
+  @debug.assert_eq(params.length(), 1)
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  let caller = optimized.pretty_print_defined_func(1501U)
+  assert_true(target.contains("local.get"), msg=target)
+  assert_true(caller.contains("local.get"), msg=caller)
+  assert_true(caller.contains("drop"), msg=caller)
+}
+
+///|
 test "dae-optimizing rejects non-adjacent local-set carrier with multiple writes" {
   let target_def = 1500
   let out = StringBuilder::new()

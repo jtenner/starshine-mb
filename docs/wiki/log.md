@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] tests | dae DAE003 earlier-read carrier guard
+
+- Added [`raw/research/0641-2026-05-26-dae003-earlier-read-negative-guard.md`](raw/research/0641-2026-05-26-dae003-earlier-read-negative-guard.md) and a focused [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) regression for the explicit earlier same-local read shape.
+- The new DAE003-C negative guard proves the current non-adjacent constant carrier recognizer preserves the target parameter for `const; local.set; local.get; drop; local.get; call`, closing the multiple-get/earlier-read negative surface without optimizer behavior changes.
+- Validation: attempted invalid `moon test src/passes -p starshine/passes`; `moon test src/passes` passed (`1396` tests); `git diff --check`, `moon info`, `moon fmt`, and full `moon test` passed. `[DAE003-C]` remains open for effecting/trapping carrier-prefix policy, self/escaped cycles, structured carriers, and closeout artifact/fuzz evidence.
+
 ## [2026-05-26] tests | dae DAE003 local-carrier negative guards
 
 - Added [`raw/research/0640-2026-05-26-dae003-local-carrier-negative-guards.md`](raw/research/0640-2026-05-26-dae003-local-carrier-negative-guards.md) and two focused [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) regressions.
