@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-26] binaryen | SGO startup and copy-chain closeout
+
+- Added research note [`0698`](./raw/research/0698-2026-05-26-sgo-startup-copy-chain-closeout.md) for `[SGO]003G`, closing startup propagation, single-use initializer folding, and exact-type immutable copy-chain canonicalization as accepted / evidence-gated for v0.1.0.
+- No optimizer behavior changed. Existing focused tests cover startup propagation into later globals, active data/element offsets, table initializer expressions, exact typed element item expressions, single-use GC initializer positives/negatives, and prefer-earlier exact-type copy chains; broader subtype/refinalization-sensitive, object-identity-sensitive, descriptor-sensitive, or cleanup-triggering startup rewrites now require fresh Binaryen-positive evidence.
+- No Moon or fuzz validation was required for this docs/backlog-only closeout; latest behavior-bearing validation remains the prior startup/single-use/copy-chain lanes plus the 0696/0697 typed element Moon and direct SGO fuzz evidence.
+
 ## [2026-05-26] binaryen | SGO typed element guardrail closeout
 
 - Added research note [`0697`](./raw/research/0697-2026-05-26-sgo-typed-element-guardrail-closeout.md) for `[SGO]003F`, closing typed element broadening as evidence-gated after the exact-type subset.

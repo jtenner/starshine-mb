@@ -336,19 +336,17 @@ Active v0.1.0 slices for full Binaryen parity
     - direct SGO 10k fuzz green for the completed behavior set.
 
 - [SGO]003G - Startup Propagation, Single-Use, Copy-Chain, And Segment Parity
-  - Status: active after `[SGO]003A`; likely mostly audit/guardrail but must be proven for full parity.
-  - Goal: close remaining startup-only propagation and immutable-copy canonicalization gaps.
-  - Why: current support covers many lit regressions, but startup propagation is still marked partial and copy-chain widening beyond exact types is conservative.
-  - Tasks:
-    - audit Binaryen startup propagation into later globals, table initializers, active/passive data and element offsets, and nested GC initializer children;
-    - add missing positives for any supported constants or global initializer expressions not already covered;
-    - evaluate exact-type versus subtype/refinalization-sensitive immutable copy-chain widening;
-    - preserve function-code second-use, imported source, second global use, passive-data, typed element item, object-identity, and exported/open-world guardrails;
-    - ensure startup-only rewrites do not mark touched functions or trigger nested cleanup.
-  - Exit criteria:
-    - startup/copy-chain rows in the parity matrix are implemented or source-classified;
-    - focused startup tests pass;
-    - direct SGO 10k fuzz green.
+  - Status: accepted / evidence-gated on 2026-05-26. Evidence and closeout live in `docs/wiki/raw/research/0698-2026-05-26-sgo-startup-copy-chain-closeout.md`, building on the 0580 through 0589 startup/single-use/copy-chain lit regressions, `[SGO]003A` fact-table audit, and `[SGO]003F` typed element exactness/guardrail slices.
+  - Goal: keep the current source-backed startup-only propagation, single-use initializer folding, exact-type immutable copy-chain canonicalization, and segment/table initializer behavior as the v0.1.0 supported surface while requiring fresh exact Binaryen-positive evidence before broader startup or copy-chain behavior is implemented.
+  - Completed tasks:
+    - [x] audited Binaryen-backed startup propagation into later globals, table initializer expressions, active data offsets, active element offsets, typed element item expressions, and nested GC initializer children against the current Starshine implementation and tests;
+    - [x] confirmed existing focused positives cover supported startup constants, active segment offsets, nested GC initializers, single-use GC initializer folding, and prefer-earlier exact-type copy chains;
+    - [x] preserved function-code second-use, imported source, second global use, passive-data, non-exact typed element item, object-identity, subtype/refinalization, descriptor-sensitive, exported/open-world, and startup-only nested-cleanup guardrails;
+    - [x] kept optimizer behavior unchanged because no fresh exact Binaryen-positive startup/copy-chain fixture remained in the active evidence set.
+  - Future reopen criteria:
+    - an exact Binaryen-positive fixture for a specific startup/copy-chain/segment shape not already covered;
+    - paired guardrails for imported/exported provenance, second uses, function-code uses, passive segments, type/refinalization sensitivity, object identity, descriptor operations, and touched-function cleanup behavior as relevant;
+    - focused tests plus direct SGO 10k fuzz and validation evidence for any behavior change.
 
 - [SGO]003H - Shared Engine And Sibling Pass Exposure
   - Status: active after SGO optimizing core parity is stable.
