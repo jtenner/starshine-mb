@@ -995,6 +995,10 @@ pub enum MetamorphicValidTransform {
   AddDefinedGlobalExportAliases
   AddImportedMemoryExportAliases
   AddDefinedMemoryExportAliases
+  AddImportedTableExportAliases
+  AddDefinedTableExportAliases
+  AddImportedTagExportAliases
+  AddDefinedTagExportAliases
   AddTableExportAliases
   AddMemoryExportAliases
   AddGlobalExportAliases

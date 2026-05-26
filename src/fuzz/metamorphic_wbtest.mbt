@@ -5509,6 +5509,170 @@ test "metamorphic imported and defined global export aliases do not shift indice
 }
 
 ///|
+test "metamorphic imported and defined tag export aliases do not shift indices" {
+  let base = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::new("env"),
+          @lib.Name::new("imported_tag"),
+          @lib.ExternType::tag(@lib.TagType::new(@lib.TypeIdx::new(0U))),
+        ),
+      ]),
+    )
+    .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(0U))]))
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("imp_tag"),
+          @lib.ExternIdx::tag(@lib.TagIdx::new(0U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("def_tag"),
+          @lib.ExternIdx::tag(@lib.TagIdx::new(1U)),
+        ),
+      ]),
+    )
+  let imported = match
+    metamorphic_apply_transform(base, AddImportedTagExportAliases) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(imported.transform_id, "add-imported-tag-export-aliases")
+  match imported.wasm_module.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      @debug.assert_eq(exports.length(), 3)
+      @debug.assert_eq(
+        exports[2],
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_imported_tag_alias_0"),
+          @lib.ExternIdx::tag(@lib.TagIdx::new(0U)),
+        ),
+      )
+    }
+    None => fail("expected imported tag alias export section")
+  }
+  let defined = match
+    metamorphic_apply_transform(
+      imported.wasm_module,
+      AddDefinedTagExportAliases,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(defined.transform_id, "add-defined-tag-export-aliases")
+  match defined.wasm_module.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      @debug.assert_eq(exports.length(), 4)
+      @debug.assert_eq(
+        exports[3],
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_defined_tag_alias_0"),
+          @lib.ExternIdx::tag(@lib.TagIdx::new(1U)),
+        ),
+      )
+    }
+    None => fail("expected defined tag alias export section")
+  }
+  match assert_metamorphic_roundtrip_valid(defined.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "metamorphic imported and defined table export aliases do not shift indices" {
+  let base = @lib.Module::new()
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::new("env"),
+          @lib.Name::new("imported_table"),
+          @lib.table_extern_type(
+            @lib.TableType::new(
+              @lib.RefType::abs(@lib.AbsHeapType::func()),
+              @lib.Limits::i32(1U, Some(2U)),
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            @lib.RefType::abs(@lib.AbsHeapType::func()),
+            @lib.Limits::i32(1U, Some(3U)),
+          ),
+          None,
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("imp_table"),
+          @lib.ExternIdx::table(@lib.TableIdx::new(0U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("def_table"),
+          @lib.ExternIdx::table(@lib.TableIdx::new(1U)),
+        ),
+      ]),
+    )
+  let imported = match
+    metamorphic_apply_transform(base, AddImportedTableExportAliases) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(imported.transform_id, "add-imported-table-export-aliases")
+  match imported.wasm_module.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      @debug.assert_eq(exports.length(), 3)
+      @debug.assert_eq(
+        exports[2],
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_imported_table_alias_0"),
+          @lib.ExternIdx::table(@lib.TableIdx::new(0U)),
+        ),
+      )
+    }
+    None => fail("expected imported table alias export section")
+  }
+  let defined = match
+    metamorphic_apply_transform(
+      imported.wasm_module,
+      AddDefinedTableExportAliases,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(defined.transform_id, "add-defined-table-export-aliases")
+  match defined.wasm_module.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      @debug.assert_eq(exports.length(), 4)
+      @debug.assert_eq(
+        exports[3],
+        @lib.Export::new(
+          @lib.Name::from_string("metamorphic_defined_table_alias_0"),
+          @lib.ExternIdx::table(@lib.TableIdx::new(1U)),
+        ),
+      )
+    }
+    None => fail("expected defined table alias export section")
+  }
+  match assert_metamorphic_roundtrip_valid(defined.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic imported and defined memory export aliases do not shift indices" {
   let base = @lib.Module::new()
     .with_import_sec(
@@ -10605,8 +10769,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 464)
-  @debug.assert_eq(stats.validated, 464)
+  @debug.assert_eq(stats.transformed, 468)
+  @debug.assert_eq(stats.validated, 468)
   assert_true(
     stats.transform_ids.contains(
       "add-duplicate-equivalent-immutable-v128-global",
@@ -10623,6 +10787,10 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   assert_true(
     stats.transform_ids.contains("add-duplicate-equivalent-none-table"),
   )
+  assert_true(stats.transform_ids.contains("add-imported-table-export-aliases"))
+  assert_true(stats.transform_ids.contains("add-defined-table-export-aliases"))
+  assert_true(stats.transform_ids.contains("add-imported-tag-export-aliases"))
+  assert_true(stats.transform_ids.contains("add-defined-tag-export-aliases"))
   assert_true(
     stats.transform_ids.contains(
       "add-duplicate-equivalent-imported-nofunc-table",
