@@ -1206,6 +1206,21 @@ fn dae_simplify_rewritten_control_instrs(
           idx += 3
           continue
         }
+        (
+          condition,
+          @lib.If(bool_block_type, bool_then, Some(bool_else)),
+          @lib.If(use_block_type, use_then, None),
+        ) if dae_block_type_is_zero_param_single_result(bool_block_type, None) &&
+          dae_block_type_is_zero_param_zero_result(use_block_type, None) &&
+          bool_then.length() == 1 &&
+          bool_then[0] == @lib.Instruction::i32_const(@lib.I32(1)) &&
+          bool_else.length() == 1 &&
+          bool_else[0] == @lib.Instruction::i32_const(@lib.I32(0)) => {
+          out.push(condition)
+          out.push(@lib.Instruction::if_(use_block_type, use_then, None))
+          idx += 3
+          continue
+        }
         _ => ()
       }
     }

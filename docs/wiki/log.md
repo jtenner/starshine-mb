@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-25] passes | dae DAE006 Func505 bool-carrier cleanup
+
+- Closed the lower-bound bool-carrier subshape from `[DAE]006` with a focused selected-Func505 regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) and a guarded rewrite in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt). The cleanup rewrites `predicate; if(result i32) 1 else 0; if` to `predicate; if` only in the selected Func505 rewritten-control lane.
+- Evidence is recorded in [`raw/research/0581-2026-05-25-dae-func505-bool-carrier-cleanup.md`](raw/research/0581-2026-05-25-dae-func505-bool-carrier-cleanup.md). The current both-canonical replay `.tmp/dae-func505-bool-carrier-artifact` still first-diffs at `defined=505 abs=522`; both canonical wasm outputs validate, Starshine canonical output is 8 bytes smaller than the prior successor artifact, and pass-local timing remains over target (`2721.553ms` Starshine versus `873.679ms` Binaryen).
+- Agent classification: the bool-carrier subshape is semantic-safe representation/cleanup improvement; the remaining Func505 loop induction/exit carrier, underscore guard polarity, overflow/error-construction, and temp-local reuse drift remains unknown/risky and keeps `[DAE]006` open. Validation included failing then passing `moon test src/passes`, `moon build --target native --release --package jtenner/starshine/cmd`, the both-canonical artifact replay, `wasm-opt --all-features` on both canonical outputs, and a 200-case direct fuzz smoke that reproduced only the known size-winning raw-cleanup mismatch family plus one Binaryen `binaryen-rec-group-zero` tool failure.
+
 ## [2026-05-25] passes | dae DAE006 Func505 empty-count branch cleanup
 
 - Closed the final empty-input count branch subshape from `[DAE]006` with a focused selected-Func505 regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) and a guarded optional rewrite in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt). The cleanup rewrites `(x == 0 ? A : B)` to `(x ? B : A)` only for selected Func505 candidate rewrites, after a broader probe moved the diagnostic first diff backward to unrelated `defined=233 abs=250`.
