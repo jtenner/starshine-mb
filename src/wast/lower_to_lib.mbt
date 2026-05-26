@@ -2502,11 +2502,20 @@ fn wt_instr_to_lib(
         Ok(v) => Ok(@lib.Instruction::ref_get_desc(@lib.TypeIdx::new(v)))
         Err(e) => Err(e)
       }
-    RefTest(vt) =>
+    RefTest(vt) | RefCast(vt) =>
       match wt_value_type(ctx, vt) {
         Ok(@lib.RefTypeValType(rt)) =>
-          Ok(@lib.Instruction::ref_test(rt.is_nullable(), rt.get_heap_type()))
-        Ok(_) => Err("ref.test target must be a reference type")
+          if instr is RefTest(_) {
+            Ok(@lib.Instruction::ref_test(rt.is_nullable(), rt.get_heap_type()))
+          } else {
+            Ok(@lib.Instruction::ref_cast(rt.is_nullable(), rt.get_heap_type()))
+          }
+        Ok(_) =>
+          if instr is RefTest(_) {
+            Err("ref.test target must be a reference type")
+          } else {
+            Err("ref.cast target must be a reference type")
+          }
         Err(e) => Err(e)
       }
     RefTestDesc(nullable, idx) | RefCastDescEq(nullable, idx) => {
@@ -4932,7 +4941,7 @@ test "wast_text_binary_roundtrip preserves descriptor instruction families" {
 }
 
 ///|
-test "wast_text_binary_roundtrip preserves ordinary ref.test immediates" {
+test "wast_text_binary_roundtrip preserves ordinary ref.test and ref.cast immediates" {
   let src =
     #|(module
     #|  (func (param eqref) (result i32)
@@ -4942,18 +4951,26 @@ test "wast_text_binary_roundtrip preserves ordinary ref.test immediates" {
     #|    local.get 0
     #|    ref.test (ref null eq)
     #|    drop
+    #|    local.get 0
+    #|    ref.cast (ref i31)
+    #|    drop
+    #|    local.get 0
+    #|    ref.cast (ref null eq)
+    #|    drop
     #|    (i32.const 0))
     #|  (export "f" (func 0)))
   let (normalized, _) = match
-    wast_text_binary_roundtrip(src, filename="roundtrip-ref-test.wast") {
+    wast_text_binary_roundtrip(src, filename="roundtrip-ref-test-cast.wast") {
     Ok(m) => m
     Err(e) =>
       fail(
-        "expected ref.test fixture full text/binary roundtrip to succeed: \{e}",
+        "expected ref.test/ref.cast fixture full text/binary roundtrip to succeed: \{e}",
       )
   }
   assert_true(normalized.contains("ref.test (ref i31)"))
   assert_true(normalized.contains("ref.test (ref null eq)"))
+  assert_true(normalized.contains("ref.cast (ref i31)"))
+  assert_true(normalized.contains("ref.cast (ref null eq)"))
 }
 
 ///|

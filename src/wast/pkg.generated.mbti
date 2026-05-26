@@ -281,6 +281,7 @@ pub enum Instruction {
   RefIsNull
   RefFunc(Index)
   RefTest(ValueType)
+  RefCast(ValueType)
   StringConst(Bytes)
   StringNewUtf8Array
   StringNewWtf16Array
@@ -493,6 +494,7 @@ pub enum Opcode {
   RefIsNull
   RefFunc
   RefTest
+  RefCast
   RefEq
   RefAsNonNull
   StringConst

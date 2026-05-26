@@ -1425,6 +1425,28 @@ test "simplify-globals-optimizing rewrites typed ref-func function body reads" {
 }
 
 ///|
+test "simplify-globals-optimizing rewrites ref-func reads feeding ref.cast" {
+  let optimized = sgo_test_run(
+    (
+      #|(module
+      #|  (type $t (func (result i32)))
+      #|  (func $f (type $t) (i32.const 0))
+      #|  (elem declare func $f)
+      #|  (global $g (ref null $t) (ref.func $f))
+      #|  (func (export "run") (result (ref $t))
+      #|    global.get $g
+      #|    ref.cast (ref $t)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_defined_func(1U)
+  assert_false(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("ref.func"), msg=pretty)
+  assert_true(pretty.contains("ref.cast"), msg=pretty)
+}
+
+///|
 test "simplify-globals-optimizing rewrites typed ref-func aliases in function bodies" {
   let optimized = sgo_test_run(
     (

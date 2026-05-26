@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO ref.cast parser prerequisite and fixture
+
+- Added research note [`0695`](./raw/research/0695-2026-05-25-sgo-ref-cast-parser-and-fixture.md) for `[SGO]003F`, removing the ordinary `ref.cast` WAT parser/lowering blocker and adding a minimal validating SGO fixture where a typed `ref.func` global replacement feeds `ref.cast (ref $t)`.
+- Added WAST opcode/parser/lowering/rendering coverage for ordinary `ref.cast` reftype immediates and extended the `ref.test` parser / text-binary roundtrip tests to include `ref.cast (ref i31)` and `ref.cast (ref null eq)`.
+- Focused validation passed: the pre-implementation `moon test src/wast` failed on the missing `RefCast` parsed-instruction constructor, then `moon test src/wast` passed (`378/378`), `moon test src/passes` passed (`1642/1642`), standard `moon fmt`, `moon info`, and full `moon test` passed (`3718/3718`) with only existing DAE/pass-manager unused warnings, and direct SGO fuzz at `.tmp/pass-fuzz-sgo-ref-cast-0695-10000` reported `6759/10000` compared, `0` mismatches, `0` Starshine validation failures, and `20` tool/Binaryen command failures. Broader `[SGO]003F` typed element, less-refined alias, object-identity, and module-wide retagging-sensitive cases remain deferred.
+
 ## [2026-05-25] binaryen | SGO runtime linear-trace closeout
 
 - Added research note [`0694`](./raw/research/0694-2026-05-25-sgo-runtime-linear-trace-closeout.md) to close `[SGO]003E` as accepted / evidence-gated for the currently evidenced runtime `ConstantGlobalApplier` / linear-trace surface.
