@@ -560,6 +560,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Expanded [`raw/research/README.md`](raw/research/README.md) so future archival moves have a concrete checklist for stable filenames, live-reference repointing, internal-link repair after relocation, append-only log handling, duplicate/stub cleanup, and the narrow edit policy for archived source material.
 - Updated [`index.md`](index.md) so schema readers can find the stronger research-archive move contract from the catalog. No new external source was needed because this is wiki-schema maintenance grounded in [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), and the existing archived-note layout.
+## [2026-05-25] binaryen | SGO try_table wrapper closeout
+
+- Added research note [`0692`](./raw/research/0692-2026-05-25-sgo-try-table-wrapper-closeout.md) to close `[SGO]003C6` as accepted / evidence-gated for the currently evidenced no-catch `try_table` wrapper surface from the 0603 through 0632 micro-slices.
+- No optimizer behavior changed. The closeout keeps catch-bearing, delegate, and other exception-control wrappers conservative until a future exact Binaryen-positive child slice supplies paired guardrails and direct SGO fuzz evidence.
+- No Moon or fuzz validation was required for this docs/backlog-only closeout; latest behavior-bearing evidence remains the prior no-catch `try_table` focused tests and subsequent direct SGO fuzz lanes, including the 0690 segment-drop lane with `0` mismatches and `0` Starshine validation failures.
+
 ## [2026-05-25] binaryen | SGO loop-prefix closeout
 
 - Added research note [`0691`](./raw/research/0691-2026-05-25-sgo-loop-prefix-closeout.md) to close `[SGO]003C5` as accepted for the currently evidenced direct-loop prefix surface after the 0677 through 0690 micro-slices.
