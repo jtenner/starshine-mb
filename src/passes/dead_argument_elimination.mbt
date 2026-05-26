@@ -1392,6 +1392,9 @@ fn dae_materializable_dropped_const_prefix_leaf(
   body : Array[@lib.Instruction],
   resolve_leaf : (@lib.Instruction) -> @lib.Instruction?,
 ) -> @lib.Instruction? {
+  if body.length() == 1 {
+    return resolve_leaf(body[0])
+  }
   if body.length() < 3 || body.length() % 2 == 0 {
     return None
   }
@@ -1447,9 +1450,12 @@ fn dae_materializable_control_const(
     @lib.Loop(_, @lib.Expr(body)) if body.length() == 1 => resolve_leaf(body[0])
     @lib.TryTable(_, _, @lib.Expr(body)) if body.length() == 1 =>
       resolve_leaf(body[0])
-    @lib.If(_, then_body, Some(else_body)) if then_body.length() == 1 &&
-      else_body.length() == 1 =>
-      match (resolve_leaf(then_body[0]), resolve_leaf(else_body[0])) {
+    @lib.If(_, then_body, Some(else_body)) =>
+      match
+        (
+          dae_materializable_dropped_const_prefix_leaf(then_body, resolve_leaf),
+          dae_materializable_dropped_const_prefix_leaf(else_body, resolve_leaf),
+        ) {
         (Some(then_const), Some(else_const)) =>
           if dae_materialized_const_equal(then_const, else_const) {
             Some(then_const)

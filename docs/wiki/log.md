@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE003 if dropped-prefix carrier
+
+- Added [`raw/research/0652-2026-05-26-dae003-if-dropped-prefix-carrier.md`](raw/research/0652-2026-05-26-dae003-if-dropped-prefix-carrier.md), a focused regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), and a narrow helper reuse in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
+- DAE now materializes non-adjacent equal-arm `if` carriers when both arms have only dropped materializable constants before the same final materializable leaf; broader computed, branchy, throwing, and control-sensitive structured carriers remain deferred under `[DAE003-F]`.
+- Validation: test-first `moon test src/passes` failed on the new regression with the target still taking one parameter, then `moon test src/passes` passed (`1409` tests) after implementation. `git diff --check`, `moon info`, `moon fmt`, and `moon test` passed (`3481` tests) with existing unrelated unused-helper warnings. A 1000-case direct compare stopped at the known threshold with `45/1000` compared, `26` normalized matches, `19` accepted raw-cleanup mismatches, `0` validation failures, and `1` Binaryen/tool command failure.
+
 ## [2026-05-26] passes | dae DAE003 try_table carrier
 
 - Added [`raw/research/0651-2026-05-26-dae003-try-table-carrier.md`](raw/research/0651-2026-05-26-dae003-try-table-carrier.md), a focused regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), and a narrow helper extension in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).

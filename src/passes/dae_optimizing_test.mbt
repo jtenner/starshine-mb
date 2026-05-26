@@ -3357,6 +3357,48 @@ test "dae-optimizing materializes non-adjacent equal-arm if constant carrier" {
 }
 
 ///|
+test "dae-optimizing materializes non-adjacent equal-arm if dropped-prefix constant carrier" {
+  let target_def = 1500
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < target_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (type $one (func (result i32)))
+      #|  (func $target (param i32) (result i32)
+      #|    local.get 0
+      #|    i32.const 1
+      #|    i32.add)
+      #|  (func $caller (export "run") (result i32) (local i32)
+      #|    i32.const 1
+      #|    if (type $one)
+      #|      i32.const 7
+      #|      drop
+      #|      i32.const 88
+      #|    else
+      #|      i32.const 9
+      #|      drop
+      #|      i32.const 88
+      #|    end
+      #|    local.set 0
+      #|    local.get 0
+      #|    call $target)
+      #|)
+    ),
+  )
+  let optimized = dae_test_run(out.to_string())
+  let @lib.FuncType(params, _) = dae_test_func_type(optimized, target_def)
+  @debug.assert_eq(params.length(), 0)
+  let target = optimized.pretty_print_defined_func(
+    target_def.reinterpret_as_uint(),
+  )
+  assert_true(target.contains("I32(88)"), msg=target)
+  assert_false(target.contains("local.get"), msg=target)
+}
+
+///|
 test "dae-optimizing rejects non-adjacent local-tee constant actual carrier" {
   let target_def = 1500
   let out = StringBuilder::new()
