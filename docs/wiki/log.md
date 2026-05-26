@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE004 guarded twelfth descending candidate
+
+- Broadened `[DAE]004` in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) by raising the large-module descending fact-driven dropped-result cap from eleven to twelve only for the narrow `4096 < defined <= 4608` band. Larger artifact modules remain at cap `8` to avoid reopening the DAE011 runtime cliff.
+- Updated the focused regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) to `dae-optimizing reaches twelve high dropped-result callees after low candidate budget`. It failed before implementation with the twelfth high callee still reporting one result (`1 != 0`) and passes after the guarded cap increase. Refreshed the white-box bounded scheduler unit in [`../../src/passes/pass_manager_wbtest.mbt`](../../src/passes/pass_manager_wbtest.mbt) to cover the twelve-attempt view.
+- Recorded the slice in [`raw/research/0624-2026-05-26-dae004-guarded-twelfth-descending-candidate.md`](raw/research/0624-2026-05-26-dae004-guarded-twelfth-descending-candidate.md). Debug-artifact timing stayed inside the project pass-local `<= 2x` target (`1688.482ms` Starshine pass vs `846.427ms` Binaryen pass), artifact validation passed, quick signoff passed, and a partial compare refresh found no validation failures before stopping early at `45/10000`. `[DAE]004` remains open until evidence proves the selected-def fallback can be removed or no dropped-result scheduling gap remains.
+
 ## [2026-05-26] passes | dae DAE004 guarded eleventh descending candidate
 
 - Broadened `[DAE]004` in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt) by raising the large-module descending fact-driven dropped-result cap from ten to eleven only for the narrow `4096 < defined <= 4608` band. Larger artifact modules remain at cap `8` to avoid reopening the DAE011 runtime cliff.

@@ -23,15 +23,15 @@ test "dae descending dropped-result scheduler caps productive attempts after ord
   for i = 0; i < 40; i = i + 1 {
     selected_defs[i] = true
   }
-  for i = 4500; i < 4511; i = i + 1 {
+  for i = 4500; i < 4512; i = i + 1 {
     selected_defs[i] = true
   }
   let attempts = dae_collect_descending_selected_def_attempts(
-    selected_defs, 4600, 11,
+    selected_defs, 4600, 12,
   )
-  @debug.assert_eq(attempts.length(), 11)
-  @debug.assert_eq(attempts[0], 4510)
-  @debug.assert_eq(attempts[10], 4500)
+  @debug.assert_eq(attempts.length(), 12)
+  @debug.assert_eq(attempts[0], 4511)
+  @debug.assert_eq(attempts[11], 4500)
 }
 
 ///|
