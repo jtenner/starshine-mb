@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] fuzzing | FUZ1036L4 nested empty-block metamorphic transforms
+
+- Added leading and trailing nested empty-void-block metamorphic transforms for defined function bodies. Each transform inserts two empty `block` instructions before or after the original body instructions, preserving locals, result stacks, validation, and binary roundtrip behavior.
+- Updated the metamorphic smoke expectations and suite details from `474` to `476` transformed/validated variants for the fixed GenValid source module.
+- Validation: focused `moon test src/fuzz` first failed on the missing transform ids, then passed after implementation and smoke-counter updates.
+
 ## [2026-05-27] fuzzing | FUZ1038C topology-heavy custom-section payloads
 
 - Completed `[FUZ]1038C` by widening the topology-heavy GenValid metadata lane from two generic non-`name` custom sections to five unknown custom sections with empty, high-byte, UTF-8 text, long, and name-like payload bytes.

@@ -986,6 +986,8 @@ pub enum MetamorphicValidTransform {
   AddTrailingTableSizeDropToDefinedFunctions
   AddTrailingEmptyVoidBlockToDefinedFunctions
   AddLeadingEmptyVoidBlockToDefinedFunctions
+  AddLeadingNestedEmptyVoidBlocksToDefinedFunctions
+  AddTrailingNestedEmptyVoidBlocksToDefinedFunctions
   AddLeadingEmptyVoidLoopToDefinedFunctions
   SplitMergeLocalDeclarations
   AddTrailingEmptyVoidLoopToDefinedFunctions

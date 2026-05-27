@@ -5269,6 +5269,84 @@ test "metamorphic leading empty void block transform preserves validation and bi
 }
 
 ///|
+test "metamorphic nested empty void block transforms preserve validation and binary roundtrip" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+        ),
+      ]),
+    )
+  let empty_block = @lib.Instruction::block(
+    @lib.BlockType::void_(),
+    @lib.Expr::new([]),
+  )
+  let leading_transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddLeadingNestedEmptyVoidBlocksToDefinedFunctions,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    leading_transformed.transform_id,
+    "add-leading-nested-empty-void-blocks-to-defined-functions",
+  )
+  match leading_transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          @debug.assert_eq(instrs.length(), 3)
+          @debug.assert_eq(instrs[0], empty_block)
+          @debug.assert_eq(instrs[1], empty_block)
+          @debug.assert_eq(instrs[2], @lib.Instruction::i32_const(7))
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(leading_transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  let trailing_transformed = match
+    metamorphic_apply_transform(
+      base,
+      AddTrailingNestedEmptyVoidBlocksToDefinedFunctions,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    trailing_transformed.transform_id,
+    "add-trailing-nested-empty-void-blocks-to-defined-functions",
+  )
+  match trailing_transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          @debug.assert_eq(instrs.length(), 3)
+          @debug.assert_eq(instrs[0], @lib.Instruction::i32_const(7))
+          @debug.assert_eq(instrs[1], empty_block)
+          @debug.assert_eq(instrs[2], empty_block)
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(trailing_transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic leading empty void loop transform preserves validation and binary roundtrip" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
@@ -11293,8 +11371,8 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 474)
-  @debug.assert_eq(stats.validated, 474)
+  @debug.assert_eq(stats.transformed, 476)
+  @debug.assert_eq(stats.validated, 476)
   assert_true(
     stats.transform_ids.contains(
       "add-duplicate-equivalent-immutable-v128-global",
@@ -11310,6 +11388,16 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   )
   assert_true(
     stats.transform_ids.contains("add-duplicate-equivalent-none-table"),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-leading-nested-empty-void-blocks-to-defined-functions",
+    ),
+  )
+  assert_true(
+    stats.transform_ids.contains(
+      "add-trailing-nested-empty-void-blocks-to-defined-functions",
+    ),
   )
   assert_true(stats.transform_ids.contains("add-imported-table-export-aliases"))
   assert_true(stats.transform_ids.contains("add-defined-table-export-aliases"))

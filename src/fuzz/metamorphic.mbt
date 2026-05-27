@@ -452,6 +452,8 @@ pub enum MetamorphicValidTransform {
   AddTrailingTableSizeDropToDefinedFunctions
   AddTrailingEmptyVoidBlockToDefinedFunctions
   AddLeadingEmptyVoidBlockToDefinedFunctions
+  AddLeadingNestedEmptyVoidBlocksToDefinedFunctions
+  AddTrailingNestedEmptyVoidBlocksToDefinedFunctions
   AddLeadingEmptyVoidLoopToDefinedFunctions
   SplitMergeLocalDeclarations
   AddTrailingEmptyVoidLoopToDefinedFunctions
@@ -1355,6 +1357,10 @@ pub fn metamorphic_valid_transform_id(
       "add-trailing-empty-void-block-to-defined-functions"
     AddLeadingEmptyVoidBlockToDefinedFunctions =>
       "add-leading-empty-void-block-to-defined-functions"
+    AddLeadingNestedEmptyVoidBlocksToDefinedFunctions =>
+      "add-leading-nested-empty-void-blocks-to-defined-functions"
+    AddTrailingNestedEmptyVoidBlocksToDefinedFunctions =>
+      "add-trailing-nested-empty-void-blocks-to-defined-functions"
     AddLeadingEmptyVoidLoopToDefinedFunctions =>
       "add-leading-empty-void-loop-to-defined-functions"
     SplitMergeLocalDeclarations => "split-merge-local-declarations"
@@ -5605,6 +5611,42 @@ fn metamorphic_add_leading_empty_void_block_to_defined_functions(
 }
 
 ///|
+fn metamorphic_add_nested_empty_void_blocks_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+) -> @lib.Module {
+  let funcs = []
+  let empty_block = @lib.Instruction::block(
+    @lib.BlockType::void_(),
+    @lib.Expr::new([]),
+  )
+  match mod.code_sec {
+    Some(@lib.CodeSec(existing)) =>
+      for func in existing {
+        match func {
+          @lib.Func(locals, @lib.Expr(instrs)) => {
+            let next_instrs = []
+            if leading {
+              next_instrs.push(empty_block)
+              next_instrs.push(empty_block)
+            }
+            for instr in instrs {
+              next_instrs.push(instr)
+            }
+            if !leading {
+              next_instrs.push(empty_block)
+              next_instrs.push(empty_block)
+            }
+            funcs.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+          }
+        }
+      }
+    None => return mod
+  }
+  mod.with_code_sec(@lib.CodeSec::new(funcs))
+}
+
+///|
 fn metamorphic_add_leading_empty_void_loop_to_defined_functions(
   mod : @lib.Module,
 ) -> @lib.Module {
@@ -6755,6 +6797,8 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingTableSizeDropToDefinedFunctions,
     AddTrailingEmptyVoidBlockToDefinedFunctions,
     AddLeadingEmptyVoidBlockToDefinedFunctions,
+    AddLeadingNestedEmptyVoidBlocksToDefinedFunctions,
+    AddTrailingNestedEmptyVoidBlocksToDefinedFunctions,
     AddLeadingEmptyVoidLoopToDefinedFunctions,
     AddTrailingEmptyVoidLoopToDefinedFunctions,
     WrapDefinedFunctionBodiesInIdentityBlock,
@@ -8872,6 +8916,10 @@ pub fn metamorphic_apply_transform(
       metamorphic_add_trailing_empty_void_block_to_defined_functions(mod)
     AddLeadingEmptyVoidBlockToDefinedFunctions =>
       metamorphic_add_leading_empty_void_block_to_defined_functions(mod)
+    AddLeadingNestedEmptyVoidBlocksToDefinedFunctions =>
+      metamorphic_add_nested_empty_void_blocks_to_defined_functions(mod, true)
+    AddTrailingNestedEmptyVoidBlocksToDefinedFunctions =>
+      metamorphic_add_nested_empty_void_blocks_to_defined_functions(mod, false)
     AddLeadingEmptyVoidLoopToDefinedFunctions =>
       metamorphic_add_leading_empty_void_loop_to_defined_functions(mod)
     AddTrailingEmptyVoidLoopToDefinedFunctions =>
