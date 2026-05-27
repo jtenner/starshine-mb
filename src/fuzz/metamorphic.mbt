@@ -440,6 +440,8 @@ pub enum MetamorphicValidTransform {
   AddTrailingI32ConstDropToDefinedFunctions
   AddLeadingBlockWrappedI32ConstDropToDefinedFunctions
   AddTrailingBlockWrappedI32ConstDropToDefinedFunctions
+  AddLeadingBlockWrappedNumericConstDropsToDefinedFunctions
+  AddTrailingBlockWrappedNumericConstDropsToDefinedFunctions
   AddLeadingLoopWrappedI32ConstDropToDefinedFunctions
   AddTrailingLoopWrappedI32ConstDropToDefinedFunctions
   AddLeadingMemorySizeDropToDefinedFunctions
@@ -1327,6 +1329,10 @@ pub fn metamorphic_valid_transform_id(
       "add-leading-block-wrapped-i32-const-drop-to-defined-functions"
     AddTrailingBlockWrappedI32ConstDropToDefinedFunctions =>
       "add-trailing-block-wrapped-i32-const-drop-to-defined-functions"
+    AddLeadingBlockWrappedNumericConstDropsToDefinedFunctions =>
+      "add-leading-block-wrapped-numeric-const-drops-to-defined-functions"
+    AddTrailingBlockWrappedNumericConstDropsToDefinedFunctions =>
+      "add-trailing-block-wrapped-numeric-const-drops-to-defined-functions"
     AddLeadingLoopWrappedI32ConstDropToDefinedFunctions =>
       "add-leading-loop-wrapped-i32-const-drop-to-defined-functions"
     AddTrailingLoopWrappedI32ConstDropToDefinedFunctions =>
@@ -5311,6 +5317,28 @@ fn metamorphic_add_block_wrapped_i32_const_drop_to_defined_functions(
 }
 
 ///|
+fn metamorphic_add_block_wrapped_numeric_const_drops_to_defined_functions(
+  mod : @lib.Module,
+  leading : Bool,
+) -> @lib.Module {
+  metamorphic_add_unary_drop_to_defined_functions(mod, leading, [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(0),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i64_const(0L),
+        @lib.Instruction::drop(),
+        @lib.Instruction::f32_const(0.0),
+        @lib.Instruction::drop(),
+        @lib.Instruction::f64_const(0.0),
+        @lib.Instruction::drop(),
+      ]),
+    ),
+  ])
+}
+
+///|
 fn metamorphic_add_loop_wrapped_i32_const_drop_to_defined_functions(
   mod : @lib.Module,
   leading : Bool,
@@ -6687,6 +6715,8 @@ fn metamorphic_valid_transforms() -> Array[MetamorphicValidTransform] {
     AddTrailingI32ConstDropToDefinedFunctions,
     AddLeadingBlockWrappedI32ConstDropToDefinedFunctions,
     AddTrailingBlockWrappedI32ConstDropToDefinedFunctions,
+    AddLeadingBlockWrappedNumericConstDropsToDefinedFunctions,
+    AddTrailingBlockWrappedNumericConstDropsToDefinedFunctions,
     AddLeadingLoopWrappedI32ConstDropToDefinedFunctions,
     AddTrailingLoopWrappedI32ConstDropToDefinedFunctions,
     AddLeadingMemorySizeDropToDefinedFunctions,
@@ -8778,6 +8808,14 @@ pub fn metamorphic_apply_transform(
       )
     AddTrailingBlockWrappedI32ConstDropToDefinedFunctions =>
       metamorphic_add_block_wrapped_i32_const_drop_to_defined_functions(
+        mod, false,
+      )
+    AddLeadingBlockWrappedNumericConstDropsToDefinedFunctions =>
+      metamorphic_add_block_wrapped_numeric_const_drops_to_defined_functions(
+        mod, true,
+      )
+    AddTrailingBlockWrappedNumericConstDropsToDefinedFunctions =>
+      metamorphic_add_block_wrapped_numeric_const_drops_to_defined_functions(
         mod, false,
       )
     AddLeadingLoopWrappedI32ConstDropToDefinedFunctions =>

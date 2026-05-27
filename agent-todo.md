@@ -618,7 +618,6 @@ p1 next-up / active:
 - [FUZ]1036K1 (done) - Duplicate-equivalent unused function type declaration transforms are covered by the checked-in unused and duplicate-equivalent function-type transforms.
 - [FUZ]1036K2 (done) - Additional export alias transforms for functions, tables, memories, and globals are covered by checked-in collision-avoiding alias export transforms that preserve unique export names.
 - [FUZ]1036K3 (done) - Imported/defined declaration aliasing transforms are covered by checked-in duplicate-equivalent import/table/global/function-type surfaces that append aliases without shifting existing indices.
-- [FUZ]1036L1 - Add stack-preserving `block` identity wrappers around simple constant/drop stacks.
 - [FUZ]1036L2 - Add stack-preserving `loop` identity wrappers around simple constant/drop stacks.
 - [FUZ]1036L3 - Add nested identity wrapper transforms with a small fixed depth cap.
 - [FUZ]1036M1 - Add CLI/report support for selecting metamorphic transform ids in GenValid batch runs.

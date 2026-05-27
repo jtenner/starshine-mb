@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] fuzzing | FUZ1036L1 block-wrapped numeric const drops
+
+- Completed `[FUZ]1036L1` by adding leading and trailing `add-*-block-wrapped-numeric-const-drops-to-defined-functions` GenValid metamorphic transforms.
+- Each transform inserts a void identity `block` containing `i32`, `i64`, `f32`, and `f64` constant/drop pairs, preserving the original function result stack and observable behavior while widening control-wrapper coverage beyond the original i32-only block wrapper.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), refreshed metamorphic smoke counters to `472`, and added focused white-box roundtrip/validation coverage. Validation: initial `moon test src/fuzz` failed on the missing transform constructor, then `moon test src/fuzz` passed (`532/532`); `moon run src/fuzz -- validate-valid-metamorphic smoke --seed 0x1036`, `moon info`, `moon fmt`, and full `moon test` also passed.
+
 ## [2026-05-27] fuzzing | FUZ1036J2 table.size metamorphic applicability
 
 - Completed `[FUZ]1036J2` by keeping the leading/trailing `table.size 0; drop` GenValid metamorphic transforms table-index-safe in batch selection.
