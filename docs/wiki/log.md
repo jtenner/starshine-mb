@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE004 Func3732 fallback removal
+
+- Added [`raw/research/0681-2026-05-26-dae004-func3732-fallback-removal.md`](raw/research/0681-2026-05-26-dae004-func3732-fallback-removal.md), removed `3732` from the selected dropped-result fallback list in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), and extended the focused fallback-list guard in [`../../src/passes/dead_argument_elimination_wbtest.mbt`](../../src/passes/dead_argument_elimination_wbtest.mbt).
+- Advanced `[DAE004-D7]`: `3732` is now retired from handpicked fallback coverage; remaining selected fallback work starts at `3814`, `4232`, `4240`, `4241`, and `4242`.
+- Validation/evidence: the focused fallback-list guard failed before implementation and passed after removal; `moon test src/passes` passed (`1419/1419`); `.tmp/pass-fuzz-dae004-func3732-20260526` reported `998/1000` compared, `615` normalized matches, `373` cleanup-normalized matches, `10` accepted raw-cleanup/control-debris mismatches, `0` validation failures, and `2` command failures.
+
 ## [2026-05-26] passes | dae DAE004 Func3566 fallback removal
 
 - Added [`raw/research/0680-2026-05-26-dae004-func3566-fallback-removal.md`](raw/research/0680-2026-05-26-dae004-func3566-fallback-removal.md), removed `3566` from the selected dropped-result fallback list/loop in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), and extended the focused fallback-list guard in [`../../src/passes/dead_argument_elimination_wbtest.mbt`](../../src/passes/dead_argument_elimination_wbtest.mbt).
