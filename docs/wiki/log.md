@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] fuzzing | FUZ1036N2 metamorphic suite signoff smoke refresh
+
+- Completed `[FUZ]1036N2` by rerunning the current metamorphic-valid suite closeout smoke and CI-representative Moon checks after the latest FUZ1036N1 ledger refresh.
+- Validation: `moon test src/fuzz` passed (`533` tests); `bun fuzz run --suite validate-valid-metamorphic --profile smoke --seed 0x1036 --seed-count 1` passed with `attempts=1`; `moon info`, `moon fmt`, and full `moon test` passed (`4396` tests).
+
 ## [2026-05-27] fuzzing | FUZ1036N1 metamorphic ledger refresh
 
 - Completed `[FUZ]1036N1` by refreshing [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) with a closeout snapshot for the completed GenValid metamorphic transform families and pass-fuzz transform-id metadata.
