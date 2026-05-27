@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] validation | dae DAE004 singleton 445 artifact validation
+
+- Added [`raw/research/0667-2026-05-26-dae004-singleton-445-validation.md`](raw/research/0667-2026-05-26-dae004-singleton-445-validation.md) and updated [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) plus [`../../agent-todo.md`](../../agent-todo.md).
+- Closed `[DAE004-D5]` and the singleton-`445` `[DAE004-D6]` bookkeeping: note `0666` already removed `445`; note `0667` validates the debug-artifact output and confirms the entry can stay removed.
+- Validation/evidence: `.tmp/dae004-d5-singleton445-validation-20260526` reported `1575.557ms` Starshine pass versus `850.194ms` Binaryen pass, within `Starshine <= 2x Binaryen`; `wasm-opt --all-features .tmp/dae004-d5-singleton445-validation-20260526/starshine.wasm` passed with only the existing large-local-count VM warning; `.tmp/pass-fuzz-dae004-d5-singleton445-20260526` reported `45/10000` compared before the known max-failure threshold, `26` normalized matches, `19` accepted raw-cleanup mismatches, `0` validation failures, and `1` Binaryen/tool command failure (`binaryen-rec-group-zero`).
+
 ## [2026-05-26] tests | dae DAE004 singleton fallback 445 removal
 
 - Added [`raw/research/0666-2026-05-26-dae004-singleton-fallback-445.md`](raw/research/0666-2026-05-26-dae004-singleton-fallback-445.md), a focused broad-large singleton regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), and removed `445` from the selected dropped-result fallback loop in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
