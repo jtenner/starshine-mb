@@ -737,8 +737,6 @@ p1 GenValid / valid-generation slices:
 - [FUZ]1036D (done) - Scalar numeric computed/drop body transforms through integer count ops; current suite has 221 transforms per generated module.
 - [FUZ]1036E (done) - Numeric conversion and reinterpret computed/drop transforms are complete in the checked-in metamorphic transform registry/dispatcher/tests through `[FUZ]1036E6`; durable evidence lives in `docs/wiki/log.md` entries for `FUZ1036E1`, `FUZ1036E3`, `FUZ1036E4`, `FUZ1036E5`, and `FUZ1036E6`.
 - [FUZ]1036G (done) - SIMD constant/unary/bitwise computed/drop transforms are covered by the checked-in v128 const/drop, SIMD unary/all-true/bitmask, and SIMD bitwise/bitselect metamorphic-valid transforms.
-- [FUZ]1036J (p1) - Harmless memory/table size query and passive segment/data-count reshaping transforms.
-- [FUZ]1036K (p1) - Function/table/global/import/export aliasing and duplicate-equivalent declaration transforms beyond the current simple surfaces.
 - [FUZ]1036L (done) - Control identity and stack-preserving wrapper transforms beyond empty block/loop and single identity block now cover block/loop-wrapped numeric const/drop debris, nested identity blocks, nested empty void blocks, and the checked-in `wrap-defined-function-bodies-in-identity-loop` transform. `[FUZ]1036L5` added the identity-loop wrapper and raised the fixed smoke registry to 477 transformed/validated variants.
 
 p1/p2 oracle, reporting, and infrastructure slices:
@@ -915,33 +913,6 @@ p2 invalid/binary/text slices:
   - Dependencies: [FUZ]1016 replay/metadata improvements recommended.
   - Suggested Tests: command parser tests for property flags, fake normalizer property tests, small real pass smoke with `--check-idempotent`.
   - Exit Criteria: agents can battle-test passes for repeatability and composition robustness using the same artifact/replay workflow as compare-pass.
-
-- [FUZ]1036 (IN PROGRESS, p1) - Metamorphic Valid Module Transformer Suite
-  - Sub-slice tracker:
-    - [FUZ]1036A (done) - Metamorphic suite scaffold plus initial custom/name/data/global/function/table/element metadata transforms.
-    - [FUZ]1036B (done) - Deterministic name-section/local/control metadata transforms plus simple local and no-op body reshaping.
-    - [FUZ]1036C (done) - Export aliases, custom-section reordering, reference/numeric local widening, const/drop, empty-if, and eqz body transforms.
-    - [FUZ]1036D (done) - Scalar numeric computed/drop body transforms through integer count ops; active registry now reports 221 transforms per generated module.
-    - [FUZ]1036E (done, p1) - Scalar numeric conversion and reinterpret computed/drop body transforms are present for safe constant operands, including integer wrap/extend, f32/f64 integer conversions, scalar reinterprets, and float demote/promote.
-    - [FUZ]1036F (done) - Sign-extension, integer wrap/extend, and saturating truncation computed/drop transforms are checked in and covered.
-    - [FUZ]1036G (done, p1) - SIMD constant, unary, and bitwise computed/drop body transforms are covered by checked-in v128 const/drop, SIMD unary/all-true/bitmask, and SIMD bitwise/bitselect registry entries.
-    - [FUZ]1036H (done, p1) - SIMD splat, lane extract/replace, shift, and lane-shape computed/drop body transforms are covered by checked-in legal-immediate computed/drop transforms.
-    - [FUZ]1036I (open, p1) - Add fact-safe reference/i31/extern conversion, ref.test, and nullable/non-nullable cast computed/drop transforms that cannot trap for the chosen operand stack.
-    - [FUZ]1036J (done, p1) - Harmless memory/table size-query transforms plus richer passive segment/data-count and passive element reshaping are present in the checked-in metamorphic registry, with passive data-count metadata refreshed and existing indices preserved.
-    - [FUZ]1036K (done, p1) - Additional duplicate-equivalent declarations and aliasing transforms for function/table/global/import/export surfaces are present in the checked-in metamorphic registry and append aliases without shifting existing indices.
-    - [FUZ]1036L (done, p1) - Stack-preserving control identity wrappers now include block/loop-wrapped const/drop debris, nested identity blocks, nested empty void blocks, single identity-loop body wrappers, and nested identity-loop body wrappers. `[FUZ]1036L6` added `wrap-defined-function-bodies-in-nested-identity-loops` and raised the smoke registry to 478 variants.
-    - [FUZ]1036M (done, p1) - Metamorphic transform id selection and transform facts are wired into pass-fuzz GenValid batch/compare workflows; compare-pass forwards selected transform ids to batch emission, manifests record requested/applied transforms, case/failure metadata keeps transform/fact fields, and the checked RUME smoke with `add-non-name-custom-section` reached `20/20` normalized matches.
-    - [FUZ]1036N (open, p1) - Close out docs, suite signoff, and parent-task cleanup once all intended transform families and harness integration are complete.
-  - Recent durable evidence: checked-in metamorphic-valid transforms, focused `src/fuzz` tests, generator-ledger docs, wiki/log entries, and commit history now cover completed `[FUZ]1036A` through `[FUZ]1036H`, `[FUZ]1036J`, `[FUZ]1036K`, and control-wrapper `[FUZ]1036L1` through `[FUZ]1036L6` surfaces. The active registry smoke currently reports 478 transformed and validated variants for its fixed generated module. Stale per-run implementation diary paragraphs were pruned on 2026-05-27; use git history and the referenced docs/wiki pages for slice-by-slice validation details.
-  - Status: active for remaining `[FUZ]1036I` and final `[FUZ]1036N` closeout work; `[FUZ]1036M` is closed by the checked compare-pass forwarding, metadata, and selected-transform smoke evidence recorded in `docs/wiki/log.md` and `docs/wiki/fuzzing/generator-coverage-ledger.md`.
-  - Goal: generate new valid test cases by applying semantics-preserving rewrites to already-valid modules.
-  - Why: mutating valid modules in controlled ways exercises encoders, validators, and optimizers without requiring every shape to be born directly from GenValid.
-  - Deliverables: add metamorphic transforms such as renaming locals/exports, inserting dead functions/globals, wrapping expressions in identity blocks, adding harmless drops, reordering independent custom sections, splitting/merging local declarations, duplicating equivalent types, and adding unused passive segments where valid.
-  - Required APIs: module traversal/edit helpers, validator, binary/text printers, feature facts.
-  - Invariants: each transform must validate the output before returning success; transforms that alter observable semantics must be excluded or explicitly marked semantic-risky.
-  - Dependencies: [FUZ]1013 for recording transform facts; [FUZ]1033 for property-style checks recommended.
-  - Suggested Tests: one fixture per transform, `valid -> transform -> validate`, encode/decode roundtrip after transform, pass-fuzz smoke using transformed cases.
-  - Exit Criteria: fuzz harnesses can request N transformed variants per generated seed and classify failures by transform id.
 
 - [FUZ]1037 (p1) - Const Expression And Initializer Expression Matrix
   - Goal: cover all valid constant-expression and initializer-expression contexts with a shared generator.
