@@ -11308,12 +11308,26 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
     let custom_secs = if gen_valid_is_topology_heavy_config(config) {
       [
         @lib.CustomSec::new(
-          gen_valid_name(ctx, "fzg.custom.leading"),
-          gen_valid_payload(ctx, b"valid-fzg-custom-leading"),
+          gen_valid_name(ctx, "fzg.custom.leading.empty"),
+          gen_valid_payload(ctx, b""),
         ),
         @lib.CustomSec::new(
-          gen_valid_name(ctx, "fzg.custom.topology"),
-          gen_valid_payload(ctx, b"valid-fzg-custom-topology"),
+          gen_valid_name(ctx, "fzg.custom.before-type.high-bytes"),
+          gen_valid_payload(ctx, b"\xff\x00\x80\x7f\xfe\xfd\xfc\x00"),
+        ),
+        @lib.CustomSec::new(
+          gen_valid_name(ctx, "fzg.custom.unicode-name"),
+          gen_valid_payload(ctx, b"utf8-name custom payload"),
+        ),
+        @lib.CustomSec::new(
+          gen_valid_name(ctx, "fzg.custom.long-payload"),
+          gen_valid_payload(
+            ctx, b"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          ),
+        ),
+        @lib.CustomSec::new(
+          gen_valid_name(ctx, "fzg.custom.name-like"),
+          gen_valid_payload(ctx, b"name\x00\x01payload-but-not-name-section"),
         ),
       ]
     } else {

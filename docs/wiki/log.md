@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] fuzzing | FUZ1038C topology-heavy custom-section payloads
+
+- Completed `[FUZ]1038C` by widening the topology-heavy GenValid metadata lane from two generic non-`name` custom sections to five unknown custom sections with empty, high-byte, UTF-8 text, long, and name-like payload bytes.
+- Starshine still normalizes opaque custom sections into the binary model's supported leading custom-section area; exact custom-section source placement remains a future module/binary-model capability, not claimed by this slice.
+- Validation: the focused `moon test src/validate` check first failed on the missing widened custom-section set, then passed after the generator update.
+
 ## [2026-05-27] fuzzing | FUZ1036N2 metamorphic suite signoff smoke refresh
 
 - Completed `[FUZ]1036N2` by rerunning the current metamorphic-valid suite closeout smoke and CI-representative Moon checks after the latest FUZ1036N1 ledger refresh.

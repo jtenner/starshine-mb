@@ -2151,6 +2151,10 @@ test "topology-heavy profile emits high-index import export topology" {
     msg="topology-heavy profile should emit multiple non-name custom sections in the binary-supported leading custom section area",
   )
   assert_true(
+    gen_valid_test_non_name_custom_count(generated.wasm_module) >= 5,
+    msg="topology-heavy profile should emit a varied unknown custom-section set",
+  )
+  assert_true(
     gen_valid_test_name_sec_has_func_local_and_label_names(
       generated.wasm_module,
     ),
