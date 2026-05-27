@@ -4992,6 +4992,67 @@ test "metamorphic identity loop expression transform wraps value body and roundt
 }
 
 ///|
+test "metamorphic nested identity loops transform wraps value body and roundtrips" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+        ),
+      ]),
+    )
+  let transformed = match
+    metamorphic_apply_transform(
+      base,
+      WrapDefinedFunctionBodiesInNestedIdentityLoops,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    transformed.transform_id,
+    "wrap-defined-function-bodies-in-nested-identity-loops",
+  )
+  match transformed.wasm_module.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs[0] {
+        @lib.Func(_, @lib.Expr(instrs)) => {
+          @debug.assert_eq(instrs.length(), 1)
+          let bt = @lib.BlockType::val_type(@lib.ValType::i32())
+          @debug.assert_eq(
+            instrs[0],
+            @lib.Instruction::loop_(
+              bt,
+              @lib.Expr::new([
+                @lib.Instruction::loop_(
+                  bt,
+                  @lib.Expr::new([
+                    @lib.Instruction::loop_(
+                      bt,
+                      @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+                    ),
+                  ]),
+                ),
+              ]),
+            ),
+          )
+        }
+      }
+    None => fail("expected transformed code section")
+  }
+  match assert_metamorphic_roundtrip_valid(transformed.wasm_module) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic block-wrapped i32 const drop transforms preserve stack and roundtrip" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
@@ -11418,8 +11479,13 @@ test "metamorphic smoke applies deterministic transform to GenValid source" {
   }
   @debug.assert_eq(stats.profile, "smoke")
   @debug.assert_eq(stats.generated, 1)
-  @debug.assert_eq(stats.transformed, 477)
-  @debug.assert_eq(stats.validated, 477)
+  @debug.assert_eq(stats.transformed, 478)
+  @debug.assert_eq(stats.validated, 478)
+  assert_true(
+    stats.transform_ids.contains(
+      "wrap-defined-function-bodies-in-nested-identity-loops",
+    ),
+  )
   assert_true(
     stats.transform_ids.contains(
       "add-duplicate-equivalent-immutable-v128-global",

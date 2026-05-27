@@ -994,6 +994,7 @@ pub enum MetamorphicValidTransform {
   WrapDefinedFunctionBodiesInIdentityBlock
   WrapDefinedFunctionBodiesInNestedIdentityBlocks
   WrapDefinedFunctionBodiesInIdentityLoop
+  WrapDefinedFunctionBodiesInNestedIdentityLoops
   AddExportAliases
   AddPrefixedExportAliases
   AddSuffixedExportAliases
