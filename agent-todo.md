@@ -618,7 +618,6 @@ p1 next-up / active:
 - [FUZ]1036K1 (done) - Duplicate-equivalent unused function type declaration transforms are covered by the checked-in unused and duplicate-equivalent function-type transforms.
 - [FUZ]1036K2 (done) - Additional export alias transforms for functions, tables, memories, and globals are covered by checked-in collision-avoiding alias export transforms that preserve unique export names.
 - [FUZ]1036K3 (done) - Imported/defined declaration aliasing transforms are covered by checked-in duplicate-equivalent import/table/global/function-type surfaces that append aliases without shifting existing indices.
-- [FUZ]1036L2 - Add stack-preserving `loop` identity wrappers around simple constant/drop stacks.
 - [FUZ]1036L3 - Add nested identity wrapper transforms with a small fixed depth cap.
 - [FUZ]1036M1 - Add CLI/report support for selecting metamorphic transform ids in GenValid batch runs.
 - [FUZ]1036M2 - Thread transform id/facts into pass-fuzz case metadata and artifact paths.
@@ -760,7 +759,7 @@ p1 GenValid / valid-generation slices:
 - [FUZ]1036I (p1) - Reference i31/extern conversion/test/cast fact-safe computed/drop transforms.
 - [FUZ]1036J (p1) - Harmless memory/table size query and passive segment/data-count reshaping transforms.
 - [FUZ]1036K (p1) - Function/table/global/import/export aliasing and duplicate-equivalent declaration transforms beyond the current simple surfaces.
-- [FUZ]1036L (p1) - Control identity and stack-preserving wrapper transforms beyond empty block/loop and single identity block.
+- [FUZ]1036L (p1) - Control identity and stack-preserving wrapper transforms beyond empty block/loop and single identity block. `[FUZ]1036L2` is complete in the checked-in metamorphic transform registry/dispatcher/tests; remaining L work starts at `[FUZ]1036L3`.
 - [FUZ]1036M (p1) - Pass-fuzz integration for requesting metamorphic transform ids and reporting transform facts.
 - [FUZ]1036N (p1) - Metamorphic suite docs/signoff closeout once remaining transform families and harness integration are complete.
 
