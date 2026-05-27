@@ -55,6 +55,7 @@ test "dae selected dropped-result fallback skips unobserved Func3799 and covered
   let fallback = dae_selected_dropped_result_fallback_neighborhood_defs()
   assert_false(fallback.contains(3799))
   assert_false(fallback.contains(503))
+  assert_false(fallback.contains(298))
 }
 
 ///|
@@ -62,7 +63,6 @@ test "dae large dropped-result bucket order interleaves fallback neighborhood be
   let selected = Array::make(5000, false)
   selected[1] = true
   selected[2] = true
-  selected[298] = true
   selected[299] = true
   selected[427] = true
   selected[459] = true
@@ -73,7 +73,7 @@ test "dae large dropped-result bucket order interleaves fallback neighborhood be
   selected[4648] = true
   assert_eq(
     dae_collect_bucketed_large_dropped_result_attempts(selected, 5000, 8),
-    [4648, 4647, 4646, 4645, 298, 299, 427, 459],
+    [4648, 4647, 4646, 4645, 299, 427, 459, 1],
   )
 }
 

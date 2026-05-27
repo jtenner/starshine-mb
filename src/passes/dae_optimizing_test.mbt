@@ -4026,8 +4026,8 @@ test "dae-optimizing removes fact-discovered dropped callee result outside selec
 }
 
 ///|
-test "dae-optimizing reaches singleton fallback-neighborhood dropped result through fact path" {
-  for singleton_def in [445, 3834, 4106, 4249, 4229] {
+test "dae-optimizing reaches fallback-neighborhood dropped result through fact path" {
+  for singleton_def in [298, 445, 3834, 4106, 4249, 4229] {
     let high_start = 4644
     let high_count = 8
     let out = StringBuilder::new()
