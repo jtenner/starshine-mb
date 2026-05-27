@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] fuzzing | FUZ1036N1 metamorphic ledger refresh
+
+- Completed `[FUZ]1036N1` by refreshing [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) with a closeout snapshot for the completed GenValid metamorphic transform families and pass-fuzz transform-id metadata.
+- Corrected the current nested identity block ledger counter to the checked-in `474` transformed/validated smoke expectation, and recorded the applicability-gated transform policy for memory/table/import/table/global duplicate surfaces.
+
 ## [2026-05-27] tooling | FUZ1036M3 pass-fuzz metamorphic smoke
 
 - Completed `[FUZ]1036M3` by recording a pass-fuzz smoke lane for the selected `add-non-name-custom-section` GenValid metamorphic transform id.
