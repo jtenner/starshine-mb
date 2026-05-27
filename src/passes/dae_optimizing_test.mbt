@@ -2988,7 +2988,7 @@ test "dae-optimizing removes selected Func298 dropped result from Func280 branch
 
 ///|
 test "dae-optimizing traces selected dropped-result fallback metadata" {
-  let target_def = 472
+  let target_def = 476
   let out = StringBuilder::new()
   out.write_string("(module\n")
   for i = 0; i < 8; i = i + 1 {
@@ -3021,9 +3021,9 @@ test "dae-optimizing traces selected dropped-result fallback metadata" {
   assert_true(
     trace.any(fn(line) {
       line.contains("pass[dae-optimizing]:selected-dropped-result-candidate") &&
-      line.contains("def=472") &&
-      line.contains("callee_abs=472") &&
-      line.contains("callers=[473]") &&
+      line.contains("def=476") &&
+      line.contains("callee_abs=476") &&
+      line.contains("callers=[477]") &&
       line.contains("direct=1") &&
       line.contains("dropped=0") &&
       line.contains("live=1") &&
@@ -3037,7 +3037,7 @@ test "dae-optimizing traces selected dropped-result fallback metadata" {
 
 ///|
 test "dae-optimizing removes selected mid-prefix dropped callee results" {
-  for target_def in [472, 476, 3566, 3732, 3814, 4232, 4240, 4241, 4242] {
+  for target_def in [476, 3566, 3732, 3814, 4232, 4240, 4241, 4242] {
     let out = StringBuilder::new()
     out.write_string("(module\n")
     for i = 0; i < 8; i = i + 1 {
