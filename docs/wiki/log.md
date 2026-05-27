@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] tooling | FUZ1036M2 pass-fuzz metamorphic metadata
+
+- Completed `[FUZ]1036M2` by threading GenValid metamorphic transform ids and manifest feature facts into pass-fuzz case metadata and aggregate summaries.
+- `result.json` now reports `genValidTransformCounts` for compared GenValid cases, `cases.jsonl` records `genValidFeatureFacts` alongside `transformId`, and command/generator/validation failure records keep input effect/trap facts when the input had already been scanned. Existing transformed failure directories and failure metadata continue to include the transform id.
+- Validation: `bun --check scripts/lib/pass-fuzz-compare-task.ts` passed; a focused two-case smoke at `.tmp/fuz1036m2-smoke` showed `genValidTransformCounts.add-non-name-custom-section = 2`, per-case `transformId`, `genValidFeatureFacts`, input effect/trap facts, and transform-qualified failure artifact paths.
+
 ## [2026-05-27] fuzzing | FUZ1036L2 loop-wrapped numeric const drops
 
 - Completed `[FUZ]1036L2` by adding leading and trailing `add-*-loop-wrapped-numeric-const-drops-to-defined-functions` GenValid metamorphic transforms.

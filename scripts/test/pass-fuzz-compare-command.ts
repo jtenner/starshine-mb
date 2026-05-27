@@ -198,6 +198,7 @@ process.exit(0);
     genValidExcludedFeatures: string[];
     genValidMetamorphicTransforms: string[];
     genValidManifestPath: string | null;
+    genValidTransformCounts: Record<string, number>;
     inputEffectTrapCounts: Record<string, number>;
     passFlags: string[];
     binaryenPassFlags: string[];
@@ -215,6 +216,10 @@ process.exit(0);
   assert(JSON.stringify(summary.genValidMetamorphicTransforms) === JSON.stringify(["add-non-name-custom-section"]), `unexpected metamorphic transforms ${JSON.stringify(summary.genValidMetamorphicTransforms)}`);
   assert(summary.genValidManifestPath === path.join("inputs", "gen-valid", "manifest.json"), `unexpected manifest path ${summary.genValidManifestPath}`);
   assert(
+    summary.genValidTransformCounts["add-non-name-custom-section"] === 2,
+    `expected per-transform gen-valid count, got ${JSON.stringify(summary.genValidTransformCounts)}`,
+  );
+  assert(
     summary.inputEffectTrapCounts.mayTrap === 4,
     `expected four may-trap fake byte-stream inputs, got ${JSON.stringify(summary.inputEffectTrapCounts)}`,
   );
@@ -222,7 +227,7 @@ process.exit(0);
     summary.inputEffectTrapCounts.hasUnreachable === 0,
     `unexpected unreachable count ${JSON.stringify(summary.inputEffectTrapCounts)}`,
   );
-  const cases = fs.readFileSync(path.join(outDir, "cases.jsonl"), "utf8").trim().split("\n").map((line) => JSON.parse(line) as { generator: string; transformId?: string; inputEffectTrapFacts?: Record<string, boolean> });
+  const cases = fs.readFileSync(path.join(outDir, "cases.jsonl"), "utf8").trim().split("\n").map((line) => JSON.parse(line) as { generator: string; transformId?: string; genValidFeatureFacts?: Record<string, unknown>; inputEffectTrapFacts?: Record<string, boolean> });
   assert(cases.length === 4, `expected 4 case records, got ${cases.length}`);
   assert(
     cases.every((record) => record.inputEffectTrapFacts && typeof record.inputEffectTrapFacts.mayTrap === "boolean"),
@@ -232,6 +237,10 @@ process.exit(0);
   assert(
     genValidCases.length === 2 && genValidCases.every((record) => record.transformId === "add-non-name-custom-section"),
     `expected gen-valid case metadata to preserve transform ids, got ${JSON.stringify(cases, null, 2)}`,
+  );
+  assert(
+    genValidCases.every((record) => record.genValidFeatureFacts && record.genValidFeatureFacts.mode === "coverage-forced"),
+    `expected gen-valid case metadata to preserve manifest feature facts, got ${JSON.stringify(cases, null, 2)}`,
   );
   assert(
     JSON.stringify(summary.passFlags) === JSON.stringify(["--remove-unused-brs"]),

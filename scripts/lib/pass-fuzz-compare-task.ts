@@ -77,6 +77,7 @@ type StarshineInvocation = {
 };
 
 type EffectTrapCounts = Record<keyof EffectTrapFacts, number>;
+type GenValidTransformCounts = Record<string, number>;
 
 type CaseRecord = {
   caseIndex: number;
@@ -85,6 +86,7 @@ type CaseRecord = {
   detail: string;
   failureClass?: CommandFailureClass;
   transformId?: string;
+  genValidFeatureFacts?: unknown;
   inputEffectTrapFacts?: EffectTrapFacts;
 };
 
@@ -115,6 +117,7 @@ type PassFuzzCompareSummary = {
   genValidExcludedFeatures: string[];
   genValidMetamorphicTransforms: string[];
   genValidManifestPath: string | null;
+  genValidTransformCounts: GenValidTransformCounts;
   externalValidators: ExternalValidatorKind[];
   runtimeExecution: RuntimeExecutionMode;
   propertyMode: PropertyMode;
@@ -1173,6 +1176,20 @@ function genValidManifestTransformId(genValidManifestEntry: unknown | null): str
   return null;
 }
 
+function genValidManifestFeatureFacts(genValidManifestEntry: unknown | null): unknown | null {
+  if (genValidManifestEntry !== null && typeof genValidManifestEntry === "object" && "feature_facts" in genValidManifestEntry) {
+    return (genValidManifestEntry as { feature_facts?: unknown }).feature_facts ?? null;
+  }
+  return null;
+}
+
+function noteGenValidTransformCount(summary: PassFuzzCompareSummary, transformId: string | null): void {
+  if (transformId === null) {
+    return;
+  }
+  summary.genValidTransformCounts[transformId] = (summary.genValidTransformCounts[transformId] ?? 0) + 1;
+}
+
 function safeArtifactNameSegment(value: string): string {
   return value.replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^_+|_+$/g, "") || "unknown";
 }
@@ -1728,6 +1745,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       genValidCount > 0 && fs.existsSync(genValidManifestPath)
         ? path.relative(outDir, genValidManifestPath)
         : null,
+    genValidTransformCounts: {},
     externalValidators: options.externalValidators,
     runtimeExecution: options.runtimeExecution,
     propertyMode: options.propertyMode,
@@ -1757,13 +1775,18 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   let nextReplayIndex = 0;
   const caseRecords: CaseRecord[] = [];
   const caseTransformIds = new Map<number, string>();
+  const caseGenValidFeatureFacts = new Map<number, unknown>();
 
   function recordCase(record: CaseRecord): void {
     const transformId = caseTransformIds.get(record.caseIndex);
-    const enrichedRecord =
-      record.transformId === undefined && transformId !== undefined
-        ? { ...record, transformId }
-        : record;
+    const genValidFeatureFacts = caseGenValidFeatureFacts.get(record.caseIndex);
+    const enrichedRecord = {
+      ...record,
+      ...(record.transformId === undefined && transformId !== undefined ? { transformId } : {}),
+      ...(record.genValidFeatureFacts === undefined && genValidFeatureFacts !== undefined
+        ? { genValidFeatureFacts }
+        : {}),
+    };
     caseRecords.push(enrichedRecord);
     fs.appendFileSync(casesPath, `${JSON.stringify(enrichedRecord)}\n`);
   }
@@ -1808,6 +1831,10 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         transformId = genValidManifestTransformId(genValidManifestEntry);
         if (transformId !== null) {
           caseTransformIds.set(caseNumber, transformId);
+        }
+        const featureFacts = genValidManifestFeatureFacts(genValidManifestEntry);
+        if (featureFacts !== null) {
+          caseGenValidFeatureFacts.set(caseNumber, featureFacts);
         }
         fs.copyFileSync(source, inputPath);
       } else {
@@ -1864,6 +1891,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             repoRoot,
             options.passFlags,
             genValidManifestEntry,
+            inputEffectTrapFacts,
           ),
         );
         recordCase({
@@ -1871,6 +1899,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           generator,
           status: "generator-failure",
           detail,
+          inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
         });
         return;
       }
@@ -1910,6 +1939,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             repoRoot,
             options.passFlags,
             genValidManifestEntry,
+            inputEffectTrapFacts,
           ),
         );
         recordCase({
@@ -1918,6 +1948,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           status: "command-failure",
           detail,
           failureClass,
+          inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
         });
         return;
       }
@@ -1948,6 +1979,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             repoRoot,
             options.passFlags,
             genValidManifestEntry,
+            inputEffectTrapFacts,
           ),
         );
         recordCase({
@@ -1955,6 +1987,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           generator,
           status: "validation-failure",
           detail,
+          inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
         });
         return;
       }
@@ -2243,6 +2276,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             repoRoot,
             options.passFlags,
             genValidManifestEntry,
+            inputEffectTrapFacts,
           ),
         );
         recordCase({
@@ -2251,6 +2285,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           status: "command-failure",
           detail,
           failureClass,
+          inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
         });
         return;
       }
@@ -2258,6 +2293,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       summary.comparedCount += 1;
       if (generator === "gen-valid") {
         summary.generatorCounts.genValid += 1;
+        noteGenValidTransformCount(summary, transformId);
       } else {
         summary.generatorCounts.wasmSmith += 1;
       }
@@ -2280,6 +2316,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           generator,
           status: "match",
           detail: `compare-normalized outputs matched with ${options.normalizers.join(",")}`,
+          inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
         });
       } else {
         summary.mismatchCount += 1;
