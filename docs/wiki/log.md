@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE004 singleton 4249 removal
+
+- Added [`raw/research/0670-2026-05-26-dae004-singleton-4249-validation.md`](raw/research/0670-2026-05-26-dae004-singleton-4249-validation.md), extended the singleton broad-large regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), and removed `4249` from selected dropped-result fallback lists in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
+- Advanced `[DAE004-D7]`: singleton `4249` is now handled without a selected-fallback trace, while the broad-large cap and rejected bucketed scheduler remain unchanged. Remaining DAE004-D7 fallback work is now in the multi-caller, dense, bridge, and late-cluster families.
+- Validation/evidence: focused test failed before the fallback removal and passed after it; `.tmp/dae004-d7-singleton4249-validation-20260526` reported `1532.373ms` Starshine pass versus `847.036ms` Binaryen pass, within `Starshine <= 2x Binaryen`; `wasm-opt --all-features .tmp/dae004-d7-singleton4249-validation-20260526/starshine.wasm` passed with only the existing large-local-count VM warning; `.tmp/pass-fuzz-dae004-d7-singleton4249-20260526` reported `45/10000` compared before the known max-failure threshold, `26` normalized matches, `19` accepted raw-cleanup mismatches, `0` validation failures, and `1` command failure.
+
 ## [2026-05-26] passes | dae DAE004 singleton 4106 removal
 
 - Added [`raw/research/0669-2026-05-26-dae004-singleton-4106-validation.md`](raw/research/0669-2026-05-26-dae004-singleton-4106-validation.md), extended the singleton broad-large regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), and removed `4106` from selected dropped-result fallback lists in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
