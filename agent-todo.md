@@ -745,7 +745,7 @@ p1 GenValid / valid-generation slices:
 - [FUZ]1036G (done) - SIMD constant/unary/bitwise computed/drop transforms are covered by the checked-in v128 const/drop, SIMD unary/all-true/bitmask, and SIMD bitwise/bitselect metamorphic-valid transforms.
 - [FUZ]1036J (p1) - Harmless memory/table size query and passive segment/data-count reshaping transforms.
 - [FUZ]1036K (p1) - Function/table/global/import/export aliasing and duplicate-equivalent declaration transforms beyond the current simple surfaces.
-- [FUZ]1036L (p1) - Control identity and stack-preserving wrapper transforms beyond empty block/loop and single identity block. `[FUZ]1036L2` is complete in the checked-in metamorphic transform registry/dispatcher/tests; remaining L work starts at `[FUZ]1036L3`.
+- [FUZ]1036L (done) - Control identity and stack-preserving wrapper transforms beyond empty block/loop and single identity block now cover block/loop-wrapped numeric const/drop debris, nested identity blocks, nested empty void blocks, and the checked-in `wrap-defined-function-bodies-in-identity-loop` transform. `[FUZ]1036L5` added the identity-loop wrapper and raised the fixed smoke registry to 477 transformed/validated variants.
 - [FUZ]1036M (p1) - Pass-fuzz integration for requesting metamorphic transform ids and reporting transform facts.
 - [FUZ]1036N (p1) - Metamorphic suite docs/signoff closeout once remaining transform families and harness integration are complete.
 

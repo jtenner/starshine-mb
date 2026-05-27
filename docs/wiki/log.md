@@ -59,6 +59,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] fuzzing | FUZ1036L5 identity-loop wrapper transform
+
+- Added `wrap-defined-function-bodies-in-identity-loop`, a GenValid metamorphic transform that wraps defined functions with zero or one result in a single `loop` using the function-result block type.
+- The transform preserves locals, original body instruction order, result stacks, validation, and observable behavior while exercising a stack-preserving control wrapper distinct from the existing identity-block and empty-loop surfaces.
+- Updated the metamorphic smoke expectations and suite details from `476` to `477` transformed/validated variants for the fixed GenValid source module.
+- Validation: focused `moon test src/fuzz` first failed on the missing transform constructor, then passed after implementation and smoke-counter updates.
+
 ## [2026-05-27] fuzzing | FUZ1036G parent closeout
 
 - Closed `[FUZ]1036G` as already implemented in the checked-in metamorphic-valid registry: `[FUZ]1036G1` covers leading/trailing `v128.const; drop`, the existing SIMD unary/all-true/bitmask whitebox coverage exercises the narrow G2 surface, and `[FUZ]1036G3` covers leading/trailing `v128.and`, `v128.andnot`, `v128.or`, `v128.xor`, and `v128.bitselect` computed/drop transforms.
