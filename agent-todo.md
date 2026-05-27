@@ -613,7 +613,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 Use this board as the tracking view for fuzzer work. Each slice should be small enough for one focused TDD loop: add/adjust focused tests, implement one narrow behavior, update docs/wiki counters, and run the targeted fuzz smoke plus `moon test src/fuzz` or the relevant package test. Prefer finishing p1 GenValid/metamorphic slices before p2 infrastructure unless a bug or release need says otherwise.
 
 p1 next-up / active:
-- [FUZ]1036G2 - Add safe SIMD unary computed-drop transforms such as `v128.not` and lane all-true/bitmask reductions with constant operands.
 - [FUZ]1036G3 - Add SIMD bitwise binary computed-drop transforms (`and`, `andnot`, `or`, `xor`, `bitselect`) with constant operands.
 - [FUZ]1036H1 - Add SIMD splat computed-drop transforms with scalar constant operands.
 - [FUZ]1036H2 - Add SIMD shift computed-drop transforms with constant vector and legal constant count.
