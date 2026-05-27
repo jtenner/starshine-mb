@@ -131,6 +131,8 @@ The maintained golden-seed catalog schema is now named `starshine.fuzz.golden-se
 
 [`golden_seed_smoke_suite_catalog()`](../../../src/fuzz/main.mbt) is the checked-in deterministic smoke-suite catalog for `[FUZ]1058B`. It currently names seven major surfaces: coverage-forced GenValid valid generation, invalid AST repro metadata, invalid binary repro metadata, invalid text repro metadata, pass-fuzz/Binaryen-oracle metadata, reducer/minimization replay, and WAST text roundtripping. Each entry records its stable suite/profile/seed tuple, expected counter floors, covered-surface labels, expected logical artifacts, and a short maintenance note so future runner or recipe work can replay the same smoke surfaces without inferring seeds from historical logs.
 
+Use [`fuzzing/golden-seed-catalog.md`](../fuzzing/golden-seed-catalog.md) as the maintenance checklist when a catalog entry changes. In short: update the MoonBit source catalog, synchronize the checked-in JSON document, adjust the human-readable entry list and smoke assertions when needed, and run the focused golden-seed smoke before broader Moon validation. Do not rotate catalog seeds for transient local failures, one-off stress finds, or minimized bug repros that belong in a corpus or focused regression test.
+
 ### Invalid repro bundles
 
 The MoonBit runner also exposes the shared invalid-repro builder:

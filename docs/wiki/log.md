@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] fuzzing | FUZ1058D golden seed maintenance docs
+
+- Completed `[FUZ]1058D` by documenting when and how to update the golden seed catalog in [`fuzzing/golden-seed-catalog.md`](fuzzing/golden-seed-catalog.md) and cross-linking that checklist from [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md).
+- The policy now distinguishes durable smoke-surface changes from temporary local failures, stress seeds, and minimized repros that belong in a corpus or focused regression test, and it names the source catalog, checked-in JSON, human-readable catalog page, whitebox tests, and `--golden-seed-smoke` validation path that must stay synchronized.
+- Validation: docs-only change; `moon info`, `moon fmt`, and `moon test` passed.
+
 ## [2026-05-27] fuzzing | FUZ1036N final metamorphic suite closeout
 
 - Closed `[FUZ]1036N` after the final GenValid metamorphic p1 transform-family refresh. The ledger now records completed metadata, passive segment, declaration/import/export aliasing, computed/drop, memory/table query, and control-wrapper families through `[FUZ]1036L6`, with the checked-in smoke suite asserting `478` transformed and validated variants for the fixed generated module.
