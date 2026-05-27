@@ -962,6 +962,35 @@ test "dynamic spec-seed sampler filters scanned assertions by file kind and occu
 }
 
 ///|
+test "dynamic invalid text source feature facts classify generated WAT fields and operations" {
+  let source =
+    #|(module
+    #|  (type (func))
+    #|  (import "env" "f" (func))
+    #|  (memory 1)
+    #|  (table 1 funcref)
+    #|  (global i32 (i32.const 0))
+    #|  (elem (i32.const 0) func 0)
+    #|  (data (i32.const 0) "x")
+    #|  (func (export "run") (result i32) i32.const 7 i32.add)
+    #|  (start 1))
+  let facts = validate_invalid_text_dynamic_source_feature_facts(source)
+  assert_true(facts.contains("source:gen-valid-wat"))
+  assert_true(facts.contains("wat-field:type"))
+  assert_true(facts.contains("wat-field:import"))
+  assert_true(facts.contains("wat-field:func"))
+  assert_true(facts.contains("wat-field:export"))
+  assert_true(facts.contains("wat-field:memory"))
+  assert_true(facts.contains("wat-field:table"))
+  assert_true(facts.contains("wat-field:global"))
+  assert_true(facts.contains("wat-field:elem"))
+  assert_true(facts.contains("wat-field:data"))
+  assert_true(facts.contains("wat-field:start"))
+  assert_true(facts.contains("wat-op:i32.const"))
+  assert_true(facts.contains("wat-op:i32.add"))
+}
+
+///|
 test "dynamic invalid text missing paren mutates generated valid WAT into malformed assertion" {
   let generated = match
     validate_invalid_text_dynamic_case(

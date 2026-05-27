@@ -2033,6 +2033,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - The byte-fuzz lane counts decode-accepted validation rejections and requires any decode-accepted valid module to re-encode into decodable bytes, keeping malformed-byte stress separate from the existing arbitrary-value and GenValid full-module roundtrip counters.
 - Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`index.md`](index.md) so the living fuzz-runner docs name the new profiles and JSON detail counters.
 
+## [2026-05-27] fuzzing | FUZ1023 dynamic GenValid-WAT source feature facts
+
+- Continued `[FUZ]1023B1` by broadening dynamic GenValid-WAT source feature facts beyond the initial source marker and simple field tags. The dynamic invalid-text lane now records common generated WAT fields (`type`, `import`, `func`, `export`, `memory`, `table`, `global`, `elem`, `data`, and `start`) plus representative observed opcode facts such as `i32.const` and `i32.add`, giving future dynamic mutation reports a more useful source-feature baseline without changing strategy selection or expected stage classification.
+- Added focused white-box coverage for the source-feature classifier and kept the existing dynamic suite smoke counts unchanged.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the living invalid-text summary names the valid-before-link `assert_unlinkable` path and the broadened dynamic feature facts.
+
 ## [2026-05-24] fuzzing | FUZ1023 dynamic GenValid-WAT invalid text mutation
 
 - Continued `[FUZ]1023` by adding `dynamic-gen-valid-unknown-import`, which starts from verified GenValid WAT, inserts an import immediately after the module opener so section order stays valid, replays the mutated source as `assert_unlinkable`, records the `gen-valid-wat/unknown-import` variant id plus `mutation:unknown-import`, and gives the dynamic suite first-class valid-before-link GenValid-WAT coverage.

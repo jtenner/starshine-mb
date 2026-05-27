@@ -1316,8 +1316,19 @@ fn validate_invalid_text_dynamic_source_feature_facts(
   source : String,
 ) -> Array[String] {
   let facts : Array[String] = ["source:gen-valid-wat"]
+  if source.contains("(type") {
+    facts.push("wat-field:type")
+  }
+  if source.contains("(import") {
+    facts.push("wat-field:import")
+  }
   if source.contains("(func") {
     facts.push("wat-field:func")
+  }
+  if source.contains("(export") ||
+    source.contains(" export ") ||
+    source.contains("(export ") {
+    facts.push("wat-field:export")
   }
   if source.contains("(memory") {
     facts.push("wat-field:memory")
@@ -1327,6 +1338,21 @@ fn validate_invalid_text_dynamic_source_feature_facts(
   }
   if source.contains("(global") {
     facts.push("wat-field:global")
+  }
+  if source.contains("(elem") {
+    facts.push("wat-field:elem")
+  }
+  if source.contains("(data") {
+    facts.push("wat-field:data")
+  }
+  if source.contains("(start") {
+    facts.push("wat-field:start")
+  }
+  if source.contains("i32.const") {
+    facts.push("wat-op:i32.const")
+  }
+  if source.contains("i32.add") {
+    facts.push("wat-op:i32.add")
   }
   facts
 }
