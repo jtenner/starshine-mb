@@ -742,7 +742,7 @@ p1 GenValid / valid-generation slices:
 - [FUZ]1036C (done) - Export aliases, custom-section reordering, reference/numeric local widening, and simple const/drop/if/eqz body transforms.
 - [FUZ]1036D (done) - Scalar numeric computed/drop body transforms through integer count ops; current suite has 221 transforms per generated module.
 - [FUZ]1036E (done) - Numeric conversion and reinterpret computed/drop transforms are complete in the checked-in metamorphic transform registry/dispatcher/tests through `[FUZ]1036E6`; durable evidence lives in `docs/wiki/log.md` entries for `FUZ1036E1`, `FUZ1036E3`, `FUZ1036E4`, `FUZ1036E5`, and `FUZ1036E6`.
-- [FUZ]1036G (p1) - SIMD constant/unary/bitwise computed/drop transforms.
+- [FUZ]1036G (done) - SIMD constant/unary/bitwise computed/drop transforms are covered by the checked-in v128 const/drop, SIMD unary/all-true/bitmask, and SIMD bitwise/bitselect metamorphic-valid transforms.
 - [FUZ]1036H (p1) - SIMD lane/splat/shift/extract/replace computed/drop transforms.
 - [FUZ]1036I (p1) - Reference i31/extern conversion/test/cast fact-safe computed/drop transforms.
 - [FUZ]1036J (p1) - Harmless memory/table size query and passive segment/data-count reshaping transforms.
@@ -934,7 +934,7 @@ p2 invalid/binary/text slices:
     - [FUZ]1036D (done) - Scalar numeric computed/drop body transforms through integer count ops; active registry now reports 221 transforms per generated module.
     - [FUZ]1036E (done, p1) - Scalar numeric conversion and reinterpret computed/drop body transforms are present for safe constant operands, including integer wrap/extend, f32/f64 integer conversions, scalar reinterprets, and float demote/promote.
     - [FUZ]1036F (done) - Sign-extension, integer wrap/extend, and saturating truncation computed/drop transforms are checked in and covered.
-    - [FUZ]1036G (open, p1) - Add SIMD constant, unary, and bitwise computed/drop body transforms under `v128` feature validation.
+    - [FUZ]1036G (done, p1) - SIMD constant, unary, and bitwise computed/drop body transforms are covered by checked-in v128 const/drop, SIMD unary/all-true/bitmask, and SIMD bitwise/bitselect registry entries.
     - [FUZ]1036H (open, p1) - Add SIMD splat, lane extract/replace, shift, and lane-shape computed/drop body transforms with legal immediates.
     - [FUZ]1036I (open, p1) - Add fact-safe reference/i31/extern conversion, ref.test, and nullable/non-nullable cast computed/drop transforms that cannot trap for the chosen operand stack.
     - [FUZ]1036J (done, p1) - Harmless memory/table size-query transforms plus richer passive segment/data-count and passive element reshaping are present in the checked-in metamorphic registry, with passive data-count metadata refreshed and existing indices preserved.
@@ -943,7 +943,7 @@ p2 invalid/binary/text slices:
     - [FUZ]1036M (open, p1) - Wire metamorphic transform id selection and transform facts into pass-fuzz GenValid batch/compare workflows.
     - [FUZ]1036N (open, p1) - Close out docs, suite signoff, and parent-task cleanup once all intended transform families and harness integration are complete.
   - Recent durable evidence: checked-in metamorphic-valid transforms, focused `src/fuzz` tests, generator-ledger docs, wiki/log entries, and commit history now cover completed `[FUZ]1036A` through `[FUZ]1036E`, `[FUZ]1036J`, `[FUZ]1036K`, and nested control-wrapper `[FUZ]1036L4` surfaces. The active registry smoke currently reports 476 transformed and validated variants for its fixed generated module. Stale per-run implementation diary paragraphs were pruned on 2026-05-27; use git history and the referenced docs/wiki pages for slice-by-slice validation details.
-  - Status: active for remaining `[FUZ]1036G` through `[FUZ]1036I`, `[FUZ]1036L`, `[FUZ]1036M`, and final `[FUZ]1036N` closeout work.
+  - Status: active for remaining `[FUZ]1036H`, `[FUZ]1036I`, `[FUZ]1036L`, `[FUZ]1036M`, and final `[FUZ]1036N` closeout work.
   - Goal: generate new valid test cases by applying semantics-preserving rewrites to already-valid modules.
   - Why: mutating valid modules in controlled ways exercises encoders, validators, and optimizers without requiring every shape to be born directly from GenValid.
   - Deliverables: add metamorphic transforms such as renaming locals/exports, inserting dead functions/globals, wrapping expressions in identity blocks, adding harmless drops, reordering independent custom sections, splitting/merging local declarations, duplicating equivalent types, and adding unused passive segments where valid.

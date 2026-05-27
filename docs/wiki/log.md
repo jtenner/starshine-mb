@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] fuzzing | FUZ1036G parent closeout
+
+- Closed `[FUZ]1036G` as already implemented in the checked-in metamorphic-valid registry: `[FUZ]1036G1` covers leading/trailing `v128.const; drop`, the existing SIMD unary/all-true/bitmask whitebox coverage exercises the narrow G2 surface, and `[FUZ]1036G3` covers leading/trailing `v128.and`, `v128.andnot`, `v128.or`, `v128.xor`, and `v128.bitselect` computed/drop transforms.
+- No code changes were needed; this run refreshed backlog/docs state so future FUZ cron runs do not reselect the stale parent task.
+- Validation: `moon test src/fuzz` passed (`534` tests); `moon run src/fuzz -- validate-valid-metamorphic smoke --seed 0x1036` passed (`attempts=1`); `moon info`, `moon fmt`, and full `moon test` passed (`4397` tests). An initial malformed smoke command using `smoke+seed-profiles=repro` exited with `RuntimeError: unreachable`, matching the harness help that expects the profile as a separate argument.
+
 ## [2026-05-27] fuzzing | FUZ1036L4 nested empty-block metamorphic transforms
 
 - Added leading and trailing nested empty-void-block metamorphic transforms for defined function bodies. Each transform inserts two empty `block` instructions before or after the original body instructions, preserving locals, result stacks, validation, and binary roundtrip behavior.
