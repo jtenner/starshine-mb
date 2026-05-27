@@ -1077,6 +1077,33 @@ test "dynamic invalid text bad opcode mutates generated valid WAT into malformed
 }
 
 ///|
+test "dynamic invalid text bad type token mutates generated valid WAT into malformed assertion" {
+  let generated = match
+    validate_invalid_text_dynamic_case(
+      0x5eedUL, "dynamic-gen-valid-bad-type-token",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(generated.stable_id, "dynamic-gen-valid-bad-type-token")
+  @debug.assert_eq(generated.variant_id, "gen-valid-wat/bad-type-token")
+  @debug.assert_eq(
+    validate_invalid_text_stage_name(generated.expected_stage),
+    "parse-or-lower-rejected",
+  )
+  assert_true(generated.source_feature_facts.contains("source:gen-valid-wat"))
+  assert_true(generated.assertion_source.contains("(assert_malformed"))
+  assert_true(generated.assertion_source.contains("(param dyn_i32)"))
+  match
+    run_validate_invalid_text_dynamic_case(
+      0x5eedUL, "dynamic-gen-valid-bad-type-token",
+    ) {
+    Ok(stage) => @debug.assert_eq(stage, "parse-or-lower-rejected")
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "dynamic invalid text bad lane mutates generated valid WAT into malformed assertion" {
   let generated = match
     validate_invalid_text_dynamic_case(
@@ -1195,14 +1222,14 @@ test "dynamic invalid text fuzz is deterministic and records generated mutation 
   }
   assert_true(first == second)
   @debug.assert_eq(first.profile, "smoke")
-  @debug.assert_eq(first.attempts, 24)
-  @debug.assert_eq(first.generated, 24)
-  @debug.assert_eq(first.mutated, 24)
-  @debug.assert_eq(first.parse_or_lower_rejected, 16)
+  @debug.assert_eq(first.attempts, 28)
+  @debug.assert_eq(first.generated, 28)
+  @debug.assert_eq(first.mutated, 28)
+  @debug.assert_eq(first.parse_or_lower_rejected, 20)
   @debug.assert_eq(first.validate_rejected, 4)
   @debug.assert_eq(first.valid_before_link, 4)
-  @debug.assert_eq(first.matched_expected, 24)
-  @debug.assert_eq(first.strategy_stats.length(), 6)
+  @debug.assert_eq(first.matched_expected, 28)
+  @debug.assert_eq(first.strategy_stats.length(), 7)
   @debug.assert_eq(first.stream_label, "text-mutation-choice")
   @debug.assert_eq(
     first.stream_seed,
@@ -1234,35 +1261,43 @@ test "dynamic invalid text fuzz is deterministic and records generated mutation 
   )
   @debug.assert_eq(
     first.strategy_stats[3].stable_id,
-    "dynamic-gen-valid-bad-lane-index",
+    "dynamic-gen-valid-bad-type-token",
   )
   @debug.assert_eq(
     first.strategy_stats[3].variant_id,
-    "gen-valid-wat/bad-lane-index",
+    "gen-valid-wat/bad-type-token",
   )
   @debug.assert_eq(
     first.strategy_stats[4].stable_id,
-    "dynamic-gen-valid-bad-memarg-align",
+    "dynamic-gen-valid-bad-lane-index",
   )
   @debug.assert_eq(
     first.strategy_stats[4].variant_id,
+    "gen-valid-wat/bad-lane-index",
+  )
+  @debug.assert_eq(
+    first.strategy_stats[5].stable_id,
+    "dynamic-gen-valid-bad-memarg-align",
+  )
+  @debug.assert_eq(
+    first.strategy_stats[5].variant_id,
     "gen-valid-wat/bad-memarg-align",
   )
   assert_true(
-    first.strategy_stats[4].source_feature_facts.contains(
+    first.strategy_stats[5].source_feature_facts.contains(
       "source:gen-valid-wat",
     ),
   )
   @debug.assert_eq(
-    first.strategy_stats[5].stable_id,
+    first.strategy_stats[6].stable_id,
     "dynamic-gen-valid-unknown-import",
   )
   @debug.assert_eq(
-    first.strategy_stats[5].variant_id,
+    first.strategy_stats[6].variant_id,
     "gen-valid-wat/unknown-import",
   )
   assert_true(
-    first.strategy_stats[5].source_feature_facts.contains(
+    first.strategy_stats[6].source_feature_facts.contains(
       "mutation:unknown-import",
     ),
   )

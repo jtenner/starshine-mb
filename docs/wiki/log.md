@@ -2039,6 +2039,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added focused white-box coverage for the source-feature classifier and kept the existing dynamic suite smoke counts unchanged.
 - Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the living invalid-text summary names the valid-before-link `assert_unlinkable` path and the broadened dynamic feature facts.
 
+## [2026-05-27] fuzzing | FUZ1023 dynamic bad type-token mutation
+
+- Continued `[FUZ]1023C1` by adding `dynamic-gen-valid-bad-type-token`, which starts from verified GenValid WAT, inserts a function with an invalid value-type token before the module close, quotes the mutated module as `assert_malformed`, and records the `gen-valid-wat/bad-type-token` variant in dynamic suite details.
+- Updated the dynamic invalid-text smoke expectations from 24 to 28 attempts/cases, preserving the existing stage split while adding one parse/lower-rejected strategy.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) and [`wast/static-assertion-harness.md`](wast/static-assertion-harness.md) so the dynamic GenValid-WAT strategy summaries include the bad type-token surface.
+
 ## [2026-05-24] fuzzing | FUZ1023 dynamic GenValid-WAT invalid text mutation
 
 - Continued `[FUZ]1023` by adding `dynamic-gen-valid-unknown-import`, which starts from verified GenValid WAT, inserts an import immediately after the module opener so section order stays valid, replays the mutated source as `assert_unlinkable`, records the `gen-valid-wat/unknown-import` variant id plus `mutation:unknown-import`, and gives the dynamic suite first-class valid-before-link GenValid-WAT coverage.

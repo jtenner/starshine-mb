@@ -1202,6 +1202,7 @@ fn validate_invalid_text_dynamic_supported_strategy(stable_id : String) -> Bool 
   stable_id == "dynamic-gen-valid-missing-closing-paren" ||
   stable_id == "dynamic-gen-valid-duplicate-export" ||
   stable_id == "dynamic-gen-valid-bad-opcode-token" ||
+  stable_id == "dynamic-gen-valid-bad-type-token" ||
   stable_id == "dynamic-gen-valid-bad-lane-index" ||
   stable_id == "dynamic-gen-valid-bad-memarg-align" ||
   stable_id == "dynamic-gen-valid-unknown-import"
@@ -1211,8 +1212,8 @@ fn validate_invalid_text_dynamic_supported_strategy(stable_id : String) -> Bool 
 fn validate_invalid_text_dynamic_strategies() -> Array[String] {
   [
     "dynamic-gen-valid-missing-closing-paren", "dynamic-gen-valid-duplicate-export",
-    "dynamic-gen-valid-bad-opcode-token", "dynamic-gen-valid-bad-lane-index", "dynamic-gen-valid-bad-memarg-align",
-    "dynamic-gen-valid-unknown-import",
+    "dynamic-gen-valid-bad-opcode-token", "dynamic-gen-valid-bad-type-token", "dynamic-gen-valid-bad-lane-index",
+    "dynamic-gen-valid-bad-memarg-align", "dynamic-gen-valid-unknown-import",
   ]
 }
 
@@ -1491,6 +1492,26 @@ pub fn validate_invalid_text_dynamic_case(
         variant_id: "gen-valid-wat/bad-opcode-token",
         base_source,
         assertion_source: "(assert_malformed (module quote \"\{escaped}\") \"dynamic bad opcode token\")",
+        assertion_kind: MalformedTextAssertion,
+        expected_stage: ParseOrLowerRejectedStage,
+        source_feature_facts,
+      })
+    }
+    "dynamic-gen-valid-bad-type-token" => {
+      let inserted = "\n  (func (param dyn_i32)\n    local.get 0\n    drop)\n"
+      let mutated_source = match
+        validate_invalid_text_insert_before_last_closing_paren(
+          base_source, inserted,
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      let escaped = validate_invalid_text_escape_quote_source(mutated_source)
+      Ok({
+        stable_id,
+        variant_id: "gen-valid-wat/bad-type-token",
+        base_source,
+        assertion_source: "(assert_malformed (module quote \"\{escaped}\") \"dynamic bad type token\")",
         assertion_kind: MalformedTextAssertion,
         expected_stage: ParseOrLowerRejectedStage,
         source_feature_facts,
