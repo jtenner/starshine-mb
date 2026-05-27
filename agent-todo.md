@@ -613,7 +613,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 Use this board as the tracking view for fuzzer work. Each slice should be small enough for one focused TDD loop: add/adjust focused tests, implement one narrow behavior, update docs/wiki counters, and run the targeted fuzz smoke plus `moon test src/fuzz` or the relevant package test. Prefer finishing p1 GenValid/metamorphic slices before p2 infrastructure unless a bug or release need says otherwise.
 
 p1 next-up / active:
-- [FUZ]1036E2 - Add `i64.extend_i32_s/u` leading/trailing computed-drop transforms.
 - [FUZ]1036E3 - Add `f32.convert_i32_s/u` and `f32.convert_i64_s/u` constant computed-drop transforms.
 - [FUZ]1036E4 - Add `f64.convert_i32_s/u` and `f64.convert_i64_s/u` constant computed-drop transforms.
 - [FUZ]1036E5 - Add `i32.reinterpret_f32`, `i64.reinterpret_f64`, `f32.reinterpret_i32`, and `f64.reinterpret_i64` constant computed-drop transforms.
