@@ -60,6 +60,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
 
+## [2026-05-27] fuzzing | FUZ1036F2 trunc-sat operand widening
+
+- Refreshed `[FUZ]1036F2` after finding the transforms already existed but used the same `1.0` literal for every saturating truncation case. The leading/trailing `i32`/`i64` `trunc_sat` computed-drop transforms now use finite signed/unsigned representable operands (`-123`, `255`, and `±4096` families), preserving nontrapping behavior while widening literal diversity.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) and added focused white-box coverage in [`../../src/fuzz/metamorphic_wbtest.mbt`](../../src/fuzz/metamorphic_wbtest.mbt). Validation/evidence: the new focused test failed before implementation on the old repeated `1.0` operand shape; `moon test src/fuzz` then passed (`526/526`); targeted GenValid batch smoke `.tmp/fuz1036f2-batch` generated two transformed artifacts with `add-leading-i32-trunc-sat-f32-s-drop-to-defined-functions` and `add-trailing-i64-trunc-sat-f64-u-drop-to-defined-functions`.
+
 ## [2026-05-27] passes | dae DAE004 closeout evidence
 
 - Added [`raw/research/0687-2026-05-27-dae004-closeout-evidence.md`](raw/research/0687-2026-05-27-dae004-closeout-evidence.md) and updated [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) plus [`../../agent-todo.md`](../../agent-todo.md) to close `[DAE004-H]`, `[DAE004-I]`, and `[DAE]004` for the current v0.1.0 surface.

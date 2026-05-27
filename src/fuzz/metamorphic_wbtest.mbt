@@ -9498,6 +9498,54 @@ test "metamorphic demote/promote drop transforms preserve validation and binary 
 }
 
 ///|
+test "metamorphic trunc-sat drop transforms use finite representable constants and preserve validation" {
+  match
+    assert_metamorphic_typed_unary_drop_transform(
+      AddLeadingI32TruncSatF32SDropToDefinedFunctions,
+      "add-leading-i32-trunc-sat-f32-s-drop-to-defined-functions",
+      @lib.Instruction::f32_const(-123.0),
+      @lib.Instruction::i32_trunc_sat_f32s(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_typed_unary_drop_transform(
+      AddTrailingI32TruncSatF32UDropToDefinedFunctions,
+      "add-trailing-i32-trunc-sat-f32-u-drop-to-defined-functions",
+      @lib.Instruction::f32_const(255.0),
+      @lib.Instruction::i32_trunc_sat_f32u(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_typed_unary_drop_transform(
+      AddLeadingI64TruncSatF64SDropToDefinedFunctions,
+      "add-leading-i64-trunc-sat-f64-s-drop-to-defined-functions",
+      @lib.Instruction::f64_const(-4096.0),
+      @lib.Instruction::i64_trunc_sat_f64s(),
+      true,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  match
+    assert_metamorphic_typed_unary_drop_transform(
+      AddTrailingI64TruncSatF64UDropToDefinedFunctions,
+      "add-trailing-i64-trunc-sat-f64-u-drop-to-defined-functions",
+      @lib.Instruction::f64_const(4096.0),
+      @lib.Instruction::i64_trunc_sat_f64u(),
+      false,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "metamorphic reinterpret drop transforms preserve validation and binary roundtrip" {
   match
     assert_metamorphic_typed_unary_drop_transform(
