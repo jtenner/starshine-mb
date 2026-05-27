@@ -1207,7 +1207,8 @@ fn validate_invalid_text_dynamic_supported_strategy(stable_id : String) -> Bool 
   stable_id == "dynamic-gen-valid-bad-memarg-align" ||
   stable_id == "dynamic-gen-valid-mutable-global-const-init" ||
   stable_id == "dynamic-gen-valid-bad-export-string" ||
-  stable_id == "dynamic-gen-valid-unknown-import"
+  stable_id == "dynamic-gen-valid-unknown-import" ||
+  stable_id == "dynamic-gen-valid-unknown-memory-import"
 }
 
 ///|
@@ -1216,7 +1217,7 @@ fn validate_invalid_text_dynamic_strategies() -> Array[String] {
     "dynamic-gen-valid-missing-closing-paren", "dynamic-gen-valid-duplicate-export",
     "dynamic-gen-valid-bad-opcode-token", "dynamic-gen-valid-bad-type-token", "dynamic-gen-valid-bad-lane-index",
     "dynamic-gen-valid-bad-memarg-align", "dynamic-gen-valid-mutable-global-const-init",
-    "dynamic-gen-valid-bad-export-string", "dynamic-gen-valid-unknown-import",
+    "dynamic-gen-valid-bad-export-string", "dynamic-gen-valid-unknown-import", "dynamic-gen-valid-unknown-memory-import",
   ]
 }
 
@@ -1612,6 +1613,24 @@ pub fn validate_invalid_text_dynamic_case(
         variant_id: "gen-valid-wat/unknown-import",
         base_source,
         assertion_source: "(assert_unlinkable \{mutated_source} \"dynamic unknown import\")",
+        assertion_kind: UnlinkableTextAssertion,
+        expected_stage: ValidBeforeLinkStage,
+        source_feature_facts,
+      })
+    }
+    "dynamic-gen-valid-unknown-memory-import" => {
+      let inserted = "\n  (import \"dynamic_missing_module\" \"dynamic_missing_memory\" (memory $dynamic_unknown_memory_import 1))\n"
+      let mutated_source = match
+        validate_invalid_text_insert_after_module_open(base_source, inserted) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      source_feature_facts.push("mutation:unknown-memory-import")
+      Ok({
+        stable_id,
+        variant_id: "gen-valid-wat/unknown-memory-import",
+        base_source,
+        assertion_source: "(assert_unlinkable \{mutated_source} \"dynamic unknown memory import\")",
         assertion_kind: UnlinkableTextAssertion,
         expected_stage: ValidBeforeLinkStage,
         source_feature_facts,

@@ -2039,6 +2039,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - The byte-fuzz lane counts decode-accepted validation rejections and requires any decode-accepted valid module to re-encode into decodable bytes, keeping malformed-byte stress separate from the existing arbitrary-value and GenValid full-module roundtrip counters.
 - Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`index.md`](index.md) so the living fuzz-runner docs name the new profiles and JSON detail counters.
 
+## [2026-05-27] fuzzing | FUZ1023A dynamic unknown memory-import unlinkable mutation
+
+- Continued `[FUZ]1023A` by adding `dynamic-gen-valid-unknown-memory-import`, which starts from verified GenValid WAT, inserts an imported memory from a missing module immediately after the module opener so section order remains valid, and replays the mutated source as `assert_unlinkable`.
+- Updated dynamic invalid-text smoke expectations from 36 to 40 attempts/cases, increasing the valid-before-link bucket from 4 to 8 while preserving the existing malformed and validation-rejected counts. Suite details now record `gen-valid-wat/unknown-memory-import` and `mutation:unknown-memory-import` alongside the existing unknown function-import unlinkable case.
+- Updated [`wast/static-assertion-harness.md`](wast/static-assertion-harness.md) so the dynamic GenValid-WAT strategy summary names both unknown function-import and unknown memory-import valid-before-link specimens.
+
 ## [2026-05-27] fuzzing | FUZ1023 dynamic bad export-string mutation
 
 - Continued `[FUZ]1023C3` by adding `dynamic-gen-valid-bad-export-string`, which starts from verified GenValid WAT, inserts an exported function whose export name uses an invalid `\\ff` text-string byte escape before the module close, quotes the mutated module as `assert_malformed`, and records the `gen-valid-wat/bad-export-string` variant plus `mutation:bad-export-string` in dynamic suite details.
