@@ -613,7 +613,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 Use this board as the tracking view for fuzzer work. Each slice should be small enough for one focused TDD loop: add/adjust focused tests, implement one narrow behavior, update docs/wiki counters, and run the targeted fuzz smoke plus `moon test src/fuzz` or the relevant package test. Prefer finishing p1 GenValid/metamorphic slices before p2 infrastructure unless a bug or release need says otherwise.
 
 p1 next-up / active:
-- [FUZ]1036I2 - Add `ref.i31` / proven-safe `i31.get_s/u` computed-drop transforms where the operand stack proves non-null i31.
 - [FUZ]1036I3 - Add `any.convert_extern` / `extern.convert_any` computed-drop transforms over known nontrapping reference operands.
 - [FUZ]1036I4 - Add nullable `ref.test` / nullable `ref.cast` computed-drop transforms only where null-success or non-null facts prove no trap.
 - [FUZ]1036J1 - Add `memory.size; drop` transforms only for modules with a valid memory index.
