@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE004 Func299 fallback removal
+
+- Added [`raw/research/0676-2026-05-26-dae004-func299-fallback-removal.md`](raw/research/0676-2026-05-26-dae004-func299-fallback-removal.md), removed `299` from the selected dropped-result fallback list/loop in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), and retargeted selected-fallback trace coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) to `459`.
+- Advanced `[DAE004-D7]`: `299` is now retired from handpicked fallback coverage without raising the broad-large cap or enabling the rejected bucketed scheduler switch.
+- Validation/evidence: the focused fallback-list guard failed before implementation and passed after removal; `.tmp/dae004-d7-func299-timing-20260526` reported `1540.545ms` Starshine pass versus `901.638ms` Binaryen pass, within `Starshine <= 2x Binaryen`; `wasm-opt --all-features .tmp/dae004-d7-func299-timing-20260526/starshine.wasm` passed with only the existing large-local-count VM warning; `.tmp/pass-fuzz-dae004-d7-func299-20260526` reported `998/1000` compared, `615` normalized matches, `373` cleanup-normalized matches, `10` accepted raw-cleanup/control-debris mismatches, `0` validation failures, and `2` command failures.
+
 ## [2026-05-26] passes | dae DAE004 Func427 fallback removal
 
 - Added [`raw/research/0675-2026-05-26-dae004-func427-fallback-removal.md`](raw/research/0675-2026-05-26-dae004-func427-fallback-removal.md), extended the broad-large fallback-neighborhood regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), and removed `427` from selected dropped-result fallback lists in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
