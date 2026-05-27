@@ -618,7 +618,6 @@ p1 next-up / active:
 - [FUZ]1036K1 (done) - Duplicate-equivalent unused function type declaration transforms are covered by the checked-in unused and duplicate-equivalent function-type transforms.
 - [FUZ]1036K2 (done) - Additional export alias transforms for functions, tables, memories, and globals are covered by checked-in collision-avoiding alias export transforms that preserve unique export names.
 - [FUZ]1036K3 (done) - Imported/defined declaration aliasing transforms are covered by checked-in duplicate-equivalent import/table/global/function-type surfaces that append aliases without shifting existing indices.
-- [FUZ]1036M3 - Add pass-fuzz smoke coverage for one selected metamorphic transform id.
 - [FUZ]1036N1 - Update generator-ledger/wiki docs with the completed metamorphic transform families.
 - [FUZ]1036N2 - Run and record metamorphic suite signoff smoke/CI evidence.
 - [FUZ]1036N3 - Prune or archive stale long-form [FUZ]1036 progress notes after the closeout evidence is durable.

@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] tooling | FUZ1036M3 pass-fuzz metamorphic smoke
+
+- Completed `[FUZ]1036M3` by recording a pass-fuzz smoke lane for the selected `add-non-name-custom-section` GenValid metamorphic transform id.
+- Evidence: `bun scripts/pass-fuzz-compare.ts --count 20 --seed 0x5eed --generator gen-valid --gen-valid-metamorphic-transform add-non-name-custom-section --pass remove-unused-module-elements --out-dir .tmp/pass-fuzz-fuz1036m3-custom-section-rume-20` reached `20/20` compared, `20` normalized matches, and `0` validation, property, generator, command, or mismatch failures.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the metamorphic pass-fuzz smoke is durable alongside prior GenValid compare-smoke evidence.
+
 ## [2026-05-27] tooling | FUZ1036M2 pass-fuzz metamorphic metadata
 
 - Completed `[FUZ]1036M2` by threading GenValid metamorphic transform ids and manifest feature facts into pass-fuzz case metadata and aggregate summaries.
