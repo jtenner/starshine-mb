@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] tests | dae DAE004 singleton fallback 445 removal
+
+- Added [`raw/research/0666-2026-05-26-dae004-singleton-fallback-445.md`](raw/research/0666-2026-05-26-dae004-singleton-fallback-445.md), a focused broad-large singleton regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), and removed `445` from the selected dropped-result fallback loop in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
+- Completed the first `[DAE004-D3]` / narrow `[DAE004-D4]` singleton removal: the synthetic `445` fixture is handled without a selected-fallback candidate, and no broad-large cap increase or bucketed broad switch was enabled.
+- Validation: test-first `moon test src/passes -f 'dae-optimizing reaches singleton fallback-neighborhood dropped result through fact path'` failed before the fallback removal and passed after it; `_build/native/debug/build/cmd/cmd.exe --tracing pass --dae-optimizing -o .tmp/dae004-445-artifact/out-debug.wasm tests/node/dist/starshine-debug-wasi.wasm` produced output that validated with `wasm-opt --all-features` and no longer traced selected fallback entry `445`.
+
 ## [2026-05-26] docs | dae DAE004 selected fallback family grouping
 
 - Added [`raw/research/0665-2026-05-26-dae004-selected-fallback-family-grouping.md`](raw/research/0665-2026-05-26-dae004-selected-fallback-family-grouping.md) and updated [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) plus [`../../agent-todo.md`](../../agent-todo.md).

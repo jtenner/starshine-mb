@@ -65,7 +65,7 @@ test "dae large dropped-result bucket order interleaves fallback neighborhood be
   selected[298] = true
   selected[299] = true
   selected[427] = true
-  selected[445] = true
+  selected[459] = true
   selected[4644] = true
   selected[4645] = true
   selected[4646] = true
@@ -73,7 +73,7 @@ test "dae large dropped-result bucket order interleaves fallback neighborhood be
   selected[4648] = true
   assert_eq(
     dae_collect_bucketed_large_dropped_result_attempts(selected, 5000, 8),
-    [4648, 4647, 4646, 4645, 298, 299, 427, 445],
+    [4648, 4647, 4646, 4645, 298, 299, 427, 459],
   )
 }
 

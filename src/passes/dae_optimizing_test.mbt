@@ -4027,6 +4027,54 @@ test "dae-optimizing removes fact-discovered dropped callee result outside selec
 }
 
 ///|
+test "dae-optimizing reaches singleton fallback-neighborhood dropped result through fact path" {
+  let singleton_def = 445
+  let high_start = 4644
+  let high_count = 8
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  for i = 0; i < singleton_def; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  out.write_string(
+    (
+      #|  (func $singleton (result i32)
+      #|    i32.const 445)
+    ),
+  )
+  for i = singleton_def + 1; i < high_start; i = i + 1 {
+    out.write_string("  (func $pad\{i})\n")
+  }
+  for i = 0; i < high_count; i = i + 1 {
+    out.write_string("  (func $high\{i} (result i32)\n    i32.const \{i})\n")
+  }
+  out.write_string("  (func (export \"run\")\n")
+  for i = 0; i < high_count; i = i + 1 {
+    out.write_string("    call $high\{i}\n    drop\n")
+  }
+  out.write_string(
+    (
+      #|    call $singleton
+      #|    drop)
+      #|)
+    ),
+  )
+  let (optimized, trace) = dae_test_run_with_perf_trace(out.to_string())
+  @debug.assert_eq(dae_test_func_results(optimized, singleton_def).length(), 0)
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dae-optimizing]:selected-dropped-result-candidate def=445",
+      ) ||
+      line.contains(
+        "pass[dae-optimizing]:selected-dropped-result primary_def=445",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "dae-optimizing removes high fact-discovered dropped callee result outside selected list" {
   let target_def = 3000
   let out = StringBuilder::new()
