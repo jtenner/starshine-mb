@@ -613,7 +613,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 Use this board as the tracking view for fuzzer work. Each slice should be small enough for one focused TDD loop: add/adjust focused tests, implement one narrow behavior, update docs/wiki counters, and run the targeted fuzz smoke plus `moon test src/fuzz` or the relevant package test. Prefer finishing p1 GenValid/metamorphic slices before p2 infrastructure unless a bug or release need says otherwise.
 
 p1 next-up / active:
-- [FUZ]1036F1 - Add `i32.extend8_s`, `i32.extend16_s`, `i64.extend8_s`, `i64.extend16_s`, and `i64.extend32_s` unary sign-extension computed-drop transforms.
 - [FUZ]1036F2 - Add saturating truncation computed-drop transforms for constant finite operands in representable ranges.
 - [FUZ]1036G1 - Add `v128.const; drop` leading/trailing transforms gated on SIMD support.
 - [FUZ]1036G2 - Add safe SIMD unary computed-drop transforms such as `v128.not` and lane all-true/bitmask reductions with constant operands.

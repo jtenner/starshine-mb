@@ -124,6 +124,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added [`raw/research/0677-2026-05-26-dae004-func459-fallback-removal.md`](raw/research/0677-2026-05-26-dae004-func459-fallback-removal.md), removed `459` from the selected dropped-result fallback list/loop in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), retargeted selected-fallback trace coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) to `472`, and kept the broad-large scheduler cap unchanged.
 - Advanced `[DAE004-D7]`: `459` is now retired from handpicked fallback coverage; remaining selected fallback work starts at `472`, `476`, `3566`, `3732`, `3814`, `4232`, `4240`, `4241`, and `4242`.
 - Validation/evidence: the focused fallback-list guard failed before implementation and passed after removal; `moon info`, `moon fmt`, and `moon test` passed (`3491/3491`); `.tmp/pass-fuzz-dae004-d7-func459-20260526` reported `998/1000` compared, `615` normalized matches, `373` cleanup-normalized matches, `10` accepted raw-cleanup/control-debris mismatches, `0` validation failures, and `2` command failures.
+## [2026-05-26] fuzzing | FUZ1036F1 sign-extension computed-drop closure
+
+- Closed stale backlog slice `[FUZ]1036F1` after verifying the metamorphic-valid registry already contains leading and trailing computed-drop transforms for `i32.extend8_s`, `i32.extend16_s`, `i64.extend8_s`, `i64.extend16_s`, and `i64.extend32_s` in [`../../src/fuzz/metamorphic.mbt`](../../src/fuzz/metamorphic.mbt), with registry/smoke coverage in [`../../src/fuzz/main_wbtest.mbt`](../../src/fuzz/main_wbtest.mbt).
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) with a dedicated `[FUZ]1036F1` ledger bullet so the sign-extension slice is no longer only buried in the long current-contract paragraph.
+- Validation/evidence: `moon test src/fuzz`, `moon info`, `moon fmt`, and `moon test` passed; targeted GenValid batch smoke `.tmp/fuz1036f1-batch` generated two transformed artifacts with `add-leading-i32-extend8-s-drop-to-defined-functions` and `add-trailing-i64-extend32-s-drop-to-defined-functions`.
 
 ## [2026-05-26] passes | dae DAE004 Func299 fallback removal
 
