@@ -3038,9 +3038,7 @@ test "dae-optimizing traces selected dropped-result fallback metadata" {
 ///|
 test "dae-optimizing removes selected mid-prefix dropped callee results" {
   for
-    target_def in [
-      299, 427, 459, 472, 476, 3566, 3732, 3814, 4232, 4240, 4241, 4242,
-    ] {
+    target_def in [299, 459, 472, 476, 3566, 3732, 3814, 4232, 4240, 4241, 4242] {
     let out = StringBuilder::new()
     out.write_string("(module\n")
     for i = 0; i < 8; i = i + 1 {
@@ -4027,7 +4025,7 @@ test "dae-optimizing removes fact-discovered dropped callee result outside selec
 
 ///|
 test "dae-optimizing reaches fallback-neighborhood dropped result through fact path" {
-  for singleton_def in [298, 445, 3834, 4106, 4249, 4229] {
+  for singleton_def in [298, 445, 3834, 4106, 4249, 4229, 427] {
     let high_start = 4644
     let high_count = 8
     let out = StringBuilder::new()

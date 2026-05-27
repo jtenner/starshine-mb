@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE004 Func427 fallback removal
+
+- Added [`raw/research/0675-2026-05-26-dae004-func427-fallback-removal.md`](raw/research/0675-2026-05-26-dae004-func427-fallback-removal.md), extended the broad-large fallback-neighborhood regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), and removed `427` from selected dropped-result fallback lists in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
+- Advanced `[DAE004-D7]`: `427` is now retired from handpicked fallback coverage because the ordinary fact/core path already removes the result in the broad-large fixture, with no broad-large cap increase and no rejected bucketed scheduler switch.
+- Validation/evidence: the focused fallback-neighborhood test failed before removal on the new `427` fallback guard and passed after implementation; `.tmp/dae004-d7-func427-timing-20260526` reported `1443.049ms` Starshine pass versus `855.557ms` Binaryen pass, within `Starshine <= 2x Binaryen`; `wasm-opt --all-features .tmp/dae004-d7-func427-timing-20260526/starshine.wasm` passed with only the existing large-local-count VM warning; `.tmp/pass-fuzz-dae004-d7-func427-20260526` reported `998/1000` compared, `615` normalized matches, `373` compare-normalized matches, `10` accepted raw-cleanup/control-debris mismatches, `0` validation failures, and `2` command failures.
+
 ## [2026-05-26] passes | dae DAE004 Func298 fallback removal
 
 - Added [`raw/research/0674-2026-05-26-dae004-func298-fallback-removal.md`](raw/research/0674-2026-05-26-dae004-func298-fallback-removal.md), extended and renamed the broad-large fallback-neighborhood regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), and removed `298` from selected dropped-result fallback lists in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
