@@ -17878,7 +17878,7 @@ fn dae_collect_descending_selected_def_attempts(
 
 ///|
 fn dae_selected_dropped_result_fallback_neighborhood_defs() -> Array[Int] {
-  [3814, 4232, 4240, 4241, 4242]
+  [4232, 4240, 4241, 4242]
 }
 
 ///|
