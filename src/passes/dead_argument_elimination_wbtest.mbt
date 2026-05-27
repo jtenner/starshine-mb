@@ -59,6 +59,7 @@ test "dae selected dropped-result fallback skips covered entries" {
   assert_false(fallback.contains(299))
   assert_false(fallback.contains(459))
   assert_false(fallback.contains(472))
+  assert_false(fallback.contains(476))
 }
 
 ///|
@@ -77,7 +78,7 @@ test "dae large dropped-result bucket order interleaves fallback neighborhood be
   selected[4648] = true
   assert_eq(
     dae_collect_bucketed_large_dropped_result_attempts(selected, 5000, 8),
-    [4648, 4647, 4646, 4645, 476, 1, 2],
+    [4648, 4647, 4646, 4645, 1, 2],
   )
 }
 

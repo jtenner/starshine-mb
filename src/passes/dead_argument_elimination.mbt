@@ -17878,7 +17878,7 @@ fn dae_collect_descending_selected_def_attempts(
 
 ///|
 fn dae_selected_dropped_result_fallback_neighborhood_defs() -> Array[Int] {
-  [476, 3566, 3732, 3814, 4232, 4240, 4241, 4242]
+  [3566, 3732, 3814, 4232, 4240, 4241, 4242]
 }
 
 ///|
@@ -20459,7 +20459,7 @@ fn dae_run_core(
       fact_dropped_result_iter += 1
     }
   }
-  for selected_result_def in [476, 3566, 3732, 3814, 4232, 4240, 4241, 4242] {
+  for selected_result_def in [3566, 3732, 3814, 4232, 4240, 4241, 4242] {
     if selected_result_def < selected_scratch_defs.length() {
       selected_scratch_defs[selected_result_def] = true
       let selected_result_call_facts = selected_dropped_result_call_facts

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE004 Func476 fallback removal
+
+- Added [`raw/research/0679-2026-05-26-dae004-func476-fallback-removal.md`](raw/research/0679-2026-05-26-dae004-func476-fallback-removal.md), removed `476` from the selected dropped-result fallback list/loop in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), retargeted selected-fallback trace coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) to `3566`, and kept the broad-large scheduler cap unchanged.
+- Advanced `[DAE004-D7]`: `476` is now retired from handpicked fallback coverage; remaining selected fallback work starts at `3566`, `3732`, `3814`, `4232`, `4240`, `4241`, and `4242`.
+- Validation/evidence: the focused fallback-list guard failed before implementation and passed after removal; `moon info`, `moon fmt`, and `moon test` passed (`3491/3491`); `.tmp/pass-fuzz-dae004-d7-func476-20260526` reported `998/1000` compared, `615` normalized matches, `373` cleanup-normalized matches, `10` accepted raw-cleanup/control-debris mismatches, `0` validation failures, and `2` command failures.
+
 ## [2026-05-26] passes | dae DAE004 Func472 fallback removal
 
 - Added [`raw/research/0678-2026-05-26-dae004-func472-fallback-removal.md`](raw/research/0678-2026-05-26-dae004-func472-fallback-removal.md), removed `472` from the selected dropped-result fallback list/loop in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), retargeted selected-fallback trace coverage in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt) to `476`, and kept the broad-large scheduler cap unchanged.

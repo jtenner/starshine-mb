@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-26
 sources:
+  - ../../../raw/research/0679-2026-05-26-dae004-func476-fallback-removal.md
   - ../../../raw/research/0678-2026-05-26-dae004-func472-fallback-removal.md
   - ../../../raw/research/0677-2026-05-26-dae004-func459-fallback-removal.md
   - ../../../raw/research/0676-2026-05-26-dae004-func299-fallback-removal.md
