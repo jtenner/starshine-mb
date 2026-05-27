@@ -743,7 +743,6 @@ p1 GenValid / valid-generation slices:
 - [FUZ]1036D (done) - Scalar numeric computed/drop body transforms through integer count ops; current suite has 221 transforms per generated module.
 - [FUZ]1036E (done) - Numeric conversion and reinterpret computed/drop transforms are complete in the checked-in metamorphic transform registry/dispatcher/tests through `[FUZ]1036E6`; durable evidence lives in `docs/wiki/log.md` entries for `FUZ1036E1`, `FUZ1036E3`, `FUZ1036E4`, `FUZ1036E5`, and `FUZ1036E6`.
 - [FUZ]1036G (done) - SIMD constant/unary/bitwise computed/drop transforms are covered by the checked-in v128 const/drop, SIMD unary/all-true/bitmask, and SIMD bitwise/bitselect metamorphic-valid transforms.
-- [FUZ]1036I (p1) - Reference i31/extern conversion/test/cast fact-safe computed/drop transforms.
 - [FUZ]1036J (p1) - Harmless memory/table size query and passive segment/data-count reshaping transforms.
 - [FUZ]1036K (p1) - Function/table/global/import/export aliasing and duplicate-equivalent declaration transforms beyond the current simple surfaces.
 - [FUZ]1036L (p1) - Control identity and stack-preserving wrapper transforms beyond empty block/loop and single identity block. `[FUZ]1036L2` is complete in the checked-in metamorphic transform registry/dispatcher/tests; remaining L work starts at `[FUZ]1036L3`.

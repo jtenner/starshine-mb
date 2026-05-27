@@ -105,6 +105,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Each new transform inserts a void identity `loop` containing `i32`, `i64`, `f32`, and `f64` constant/drop pairs, preserving the original function result stack and observable behavior while widening loop-wrapper coverage beyond the original i32-only loop wrapper.
 - Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), refreshed metamorphic smoke counters to `474`, and added focused white-box roundtrip/validation coverage. Validation: initial `moon test src/fuzz` failed on the missing transform constructor, then `moon test src/fuzz` passed (`533/533`); `moon run src/fuzz -- validate-valid-metamorphic smoke --seed 0x1036`, `moon info`, `moon fmt`, and full `moon test` also passed (`4396/4396`).
 
+## [2026-05-27] fuzzing | FUZ1036I closure verification
+
+- Closed stale `[FUZ]1036I` backlog tracking after verifying the checked-in metamorphic-valid registry already covers the requested reference/i31/extern fact-safe computed-drop families: ref-null/null-test, nullable `ref.test`/`ref.cast`, i31 `ref.test`/`ref.cast`, i31 `get_s`/`get_u`, `ref.eq` over null/i31/GC-backed operands, and `any.convert_extern` / `extern.convert_any`.
+- Evidence: [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) records the completed `[FUZ]1036I*` slices, focused white-box tests in [`../../src/fuzz/metamorphic_wbtest.mbt`](../../src/fuzz/metamorphic_wbtest.mbt) cover the representative transform shapes, and validation passed with `moon test src/fuzz` plus `moon run src/fuzz -- --suite=validate-valid-metamorphic --profile=smoke --seed=0x1036`.
+
 ## [2026-05-27] fuzzing | FUZ1036L1 block-wrapped numeric const drops
 
 - Completed `[FUZ]1036L1` by adding leading and trailing `add-*-block-wrapped-numeric-const-drops-to-defined-functions` GenValid metamorphic transforms.
