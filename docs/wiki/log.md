@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] passes | dae DAE004 Func503 fallback removal
+
+- Added [`raw/research/0671-2026-05-26-dae004-func503-fallback-removal.md`](raw/research/0671-2026-05-26-dae004-func503-fallback-removal.md), extended the fallback white-box guard in [`../../src/passes/dead_argument_elimination_wbtest.mbt`](../../src/passes/dead_argument_elimination_wbtest.mbt), and removed `503` from selected dropped-result fallback lists in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
+- Advanced `[DAE004-D7]`: `503` is now retired from handpicked fallback coverage without raising the broad-large cap or enabling the rejected bucketed scheduler. Remaining D7 work is in dense mid-prefix, high-index bridge, and late-cluster families.
+- Validation/evidence: `moon test src/passes --target native` failed before removal on the new `503` fallback guard and passed after implementation; `.tmp/dae004-d7-func503-validation-20260526` reported `1531.921ms` Starshine pass versus `863.462ms` Binaryen pass, within `Starshine <= 2x Binaryen`; `wasm-opt --all-features .tmp/dae004-d7-func503-validation-20260526/starshine.wasm` passed with only the existing large-local-count VM warning; `.tmp/pass-fuzz-dae004-d7-func503-20260526` reported `571/1000` compared, `352` normalized matches, `200` drop-const compare-normalized matches, `19` known raw-cleanup mismatches, `0` validation failures, and `1` command failure.
+
 ## [2026-05-26] tooling | compare-pass drop-consts normalizer
 
 - Added an opt-in `bun scripts/pass-fuzz-compare.ts --normalize drop-consts` compare normalizer in [`../../scripts/lib/pass-fuzz-compare-task.ts`](../../scripts/lib/pass-fuzz-compare-task.ts) with command coverage in [`../../scripts/test/pass-fuzz-compare-command.ts`](../../scripts/test/pass-fuzz-compare-command.ts).

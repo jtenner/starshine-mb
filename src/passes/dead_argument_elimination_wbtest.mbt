@@ -51,10 +51,10 @@ test "dae original call summary counts repeated undropped callees once per calle
 }
 
 ///|
-test "dae selected dropped-result fallback skips unobserved Func3799" {
-  assert_false(
-    dae_selected_dropped_result_fallback_neighborhood_defs().contains(3799),
-  )
+test "dae selected dropped-result fallback skips unobserved Func3799 and covered Func503" {
+  let fallback = dae_selected_dropped_result_fallback_neighborhood_defs()
+  assert_false(fallback.contains(3799))
+  assert_false(fallback.contains(503))
 }
 
 ///|

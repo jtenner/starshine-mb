@@ -17878,10 +17878,7 @@ fn dae_collect_descending_selected_def_attempts(
 
 ///|
 fn dae_selected_dropped_result_fallback_neighborhood_defs() -> Array[Int] {
-  [
-    298, 299, 427, 459, 472, 476, 503, 3566, 3732, 3814, 4229, 4232, 4240, 4241,
-    4242,
-  ]
+  [298, 299, 427, 459, 472, 476, 3566, 3732, 3814, 4229, 4232, 4240, 4241, 4242]
 }
 
 ///|
@@ -20464,8 +20461,7 @@ fn dae_run_core(
   }
   for
     selected_result_def in [
-      298, 299, 427, 459, 472, 476, 3566, 3732, 3814, 4229, 4232, 503, 4240, 4241,
-      4242,
+      298, 299, 427, 459, 472, 476, 3566, 3732, 3814, 4229, 4232, 4240, 4241, 4242,
     ] {
     if selected_result_def < selected_scratch_defs.length() {
       selected_scratch_defs[selected_result_def] = true
