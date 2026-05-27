@@ -17878,7 +17878,7 @@ fn dae_collect_descending_selected_def_attempts(
 
 ///|
 fn dae_selected_dropped_result_fallback_neighborhood_defs() -> Array[Int] {
-  [459, 472, 476, 3566, 3732, 3814, 4232, 4240, 4241, 4242]
+  [472, 476, 3566, 3732, 3814, 4232, 4240, 4241, 4242]
 }
 
 ///|
@@ -20460,16 +20460,10 @@ fn dae_run_core(
     }
   }
   for
-    selected_result_def in [
-      459, 472, 476, 3566, 3732, 3814, 4232, 4240, 4241, 4242,
-    ] {
+    selected_result_def in [472, 476, 3566, 3732, 3814, 4232, 4240, 4241, 4242] {
     if selected_result_def < selected_scratch_defs.length() {
       selected_scratch_defs[selected_result_def] = true
-      let selected_result_call_facts = if selected_result_def == 299 {
-        low_callee_call_facts
-      } else {
-        selected_dropped_result_call_facts
-      }
+      let selected_result_call_facts = selected_dropped_result_call_facts
       let selected_result_callee_abs = original_imported + selected_result_def
       let selected_result_direct = if selected_result_callee_abs <
         selected_result_call_facts.direct_calls.length() {
