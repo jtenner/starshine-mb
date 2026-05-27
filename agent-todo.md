@@ -35,7 +35,7 @@ Suggested Tests
 - `moon info`
 - `moon fmt`
 - `moon test`
-- `bun scripts/pass-fuzz-compare.ts --pass <pass> --count 10000 --max-failures 20 --out-dir .tmp/pass-fuzz-<pass>`; for DAE / `dae-optimizing` mixed-generator lanes, add `--normalize drop-consts` and report `cleanupNormalizedMatchCount` separately from exact `normalizedMatchCount`.
+- `bun scripts/pass-fuzz-compare.ts --pass <pass> --count 10000 --max-failures 20 --out-dir .tmp/pass-fuzz-<pass>`; for DAE / `dae-optimizing` mixed-generator lanes, add `--normalize drop-consts --normalize unreachable-control-debris` and report `cleanupNormalizedMatchCount` separately from exact `normalizedMatchCount`.
 - `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>`
 
 Observed unique-pass order
@@ -169,7 +169,7 @@ Execution rules for all DAE slices
       - [ ] `[DAE004-H5]` Remove obsolete fallback-specific tests or convert them to fact-driven/bucketed coverage, then update docs/wiki/log/backlog with the final fallback-removal evidence.
     - [ ] `[DAE004-I]` Close out DAE004 with artifact replay, direct fuzz evidence, and mismatch classification proving no remaining artifact or fuzz mismatch is a true dropped-result scheduling gap.
       - [ ] `[DAE004-I1]` Re-run direct `--dae-optimizing` artifact comparison with default raw output and both-canonical diagnostics; record first diff, validation, size, and pass-local timing.
-      - [ ] `[DAE004-I2]` Run standard 10k direct compare with the DAE compare normalizer: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dae-optimizing --normalize drop-consts --out-dir .tmp/pass-fuzz-dae004-closeout`; report exact `normalizedMatchCount`, `cleanupNormalizedMatchCount`, remaining mismatches, and command-failure classes separately.
+      - [ ] `[DAE004-I2]` Run standard 10k direct compare with the DAE compare normalizer: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dae-optimizing --normalize drop-consts --normalize unreachable-control-debris --out-dir .tmp/pass-fuzz-dae004-closeout`; report exact `normalizedMatchCount`, `cleanupNormalizedMatchCount`, remaining mismatches, and command-failure classes separately.
       - [ ] `[DAE004-I3]` Replay any saved failure dirs or new mismatch samples and classify each family as semantic-safe/size-winning, representation-only, size-losing, unknown/risky, validation failure, tool/Binaryen failure, or true semantic mismatch with rationale.
       - [ ] `[DAE004-I4]` Confirm no remaining mismatch or artifact frontier is attributable to dropped-result scheduling/fallback coverage; if one remains, reopen the appropriate `[DAE004-D*]` family slice instead of closing DAE004.
       - [ ] `[DAE004-I5]` Update `docs/wiki/binaryen/passes/dae-optimizing/starshine-strategy.md`, `docs/wiki/log.md`, research notes, and this backlog with closeout evidence, commands, counts, timing, and mismatch classifications.
