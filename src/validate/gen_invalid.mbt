@@ -593,6 +593,7 @@ fn gen_invalid_ast_strategy_label(
     InvalidSubtypeMutableFieldVariance =>
       "invalid-subtype-mutable-field-variance"
     DescriptorOnFuncType => "descriptor-on-func-type"
+    DescriptorCycle => "descriptor-cycle"
     DataCountWithoutDataSec => "datacount-without-data-sec"
   }
 }

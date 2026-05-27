@@ -278,6 +278,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidSubtypeSuperShape
   InvalidSubtypeMutableFieldVariance
   DescriptorOnFuncType
+  DescriptorCycle
   DataCountWithoutDataSec
   InvalidExportFuncIndex
   StartFuncOutOfRange
@@ -700,6 +701,12 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       DescriptorOnFuncType,
       "descriptor-on-func-type",
       "descriptor metadata on function type",
+      TypeSectionFamily,
+    ),
+    validate_invalid_ast_strategy_spec(
+      DescriptorCycle,
+      "descriptor-cycle",
+      "descriptor metadata cycle",
       TypeSectionFamily,
     ),
     validate_invalid_ast_strategy_spec(
@@ -2093,6 +2100,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidSubtypeSuperShape => 26
     InvalidSubtypeMutableFieldVariance => 233
     DescriptorOnFuncType => 27
+    DescriptorCycle => 234
     DataCountWithoutDataSec => 28
     InvalidExportFuncIndex => 29
     StartFuncOutOfRange => 30
@@ -9267,6 +9275,33 @@ fn validate_invalid_ast_mutate_descriptor_on_func_type(
 }
 
 ///|
+fn validate_invalid_ast_mutate_descriptor_cycle(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let types = validate_invalid_ast_type_entries(mod)
+  types.push(
+    RecType::new(
+      SubType::comp_type(
+        CompType::struct_([]),
+        metadata=TypeMetadata::new(
+          descriptor=Some(
+            TypeIdx::new(
+              validate_invalid_ast_flat_type_count(mod).reinterpret_as_uint(),
+            ),
+          ),
+        ),
+      ),
+    ),
+  )
+  {
+    strategy: DescriptorCycle,
+    applicable: true,
+    expected_family: TypeSectionFamily,
+    mutated_module: mod.with_type_sec(TypeSec::new(types)),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_datacount_without_data_sec(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -10082,6 +10117,7 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_subtype_mutable_field_variance(base)
       DescriptorOnFuncType =>
         validate_invalid_ast_mutate_descriptor_on_func_type(base)
+      DescriptorCycle => validate_invalid_ast_mutate_descriptor_cycle(base)
       DataCountWithoutDataSec =>
         validate_invalid_ast_mutate_datacount_without_data_sec(base)
     },
@@ -10529,10 +10565,10 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-imported-shared-memory-without-max", "invalid-imported-shared-memory64-without-max",
     "shared-memory-without-max", "shared-memory64-without-max", "invalid-tag-type-index",
     "invalid-tag-result-type", "invalid-subtype-super-index", "invalid-subtype-super-shape",
-    "descriptor-on-func-type", "datacount-without-data-sec", "invalid-export-func-index",
-    "start-func-out-of-range", "missing-datacount-data-drop", "invalid-function-body-local-index",
-    "invalid-function-body-global-index", "invalid-function-body-table-index", "invalid-function-body-memory-index",
-    "invalid-function-body-call-index", "invalid-function-body-branch-label-index",
+    "descriptor-on-func-type", "descriptor-cycle", "datacount-without-data-sec",
+    "invalid-export-func-index", "start-func-out-of-range", "missing-datacount-data-drop",
+    "invalid-function-body-local-index", "invalid-function-body-global-index", "invalid-function-body-table-index",
+    "invalid-function-body-memory-index", "invalid-function-body-call-index", "invalid-function-body-branch-label-index",
     "invalid-function-body-branch-payload-mismatch", "invalid-function-body-call-payload-mismatch",
     "invalid-function-body-br-if-payload-mismatch", "invalid-function-body-br-table-payload-mismatch",
     "invalid-function-body-if-condition-type", "invalid-function-body-if-branch-result-type",
@@ -10621,7 +10657,7 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "datacount-mismatch-too-small", "datacount-mismatch-too-large", "invalid-subtype-mutable-field-variance",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
-  @debug.assert_eq(smoke_required.length(), 21)
+  @debug.assert_eq(smoke_required.length(), 22)
 }
 
 ///|
@@ -11260,6 +11296,19 @@ test "descriptor-on-func type strategy rejects with TypeSection family" {
     invalid_ast_expect_strategy_rejects_with_family(
       DescriptorOnFuncType,
       0x5efbUL,
+      TypeSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "descriptor cycle strategy rejects with TypeSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      DescriptorCycle,
+      0x5efb1UL,
       TypeSectionFamily,
     ) {
     Ok(_) => ()
