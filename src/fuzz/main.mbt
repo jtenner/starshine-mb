@@ -2495,6 +2495,22 @@ fn emit_gen_valid_batch_candidate_seed(seed : UInt64, index : Int) -> UInt64 {
 }
 
 ///|
+fn gen_valid_coverage_candidate_transform_applicable(
+  mod : @lib.Module,
+  transform : MetamorphicValidTransform,
+) -> Bool {
+  match transform {
+    AddLeadingMemorySizeDropToDefinedFunctions
+    | AddTrailingMemorySizeDropToDefinedFunctions =>
+      metamorphic_total_memory_count(mod) > 0
+    AddLeadingTableSizeDropToDefinedFunctions
+    | AddTrailingTableSizeDropToDefinedFunctions =>
+      metamorphic_total_table_count(mod) > 0
+    _ => true
+  }
+}
+
+///|
 pub fn emit_gen_valid_batch_artifacts_until_features(
   count : Int,
   seed : UInt64,
@@ -2559,6 +2575,13 @@ pub fn emit_gen_valid_batch_artifacts_until_features(
       let transform = match metamorphic_valid_transform_by_id(requested_id) {
         Ok(v) => v
         Err(e) => return Err(e)
+      }
+      if !gen_valid_coverage_candidate_transform_applicable(
+          generated.wasm_module,
+          transform,
+        ) {
+        skipped_candidates += 1
+        continue
       }
       let transformed = match
         metamorphic_apply_transform(generated.wasm_module, transform) {

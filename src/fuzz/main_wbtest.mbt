@@ -1376,6 +1376,59 @@ test "parse_fuzz_cli_command parses gen-valid batch profile and feature filters"
 }
 
 ///|
+test "gen-valid batch treats table-size transform without table as skipped candidate" {
+  let args = EmitGenValidBatchArgs::new(
+    1,
+    0x5eedUL,
+    "tmp/gen-valid",
+    profile="binaryen-oracle-portable",
+    max_attempts=1,
+    metamorphic_transform_ids=[
+      "add-leading-table-size-drop-to-defined-functions",
+    ],
+  )
+  match emit_gen_valid_batch_selection(args) {
+    Ok(_) => fail("expected no table-bearing candidate in one attempt")
+    Err(msg) => {
+      assert_true(msg.contains("unmet feature floors"), msg~)
+      assert_false(
+        msg.contains("requires at least one valid table index"),
+        msg~,
+      )
+    }
+  }
+}
+
+///|
+test "gen-valid batch applies table-size transforms once table index exists" {
+  let args = EmitGenValidBatchArgs::new(
+    2,
+    0x5eedUL,
+    "tmp/gen-valid",
+    profile="natural-small",
+    max_attempts=64,
+    metamorphic_transform_ids=[
+      "add-leading-table-size-drop-to-defined-functions", "add-trailing-table-size-drop-to-defined-functions",
+    ],
+  )
+  let selection = match emit_gen_valid_batch_selection(args) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let manifest = format_gen_valid_batch_manifest_json(args, selection)
+  assert_true(
+    manifest.contains(
+      "\"transform_id\":\"add-leading-table-size-drop-to-defined-functions\"",
+    ),
+  )
+  assert_true(
+    manifest.contains(
+      "\"transform_id\":\"add-trailing-table-size-drop-to-defined-functions\"",
+    ),
+  )
+}
+
+///|
 test "gen-valid batch manifest reports requested and applied metamorphic transforms" {
   let args = EmitGenValidBatchArgs::new(
     2,

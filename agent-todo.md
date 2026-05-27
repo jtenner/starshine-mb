@@ -613,7 +613,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 Use this board as the tracking view for fuzzer work. Each slice should be small enough for one focused TDD loop: add/adjust focused tests, implement one narrow behavior, update docs/wiki counters, and run the targeted fuzz smoke plus `moon test src/fuzz` or the relevant package test. Prefer finishing p1 GenValid/metamorphic slices before p2 infrastructure unless a bug or release need says otherwise.
 
 p1 next-up / active:
-- [FUZ]1036J2 - Add `table.size; drop` transforms only for modules with a valid table index.
 - [FUZ]1036J3 - Add passive data-segment reshaping that preserves data-count metadata and does not retarget existing indices.
 - [FUZ]1036J4 - Add passive element-segment reshaping that preserves table/function references and does not retarget existing indices.
 - [FUZ]1036K1 - Add duplicate-equivalent unused function type declaration transforms.
