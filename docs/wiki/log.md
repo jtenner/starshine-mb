@@ -2039,6 +2039,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - The byte-fuzz lane counts decode-accepted validation rejections and requires any decode-accepted valid module to re-encode into decodable bytes, keeping malformed-byte stress separate from the existing arbitrary-value and GenValid full-module roundtrip counters.
 - Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`index.md`](index.md) so the living fuzz-runner docs name the new profiles and JSON detail counters.
 
+## [2026-05-27] fuzzing | FUZ1023 dynamic bad export-string mutation
+
+- Continued `[FUZ]1023C3` by adding `dynamic-gen-valid-bad-export-string`, which starts from verified GenValid WAT, inserts an exported function whose export name uses an invalid `\\ff` text-string byte escape before the module close, quotes the mutated module as `assert_malformed`, and records the `gen-valid-wat/bad-export-string` variant plus `mutation:bad-export-string` in dynamic suite details.
+- Updated dynamic invalid-text smoke expectations from 32 to 36 attempts/cases, adding one parse/lower-rejected string/name strategy while preserving the previous validation-rejected and valid-before-link counts.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) and [`wast/static-assertion-harness.md`](wast/static-assertion-harness.md) so the dynamic GenValid-WAT strategy summaries include the bad export-string surface.
+
 ## [2026-05-27] fuzzing | FUZ1023 dynamic mutable-global const-init mutation
 
 - Continued `[FUZ]1023C2` by adding `dynamic-gen-valid-mutable-global-const-init`, which starts from verified GenValid WAT, inserts an imported mutable `i32` global plus a defined global initialized with `global.get` of that mutable global immediately after the module opener, and replays the mutated source as `assert_invalid` so the case lowers successfully before validator rejection.
