@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-27] passes | dae DAE004 closeout evidence
+
+- Added [`raw/research/0687-2026-05-27-dae004-closeout-evidence.md`](raw/research/0687-2026-05-27-dae004-closeout-evidence.md) and updated [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) plus [`../../agent-todo.md`](../../agent-todo.md) to close `[DAE004-H]`, `[DAE004-I]`, and `[DAE]004` for the current v0.1.0 surface.
+- Validation/evidence: `moon test src/passes --target native` passed (`1474/1474`); default artifact replay `.tmp/dae004-closeout-default-20260527` validated with `wasm-opt --all-features` with only the existing large-local-count warning; both-canonical replay `.tmp/dae004-closeout-canonical-20260527` first-diffed at `defined=198 abs=215`, classified as semantic-safe/size-winning constant-actual materialization rather than a dropped-result scheduling gap; timing repeats stayed inside `Starshine <= 2x Binaryen` (`1334.819ms` vs `861.787ms`, `1344.274ms` vs `846.053ms`); 10k direct compare `.tmp/pass-fuzz-dae004-closeout-20260527-full` reported `9975/10000` compared, `6078` exact normalized matches, `3824` cleanup-normalized matches, `73` semantic-safe/size-winning cleanup mismatches, `0` validation failures, and `25` Binaryen/tool command failures.
+
 ## [2026-05-27] passes | dae DAE004 Func4242 fallback removal
 
 - Added [`raw/research/0686-2026-05-27-dae004-func4242-fallback-removal.md`](raw/research/0686-2026-05-27-dae004-func4242-fallback-removal.md), removed `4242` from the selected dropped-result fallback list/loop in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), extended the focused fallback-list guard in [`../../src/passes/dead_argument_elimination_wbtest.mbt`](../../src/passes/dead_argument_elimination_wbtest.mbt), and extended the broad-large fact-path guard in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt).
