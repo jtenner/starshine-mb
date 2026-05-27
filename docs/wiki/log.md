@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] fuzzing | FUZ1020 defined ref-type invalid AST coverage
+
+- Continued `[FUZ]1020A3` by adding `invalid-table-ref-type` and `invalid-global-ref-type`, deterministic table/global-section AST mutations that append defined table/global declarations whose reference types point at a missing heap type index.
+- Added focused strategy and `gen_invalid` tests proving the table mutation rejects with the table family and the global mutation rejects with the global family.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) and [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) so living invalid-AST summaries distinguish defined table/global ref-type coverage from the earlier imported table/global ref-type coverage.
+
 ## [2026-05-27] fuzz | add invalid subtype variance AST strategy
 
 - Completed `[FUZ]1020A1` by adding `invalid-subtype-mutable-field-variance` to the invalid-AST registry. The new strategy appends a struct supertype with a mutable `(ref any)` field and a subtype with the corresponding mutable `(ref eq)` field, exercising the validator's mutable-field invariance rule through the type-section family.

@@ -1310,6 +1310,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidImportedTagResultType
   InvalidImportedTableRefType
   InvalidImportedGlobalRefType
+  InvalidTableRefType
+  InvalidGlobalRefType
   MutableGlobalGetInTableInit
   NonConstantElemOffset
   InvalidElementActiveTableIndex

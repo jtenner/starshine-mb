@@ -259,6 +259,8 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidImportedTagResultType
   InvalidImportedTableRefType
   InvalidImportedGlobalRefType
+  InvalidTableRefType
+  InvalidGlobalRefType
   MutableGlobalGetInTableInit
   NonConstantElemOffset
   InvalidElementActiveTableIndex
@@ -584,6 +586,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       "invalid-imported-global-ref-type",
       "imported global references missing type index",
       ImportSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidTableRefType,
+      "invalid-table-ref-type",
+      "table definition references missing type index",
+      TableSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidGlobalRefType,
+      "invalid-global-ref-type",
+      "global definition references missing type index",
+      GlobalSectionFamily,
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
@@ -2081,6 +2097,8 @@ fn validate_invalid_ast_strategy_index(
     InvalidImportedTagResultType => 225
     InvalidImportedTableRefType => 227
     InvalidImportedGlobalRefType => 228
+    InvalidTableRefType => 235
+    InvalidGlobalRefType => 236
     MutableGlobalGetInTableInit => 20
     NonConstantElemOffset => 21
     InvalidElementActiveTableIndex => 209
@@ -8873,6 +8891,50 @@ fn validate_invalid_ast_mutate_invalid_imported_global_ref_type(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_table_ref_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let tables = validate_invalid_ast_table_entries(mod)
+  tables.push(
+    Table::new(
+      TableType::new(
+        validate_invalid_ast_missing_type_ref(),
+        Limits::i32(1, None),
+      ),
+      None,
+    ),
+  )
+  {
+    strategy: InvalidTableRefType,
+    applicable: true,
+    expected_family: TableSectionFamily,
+    mutated_module: mod.with_table_sec(TableSec::new(tables)),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_global_ref_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let globals = validate_invalid_ast_global_entries(mod)
+  globals.push(
+    Global::new(
+      GlobalType::new(
+        ValType::ref_type(validate_invalid_ast_missing_type_ref()),
+        false,
+      ),
+      Expr::new([Instruction::ref_null(HeapType::abs(AbsHeapType::none()))]),
+    ),
+  )
+  {
+    strategy: InvalidGlobalRefType,
+    applicable: true,
+    expected_family: GlobalSectionFamily,
+    mutated_module: mod.with_global_sec(GlobalSec::new(globals)),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_mutable_global_get_in_table_init(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -10075,6 +10137,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_imported_table_ref_type(base)
       InvalidImportedGlobalRefType =>
         validate_invalid_ast_mutate_invalid_imported_global_ref_type(base)
+      InvalidTableRefType =>
+        validate_invalid_ast_mutate_invalid_table_ref_type(base)
+      InvalidGlobalRefType =>
+        validate_invalid_ast_mutate_invalid_global_ref_type(base)
       MutableGlobalGetInTableInit =>
         validate_invalid_ast_mutate_mutable_global_get_in_table_init(base)
       NonConstantElemOffset =>
@@ -10558,17 +10624,18 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "codesec-length-mismatch-too-small", "codesec-length-mismatch-too-large", "mutable-global-get-in-const-init",
     "invalid-global-init-type", "non-constant-data-offset", "invalid-data-active-memory-index",
     "invalid-imported-func-type-index", "invalid-imported-tag-type-index", "invalid-imported-tag-result-type",
-    "invalid-imported-table-ref-type", "invalid-imported-global-ref-type", "mutable-global-get-in-table-init",
-    "non-constant-elem-offset", "invalid-element-active-table-index", "invalid-element-func-index",
-    "invalid-element-typed-expr-type", "invalid-memory-limit-range", "invalid-table-limit-range",
-    "invalid-imported-memory-limit-range", "invalid-imported-table-limit-range",
-    "invalid-imported-shared-memory-without-max", "invalid-imported-shared-memory64-without-max",
-    "shared-memory-without-max", "shared-memory64-without-max", "invalid-tag-type-index",
-    "invalid-tag-result-type", "invalid-subtype-super-index", "invalid-subtype-super-shape",
-    "descriptor-on-func-type", "descriptor-cycle", "datacount-without-data-sec",
-    "invalid-export-func-index", "start-func-out-of-range", "missing-datacount-data-drop",
-    "invalid-function-body-local-index", "invalid-function-body-global-index", "invalid-function-body-table-index",
-    "invalid-function-body-memory-index", "invalid-function-body-call-index", "invalid-function-body-branch-label-index",
+    "invalid-imported-table-ref-type", "invalid-imported-global-ref-type", "invalid-table-ref-type",
+    "invalid-global-ref-type", "mutable-global-get-in-table-init", "non-constant-elem-offset",
+    "invalid-element-active-table-index", "invalid-element-func-index", "invalid-element-typed-expr-type",
+    "invalid-memory-limit-range", "invalid-table-limit-range", "invalid-imported-memory-limit-range",
+    "invalid-imported-table-limit-range", "invalid-imported-shared-memory-without-max",
+    "invalid-imported-shared-memory64-without-max", "shared-memory-without-max",
+    "shared-memory64-without-max", "invalid-tag-type-index", "invalid-tag-result-type",
+    "invalid-subtype-super-index", "invalid-subtype-super-shape", "descriptor-on-func-type",
+    "descriptor-cycle", "datacount-without-data-sec", "invalid-export-func-index",
+    "start-func-out-of-range", "missing-datacount-data-drop", "invalid-function-body-local-index",
+    "invalid-function-body-global-index", "invalid-function-body-table-index", "invalid-function-body-memory-index",
+    "invalid-function-body-call-index", "invalid-function-body-branch-label-index",
     "invalid-function-body-branch-payload-mismatch", "invalid-function-body-call-payload-mismatch",
     "invalid-function-body-br-if-payload-mismatch", "invalid-function-body-br-table-payload-mismatch",
     "invalid-function-body-if-condition-type", "invalid-function-body-if-branch-result-type",
@@ -11128,6 +11195,32 @@ test "invalid imported table limit range strategy rejects with ImportSection fam
       InvalidImportedTableLimitRange,
       0x5ef88UL,
       ImportSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid table ref type strategy rejects with TableSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidTableRefType,
+      0x5ef8aUL,
+      TableSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid global ref type strategy rejects with GlobalSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidGlobalRefType,
+      0x5ef8bUL,
+      GlobalSectionFamily,
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)
