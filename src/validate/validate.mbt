@@ -7811,14 +7811,36 @@ test "gen_valid coverage-forced emits data segment range surface" {
 
 ///|
 test "gen_valid coverage-forced emits name and custom section surface" {
-  let config = GenValidConfig::portable_coverage_forced_default()
+  let config = GenValidConfig::for_profile(TopologyHeavyProfile)
   let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26023UL), config)
   match validate_module(mod) {
     Ok(_) => ()
     Err(msg) =>
       fail("expected coverage-forced gen-valid module to validate, got \{msg}")
   }
-  assert_true(mod.name_sec is Some(_))
+  match mod.name_sec {
+    Some(name_sec) => {
+      match name_sec.func_names {
+        Some(NameMap(entries)) => assert_true(!entries.is_empty())
+        None =>
+          fail(
+            "expected metadata-heavy gen-valid profile to emit function names",
+          )
+      }
+      match name_sec.local_names {
+        Some(IndirectNameMap(entries)) => assert_true(!entries.is_empty())
+        None =>
+          fail("expected metadata-heavy gen-valid profile to emit local names")
+      }
+      match name_sec.label_names {
+        Some(IndirectNameMap(entries)) => assert_true(!entries.is_empty())
+        None =>
+          fail("expected metadata-heavy gen-valid profile to emit label names")
+      }
+    }
+    None =>
+      fail("expected metadata-heavy gen-valid profile to emit a name section")
+  }
   let mut has_non_name_custom = false
   for custom in mod.custom_secs {
     let @lib.CustomSec(name, _) = custom

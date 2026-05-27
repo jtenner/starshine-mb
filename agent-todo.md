@@ -620,7 +620,6 @@ p1 next-up / active:
 - [FUZ]1036K3 (done) - Imported/defined declaration aliasing transforms are covered by checked-in duplicate-equivalent import/table/global/function-type surfaces that append aliases without shifting existing indices.
 - [FUZ]1037B - BLOCKED - Cover numeric constants in global, data offset, element offset, and table initializer contexts.
   - Blocker/evidence: numeric constants are valid for global initializers and active data/element offsets, but a table initializer expression must produce the table element reference type, not a numeric value. `wasm-tools validate .tmp/fuz1037b-table-init-numeric.wat` rejects `(table 1 funcref (i32.const 0))` with `type mismatch: expected funcref, found i32`. Starshine's checked-in GenValid const-expression matrix already excludes `NumericConstExprOp` from `TableInitializerConstExpr` for this reason. Resume only if the slice is redefined to cover numeric table limits/indices instead of table initializer expressions, or split the valid global/data/element numeric coverage into a narrower task.
-- [FUZ]1038D - Generate name-section function/local/label payloads in metadata-heavy profiles.
 - [FUZ]1051A - Define checked-in fuzz recipe schema version and parser tests.
 - [FUZ]1051B - Add smoke and CI recipes for current default fuzz suites.
 - [FUZ]1051C - Add pass-signoff and validator-stress recipes.
@@ -970,7 +969,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1038 (p1) - Import, Export, Name, String, And Custom Section Stress
   - Goal: widen non-code module metadata surfaces without mixing them into body-generation work.
   - Why: import/export names, custom sections, name sections, UTF-8 strings, duplicates, long strings, empty names, and unusual module names are common decoder/parser/optimizer edge cases.
-  - Deliverables remaining: generate many exports under distinct names, export aliases, name-section function/local/label names, unknown custom sections with varied placement, and payloads containing arbitrary bytes. Empty, long, Unicode, and repeated valid import module names are covered by completed [FUZ]1038A.
+  - Deliverables remaining: generate many exports under distinct names, export aliases, unknown custom sections with varied placement, and payloads containing arbitrary bytes. Empty, long, Unicode, and repeated valid import module names are covered by completed [FUZ]1038A; `[FUZ]1038D` is covered by the topology-heavy name-section function/local/label payload regression.
   - Required APIs: import/export/name/custom-section types, binary encoder/decoder, text printer/parser where names are represented.
   - Invariants: valid mode must keep export names unique where required; invalid duplicate/name/UTF-8 cases should be routed to invalid binary/text lanes.
   - Dependencies: [FUZ]1003 topology widening and [FUZ]1021 binary malformed-byte matrix recommended.
