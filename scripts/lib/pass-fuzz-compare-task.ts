@@ -15,7 +15,7 @@ import {
 
 type GeneratorMode = "both" | "wasm-smith" | "gen-valid";
 type GeneratorKind = "wasm-smith" | "gen-valid";
-type CompareNormalizer = "drop-consts";
+type CompareNormalizer = "drop-consts" | "unreachable-control-debris";
 type CommandFailureClass =
   | "starshine-command-failed"
   | "starshine-invalid-limits"
@@ -184,7 +184,7 @@ const HELP_TEXT = [
   "  --max-failures <n>    Stop after this many mismatches/failures. Default: 20",
   "  --keep-going-after-command-failures",
   "                       Record command failures without counting them toward --max-failures",
-  "  --normalize <name>   Enable compare normalizer. Supported: drop-consts. May repeat",
+  "  --normalize <name>   Enable compare normalizer. Supported: drop-consts, unreachable-control-debris. May repeat",
   "  --jobs <n|auto>       Concurrent case jobs. Default: 1; auto uses available parallelism; >1 requires --starshine-bin",
   "  --pass <name>         Canonical pass name without leading --. May repeat",
   "  --replay-failures-from <dir>",
@@ -285,6 +285,8 @@ function normalizeCompareNormalizer(raw: string): CompareNormalizer {
   switch (raw.trim()) {
     case "drop-consts":
       return "drop-consts";
+    case "unreachable-control-debris":
+      return "unreachable-control-debris";
     default:
       fail(`unsupported pass-fuzz-compare normalizer: ${raw}`);
   }
@@ -708,11 +710,112 @@ function normalizeDroppedConstExpressions(wat: string): string {
   return output.join("\n");
 }
 
+function isUnreachableControlDebrisBlock(text: string): boolean {
+  const labelMatch = text.match(/^\s*\(block\s+(\$[A-Za-z0-9_.$-]+)/);
+  if (!labelMatch) return false;
+  const label = labelMatch[1];
+  const unsafePattern = /\b(call|call_ref|return_call|local\.|global\.|load|store|memory\.|table\.|ref\.|struct\.|array\.|br_if|return|if|loop|try|try_table|throw|rethrow|delegate|select|nop|unreachable)\b/;
+  if (unsafePattern.test(text)) return false;
+  const brTableMatch = text.match(/\(br_table\s+([^()]+?)\s*\(/s);
+  if (!brTableMatch) return false;
+  const targets = Array.from(brTableMatch[1].matchAll(/\$[A-Za-z0-9_.$-]+/g)).map((match) => match[0]);
+  if (targets.length === 0 || targets.some((target) => target !== label)) return false;
+  const allowedTokens = new Set(["block", "br_table", "i32.const"]);
+  const tokenPattern = /[A-Za-z_][A-Za-z0-9_.$-]*/g;
+  for (const match of text.matchAll(tokenPattern)) {
+    if (!allowedTokens.has(match[0])) return false;
+  }
+  return true;
+}
+
+function stripFunctionTypeIds(wat: string): string {
+  return wat
+    .split("\n")
+    .filter((line) => !/^\s*\(type\s+\$/.test(line))
+    .map((line) => line.replace(/\s+\(type\s+\$[A-Za-z0-9_.$-]+\)/g, ""))
+    .join("\n");
+}
+
+function normalizeLocalUnreachableControlDebris(wat: string): string {
+  const lines = wat.split("\n");
+  const output: string[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line.trimStart().startsWith("(block")) {
+      output.push(line);
+      continue;
+    }
+    const exprLines = [line];
+    let balance = parenDelta(line);
+    while (balance > 0 && index + 1 < lines.length) {
+      index += 1;
+      exprLines.push(lines[index]);
+      balance += parenDelta(lines[index]);
+    }
+    const nextLine = index + 1 < lines.length ? lines[index + 1].trim() : "";
+    const exprText = exprLines.join("\n");
+    if (nextLine === "(unreachable)" && isUnreachableControlDebrisBlock(exprText)) {
+      continue;
+    }
+    output.push(...exprLines);
+  }
+  return output.join("\n");
+}
+
+function normalizeUnusedUnreachableFunctions(wat: string): string {
+  const referenced = new Set<string>();
+  for (const match of wat.matchAll(/\(export\s+"[^"]+"\s+\(func\s+(\$[A-Za-z0-9_.$-]+)\)\)/g)) {
+    referenced.add(match[1]);
+  }
+  for (const match of wat.matchAll(/\b(?:call|return_call|ref\.func)\s+(\$[A-Za-z0-9_.$-]+)/g)) {
+    referenced.add(match[1]);
+  }
+  const lines = wat.split("\n");
+  const output: string[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const funcMatch = line.match(/^\s*\(func\s+(\$[A-Za-z0-9_.$-]+)/);
+    if (!funcMatch || referenced.has(funcMatch[1])) {
+      output.push(line);
+      continue;
+    }
+    const exprLines = [line];
+    let balance = parenDelta(line);
+    while (balance > 0 && index + 1 < lines.length) {
+      index += 1;
+      exprLines.push(lines[index]);
+      balance += parenDelta(lines[index]);
+    }
+    const body = normalizeLocalUnreachableControlDebris(normalizeDroppedConstExpressions(exprLines.join("\n")));
+    const unsafePattern = /\b(call|call_ref|return_call|local\.|global\.|load|store|memory\.|table\.|ref\.|struct\.|array\.|br|br_if|br_table|return|if|block|loop|try|try_table|throw|rethrow|delegate|select|nop)\b/;
+    const bodyWithoutDecls = body
+      .split("\n")
+      .filter((bodyLine) => !/^\s*\(func\b/.test(bodyLine) && !/^\s*\(local\b/.test(bodyLine) && bodyLine.trim() !== ")")
+      .join("\n");
+    if (bodyWithoutDecls.includes("(unreachable)") && !unsafePattern.test(bodyWithoutDecls.replace(/\(unreachable\)/g, ""))) {
+      output.push(` (func ${funcMatch[1]}`);
+      output.push("  (unreachable)");
+      output.push(" )");
+    } else {
+      output.push(...exprLines);
+    }
+  }
+  return output.join("\n");
+}
+
+function normalizeUnreachableControlDebris(wat: string): string {
+  return stripFunctionTypeIds(
+    normalizeUnusedUnreachableFunctions(normalizeLocalUnreachableControlDebris(wat)),
+  );
+}
+
 function applyCompareNormalizers(wat: string, normalizers: CompareNormalizer[]): string {
   let normalized = wat;
   for (const normalizer of normalizers) {
     if (normalizer === "drop-consts") {
       normalized = normalizeDroppedConstExpressions(normalized);
+    } else if (normalizer === "unreachable-control-debris") {
+      normalized = normalizeUnreachableControlDebris(normalized);
     }
   }
   return normalized;
