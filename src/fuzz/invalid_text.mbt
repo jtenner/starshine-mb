@@ -1205,6 +1205,7 @@ fn validate_invalid_text_dynamic_supported_strategy(stable_id : String) -> Bool 
   stable_id == "dynamic-gen-valid-bad-type-token" ||
   stable_id == "dynamic-gen-valid-bad-lane-index" ||
   stable_id == "dynamic-gen-valid-bad-memarg-align" ||
+  stable_id == "dynamic-gen-valid-mutable-global-const-init" ||
   stable_id == "dynamic-gen-valid-unknown-import"
 }
 
@@ -1213,7 +1214,8 @@ fn validate_invalid_text_dynamic_strategies() -> Array[String] {
   [
     "dynamic-gen-valid-missing-closing-paren", "dynamic-gen-valid-duplicate-export",
     "dynamic-gen-valid-bad-opcode-token", "dynamic-gen-valid-bad-type-token", "dynamic-gen-valid-bad-lane-index",
-    "dynamic-gen-valid-bad-memarg-align", "dynamic-gen-valid-unknown-import",
+    "dynamic-gen-valid-bad-memarg-align", "dynamic-gen-valid-mutable-global-const-init",
+    "dynamic-gen-valid-unknown-import",
   ]
 }
 
@@ -1554,6 +1556,24 @@ pub fn validate_invalid_text_dynamic_case(
         assertion_source: "(assert_malformed (module quote \"\{escaped}\") \"dynamic bad memarg alignment\")",
         assertion_kind: MalformedTextAssertion,
         expected_stage: ParseOrLowerRejectedStage,
+        source_feature_facts,
+      })
+    }
+    "dynamic-gen-valid-mutable-global-const-init" => {
+      let inserted = "\n  (import \"dynamic_mutable\" \"global\" (global $dynamic_mutable_global (mut i32)))\n  (global i32 (global.get $dynamic_mutable_global))\n"
+      let mutated_source = match
+        validate_invalid_text_insert_after_module_open(base_source, inserted) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      source_feature_facts.push("mutation:mutable-global-const-init")
+      Ok({
+        stable_id,
+        variant_id: "gen-valid-wat/mutable-global-const-init",
+        base_source,
+        assertion_source: "(assert_invalid \{mutated_source} \"dynamic mutable global const init\")",
+        assertion_kind: InvalidTextAssertion,
+        expected_stage: ValidateRejectedStage,
         source_feature_facts,
       })
     }

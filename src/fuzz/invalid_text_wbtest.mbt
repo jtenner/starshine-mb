@@ -1158,6 +1158,47 @@ test "dynamic invalid text bad memarg mutates generated valid WAT into malformed
 }
 
 ///|
+test "dynamic invalid text mutable global const init mutates generated valid WAT into invalid assertion" {
+  let generated = match
+    validate_invalid_text_dynamic_case(
+      0x5eedUL, "dynamic-gen-valid-mutable-global-const-init",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(
+    generated.stable_id,
+    "dynamic-gen-valid-mutable-global-const-init",
+  )
+  @debug.assert_eq(
+    generated.variant_id,
+    "gen-valid-wat/mutable-global-const-init",
+  )
+  @debug.assert_eq(
+    validate_invalid_text_stage_name(generated.expected_stage),
+    "validate-rejected",
+  )
+  assert_true(generated.source_feature_facts.contains("source:gen-valid-wat"))
+  assert_true(
+    generated.source_feature_facts.contains(
+      "mutation:mutable-global-const-init",
+    ),
+  )
+  assert_true(generated.assertion_source.contains("(assert_invalid"))
+  assert_true(generated.assertion_source.contains("dynamic_mutable_global"))
+  assert_true(
+    generated.assertion_source.contains("global.get $dynamic_mutable_global"),
+  )
+  match
+    run_validate_invalid_text_dynamic_case(
+      0x5eedUL, "dynamic-gen-valid-mutable-global-const-init",
+    ) {
+    Ok(stage) => @debug.assert_eq(stage, "validate-rejected")
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "dynamic invalid text unknown import mutates generated valid WAT into unlinkable assertion" {
   let generated = match
     validate_invalid_text_dynamic_case(
@@ -1222,14 +1263,14 @@ test "dynamic invalid text fuzz is deterministic and records generated mutation 
   }
   assert_true(first == second)
   @debug.assert_eq(first.profile, "smoke")
-  @debug.assert_eq(first.attempts, 28)
-  @debug.assert_eq(first.generated, 28)
-  @debug.assert_eq(first.mutated, 28)
+  @debug.assert_eq(first.attempts, 32)
+  @debug.assert_eq(first.generated, 32)
+  @debug.assert_eq(first.mutated, 32)
   @debug.assert_eq(first.parse_or_lower_rejected, 20)
-  @debug.assert_eq(first.validate_rejected, 4)
+  @debug.assert_eq(first.validate_rejected, 8)
   @debug.assert_eq(first.valid_before_link, 4)
-  @debug.assert_eq(first.matched_expected, 28)
-  @debug.assert_eq(first.strategy_stats.length(), 7)
+  @debug.assert_eq(first.matched_expected, 32)
+  @debug.assert_eq(first.strategy_stats.length(), 8)
   @debug.assert_eq(first.stream_label, "text-mutation-choice")
   @debug.assert_eq(
     first.stream_seed,
@@ -1290,14 +1331,27 @@ test "dynamic invalid text fuzz is deterministic and records generated mutation 
   )
   @debug.assert_eq(
     first.strategy_stats[6].stable_id,
-    "dynamic-gen-valid-unknown-import",
+    "dynamic-gen-valid-mutable-global-const-init",
   )
   @debug.assert_eq(
     first.strategy_stats[6].variant_id,
-    "gen-valid-wat/unknown-import",
+    "gen-valid-wat/mutable-global-const-init",
   )
   assert_true(
     first.strategy_stats[6].source_feature_facts.contains(
+      "mutation:mutable-global-const-init",
+    ),
+  )
+  @debug.assert_eq(
+    first.strategy_stats[7].stable_id,
+    "dynamic-gen-valid-unknown-import",
+  )
+  @debug.assert_eq(
+    first.strategy_stats[7].variant_id,
+    "gen-valid-wat/unknown-import",
+  )
+  assert_true(
+    first.strategy_stats[7].source_feature_facts.contains(
       "mutation:unknown-import",
     ),
   )

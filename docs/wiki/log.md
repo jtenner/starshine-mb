@@ -2039,6 +2039,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - The byte-fuzz lane counts decode-accepted validation rejections and requires any decode-accepted valid module to re-encode into decodable bytes, keeping malformed-byte stress separate from the existing arbitrary-value and GenValid full-module roundtrip counters.
 - Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`index.md`](index.md) so the living fuzz-runner docs name the new profiles and JSON detail counters.
 
+## [2026-05-27] fuzzing | FUZ1023 dynamic mutable-global const-init mutation
+
+- Continued `[FUZ]1023C2` by adding `dynamic-gen-valid-mutable-global-const-init`, which starts from verified GenValid WAT, inserts an imported mutable `i32` global plus a defined global initialized with `global.get` of that mutable global immediately after the module opener, and replays the mutated source as `assert_invalid` so the case lowers successfully before validator rejection.
+- Updated dynamic invalid-text smoke expectations from 28 to 32 attempts/cases, preserving the previous parse/lower and valid-before-link counts while adding one validation-rejected strategy and recording `mutation:mutable-global-const-init` in suite details.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) and [`wast/static-assertion-harness.md`](wast/static-assertion-harness.md) so the dynamic GenValid-WAT strategy summaries include the mutable-global const-initializer surface.
+
 ## [2026-05-27] fuzzing | FUZ1023 dynamic GenValid-WAT source feature facts
 
 - Continued `[FUZ]1023B1` by broadening dynamic GenValid-WAT source feature facts beyond the initial source marker and simple field tags. The dynamic invalid-text lane now records common generated WAT fields (`type`, `import`, `func`, `export`, `memory`, `table`, `global`, `elem`, `data`, and `start`) plus representative observed opcode facts such as `i32.const` and `i32.add`, giving future dynamic mutation reports a more useful source-feature baseline without changing strategy selection or expected stage classification.
