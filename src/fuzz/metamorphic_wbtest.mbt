@@ -7001,6 +7001,56 @@ test "metamorphic leading ref null drop transform preserves validation and binar
 }
 
 ///|
+test "metamorphic v128 const drop transforms are applicable only to SIMD-shaped modules" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let scalar_base = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+        ),
+      ]),
+    )
+  assert_false(
+    metamorphic_transform_applicable(
+      scalar_base,
+      AddLeadingV128ConstDropToDefinedFunctions,
+    ),
+  )
+  assert_false(
+    metamorphic_transform_applicable(
+      scalar_base,
+      AddTrailingV128ConstDropToDefinedFunctions,
+    ),
+  )
+  let simd_base = scalar_base.with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::new([@lib.LocalRun::new(1U, @lib.ValType::v128())]),
+        @lib.Expr::new([@lib.Instruction::i32_const(7)]),
+      ),
+    ]),
+  )
+  assert_true(
+    metamorphic_transform_applicable(
+      simd_base,
+      AddLeadingV128ConstDropToDefinedFunctions,
+    ),
+  )
+  assert_true(
+    metamorphic_transform_applicable(
+      simd_base,
+      AddTrailingV128ConstDropToDefinedFunctions,
+    ),
+  )
+}
+
+///|
 test "metamorphic leading v128 const drop transform preserves validation and binary roundtrip" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),

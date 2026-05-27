@@ -8870,11 +8870,45 @@ fn metamorphic_profile_case_count(profile : String) -> Result[Int, String] {
 }
 
 ///|
+fn metamorphic_module_has_v128_shape(mod : @lib.Module) -> Bool {
+  match mod.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        match func {
+          @lib.Func(locals, _) =>
+            for run in locals.runs() {
+              if run.val_type() == @lib.ValType::v128() {
+                return true
+              }
+            }
+        }
+      }
+    None => ()
+  }
+  match mod.global_sec {
+    Some(@lib.GlobalSec(globals)) =>
+      for global in globals {
+        match global {
+          @lib.Global(@lib.GlobalType(type_, _), _) =>
+            if type_ == @lib.ValType::v128() {
+              return true
+            }
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
 fn metamorphic_transform_applicable(
   mod : @lib.Module,
   transform : MetamorphicValidTransform,
 ) -> Bool {
   match transform {
+    AddLeadingV128ConstDropToDefinedFunctions
+    | AddTrailingV128ConstDropToDefinedFunctions =>
+      metamorphic_module_has_v128_shape(mod)
     AddLeadingMemorySizeDropToDefinedFunctions
     | AddTrailingMemorySizeDropToDefinedFunctions =>
       metamorphic_total_memory_count(mod) > 0
