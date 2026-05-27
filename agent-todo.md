@@ -613,7 +613,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 Use this board as the tracking view for fuzzer work. Each slice should be small enough for one focused TDD loop: add/adjust focused tests, implement one narrow behavior, update docs/wiki counters, and run the targeted fuzz smoke plus `moon test src/fuzz` or the relevant package test. Prefer finishing p1 GenValid/metamorphic slices before p2 infrastructure unless a bug or release need says otherwise.
 
 p1 next-up / active:
-- [FUZ]1036E3 - Add `f32.convert_i32_s/u` and `f32.convert_i64_s/u` constant computed-drop transforms.
 - [FUZ]1036E4 - Add `f64.convert_i32_s/u` and `f64.convert_i64_s/u` constant computed-drop transforms.
 - [FUZ]1036E5 - Add `i32.reinterpret_f32`, `i64.reinterpret_f64`, `f32.reinterpret_i32`, and `f64.reinterpret_i64` constant computed-drop transforms.
 - [FUZ]1036E6 - Add `f32.demote_f64` and `f64.promote_f32` constant computed-drop transforms.
@@ -773,7 +772,7 @@ p1 GenValid / valid-generation slices:
 - [FUZ]1036B (done) - Name-section/local/control metadata transforms and simple locals/body no-op transforms.
 - [FUZ]1036C (done) - Export aliases, custom-section reordering, reference/numeric local widening, and simple const/drop/if/eqz body transforms.
 - [FUZ]1036D (done) - Scalar numeric computed/drop body transforms through integer count ops; current suite has 221 transforms per generated module.
-- [FUZ]1036E (p1) - Numeric conversion and reinterpret computed/drop transforms.
+- [FUZ]1036E (p1) - Numeric conversion and reinterpret computed/drop transforms. `[FUZ]1036E3` is complete in the checked-in metamorphic transform registry/dispatcher/tests; remaining E work starts at `[FUZ]1036E4`.
 - [FUZ]1036F (p1) - Sign-extension, wrap/extend, and saturating-truncation computed/drop transforms.
 - [FUZ]1036G (p1) - SIMD constant/unary/bitwise computed/drop transforms.
 - [FUZ]1036H (p1) - SIMD lane/splat/shift/extract/replace computed/drop transforms.
