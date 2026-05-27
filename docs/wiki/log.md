@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-27] passes | dae DAE004 Func4242 fallback removal
+
+- Added [`raw/research/0686-2026-05-27-dae004-func4242-fallback-removal.md`](raw/research/0686-2026-05-27-dae004-func4242-fallback-removal.md), removed `4242` from the selected dropped-result fallback list/loop in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), extended the focused fallback-list guard in [`../../src/passes/dead_argument_elimination_wbtest.mbt`](../../src/passes/dead_argument_elimination_wbtest.mbt), and extended the broad-large fact-path guard in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt).
+- Advanced `[DAE004-D7]`: `4242`, the final late-cluster handpicked fallback entry, is now retired from selected fallback coverage. DAE004 still needs `[DAE004-H]` / `[DAE004-I]` artifact, timing, direct compare, and closeout evidence before completion.
+- Validation/evidence: the focused fallback-list guard failed before implementation and passed after removal; `moon test src/passes` passed (`1419/1419`); `.tmp/pass-fuzz-dae004-func4242-20260527` reported `998/1000` compared, `615` normalized matches, `373` cleanup-normalized matches, `10` accepted raw-cleanup/control-debris mismatches, `0` validation failures, and `2` Binaryen parser/tool command failures.
+
 ## [2026-05-27] passes | dae DAE004 Func4241 fallback removal
 
 - Added [`raw/research/0685-2026-05-27-dae004-func4241-fallback-removal.md`](raw/research/0685-2026-05-27-dae004-func4241-fallback-removal.md), removed `4241` from the selected dropped-result fallback list/loop in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt), extended the focused fallback-list guard in [`../../src/passes/dead_argument_elimination_wbtest.mbt`](../../src/passes/dead_argument_elimination_wbtest.mbt), and extended the focused broad-large fact-path guard in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt).

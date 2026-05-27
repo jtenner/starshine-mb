@@ -65,6 +65,7 @@ test "dae selected dropped-result fallback skips covered entries" {
   assert_false(fallback.contains(3814))
   assert_false(fallback.contains(4232))
   assert_false(fallback.contains(4241))
+  assert_false(fallback.contains(4242))
 }
 
 ///|
