@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] fuzzing | FUZ1036N final metamorphic suite closeout
+
+- Closed `[FUZ]1036N` after the final GenValid metamorphic p1 transform-family refresh. The ledger now records completed metadata, passive segment, declaration/import/export aliasing, computed/drop, memory/table query, and control-wrapper families through `[FUZ]1036L6`, with the checked-in smoke suite asserting `478` transformed and validated variants for the fixed generated module.
+- No code changes were needed for this closeout; this run removed the stale active backlog entry so future FUZ cron runs move on to non-metamorphic fuzzer slices.
+- Validation: `moon test src/fuzz` passed (`536` tests); `moon run src/fuzz -- validate-valid-metamorphic smoke --seed 0x1036` passed with `attempts=1`; `moon info`, `moon fmt`, and full `moon test` passed (`4399` tests).
+
 ## [2026-05-27] fuzzing | FUZ1036L6 nested identity-loop wrapper transform
 
 - Added `wrap-defined-function-bodies-in-nested-identity-loops`, a GenValid metamorphic transform that wraps defined functions with zero or one result in three nested `loop` instructions using the function-result block type at each layer.

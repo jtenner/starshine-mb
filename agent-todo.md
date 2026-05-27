@@ -744,7 +744,6 @@ p1 GenValid / valid-generation slices:
 - [FUZ]1036J (p1) - Harmless memory/table size query and passive segment/data-count reshaping transforms.
 - [FUZ]1036K (p1) - Function/table/global/import/export aliasing and duplicate-equivalent declaration transforms beyond the current simple surfaces.
 - [FUZ]1036L (done) - Control identity and stack-preserving wrapper transforms beyond empty block/loop and single identity block now cover block/loop-wrapped numeric const/drop debris, nested identity blocks, nested empty void blocks, and the checked-in `wrap-defined-function-bodies-in-identity-loop` transform. `[FUZ]1036L5` added the identity-loop wrapper and raised the fixed smoke registry to 477 transformed/validated variants.
-- [FUZ]1036N (p1) - Metamorphic suite docs/signoff closeout once remaining transform families and harness integration are complete.
 
 p1/p2 oracle, reporting, and infrastructure slices:
 - [FUZ]1052B (p2) - Export Invocation Result Matrix
