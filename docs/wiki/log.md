@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] fuzz | add invalid subtype variance AST strategy
+
+- Completed `[FUZ]1020A1` by adding `invalid-subtype-mutable-field-variance` to the invalid-AST registry. The new strategy appends a struct supertype with a mutable `(ref any)` field and a subtype with the corresponding mutable `(ref eq)` field, exercising the validator's mutable-field invariance rule through the type-section family.
+- Updated the invalid generator stable-id mapping, focused TypeSection rejection coverage, the registry expected-list fixture, and the `[FZG]024` fuzz ledger notes. Validation: `moon test src/validate`, `moon info`, `moon fmt`, `moon test`, and `bun fuzz run --suite validate-invalid-ast --profile smoke --seed 0x5eed --target native --out-dir .tmp/fuz1020a1-invalid-ast-smoke` passed.
+
 ## [2026-05-27] fuzzing | FUZ1058D golden seed maintenance docs
 
 - Completed `[FUZ]1058D` by documenting when and how to update the golden seed catalog in [`fuzzing/golden-seed-catalog.md`](fuzzing/golden-seed-catalog.md) and cross-linking that checklist from [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md).

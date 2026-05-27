@@ -276,6 +276,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidTagResultType
   InvalidSubtypeSuperIndex
   InvalidSubtypeSuperShape
+  InvalidSubtypeMutableFieldVariance
   DescriptorOnFuncType
   DataCountWithoutDataSec
   InvalidExportFuncIndex
@@ -2005,6 +2006,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
       seed_prerequisites=[RequiresMemoryData],
     ),
+    validate_invalid_ast_strategy_spec(
+      InvalidSubtypeMutableFieldVariance,
+      "invalid-subtype-mutable-field-variance",
+      "mutable subtype field type variance",
+      TypeSectionFamily,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -2083,6 +2091,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidTagResultType => 226
     InvalidSubtypeSuperIndex => 25
     InvalidSubtypeSuperShape => 26
+    InvalidSubtypeMutableFieldVariance => 233
     DescriptorOnFuncType => 27
     DataCountWithoutDataSec => 28
     InvalidExportFuncIndex => 29
@@ -9203,6 +9212,40 @@ fn validate_invalid_ast_mutate_invalid_subtype_super_shape(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_subtype_mutable_field_variance(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let types = validate_invalid_ast_type_entries(mod)
+  let super_idx = TypeIdx::new(
+    validate_invalid_ast_flat_type_count(mod).reinterpret_as_uint(),
+  )
+  let anyref = ValType::ref_type(RefType::abs(AbsHeapType::any()))
+  let eqref = ValType::ref_type(RefType::abs(AbsHeapType::eq()))
+  types.push(
+    RecType::new(
+      SubType::comp_type(
+        CompType::struct_([FieldType::new(StorageType::val_type(anyref), Var)]),
+      ),
+    ),
+  )
+  types.push(
+    RecType::new(
+      SubType::new(
+        false,
+        [super_idx],
+        CompType::struct_([FieldType::new(StorageType::val_type(eqref), Var)]),
+      ),
+    ),
+  )
+  {
+    strategy: InvalidSubtypeMutableFieldVariance,
+    applicable: true,
+    expected_family: TypeSectionFamily,
+    mutated_module: mod.with_type_sec(TypeSec::new(types)),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_descriptor_on_func_type(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -10035,6 +10078,8 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_subtype_super_index(base)
       InvalidSubtypeSuperShape =>
         validate_invalid_ast_mutate_invalid_subtype_super_shape(base)
+      InvalidSubtypeMutableFieldVariance =>
+        validate_invalid_ast_mutate_invalid_subtype_mutable_field_variance(base)
       DescriptorOnFuncType =>
         validate_invalid_ast_mutate_descriptor_on_func_type(base)
       DataCountWithoutDataSec =>
@@ -10573,7 +10618,7 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
     "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
     "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
-    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "datacount-mismatch-too-small", "datacount-mismatch-too-large", "invalid-subtype-mutable-field-variance",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 21)
@@ -11189,6 +11234,19 @@ test "invalid subtype super shape strategy rejects with TypeSection family" {
     invalid_ast_expect_strategy_rejects_with_family(
       InvalidSubtypeSuperShape,
       0x5efa2UL,
+      TypeSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid subtype mutable field variance strategy rejects with TypeSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidSubtypeMutableFieldVariance,
+      0x5efa3UL,
       TypeSectionFamily,
     ) {
     Ok(_) => ()
