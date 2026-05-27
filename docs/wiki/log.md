@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] docs | dae DAE004 selected fallback family grouping
+
+- Added [`raw/research/0665-2026-05-26-dae004-selected-fallback-family-grouping.md`](raw/research/0665-2026-05-26-dae004-selected-fallback-family-grouping.md) and updated [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) plus [`../../agent-todo.md`](../../agent-todo.md).
+- Closed `[DAE004-D2]` as a trace-backed classification slice: the remaining productive selected dropped-result fallback entries are grouped into one-call singleton, tiny multi-caller, mid-prefix dense, high-index bridge, and late-cluster families. `[DAE004-D3]` should start with one one-call singleton such as `445`, `3834`, `4106`, or `4249`.
+- Validation/evidence: `target/native/release/build/cmd/cmd.exe --tracing pass --dae-optimizing -o .tmp/dae004-d2-cmd-trace/out.wasm tests/node/dist/starshine-debug-wasi.wasm` produced `19` selected-fallback metadata lines; `wasm-opt --all-features .tmp/dae004-d2-cmd-trace/out.wasm -o /tmp/dae004-d2-validated.wasm` passed with only the existing large-local-count VM warning.
+
 ## [2026-05-26] tests | dae DAE004 selected fallback trace metadata
 
 - Added [`raw/research/0664-2026-05-26-dae004-selected-fallback-trace-metadata.md`](raw/research/0664-2026-05-26-dae004-selected-fallback-trace-metadata.md), a focused trace regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), and selected dropped-result candidate metadata in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).
