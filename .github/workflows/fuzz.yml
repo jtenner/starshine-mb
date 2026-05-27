@@ -65,6 +65,6 @@ jobs:
           curl -fsSL https://bun.sh/install | bash
           echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
 
-      - name: Run fuzz suites (stress profile, native target)
+      - name: Run default fuzz CI recipe (native target)
         run: |
-          bun fuzz run --profile stress --suite all --seed 0x5eed5eed --target native
+          bun fuzz run --recipe default-ci --seed 0x5eed5eed --target native

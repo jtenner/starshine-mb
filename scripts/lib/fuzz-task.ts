@@ -8,6 +8,9 @@ export type FuzzOptions = {
   profile: string;
   suite: string;
   seed: string | null;
+  recipeName: string | null;
+  suiteExplicit: boolean;
+  profileExplicit: boolean;
   output: "text" | "jsonl";
   seedCount: string | null;
   shardIndex: string | null;
@@ -37,6 +40,9 @@ function defaultFuzzOptions(): FuzzOptions {
     profile: "smoke",
     suite: "all",
     seed: null,
+    recipeName: null,
+    suiteExplicit: false,
+    profileExplicit: false,
     output: "text",
     seedCount: null,
     shardIndex: null,
@@ -199,8 +205,17 @@ export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
       i += 1;
       continue;
     }
+    if (token.startsWith("--recipe=")) {
+      if (options.recipeName !== null) {
+        fail("duplicate --recipe flag");
+      }
+      options.recipeName = token.substring("--recipe=".length);
+      i += 1;
+      continue;
+    }
     if (token.startsWith("--profile=")) {
       options.profile = token.substring("--profile=".length);
+      options.profileExplicit = true;
       i += 1;
       continue;
     }
@@ -230,6 +245,7 @@ export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
     }
     if (token.startsWith("--suite=")) {
       options.suite = token.substring("--suite=".length);
+      options.suiteExplicit = true;
       i += 1;
       continue;
     }
@@ -259,12 +275,21 @@ export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
       continue;
     }
     switch (token) {
+      case "--recipe":
+        if (options.recipeName !== null) {
+          fail("duplicate --recipe flag");
+        }
+        options.recipeName = argv[i + 1] ?? fail("missing value for --recipe");
+        i += 2;
+        break;
       case "--profile":
         options.profile = argv[i + 1] ?? fail("missing value for --profile");
+        options.profileExplicit = true;
         i += 2;
         break;
       case "--suite":
         options.suite = argv[i + 1] ?? fail("missing value for --suite");
+        options.suiteExplicit = true;
         i += 2;
         break;
       case "--seed":
@@ -344,9 +369,11 @@ export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
   }
   if (positional.length >= 1) {
     options.suite = positional[0];
+    options.suiteExplicit = true;
   }
   if (positional.length >= 2) {
     options.profile = positional[1];
+    options.profileExplicit = true;
   }
   if (positional.length === 3) {
     if (options.seed !== null) {
@@ -371,7 +398,11 @@ export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
 }
 
 // Build `moon run src/fuzz` command from parsed options and run in the repo root.
-export function runFuzz(options: FuzzOptions, repoRoot = resolveWorkspaceRoot()): void {
+export function runFuzz(
+  options: FuzzOptions,
+  repoRoot = resolveWorkspaceRoot(),
+  runner: typeof runOrThrow = runOrThrow,
+): void {
   if (options.emitGenValidBatch) {
     const args = [
       "run",
@@ -405,7 +436,7 @@ export function runFuzz(options: FuzzOptions, repoRoot = resolveWorkspaceRoot())
     for (const transform of options.metamorphicTransforms) {
       args.push("--metamorphic-transform", transform);
     }
-    runOrThrow(options.moonBin, args, { cwd: repoRoot });
+    runner(options.moonBin, args, { cwd: repoRoot });
     return;
   }
   if (options.help) {
@@ -433,7 +464,21 @@ export function runFuzz(options: FuzzOptions, repoRoot = resolveWorkspaceRoot())
     return;
   }
 
-  const args = ["run", "--target", options.target, "src/fuzz", "--", options.suite, options.profile];
+  const args = ["run", "--target", options.target, "src/fuzz", "--"];
+  if (options.recipeName !== null) {
+    args.push("--recipe", options.recipeName);
+    if (options.suiteExplicit) {
+      args.push(options.suite);
+    }
+    if (options.profileExplicit) {
+      if (!options.suiteExplicit) {
+        args.push(options.suite);
+      }
+      args.push(options.profile);
+    }
+  } else {
+    args.push(options.suite, options.profile);
+  }
   if (options.seed !== null) {
     args.push("--seed", options.seed);
   }
@@ -455,7 +500,7 @@ export function runFuzz(options: FuzzOptions, repoRoot = resolveWorkspaceRoot())
   if (options.outDir != null) {
     args.push("--out-dir", options.outDir);
   }
-  runOrThrow(options.moonBin, args, { cwd: repoRoot });
+  runner(options.moonBin, args, { cwd: repoRoot });
 }
 
 // `bun fuzz run` entrypoint with a strict single subcommand and no fallback parser.
@@ -471,7 +516,7 @@ export function main(argv: string[]): void {
   }
   if (subcommand !== "run") {
     fail(
-      "usage: bun fuzz run [--profile <name>|--profile=<name>] [--suite <name>|--suite=<name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>|--seed-count=<n>] [--shard-index <i>|--shard-index=<i> --shard-count <n>|--shard-count=<n>] [--report-json <path>|--report-json=<path>] [--out-dir <dir>|--out-dir=<dir>] [--output text|jsonl|--jsonl|--output=<text|jsonl>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>] [--list-suites|--list-profiles|--help]\n   or: bun fuzz run --emit-gen-valid-batch --count <n>|--count=<n> --seed <uint64>|--seed=<uint64> --out-dir <dir>|--out-dir=<dir> [--gen-valid-profile <name>|--gen-valid-profile=<name>] [--require-feature <label[:min]>] [--exclude-feature <label>] [--max-attempts <n>] [--manifest <path>|--manifest=<path>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>]\n   or: bun fuzz compare-pass [pass-fuzz-compare options]\n   or: bun fuzz coverage-delta [--optional] <before-report.json> <after-report.json>",
+      "usage: bun fuzz run [--recipe <name>|--recipe=<name>] [--profile <name>|--profile=<name>] [--suite <name>|--suite=<name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>|--seed-count=<n>] [--shard-index <i>|--shard-index=<i> --shard-count <n>|--shard-count=<n>] [--report-json <path>|--report-json=<path>] [--out-dir <dir>|--out-dir=<dir>] [--output text|jsonl|--jsonl|--output=<text|jsonl>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>] [--list-suites|--list-profiles|--help]\n   or: bun fuzz run --emit-gen-valid-batch --count <n>|--count=<n> --seed <uint64>|--seed=<uint64> --out-dir <dir>|--out-dir=<dir> [--gen-valid-profile <name>|--gen-valid-profile=<name>] [--require-feature <label[:min]>] [--exclude-feature <label>] [--max-attempts <n>] [--manifest <path>|--manifest=<path>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>]\n   or: bun fuzz compare-pass [pass-fuzz-compare options]\n   or: bun fuzz coverage-delta [--optional] <before-report.json> <after-report.json>",
     );
   }
   runFuzz(parseFuzzRunArgs(rest));
