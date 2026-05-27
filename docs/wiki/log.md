@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] fuzzing | FUZ1036I3 extern conversion metamorphic coverage
+
+- Completed `[FUZ]1036I3` by adding focused whitebox coverage for the existing leading/trailing `any.convert_extern` and `extern.convert_any` computed-drop GenValid metamorphic transforms.
+- The covered transform stacks use known-null `externref` / `anyref` operands, apply the nontrapping conversion, then drop the converted reference so existing function stacks and observable behavior are preserved.
+- Validation: `moon test src/fuzz` passed.
 
 ## [2026-05-27] fuzzing | FUZ1036F2 trunc-sat operand widening
 
