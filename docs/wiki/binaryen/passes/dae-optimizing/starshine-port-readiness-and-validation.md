@@ -191,7 +191,8 @@ Use this ladder when extending the active partial port. The old pre-port registr
    - Export/import/reference negatives.
 3. **Binaryen oracle comparison**
    - Run focused `wasm-opt --dae-optimizing -S` comparisons for each supported slice.
-   - Normalize only known textual noise; do not normalize away missing side effects or signature differences.
+   - For mixed-generator `pass-fuzz-compare` / `bun fuzz compare-pass` lanes, use `--normalize drop-consts`; this classifies known generated dropped-constant debris as `cleanupNormalizedMatchCount` instead of ordinary mismatches.
+   - Normalize only documented semantic-noop noise; do not normalize away missing side effects, signature differences, trapping behavior, or unclassified output drift.
 4. **GC/refinement tests**
    - Port the `dae-gc*` families only after local type-section and validator behavior are stable.
 5. **Dropped-result tests**

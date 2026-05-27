@@ -15,6 +15,7 @@ import {
 
 type GeneratorMode = "both" | "wasm-smith" | "gen-valid";
 type GeneratorKind = "wasm-smith" | "gen-valid";
+type CompareNormalizer = "drop-consts";
 type CommandFailureClass =
   | "starshine-command-failed"
   | "starshine-invalid-limits"
@@ -45,6 +46,7 @@ type PassFuzzCompareOptions = {
   replayFailuresFrom: string | null;
   failureClass: CommandFailureClass | null;
   replayCaseIndex: number | null;
+  normalizers: CompareNormalizer[];
 };
 
 type ParseCommand =
@@ -78,6 +80,7 @@ type PassFuzzCompareSummary = {
   minCompared: number | null;
   comparedCount: number;
   normalizedMatchCount: number;
+  cleanupNormalizedMatchCount: number;
   mismatchCount: number;
   validationFailureCount: number;
   generatorFailureCount: number;
@@ -94,6 +97,7 @@ type PassFuzzCompareSummary = {
   };
   passFlags: string[];
   binaryenPassFlags: string[];
+  normalizers: CompareNormalizer[];
   failureDirs: string[];
 };
 
@@ -109,6 +113,7 @@ const RESERVED_OPTIONS = new Set([
   "--generator",
   "--max-failures",
   "--keep-going-after-command-failures",
+  "--normalize",
   "--jobs",
   "--pass",
   "--replay-failures-from",
@@ -179,6 +184,7 @@ const HELP_TEXT = [
   "  --max-failures <n>    Stop after this many mismatches/failures. Default: 20",
   "  --keep-going-after-command-failures",
   "                       Record command failures without counting them toward --max-failures",
+  "  --normalize <name>   Enable compare normalizer. Supported: drop-consts. May repeat",
   "  --jobs <n|auto>       Concurrent case jobs. Default: 1; auto uses available parallelism; >1 requires --starshine-bin",
   "  --pass <name>         Canonical pass name without leading --. May repeat",
   "  --replay-failures-from <dir>",
@@ -273,6 +279,15 @@ function normalizePassNameToFlag(raw: string): string {
     fail(`unsupported pass flag for pass-fuzz-compare: ${raw}`);
   }
   return starshineFlag;
+}
+
+function normalizeCompareNormalizer(raw: string): CompareNormalizer {
+  switch (raw.trim()) {
+    case "drop-consts":
+      return "drop-consts";
+    default:
+      fail(`unsupported pass-fuzz-compare normalizer: ${raw}`);
+  }
 }
 
 function normalizeCommandFailureClass(raw: string): CommandFailureClass {
@@ -518,6 +533,191 @@ async function canonicalizeWasm(
   );
 }
 
+function parenDelta(line: string): number {
+  let delta = 0;
+  for (const char of line) {
+    if (char === "(") delta += 1;
+    if (char === ")") delta -= 1;
+  }
+  return delta;
+}
+
+function isDropConstExpression(text: string): boolean {
+  if (!text.trimStart().startsWith("(drop")) return false;
+  const unsafePattern = /\b(call|call_ref|return_call|local\.|global\.|load|store|memory\.|table\.|ref\.|struct\.|array\.|br|br_if|br_table|return|if|block|loop|try|try_table|throw|rethrow|delegate|select|unreachable|nop|promote|demote|reinterpret|wrap)\b/;
+  if (unsafePattern.test(text)) return false;
+  if (/\.(?:div_s|div_u|rem_s|rem_u)\b/.test(text) && /\b[if](?:32|64)\.const\s+(?:0|-1)\b/.test(text)) {
+    return false;
+  }
+  // Keep the first drop-consts normalizer intentionally syntax-scoped: it only
+  // erases dropped closed numeric expression trees. Div/rem are accepted only
+  // for the simple nonzero constant debris shape used by gen-valid; anything
+  // that can observe locals/globals/memory/tables, call, branch, or otherwise
+  // affect module state is rejected.
+  const allowedTokens = new Set([
+    "drop",
+    "nan",
+    "inf",
+    "i32.const",
+    "i64.const",
+    "f32.const",
+    "f64.const",
+    "i32.eqz",
+    "i64.eqz",
+    "i32.eq",
+    "i32.ne",
+    "i32.lt_s",
+    "i32.lt_u",
+    "i32.gt_s",
+    "i32.gt_u",
+    "i32.le_s",
+    "i32.le_u",
+    "i32.ge_s",
+    "i32.ge_u",
+    "i64.eq",
+    "i64.ne",
+    "i64.lt_s",
+    "i64.lt_u",
+    "i64.gt_s",
+    "i64.gt_u",
+    "i64.le_s",
+    "i64.le_u",
+    "i64.ge_s",
+    "i64.ge_u",
+    "i32.add",
+    "i32.sub",
+    "i32.mul",
+    "i32.div_s",
+    "i32.div_u",
+    "i32.rem_s",
+    "i32.rem_u",
+    "i32.and",
+    "i32.or",
+    "i32.xor",
+    "i32.shl",
+    "i32.shr_s",
+    "i32.shr_u",
+    "i32.rotl",
+    "i32.rotr",
+    "i64.add",
+    "i64.sub",
+    "i64.mul",
+    "i64.div_s",
+    "i64.div_u",
+    "i64.rem_s",
+    "i64.rem_u",
+    "i64.and",
+    "i64.or",
+    "i64.xor",
+    "i64.shl",
+    "i64.shr_s",
+    "i64.shr_u",
+    "i64.rotl",
+    "i64.rotr",
+    "i32.clz",
+    "i32.ctz",
+    "i32.popcnt",
+    "i64.clz",
+    "i64.ctz",
+    "i64.popcnt",
+    "f32.eq",
+    "f32.ne",
+    "f32.lt",
+    "f32.gt",
+    "f32.le",
+    "f32.ge",
+    "f64.eq",
+    "f64.ne",
+    "f64.lt",
+    "f64.gt",
+    "f64.le",
+    "f64.ge",
+    "i32.trunc_f32_u",
+    "i32.trunc_f64_u",
+    "i64.trunc_f32_u",
+    "i64.trunc_f64_u",
+    "i32.trunc_sat_f32_s",
+    "i32.trunc_sat_f32_u",
+    "i32.trunc_sat_f64_s",
+    "i32.trunc_sat_f64_u",
+    "i64.trunc_sat_f32_s",
+    "i64.trunc_sat_f32_u",
+    "i64.trunc_sat_f64_s",
+    "i64.trunc_sat_f64_u",
+    "i64.extend_i32_u",
+    "i32.extend8_s",
+    "i32.extend16_s",
+    "i64.extend8_s",
+    "i64.extend16_s",
+    "i64.extend32_s",
+    "f32.convert_i32_u",
+    "f32.convert_i64_u",
+    "f64.convert_i32_u",
+    "f64.convert_i64_u",
+    "f32.abs",
+    "f32.neg",
+    "f32.ceil",
+    "f32.floor",
+    "f32.trunc",
+    "f32.nearest",
+    "f32.sqrt",
+    "f32.min",
+    "f32.max",
+    "f32.copysign",
+    "f64.abs",
+    "f64.neg",
+    "f64.ceil",
+    "f64.floor",
+    "f64.trunc",
+    "f64.nearest",
+    "f64.sqrt",
+    "f64.min",
+    "f64.max",
+    "f64.copysign",
+  ]);
+  const tokenPattern = /[A-Za-z_][A-Za-z0-9_.$-]*/g;
+  for (const match of text.matchAll(tokenPattern)) {
+    if (!allowedTokens.has(match[0])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function normalizeDroppedConstExpressions(wat: string): string {
+  const lines = wat.split("\n");
+  const output: string[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line.trimStart().startsWith("(drop")) {
+      output.push(line);
+      continue;
+    }
+    const exprLines = [line];
+    let balance = parenDelta(line);
+    while (balance > 0 && index + 1 < lines.length) {
+      index += 1;
+      exprLines.push(lines[index]);
+      balance += parenDelta(lines[index]);
+    }
+    const exprText = exprLines.join("\n");
+    if (!isDropConstExpression(exprText)) {
+      output.push(...exprLines);
+    }
+  }
+  return output.join("\n");
+}
+
+function applyCompareNormalizers(wat: string, normalizers: CompareNormalizer[]): string {
+  let normalized = wat;
+  for (const normalizer of normalizers) {
+    if (normalizer === "drop-consts") {
+      normalized = normalizeDroppedConstExpressions(normalized);
+    }
+  }
+  return normalized;
+}
+
 async function runSmith(
   wasmToolsBin: string,
   outputPath: string,
@@ -710,6 +910,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let replayFailuresFrom: string | null = null;
   let failureClass: CommandFailureClass | null = null;
   let replayCaseIndex: number | null = null;
+  const normalizers: CompareNormalizer[] = [];
   let command: ParseCommand["kind"] = "run";
 
   for (let i = 0; i < argv.length; ) {
@@ -782,6 +983,10 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       case "--keep-going-after-command-failures":
         keepGoingAfterCommandFailures = true;
         i += 1;
+        break;
+      case "--normalize":
+        normalizers.push(normalizeCompareNormalizer(argv[i + 1] ?? fail("missing value for --normalize")));
+        i += 2;
         break;
       case "--jobs":
         jobs = parseJobs(argv[i + 1] ?? fail("missing value for --jobs"));
@@ -859,6 +1064,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       replayFailuresFrom,
       failureClass,
       replayCaseIndex,
+      normalizers,
     },
   };
 }
@@ -943,6 +1149,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     minCompared: options.minCompared,
     comparedCount: 0,
     normalizedMatchCount: 0,
+    cleanupNormalizedMatchCount: 0,
     mismatchCount: 0,
     validationFailureCount: 0,
     generatorFailureCount: 0,
@@ -959,6 +1166,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     },
     passFlags: options.passFlags,
     binaryenPassFlags,
+    normalizers: options.normalizers,
     failureDirs: [],
   };
 
@@ -1192,6 +1400,8 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         summary.generatorCounts.wasmSmith += 1;
       }
 
+      const starshineCompareWat = applyCompareNormalizers(starshineWat, options.normalizers);
+      const binaryenCompareWat = applyCompareNormalizers(binaryenWat, options.normalizers);
       if (starshineWat === binaryenWat) {
         summary.normalizedMatchCount += 1;
         recordCase({
@@ -1199,6 +1409,14 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           generator,
           status: "match",
           detail: "normalized outputs matched",
+        });
+      } else if (options.normalizers.length > 0 && starshineCompareWat === binaryenCompareWat) {
+        summary.cleanupNormalizedMatchCount += 1;
+        recordCase({
+          caseIndex: caseNumber,
+          generator,
+          status: "match",
+          detail: `compare-normalized outputs matched with ${options.normalizers.join(",")}`,
         });
       } else {
         summary.mismatchCount += 1;
@@ -1264,6 +1482,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   process.stdout.write(`Jobs: ${summary.jobs}\n`);
   process.stdout.write(`Compared cases: ${summary.comparedCount}/${summary.requestedCount}\n`);
   process.stdout.write(`Normalized matches: ${summary.normalizedMatchCount}\n`);
+  process.stdout.write(`Compare-normalized matches: ${summary.cleanupNormalizedMatchCount}\n`);
   process.stdout.write(`Validation failures: ${summary.validationFailureCount}\n`);
   process.stdout.write(`Generator failures: ${summary.generatorFailureCount}\n`);
   process.stdout.write(`Command failures: ${summary.commandFailureCount}\n`);

@@ -89,9 +89,11 @@ For each case, [`runPassFuzzCompare(...)`](../../../scripts/lib/pass-fuzz-compar
 4. **Binaryen oracle run:** `wasm-opt input.wasm --all-features <binaryen-pass-flags> -o binaryen.raw.wasm` produces the oracle output.
 5. **Canonicalization:** both raw outputs are passed through `wasm-opt --all-features --strip-debug -o <canonical.wasm>`.
 6. **Text normalization:** both canonical outputs are printed with `wasm-opt --all-features --strip-debug -S -o <wat>`.
-7. **Compare:** matching WAT increments `normalizedMatchCount`; drift records a `mismatch` case.
+7. **Compare:** matching WAT increments `normalizedMatchCount`; drift records a `mismatch` case unless an explicit compare normalizer also proves equality.
 
 That order matters. A pass can be locally safe but still differ in raw binary layout, custom-section order, name stripping, or textual representation. The harness intentionally removes those surfaces before comparing.
+
+Optional compare normalizers are enabled with repeatable `--normalize <name>` flags. The first supported normalizer is `--normalize drop-consts`, which removes only conservative dropped constant-expression debris from the printed WAT before the fallback comparison. Exact WAT equality still increments `normalizedMatchCount`; equality reached only after these explicit compare normalizers increments `cleanupNormalizedMatchCount`, leaving remaining drift as `mismatch` cases. Use this for lanes like `dae-optimizing` where one side removes pure generated debris that the other side preserves; do not use it as a substitute for classifying new semantic or validation mismatches.
 
 ## Pass Flag Mapping
 

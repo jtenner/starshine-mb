@@ -116,6 +116,14 @@ Equivalent direct entrypoint:
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass <canonical-name> --out-dir .tmp/pass-fuzz-<name>
 ```
 
+For DAE / `dae-optimizing` mixed-generator lanes, add the documented compare normalizer so generated dropped-constant debris does not consume the mismatch budget:
+
+```sh
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dae-optimizing --normalize drop-consts --out-dir .tmp/pass-fuzz-dae-optimizing
+```
+
+Report exact `normalizedMatchCount`, `cleanupNormalizedMatchCount`, remaining `mismatchCount`, and command-failure classes separately.
+
 Required result:
 
 - Binaryen semantic parity at minimum.
@@ -170,7 +178,7 @@ When reporting pass signoff, include:
 - tests added or updated
 - focused Moon command results
 - standard Moon signoff results: `moon info`, `moon fmt`, `moon test`
-- `10000` compare-pass command, seed, out dir, compared count, normalized match count, raw mismatch count, and command-failure classification
+- `10000` compare-pass command, seed, out dir, compared count, normalized match count, cleanup-normalized match count when `--normalize ...` is used, raw mismatch count, and command-failure classification
 - agent-classified mismatch breakdown, with explicit rationale for any semantic-safe/size-winning mismatch family; never imply the harness proved semantic safety
 - replayed failure dirs and their outcomes, if any
 - pass-local performance numbers, artifact comparisons, any `[WALL]001` attribution, or why they were not applicable

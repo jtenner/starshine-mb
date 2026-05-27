@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-26] tooling | compare-pass drop-consts normalizer
+
+- Added an opt-in `bun scripts/pass-fuzz-compare.ts --normalize drop-consts` compare normalizer in [`../../scripts/lib/pass-fuzz-compare-task.ts`](../../scripts/lib/pass-fuzz-compare-task.ts) with command coverage in [`../../scripts/test/pass-fuzz-compare-command.ts`](../../scripts/test/pass-fuzz-compare-command.ts).
+- The normalizer is for DAE-style generator debris: exact normalized WAT matches still count in `normalizedMatchCount`, while equality only after explicit compare normalization counts in the new `cleanupNormalizedMatchCount` summary field.
+- Updated [`tooling/pass-fuzz-compare.md`](tooling/pass-fuzz-compare.md), [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), [`../../.pi/skills/starshine-pass-implementation/SKILL.md`](../../.pi/skills/starshine-pass-implementation/SKILL.md), [`binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md), [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md), and [`../../agent-todo.md`](../../agent-todo.md) so future DAE fuzz runs use the normalizer without treating accepted dropped-constant cleanup as ordinary mismatches.
+
 ## [2026-05-26] passes | dae DAE004 singleton 4249 removal
 
 - Added [`raw/research/0670-2026-05-26-dae004-singleton-4249-validation.md`](raw/research/0670-2026-05-26-dae004-singleton-4249-validation.md), extended the singleton broad-large regression in [`../../src/passes/dae_optimizing_test.mbt`](../../src/passes/dae_optimizing_test.mbt), and removed `4249` from selected dropped-result fallback lists in [`../../src/passes/dead_argument_elimination.mbt`](../../src/passes/dead_argument_elimination.mbt).

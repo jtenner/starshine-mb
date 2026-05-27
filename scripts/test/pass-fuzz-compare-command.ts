@@ -195,6 +195,108 @@ process.exit(0);
   assert(validateCalls.length === 8, `expected baseline and Starshine validation for 4 cases, got ${validateCalls.length}`);
 }
 
+export function runPassFuzzCompareDropConstsNormalizerCommandTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-drop-consts-"));
+  const outDir = path.join(tmpdir, "out");
+
+  const fakeStarshine = makeExecutable(
+    path.join(tmpdir, "fake-starshine"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+const outIndex = args.indexOf("--out");
+if (outIndex === -1) process.exit(1);
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+fs.writeFileSync(args[outIndex + 1], "starshine");
+process.exit(0);
+`,
+  );
+
+  const fakeWasmOpt = makeExecutable(
+    path.join(tmpdir, "fake-wasm-opt"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+const outIndex = args.indexOf("-o");
+if (outIndex === -1) process.exit(1);
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+const output = args[outIndex + 1];
+if (args.includes("-S")) {
+  if (args[0].endsWith("binaryen.wasm")) {
+    fs.writeFileSync(output, '(module\\n (func $0\\n  (drop\\n   (i32.eq\\n    (i32.const 11)\\n    (i32.const 3)\\n   )\\n  )\\n  (unreachable)\\n )\\n)\\n');
+  } else {
+    fs.writeFileSync(output, '(module\\n (func $0\\n  (unreachable)\\n )\\n)\\n');
+  }
+} else {
+  fs.writeFileSync(output, "wasm:" + path.basename(args[0]));
+}
+process.exit(0);
+`,
+  );
+
+  const fakeWasmTools = makeExecutable(
+    path.join(tmpdir, "fake-wasm-tools"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+if (args[0] === "smith") {
+  const outIndex = args.indexOf("-o");
+  fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+  fs.writeFileSync(args[outIndex + 1], "smith");
+}
+process.exit(0);
+`,
+  );
+
+  const result = spawnSync(
+    "bun",
+    [
+      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--count",
+      "1",
+      "--seed",
+      "0x5eed",
+      "--out-dir",
+      outDir,
+      "--starshine-bin",
+      fakeStarshine,
+      "--wasm-opt-bin",
+      fakeWasmOpt,
+      "--wasm-tools-bin",
+      fakeWasmTools,
+      "--generator",
+      "wasm-smith",
+      "--normalize",
+      "drop-consts",
+      "--pass",
+      "dae-optimizing",
+    ],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    fail(`pass-fuzz-compare drop-consts normalizer failed:\n${result.stderr}`);
+  }
+
+  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
+    normalizedMatchCount: number;
+    cleanupNormalizedMatchCount: number;
+    mismatchCount: number;
+    normalizers: string[];
+  };
+  assert(summary.normalizedMatchCount === 0, `expected no exact matches, got ${summary.normalizedMatchCount}`);
+  assert(
+    summary.cleanupNormalizedMatchCount === 1,
+    `expected one drop-consts compare-normalized match, got ${summary.cleanupNormalizedMatchCount}`,
+  );
+  assert(summary.mismatchCount === 0, `expected no mismatches, got ${summary.mismatchCount}`);
+  assert(JSON.stringify(summary.normalizers) === JSON.stringify(["drop-consts"]), `unexpected normalizers ${JSON.stringify(summary.normalizers)}`);
+}
+
 export function runPassFuzzCompareListPassesCommandTest(): void {
   const repoRoot = path.resolve(import.meta.dir, "..", "..");
   const result = spawnSync(
@@ -2771,6 +2873,7 @@ export function runPassFuzzCompareParallelJobsRequireStarshineBinTest(): void {
 
 if (import.meta.main) {
   runPassFuzzCompareCommandTest();
+  runPassFuzzCompareDropConstsNormalizerCommandTest();
   runPassFuzzCompareListPassesCommandTest();
   runPassFuzzCompareListFailureClassesCommandTest();
   runPassFuzzComparePassAliasCommandTest();
