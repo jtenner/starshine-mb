@@ -2035,6 +2035,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-24] fuzzing | FUZ1023 dynamic GenValid-WAT invalid text mutation
 
+- Continued `[FUZ]1023` by adding `dynamic-gen-valid-unknown-import`, which starts from verified GenValid WAT, inserts an import immediately after the module opener so section order stays valid, replays the mutated source as `assert_unlinkable`, records the `gen-valid-wat/unknown-import` variant id plus `mutation:unknown-import`, and gives the dynamic suite first-class valid-before-link GenValid-WAT coverage.
 - Continued `[FUZ]1023` by adding `dynamic-gen-valid-bad-lane-index` and `dynamic-gen-valid-bad-memarg-align`, which start from verified GenValid WAT and insert quoted `assert_malformed` modules that exercise WAST lowering rejection for an out-of-range SIMD lane immediate and malformed memory alignment literal.
 - Continued `[FUZ]1023` by adding `dynamic-gen-valid-bad-opcode-token`, which starts from verified GenValid WAT, inserts a function containing an unknown opcode token before the module close, quotes the mutated module as `assert_malformed`, and records source feature facts such as `source:gen-valid-wat` in dynamic case/stats details.
 - Continued `[FUZ]1023` by adding `dynamic-gen-valid-duplicate-export`, which starts from verified GenValid WAT, inserts two raw function exports with the same generated name before the module close, and replays the mutated text as an `assert_invalid` validation-stage specimen.

@@ -1203,7 +1203,8 @@ fn validate_invalid_text_dynamic_supported_strategy(stable_id : String) -> Bool 
   stable_id == "dynamic-gen-valid-duplicate-export" ||
   stable_id == "dynamic-gen-valid-bad-opcode-token" ||
   stable_id == "dynamic-gen-valid-bad-lane-index" ||
-  stable_id == "dynamic-gen-valid-bad-memarg-align"
+  stable_id == "dynamic-gen-valid-bad-memarg-align" ||
+  stable_id == "dynamic-gen-valid-unknown-import"
 }
 
 ///|
@@ -1211,6 +1212,7 @@ fn validate_invalid_text_dynamic_strategies() -> Array[String] {
   [
     "dynamic-gen-valid-missing-closing-paren", "dynamic-gen-valid-duplicate-export",
     "dynamic-gen-valid-bad-opcode-token", "dynamic-gen-valid-bad-lane-index", "dynamic-gen-valid-bad-memarg-align",
+    "dynamic-gen-valid-unknown-import",
   ]
 }
 
@@ -1274,6 +1276,39 @@ fn validate_invalid_text_insert_before_last_closing_paren(
     i -= 1
   }
   Err("generated WAT did not contain a closing paren to mutate")
+}
+
+///|
+fn validate_invalid_text_insert_after_module_open(
+  source : String,
+  inserted : String,
+) -> Result[String, String] {
+  let marker = "(module"
+  let mut index = -1
+  let mut probe = 0
+  while probe + marker.length() <= source.length() && index < 0 {
+    if source.sub(start=probe, end=probe + marker.length()).to_owned() == marker {
+      index = probe
+    }
+    probe += 1
+  }
+  if index < 0 {
+    return Err("generated WAT did not contain a module opener to mutate")
+  }
+  let insert_at = index + marker.length()
+  let out = StringBuilder::new()
+  let mut i = 0
+  while i < source.length() {
+    if i == insert_at {
+      out.write_string(inserted)
+    }
+    out.write_char(source[i].unsafe_to_char())
+    i += 1
+  }
+  if insert_at == source.length() {
+    out.write_string(inserted)
+  }
+  Ok(out.to_string())
 }
 
 ///|
@@ -1472,6 +1507,24 @@ pub fn validate_invalid_text_dynamic_case(
         assertion_source: "(assert_malformed (module quote \"\{escaped}\") \"dynamic bad memarg alignment\")",
         assertion_kind: MalformedTextAssertion,
         expected_stage: ParseOrLowerRejectedStage,
+        source_feature_facts,
+      })
+    }
+    "dynamic-gen-valid-unknown-import" => {
+      let inserted = "\n  (import \"dynamic_missing_module\" \"dynamic_missing_func\" (func $dynamic_unknown_import))\n"
+      let mutated_source = match
+        validate_invalid_text_insert_after_module_open(base_source, inserted) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      source_feature_facts.push("mutation:unknown-import")
+      Ok({
+        stable_id,
+        variant_id: "gen-valid-wat/unknown-import",
+        base_source,
+        assertion_source: "(assert_unlinkable \{mutated_source} \"dynamic unknown import\")",
+        assertion_kind: UnlinkableTextAssertion,
+        expected_stage: ValidBeforeLinkStage,
         source_feature_facts,
       })
     }

@@ -2041,7 +2041,7 @@ test "run_fuzz_suite routes validate-invalid-text-dynamic through dynamic GenVal
   }
   @debug.assert_eq(result.suite, "validate-invalid-text-dynamic")
   @debug.assert_eq(result.profile, "smoke")
-  @debug.assert_eq(result.attempts, 20)
+  @debug.assert_eq(result.attempts, 24)
   match result.details_json {
     Some(details) => {
       assert_true(details.contains("dynamic-gen-valid-missing-closing-paren"))
@@ -2049,7 +2049,9 @@ test "run_fuzz_suite routes validate-invalid-text-dynamic through dynamic GenVal
       assert_true(details.contains("dynamic-gen-valid-bad-opcode-token"))
       assert_true(details.contains("dynamic-gen-valid-bad-lane-index"))
       assert_true(details.contains("dynamic-gen-valid-bad-memarg-align"))
+      assert_true(details.contains("dynamic-gen-valid-unknown-import"))
       assert_true(details.contains("source:gen-valid-wat"))
+      assert_true(details.contains("mutation:unknown-import"))
       assert_true(details.contains("\"stream_label\":\"text-mutation-choice\""))
       assert_true(details.contains("\"stream_seed\":"))
       assert_true(
