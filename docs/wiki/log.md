@@ -105,6 +105,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - GenValid batch selection now skips the table-size transform ids for generated modules without a valid table index instead of treating the transform's applicability rejection as a hard batch failure; memory-size transform ids share the same applicability guard.
 - Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) and added focused batch-selection coverage. Validation: `moon test src/fuzz` passed, and `.tmp/fuz1036j2-smoke` generated leading/trailing table-size transformed artifacts.
 
+## [2026-05-27] fuzzing | FUZ1036F closure verification
+
+- Closed stale `[FUZ]1036F` backlog tracking after verifying the checked-in metamorphic-valid registry already covers all requested leading/trailing scalar computed-drop families: integer width conversions (`i32.wrap_i64`, `i64.extend_i32_s`, `i64.extend_i32_u`), sign-extension (`i32.extend8_s`, `i32.extend16_s`, `i64.extend8_s`, `i64.extend16_s`, `i64.extend32_s`), and saturating truncation (`i32`/`i64` from `f32`/`f64`, signed and unsigned).
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) with an explicit `[FUZ]1036F0` wrap/extend bullet and pruned the active backlog entry so the remaining p1 GenValid work starts at `[FUZ]1036G`.
+
 ## [2026-05-27] fuzzing | FUZ1036I3 extern conversion metamorphic coverage
 
 - Completed `[FUZ]1036I3` by adding focused whitebox coverage for the existing leading/trailing `any.convert_extern` and `extern.convert_any` computed-drop GenValid metamorphic transforms.
