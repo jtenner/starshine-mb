@@ -622,7 +622,6 @@ p1 next-up / active:
   - Blocker/evidence: numeric constants are valid for global initializers and active data/element offsets, but a table initializer expression must produce the table element reference type, not a numeric value. `wasm-tools validate .tmp/fuz1037b-table-init-numeric.wat` rejects `(table 1 funcref (i32.const 0))` with `type mismatch: expected funcref, found i32`. Starshine's checked-in GenValid const-expression matrix already excludes `NumericConstExprOp` from `TableInitializerConstExpr` for this reason. Resume only if the slice is redefined to cover numeric table limits/indices instead of table initializer expressions, or split the valid global/data/element numeric coverage into a narrower task.
 
 p2 invalid/binary/text tiny slices:
-- [FUZ]1020B1 - Add the next table/memory/tag/global section-index invalid AST family not already covered.
 - [FUZ]1020B2 - Add the next element/data/datacount/start/export/code/name-section rule variant not already covered.
 - [FUZ]1020C1 - Add one remaining GC body invalid proposal family.
 - [FUZ]1020C2 - Add one remaining exception/branch-payload invalid body family.
