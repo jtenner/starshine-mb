@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] fuzzing | FUZ1038C topology-heavy arbitrary custom payloads
+
+- Continued `[FUZ]1038C` by adding an explicit arbitrary-byte unknown custom section to the topology-heavy GenValid metadata lane, preserving the existing empty, high-byte, UTF-8 text, long, and name-like custom-section payload shapes.
+- Updated the fixed topology-heavy validation anchor to require the new alternating low/high byte payload and refreshed [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the custom-section contract names at least six non-`name` custom sections.
+- Validation: the focused `moon test src/validate` check first failed on the missing arbitrary-byte custom payload, then passed after the generator update; `moon fmt`, `moon info`, `moon test src/fuzz`, full `moon test`, and `moon run src/fuzz -- validate-valid smoke --seed 0xf71003` also passed.
+
 ## [2026-05-27] fuzzing | FUZ1020C3 relaxed SIMD invalid AST operand coverage
 
 - Completed `[FUZ]1020C3` by adding `invalid-function-body-relaxed-simd-swizzle-left-type`, a function-body invalid AST strategy that feeds `i32.const` into the left operand of `i8x16.relaxed_swizzle` while keeping the right operand vector-typed.

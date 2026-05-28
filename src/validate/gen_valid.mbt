@@ -11329,6 +11329,12 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
           gen_valid_name(ctx, "fzg.custom.name-like"),
           gen_valid_payload(ctx, b"name\x00\x01payload-but-not-name-section"),
         ),
+        @lib.CustomSec::new(
+          gen_valid_name(ctx, "fzg.custom.arbitrary-bytes"),
+          gen_valid_payload(
+            ctx, b"\x00\xff\x01\xfe\x02\xfd\x03\xfc\x04\xfb\x05\xfa\x06\xf9\x07\xf8",
+          ),
+        ),
       ]
     } else {
       [

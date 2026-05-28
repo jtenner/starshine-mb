@@ -1324,6 +1324,17 @@ fn gen_valid_test_non_name_custom_count(mod_ : Module) -> Int {
 }
 
 ///|
+fn gen_valid_test_has_custom_payload(mod_ : Module, expected : Bytes) -> Bool {
+  for custom in mod_.custom_secs {
+    let CustomSec(_, payload) = custom
+    if payload == expected {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_test_idx_is_nonzero_mem(mem_idx : MemIdx) -> Bool {
   let MemIdx(mem_idx_u) = mem_idx
   mem_idx_u.reinterpret_as_int() > 0
@@ -2172,8 +2183,15 @@ test "topology-heavy profile emits high-index import export topology" {
     msg="topology-heavy profile should emit multiple non-name custom sections in the binary-supported leading custom section area",
   )
   assert_true(
-    gen_valid_test_non_name_custom_count(generated.wasm_module) >= 5,
+    gen_valid_test_non_name_custom_count(generated.wasm_module) >= 6,
     msg="topology-heavy profile should emit a varied unknown custom-section set",
+  )
+  assert_true(
+    gen_valid_test_has_custom_payload(
+      generated.wasm_module,
+      b"\x00\xff\x01\xfe\x02\xfd\x03\xfc\x04\xfb\x05\xfa\x06\xf9\x07\xf8",
+    ),
+    msg="topology-heavy profile should emit arbitrary unknown custom-section payload bytes",
   )
   assert_true(
     gen_valid_test_name_sec_has_func_local_and_label_names(
