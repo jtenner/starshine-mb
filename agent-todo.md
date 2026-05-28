@@ -801,7 +801,6 @@ p2 invalid/binary/text slices:
   - Invariants: valid start functions must have type `[] -> []`; initializer expressions must validate under official section-order rules; valid interaction anchors should prove co-occurrence in one generated module, not only isolated surfaces.
   - Suggested Tests: valid start/global/segment fixtures, invalid wrong-start-type and wrong-offset-type fixtures, pass-fuzz smoke for passes that remove unused elements.
   - Exit Criteria: initialization-heavy modules can be generated reproducibly and invalid tests cover the common bad cross-section references.
-  - [FUZ]1039J (open p1) - Active segment plus passive drop interaction anchor. Deliverable: coverage-forced valid GenValid test proving one module combines active data/element offsets with passive data/element segments that are later dropped from a valid function body, if not already covered by FUZ1007/FUZ1036J evidence.
   - [FUZ]1039K (open p1) - Closeout evidence. Deliverable: after the open FUZ1039 units are done or explicitly found covered elsewhere, update docs/wiki and remove the parent task from active backlog.
 
 - [FUZ]1042 (p2) - Corpus Promotion, Quarantine, And Regression Replay Workflow

@@ -1307,6 +1307,7 @@ pub enum ValidateInvalidAstStrategyId {
   MutableGlobalGetInConstInit
   InvalidGlobalInitType
   NonConstantDataOffset
+  InvalidDataOffsetType
   InvalidDataActiveMemoryIndex
   InvalidImportedFuncTypeIndex
   InvalidImportedTagTypeIndex
@@ -1320,6 +1321,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidElementActiveTableIndex
   InvalidElementFuncIndex
   InvalidElementTypedExprType
+  InvalidTableInitExprType
   InvalidMemoryLimitRange
   InvalidTableLimitRange
   InvalidImportedMemoryLimitRange

@@ -469,6 +469,35 @@ test "gen-valid active segments can use imported immutable global offsets" {
 }
 
 ///|
+test "gen-valid init-heavy combines active segment offsets with passive drops" {
+  let config = GenValidConfig::coverage_forced_default()
+  let generated = match gen_valid_module_result_from_seed(0x1039AUL, config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(
+    gen_valid_test_has_imported_global_active_data_offset(generated.wasm_module),
+    msg="coverage-forced GenValid should combine an active data offset with passive data users",
+  )
+  assert_true(
+    gen_valid_test_has_imported_global_active_elem_offset(generated.wasm_module),
+    msg="coverage-forced GenValid should combine an active element offset with passive element users",
+  )
+  assert_true(
+    gen_valid_test_has_passive_data_drop(generated.wasm_module),
+    msg="coverage-forced GenValid should drop a passive data segment from a valid body",
+  )
+  assert_true(
+    gen_valid_test_has_passive_elem_drop(generated.wasm_module),
+    msg="coverage-forced GenValid should drop a passive element segment from a valid body",
+  )
+}
+
+///|
 test "gen-valid shared const-expression contexts select allowed op families" {
   let ctx = GenValidContext::new_streamed(0x1037AUL, {
     ..GenValidConfig::coverage_forced_default()
@@ -1561,6 +1590,134 @@ fn gen_valid_test_has_nonzero_active_data(mod_ : Module) -> Bool {
           Active(MemIdx(mem_idx), _) if mem_idx.reinterpret_as_int() > 0 =>
             return true
           _ => ()
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_data_idx_is_passive(mod_ : Module, idx : DataIdx) -> Bool {
+  match mod_.data_sec {
+    Some(DataSec(datas)) => {
+      for i = 0; i < datas.length(); i = i + 1 {
+        if DataIdx::new(i.reinterpret_as_uint()) == idx {
+          let Data(mode, _) = datas[i]
+          match mode {
+            Passive => return true
+            _ => return false
+          }
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_elem_idx_is_passive(mod_ : Module, idx : ElemIdx) -> Bool {
+  match mod_.elem_sec {
+    Some(ElemSec(elems)) => {
+      for i = 0; i < elems.length(); i = i + 1 {
+        if ElemIdx::new(i.reinterpret_as_uint()) == idx {
+          let Elem(mode, _) = elems[i]
+          match mode {
+            Passive => return true
+            _ => return false
+          }
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_instrs_drop_passive_data(
+  instrs : Array[Instruction],
+  mod_ : Module,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      DataDrop(idx) if gen_valid_test_data_idx_is_passive(mod_, idx) =>
+        return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_drop_passive_data(body, mod_) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_drop_passive_data(then_body, mod_) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_drop_passive_data(body, mod_) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_drop_passive_elem(
+  instrs : Array[Instruction],
+  mod_ : Module,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      ElemDrop(idx) if gen_valid_test_elem_idx_is_passive(mod_, idx) =>
+        return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_drop_passive_elem(body, mod_) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_drop_passive_elem(then_body, mod_) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_drop_passive_elem(body, mod_) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_has_passive_data_drop(mod_ : Module) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) => {
+      for func in funcs {
+        let Func(_, Expr(body)) = func
+        if gen_valid_test_instrs_drop_passive_data(body, mod_) {
+          return true
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_has_passive_elem_drop(mod_ : Module) -> Bool {
+  match mod_.code_sec {
+    Some(CodeSec(funcs)) => {
+      for func in funcs {
+        let Func(_, Expr(body)) = func
+        if gen_valid_test_instrs_drop_passive_elem(body, mod_) {
+          return true
         }
       }
       false
