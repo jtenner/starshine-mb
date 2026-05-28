@@ -882,6 +882,7 @@ p2 invalid/binary/text slices:
   - Exit Criteria: agents can battle-test passes for repeatability and composition robustness using the same artifact/replay workflow as compare-pass.
 
 - [FUZ]1037 (p1) - Const Expression And Initializer Expression Matrix
+  - Run 23 continuation update: added focused coverage asserting coverage-forced GenValid emits an optional core table initializer that reads an imported immutable reference global, alongside the existing `ref.func` and typed `ref.null` table-initializer checks. Initial targeted test unexpectedly already passed, proving the behavior was implemented but under-asserted; validation: `moon test src/validate`, `moon fmt`, `moon info`, and repeat `moon test src/validate` passed.
   - Goal: cover all valid constant-expression and initializer-expression contexts with a shared generator.
   - Why: globals, element offsets, data offsets, table initializers, GC descriptors, and future proposal features each have subtly different expression constraints. Bugs often live at the boundary between ordinary body expressions and const-only expressions.
   - Deliverables: implement a const-expression generator that knows allowed op families per context; cover numeric constants, `ref.null`, `ref.func`, `global.get` for imported immutable globals, GC initializer forms where valid, i31 refs, and boundary offsets for memory/table segments.

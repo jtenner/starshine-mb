@@ -353,6 +353,23 @@ fn gen_valid_test_has_table_initializer_ref_func(mod_ : Module) -> Bool {
 }
 
 ///|
+fn gen_valid_test_has_imported_global_table_initializer(mod_ : Module) -> Bool {
+  match mod_.table_sec {
+    Some(TableSec(tables)) => {
+      for table in tables {
+        let Table(_, init_opt) = table
+        match init_opt {
+          Some(Expr([GlobalGet(_)])) => return true
+          _ => ()
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
 fn gen_valid_test_has_typed_table_initializer_ref_null(mod_ : Module) -> Bool {
   match mod_.table_sec {
     Some(TableSec(tables)) => {
@@ -384,6 +401,10 @@ test "gen-valid coverage-forced table initializers use ref.func and typed refs" 
   assert_true(
     gen_valid_test_has_table_initializer_ref_func(generated.wasm_module),
     msg="coverage-forced GenValid should emit a table initializer with ref.func",
+  )
+  assert_true(
+    gen_valid_test_has_imported_global_table_initializer(generated.wasm_module),
+    msg="coverage-forced GenValid should emit a table initializer that reads an imported immutable reference global",
   )
   assert_true(
     gen_valid_test_has_typed_table_initializer_ref_null(generated.wasm_module),
