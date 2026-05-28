@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-28] fuzzing | FUZ1039 single-table initializer coverage
+
+- Continued `[FUZ]1039` with a coverage-forced GenValid regression for modules that have exactly one defined table and no imports, memories, globals, tags, elements, or data segments.
+- The focused test first failed because the lone table had no initializer expression; GenValid now gives coverage-forced tables an initializer regardless of table index, after imported-global initializer selection has had a chance to apply.
+- This keeps the initialization-expression surface visible even in small single-table modules instead of relying on a second table or imported reference global.
+
 ## [2026-05-27] fuzzing | FUZ1039 init-heavy start/segment interaction anchor
 
 - Continued `[FUZ]1039` with a coverage-forced GenValid anchor for an initialization-heavy module that combines a defined start function, imported immutable global reads, helper calls, active data segments, and active element segments.

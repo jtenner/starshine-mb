@@ -9839,7 +9839,7 @@ fn gen_valid_table_type(
 ///|
 fn gen_valid_table_init_expr(
   ctx : GenValidContext,
-  total_table_idx : Int,
+  _total_table_idx : Int,
   rt : RefType,
   func_idx : FuncIdx,
   imported_global_types : Array[GlobalType],
@@ -9859,8 +9859,7 @@ fn gen_valid_table_init_expr(
     }
   }
   if ctx.config.features.allow_table_limit_variants &&
-    ctx.config.mode == CoverageForced &&
-    total_table_idx > 0 {
+    ctx.config.mode == CoverageForced {
     Some(gen_valid_elem_ref_expr(ctx, rt, func_idx~))
   } else if ctx.config.features.allow_table_limit_variants &&
     ctx.random_int_from(TableStream, 5) == 0 {
