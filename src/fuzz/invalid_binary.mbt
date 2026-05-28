@@ -44,6 +44,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   DuplicateElementSection
   DuplicateDataSection
   DuplicateTagSection
+  DuplicateStartSection
   WrongSectionOrder
   InvalidFuncTypeIndex
   InvalidStartSignatureModule
@@ -814,6 +815,7 @@ fn validate_invalid_binary_strategy_label(
     DuplicateElementSection => "duplicate-element-section"
     DuplicateDataSection => "duplicate-data-section"
     DuplicateTagSection => "duplicate-tag-section"
+    DuplicateStartSection => "duplicate-start-section"
     DuplicateExportNameModule => "duplicate-export-name-module"
     FuncSecWithoutCodeSecModule => "funcsec-without-codesec-module"
     DataCountWithoutDataSecModule => "datacount-without-data-sec-module"
@@ -1785,6 +1787,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       DuplicateTagSection,
       "duplicate-tag-section",
       "duplicate tag section after a valid module",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      DuplicateStartSection,
+      "duplicate-start-section",
+      "two start sections appended to a valid module",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -5169,6 +5178,33 @@ fn validate_invalid_binary_mutate_duplicate_tag_section(
   mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
   validate_invalid_binary_mutate_duplicate_section(mod, DuplicateTagSection, 13)
+}
+
+///|
+fn validate_invalid_binary_mutate_duplicate_start_section(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let encoded = match validate_invalid_binary_encode_seed_module(mod) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let mutated = encoded.to_array()
+  // Append two singleton start sections. This is intentionally section-order
+  // agnostic: any duplicate non-custom section must be rejected by decoding.
+  mutated.push(8)
+  mutated.push(1)
+  mutated.push(0)
+  mutated.push(8)
+  mutated.push(1)
+  mutated.push(0)
+  Ok(
+    validate_invalid_binary_mutation(
+      DuplicateStartSection,
+      DecodeRejected,
+      true,
+      Bytes::from_array(mutated),
+    ),
+  )
 }
 
 ///|
@@ -15743,6 +15779,8 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_duplicate_data_section(base)
     DuplicateTagSection =>
       validate_invalid_binary_mutate_duplicate_tag_section(base)
+    DuplicateStartSection =>
+      validate_invalid_binary_mutate_duplicate_start_section(base)
     WrongSectionOrder =>
       validate_invalid_binary_mutate_wrong_section_order(base)
     InvalidFuncTypeIndex =>
