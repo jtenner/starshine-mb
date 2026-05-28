@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] fuzzing | FUZ1020C2 br_on_null invalid AST payload coverage
+
+- Completed `[FUZ]1020C2` by adding `invalid-function-body-br-on-null-payload-mismatch`, a function-body invalid AST strategy that routes `br_on_null` to an `i32`-result label while only carrying a nullable externref operand.
+- Updated the public `gen_invalid` stable-id mapping, validator registry fixture, focused branch-payload repair/rejection coverage, and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) coverage summary.
+- Validation: `moon test src/validate` first failed on the registry/stats fixture after the new strategy was inserted, then passed after moving the new registry row to the append-only stable-index position and updating expectations.
+
 ## [2026-05-27] fuzzing | FUZ1020C1 GC struct.new_default invalid AST coverage
 
 - Completed `[FUZ]1020C1` by adding `invalid-function-body-struct-new-default-field-type`, a GC function-body invalid AST strategy that emits `struct.new_default` against a struct with a non-nullable `funcref` field, proving the validator rejects non-defaultable fields in default construction.

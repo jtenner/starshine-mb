@@ -84,6 +84,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyCallPayloadMismatch
   InvalidFunctionBodyBrIfPayloadMismatch
   InvalidFunctionBodyBrTablePayloadMismatch
+  InvalidFunctionBodyBrOnNullPayloadMismatch
   InvalidFunctionBodyIfConditionType
   InvalidFunctionBodyIfBranchResultType
   InvalidFunctionBodySelectConditionType
@@ -2044,6 +2045,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       TypeSectionFamily,
       required_in_smoke=false,
     ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyBrOnNullPayloadMismatch,
+      "invalid-function-body-br-on-null-payload-mismatch",
+      "invalid function-body br_on_null payload",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -2141,6 +2149,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyCallPayloadMismatch => 39
     InvalidFunctionBodyBrIfPayloadMismatch => 40
     InvalidFunctionBodyBrTablePayloadMismatch => 41
+    InvalidFunctionBodyBrOnNullPayloadMismatch => 238
     InvalidFunctionBodyIfConditionType => 162
     InvalidFunctionBodyIfBranchResultType => 163
     InvalidFunctionBodySelectConditionType => 160
@@ -3774,6 +3783,37 @@ fn validate_invalid_ast_mutate_invalid_function_body_br_table_payload_mismatch(
   )
   {
     strategy: InvalidFunctionBodyBrTablePayloadMismatch,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_br_on_null_payload_mismatch(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let body = Expr::new([
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([
+        Instruction::ref_null(HeapType::abs(AbsHeapType::extern_())),
+        Instruction::br_on_null(LabelIdx::new(0U)),
+        Instruction::drop(),
+        Instruction::i32_const(I32(0)),
+      ]),
+    ),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    mod,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyBrOnNullPayloadMismatch,
     applicable: true,
     expected_family: FunctionBodyFamily,
     mutated_module: with_func,
@@ -9517,6 +9557,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_br_table_payload_mismatch(
           base,
         )
+      InvalidFunctionBodyBrOnNullPayloadMismatch =>
+        validate_invalid_ast_mutate_invalid_function_body_br_on_null_payload_mismatch(
+          base,
+        )
       InvalidFunctionBodyIfConditionType =>
         validate_invalid_ast_mutate_invalid_function_body_if_condition_type(
           base,
@@ -10776,7 +10820,7 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
     "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
     "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
-    "invalid-subtype-mutable-field-variance",
+    "invalid-subtype-mutable-field-variance", "invalid-function-body-br-on-null-payload-mismatch",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 22)
@@ -18428,6 +18472,17 @@ test "function-body exception payload mutations repair by matching tag and targe
 
 ///|
 test "function-body branch payload mutations repair by using target result types" {
+  let br_on_null_mutation = validate_invalid_ast_mutate_invalid_function_body_br_on_null_payload_mismatch(
+    Module::new(),
+  )
+  match validate_module(br_on_null_mutation.mutated_module) {
+    Ok(_) => fail("expected mismatched br_on_null payload to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
   let br_if_mutation = validate_invalid_ast_mutate_invalid_function_body_br_if_payload_mismatch(
     Module::new(),
   )
@@ -18449,6 +18504,28 @@ test "function-body branch payload mutations repair by using target result types
         validation_issue_family(validation_error_diagnostic(err).issue) ==
         FunctionBodyFamily,
       )
+  }
+  let br_on_null_body = Expr::new([
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::ref_null(HeapType::abs(AbsHeapType::extern_())),
+        Instruction::br_on_null(LabelIdx::new(0U)),
+        Instruction::drop(),
+      ]),
+    ),
+  ])
+  let (repaired_br_on_null, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    br_on_null_body,
+  )
+  match validate_module(repaired_br_on_null) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired br_on_null payload module to validate: \{err}")
   }
   let br_if_body = Expr::new([
     Instruction::block(
