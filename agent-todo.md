@@ -632,7 +632,6 @@ p2 invalid/binary/text tiny slices:
 - [FUZ]1026B1 - Persist all mutation ids and broad outcomes for multi-fault repros.
 
 p2 oracle/reporting/infrastructure tiny slices:
-- [FUZ]1042A - Define promoted/quarantine corpus directory and metadata policy.
 - [FUZ]1045A1 - Add n-way text adapter result schema and fake classifications.
 - [FUZ]1045A2 - Wire local WAT/WAST parser against optional WABT text command.
 - [FUZ]1045A3 - Wire optional wasm-tools text command and unsupported-syntax classification.
@@ -655,7 +654,6 @@ p2 oracle/reporting/infrastructure tiny slices:
 - [FUZ]1056A2 - Add curated invalid text line/column diagnostic fixture.
 - [FUZ]1056B1 - Persist best-effort diagnostic locations in binary invalid repros.
 - [FUZ]1056B2 - Persist best-effort diagnostic locations in text invalid repros.
-- [FUZ]1057A1 - Document canonicality policy for overwide/noncanonical encodings.
 - [FUZ]1057B1 - Add canonical and overwide unsigned LEB fixture matrix.
 - [FUZ]1057B2 - Add signed LEB boundary fixture matrix.
 - [FUZ]1057B3 - Add section-size encoding, NaN payload preservation, and custom-section byte-preservation fixtures.
@@ -785,7 +783,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1042 (p2) - Corpus Promotion, Quarantine, And Regression Replay Workflow
   - Goal: define how interesting fuzz findings become durable regression inputs.
   - Why: without a promotion workflow, agents either lose valuable seeds or commit noisy unminimized corpora. A quarantine lane keeps known tool failures and accepted semantic-safe divergences from blocking unrelated work.
-  - Deliverables: add corpus directories or docs for promoted-valid, promoted-invalid, pass-mismatch, tool-failure, accepted-divergence, and quarantine cases; store metadata with source run, seed, profile, feature facts, classification, and replay command; add a replay-all task.
+  - Deliverables remaining: store metadata with source run, seed, profile, feature facts, classification, and replay command; add a replay-all task. `[FUZ]1042A` closed on 2026-05-28 with `docs/wiki/tooling/fuzz-corpus-policy.md`, which defines promoted-valid, promoted-invalid, pass-mismatch, tool-failure, accepted-divergence, and quarantine states plus required metadata and promotion/quarantine rules.
   - Required APIs: fuzz output dirs from [FUZ]1031, invalid repro metadata, pass-fuzz result schema, docs/wiki corpus page.
   - Invariants: no large or private artifacts should be committed accidentally; every promoted case must have a human-readable reason and replay command.
   - Dependencies: [FUZ]1031 and [FUZ]1016 recommended.
@@ -895,7 +893,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1057 (p2) - Binary Canonical Versus Noncanonical Encoding Policy
   - Goal: decide and test how the binary decoder handles noncanonical-but-well-formed encodings.
   - Why: malformed byte fuzzing needs to distinguish truly invalid encodings from encodings that some tools accept but canonical encoders do not emit, especially overwide LEBs, section lengths, blocktypes, and immediates.
-  - Deliverables: document canonicality policy; add fixtures for canonical LEBs, overwide LEBs, signed LEB boundary forms, section size encodings, NaN payload preservation, and custom-section byte preservation; classify external tool disagreements as canonicality-policy differences when appropriate.
+  - Deliverables remaining: add fixtures for canonical LEBs, overwide LEBs, signed LEB boundary forms, section size encodings, NaN payload preservation, and custom-section byte preservation; classify external tool disagreements as canonicality-policy differences when appropriate. `[FUZ]1057A1` closed on 2026-05-28 with `docs/wiki/binary/leb128-and-integer-encoding.md`, which documents the canonicality policy: encoders emit deterministic compact/canonical forms while decoders accept official-compatible bounded overlong LEBs and reject malformed out-of-bound encodings before validation.
   - Required APIs: binary decoder/encoder, invalid binary strategy specs, external binary differential from [FUZ]1044.
   - Invariants: encoder should keep emitting canonical encodings unless explicitly configured otherwise; decoder acceptance/rejection must be consistent and documented.
   - Dependencies: [FUZ]1021 malformed-byte matrix and [FUZ]1044 n-way binary differential.

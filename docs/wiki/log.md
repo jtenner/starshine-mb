@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-28] fuzzing | FUZ1042A corpus policy and FUZ1057A1 canonicality policy closeout
+
+- Closed `[FUZ]1042A` with the existing [`tooling/fuzz-corpus-policy.md`](tooling/fuzz-corpus-policy.md) contract, now explicitly marked as the promoted/quarantine corpus-state documentation slice. The active parent remains open for metadata persistence and replay-all tooling.
+- Closed `[FUZ]1057A1` with the existing [`binary/leb128-and-integer-encoding.md`](binary/leb128-and-integer-encoding.md) contract, now explicitly naming the canonicality policy: compact deterministic encoder output, official-compatible bounded overlong LEB decoder acceptance, malformed byte-layer rejection before validation, and canonicality-policy classification for external-tool disagreements.
+- Removed both tiny slices from the active board and narrowed their parent deliverables to the remaining fixture, metadata, replay, and differential work.
+
 ## [2026-05-28] fuzzing | FUZ1038 metadata stress closeout
 
 - Closed `[FUZ]1038` for the current binary model after confirming the topology-heavy profile already has deterministic coverage for many distinct export aliases, duplicate-index-safe export aliasing, multiple import module-name shapes, structured function/local/label name-section payloads, and at least six varied unknown non-`name` custom-section payloads including arbitrary bytes.

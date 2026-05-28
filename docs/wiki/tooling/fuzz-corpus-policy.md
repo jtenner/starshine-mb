@@ -1,7 +1,7 @@
 ---
 kind: policy
 status: supported
-last_reviewed: 2026-05-25
+last_reviewed: 2026-05-28
 sources:
   - ./fuzz-runner.md
   - ./pass-fuzz-compare.md
@@ -18,7 +18,7 @@ related:
 
 ## Purpose
 
-This policy names the long-lived fuzz corpus states used by Starshine runners, compare lanes, reducers, and future replay-all tooling. It is a documentation contract for `[FUZ]1042A`; code that persists or replays corpus entries should use these names instead of inventing ad hoc directories or statuses.
+This policy names the long-lived fuzz corpus states used by Starshine runners, compare lanes, reducers, and future replay-all tooling. It closes the `[FUZ]1042A` documentation slice; code that persists or replays corpus entries should use these names instead of inventing ad hoc directories or statuses.
 
 The policy is intentionally metadata-first. Large generated corpora should not be committed by default. Promote small, durable repro artifacts only when they are useful for regression, oracle triage, or tool-gap tracking, and keep noisy or machine-local bulk output under `.tmp/` unless a maintainer explicitly chooses otherwise.
 

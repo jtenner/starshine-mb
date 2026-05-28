@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-05-28
 sources:
   - ../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md
@@ -79,11 +79,13 @@ Two advanced details prevent common mistakes:
 
 [`encode_unsigned(...)`](../../../src/binary/encode.mbt) and [`encode_signed(...)`](../../../src/binary/encode.mbt) write bounded, valid encodings. [`size_unsigned(...)`](../../../src/binary/encode.mbt) and [`size_signed(...)`](../../../src/binary/encode.mbt) compute the corresponding byte counts and are the right model for future size-sensitive pass work.
 
-The encoder should normally produce a compact form, but the decoder must remain more permissive than the encoder. That asymmetry is intentional:
+The encoder should normally produce a compact form, but the decoder must remain more permissive than the encoder. That asymmetry is intentional and is the `[FUZ]1057A1` canonicality policy:
 
-- **encoder output** can be deterministic and compact;
-- **decoder input** must accept every official-compatible bounded encoding;
-- **validator logic** should only see decoded values, not byte spelling choices.
+- **encoder output** must remain deterministic and compact/canonical unless a future tool explicitly asks for noncanonical spelling;
+- **decoder input** must accept every official-compatible bounded encoding, including overlong LEB forms that stay within the declared bit-width limit;
+- **decoder input** must reject malformed encodings such as unterminated LEBs, too many bytes, out-of-range terminal bits, and invalid sign extension before validation;
+- **validator logic** should only see decoded values, not byte spelling choices;
+- **external-tool disagreements** over bounded overlong encodings should be classified as canonicality-policy differences, not automatically as Starshine decoder bugs.
 
 This split matters for pass docs that mention LEB size. For example, [`const-hoisting`](../binaryen/passes/const-hoisting/index.md) profitability depends on signed integer literal byte width, while [`reorder-globals`](../binaryen/passes/reorder-globals/index.md) depends on unsigned index byte width. Those passes should use or mirror the real binary helpers instead of approximating with rough value ranges.
 
