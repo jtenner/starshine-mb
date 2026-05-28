@@ -415,6 +415,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-array-new-elem-length-type"
     InvalidFunctionBodyStructNewValueType =>
       "invalid-function-body-struct-new-value-type"
+    InvalidFunctionBodyStructNewDefaultFieldType =>
+      "invalid-function-body-struct-new-default-field-type"
     InvalidFunctionBodyStructGetInputType =>
       "invalid-function-body-struct-get-input-type"
     InvalidFunctionBodyStructSetInputType =>

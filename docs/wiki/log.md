@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] fuzzing | FUZ1020C1 GC struct.new_default invalid AST coverage
+
+- Completed `[FUZ]1020C1` by adding `invalid-function-body-struct-new-default-field-type`, a GC function-body invalid AST strategy that emits `struct.new_default` against a struct with a non-nullable `funcref` field, proving the validator rejects non-defaultable fields in default construction.
+- Updated the public `gen_invalid` stable-id mapping, validator registry fixture, focused validator/fuzz package tests, and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) coverage summary.
+- Validation: focused TDD failure from `moon test src/fuzz` on the missing stable id, then `moon test src/validate` and `moon test src/fuzz` passed after implementation.
+
 ## [2026-05-27] fuzzing | FUZ1020 defined ref-type invalid AST coverage
 
 - Continued `[FUZ]1020A3` by adding `invalid-table-ref-type` and `invalid-global-ref-type`, deterministic table/global-section AST mutations that append defined table/global declarations whose reference types point at a missing heap type index.

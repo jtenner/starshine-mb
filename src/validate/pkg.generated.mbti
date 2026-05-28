@@ -1231,6 +1231,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyArrayNewElemSourceType
   InvalidFunctionBodyArrayNewElemLengthType
   InvalidFunctionBodyStructNewValueType
+  InvalidFunctionBodyStructNewDefaultFieldType
   InvalidFunctionBodyStructGetInputType
   InvalidFunctionBodyStructSetInputType
   InvalidFunctionBodyStructSetValueType

@@ -180,6 +180,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyArrayNewElemSourceType
   InvalidFunctionBodyArrayNewElemLengthType
   InvalidFunctionBodyStructNewValueType
+  InvalidFunctionBodyStructNewDefaultFieldType
   InvalidFunctionBodyStructGetInputType
   InvalidFunctionBodyStructSetInputType
   InvalidFunctionBodyStructSetValueType
@@ -1496,6 +1497,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyStructNewDefaultFieldType,
+      "invalid-function-body-struct-new-default-field-type",
+      "invalid function-body struct.new_default non-defaultable field type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyStructGetInputType,
       "invalid-function-body-struct-get-input-type",
       "invalid function-body struct.get input type",
@@ -2229,6 +2237,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyArrayNewElemSourceType => 127
     InvalidFunctionBodyArrayNewElemLengthType => 128
     InvalidFunctionBodyStructNewValueType => 129
+    InvalidFunctionBodyStructNewDefaultFieldType => 237
     InvalidFunctionBodyStructGetInputType => 130
     InvalidFunctionBodyStructSetInputType => 131
     InvalidFunctionBodyStructSetValueType => 132
@@ -5849,6 +5858,23 @@ fn validate_invalid_ast_i32_struct_module(mutability : Mut) -> Module {
 }
 
 ///|
+fn validate_invalid_ast_nondefaultable_ref_struct_module(
+  mutability : Mut,
+) -> Module {
+  let nonnull_func = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::func())),
+  )
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
+        FieldType::new(StorageType::val_type(nonnull_func), mutability),
+      ]),
+    ),
+  )
+  Module::new().with_type_sec(TypeSec::new([struct_type]))
+}
+
+///|
 fn validate_invalid_ast_i8_struct_module(mutability : Mut) -> Module {
   let struct_type = RecType::new(
     SubType::comp_type(
@@ -6557,6 +6583,30 @@ fn validate_invalid_ast_mutate_invalid_function_body_struct_new_value_type(
   )
   {
     strategy: InvalidFunctionBodyStructNewValueType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_struct_new_default_field_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::struct_new_default(TypeIdx::new(0U)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_nondefaultable_ref_struct_module(Const),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyStructNewDefaultFieldType,
     applicable: true,
     expected_family: FunctionBodyFamily,
     mutated_module: with_func,
@@ -9843,6 +9893,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_struct_new_value_type(
           base,
         )
+      InvalidFunctionBodyStructNewDefaultFieldType =>
+        validate_invalid_ast_mutate_invalid_function_body_struct_new_default_field_type(
+          base,
+        )
       InvalidFunctionBodyStructGetInputType =>
         validate_invalid_ast_mutate_invalid_function_body_struct_get_input_type(
           base,
@@ -10686,42 +10740,43 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-array-new-fixed-value-type", "invalid-function-body-array-new-data-source-type",
     "invalid-function-body-array-new-data-length-type", "invalid-function-body-array-new-elem-source-type",
     "invalid-function-body-array-new-elem-length-type", "invalid-function-body-struct-new-value-type",
-    "invalid-function-body-struct-get-input-type", "invalid-function-body-struct-set-input-type",
-    "invalid-function-body-struct-set-value-type", "invalid-function-body-struct-get-field-index",
-    "invalid-function-body-struct-set-field-index", "invalid-function-body-struct-set-immutable-field",
-    "invalid-function-body-struct-get-signed-field-type", "invalid-function-body-atomic-notify-count-type",
-    "invalid-function-body-atomic-wait-timeout-type", "invalid-function-body-atomic-rmw-value-type",
-    "invalid-function-body-atomic-cmpxchg-replacement-type", "invalid-function-body-atomic-load-address-type",
-    "invalid-function-body-atomic-store-address-type", "invalid-function-body-atomic-store-value-type",
-    "invalid-function-body-atomic-load-index", "invalid-function-body-atomic-store-index",
-    "invalid-function-body-atomic-notify-index", "invalid-function-body-atomic-wait-index",
-    "invalid-function-body-atomic-rmw-index", "invalid-function-body-atomic-cmpxchg-index",
-    "invalid-function-body-simd-extract-lane-index", "invalid-function-body-simd-replace-lane-index",
-    "invalid-function-body-simd-load-lane-index", "invalid-function-body-simd-store-lane-index",
-    "invalid-function-body-simd-splat-input-type", "invalid-function-body-simd-swizzle-input-type",
-    "invalid-function-body-simd-bitselect-mask-type", "invalid-function-body-simd-bitselect-left-type",
-    "invalid-function-body-simd-bitselect-right-type", "invalid-function-body-simd-extract-input-type",
-    "invalid-function-body-simd-replace-vector-type", "invalid-function-body-simd-replace-value-type",
-    "invalid-function-body-simd-load-address-type", "invalid-function-body-simd-store-address-type",
-    "invalid-function-body-simd-store-value-type", "invalid-function-body-simd-load-extend-address-type",
-    "invalid-function-body-simd-load-splat-address-type", "invalid-function-body-simd-load-zero-address-type",
-    "invalid-function-body-simd-unary-input-type", "invalid-function-body-simd-binary-left-type",
-    "invalid-function-body-simd-binary-right-type", "invalid-function-body-simd-shift-vector-type",
-    "invalid-function-body-simd-shift-count-type", "invalid-function-body-simd-load-lane-address-type",
-    "invalid-function-body-simd-load-lane-vector-type", "invalid-function-body-simd-store-lane-address-type",
-    "invalid-function-body-simd-store-lane-vector-type", "invalid-function-body-simd-load-memory-index",
-    "invalid-function-body-simd-store-memory-index", "invalid-function-body-simd-load-lane-memory-index",
-    "invalid-function-body-simd-store-lane-memory-index", "invalid-function-body-atomic-notify-address-type",
-    "invalid-function-body-atomic-wait-address-type", "invalid-function-body-atomic-wait-expected-type",
-    "invalid-function-body-atomic-rmw-address-type", "invalid-function-body-atomic-cmpxchg-address-type",
-    "invalid-function-body-atomic-cmpxchg-expected-type", "invalid-function-body-br-on-cast-input-type",
-    "invalid-function-body-br-on-cast-fail-input-type", "invalid-function-body-table-set-value-type",
-    "invalid-function-body-global-set-value-type", "invalid-memory-name-section-index",
-    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
-    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
-    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
-    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
-    "datacount-mismatch-too-small", "datacount-mismatch-too-large", "invalid-subtype-mutable-field-variance",
+    "invalid-function-body-struct-new-default-field-type", "invalid-function-body-struct-get-input-type",
+    "invalid-function-body-struct-set-input-type", "invalid-function-body-struct-set-value-type",
+    "invalid-function-body-struct-get-field-index", "invalid-function-body-struct-set-field-index",
+    "invalid-function-body-struct-set-immutable-field", "invalid-function-body-struct-get-signed-field-type",
+    "invalid-function-body-atomic-notify-count-type", "invalid-function-body-atomic-wait-timeout-type",
+    "invalid-function-body-atomic-rmw-value-type", "invalid-function-body-atomic-cmpxchg-replacement-type",
+    "invalid-function-body-atomic-load-address-type", "invalid-function-body-atomic-store-address-type",
+    "invalid-function-body-atomic-store-value-type", "invalid-function-body-atomic-load-index",
+    "invalid-function-body-atomic-store-index", "invalid-function-body-atomic-notify-index",
+    "invalid-function-body-atomic-wait-index", "invalid-function-body-atomic-rmw-index",
+    "invalid-function-body-atomic-cmpxchg-index", "invalid-function-body-simd-extract-lane-index",
+    "invalid-function-body-simd-replace-lane-index", "invalid-function-body-simd-load-lane-index",
+    "invalid-function-body-simd-store-lane-index", "invalid-function-body-simd-splat-input-type",
+    "invalid-function-body-simd-swizzle-input-type", "invalid-function-body-simd-bitselect-mask-type",
+    "invalid-function-body-simd-bitselect-left-type", "invalid-function-body-simd-bitselect-right-type",
+    "invalid-function-body-simd-extract-input-type", "invalid-function-body-simd-replace-vector-type",
+    "invalid-function-body-simd-replace-value-type", "invalid-function-body-simd-load-address-type",
+    "invalid-function-body-simd-store-address-type", "invalid-function-body-simd-store-value-type",
+    "invalid-function-body-simd-load-extend-address-type", "invalid-function-body-simd-load-splat-address-type",
+    "invalid-function-body-simd-load-zero-address-type", "invalid-function-body-simd-unary-input-type",
+    "invalid-function-body-simd-binary-left-type", "invalid-function-body-simd-binary-right-type",
+    "invalid-function-body-simd-shift-vector-type", "invalid-function-body-simd-shift-count-type",
+    "invalid-function-body-simd-load-lane-address-type", "invalid-function-body-simd-load-lane-vector-type",
+    "invalid-function-body-simd-store-lane-address-type", "invalid-function-body-simd-store-lane-vector-type",
+    "invalid-function-body-simd-load-memory-index", "invalid-function-body-simd-store-memory-index",
+    "invalid-function-body-simd-load-lane-memory-index", "invalid-function-body-simd-store-lane-memory-index",
+    "invalid-function-body-atomic-notify-address-type", "invalid-function-body-atomic-wait-address-type",
+    "invalid-function-body-atomic-wait-expected-type", "invalid-function-body-atomic-rmw-address-type",
+    "invalid-function-body-atomic-cmpxchg-address-type", "invalid-function-body-atomic-cmpxchg-expected-type",
+    "invalid-function-body-br-on-cast-input-type", "invalid-function-body-br-on-cast-fail-input-type",
+    "invalid-function-body-table-set-value-type", "invalid-function-body-global-set-value-type",
+    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
+    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
+    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
+    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
+    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-subtype-mutable-field-variance",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 22)
@@ -13194,6 +13249,19 @@ test "invalid struct.new value type strategy rejects with FunctionBody family" {
     invalid_ast_expect_strategy_rejects_with_family(
       InvalidFunctionBodyStructNewValueType,
       0x10d21UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid struct.new_default non-defaultable field strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyStructNewDefaultFieldType,
+      0x1020c1UL,
       FunctionBodyFamily,
     ) {
     Ok(_) => ()

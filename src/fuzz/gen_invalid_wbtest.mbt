@@ -58,3 +58,33 @@ test "fuzz package can consume public natural-seed gen-invalid AST API" {
     Err(_) => ()
   }
 }
+
+///|
+test "fuzz package can consume GC struct.new_default invalid AST strategy" {
+  let strategy = match
+    @validate.validate_invalid_ast_strategy_by_stable_id(
+      "invalid-function-body-struct-new-default-field-type",
+    ) {
+    Some(spec) => spec.id
+    None => fail("expected struct.new_default invalid strategy to exist")
+  }
+  let generated = match
+    @validate.gen_invalid_ast_generate(
+      @splitmix.new(seed=0x1020c1UL),
+      @validate.GenInvalidAstParams::minimal_seed(strategy),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected struct.new_default base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected struct.new_default invalid module to fail")
+    Err(_) => ()
+  }
+}
