@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] fuzzing | FUZ1020C3 relaxed SIMD invalid AST operand coverage
+
+- Completed `[FUZ]1020C3` by adding `invalid-function-body-relaxed-simd-swizzle-left-type`, a function-body invalid AST strategy that feeds `i32.const` into the left operand of `i8x16.relaxed_swizzle` while keeping the right operand vector-typed.
+- Updated the public `gen_invalid` stable-id mapping, validator registry fixture, focused relaxed-SIMD repair/rejection coverage, and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) coverage summary.
+- Validation: `moon test src/validate` first failed on the missing constructor/mutator, then passed after wiring the registry, dispatcher, label mapping, and expected stable-id list.
+
 ## [2026-05-27] fuzzing | FUZ1020C2 br_on_null invalid AST payload coverage
 
 - Completed `[FUZ]1020C2` by adding `invalid-function-body-br-on-null-payload-mismatch`, a function-body invalid AST strategy that routes `br_on_null` to an `i32`-result label while only carrying a nullable externref operand.
