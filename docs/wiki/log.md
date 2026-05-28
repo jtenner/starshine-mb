@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] fuzzing | FUZ1039 start/imported-global interaction anchor
+
+- Continued `[FUZ]1039` with a focused coverage-forced GenValid anchor for initialization-time interaction between a defined start function and imported immutable globals.
+- Added a validation test proving the generated module validates, places the defined start after the imported function prefix, reads an imported immutable global in the start body, drops the value, and still calls a defined helper.
+- The initial targeted `moon test src/validate` already passed, showing the behavior existed but lacked a durable assertion; the new test and generator ledger entry now keep that surface visible.
+
 ## [2026-05-27] fuzzing | FUZ1039 coverage-forced start helper calls
 
 - Continued `[FUZ]1039` by making the coverage-forced defined-start profile reserve a second no-param/no-result defined helper and emit a direct `call` from the start function to that helper when the focused start-only section knobs are forced.

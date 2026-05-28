@@ -212,6 +212,67 @@ test "gen-valid coverage-forced start function calls a helper" {
 }
 
 ///|
+test "gen-valid coverage-forced start function reads imported immutable global before helper call" {
+  let config = GenValidConfig::{
+    ..GenValidConfig::coverage_forced_default(),
+    max_imports: 3,
+    max_defined_funcs: 3,
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: 1,
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: 0,
+    features: GenValidFeatureToggles::{
+      ..GenValidConfig::coverage_forced_default().features,
+      allow_imports: true,
+      allow_start: true,
+      allow_tables: false,
+      allow_mems: false,
+      allow_globals: true,
+      allow_tags: false,
+      allow_elems: false,
+      allow_datas: false,
+    },
+    section_bias: GenValidSectionBias::{
+      ..GenValidConfig::coverage_forced_default().section_bias,
+      imports_percent: 100,
+      start_percent: 100,
+    },
+  }
+  let generated = match gen_valid_module_result_from_seed(0x51039D1UL, config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  match (generated.wasm_module.start_sec, generated.wasm_module.code_sec) {
+    (Some(StartSec(FuncIdx(start_idx))), Some(CodeSec(funcs))) => {
+      @debug.assert_eq(start_idx, 1U)
+      assert_true(
+        funcs.length() >= 2,
+        msg="coverage-forced start/global profile should have a helper function to call",
+      )
+      let Func(_, Expr(start_body)) = funcs[0]
+      assert_true(
+        gen_valid_test_instrs_read_imported_global(
+          start_body,
+          gen_valid_test_imported_global_count(generated.wasm_module),
+        ),
+        msg="coverage-forced start function should read an imported immutable global",
+      )
+      assert_true(
+        gen_valid_test_instrs_call_func(start_body, FuncIdx::new(2U)),
+        msg="coverage-forced start function should still call a defined helper",
+      )
+    }
+    _ => fail("expected forced defined start and code section")
+  }
+}
+
+///|
 test "gen-valid const-expression allowed-op matrix covers section contexts" {
   let matrix = gen_valid_const_expr_allowed_op_matrix()
   @debug.assert_eq(matrix.map(fn(row) { row.context }), [
@@ -3193,6 +3254,43 @@ fn gen_valid_test_instrs_call_func(
         match else_body {
           Some(body) if gen_valid_test_instrs_call_func(body, target) =>
             return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_test_instrs_read_imported_global(
+  instrs : Array[Instruction],
+  imported_global_count : Int,
+) -> Bool {
+  if imported_global_count == 0 {
+    return false
+  }
+  for instr in instrs {
+    match instr {
+      GlobalGet(GlobalIdx(idx)) if idx.reinterpret_as_int() <
+        imported_global_count => return true
+      Block(_, Expr(body)) | Loop(_, Expr(body)) | TryTable(_, _, Expr(body)) =>
+        if gen_valid_test_instrs_read_imported_global(
+            body, imported_global_count,
+          ) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_test_instrs_read_imported_global(
+            then_body, imported_global_count,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_test_instrs_read_imported_global(
+              body, imported_global_count,
+            ) => return true
           _ => ()
         }
       }
