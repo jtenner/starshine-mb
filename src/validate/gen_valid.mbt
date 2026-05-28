@@ -10509,6 +10509,17 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
     func_type_idxs.push(
       if i == 0 && (has_start || ctx.config.mode == CoverageForced) {
         TypeIdx::new(0U)
+      } else if has_start &&
+        ctx.config.mode == CoverageForced &&
+        config.section_bias.start_percent == 100 &&
+        config.max_tables == 0 &&
+        config.max_mems == 0 &&
+        config.max_globals == 0 &&
+        config.max_tags == 0 &&
+        config.max_elems == 0 &&
+        config.max_datas == 0 &&
+        i == 1 {
+        TypeIdx::new(0U)
       } else if ctx.config.features.allow_typed_body_generator &&
         i == 1 &&
         func_type_count > 1 {
@@ -10923,7 +10934,30 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       TypeIdx(type_idx_u) => type_idx_u.reinterpret_as_int()
       RecIdx(type_idx_u) => type_idx_u.reinterpret_as_int()
     }
-    if gen_valid_is_control_heavy_config(config) &&
+    if has_start &&
+      ctx.config.mode == CoverageForced &&
+      config.section_bias.start_percent == 100 &&
+      config.max_tables == 0 &&
+      config.max_mems == 0 &&
+      config.max_globals == 0 &&
+      config.max_tags == 0 &&
+      config.max_elems == 0 &&
+      config.max_datas == 0 &&
+      i == 0 &&
+      func_type_idxs.length() > 1 &&
+      type_params[type_idx_i].is_empty() &&
+      type_results[type_idx_i].is_empty() {
+      funcs.push(
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::call(
+              FuncIdx::new((import_func_count + 1).reinterpret_as_uint()),
+            ),
+          ]),
+        ),
+      )
+    } else if gen_valid_is_control_heavy_config(config) &&
       i == 0 &&
       type_params[type_idx_i].is_empty() &&
       type_results[type_idx_i].is_empty() {

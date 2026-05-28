@@ -903,7 +903,8 @@ p2 invalid/binary/text slices:
   - Suggested Tests: encode/decode/name preservation fixtures, duplicate-export invalid fixture, Unicode string text/binary roundtrip tests, custom-section placement tests.
   - Exit Criteria: metadata-heavy profiles produce measurable name/custom-section coverage without needing large function bodies.
 
-- [FUZ]1039 (p1) - Start Function, Global Init, Element Init, And Data Init Interaction Profiles
+- [FUZ]1039 (p1) - Start Function, Global Init, Element Init, And Data Init Interaction Profiles — IN PROGRESS
+  - Run 23 continuation update: coverage-forced GenValid now emits a focused defined-start function that calls a second no-param/no-result helper when the start-only section knobs are forced. The new validation anchor proves the generated module validates, starts at defined function index `0`, keeps at least two function bodies, and has the start body call helper `1`; docs/wiki now record the start-time call-edge coverage. Validation for this slice is in the commit message. Continue with another FUZ1039 init-time interaction family, such as start/helper bodies that read imported immutable globals or active element/data initializer interplay.
   - Goal: exercise valid and invalid initialization-time interactions as a first-class fuzz surface.
   - Why: start functions, imported immutable globals, active element/data offsets, table initializers, passive segment drops, and memory/table counts interact across sections and are easy to under-test.
   - Deliverables: add profiles with and without start functions, start functions that call helpers, global initializers depending on imports, active data/elem offsets using imported globals, table initializers using `ref.func` and typed refs, and invalid counterparts for missing imports or wrong initializer types.

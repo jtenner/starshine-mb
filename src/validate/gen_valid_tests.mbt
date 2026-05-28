@@ -158,6 +158,60 @@ test "gen-valid start profiles cover absent imported and defined starts" {
 }
 
 ///|
+test "gen-valid coverage-forced start function calls a helper" {
+  let config = GenValidConfig::{
+    ..GenValidConfig::coverage_forced_default(),
+    max_imports: 0,
+    max_defined_funcs: 3,
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: 0,
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: 0,
+    features: GenValidFeatureToggles::{
+      ..GenValidConfig::coverage_forced_default().features,
+      allow_imports: false,
+      allow_start: true,
+      allow_tables: false,
+      allow_mems: false,
+      allow_globals: false,
+      allow_tags: false,
+      allow_elems: false,
+      allow_datas: false,
+    },
+    section_bias: GenValidSectionBias::{
+      ..GenValidConfig::coverage_forced_default().section_bias,
+      imports_percent: 0,
+      start_percent: 100,
+    },
+  }
+  let generated = match gen_valid_module_result_from_seed(0x51039C1UL, config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  match (generated.wasm_module.start_sec, generated.wasm_module.code_sec) {
+    (Some(StartSec(FuncIdx(start_idx))), Some(CodeSec(funcs))) => {
+      @debug.assert_eq(start_idx, 0U)
+      assert_true(
+        funcs.length() >= 2,
+        msg="coverage-forced start profile should have a helper function to call",
+      )
+      let Func(_, Expr(start_body)) = funcs[0]
+      assert_true(
+        gen_valid_test_instrs_call_func(start_body, FuncIdx::new(1U)),
+        msg="coverage-forced start function should call a defined helper",
+      )
+    }
+    _ => fail("expected forced defined start and code section")
+  }
+}
+
+///|
 test "gen-valid const-expression allowed-op matrix covers section contexts" {
   let matrix = gen_valid_const_expr_allowed_op_matrix()
   @debug.assert_eq(matrix.map(fn(row) { row.context }), [

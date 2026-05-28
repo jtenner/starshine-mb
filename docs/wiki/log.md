@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] fuzzing | FUZ1039 coverage-forced start helper calls
+
+- Continued `[FUZ]1039` by making the coverage-forced defined-start profile reserve a second no-param/no-result defined helper and emit a direct `call` from the start function to that helper when the focused start-only section knobs are forced.
+- Added a validation anchor proving the generated module validates, has a defined start at function index `0`, keeps at least two function bodies, and routes the start body through `call 1`.
+- Validation: focused `moon test src/validate` passed after the generator update.
+
 ## [2026-05-27] fuzzing | FUZ1038C topology-heavy arbitrary custom payloads
 
 - Continued `[FUZ]1038C` by adding an explicit arbitrary-byte unknown custom section to the topology-heavy GenValid metadata lane, preserving the existing empty, high-byte, UTF-8 text, long, and name-like custom-section payload shapes.
