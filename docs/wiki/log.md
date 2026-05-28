@@ -2045,6 +2045,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - The byte-fuzz lane counts decode-accepted validation rejections and requires any decode-accepted valid module to re-encode into decodable bytes, keeping malformed-byte stress separate from the existing arbitrary-value and GenValid full-module roundtrip counters.
 - Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`index.md`](index.md) so the living fuzz-runner docs name the new profiles and JSON detail counters.
 
+## [2026-05-27] fuzzing | FUZ1023C4 dynamic bad start-type module-field mutation
+
+- Continued `[FUZ]1023C4` by adding `dynamic-gen-valid-bad-start-type`, which starts from verified GenValid WAT, inserts a result-bearing start function plus `(start $dynamic_bad_start)` before the module close, and replays the mutated source as `assert_invalid` so the case lowers successfully before validator rejection.
+- Updated dynamic invalid-text smoke expectations from 40 to 44 attempts/cases, increasing the validate-rejected bucket from 8 to 12 while preserving the existing malformed and valid-before-link counts. Suite details now record `gen-valid-wat/bad-start-type` and `mutation:bad-start-type` alongside the prior dynamic GenValid-WAT surfaces.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) and [`wast/static-assertion-harness.md`](wast/static-assertion-harness.md) so the dynamic GenValid-WAT strategy summaries include the bad start-function module-field surface.
+
 ## [2026-05-27] fuzzing | FUZ1023A2 dynamic valid-before-link repro metadata
 
 - Continued `[FUZ]1023A2` by adding dynamic GenValid text invalid repro reports under `validate-invalid-text-dynamic` / `dynamic-text` for `--emit-invalid-repro` and direct report builders.
