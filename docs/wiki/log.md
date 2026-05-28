@@ -59,6 +59,18 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-28] fuzzing | FUZ1038 metadata stress closeout
+
+- Closed `[FUZ]1038` for the current binary model after confirming the topology-heavy profile already has deterministic coverage for many distinct export aliases, duplicate-index-safe export aliasing, multiple import module-name shapes, structured function/local/label name-section payloads, and at least six varied unknown non-`name` custom-section payloads including arbitrary bytes.
+- Removed `[FUZ]1038` from the active backlog. Future metadata work should open a new tiny slice only for a concrete unsupported surface, such as exact custom-section placement if the module/binary model gains source-position-preserving custom sections.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) to record the current closeout boundary on the name/custom-section ledger row.
+
+## [2026-05-28] fuzzing | FUZ1039 closeout
+
+- Completed `[FUZ]1039K` after confirming the open `[FUZ]1039J` active-offset plus passive-drop anchor had landed and no further `[FUZ]1039*` units remained.
+- Removed the `[FUZ]1039` parent from the active backlog; future initialization-time work should open a new tiny slice with a concrete missing interaction or invalid cross-section strategy.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the validation-anchor list names the `[FUZ]1039J` closeout assertion alongside the earlier start/imported-global/table/segment anchors.
+
 ## [2026-05-28] fuzzing | FUZ1039 active segments plus passive drops
 
 - Completed `[FUZ]1039J` with a coverage-forced GenValid regression proving one initialization-heavy module validates while combining imported-global active data/element offsets with passive data/element segments that are dropped from a valid function body.
