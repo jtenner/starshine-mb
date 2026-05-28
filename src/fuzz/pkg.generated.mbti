@@ -19,6 +19,8 @@ pub fn build_invalid_fuzz_ast_failure_report_by_stable_id(String, UInt64, Int, p
 
 pub fn build_invalid_fuzz_binary_failure_report_by_stable_id(String, UInt64, Int, profile? : String, params? : GenInvalidBinaryParams?) -> Result[InvalidFuzzFailureReport, String]
 
+pub fn build_invalid_fuzz_dynamic_text_failure_report_by_stable_id(String, UInt64, Int, profile? : String) -> Result[InvalidFuzzFailureReport, String]
+
 pub fn build_invalid_fuzz_failure_report_by_suite_and_stable_id(String, String, UInt64, Int, profile? : String) -> Result[InvalidFuzzFailureReport, String]
 
 pub fn build_invalid_fuzz_spec_seed_failure_report_by_stable_id(String, UInt64, Int, profile? : String) -> Result[InvalidFuzzFailureReport, String]
@@ -508,10 +510,12 @@ pub struct InvalidFuzzFailureReport {
   stream_seed : UInt64?
   attempt_seed : UInt64?
   source_path : String?
+  valid_before_link : Bool?
+  source_feature_facts : Array[String]
   artifacts : Array[InvalidFuzzArtifact]
   reduced_artifacts : Array[InvalidFuzzArtifact]
 } derive(Eq, @debug.Debug)
-pub fn InvalidFuzzFailureReport::new(String, String, UInt64, Int, String, InvalidFuzzSourceKind, String, expected_diagnostic_family? : String?, actual_stage? : String, actual_diagnostic_family? : String?, seed_profile? : String?, seed_mode? : String?, seed_require_strategy_prereqs? : Bool?, stream_label? : String?, stream_seed? : UInt64?, attempt_seed? : UInt64?, source_path? : String?, artifacts? : Array[InvalidFuzzArtifact], reduced_artifacts? : Array[InvalidFuzzArtifact]) -> Self
+pub fn InvalidFuzzFailureReport::new(String, String, UInt64, Int, String, InvalidFuzzSourceKind, String, expected_diagnostic_family? : String?, actual_stage? : String, actual_diagnostic_family? : String?, seed_profile? : String?, seed_mode? : String?, seed_require_strategy_prereqs? : Bool?, stream_label? : String?, stream_seed? : UInt64?, attempt_seed? : UInt64?, source_path? : String?, valid_before_link? : Bool?, source_feature_facts? : Array[String], artifacts? : Array[InvalidFuzzArtifact], reduced_artifacts? : Array[InvalidFuzzArtifact]) -> Self
 
 pub struct InvalidFuzzPersistIO {
   ensure_dir : (String) -> Result[Unit, String]

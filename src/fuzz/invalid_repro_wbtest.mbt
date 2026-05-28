@@ -212,6 +212,67 @@ test "parse_invalid_fuzz_failure_report roundtrips persisted artifacts" {
 }
 
 ///|
+test "dynamic valid-before-link repro persists link outcome metadata separately" {
+  let writes : Map[String, Bytes] = {}
+  let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
+    path,
+    bytes,
+  ) {
+    writes[path] = bytes
+    Ok(())
+  })
+  let report = match
+    build_invalid_fuzz_dynamic_text_failure_report_by_stable_id(
+      "dynamic-gen-valid-unknown-import", 0x5eedUL, 7,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(report.suite, "validate-invalid-text-dynamic")
+  @debug.assert_eq(report.actual_stage, "valid-before-link")
+  @debug.assert_eq(report.valid_before_link, Some(true))
+  @debug.assert_eq(
+    report.source_feature_facts.contains("mutation:unknown-import"),
+    true,
+  )
+  let (_, artifact_paths) = match
+    persist_invalid_fuzz_failure_report(report, io) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let meta_text = match
+    writes.get(
+      "fuzz-corpus/invalid/validate-invalid-text-dynamic/dynamic-gen-valid-unknown-import/seed-24301-attempt-7/repro.meta.txt",
+    ) {
+    Some(v) => invalid_repro_test_bytes_to_ascii(v)
+    None => fail("missing persisted metadata")
+  }
+  assert_true(meta_text.contains("actual_stage=valid-before-link"))
+  assert_true(meta_text.contains("valid_before_link=true"))
+  assert_true(meta_text.contains("source_feature_fact=mutation:unknown-import"))
+  let parsed = match
+    parse_invalid_fuzz_failure_report(meta_text, fn(name) {
+      for path in artifact_paths {
+        if path.contains("/" + name) {
+          match writes.get(path) {
+            Some(v) => return Ok(v)
+            None => ()
+          }
+        }
+      }
+      Err("missing artifact " + name)
+    }) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(parsed.valid_before_link, Some(true))
+  @debug.assert_eq(
+    parsed.source_feature_facts.contains("mutation:unknown-import"),
+    true,
+  )
+}
+
+///|
 test "parse_invalid_fuzz_failure_report roundtrips persisted seed metadata" {
   let writes : Map[String, Bytes] = {}
   let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(

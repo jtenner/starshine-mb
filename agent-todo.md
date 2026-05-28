@@ -645,7 +645,6 @@ p2 invalid/binary/text tiny slices:
 - [FUZ]1022B3 - Add decode-accepted binary cases for memory64 address typing failures.
 - [FUZ]1022B4 - Add decode-accepted binary cases for invalid const-expression encodings.
 - [FUZ]1022B5 - Add decode-accepted binary cases for relaxed-SIMD validation failures where represented.
-- [FUZ]1023A2 - Persist valid-before-link dynamic repro metadata separately from parse/validate rejection.
 - [FUZ]1023B1 (done) - Broaden dynamic source feature facts beyond current simple WAT field tags.
 - [FUZ]1023C2 - Add dynamic mutable-global const-init mutation.
 - [FUZ]1023C3 - Add dynamic string/name mutation.

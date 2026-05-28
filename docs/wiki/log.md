@@ -2039,6 +2039,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - The byte-fuzz lane counts decode-accepted validation rejections and requires any decode-accepted valid module to re-encode into decodable bytes, keeping malformed-byte stress separate from the existing arbitrary-value and GenValid full-module roundtrip counters.
 - Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`index.md`](index.md) so the living fuzz-runner docs name the new profiles and JSON detail counters.
 
+## [2026-05-27] fuzzing | FUZ1023A2 dynamic valid-before-link repro metadata
+
+- Continued `[FUZ]1023A2` by adding dynamic GenValid text invalid repro reports under `validate-invalid-text-dynamic` / `dynamic-text` for `--emit-invalid-repro` and direct report builders.
+- Persisted dynamic base WAT and mutated assertion WAST as separate artifacts, recorded dynamic seed/stream metadata, kept source feature facts in `repro.meta.txt`, and added `valid_before_link=true` for unlinkable cases so valid-before-link property failures are distinct from parse/lower and validation rejections.
+- Updated [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md) with the dynamic suite, artifact shape, and metadata contract.
+
 ## [2026-05-27] fuzzing | FUZ1023A dynamic unknown memory-import unlinkable mutation
 
 - Continued `[FUZ]1023A` by adding `dynamic-gen-valid-unknown-memory-import`, which starts from verified GenValid WAT, inserts an imported memory from a missing module immediately after the module opener so section order remains valid, and replays the mutated source as `assert_unlinkable`.

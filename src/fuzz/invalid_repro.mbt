@@ -234,6 +234,8 @@ pub struct InvalidFuzzFailureReport {
   stream_seed : UInt64?
   attempt_seed : UInt64?
   source_path : String?
+  valid_before_link : Bool?
+  source_feature_facts : Array[String]
   artifacts : Array[InvalidFuzzArtifact]
   reduced_artifacts : Array[InvalidFuzzArtifact]
 } derive(Eq, Debug)
@@ -257,6 +259,8 @@ pub fn InvalidFuzzFailureReport::new(
   stream_seed? : UInt64? = None,
   attempt_seed? : UInt64? = None,
   source_path? : String? = None,
+  valid_before_link? : Bool? = None,
+  source_feature_facts? : Array[String] = [],
   artifacts? : Array[InvalidFuzzArtifact] = [],
   reduced_artifacts? : Array[InvalidFuzzArtifact] = [],
 ) -> InvalidFuzzFailureReport {
@@ -278,6 +282,8 @@ pub fn InvalidFuzzFailureReport::new(
     stream_seed,
     attempt_seed,
     source_path,
+    valid_before_link,
+    source_feature_facts,
     artifacts,
     reduced_artifacts,
   }
@@ -307,6 +313,8 @@ fn invalid_fuzz_failure_report_copy(
     stream_seed=report.stream_seed,
     attempt_seed=report.attempt_seed,
     source_path~,
+    valid_before_link=report.valid_before_link,
+    source_feature_facts=report.source_feature_facts,
     artifacts=report.artifacts,
     reduced_artifacts~,
   )
@@ -512,6 +520,17 @@ fn invalid_fuzz_failure_meta_text(report : InvalidFuzzFailureReport) -> String {
   match invalid_fuzz_optional_meta_line("source_path", report.source_path) {
     Some(line) => lines.push(line)
     None => ()
+  }
+  match
+    invalid_fuzz_optional_bool_meta_line(
+      "valid_before_link",
+      report.valid_before_link,
+    ) {
+    Some(line) => lines.push(line)
+    None => ()
+  }
+  for fact in report.source_feature_facts {
+    lines.push("source_feature_fact=" + fact)
   }
   for line in invalid_fuzz_artifact_meta_lines("artifact", report.artifacts) {
     lines.push(line)
@@ -728,6 +747,8 @@ pub fn parse_invalid_fuzz_failure_report(
   let mut stream_seed : UInt64? = None
   let mut attempt_seed : UInt64? = None
   let mut source_path : String? = None
+  let mut valid_before_link : Bool? = None
+  let source_feature_facts : Array[String] = []
   let artifacts : Array[InvalidFuzzArtifact] = []
   let reduced_artifacts : Array[InvalidFuzzArtifact] = []
   for raw_line in meta_text.split("\n") {
@@ -781,6 +802,12 @@ pub fn parse_invalid_fuzz_failure_report(
           Err(msg) => return Err(msg)
         }
       "source_path" => source_path = Some(value)
+      "valid_before_link" =>
+        match invalid_fuzz_parse_bool(value, "valid_before_link") {
+          Ok(v) => valid_before_link = Some(v)
+          Err(msg) => return Err(msg)
+        }
+      "source_feature_fact" => source_feature_facts.push(value)
       "artifact" =>
         match invalid_fuzz_parse_artifact_entry(value, load_artifact) {
           Ok(v) => artifacts.push(v)
@@ -845,6 +872,8 @@ pub fn parse_invalid_fuzz_failure_report(
       stream_seed~,
       attempt_seed~,
       source_path~,
+      valid_before_link~,
+      source_feature_facts~,
       artifacts~,
       reduced_artifacts~,
     ),
@@ -904,6 +933,15 @@ pub fn build_invalid_fuzz_failure_report_by_suite_and_stable_id(
   profile? : String = "smoke",
 ) -> Result[InvalidFuzzFailureReport, String] {
   let normalized = invalid_fuzz_ascii_lower(suite.trim().to_owned())
+  if normalized == "validate-invalid-text-dynamic" ||
+    normalized == "dynamic-text" {
+    return build_invalid_fuzz_dynamic_text_failure_report_by_stable_id(
+      strategy_id,
+      seed,
+      attempt,
+      profile~,
+    )
+  }
   let source_kind = match invalid_fuzz_source_kind_from_name(normalized) {
     Some(v) => v
     None => return Err("unknown invalid fuzz suite '\{suite}'")
@@ -1161,6 +1199,73 @@ pub fn build_invalid_fuzz_text_failure_report_by_stable_id(
       actual_stage~,
       source_path=Some(path),
       artifacts=[artifact],
+    ),
+  )
+}
+
+///|
+pub fn build_invalid_fuzz_dynamic_text_failure_report_by_stable_id(
+  strategy_id : String,
+  seed : UInt64,
+  attempt : Int,
+  profile? : String = "smoke",
+) -> Result[InvalidFuzzFailureReport, String] {
+  let attempt_seed = validate_invalid_text_dynamic_attempt_seed(
+    seed, strategy_id, attempt,
+  )
+  let generated = match
+    validate_invalid_text_dynamic_case(attempt_seed, strategy_id) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let stage = match
+    evaluate_validate_invalid_text_assertion_source(
+      generated.assertion_source,
+      "dynamic-text-invalid/\{generated.stable_id}.wast",
+      generated.assertion_kind,
+    ) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let expected_stage = validate_invalid_text_stage_name(
+    generated.expected_stage,
+  )
+  let actual_stage = validate_invalid_text_stage_name(stage)
+  if expected_stage != actual_stage {
+    return Err(
+      "dynamic text invalid report outcome mismatch: strategy=\{strategy_id} expected_stage=\{expected_stage} actual_stage=\{actual_stage}",
+    )
+  }
+  Ok(
+    InvalidFuzzFailureReport::new(
+      "validate-invalid-text-dynamic",
+      profile,
+      seed,
+      attempt,
+      strategy_id,
+      invalid_fuzz_text_source_kind(),
+      expected_stage,
+      actual_stage~,
+      seed_profile=Some("dynamic-gen-valid"),
+      seed_mode=Some("gen-valid-wat"),
+      stream_label=Some("text-mutation-choice"),
+      stream_seed=Some(validate_invalid_text_dynamic_stream_seed(seed)),
+      attempt_seed=Some(attempt_seed),
+      source_path=Some("dynamic-text-invalid/\{generated.stable_id}.wast"),
+      valid_before_link=Some(stage == ValidBeforeLinkStage),
+      source_feature_facts=generated.source_feature_facts,
+      artifacts=[
+        InvalidFuzzArtifact::new(
+          "base",
+          "base.wat",
+          invalid_fuzz_string_bytes(generated.base_source),
+        ),
+        InvalidFuzzArtifact::new(
+          "assertion",
+          "assertion.wast",
+          invalid_fuzz_string_bytes(generated.assertion_source),
+        ),
+      ],
     ),
   )
 }
