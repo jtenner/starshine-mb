@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] fuzzing | FUZ1021B2 represented-prefix reserved subopcode corruptions
+
+- Completed `[FUZ]1021B2` by adding explicit invalid-binary strategies for reserved subopcode byte sequences under represented `0xFB` GC, `0xFC` bulk/table, and `0xFD` SIMD prefixes: `invalid-gc-prefix-subopcode-byte`, `invalid-bulk-prefix-subopcode-byte`, and `invalid-simd-prefix-subopcode-byte`.
+- Kept the existing generic bulk/table and atomics reserved-subopcode lanes, added focused decode-rejection coverage, refreshed the invalid-binary registry expectations, and updated [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md).
+- Validation: `moon test src/fuzz` first failed on missing strategies, then passed after wiring the enum, stable ids, registry specs, mutators, dispatcher, and tests.
+
 ## [2026-05-27] fuzzing | FUZ1039 start/imported-global interaction anchor
 
 - Continued `[FUZ]1039` with a focused coverage-forced GenValid anchor for initialization-time interaction between a defined start function and imported immutable globals.

@@ -95,6 +95,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   OutOfOrderNameSubsectionId
   InvalidOpcodeByte
   InvalidPrefixSubopcodeByte
+  InvalidGcPrefixSubopcodeByte
+  InvalidBulkPrefixSubopcodeByte
+  InvalidSimdPrefixSubopcodeByte
   MalformedGcPrefixSubopcodeUleb
   MalformedBulkPrefixSubopcodeUleb
   MalformedSimdPrefixSubopcodeUleb
@@ -868,6 +871,9 @@ fn validate_invalid_binary_strategy_label(
     OutOfOrderNameSubsectionId => "out-of-order-name-subsection-id"
     InvalidOpcodeByte => "invalid-opcode-byte"
     InvalidPrefixSubopcodeByte => "invalid-prefix-subopcode-byte"
+    InvalidGcPrefixSubopcodeByte => "invalid-gc-prefix-subopcode-byte"
+    InvalidBulkPrefixSubopcodeByte => "invalid-bulk-prefix-subopcode-byte"
+    InvalidSimdPrefixSubopcodeByte => "invalid-simd-prefix-subopcode-byte"
     MalformedGcPrefixSubopcodeUleb => "malformed-gc-prefix-subopcode-uleb"
     MalformedBulkPrefixSubopcodeUleb => "malformed-bulk-prefix-subopcode-uleb"
     MalformedSimdPrefixSubopcodeUleb => "malformed-simd-prefix-subopcode-uleb"
@@ -1871,6 +1877,27 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidPrefixSubopcodeByte,
       "invalid-prefix-subopcode-byte",
       "function body with an invalid prefixed subopcode byte sequence",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidGcPrefixSubopcodeByte,
+      "invalid-gc-prefix-subopcode-byte",
+      "GC-prefixed instruction with a reserved subopcode byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBulkPrefixSubopcodeByte,
+      "invalid-bulk-prefix-subopcode-byte",
+      "bulk/table-prefixed instruction with a reserved subopcode byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidSimdPrefixSubopcodeByte,
+      "invalid-simd-prefix-subopcode-byte",
+      "SIMD-prefixed instruction with a reserved subopcode byte",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -5901,6 +5928,62 @@ fn validate_invalid_binary_mutate_invalid_prefix_subopcode_byte(
       true,
       validate_invalid_binary_minimal_code_with_instr([
         (0xfc).to_byte(),
+        (0xff).to_byte(),
+        (0xff).to_byte(),
+        (0xff).to_byte(),
+        (0xff).to_byte(),
+        (0x0f).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_invalid_prefix_subopcode_module(
+  prefix : Byte,
+) -> Bytes {
+  validate_invalid_binary_minimal_code_with_instr([prefix, (0x7f).to_byte()])
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_gc_prefix_subopcode_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidGcPrefixSubopcodeByte,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_invalid_prefix_subopcode_module((0xfb).to_byte()),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_bulk_prefix_subopcode_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidBulkPrefixSubopcodeByte,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_invalid_prefix_subopcode_module((0xfc).to_byte()),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_simd_prefix_subopcode_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidSimdPrefixSubopcodeByte,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfd).to_byte(),
         (0xff).to_byte(),
         (0xff).to_byte(),
         (0xff).to_byte(),
@@ -15825,6 +15908,12 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_opcode_byte(base)
     InvalidPrefixSubopcodeByte =>
       validate_invalid_binary_mutate_invalid_prefix_subopcode_byte(base)
+    InvalidGcPrefixSubopcodeByte =>
+      validate_invalid_binary_mutate_invalid_gc_prefix_subopcode_byte(base)
+    InvalidBulkPrefixSubopcodeByte =>
+      validate_invalid_binary_mutate_invalid_bulk_prefix_subopcode_byte(base)
+    InvalidSimdPrefixSubopcodeByte =>
+      validate_invalid_binary_mutate_invalid_simd_prefix_subopcode_byte(base)
     MalformedGcPrefixSubopcodeUleb =>
       validate_invalid_binary_mutate_malformed_gc_prefix_subopcode_uleb(base)
     MalformedBulkPrefixSubopcodeUleb =>

@@ -66,7 +66,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "simd-lane-index-overflow", "malformed-custom-section-payload", "malformed-custom-section-name-length-uleb",
     "overwide-custom-section-name-length-uleb", "malformed-name-subsection-size-uleb",
     "overwide-name-subsection-size-uleb", "invalid-name-subsection-id-byte", "out-of-order-name-subsection-id",
-    "invalid-opcode-byte", "invalid-prefix-subopcode-byte", "malformed-gc-prefix-subopcode-uleb",
+    "invalid-opcode-byte", "invalid-prefix-subopcode-byte", "invalid-gc-prefix-subopcode-byte",
+    "invalid-bulk-prefix-subopcode-byte", "invalid-simd-prefix-subopcode-byte", "malformed-gc-prefix-subopcode-uleb",
     "malformed-bulk-prefix-subopcode-uleb", "malformed-simd-prefix-subopcode-uleb",
     "malformed-atomic-prefix-subopcode-uleb", "invalid-atomic-prefix-subopcode-byte",
     "overwide-gc-prefix-subopcode-uleb", "overwide-bulk-prefix-subopcode-uleb", "overwide-simd-prefix-subopcode-uleb",
@@ -295,7 +296,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -1781,6 +1783,20 @@ test "invalid binary FZG030 decodes overwide branch label ULEBs as invalid" {
 }
 
 ///|
+test "invalid binary FZG030 decodes represented-prefix reserved subopcode bytes as invalid" {
+  for
+    strategy in [
+      "invalid-gc-prefix-subopcode-byte", "invalid-bulk-prefix-subopcode-byte", "invalid-simd-prefix-subopcode-byte",
+      "invalid-atomic-prefix-subopcode-byte",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f1aUL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG030 decodes malformed prefixed subopcode ULEBs as invalid" {
   for
     strategy in [
@@ -2243,42 +2259,43 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "simd-lane-index-overflow", "malformed-custom-section-payload", "malformed-custom-section-name-length-uleb",
       "overwide-custom-section-name-length-uleb", "malformed-name-subsection-size-uleb",
       "overwide-name-subsection-size-uleb", "invalid-name-subsection-id-byte", "out-of-order-name-subsection-id",
-      "invalid-opcode-byte", "invalid-prefix-subopcode-byte", "malformed-gc-prefix-subopcode-uleb",
-      "malformed-bulk-prefix-subopcode-uleb", "malformed-simd-prefix-subopcode-uleb",
-      "malformed-atomic-prefix-subopcode-uleb", "invalid-atomic-prefix-subopcode-byte",
-      "overwide-gc-prefix-subopcode-uleb", "overwide-bulk-prefix-subopcode-uleb",
-      "overwide-simd-prefix-subopcode-uleb", "overwide-atomic-prefix-subopcode-uleb",
-      "malformed-simd-load-memarg-align-uleb", "malformed-simd-store-memarg-align-uleb",
-      "malformed-simd-load-memarg-offset-uleb", "malformed-simd-store-memarg-offset-uleb",
-      "overwide-simd-load-memarg-align-uleb", "overwide-simd-store-memarg-align-uleb",
-      "overwide-simd-load-memarg-offset-uleb", "overwide-simd-store-memarg-offset-uleb",
-      "malformed-simd-load-lane-memarg-align-uleb", "malformed-simd-store-lane-memarg-align-uleb",
-      "malformed-simd-load-lane-memarg-offset-uleb", "malformed-simd-store-lane-memarg-offset-uleb",
-      "overwide-simd-load-lane-memarg-align-uleb", "overwide-simd-store-lane-memarg-align-uleb",
-      "overwide-simd-load-lane-memarg-offset-uleb", "overwide-simd-store-lane-memarg-offset-uleb",
-      "malformed-simd-load-splat-memarg-align-uleb", "malformed-simd-load-splat-memarg-offset-uleb",
-      "overwide-simd-load-splat-memarg-align-uleb", "overwide-simd-load-splat-memarg-offset-uleb",
-      "malformed-atomic-load-memarg-align-uleb", "malformed-atomic-store-memarg-align-uleb",
-      "malformed-atomic-load-memarg-offset-uleb", "malformed-atomic-store-memarg-offset-uleb",
-      "malformed-atomic-notify-memarg-align-uleb", "malformed-atomic-notify-memarg-offset-uleb",
-      "malformed-atomic-wait-memarg-align-uleb", "malformed-atomic-wait-memarg-offset-uleb",
-      "overwide-atomic-load-memarg-align-uleb", "overwide-atomic-store-memarg-align-uleb",
-      "overwide-atomic-load-memarg-offset-uleb", "overwide-atomic-store-memarg-offset-uleb",
-      "overwide-atomic-notify-memarg-align-uleb", "overwide-atomic-notify-memarg-offset-uleb",
-      "overwide-atomic-wait-memarg-align-uleb", "overwide-atomic-wait-memarg-offset-uleb",
-      "malformed-atomic-rmw-memarg-align-uleb", "malformed-atomic-rmw-memarg-offset-uleb",
-      "overwide-atomic-rmw-memarg-align-uleb", "overwide-atomic-rmw-memarg-offset-uleb",
-      "malformed-atomic-cmpxchg-memarg-align-uleb", "malformed-atomic-cmpxchg-memarg-offset-uleb",
-      "overwide-atomic-cmpxchg-memarg-align-uleb", "overwide-atomic-cmpxchg-memarg-offset-uleb",
-      "malformed-memarg-immediate", "malformed-load-memarg-align-uleb", "malformed-store-memarg-align-uleb",
-      "malformed-load-memarg-offset-uleb", "malformed-store-memarg-offset-uleb",
-      "overwide-load-memarg-align-uleb", "overwide-store-memarg-align-uleb", "overwide-load-memarg-offset-uleb",
-      "overwide-store-memarg-offset-uleb", "malformed-blocktype-immediate", "invalid-blocktype-valtype-byte",
-      "overwide-blocktype-type-index-uleb", "malformed-memory-min-uleb", "malformed-table-min-uleb",
-      "malformed-memory-max-uleb", "malformed-table-max-uleb", "overwide-memory-min-uleb",
-      "overwide-table-min-uleb", "overwide-memory-max-uleb", "overwide-table-max-uleb",
-      "invalid-export-name-utf8", "malformed-export-name-length-uleb", "overwide-export-name-length-uleb",
-      "invalid-import-module-name-utf8", "malformed-import-module-name-length-uleb",
+      "invalid-opcode-byte", "invalid-prefix-subopcode-byte", "invalid-gc-prefix-subopcode-byte",
+      "invalid-bulk-prefix-subopcode-byte", "invalid-simd-prefix-subopcode-byte",
+      "malformed-gc-prefix-subopcode-uleb", "malformed-bulk-prefix-subopcode-uleb",
+      "malformed-simd-prefix-subopcode-uleb", "malformed-atomic-prefix-subopcode-uleb",
+      "invalid-atomic-prefix-subopcode-byte", "overwide-gc-prefix-subopcode-uleb",
+      "overwide-bulk-prefix-subopcode-uleb", "overwide-simd-prefix-subopcode-uleb",
+      "overwide-atomic-prefix-subopcode-uleb", "malformed-simd-load-memarg-align-uleb",
+      "malformed-simd-store-memarg-align-uleb", "malformed-simd-load-memarg-offset-uleb",
+      "malformed-simd-store-memarg-offset-uleb", "overwide-simd-load-memarg-align-uleb",
+      "overwide-simd-store-memarg-align-uleb", "overwide-simd-load-memarg-offset-uleb",
+      "overwide-simd-store-memarg-offset-uleb", "malformed-simd-load-lane-memarg-align-uleb",
+      "malformed-simd-store-lane-memarg-align-uleb", "malformed-simd-load-lane-memarg-offset-uleb",
+      "malformed-simd-store-lane-memarg-offset-uleb", "overwide-simd-load-lane-memarg-align-uleb",
+      "overwide-simd-store-lane-memarg-align-uleb", "overwide-simd-load-lane-memarg-offset-uleb",
+      "overwide-simd-store-lane-memarg-offset-uleb", "malformed-simd-load-splat-memarg-align-uleb",
+      "malformed-simd-load-splat-memarg-offset-uleb", "overwide-simd-load-splat-memarg-align-uleb",
+      "overwide-simd-load-splat-memarg-offset-uleb", "malformed-atomic-load-memarg-align-uleb",
+      "malformed-atomic-store-memarg-align-uleb", "malformed-atomic-load-memarg-offset-uleb",
+      "malformed-atomic-store-memarg-offset-uleb", "malformed-atomic-notify-memarg-align-uleb",
+      "malformed-atomic-notify-memarg-offset-uleb", "malformed-atomic-wait-memarg-align-uleb",
+      "malformed-atomic-wait-memarg-offset-uleb", "overwide-atomic-load-memarg-align-uleb",
+      "overwide-atomic-store-memarg-align-uleb", "overwide-atomic-load-memarg-offset-uleb",
+      "overwide-atomic-store-memarg-offset-uleb", "overwide-atomic-notify-memarg-align-uleb",
+      "overwide-atomic-notify-memarg-offset-uleb", "overwide-atomic-wait-memarg-align-uleb",
+      "overwide-atomic-wait-memarg-offset-uleb", "malformed-atomic-rmw-memarg-align-uleb",
+      "malformed-atomic-rmw-memarg-offset-uleb", "overwide-atomic-rmw-memarg-align-uleb",
+      "overwide-atomic-rmw-memarg-offset-uleb", "malformed-atomic-cmpxchg-memarg-align-uleb",
+      "malformed-atomic-cmpxchg-memarg-offset-uleb", "overwide-atomic-cmpxchg-memarg-align-uleb",
+      "overwide-atomic-cmpxchg-memarg-offset-uleb", "malformed-memarg-immediate",
+      "malformed-load-memarg-align-uleb", "malformed-store-memarg-align-uleb", "malformed-load-memarg-offset-uleb",
+      "malformed-store-memarg-offset-uleb", "overwide-load-memarg-align-uleb", "overwide-store-memarg-align-uleb",
+      "overwide-load-memarg-offset-uleb", "overwide-store-memarg-offset-uleb", "malformed-blocktype-immediate",
+      "invalid-blocktype-valtype-byte", "overwide-blocktype-type-index-uleb", "malformed-memory-min-uleb",
+      "malformed-table-min-uleb", "malformed-memory-max-uleb", "malformed-table-max-uleb",
+      "overwide-memory-min-uleb", "overwide-table-min-uleb", "overwide-memory-max-uleb",
+      "overwide-table-max-uleb", "invalid-export-name-utf8", "malformed-export-name-length-uleb",
+      "overwide-export-name-length-uleb", "invalid-import-module-name-utf8", "malformed-import-module-name-length-uleb",
       "overwide-import-module-name-length-uleb", "invalid-import-field-name-utf8",
       "malformed-import-field-name-length-uleb", "overwide-import-field-name-length-uleb",
       "invalid-import-kind-byte", "malformed-function-section-type-index-uleb", "overwide-function-section-type-index-uleb",
