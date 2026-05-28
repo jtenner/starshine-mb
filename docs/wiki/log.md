@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-28] fuzzing | FUZ1039 imported-global initializer co-coverage
+
+- Continued `[FUZ]1039` with a coverage-forced GenValid regression proving one initialization-heavy module validates while using imported immutable globals in a table initializer, an active data offset, and an active element offset.
+- The focused `moon test src/validate` already passed, showing the combined behavior existed but lacked a durable co-coverage assertion.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the GenValid deterministic example catalog names this table/segment initializer interaction.
+
 ## [2026-05-28] fuzzing | FUZ1021B3 malformed/overwide prefixed subopcode closure
 
 - Closed `[FUZ]1021B3` as an evidence/backlog-sync slice: the checked-in binary-invalid registry already includes malformed and overwide subopcode ULEB strategies for all supported prefixed opcode spaces (`0xFB` GC, `0xFC` bulk/table, `0xFD` SIMD, and `0xFE` atomics), and [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md) already records those ids.

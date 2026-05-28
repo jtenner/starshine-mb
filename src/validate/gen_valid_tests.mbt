@@ -386,6 +386,31 @@ test "gen-valid coverage-forced single defined table gets initializer" {
 }
 
 ///|
+test "gen-valid init-heavy imported-global initializers combine table and segment contexts" {
+  let config = GenValidConfig::coverage_forced_default()
+  let generated = match gen_valid_module_result_from_seed(0x51039E4UL, config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(
+    gen_valid_test_has_imported_global_table_initializer(generated.wasm_module),
+    msg="coverage-forced init-heavy module should initialize a table from an imported immutable reference global",
+  )
+  assert_true(
+    gen_valid_test_has_imported_global_active_data_offset(generated.wasm_module),
+    msg="coverage-forced init-heavy module should keep active data offsets that read an imported immutable i32 global",
+  )
+  assert_true(
+    gen_valid_test_has_imported_global_active_elem_offset(generated.wasm_module),
+    msg="coverage-forced init-heavy module should keep active element offsets that read an imported immutable i32 global",
+  )
+}
+
+///|
 test "gen-valid init-heavy single table uses initializer with start and segments" {
   let config = GenValidConfig::{
     ..GenValidConfig::coverage_forced_default(),
