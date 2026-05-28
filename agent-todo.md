@@ -613,18 +613,10 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 Use this board as the tracking view for fuzzer work. Each slice should be small enough for one focused TDD loop: add/adjust focused tests, implement one narrow behavior, update docs/wiki counters, and run the targeted fuzz smoke plus `moon test src/fuzz` or the relevant package test. Prefer finishing p1 GenValid/metamorphic slices before p2 infrastructure unless a bug or release need says otherwise.
 
 p1 next-up / active:
-- [FUZ]1036J3 (done) - Passive data-segment reshaping preserves data-count metadata and does not retarget existing indices; checked-in transform `add-passive-data-segment-shape-stress` appends varied passive-only data segments and refreshes `DataCntSec` to the final data length.
-- [FUZ]1036J4 (done) - Passive element-segment reshaping preserves table/function references and does not retarget existing indices; checked-in transform `reshape-passive-element-segments` rewrites one passive func-index element segment into equivalent typed `ref.func` expressions without changing element-section order or function indices.
-- [FUZ]1036K1 (done) - Duplicate-equivalent unused function type declaration transforms are covered by the checked-in unused and duplicate-equivalent function-type transforms.
-- [FUZ]1036K2 (done) - Additional export alias transforms for functions, tables, memories, and globals are covered by checked-in collision-avoiding alias export transforms that preserve unique export names.
-- [FUZ]1036K3 (done) - Imported/defined declaration aliasing transforms are covered by checked-in duplicate-equivalent import/table/global/function-type surfaces that append aliases without shifting existing indices.
 - [FUZ]1037B - BLOCKED - Cover numeric constants in global, data offset, element offset, and table initializer contexts.
   - Blocker/evidence: numeric constants are valid for global initializers and active data/element offsets, but a table initializer expression must produce the table element reference type, not a numeric value. `wasm-tools validate .tmp/fuz1037b-table-init-numeric.wat` rejects `(table 1 funcref (i32.const 0))` with `type mismatch: expected funcref, found i32`. Starshine's checked-in GenValid const-expression matrix already excludes `NumericConstExprOp` from `TableInitializerConstExpr` for this reason. Resume only if the slice is redefined to cover numeric table limits/indices instead of table initializer expressions, or split the valid global/data/element numeric coverage into a narrower task.
 
 p2 invalid/binary/text tiny slices:
-- [FUZ]1021C2 - Add invalid blocktype encoding corruptions.
-- [FUZ]1021C3 - Add invalid heap/ref type encoding corruptions.
-- [FUZ]1021C4 - Add remaining memarg/immediate malformed-byte families.
 - [FUZ]1022A1 - Add decode-accepted binary cases for body stack mismatches.
 - [FUZ]1022A2 - Add decode-accepted binary cases for bad branch labels/payloads.
 - [FUZ]1022A3 - Add decode-accepted binary cases for bad local/global/table/memory/tag/type indices.
@@ -635,56 +627,18 @@ p2 invalid/binary/text tiny slices:
 - [FUZ]1022B3 - Add decode-accepted binary cases for memory64 address typing failures.
 - [FUZ]1022B4 - Add decode-accepted binary cases for invalid const-expression encodings.
 - [FUZ]1022B5 - Add decode-accepted binary cases for relaxed-SIMD validation failures where represented.
-- [FUZ]1023B1 (done) - Broaden dynamic source feature facts beyond current simple WAT field tags.
-- [FUZ]1025A1 - Version `InvalidFuzzFailureReport` metadata with backward-compatible parsing.
-- [FUZ]1025A2 - Record variant id, issue kind, generator profile/config, feature facts, and source artifacts.
-- [FUZ]1025B1 - Add shrink-preserves-outcome support for AST invalid modules.
-- [FUZ]1025B2 - Add shrink-preserves-outcome support for binary byte artifacts.
-- [FUZ]1025B3 - Add shrink-preserves-outcome support for text assertion artifacts.
-- [FUZ]1025B4 - Add shrink-preserves-outcome support for spec-seed extracts.
 - [FUZ]1026A1 - Add deterministic two-fault AST invalid stress case.
 - [FUZ]1026A2 - Add deterministic binary+text or binary-only multi-fault stress case.
 - [FUZ]1026B1 - Persist all mutation ids and broad outcomes for multi-fault repros.
 
 p2 oracle/reporting/infrastructure tiny slices:
-- [FUZ]1031A - Add optional `--out-dir` plumbing for ordinary fuzz runs without changing default output behavior.
-- [FUZ]1031B - Write `result.json` and `cases.jsonl` for one ordinary fuzz suite.
-- [FUZ]1031C - Add `generated/`, `failures/`, and manifest layout for one suite.
-- [FUZ]1031D - Generalize output-dir layout to the remaining ordinary fuzz suites.
-- [FUZ]1031E - Document fuzz artifact retention and replay behavior.
-- [FUZ]1032A - Add optional `wasm-tools validate` adapter with unavailable-tool skip classification.
-- [FUZ]1032B - Add optional Binaryen `wasm-validate` adapter.
-- [FUZ]1032C - Add optional WABT validation adapter if locally available.
-- [FUZ]1032D - Add fake-runtime adapter tests for future execution oracle plumbing.
-- [FUZ]1033A - Add pass-fuzz `--check-idempotent` parser/report plumbing.
-- [FUZ]1033B - Implement idempotence check for one pass-fuzz smoke path.
-- [FUZ]1033C - Add repeated-pass validation property check.
-- [FUZ]1033D - Add selected pass-composition property check metadata without changing default signoff behavior.
 - [FUZ]1042A - Define promoted/quarantine corpus directory and metadata policy.
-- [FUZ]1042B - Add replay command metadata for promoted cases.
-- [FUZ]1042C - Add replay-all task over a tiny promoted fixture set.
-- [FUZ]1043A - Define shared minimizer predicate interface.
-- [FUZ]1043B - Add module/function deletion reducer fixture.
-- [FUZ]1043C - Add byte-slice deletion reducer fixture.
-- [FUZ]1043D - Add text-token deletion reducer fixture.
-- [FUZ]1044A1 - Add n-way binary adapter result schema and fake classifications.
-- [FUZ]1044A2 - Wire Starshine vs optional wasm-tools classification for binary decode/validate.
-- [FUZ]1044A3 - Wire optional WABT/Binaryen classifications and proposal-gap reporting.
 - [FUZ]1045A1 - Add n-way text adapter result schema and fake classifications.
 - [FUZ]1045A2 - Wire local WAT/WAST parser against optional WABT text command.
 - [FUZ]1045A3 - Wire optional wasm-tools text command and unsupported-syntax classification.
-- [FUZ]1047A - Document each pass-fuzz normalization step and emitted artifact/hash.
-- [FUZ]1047B - Add fixtures for debug-only/name/custom-section differences.
-- [FUZ]1047C - Add fixtures for default-local initialization and transparent block-wrapper normalization.
-- [FUZ]1047D - Add fixtures for NaN payload/printing equality and inequality boundaries.
 - [FUZ]1048A - Ensure every fuzz summary JSON records feature/opcode/strategy counters needed by coverage-delta.
 - [FUZ]1048B - Add a docs example for `bun fuzz coverage-delta` required vs optional counters.
-- [FUZ]1049A - Add deterministic shard queue smoke over two fake shards.
-- [FUZ]1049B - Add resume-skip test for completed shard manifests.
-- [FUZ]1049C - Add stable merge test for ledgers and cases independent of completion order.
 - [FUZ]1050A - Add raw bytes/text and normalized canonical hashes to artifact metadata.
-- [FUZ]1050B - Add feature-fact and failure-predicate interestingness hashes.
-- [FUZ]1050C - Add reversible dedup index mapping hashes to seeds/profiles.
 - [FUZ]1052B1 - Choose deterministic simple argument vectors for exported functions.
 - [FUZ]1052B2 - Execute one simple exported function under the optional runtime adapter.
 - [FUZ]1052B3 - Classify equal result, equal trap, unsupported runtime, nondeterministic import, and semantic mismatch.
@@ -710,15 +664,6 @@ p2 oracle/reporting/infrastructure tiny slices:
 
 Use these slice ids when selecting or reporting future FUZ work. Parent tasks below keep the fuller goals, invariants, and historical evidence; this index names the remaining units so agents do not have to infer the next slice from long status paragraphs.
 
-p1 GenValid / valid-generation slices:
-- [FUZ]1036A (done) - Metamorphic suite scaffold and custom/name/data/global/function/table/elem metadata transforms.
-- [FUZ]1036B (done) - Name-section/local/control metadata transforms and simple locals/body no-op transforms.
-- [FUZ]1036C (done) - Export aliases, custom-section reordering, reference/numeric local widening, and simple const/drop/if/eqz body transforms.
-- [FUZ]1036D (done) - Scalar numeric computed/drop body transforms through integer count ops; current suite has 221 transforms per generated module.
-- [FUZ]1036E (done) - Numeric conversion and reinterpret computed/drop transforms are complete in the checked-in metamorphic transform registry/dispatcher/tests through `[FUZ]1036E6`; durable evidence lives in `docs/wiki/log.md` entries for `FUZ1036E1`, `FUZ1036E3`, `FUZ1036E4`, `FUZ1036E5`, and `FUZ1036E6`.
-- [FUZ]1036G (done) - SIMD constant/unary/bitwise computed/drop transforms are covered by the checked-in v128 const/drop, SIMD unary/all-true/bitmask, and SIMD bitwise/bitselect metamorphic-valid transforms.
-- [FUZ]1036L (done) - Control identity and stack-preserving wrapper transforms beyond empty block/loop and single identity block now cover block/loop-wrapped numeric const/drop debris, nested identity blocks, nested empty void blocks, and the checked-in `wrap-defined-function-bodies-in-identity-loop` transform. `[FUZ]1036L5` added the identity-loop wrapper and raised the fixed smoke registry to 477 transformed/validated variants.
-
 p1/p2 oracle, reporting, and infrastructure slices:
 - [FUZ]1052B (p2) - Export Invocation Result Matrix
   - Unit: choose simple exported-function arguments and classify equal result, equal trap, unsupported runtime, nondeterministic import, and semantic mismatch.
@@ -738,22 +683,14 @@ p2 invalid/binary/text slices:
   - Unit: add invalid UTF-8 byte strategies for names/imports/exports/custom/name-section payloads.
 - [FUZ]1021B (p2) - Remaining Opcode/Prefix/Subopcode Binary Corruptions
   - Unit: add invalid opcode, bad prefix, malformed subopcode, and proposal-prefix corruption strategies beyond the landed atomics/SIMD samples.
-- [FUZ]1021C (p2) - Remaining Lane/Blocktype/Heaptype Binary Corruptions
-  - Unit: add invalid lane immediates, blocktype encodings, heap/ref type encodings, and memarg/immediate families not already represented.
 - [FUZ]1022A (p2) - Decode-Accepted Body Validation Binary Strategies
   - Unit: add binary-invalid strategies that decode successfully but fail validation for body stack, branch payload, call, local/global/table/memory/tag/type index, and GC/array/field errors.
 - [FUZ]1022B (p2) - Decode-Accepted Proposal Validation Binary Strategies
   - Unit: add validator-rejected binary cases for exceptions, atomics on non-shared memory, memory64 address typing, const expressions, and relaxed SIMD where represented.
-- [FUZ]1025A (p2) - Invalid Repro Metadata Versioning
-  - Unit: extend `InvalidFuzzFailureReport` with variant id, issue kind, generator profile/config, feature facts, source artifacts, and backward-compatible parsing.
-- [FUZ]1025B (p2) - Actual Specimen Shrinking
-  - Unit: shrink AST modules, binary bytes, text assertions, and spec-seed extracts while preserving expected stage/family/issue.
 - [FUZ]1026A (p2) - Multi-Fault Invalid Composition Runner
   - Unit: compose two or more AST/binary/text mutations in a stress-only lane and classify only broad outcomes.
 - [FUZ]1026B (p2) - Multi-Fault Repro Metadata
   - Unit: persist all mutation ids and broad outcome data without weakening single-fault diagnostic floors.
-- [FUZ]1044A (p2) - N-Way Binary Validation Classification
-  - Unit: compare Starshine decode/validate with optional wasm-tools/WABT/Binaryen validators and classify proposal gaps, decoder-stage disagreements, validator-stage disagreements, and tool failures.
 - [FUZ]1045A (p2) - N-Way Text Parse/Print Classification
   - Unit: compare local WAT/WAST parse/print/lower behavior with optional WABT and wasm-tools text commands.
 - [FUZ]1055A (p2) - Multi-Module WAST Valid Linking Lane
@@ -824,16 +761,6 @@ p2 invalid/binary/text slices:
   - Suggested Tests: one decode-then-validate test per strategy, invalid binary fuzz stats tests, minimal repro artifact tests.
   - Exit Criteria: binary-invalid lane has a balanced split between malformed decode failures and validator-rejected decoded modules.
 
-- [FUZ]1025 (p2) - Invalid Repro Metadata, Variant Recording, And Actual Specimen Shrinking
-  - Goal: make invalid repros record more context and shrink the actual generated failing specimen, not only the strategy's known minimal form.
-  - Why: current repros are useful but reduction often jumps to a canned minimal artifact. Agents also need variant id, seed profile, generator config, feature facts, exact issue kind, and shrink lineage.
-  - Deliverables: extend `InvalidFuzzFailureReport` metadata; record strategy variant, exact issue kind, generator config/profile, feature facts, and source artifact manifest; add delta-style shrinking for AST modules, binary bytes, text assertions, and spec-seed extracts while preserving expected stage/family/issue.
-  - Required APIs: `src/fuzz/invalid_repro.mbt`, invalid strategy variants, feature ledger, binary/text/module persistence helpers.
-  - Invariants: current metadata parser must remain backward-compatible or versioned; shrinkers must preserve the expected failure classification before replacing artifacts.
-  - Dependencies: [FUZ]1018 variants and [FUZ]1013 feature facts recommended.
-  - Suggested Tests: metadata roundtrip tests, backward compatibility tests, shrink-preserves-outcome tests for AST/binary/text/spec-seed reports.
-  - Exit Criteria: a persisted invalid failure contains enough data to replay, understand, and minimize the actual failing specimen.
-
 - [FUZ]1026 (p2) - Multi-Fault Invalid Stress Lane
   - Goal: add a separate stress-only invalid lane that combines multiple faults without requiring exact first-error stability.
   - Why: single-fault lanes are ideal for diagnostic oracles, but real malformed inputs often contain several independent problems. The validator should reject without crashing/hanging even when first-error family is not deterministic.
@@ -843,36 +770,6 @@ p2 invalid/binary/text slices:
   - Dependencies: [FUZ]1018 and [FUZ]1025 recommended.
   - Suggested Tests: deterministic two-fault examples, no-acceptance smoke tests, repro persistence tests.
   - Exit Criteria: stress fuzzing can exercise hostile multi-fault inputs while keeping diagnostic-stable lanes clean.
-
-- [FUZ]1031 (p2) - Standard Fuzz Output Directory And Corpus Workflow
-  - Goal: standardize where fuzz runs store results, generated inputs, failures, manifests, and ledgers.
-  - Why: pass-fuzz compare has useful artifact directories, while ordinary fuzz suites mostly print results or write specific repros. Agents need one predictable layout for long-running fuzz work.
-  - Deliverables: add optional `--out-dir` for ordinary fuzz runs; write `result.json`, `cases.jsonl`, `generated/`, `failures/`, `feature-ledger.json`, `strategy-ledger.json`, and suite-specific manifests; document retention and replay behavior.
-  - Required APIs: fuzz runner, invalid repro persistence, GenValid batch manifests, pass-fuzz metadata conventions.
-  - Invariants: no output directory should be created unless explicitly requested or defaulted by a documented command; artifact paths must be repo-relative or clearly absolute in metadata.
-  - Dependencies: [FUZ]1015 and [FUZ]1030 recommended.
-  - Suggested Tests: output directory creation tests with fake IO where possible, metadata schema tests, docs updates in `docs/wiki/tooling/fuzz-runner.md`.
-  - Exit Criteria: every fuzz suite can leave durable artifacts in a predictable directory when requested.
-
-- [FUZ]1032 (p2) - External Differential Validation And Optional Semantic Execution
-  - Goal: compare Starshine validation and optimized outputs against external validators/runtimes where available.
-  - Why: internal validation plus Binaryen normalized text comparison is useful, but external validator and simple execution oracles can catch tool disagreements and semantic regressions earlier.
-  - Deliverables: add optional native adapters for `wasm-tools validate`, Binaryen `wasm-validate`, and a runtime such as Wasmtime when available; instantiate modules with generated/stub imports; call exported functions with generated simple args; compare traps/results for Starshine-vs-Binaryen outputs in optional semantic mode.
-  - Required APIs: `DifferentialAdapters`, command harness, pass-fuzz compare task, import stub generation, runtime command adapters.
-  - Invariants: external tools must be optional and skipped clearly when unavailable; execution tests must not replace validation/parity tests; nondeterministic/runtime-trapping cases need conservative classification.
-  - Dependencies: [FUZ]1017 command harness and [FUZ]1016 pass-fuzz metadata recommended.
-  - Suggested Tests: fake adapter mismatch tests, unavailable-tool tests, simple executable fixture comparisons, docs updates.
-  - Exit Criteria: native fuzz runs can opt into external validator/runtime evidence without making default smoke dependent on local tools.
-
-- [FUZ]1033 (p2) - Optimizer Battle-Test Properties In Pass Fuzz
-  - Goal: add property checks to pass-fuzz beyond one-shot Starshine-vs-Binaryen normalized output comparison.
-  - Why: optimizer bugs often show up as non-idempotence, invalid output after repeated passes, or pass-order composition surprises even when a single direct comparison is green.
-  - Deliverables: add optional modes for idempotence (`pass(pass(m)) == pass(m)` under normalization), repeated pass validation, selected pass composition checks, Starshine self-comparison of pass order where intended, and saved artifacts for property failures.
-  - Required APIs: `scripts/lib/pass-fuzz-compare-task.ts`, pass flag parser, canonicalization/normalization helpers, result schema.
-  - Invariants: do not confuse property failures with Binaryen semantic mismatches; classify and report them separately; keep direct pass signoff defaults unchanged.
-  - Dependencies: [FUZ]1016 replay/metadata improvements recommended.
-  - Suggested Tests: command parser tests for property flags, fake normalizer property tests, small real pass smoke with `--check-idempotent`.
-  - Exit Criteria: agents can battle-test passes for repeatability and composition robustness using the same artifact/replay workflow as compare-pass.
 
 - [FUZ]1037 (p1) - Const Expression And Initializer Expression Matrix
   - Run 23 continuation update: added focused coverage asserting coverage-forced GenValid emits an optional core table initializer that reads an imported immutable reference global, alongside the existing `ref.func` and typed `ref.null` table-initializer checks. Initial targeted test unexpectedly already passed, proving the behavior was implemented but under-asserted; validation: `moon test src/validate`, `moon fmt`, `moon info`, and repeat `moon test src/validate` passed.
@@ -904,15 +801,6 @@ p2 invalid/binary/text slices:
   - Invariants: valid start functions must have type `[] -> []`; initializer expressions must validate under official section-order rules; valid interaction anchors should prove co-occurrence in one generated module, not only isolated surfaces.
   - Suggested Tests: valid start/global/segment fixtures, invalid wrong-start-type and wrong-offset-type fixtures, pass-fuzz smoke for passes that remove unused elements.
   - Exit Criteria: initialization-heavy modules can be generated reproducibly and invalid tests cover the common bad cross-section references.
-  - [FUZ]1039A (done) - Coverage-forced defined start function calls a helper. Evidence: `gen-valid coverage-forced start function calls a helper` validates a module with a defined start at index `0`, a reserved no-param/no-result helper, and a direct helper call in the start body.
-  - [FUZ]1039B (done) - Defined start function reads an imported immutable global before helper call. Evidence: `gen-valid coverage-forced start function reads imported immutable global before helper call` validates a start/global interaction module and records the surface in docs/wiki.
-  - [FUZ]1039C (done) - Init-heavy start/body interactions survive alongside active segment offsets. Evidence: `gen-valid init-heavy start keeps imported-global read helper call and active segment offsets` validates one module that combines a defined start, imported immutable global read, helper call, active data offset, and active element offset.
-  - [FUZ]1039D (done) - Single defined table still gets a valid initializer. Evidence: `gen-valid coverage-forced single defined table gets initializer` first failed before `gen_valid_table_init_expr` allowed coverage-forced fallback initializers without a second table or imported reference global, then passed after the fix.
-  - [FUZ]1039E (done) - Imported-global initializer co-coverage across table and segment contexts. Evidence: `gen-valid init-heavy imported-global initializers combine table and segment contexts` validates one module that reads imported immutable globals from a table initializer plus active data and element offsets.
-  - [FUZ]1039F (open p1) - Invalid start/offset/table-initializer counterpart inventory. Deliverable: inspect existing `[FUZ]1020` / `[FUZ]1022` invalid strategies and docs, then either mark each wrong-start-signature, wrong active data/element offset expression, and wrong table initializer expression family as already covered with evidence, or add the smallest missing invalid unit below before implementation.
-  - [FUZ]1039G (open p1) - Wrong active data offset type invalid strategy, only if `[FUZ]1039F` finds it missing. Deliverable: focused invalid AST or binary strategy where an active data offset expression is const but not `i32`; add reject/generation tests and docs.
-  - [FUZ]1039H (open p1) - Wrong active element offset type invalid strategy, only if `[FUZ]1039F` finds it missing. Deliverable: focused invalid AST or binary strategy where an active element offset expression is const but not `i32`; add reject/generation tests and docs.
-  - [FUZ]1039I (open p1) - Wrong table initializer reference type invalid strategy, only if `[FUZ]1039F` finds it missing. Deliverable: focused invalid AST or binary strategy where a table initializer expression produces a reference type incompatible with the table element type; add reject/generation tests and docs.
   - [FUZ]1039J (open p1) - Active segment plus passive drop interaction anchor. Deliverable: coverage-forced valid GenValid test proving one module combines active data/element offsets with passive data/element segments that are later dropped from a valid function body, if not already covered by FUZ1007/FUZ1036J evidence.
   - [FUZ]1039K (open p1) - Closeout evidence. Deliverable: after the open FUZ1039 units are done or explicitly found covered elsewhere, update docs/wiki and remove the parent task from active backlog.
 
@@ -956,16 +844,6 @@ p2 invalid/binary/text slices:
   - Suggested Tests: fake text adapter tests, abbreviation fixtures, name-resolution fixtures, unavailable-tool skip tests.
   - Exit Criteria: text fuzzing can explain whether a failure is local parser/printer behavior, external tool disagreement, or true validation divergence.
 
-- [FUZ]1047 (p2) - Normalization And Canonicalization Oracle Audit
-  - Goal: audit the normalization layers used by pass-fuzz compare so they do not hide real semantic differences or report known harmless representation noise.
-  - Why: normalized text, raw wasm, canonical text, debug stripping, NaN formatting, default locals, block wrappers, and name sections can all affect mismatch classification.
-  - Deliverables: document each normalization step; add fixtures for debug-only differences, default-local initialization, NaN payload/printing, equivalent block wrappers, local/name stripping, custom sections, and order-stable section printing; report which normalizer decided equality.
-  - Required APIs: compare-pass canonicalization helpers, Binaryen output capture, Starshine text/binary printers, docs/tooling pages.
-  - Invariants: do not expand normalization to semantic-risky rewrites without proof; preserve raw artifacts for human review.
-  - Dependencies: [FUZ]1016 pass-fuzz failure metadata and [FUZ]1040 effect/trap facts.
-  - Suggested Tests: one equality/inequality fixture per normalization rule, result schema tests showing raw and normalized hashes.
-  - Exit Criteria: agents can tell whether a mismatch disappeared due to a documented harmless normalization rule or a potentially risky oracle choice.
-
 - [FUZ]1048 (p2) - Fuzz Result Trend Reports And Coverage Deltas
   - Goal: compare fuzz coverage and outcomes across commits, seeds, and profiles.
   - Why: broad generator work can accidentally remove surfaces while all tests still pass. Trend reports make coverage regressions visible.
@@ -975,16 +853,6 @@ p2 invalid/binary/text slices:
   - Dependencies: [FUZ]1013 and [FUZ]1030.
   - Suggested Tests: report diff tests, optional-counter compatibility tests, fake coverage regression tests.
   - Exit Criteria: CI or agents can show “what coverage changed?” after a generator edit.
-
-- [FUZ]1049 (p2) - Parallel Long-Run Fuzz Queue And Stable Merge
-  - Goal: support long fuzz runs that execute shards in parallel and merge results deterministically.
-  - Why: seed sweeps and wide profiles will outgrow single-process interactive runs. Agents need parallelism without nondeterministic result ordering.
-  - Deliverables: run queued shards independently; merge `result.json`, `cases.jsonl`, ledgers, minimized failures, and manifests in stable seed/profile/suite order; include resume behavior for completed cases. The `FuzzRecipe` shard queue API now creates deterministic shard work items with non-overlapping output subdirectories, resume-skips completed shard manifests, and exposes stable result merging.
-  - Required APIs: fuzz runner sharding from [FUZ]1030, output directory workflow from [FUZ]1031, Bun task wrappers.
-  - Invariants: no two workers should write the same artifact path; merged outputs must be deterministic independent of completion order.
-  - Dependencies: [FUZ]1030 and [FUZ]1031.
-  - Suggested Tests: fake queue merge tests, deterministic order tests, interrupted-run resume tests.
-  - Exit Criteria: a long fuzz run can be split across workers and later inspected as one stable report.
 
 - [FUZ]1050 (p2) - Corpus Deduplication, Interestingness Hashes, And Case Index
   - Goal: prevent fuzz artifact directories and promoted corpora from filling with duplicate or equivalent cases.

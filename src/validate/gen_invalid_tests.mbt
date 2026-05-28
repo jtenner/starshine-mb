@@ -344,6 +344,34 @@ test "gen_invalid_ast_generate supports data-section invalid offset strategy" {
 }
 
 ///|
+test "gen_invalid_ast_generate supports data-section invalid offset type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5ef87UL),
+      GenInvalidAstParams::repro_seed(InvalidDataOffsetType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected invalid-data-offset-type base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-data-offset-type mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == DataSectionFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports invalid global initializer type strategy" {
   let generated = match
     gen_invalid_ast_generate(
@@ -536,6 +564,34 @@ test "gen_invalid_ast_generate supports element-section typed expression type st
         validation_error_diagnostic(err).issue,
       )
       assert_true(family == ElementSectionFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports table-section invalid init expression type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5ef86UL),
+      GenInvalidAstParams::repro_seed(InvalidTableInitExprType),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected invalid-table-init-expr-type base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-table-init-expr-type mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == TableSectionFamily)
     }
   }
 }
