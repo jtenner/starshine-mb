@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-27] fuzzing | FUZ1039 init-heavy start/segment interaction anchor
+
+- Continued `[FUZ]1039` with a coverage-forced GenValid anchor for an initialization-heavy module that combines a defined start function, imported immutable global reads, helper calls, active data segments, and active element segments.
+- Added a validation test proving the generated module validates, keeps the start function after the imported function prefix, reads an imported immutable global in the start body, still calls a defined helper, and covers active data/element offsets that read imported immutable i32 globals.
+- The initial targeted `moon test src/validate` already passed, showing the combined behavior existed but lacked one durable cross-section assertion; the generator coverage ledger now records the combined surface.
+
 ## [2026-05-27] fuzzing | FUZ1021B2 represented-prefix reserved subopcode corruptions
 
 - Completed `[FUZ]1021B2` by adding explicit invalid-binary strategies for reserved subopcode byte sequences under represented `0xFB` GC, `0xFC` bulk/table, and `0xFD` SIMD prefixes: `invalid-gc-prefix-subopcode-byte`, `invalid-bulk-prefix-subopcode-byte`, and `invalid-simd-prefix-subopcode-byte`.

@@ -305,6 +305,49 @@ test "gen-valid const-expression allowed-op matrix covers section contexts" {
 }
 
 ///|
+test "gen-valid init-heavy start keeps imported-global read helper call and active segment offsets" {
+  let config = GenValidConfig::coverage_forced_default()
+  let generated = match gen_valid_module_result_from_seed(0x51039E1UL, config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  match (generated.wasm_module.start_sec, generated.wasm_module.code_sec) {
+    (Some(StartSec(FuncIdx(start_idx))), Some(CodeSec(funcs))) => {
+      @debug.assert_eq(start_idx, 1U)
+      assert_true(
+        funcs.length() >= 2,
+        msg="coverage-forced init-heavy profile should keep a helper function for the start body",
+      )
+      let Func(_, Expr(start_body)) = funcs[0]
+      assert_true(
+        gen_valid_test_instrs_read_imported_global(
+          start_body,
+          gen_valid_test_imported_global_count(generated.wasm_module),
+        ),
+        msg="coverage-forced init-heavy start function should read an imported immutable global",
+      )
+      assert_true(
+        gen_valid_test_instrs_call_func(start_body, FuncIdx::new(2U)),
+        msg="coverage-forced init-heavy start function should still call a defined helper",
+      )
+    }
+    _ => fail("expected forced defined start and code section")
+  }
+  assert_true(
+    gen_valid_test_has_imported_global_active_data_offset(generated.wasm_module),
+    msg="coverage-forced init-heavy profile should cover active data offsets that read an imported immutable i32 global",
+  )
+  assert_true(
+    gen_valid_test_has_imported_global_active_elem_offset(generated.wasm_module),
+    msg="coverage-forced init-heavy profile should cover active element offsets that read an imported immutable i32 global",
+  )
+}
+
+///|
 test "gen-valid active segments can use imported immutable global offsets" {
   let config = GenValidConfig::coverage_forced_default()
   let generated = match gen_valid_module_result_from_seed(0x1039BUL, config) {
