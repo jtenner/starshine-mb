@@ -1344,6 +1344,7 @@ fn pass_manager_test_native_read_repo_fixture(path : String) -> Bytes? {
 }
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_dae_core_apply_iters(
   mod_ : @lib.Module,
   limit : Int,
@@ -1517,6 +1518,7 @@ fn pass_manager_test_dae_core_apply_iters(
 }
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_dae_reverse_exact_literal_primary_defs(
   mod_ : @lib.Module,
   limit : Int,
@@ -1628,6 +1630,7 @@ fn pass_manager_test_dae_reverse_exact_literal_primary_defs(
 }
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_dae_core_primary_defs(
   mod_ : @lib.Module,
   limit : Int,
@@ -1803,6 +1806,7 @@ fn pass_manager_test_dae_core_primary_defs(
 }
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_first_shape_failure_instrs(
   instrs : Array[@lib.Instruction],
   callee_abs : Int,
@@ -1885,6 +1889,7 @@ fn pass_manager_test_first_shape_failure_instrs(
 }
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_first_shape_failure(
   mod_ : @lib.Module,
   callee_abs : Int,
@@ -1918,6 +1923,7 @@ fn pass_manager_test_first_shape_failure(
 }
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_first_nonconst_i32_actual_instrs_instrs(
   instrs : Array[@lib.Instruction],
   callee_abs : Int,
@@ -2014,6 +2020,7 @@ fn pass_manager_test_first_nonconst_i32_actual_instrs_instrs(
 }
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_first_nonconst_i32_actual_instrs(
   mod_ : @lib.Module,
   callee_abs : Int,
@@ -2049,6 +2056,7 @@ fn pass_manager_test_first_nonconst_i32_actual_instrs(
 }
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_rewrite_call_progress(
   mod_ : @lib.Module,
   callee_abs : Int,
@@ -2075,6 +2083,7 @@ fn pass_manager_test_rewrite_call_progress(
 }
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_total_rewritten_calls(
   mod_ : @lib.Module,
   callee_abs : Int,
@@ -2280,6 +2289,7 @@ fn pass_manager_test_imported_func_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_try_rewrite_exact_literal_candidate(
   mod_ : @lib.Module,
   def_idx : Int,
@@ -2354,6 +2364,7 @@ fn pass_manager_test_try_rewrite_exact_literal_candidate(
 }
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_collect_uniform_const_actuals(
   mod_ : @lib.Module,
   callee_abs : Int,
@@ -2375,6 +2386,7 @@ fn pass_manager_test_collect_uniform_const_actuals(
 }
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_defined_func_params(
   mod_ : @lib.Module,
   def_idx : Int,
@@ -2398,47 +2410,57 @@ fn pass_manager_test_defined_func_params(
 }
 
 ///|
+#cfg(target="native")
 let pass_manager_test_debug_artifact_path : String = "tests/node/dist/starshine-debug-wasi.wasm"
 
 ///|
+#cfg(target="native")
 let pass_manager_test_debug_artifact_bytes_cache : Ref[Bytes?] = Ref::new(None)
 
 ///|
+#cfg(target="native")
 let pass_manager_test_debug_artifact_dae_core_primary_defs_12_cache : Ref[
   Array[Int]?,
 ] = Ref::new(None)
 
 ///|
+#cfg(target="native")
 let pass_manager_test_debug_artifact_dae_reverse_exact_literal_primary_defs_20_cache : Ref[
   Array[Int]?,
 ] = Ref::new(None)
 
 ///|
+#cfg(target="native")
 let pass_manager_test_debug_artifact_dae_core_after_64_cache : Ref[@lib.Module?] = Ref::new(
   None,
 )
 
 ///|
+#cfg(target="native")
 let pass_manager_test_debug_artifact_dae_core_cache : Ref[@lib.Module?] = Ref::new(
   None,
 )
 
 ///|
+#cfg(target="native")
 let pass_manager_test_debug_artifact_rewrite_4558_cache : Ref[DaePassResult?] = Ref::new(
   None,
 )
 
 ///|
+#cfg(target="native")
 let pass_manager_test_debug_artifact_rewrite_4558_then_4559_cache : Ref[
   DaePassResult?,
 ] = Ref::new(None)
 
 ///|
+#cfg(target="native")
 let pass_manager_test_debug_artifact_rewrite_42_cache : Ref[DaePassResult?] = Ref::new(
   None,
 )
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_debug_artifact_bytes() -> Bytes {
   match pass_manager_test_debug_artifact_bytes_cache.val {
     Some(bytes) => bytes
@@ -2455,6 +2477,7 @@ fn pass_manager_test_debug_artifact_bytes() -> Bytes {
 }
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_debug_artifact_module() -> @lib.Module {
   match @binary.decode_module(pass_manager_test_debug_artifact_bytes()) {
     Ok(mod_) => mod_
@@ -2463,6 +2486,7 @@ fn pass_manager_test_debug_artifact_module() -> @lib.Module {
 }
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_take_ints(values : Array[Int], count : Int) -> Array[Int] {
   let taken : Array[Int] = []
   let mut idx = 0
@@ -2474,6 +2498,7 @@ fn pass_manager_test_take_ints(values : Array[Int], count : Int) -> Array[Int] {
 }
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_debug_artifact_dae_core_primary_defs_12() -> Array[Int] {
   match pass_manager_test_debug_artifact_dae_core_primary_defs_12_cache.val {
     Some(primary_defs) => primary_defs
@@ -2491,6 +2516,7 @@ fn pass_manager_test_debug_artifact_dae_core_primary_defs_12() -> Array[Int] {
 }
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_debug_artifact_dae_reverse_exact_literal_primary_defs_20() -> Array[
   Int,
 ] {
@@ -2510,6 +2536,7 @@ fn pass_manager_test_debug_artifact_dae_reverse_exact_literal_primary_defs_20() 
 }
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_debug_artifact_dae_core_after_64() -> @lib.Module {
   match pass_manager_test_debug_artifact_dae_core_after_64_cache.val {
     Some(mod_) => mod_
@@ -2525,6 +2552,7 @@ fn pass_manager_test_debug_artifact_dae_core_after_64() -> @lib.Module {
 }
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_debug_artifact_dae_core_mod() -> @lib.Module {
   match pass_manager_test_debug_artifact_dae_core_cache.val {
     Some(mod_) => mod_
@@ -2541,6 +2569,7 @@ fn pass_manager_test_debug_artifact_dae_core_mod() -> @lib.Module {
 }
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_debug_artifact_rewrite_4558() -> DaePassResult {
   match pass_manager_test_debug_artifact_rewrite_4558_cache.val {
     Some(result) => result
@@ -2556,6 +2585,7 @@ fn pass_manager_test_debug_artifact_rewrite_4558() -> DaePassResult {
 }
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_debug_artifact_rewrite_4558_then_4559() -> DaePassResult {
   match pass_manager_test_debug_artifact_rewrite_4558_then_4559_cache.val {
     Some(result) => result
@@ -2573,6 +2603,7 @@ fn pass_manager_test_debug_artifact_rewrite_4558_then_4559() -> DaePassResult {
 }
 
 ///|
+#cfg(target="native")
 fn pass_manager_test_debug_artifact_rewrite_42() -> DaePassResult {
   match pass_manager_test_debug_artifact_rewrite_42_cache.val {
     Some(result) => result
