@@ -2045,6 +2045,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - The byte-fuzz lane counts decode-accepted validation rejections and requires any decode-accepted valid module to re-encode into decodable bytes, keeping malformed-byte stress separate from the existing arbitrary-value and GenValid full-module roundtrip counters.
 - Updated [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`index.md`](index.md) so the living fuzz-runner docs name the new profiles and JSON detail counters.
 
+## [2026-05-27] fuzzing | FUZ1023C5 dynamic bad table-index mutation
+
+- Continued `[FUZ]1023C5` by adding `dynamic-gen-valid-bad-table-index`, which starts from verified GenValid WAT, inserts a function containing `table.get 999999`, and replays the mutated source as `assert_invalid` so the case lowers successfully before validator rejection.
+- Updated dynamic invalid-text smoke expectations from 44 to 48 attempts/cases, increasing the validate-rejected bucket from 12 to 16 while preserving the existing malformed and valid-before-link counts. Suite details now record `gen-valid-wat/bad-table-index` and `mutation:bad-table-index` alongside the prior dynamic GenValid-WAT surfaces.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) and [`wast/static-assertion-harness.md`](wast/static-assertion-harness.md) so the dynamic GenValid-WAT strategy summaries include the bad table-index surface.
+
 ## [2026-05-27] fuzzing | FUZ1023C4 dynamic bad start-type module-field mutation
 
 - Continued `[FUZ]1023C4` by adding `dynamic-gen-valid-bad-start-type`, which starts from verified GenValid WAT, inserts a result-bearing start function plus `(start $dynamic_bad_start)` before the module close, and replays the mutated source as `assert_invalid` so the case lowers successfully before validator rejection.

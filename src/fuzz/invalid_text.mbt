@@ -1205,6 +1205,7 @@ fn validate_invalid_text_dynamic_supported_strategy(stable_id : String) -> Bool 
   stable_id == "dynamic-gen-valid-bad-type-token" ||
   stable_id == "dynamic-gen-valid-bad-lane-index" ||
   stable_id == "dynamic-gen-valid-bad-memarg-align" ||
+  stable_id == "dynamic-gen-valid-bad-table-index" ||
   stable_id == "dynamic-gen-valid-mutable-global-const-init" ||
   stable_id == "dynamic-gen-valid-bad-export-string" ||
   stable_id == "dynamic-gen-valid-bad-start-type" ||
@@ -1217,7 +1218,7 @@ fn validate_invalid_text_dynamic_strategies() -> Array[String] {
   [
     "dynamic-gen-valid-missing-closing-paren", "dynamic-gen-valid-duplicate-export",
     "dynamic-gen-valid-bad-opcode-token", "dynamic-gen-valid-bad-type-token", "dynamic-gen-valid-bad-lane-index",
-    "dynamic-gen-valid-bad-memarg-align", "dynamic-gen-valid-mutable-global-const-init",
+    "dynamic-gen-valid-bad-memarg-align", "dynamic-gen-valid-bad-table-index", "dynamic-gen-valid-mutable-global-const-init",
     "dynamic-gen-valid-bad-export-string", "dynamic-gen-valid-bad-start-type", "dynamic-gen-valid-unknown-import",
     "dynamic-gen-valid-unknown-memory-import",
   ]
@@ -1560,6 +1561,26 @@ pub fn validate_invalid_text_dynamic_case(
         assertion_source: "(assert_malformed (module quote \"\{escaped}\") \"dynamic bad memarg alignment\")",
         assertion_kind: MalformedTextAssertion,
         expected_stage: ParseOrLowerRejectedStage,
+        source_feature_facts,
+      })
+    }
+    "dynamic-gen-valid-bad-table-index" => {
+      let inserted = "\n  (func\n    i32.const 0\n    table.get 999999\n    drop)\n"
+      let mutated_source = match
+        validate_invalid_text_insert_before_last_closing_paren(
+          base_source, inserted,
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      source_feature_facts.push("mutation:bad-table-index")
+      Ok({
+        stable_id,
+        variant_id: "gen-valid-wat/bad-table-index",
+        base_source,
+        assertion_source: "(assert_invalid \{mutated_source} \"dynamic bad table index\")",
+        assertion_kind: InvalidTextAssertion,
+        expected_stage: ValidateRejectedStage,
         source_feature_facts,
       })
     }
