@@ -4578,10 +4578,22 @@ fn gen_valid_elem_ref_expr(
   rt : RefType,
   func_idx? : FuncIdx = FuncIdx::new(0U),
 ) -> Expr {
-  if ValType::ref_type(rt) == ValType::funcref() {
+  let vt = ValType::ref_type(rt)
+  if vt == ValType::funcref() {
     gen_valid_funcref_expr(ctx, func_idx)
   } else {
-    Expr::new([Instruction::ref_null(rt.get_heap_type())])
+    gen_valid_const_expr_from_context(
+      ctx,
+      ElemStream,
+      vt,
+      {
+        ..GenValidConstExprContext::numeric_only(),
+        allow_ref_null: true,
+        allow_ref_i31: true,
+      },
+      [],
+      None,
+    )
   }
 }
 
@@ -9805,9 +9817,12 @@ fn gen_valid_table_ref_type(
     RefType::new(true, HeapType::abs(AbsHeapType::extern_()))
   } else if ctx.config.features.allow_table_limit_variants &&
     ctx.config.mode == CoverageForced &&
-    total_table_idx >= 2 &&
-    total_table_idx < 4 {
+    total_table_idx == 2 {
     RefType::new(true, HeapType::new(TypeIdx::new(0U)))
+  } else if ctx.config.features.allow_table_limit_variants &&
+    ctx.config.mode == CoverageForced &&
+    total_table_idx == 3 {
+    RefType::new(true, HeapType::abs(AbsHeapType::i31()))
   } else if ctx.config.features.allow_table_limit_variants &&
     ctx.config.mode == CoverageForced &&
     total_table_idx >= 4 {

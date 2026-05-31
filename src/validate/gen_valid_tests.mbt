@@ -690,6 +690,24 @@ fn gen_valid_test_has_typed_table_initializer_ref_null(mod_ : Module) -> Bool {
 }
 
 ///|
+fn gen_valid_test_has_i31_table_initializer(mod_ : Module) -> Bool {
+  match mod_.table_sec {
+    Some(TableSec(tables)) => {
+      for table in tables {
+        let Table(TableType(rt, _), init_opt) = table
+        match init_opt {
+          Some(Expr([I32Const(I32(31)), RefI31])) if rt ==
+            RefType::new(true, HeapType::abs(AbsHeapType::i31())) => return true
+          _ => ()
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
 test "gen-valid coverage-forced table initializers use ref.func and typed refs" {
   let config = GenValidConfig::coverage_forced_default()
   let generated = match gen_valid_module_result_from_seed(0x1039CUL, config) {
@@ -711,6 +729,24 @@ test "gen-valid coverage-forced table initializers use ref.func and typed refs" 
   assert_true(
     gen_valid_test_has_typed_table_initializer_ref_null(generated.wasm_module),
     msg="coverage-forced GenValid should emit a typed table initializer expression",
+  )
+}
+
+///|
+test "gen-valid coverage-forced table initializers include ref.i31" {
+  let config = GenValidConfig::coverage_forced_default()
+  let generated = match
+    gen_valid_module_result_from_seed(0x51037131UL, config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(
+    gen_valid_test_has_i31_table_initializer(generated.wasm_module),
+    msg="coverage-forced GenValid should emit a table initializer using ref.i31",
   )
 }
 
