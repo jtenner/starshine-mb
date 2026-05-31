@@ -87,7 +87,7 @@ Important matching rules future maintainers should keep in mind:
 - **Reference types** combine heap-type matching with nullability (`non-null <: nullable`) and exactness constraints.
 - **Abstract heap types** keep the usual families visible: `struct` / `array` / `i31` under `eq`, `eq` under `any`, `nofunc` under `func`, `noextern` under `extern`, and so on.
 
-The official Core 3.0 rules are stricter than mere Starshine parser acceptance. As of this review, the documented and fuzzed local TypeSection invalid families cover out-of-range supertypes, incompatible supertype shapes, focused function parameter/result variance mismatches, mutable struct-field variance mismatches, and descriptor metadata on non-struct types. Do **not** claim full coverage of every official side condition, such as single-supertype, earlier-supertype, or final-supertype restrictions, unless a focused validator test or implementation audit proves it.
+The official Core 3.0 rules are stricter than mere Starshine parser acceptance. As of this review, the documented and fuzzed local TypeSection invalid families cover out-of-range supertypes, incompatible supertype shapes, focused function parameter/result variance mismatches, mutable struct-field variance mismatches, descriptor metadata on non-struct types, and descriptor-pair field references to missing heap types. Do **not** claim full coverage of every official side condition, such as single-supertype, earlier-supertype, or final-supertype restrictions, unless a focused validator test or implementation audit proves it.
 
 ## Descriptor Metadata And Exact References
 
@@ -154,6 +154,10 @@ SubType(comp=func [] -> [], metadata={ descriptor = TypeIdx(0) })
 ```
 
 Starshine rejects this through `validate_descriptor_metadata_group(...)`. The invalid-AST strategy is `DescriptorOnFuncType`.
+
+### Invalid descriptor field heap type
+
+A lowered module can otherwise form a valid descriptor/describes pair while placing a field on the descriptor type whose reference heap type points past the flattened type section. Starshine rejects this through the ordinary type-reference validation path while the descriptor edge keeps the failure distinct from table/global ref-type strategies. The invalid-AST strategy is `InvalidDescriptorFieldRefType` with stable id `invalid-descriptor-field-ref-type`.
 
 ## Rewrite And Signoff Guidance
 

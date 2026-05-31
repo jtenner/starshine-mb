@@ -620,7 +620,6 @@ p1 next-up / active:
 - `[FUZ]1037R5` - FUZ1037 closeout: after R1-R4 are closed or explicitly deferred, run the targeted validate-valid smoke and Moon validation, sync docs/wiki/backlog, and remove the parent `[FUZ]1037` task if no active initializer-expression slice remains.
 
 p2 invalid/binary/text tiny slices:
-- `[FUZ]1020A4` - Descriptor-edge heap-type failure: add an AST-invalid strategy where a typed descriptor or described type references an out-of-range or wrong-kind heap type outside the already-landed table/global ref-type cases.
 - `[FUZ]1020A5` - Recursive-group cycle refinement: add a focused descriptor or supertype cycle variant that differs from the landed direct `descriptor-cycle` fixture, and classify whether the validator reports cycle, index, or shape family.
 - `[FUZ]1020B3` - Data-count/data-section mismatch: add AST/binary-invalid coverage for present-but-wrong `datacount` values versus the data section, distinct from `datacount` without data section.
 - `[FUZ]1020B4` - Start/export index cross-section variants: add one start-function and one export-index strategy for an otherwise valid module whose referenced function/table/memory/global/tag index is missing or wrong-kind.
@@ -676,7 +675,7 @@ p1/p2 oracle, reporting, and infrastructure slices:
 
 p2 invalid/binary/text slices:
 - [FUZ]1020A (p2) - Remaining AST Type/Subtyping Invalid Strategies
-  - Remaining concrete slices: `[FUZ]1020A4` descriptor-edge heap-type failure and `[FUZ]1020A5` recursive-group cycle refinement. Earlier `[FUZ]1020A1`/`A2` covered representative subtype variance and descriptor-cycle basics; `[FUZ]1020A3` covered focused function parameter/result variance.
+  - Remaining concrete slices: `[FUZ]1020A5` recursive-group cycle refinement. Earlier `[FUZ]1020A1`/`A2` covered representative subtype variance and descriptor-cycle basics; `[FUZ]1020A3` covered focused function parameter/result variance; `[FUZ]1020A4` covered descriptor-edge missing heap-type refs.
 - [FUZ]1020B (p2) - Remaining AST Section/Index Invalid Strategies
   - Remaining concrete slices: `[FUZ]1020B3` data-count/data-section mismatch, `[FUZ]1020B4` start/export index cross-section variants, and `[FUZ]1020B5` code/function section arity edge. Earlier `[FUZ]1020B2` covered duplicate start-section invalid binary behavior, and Run 23 landed many table/memory/tag/global/element/data/name-section variants.
 - [FUZ]1020C (p2) - Remaining AST Function-Body Proposal Strategies

@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1020A4 descriptor-edge heap-type invalid AST
+
+- Completed `[FUZ]1020A4` by adding `invalid-descriptor-field-ref-type`, a deterministic type-section invalid AST strategy that builds an otherwise paired descriptor/describes rec group whose descriptor type has a field referencing a missing heap type index.
+- Added focused validator rejection coverage plus downstream fuzz-package public `gen_invalid` stable-id coverage. Synced the type-section/subtyping and generator-ledger wiki pages.
+- Validation: `moon test src/validate` first failed on the missing `InvalidDescriptorFieldRefType` constructor, then passed after registry, mutator, dispatcher, label, and expected-list wiring. Final validation passed: `moon test src/validate`, `moon test src/fuzz`, `moon info`, `moon fmt`, `moon test`, direct `moon run --target native src/fuzz -- validate-invalid-ast smoke --seed 0x1020a4 --out-dir .tmp/fuz1020a4-invalid-ast-smoke`, and `bun fuzz run --suite validate-invalid-ast --profile smoke --seed 0x1020a4 --target native --out-dir .tmp/fuz1020a4-invalid-ast-smoke-bun`.
+
 ## [2026-05-31] fuzzing | FUZ1037 memory64 global-get data offsets
 
 - Continued `[FUZ]1037` by widening focused memory64 active data offsets so they can use an imported immutable `i64 global.get`, matching the shared const-expression matrix's immutable-global allowance for data-offset contexts instead of limiting memory64 coverage to `i64.const`.

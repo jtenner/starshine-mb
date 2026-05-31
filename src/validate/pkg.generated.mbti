@@ -1340,6 +1340,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidSubtypeMutableFieldVariance
   DescriptorOnFuncType
   DescriptorCycle
+  InvalidDescriptorFieldRefType
   DataCountWithoutDataSec
   InvalidExportFuncIndex
   StartFuncOutOfRange
