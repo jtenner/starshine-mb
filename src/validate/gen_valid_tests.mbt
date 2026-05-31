@@ -455,6 +455,36 @@ test "gen-valid init-heavy single table uses initializer with start and segments
 }
 
 ///|
+test "gen-valid coverage-forced memory64 data segment uses i64 offset" {
+  let config = GenValidConfig::{
+    ..GenValidConfig::coverage_forced_default(),
+    max_imports: 0,
+    max_mems: 3,
+    max_datas: 4,
+    features: GenValidFeatureToggles::{
+      ..GenValidConfig::coverage_forced_default().features,
+      allow_imports: false,
+    },
+  }
+  let generated = match gen_valid_module_result_from_seed(0x1037DUL, config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(
+    gen_valid_test_has_memory64(generated.wasm_module),
+    msg="focused GenValid config should include a memory64 memory",
+  )
+  assert_true(
+    gen_valid_test_has_memory64_active_data_i64_offset(generated.wasm_module),
+    msg="coverage-forced GenValid should cover active data offsets for memory64 with an i64 const expression",
+  )
+}
+
+///|
 test "gen-valid active segments can use imported immutable global offsets" {
   let config = GenValidConfig::coverage_forced_default()
   let generated = match gen_valid_module_result_from_seed(0x1039BUL, config) {
@@ -3828,6 +3858,95 @@ fn gen_valid_test_has_imported_global_active_data_offset(mod_ : Module) -> Bool 
     }
     None => false
   }
+}
+
+///|
+fn gen_valid_test_mem_type_is_memory64(mt : MemType) -> Bool {
+  let MemType(limits, _) = mt
+  match limits {
+    I64Limits(_) => true
+    I32Limits(_, _) => false
+  }
+}
+
+///|
+fn gen_valid_test_mem_type_at(mod_ : Module, mem_idx : MemIdx) -> MemType? {
+  let MemIdx(target_idx_u) = mem_idx
+  let target_idx = target_idx_u.reinterpret_as_int()
+  let mut current_idx = 0
+  match mod_.import_sec {
+    Some(ImportSec(imports)) =>
+      for import_ in imports {
+        let Import(_, _, extern_type) = import_
+        match extern_type {
+          MemExternType(mt) => {
+            if current_idx == target_idx {
+              return Some(mt)
+            }
+            current_idx += 1
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.mem_sec {
+    Some(MemSec(mems)) =>
+      for mt in mems {
+        if current_idx == target_idx {
+          return Some(mt)
+        }
+        current_idx += 1
+      }
+    None => ()
+  }
+  None
+}
+
+///|
+fn gen_valid_test_has_memory64(mod_ : Module) -> Bool {
+  match mod_.import_sec {
+    Some(ImportSec(imports)) =>
+      for import_ in imports {
+        let Import(_, _, extern_type) = import_
+        match extern_type {
+          MemExternType(mt) if gen_valid_test_mem_type_is_memory64(mt) =>
+            return true
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.mem_sec {
+    Some(MemSec(mems)) =>
+      for mt in mems {
+        if gen_valid_test_mem_type_is_memory64(mt) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_has_memory64_active_data_i64_offset(mod_ : Module) -> Bool {
+  match mod_.data_sec {
+    Some(DataSec(datas)) =>
+      for data in datas {
+        let Data(mode, _) = data
+        match mode {
+          Active(mem_idx, Expr([I64Const(_)])) =>
+            match gen_valid_test_mem_type_at(mod_, mem_idx) {
+              Some(mt) if gen_valid_test_mem_type_is_memory64(mt) => return true
+              _ => ()
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  false
 }
 
 ///|

@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1037 memory64 active data offsets
+
+- Continued `[FUZ]1037` by adding address-typed GenValid active offset generation for focused memory64 active data segments, so the memory64 lane uses an `i64.const` offset instead of reusing the i32-only offset helper.
+- Added TDD coverage that first failed because a focused coverage-forced module with memory64 still had no active data segment using an i64 offset, then passed after adding the memory64 target selection and offset helper. Synced the constant-expression and generator-ledger wiki pages.
+
 ## [2026-05-31] fuzzing | FUZ1037 imported reference global initializer
 
 - Continued `[FUZ]1037` by widening `gen_valid_const_expr_for_global(...)` so global initializers can use generic imported immutable reference `global.get` when no higher-priority typed constructor lane owns the target.

@@ -4678,6 +4678,25 @@ fn gen_valid_mem_type_is_i32(mt : MemType) -> Bool {
 }
 
 ///|
+fn gen_valid_mem_type_addr_type(mt : MemType) -> ValType {
+  let MemType(lim, _) = mt
+  match lim {
+    I32Limits(_, _) => ValType::i32()
+    I64Limits(_) => ValType::i64()
+  }
+}
+
+///|
+fn gen_valid_first_memory64_mem_idx(mems : Array[MemType]) -> MemIdx? {
+  for i = 0; i < mems.length(); i = i + 1 {
+    if !gen_valid_mem_type_is_i32(mems[i]) {
+      return Some(MemIdx::new(i.reinterpret_as_uint()))
+    }
+  }
+  None
+}
+
+///|
 fn gen_valid_first_nonzero_i32_mem_idx(mems : Array[MemType]) -> MemIdx? {
   for i = 1; i < mems.length(); i = i + 1 {
     if gen_valid_mem_type_is_i32(mems[i]) {
@@ -9747,6 +9766,31 @@ fn gen_valid_active_i32_offset_from(
 }
 
 ///|
+fn gen_valid_active_offset_from(
+  ctx : GenValidContext,
+  label : GenValidRandomStreamLabel,
+  addr_type : ValType,
+  global_idx? : GlobalIdx? = None,
+) -> Expr {
+  if addr_type == ValType::i32() {
+    gen_valid_active_i32_offset_from(ctx, label, global_idx~)
+  } else if addr_type == ValType::i64() {
+    Expr::new([
+      Instruction::i64_const(I64(ctx.random_int_from(label, 4).to_int64())),
+    ])
+  } else {
+    gen_valid_const_expr_from_context(
+      ctx,
+      label,
+      addr_type,
+      gen_valid_const_expr_context_for_use(DataOffsetConstExpr),
+      [],
+      None,
+    )
+  }
+}
+
+///|
 fn gen_valid_active_i32_offset(
   ctx : GenValidContext,
   global_idx? : GlobalIdx? = None,
@@ -10963,13 +11007,36 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       } else if ctx.config.mode == CoverageForced && i == 1 {
         Data::new(DataMode::passive(), gen_valid_payload(ctx, b""))
       } else if ctx.config.mode == CoverageForced && i == 2 {
-        Data::new(
-          DataMode::active(
-            MemIdx::new(0U),
-            Expr::new([Instruction::i32_const(0)]),
-          ),
-          gen_valid_payload(ctx, b""),
-        )
+        let memory64_data_target = if ctx.config.max_mems > 2 {
+          gen_valid_first_memory64_mem_idx(mems)
+        } else {
+          None
+        }
+        match memory64_data_target {
+          Some(mem_idx) => {
+            let MemIdx(mem_idx_u) = mem_idx
+            let mem_type = mems[mem_idx_u.reinterpret_as_int()]
+            Data::new(
+              DataMode::active(
+                mem_idx,
+                gen_valid_active_offset_from(
+                  ctx,
+                  DataStream,
+                  gen_valid_mem_type_addr_type(mem_type),
+                ),
+              ),
+              gen_valid_payload(ctx, b""),
+            )
+          }
+          None =>
+            Data::new(
+              DataMode::active(
+                MemIdx::new(0U),
+                Expr::new([Instruction::i32_const(0)]),
+              ),
+              gen_valid_payload(ctx, b""),
+            )
+        }
       } else if ctx.config.mode == CoverageForced && i == 3 {
         Data::new(
           DataMode::passive(),
