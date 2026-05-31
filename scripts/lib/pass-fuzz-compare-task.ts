@@ -31,6 +31,13 @@ export type RuntimeInvocationClassification =
   | "unsupported-runtime"
   | "nondeterministic-import"
   | "semantic-mismatch";
+export type RuntimeExportInvocationReport = {
+  exportName: string;
+  args: string[];
+  leftResult: RuntimeInvocationOutcome;
+  rightResult: RuntimeInvocationOutcome;
+  classification: RuntimeInvocationClassification;
+};
 type PropertyMode = "none" | "idempotence" | "composition";
 type CommandFailureClass =
   | "starshine-command-failed"
@@ -637,18 +644,17 @@ export function deterministicExportArgumentVector(func: Function): unknown[] {
   return args;
 }
 
-export async function smokeExecuteNodeRuntime(
+async function instantiateNodeRuntime(
   wasmPath: string,
-): Promise<{ ok: boolean; unsupported: boolean; detail: string }> {
-  let bytes: Buffer;
+): Promise<{ instance: WebAssembly.Instance } | { unsupported: string }> {
   try {
-    bytes = fs.readFileSync(wasmPath);
+    const bytes = fs.readFileSync(wasmPath);
     const module = await WebAssembly.compile(bytes);
     const descriptors = WebAssembly.Module.imports(module);
     const importCandidates = descriptors.map((descriptor) => runtimeImportStubCandidates(descriptor));
     if (importCandidates.some((candidates) => candidates.length === 0)) {
       const unsupported = descriptors.find((descriptor, index) => importCandidates[index].length === 0)!;
-      return { ok: false, unsupported: true, detail: `unsupported import kind ${unsupported.kind}` };
+      return { unsupported: `unsupported import kind ${unsupported.kind}` };
     }
     let instance: WebAssembly.Instance | null = null;
     let lastInstantiateError: unknown = null;
@@ -679,34 +685,93 @@ export async function smokeExecuteNodeRuntime(
       }
     }
     if (instance === null) {
-      return { ok: false, unsupported: true, detail: commandFailureDetail(lastInstantiateError) };
+      return { unsupported: commandFailureDetail(lastInstantiateError) };
     }
-    let invoked = 0;
-    for (const value of Object.values(instance.exports)) {
-      if (typeof value === "function") {
-        const args = deterministicExportArgumentVector(value);
-        try {
-          value(...args);
-          invoked += 1;
-        } catch {
-          invoked += 1;
-        }
-      }
-      if (invoked >= 8) {
-        break;
-      }
-    }
-    return {
-      ok: true,
-      unsupported: false,
-      detail:
-        invoked === 0
-          ? "instantiated; no function exports"
-          : `instantiated; invoked ${invoked} function export(s) with deterministic simple argument vector(s)`,
-    };
+    return { instance };
   } catch (error) {
-    return { ok: false, unsupported: true, detail: commandFailureDetail(error) };
+    return { unsupported: commandFailureDetail(error) };
   }
+}
+
+function invokeNodeExport(func: Function, args: unknown[]): RuntimeInvocationOutcome {
+  try {
+    return { kind: "result", value: func(...args) };
+  } catch (error) {
+    return { kind: "trap", detail: commandFailureDetail(error) };
+  }
+}
+
+export async function runNodeExportInvocationMatrix(
+  leftWasmPath: string,
+  rightWasmPath: string,
+  maxInvocations = 8,
+): Promise<RuntimeExportInvocationReport[]> {
+  const left = await instantiateNodeRuntime(leftWasmPath);
+  const right = await instantiateNodeRuntime(rightWasmPath);
+  if ("unsupported" in left || "unsupported" in right) {
+    const leftResult: RuntimeInvocationOutcome = "unsupported" in left
+      ? { kind: "unsupported", detail: left.unsupported }
+      : { kind: "result", value: "instantiated" };
+    const rightResult: RuntimeInvocationOutcome = "unsupported" in right
+      ? { kind: "unsupported", detail: right.unsupported }
+      : { kind: "result", value: "instantiated" };
+    return [
+      {
+        exportName: "<instantiate>",
+        args: [],
+        leftResult,
+        rightResult,
+        classification: classifyRuntimeInvocationPair(leftResult, rightResult),
+      },
+    ];
+  }
+
+  const reports: RuntimeExportInvocationReport[] = [];
+  for (const [exportName, leftValue] of Object.entries(left.instance.exports)) {
+    if (typeof leftValue !== "function") continue;
+    const rightValue = right.instance.exports[exportName];
+    if (typeof rightValue !== "function") continue;
+    const args = deterministicExportArgumentVector(leftValue);
+    const leftResult = invokeNodeExport(leftValue, args);
+    const rightResult = invokeNodeExport(rightValue, args);
+    reports.push({
+      exportName,
+      args: args.map(runtimeValueKey),
+      leftResult,
+      rightResult,
+      classification: classifyRuntimeInvocationPair(leftResult, rightResult),
+    });
+    if (reports.length >= maxInvocations) break;
+  }
+  return reports;
+}
+
+export async function smokeExecuteNodeRuntime(
+  wasmPath: string,
+): Promise<{ ok: boolean; unsupported: boolean; detail: string }> {
+  const runtime = await instantiateNodeRuntime(wasmPath);
+  if ("unsupported" in runtime) {
+    return { ok: false, unsupported: true, detail: runtime.unsupported };
+  }
+  let invoked = 0;
+  for (const value of Object.values(runtime.instance.exports)) {
+    if (typeof value === "function") {
+      const args = deterministicExportArgumentVector(value);
+      invokeNodeExport(value, args);
+      invoked += 1;
+    }
+    if (invoked >= 8) {
+      break;
+    }
+  }
+  return {
+    ok: true,
+    unsupported: false,
+    detail:
+      invoked === 0
+        ? "instantiated; no function exports"
+        : `instantiated; invoked ${invoked} function export(s) with deterministic simple argument vector(s)`,
+  };
 }
 
 async function runExternalValidatorsAsync(
@@ -2242,41 +2307,6 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         }
       }
 
-      if (options.runtimeExecution === "node") {
-        const runtime = await smokeExecuteNodeRuntime(starshineRawPath);
-        if (runtime.ok) {
-          summary.runtimeExecutionCounts.checked += 1;
-        } else if (runtime.unsupported) {
-          summary.runtimeExecutionCounts.unsupported += 1;
-        } else {
-          summary.runtimeExecutionCounts.failed += 1;
-          summary.validationFailureCount += 1;
-          failures += 1;
-          const detail = `Starshine output failed runtime execution: ${runtime.detail}`;
-          summary.failureDirs.push(
-            persistFailureArtifacts(
-              outDir,
-              caseNumber,
-              generator,
-              "validation-failure",
-              detail,
-              workDir,
-              options.wasmToolsBin,
-              repoRoot,
-              options.passFlags,
-              genValidManifestEntry,
-            ),
-          );
-          recordCase({
-            caseIndex: caseNumber,
-            generator,
-            status: "validation-failure",
-            detail,
-          });
-          return;
-        }
-      }
-
       let starshineWat = "";
       let binaryenWat = "";
       try {
@@ -2331,6 +2361,19 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
         });
         return;
+      }
+
+      if (options.runtimeExecution === "node") {
+        const runtimeReports = await runNodeExportInvocationMatrix(starshineRawPath, binaryenRawPath);
+        if (runtimeReports.length === 0) {
+          summary.runtimeExecutionCounts.checked += 1;
+        } else if (runtimeReports.some((report) => report.classification === "semantic-mismatch")) {
+          summary.runtimeExecutionCounts.failed += 1;
+        } else if (runtimeReports.some((report) => report.classification === "unsupported-runtime" || report.classification === "nondeterministic-import")) {
+          summary.runtimeExecutionCounts.unsupported += 1;
+        } else {
+          summary.runtimeExecutionCounts.checked += 1;
+        }
       }
 
       summary.comparedCount += 1;

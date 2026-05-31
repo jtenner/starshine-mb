@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1052B8 export matrix runner wiring
+
+- Closed `[FUZ]1052B8` by wiring pass-fuzz `--runtime-execution node` to instantiate both raw Starshine and Binaryen outputs, pair same-named exported functions, invoke up to eight functions with deterministic simple arguments, and classify the resulting export invocation matrix rows.
+- The opt-in runtime summary now counts equal result/trap matrices as checked evidence, unsupported imports/instantiation as skipped evidence, and observed runtime result/trap disagreement as failed runtime evidence. Per-row report persistence remains `[FUZ]1052B9`.
+- Validation: focused `bun test scripts/lib/pass-fuzz-compare-task.test.ts` passed after adding export-matrix row coverage for equal and mismatching outputs; runtime smoke `bun scripts/pass-fuzz-compare.ts --count 1 --generator wasm-smith --runtime-execution node --pass remove-unused-brs --out-dir .tmp/fuz1052b8-smoke --max-failures 1` completed with `1/1` compared, `1` normalized match, and `0` validation/command/runtime failures; commit-ready `moon info`, `moon fmt`, and `moon test` passed.
+
 ## [2026-05-31] fuzzing | FUZ1045A7 text differential runner smoke
 
 - Closed `[FUZ]1045A7` by adding the opt-in `text-differential` fuzz suite and `text-differential-smoke` recipe in `src/fuzz/main.mbt`.

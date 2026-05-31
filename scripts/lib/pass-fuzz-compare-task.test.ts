@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import {
   classifyRuntimeInvocationPair,
   deterministicExportArgumentVector,
+  runNodeExportInvocationMatrix,
   smokeExecuteNodeRuntime,
 } from "./pass-fuzz-compare-task";
 
@@ -54,6 +55,52 @@ describe("runtime export invocation", () => {
 
     expect(result).toMatchObject({ ok: true, unsupported: false });
     expect(result.detail).toContain("deterministic simple argument vector");
+  });
+
+  test("build export invocation matrix rows for matching Starshine and Binaryen outputs", async () => {
+    const leftPath = wasmFromWat(`
+      (module
+        (func (export "add") (param i32 i32) (result i32)
+          local.get 0
+          local.get 1
+          i32.add))
+    `);
+    const rightPath = wasmFromWat(`
+      (module
+        (func (export "add") (param i32 i32) (result i32)
+          local.get 0
+          local.get 1
+          i32.add))
+    `);
+
+    const reports = await runNodeExportInvocationMatrix(leftPath, rightPath);
+
+    expect(reports).toEqual([
+      {
+        exportName: "add",
+        args: ["number:0", "number:0"],
+        leftResult: { kind: "result", value: 0 },
+        rightResult: { kind: "result", value: 0 },
+        classification: "equal-result",
+      },
+    ]);
+  });
+
+  test("build export invocation matrix rows for semantic runtime mismatches", async () => {
+    const leftPath = wasmFromWat(`(module (func (export "answer") (result i32) i32.const 1))`);
+    const rightPath = wasmFromWat(`(module (func (export "answer") (result i32) i32.const 2))`);
+
+    const reports = await runNodeExportInvocationMatrix(leftPath, rightPath);
+
+    expect(reports).toMatchObject([
+      {
+        exportName: "answer",
+        args: [],
+        leftResult: { kind: "result", value: 1 },
+        rightResult: { kind: "result", value: 2 },
+        classification: "semantic-mismatch",
+      },
+    ]);
   });
 });
 
