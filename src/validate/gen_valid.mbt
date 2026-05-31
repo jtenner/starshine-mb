@@ -4373,6 +4373,23 @@ fn gen_valid_const_expr_for_global(
         }
       _ => ()
     }
+    match (vt, gen_matching_immutable_global_idx(prior_globals, vt)) {
+      (RefTypeValType(HeapTypeRefType(_, _, HeapType(_))), _) => ()
+      (_, Some(_)) if ctx.config.mode == CoverageForced ||
+        ctx.random_bool_from(GlobalStream) =>
+        return gen_valid_const_expr_from_context(
+          ctx,
+          GlobalStream,
+          vt,
+          {
+            ..GenValidConstExprContext::numeric_only(),
+            allow_imported_immutable_global_get: true,
+          },
+          prior_globals,
+          None,
+        )
+      _ => ()
+    }
   }
   gen_const_expr_from(ctx, GlobalStream, vt)
 }

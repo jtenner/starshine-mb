@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1037 imported reference global initializer
+
+- Continued `[FUZ]1037` by widening `gen_valid_const_expr_for_global(...)` so global initializers can use generic imported immutable reference `global.get` when no higher-priority typed constructor lane owns the target.
+- Added TDD coverage that first failed because an `externref` global initializer fell back to `ref.null`, then passed after routing matching imported immutable reference globals through the shared context helper. Synced the constant-expression and generator-ledger wiki pages.
+
 ## [2026-05-31] fuzzing | FUZ1037 element payload const-expression matrix
 
 - Continued `[FUZ]1037` by splitting element payload constant expressions into a distinct `ElementPayloadConstExpr` GenValid matrix/context row instead of overloading active element offsets.

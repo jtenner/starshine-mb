@@ -643,6 +643,24 @@ test "gen-valid global initializer uses ref.i31 const expression when allowed" {
 }
 
 ///|
+test "gen-valid global initializer can read imported immutable reference global" {
+  let ctx = GenValidContext::new_streamed(0x1037CUL, {
+    ..GenValidConfig::coverage_forced_default()
+  })
+  let externref_global = gen_valid_const_expr_for_global(
+    ctx,
+    ValType::externref(),
+    [GlobalType::new(ValType::externref(), false)],
+    FuncIdx::new(0U),
+    gen_valid_gc_type_plan_empty(),
+  )
+  @debug.assert_eq(
+    externref_global,
+    Expr::new([Instruction::global_get(GlobalIdx::new(0U))]),
+  )
+}
+
+///|
 test "gen-valid proposal feature-gate matrix exposes positive and negative rows" {
   let rows = gen_valid_proposal_feature_gate_matrix()
   @debug.assert_eq(rows.length(), gen_valid_proposal_features().length())
