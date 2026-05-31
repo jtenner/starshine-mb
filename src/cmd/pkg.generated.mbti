@@ -135,13 +135,17 @@ pub impl Show for CmdRunSummary
 pub struct DifferentialAdapters {
   wasm_tools_validate : (Bytes) -> Result[Bool, String]
   binaryen_validate : (Bytes) -> Result[Bool, String]
+  per_case_timeout_ms : Int?
 }
-pub fn DifferentialAdapters::new(wasm_tools_validate? : (Bytes) -> Result[Bool, String], binaryen_validate? : (Bytes) -> Result[Bool, String]) -> Self
+pub fn DifferentialAdapters::new(wasm_tools_validate? : (Bytes) -> Result[Bool, String], binaryen_validate? : (Bytes) -> Result[Bool, String], per_case_timeout_ms? : Int?) -> Self
 
 pub struct DifferentialValidationReport {
   internal_valid : Bool
   wasm_tools_valid : Bool?
   binaryen_valid : Bool?
+  per_case_timeout_ms : Int?
+  wasm_tools_timeout : Bool
+  binaryen_timeout : Bool
 } derive(Eq, @debug.Debug)
 pub impl Show for DifferentialValidationReport
 

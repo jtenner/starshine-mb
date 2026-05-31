@@ -2,6 +2,7 @@
 pub struct DifferentialAdapters {
   wasm_tools_validate : (Bytes) -> Result[Bool, String]
   binaryen_validate : (Bytes) -> Result[Bool, String]
+  per_case_timeout_ms : Int?
 }
 
 ///|
@@ -12,8 +13,9 @@ pub fn DifferentialAdapters::new(
   binaryen_validate? : (Bytes) -> Result[Bool, String] = fn(_) {
     Err("binaryen differential validator unavailable")
   },
+  per_case_timeout_ms? : Int? = None,
 ) -> DifferentialAdapters {
-  { wasm_tools_validate, binaryen_validate }
+  { wasm_tools_validate, binaryen_validate, per_case_timeout_ms }
 }
 
 ///|
@@ -21,6 +23,9 @@ pub struct DifferentialValidationReport {
   internal_valid : Bool
   wasm_tools_valid : Bool?
   binaryen_valid : Bool?
+  per_case_timeout_ms : Int?
+  wasm_tools_timeout : Bool
+  binaryen_timeout : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -685,6 +690,25 @@ fn fuzz_minimize_optimize_failure(
 }
 
 ///|
+fn differential_adapter_ascii_lower(input : String) -> String {
+  let out = StringBuilder::new()
+  for c in input {
+    if c >= 'A' && c <= 'Z' {
+      out.write_char((c.to_int() + 32).unsafe_to_char())
+    } else {
+      out.write_char(c)
+    }
+  }
+  out.to_string()
+}
+
+///|
+fn differential_adapter_error_is_timeout(msg : String) -> Bool {
+  let lower = differential_adapter_ascii_lower(msg)
+  lower.contains("timeout") || lower.contains("timed out") || lower.contains("resource limit")
+}
+
+///|
 pub fn differential_validate_wasm(
   bytes : Bytes,
   adapters? : DifferentialAdapters = default_differential_adapters(),
@@ -693,13 +717,21 @@ pub fn differential_validate_wasm(
     Ok(v) => v
     Err(e) => return Err("internal validation execution failed: \{e}")
   }
+  let mut wasm_tools_timeout = false
   let wasm_tools_valid = match (adapters.wasm_tools_validate)(bytes) {
     Ok(v) => Some(v)
-    Err(_) => None
+    Err(msg) => {
+      wasm_tools_timeout = differential_adapter_error_is_timeout(msg)
+      None
+    }
   }
+  let mut binaryen_timeout = false
   let binaryen_valid = match (adapters.binaryen_validate)(bytes) {
     Ok(v) => Some(v)
-    Err(_) => None
+    Err(msg) => {
+      binaryen_timeout = differential_adapter_error_is_timeout(msg)
+      None
+    }
   }
 
   match wasm_tools_valid {
@@ -724,6 +756,9 @@ pub fn differential_validate_wasm(
     internal_valid,
     wasm_tools_valid,
     binaryen_valid,
+    per_case_timeout_ms: adapters.per_case_timeout_ms,
+    wasm_tools_timeout,
+    binaryen_timeout,
   })
 }
 

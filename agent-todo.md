@@ -620,7 +620,6 @@ p2 invalid/binary/text tiny slices:
 - [FUZ]1026B1 - Persist all mutation ids and broad outcomes for multi-fault repros.
 
 p2 oracle/reporting/infrastructure tiny slices:
-- [FUZ]1053A3 - Add per-case timeout budget and timeout classification to external adapters.
 - [FUZ]1053B1 - Persist timeout/resource repro metadata without failing to write partial artifacts.
 - [FUZ]1053B2 - Add cleanup/manifest behavior for partial timeout artifacts.
 
@@ -632,7 +631,7 @@ p1/p2 oracle, reporting, and infrastructure slices:
 - [FUZ]1052B (p2) - Export Invocation Result Matrix
   - Unit: choose simple exported-function arguments and classify equal result, equal trap, unsupported runtime, nondeterministic import, and semantic mismatch.
 - [FUZ]1053A (p2) - Per-Case Timeout Classification
-  - Unit: add per-case budgets and timeout classifications for fuzz runner, pass-fuzz, and external adapters.
+  - Unit: add per-case budgets and timeout classifications for fuzz runner and pass-fuzz. `[FUZ]1053A3` closed with differential external adapters carrying optional per-case timeout budgets and classifying timeout/resource-limit adapter errors in `src/cmd/fuzz_harness.mbt`.
 - [FUZ]1053B (p2) - Resource-Limit Artifact Handling
   - Unit: persist minimized timeout/resource repro metadata without blocking the full run.
 

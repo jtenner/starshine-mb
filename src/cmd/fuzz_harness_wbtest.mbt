@@ -34,6 +34,29 @@ test "differential_validate_wasm returns report when all validators agree" {
   assert_true(report.internal_valid)
   @debug.assert_eq(report.wasm_tools_valid, Some(true))
   @debug.assert_eq(report.binaryen_valid, Some(true))
+  @debug.assert_eq(report.per_case_timeout_ms, None)
+  assert_true(!report.wasm_tools_timeout)
+  assert_true(!report.binaryen_timeout)
+}
+
+///|
+test "FUZ1053A3 differential adapters classify per-case timeout results" {
+  let bytes = encode_fixture_module(23)
+  let adapters = DifferentialAdapters::new(
+    wasm_tools_validate=fn(_) { Err("process timed out after budget") },
+    binaryen_validate=fn(_) { Err("resource limit exceeded") },
+    per_case_timeout_ms=Some(250),
+  )
+  let report = match differential_validate_wasm(bytes, adapters~) {
+    Ok(v) => v
+    Err(e) => fail("expected timeout classification report, got \{e}")
+  }
+  assert_true(report.internal_valid)
+  @debug.assert_eq(report.wasm_tools_valid, None)
+  @debug.assert_eq(report.binaryen_valid, None)
+  @debug.assert_eq(report.per_case_timeout_ms, Some(250))
+  assert_true(report.wasm_tools_timeout)
+  assert_true(report.binaryen_timeout)
 }
 
 ///|
