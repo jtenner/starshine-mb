@@ -347,6 +347,7 @@ pub enum FuzzCliCommand {
   Help
   ListSuites
   ListProfiles
+  ListRecipes
   EmitGenValidBatch(EmitGenValidBatchArgs)
   EmitInvalidRepro(EmitInvalidReproArgs)
   ReplayCorpus(String)
@@ -492,7 +493,7 @@ pub fn fuzz_usage_text() -> String {
     fuzz_join(reserved, ", ")
   }
   let profiles = fuzz_join(fuzz_profile_names(), ", ")
-  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--recipe <name>] [--suite <name>] [--profile <name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>] [--shard-index <i> --shard-count <n>] [--report-json <path>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --golden-seed-smoke | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> [--manifest <path>] (portable coverage-forced batch) | --emit-invalid-repro --suite <suite|ast|binary|text|spec-seed> --strategy <stable-id> --seed <uint64> --attempt <n> --out-dir <dir> [--profile <name>] | --replay-corpus <replay-manifest.json>\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}"
+  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--recipe <name>] [--suite <name>] [--profile <name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>] [--shard-index <i> --shard-count <n>] [--report-json <path>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --list-recipes | --golden-seed-smoke | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> [--manifest <path>] (portable coverage-forced batch) | --emit-invalid-repro --suite <suite|ast|binary|text|spec-seed> --strategy <stable-id> --seed <uint64> --attempt <n> --out-dir <dir> [--profile <name>] | --replay-corpus <replay-manifest.json>\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}"
 }
 
 ///|
@@ -1444,6 +1445,7 @@ fn fuzz_parse_control_command(arg : String) -> FuzzCliCommand? {
     "-h" => Some(FuzzCliCommand::Help)
     "--list-suites" => Some(FuzzCliCommand::ListSuites)
     "--list-profiles" => Some(FuzzCliCommand::ListProfiles)
+    "--list-recipes" => Some(FuzzCliCommand::ListRecipes)
     _ => None
   }
 }
@@ -3951,6 +3953,10 @@ fn main {
     FuzzCliCommand::ListProfiles =>
       for profile in fuzz_profile_names() {
         println(profile)
+      }
+    FuzzCliCommand::ListRecipes =>
+      for recipe in fuzz_standard_recipe_names() {
+        println(recipe)
       }
     FuzzCliCommand::EmitGenValidBatch(args) =>
       match emit_gen_valid_batch_to_dir(args) {

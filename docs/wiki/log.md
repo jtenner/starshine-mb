@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1051 recipe discovery command
+
+- Closed `[FUZ]1051` by adding `moon run src/fuzz -- --list-recipes`, a direct CLI discovery command for the checked-in standard fuzz recipe catalog used by `--recipe`, on top of the already landed schema, standard catalog, CLI precedence, and wrapper support.
+- Updated [`fuzzing/recipe-schema.md`](fuzzing/recipe-schema.md) so the repeatable-run docs mention the discovery command and its focused test coverage.
+
 ## [2026-05-31] fuzzing | FUZ1037R5 const-expression matrix closeout
 
 - Closed `[FUZ]1037R5` and parent `[FUZ]1037` in research note [`0692`](raw/research/0692-2026-05-31-fuz1037-closeout.md) after R1-R4 covered inventory, boundary active offsets, descriptor-bearing initializers, and context/op-family reporting.

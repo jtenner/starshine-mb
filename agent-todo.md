@@ -825,16 +825,6 @@ p2 invalid/binary/text slices:
   - Suggested Tests: duplicate artifact fixtures, structurally-same/raw-different fixtures, index roundtrip tests.
   - Exit Criteria: repeated fuzz runs can skip or compress duplicate artifacts while preserving reproduction metadata.
 
-- [FUZ]1051 (p1) - Checked-In Fuzz Recipes And Config Schema
-  - Goal: move complex fuzz command combinations into versioned recipes.
-  - Why: long CLI invocations for GenValid profiles, pass filters, feature floors, seed sweeps, external tools, and output dirs are easy to mistype and hard to reproduce.
-  - Deliverables: define a JSON or TOML recipe schema for suite, seeds, profiles, filters, harness options, external adapters, budgets, and artifact policy; add checked-in recipes for smoke, CI, nightly, pass-signoff, validator-stress, parser-stress, and Binaryen-oracle runs.
-  - Required APIs: fuzz runner CLI, Bun task wrappers, profile taxonomy, docs/tooling pages.
-  - Invariants: explicit CLI flags should override recipe fields predictably; recipes must record schema version.
-  - Dependencies: [FUZ]1001, [FUZ]1030, and [FUZ]1031.
-  - Suggested Tests: recipe parse tests, override precedence tests, invalid recipe diagnostics, docs examples.
-  - Exit Criteria: agents can launch standard fuzz scenarios by recipe name and get reproducible settings.
-
 - [FUZ]1052 (p2) - Runtime Import Stub Generator And Export Invocation Matrix
   - Goal: enable optional execution oracles by generating host stubs and calls for exported functions.
   - Why: validation and text/binary parity cannot prove semantic equivalence for optimizer outputs. Simple execution across generated inputs catches many wrong-code bugs when runtime tooling is available.

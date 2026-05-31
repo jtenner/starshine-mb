@@ -267,6 +267,7 @@ pub enum FuzzCliCommand {
   Help
   ListSuites
   ListProfiles
+  ListRecipes
   EmitGenValidBatch(EmitGenValidBatchArgs)
   EmitInvalidRepro(EmitInvalidReproArgs)
   ReplayCorpus(String)

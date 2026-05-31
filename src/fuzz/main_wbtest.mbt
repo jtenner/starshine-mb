@@ -1245,6 +1245,14 @@ test "parse_fuzz_cli_command accepts golden seed smoke runner" {
 }
 
 ///|
+test "parse_fuzz_cli_command accepts recipe listing command" {
+  match parse_fuzz_cli_command(["--list-recipes"]) {
+    FuzzCliCommand::ListRecipes => ()
+    _ => fail("expected recipe listing command")
+  }
+}
+
+///|
 test "golden seed smoke runner asserts stable high-level counters" {
   let report = match run_fuzz_golden_seed_smoke() {
     Ok(v) => v

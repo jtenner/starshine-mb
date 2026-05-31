@@ -34,7 +34,7 @@ Examples:
 - `moon run src/fuzz -- validate-valid stress --recipe validator-stress --seed 0x5eed` uses the explicit positional suite/profile and seed over the recipe defaults.
 - `bun fuzz run --recipe default-ci --jsonl --report-json .tmp/fuzz-default-ci/result.json` keeps the all-suite CI sweep recipe while requesting JSONL/report output explicitly.
 
-The `--recipe <name>` / `--recipe=<name>` flag is recognized by both the MoonBit parser layer and the `bun fuzz run` wrapper. Duplicate recipe flags are rejected, unknown recipe names abort in the MoonBit runner, and recipes still validate their own schema before CLI overrides apply. The checked-in catalog currently provides these recipe ids:
+The `--recipe <name>` / `--recipe=<name>` flag is recognized by both the MoonBit parser layer and the `bun fuzz run` wrapper. Duplicate recipe flags are rejected, unknown recipe names abort in the MoonBit runner, and recipes still validate their own schema before CLI overrides apply. Use `moon run src/fuzz -- --list-recipes` to list the checked-in recipe ids from the same catalog used by `--recipe`. The checked-in catalog currently provides these recipe ids:
 
 - `smoke`: short `validate-valid` smoke run.
 - `default-smoke`: one-seed `all`-suite smoke sweep over every active default fuzz suite.
@@ -48,6 +48,6 @@ The `--recipe <name>` / `--recipe=<name>` flag is recognized by both the MoonBit
 
 ## Evidence
 
-- `src/fuzz/main_wbtest.mbt` covers required schema-version parsing, unsupported schema rejection, `=` inside profile values, standard catalog ids including default smoke/CI all-suite recipes, pass-signoff and validator-stress recipe intent, catalog-text parsing, and CLI-over-recipe precedence.
+- `src/fuzz/main_wbtest.mbt` covers required schema-version parsing, unsupported schema rejection, `=` inside profile values, standard catalog ids including default smoke/CI all-suite recipes, pass-signoff and validator-stress recipe intent, catalog-text parsing, CLI-over-recipe precedence, and the `--list-recipes` discovery command.
 - `scripts/lib/fuzz-task.test.ts` covers `bun fuzz run --recipe` parsing and pass-through to the Moon fuzz runner.
 - `moon test src/fuzz` passed for the recipe slices.
