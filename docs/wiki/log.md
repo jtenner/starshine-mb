@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1020C6 atomic shared-memory context invalid AST
+
+- Closed `[FUZ]1020C6` by adding `invalid-function-body-atomic-load-non-shared-memory`, a deterministic AST-invalid strategy whose `i32.atomic.load` has a valid stack shape but targets an ordinary non-shared memory.
+- Tightened atomic validation so atomic loads/stores, notify, wait, RMW, and cmpxchg require the selected memory to be shared before their stack-effect checks succeed; existing atomic stack fixtures now use explicit shared-memory environments.
+- Updated [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the shared-memory context rule and stable invalid strategy are documented.
+
 ## [2026-05-31] fuzzing | FUZ1020C5 memory64.init invalid AST operand coverage
 
 - Closed `[FUZ]1020C5` by adding `invalid-function-body-memory64-init-dest-type`, a deterministic AST-invalid strategy for a memory64 module whose `memory.init` destination operand is incorrectly `i32` while source and length remain valid `i32` bulk-memory operands.

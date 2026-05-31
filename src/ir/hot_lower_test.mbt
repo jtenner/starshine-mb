@@ -18,7 +18,9 @@ fn hot_lower_test_context_module() -> @lib.Module {
   @lib.Module::new()
   .with_type_sec(@lib.TypeSec::new([array_type]))
   .with_mem_sec(
-    @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1, None))]),
+    @lib.MemSec::new([
+      @lib.MemType::new(@lib.Limits::i32(1, Some(1)), shared=true),
+    ]),
   )
 }
 

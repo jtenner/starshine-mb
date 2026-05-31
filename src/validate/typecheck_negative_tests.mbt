@@ -44,6 +44,14 @@ fn tcneg_i32_mem_env() -> Env {
 }
 
 ///|
+fn tcneg_i32_shared_mem_env() -> Env {
+  Env::{
+    ..empty_env(),
+    mems: [MemType::new(Limits::i32(1, Some(1)), shared=true)],
+  }
+}
+
+///|
 fn tcneg_single_functype_subtype(
   params : Array[ValType],
   results : Array[ValType],
@@ -188,7 +196,7 @@ test "Typecheck StructNewDesc rejects inexact descriptor operand" {
 
 ///|
 test "Typecheck MemoryAtomicNotify stack effect" {
-  let env = tcneg_i32_mem_env()
+  let env = tcneg_i32_shared_mem_env()
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let state = tcneg_make_state(env, [ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(
@@ -203,7 +211,7 @@ test "Typecheck MemoryAtomicNotify stack effect" {
 
 ///|
 test "Typecheck MemoryAtomicNotify rejects non-i32 count" {
-  let env = tcneg_i32_mem_env()
+  let env = tcneg_i32_shared_mem_env()
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let state = tcneg_make_state(env, [ValType::i32(), ValType::i64()])
   let result = Typecheck::typecheck(
@@ -215,7 +223,7 @@ test "Typecheck MemoryAtomicNotify rejects non-i32 count" {
 
 ///|
 test "Typecheck MemoryAtomicWait32 rejects non-i64 timeout" {
-  let env = tcneg_i32_mem_env()
+  let env = tcneg_i32_shared_mem_env()
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let state = tcneg_make_state(env, [
     ValType::i32(),
@@ -231,7 +239,7 @@ test "Typecheck MemoryAtomicWait32 rejects non-i64 timeout" {
 
 ///|
 test "Typecheck MemoryAtomicWait32 rejects non-i32 expected value" {
-  let env = tcneg_i32_mem_env()
+  let env = tcneg_i32_shared_mem_env()
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let state = tcneg_make_state(env, [
     ValType::i32(),
@@ -247,7 +255,7 @@ test "Typecheck MemoryAtomicWait32 rejects non-i32 expected value" {
 
 ///|
 test "Typecheck MemoryAtomicWait64 rejects non-i64 expected value" {
-  let env = tcneg_i32_mem_env()
+  let env = tcneg_i32_shared_mem_env()
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let state = tcneg_make_state(env, [
     ValType::i32(),
@@ -263,7 +271,7 @@ test "Typecheck MemoryAtomicWait64 rejects non-i64 expected value" {
 
 ///|
 test "Typecheck AtomicRmw rejects wrong value type" {
-  let env = tcneg_i32_mem_env()
+  let env = tcneg_i32_shared_mem_env()
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let state = tcneg_make_state(env, [ValType::i32(), ValType::i64()])
   let result = Typecheck::typecheck(
@@ -275,7 +283,7 @@ test "Typecheck AtomicRmw rejects wrong value type" {
 
 ///|
 test "Typecheck AtomicCmpxchg rejects wrong replacement type" {
-  let env = tcneg_i32_mem_env()
+  let env = tcneg_i32_shared_mem_env()
   let mem_arg = MemArg::new(U32(0), None, U64(0))
   let state = tcneg_make_state(env, [
     ValType::i32(),
@@ -291,7 +299,7 @@ test "Typecheck AtomicCmpxchg rejects wrong replacement type" {
 
 ///|
 test "Typecheck atomic load rejects invalid memory index in memarg" {
-  let env = tcneg_i32_mem_env()
+  let env = tcneg_i32_shared_mem_env()
   let mem_arg = MemArg::new(U32(0), Some(MemIdx::new(1)), U64(0))
   let state = tcneg_make_state(env, [ValType::i32()])
   let result = Typecheck::typecheck(
@@ -302,8 +310,22 @@ test "Typecheck atomic load rejects invalid memory index in memarg" {
 }
 
 ///|
-test "Typecheck atomic load rejects oversized memarg alignment" {
+test "Typecheck atomic load rejects non-shared memory" {
   let env = tcneg_i32_mem_env()
+  let mem_arg = MemArg::new(U32(2), None, U64(0))
+  let state = tcneg_make_state(env, [ValType::i32()])
+  let result = Typecheck::typecheck(
+    Instruction::i32_atomic_load(mem_arg),
+    state,
+  )
+  tcneg_assert_err_contains(
+    result, "atomic memory access requires shared memory",
+  )
+}
+
+///|
+test "Typecheck atomic load rejects oversized memarg alignment" {
+  let env = tcneg_i32_shared_mem_env()
   let mem_arg = MemArg::new(U32(3), None, U64(0))
   let state = tcneg_make_state(env, [ValType::i32()])
   let result = Typecheck::typecheck(
@@ -315,7 +337,7 @@ test "Typecheck atomic load rejects oversized memarg alignment" {
 
 ///|
 test "Typecheck atomic store rejects out-of-range i32 memarg offset" {
-  let env = tcneg_i32_mem_env()
+  let env = tcneg_i32_shared_mem_env()
   let mem_arg = MemArg::new(U32(0), None, U64(4294967296))
   let state = tcneg_make_state(env, [ValType::i32(), ValType::i32()])
   let result = Typecheck::typecheck(

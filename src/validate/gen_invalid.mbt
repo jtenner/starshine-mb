@@ -449,6 +449,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-atomic-cmpxchg-replacement-type"
     InvalidFunctionBodyAtomicLoadAddressType =>
       "invalid-function-body-atomic-load-address-type"
+    InvalidFunctionBodyAtomicLoadNonSharedMemory =>
+      "invalid-function-body-atomic-load-non-shared-memory"
     InvalidFunctionBodyAtomicStoreAddressType =>
       "invalid-function-body-atomic-store-address-type"
     InvalidFunctionBodyAtomicStoreValueType =>

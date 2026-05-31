@@ -1595,6 +1595,46 @@ fn typecheck_load(
 }
 
 ///|
+fn memarg_check_atomic(
+  st : TcState,
+  ma : MemArg,
+  default_mem : MemIdx,
+  nbits : Int,
+) -> Result[(MemIdx, Limits), String] {
+  let (mem, lim) = match memarg_check(st, ma, default_mem, nbits) {
+    Err(e) => return Err(e)
+    Ok(x) => x
+  }
+  let MemType(_, shared) = match st.env.get_memtype(mem) {
+    None => return Err("invalid memory index in memarg")
+    Some(mt) => mt
+  }
+  if !shared {
+    return Err("atomic memory access requires shared memory")
+  }
+  Ok((mem, lim))
+}
+
+///|
+fn typecheck_atomic_load(
+  st : TcState,
+  ma : MemArg,
+  nbits : Int,
+  result : ValType,
+) -> TcResult {
+  let (_mem, lim) = match memarg_check_atomic(st, ma, MemIdx::new(0), nbits) {
+    Err(e) => return Err(e)
+    Ok(x) => x
+  }
+  let at = lim.addr_valtype()
+  let st1 = match st.pop_expect(at) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  Ok(st1.push1(result))
+}
+
+///|
 fn typecheck_store(
   st : TcState,
   ma : MemArg,
@@ -1622,8 +1662,31 @@ fn typecheck_store(
 }
 
 ///|
+fn typecheck_atomic_store(
+  st : TcState,
+  ma : MemArg,
+  nbits : Int,
+  value : ValType,
+) -> TcResult {
+  let (_mem, lim) = match memarg_check_atomic(st, ma, MemIdx::new(0), nbits) {
+    Err(e) => return Err(e)
+    Ok(x) => x
+  }
+  let at = lim.addr_valtype()
+  let st1 = match st.pop_expect(value) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  let st2 = match st1.pop_expect(at) {
+    Err(e) => return Err(e)
+    Ok(s) => s
+  }
+  Ok(st2)
+}
+
+///|
 fn typecheck_atomic_notify(st : TcState, ma : MemArg) -> TcResult {
-  let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), 32) {
+  let (_mem, lim) = match memarg_check_atomic(st, ma, MemIdx::new(0), 32) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
@@ -1646,7 +1709,7 @@ fn typecheck_atomic_wait(
   nbits : Int,
   expected : ValType,
 ) -> TcResult {
-  let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), nbits) {
+  let (_mem, lim) = match memarg_check_atomic(st, ma, MemIdx::new(0), nbits) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
@@ -1673,7 +1736,7 @@ fn typecheck_atomic_rmw(
   nbits : Int,
   ty : ValType,
 ) -> TcResult {
-  let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), nbits) {
+  let (_mem, lim) = match memarg_check_atomic(st, ma, MemIdx::new(0), nbits) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
@@ -1696,7 +1759,7 @@ fn typecheck_atomic_cmpxchg(
   nbits : Int,
   ty : ValType,
 ) -> TcResult {
-  let (_mem, lim) = match memarg_check(st, ma, MemIdx::new(0), nbits) {
+  let (_mem, lim) = match memarg_check_atomic(st, ma, MemIdx::new(0), nbits) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
@@ -3138,13 +3201,13 @@ pub impl Typecheck for Instruction with typecheck(self, st) {
     I64Load16U(ma) => typecheck_load(st, ma, 16, ValType::i64())
     I64Load32S(ma) => typecheck_load(st, ma, 32, ValType::i64())
     I64Load32U(ma) => typecheck_load(st, ma, 32, ValType::i64())
-    I32AtomicLoad(ma) => typecheck_load(st, ma, 32, ValType::i32())
-    I64AtomicLoad(ma) => typecheck_load(st, ma, 64, ValType::i64())
-    I32AtomicLoad8U(ma) => typecheck_load(st, ma, 8, ValType::i32())
-    I32AtomicLoad16U(ma) => typecheck_load(st, ma, 16, ValType::i32())
-    I64AtomicLoad8U(ma) => typecheck_load(st, ma, 8, ValType::i64())
-    I64AtomicLoad16U(ma) => typecheck_load(st, ma, 16, ValType::i64())
-    I64AtomicLoad32U(ma) => typecheck_load(st, ma, 32, ValType::i64())
+    I32AtomicLoad(ma) => typecheck_atomic_load(st, ma, 32, ValType::i32())
+    I64AtomicLoad(ma) => typecheck_atomic_load(st, ma, 64, ValType::i64())
+    I32AtomicLoad8U(ma) => typecheck_atomic_load(st, ma, 8, ValType::i32())
+    I32AtomicLoad16U(ma) => typecheck_atomic_load(st, ma, 16, ValType::i32())
+    I64AtomicLoad8U(ma) => typecheck_atomic_load(st, ma, 8, ValType::i64())
+    I64AtomicLoad16U(ma) => typecheck_atomic_load(st, ma, 16, ValType::i64())
+    I64AtomicLoad32U(ma) => typecheck_atomic_load(st, ma, 32, ValType::i64())
     I32Store(ma) => typecheck_store(st, ma, 32, ValType::i32())
     I64Store(ma) => typecheck_store(st, ma, 64, ValType::i64())
     F32Store(ma) => typecheck_store(st, ma, 32, ValType::f32())
@@ -3154,13 +3217,13 @@ pub impl Typecheck for Instruction with typecheck(self, st) {
     I64Store8(ma) => typecheck_store(st, ma, 8, ValType::i64())
     I64Store16(ma) => typecheck_store(st, ma, 16, ValType::i64())
     I64Store32(ma) => typecheck_store(st, ma, 32, ValType::i64())
-    I32AtomicStore(ma) => typecheck_store(st, ma, 32, ValType::i32())
-    I64AtomicStore(ma) => typecheck_store(st, ma, 64, ValType::i64())
-    I32AtomicStore8(ma) => typecheck_store(st, ma, 8, ValType::i32())
-    I32AtomicStore16(ma) => typecheck_store(st, ma, 16, ValType::i32())
-    I64AtomicStore8(ma) => typecheck_store(st, ma, 8, ValType::i64())
-    I64AtomicStore16(ma) => typecheck_store(st, ma, 16, ValType::i64())
-    I64AtomicStore32(ma) => typecheck_store(st, ma, 32, ValType::i64())
+    I32AtomicStore(ma) => typecheck_atomic_store(st, ma, 32, ValType::i32())
+    I64AtomicStore(ma) => typecheck_atomic_store(st, ma, 64, ValType::i64())
+    I32AtomicStore8(ma) => typecheck_atomic_store(st, ma, 8, ValType::i32())
+    I32AtomicStore16(ma) => typecheck_atomic_store(st, ma, 16, ValType::i32())
+    I64AtomicStore8(ma) => typecheck_atomic_store(st, ma, 8, ValType::i64())
+    I64AtomicStore16(ma) => typecheck_atomic_store(st, ma, 16, ValType::i64())
+    I64AtomicStore32(ma) => typecheck_atomic_store(st, ma, 32, ValType::i64())
     Drop => typecheck_drop(st)
     Select(None) => typecheck_select_untyped(st)
     Select(Some(ts)) => typecheck_select_typed(st, ts)
