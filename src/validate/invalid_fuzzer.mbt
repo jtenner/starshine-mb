@@ -291,7 +291,9 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidDescriptorFieldRefType
   DataCountWithoutDataSec
   InvalidExportFuncIndex
+  InvalidExportFuncWrongKindIndex
   StartFuncOutOfRange
+  StartFuncWrongKindIndex
   MissingDataCountDataDrop
   InvalidMemoryNameSectionIndex
   CodeSecWithoutFuncSec
@@ -781,9 +783,23 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidExportFuncWrongKindIndex,
+      "invalid-export-func-wrong-kind-index",
+      "export function index that names another index space",
+      ExportSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       StartFuncOutOfRange,
       "start-func-out-of-range",
       "start function index out of range",
+      StartSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      StartFuncWrongKindIndex,
+      "start-func-wrong-kind-index",
+      "start function index that names another index space",
       StartSectionFamily,
       required_in_smoke=false,
     ),
@@ -2189,7 +2205,9 @@ fn validate_invalid_ast_strategy_index(
     InvalidDescriptorFieldRefType => 243
     DataCountWithoutDataSec => 28
     InvalidExportFuncIndex => 29
+    InvalidExportFuncWrongKindIndex => 245
     StartFuncOutOfRange => 30
+    StartFuncWrongKindIndex => 246
     MissingDataCountDataDrop => 31
     InvalidFunctionBodyLocalIndex => 32
     InvalidFunctionBodyGlobalIndex => 33
@@ -3234,6 +3252,32 @@ fn validate_invalid_ast_mutate_invalid_export_func_index(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_export_func_wrong_kind_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let func_ref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  let base = Module::new().with_table_sec(
+    TableSec::new([
+      Table::new(TableType::new(func_ref, Limits::i32(1, None)), None),
+    ]),
+  )
+  let exports = validate_invalid_ast_export_entries(base)
+  exports.push(
+    Export::new(
+      Name::new("bad-func-wrong-kind"),
+      ExternIdx::func(FuncIdx::new(0U)),
+    ),
+  )
+  {
+    strategy: InvalidExportFuncWrongKindIndex,
+    applicable: true,
+    expected_family: ExportSectionFamily,
+    mutated_module: base.with_export_sec(ExportSec::new(exports)),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_export_table_index(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -3547,6 +3591,25 @@ fn validate_invalid_ast_mutate_start_func_out_of_range(
     applicable: true,
     expected_family: StartSectionFamily,
     mutated_module: mod.with_start_sec(StartSec::new(bad_idx)),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_start_func_wrong_kind_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let func_ref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  let base = Module::new().with_table_sec(
+    TableSec::new([
+      Table::new(TableType::new(func_ref, Limits::i32(1, None)), None),
+    ]),
+  )
+  {
+    strategy: StartFuncWrongKindIndex,
+    applicable: true,
+    expected_family: StartSectionFamily,
+    mutated_module: base.with_start_sec(StartSec::new(FuncIdx::new(0U))),
   }
 }
 
@@ -9689,6 +9752,8 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_duplicate_export_name(base)
       InvalidExportFuncIndex =>
         validate_invalid_ast_mutate_invalid_export_func_index(base)
+      InvalidExportFuncWrongKindIndex =>
+        validate_invalid_ast_mutate_invalid_export_func_wrong_kind_index(base)
       InvalidImportedStartFuncParam =>
         validate_invalid_ast_mutate_invalid_imported_start_func_param(base)
       InvalidImportedStartFuncResult =>
@@ -9729,6 +9794,8 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_start_signature(base)
       StartFuncOutOfRange =>
         validate_invalid_ast_mutate_start_func_out_of_range(base)
+      StartFuncWrongKindIndex =>
+        validate_invalid_ast_mutate_start_func_wrong_kind_index(base)
       MissingDataCount => validate_invalid_ast_mutate_missing_datacount(base)
       MissingDataCountDataDrop =>
         validate_invalid_ast_mutate_missing_datacount_data_drop(base)
@@ -10950,9 +11017,10 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-tag-result-type", "invalid-subtype-super-index", "invalid-subtype-super-shape",
     "invalid-subtype-func-variance", "invalid-subtype-super-cycle", "descriptor-on-func-type",
     "descriptor-cycle", "invalid-descriptor-field-ref-type", "datacount-without-data-sec",
-    "invalid-export-func-index", "start-func-out-of-range", "missing-datacount-data-drop",
-    "invalid-function-body-local-index", "invalid-function-body-global-index", "invalid-function-body-table-index",
-    "invalid-function-body-memory-index", "invalid-function-body-call-index", "invalid-function-body-branch-label-index",
+    "invalid-export-func-index", "invalid-export-func-wrong-kind-index", "start-func-out-of-range",
+    "start-func-wrong-kind-index", "missing-datacount-data-drop", "invalid-function-body-local-index",
+    "invalid-function-body-global-index", "invalid-function-body-table-index", "invalid-function-body-memory-index",
+    "invalid-function-body-call-index", "invalid-function-body-branch-label-index",
     "invalid-function-body-branch-payload-mismatch", "invalid-function-body-call-payload-mismatch",
     "invalid-function-body-br-if-payload-mismatch", "invalid-function-body-br-table-payload-mismatch",
     "invalid-function-body-if-condition-type", "invalid-function-body-if-branch-result-type",
@@ -11802,11 +11870,37 @@ test "invalid export func index strategy rejects with ExportSection family" {
 }
 
 ///|
+test "invalid export func wrong-kind index strategy rejects with ExportSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidExportFuncWrongKindIndex,
+      0x5efd1UL,
+      ExportSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "start func out of range strategy rejects with StartSection family" {
   match
     invalid_ast_expect_strategy_rejects_with_family(
       StartFuncOutOfRange,
       0x5efeUL,
+      StartSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "start func wrong-kind index strategy rejects with StartSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      StartFuncWrongKindIndex,
+      0x5efe1UL,
       StartSectionFamily,
     ) {
     Ok(_) => ()

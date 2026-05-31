@@ -1352,7 +1352,9 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidDescriptorFieldRefType
   DataCountWithoutDataSec
   InvalidExportFuncIndex
+  InvalidExportFuncWrongKindIndex
   StartFuncOutOfRange
+  StartFuncWrongKindIndex
   MissingDataCountDataDrop
   InvalidMemoryNameSectionIndex
   CodeSecWithoutFuncSec

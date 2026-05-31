@@ -196,6 +196,7 @@ fn gen_invalid_ast_strategy_label(
   match strategy {
     DuplicateExportName => "duplicate-export-name"
     InvalidExportFuncIndex => "invalid-export-func-index"
+    InvalidExportFuncWrongKindIndex => "invalid-export-func-wrong-kind-index"
     InvalidImportedStartFuncParam => "invalid-imported-start-func-param"
     InvalidImportedStartFuncResult => "invalid-imported-start-func-result"
     InvalidImportedStartFuncParamResult =>
@@ -209,6 +210,7 @@ fn gen_invalid_ast_strategy_label(
       "invalid-imported-start-func-funcref-param"
     InvalidStartSignature => "invalid-start-signature"
     StartFuncOutOfRange => "start-func-out-of-range"
+    StartFuncWrongKindIndex => "start-func-wrong-kind-index"
     MissingDataCount => "missing-datacount"
     MissingDataCountDataDrop => "missing-datacount-data-drop"
     InvalidFunctionBodyLocalIndex => "invalid-function-body-local-index"

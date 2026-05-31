@@ -906,6 +906,35 @@ test "gen_invalid_ast_generate supports invalid export func index strategy" {
 }
 
 ///|
+test "gen_invalid_ast_generate supports invalid export func wrong-kind index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5efd01UL),
+      GenInvalidAstParams::repro_seed(InvalidExportFuncWrongKindIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected invalid-export-func-wrong-kind-index base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail("expected invalid-export-func-wrong-kind-index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == ExportSectionFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports invalid imported start func param strategy" {
   let generated = match
     gen_invalid_ast_generate(
@@ -1053,6 +1082,34 @@ test "gen_invalid_ast_generate supports invalid imported start func funcref-para
       fail(
         "expected invalid-imported-start-func-funcref-param mutation to fail",
       )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == StartSectionFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports start func wrong-kind index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5efd26UL),
+      GenInvalidAstParams::repro_seed(StartFuncWrongKindIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected start-func-wrong-kind-index base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected start-func-wrong-kind-index mutation to fail")
     Err(err) => {
       let family = validation_issue_family(
         validation_error_diagnostic(err).issue,

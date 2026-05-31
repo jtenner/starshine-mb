@@ -137,6 +137,7 @@ Start validation is one of the better-covered invalid families. Current checked-
 | Defined function with results | `invalid-start-func-result` in text, plus binary/AST signature variants | A defined target with a result list reports the start family. |
 | Imported function with params/results | `invalid-imported-start-func-param`, `invalid-imported-start-func-result`, `invalid-imported-start-func-param-result`, `invalid-imported-start-func-multi-param`, `invalid-imported-start-func-f32-param`, `invalid-imported-start-func-externref-param`, `invalid-imported-start-func-funcref-param` and `*-module` binary mirrors | Imported function indices are legitimate start targets only when their imported type is empty. |
 | Out-of-range function index | `start-func-out-of-range`, `invalid-start-func-out-of-range` | The target index is checked against the full imported-plus-defined function index space. |
+| Wrong-kind numeric index | `start-func-wrong-kind-index` | A numeric index that resolves in another index space, such as table `0`, does not satisfy the start section's function-index requirement. |
 
 Use [`fuzz-hardening.md`](fuzz-hardening.md) for the broader AST/binary/text/spec-seed invalid-lane contract and [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md) for command shapes.
 

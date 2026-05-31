@@ -71,7 +71,7 @@ A separate instantiation/linking step would ask: "Does the host actually provide
 | `exportsec` | Validates each `ExternIdx` against the completed index spaces, then rejects duplicate export names. | [`validate_exportsec_unique(...)`](../../../src/validate/validate.mbt) |
 | later phases | `ref.func` declarations, code bodies, and name maps use the same imported-prefix index spaces. | [`ref-func-declarations.md`](ref-func-declarations.md), [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md) |
 
-The user-visible diagnostic split is stable: invalid import declarations report `ImportSection`, while invalid export indices or duplicate export names report `ExportSection`. The invalid-fuzzer registry keeps both families explicit in [`src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt) and covers export-index strategies in [`src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt).
+The user-visible diagnostic split is stable: invalid import declarations report `ImportSection`, while invalid export indices or duplicate export names report `ExportSection`. The invalid-fuzzer registry keeps both families explicit in [`src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt) and covers export-index strategies in [`src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt), including both ordinary out-of-range targets and a wrong-kind function-export case where index `0` exists in the table space but not the function space.
 
 ## What Counts As A Valid Import Declaration
 
@@ -94,6 +94,8 @@ Exports are simpler than imports because the exported value already lives in the
 1. the exported kind selects the right index space;
 2. the selected index is in range after imports and local definitions have been appended; and
 3. the export name is unique across all exports, regardless of exported kind.
+
+A same numeric index in a different namespace does not satisfy the selected export kind. For example, exporting `(func 0)` from a module that only defines table `0` is still an export-section error; the AST invalid lane locks this as `invalid-export-func-wrong-kind-index`.
 
 For example, this is invalid because both exports use the same public name even though they target different functions:
 
