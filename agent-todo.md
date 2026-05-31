@@ -625,7 +625,6 @@ p2 oracle/reporting/infrastructure tiny slices:
 - `[FUZ]1045A7` - Text fuzz runner integration smoke: expose the n-way text matrix behind an opt-in fuzz runner flag or recipe and add an unavailable-tool skip test.
 - `[FUZ]1052B8` - Real export matrix runner wiring: collect simple exported numeric functions from pass-fuzz Starshine/Binaryen outputs, invoke both through the selected runtime adapter, and build `ExportInvocationComparisonReport` rows.
 - `[FUZ]1052B9` - Export matrix report persistence: write matrix summary, matrix outcome, and semantic-mismatch report samples into pass-fuzz result JSON and repro manifests without requiring runtime execution by default.
-- `[FUZ]1055A4` - Valid linking runner classification: run generated valid multi-module scripts through the WAST harness and report link-success counters separately from single-module validation counters.
 - `[FUZ]1055B3` - Unlinkable WAST generator lane: generalize deterministic missing-import and type-mismatch fixtures into generated `assert_unlinkable` cases across function/memory/table/global/tag imports.
 - `[FUZ]1055B4` - Unlinkable outcome classifier/repro metadata: persist unlinkable reason, registered module/name, expected import type, provider export type, and pre-link validation status separately from invalid-module failures.
 
@@ -665,7 +664,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1045A (p2) - N-Way Text Parse/Print Classification
   - Completed tiny slices: `[FUZ]1045A1` text-adapter result schema, `[FUZ]1045A2` optional WABT adapter, and `[FUZ]1045A3` optional wasm-tools adapter. Remaining concrete slices: `[FUZ]1045A4` local parse/print/lower matrix, `[FUZ]1045A5` aggregate classifier, `[FUZ]1045A6` artifact persistence, and `[FUZ]1045A7` runner integration smoke.
 - [FUZ]1055A (p2) - Multi-Module WAST Valid Linking Lane
-  - Completed tiny slices: `[FUZ]1055A1` named two-module fixture, `[FUZ]1055A2` valid import/export wiring fixture, and `[FUZ]1055A3` reusable valid multi-module WAST generator lane. Remaining concrete slice: `[FUZ]1055A4` valid linking runner classification.
+  - Completed tiny slices: `[FUZ]1055A1` named two-module fixture, `[FUZ]1055A2` valid import/export wiring fixture, `[FUZ]1055A3` reusable valid multi-module WAST generator lane, and `[FUZ]1055A4` valid linking runner classification. Remaining concrete slices: none for the current tracked 1055A board.
 - [FUZ]1055B (p2) - Multi-Module WAST Unlinkable Lane
   - Completed tiny slices: `[FUZ]1055B1` missing-import unlinkable fixture and `[FUZ]1055B2` type-mismatch unlinkable fixture. Remaining concrete slices: `[FUZ]1055B3` unlinkable generator lane and `[FUZ]1055B4` unlinkable outcome classifier/repro metadata.
 - [FUZ]1056A (p2) - Curated Diagnostic Location Fixtures
@@ -834,7 +833,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1055 (p2) - Multi-Module WAST, Linking, Unlinkable, And Instantiation Lanes
   - Goal: treat multi-module scripts and link-time behavior as a distinct fuzz target.
   - Why: validation accepts individual modules, but WAST assertions and real tooling also care about imports, exports, duplicate module names, register commands, instantiation, and unlinkable modules.
-  - Deliverables: `[FUZ]1055A1`/`[FUZ]1055A2`/`[FUZ]1055A3` and `[FUZ]1055B1`/`[FUZ]1055B2` landed deterministic valid-linking fixtures, the reusable valid generator lane, and unlinkable fixtures. Remaining slices `[FUZ]1055A4` and `[FUZ]1055B3`/`[FUZ]1055B4` promote those fixtures into runner classifications and repro metadata for valid linked pairs plus intentionally missing or type-mismatched imports.
+  - Deliverables: `[FUZ]1055A1`/`[FUZ]1055A2`/`[FUZ]1055A3`/`[FUZ]1055A4` and `[FUZ]1055B1`/`[FUZ]1055B2` landed deterministic valid-linking fixtures, the reusable valid generator lane, valid-linking runner classification, and unlinkable fixtures. Remaining slices `[FUZ]1055B3`/`[FUZ]1055B4` promote intentionally missing or type-mismatched imports into generated unlinkable runner classifications and repro metadata.
   - Required APIs: WAST arbitrary generator, static assertion evaluator, text parser/lowerer, import/export planning.
   - Invariants: unlinkable cases must be classified separately from invalid modules; unsupported WAST script commands should be skipped with explicit counters.
   - Dependencies: landed dynamic spec-seed scanner/CI floors and [FUZ]1027 WAST reporting.

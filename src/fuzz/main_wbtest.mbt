@@ -1212,6 +1212,36 @@ test "valid multi-module wast generator can emit memory table and global focused
 }
 
 ///|
+test "valid multi-module linking fuzz runner reports link counters separately" {
+  assert_true(fuzz_active_suite_names().contains("valid-multi-module-linking"))
+  let stats = match run_valid_multi_module_linking_fuzz("smoke", 0x1055A4UL) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(stats.generated, stats.attempts)
+  @debug.assert_eq(stats.parsed_scripts, stats.attempts)
+  @debug.assert_eq(stats.single_module_validation_failures, 0)
+  @debug.assert_eq(stats.link_failed, 0)
+  @debug.assert_eq(stats.link_skipped, 0)
+  assert_true(stats.single_module_validated >= stats.attempts * 2)
+  @debug.assert_eq(stats.link_passed, stats.attempts)
+
+  let results = match
+    run_fuzz_suite_sweep(
+      "valid-multi-module-linking", "smoke", 0x1055A4L, 1, 0, 1,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let report = format_fuzz_run_report_json(
+    "valid-multi-module-linking", "smoke", 0x1055A4L, 1, 0, 1, results,
+  )
+  assert_true(report.contains("\"single_module_validated\":"))
+  assert_true(report.contains("\"link_passed\":"))
+  assert_true(report.contains("\"link_failed\":0"))
+}
+
+///|
 test "parse_fuzz_recipe_text parses core key value schema" {
   let recipe = match
     parse_fuzz_recipe_text(
@@ -2007,17 +2037,17 @@ test "emit_gen_valid_batch_artifacts matches the pinned Binaryen-oracle generato
 test "fuzz suite inventory separates active and reserved suite ids" {
   @debug.assert_eq(fuzz_active_suite_names(), [
     "wast-roundtrip", "wat-roundtrip", "wast-validate-roundtrip", "gen-valid-wat-validate-roundtrip",
-    "validate-valid", "validate-valid-metamorphic", "validate-invalid-ast", "validate-invalid-binary",
-    "validate-invalid-text", "validate-invalid-text-dynamic", "validate-invalid-spec-seed",
-    "binary-roundtrip", "cmd-harness",
+    "valid-multi-module-linking", "validate-valid", "validate-valid-metamorphic",
+    "validate-invalid-ast", "validate-invalid-binary", "validate-invalid-text", "validate-invalid-text-dynamic",
+    "validate-invalid-spec-seed", "binary-roundtrip", "cmd-harness",
   ])
   @debug.assert_eq(fuzz_reserved_suite_names(), [])
   @debug.assert_eq(fuzz_suite_inventory_lines(), [
     "active\twast-roundtrip", "active\twat-roundtrip", "active\twast-validate-roundtrip",
-    "active\tgen-valid-wat-validate-roundtrip", "active\tvalidate-valid", "active\tvalidate-valid-metamorphic",
-    "active\tvalidate-invalid-ast", "active\tvalidate-invalid-binary", "active\tvalidate-invalid-text",
-    "active\tvalidate-invalid-text-dynamic", "active\tvalidate-invalid-spec-seed",
-    "active\tbinary-roundtrip", "active\tcmd-harness",
+    "active\tgen-valid-wat-validate-roundtrip", "active\tvalid-multi-module-linking",
+    "active\tvalidate-valid", "active\tvalidate-valid-metamorphic", "active\tvalidate-invalid-ast",
+    "active\tvalidate-invalid-binary", "active\tvalidate-invalid-text", "active\tvalidate-invalid-text-dynamic",
+    "active\tvalidate-invalid-spec-seed", "active\tbinary-roundtrip", "active\tcmd-harness",
   ])
 }
 
@@ -2026,7 +2056,7 @@ test "fuzz usage text distinguishes active and reserved suites" {
   let usage = fuzz_usage_text()
   assert_true(
     usage.contains(
-      "active suites: wast-roundtrip, wat-roundtrip, wast-validate-roundtrip, gen-valid-wat-validate-roundtrip, validate-valid, validate-valid-metamorphic, validate-invalid-ast, validate-invalid-binary, validate-invalid-text, validate-invalid-text-dynamic, validate-invalid-spec-seed, binary-roundtrip, cmd-harness",
+      "active suites: wast-roundtrip, wat-roundtrip, wast-validate-roundtrip, gen-valid-wat-validate-roundtrip, valid-multi-module-linking, validate-valid, validate-valid-metamorphic, validate-invalid-ast, validate-invalid-binary, validate-invalid-text, validate-invalid-text-dynamic, validate-invalid-spec-seed, binary-roundtrip, cmd-harness",
     ),
   )
   assert_true(usage.contains("reserved suite ids: (none)"))

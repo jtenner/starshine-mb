@@ -161,6 +161,8 @@ pub fn run_fuzz_suite_sweep(String, String, Int64, Int, Int, Int) -> Result[Arra
 
 pub fn run_gen_valid_wat_validate_roundtrip_fuzz(String, UInt64) -> Result[GenValidWatValidateRoundtripFuzzStats, String]
 
+pub fn run_valid_multi_module_linking_fuzz(String, UInt64) -> Result[ValidMultiModuleLinkingFuzzStats, String]
+
 pub fn run_validate_invalid_binary_fuzz(String, UInt64) -> Result[ValidateInvalidBinaryFuzzStats, String]
 
 pub fn run_validate_invalid_spec_seed_case(ValidateInvalidSpecSeedId) -> Result[ValidateInvalidTextStage, String]
@@ -1040,6 +1042,20 @@ pub enum MetamorphicValidTransform {
 pub struct MetamorphicValidTransformResult {
   transform_id : String
   wasm_module : @lib.Module
+} derive(Eq, @debug.Debug)
+
+pub struct ValidMultiModuleLinkingFuzzStats {
+  profile : String
+  seed : UInt64
+  attempts : Int
+  generated : Int
+  parsed_scripts : Int
+  parse_failures : Int
+  single_module_validated : Int
+  single_module_validation_failures : Int
+  link_passed : Int
+  link_failed : Int
+  link_skipped : Int
 } derive(Eq, @debug.Debug)
 
 pub struct ValidMultiModuleWastCase {

@@ -478,9 +478,9 @@ fn fuzz_ascii_lower(input : String) -> String {
 pub fn fuzz_active_suite_names() -> Array[String] {
   [
     "wast-roundtrip", "wat-roundtrip", "wast-validate-roundtrip", "gen-valid-wat-validate-roundtrip",
-    "validate-valid", "validate-valid-metamorphic", "validate-invalid-ast", "validate-invalid-binary",
-    "validate-invalid-text", "validate-invalid-text-dynamic", "validate-invalid-spec-seed",
-    "binary-roundtrip", "cmd-harness",
+    "valid-multi-module-linking", "validate-valid", "validate-valid-metamorphic",
+    "validate-invalid-ast", "validate-invalid-binary", "validate-invalid-text", "validate-invalid-text-dynamic",
+    "validate-invalid-spec-seed", "binary-roundtrip", "cmd-harness",
   ]
 }
 
@@ -572,6 +572,21 @@ pub struct ValidMultiModuleWastCase {
 } derive(Eq, Debug)
 
 ///|
+pub struct ValidMultiModuleLinkingFuzzStats {
+  profile : String
+  seed : UInt64
+  attempts : Int
+  generated : Int
+  parsed_scripts : Int
+  parse_failures : Int
+  single_module_validated : Int
+  single_module_validation_failures : Int
+  link_passed : Int
+  link_failed : Int
+  link_skipped : Int
+} derive(Eq, Debug)
+
+///|
 fn gen_valid_multi_module_wast_case_text(suffix : String) -> String {
   let provider_name = "provider_" + suffix
   let consumer_name = "consumer_" + suffix
@@ -628,6 +643,113 @@ pub fn gen_valid_multi_module_wast_cases(
     cases.push(gen_valid_multi_module_wast_case(seed + i.to_uint64()))
   }
   cases
+}
+
+///|
+fn valid_multi_module_linking_attempts(profile : String) -> Result[Int, String] {
+  let normalized = fuzz_ascii_lower(profile.trim().to_owned())
+  match normalized {
+    "smoke" => Ok(4)
+    "ci" => Ok(16)
+    "stress" => Ok(64)
+    _ =>
+      Err(
+        "unknown valid-multi-module-linking fuzz profile '\{profile}'; expected smoke|ci|stress",
+      )
+  }
+}
+
+///|
+pub fn run_valid_multi_module_linking_fuzz(
+  profile : String,
+  seed : UInt64,
+) -> Result[ValidMultiModuleLinkingFuzzStats, String] {
+  let normalized = fuzz_ascii_lower(profile.trim().to_owned())
+  let attempts = match valid_multi_module_linking_attempts(profile) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let cases = gen_valid_multi_module_wast_cases(seed, attempts)
+  let mut generated = 0
+  let mut parsed_scripts = 0
+  let mut parse_failures = 0
+  let mut single_module_validated = 0
+  let mut single_module_validation_failures = 0
+  let mut link_passed = 0
+  let mut link_failed = 0
+  let mut link_skipped = 0
+  let mut last_error = ""
+  for case in cases {
+    generated += 1
+    let script = match wast_to_script(case.text, filename=case.name + ".wast") {
+      Ok(v) => {
+        parsed_scripts += 1
+        v
+      }
+      Err(e) => {
+        parse_failures += 1
+        last_error = e
+        continue
+      }
+    }
+    for cmd in script.commands {
+      match cmd {
+        WastCommand::Module(m) =>
+          match wast_ast_to_binary_module(m) {
+            Ok(binary_module) =>
+              match validate_module(binary_module) {
+                Ok(_) => single_module_validated += 1
+                Err(e) => {
+                  single_module_validation_failures += 1
+                  last_error = validation_error_message(e)
+                }
+              }
+            Err(e) => {
+              single_module_validation_failures += 1
+              last_error = e
+            }
+          }
+        _ => ()
+      }
+    }
+    let report = @wast.run_wast_spec_file(case.name + ".wast", case.text)
+    match report.status {
+      @wast.WastSpecFileStatus::Passed => link_passed += 1
+      @wast.WastSpecFileStatus::Failed(e) => {
+        link_failed += 1
+        last_error = e
+      }
+      @wast.WastSpecFileStatus::Skipped(e) => {
+        link_skipped += 1
+        last_error = e
+      }
+    }
+  }
+  if generated != attempts {
+    return Err("valid multi-module linking generated count mismatch")
+  }
+  if parse_failures > 0 ||
+    single_module_validation_failures > 0 ||
+    link_failed > 0 ||
+    link_skipped > 0 ||
+    link_passed == 0 {
+    return Err(
+      "valid multi-module linking did not fully pass: profile=\{normalized} seed=\{seed} generated=\{generated} parsed=\{parsed_scripts} single_module_validated=\{single_module_validated} single_module_validation_failures=\{single_module_validation_failures} link_passed=\{link_passed} link_failed=\{link_failed} link_skipped=\{link_skipped} last_error=\{last_error}",
+    )
+  }
+  Ok(ValidMultiModuleLinkingFuzzStats::{
+    profile: normalized,
+    seed,
+    attempts,
+    generated,
+    parsed_scripts,
+    parse_failures,
+    single_module_validated,
+    single_module_validation_failures,
+    link_passed,
+    link_failed,
+    link_skipped,
+  })
 }
 
 ///|
@@ -2152,6 +2274,16 @@ fn run_single_suite(
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
+    "valid-multi-module-linking" =>
+      match run_valid_multi_module_linking_fuzz(profile, seed) {
+        Ok(stats) =>
+          (
+            stats.attempts,
+            Some(format_valid_multi_module_linking_details_json(stats)),
+          )
+        Err(e) =>
+          return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
+      }
     "validate-valid" =>
       match run_validate_valid_suite_detailed(profile, seed) {
         Ok(v) => v
@@ -3509,6 +3641,13 @@ fn format_gen_valid_wat_validate_details_json(
   stats : GenValidWatValidateRoundtripFuzzStats,
 ) -> String {
   "{\"generated\":\{stats.generated},\"printed\":\{stats.printed},\"print_failures\":\{stats.print_failures},\"parsed\":\{stats.parsed},\"parse_failures\":\{stats.parse_failures},\"lowered\":\{stats.lowered},\"lower_failures\":\{stats.lower_failures},\"validated\":\{stats.validated},\"validation_failures\":\{stats.validation_failures}}"
+}
+
+///|
+fn format_valid_multi_module_linking_details_json(
+  stats : ValidMultiModuleLinkingFuzzStats,
+) -> String {
+  "{\"generated\":\{stats.generated},\"parsed_scripts\":\{stats.parsed_scripts},\"parse_failures\":\{stats.parse_failures},\"single_module_validated\":\{stats.single_module_validated},\"single_module_validation_failures\":\{stats.single_module_validation_failures},\"link_passed\":\{stats.link_passed},\"link_failed\":\{stats.link_failed},\"link_skipped\":\{stats.link_skipped}}"
 }
 
 ///|

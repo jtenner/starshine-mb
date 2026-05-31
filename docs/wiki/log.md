@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1055A4 valid multi-module linking runner
+
+- Closed `[FUZ]1055A4` by adding the active `valid-multi-module-linking` fuzz suite over the generated provider/consumer WAST cases.
+- The runner parses each generated script, validates each inline module independently, then runs the WAST spec harness so link success is reported separately from single-module validation. JSON details now include generated/parsed script counts, single-module validation counts, and link passed/failed/skipped counters.
+- Validation: `moon test src/fuzz` first failed on the missing runner entry point, then passed after wiring the suite, details JSON, inventory tests, and docs.
+
 ## [2026-05-31] fuzzing | FUZ1022B7 memory64 binary validation matrix
 
 - Closed `[FUZ]1022B7` by adding decode-accepted binary-invalid strategies `invalid-binary-memory64-store-address-type-module`, `invalid-binary-memory64-copy-dest-type-module`, `invalid-binary-memory64-copy-source-type-module`, `invalid-binary-memory64-copy-length-type-module`, and `invalid-binary-memory64-init-dest-type-module` alongside the existing memory64 load-address fixture.
