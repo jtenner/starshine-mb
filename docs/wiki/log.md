@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-30] fuzzing | FUZ1053A1 ordinary fuzz timeout classification
+
+- Completed `[FUZ]1053A1` by adding a reusable per-case timeout helper and ordinary-runner classification for completed versus timed-out fuzz cases.
+- Removed the completed tiny slice from the active FUZ board.
+
 ## [2026-05-30] fuzzing | FUZ1055B2 type-mismatch unlinkable WAST fixture
 
 - Completed `[FUZ]1055B2` by adding a deterministic `assert_unlinkable` WAST fixture for a registered provider whose exported function type does not match the consumer import type.
