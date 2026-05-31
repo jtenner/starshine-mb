@@ -131,6 +131,7 @@ pub impl Show for BinaryDecodeError with output(self, logger) {
 ///|
 pub struct ModuleDecodeErrorDetail {
   err : BinaryDecodeError
+  section_id : Int?
   section_offset : Int?
   section_len : Int?
   trailing_offset : Int?
@@ -1136,11 +1137,12 @@ fn module_section_span(bytes : Bytes, section_start : Int) -> (Int, Int) {
 ///|
 fn module_decode_error(
   err : BinaryDecodeError,
+  section_id? : Int? = None,
   section_offset? : Int? = None,
   section_len? : Int? = None,
   trailing_offset? : Int? = None,
 ) -> ModuleDecodeErrorDetail {
-  { err, section_offset, section_len, trailing_offset }
+  { err, section_id, section_offset, section_len, trailing_offset }
 }
 
 ///|
@@ -1150,7 +1152,13 @@ fn module_section_decode_error(
   err : BinaryDecodeError,
 ) -> ModuleDecodeErrorDetail {
   let (offset, len) = module_section_span(bytes, section_start)
-  module_decode_error(err, section_offset=Some(offset), section_len=Some(len))
+  let section_id = bytes.get(section_start).map(fn(id) { id.to_int() })
+  module_decode_error(
+    err,
+    section_id~,
+    section_offset=Some(offset),
+    section_len=Some(len),
+  )
 }
 
 ///|

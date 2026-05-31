@@ -134,6 +134,7 @@ pub struct BinaryRoundtripFuzzStats {
 
 pub struct ModuleDecodeErrorDetail {
   err : BinaryDecodeError
+  section_id : Int?
   section_offset : Int?
   section_len : Int?
   trailing_offset : Int?

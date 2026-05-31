@@ -657,8 +657,6 @@ p2 invalid/binary/text slices:
   - Completed tiny slices: `[FUZ]1055A1` named two-module fixture, `[FUZ]1055A2` valid import/export wiring fixture, `[FUZ]1055A3` reusable valid multi-module WAST generator lane, and `[FUZ]1055A4` valid linking runner classification. Remaining concrete slices: none for the current tracked 1055A board.
 - [FUZ]1055B (p2) - Multi-Module WAST Unlinkable Lane
   - Completed tiny slices: `[FUZ]1055B1` missing-import unlinkable fixture, `[FUZ]1055B2` type-mismatch unlinkable fixture, `[FUZ]1055B3` unlinkable generator lane, and `[FUZ]1055B4` unlinkable outcome classifier/repro metadata. Remaining concrete slices: none for the current tracked 1055B board.
-- [FUZ]1056A (p2) - Curated Diagnostic Location Fixtures
-  - Unit: add exact byte offset/section/line/column checks for stable invalid binary/text fixtures.
 - [FUZ]1056B (p2) - Fuzz Diagnostic Location Metadata
   - Unit: persist best-effort diagnostic locations in invalid text/binary repro artifacts without requiring exact randomized matches.
 - [FUZ]1057A (p2) - Binary Canonicality Policy Decision
@@ -833,7 +831,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1056 (p2) - Parser Recovery, Error Span, And Diagnostic Location Fuzzing
   - Goal: verify that parser and decoder errors include stable, useful locations when possible.
   - Why: invalid fuzzing currently emphasizes accept/reject and diagnostic family. Developer productivity also depends on error spans, byte offsets, section ids, line/column info, and stable first-error behavior.
-  - Deliverables: fuzz malformed inputs near boundaries. `[FUZ]1056B2` closed with text invalid repro metadata roundtripping `actual_diagnostic_location` filename/line/column data. `[FUZ]1056B1` closed with optional `actual_diagnostic_location` metadata roundtripped for binary invalid repros. `[FUZ]1056A1` closed with a curated malformed type-section binary fixture asserting exact byte offset and section-span length in `src/binary/tests.mbt`. `[FUZ]1056A2` closed with WAST parse diagnostics now reporting `filename:line:column` plus a multiline fixture in `src/wast/module_wast_tests.mbt`.
+  - Deliverables: fuzz malformed inputs near boundaries. `[FUZ]1056B2` closed with text invalid repro metadata roundtripping `actual_diagnostic_location` filename/line/column data. `[FUZ]1056B1` closed with optional `actual_diagnostic_location` metadata roundtripped for binary invalid repros. `[FUZ]1056A1` closed with a curated malformed type-section binary fixture asserting exact byte offset and section-span length in `src/binary/tests.mbt`. `[FUZ]1056A2` closed with WAST parse diagnostics now reporting `filename:line:column` plus a multiline fixture in `src/wast/module_wast_tests.mbt`. `[FUZ]1056A3` closes the current curated diagnostic-location board by threading numeric section ids through `ModuleDecodeErrorDetail` for section-scoped binary decode failures and extending the malformed type-section fixture to assert section id `1`, offset `8`, and length `5`.
   - Required APIs: binary decoder diagnostics, WAT/WAST parser diagnostics, invalid text/binary strategy specs, repro metadata.
   - Invariants: location assertions should be exact only for curated stable cases; randomized lanes may record locations without requiring exact match.
   - Dependencies: [FUZ]1018 exact diagnostic expectations and [FUZ]1025 repro metadata.

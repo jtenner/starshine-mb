@@ -938,6 +938,15 @@ test "FUZ1056A1 curated invalid binary reports byte offset and section span" {
     }
     Err(e) => fail("expected curated type-section span decode error, got \{e}")
   }
+  match decode_module_with_detail(bad_type_payload, 0) {
+    Ok(_) => fail("expected detailed malformed type section fixture to fail")
+    Err(detail) => {
+      @debug.assert_eq(detail.err, BinaryDecodeError::InvalidCompType)
+      @debug.assert_eq(detail.section_id, Some(1))
+      @debug.assert_eq(detail.section_offset, Some(8))
+      @debug.assert_eq(detail.section_len, Some(5))
+    }
+  }
 }
 
 ///|

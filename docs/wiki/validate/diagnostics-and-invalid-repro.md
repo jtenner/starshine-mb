@@ -16,6 +16,8 @@ sources:
   - ../../../src/fuzz/invalid_repro.mbt
   - ../../../src/fuzz/invalid_repro_wbtest.mbt
   - ../../../src/fuzz/main.mbt
+  - ../../../src/binary/decode.mbt
+  - ../../../src/binary/tests.mbt
 related:
   - ./module-validation-phases.md
   - ./resource-sections-and-limits.md
@@ -40,6 +42,8 @@ Starshine's validator has two related but separate contracts:
 The official WebAssembly validation sources checked on 2026-05-19 define the semantic rules but do not prescribe a diagnostic taxonomy. Starshine's taxonomy is therefore local and repository-owned: [`ValidationIssue`](../../../src/validate/validate.mbt#L13-L29) names the public issue variants, [`ValidationDiagnostic`](../../../src/validate/validate.mbt#L32-L43) pairs an issue with an optional absolute `FuncIdx`, and [`validation_issue_family(...)`](../../../src/validate/invalid_fuzzer.mbt#L21-L41) maps those issues to stable invalid-fuzz families. The primary-source and local-code manifest for this page is [`../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md`](../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md).
 
 Use this page as the focused companion to [`module-validation-phases.md`](module-validation-phases.md). The phase page answers "what does the validator check, and in what order?" This page answers "what user-visible family should the failure report, and how do I produce a stable repro?"
+
+Binary decode failures that occur inside a known section carry the section id, byte offset, and section span through [`ModuleDecodeErrorDetail`](../../../src/binary/decode.mbt). The stable `[FUZ]1056A1` fixture in [`src/binary/tests.mbt`](../../../src/binary/tests.mbt) locks the malformed type-section case at section id `1`, offset `8`, and length `5`; the public `decode_module(...)` wrapper still exposes the established `DecodeAt(error, offset, length)` shape while detail callers can inspect `section_id`.
 
 ## Beginner Model
 
@@ -179,5 +183,5 @@ When changing validator diagnostics or invalid repros:
 - Validator phase map: [`./module-validation-phases.md`](module-validation-phases.md)
 - Diagnostic implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt)
 - AST invalid generation: [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt), [`../../../src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt)
-- Binary/text/spec invalid and repro surfaces: [`../../../src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt), [`../../../src/fuzz/invalid_text.mbt`](../../../src/fuzz/invalid_text.mbt), [`../../../src/fuzz/invalid_repro.mbt`](../../../src/fuzz/invalid_repro.mbt), [`../../../src/fuzz/invalid_repro_wbtest.mbt`](../../../src/fuzz/invalid_repro_wbtest.mbt), [`../../../src/fuzz/main.mbt`](../../../src/fuzz/main.mbt)
+- Binary/text/spec invalid and repro surfaces: [`../../../src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt), [`../../../src/fuzz/invalid_text.mbt`](../../../src/fuzz/invalid_text.mbt), [`../../../src/fuzz/invalid_repro.mbt`](../../../src/fuzz/invalid_repro.mbt), [`../../../src/fuzz/invalid_repro_wbtest.mbt`](../../../src/fuzz/invalid_repro_wbtest.mbt), [`../../../src/fuzz/main.mbt`](../../../src/fuzz/main.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Related pages: [`./fuzz-hardening.md`](fuzz-hardening.md), [`./ref-func-declarations.md`](ref-func-declarations.md), [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md), [`../tooling/node-package-surface.md`](../tooling/node-package-surface.md), [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md)

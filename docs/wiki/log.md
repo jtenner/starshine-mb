@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1056A section-aware binary diagnostics
+
+- Advanced `[FUZ]1056A` by extending `ModuleDecodeErrorDetail` with the numeric section id for section-scoped decode failures while preserving the public `DecodeAt(error, offset, length)` wrapper shape.
+- The curated malformed type-section fixture now asserts section id `1`, byte offset `8`, and section span length `5`, so binary diagnostic-location checks cover section identity as well as byte range.
+- Validation: `moon test src/binary` first failed on the missing `section_id` detail field, then passed after implementation; final validation is recorded in the commit message.
+
 ## [2026-05-31] fuzzing | FUZ1055B4 unlinkable repro metadata
 
 - Closed `[FUZ]1055B4` by adding first-class optional unlinkable metadata to invalid-fuzz repro reports: unlinkable reason, registered module alias, import module/name, expected import type, provider export type, and pre-link validation status.
