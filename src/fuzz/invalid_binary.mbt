@@ -114,6 +114,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   TruncatedBulkPrefixOpcode
   TruncatedSimdPrefixOpcode
   TruncatedAtomicPrefixOpcode
+  MalformedGcStructNewTrailingImmediate
+  MalformedBulkTableInitTrailingImmediate
+  MalformedSimdExtractLaneTrailingImmediate
+  MalformedAtomicLoadTrailingImmediate
   MalformedGcPrefixSubopcodeUleb
   MalformedBulkPrefixSubopcodeUleb
   MalformedSimdPrefixSubopcodeUleb
@@ -916,6 +920,14 @@ fn validate_invalid_binary_strategy_label(
     TruncatedBulkPrefixOpcode => "truncated-bulk-prefix-opcode"
     TruncatedSimdPrefixOpcode => "truncated-simd-prefix-opcode"
     TruncatedAtomicPrefixOpcode => "truncated-atomic-prefix-opcode"
+    MalformedGcStructNewTrailingImmediate =>
+      "malformed-gc-struct-new-trailing-immediate"
+    MalformedBulkTableInitTrailingImmediate =>
+      "malformed-bulk-table-init-trailing-immediate"
+    MalformedSimdExtractLaneTrailingImmediate =>
+      "malformed-simd-extract-lane-trailing-immediate"
+    MalformedAtomicLoadTrailingImmediate =>
+      "malformed-atomic-load-trailing-immediate"
     MalformedGcPrefixSubopcodeUleb => "malformed-gc-prefix-subopcode-uleb"
     MalformedBulkPrefixSubopcodeUleb => "malformed-bulk-prefix-subopcode-uleb"
     MalformedSimdPrefixSubopcodeUleb => "malformed-simd-prefix-subopcode-uleb"
@@ -2055,6 +2067,34 @@ pub fn validate_invalid_binary_registry() -> Array[
       TruncatedAtomicPrefixOpcode,
       "truncated-atomic-prefix-opcode",
       "function body ending immediately after the atomics proposal prefix opcode",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedGcStructNewTrailingImmediate,
+      "malformed-gc-struct-new-trailing-immediate",
+      "GC struct.new with malformed trailing type-index immediate after a valid subopcode",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedBulkTableInitTrailingImmediate,
+      "malformed-bulk-table-init-trailing-immediate",
+      "bulk/table table.init with malformed trailing elem-index immediate after a valid subopcode",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedSimdExtractLaneTrailingImmediate,
+      "malformed-simd-extract-lane-trailing-immediate",
+      "SIMD extract-lane with malformed trailing lane immediate after a valid subopcode",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedAtomicLoadTrailingImmediate,
+      "malformed-atomic-load-trailing-immediate",
+      "atomics load with malformed trailing memarg immediate after a valid subopcode",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -6294,6 +6334,95 @@ fn validate_invalid_binary_mutate_truncated_atomic_prefix_opcode(
       DecodeRejected,
       true,
       validate_invalid_binary_truncated_prefix_opcode_module((0xfe).to_byte()),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_malformed_trailing_u32_immediate_prefixed_module(
+  prefix : Byte,
+  subopcode : Byte,
+) -> Bytes {
+  validate_invalid_binary_minimal_code_with_instr([
+    prefix,
+    subopcode,
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_gc_struct_new_trailing_immediate(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedGcStructNewTrailingImmediate,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_malformed_trailing_u32_immediate_prefixed_module(
+        (0xfb).to_byte(),
+        (0x00).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_bulk_table_init_trailing_immediate(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedBulkTableInitTrailingImmediate,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_malformed_trailing_u32_immediate_prefixed_module(
+        (0xfc).to_byte(),
+        (0x0c).to_byte(),
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_simd_extract_lane_trailing_immediate(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedSimdExtractLaneTrailingImmediate,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfd).to_byte(),
+        (0x15).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_atomic_load_trailing_immediate(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedAtomicLoadTrailingImmediate,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_malformed_trailing_u32_immediate_prefixed_module(
+        (0xfe).to_byte(),
+        (0x10).to_byte(),
+      ),
     ),
   )
 }
@@ -16370,6 +16499,22 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_truncated_simd_prefix_opcode(base)
     TruncatedAtomicPrefixOpcode =>
       validate_invalid_binary_mutate_truncated_atomic_prefix_opcode(base)
+    MalformedGcStructNewTrailingImmediate =>
+      validate_invalid_binary_mutate_malformed_gc_struct_new_trailing_immediate(
+        base,
+      )
+    MalformedBulkTableInitTrailingImmediate =>
+      validate_invalid_binary_mutate_malformed_bulk_table_init_trailing_immediate(
+        base,
+      )
+    MalformedSimdExtractLaneTrailingImmediate =>
+      validate_invalid_binary_mutate_malformed_simd_extract_lane_trailing_immediate(
+        base,
+      )
+    MalformedAtomicLoadTrailingImmediate =>
+      validate_invalid_binary_mutate_malformed_atomic_load_trailing_immediate(
+        base,
+      )
     MalformedGcPrefixSubopcodeUleb =>
       validate_invalid_binary_mutate_malformed_gc_prefix_subopcode_uleb(base)
     MalformedBulkPrefixSubopcodeUleb =>

@@ -1777,6 +1777,21 @@ test "invalid binary FUZ1021B4 decodes truncated proposal prefixes as invalid" {
 }
 
 ///|
+test "invalid binary FUZ1021B5 decodes wrong trailing immediates after valid prefixed subopcodes as invalid" {
+  for
+    strategy in [
+      "malformed-gc-struct-new-trailing-immediate", "malformed-bulk-table-init-trailing-immediate",
+      "malformed-simd-extract-lane-trailing-immediate", "malformed-atomic-load-trailing-immediate",
+    ] {
+    match
+      invalid_binary_expect_strategy_rejects(strategy, 0x1021b5UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG041 decodes malformed and overwide atomic prefix subopcode ULEBs as invalid" {
   for
     strategy in [

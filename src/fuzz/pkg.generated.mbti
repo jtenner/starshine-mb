@@ -1165,6 +1165,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   TruncatedBulkPrefixOpcode
   TruncatedSimdPrefixOpcode
   TruncatedAtomicPrefixOpcode
+  MalformedGcStructNewTrailingImmediate
+  MalformedBulkTableInitTrailingImmediate
+  MalformedSimdExtractLaneTrailingImmediate
+  MalformedAtomicLoadTrailingImmediate
   MalformedGcPrefixSubopcodeUleb
   MalformedBulkPrefixSubopcodeUleb
   MalformedSimdPrefixSubopcodeUleb
