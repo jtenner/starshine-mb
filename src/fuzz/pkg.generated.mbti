@@ -1161,6 +1161,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidGcPrefixSubopcodeByte
   InvalidBulkPrefixSubopcodeByte
   InvalidSimdPrefixSubopcodeByte
+  TruncatedGcPrefixOpcode
+  TruncatedBulkPrefixOpcode
+  TruncatedSimdPrefixOpcode
+  TruncatedAtomicPrefixOpcode
   MalformedGcPrefixSubopcodeUleb
   MalformedBulkPrefixSubopcodeUleb
   MalformedSimdPrefixSubopcodeUleb

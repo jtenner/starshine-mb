@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1021B4 truncated proposal prefixes
+
+- Closed `[FUZ]1021B4` by adding decode-rejected binary-invalid strategies for function bodies ending immediately after proposal prefix opcodes: `truncated-gc-prefix-opcode` (`0xFB`), `truncated-bulk-prefix-opcode` (`0xFC`), `truncated-simd-prefix-opcode` (`0xFD`), and `truncated-atomic-prefix-opcode` (`0xFE`).
+- Kept these distinct from malformed/overwide subopcode ULEBs and reserved-subopcode byte fixtures so the prefix-without-subopcode EOF family is classified separately.
+- Validation: `moon test src/fuzz` first failed on the missing `truncated-gc-prefix-opcode` stable id, then passed after registry, mutation, and dispatcher wiring.
+
 ## [2026-05-31] fuzzing | FUZ1021A3 export-name UTF-8 corruption
 
 - Closed `[FUZ]1021A3` by adding the decode-rejected binary-invalid strategy `malformed-export-name-utf8`, which keeps the type/function/export/code section framing valid, preserves the export kind and function index bytes, and corrupts only the export-name payload with a truncated multibyte UTF-8 sequence.

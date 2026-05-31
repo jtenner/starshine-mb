@@ -110,6 +110,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidGcPrefixSubopcodeByte
   InvalidBulkPrefixSubopcodeByte
   InvalidSimdPrefixSubopcodeByte
+  TruncatedGcPrefixOpcode
+  TruncatedBulkPrefixOpcode
+  TruncatedSimdPrefixOpcode
+  TruncatedAtomicPrefixOpcode
   MalformedGcPrefixSubopcodeUleb
   MalformedBulkPrefixSubopcodeUleb
   MalformedSimdPrefixSubopcodeUleb
@@ -908,6 +912,10 @@ fn validate_invalid_binary_strategy_label(
     InvalidGcPrefixSubopcodeByte => "invalid-gc-prefix-subopcode-byte"
     InvalidBulkPrefixSubopcodeByte => "invalid-bulk-prefix-subopcode-byte"
     InvalidSimdPrefixSubopcodeByte => "invalid-simd-prefix-subopcode-byte"
+    TruncatedGcPrefixOpcode => "truncated-gc-prefix-opcode"
+    TruncatedBulkPrefixOpcode => "truncated-bulk-prefix-opcode"
+    TruncatedSimdPrefixOpcode => "truncated-simd-prefix-opcode"
+    TruncatedAtomicPrefixOpcode => "truncated-atomic-prefix-opcode"
     MalformedGcPrefixSubopcodeUleb => "malformed-gc-prefix-subopcode-uleb"
     MalformedBulkPrefixSubopcodeUleb => "malformed-bulk-prefix-subopcode-uleb"
     MalformedSimdPrefixSubopcodeUleb => "malformed-simd-prefix-subopcode-uleb"
@@ -2019,6 +2027,34 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidSimdPrefixSubopcodeByte,
       "invalid-simd-prefix-subopcode-byte",
       "SIMD-prefixed instruction with a reserved subopcode byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      TruncatedGcPrefixOpcode,
+      "truncated-gc-prefix-opcode",
+      "function body ending immediately after the GC proposal prefix opcode",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      TruncatedBulkPrefixOpcode,
+      "truncated-bulk-prefix-opcode",
+      "function body ending immediately after the bulk/table proposal prefix opcode",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      TruncatedSimdPrefixOpcode,
+      "truncated-simd-prefix-opcode",
+      "function body ending immediately after the SIMD proposal prefix opcode",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      TruncatedAtomicPrefixOpcode,
+      "truncated-atomic-prefix-opcode",
+      "function body ending immediately after the atomics proposal prefix opcode",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -6169,6 +6205,95 @@ fn validate_invalid_binary_mutate_invalid_simd_prefix_subopcode_byte(
         (0xff).to_byte(),
         (0x0f).to_byte(),
       ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_truncated_prefix_opcode_module(
+  prefix : Byte,
+) -> Bytes {
+  let out : Array[Byte] = [
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x03).to_byte(),
+    (0x02).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x0a).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x02).to_byte(),
+    (0x00).to_byte(),
+    prefix,
+  ]
+  Bytes::from_array(out)
+}
+
+///|
+fn validate_invalid_binary_mutate_truncated_gc_prefix_opcode(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      TruncatedGcPrefixOpcode,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_truncated_prefix_opcode_module((0xfb).to_byte()),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_truncated_bulk_prefix_opcode(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      TruncatedBulkPrefixOpcode,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_truncated_prefix_opcode_module((0xfc).to_byte()),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_truncated_simd_prefix_opcode(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      TruncatedSimdPrefixOpcode,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_truncated_prefix_opcode_module((0xfd).to_byte()),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_truncated_atomic_prefix_opcode(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      TruncatedAtomicPrefixOpcode,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_truncated_prefix_opcode_module((0xfe).to_byte()),
     ),
   )
 }
@@ -16237,6 +16362,14 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_bulk_prefix_subopcode_byte(base)
     InvalidSimdPrefixSubopcodeByte =>
       validate_invalid_binary_mutate_invalid_simd_prefix_subopcode_byte(base)
+    TruncatedGcPrefixOpcode =>
+      validate_invalid_binary_mutate_truncated_gc_prefix_opcode(base)
+    TruncatedBulkPrefixOpcode =>
+      validate_invalid_binary_mutate_truncated_bulk_prefix_opcode(base)
+    TruncatedSimdPrefixOpcode =>
+      validate_invalid_binary_mutate_truncated_simd_prefix_opcode(base)
+    TruncatedAtomicPrefixOpcode =>
+      validate_invalid_binary_mutate_truncated_atomic_prefix_opcode(base)
     MalformedGcPrefixSubopcodeUleb =>
       validate_invalid_binary_mutate_malformed_gc_prefix_subopcode_uleb(base)
     MalformedBulkPrefixSubopcodeUleb =>

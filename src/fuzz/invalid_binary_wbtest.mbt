@@ -1762,6 +1762,21 @@ test "invalid binary FZG030 decodes overwide prefixed subopcode ULEBs as invalid
 }
 
 ///|
+test "invalid binary FUZ1021B4 decodes truncated proposal prefixes as invalid" {
+  for
+    strategy in [
+      "truncated-gc-prefix-opcode", "truncated-bulk-prefix-opcode", "truncated-simd-prefix-opcode",
+      "truncated-atomic-prefix-opcode",
+    ] {
+    match
+      invalid_binary_expect_strategy_rejects(strategy, 0x1021b4UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG041 decodes malformed and overwide atomic prefix subopcode ULEBs as invalid" {
   for
     strategy in [
@@ -2198,7 +2213,8 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "overwide-name-subsection-size-uleb", "invalid-name-subsection-id-byte", "out-of-order-name-subsection-id",
       "invalid-opcode-byte", "invalid-prefix-subopcode-byte", "invalid-gc-prefix-subopcode-byte",
       "invalid-bulk-prefix-subopcode-byte", "invalid-simd-prefix-subopcode-byte",
-      "malformed-gc-prefix-subopcode-uleb", "malformed-bulk-prefix-subopcode-uleb",
+      "truncated-gc-prefix-opcode", "truncated-bulk-prefix-opcode", "truncated-simd-prefix-opcode",
+      "truncated-atomic-prefix-opcode", "malformed-gc-prefix-subopcode-uleb", "malformed-bulk-prefix-subopcode-uleb",
       "malformed-simd-prefix-subopcode-uleb", "malformed-atomic-prefix-subopcode-uleb",
       "invalid-atomic-prefix-subopcode-byte", "overwide-gc-prefix-subopcode-uleb",
       "overwide-bulk-prefix-subopcode-uleb", "overwide-simd-prefix-subopcode-uleb",

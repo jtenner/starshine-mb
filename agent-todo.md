@@ -615,7 +615,6 @@ Use this board as the tracking view for fuzzer work. Each slice should be small 
 p1 next-up / active:
 
 p2 invalid/binary/text tiny slices:
-- `[FUZ]1021B4` - Truncated proposal prefix body opcode: add decode-rejected cases where a function body ends immediately after `0xFB`, `0xFC`, `0xFD`, or `0xFE`, proving prefix-without-subopcode classification.
 - `[FUZ]1021B5` - Wrong trailing-immediate shape after valid subopcode: add malformed trailing immediates after one valid GC, one bulk/table, one SIMD, and one atomics subopcode, distinct from subopcode ULEB corruption.
 - `[FUZ]1021B6` - Reserved core opcode byte inventory: add or close with evidence the remaining invalid single-byte core opcode gaps outside proposal prefixes, updating docs with the exact reserved bytes tested.
 - `[FUZ]1022A6` - Decode-accepted global/table/memory/tag index validation: encode validly decodable function bodies whose immediate indices are out of range and fail only during validation.
@@ -662,7 +661,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1021A (p2) - Remaining Invalid UTF-8 Binary Corruptions
   - Remaining concrete slice: none for the current tracked 1021A board. `[FUZ]1021A4` is closed: the checked-in binary-invalid lane already covers decode-rejected function, local, and label name-section payload UTF-8 corruption through `invalid-name-section-func-name-utf8`, `invalid-name-section-local-name-utf8`, and `invalid-name-section-label-name-utf8`, distinct from name-section count and length ULEB corruptions.
 - [FUZ]1021B (p2) - Remaining Opcode/Prefix/Subopcode Binary Corruptions
-  - Remaining concrete slices: `[FUZ]1021B4` truncated proposal prefix body opcode, `[FUZ]1021B5` wrong trailing-immediate shape after valid subopcode, and `[FUZ]1021B6` reserved core opcode byte inventory. `[FUZ]1021B3` already closed malformed/overwide subopcode ULEBs for supported prefixed opcode spaces.
+  - Remaining concrete slices: `[FUZ]1021B5` wrong trailing-immediate shape after valid subopcode and `[FUZ]1021B6` reserved core opcode byte inventory. `[FUZ]1021B3` already closed malformed/overwide subopcode ULEBs for supported prefixed opcode spaces, and `[FUZ]1021B4` closed truncated proposal prefix body opcodes for `0xFB`, `0xFC`, `0xFD`, and `0xFE`.
 - [FUZ]1022A (p2) - Decode-Accepted Body Validation Binary Strategies
   - Remaining concrete slices: `[FUZ]1022A6` global/table/memory/tag index validation, `[FUZ]1022A7` call_indirect validation, `[FUZ]1022A8` GC aggregate validation, and `[FUZ]1022A9` branch-control validation. `[FUZ]1022A1` through `[FUZ]1022A5` already cover body stack, branch payload, local-index, call_ref, and struct.get field-index examples.
 - [FUZ]1022B (p2) - Decode-Accepted Proposal Validation Binary Strategies
