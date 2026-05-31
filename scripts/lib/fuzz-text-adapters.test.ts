@@ -3,7 +3,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { classifyFakeTextAdapters, runOptionalWabtTextAdapter } from "./fuzz-text-adapters";
+import {
+  classifyFakeTextAdapters,
+  runOptionalWabtTextAdapter,
+  runOptionalWasmToolsTextAdapter,
+} from "./fuzz-text-adapters";
 
 function makeExecutable(file: string, source: string): string {
   fs.writeFileSync(file, source, { mode: 0o755 });
@@ -34,6 +38,42 @@ fs.writeFileSync(out, "wasm");
 
     expect(result.classification).toBe("adapter-unavailable");
     expect(result.diagnostic).toContain("/definitely/missing/wat2wasm");
+  });
+
+  test("run optional wasm-tools text command and classify unsupported syntax", () => {
+    const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-wasm-tools-text-adapter-"));
+    const fakeWasmTools = makeExecutable(
+      path.join(tmpdir, "wasm-tools"),
+      `#!/usr/bin/env node
+process.stderr.write("unsupported text syntax: module linking");
+process.exit(1);
+`,
+    );
+
+    const result = runOptionalWasmToolsTextAdapter("(module)", fakeWasmTools);
+
+    expect(result).toEqual({
+      adapter: "wasm-tools",
+      classification: "unsupported-syntax",
+      diagnostic: "unsupported text syntax: module linking",
+    });
+  });
+
+  test("run optional wasm-tools text command and classify accepted parse", () => {
+    const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-wasm-tools-text-adapter-"));
+    const fakeWasmTools = makeExecutable(
+      path.join(tmpdir, "wasm-tools"),
+      `#!/usr/bin/env node
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+const out = args[args.indexOf("-o") + 1];
+fs.writeFileSync(out, "wasm");
+`,
+    );
+
+    const result = runOptionalWasmToolsTextAdapter("(module)", fakeWasmTools);
+
+    expect(result).toEqual({ adapter: "wasm-tools", classification: "accepted", diagnostic: undefined });
   });
 
   test("classify n-way fake text adapter results", () => {

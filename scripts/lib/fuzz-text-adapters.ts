@@ -52,6 +52,31 @@ function classifyFakeTextAdapter(input: FakeTextAdapterInput): TextAdapterResult
   };
 }
 
+function classifyTextCommandResult(
+  adapter: TextAdapterName,
+  commandLabel: string,
+  command: string,
+  result: ReturnType<typeof spawnSync>,
+): TextAdapterResult {
+  if (result.error) {
+    const err = result.error as NodeJS.ErrnoException;
+    if (err.code === "ENOENT") {
+      return {
+        adapter,
+        classification: "adapter-unavailable",
+        diagnostic: `${commandLabel} unavailable: ${command}`,
+      };
+    }
+    return { adapter, classification: "adapter-error", diagnostic: err.message };
+  }
+  if (result.status === 0) {
+    return { adapter, classification: "accepted", diagnostic: undefined };
+  }
+  const diagnostic = (result.stderr || result.stdout || `${commandLabel} exited ${result.status}`).trim();
+  const classification = /unsupported/i.test(diagnostic) ? "unsupported-syntax" : "parse-error";
+  return { adapter, classification, diagnostic };
+}
+
 export function runOptionalWabtTextAdapter(
   sourceText: string,
   command = process.env.WABT_WAT2WASM_BIN || "wat2wasm",
@@ -61,29 +86,19 @@ export function runOptionalWabtTextAdapter(
   const outputPath = path.join(tmpdir, "case.wasm");
   fs.writeFileSync(inputPath, sourceText);
   const result = spawnSync(command, [inputPath, "-o", outputPath], { encoding: "utf8" });
-  if (result.error) {
-    const err = result.error as NodeJS.ErrnoException;
-    if (err.code === "ENOENT") {
-      return {
-        adapter: "wabt",
-        classification: "adapter-unavailable",
-        diagnostic: `WABT wat2wasm unavailable: ${command}`,
-      };
-    }
-    return {
-      adapter: "wabt",
-      classification: "adapter-error",
-      diagnostic: err.message,
-    };
-  }
-  if (result.status === 0) {
-    return { adapter: "wabt", classification: "accepted", diagnostic: undefined };
-  }
-  return {
-    adapter: "wabt",
-    classification: "parse-error",
-    diagnostic: (result.stderr || result.stdout || `wat2wasm exited ${result.status}`).trim(),
-  };
+  return classifyTextCommandResult("wabt", "WABT wat2wasm", command, result);
+}
+
+export function runOptionalWasmToolsTextAdapter(
+  sourceText: string,
+  command = process.env.WASM_TOOLS_BIN || "wasm-tools",
+): TextAdapterResult {
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-wasm-tools-text-adapter-"));
+  const inputPath = path.join(tmpdir, "case.wat");
+  const outputPath = path.join(tmpdir, "case.wasm");
+  fs.writeFileSync(inputPath, sourceText);
+  const result = spawnSync(command, ["parse", inputPath, "-o", outputPath], { encoding: "utf8" });
+  return classifyTextCommandResult("wasm-tools", "wasm-tools parse", command, result);
 }
 
 export function classifyFakeTextAdapters(

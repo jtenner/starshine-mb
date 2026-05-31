@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-30] fuzzing | FUZ1045A3 optional wasm-tools text adapter
+
+- Completed `[FUZ]1045A3` by wiring an optional `wasm-tools parse` text adapter into the same text-adapter scaffold and adding `unsupported-syntax` classification for diagnostics that explicitly report unsupported syntax.
+- Shared command-result classification now covers accepted parses, ordinary parse errors, unavailable commands, adapter spawn errors, and unsupported syntax for both optional external text adapters. Removed the completed tiny slice from the active FUZ board.
+
 ## [2026-05-30] fuzzing | FUZ1045A2 optional WABT text adapter
 
 - Completed `[FUZ]1045A2` by wiring an optional WABT `wat2wasm` text adapter into the text-adapter scaffold. The helper writes a temporary WAT case, invokes the configured command, classifies success as `accepted`, parse failure as `parse-error`, missing binaries as `adapter-unavailable`, and other spawn failures as `adapter-error`.
