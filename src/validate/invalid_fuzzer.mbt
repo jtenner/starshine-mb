@@ -228,6 +228,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodySimdBinaryLeftType
   InvalidFunctionBodySimdBinaryRightType
   InvalidFunctionBodyRelaxedSimdSwizzleLeftType
+  InvalidFunctionBodyRelaxedSimdLaneselectMaskType
   InvalidFunctionBodySimdShiftVectorType
   InvalidFunctionBodySimdShiftCountType
   InvalidFunctionBodySimdLoadLaneAddressType
@@ -1896,6 +1897,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyRelaxedSimdLaneselectMaskType,
+      "invalid-function-body-relaxed-simd-laneselect-mask-type",
+      "invalid function-body relaxed SIMD laneselect mask operand type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodySimdShiftVectorType,
       "invalid-function-body-simd-shift-vector-type",
       "invalid function-body SIMD shift vector type",
@@ -2412,6 +2420,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodySimdBinaryLeftType => 197
     InvalidFunctionBodySimdBinaryRightType => 198
     InvalidFunctionBodyRelaxedSimdSwizzleLeftType => 239
+    InvalidFunctionBodyRelaxedSimdLaneselectMaskType => 253
     InvalidFunctionBodySimdShiftVectorType => 199
     InvalidFunctionBodySimdShiftCountType => 200
     InvalidFunctionBodySimdLoadLaneAddressType => 201
@@ -7539,6 +7548,39 @@ fn validate_invalid_ast_mutate_invalid_function_body_relaxed_simd_swizzle_left_t
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_relaxed_simd_laneselect_mask_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::v128_const(
+      b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01',
+      b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01',
+    ),
+    Instruction::i32_const(I32(1)),
+    Instruction::i8x16_relaxed_laneselect(),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyRelaxedSimdLaneselectMaskType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_simd_shift_vector_type(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -10608,6 +10650,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_relaxed_simd_swizzle_left_type(
           base,
         )
+      InvalidFunctionBodyRelaxedSimdLaneselectMaskType =>
+        validate_invalid_ast_mutate_invalid_function_body_relaxed_simd_laneselect_mask_type(
+          base,
+        )
       InvalidFunctionBodySimdShiftVectorType =>
         validate_invalid_ast_mutate_invalid_function_body_simd_shift_vector_type(
           base,
@@ -11331,23 +11377,23 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-simd-load-splat-address-type", "invalid-function-body-simd-load-zero-address-type",
     "invalid-function-body-simd-unary-input-type", "invalid-function-body-simd-binary-left-type",
     "invalid-function-body-simd-binary-right-type", "invalid-function-body-relaxed-simd-swizzle-left-type",
-    "invalid-function-body-simd-shift-vector-type", "invalid-function-body-simd-shift-count-type",
-    "invalid-function-body-simd-load-lane-address-type", "invalid-function-body-simd-load-lane-vector-type",
-    "invalid-function-body-simd-store-lane-address-type", "invalid-function-body-simd-store-lane-vector-type",
-    "invalid-function-body-simd-load-memory-index", "invalid-function-body-simd-store-memory-index",
-    "invalid-function-body-simd-load-lane-memory-index", "invalid-function-body-simd-store-lane-memory-index",
-    "invalid-function-body-atomic-notify-address-type", "invalid-function-body-atomic-wait-address-type",
-    "invalid-function-body-atomic-wait-expected-type", "invalid-function-body-atomic-rmw-address-type",
-    "invalid-function-body-atomic-cmpxchg-address-type", "invalid-function-body-atomic-cmpxchg-expected-type",
-    "invalid-function-body-br-on-cast-input-type", "invalid-function-body-br-on-cast-fail-input-type",
-    "invalid-function-body-table-set-value-type", "invalid-function-body-global-set-value-type",
-    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
-    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
-    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
-    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
-    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
-    "invalid-subtype-mutable-field-variance", "invalid-function-body-br-on-null-payload-mismatch",
-    "invalid-function-body-br-on-non-null-payload-mismatch",
+    "invalid-function-body-relaxed-simd-laneselect-mask-type", "invalid-function-body-simd-shift-vector-type",
+    "invalid-function-body-simd-shift-count-type", "invalid-function-body-simd-load-lane-address-type",
+    "invalid-function-body-simd-load-lane-vector-type", "invalid-function-body-simd-store-lane-address-type",
+    "invalid-function-body-simd-store-lane-vector-type", "invalid-function-body-simd-load-memory-index",
+    "invalid-function-body-simd-store-memory-index", "invalid-function-body-simd-load-lane-memory-index",
+    "invalid-function-body-simd-store-lane-memory-index", "invalid-function-body-atomic-notify-address-type",
+    "invalid-function-body-atomic-wait-address-type", "invalid-function-body-atomic-wait-expected-type",
+    "invalid-function-body-atomic-rmw-address-type", "invalid-function-body-atomic-cmpxchg-address-type",
+    "invalid-function-body-atomic-cmpxchg-expected-type", "invalid-function-body-br-on-cast-input-type",
+    "invalid-function-body-br-on-cast-fail-input-type", "invalid-function-body-table-set-value-type",
+    "invalid-function-body-global-set-value-type", "invalid-memory-name-section-index",
+    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
+    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
+    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
+    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
+    "datacount-mismatch-too-small", "datacount-mismatch-too-large", "invalid-subtype-mutable-field-variance",
+    "invalid-function-body-br-on-null-payload-mismatch", "invalid-function-body-br-on-non-null-payload-mismatch",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 24)
@@ -17006,6 +17052,64 @@ test "function-body relaxed SIMD swizzle left type mutation repairs by using vec
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired relaxed SIMD swizzle module to validate: \{err}")
+  }
+}
+
+///|
+test "invalid relaxed SIMD laneselect mask type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyRelaxedSimdLaneselectMaskType,
+      0x1022b9UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body relaxed SIMD laneselect mask type mutation repairs by using vector mask" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_relaxed_simd_laneselect_mask_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected bad relaxed SIMD laneselect mask type to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+    Instruction::v128_const(
+      b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01',
+      b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01', b'\x01',
+    ),
+    Instruction::v128_const(
+      b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff',
+      b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff', b'\xff',
+    ),
+    Instruction::i8x16_relaxed_laneselect(),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected repaired relaxed SIMD laneselect module to validate: \{err}",
+      )
   }
 }
 

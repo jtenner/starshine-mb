@@ -113,6 +113,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidBinaryElemOffsetNonConstModule
   InvalidBinaryTableInitExprTypeModule
   InvalidBinaryRelaxedSimdSwizzleLeftTypeModule
+  InvalidBinaryRelaxedSimdLaneselectMaskTypeModule
   InvalidBinaryAtomicLoadIndexModule
   InvalidBinaryAtomicLoadNonSharedMemoryModule
   MalformedSimdImmediate
@@ -953,6 +954,8 @@ fn validate_invalid_binary_strategy_label(
       "invalid-binary-table-init-expr-type-module"
     InvalidBinaryRelaxedSimdSwizzleLeftTypeModule =>
       "invalid-binary-relaxed-simd-swizzle-left-type-module"
+    InvalidBinaryRelaxedSimdLaneselectMaskTypeModule =>
+      "invalid-binary-relaxed-simd-laneselect-mask-type-module"
     InvalidBinaryAtomicLoadIndexModule =>
       "invalid-binary-atomic-load-index-module"
     InvalidBinaryAtomicLoadNonSharedMemoryModule =>
@@ -2048,6 +2051,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidBinaryRelaxedSimdSwizzleLeftTypeModule,
       "invalid-binary-relaxed-simd-swizzle-left-type-module",
       "encoded module with relaxed-SIMD swizzle left operand type mismatch",
+      ValidateRejected("function-body"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryRelaxedSimdLaneselectMaskTypeModule,
+      "invalid-binary-relaxed-simd-laneselect-mask-type-module",
+      "encoded module with relaxed-SIMD laneselect mask operand type mismatch",
       ValidateRejected("function-body"),
       required_in_smoke=false,
     ),
@@ -18801,6 +18811,21 @@ pub fn apply_validate_invalid_binary_strategy(
       }
       validate_invalid_binary_mutate_encoded_invalid_ast_module(
         InvalidBinaryRelaxedSimdSwizzleLeftTypeModule,
+        ast_strategy,
+        "function-body",
+        base,
+      )
+    }
+    InvalidBinaryRelaxedSimdLaneselectMaskTypeModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-function-body-relaxed-simd-laneselect-mask-type",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryRelaxedSimdLaneselectMaskTypeModule,
         ast_strategy,
         "function-body",
         base,

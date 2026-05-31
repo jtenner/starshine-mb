@@ -512,6 +512,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-simd-binary-right-type"
     InvalidFunctionBodyRelaxedSimdSwizzleLeftType =>
       "invalid-function-body-relaxed-simd-swizzle-left-type"
+    InvalidFunctionBodyRelaxedSimdLaneselectMaskType =>
+      "invalid-function-body-relaxed-simd-laneselect-mask-type"
     InvalidFunctionBodySimdShiftVectorType =>
       "invalid-function-body-simd-shift-vector-type"
     InvalidFunctionBodySimdShiftCountType =>

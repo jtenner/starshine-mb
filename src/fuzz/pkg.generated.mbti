@@ -1180,6 +1180,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidBinaryElemOffsetNonConstModule
   InvalidBinaryTableInitExprTypeModule
   InvalidBinaryRelaxedSimdSwizzleLeftTypeModule
+  InvalidBinaryRelaxedSimdLaneselectMaskTypeModule
   InvalidBinaryAtomicLoadIndexModule
   InvalidBinaryAtomicLoadNonSharedMemoryModule
   MalformedSimdImmediate

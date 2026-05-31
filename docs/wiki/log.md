@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1022B9 relaxed-SIMD binary validation
+
+- Closed `[FUZ]1022B9` by adding the AST-invalid strategy `invalid-function-body-relaxed-simd-laneselect-mask-type` plus the decode-accepted binary-invalid strategy `invalid-binary-relaxed-simd-laneselect-mask-type-module`.
+- The new specimen complements the existing relaxed-SIMD swizzle-left mismatch with a ternary `i8x16.relaxed_laneselect` mask operand mismatch; it encodes and decodes successfully, then validation rejects it with the function-body diagnostic family.
+- Validation: `moon test src/fuzz` first failed on the expected function-body strategy-count update, then passed after registry, mutation-dispatch, focused tests, and wiki wiring; `moon test src/validate` first exposed a duplicate AST strategy index, then passed after assigning a unique strategy index.
+
 ## [2026-05-31] fuzzing | FUZ1022B8 const-expression binary validation
 
 - Closed `[FUZ]1022B8` by adding decode-accepted binary-invalid strategies `invalid-binary-mutable-global-get-const-init-module`, `invalid-binary-data-offset-non-const-module`, `invalid-binary-data-offset-type-module`, `invalid-binary-elem-offset-non-const-module`, and `invalid-binary-table-init-expr-type-module` alongside the existing global-init type mismatch fixture.
