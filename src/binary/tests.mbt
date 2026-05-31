@@ -1492,6 +1492,46 @@ test "FUZ1057B1 uleb decoder accepts overwide well-formed unsigned forms" {
 }
 
 ///|
+test "FUZ1057B3 section sizes and custom payloads encode canonically and roundtrip" {
+  let custom_buf = @buffer.new()
+  match Encode::encode(CustomSec::new(Name::new("x"), b"\x01\x02\x03"), custom_buf) {
+    Ok(_) => ()
+    Err(e) => fail("expected custom section encode success, got \{e}")
+  }
+  let custom = custom_buf.to_bytes()
+  @debug.assert_eq(custom, b"\x00\x05\x01x\x01\x02\x03")
+  let wasm = b"\x00\x61\x73\x6d\x01\x00\x00\x00" + custom
+  let decoded = match decode_module(wasm) {
+    Ok(v) => v
+    Err(e) => fail("expected custom-section decode success, got \{e}")
+  }
+  let reencoded = match encode_module(decoded) {
+    Ok(bytes) => bytes
+    Err(e) => fail("expected custom-section re-encode success, got \{e}")
+  }
+  @debug.assert_eq(reencoded, wasm)
+}
+
+///|
+test "FUZ1057B3 fixed-width NaN payload bytes are preserved" {
+  let f32_nan_payload = b"\x01\x00\xc0\x7f"
+  let (f32_value, f32_next) = (
+    Decode::decode(f32_nan_payload, 0) : Result[(F32, Int), BinaryDecodeError]).unwrap()
+  @debug.assert_eq(f32_next, f32_nan_payload.length())
+  let f32_buf = @buffer.new()
+  Encode::encode(f32_value, f32_buf).unwrap()
+  @debug.assert_eq(f32_buf.to_bytes(), f32_nan_payload)
+
+  let f64_nan_payload = b"\x01\x00\x00\x00\x00\x00\xf8\x7f"
+  let (f64_value, f64_next) = (
+    Decode::decode(f64_nan_payload, 0) : Result[(F64, Int), BinaryDecodeError]).unwrap()
+  @debug.assert_eq(f64_next, f64_nan_payload.length())
+  let f64_buf = @buffer.new()
+  Encode::encode(f64_value, f64_buf).unwrap()
+  @debug.assert_eq(f64_buf.to_bytes(), f64_nan_payload)
+}
+
+///|
 test "uleb roundtrip u33" {
   let vals : Array[UInt64] = [0, 1, 127, 128, 129, 0xffff, 0xffffffff]
   for v in vals {
