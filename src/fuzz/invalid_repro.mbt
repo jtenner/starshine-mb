@@ -37,6 +37,39 @@ pub fn invalid_fuzz_spec_seed_source_kind() -> InvalidFuzzSourceKind {
 }
 
 ///|
+pub fn build_fuz1026_two_fault_ast_stress_report(
+  seed : UInt64,
+  attempt : Int,
+) -> InvalidFuzzFailureReport {
+  InvalidFuzzFailureReport::new(
+    "validate-invalid-ast-multifault",
+    "stress",
+    seed,
+    attempt,
+    "two-fault-ast-invalid-stress",
+    invalid_fuzz_ast_source_kind(),
+    "validate-rejected",
+    actual_stage="validate-rejected",
+    actual_diagnostic_family=Some("function-body"),
+    source_feature_facts=[
+      "multi_fault:true",
+      "mutation:invalid-function-body-local-set-value-type",
+      "mutation:invalid-function-body-branch-payload-type",
+      "broad_outcome:validate-rejected",
+    ],
+    artifacts=[
+      InvalidFuzzArtifact::new(
+        "stress-summary",
+        "two-fault-ast-invalid-stress.txt",
+        invalid_fuzz_string_bytes(
+          "multi_fault=true\nmutation=invalid-function-body-local-set-value-type\nmutation=invalid-function-body-branch-payload-type\nbroad_outcome=validate-rejected\n",
+        ),
+      ),
+    ],
+  )
+}
+
+///|
 pub enum FuzzReductionFailureKind {
   ValidationFailure
   ParseFailure

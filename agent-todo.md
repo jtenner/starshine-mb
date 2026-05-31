@@ -615,7 +615,6 @@ Use this board as the tracking view for fuzzer work. Each slice should be small 
 p1 next-up / active:
 
 p2 invalid/binary/text tiny slices:
-- [FUZ]1026A1 - Add deterministic two-fault AST invalid stress case.
 - [FUZ]1026A2 - Add deterministic binary+text or binary-only multi-fault stress case.
 - [FUZ]1026B1 - Persist all mutation ids and broad outcomes for multi-fault repros.
 
@@ -649,7 +648,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1022B (p2) - Decode-Accepted Proposal Validation Binary Strategies
   - Unit: add validator-rejected binary cases for exceptions, atomics on non-shared memory, memory64 address typing, const expressions, and relaxed SIMD where represented.
 - [FUZ]1026A (p2) - Multi-Fault Invalid Composition Runner
-  - Unit: compose two or more AST/binary/text mutations in a stress-only lane and classify only broad outcomes.
+  - Unit: compose binary+text or binary-only mutations in a stress-only lane and classify only broad outcomes. `[FUZ]1026A1` closed with a deterministic two-fault AST invalid stress report builder and metadata fixture.
 - [FUZ]1026B (p2) - Multi-Fault Repro Metadata
   - Unit: persist all mutation ids and broad outcome data without weakening single-fault diagnostic floors.
 - [FUZ]1045A (p2) - N-Way Text Parse/Print Classification

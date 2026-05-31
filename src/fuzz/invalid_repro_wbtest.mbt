@@ -62,6 +62,43 @@ fn invalid_repro_test_original_spec_seed_report() -> Result[
 }
 
 ///|
+test "FUZ1026A1 builds deterministic two-fault AST invalid stress report" {
+  let writes : Map[String, Bytes] = {}
+  let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
+    path,
+    bytes,
+  ) {
+    writes[path] = bytes
+    Ok(())
+  })
+  let report = build_fuz1026_two_fault_ast_stress_report(0x1026UL, 1)
+  @debug.assert_eq(report.suite, "validate-invalid-ast-multifault")
+  @debug.assert_eq(report.strategy_id, "two-fault-ast-invalid-stress")
+  assert_true(report.source_feature_facts.contains("multi_fault:true"))
+  assert_true(
+    report.source_feature_facts.contains(
+      "mutation:invalid-function-body-local-set-value-type",
+    ),
+  )
+  assert_true(
+    report.source_feature_facts.contains(
+      "mutation:invalid-function-body-branch-payload-type",
+    ),
+  )
+  let (meta_path, artifact_paths) = match persist_invalid_fuzz_failure_report(report, io) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(artifact_paths.length(), 1)
+  let meta_text = match writes.get(meta_path) {
+    Some(v) => invalid_repro_test_bytes_to_ascii(v)
+    None => fail("missing multifault AST metadata")
+  }
+  assert_true(meta_text.contains("source_feature_fact=multi_fault:true"))
+  assert_true(meta_text.contains("source_feature_fact=broad_outcome:validate-rejected"))
+}
+
+///|
 test "persist_invalid_fuzz_failure_report writes deterministic suite strategy layout" {
   let ensured_dirs : Array[String] = []
   let writes : Array[(String, Bytes)] = []
