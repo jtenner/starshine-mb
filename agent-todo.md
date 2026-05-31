@@ -620,7 +620,6 @@ p2 invalid/binary/text tiny slices:
 - [FUZ]1026B1 - Persist all mutation ids and broad outcomes for multi-fault repros.
 
 p2 oracle/reporting/infrastructure tiny slices:
-- [FUZ]1045A2 - Wire local WAT/WAST parser against optional WABT text command.
 - [FUZ]1045A3 - Wire optional wasm-tools text command and unsupported-syntax classification.
 - [FUZ]1048A - Ensure every fuzz summary JSON records feature/opcode/strategy counters needed by coverage-delta.
 - [FUZ]1050A - Add raw bytes/text and normalized canonical hashes to artifact metadata.

@@ -1,4 +1,8 @@
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 export type TextAdapterName = "local" | "wabt" | "wasm-tools" | (string & {});
 
@@ -45,6 +49,40 @@ function classifyFakeTextAdapter(input: FakeTextAdapterInput): TextAdapterResult
     adapter: input.adapter,
     classification,
     diagnostic: input.diagnostic,
+  };
+}
+
+export function runOptionalWabtTextAdapter(
+  sourceText: string,
+  command = process.env.WABT_WAT2WASM_BIN || "wat2wasm",
+): TextAdapterResult {
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-wabt-text-adapter-"));
+  const inputPath = path.join(tmpdir, "case.wat");
+  const outputPath = path.join(tmpdir, "case.wasm");
+  fs.writeFileSync(inputPath, sourceText);
+  const result = spawnSync(command, [inputPath, "-o", outputPath], { encoding: "utf8" });
+  if (result.error) {
+    const err = result.error as NodeJS.ErrnoException;
+    if (err.code === "ENOENT") {
+      return {
+        adapter: "wabt",
+        classification: "adapter-unavailable",
+        diagnostic: `WABT wat2wasm unavailable: ${command}`,
+      };
+    }
+    return {
+      adapter: "wabt",
+      classification: "adapter-error",
+      diagnostic: err.message,
+    };
+  }
+  if (result.status === 0) {
+    return { adapter: "wabt", classification: "accepted", diagnostic: undefined };
+  }
+  return {
+    adapter: "wabt",
+    classification: "parse-error",
+    diagnostic: (result.stderr || result.stdout || `wat2wasm exited ${result.status}`).trim(),
   };
 }
 

@@ -1,8 +1,41 @@
 import { describe, expect, test } from "bun:test";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
-import { classifyFakeTextAdapters } from "./fuzz-text-adapters";
+import { classifyFakeTextAdapters, runOptionalWabtTextAdapter } from "./fuzz-text-adapters";
+
+function makeExecutable(file: string, source: string): string {
+  fs.writeFileSync(file, source, { mode: 0o755 });
+  fs.chmodSync(file, 0o755);
+  return file;
+}
 
 describe("fuzz text adapters", () => {
+  test("run optional WABT text command and classify accepted parse", () => {
+    const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-wabt-text-adapter-"));
+    const fakeWat2Wasm = makeExecutable(
+      path.join(tmpdir, "wat2wasm"),
+      `#!/usr/bin/env node
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+const out = args[args.indexOf("-o") + 1];
+fs.writeFileSync(out, "wasm");
+`,
+    );
+
+    const result = runOptionalWabtTextAdapter("(module)", fakeWat2Wasm);
+
+    expect(result).toEqual({ adapter: "wabt", classification: "accepted", diagnostic: undefined });
+  });
+
+  test("run optional WABT text command and classify unavailable command", () => {
+    const result = runOptionalWabtTextAdapter("(module)", "/definitely/missing/wat2wasm");
+
+    expect(result.classification).toBe("adapter-unavailable");
+    expect(result.diagnostic).toContain("/definitely/missing/wat2wasm");
+  });
+
   test("classify n-way fake text adapter results", () => {
     const results = classifyFakeTextAdapters("(module)", [
       { adapter: "local", ok: true, text: "(module)" },
