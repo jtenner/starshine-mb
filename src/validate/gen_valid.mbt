@@ -3397,12 +3397,7 @@ pub fn gen_valid_const_expr_allowed_op_matrix() -> Array[
     },
     {
       context: ElementOffsetConstExpr,
-      allowed_ops: [
-        NumericConstExprOp,
-        RefNullConstExprOp,
-        RefFuncConstExprOp,
-        ImportedImmutableGlobalGetConstExprOp,
-      ],
+      allowed_ops: [NumericConstExprOp, ImportedImmutableGlobalGetConstExprOp],
     },
     {
       context: TableInitializerConstExpr,

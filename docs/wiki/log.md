@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-30] fuzzing | FUZ1037 active offset matrix hygiene
+
+- Continued `[FUZ]1037` by narrowing the GenValid const-expression allowed-op matrix for active element offsets to the same i32-only surface as active data offsets: numeric constants and immutable imported `i32 global.get`.
+- Added TDD coverage that first failed while the matrix advertised reference initializer families for `ElementOffsetConstExpr`, then passed after correcting the matrix. Synced the constant-expression wiki page.
+
 ## [2026-05-30] fuzzing | FUZ1037 ref.i31 global initializer helper
 
 - Continued `[FUZ]1037` by teaching `gen_valid_const_expr_for_global(...)` to use the shared const-expression `allow_ref_i31` path for `(ref i31)` global-initializer targets.

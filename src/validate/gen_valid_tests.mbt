@@ -294,8 +294,6 @@ test "gen-valid const-expression allowed-op matrix covers section contexts" {
   ])
   @debug.assert_eq(matrix[2].allowed_ops, [
     NumericConstExprOp,
-    RefNullConstExprOp,
-    RefFuncConstExprOp,
     ImportedImmutableGlobalGetConstExprOp,
   ])
   @debug.assert_eq(matrix[3].allowed_ops, [
