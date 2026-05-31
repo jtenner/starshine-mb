@@ -89,6 +89,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidBinaryBodyLocalSetValueTypeModule
   InvalidBinaryBranchPayloadTypeModule
   InvalidBinaryLocalIndexModule
+  InvalidBinaryGlobalIndexModule
+  InvalidBinaryTableIndexModule
+  InvalidBinaryMemoryIndexModule
+  InvalidBinaryThrowTagIndexModule
   InvalidBinaryCallRefTypeModule
   InvalidBinaryStructGetFieldIndexModule
   InvalidBinaryThrowPayloadModule
@@ -892,6 +896,10 @@ fn validate_invalid_binary_strategy_label(
     InvalidBinaryBranchPayloadTypeModule =>
       "invalid-binary-branch-payload-type-module"
     InvalidBinaryLocalIndexModule => "invalid-binary-local-index-module"
+    InvalidBinaryGlobalIndexModule => "invalid-binary-global-index-module"
+    InvalidBinaryTableIndexModule => "invalid-binary-table-index-module"
+    InvalidBinaryMemoryIndexModule => "invalid-binary-memory-index-module"
+    InvalidBinaryThrowTagIndexModule => "invalid-binary-throw-tag-index-module"
     InvalidBinaryCallRefTypeModule => "invalid-binary-call-ref-type-module"
     InvalidBinaryStructGetFieldIndexModule =>
       "invalid-binary-struct-get-field-index-module"
@@ -1827,6 +1835,34 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidBinaryLocalIndexModule,
       "invalid-binary-local-index-module",
       "encoded module with an out-of-range function-body local index",
+      ValidateRejected("function-body"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryGlobalIndexModule,
+      "invalid-binary-global-index-module",
+      "encoded module with an out-of-range function-body global index",
+      ValidateRejected("function-body"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryTableIndexModule,
+      "invalid-binary-table-index-module",
+      "encoded module with an out-of-range function-body table index",
+      ValidateRejected("function-body"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryMemoryIndexModule,
+      "invalid-binary-memory-index-module",
+      "encoded module with an out-of-range function-body memory index",
+      ValidateRejected("function-body"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryThrowTagIndexModule,
+      "invalid-binary-throw-tag-index-module",
+      "encoded module with an out-of-range function-body throw tag index",
       ValidateRejected("function-body"),
       required_in_smoke=false,
     ),
@@ -18255,6 +18291,66 @@ pub fn apply_validate_invalid_binary_strategy(
       }
       validate_invalid_binary_mutate_encoded_invalid_ast_module(
         InvalidBinaryLocalIndexModule,
+        ast_strategy,
+        "function-body",
+        base,
+      )
+    }
+    InvalidBinaryGlobalIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-function-body-global-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryGlobalIndexModule,
+        ast_strategy,
+        "function-body",
+        base,
+      )
+    }
+    InvalidBinaryTableIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-function-body-table-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryTableIndexModule,
+        ast_strategy,
+        "function-body",
+        base,
+      )
+    }
+    InvalidBinaryMemoryIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-function-body-memory-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryMemoryIndexModule,
+        ast_strategy,
+        "function-body",
+        base,
+      )
+    }
+    InvalidBinaryThrowTagIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-function-body-throw-tag-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryThrowTagIndexModule,
         ast_strategy,
         "function-body",
         base,

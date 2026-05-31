@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1022A6 decode-accepted body index validation
+
+- Closed `[FUZ]1022A6` by adding decode-accepted binary-invalid strategies for function-body global, table, memory, and `throw` tag immediate indices: `invalid-binary-global-index-module`, `invalid-binary-table-index-module`, `invalid-binary-memory-index-module`, and `invalid-binary-throw-tag-index-module`.
+- The first three reuse the existing AST-invalid body-index mutations and the tag case adds `invalid-function-body-throw-tag-index`, so all four specimens encode and decode successfully before failing validation with the function-body diagnostic family.
+- Validation: `moon test src/fuzz` first failed on missing binary strategy stable ids, then passed after registry, mutation-dispatch, focused-test, and wiki wiring.
+
 ## [2026-05-31] fuzzing | FUZ1021B6 reserved core opcode byte inventory
 
 - Closed `[FUZ]1021B6` by adding decode-rejected binary-invalid strategies for representative reserved single-byte core opcode gaps outside proposal prefixes: `0x06` (`invalid-core-control-reserved-opcode-byte`), `0x19` (`invalid-core-reference-reserved-opcode-byte`), `0x27` (`invalid-core-memory-reserved-opcode-byte`), and `0xC5` (`invalid-core-post-signext-reserved-opcode-byte`). The existing `invalid-opcode-byte` keeps the high reserved `0xFF` sample.

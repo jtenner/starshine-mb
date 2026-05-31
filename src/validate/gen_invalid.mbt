@@ -244,6 +244,7 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-try-table-catch-payload-mismatch"
     InvalidFunctionBodyThrowPayloadArityMismatch =>
       "invalid-function-body-throw-payload-arity-mismatch"
+    InvalidFunctionBodyThrowTagIndex => "invalid-function-body-throw-tag-index"
     InvalidFunctionBodyMemoryAddressType =>
       "invalid-function-body-memory-address-type"
     InvalidFunctionBodyMemory64AddressType =>

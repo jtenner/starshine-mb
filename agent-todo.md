@@ -615,7 +615,6 @@ Use this board as the tracking view for fuzzer work. Each slice should be small 
 p1 next-up / active:
 
 p2 invalid/binary/text tiny slices:
-- `[FUZ]1022A6` - Decode-accepted global/table/memory/tag index validation: encode validly decodable function bodies whose immediate indices are out of range and fail only during validation.
 - `[FUZ]1022A7` - Decode-accepted call_indirect validation: add binary cases for call-indirect type/table-index or table-ref mismatch that decode successfully and are rejected by validation.
 - `[FUZ]1022A8` - Decode-accepted GC aggregate validation: add binary cases for array/struct field or heap-type validation errors beyond the existing `struct.get` field-index fixture.
 - `[FUZ]1022A9` - Decode-accepted branch-control validation: add a branch-label or branch-payload binary case that decodes cleanly and validates red without duplicating the existing branch-payload fixture.
@@ -661,7 +660,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1021B (p2) - Remaining Opcode/Prefix/Subopcode Binary Corruptions
   - Remaining concrete slice: none for the current tracked 1021B board. `[FUZ]1021B3` already closed malformed/overwide subopcode ULEBs for supported prefixed opcode spaces, `[FUZ]1021B4` closed truncated proposal prefix body opcodes for `0xFB`, `0xFC`, `0xFD`, and `0xFE`, `[FUZ]1021B5` closed wrong trailing-immediate shapes after valid `struct.new`, `table.init`, SIMD extract-lane, and atomics load prefixed subopcodes, and `[FUZ]1021B6` closed representative reserved single-byte core opcode strategy samples plus a white-box inventory covering `0x06`, `0x07`, `0x09`, `0x16..0x19`, `0x1D`, `0x1E`, `0x27`, `0xC5..0xCF`, `0xD7..0xFA`, and `0xFF` outside proposal prefixes.
 - [FUZ]1022A (p2) - Decode-Accepted Body Validation Binary Strategies
-  - Remaining concrete slices: `[FUZ]1022A6` global/table/memory/tag index validation, `[FUZ]1022A7` call_indirect validation, `[FUZ]1022A8` GC aggregate validation, and `[FUZ]1022A9` branch-control validation. `[FUZ]1022A1` through `[FUZ]1022A5` already cover body stack, branch payload, local-index, call_ref, and struct.get field-index examples.
+  - Remaining concrete slices: `[FUZ]1022A7` call_indirect validation, `[FUZ]1022A8` GC aggregate validation, and `[FUZ]1022A9` branch-control validation. `[FUZ]1022A1` through `[FUZ]1022A6` already cover body stack, branch payload, local/global/table/memory/tag index, call_ref, and struct.get field-index examples.
 - [FUZ]1022B (p2) - Decode-Accepted Proposal Validation Binary Strategies
   - Remaining concrete slices: `[FUZ]1022B6` atomics-on-non-shared-memory binary validation, `[FUZ]1022B7` memory64 proposal validation matrix, `[FUZ]1022B8` const-expression proposal validation, and `[FUZ]1022B9` relaxed-SIMD proposal validation follow-up. `[FUZ]1022B1` through `[FUZ]1022B5` already cover throw payload, shared-memory-without-max, memory64-address, global-init-type, and relaxed-SIMD swizzle.
 - [FUZ]1026A (p2) - Multi-Fault Invalid Composition Runner

@@ -1140,6 +1140,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidBinaryBodyLocalSetValueTypeModule
   InvalidBinaryBranchPayloadTypeModule
   InvalidBinaryLocalIndexModule
+  InvalidBinaryGlobalIndexModule
+  InvalidBinaryTableIndexModule
+  InvalidBinaryMemoryIndexModule
+  InvalidBinaryThrowTagIndexModule
   InvalidBinaryCallRefTypeModule
   InvalidBinaryStructGetFieldIndexModule
   InvalidBinaryThrowPayloadModule
