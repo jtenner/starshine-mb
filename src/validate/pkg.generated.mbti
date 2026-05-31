@@ -1152,6 +1152,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodySelectOperandType
   InvalidFunctionBodyThrowPayloadMismatch
   InvalidFunctionBodyTryTableCatchPayloadMismatch
+  InvalidFunctionBodyThrowPayloadArityMismatch
   InvalidFunctionBodyMemoryAddressType
   InvalidFunctionBodyMemory64AddressType
   InvalidFunctionBodyMemoryStoreAddressType

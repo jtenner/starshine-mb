@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1020C4 throw payload arity invalid AST
+
+- Closed `[FUZ]1020C4` by adding `invalid-function-body-throw-payload-arity-mismatch`, a deterministic AST-invalid strategy for a two-parameter exception tag whose body supplies only the first payload value before `throw`.
+- Added focused validator-family and repair coverage proving the arity-mismatched throw rejects with `FunctionBodyFamily` and the repaired `i32` + `i64` payload validates.
+- Updated [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the AST-invalid strategy summary names the new multi-value throw payload arity coverage alongside the existing throw and `try_table` catch payload mismatch variants.
+
 ## [2026-05-31] fuzzing | FUZ1020B5 code-section imported body arity edge
 
 - Closed `[FUZ]1020B5` by adding `codesec-includes-imported-body`, a deterministic AST-invalid strategy for a module with one imported function, one defined function declaration, and two code bodies.
