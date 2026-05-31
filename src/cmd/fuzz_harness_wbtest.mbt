@@ -40,6 +40,47 @@ test "differential_validate_wasm returns report when all validators agree" {
 }
 
 ///|
+test "FUZ1052B1 export invocation classifier covers result matrix" {
+  @debug.assert_eq(
+    classify_export_invocation_results(
+      ExportInvocationResult::value("i32:7"),
+      ExportInvocationResult::value("i32:7"),
+    ),
+    ExportInvocationClassification::equal_result(),
+  )
+  @debug.assert_eq(
+    classify_export_invocation_results(
+      ExportInvocationResult::trap("unreachable"),
+      ExportInvocationResult::trap("integer divide by zero"),
+    ),
+    ExportInvocationClassification::equal_trap(),
+  )
+  @debug.assert_eq(
+    classify_export_invocation_results(
+      ExportInvocationResult::unsupported_runtime("missing wasm-tools run"),
+      ExportInvocationResult::value("i32:7"),
+    ),
+    ExportInvocationClassification::unsupported_runtime(),
+  )
+  @debug.assert_eq(
+    classify_export_invocation_results(
+      ExportInvocationResult::nondeterministic_import("env.now"),
+      ExportInvocationResult::value("i32:7"),
+    ),
+    ExportInvocationClassification::nondeterministic_import(),
+  )
+  @debug.assert_eq(
+    classify_export_invocation_results(
+      ExportInvocationResult::value("i32:7"),
+      ExportInvocationResult::value("i32:8"),
+    ),
+    ExportInvocationClassification::semantic_mismatch(
+      "value mismatch: left=i32:7 right=i32:8",
+    ),
+  )
+}
+
+///|
 test "FUZ1053A3 differential adapters classify per-case timeout results" {
   let bytes = encode_fixture_module(23)
   let adapters = DifferentialAdapters::new(

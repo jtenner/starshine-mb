@@ -11,6 +11,8 @@ import {
 }
 
 // Values
+pub fn classify_export_invocation_results(ExportInvocationResult, ExportInvocationResult) -> ExportInvocationClassification
+
 pub fn cmd_fuzz_harness_profile_config(String) -> Result[CmdFuzzHarnessProfileConfig, String]
 
 pub fn cmd_help_text() -> String
@@ -148,6 +150,30 @@ pub struct DifferentialValidationReport {
   binaryen_timeout : Bool
 } derive(Eq, @debug.Debug)
 pub impl Show for DifferentialValidationReport
+
+pub enum ExportInvocationClassification {
+  EqualResult
+  EqualTrap
+  UnsupportedRuntime
+  NondeterministicImport
+  SemanticMismatch(String)
+} derive(Eq, @debug.Debug)
+pub fn ExportInvocationClassification::equal_result() -> Self
+pub fn ExportInvocationClassification::equal_trap() -> Self
+pub fn ExportInvocationClassification::nondeterministic_import() -> Self
+pub fn ExportInvocationClassification::semantic_mismatch(String) -> Self
+pub fn ExportInvocationClassification::unsupported_runtime() -> Self
+
+pub enum ExportInvocationResult {
+  Value(String)
+  Trap(String)
+  UnsupportedRuntime(String)
+  NondeterministicImport(String)
+} derive(Eq, @debug.Debug)
+pub fn ExportInvocationResult::nondeterministic_import(String) -> Self
+pub fn ExportInvocationResult::trap(String) -> Self
+pub fn ExportInvocationResult::unsupported_runtime(String) -> Self
+pub fn ExportInvocationResult::value(String) -> Self
 
 pub struct FuzzCorpusDedupDecision {
   hash : String

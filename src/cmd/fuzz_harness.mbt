@@ -34,6 +34,98 @@ pub impl Show for DifferentialValidationReport with output(self, logger) {
 }
 
 ///|
+pub enum ExportInvocationResult {
+  Value(String)
+  Trap(String)
+  UnsupportedRuntime(String)
+  NondeterministicImport(String)
+} derive(Eq, Debug)
+
+///|
+pub fn ExportInvocationResult::value(value : String) -> ExportInvocationResult {
+  Value(value)
+}
+
+///|
+pub fn ExportInvocationResult::trap(message : String) -> ExportInvocationResult {
+  Trap(message)
+}
+
+///|
+pub fn ExportInvocationResult::unsupported_runtime(
+  message : String,
+) -> ExportInvocationResult {
+  UnsupportedRuntime(message)
+}
+
+///|
+pub fn ExportInvocationResult::nondeterministic_import(
+  import_name : String,
+) -> ExportInvocationResult {
+  NondeterministicImport(import_name)
+}
+
+///|
+pub enum ExportInvocationClassification {
+  EqualResult
+  EqualTrap
+  UnsupportedRuntime
+  NondeterministicImport
+  SemanticMismatch(String)
+} derive(Eq, Debug)
+
+///|
+pub fn ExportInvocationClassification::equal_result() -> ExportInvocationClassification {
+  EqualResult
+}
+
+///|
+pub fn ExportInvocationClassification::equal_trap() -> ExportInvocationClassification {
+  EqualTrap
+}
+
+///|
+pub fn ExportInvocationClassification::unsupported_runtime() -> ExportInvocationClassification {
+  UnsupportedRuntime
+}
+
+///|
+pub fn ExportInvocationClassification::nondeterministic_import() -> ExportInvocationClassification {
+  NondeterministicImport
+}
+
+///|
+pub fn ExportInvocationClassification::semantic_mismatch(
+  message : String,
+) -> ExportInvocationClassification {
+  SemanticMismatch(message)
+}
+
+///|
+pub fn classify_export_invocation_results(
+  left : ExportInvocationResult,
+  right : ExportInvocationResult,
+) -> ExportInvocationClassification {
+  match (left, right) {
+    (UnsupportedRuntime(_), _) | (_, UnsupportedRuntime(_)) =>
+      UnsupportedRuntime
+    (NondeterministicImport(_), _) | (_, NondeterministicImport(_)) =>
+      NondeterministicImport
+    (Trap(_), Trap(_)) => EqualTrap
+    (Value(a), Value(b)) =>
+      if a == b {
+        EqualResult
+      } else {
+        SemanticMismatch("value mismatch: left=\{a} right=\{b}")
+      }
+    (Trap(a), Value(b)) =>
+      SemanticMismatch("trap/value mismatch: left=\{a} right=\{b}")
+    (Value(a), Trap(b)) =>
+      SemanticMismatch("value/trap mismatch: left=\{a} right=\{b}")
+  }
+}
+
+///|
 pub struct CmdFuzzStats {
   attempts : Int
   generated_valid : Int
@@ -705,7 +797,9 @@ fn differential_adapter_ascii_lower(input : String) -> String {
 ///|
 fn differential_adapter_error_is_timeout(msg : String) -> Bool {
   let lower = differential_adapter_ascii_lower(msg)
-  lower.contains("timeout") || lower.contains("timed out") || lower.contains("resource limit")
+  lower.contains("timeout") ||
+  lower.contains("timed out") ||
+  lower.contains("resource limit")
 }
 
 ///|
