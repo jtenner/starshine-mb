@@ -184,6 +184,45 @@ test "FUZ1053B1 timeout repro metadata persists resource budgets" {
 }
 
 ///|
+test "FUZ1053B2 timeout repro persists manifest when partial artifact write fails" {
+  let writes : Map[String, Bytes] = {}
+  let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
+    path,
+    bytes,
+  ) {
+    if path.contains("partial.wasm") {
+      Err("disk quota")
+    } else {
+      writes[path] = bytes
+      Ok(())
+    }
+  })
+  let report = InvalidFuzzFailureReport::new(
+    "validate-invalid-binary",
+    "smoke",
+    0x1053UL,
+    2,
+    "timeout-fixture",
+    invalid_fuzz_binary_source_kind(),
+    "timeout",
+    actual_stage="timeout",
+    timeout_budget_ms=Some(100),
+    artifacts=[InvalidFuzzArtifact::new("partial", "partial.wasm", b"bad")],
+  )
+  let (meta_path, artifact_paths) = match persist_invalid_fuzz_failure_report(report, io) {
+    Ok(v) => v
+    Err(msg) => fail("expected partial timeout artifact persistence to keep metadata: \{msg}")
+  }
+  @debug.assert_eq(artifact_paths.length(), 0)
+  let meta_text = match writes.get(meta_path) {
+    Some(v) => invalid_repro_test_bytes_to_ascii(v)
+    None => fail("missing partial timeout metadata")
+  }
+  assert_true(meta_text.contains("timeout_budget_ms=100"))
+  assert_true(meta_text.contains("partial_artifact_write_failure=partial.wasm|disk quota"))
+}
+
+///|
 test "parse_invalid_fuzz_failure_report roundtrips persisted artifacts" {
   let writes : Map[String, Bytes] = {}
   let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(

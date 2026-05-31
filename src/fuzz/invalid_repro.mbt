@@ -590,6 +590,14 @@ fn invalid_fuzz_ensure_dir(
 }
 
 ///|
+fn invalid_fuzz_report_allows_partial_artifacts(
+  report : InvalidFuzzFailureReport,
+) -> Bool {
+  report.actual_stage == "timeout" || report.actual_stage == "resource-limit" ||
+  report.actual_stage == "resource-limited"
+}
+
+///|
 pub fn persist_invalid_fuzz_failure_report(
   report : InvalidFuzzFailureReport,
   io : InvalidFuzzPersistIO,
@@ -624,12 +632,18 @@ pub fn persist_invalid_fuzz_failure_report(
     Err(msg) => return Err(msg)
   }
   let artifact_paths : Array[String] = []
+  let partial_failures : Array[String] = []
+  let allow_partial_artifacts = invalid_fuzz_report_allows_partial_artifacts(report)
   for artifact in report.artifacts {
     let path = invalid_fuzz_join_path(repro_dir, artifact.file_name)
     match (io.write_file)(path, artifact.bytes) {
       Ok(_) => artifact_paths.push(path)
       Err(msg) =>
-        return Err("failed to write invalid repro artifact \{path}: \{msg}")
+        if allow_partial_artifacts {
+          partial_failures.push("partial_artifact_write_failure=" + artifact.file_name + "|" + msg)
+        } else {
+          return Err("failed to write invalid repro artifact \{path}: \{msg}")
+        }
     }
   }
   for artifact in report.reduced_artifacts {
@@ -637,14 +651,25 @@ pub fn persist_invalid_fuzz_failure_report(
     match (io.write_file)(path, artifact.bytes) {
       Ok(_) => artifact_paths.push(path)
       Err(msg) =>
-        return Err("failed to write invalid repro artifact \{path}: \{msg}")
+        if allow_partial_artifacts {
+          partial_failures.push("partial_artifact_write_failure=" + artifact.file_name + "|" + msg)
+        } else {
+          return Err("failed to write invalid repro artifact \{path}: \{msg}")
+        }
     }
   }
   let meta_path = invalid_fuzz_join_path(repro_dir, "repro.meta.txt")
+  let partial_manifest = if partial_failures.length() == 0 {
+    ""
+  } else {
+    invalid_fuzz_join(partial_failures, "\n") + "\n"
+  }
   match
     (io.write_file)(
       meta_path,
-      invalid_fuzz_string_bytes(invalid_fuzz_failure_meta_text(report)),
+      invalid_fuzz_string_bytes(
+        invalid_fuzz_failure_meta_text(report) + partial_manifest,
+      ),
     ) {
     Ok(_) => Ok((meta_path, artifact_paths))
     Err(msg) =>
@@ -846,6 +871,7 @@ pub fn parse_invalid_fuzz_failure_report(
           Ok(v) => reduced_artifacts.push(v)
           Err(msg) => return Err(msg)
         }
+      "partial_artifact_write_failure" => ()
       _ => return Err("unknown invalid repro metadata key '\{key}'")
     }
   }

@@ -620,7 +620,6 @@ p2 invalid/binary/text tiny slices:
 - [FUZ]1026B1 - Persist all mutation ids and broad outcomes for multi-fault repros.
 
 p2 oracle/reporting/infrastructure tiny slices:
-- [FUZ]1053B2 - Add cleanup/manifest behavior for partial timeout artifacts.
 
 #### Named remaining FUZ slice index
 
@@ -632,7 +631,7 @@ p1/p2 oracle, reporting, and infrastructure slices:
 - [FUZ]1053A (p2) - Per-Case Timeout Classification
   - Unit: add per-case budgets and timeout classifications for fuzz runner and pass-fuzz. `[FUZ]1053A3` closed with differential external adapters carrying optional per-case timeout budgets and classifying timeout/resource-limit adapter errors in `src/cmd/fuzz_harness.mbt`.
 - [FUZ]1053B (p2) - Resource-Limit Artifact Handling
-  - Unit: add cleanup/manifest behavior for partial timeout artifacts. `[FUZ]1053B1` closed with invalid repro metadata carrying timeout stage, diagnostic location, and `timeout_budget_ms` through persist/parse.
+  - Unit: completed for tracked tiny slices. `[FUZ]1053B2` closed with timeout/resource repro persistence tolerating partial artifact write failures and recording `partial_artifact_write_failure` manifest entries. `[FUZ]1053B1` closed with invalid repro metadata carrying timeout stage, diagnostic location, and `timeout_budget_ms` through persist/parse.
 
 p2 invalid/binary/text slices:
 - [FUZ]1020A (p2) - Remaining AST Type/Subtyping Invalid Strategies
