@@ -928,6 +928,19 @@ test "decode_module attaches section spans to wrapper decode errors" {
 }
 
 ///|
+test "FUZ1056A1 curated invalid binary reports byte offset and section span" {
+  let bad_type_payload = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x01\x03\x01\x00\x00"
+  match decode_module(bad_type_payload) {
+    Ok(_) => fail("expected curated malformed type section fixture to fail")
+    Err(DecodeError::DecodeAt(BinaryDecodeError::InvalidCompType, offset, len)) => {
+      @debug.assert_eq(offset, 8)
+      @debug.assert_eq(len, 5)
+    }
+    Err(e) => fail("expected curated type-section span decode error, got \{e}")
+  }
+}
+
+///|
 test "decode_module reports section span for non-length type section decode errors" {
   let bad_type_payload = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x01\x03\x01\x00\x00"
   match decode_module(bad_type_payload) {
