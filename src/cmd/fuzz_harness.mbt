@@ -84,6 +84,16 @@ pub struct ExportInvocationComparisonReport {
 } derive(Eq, Debug)
 
 ///|
+pub struct ExportInvocationMatrixSummary {
+  total : Int
+  equal_results : Int
+  equal_traps : Int
+  unsupported_runtimes : Int
+  nondeterministic_imports : Int
+  semantic_mismatches : Int
+} derive(Eq, Debug)
+
+///|
 pub fn ExportInvocationClassification::equal_result() -> ExportInvocationClassification {
   EqualResult
 }
@@ -167,6 +177,34 @@ pub fn compare_export_invocation_results(
     left_result: left,
     right_result: right,
     classification: classify_export_invocation_results(left, right),
+  }
+}
+
+///|
+pub fn summarize_export_invocation_matrix(
+  reports : Array[ExportInvocationComparisonReport],
+) -> ExportInvocationMatrixSummary {
+  let mut equal_results = 0
+  let mut equal_traps = 0
+  let mut unsupported_runtimes = 0
+  let mut nondeterministic_imports = 0
+  let mut semantic_mismatches = 0
+  for report in reports {
+    match report.classification {
+      EqualResult => equal_results = equal_results + 1
+      EqualTrap => equal_traps = equal_traps + 1
+      UnsupportedRuntime => unsupported_runtimes = unsupported_runtimes + 1
+      NondeterministicImport => nondeterministic_imports = nondeterministic_imports + 1
+      SemanticMismatch(_) => semantic_mismatches = semantic_mismatches + 1
+    }
+  }
+  ExportInvocationMatrixSummary::{
+    total: reports.length(),
+    equal_results,
+    equal_traps,
+    unsupported_runtimes,
+    nondeterministic_imports,
+    semantic_mismatches,
   }
 }
 

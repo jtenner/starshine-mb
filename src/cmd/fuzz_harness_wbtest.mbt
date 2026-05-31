@@ -120,6 +120,34 @@ test "FUZ1052B3 export invocation comparison report retains context" {
 }
 
 ///|
+test "FUZ1052B4 export invocation matrix summary counts classifications" {
+  let reports = [
+    compare_export_invocation_results(
+      "ok", [], ExportInvocationResult::value("i32:1"), ExportInvocationResult::value("i32:1"),
+    ),
+    compare_export_invocation_results(
+      "trap", [], ExportInvocationResult::trap("left"), ExportInvocationResult::trap("right"),
+    ),
+    compare_export_invocation_results(
+      "unsupported", [], ExportInvocationResult::unsupported_runtime("missing"), ExportInvocationResult::value("i32:1"),
+    ),
+    compare_export_invocation_results(
+      "nondet", [], ExportInvocationResult::nondeterministic_import("env.now"), ExportInvocationResult::value("i32:1"),
+    ),
+    compare_export_invocation_results(
+      "bad", [], ExportInvocationResult::value("i32:1"), ExportInvocationResult::value("i32:2"),
+    ),
+  ]
+  let summary = summarize_export_invocation_matrix(reports)
+  @debug.assert_eq(summary.total, 5)
+  @debug.assert_eq(summary.equal_results, 1)
+  @debug.assert_eq(summary.equal_traps, 1)
+  @debug.assert_eq(summary.unsupported_runtimes, 1)
+  @debug.assert_eq(summary.nondeterministic_imports, 1)
+  @debug.assert_eq(summary.semantic_mismatches, 1)
+}
+
+///|
 test "FUZ1053A3 differential adapters classify per-case timeout results" {
   let bytes = encode_fixture_module(23)
   let adapters = DifferentialAdapters::new(

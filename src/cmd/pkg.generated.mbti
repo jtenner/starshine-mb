@@ -43,6 +43,8 @@ pub fn run_cmd_fuzz_harness_profile(String, UInt64) -> Result[CmdFuzzStats, Stri
 
 pub fn run_cmd_with_adapter(Array[String], CmdIO, config_json? : String?) -> Result[CmdRunSummary, CmdError]
 
+pub fn summarize_export_invocation_matrix(Array[ExportInvocationComparisonReport]) -> ExportInvocationMatrixSummary
+
 pub fn verify_readme_api_signatures(String, Array[(String, String)]) -> Result[Unit, String]
 
 pub fn verify_readme_api_signatures_with_required_blocks(String, Array[(String, String)], Array[String]) -> Result[Unit, String]
@@ -174,6 +176,15 @@ pub struct ExportInvocationComparisonReport {
   left_result : ExportInvocationResult
   right_result : ExportInvocationResult
   classification : ExportInvocationClassification
+} derive(Eq, @debug.Debug)
+
+pub struct ExportInvocationMatrixSummary {
+  total : Int
+  equal_results : Int
+  equal_traps : Int
+  unsupported_runtimes : Int
+  nondeterministic_imports : Int
+  semantic_mismatches : Int
 } derive(Eq, @debug.Debug)
 
 pub enum ExportInvocationResult {
