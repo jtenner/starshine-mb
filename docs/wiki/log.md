@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1037R1 const-expression inventory
+
+- Completed `[FUZ]1037R1` as an audit-only slice in research note [`0688`](raw/research/0688-2026-05-31-fuz1037-const-expr-inventory.md), covering the current GenValid const-expression matrix, generator call sites, feature-fact attribution, focused tests, and docs.
+- Confirmed no immediate broad matrix behavior change is required; remaining gaps stay split as `[FUZ]1037R2` boundary active-offset literals, `[FUZ]1037R3` GC descriptor initializer surface, `[FUZ]1037R4` context/op feature-fact attribution, and `[FUZ]1037R5` closeout.
+
 ## [2026-05-31] fuzzing | FUZ1020A4 descriptor-edge heap-type invalid AST
 
 - Completed `[FUZ]1020A4` by adding `invalid-descriptor-field-ref-type`, a deterministic type-section invalid AST strategy that builds an otherwise paired descriptor/describes rec group whose descriptor type has a field referencing a missing heap type index.
