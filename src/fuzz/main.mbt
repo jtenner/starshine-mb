@@ -257,6 +257,11 @@ pub fn fuzz_standard_recipe_text_by_name(name : String) -> String? {
         schema_line +
         "name=binaryen-oracle\nsuite=gen-valid-wat-validate-roundtrip\nprofile=binaryen-oracle-portable\nseed=0x5eed\nseed-count=8\nshard-count=4\noutput=jsonl\n",
       )
+    "text-differential-smoke" =>
+      Some(
+        schema_line +
+        "name=text-differential-smoke\nsuite=text-differential\nprofile=smoke\nseed=0x1045a7\nseed-count=1\nshard-count=1\noutput=jsonl\n",
+      )
     _ => None
   }
 }
@@ -265,7 +270,7 @@ pub fn fuzz_standard_recipe_text_by_name(name : String) -> String? {
 pub fn fuzz_standard_recipe_names() -> Array[String] {
   [
     "smoke", "default-smoke", "ci", "default-ci", "nightly", "pass-signoff", "validator-stress",
-    "parser-stress", "binaryen-oracle",
+    "parser-stress", "binaryen-oracle", "text-differential-smoke",
   ]
 }
 
@@ -530,7 +535,7 @@ pub fn fuzz_usage_text() -> String {
     fuzz_join(reserved, ", ")
   }
   let profiles = fuzz_join(fuzz_profile_names(), ", ")
-  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--recipe <name>] [--suite <name>] [--profile <name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>] [--shard-index <i> --shard-count <n>] [--report-json <path>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --list-recipes | --golden-seed-smoke | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> [--manifest <path>] (portable coverage-forced batch) | --emit-invalid-repro --suite <suite|ast|binary|text|spec-seed> --strategy <stable-id> --seed <uint64> --attempt <n> --out-dir <dir> [--profile <name>] | --replay-corpus <replay-manifest.json>\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}"
+  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--recipe <name>] [--suite <name>] [--profile <name>] [--seed <int64>|--seed=<int64>] [--seed-count <n>] [--shard-index <i> --shard-count <n>] [--report-json <path>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --list-recipes | --golden-seed-smoke | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> [--manifest <path>] (portable coverage-forced batch) | --emit-invalid-repro --suite <suite|ast|binary|text|spec-seed> --strategy <stable-id> --seed <uint64> --attempt <n> --out-dir <dir> [--profile <name>] | --replay-corpus <replay-manifest.json>\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}\nopt-in recipes: text-differential-smoke"
 }
 
 ///|
@@ -562,6 +567,21 @@ pub struct GenValidWatValidateRoundtripFuzzStats {
   lower_failures : Int
   validated : Int
   validation_failures : Int
+} derive(Eq, Debug)
+
+///|
+pub struct TextDifferentialFuzzStats {
+  profile : String
+  seed : UInt64
+  attempts : Int
+  local_parse_ok : Int
+  local_print_ok : Int
+  local_reparse_lower_ok : Int
+  local_lower_mismatch : Int
+  adapter_unavailable : Int
+  adapter_unavailable_classifications : Int
+  accepted_classifications : Int
+  external_adapters : Array[String]
 } derive(Eq, Debug)
 
 ///|
@@ -847,6 +867,110 @@ pub fn run_gen_valid_wat_validate_roundtrip_fuzz(
     lower_failures,
     validated,
     validation_failures,
+  })
+}
+
+///|
+fn text_differential_case(seed : UInt64, attempt : Int) -> String {
+  let value = ((seed + attempt.to_uint64()) % 1000UL).to_int()
+  "(module (func (export \"answer\") (result i32) i32.const \{value}))"
+}
+
+///|
+fn text_differential_attempt_locally(source : String) -> Result[Bool, String] {
+  let parsed = match wast_to_module(source, filename="text-differential.wat") {
+    Ok(v) => v
+    Err(e) => return Err("parse failed: \{e}")
+  }
+  let lowered = match wast_ast_to_binary_module(parsed) {
+    Ok(v) => v
+    Err(e) => return Err("lower failed: \{e}")
+  }
+  let lowered_bytes = match encode_module(lowered) {
+    Ok(v) => v
+    Err(e) => return Err("encode failed: \{e}")
+  }
+  let printed = match module_to_wast(parsed) {
+    Ok(v) => v
+    Err(e) => return Err("print failed: \{e}")
+  }
+  let reparsed = match
+    wast_to_module(printed, filename="text-differential.printed.wat") {
+    Ok(v) => v
+    Err(e) => return Err("reparse failed: \{e}")
+  }
+  let relowered = match wast_ast_to_binary_module(reparsed) {
+    Ok(v) => v
+    Err(e) => return Err("reparse lower failed: \{e}")
+  }
+  let relowered_bytes = match encode_module(relowered) {
+    Ok(v) => v
+    Err(e) => return Err("reparse encode failed: \{e}")
+  }
+  Ok(lowered_bytes == relowered_bytes)
+}
+
+///|
+pub fn run_text_differential_fuzz(
+  profile : String,
+  seed : UInt64,
+) -> Result[TextDifferentialFuzzStats, String] {
+  let normalized = fuzz_ascii_lower(profile.trim().to_owned())
+  let attempts = match normalized {
+    "smoke" => 1
+    "ci" => 8
+    "stress" => 32
+    _ =>
+      return Err(
+        "unknown text-differential fuzz profile '\{profile}'; expected smoke|ci|stress",
+      )
+  }
+  let external_adapters = ["wabt-unavailable", "wasm-tools-unavailable"]
+  let mut local_parse_ok = 0
+  let mut local_print_ok = 0
+  let mut local_reparse_lower_ok = 0
+  let mut local_lower_mismatch = 0
+  let mut adapter_unavailable = 0
+  let mut adapter_unavailable_classifications = 0
+  let accepted_classifications = 0
+  let mut last_local_error = ""
+  for attempt in 0..<attempts {
+    let source = text_differential_case(seed, attempt)
+    match text_differential_attempt_locally(source) {
+      Ok(bytes_equal) => {
+        local_parse_ok += 1
+        local_print_ok += 1
+        if bytes_equal {
+          local_reparse_lower_ok += 1
+        } else {
+          local_lower_mismatch += 1
+        }
+      }
+      Err(e) => {
+        last_local_error = e
+        continue
+      }
+    }
+    adapter_unavailable += external_adapters.length()
+    adapter_unavailable_classifications += 1
+  }
+  if local_reparse_lower_ok == 0 {
+    return Err(
+      "text differential made no local parse/print/lower progress: profile=\{normalized} seed=\{seed} last_local_error=\{last_local_error}",
+    )
+  }
+  Ok(TextDifferentialFuzzStats::{
+    profile: normalized,
+    seed,
+    attempts,
+    local_parse_ok,
+    local_print_ok,
+    local_reparse_lower_ok,
+    local_lower_mismatch,
+    adapter_unavailable,
+    adapter_unavailable_classifications,
+    accepted_classifications,
+    external_adapters,
   })
 }
 
@@ -2344,6 +2468,13 @@ fn run_single_suite(
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
+    "text-differential" =>
+      match run_text_differential_fuzz(profile, seed) {
+        Ok(stats) =>
+          (stats.attempts, Some(format_text_differential_details_json(stats)))
+        Err(e) =>
+          return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
+      }
     _ => return Err("unknown suite '\{suite}'")
   }
   Ok(FuzzSuiteResult::{
@@ -3641,6 +3772,29 @@ fn format_gen_valid_wat_validate_details_json(
   stats : GenValidWatValidateRoundtripFuzzStats,
 ) -> String {
   "{\"generated\":\{stats.generated},\"printed\":\{stats.printed},\"print_failures\":\{stats.print_failures},\"parsed\":\{stats.parsed},\"parse_failures\":\{stats.parse_failures},\"lowered\":\{stats.lowered},\"lower_failures\":\{stats.lower_failures},\"validated\":\{stats.validated},\"validation_failures\":\{stats.validation_failures}}"
+}
+
+///|
+fn format_text_differential_adapter_names_json(names : Array[String]) -> String {
+  let out = StringBuilder::new()
+  out.write_char('[')
+  let mut i = 0
+  while i < names.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    out.write_string("\"\{fuzz_json_escape(names[i])}\"")
+    i += 1
+  }
+  out.write_char(']')
+  out.to_string()
+}
+
+///|
+fn format_text_differential_details_json(
+  stats : TextDifferentialFuzzStats,
+) -> String {
+  "{\"local_parse_ok\":\{stats.local_parse_ok},\"local_print_ok\":\{stats.local_print_ok},\"local_reparse_lower_ok\":\{stats.local_reparse_lower_ok},\"local_lower_mismatch\":\{stats.local_lower_mismatch},\"adapter_unavailable\":\{stats.adapter_unavailable},\"adapter_unavailable_classifications\":\{stats.adapter_unavailable_classifications},\"accepted_classifications\":\{stats.accepted_classifications},\"external_adapters\":\{format_text_differential_adapter_names_json(stats.external_adapters)}}"
 }
 
 ///|

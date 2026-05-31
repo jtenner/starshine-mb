@@ -399,6 +399,37 @@ test "format_fuzz_run_report_json summarizes sweep results" {
 }
 
 ///|
+test "FUZ1045A7 text differential suite is opt-in and skips unavailable tools" {
+  assert_true(fuzz_standard_recipe_names().contains("text-differential-smoke"))
+  assert_false(fuzz_active_suite_names().contains("text-differential"))
+  let results = match
+    run_fuzz_suite_sweep("text-differential", "smoke", 0x1045A7L, 1, 0, 1) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(results.length(), 1)
+  @debug.assert_eq(results[0].suite, "text-differential")
+  @debug.assert_eq(results[0].attempts, 1)
+  match results[0].details_json {
+    Some(details) => {
+      assert_true(details.contains("\"local_reparse_lower_ok\":1"), msg=details)
+      assert_true(details.contains("\"adapter_unavailable\":2"), msg=details)
+      assert_true(
+        details.contains("\"adapter_unavailable_classifications\":1"),
+        msg=details,
+      )
+      assert_true(
+        details.contains(
+          "\"external_adapters\":[\"wabt-unavailable\",\"wasm-tools-unavailable\"]",
+        ),
+        msg=details,
+      )
+    }
+    None => fail("expected text differential details")
+  }
+}
+
+///|
 test "validate-valid-metamorphic suite is active and reports transform details" {
   assert_true(fuzz_active_suite_names().contains("validate-valid-metamorphic"))
   let results = match
@@ -1394,7 +1425,9 @@ test "standard fuzz recipe texts parse through the public recipe parser" {
     }
     @debug.assert_eq(recipe.name, name)
     assert_true(
-      recipe.suite == "all" || fuzz_active_suite_names().contains(recipe.suite),
+      recipe.suite == "all" ||
+      fuzz_active_suite_names().contains(recipe.suite) ||
+      recipe.suite == "text-differential",
     )
     assert_true(recipe.seed_count > 0)
     assert_true(recipe.shard_count > 0)

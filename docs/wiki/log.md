@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1045A7 text differential runner smoke
+
+- Closed `[FUZ]1045A7` by adding the opt-in `text-differential` fuzz suite and `text-differential-smoke` recipe in `src/fuzz/main.mbt`.
+- The smoke suite runs a deterministic local WAT parse/print/reparse/lower matrix, reports local matrix counters in fuzz result details, and records unavailable WABT / wasm-tools text adapters as skipped `adapter_unavailable` evidence instead of failing the run.
+- Validation: `moon test src/fuzz` first failed on the missing opt-in text-differential runner/recipe coverage, then passed after adding the runner, details formatter, recipe/catalog tests, and unavailable-tool skip coverage. Final checks passed: `moon test src/fuzz`, `moon run src/fuzz -- --recipe text-differential-smoke`, `moon info`, `moon fmt`, and `moon test`.
+
 ## [2026-05-31] fuzzing | FUZ1045A6 text differential artifact persistence
 
 - Closed `[FUZ]1045A6` by adding `persist_text_differential_artifacts(...)`, `TextDifferentialArtifactPaths`, and a stable text-aggregate classification label helper in `src/cmd/fuzz_harness.mbt`.

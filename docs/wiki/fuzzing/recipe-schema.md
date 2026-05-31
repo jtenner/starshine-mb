@@ -45,6 +45,7 @@ The `--recipe <name>` / `--recipe=<name>` flag is recognized by both the MoonBit
 - `validator-stress`: `validate-valid` stress recipe. The `validate-valid` stress profile maps to the named validator-stress GenValid config in the validator runner.
 - `parser-stress`: `wast-roundtrip` parser-stress/script recipe.
 - `binaryen-oracle`: portable GenValid WAT validation roundtrip recipe for Binaryen-oracle-aligned inputs.
+- `text-differential-smoke`: opt-in one-seed text differential smoke that exercises the local WAT parse/print/reparse/lower matrix and records unavailable external text adapters as skipped evidence.
 
 ## Evidence
 

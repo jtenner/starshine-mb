@@ -161,6 +161,8 @@ pub fn run_fuzz_suite_sweep(String, String, Int64, Int, Int, Int) -> Result[Arra
 
 pub fn run_gen_valid_wat_validate_roundtrip_fuzz(String, UInt64) -> Result[GenValidWatValidateRoundtripFuzzStats, String]
 
+pub fn run_text_differential_fuzz(String, UInt64) -> Result[TextDifferentialFuzzStats, String]
+
 pub fn run_valid_multi_module_linking_fuzz(String, UInt64) -> Result[ValidMultiModuleLinkingFuzzStats, String]
 
 pub fn run_validate_invalid_binary_fuzz(String, UInt64) -> Result[ValidateInvalidBinaryFuzzStats, String]
@@ -1042,6 +1044,20 @@ pub enum MetamorphicValidTransform {
 pub struct MetamorphicValidTransformResult {
   transform_id : String
   wasm_module : @lib.Module
+} derive(Eq, @debug.Debug)
+
+pub struct TextDifferentialFuzzStats {
+  profile : String
+  seed : UInt64
+  attempts : Int
+  local_parse_ok : Int
+  local_print_ok : Int
+  local_reparse_lower_ok : Int
+  local_lower_mismatch : Int
+  adapter_unavailable : Int
+  adapter_unavailable_classifications : Int
+  accepted_classifications : Int
+  external_adapters : Array[String]
 } derive(Eq, @debug.Debug)
 
 pub struct ValidMultiModuleLinkingFuzzStats {
