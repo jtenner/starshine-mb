@@ -1261,17 +1261,34 @@ test "golden seed smoke runner asserts stable high-level counters" {
   @debug.assert_eq(report.schema_id, "starshine.fuzz-golden-seed-smoke.v1")
   @debug.assert_eq(report.recipe_name, "smoke")
   @debug.assert_eq(report.seed, 0x5eedL)
-  @debug.assert_eq(report.cases.length(), 1)
-  let case = report.cases[0]
-  @debug.assert_eq(case.suite, "validate-valid")
-  @debug.assert_eq(case.profile, "smoke")
-  @debug.assert_eq(case.seed_index, 0)
-  @debug.assert_eq(case.attempts, 128)
-  @debug.assert_eq(case.details_required, true)
-  assert_true(case.details_json_contains("\"validated\":128"))
+  @debug.assert_eq(report.cases.length(), 2)
+  let recipe_case = report.cases[0]
+  @debug.assert_eq(recipe_case.catalog_entry_id, None)
+  @debug.assert_eq(recipe_case.suite, "validate-valid")
+  @debug.assert_eq(recipe_case.profile, "smoke")
+  @debug.assert_eq(recipe_case.seed_index, 0)
+  @debug.assert_eq(recipe_case.attempts, 128)
+  @debug.assert_eq(recipe_case.details_required, true)
+  @debug.assert_eq(recipe_case.expected_counter_count, 0)
+  assert_true(recipe_case.details_json_contains("\"validated\":128"))
   assert_true(
-    case.details_json_contains("\"generator_config\":\"coverage-forced\""),
+    recipe_case.details_json_contains(
+      "\"generator_config\":\"coverage-forced\"",
+    ),
   )
+  let catalog_case = report.cases[1]
+  @debug.assert_eq(
+    catalog_case.catalog_entry_id,
+    Some("gen-valid-coverage-forced-smoke"),
+  )
+  @debug.assert_eq(catalog_case.suite, "validate-valid")
+  @debug.assert_eq(catalog_case.profile, "smoke")
+  @debug.assert_eq(catalog_case.seed, 0xf71004L)
+  @debug.assert_eq(catalog_case.attempts, 128)
+  @debug.assert_eq(catalog_case.details_required, true)
+  @debug.assert_eq(catalog_case.expected_counter_count, 2)
+  assert_true(catalog_case.details_json_contains("\"validated\":128"))
+  assert_true(catalog_case.details_json_contains("\"v128\":"))
 }
 
 ///|
@@ -1716,6 +1733,32 @@ test "golden seed smoke suite catalog formats checked-in json document" {
   assert_true(json.contains("\"id\":\"pass-fuzz-metadata-smoke\""))
   assert_true(json.contains("\"id\":\"minimization-repro-smoke\""))
   assert_true(json.contains("\"id\":\"wast-roundtrip-smoke\""))
+}
+
+///|
+test "golden seed smoke report includes catalog ids and asserted counter counts" {
+  let text = format_fuzz_golden_seed_smoke_report(
+    FuzzGoldenSeedSmokeReport::new(
+      "starshine.fuzz-golden-seed-smoke.v1",
+      "smoke",
+      0x5eedL,
+      [
+        FuzzGoldenSeedSmokeCase::new(
+          "validate-valid",
+          "smoke",
+          0xf71004L,
+          0,
+          128,
+          true,
+          details_json=Some("{\"validated\":128}"),
+          catalog_entry_id=Some("gen-valid-coverage-forced-smoke"),
+          expected_counter_count=2,
+        ),
+      ],
+    ),
+  )
+  assert_true(text.contains("catalog_entry_id=gen-valid-coverage-forced-smoke"))
+  assert_true(text.contains("expected_counters=2"))
 }
 
 ///|

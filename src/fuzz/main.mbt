@@ -395,7 +395,34 @@ pub struct FuzzGoldenSeedSmokeCase {
   attempts : Int
   details_required : Bool
   details_json : String?
+  catalog_entry_id : String?
+  expected_counter_count : Int
 } derive(Eq, Debug)
+
+///|
+pub fn FuzzGoldenSeedSmokeCase::new(
+  suite : String,
+  profile : String,
+  seed : Int64,
+  seed_index : Int,
+  attempts : Int,
+  details_required : Bool,
+  details_json? : String? = None,
+  catalog_entry_id? : String? = None,
+  expected_counter_count? : Int = 0,
+) -> FuzzGoldenSeedSmokeCase {
+  {
+    suite,
+    profile,
+    seed,
+    seed_index,
+    attempts,
+    details_required,
+    details_json,
+    catalog_entry_id,
+    expected_counter_count,
+  }
+}
 
 ///|
 pub fn FuzzGoldenSeedSmokeCase::details_json_contains(
@@ -415,6 +442,16 @@ pub struct FuzzGoldenSeedSmokeReport {
   seed : Int64
   cases : Array[FuzzGoldenSeedSmokeCase]
 } derive(Eq, Debug)
+
+///|
+pub fn FuzzGoldenSeedSmokeReport::new(
+  schema_id : String,
+  recipe_name : String,
+  seed : Int64,
+  cases : Array[FuzzGoldenSeedSmokeCase],
+) -> FuzzGoldenSeedSmokeReport {
+  { schema_id, recipe_name, seed, cases }
+}
 
 ///|
 pub struct FuzzReplayCommand {
@@ -3153,6 +3190,88 @@ pub fn run_fuzz_suite(
 }
 
 ///|
+fn golden_seed_validate_valid_counter_present(
+  details : String,
+  counter : GoldenSeedExpectedCounter,
+) -> Bool {
+  let field = match counter.name {
+    "features.v128" => "v128"
+    name => name
+  }
+  if counter.value <= 0 {
+    return true
+  }
+  if details.contains("\"\{field}\":0") {
+    return false
+  }
+  details.contains("\"\{field}\":")
+}
+
+///|
+fn run_fuzz_golden_seed_catalog_validate_valid_case() -> Result[
+  FuzzGoldenSeedSmokeCase,
+  String,
+] {
+  let mut entry : GoldenSeedCatalogEntry? = None
+  for candidate in golden_seed_smoke_suite_catalog() {
+    if candidate.id == "gen-valid-coverage-forced-smoke" {
+      entry = Some(candidate)
+    }
+  }
+  let entry = match entry {
+    Some(v) => v
+    None => return Err("missing gen-valid golden seed catalog entry")
+  }
+  let results = match
+    run_fuzz_suite_sweep(
+      entry.suite,
+      entry.profile,
+      entry.seed.reinterpret_as_int64(),
+      1,
+      0,
+      1,
+    ) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  if results.length() != 1 {
+    return Err(
+      "golden seed catalog smoke expected one result for \{entry.id}, got \{results.length()}",
+    )
+  }
+  let result = results[0]
+  if result.attempts != 128 {
+    return Err(
+      "golden seed catalog counter drift: id=\{entry.id} expected attempts=128 got \{result.attempts}",
+    )
+  }
+  let details = match result.details_json {
+    Some(v) => v
+    None => return Err("golden seed catalog missing details: id=\{entry.id}")
+  }
+  for counter in entry.expected_counters {
+    if !golden_seed_validate_valid_counter_present(details, counter) {
+      return Err(
+        "golden seed catalog expected counter missing: id=\{entry.id} counter=\{counter.name}",
+      )
+    }
+  }
+  Ok(
+    FuzzGoldenSeedSmokeCase::new(
+      result.suite,
+      result.profile,
+      result.seed,
+      result.seed_index,
+      result.attempts,
+      true,
+      details_json=result.details_json,
+      catalog_entry_id=Some(entry.id),
+      expected_counter_count=entry.expected_counters.length(),
+    ),
+  )
+}
+
+///|
 pub fn format_fuzz_golden_seed_smoke_report(
   report : FuzzGoldenSeedSmokeReport,
 ) -> String {
@@ -3161,8 +3280,17 @@ pub fn format_fuzz_golden_seed_smoke_report(
     "schema=\{report.schema_id} recipe=\{report.recipe_name} seed=\{report.seed}\n",
   )
   for case in report.cases {
+    let catalog_suffix = match case.catalog_entry_id {
+      Some(id) => " catalog_entry_id=\{id}"
+      None => ""
+    }
+    let counter_suffix = if case.expected_counter_count > 0 {
+      " expected_counters=\{case.expected_counter_count}"
+    } else {
+      ""
+    }
     out.write_string(
-      "suite=\{case.suite} profile=\{case.profile} seed=\{case.seed} seed_index=\{case.seed_index} attempts=\{case.attempts} details_required=\{case.details_required}\n",
+      "suite=\{case.suite} profile=\{case.profile} seed=\{case.seed} seed_index=\{case.seed_index} attempts=\{case.attempts} details_required=\{case.details_required}\{catalog_suffix}\{counter_suffix}\n",
     )
   }
   out.to_string()
@@ -3209,22 +3337,30 @@ pub fn run_fuzz_golden_seed_smoke() -> Result[FuzzGoldenSeedSmokeReport, String]
           )
       }
     }
-    cases.push({
-      suite: result.suite,
-      profile: result.profile,
-      seed: result.seed,
-      seed_index: result.seed_index,
-      attempts: result.attempts,
-      details_required,
-      details_json: result.details_json,
-    })
+    cases.push(
+      FuzzGoldenSeedSmokeCase::new(
+        result.suite,
+        result.profile,
+        result.seed,
+        result.seed_index,
+        result.attempts,
+        details_required,
+        details_json=result.details_json,
+      ),
+    )
   }
-  Ok({
-    schema_id: "starshine.fuzz-golden-seed-smoke.v1",
-    recipe_name: recipe.name,
-    seed: recipe.seed_i64,
-    cases,
-  })
+  match run_fuzz_golden_seed_catalog_validate_valid_case() {
+    Ok(case) => cases.push(case)
+    Err(e) => return Err(e)
+  }
+  Ok(
+    FuzzGoldenSeedSmokeReport::new(
+      "starshine.fuzz-golden-seed-smoke.v1",
+      recipe.name,
+      recipe.seed_i64,
+      cases,
+    ),
+  )
 }
 
 ///|

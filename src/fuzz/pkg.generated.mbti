@@ -282,8 +282,11 @@ pub struct FuzzGoldenSeedSmokeCase {
   attempts : Int
   details_required : Bool
   details_json : String?
+  catalog_entry_id : String?
+  expected_counter_count : Int
 } derive(Eq, @debug.Debug)
 pub fn FuzzGoldenSeedSmokeCase::details_json_contains(Self, String) -> Bool
+pub fn FuzzGoldenSeedSmokeCase::new(String, String, Int64, Int, Int, Bool, details_json? : String?, catalog_entry_id? : String?, expected_counter_count? : Int) -> Self
 
 pub struct FuzzGoldenSeedSmokeReport {
   schema_id : String
@@ -291,6 +294,7 @@ pub struct FuzzGoldenSeedSmokeReport {
   seed : Int64
   cases : Array[FuzzGoldenSeedSmokeCase]
 } derive(Eq, @debug.Debug)
+pub fn FuzzGoldenSeedSmokeReport::new(String, String, Int64, Array[FuzzGoldenSeedSmokeCase]) -> Self
 
 pub struct FuzzInterestingnessCaseKey {
   raw_hash : String

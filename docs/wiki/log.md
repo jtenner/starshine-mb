@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1058 golden seed executable catalog smoke
+
+- Continued `[FUZ]1058` by making `--golden-seed-smoke` replay the cataloged `gen-valid-coverage-forced-smoke` entry in addition to the standard smoke recipe and assert the entry's expected GenValid counters before reporting its catalog id and asserted counter count.
+- Updated [`fuzzing/golden-seed-catalog.md`](fuzzing/golden-seed-catalog.md) so the executable runner contract names the catalog-backed GenValid replay and the counters it guards.
+- Validation: focused TDD failure from `moon test src/fuzz` on missing report fields/constructors, then `moon test src/fuzz` and `moon run src/fuzz -- --golden-seed-smoke` passed after implementation.
+
 ## [2026-05-31] fuzzing | FUZ1051 recipe discovery command
 
 - Closed `[FUZ]1051` by adding `moon run src/fuzz -- --list-recipes`, a direct CLI discovery command for the checked-in standard fuzz recipe catalog used by `--recipe`, on top of the already landed schema, standard catalog, CLI precedence, and wrapper support.
