@@ -615,8 +615,23 @@ Use this board as the tracking view for fuzzer work. Each slice should be small 
 p1 next-up / active:
 
 p2 invalid/binary/text tiny slices:
+- `[FUZ]1044A` - Binary differential adapter result schema and pure classifier.
+- `[FUZ]1044B` - Optional `wasm-tools validate` binary adapter.
+- `[FUZ]1044C` - Optional WABT and Binaryen binary validation adapters.
+- `[FUZ]1044D` - Binary differential runner/report integration smoke.
 
 p2 oracle/reporting/infrastructure tiny slices:
+- `[FUZ]1042B` - Corpus promotion metadata schema and parser.
+- `[FUZ]1042C` - Replay command metadata builder/parser.
+- `[FUZ]1042D` - Replay-all manifest task over promoted/quarantined cases.
+- `[FUZ]1043H` - Concrete text/WAST shrink path using `reduce_fuzz_text_tokens_by_deletion(...)`.
+- `[FUZ]1043I` - Parser-aware module-field deletion adapter over the shared sequence reducer.
+- `[FUZ]1048A` - Fuzz summary report schema fixture.
+- `[FUZ]1048B` - Fuzz runner writes summary JSON for one representative suite.
+- `[FUZ]1048C` - Pass-fuzz summary counters feed coverage-delta-compatible reports.
+- `[FUZ]1050A` - Corpus hash/interestingness metadata schema.
+- `[FUZ]1050B` - Case index roundtrip with duplicate raw/reduced hashes.
+- `[FUZ]1050C` - Dry-run dedup classifier that never deletes sole unreduced failures.
 
 
 #### Named remaining FUZ slice index
@@ -624,6 +639,28 @@ p2 oracle/reporting/infrastructure tiny slices:
 Use these slice ids when selecting or reporting future FUZ work. Parent tasks below keep the fuller goals, invariants, and historical evidence; this index names the remaining units so agents do not have to infer the next slice from long status paragraphs.
 
 p1/p2 oracle, reporting, and infrastructure slices:
+- [FUZ]1042B (p2) - Corpus Promotion Metadata Schema
+  - Unit: add a small metadata shape plus parser/persist tests for promoted-valid, promoted-invalid, pass-mismatch, tool-failure, accepted-divergence, and quarantine case states. Do not add replay execution yet.
+- [FUZ]1042C (p2) - Replay Command Metadata
+  - Unit: add helpers/tests that build and parse one deterministic replay command per promoted/quarantined case, including suite, seed/profile, strategy or artifact path, and expected outcome/classification.
+- [FUZ]1042D (p2) - Replay-All Manifest Task
+  - Unit: add a manifest reader/planner that enumerates replay commands from promoted/quarantined metadata and reports planned/skipped/malformed counts; execution can remain stubbed or dry-run only.
+- [FUZ]1043H (p2) - Concrete Text/WAST Token Shrink Path
+  - Unit: wire one invalid text or spec-seed shrink path through `reduce_fuzz_text_tokens_by_deletion(...)` with a replay predicate and record shrink metadata. Preserve original artifacts and fall back to the strategy-minimal reducer when token deletion cannot shrink.
+- [FUZ]1043I (p2) - Parser-Aware Module-Field Adapter
+  - Unit: add a predicate-only module-field deletion adapter over the shared sequence reducer for parsed WAST/module fields, with fake predicate tests and no broad harness integration.
+- [FUZ]1048A (p2) - Fuzz Summary Report Schema
+  - Unit: define a compact summary JSON/schema fixture for suite/profile/seed, feature/opcode counters, strategy counters, status/failure counts, timings, and artifact counts; add parse/format tests only.
+- [FUZ]1048B (p2) - Representative Suite Summary Writer
+  - Unit: wire one existing Moon fuzz runner suite to emit the FUZ1048A summary shape and add a smoke test that counters are stable enough for `coverage-delta` inputs.
+- [FUZ]1048C (p2) - Pass-Fuzz Summary Bridge
+  - Unit: convert pass-fuzz result data into the same coverage-delta-compatible summary counter families, with fixture tests and no CI policy change.
+- [FUZ]1050A (p2) - Corpus Hash Metadata Schema
+  - Unit: compute/store raw bytes/text hash, reduced-artifact hash, failure-predicate hash, feature-facts hash, and an initial interestingness label in metadata fixtures.
+- [FUZ]1050B (p2) - Case Index Roundtrip
+  - Unit: add an index mapping hashes to source seeds/profiles/artifact paths and roundtrip duplicate raw/reduced cases without deleting anything.
+- [FUZ]1050C (p2) - Dry-Run Dedup Classifier
+  - Unit: classify duplicate/compress/keep decisions from the case index while proving the only artifact for an unreduced failure is never deleted; report decisions only.
 - [FUZ]1052B (p2) - Export Invocation Result Matrix
   - Completed tiny slices: `[FUZ]1052B1` through `[FUZ]1052B7` cover the pure classifier, deterministic simple arguments, named comparison reports, summary counts, mismatch predicate, matrix outcome, and mismatch-report filtering in `src/cmd/fuzz_harness.mbt`; `[FUZ]1052B8` wires pass-fuzz `--runtime-execution node` to invoke same-named Starshine/Binaryen exports through the Node adapter and summarize checked/unsupported/failed runtime evidence; `[FUZ]1052B9` persists the runtime matrix summary/outcome and semantic-mismatch samples into `result.json` plus runtime-enabled mismatch repro manifests without requiring runtime execution by default; `[FUZ]1052B10` adds the opt-in semantic-mismatch failure policy while unsupported runtime and nondeterministic imports remain blocked/skipped classifications.
   - Remaining concrete slices: none for the current tracked 1052B board.
@@ -633,6 +670,14 @@ p1/p2 oracle, reporting, and infrastructure slices:
   - Unit: completed for tracked tiny slices. `[FUZ]1053B2` closed with timeout/resource repro persistence tolerating partial artifact write failures and recording `partial_artifact_write_failure` manifest entries. `[FUZ]1053B1` closed with invalid repro metadata carrying timeout stage, diagnostic location, and `timeout_budget_ms` through persist/parse.
 
 p2 invalid/binary/text slices:
+- [FUZ]1044A (p2) - Binary Differential Adapter Result Schema
+  - Unit: add pure result/classifier types for Starshine/wasm-tools/WABT/Binaryen binary validation outcomes: agree-valid, agree-invalid, proposal-gap, decoder-stage disagreement, validator-stage disagreement, tool-failure, unsupported-feature, and adapter-unavailable.
+- [FUZ]1044B (p2) - Optional wasm-tools Binary Adapter
+  - Unit: add an optional subprocess adapter for `wasm-tools validate`, skip cleanly when unavailable, and classify one known malformed/valid fixture through the FUZ1044A schema.
+- [FUZ]1044C (p2) - Optional WABT And Binaryen Binary Adapters
+  - Unit: add optional `wasm-validate` adapters for WABT and Binaryen with unavailable-tool tests and one fake/fixture classification each.
+- [FUZ]1044D (p2) - Binary Differential Runner/Report Smoke
+  - Unit: add an opt-in runner or smoke helper that feeds a small binary corpus through Starshine plus available adapters and reports aggregate classifications without requiring external tools in default tests.
 - [FUZ]1020A (p2) - Remaining AST Type/Subtyping Invalid Strategies
   - Remaining concrete slices: none for the current tracked 1020A board. Earlier `[FUZ]1020A1`/`A2` covered representative subtype variance and descriptor-cycle basics; `[FUZ]1020A3` covered focused function parameter/result variance; `[FUZ]1020A4` covered descriptor-edge missing heap-type refs; `[FUZ]1020A5` covered recursive-group supertype-cycle rejection.
 - [FUZ]1020B (p2) - Remaining AST Section/Index Invalid Strategies
@@ -740,7 +785,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1042 (p2) - Corpus Promotion, Quarantine, And Regression Replay Workflow
   - Goal: define how interesting fuzz findings become durable regression inputs.
   - Why: without a promotion workflow, agents either lose valuable seeds or commit noisy unminimized corpora. A quarantine lane keeps known tool failures and accepted semantic-safe divergences from blocking unrelated work.
-  - Deliverables remaining: store metadata with source run, seed, profile, feature facts, classification, and replay command; add a replay-all task. `[FUZ]1042A` closed on 2026-05-28 with `docs/wiki/tooling/fuzz-corpus-policy.md`, which defines promoted-valid, promoted-invalid, pass-mismatch, tool-failure, accepted-divergence, and quarantine states plus required metadata and promotion/quarantine rules.
+  - Deliverables remaining: `[FUZ]1042B` metadata schema/parser, `[FUZ]1042C` replay command metadata, and `[FUZ]1042D` replay-all manifest planner. `[FUZ]1042A` closed on 2026-05-28 with `docs/wiki/tooling/fuzz-corpus-policy.md`, which defines promoted-valid, promoted-invalid, pass-mismatch, tool-failure, accepted-divergence, and quarantine states plus required metadata and promotion/quarantine rules.
   - Required APIs: fuzz output dirs from [FUZ]1031, invalid repro metadata, pass-fuzz result schema, docs/wiki corpus page.
   - Invariants: no large or private artifacts should be committed accidentally; every promoted case must have a human-readable reason and replay command.
   - Dependencies: [FUZ]1031 and [FUZ]1016 recommended.
@@ -761,13 +806,13 @@ p2 invalid/binary/text slices:
   - Invariants: minimization must never replace the original artifact unless the predicate still reproduces; store original and reduced artifacts separately.
   - Dependencies: [FUZ]1025 and [FUZ]1031.
   - Suggested Tests: fake predicate reducer tests, known fixture reductions, original-vs-reduced metadata roundtrip tests.
-  - Next concrete slice: connect `reduce_fuzz_text_tokens_by_deletion(...)` to a concrete text/WAST repro shrink path with a replay predicate, or add a parser-aware module-field adapter over the shared sequence reducer.
+  - Next concrete slices: `[FUZ]1043H` connects `reduce_fuzz_text_tokens_by_deletion(...)` to one concrete text/WAST repro shrink path with a replay predicate; `[FUZ]1043I` adds a parser-aware module-field adapter over the shared sequence reducer.
   - Exit Criteria: any fuzz harness can hand a failure to one reducer and get a smaller reproducible artifact plus shrink log.
 
 - [FUZ]1044 (p2) - N-Way Binary Parser And Validator Differential
   - Goal: compare Starshine binary decode/validate results against multiple external tools when available.
   - Why: Binaryen alone is not a complete oracle. WABT, wasm-tools, and Starshine may disagree on proposal support, malformed encodings, canonical LEB policy, and diagnostic staging.
-  - Deliverables: add optional adapters for `wasm-tools validate`, WABT `wasm-validate`, and Binaryen `wasm-validate`; classify agree-valid, agree-invalid, proposal-gap, decoder-stage disagreement, validator-stage disagreement, tool-failure, and unsupported-feature.
+  - Deliverables: `[FUZ]1044A` adds the adapter result schema and pure classifier; `[FUZ]1044B` adds optional `wasm-tools validate`; `[FUZ]1044C` adds optional WABT/Binaryen `wasm-validate`; `[FUZ]1044D` adds opt-in runner/report smoke. Classify agree-valid, agree-invalid, proposal-gap, decoder-stage disagreement, validator-stage disagreement, tool-failure, unsupported-feature, and adapter-unavailable.
   - Required APIs: external adapter layer from [FUZ]1032, invalid binary lane, valid-module binary roundtrip lane, result schema.
   - Invariants: external tool absence must skip cleanly; proposal support differences must be reported, not auto-labeled as Starshine bugs.
   - Dependencies: [FUZ]1029 and [FUZ]1032.
@@ -787,7 +832,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1048 (p2) - Fuzz Result Trend Reports And Coverage Deltas
   - Goal: compare fuzz coverage and outcomes across commits, seeds, and profiles.
   - Why: broad generator work can accidentally remove surfaces while all tests still pass. Trend reports make coverage regressions visible.
-  - Deliverables: write summary JSON for feature/opcode counters, strategy counters, pass statuses, failure classes, timings, and artifact counts. The coverage-delta diff tool is complete: `bun fuzz coverage-delta [--optional] <before> <after>` compares report counters, fails on required counter drops, tolerates optional counters by default, and always reports artifact/failure/status/timing drift.
+  - Deliverables: `[FUZ]1048A` defines a summary report schema fixture; `[FUZ]1048B` wires one representative Moon fuzz suite to emit that summary; `[FUZ]1048C` bridges pass-fuzz result counters into the same shape. The coverage-delta diff tool is complete: `bun fuzz coverage-delta [--optional] <before> <after>` compares report counters, fails on required counter drops, tolerates optional counters by default, and always reports artifact/failure/status/timing drift.
   - Required APIs: fuzz JSON reports from [FUZ]1030, exact ledger from [FUZ]1013, pass-fuzz result schema, docs/wiki tooling.
   - Invariants: report comparison must tolerate newly added optional counters; required counter drops should fail only when a profile declares that floor.
   - Dependencies: [FUZ]1013 and [FUZ]1030.
@@ -797,7 +842,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1050 (p2) - Corpus Deduplication, Interestingness Hashes, And Case Index
   - Goal: prevent fuzz artifact directories and promoted corpora from filling with duplicate or equivalent cases.
   - Why: wide generation will produce many modules that are byte-distinct but structurally or semantically redundant. Dedup keeps review and CI costs manageable.
-  - Deliverables: compute hashes for raw bytes/text, decoded module shape, feature facts, normalized canonical form, failure predicate, and reduced artifact; maintain an index mapping hash to source seeds and profiles; define an interestingness score for rare features or new failure classes.
+  - Deliverables: `[FUZ]1050A` adds corpus hash/interestingness metadata; `[FUZ]1050B` adds a case-index roundtrip over hashes, seeds, profiles, and artifact paths; `[FUZ]1050C` adds a dry-run dedup classifier that reports duplicate/compress/keep decisions without deleting anything. Later slices can add decoded-shape or normalized-canonical hashes once the metadata/index contract is stable.
   - Required APIs: feature ledger, normalizers, output directory manifests, corpus workflow.
   - Invariants: never delete the only artifact for an unreduced failure; dedup decisions must be recorded and reversible for debugging.
   - Dependencies: [FUZ]1031, [FUZ]1042, and [FUZ]1047.
