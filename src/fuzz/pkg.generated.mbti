@@ -1215,6 +1215,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   OverwideMemoryMaxUleb
   OverwideTableMaxUleb
   InvalidExportNameUtf8
+  MalformedExportNameUtf8
   MalformedExportNameLengthUleb
   OverwideExportNameLengthUleb
   InvalidImportModuleNameUtf8

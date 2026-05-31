@@ -164,6 +164,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   OverwideMemoryMaxUleb
   OverwideTableMaxUleb
   InvalidExportNameUtf8
+  MalformedExportNameUtf8
   MalformedExportNameLengthUleb
   OverwideExportNameLengthUleb
   InvalidImportModuleNameUtf8
@@ -985,6 +986,7 @@ fn validate_invalid_binary_strategy_label(
     OverwideMemoryMaxUleb => "overwide-memory-max-uleb"
     OverwideTableMaxUleb => "overwide-table-max-uleb"
     InvalidExportNameUtf8 => "invalid-export-name-utf8"
+    MalformedExportNameUtf8 => "malformed-export-name-utf8"
     MalformedExportNameLengthUleb => "malformed-export-name-length-uleb"
     OverwideExportNameLengthUleb => "overwide-export-name-length-uleb"
     InvalidImportModuleNameUtf8 => "invalid-import-module-name-utf8"
@@ -2395,6 +2397,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidExportNameUtf8,
       "invalid-export-name-utf8",
       "export section with an invalid UTF-8 export name",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedExportNameUtf8,
+      "malformed-export-name-utf8",
+      "export section with truncated multibyte UTF-8 export name",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -13655,6 +13664,44 @@ fn validate_invalid_binary_module_with_invalid_export_name_utf8() -> Bytes {
 }
 
 ///|
+fn validate_invalid_binary_module_with_malformed_export_name_utf8() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x03).to_byte(),
+    (0x02).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x07).to_byte(),
+    (0x06).to_byte(),
+    (0x01).to_byte(),
+    (0x02).to_byte(),
+    (0xe2).to_byte(),
+    (0x82).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x0a).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x02).to_byte(),
+    (0x00).to_byte(),
+    (0x0b).to_byte(),
+  ])
+}
+
+///|
 fn validate_invalid_binary_module_with_malformed_export_name_length_uleb() -> Bytes {
   Bytes::from_array([
     (0x00).to_byte(),
@@ -13738,6 +13785,20 @@ fn validate_invalid_binary_mutate_invalid_export_name_utf8(
       DecodeRejected,
       true,
       validate_invalid_binary_module_with_invalid_export_name_utf8(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_export_name_utf8(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedExportNameUtf8,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_export_name_utf8(),
     ),
   )
 }
@@ -16332,6 +16393,8 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_overwide_table_max_uleb(base)
     InvalidExportNameUtf8 =>
       validate_invalid_binary_mutate_invalid_export_name_utf8(base)
+    MalformedExportNameUtf8 =>
+      validate_invalid_binary_mutate_malformed_export_name_utf8(base)
     MalformedExportNameLengthUleb =>
       validate_invalid_binary_mutate_malformed_export_name_length_uleb(base)
     OverwideExportNameLengthUleb =>

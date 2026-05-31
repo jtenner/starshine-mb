@@ -716,6 +716,17 @@ test "malformed import module-name UTF-8 binary strategy rejects at decode stage
 }
 
 ///|
+test "malformed export-name UTF-8 binary strategy rejects at decode stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "malformed-export-name-utf8", 0x1021a3UL, "decode",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "malformed import field-name UTF-8 binary strategy rejects at decode stage" {
   match
     invalid_binary_expect_strategy_rejects(
