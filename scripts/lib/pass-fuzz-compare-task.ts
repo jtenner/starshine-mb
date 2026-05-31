@@ -38,6 +38,20 @@ export type RuntimeExportInvocationReport = {
   rightResult: RuntimeInvocationOutcome;
   classification: RuntimeInvocationClassification;
 };
+export type RuntimeExportInvocationMatrixSummary = {
+  total: number;
+  equalResults: number;
+  equalTraps: number;
+  unsupportedRuntimes: number;
+  nondeterministicImports: number;
+  semanticMismatches: number;
+};
+export type RuntimeExportInvocationMatrixOutcome = "not-run" | "empty" | "all-equal" | "blocked" | "semantic-mismatch";
+type RuntimeExportInvocationMatrixPersistence = {
+  summary: RuntimeExportInvocationMatrixSummary;
+  outcome: RuntimeExportInvocationMatrixOutcome;
+  semanticMismatchSamples: RuntimeExportInvocationReport[];
+};
 type PropertyMode = "none" | "idempotence" | "composition";
 type CommandFailureClass =
   | "starshine-command-failed"
@@ -149,6 +163,7 @@ type PassFuzzCompareSummary = {
     unsupported: number;
     failed: number;
   };
+  runtimeExecutionMatrix: RuntimeExportInvocationMatrixPersistence;
   externalValidatorSkipped: Partial<Record<ExternalValidatorKind, number>>;
   generatorCounts: {
     wasmSmith: number;
@@ -642,6 +657,60 @@ export function deterministicExportArgumentVector(func: Function): unknown[] {
     args.push(0);
   }
   return args;
+}
+
+export function emptyRuntimeExportInvocationMatrixSummary(): RuntimeExportInvocationMatrixSummary {
+  return {
+    total: 0,
+    equalResults: 0,
+    equalTraps: 0,
+    unsupportedRuntimes: 0,
+    nondeterministicImports: 0,
+    semanticMismatches: 0,
+  };
+}
+
+export function summarizeRuntimeExportInvocationMatrix(
+  reports: RuntimeExportInvocationReport[],
+): RuntimeExportInvocationMatrixSummary {
+  const summary = emptyRuntimeExportInvocationMatrixSummary();
+  for (const report of reports) {
+    summary.total += 1;
+    switch (report.classification) {
+      case "equal-result":
+        summary.equalResults += 1;
+        break;
+      case "equal-trap":
+        summary.equalTraps += 1;
+        break;
+      case "unsupported-runtime":
+        summary.unsupportedRuntimes += 1;
+        break;
+      case "nondeterministic-import":
+        summary.nondeterministicImports += 1;
+        break;
+      case "semantic-mismatch":
+        summary.semanticMismatches += 1;
+        break;
+    }
+  }
+  return summary;
+}
+
+export function classifyRuntimeExportInvocationMatrix(
+  summary: RuntimeExportInvocationMatrixSummary,
+): RuntimeExportInvocationMatrixOutcome {
+  if (summary.total === 0) return "empty";
+  if (summary.semanticMismatches > 0) return "semantic-mismatch";
+  if (summary.unsupportedRuntimes > 0 || summary.nondeterministicImports > 0) return "blocked";
+  return "all-equal";
+}
+
+export function runtimeSemanticMismatchSamples(
+  reports: RuntimeExportInvocationReport[],
+  limit = 8,
+): RuntimeExportInvocationReport[] {
+  return reports.filter((report) => report.classification === "semantic-mismatch").slice(0, Math.max(0, limit));
 }
 
 async function instantiateNodeRuntime(
@@ -1298,6 +1367,40 @@ function noteGenValidTransformCount(summary: PassFuzzCompareSummary, transformId
   summary.genValidTransformCounts[transformId] = (summary.genValidTransformCounts[transformId] ?? 0) + 1;
 }
 
+function noteRuntimeExportInvocationMatrix(
+  summary: PassFuzzCompareSummary,
+  reports: RuntimeExportInvocationReport[],
+): void {
+  const caseSummary = summarizeRuntimeExportInvocationMatrix(reports);
+  summary.runtimeExecutionMatrix.summary.total += caseSummary.total;
+  summary.runtimeExecutionMatrix.summary.equalResults += caseSummary.equalResults;
+  summary.runtimeExecutionMatrix.summary.equalTraps += caseSummary.equalTraps;
+  summary.runtimeExecutionMatrix.summary.unsupportedRuntimes += caseSummary.unsupportedRuntimes;
+  summary.runtimeExecutionMatrix.summary.nondeterministicImports += caseSummary.nondeterministicImports;
+  summary.runtimeExecutionMatrix.summary.semanticMismatches += caseSummary.semanticMismatches;
+  for (const sample of runtimeSemanticMismatchSamples(reports)) {
+    if (summary.runtimeExecutionMatrix.semanticMismatchSamples.length >= 8) {
+      break;
+    }
+    summary.runtimeExecutionMatrix.semanticMismatchSamples.push(sample);
+  }
+  const outcome = classifyRuntimeExportInvocationMatrix(summary.runtimeExecutionMatrix.summary);
+  if (outcome === "semantic-mismatch" || summary.runtimeExecutionMatrix.outcome !== "semantic-mismatch") {
+    summary.runtimeExecutionMatrix.outcome = outcome;
+  }
+}
+
+function runtimeExportInvocationMatrixPersistence(
+  reports: RuntimeExportInvocationReport[],
+): RuntimeExportInvocationMatrixPersistence {
+  const matrixSummary = summarizeRuntimeExportInvocationMatrix(reports);
+  return {
+    summary: matrixSummary,
+    outcome: classifyRuntimeExportInvocationMatrix(matrixSummary),
+    semanticMismatchSamples: runtimeSemanticMismatchSamples(reports),
+  };
+}
+
 function safeArtifactNameSegment(value: string): string {
   return value.replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^_+|_+$/g, "") || "unknown";
 }
@@ -1314,6 +1417,7 @@ function persistFailureArtifacts(
   passFlags: string[],
   genValidManifestEntry: unknown | null = null,
   inputEffectTrapFacts: EffectTrapFacts | null = null,
+  runtimeInvocationReports: RuntimeExportInvocationReport[] | null = null,
 ): string {
   const transformId = genValidManifestTransformId(genValidManifestEntry);
   const failureDir = path.join(
@@ -1358,6 +1462,10 @@ function persistFailureArtifacts(
         genValidManifestEntry,
         transformId,
         inputEffectTrapFacts,
+        runtimeExecutionMatrix:
+          runtimeInvocationReports === null
+            ? null
+            : runtimeExportInvocationMatrixPersistence(runtimeInvocationReports),
         replay: {
           input: "input.wasm",
           passFlags,
@@ -1867,6 +1975,11 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       unsupported: 0,
       failed: 0,
     },
+    runtimeExecutionMatrix: {
+      summary: emptyRuntimeExportInvocationMatrixSummary(),
+      outcome: options.runtimeExecution === "off" ? "not-run" : "empty",
+      semanticMismatchSamples: [],
+    },
     externalValidatorSkipped: {},
     generatorCounts: {
       wasmSmith: 0,
@@ -1927,6 +2040,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     let genValidManifestEntry: unknown | null = null;
     let transformId: string | null = null;
     let inputEffectTrapFacts: EffectTrapFacts | null = null;
+    let runtimeInvocationReports: RuntimeExportInvocationReport[] | null = null;
 
     try {
       if (replayCase !== null) {
@@ -2365,6 +2479,8 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
 
       if (options.runtimeExecution === "node") {
         const runtimeReports = await runNodeExportInvocationMatrix(starshineRawPath, binaryenRawPath);
+        runtimeInvocationReports = runtimeReports;
+        noteRuntimeExportInvocationMatrix(summary, runtimeReports);
         if (runtimeReports.length === 0) {
           summary.runtimeExecutionCounts.checked += 1;
         } else if (runtimeReports.some((report) => report.classification === "semantic-mismatch")) {
@@ -2421,6 +2537,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             options.passFlags,
             genValidManifestEntry,
             inputEffectTrapFacts,
+            runtimeInvocationReports,
           ),
         );
         recordCase({

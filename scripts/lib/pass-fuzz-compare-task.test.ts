@@ -5,10 +5,13 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 import {
+  classifyRuntimeExportInvocationMatrix,
   classifyRuntimeInvocationPair,
   deterministicExportArgumentVector,
+  runtimeSemanticMismatchSamples,
   runNodeExportInvocationMatrix,
   smokeExecuteNodeRuntime,
+  summarizeRuntimeExportInvocationMatrix,
 } from "./pass-fuzz-compare-task";
 
 function wasmFromWat(wat: string): string {
@@ -30,6 +33,45 @@ describe("runtime result classification", () => {
     expect(classifyRuntimeInvocationPair({ kind: "unsupported", detail: "externref" }, { kind: "result", value: 0 })).toBe("unsupported-runtime");
     expect(classifyRuntimeInvocationPair({ kind: "nondeterministic-import", detail: "env.now" }, { kind: "result", value: 0 })).toBe("nondeterministic-import");
     expect(classifyRuntimeInvocationPair({ kind: "result", value: 1 }, { kind: "result", value: 2 })).toBe("semantic-mismatch");
+  });
+
+  test("summarize matrix outcome and semantic mismatch samples for persistence", () => {
+    const reports = [
+      {
+        exportName: "ok",
+        args: [],
+        leftResult: { kind: "result" as const, value: 1 },
+        rightResult: { kind: "result" as const, value: 1 },
+        classification: "equal-result" as const,
+      },
+      {
+        exportName: "blocked",
+        args: [],
+        leftResult: { kind: "unsupported" as const, detail: "externref import" },
+        rightResult: { kind: "result" as const, value: 0 },
+        classification: "unsupported-runtime" as const,
+      },
+      {
+        exportName: "bad",
+        args: ["number:0"],
+        leftResult: { kind: "result" as const, value: 1 },
+        rightResult: { kind: "result" as const, value: 2 },
+        classification: "semantic-mismatch" as const,
+      },
+    ];
+
+    const summary = summarizeRuntimeExportInvocationMatrix(reports);
+
+    expect(summary).toEqual({
+      total: 3,
+      equalResults: 1,
+      equalTraps: 0,
+      unsupportedRuntimes: 1,
+      nondeterministicImports: 0,
+      semanticMismatches: 1,
+    });
+    expect(classifyRuntimeExportInvocationMatrix(summary)).toBe("semantic-mismatch");
+    expect(runtimeSemanticMismatchSamples(reports, 1)).toEqual([reports[2]]);
   });
 });
 

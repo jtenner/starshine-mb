@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1052B9 export matrix report persistence
+
+- Closed `[FUZ]1052B9` by persisting the pass-fuzz runtime export invocation matrix summary, aggregate outcome, and capped semantic-mismatch samples in `result.json`.
+- Runtime execution remains opt-in: default runs now record `runtimeExecutionMatrix.outcome = "not-run"` with an empty matrix, while runtime-enabled normalized-mismatch repro manifests include per-case runtime matrix evidence when the Node adapter has run.
+- Validation: focused `bun test scripts/lib/pass-fuzz-compare-task.test.ts` passed after adding matrix-summary/outcome/sample coverage. The legacy command fixture `bun scripts/test/pass-fuzz-compare-command.ts` was attempted but is currently blocked by an existing syntax error at `scripts/test/pass-fuzz-compare-command.ts:289` before reaching this slice's new default-persistence assertion.
+
 ## [2026-05-31] fuzzing | FUZ1052B8 export matrix runner wiring
 
 - Closed `[FUZ]1052B8` by wiring pass-fuzz `--runtime-execution node` to instantiate both raw Starshine and Binaryen outputs, pair same-named exported functions, invoke up to eight functions with deterministic simple arguments, and classify the resulting export invocation matrix rows.

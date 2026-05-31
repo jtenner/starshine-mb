@@ -200,6 +200,14 @@ process.exit(0);
     genValidManifestPath: string | null;
     genValidTransformCounts: Record<string, number>;
     inputEffectTrapCounts: Record<string, number>;
+    runtimeExecutionMatrix: {
+      summary: {
+        total: number;
+        semanticMismatches: number;
+      };
+      outcome: string;
+      semanticMismatchSamples: unknown[];
+    };
     passFlags: string[];
     binaryenPassFlags: string[];
   };
@@ -226,6 +234,14 @@ process.exit(0);
   assert(
     summary.inputEffectTrapCounts.hasUnreachable === 0,
     `unexpected unreachable count ${JSON.stringify(summary.inputEffectTrapCounts)}`,
+  );
+  assert(
+    summary.runtimeExecutionMatrix.outcome === "not-run",
+    `expected runtime matrix to be persisted as not-run by default, got ${JSON.stringify(summary.runtimeExecutionMatrix)}`,
+  );
+  assert(
+    summary.runtimeExecutionMatrix.summary.total === 0 && summary.runtimeExecutionMatrix.semanticMismatchSamples.length === 0,
+    `expected empty default runtime matrix summary/samples, got ${JSON.stringify(summary.runtimeExecutionMatrix)}`,
   );
   const cases = fs.readFileSync(path.join(outDir, "cases.jsonl"), "utf8").trim().split("\n").map((line) => JSON.parse(line) as { generator: string; transformId?: string; genValidFeatureFacts?: Record<string, unknown>; inputEffectTrapFacts?: Record<string, boolean> });
   assert(cases.length === 4, `expected 4 case records, got ${cases.length}`);
