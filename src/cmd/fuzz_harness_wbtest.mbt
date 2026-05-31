@@ -194,6 +194,29 @@ test "FUZ1052B6 export invocation matrix broad outcome prioritizes mismatches" {
 }
 
 ///|
+test "FUZ1052B7 export invocation semantic mismatch report filter keeps context" {
+  let reports = [
+    compare_export_invocation_results(
+      "ok", [], ExportInvocationResult::value("i32:1"), ExportInvocationResult::value("i32:1"),
+    ),
+    compare_export_invocation_results(
+      "bad-a", ["i32:0"], ExportInvocationResult::value("i32:1"), ExportInvocationResult::value("i32:2"),
+    ),
+    compare_export_invocation_results(
+      "blocked", [], ExportInvocationResult::unsupported_runtime("missing"), ExportInvocationResult::value("i32:1"),
+    ),
+    compare_export_invocation_results(
+      "bad-b", [], ExportInvocationResult::trap("left"), ExportInvocationResult::value("i32:2"),
+    ),
+  ]
+  let mismatches = export_invocation_semantic_mismatch_reports(reports)
+  @debug.assert_eq(mismatches.length(), 2)
+  @debug.assert_eq(mismatches[0].export_name, "bad-a")
+  @debug.assert_eq(mismatches[0].args, ["i32:0"])
+  @debug.assert_eq(mismatches[1].export_name, "bad-b")
+}
+
+///|
 test "FUZ1053A3 differential adapters classify per-case timeout results" {
   let bytes = encode_fixture_module(23)
   let adapters = DifferentialAdapters::new(

@@ -259,6 +259,20 @@ pub fn classify_export_invocation_matrix(
 }
 
 ///|
+pub fn export_invocation_semantic_mismatch_reports(
+  reports : Array[ExportInvocationComparisonReport],
+) -> Array[ExportInvocationComparisonReport] {
+  let mismatches = Array::new()
+  for report in reports {
+    match report.classification {
+      SemanticMismatch(_) => mismatches.push(report)
+      _ => ()
+    }
+  }
+  mismatches
+}
+
+///|
 pub struct CmdFuzzStats {
   attempts : Int
   generated_valid : Int
