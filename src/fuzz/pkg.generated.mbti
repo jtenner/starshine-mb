@@ -1147,6 +1147,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidBinaryCallIndirectIndexTypeModule
   InvalidBinaryCallRefTypeModule
   InvalidBinaryStructGetFieldIndexModule
+  InvalidBinaryStructSetFieldIndexModule
   InvalidBinaryThrowPayloadModule
   InvalidBinarySharedMemoryWithoutMaxModule
   InvalidBinaryMemory64AddressTypeModule

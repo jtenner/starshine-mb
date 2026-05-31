@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1022A8 GC aggregate binary validation
+
+- Closed `[FUZ]1022A8` by adding the decode-accepted binary-invalid strategy `invalid-binary-struct-set-field-index-module`, which reuses the deterministic AST invalid `struct.set` out-of-range field-index mutation.
+- The specimen encodes and decodes successfully, then validation rejects it with the function-body diagnostic family, extending GC aggregate validation-stage binary coverage beyond the existing `struct.get` field-index fixture.
+- Validation: `moon test src/fuzz` first failed on the missing binary strategy stable id, then passed after registry, mutation-dispatch, focused-test, and wiki wiring.
+
 ## [2026-05-31] fuzzing | FUZ1022A7 call_indirect binary validation
 
 - Closed `[FUZ]1022A7` by adding the decode-accepted binary-invalid strategy `invalid-binary-call-indirect-index-type-module`, which reuses the deterministic AST invalid `call_indirect` table-index operand type mismatch.

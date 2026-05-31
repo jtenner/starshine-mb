@@ -96,6 +96,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidBinaryCallIndirectIndexTypeModule
   InvalidBinaryCallRefTypeModule
   InvalidBinaryStructGetFieldIndexModule
+  InvalidBinaryStructSetFieldIndexModule
   InvalidBinaryThrowPayloadModule
   InvalidBinarySharedMemoryWithoutMaxModule
   InvalidBinaryMemory64AddressTypeModule
@@ -906,6 +907,8 @@ fn validate_invalid_binary_strategy_label(
     InvalidBinaryCallRefTypeModule => "invalid-binary-call-ref-type-module"
     InvalidBinaryStructGetFieldIndexModule =>
       "invalid-binary-struct-get-field-index-module"
+    InvalidBinaryStructSetFieldIndexModule =>
+      "invalid-binary-struct-set-field-index-module"
     InvalidBinaryThrowPayloadModule => "invalid-binary-throw-payload-module"
     InvalidBinarySharedMemoryWithoutMaxModule =>
       "invalid-binary-shared-memory-without-max-module"
@@ -1887,6 +1890,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidBinaryStructGetFieldIndexModule,
       "invalid-binary-struct-get-field-index-module",
       "encoded module with an out-of-range struct.get field index",
+      ValidateRejected("function-body"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryStructSetFieldIndexModule,
+      "invalid-binary-struct-set-field-index-module",
+      "encoded module with an out-of-range struct.set field index",
       ValidateRejected("function-body"),
       required_in_smoke=false,
     ),
@@ -18406,6 +18416,21 @@ pub fn apply_validate_invalid_binary_strategy(
       }
       validate_invalid_binary_mutate_encoded_invalid_ast_module(
         InvalidBinaryStructGetFieldIndexModule,
+        ast_strategy,
+        "function-body",
+        base,
+      )
+    }
+    InvalidBinaryStructSetFieldIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-function-body-struct-set-field-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryStructSetFieldIndexModule,
         ast_strategy,
         "function-body",
         base,
