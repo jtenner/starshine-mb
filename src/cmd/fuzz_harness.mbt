@@ -238,6 +238,12 @@ pub enum ExportInvocationMatrixOutcome {
 } derive(Eq, Debug)
 
 ///|
+pub enum ExportInvocationFailurePolicy {
+  Informational
+  FailOnSemanticMismatch
+} derive(Eq, Debug)
+
+///|
 pub fn ExportInvocationClassification::equal_result() -> ExportInvocationClassification {
   EqualResult
 }
@@ -282,6 +288,16 @@ pub fn ExportInvocationMatrixOutcome::blocked() -> ExportInvocationMatrixOutcome
 ///|
 pub fn ExportInvocationMatrixOutcome::semantic_mismatch() -> ExportInvocationMatrixOutcome {
   SemanticMismatch
+}
+
+///|
+pub fn ExportInvocationFailurePolicy::informational() -> ExportInvocationFailurePolicy {
+  Informational
+}
+
+///|
+pub fn ExportInvocationFailurePolicy::fail_on_semantic_mismatch() -> ExportInvocationFailurePolicy {
+  FailOnSemanticMismatch
 }
 
 ///|
@@ -408,6 +424,17 @@ pub fn export_invocation_semantic_mismatch_reports(
     }
   }
   mismatches
+}
+
+///|
+pub fn export_invocation_matrix_should_fail(
+  summary : ExportInvocationMatrixSummary,
+  policy : ExportInvocationFailurePolicy,
+) -> Bool {
+  match policy {
+    Informational => false
+    FailOnSemanticMismatch => summary.semantic_mismatches > 0
+  }
 }
 
 ///|

@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-30] fuzzing | FUZ1052B10 export matrix opt-in failure policy
+
+- Completed `[FUZ]1052B10` by adding an explicit export-invocation failure policy: default informational reporting never fails a run, while `fail_on_semantic_mismatch` fails only when matrix summary semantic mismatches are present.
+- Unsupported runtime and nondeterministic import rows remain blocked/skipped classifications rather than hard failures. Synced the fuzz-runner wiki and removed the completed tiny slice from the active FUZ board.
+
 ## [2026-05-30] fuzzing | FUZ1057A3 canonicality report counters
 
 - Completed `[FUZ]1057A3` by adding binary canonicality summary counters for canonical, accepted-noncanonical, malformed-rejected, external-policy-disagreement, and possible decoder-bug disagreement outcomes.

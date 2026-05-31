@@ -73,6 +73,8 @@ The lower-level [`run_cmd_fuzz_harness(...)`](../../../src/cmd/fuzz_harness.mbt)
 
 Cmd-harness corpus tools also expose `FuzzCorpusDedupIndex`, a deterministic FNV-1a keyed hash index that records every source seed, attempt, generator profile, pass profile, stage, and duplicate decision under the emitted wasm hash. Keep that text index next to generated corpus artifacts when deduplicating so a retained hash can be traced back to all source seeds/profiles and duplicate decisions without regenerating the corpus.
 
+The `[FUZ]1052B` export-invocation matrix helpers are intentionally opt-in. Runtime-adapter execution can classify equal results, equal traps, unsupported runtimes, nondeterministic imports, and semantic mismatches, but `[FUZ]1052B10` keeps the default failure policy informational. `ExportInvocationFailurePolicy::fail_on_semantic_mismatch()` is the explicit gate for future pass-fuzz wiring that wants semantic mismatches to affect exit status; unsupported runtime and nondeterministic-import rows remain blocked/skipped classifications rather than hard failures under that policy.
+
 ## Seed, Output, And Run Result Contract
 
 The plain run form accepts positional arguments or flags:

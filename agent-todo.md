@@ -649,7 +649,6 @@ p2 oracle/reporting/infrastructure tiny slices:
 - `[FUZ]1045A7` - Text fuzz runner integration smoke: expose the n-way text matrix behind an opt-in fuzz runner flag or recipe and add an unavailable-tool skip test.
 - `[FUZ]1052B8` - Real export matrix runner wiring: collect simple exported numeric functions from pass-fuzz Starshine/Binaryen outputs, invoke both through the selected runtime adapter, and build `ExportInvocationComparisonReport` rows.
 - `[FUZ]1052B9` - Export matrix report persistence: write matrix summary, matrix outcome, and semantic-mismatch report samples into pass-fuzz result JSON and repro manifests without requiring runtime execution by default.
-- `[FUZ]1052B10` - Export matrix opt-in failure policy: decide and implement how semantic mismatches affect pass-fuzz exit status versus informational reporting, with timeout/unsupported/nondeterministic imports classified separately.
 - `[FUZ]1055A3` - Valid multi-module WAST generator lane: move deterministic valid linking fixtures into a reusable fuzz generator that emits module names, register commands, and valid function/memory/table/global import/export wiring.
 - `[FUZ]1055A4` - Valid linking runner classification: run generated valid multi-module scripts through the WAST harness and report link-success counters separately from single-module validation counters.
 - `[FUZ]1055B3` - Unlinkable WAST generator lane: generalize deterministic missing-import and type-mismatch fixtures into generated `assert_unlinkable` cases across function/memory/table/global/tag imports.
@@ -662,8 +661,8 @@ Use these slice ids when selecting or reporting future FUZ work. Parent tasks be
 
 p1/p2 oracle, reporting, and infrastructure slices:
 - [FUZ]1052B (p2) - Export Invocation Result Matrix
-  - Completed tiny slices: `[FUZ]1052B1` through `[FUZ]1052B7` cover the pure classifier, deterministic simple arguments, named comparison reports, summary counts, mismatch predicate, matrix outcome, and mismatch-report filtering in `src/cmd/fuzz_harness.mbt`.
-  - Remaining concrete slices: `[FUZ]1052B8` real export matrix runner wiring, `[FUZ]1052B9` report/repro persistence, and `[FUZ]1052B10` opt-in failure policy for semantic mismatches versus unsupported/runtime/nondeterministic outcomes.
+  - Completed tiny slices: `[FUZ]1052B1` through `[FUZ]1052B7` cover the pure classifier, deterministic simple arguments, named comparison reports, summary counts, mismatch predicate, matrix outcome, and mismatch-report filtering in `src/cmd/fuzz_harness.mbt`; `[FUZ]1052B10` adds the opt-in semantic-mismatch failure policy while unsupported runtime and nondeterministic imports remain blocked/skipped classifications.
+  - Remaining concrete slices: `[FUZ]1052B8` real export matrix runner wiring and `[FUZ]1052B9` report/repro persistence.
 - [FUZ]1053A (p2) - Per-Case Timeout Classification
   - Unit: add per-case budgets and timeout classifications for fuzz runner and pass-fuzz. `[FUZ]1053A3` closed with differential external adapters carrying optional per-case timeout budgets and classifying timeout/resource-limit adapter errors in `src/cmd/fuzz_harness.mbt`.
 - [FUZ]1053B (p2) - Resource-Limit Artifact Handling
@@ -853,7 +852,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1052 (p2) - Runtime Import Stub Generator And Export Invocation Matrix
   - Goal: enable optional execution oracles by generating host stubs and calls for exported functions.
   - Why: validation and text/binary parity cannot prove semantic equivalence for optimizer outputs. Simple execution across generated inputs catches many wrong-code bugs when runtime tooling is available.
-  - Deliverables remaining: `[FUZ]1052B1` through `[FUZ]1052B7` landed the core export-invocation matrix helpers; `[FUZ]1052B8` through `[FUZ]1052B10` still need to wire those helpers into real pass-fuzz runtime adapter execution, persist the report/mismatch samples, and decide the opt-in failure policy. Runtime import stubs for feasible function/global/memory/table imports landed in the `[FUZ]1052A` slice.
+  - Deliverables remaining: `[FUZ]1052B1` through `[FUZ]1052B7` and `[FUZ]1052B10` landed the core export-invocation matrix helpers plus opt-in semantic-mismatch failure policy; `[FUZ]1052B8` and `[FUZ]1052B9` still need to wire those helpers into real pass-fuzz runtime adapter execution and persist the report/mismatch samples. Runtime import stubs for feasible function/global/memory/table imports landed in the `[FUZ]1052A` slice.
   - Required APIs: external runtime adapter from [FUZ]1032, import planning, effect/trap facts from [FUZ]1040, pass-fuzz result schema.
   - Invariants: execution remains opt-in; imports with host side effects or nondeterminism must be stubbed conservatively or skipped.
   - Dependencies: [FUZ]1032 and [FUZ]1040.

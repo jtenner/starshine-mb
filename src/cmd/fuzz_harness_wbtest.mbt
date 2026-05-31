@@ -345,6 +345,50 @@ test "FUZ1052B7 export invocation semantic mismatch report filter keeps context"
 }
 
 ///|
+test "FUZ1052B10 export invocation failure policy is opt-in" {
+  let mismatch_summary = summarize_export_invocation_matrix([
+    compare_export_invocation_results(
+      "bad",
+      [],
+      ExportInvocationResult::value("i32:1"),
+      ExportInvocationResult::value("i32:2"),
+    ),
+  ])
+  let blocked_summary = summarize_export_invocation_matrix([
+    compare_export_invocation_results(
+      "unsupported",
+      [],
+      ExportInvocationResult::unsupported_runtime("missing runtime"),
+      ExportInvocationResult::value("i32:1"),
+    ),
+    compare_export_invocation_results(
+      "nondet",
+      [],
+      ExportInvocationResult::nondeterministic_import("env.now"),
+      ExportInvocationResult::value("i32:1"),
+    ),
+  ])
+  assert_false(
+    export_invocation_matrix_should_fail(
+      mismatch_summary,
+      ExportInvocationFailurePolicy::informational(),
+    ),
+  )
+  assert_true(
+    export_invocation_matrix_should_fail(
+      mismatch_summary,
+      ExportInvocationFailurePolicy::fail_on_semantic_mismatch(),
+    ),
+  )
+  assert_false(
+    export_invocation_matrix_should_fail(
+      blocked_summary,
+      ExportInvocationFailurePolicy::fail_on_semantic_mismatch(),
+    ),
+  )
+}
+
+///|
 test "FUZ1053A3 differential adapters classify per-case timeout results" {
   let bytes = encode_fixture_module(23)
   let adapters = DifferentialAdapters::new(
