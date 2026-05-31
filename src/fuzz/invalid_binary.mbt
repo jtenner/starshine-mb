@@ -89,6 +89,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidBinaryLocalIndexModule
   InvalidBinaryCallRefTypeModule
   InvalidBinaryStructGetFieldIndexModule
+  InvalidBinaryThrowPayloadModule
   MalformedSimdImmediate
   SimdLaneIndexOverflow
   MalformedCustomSectionPayload
@@ -871,6 +872,7 @@ fn validate_invalid_binary_strategy_label(
     InvalidBinaryCallRefTypeModule => "invalid-binary-call-ref-type-module"
     InvalidBinaryStructGetFieldIndexModule =>
       "invalid-binary-struct-get-field-index-module"
+    InvalidBinaryThrowPayloadModule => "invalid-binary-throw-payload-module"
     MalformedSimdImmediate => "malformed-simd-immediate"
     SimdLaneIndexOverflow => "simd-lane-index-overflow"
     MalformedCustomSectionPayload => "malformed-custom-section-payload"
@@ -1771,6 +1773,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidBinaryStructGetFieldIndexModule,
       "invalid-binary-struct-get-field-index-module",
       "encoded module with an out-of-range struct.get field index",
+      ValidateRejected("function-body"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryThrowPayloadModule,
+      "invalid-binary-throw-payload-module",
+      "encoded module with a throw payload stack type mismatch",
       ValidateRejected("function-body"),
       required_in_smoke=false,
     ),
@@ -17615,6 +17624,21 @@ pub fn apply_validate_invalid_binary_strategy(
       }
       validate_invalid_binary_mutate_encoded_invalid_ast_module(
         InvalidBinaryStructGetFieldIndexModule,
+        ast_strategy,
+        "function-body",
+        base,
+      )
+    }
+    InvalidBinaryThrowPayloadModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-function-body-throw-payload-mismatch",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryThrowPayloadModule,
         ast_strategy,
         "function-body",
         base,
