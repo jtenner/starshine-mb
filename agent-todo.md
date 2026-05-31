@@ -657,8 +657,6 @@ p2 invalid/binary/text slices:
   - Completed tiny slices: `[FUZ]1055A1` named two-module fixture, `[FUZ]1055A2` valid import/export wiring fixture, `[FUZ]1055A3` reusable valid multi-module WAST generator lane, and `[FUZ]1055A4` valid linking runner classification. Remaining concrete slices: none for the current tracked 1055A board.
 - [FUZ]1055B (p2) - Multi-Module WAST Unlinkable Lane
   - Completed tiny slices: `[FUZ]1055B1` missing-import unlinkable fixture, `[FUZ]1055B2` type-mismatch unlinkable fixture, `[FUZ]1055B3` unlinkable generator lane, and `[FUZ]1055B4` unlinkable outcome classifier/repro metadata. Remaining concrete slices: none for the current tracked 1055B board.
-- [FUZ]1056B (p2) - Fuzz Diagnostic Location Metadata
-  - Unit: persist best-effort diagnostic locations in invalid text/binary repro artifacts without requiring exact randomized matches.
 - [FUZ]1057A (p2) - Binary Canonicality Policy Decision
   - Unit: completed for tracked tiny slices. `[FUZ]1057A1` documents the decoder/encoder canonicality policy, `[FUZ]1057A2` adds the command-harness canonicality disagreement classifier hook for policy differences versus possible decoder bugs, and `[FUZ]1057A3` adds canonicality report counters plus binary canonicality wiki sync.
 - [FUZ]1057B (p2) - Binary Canonicality Fixture Matrix
