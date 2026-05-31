@@ -627,7 +627,6 @@ p2 oracle/reporting/infrastructure tiny slices:
 - [FUZ]1056A2 - Add curated invalid text line/column diagnostic fixture.
 - [FUZ]1056B1 - Persist best-effort diagnostic locations in binary invalid repros.
 - [FUZ]1056B2 - Persist best-effort diagnostic locations in text invalid repros.
-- [FUZ]1057B1 - Add canonical and overwide unsigned LEB fixture matrix.
 - [FUZ]1057B2 - Add signed LEB boundary fixture matrix.
 - [FUZ]1057B3 - Add section-size encoding, NaN payload preservation, and custom-section byte-preservation fixtures.
 
@@ -867,7 +866,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1057 (p2) - Binary Canonical Versus Noncanonical Encoding Policy
   - Goal: decide and test how the binary decoder handles noncanonical-but-well-formed encodings.
   - Why: malformed byte fuzzing needs to distinguish truly invalid encodings from encodings that some tools accept but canonical encoders do not emit, especially overwide LEBs, section lengths, blocktypes, and immediates.
-  - Deliverables remaining: add fixtures for canonical LEBs, overwide LEBs, signed LEB boundary forms, section size encodings, NaN payload preservation, and custom-section byte preservation; classify external tool disagreements as canonicality-policy differences when appropriate. `[FUZ]1057A1` closed on 2026-05-28 with `docs/wiki/binary/leb128-and-integer-encoding.md`, which documents the canonicality policy: encoders emit deterministic compact/canonical forms while decoders accept official-compatible bounded overlong LEBs and reject malformed out-of-bound encodings before validation.
+  - Deliverables remaining: add fixtures for signed LEB boundary forms, section size encodings, NaN payload preservation, and custom-section byte preservation; classify external tool disagreements as canonicality-policy differences when appropriate. `[FUZ]1057B1` closed with compact canonical unsigned LEB encoder fixtures and overwide well-formed unsigned decoder fixtures in `src/binary/tests.mbt`. `[FUZ]1057A1` closed on 2026-05-28 with `docs/wiki/binary/leb128-and-integer-encoding.md`, which documents the canonicality policy: encoders emit deterministic compact/canonical forms while decoders accept official-compatible bounded overlong LEBs and reject malformed out-of-bound encodings before validation.
   - Required APIs: binary decoder/encoder, invalid binary strategy specs, external binary differential from [FUZ]1044.
   - Invariants: encoder should keep emitting canonical encodings unless explicitly configured otherwise; decoder acceptance/rejection must be consistent and documented.
   - Dependencies: [FUZ]1021 malformed-byte matrix and [FUZ]1044 n-way binary differential.

@@ -1454,6 +1454,44 @@ test "encode_module wraps encode failure variant" {
 }
 
 ///|
+test "FUZ1057B1 uleb encoder emits compact canonical byte forms" {
+  let cases : Array[(UInt64, Bytes)] = [
+    (0UL, b"\x00"),
+    (1UL, b"\x01"),
+    (127UL, b"\x7f"),
+    (128UL, b"\x80\x01"),
+    (624485UL, b"\xe5\x8e\x26"),
+    (0xffffffffUL, b"\xff\xff\xff\xff\x0f"),
+  ]
+  for case in cases {
+    let (value, expected) = case
+    let buf = @buffer.new()
+    encode_unsigned(value, buf, 32).unwrap()
+    let bytes = buf.to_bytes()
+    @debug.assert_eq(bytes, expected)
+    let (decoded, next) = decode_unsigned(bytes, 0, 32).unwrap()
+    @debug.assert_eq(decoded, value)
+    @debug.assert_eq(next, expected.length())
+  }
+}
+
+///|
+test "FUZ1057B1 uleb decoder accepts overwide well-formed unsigned forms" {
+  let cases : Array[(Bytes, UInt64)] = [
+    (b"\x80\x00", 0UL),
+    (b"\x81\x00", 1UL),
+    (b"\xff\x00", 127UL),
+    (b"\x80\x81\x00", 128UL),
+  ]
+  for case in cases {
+    let (bytes, expected) = case
+    let (decoded, next) = decode_unsigned(bytes, 0, 32).unwrap()
+    @debug.assert_eq(decoded, expected)
+    @debug.assert_eq(next, bytes.length())
+  }
+}
+
+///|
 test "uleb roundtrip u33" {
   let vals : Array[UInt64] = [0, 1, 127, 128, 129, 0xffff, 0xffffffff]
   for v in vals {
