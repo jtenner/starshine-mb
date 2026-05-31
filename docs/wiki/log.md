@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1037 memory64 global-get data offsets
+
+- Continued `[FUZ]1037` by widening focused memory64 active data offsets so they can use an imported immutable `i64 global.get`, matching the shared const-expression matrix's immutable-global allowance for data-offset contexts instead of limiting memory64 coverage to `i64.const`.
+- Added TDD coverage that first failed because the generated memory64 active data segment did not read an imported immutable `i64` global, then passed after adding a forced imported `i64` global, keeping it immutable, and threading it through the address-typed offset helper. Synced the constant-expression and generator-ledger wiki pages.
+
 ## [2026-05-31] fuzzing | FUZ1037 memory64 active data offsets
 
 - Continued `[FUZ]1037` by adding address-typed GenValid active offset generation for focused memory64 active data segments, so the memory64 lane uses an `i64.const` offset instead of reusing the i32-only offset helper.

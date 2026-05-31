@@ -9775,6 +9775,13 @@ fn gen_valid_active_offset_from(
   if addr_type == ValType::i32() {
     gen_valid_active_i32_offset_from(ctx, label, global_idx~)
   } else if addr_type == ValType::i64() {
+    if ctx.config.features.allow_const_expr_variants &&
+      (ctx.config.mode == CoverageForced || ctx.random_int_from(label, 4) == 0) {
+      match global_idx {
+        Some(idx) => return Expr::new([Instruction::global_get(idx)])
+        None => ()
+      }
+    }
     Expr::new([
       Instruction::i64_const(I64(ctx.random_int_from(label, 4).to_int64())),
     ])
@@ -10491,6 +10498,10 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       ctx.config.mode == CoverageForced &&
       i == 1 {
       ValType::externref()
+    } else if ctx.config.features.allow_const_expr_variants &&
+      ctx.config.mode == CoverageForced &&
+      i == 2 {
+      ValType::i64()
     } else if i == 0 &&
       !gc_type_plan.exact_ref_types.is_empty() &&
       (
@@ -10521,7 +10532,7 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
     }
     let is_mut = if ctx.config.features.allow_const_expr_variants &&
       ctx.config.mode == CoverageForced &&
-      i <= 1 {
+      i <= 2 {
       false
     } else {
       ctx.config.mode == CoverageForced || ctx.random_bool_from(GlobalStream)
@@ -10742,6 +10753,11 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
   let total_func_count = import_func_count + defined_func_count
   let imported_i32_global_idx = if ctx.config.features.allow_const_expr_variants {
     gen_matching_immutable_global_idx(imported_global_types, ValType::i32())
+  } else {
+    None
+  }
+  let imported_i64_global_idx = if ctx.config.features.allow_const_expr_variants {
+    gen_matching_immutable_global_idx(imported_global_types, ValType::i64())
   } else {
     None
   }
@@ -11023,6 +11039,7 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
                   ctx,
                   DataStream,
                   gen_valid_mem_type_addr_type(mem_type),
+                  global_idx=imported_i64_global_idx,
                 ),
               ),
               gen_valid_payload(ctx, b""),

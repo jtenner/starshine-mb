@@ -485,6 +485,34 @@ test "gen-valid coverage-forced memory64 data segment uses i64 offset" {
 }
 
 ///|
+test "gen-valid coverage-forced memory64 data segment can use imported i64 offset global" {
+  let config = GenValidConfig::{
+    ..GenValidConfig::coverage_forced_default(),
+    max_imports: 8,
+    max_mems: 3,
+    max_datas: 4,
+  }
+  let generated = match gen_valid_module_result_from_seed(0x1037EUL, config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(
+    gen_valid_test_has_memory64(generated.wasm_module),
+    msg="focused GenValid config should include a memory64 memory",
+  )
+  assert_true(
+    gen_valid_test_has_memory64_active_data_imported_global_offset(
+      generated.wasm_module,
+    ),
+    msg="coverage-forced GenValid should cover memory64 active data offsets that read an imported immutable i64 global",
+  )
+}
+
+///|
 test "gen-valid active segments can use imported immutable global offsets" {
   let config = GenValidConfig::coverage_forced_default()
   let generated = match gen_valid_module_result_from_seed(0x1039BUL, config) {
@@ -3940,6 +3968,35 @@ fn gen_valid_test_has_memory64_active_data_i64_offset(mod_ : Module) -> Bool {
             match gen_valid_test_mem_type_at(mod_, mem_idx) {
               Some(mt) if gen_valid_test_mem_type_is_memory64(mt) => return true
               _ => ()
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_has_memory64_active_data_imported_global_offset(
+  mod_ : Module,
+) -> Bool {
+  let imported_global_count = gen_valid_test_imported_global_count(mod_)
+  if imported_global_count == 0 {
+    return false
+  }
+  match mod_.data_sec {
+    Some(DataSec(datas)) =>
+      for data in datas {
+        let Data(mode, _) = data
+        match mode {
+          Active(mem_idx, Expr([GlobalGet(GlobalIdx(global_idx))])) =>
+            if global_idx.reinterpret_as_int() < imported_global_count {
+              match gen_valid_test_mem_type_at(mod_, mem_idx) {
+                Some(mt) if gen_valid_test_mem_type_is_memory64(mt) =>
+                  return true
+                _ => ()
+              }
             }
           _ => ()
         }
