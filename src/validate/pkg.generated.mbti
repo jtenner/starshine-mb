@@ -359,6 +359,7 @@ pub enum GenValidConstExprOpFamily {
   RefNullConstExprOp
   RefFuncConstExprOp
   ImportedImmutableGlobalGetConstExprOp
+  I31RefConstExprOp
 } derive(Eq, @debug.Debug)
 
 pub enum GenValidConstExprUse {

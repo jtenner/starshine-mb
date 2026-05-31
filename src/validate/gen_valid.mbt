@@ -3367,6 +3367,7 @@ pub enum GenValidConstExprOpFamily {
   RefNullConstExprOp
   RefFuncConstExprOp
   ImportedImmutableGlobalGetConstExprOp
+  I31RefConstExprOp
 } derive(Eq, Debug)
 
 ///|
@@ -3387,6 +3388,7 @@ pub fn gen_valid_const_expr_allowed_op_matrix() -> Array[
         RefNullConstExprOp,
         RefFuncConstExprOp,
         ImportedImmutableGlobalGetConstExprOp,
+        I31RefConstExprOp,
       ],
     },
     {
@@ -3408,6 +3410,7 @@ pub fn gen_valid_const_expr_allowed_op_matrix() -> Array[
         RefNullConstExprOp,
         RefFuncConstExprOp,
         ImportedImmutableGlobalGetConstExprOp,
+        I31RefConstExprOp,
       ],
     },
   ]
@@ -3419,6 +3422,7 @@ priv struct GenValidConstExprContext {
   allow_ref_null : Bool
   allow_ref_func : Bool
   allow_imported_immutable_global_get : Bool
+  allow_ref_i31 : Bool
 }
 
 ///|
@@ -3428,6 +3432,7 @@ fn GenValidConstExprContext::numeric_only() -> GenValidConstExprContext {
     allow_ref_null: false,
     allow_ref_func: false,
     allow_imported_immutable_global_get: false,
+    allow_ref_i31: false,
   }
 }
 
@@ -3500,6 +3505,10 @@ fn gen_valid_const_expr_from_context(
       Some(func_idx) => return Expr::new([Instruction::ref_func(func_idx)])
       None => ()
     }
+  }
+  if expr_context.allow_ref_i31 &&
+    vt == ValType::ref_type(RefType::abs(AbsHeapType::i31())) {
+    return Expr::new([Instruction::i32_const(I32(31)), Instruction::ref_i31()])
   }
   match vt {
     RefTypeValType(rt) if expr_context.allow_ref_null =>

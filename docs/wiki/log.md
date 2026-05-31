@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-30] fuzzing | FUZ1037 ref.i31 const-expression helper
+
+- Continued `[FUZ]1037` by adding `I31RefConstExprOp` to the GenValid const-expression allowed-op matrix for global and table initializer contexts.
+- The shared const-expression helper now has an explicit `allow_ref_i31` gate that emits `i32.const 31; ref.i31` for `(ref i31)`, with focused coverage in `src/validate/gen_valid_tests.mbt`; the generator ledger now names `ref.i31` among centralized const-expression choices.
+
 ## [2026-05-30] fuzzing | FUZ1052B10 export matrix opt-in failure policy
 
 - Completed `[FUZ]1052B10` by adding an explicit export-invocation failure policy: default informational reporting never fails a run, while `fail_on_semantic_mismatch` fails only when matrix summary semantic mismatches are present.

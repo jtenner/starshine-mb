@@ -769,6 +769,7 @@ p2 invalid/binary/text slices:
   - Exit Criteria: stress fuzzing can exercise hostile multi-fault inputs while keeping diagnostic-stable lanes clean.
 
 - [FUZ]1037 (p1) - Const Expression And Initializer Expression Matrix
+  - Current run update: continued the shared GenValid const-expression matrix by adding `I31RefConstExprOp` for global/table initializer contexts and an explicit `allow_ref_i31` helper path that emits `i32.const 31; ref.i31` for `(ref i31)`. TDD first failed in `moon test src/validate` because the matrix constructor and helper gate were missing, then passed after adding the context field, helper branch, tests, and wiki summaries. Final validation for this slice is in the commit message.
   - Run 23 continuation update: added focused coverage asserting coverage-forced GenValid emits an optional core table initializer that reads an imported immutable reference global, alongside the existing `ref.func` and typed `ref.null` table-initializer checks. Initial targeted test unexpectedly already passed, proving the behavior was implemented but under-asserted; validation: `moon test src/validate`, `moon fmt`, `moon info`, and repeat `moon test src/validate` passed.
   - Goal: cover all valid constant-expression and initializer-expression contexts with a shared generator.
   - Why: globals, element offsets, data offsets, table initializers, GC descriptors, and future proposal features each have subtly different expression constraints. Bugs often live at the boundary between ordinary body expressions and const-only expressions.

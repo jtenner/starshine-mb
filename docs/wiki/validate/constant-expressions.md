@@ -153,7 +153,7 @@ Starshine rejects this before ordinary type mismatch questions because `drop` is
 | Table initializer validation | `validate_table(...)` in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) |
 | Active data offsets | `Validate for DataMode` in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) |
 | Active element offsets and element expressions | `validate_elem_mode(...)` and `Validate for ElemKind` in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) |
-| Valid-generator widening | [`gen_valid_const_expr_for_global(...)`](../../../src/validate/gen_valid.mbt), `allow_const_expr_variants`, `ConstExprVariants` |
+| Valid-generator widening | [`gen_valid_const_expr_for_global(...)`](../../../src/validate/gen_valid.mbt), `gen_valid_const_expr_from_context(...)`, `allow_const_expr_variants`, `ConstExprVariants` |
 | Invalid diagnostics | [`validate_invalid_ast_registry()`](../../../src/validate/invalid_fuzzer.mbt) |
 
 ## Signoff Checklist

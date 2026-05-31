@@ -286,6 +286,7 @@ test "gen-valid const-expression allowed-op matrix covers section contexts" {
     RefNullConstExprOp,
     RefFuncConstExprOp,
     ImportedImmutableGlobalGetConstExprOp,
+    I31RefConstExprOp,
   ])
   @debug.assert_eq(matrix[1].allowed_ops, [
     NumericConstExprOp,
@@ -301,6 +302,7 @@ test "gen-valid const-expression allowed-op matrix covers section contexts" {
     RefNullConstExprOp,
     RefFuncConstExprOp,
     ImportedImmutableGlobalGetConstExprOp,
+    I31RefConstExprOp,
   ])
 }
 
@@ -555,6 +557,19 @@ test "gen-valid shared const-expression contexts select allowed op families" {
   @debug.assert_eq(
     nullable_ref,
     Expr::new([Instruction::ref_null(HeapType::abs(AbsHeapType::extern_()))]),
+  )
+
+  let i31_ref = gen_valid_const_expr_from_context(
+    ctx,
+    GlobalStream,
+    ValType::ref_type(RefType::abs(AbsHeapType::i31())),
+    { ..GenValidConstExprContext::numeric_only(), allow_ref_i31: true },
+    [],
+    None,
+  )
+  @debug.assert_eq(
+    i31_ref,
+    Expr::new([Instruction::i32_const(I32(31)), Instruction::ref_i31()]),
   )
 }
 
