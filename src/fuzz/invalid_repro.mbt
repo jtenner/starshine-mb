@@ -53,8 +53,7 @@ pub fn build_fuz1026_two_fault_ast_stress_report(
     actual_diagnostic_family=Some("function-body"),
     source_feature_facts=["multi_fault:true"],
     multi_fault_mutation_ids=[
-      "invalid-function-body-local-set-value-type",
-      "invalid-function-body-branch-payload-type",
+      "invalid-function-body-local-set-value-type", "invalid-function-body-branch-payload-type",
     ],
     multi_fault_broad_outcomes=["validate-rejected"],
     artifacts=[
@@ -85,8 +84,7 @@ pub fn build_fuz1026_binary_text_multifault_stress_report(
     actual_stage="decode-or-parse-rejected",
     source_feature_facts=["multi_fault:true"],
     multi_fault_mutation_ids=[
-      "binary:trailing-garbage",
-      "text:malformed-trailing-garbage",
+      "binary:trailing-garbage", "text:malformed-trailing-garbage",
     ],
     multi_fault_broad_outcomes=["decode-or-parse-rejected"],
     artifacts=[
@@ -672,7 +670,8 @@ fn invalid_fuzz_ensure_dir(
 fn invalid_fuzz_report_allows_partial_artifacts(
   report : InvalidFuzzFailureReport,
 ) -> Bool {
-  report.actual_stage == "timeout" || report.actual_stage == "resource-limit" ||
+  report.actual_stage == "timeout" ||
+  report.actual_stage == "resource-limit" ||
   report.actual_stage == "resource-limited"
 }
 
@@ -712,14 +711,18 @@ pub fn persist_invalid_fuzz_failure_report(
   }
   let artifact_paths : Array[String] = []
   let partial_failures : Array[String] = []
-  let allow_partial_artifacts = invalid_fuzz_report_allows_partial_artifacts(report)
+  let allow_partial_artifacts = invalid_fuzz_report_allows_partial_artifacts(
+    report,
+  )
   for artifact in report.artifacts {
     let path = invalid_fuzz_join_path(repro_dir, artifact.file_name)
     match (io.write_file)(path, artifact.bytes) {
       Ok(_) => artifact_paths.push(path)
       Err(msg) =>
         if allow_partial_artifacts {
-          partial_failures.push("partial_artifact_write_failure=" + artifact.file_name + "|" + msg)
+          partial_failures.push(
+            "partial_artifact_write_failure=" + artifact.file_name + "|" + msg,
+          )
         } else {
           return Err("failed to write invalid repro artifact \{path}: \{msg}")
         }
@@ -731,7 +734,9 @@ pub fn persist_invalid_fuzz_failure_report(
       Ok(_) => artifact_paths.push(path)
       Err(msg) =>
         if allow_partial_artifacts {
-          partial_failures.push("partial_artifact_write_failure=" + artifact.file_name + "|" + msg)
+          partial_failures.push(
+            "partial_artifact_write_failure=" + artifact.file_name + "|" + msg,
+          )
         } else {
           return Err("failed to write invalid repro artifact \{path}: \{msg}")
         }

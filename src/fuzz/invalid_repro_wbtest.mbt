@@ -85,7 +85,8 @@ test "FUZ1026A1 builds deterministic two-fault AST invalid stress report" {
       "invalid-function-body-branch-payload-type",
     ),
   )
-  let (meta_path, artifact_paths) = match persist_invalid_fuzz_failure_report(report, io) {
+  let (meta_path, artifact_paths) = match
+    persist_invalid_fuzz_failure_report(report, io) {
     Ok(v) => v
     Err(msg) => fail(msg)
   }
@@ -116,13 +117,14 @@ test "FUZ1026A2 builds deterministic binary plus text multi-fault stress report"
   let report = build_fuz1026_binary_text_multifault_stress_report(0x1026UL, 2)
   @debug.assert_eq(report.suite, "validate-invalid-binary-text-multifault")
   @debug.assert_eq(report.strategy_id, "binary-text-multifault-invalid-stress")
-  assert_true(report.multi_fault_mutation_ids.contains("binary:trailing-garbage"))
   assert_true(
-    report.multi_fault_mutation_ids.contains(
-      "text:malformed-trailing-garbage",
-    ),
+    report.multi_fault_mutation_ids.contains("binary:trailing-garbage"),
   )
-  let (meta_path, artifact_paths) = match persist_invalid_fuzz_failure_report(report, io) {
+  assert_true(
+    report.multi_fault_mutation_ids.contains("text:malformed-trailing-garbage"),
+  )
+  let (meta_path, artifact_paths) = match
+    persist_invalid_fuzz_failure_report(report, io) {
     Ok(v) => v
     Err(msg) => fail(msg)
   }
@@ -131,26 +133,30 @@ test "FUZ1026A2 builds deterministic binary plus text multi-fault stress report"
     Some(v) => invalid_repro_test_bytes_to_ascii(v)
     None => fail("missing binary+text multifault metadata")
   }
-  assert_true(meta_text.contains("multi_fault_mutation_id=binary:trailing-garbage"))
+  assert_true(
+    meta_text.contains("multi_fault_mutation_id=binary:trailing-garbage"),
+  )
   assert_true(
     meta_text.contains(
       "multi_fault_mutation_id=text:malformed-trailing-garbage",
     ),
   )
-  assert_true(meta_text.contains("multi_fault_broad_outcome=decode-or-parse-rejected"))
+  assert_true(
+    meta_text.contains("multi_fault_broad_outcome=decode-or-parse-rejected"),
+  )
 }
 
 ///|
 test "FUZ1026B1 parses all multi-fault mutation ids and broad outcomes" {
   let report = build_fuz1026_binary_text_multifault_stress_report(0x1026UL, 3)
   let meta_text = invalid_fuzz_failure_meta_text(report)
-  let parsed = match parse_invalid_fuzz_failure_report(meta_text, fn(_) { Ok(b"") }) {
+  let parsed = match
+    parse_invalid_fuzz_failure_report(meta_text, fn(_) { Ok(b"") }) {
     Ok(v) => v
     Err(msg) => fail(msg)
   }
   @debug.assert_eq(parsed.multi_fault_mutation_ids, [
-    "binary:trailing-garbage",
-    "text:malformed-trailing-garbage",
+    "binary:trailing-garbage", "text:malformed-trailing-garbage",
   ])
   @debug.assert_eq(parsed.multi_fault_broad_outcomes, [
     "decode-or-parse-rejected",
@@ -228,7 +234,9 @@ test "persist_invalid_fuzz_failure_report writes deterministic suite strategy la
       assert_true(text.contains("suite=validate-invalid-binary"))
       assert_true(text.contains("strategy_id=invalid-func-type-index"))
       assert_true(text.contains("source_kind=binary"))
-      assert_true(text.contains("actual_diagnostic_location=binary:offset=8:length=5"))
+      assert_true(
+        text.contains("actual_diagnostic_location=binary:offset=8:length=5"),
+      )
       assert_true(text.contains("artifact=original|original.wasm"))
       assert_true(text.contains("artifact=seed|seed.wasm"))
       assert_true(text.contains("reduced=reduced|reduced.wasm"))
@@ -269,9 +277,12 @@ test "FUZ1053B1 timeout repro metadata persists resource budgets" {
     None => fail("missing timeout metadata")
   }
   assert_true(meta_text.contains("actual_stage=timeout"))
-  assert_true(meta_text.contains("actual_diagnostic_location=adapter:wasm-tools"))
+  assert_true(
+    meta_text.contains("actual_diagnostic_location=adapter:wasm-tools"),
+  )
   assert_true(meta_text.contains("timeout_budget_ms=250"))
-  let parsed = match parse_invalid_fuzz_failure_report(meta_text, fn(_) { Ok(b"") }) {
+  let parsed = match
+    parse_invalid_fuzz_failure_report(meta_text, fn(_) { Ok(b"") }) {
     Ok(v) => v
     Err(msg) => fail(msg)
   }
@@ -305,9 +316,13 @@ test "FUZ1053B2 timeout repro persists manifest when partial artifact write fail
     timeout_budget_ms=Some(100),
     artifacts=[InvalidFuzzArtifact::new("partial", "partial.wasm", b"bad")],
   )
-  let (meta_path, artifact_paths) = match persist_invalid_fuzz_failure_report(report, io) {
+  let (meta_path, artifact_paths) = match
+    persist_invalid_fuzz_failure_report(report, io) {
     Ok(v) => v
-    Err(msg) => fail("expected partial timeout artifact persistence to keep metadata: \{msg}")
+    Err(msg) =>
+      fail(
+        "expected partial timeout artifact persistence to keep metadata: \{msg}",
+      )
   }
   @debug.assert_eq(artifact_paths.length(), 0)
   let meta_text = match writes.get(meta_path) {
@@ -315,7 +330,9 @@ test "FUZ1053B2 timeout repro persists manifest when partial artifact write fail
     None => fail("missing partial timeout metadata")
   }
   assert_true(meta_text.contains("timeout_budget_ms=100"))
-  assert_true(meta_text.contains("partial_artifact_write_failure=partial.wasm|disk quota"))
+  assert_true(
+    meta_text.contains("partial_artifact_write_failure=partial.wasm|disk quota"),
+  )
 }
 
 ///|

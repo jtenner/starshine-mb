@@ -13,6 +13,8 @@ import {
 // Values
 pub fn choose_simple_export_invocation_args(Array[@lib.ValType]) -> Result[Array[String], String]
 
+pub fn classify_binary_canonicality_differential(BinaryCanonicalityInputClass, Bool, Bool?, Bool?) -> BinaryCanonicalityClassification
+
 pub fn classify_export_invocation_matrix(ExportInvocationMatrixSummary) -> ExportInvocationMatrixOutcome
 
 pub fn classify_export_invocation_results(ExportInvocationResult, ExportInvocationResult) -> ExportInvocationClassification
@@ -26,6 +28,8 @@ pub fn cmd_version_text() -> String
 pub fn compare_export_invocation_results(String, Array[String], ExportInvocationResult, ExportInvocationResult) -> ExportInvocationComparisonReport
 
 pub fn differential_validate_wasm(Bytes, adapters? : DifferentialAdapters) -> Result[DifferentialValidationReport, String]
+
+pub fn export_invocation_matrix_should_fail(ExportInvocationMatrixSummary, ExportInvocationFailurePolicy) -> Bool
 
 pub fn export_invocation_semantic_mismatch_reports(Array[ExportInvocationComparisonReport]) -> Array[ExportInvocationComparisonReport]
 
@@ -49,6 +53,8 @@ pub fn run_cmd_fuzz_harness_profile(String, UInt64) -> Result[CmdFuzzStats, Stri
 
 pub fn run_cmd_with_adapter(Array[String], CmdIO, config_json? : String?) -> Result[CmdRunSummary, CmdError]
 
+pub fn summarize_binary_canonicality_classifications(Array[BinaryCanonicalityClassification]) -> BinaryCanonicalitySummary
+
 pub fn summarize_export_invocation_matrix(Array[ExportInvocationComparisonReport]) -> ExportInvocationMatrixSummary
 
 pub fn verify_readme_api_signatures(String, Array[(String, String)]) -> Result[Unit, String]
@@ -65,6 +71,37 @@ pub fn CmdEncodeError::encode(@binary.EncodeError) -> Self
 pub impl Show for CmdEncodeError
 
 // Types and methods
+pub enum BinaryCanonicalityClassification {
+  CanonicalAccepted
+  AcceptedNoncanonical
+  MalformedRejected
+  ExternalPolicyDisagreement
+  DecoderBugDisagreement
+} derive(Eq, @debug.Debug)
+pub fn BinaryCanonicalityClassification::accepted_noncanonical() -> Self
+pub fn BinaryCanonicalityClassification::canonical_accepted() -> Self
+pub fn BinaryCanonicalityClassification::decoder_bug_disagreement() -> Self
+pub fn BinaryCanonicalityClassification::external_policy_disagreement() -> Self
+pub fn BinaryCanonicalityClassification::malformed_rejected() -> Self
+
+pub enum BinaryCanonicalityInputClass {
+  CanonicalInput
+  AcceptedNoncanonicalInput
+  MalformedInput
+} derive(Eq, @debug.Debug)
+pub fn BinaryCanonicalityInputClass::accepted_noncanonical() -> Self
+pub fn BinaryCanonicalityInputClass::canonical() -> Self
+pub fn BinaryCanonicalityInputClass::malformed() -> Self
+
+pub struct BinaryCanonicalitySummary {
+  total : Int
+  canonical : Int
+  accepted_noncanonical : Int
+  malformed_rejected : Int
+  external_policy_disagreements : Int
+  decoder_bug_disagreements : Int
+} derive(Eq, @debug.Debug)
+
 pub enum CmdError {
   CliParse(@cli.CliParseError)
   UnknownPassFlag(String)
@@ -183,6 +220,13 @@ pub struct ExportInvocationComparisonReport {
   right_result : ExportInvocationResult
   classification : ExportInvocationClassification
 } derive(Eq, @debug.Debug)
+
+pub enum ExportInvocationFailurePolicy {
+  Informational
+  FailOnSemanticMismatch
+} derive(Eq, @debug.Debug)
+pub fn ExportInvocationFailurePolicy::fail_on_semantic_mismatch() -> Self
+pub fn ExportInvocationFailurePolicy::informational() -> Self
 
 pub enum ExportInvocationMatrixOutcome {
   Empty

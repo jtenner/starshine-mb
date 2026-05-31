@@ -1507,7 +1507,8 @@ test "FUZ1057B1 uleb decoder accepts overwide well-formed unsigned forms" {
 ///|
 test "FUZ1057B3 section sizes and custom payloads encode canonically and roundtrip" {
   let custom_buf = @buffer.new()
-  match Encode::encode(CustomSec::new(Name::new("x"), b"\x01\x02\x03"), custom_buf) {
+  match
+    Encode::encode(CustomSec::new(Name::new("x"), b"\x01\x02\x03"), custom_buf) {
     Ok(_) => ()
     Err(e) => fail("expected custom section encode success, got \{e}")
   }
