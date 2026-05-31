@@ -378,6 +378,85 @@ test "FUZ1044B wasm-tools binary adapter maps optional valid and malformed fixtu
 }
 
 ///|
+test "FUZ1044C WABT and Binaryen binary adapters map optional valid and malformed fixtures into schema" {
+  let valid_bytes = encode_fixture_module(42)
+  let wabt_valid = run_wabt_binary_validation_adapter(valid_bytes)
+  match wabt_valid.outcome {
+    BinaryValid =>
+      @debug.assert_eq(
+        classify_binary_differential_results([
+          BinaryDifferentialAdapterResult::valid("starshine"),
+          wabt_valid,
+        ]),
+        BinaryDifferentialClassification::agree_valid(),
+      )
+    BinaryAdapterUnavailable =>
+      @debug.assert_eq(
+        classify_binary_differential_results([wabt_valid]),
+        BinaryDifferentialClassification::adapter_unavailable(),
+      )
+    _ => fail("expected WABT valid or unavailable outcome")
+  }
+  let binaryen_valid = run_binaryen_binary_validation_adapter(valid_bytes)
+  match binaryen_valid.outcome {
+    BinaryValid =>
+      @debug.assert_eq(
+        classify_binary_differential_results([
+          BinaryDifferentialAdapterResult::valid("starshine"),
+          binaryen_valid,
+        ]),
+        BinaryDifferentialClassification::agree_valid(),
+      )
+    BinaryAdapterUnavailable =>
+      @debug.assert_eq(
+        classify_binary_differential_results([binaryen_valid]),
+        BinaryDifferentialClassification::adapter_unavailable(),
+      )
+    _ => fail("expected Binaryen valid or unavailable outcome")
+  }
+  let malformed = bytes_from_ascii_for_fuzz_reducer("not wasm")
+  let wabt_malformed = run_wabt_binary_validation_adapter(malformed)
+  match wabt_malformed.outcome {
+    BinaryInvalidDecode =>
+      @debug.assert_eq(
+        classify_binary_differential_results([
+          BinaryDifferentialAdapterResult::invalid_decode(
+            "starshine", "bad magic",
+          ),
+          wabt_malformed,
+        ]),
+        BinaryDifferentialClassification::agree_invalid(),
+      )
+    BinaryAdapterUnavailable =>
+      @debug.assert_eq(
+        classify_binary_differential_results([wabt_malformed]),
+        BinaryDifferentialClassification::adapter_unavailable(),
+      )
+    _ => fail("expected WABT malformed decode-invalid or unavailable outcome")
+  }
+  let binaryen_malformed = run_binaryen_binary_validation_adapter(malformed)
+  match binaryen_malformed.outcome {
+    BinaryInvalidDecode =>
+      @debug.assert_eq(
+        classify_binary_differential_results([
+          BinaryDifferentialAdapterResult::invalid_decode(
+            "starshine", "bad magic",
+          ),
+          binaryen_malformed,
+        ]),
+        BinaryDifferentialClassification::agree_invalid(),
+      )
+    BinaryAdapterUnavailable =>
+      @debug.assert_eq(
+        classify_binary_differential_results([binaryen_malformed]),
+        BinaryDifferentialClassification::adapter_unavailable(),
+      )
+    _ =>
+      fail("expected Binaryen malformed decode-invalid or unavailable outcome")
+  }
+}
+
+///|
 test "differential_validate_wasm returns report when all validators agree" {
   let bytes = encode_fixture_module(11)
   let adapters = DifferentialAdapters::new(

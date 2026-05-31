@@ -57,6 +57,8 @@ pub fn[T] reduce_fuzz_sequence_by_deletion(Array[T], (Array[T]) -> Bool) -> Fuzz
 
 pub fn reduce_fuzz_text_tokens_by_deletion(String, (String) -> Bool) -> FuzzReductionReport[String]
 
+pub fn run_binaryen_binary_validation_adapter(Bytes) -> BinaryDifferentialAdapterResult
+
 pub fn run_cmd(Array[String]) -> Result[CmdRunSummary, CmdError]
 
 pub fn run_cmd_exit_code(Array[String]) -> Int
@@ -70,6 +72,8 @@ pub fn run_cmd_fuzz_harness_profile(String, UInt64) -> Result[CmdFuzzStats, Stri
 pub fn run_cmd_with_adapter(Array[String], CmdIO, config_json? : String?) -> Result[CmdRunSummary, CmdError]
 
 pub fn run_local_text_parse_print_lower_matrix(String, filename? : String) -> TextParsePrintLowerReport
+
+pub fn run_wabt_binary_validation_adapter(Bytes) -> BinaryDifferentialAdapterResult
 
 pub fn run_wasm_tools_binary_validation_adapter(Bytes) -> BinaryDifferentialAdapterResult
 

@@ -615,7 +615,6 @@ Use this board as the tracking view for fuzzer work. Each slice should be small 
 p1 next-up / active:
 
 p2 invalid/binary/text tiny slices:
-- `[FUZ]1044C` - Optional WABT and Binaryen binary validation adapters.
 - `[FUZ]1044D` - Binary differential runner/report integration smoke.
 
 p2 oracle/reporting/infrastructure tiny slices:
@@ -668,8 +667,6 @@ p1/p2 oracle, reporting, and infrastructure slices:
   - Unit: completed for tracked tiny slices. `[FUZ]1053B2` closed with timeout/resource repro persistence tolerating partial artifact write failures and recording `partial_artifact_write_failure` manifest entries. `[FUZ]1053B1` closed with invalid repro metadata carrying timeout stage, diagnostic location, and `timeout_budget_ms` through persist/parse.
 
 p2 invalid/binary/text slices:
-- [FUZ]1044C (p2) - Optional WABT And Binaryen Binary Adapters
-  - Unit: add optional `wasm-validate` adapters for WABT and Binaryen with unavailable-tool tests and one fake/fixture classification each.
 - [FUZ]1044D (p2) - Binary Differential Runner/Report Smoke
   - Unit: add an opt-in runner or smoke helper that feeds a small binary corpus through Starshine plus available adapters and reports aggregate classifications without requiring external tools in default tests.
 - [FUZ]1020A (p2) - Remaining AST Type/Subtyping Invalid Strategies

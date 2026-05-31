@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1044C optional WABT/Binaryen binary adapters
+
+- Advanced `[FUZ]1044C` by adding `run_wabt_binary_validation_adapter(...)` and `run_binaryen_binary_validation_adapter(...)` to the command fuzz harness. Native builds stage candidate wasm bytes, capture external diagnostics, and classify WABT `wasm-validate` or Binaryen `wasm-opt --validate` results through the existing FUZ1044A binary-differential schema.
+- Both adapters are optional: non-native targets and missing executables return `adapter-unavailable`, while valid fixtures can agree with Starshine and malformed fixtures can agree on decode-invalid outcomes when the tools are present.
+- Validation: `moon test src/cmd -f FUZ1044C` first failed on the missing adapter APIs; after implementation the filter matched no tests in this Moon version, so `moon test src/cmd` was run and passed. `moon test --target native src/cmd -f FUZ1044C` still hits the existing unrelated `cmd_native_wbtest.mbt` `@binary.encode_unsigned` compile error after compiling the new native adapter code.
+
 ## [2026-05-31] fuzzing | FUZ1044B optional wasm-tools binary adapter
 
 - Advanced `[FUZ]1044B` by adding `run_wasm_tools_binary_validation_adapter(...)` to the command fuzz harness. Native builds stage candidate wasm bytes to a temp file, run `wasm-tools validate`, capture diagnostics, and return FUZ1044A adapter results; non-native and missing-tool paths return `adapter-unavailable` instead of failing the harness.
