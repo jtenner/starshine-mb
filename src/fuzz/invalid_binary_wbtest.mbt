@@ -57,6 +57,9 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
   assert_true(
     stable_ids.contains("invalid-binary-shared-memory-without-max-module"),
   )
+  assert_true(
+    stable_ids.contains("invalid-binary-memory64-address-type-module"),
+  )
   let expected_labels = registry.map(fn(spec) {
     invalid_binary_test_expected_label(spec.expected_result)
   })
@@ -67,7 +70,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     expected_labels
     .filter(fn(label) { label == "validate-function-body" })
     .length(),
-    6,
+    7,
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 40)
@@ -211,6 +214,17 @@ test "decode-accepted binary shared memory without max rejects at validation sta
   match
     invalid_binary_expect_strategy_rejects(
       "invalid-binary-shared-memory-without-max-module", 0x1022B2UL, "memory",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "decode-accepted binary memory64 address mismatch rejects at validation stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-binary-memory64-address-type-module", 0x1022B3UL, "function-body",
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)

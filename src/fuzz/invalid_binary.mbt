@@ -91,6 +91,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidBinaryStructGetFieldIndexModule
   InvalidBinaryThrowPayloadModule
   InvalidBinarySharedMemoryWithoutMaxModule
+  InvalidBinaryMemory64AddressTypeModule
   MalformedSimdImmediate
   SimdLaneIndexOverflow
   MalformedCustomSectionPayload
@@ -876,6 +877,8 @@ fn validate_invalid_binary_strategy_label(
     InvalidBinaryThrowPayloadModule => "invalid-binary-throw-payload-module"
     InvalidBinarySharedMemoryWithoutMaxModule =>
       "invalid-binary-shared-memory-without-max-module"
+    InvalidBinaryMemory64AddressTypeModule =>
+      "invalid-binary-memory64-address-type-module"
     MalformedSimdImmediate => "malformed-simd-immediate"
     SimdLaneIndexOverflow => "simd-lane-index-overflow"
     MalformedCustomSectionPayload => "malformed-custom-section-payload"
@@ -1791,6 +1794,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       "invalid-binary-shared-memory-without-max-module",
       "encoded module with shared memory missing its required maximum",
       ValidateRejected("memory"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryMemory64AddressTypeModule,
+      "invalid-binary-memory64-address-type-module",
+      "encoded module with a memory64 load address stack type mismatch",
+      ValidateRejected("function-body"),
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
@@ -17666,6 +17676,21 @@ pub fn apply_validate_invalid_binary_strategy(
         InvalidBinarySharedMemoryWithoutMaxModule,
         ast_strategy,
         "memory",
+        base,
+      )
+    }
+    InvalidBinaryMemory64AddressTypeModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-function-body-memory64-address-type",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryMemory64AddressTypeModule,
+        ast_strategy,
+        "function-body",
         base,
       )
     }
