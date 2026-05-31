@@ -164,6 +164,7 @@ test "parse_invalid_fuzz_failure_report roundtrips persisted artifacts" {
     invalid_fuzz_text_source_kind(),
     "validate-rejected",
     actual_stage="validate-rejected",
+    actual_diagnostic_location=Some("text:invalid-result-stack.wast:1:35"),
     source_path=original.source_path,
     artifacts=original.artifacts,
     reduced_artifacts=[
@@ -209,6 +210,15 @@ test "parse_invalid_fuzz_failure_report roundtrips persisted artifacts" {
   @debug.assert_eq(parsed.seed_profile, None)
   @debug.assert_eq(parsed.seed_mode, None)
   @debug.assert_eq(parsed.seed_require_strategy_prereqs, None)
+  @debug.assert_eq(
+    parsed.actual_diagnostic_location,
+    Some("text:invalid-result-stack.wast:1:35"),
+  )
+  assert_true(
+    meta_text.contains(
+      "actual_diagnostic_location=text:invalid-result-stack.wast:1:35",
+    ),
+  )
   @debug.assert_eq(parsed.artifacts.length(), 1)
   @debug.assert_eq(parsed.reduced_artifacts.length(), 1)
 }
