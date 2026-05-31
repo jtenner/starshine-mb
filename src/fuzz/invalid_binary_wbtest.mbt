@@ -53,6 +53,9 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
   assert_true(stable_ids.contains("invalid-binary-table-index-module"))
   assert_true(stable_ids.contains("invalid-binary-memory-index-module"))
   assert_true(stable_ids.contains("invalid-binary-throw-tag-index-module"))
+  assert_true(
+    stable_ids.contains("invalid-binary-call-indirect-index-type-module"),
+  )
   assert_true(stable_ids.contains("invalid-binary-call-ref-type-module"))
   assert_true(
     stable_ids.contains("invalid-binary-struct-get-field-index-module"),
@@ -74,7 +77,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     expected_labels
     .filter(fn(label) { label == "validate-function-body" })
     .length(),
-    12,
+    13,
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 40)
@@ -218,6 +221,17 @@ test "decode-accepted binary throw tag index mismatch rejects at validation stag
   match
     invalid_binary_expect_strategy_rejects(
       "invalid-binary-throw-tag-index-module", 0x1022A6UL, "function-body",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "decode-accepted binary call_indirect table-index type mismatch rejects at validation stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-binary-call-indirect-index-type-module", 0x1022A7UL, "function-body",
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)

@@ -93,6 +93,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidBinaryTableIndexModule
   InvalidBinaryMemoryIndexModule
   InvalidBinaryThrowTagIndexModule
+  InvalidBinaryCallIndirectIndexTypeModule
   InvalidBinaryCallRefTypeModule
   InvalidBinaryStructGetFieldIndexModule
   InvalidBinaryThrowPayloadModule
@@ -900,6 +901,8 @@ fn validate_invalid_binary_strategy_label(
     InvalidBinaryTableIndexModule => "invalid-binary-table-index-module"
     InvalidBinaryMemoryIndexModule => "invalid-binary-memory-index-module"
     InvalidBinaryThrowTagIndexModule => "invalid-binary-throw-tag-index-module"
+    InvalidBinaryCallIndirectIndexTypeModule =>
+      "invalid-binary-call-indirect-index-type-module"
     InvalidBinaryCallRefTypeModule => "invalid-binary-call-ref-type-module"
     InvalidBinaryStructGetFieldIndexModule =>
       "invalid-binary-struct-get-field-index-module"
@@ -1863,6 +1866,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidBinaryThrowTagIndexModule,
       "invalid-binary-throw-tag-index-module",
       "encoded module with an out-of-range function-body throw tag index",
+      ValidateRejected("function-body"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryCallIndirectIndexTypeModule,
+      "invalid-binary-call-indirect-index-type-module",
+      "encoded module with a call_indirect table-index operand type mismatch",
       ValidateRejected("function-body"),
       required_in_smoke=false,
     ),
@@ -18351,6 +18361,21 @@ pub fn apply_validate_invalid_binary_strategy(
       }
       validate_invalid_binary_mutate_encoded_invalid_ast_module(
         InvalidBinaryThrowTagIndexModule,
+        ast_strategy,
+        "function-body",
+        base,
+      )
+    }
+    InvalidBinaryCallIndirectIndexTypeModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-function-body-call-indirect-index-type",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryCallIndirectIndexTypeModule,
         ast_strategy,
         "function-body",
         base,
