@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1055A3 valid multi-module WAST generator
+
+- Closed `[FUZ]1055A3` by promoting the deterministic valid-linking WAST fixture shape into reusable `gen_valid_multi_module_wast_case(...)` / `gen_valid_multi_module_wast_cases(...)` helpers.
+- The generator emits stable provider/consumer module names, `register` commands, and valid function, memory, table, and global import/export wiring, with feature facts for downstream runner classification work.
+- Validation: `moon test src/fuzz` first failed on raw-string interpolation in generated module names, then passed after constructing explicit provider/consumer identifiers and routing the generated scripts through the WAST spec harness.
+
 ## [2026-05-31] fuzzing | FUZ1021A2 import-name UTF-8 corruptions
 
 - Closed `[FUZ]1021A2` by adding decode-rejected binary-invalid strategies `malformed-import-module-name-utf8` and `malformed-import-field-name-utf8`, each preserving import-section count, string length framing, import kind, and type index while truncating a multibyte UTF-8 payload.

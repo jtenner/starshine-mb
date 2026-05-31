@@ -101,6 +101,10 @@ pub fn gen_invalid_binary_seed_mode_name(GenInvalidBinarySeedMode) -> String
 
 pub fn gen_invalid_binary_seed_module(@splitmix.RandomState, GenInvalidBinaryParams) -> Result[@lib.Module, String]
 
+pub fn gen_valid_multi_module_wast_case(UInt64) -> ValidMultiModuleWastCase
+
+pub fn gen_valid_multi_module_wast_cases(UInt64, Int) -> Array[ValidMultiModuleWastCase]
+
 pub fn golden_seed_catalog_schema_json() -> String
 
 pub fn golden_seed_smoke_suite_catalog() -> Array[GoldenSeedCatalogEntry]
@@ -1036,6 +1040,12 @@ pub enum MetamorphicValidTransform {
 pub struct MetamorphicValidTransformResult {
   transform_id : String
   wasm_module : @lib.Module
+} derive(Eq, @debug.Debug)
+
+pub struct ValidMultiModuleWastCase {
+  name : String
+  text : String
+  feature_facts : Array[String]
 } derive(Eq, @debug.Debug)
 
 pub enum ValidateInvalidBinaryExpectedResult {

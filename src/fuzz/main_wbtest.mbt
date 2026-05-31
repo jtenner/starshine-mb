@@ -1152,6 +1152,66 @@ test "format_fuzz_run_report_json includes detailed suite ledgers" {
 }
 
 ///|
+test "valid multi-module wast generator emits registered linked resources" {
+  let specimen = gen_valid_multi_module_wast_case(0x1055A3UL)
+  assert_true(specimen.text.contains("(module $provider"))
+  assert_true(specimen.text.contains("(register \"provider"))
+  assert_true(specimen.text.contains("(import \"provider\" \"f\" (func"))
+  assert_true(specimen.feature_facts.contains("multi-module"))
+  assert_true(specimen.feature_facts.contains("valid-linking"))
+  assert_true(specimen.feature_facts.contains("import:func"))
+  assert_true(specimen.feature_facts.contains("export:global"))
+
+  let script = match
+    wast_to_script(specimen.text, filename="gen-valid-linking.wast") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(script.commands.length(), 4)
+  match
+    @wast.run_wast_spec_file("gen-valid-linking.wast", specimen.text).status {
+    @wast.WastSpecFileStatus::Passed => ()
+    @wast.WastSpecFileStatus::Skipped(msg) =>
+      fail("expected generated valid linking script to pass, got skip: \{msg}")
+    @wast.WastSpecFileStatus::Failed(msg) =>
+      fail(
+        "expected generated valid linking script to pass, got failure: \{msg}",
+      )
+  }
+}
+
+///|
+test "valid multi-module wast generator can emit memory table and global focused variants" {
+  let specimens = gen_valid_multi_module_wast_cases(0x1055A3UL, 4)
+  @debug.assert_eq(specimens.length(), 4)
+  let mut saw_memory = false
+  let mut saw_table = false
+  let mut saw_global = false
+  for specimen in specimens {
+    match wast_to_script(specimen.text, filename=specimen.name + ".wast") {
+      Ok(_) => ()
+      Err(msg) => fail(msg)
+    }
+    match
+      @wast.run_wast_spec_file(specimen.name + ".wast", specimen.text).status {
+      @wast.WastSpecFileStatus::Passed => ()
+      @wast.WastSpecFileStatus::Skipped(msg) =>
+        fail("expected generated multi-module script to pass, got skip: \{msg}")
+      @wast.WastSpecFileStatus::Failed(msg) =>
+        fail(
+          "expected generated multi-module script to pass, got failure: \{msg}",
+        )
+    }
+    saw_memory = saw_memory || specimen.feature_facts.contains("import:memory")
+    saw_table = saw_table || specimen.feature_facts.contains("import:table")
+    saw_global = saw_global || specimen.feature_facts.contains("import:global")
+  }
+  assert_true(saw_memory)
+  assert_true(saw_table)
+  assert_true(saw_global)
+}
+
+///|
 test "parse_fuzz_recipe_text parses core key value schema" {
   let recipe = match
     parse_fuzz_recipe_text(

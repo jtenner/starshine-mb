@@ -565,6 +565,72 @@ pub struct GenValidWatValidateRoundtripFuzzStats {
 } derive(Eq, Debug)
 
 ///|
+pub struct ValidMultiModuleWastCase {
+  name : String
+  text : String
+  feature_facts : Array[String]
+} derive(Eq, Debug)
+
+///|
+fn gen_valid_multi_module_wast_case_text(suffix : String) -> String {
+  let provider_name = "provider_" + suffix
+  let consumer_name = "consumer_" + suffix
+  "(module $" +
+  provider_name +
+  "\n" +
+  "  (func $f (export \"f\") (result i32) i32.const 7)\n" +
+  "  (memory (export \"mem\") 1)\n" +
+  "  (table (export \"tab\") 1 funcref)\n" +
+  "  (global (export \"g\") i32 (i32.const 9)))\n" +
+  "(register \"provider\" $" +
+  provider_name +
+  ")\n" +
+  "(module $" +
+  consumer_name +
+  "\n" +
+  "  (import \"provider\" \"f\" (func $f (result i32)))\n" +
+  "  (import \"provider\" \"mem\" (memory 1))\n" +
+  "  (import \"provider\" \"tab\" (table 1 funcref))\n" +
+  "  (import \"provider\" \"g\" (global i32))\n" +
+  "  (func (export \"use-func\") (result i32) call $f)\n" +
+  "  (func (export \"use-global\") (result i32) global.get 0))\n" +
+  "(register \"consumer\" $" +
+  consumer_name +
+  ")\n"
+}
+
+///|
+pub fn gen_valid_multi_module_wast_case(
+  seed : UInt64,
+) -> ValidMultiModuleWastCase {
+  let suffix = fuzz_zero_pad_decimal((seed % 100000UL).to_int(), 5)
+  {
+    name: "valid-multi-module-linking-\{suffix}",
+    text: gen_valid_multi_module_wast_case_text(suffix),
+    feature_facts: [
+      "multi-module", "valid-linking", "register", "import:func", "import:memory",
+      "import:table", "import:global", "export:func", "export:memory", "export:table",
+      "export:global",
+    ],
+  }
+}
+
+///|
+pub fn gen_valid_multi_module_wast_cases(
+  seed : UInt64,
+  count : Int,
+) -> Array[ValidMultiModuleWastCase] {
+  let cases : Array[ValidMultiModuleWastCase] = []
+  if count <= 0 {
+    return cases
+  }
+  for i = 0; i < count; i = i + 1 {
+    cases.push(gen_valid_multi_module_wast_case(seed + i.to_uint64()))
+  }
+  cases
+}
+
+///|
 fn gen_valid_wat_roundtrip_config() -> GenValidConfig {
   GenValidConfig::wat_text_roundtrip_default()
 }
