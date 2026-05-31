@@ -228,6 +228,7 @@ pub struct InvalidFuzzFailureReport {
   actual_stage : String
   actual_diagnostic_family : String?
   actual_diagnostic_location : String?
+  timeout_budget_ms : Int?
   seed_profile : String?
   seed_mode : String?
   seed_require_strategy_prereqs : Bool?
@@ -254,6 +255,7 @@ pub fn InvalidFuzzFailureReport::new(
   actual_stage? : String = expected_stage,
   actual_diagnostic_family? : String? = expected_diagnostic_family,
   actual_diagnostic_location? : String? = None,
+  timeout_budget_ms? : Int? = None,
   seed_profile? : String? = None,
   seed_mode? : String? = None,
   seed_require_strategy_prereqs? : Bool? = None,
@@ -278,6 +280,7 @@ pub fn InvalidFuzzFailureReport::new(
     actual_stage,
     actual_diagnostic_family,
     actual_diagnostic_location,
+    timeout_budget_ms,
     seed_profile,
     seed_mode,
     seed_require_strategy_prereqs,
@@ -310,6 +313,7 @@ fn invalid_fuzz_failure_report_copy(
     actual_stage=report.actual_stage,
     actual_diagnostic_family=report.actual_diagnostic_family,
     actual_diagnostic_location=report.actual_diagnostic_location,
+    timeout_budget_ms=report.timeout_budget_ms,
     seed_profile=report.seed_profile,
     seed_mode=report.seed_mode,
     seed_require_strategy_prereqs=report.seed_require_strategy_prereqs,
@@ -499,6 +503,10 @@ fn invalid_fuzz_failure_meta_text(report : InvalidFuzzFailureReport) -> String {
       report.actual_diagnostic_location,
     ) {
     Some(line) => lines.push(line)
+    None => ()
+  }
+  match report.timeout_budget_ms {
+    Some(v) => lines.push("timeout_budget_ms=" + v.to_string())
     None => ()
   }
   match invalid_fuzz_optional_meta_line("seed_profile", report.seed_profile) {
@@ -753,6 +761,7 @@ pub fn parse_invalid_fuzz_failure_report(
   let mut actual_stage : String? = None
   let mut actual_diagnostic_family : String? = None
   let mut actual_diagnostic_location : String? = None
+  let mut timeout_budget_ms : Int? = None
   let mut seed_profile : String? = None
   let mut seed_mode : String? = None
   let mut seed_require_strategy_prereqs : Bool? = None
@@ -797,6 +806,11 @@ pub fn parse_invalid_fuzz_failure_report(
       "actual_stage" => actual_stage = Some(value)
       "actual_diagnostic_family" => actual_diagnostic_family = Some(value)
       "actual_diagnostic_location" => actual_diagnostic_location = Some(value)
+      "timeout_budget_ms" =>
+        match invalid_fuzz_parse_int(value, "timeout_budget_ms") {
+          Ok(v) => timeout_budget_ms = Some(v)
+          Err(msg) => return Err(msg)
+        }
       "seed_profile" => seed_profile = Some(value)
       "seed_mode" => seed_mode = Some(value)
       "seed_require_strategy_prereqs" =>
@@ -880,6 +894,7 @@ pub fn parse_invalid_fuzz_failure_report(
       actual_stage=resolved_actual_stage,
       actual_diagnostic_family~,
       actual_diagnostic_location~,
+      timeout_budget_ms~,
       seed_profile~,
       seed_mode~,
       seed_require_strategy_prereqs~,

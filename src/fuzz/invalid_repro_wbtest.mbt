@@ -142,6 +142,48 @@ test "persist_invalid_fuzz_failure_report writes deterministic suite strategy la
 }
 
 ///|
+test "FUZ1053B1 timeout repro metadata persists resource budgets" {
+  let writes : Map[String, Bytes] = {}
+  let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
+    path,
+    bytes,
+  ) {
+    writes[path] = bytes
+    Ok(())
+  })
+  let report = InvalidFuzzFailureReport::new(
+    "validate-invalid-binary",
+    "smoke",
+    0x1053UL,
+    1,
+    "timeout-fixture",
+    invalid_fuzz_binary_source_kind(),
+    "timeout",
+    actual_stage="timeout",
+    actual_diagnostic_location=Some("adapter:wasm-tools"),
+    timeout_budget_ms=Some(250),
+    artifacts=[InvalidFuzzArtifact::new("partial", "partial.wasm", b"\x00asm")],
+  )
+  let (meta_path, _) = match persist_invalid_fuzz_failure_report(report, io) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let meta_text = match writes.get(meta_path) {
+    Some(v) => invalid_repro_test_bytes_to_ascii(v)
+    None => fail("missing timeout metadata")
+  }
+  assert_true(meta_text.contains("actual_stage=timeout"))
+  assert_true(meta_text.contains("actual_diagnostic_location=adapter:wasm-tools"))
+  assert_true(meta_text.contains("timeout_budget_ms=250"))
+  let parsed = match parse_invalid_fuzz_failure_report(meta_text, fn(_) { Ok(b"") }) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(parsed.actual_stage, "timeout")
+  @debug.assert_eq(parsed.timeout_budget_ms, Some(250))
+}
+
+///|
 test "parse_invalid_fuzz_failure_report roundtrips persisted artifacts" {
   let writes : Map[String, Bytes] = {}
   let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
