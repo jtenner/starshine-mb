@@ -92,6 +92,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidBinaryThrowPayloadModule
   InvalidBinarySharedMemoryWithoutMaxModule
   InvalidBinaryMemory64AddressTypeModule
+  InvalidBinaryGlobalInitTypeModule
   MalformedSimdImmediate
   SimdLaneIndexOverflow
   MalformedCustomSectionPayload
@@ -879,6 +880,8 @@ fn validate_invalid_binary_strategy_label(
       "invalid-binary-shared-memory-without-max-module"
     InvalidBinaryMemory64AddressTypeModule =>
       "invalid-binary-memory64-address-type-module"
+    InvalidBinaryGlobalInitTypeModule =>
+      "invalid-binary-global-init-type-module"
     MalformedSimdImmediate => "malformed-simd-immediate"
     SimdLaneIndexOverflow => "simd-lane-index-overflow"
     MalformedCustomSectionPayload => "malformed-custom-section-payload"
@@ -1801,6 +1804,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       "invalid-binary-memory64-address-type-module",
       "encoded module with a memory64 load address stack type mismatch",
       ValidateRejected("function-body"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryGlobalInitTypeModule,
+      "invalid-binary-global-init-type-module",
+      "encoded module with a global initializer result type mismatch",
+      ValidateRejected("global"),
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
@@ -17691,6 +17701,21 @@ pub fn apply_validate_invalid_binary_strategy(
         InvalidBinaryMemory64AddressTypeModule,
         ast_strategy,
         "function-body",
+        base,
+      )
+    }
+    InvalidBinaryGlobalInitTypeModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-global-init-type",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryGlobalInitTypeModule,
+        ast_strategy,
+        "global",
         base,
       )
     }

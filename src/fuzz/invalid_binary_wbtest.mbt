@@ -232,6 +232,17 @@ test "decode-accepted binary memory64 address mismatch rejects at validation sta
 }
 
 ///|
+test "decode-accepted binary global init type mismatch rejects at validation stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-binary-global-init-type-module", 0x1022B4UL, "global",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "trailing garbage binary strategy rejects at decode stage" {
   match
     invalid_binary_expect_strategy_rejects(
