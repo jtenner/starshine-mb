@@ -107,6 +107,11 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidBinaryMemory64CopyLengthTypeModule
   InvalidBinaryMemory64InitDestTypeModule
   InvalidBinaryGlobalInitTypeModule
+  InvalidBinaryMutableGlobalGetConstInitModule
+  InvalidBinaryDataOffsetNonConstModule
+  InvalidBinaryDataOffsetTypeModule
+  InvalidBinaryElemOffsetNonConstModule
+  InvalidBinaryTableInitExprTypeModule
   InvalidBinaryRelaxedSimdSwizzleLeftTypeModule
   InvalidBinaryAtomicLoadIndexModule
   InvalidBinaryAtomicLoadNonSharedMemoryModule
@@ -936,6 +941,16 @@ fn validate_invalid_binary_strategy_label(
       "invalid-binary-memory64-init-dest-type-module"
     InvalidBinaryGlobalInitTypeModule =>
       "invalid-binary-global-init-type-module"
+    InvalidBinaryMutableGlobalGetConstInitModule =>
+      "invalid-binary-mutable-global-get-const-init-module"
+    InvalidBinaryDataOffsetNonConstModule =>
+      "invalid-binary-data-offset-non-const-module"
+    InvalidBinaryDataOffsetTypeModule =>
+      "invalid-binary-data-offset-type-module"
+    InvalidBinaryElemOffsetNonConstModule =>
+      "invalid-binary-elem-offset-non-const-module"
+    InvalidBinaryTableInitExprTypeModule =>
+      "invalid-binary-table-init-expr-type-module"
     InvalidBinaryRelaxedSimdSwizzleLeftTypeModule =>
       "invalid-binary-relaxed-simd-swizzle-left-type-module"
     InvalidBinaryAtomicLoadIndexModule =>
@@ -1992,6 +2007,41 @@ pub fn validate_invalid_binary_registry() -> Array[
       "invalid-binary-global-init-type-module",
       "encoded module with a global initializer result type mismatch",
       ValidateRejected("global"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryMutableGlobalGetConstInitModule,
+      "invalid-binary-mutable-global-get-const-init-module",
+      "encoded module with a mutable global.get in a global initializer",
+      ValidateRejected("global"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryDataOffsetNonConstModule,
+      "invalid-binary-data-offset-non-const-module",
+      "encoded module with a body-only instruction in an active data offset",
+      ValidateRejected("data"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryDataOffsetTypeModule,
+      "invalid-binary-data-offset-type-module",
+      "encoded module with an active data offset result type mismatch",
+      ValidateRejected("data"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryElemOffsetNonConstModule,
+      "invalid-binary-elem-offset-non-const-module",
+      "encoded module with a body-only instruction in an active element offset",
+      ValidateRejected("element"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryTableInitExprTypeModule,
+      "invalid-binary-table-init-expr-type-module",
+      "encoded module with a table initializer expression result type mismatch",
+      ValidateRejected("table"),
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
@@ -18663,6 +18713,81 @@ pub fn apply_validate_invalid_binary_strategy(
         InvalidBinaryGlobalInitTypeModule,
         ast_strategy,
         "global",
+        base,
+      )
+    }
+    InvalidBinaryMutableGlobalGetConstInitModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "mutable-global-get-in-const-init",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryMutableGlobalGetConstInitModule,
+        ast_strategy,
+        "global",
+        base,
+      )
+    }
+    InvalidBinaryDataOffsetNonConstModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "non-constant-data-offset",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryDataOffsetNonConstModule,
+        ast_strategy,
+        "data",
+        base,
+      )
+    }
+    InvalidBinaryDataOffsetTypeModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-data-offset-type",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryDataOffsetTypeModule,
+        ast_strategy,
+        "data",
+        base,
+      )
+    }
+    InvalidBinaryElemOffsetNonConstModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "non-constant-elem-offset",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryElemOffsetNonConstModule,
+        ast_strategy,
+        "element",
+        base,
+      )
+    }
+    InvalidBinaryTableInitExprTypeModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-table-init-expr-type",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryTableInitExprTypeModule,
+        ast_strategy,
+        "table",
         base,
       )
     }

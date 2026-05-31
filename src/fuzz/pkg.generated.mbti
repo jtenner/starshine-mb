@@ -1174,6 +1174,11 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidBinaryMemory64CopyLengthTypeModule
   InvalidBinaryMemory64InitDestTypeModule
   InvalidBinaryGlobalInitTypeModule
+  InvalidBinaryMutableGlobalGetConstInitModule
+  InvalidBinaryDataOffsetNonConstModule
+  InvalidBinaryDataOffsetTypeModule
+  InvalidBinaryElemOffsetNonConstModule
+  InvalidBinaryTableInitExprTypeModule
   InvalidBinaryRelaxedSimdSwizzleLeftTypeModule
   InvalidBinaryAtomicLoadIndexModule
   InvalidBinaryAtomicLoadNonSharedMemoryModule

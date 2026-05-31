@@ -88,6 +88,17 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
   )
   assert_true(stable_ids.contains("invalid-binary-global-init-type-module"))
   assert_true(
+    stable_ids.contains("invalid-binary-mutable-global-get-const-init-module"),
+  )
+  assert_true(
+    stable_ids.contains("invalid-binary-data-offset-non-const-module"),
+  )
+  assert_true(stable_ids.contains("invalid-binary-data-offset-type-module"))
+  assert_true(
+    stable_ids.contains("invalid-binary-elem-offset-non-const-module"),
+  )
+  assert_true(stable_ids.contains("invalid-binary-table-init-expr-type-module"))
+  assert_true(
     stable_ids.contains("invalid-binary-relaxed-simd-swizzle-left-type-module"),
   )
   assert_true(stable_ids.contains("invalid-binary-atomic-load-index-module"))
@@ -402,6 +413,61 @@ test "decode-accepted binary global init type mismatch rejects at validation sta
   match
     invalid_binary_expect_strategy_rejects(
       "invalid-binary-global-init-type-module", 0x1022B4UL, "global",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "decode-accepted binary mutable global.get const initializer rejects at validation stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-binary-mutable-global-get-const-init-module", 0x1022B8UL, "global",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "decode-accepted binary non-constant data offset rejects at validation stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-binary-data-offset-non-const-module", 0x1022B81UL, "data",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "decode-accepted binary data offset result type mismatch rejects at validation stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-binary-data-offset-type-module", 0x1022B82UL, "data",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "decode-accepted binary non-constant element offset rejects at validation stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-binary-elem-offset-non-const-module", 0x1022B83UL, "element",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "decode-accepted binary table initializer result type mismatch rejects at validation stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-binary-table-init-expr-type-module", 0x1022B84UL, "table",
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)

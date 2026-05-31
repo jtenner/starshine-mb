@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1022B8 const-expression binary validation
+
+- Closed `[FUZ]1022B8` by adding decode-accepted binary-invalid strategies `invalid-binary-mutable-global-get-const-init-module`, `invalid-binary-data-offset-non-const-module`, `invalid-binary-data-offset-type-module`, `invalid-binary-elem-offset-non-const-module`, and `invalid-binary-table-init-expr-type-module` alongside the existing global-init type mismatch fixture.
+- The new specimens encode successfully, decode successfully, and then fail validation in the intended global, data, element, or table family, covering disallowed constant-expression instructions and result-type mismatches across global initializers, active data offsets, active element offsets, and table initializers.
+- Validation: `moon test src/fuzz` first failed on the missing binary strategy stable ids, then passed after registry, mutation-dispatch, focused-test, and wiki wiring.
+
 ## [2026-05-31] fuzzing | FUZ1055A4 valid multi-module linking runner
 
 - Closed `[FUZ]1055A4` by adding the active `valid-multi-module-linking` fuzz suite over the generated provider/consumer WAST cases.
