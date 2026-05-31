@@ -479,6 +479,89 @@ test "dynamic valid-before-link repro persists link outcome metadata separately"
 }
 
 ///|
+test "FUZ1055B4 unlinkable repro persists link classifier metadata separately" {
+  let writes : Map[String, Bytes] = {}
+  let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
+    path,
+    bytes,
+  ) {
+    writes[path] = bytes
+    Ok(())
+  })
+  let report = build_fuz1055b4_unlinkable_failure_report(0x1055B4UL, 2)
+  @debug.assert_eq(report.actual_stage, "valid-before-link")
+  @debug.assert_eq(report.valid_before_link, Some(true))
+  @debug.assert_eq(report.unlinkable_reason, Some("incompatible import type"))
+  @debug.assert_eq(report.registered_module_name, Some("provider"))
+  @debug.assert_eq(report.import_module_name, Some("provider"))
+  @debug.assert_eq(report.import_name, Some("mem"))
+  @debug.assert_eq(report.expected_import_type, Some("memory(2 5)"))
+  @debug.assert_eq(report.provider_export_type, Some("memory(1)"))
+  @debug.assert_eq(report.pre_link_validation_status, Some("valid-before-link"))
+  let (_, artifact_paths) = match
+    persist_invalid_fuzz_failure_report(report, io) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let meta_text = match
+    writes.get(
+      "fuzz-corpus/invalid/valid-multi-module-linking/unlinkable-multi-module/seed-1070516-attempt-2/repro.meta.txt",
+    ) {
+    Some(v) => invalid_repro_test_bytes_to_ascii(v)
+    None => fail("missing persisted FUZ1055B4 metadata")
+  }
+  assert_true(meta_text.contains("unlinkable_reason=incompatible import type"))
+  assert_true(meta_text.contains("registered_module_name=provider"))
+  assert_true(meta_text.contains("import_module_name=provider"))
+  assert_true(meta_text.contains("import_name=mem"))
+  assert_true(meta_text.contains("expected_import_type=memory(2 5)"))
+  assert_true(meta_text.contains("provider_export_type=memory(1)"))
+  assert_true(
+    meta_text.contains("pre_link_validation_status=valid-before-link"),
+  )
+  let parsed = match
+    parse_invalid_fuzz_failure_report(meta_text, fn(name) {
+      for path in artifact_paths {
+        if path.contains("/" + name) {
+          match writes.get(path) {
+            Some(v) => return Ok(v)
+            None => ()
+          }
+        }
+      }
+      Err("missing artifact " + name)
+    }) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(parsed.unlinkable_reason, Some("incompatible import type"))
+  @debug.assert_eq(parsed.import_name, Some("mem"))
+  @debug.assert_eq(parsed.provider_export_type, Some("memory(1)"))
+}
+
+///|
+test "FUZ1055B4 generic repro dispatcher builds unlinkable report" {
+  let report = match
+    build_invalid_fuzz_failure_report_by_suite_and_stable_id(
+      "valid-multi-module-linking", "unlinkable-multi-module", 0x1055B4UL, 9,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(report.actual_stage, "valid-before-link")
+  @debug.assert_eq(report.unlinkable_reason, Some("incompatible import type"))
+  @debug.assert_eq(report.pre_link_validation_status, Some("valid-before-link"))
+  match
+    build_invalid_fuzz_failure_report_by_suite_and_stable_id(
+      "valid-multi-module-linking", "not-unlinkable-multi-module", 0x1055B4UL, 9,
+    ) {
+    Ok(_) => fail("expected unknown multi-module strategy to fail")
+    Err(msg) =>
+      assert_true(msg.contains("unknown multi-module invalid strategy"))
+  }
+}
+
+///|
 test "parse_invalid_fuzz_failure_report roundtrips persisted seed metadata" {
   let writes : Map[String, Bytes] = {}
   let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(

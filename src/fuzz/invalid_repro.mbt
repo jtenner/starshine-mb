@@ -100,6 +100,98 @@ pub fn build_fuz1026_binary_text_multifault_stress_report(
 }
 
 ///|
+fn fuz1055b4_unlinkable_metadata(
+  seed : UInt64,
+) -> (String, String, String, String, String) {
+  match (seed % 10UL).to_int() {
+    0 =>
+      (
+        "unknown import", "missing_f", "func()", "missing export", "func(result i32)",
+      )
+    1 =>
+      (
+        "unknown import", "missing_mem", "memory(1)", "missing export", "memory(1)",
+      )
+    2 =>
+      (
+        "unknown import", "missing_tab", "table(1 funcref)", "missing export", "table(1 funcref)",
+      )
+    3 =>
+      (
+        "unknown import", "missing_g", "global(i32)", "missing export", "global(i32)",
+      )
+    4 =>
+      (
+        "unknown import", "missing_tag", "tag(param i32)", "missing export", "tag(param i32)",
+      )
+    5 =>
+      (
+        "incompatible import type", "f", "func(param i32)", "func(result i32)", "func(result i32)",
+      )
+    6 =>
+      (
+        "incompatible import type", "mem", "memory(2 5)", "memory(1)", "memory(1)",
+      )
+    7 =>
+      (
+        "incompatible import type", "tab", "table(11 funcref)", "table(1 funcref)",
+        "table(1 funcref)",
+      )
+    8 =>
+      (
+        "incompatible import type", "g", "global(f64)", "global(i32)", "global(i32)",
+      )
+    _ =>
+      (
+        "incompatible import type", "tag", "tag(param f32)", "tag(param i32)", "tag(param i32)",
+      )
+  }
+}
+
+///|
+pub fn build_fuz1055b4_unlinkable_failure_report(
+  seed : UInt64,
+  attempt : Int,
+) -> InvalidFuzzFailureReport {
+  let case = gen_unlinkable_multi_module_wast_case(seed)
+  let (
+    reason,
+    import_name,
+    expected_import_type,
+    provider_export_type,
+    feature_type,
+  ) = fuz1055b4_unlinkable_metadata(seed)
+  InvalidFuzzFailureReport::new(
+    "valid-multi-module-linking",
+    "smoke",
+    seed,
+    attempt,
+    "unlinkable-multi-module",
+    invalid_fuzz_text_source_kind(),
+    "valid-before-link",
+    actual_stage="valid-before-link",
+    source_path=Some(case.name + ".wast"),
+    valid_before_link=Some(true),
+    unlinkable_reason=Some(reason),
+    registered_module_name=Some("provider"),
+    import_module_name=Some("provider"),
+    import_name=Some(import_name),
+    expected_import_type=Some(expected_import_type),
+    provider_export_type=Some(provider_export_type),
+    pre_link_validation_status=Some("valid-before-link"),
+    source_feature_facts=case.feature_facts +
+      ["unlinkable-type:" + feature_type],
+    artifacts=[
+      InvalidFuzzArtifact::new(
+        "unlinkable-wast",
+        case.name + ".wast",
+        invalid_fuzz_string_bytes(case.text),
+      ),
+    ],
+  )
+}
+
+///|
 pub enum FuzzReductionFailureKind {
   ValidationFailure
   ParseFailure
@@ -300,6 +392,13 @@ pub struct InvalidFuzzFailureReport {
   attempt_seed : UInt64?
   source_path : String?
   valid_before_link : Bool?
+  unlinkable_reason : String?
+  registered_module_name : String?
+  import_module_name : String?
+  import_name : String?
+  expected_import_type : String?
+  provider_export_type : String?
+  pre_link_validation_status : String?
   source_feature_facts : Array[String]
   multi_fault_mutation_ids : Array[String]
   multi_fault_broad_outcomes : Array[String]
@@ -329,6 +428,13 @@ pub fn InvalidFuzzFailureReport::new(
   attempt_seed? : UInt64? = None,
   source_path? : String? = None,
   valid_before_link? : Bool? = None,
+  unlinkable_reason? : String? = None,
+  registered_module_name? : String? = None,
+  import_module_name? : String? = None,
+  import_name? : String? = None,
+  expected_import_type? : String? = None,
+  provider_export_type? : String? = None,
+  pre_link_validation_status? : String? = None,
   source_feature_facts? : Array[String] = [],
   multi_fault_mutation_ids? : Array[String] = [],
   multi_fault_broad_outcomes? : Array[String] = [],
@@ -356,6 +462,13 @@ pub fn InvalidFuzzFailureReport::new(
     attempt_seed,
     source_path,
     valid_before_link,
+    unlinkable_reason,
+    registered_module_name,
+    import_module_name,
+    import_name,
+    expected_import_type,
+    provider_export_type,
+    pre_link_validation_status,
     source_feature_facts,
     multi_fault_mutation_ids,
     multi_fault_broad_outcomes,
@@ -391,6 +504,13 @@ fn invalid_fuzz_failure_report_copy(
     attempt_seed=report.attempt_seed,
     source_path~,
     valid_before_link=report.valid_before_link,
+    unlinkable_reason=report.unlinkable_reason,
+    registered_module_name=report.registered_module_name,
+    import_module_name=report.import_module_name,
+    import_name=report.import_name,
+    expected_import_type=report.expected_import_type,
+    provider_export_type=report.provider_export_type,
+    pre_link_validation_status=report.pre_link_validation_status,
     source_feature_facts=report.source_feature_facts,
     multi_fault_mutation_ids=report.multi_fault_mutation_ids,
     multi_fault_broad_outcomes=report.multi_fault_broad_outcomes,
@@ -616,6 +736,58 @@ fn invalid_fuzz_failure_meta_text(report : InvalidFuzzFailureReport) -> String {
     invalid_fuzz_optional_bool_meta_line(
       "valid_before_link",
       report.valid_before_link,
+    ) {
+    Some(line) => lines.push(line)
+    None => ()
+  }
+  match
+    invalid_fuzz_optional_meta_line(
+      "unlinkable_reason",
+      report.unlinkable_reason,
+    ) {
+    Some(line) => lines.push(line)
+    None => ()
+  }
+  match
+    invalid_fuzz_optional_meta_line(
+      "registered_module_name",
+      report.registered_module_name,
+    ) {
+    Some(line) => lines.push(line)
+    None => ()
+  }
+  match
+    invalid_fuzz_optional_meta_line(
+      "import_module_name",
+      report.import_module_name,
+    ) {
+    Some(line) => lines.push(line)
+    None => ()
+  }
+  match invalid_fuzz_optional_meta_line("import_name", report.import_name) {
+    Some(line) => lines.push(line)
+    None => ()
+  }
+  match
+    invalid_fuzz_optional_meta_line(
+      "expected_import_type",
+      report.expected_import_type,
+    ) {
+    Some(line) => lines.push(line)
+    None => ()
+  }
+  match
+    invalid_fuzz_optional_meta_line(
+      "provider_export_type",
+      report.provider_export_type,
+    ) {
+    Some(line) => lines.push(line)
+    None => ()
+  }
+  match
+    invalid_fuzz_optional_meta_line(
+      "pre_link_validation_status",
+      report.pre_link_validation_status,
     ) {
     Some(line) => lines.push(line)
     None => ()
@@ -879,6 +1051,13 @@ pub fn parse_invalid_fuzz_failure_report(
   let mut attempt_seed : UInt64? = None
   let mut source_path : String? = None
   let mut valid_before_link : Bool? = None
+  let mut unlinkable_reason : String? = None
+  let mut registered_module_name : String? = None
+  let mut import_module_name : String? = None
+  let mut import_name : String? = None
+  let mut expected_import_type : String? = None
+  let mut provider_export_type : String? = None
+  let mut pre_link_validation_status : String? = None
   let source_feature_facts : Array[String] = []
   let multi_fault_mutation_ids : Array[String] = []
   let multi_fault_broad_outcomes : Array[String] = []
@@ -946,6 +1125,13 @@ pub fn parse_invalid_fuzz_failure_report(
           Ok(v) => valid_before_link = Some(v)
           Err(msg) => return Err(msg)
         }
+      "unlinkable_reason" => unlinkable_reason = Some(value)
+      "registered_module_name" => registered_module_name = Some(value)
+      "import_module_name" => import_module_name = Some(value)
+      "import_name" => import_name = Some(value)
+      "expected_import_type" => expected_import_type = Some(value)
+      "provider_export_type" => provider_export_type = Some(value)
+      "pre_link_validation_status" => pre_link_validation_status = Some(value)
       "source_feature_fact" => source_feature_facts.push(value)
       "multi_fault_mutation_id" => multi_fault_mutation_ids.push(value)
       "multi_fault_broad_outcome" => multi_fault_broad_outcomes.push(value)
@@ -1017,6 +1203,13 @@ pub fn parse_invalid_fuzz_failure_report(
       attempt_seed~,
       source_path~,
       valid_before_link~,
+      unlinkable_reason~,
+      registered_module_name~,
+      import_module_name~,
+      import_name~,
+      expected_import_type~,
+      provider_export_type~,
+      pre_link_validation_status~,
       source_feature_facts~,
       multi_fault_mutation_ids~,
       multi_fault_broad_outcomes~,
@@ -1087,6 +1280,14 @@ pub fn build_invalid_fuzz_failure_report_by_suite_and_stable_id(
       attempt,
       profile~,
     )
+  }
+  if normalized == "valid-multi-module-linking" ||
+    normalized == "multi-module-linking" {
+    if strategy_id != "unlinkable-multi-module" {
+      return Err("unknown multi-module invalid strategy '\{strategy_id}'")
+    }
+    ignore(profile)
+    return Ok(build_fuz1055b4_unlinkable_failure_report(seed, attempt))
   }
   let source_kind = match invalid_fuzz_source_kind_from_name(normalized) {
     Some(v) => v

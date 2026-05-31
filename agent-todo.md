@@ -617,7 +617,6 @@ p1 next-up / active:
 p2 invalid/binary/text tiny slices:
 
 p2 oracle/reporting/infrastructure tiny slices:
-- `[FUZ]1055B4` - Unlinkable outcome classifier/repro metadata: persist unlinkable reason, registered module/name, expected import type, provider export type, and pre-link validation status separately from invalid-module failures.
 
 
 #### Named remaining FUZ slice index
@@ -657,7 +656,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1055A (p2) - Multi-Module WAST Valid Linking Lane
   - Completed tiny slices: `[FUZ]1055A1` named two-module fixture, `[FUZ]1055A2` valid import/export wiring fixture, `[FUZ]1055A3` reusable valid multi-module WAST generator lane, and `[FUZ]1055A4` valid linking runner classification. Remaining concrete slices: none for the current tracked 1055A board.
 - [FUZ]1055B (p2) - Multi-Module WAST Unlinkable Lane
-  - Completed tiny slices: `[FUZ]1055B1` missing-import unlinkable fixture, `[FUZ]1055B2` type-mismatch unlinkable fixture, and `[FUZ]1055B3` unlinkable generator lane. Remaining concrete slice: `[FUZ]1055B4` unlinkable outcome classifier/repro metadata.
+  - Completed tiny slices: `[FUZ]1055B1` missing-import unlinkable fixture, `[FUZ]1055B2` type-mismatch unlinkable fixture, `[FUZ]1055B3` unlinkable generator lane, and `[FUZ]1055B4` unlinkable outcome classifier/repro metadata. Remaining concrete slices: none for the current tracked 1055B board.
 - [FUZ]1056A (p2) - Curated Diagnostic Location Fixtures
   - Unit: add exact byte offset/section/line/column checks for stable invalid binary/text fixtures.
 - [FUZ]1056B (p2) - Fuzz Diagnostic Location Metadata

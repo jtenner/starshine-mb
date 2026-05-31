@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1055B4 unlinkable repro metadata
+
+- Closed `[FUZ]1055B4` by adding first-class optional unlinkable metadata to invalid-fuzz repro reports: unlinkable reason, registered module alias, import module/name, expected import type, provider export type, and pre-link validation status.
+- Added a deterministic FUZ1055B4 report builder over the multi-module unlinkable WAST generator so valid-before-link/link-property evidence is persisted separately from validator diagnostic-family failures.
+- Validation: `moon test src/fuzz` first failed on the missing builder/metadata fields, then passed after adding metadata persistence, generic dispatcher, CLI repro-emission, and parse roundtrip coverage; final validation is recorded in the commit message.
+
 ## [2026-05-31] fuzzing | FUZ1055B3 unlinkable WAST generator lane
 
 - Closed `[FUZ]1055B3` by adding generated multi-module `assert_unlinkable` WAST cases for both missing-import and incompatible-import-type families across function, memory, table, global, and tag imports.
