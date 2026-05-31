@@ -75,6 +75,15 @@ pub enum ExportInvocationClassification {
 } derive(Eq, Debug)
 
 ///|
+pub struct ExportInvocationComparisonReport {
+  export_name : String
+  args : Array[String]
+  left_result : ExportInvocationResult
+  right_result : ExportInvocationResult
+  classification : ExportInvocationClassification
+} derive(Eq, Debug)
+
+///|
 pub fn ExportInvocationClassification::equal_result() -> ExportInvocationClassification {
   EqualResult
 }
@@ -142,6 +151,22 @@ pub fn classify_export_invocation_results(
       SemanticMismatch("trap/value mismatch: left=\{a} right=\{b}")
     (Value(a), Trap(b)) =>
       SemanticMismatch("value/trap mismatch: left=\{a} right=\{b}")
+  }
+}
+
+///|
+pub fn compare_export_invocation_results(
+  export_name : String,
+  args : Array[String],
+  left : ExportInvocationResult,
+  right : ExportInvocationResult,
+) -> ExportInvocationComparisonReport {
+  ExportInvocationComparisonReport::{
+    export_name,
+    args,
+    left_result: left,
+    right_result: right,
+    classification: classify_export_invocation_results(left, right),
   }
 }
 

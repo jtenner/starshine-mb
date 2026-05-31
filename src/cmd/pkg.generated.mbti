@@ -21,6 +21,8 @@ pub fn cmd_help_text() -> String
 
 pub fn cmd_version_text() -> String
 
+pub fn compare_export_invocation_results(String, Array[String], ExportInvocationResult, ExportInvocationResult) -> ExportInvocationComparisonReport
+
 pub fn differential_validate_wasm(Bytes, adapters? : DifferentialAdapters) -> Result[DifferentialValidationReport, String]
 
 pub fn minimize_fuzz_passes(Array[String], (Array[String]) -> Bool) -> Array[String]
@@ -165,6 +167,14 @@ pub fn ExportInvocationClassification::equal_trap() -> Self
 pub fn ExportInvocationClassification::nondeterministic_import() -> Self
 pub fn ExportInvocationClassification::semantic_mismatch(String) -> Self
 pub fn ExportInvocationClassification::unsupported_runtime() -> Self
+
+pub struct ExportInvocationComparisonReport {
+  export_name : String
+  args : Array[String]
+  left_result : ExportInvocationResult
+  right_result : ExportInvocationResult
+  classification : ExportInvocationClassification
+} derive(Eq, @debug.Debug)
 
 pub enum ExportInvocationResult {
   Value(String)

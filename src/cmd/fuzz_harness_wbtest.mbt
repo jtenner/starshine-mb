@@ -100,6 +100,26 @@ test "FUZ1052B2 simple export invocation args cover numeric params" {
 }
 
 ///|
+test "FUZ1052B3 export invocation comparison report retains context" {
+  let report = compare_export_invocation_results(
+    "run",
+    ["i32:0"],
+    ExportInvocationResult::value("i32:1"),
+    ExportInvocationResult::value("i32:2"),
+  )
+  @debug.assert_eq(report.export_name, "run")
+  @debug.assert_eq(report.args, ["i32:0"])
+  @debug.assert_eq(report.left_result, ExportInvocationResult::value("i32:1"))
+  @debug.assert_eq(report.right_result, ExportInvocationResult::value("i32:2"))
+  @debug.assert_eq(
+    report.classification,
+    ExportInvocationClassification::semantic_mismatch(
+      "value mismatch: left=i32:1 right=i32:2",
+    ),
+  )
+}
+
+///|
 test "FUZ1053A3 differential adapters classify per-case timeout results" {
   let bytes = encode_fixture_module(23)
   let adapters = DifferentialAdapters::new(
