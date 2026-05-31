@@ -1,5 +1,15 @@
 export type FuzzTimeoutRunner = "ordinary" | "pass-fuzz" | "external-adapter";
 
+const DEFAULT_TIMEOUTS_MS: Record<FuzzTimeoutRunner, number> = {
+  ordinary: 1_000,
+  "pass-fuzz": 5_000,
+  "external-adapter": 2_000,
+};
+
+export function defaultFuzzCaseTimeoutMs(runner: FuzzTimeoutRunner): number {
+  return DEFAULT_TIMEOUTS_MS[runner];
+}
+
 export type FuzzTimeoutClassification = {
   runner: FuzzTimeoutRunner;
   timedOut: boolean;

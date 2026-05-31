@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { classifyFuzzCaseTimeout, withFuzzCaseTimeout } from "./fuzz-timeouts";
+import { classifyFuzzCaseTimeout, defaultFuzzCaseTimeoutMs, withFuzzCaseTimeout } from "./fuzz-timeouts";
 
 describe("fuzz timeouts", () => {
   test("classifies ordinary fuzz cases against per-case budget", () => {
@@ -12,6 +12,13 @@ describe("fuzz timeouts", () => {
       timeoutMs: 20,
     });
     expect(classifyFuzzCaseTimeout({ elapsedMs: 25, timeoutMs: 20, runner: "ordinary" }).classification).toBe("timeout");
+  });
+
+  test("classifies pass-fuzz cases against per-case budget", async () => {
+    expect(defaultFuzzCaseTimeoutMs("pass-fuzz")).toBeGreaterThan(defaultFuzzCaseTimeoutMs("ordinary"));
+    const result = await withFuzzCaseTimeout("pass-fuzz", 20, async () => "match");
+
+    expect(result).toMatchObject({ ok: true, value: "match", timeout: { runner: "pass-fuzz", classification: "completed" } });
   });
 
   test("wraps ordinary async fuzz work with timeout classification", async () => {
