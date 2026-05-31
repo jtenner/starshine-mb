@@ -514,6 +514,10 @@ fn invalid_fuzz_failure_report_copy(
   report : InvalidFuzzFailureReport,
   source_path? : String? = report.source_path,
   reduced_artifacts? : Array[InvalidFuzzArtifact] = report.reduced_artifacts,
+  reduction_original_size? : Int? = report.reduction_original_size,
+  reduction_final_size? : Int? = report.reduction_final_size,
+  reduction_predicate_evaluations? : Int? = report.reduction_predicate_evaluations,
+  reduction_steps? : Array[InvalidFuzzReductionStep] = report.reduction_steps,
 ) -> InvalidFuzzFailureReport {
   InvalidFuzzFailureReport::new(
     report.suite,
@@ -548,10 +552,10 @@ fn invalid_fuzz_failure_report_copy(
     multi_fault_broad_outcomes=report.multi_fault_broad_outcomes,
     artifacts=report.artifacts,
     reduced_artifacts~,
-    reduction_original_size=report.reduction_original_size,
-    reduction_final_size=report.reduction_final_size,
-    reduction_predicate_evaluations=report.reduction_predicate_evaluations,
-    reduction_steps=report.reduction_steps,
+    reduction_original_size~,
+    reduction_final_size~,
+    reduction_predicate_evaluations~,
+    reduction_steps~,
   )
 }
 
@@ -1920,6 +1924,54 @@ fn invalid_fuzz_spec_seed_reduce(
 }
 
 ///|
+fn invalid_fuzz_first_artifact_size(
+  artifacts : Array[InvalidFuzzArtifact],
+) -> Int? {
+  if artifacts.length() == 0 {
+    None
+  } else {
+    Some(artifacts[0].bytes.length())
+  }
+}
+
+///|
+fn invalid_fuzz_report_with_reduction(
+  report : InvalidFuzzFailureReport,
+  reduced : InvalidFuzzArtifact,
+  source_path? : String? = report.source_path,
+) -> InvalidFuzzFailureReport {
+  let original_size = invalid_fuzz_first_artifact_size(report.artifacts)
+  let final_size = Some(reduced.bytes.length())
+  let step = InvalidFuzzReductionStep::new(
+    "strategy-minimal-repro",
+    0,
+    match (original_size, final_size) {
+      (Some(before), Some(after)) =>
+        if before > after {
+          before - after
+        } else {
+          0
+        }
+      _ => 0
+    },
+    match original_size {
+      Some(v) => v
+      None => 0
+    },
+    reduced.bytes.length(),
+  )
+  invalid_fuzz_failure_report_copy(
+    report,
+    source_path~,
+    reduced_artifacts=[reduced],
+    reduction_original_size=original_size,
+    reduction_final_size=final_size,
+    reduction_predicate_evaluations=Some(2),
+    reduction_steps=[step],
+  )
+}
+
+///|
 pub fn shrink_invalid_fuzz_failure_report(
   report : InvalidFuzzFailureReport,
 ) -> Result[InvalidFuzzFailureReport, String] {
@@ -1929,7 +1981,7 @@ pub fn shrink_invalid_fuzz_failure_report(
         Ok(v) => v
         Err(msg) => return Err(msg)
       }
-      Ok(invalid_fuzz_failure_report_copy(report, reduced_artifacts=[reduced]))
+      Ok(invalid_fuzz_report_with_reduction(report, reduced))
     }
     BinaryInvalidSource => {
       let reduced = match
@@ -1937,7 +1989,7 @@ pub fn shrink_invalid_fuzz_failure_report(
         Ok(v) => v
         Err(msg) => return Err(msg)
       }
-      Ok(invalid_fuzz_failure_report_copy(report, reduced_artifacts=[reduced]))
+      Ok(invalid_fuzz_report_with_reduction(report, reduced))
     }
     TextInvalidSource => {
       let (reduced, path) = match
@@ -1946,9 +1998,11 @@ pub fn shrink_invalid_fuzz_failure_report(
         Err(msg) => return Err(msg)
       }
       Ok(
-        invalid_fuzz_failure_report_copy(report, source_path=Some(path), reduced_artifacts=[
+        invalid_fuzz_report_with_reduction(
+          report,
           reduced,
-        ]),
+          source_path=Some(path),
+        ),
       )
     }
     SpecSeedInvalidSource => {
@@ -1958,9 +2012,11 @@ pub fn shrink_invalid_fuzz_failure_report(
         Err(msg) => return Err(msg)
       }
       Ok(
-        invalid_fuzz_failure_report_copy(report, source_path=Some(path), reduced_artifacts=[
+        invalid_fuzz_report_with_reduction(
+          report,
           reduced,
-        ]),
+          source_path=Some(path),
+        ),
       )
     }
   }

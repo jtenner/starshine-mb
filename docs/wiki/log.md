@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1043F invalid-fuzz shrink metadata
+
+- Advanced `[FUZ]1043` by making `shrink_invalid_fuzz_failure_report(...)` attach concrete reduction-summary metadata when it creates strategy-minimal reduced artifacts for AST, binary, inline-text, or spec-seed invalid repros.
+- The generated shrink reports now record original/final byte sizes, a two-replay predicate-evaluation count, and a `strategy-minimal-repro` reduction step, so invalid-fuzz shrink paths and externally supplied reduction evidence share the same metadata/log contract.
+- Validation: `moon test src/fuzz` first failed on missing shrink metadata, then passed after implementation; final validation is recorded in the commit message.
+
 ## [2026-05-31] fuzzing | FUZ1043E invalid-fuzz reduction artifact persistence
 
 - Advanced `[FUZ]1043` by extending invalid-fuzz repro reports with the same reduction metadata shape used by command-harness repros: optional original/final sizes, predicate-evaluation count, and deletion-step entries.

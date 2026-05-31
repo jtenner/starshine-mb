@@ -1135,6 +1135,25 @@ test "shrink_invalid_fuzz_failure_report produces replayable AST reduced artifac
     shrunk.reduced_artifacts[0].bytes.length() <
     shrunk.artifacts[0].bytes.length(),
   )
+  @debug.assert_eq(
+    shrunk.reduction_original_size,
+    Some(shrunk.artifacts[0].bytes.length()),
+  )
+  @debug.assert_eq(
+    shrunk.reduction_final_size,
+    Some(shrunk.reduced_artifacts[0].bytes.length()),
+  )
+  @debug.assert_eq(shrunk.reduction_predicate_evaluations, Some(2))
+  @debug.assert_eq(shrunk.reduction_steps.length(), 1)
+  @debug.assert_eq(shrunk.reduction_steps[0].kind, "strategy-minimal-repro")
+  @debug.assert_eq(
+    shrunk.reduction_steps[0].before_size,
+    shrunk.artifacts[0].bytes.length(),
+  )
+  @debug.assert_eq(
+    shrunk.reduction_steps[0].after_size,
+    shrunk.reduced_artifacts[0].bytes.length(),
+  )
   let replay = match replay_invalid_fuzz_failure_report(shrunk) {
     Ok(v) => v
     Err(msg) => fail(msg)
