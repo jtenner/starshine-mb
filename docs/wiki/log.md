@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1037R5 const-expression matrix closeout
+
+- Closed `[FUZ]1037R5` and parent `[FUZ]1037` in research note [`0692`](raw/research/0692-2026-05-31-fuz1037-closeout.md) after R1-R4 covered inventory, boundary active offsets, descriptor-bearing initializers, and context/op-family reporting.
+- Targeted validation passed with `moon run src/fuzz -- validate-valid smoke --seed 0x1037 --out-dir .tmp/fuz1037r5-validate-valid-smoke`, `moon info`, `moon fmt`, and full `moon test`; no active initializer-expression FUZ1037 slice remains.
+
 ## [2026-05-31] fuzzing | FUZ1037R4 context/op const-expression reporting
 
 - Completed `[FUZ]1037R4` in research note [`0691`](raw/research/0691-2026-05-31-fuz1037-context-op-report.md) by adding `gen_valid_const_expr_observed_op_matrix(...)`, which reports observed GenValid const-expression operation families per global initializer, active data offset, active element offset, element payload, and table initializer context while keeping `ConstExprVariants` as the stable coarse feature-floor key.
