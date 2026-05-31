@@ -1,3 +1,16 @@
+export function buildMissingImportUnlinkableWast(): string {
+  return [
+    `(assert_unlinkable`,
+    `  (module $consumer`,
+    `    (import "missing" "value" (func $value (result i32)))`,
+    `    (func (export "read") (result i32)`,
+    `      call $value)`,
+    `  )`,
+    `  "unknown import")`,
+    ``,
+  ].join("\n");
+}
+
 export function buildValidImportExportWast(): string {
   return [
     `(module $provider`,

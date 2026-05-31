@@ -1,8 +1,16 @@
 import { describe, expect, test } from "bun:test";
 
-import { buildNamedTwoModuleWast, buildValidImportExportWast } from "./fuzz-wast-linking";
+import { buildMissingImportUnlinkableWast, buildNamedTwoModuleWast, buildValidImportExportWast } from "./fuzz-wast-linking";
 
 describe("fuzz WAST linking fixtures", () => {
+  test("generates assert_unlinkable for missing imports", () => {
+    const script = buildMissingImportUnlinkableWast();
+
+    expect(script).toContain('(assert_unlinkable');
+    expect(script).toContain('(import "missing" "value" (func $value (result i32)))');
+    expect(script).toContain('"unknown import"');
+  });
+
   test("generates valid import/export wiring across multiple value kinds", () => {
     const script = buildValidImportExportWast();
 
