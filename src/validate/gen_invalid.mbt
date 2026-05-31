@@ -296,6 +296,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-memory64-copy-source-type"
     InvalidFunctionBodyMemory64CopyDestType =>
       "invalid-function-body-memory64-copy-dest-type"
+    InvalidFunctionBodyMemory64InitDestType =>
+      "invalid-function-body-memory64-init-dest-type"
     InvalidFunctionBodyMemoryInitLengthType =>
       "invalid-function-body-memory-init-length-type"
     InvalidFunctionBodyMemoryInitSourceType =>
