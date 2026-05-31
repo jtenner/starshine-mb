@@ -88,6 +88,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   DataCountMismatchTooLargeModule
   InvalidBinaryBodyLocalSetValueTypeModule
   InvalidBinaryBranchPayloadTypeModule
+  InvalidBinaryBranchLabelIndexModule
   InvalidBinaryLocalIndexModule
   InvalidBinaryGlobalIndexModule
   InvalidBinaryTableIndexModule
@@ -897,6 +898,8 @@ fn validate_invalid_binary_strategy_label(
       "invalid-binary-body-local-set-value-type-module"
     InvalidBinaryBranchPayloadTypeModule =>
       "invalid-binary-branch-payload-type-module"
+    InvalidBinaryBranchLabelIndexModule =>
+      "invalid-binary-branch-label-index-module"
     InvalidBinaryLocalIndexModule => "invalid-binary-local-index-module"
     InvalidBinaryGlobalIndexModule => "invalid-binary-global-index-module"
     InvalidBinaryTableIndexModule => "invalid-binary-table-index-module"
@@ -1834,6 +1837,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidBinaryBranchPayloadTypeModule,
       "invalid-binary-branch-payload-type-module",
       "encoded module with a branch payload stack type mismatch",
+      ValidateRejected("function-body"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryBranchLabelIndexModule,
+      "invalid-binary-branch-label-index-module",
+      "encoded module with an out-of-range branch label index",
       ValidateRejected("function-body"),
       required_in_smoke=false,
     ),
@@ -18296,6 +18306,21 @@ pub fn apply_validate_invalid_binary_strategy(
       }
       validate_invalid_binary_mutate_encoded_invalid_ast_module(
         InvalidBinaryBranchPayloadTypeModule,
+        ast_strategy,
+        "function-body",
+        base,
+      )
+    }
+    InvalidBinaryBranchLabelIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-function-body-branch-label-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryBranchLabelIndexModule,
         ast_strategy,
         "function-body",
         base,

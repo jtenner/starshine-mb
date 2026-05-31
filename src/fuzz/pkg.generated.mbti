@@ -1139,6 +1139,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   DataCountMismatchTooLargeModule
   InvalidBinaryBodyLocalSetValueTypeModule
   InvalidBinaryBranchPayloadTypeModule
+  InvalidBinaryBranchLabelIndexModule
   InvalidBinaryLocalIndexModule
   InvalidBinaryGlobalIndexModule
   InvalidBinaryTableIndexModule

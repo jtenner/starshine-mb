@@ -48,6 +48,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     stable_ids.contains("invalid-binary-body-local-set-value-type-module"),
   )
   assert_true(stable_ids.contains("invalid-binary-branch-payload-type-module"))
+  assert_true(stable_ids.contains("invalid-binary-branch-label-index-module"))
   assert_true(stable_ids.contains("invalid-binary-local-index-module"))
   assert_true(stable_ids.contains("invalid-binary-global-index-module"))
   assert_true(stable_ids.contains("invalid-binary-table-index-module"))
@@ -80,7 +81,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     expected_labels
     .filter(fn(label) { label == "validate-function-body" })
     .length(),
-    14,
+    15,
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 40)
@@ -169,6 +170,17 @@ test "decode-accepted binary branch payload mismatch rejects at validation stage
   match
     invalid_binary_expect_strategy_rejects(
       "invalid-binary-branch-payload-type-module", 0x1022A2UL, "function-body",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "decode-accepted binary branch label index rejects at validation stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-binary-branch-label-index-module", 0x1022A9UL, "function-body",
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)
