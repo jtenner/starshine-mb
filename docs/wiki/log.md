@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1045A5 n-way text aggregate classifier
+
+- Closed `[FUZ]1045A5` by adding `TextAggregateAdapterResult`, `TextAggregateClassification`, local-report conversion, and `classify_n_way_text_aggregate(...)` in `src/cmd/fuzz_harness.mbt`.
+- The classifier now turns Starshine-local parse/print/lower reports plus external text adapter outcomes into aggregate buckets for accepted cases, parse disagreement, print disagreement, lower disagreement, unsupported syntax, semantic validation disagreement, and adapter unavailable.
+- Validation: `moon test src/cmd` first failed on the missing aggregate API, then passed after adding the classifier and focused coverage for every aggregate bucket.
+
 ## [2026-05-31] fuzzing | FUZ1045A4 local text parse/print/lower matrix
 
 - Closed `[FUZ]1045A4` by adding a local `run_local_text_parse_print_lower_matrix(...)` helper in `src/cmd/fuzz_harness.mbt`.

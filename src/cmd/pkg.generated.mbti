@@ -19,6 +19,8 @@ pub fn classify_export_invocation_matrix(ExportInvocationMatrixSummary) -> Expor
 
 pub fn classify_export_invocation_results(ExportInvocationResult, ExportInvocationResult) -> ExportInvocationClassification
 
+pub fn classify_n_way_text_aggregate(Array[TextAggregateAdapterResult]) -> TextAggregateClassification
+
 pub fn cmd_fuzz_harness_profile_config(String) -> Result[CmdFuzzHarnessProfileConfig, String]
 
 pub fn cmd_help_text() -> String
@@ -58,6 +60,8 @@ pub fn run_local_text_parse_print_lower_matrix(String, filename? : String) -> Te
 pub fn summarize_binary_canonicality_classifications(Array[BinaryCanonicalityClassification]) -> BinaryCanonicalitySummary
 
 pub fn summarize_export_invocation_matrix(Array[ExportInvocationComparisonReport]) -> ExportInvocationMatrixSummary
+
+pub fn text_aggregate_local_result(TextParsePrintLowerReport, validates_ok? : Bool?) -> TextAggregateAdapterResult
 
 pub fn verify_readme_api_signatures(String, Array[(String, String)]) -> Result[Unit, String]
 
@@ -354,6 +358,38 @@ pub impl Show for OptimizeValidationPolicy
 
 type ReadmeApiVerifyBlock derive(Eq, @debug.Debug)
 pub impl Show for ReadmeApiVerifyBlock
+
+pub struct TextAggregateAdapterResult {
+  adapter_name : String
+  parse_ok : Bool
+  print_ok : Bool?
+  lower_ok : Bool?
+  validates_ok : Bool?
+  unsupported_syntax : Bool
+  adapter_available : Bool
+  message : String?
+} derive(Eq, @debug.Debug)
+pub fn TextAggregateAdapterResult::external_accepted(String, validates_ok? : Bool?) -> Self
+pub fn TextAggregateAdapterResult::external_parse_error(String, String) -> Self
+pub fn TextAggregateAdapterResult::external_unavailable(String, String) -> Self
+pub fn TextAggregateAdapterResult::external_unsupported_syntax(String, String) -> Self
+
+pub enum TextAggregateClassification {
+  Accepted
+  ParseDisagreement
+  PrintDisagreement
+  LowerDisagreement
+  UnsupportedSyntax
+  SemanticValidationDisagreement
+  AdapterUnavailable
+} derive(Eq, @debug.Debug)
+pub fn TextAggregateClassification::accepted() -> Self
+pub fn TextAggregateClassification::adapter_unavailable() -> Self
+pub fn TextAggregateClassification::lower_disagreement() -> Self
+pub fn TextAggregateClassification::parse_disagreement() -> Self
+pub fn TextAggregateClassification::print_disagreement() -> Self
+pub fn TextAggregateClassification::semantic_validation_disagreement() -> Self
+pub fn TextAggregateClassification::unsupported_syntax() -> Self
 
 pub struct TextParsePrintLowerReport {
   adapter_name : String

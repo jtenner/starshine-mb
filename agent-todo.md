@@ -617,7 +617,6 @@ p1 next-up / active:
 p2 invalid/binary/text tiny slices:
 
 p2 oracle/reporting/infrastructure tiny slices:
-- `[FUZ]1045A5` - N-way text aggregate classifier: classify all-local/external combinations as parse disagreement, print disagreement, lower disagreement, unsupported syntax, semantic validation disagreement, or adapter unavailable.
 - `[FUZ]1045A6` - Text differential artifact persistence: persist original WAT/WAST, Starshine-printed text, optional external outputs, adapter stderr snippets, and the aggregate classification in a repro directory.
 - `[FUZ]1045A7` - Text fuzz runner integration smoke: expose the n-way text matrix behind an opt-in fuzz runner flag or recipe and add an unavailable-tool skip test.
 - `[FUZ]1052B8` - Real export matrix runner wiring: collect simple exported numeric functions from pass-fuzz Starshine/Binaryen outputs, invoke both through the selected runtime adapter, and build `ExportInvocationComparisonReport` rows.
@@ -659,7 +658,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1026B (p2) - Multi-Fault Repro Metadata
   - Unit: completed for tracked tiny slices. `[FUZ]1026B1` closed with first-class `multi_fault_mutation_id` and `multi_fault_broad_outcome` repro metadata, plus parse/persist coverage for all mutation ids and broad outcomes.
 - [FUZ]1045A (p2) - N-Way Text Parse/Print Classification
-  - Completed tiny slices: `[FUZ]1045A1` text-adapter result schema, `[FUZ]1045A2` optional WABT adapter, `[FUZ]1045A3` optional wasm-tools adapter, and `[FUZ]1045A4` local parse/print/lower matrix. Remaining concrete slices: `[FUZ]1045A5` aggregate classifier, `[FUZ]1045A6` artifact persistence, and `[FUZ]1045A7` runner integration smoke.
+  - Completed tiny slices: `[FUZ]1045A1` text-adapter result schema, `[FUZ]1045A2` optional WABT adapter, `[FUZ]1045A3` optional wasm-tools adapter, `[FUZ]1045A4` local parse/print/lower matrix, and `[FUZ]1045A5` aggregate classifier. Remaining concrete slices: `[FUZ]1045A6` artifact persistence and `[FUZ]1045A7` runner integration smoke.
 - [FUZ]1055A (p2) - Multi-Module WAST Valid Linking Lane
   - Completed tiny slices: `[FUZ]1055A1` named two-module fixture, `[FUZ]1055A2` valid import/export wiring fixture, `[FUZ]1055A3` reusable valid multi-module WAST generator lane, and `[FUZ]1055A4` valid linking runner classification. Remaining concrete slices: none for the current tracked 1055A board.
 - [FUZ]1055B (p2) - Multi-Module WAST Unlinkable Lane
@@ -780,7 +779,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1045 (p2) - N-Way Text Printer, Parser, And Lowering Differential
   - Goal: compare WAT/WAST parsing, printing, and lowering against external text tools when available.
   - Why: local text support can drift from WABT or wasm-tools in syntax, abbreviation handling, name resolution, blocktype/typeuse forms, and assertion scripts.
-  - Deliverables: `[FUZ]1045A1` through `[FUZ]1045A4` landed the result schema, optional WABT and wasm-tools parse adapters, and the local Starshine parse/print/reparse/lower report helper. Remaining slices `[FUZ]1045A5` through `[FUZ]1045A7` wire the aggregate classifier, artifact persistence, and opt-in runner smoke.
+  - Deliverables: `[FUZ]1045A1` through `[FUZ]1045A5` landed the result schema, optional WABT and wasm-tools parse adapters, the local Starshine parse/print/reparse/lower report helper, and the aggregate classifier for parse/print/lower/unsupported/semantic-validation/adapter-unavailable buckets. Remaining slices `[FUZ]1045A6` and `[FUZ]1045A7` wire artifact persistence and opt-in runner smoke.
   - Required APIs: WAT/WAST fuzzing from [FUZ]1027, external adapters, text artifact persistence.
   - Invariants: whitespace-only differences are not failures; unsupported local syntax must be separated from validation failures.
   - Dependencies: [FUZ]1027 and [FUZ]1032.

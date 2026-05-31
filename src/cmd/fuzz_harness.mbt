@@ -158,6 +158,221 @@ pub fn run_local_text_parse_print_lower_matrix(
 }
 
 ///|
+pub struct TextAggregateAdapterResult {
+  adapter_name : String
+  parse_ok : Bool
+  print_ok : Bool?
+  lower_ok : Bool?
+  validates_ok : Bool?
+  unsupported_syntax : Bool
+  adapter_available : Bool
+  message : String?
+} derive(Eq, Debug)
+
+///|
+pub enum TextAggregateClassification {
+  Accepted
+  ParseDisagreement
+  PrintDisagreement
+  LowerDisagreement
+  UnsupportedSyntax
+  SemanticValidationDisagreement
+  AdapterUnavailable
+} derive(Eq, Debug)
+
+///|
+pub fn TextAggregateClassification::accepted() -> TextAggregateClassification {
+  Accepted
+}
+
+///|
+pub fn TextAggregateClassification::parse_disagreement() -> TextAggregateClassification {
+  ParseDisagreement
+}
+
+///|
+pub fn TextAggregateClassification::print_disagreement() -> TextAggregateClassification {
+  PrintDisagreement
+}
+
+///|
+pub fn TextAggregateClassification::lower_disagreement() -> TextAggregateClassification {
+  LowerDisagreement
+}
+
+///|
+pub fn TextAggregateClassification::unsupported_syntax() -> TextAggregateClassification {
+  UnsupportedSyntax
+}
+
+///|
+pub fn TextAggregateClassification::semantic_validation_disagreement() -> TextAggregateClassification {
+  SemanticValidationDisagreement
+}
+
+///|
+pub fn TextAggregateClassification::adapter_unavailable() -> TextAggregateClassification {
+  AdapterUnavailable
+}
+
+///|
+pub fn TextAggregateAdapterResult::external_accepted(
+  adapter_name : String,
+  validates_ok? : Bool? = None,
+) -> TextAggregateAdapterResult {
+  TextAggregateAdapterResult::{
+    adapter_name,
+    parse_ok: true,
+    print_ok: None,
+    lower_ok: Some(true),
+    validates_ok,
+    unsupported_syntax: false,
+    adapter_available: true,
+    message: None,
+  }
+}
+
+///|
+pub fn TextAggregateAdapterResult::external_parse_error(
+  adapter_name : String,
+  message : String,
+) -> TextAggregateAdapterResult {
+  TextAggregateAdapterResult::{
+    adapter_name,
+    parse_ok: false,
+    print_ok: None,
+    lower_ok: None,
+    validates_ok: None,
+    unsupported_syntax: false,
+    adapter_available: true,
+    message: Some(message),
+  }
+}
+
+///|
+pub fn TextAggregateAdapterResult::external_unsupported_syntax(
+  adapter_name : String,
+  message : String,
+) -> TextAggregateAdapterResult {
+  TextAggregateAdapterResult::{
+    adapter_name,
+    parse_ok: false,
+    print_ok: None,
+    lower_ok: None,
+    validates_ok: None,
+    unsupported_syntax: true,
+    adapter_available: true,
+    message: Some(message),
+  }
+}
+
+///|
+pub fn TextAggregateAdapterResult::external_unavailable(
+  adapter_name : String,
+  message : String,
+) -> TextAggregateAdapterResult {
+  TextAggregateAdapterResult::{
+    adapter_name,
+    parse_ok: false,
+    print_ok: None,
+    lower_ok: None,
+    validates_ok: None,
+    unsupported_syntax: false,
+    adapter_available: false,
+    message: Some(message),
+  }
+}
+
+///|
+pub fn text_aggregate_local_result(
+  report : TextParsePrintLowerReport,
+  validates_ok? : Bool? = None,
+) -> TextAggregateAdapterResult {
+  let lowered_bytes_equal = match
+    (report.original_lowered_bytes, report.reparsed_lowered_bytes) {
+    (Some(a), Some(b)) => a == b
+    _ => false
+  }
+  let lower_ok = report.reparse_lower_ok && lowered_bytes_equal
+  TextAggregateAdapterResult::{
+    adapter_name: report.adapter_name,
+    parse_ok: report.original_parse_ok,
+    print_ok: Some(report.print_ok),
+    lower_ok: Some(lower_ok),
+    validates_ok,
+    unsupported_syntax: false,
+    adapter_available: true,
+    message: report.message,
+  }
+}
+
+///|
+fn text_aggregate_has_bool_disagreement(values : Array[Bool?]) -> Bool {
+  let mut seen = None
+  for value in values {
+    match value {
+      Some(v) =>
+        match seen {
+          Some(prev) => if prev != v { return true }
+          None => seen = Some(v)
+        }
+      None => ()
+    }
+  }
+  false
+}
+
+///|
+fn text_aggregate_has_false(values : Array[Bool?]) -> Bool {
+  for value in values {
+    match value {
+      Some(false) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+pub fn classify_n_way_text_aggregate(
+  results : Array[TextAggregateAdapterResult],
+) -> TextAggregateClassification {
+  let print_values = Array::new()
+  let lower_values = Array::new()
+  let validation_values = Array::new()
+  let mut any_parse_failed = false
+  for result in results {
+    if !result.adapter_available {
+      return AdapterUnavailable
+    }
+    if result.unsupported_syntax {
+      return UnsupportedSyntax
+    }
+    if !result.parse_ok {
+      any_parse_failed = true
+    }
+    print_values.push(result.print_ok)
+    lower_values.push(result.lower_ok)
+    validation_values.push(result.validates_ok)
+  }
+  if any_parse_failed {
+    return ParseDisagreement
+  }
+  if text_aggregate_has_false(print_values) ||
+    text_aggregate_has_bool_disagreement(print_values) {
+    return PrintDisagreement
+  }
+  if text_aggregate_has_false(lower_values) ||
+    text_aggregate_has_bool_disagreement(lower_values) {
+    return LowerDisagreement
+  }
+  if text_aggregate_has_bool_disagreement(validation_values) {
+    return SemanticValidationDisagreement
+  }
+  Accepted
+}
+
+///|
 pub struct DifferentialValidationReport {
   internal_valid : Bool
   wasm_tools_valid : Bool?

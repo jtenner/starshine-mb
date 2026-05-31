@@ -67,6 +67,100 @@ test "FUZ1045A4 local text matrix reports parse failure without print or reparse
 }
 
 ///|
+test "FUZ1045A5 n-way text aggregate classifier covers parse print lower and external outcomes" {
+  let good_local = text_aggregate_local_result(
+    run_local_text_parse_print_lower_matrix("(module)", filename="ok.wat"),
+    validates_ok=Some(true),
+  )
+  let good_external = TextAggregateAdapterResult::external_accepted(
+    "wabt",
+    validates_ok=Some(true),
+  )
+  @debug.assert_eq(
+    classify_n_way_text_aggregate([good_local, good_external]),
+    TextAggregateClassification::accepted(),
+  )
+  @debug.assert_eq(
+    classify_n_way_text_aggregate([
+      good_local,
+      TextAggregateAdapterResult::external_parse_error("wabt", "bad token"),
+    ]),
+    TextAggregateClassification::parse_disagreement(),
+  )
+  @debug.assert_eq(
+    classify_n_way_text_aggregate([
+      text_aggregate_local_result(
+        run_local_text_parse_print_lower_matrix(
+          "(module (func",
+          filename="bad.wat",
+        ),
+      ),
+    ]),
+    TextAggregateClassification::parse_disagreement(),
+  )
+  @debug.assert_eq(
+    classify_n_way_text_aggregate([
+      TextAggregateAdapterResult::{
+        adapter_name: "starshine-local",
+        parse_ok: true,
+        print_ok: Some(false),
+        lower_ok: Some(true),
+        validates_ok: Some(true),
+        unsupported_syntax: false,
+        adapter_available: true,
+        message: Some("print failed"),
+      },
+      good_external,
+    ]),
+    TextAggregateClassification::print_disagreement(),
+  )
+  @debug.assert_eq(
+    classify_n_way_text_aggregate([
+      TextAggregateAdapterResult::{
+        adapter_name: "starshine-local",
+        parse_ok: true,
+        print_ok: Some(true),
+        lower_ok: Some(false),
+        validates_ok: Some(true),
+        unsupported_syntax: false,
+        adapter_available: true,
+        message: Some("lower failed"),
+      },
+      good_external,
+    ]),
+    TextAggregateClassification::lower_disagreement(),
+  )
+  @debug.assert_eq(
+    classify_n_way_text_aggregate([
+      good_local,
+      TextAggregateAdapterResult::external_accepted(
+        "wasm-tools",
+        validates_ok=Some(false),
+      ),
+    ]),
+    TextAggregateClassification::semantic_validation_disagreement(),
+  )
+  @debug.assert_eq(
+    classify_n_way_text_aggregate([
+      good_local,
+      TextAggregateAdapterResult::external_unsupported_syntax(
+        "wasm-tools", "unsupported module linking",
+      ),
+    ]),
+    TextAggregateClassification::unsupported_syntax(),
+  )
+  @debug.assert_eq(
+    classify_n_way_text_aggregate([
+      good_local,
+      TextAggregateAdapterResult::external_unavailable(
+        "wabt", "missing wat2wasm",
+      ),
+    ]),
+    TextAggregateClassification::adapter_unavailable(),
+  )
+}
+
+///|
 test "differential_validate_wasm returns report when all validators agree" {
   let bytes = encode_fixture_module(11)
   let adapters = DifferentialAdapters::new(
