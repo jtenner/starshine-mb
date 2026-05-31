@@ -666,6 +666,137 @@ pub fn gen_valid_multi_module_wast_cases(
 }
 
 ///|
+fn gen_unlinkable_multi_module_provider_prefix(suffix : String) -> String {
+  let provider_name = "unlinkable_provider_" + suffix
+  "(module $" +
+  provider_name +
+  "\n" +
+  "  (func (export \"f\") (result i32) i32.const 7)\n" +
+  "  (memory (export \"mem\") 1)\n" +
+  "  (table (export \"tab\") 1 funcref)\n" +
+  "  (global (export \"g\") i32 (i32.const 9))\n" +
+  "  (tag (export \"tag\") (param i32)))\n" +
+  "(register \"provider\" $" +
+  provider_name +
+  ")\n"
+}
+
+///|
+fn gen_unlinkable_multi_module_wast_case_body(
+  variant : Int,
+  suffix : String,
+) -> (String, String, Array[String]) {
+  let prefix = gen_unlinkable_multi_module_provider_prefix(suffix)
+  match variant {
+    0 =>
+      (
+        "missing-func",
+        prefix +
+        "(assert_unlinkable (module (import \"provider\" \"missing_f\" (func))) \"unknown import\")\n",
+        ["import:func", "missing-import:func"],
+      )
+    1 =>
+      (
+        "missing-memory",
+        prefix +
+        "(assert_unlinkable (module (import \"provider\" \"missing_mem\" (memory 1))) \"unknown import\")\n",
+        ["import:memory", "missing-import:memory"],
+      )
+    2 =>
+      (
+        "missing-table",
+        prefix +
+        "(assert_unlinkable (module (import \"provider\" \"missing_tab\" (table 1 funcref))) \"unknown import\")\n",
+        ["import:table", "missing-import:table"],
+      )
+    3 =>
+      (
+        "missing-global",
+        prefix +
+        "(assert_unlinkable (module (import \"provider\" \"missing_g\" (global i32))) \"unknown import\")\n",
+        ["import:global", "missing-import:global"],
+      )
+    4 =>
+      (
+        "missing-tag",
+        prefix +
+        "(assert_unlinkable (module (tag (import \"provider\" \"missing_tag\") (param i32))) \"unknown import\")\n",
+        ["import:tag", "missing-import:tag"],
+      )
+    5 =>
+      (
+        "mismatch-func",
+        prefix +
+        "(assert_unlinkable (module (import \"provider\" \"f\" (func (param i32)))) \"incompatible import type\")\n",
+        ["import:func", "type-mismatch:func"],
+      )
+    6 =>
+      (
+        "mismatch-memory",
+        prefix +
+        "(assert_unlinkable (module (import \"provider\" \"mem\" (memory 2 5))) \"incompatible import type\")\n",
+        ["import:memory", "type-mismatch:memory"],
+      )
+    7 =>
+      (
+        "mismatch-table",
+        prefix +
+        "(assert_unlinkable (module (import \"provider\" \"tab\" (table 11 funcref))) \"incompatible import type\")\n",
+        ["import:table", "type-mismatch:table"],
+      )
+    8 =>
+      (
+        "mismatch-global",
+        prefix +
+        "(assert_unlinkable (module (import \"provider\" \"g\" (global f64))) \"incompatible import type\")\n",
+        ["import:global", "type-mismatch:global"],
+      )
+    _ =>
+      (
+        "mismatch-tag",
+        prefix +
+        "(assert_unlinkable (module (tag (import \"provider\" \"tag\") (param f32))) \"incompatible import type\")\n",
+        ["import:tag", "type-mismatch:tag"],
+      )
+  }
+}
+
+///|
+pub fn gen_unlinkable_multi_module_wast_case(
+  seed : UInt64,
+) -> ValidMultiModuleWastCase {
+  let variant = (seed % 10UL).to_int()
+  let suffix = fuzz_zero_pad_decimal((seed % 100000UL).to_int(), 5)
+  let (variant_name, text, variant_facts) = gen_unlinkable_multi_module_wast_case_body(
+    variant, suffix,
+  )
+  let facts = [
+    "multi-module", "unlinkable", "assert_unlinkable", "valid-before-link", variant_name,
+  ]
+  facts.append(variant_facts)
+  {
+    name: "unlinkable-multi-module-\{suffix}-\{variant_name}",
+    text,
+    feature_facts: facts,
+  }
+}
+
+///|
+pub fn gen_unlinkable_multi_module_wast_cases(
+  seed : UInt64,
+  count : Int,
+) -> Array[ValidMultiModuleWastCase] {
+  let cases : Array[ValidMultiModuleWastCase] = []
+  if count <= 0 {
+    return cases
+  }
+  for i = 0; i < count; i = i + 1 {
+    cases.push(gen_unlinkable_multi_module_wast_case(seed + i.to_uint64()))
+  }
+  cases
+}
+
+///|
 fn valid_multi_module_linking_attempts(profile : String) -> Result[Int, String] {
   let normalized = fuzz_ascii_lower(profile.trim().to_owned())
   match normalized {

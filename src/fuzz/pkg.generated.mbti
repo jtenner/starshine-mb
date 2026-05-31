@@ -101,6 +101,10 @@ pub fn gen_invalid_binary_seed_mode_name(GenInvalidBinarySeedMode) -> String
 
 pub fn gen_invalid_binary_seed_module(@splitmix.RandomState, GenInvalidBinaryParams) -> Result[@lib.Module, String]
 
+pub fn gen_unlinkable_multi_module_wast_case(UInt64) -> ValidMultiModuleWastCase
+
+pub fn gen_unlinkable_multi_module_wast_cases(UInt64, Int) -> Array[ValidMultiModuleWastCase]
+
 pub fn gen_valid_multi_module_wast_case(UInt64) -> ValidMultiModuleWastCase
 
 pub fn gen_valid_multi_module_wast_cases(UInt64, Int) -> Array[ValidMultiModuleWastCase]

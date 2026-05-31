@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1055B3 unlinkable WAST generator lane
+
+- Closed `[FUZ]1055B3` by adding generated multi-module `assert_unlinkable` WAST cases for both missing-import and incompatible-import-type families across function, memory, table, global, and tag imports.
+- Each generated specimen is a valid-before-link static assertion and carries feature facts for `multi-module`, `unlinkable`, `assert_unlinkable`, the import kind, and either `missing-import:*` or `type-mismatch:*`, leaving runner classification and repro metadata for `[FUZ]1055B4`.
+- Validation: `moon test src/fuzz` first failed on the missing `gen_unlinkable_multi_module_wast_cases(...)` generator, then passed after adding the generator and focused static-assertion coverage; final `moon info`, `moon fmt`, and `moon test` passed.
+
 ## [2026-05-31] fuzzing | FUZ1052B9 export matrix report persistence
 
 - Closed `[FUZ]1052B9` by persisting the pass-fuzz runtime export invocation matrix summary, aggregate outcome, and capped semantic-mismatch samples in `result.json`.

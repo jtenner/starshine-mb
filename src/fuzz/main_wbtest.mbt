@@ -1243,6 +1243,92 @@ test "valid multi-module wast generator can emit memory table and global focused
 }
 
 ///|
+test "unlinkable multi-module wast generator emits missing and mismatch import assertions" {
+  let specimens = gen_unlinkable_multi_module_wast_cases(0x1055B3UL, 10)
+  @debug.assert_eq(specimens.length(), 10)
+  let mut saw_missing_func = false
+  let mut saw_missing_memory = false
+  let mut saw_missing_table = false
+  let mut saw_missing_global = false
+  let mut saw_missing_tag = false
+  let mut saw_mismatch_func = false
+  let mut saw_mismatch_memory = false
+  let mut saw_mismatch_table = false
+  let mut saw_mismatch_global = false
+  let mut saw_mismatch_tag = false
+  for specimen in specimens {
+    assert_true(specimen.text.contains("(module $unlinkable_provider_"))
+    assert_true(specimen.text.contains("(register \"provider\""))
+    assert_true(specimen.text.contains("(assert_unlinkable"))
+    assert_true(specimen.feature_facts.contains("multi-module"))
+    assert_true(specimen.feature_facts.contains("unlinkable"))
+    let script = match
+      wast_to_script(specimen.text, filename=specimen.name + ".wast") {
+      Ok(v) => v
+      Err(msg) => fail(msg)
+    }
+    @debug.assert_eq(script.commands.length(), 3)
+    match
+      @wast.run_wast_spec_file(specimen.name + ".wast", specimen.text).status {
+      @wast.WastSpecFileStatus::Passed => ()
+      @wast.WastSpecFileStatus::Skipped(msg) =>
+        fail(
+          "expected generated unlinkable script to pass static harness, got skip: \{msg}",
+        )
+      @wast.WastSpecFileStatus::Failed(msg) =>
+        fail(
+          "expected generated unlinkable script to pass static harness, got failure: \{msg}",
+        )
+    }
+    match
+      evaluate_wast_static_assertion(
+        script.commands[2],
+        specimen.name + ".wast",
+      ) {
+      Ok(result) =>
+        match result.stage {
+          @wast.ValidBeforeLink => ()
+          _ =>
+            fail(
+              "expected generated unlinkable assertion to be valid before link",
+            )
+        }
+      Err(msg) => fail(msg)
+    }
+    saw_missing_func = saw_missing_func ||
+      specimen.feature_facts.contains("missing-import:func")
+    saw_missing_memory = saw_missing_memory ||
+      specimen.feature_facts.contains("missing-import:memory")
+    saw_missing_table = saw_missing_table ||
+      specimen.feature_facts.contains("missing-import:table")
+    saw_missing_global = saw_missing_global ||
+      specimen.feature_facts.contains("missing-import:global")
+    saw_missing_tag = saw_missing_tag ||
+      specimen.feature_facts.contains("missing-import:tag")
+    saw_mismatch_func = saw_mismatch_func ||
+      specimen.feature_facts.contains("type-mismatch:func")
+    saw_mismatch_memory = saw_mismatch_memory ||
+      specimen.feature_facts.contains("type-mismatch:memory")
+    saw_mismatch_table = saw_mismatch_table ||
+      specimen.feature_facts.contains("type-mismatch:table")
+    saw_mismatch_global = saw_mismatch_global ||
+      specimen.feature_facts.contains("type-mismatch:global")
+    saw_mismatch_tag = saw_mismatch_tag ||
+      specimen.feature_facts.contains("type-mismatch:tag")
+  }
+  assert_true(saw_missing_func)
+  assert_true(saw_missing_memory)
+  assert_true(saw_missing_table)
+  assert_true(saw_missing_global)
+  assert_true(saw_missing_tag)
+  assert_true(saw_mismatch_func)
+  assert_true(saw_mismatch_memory)
+  assert_true(saw_mismatch_table)
+  assert_true(saw_mismatch_global)
+  assert_true(saw_mismatch_tag)
+}
+
+///|
 test "valid multi-module linking fuzz runner reports link counters separately" {
   assert_true(fuzz_active_suite_names().contains("valid-multi-module-linking"))
   let stats = match run_valid_multi_module_linking_fuzz("smoke", 0x1055A4UL) {

@@ -617,7 +617,6 @@ p1 next-up / active:
 p2 invalid/binary/text tiny slices:
 
 p2 oracle/reporting/infrastructure tiny slices:
-- `[FUZ]1055B3` - Unlinkable WAST generator lane: generalize deterministic missing-import and type-mismatch fixtures into generated `assert_unlinkable` cases across function/memory/table/global/tag imports.
 - `[FUZ]1055B4` - Unlinkable outcome classifier/repro metadata: persist unlinkable reason, registered module/name, expected import type, provider export type, and pre-link validation status separately from invalid-module failures.
 
 
@@ -658,7 +657,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1055A (p2) - Multi-Module WAST Valid Linking Lane
   - Completed tiny slices: `[FUZ]1055A1` named two-module fixture, `[FUZ]1055A2` valid import/export wiring fixture, `[FUZ]1055A3` reusable valid multi-module WAST generator lane, and `[FUZ]1055A4` valid linking runner classification. Remaining concrete slices: none for the current tracked 1055A board.
 - [FUZ]1055B (p2) - Multi-Module WAST Unlinkable Lane
-  - Completed tiny slices: `[FUZ]1055B1` missing-import unlinkable fixture and `[FUZ]1055B2` type-mismatch unlinkable fixture. Remaining concrete slices: `[FUZ]1055B3` unlinkable generator lane and `[FUZ]1055B4` unlinkable outcome classifier/repro metadata.
+  - Completed tiny slices: `[FUZ]1055B1` missing-import unlinkable fixture, `[FUZ]1055B2` type-mismatch unlinkable fixture, and `[FUZ]1055B3` unlinkable generator lane. Remaining concrete slice: `[FUZ]1055B4` unlinkable outcome classifier/repro metadata.
 - [FUZ]1056A (p2) - Curated Diagnostic Location Fixtures
   - Unit: add exact byte offset/section/line/column checks for stable invalid binary/text fixtures.
 - [FUZ]1056B (p2) - Fuzz Diagnostic Location Metadata
@@ -825,7 +824,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1055 (p2) - Multi-Module WAST, Linking, Unlinkable, And Instantiation Lanes
   - Goal: treat multi-module scripts and link-time behavior as a distinct fuzz target.
   - Why: validation accepts individual modules, but WAST assertions and real tooling also care about imports, exports, duplicate module names, register commands, instantiation, and unlinkable modules.
-  - Deliverables: `[FUZ]1055A1`/`[FUZ]1055A2`/`[FUZ]1055A3`/`[FUZ]1055A4` and `[FUZ]1055B1`/`[FUZ]1055B2` landed deterministic valid-linking fixtures, the reusable valid generator lane, valid-linking runner classification, and unlinkable fixtures. Remaining slices `[FUZ]1055B3`/`[FUZ]1055B4` promote intentionally missing or type-mismatched imports into generated unlinkable runner classifications and repro metadata.
+  - Deliverables: `[FUZ]1055A1`/`[FUZ]1055A2`/`[FUZ]1055A3`/`[FUZ]1055A4` and `[FUZ]1055B1`/`[FUZ]1055B2`/`[FUZ]1055B3` landed deterministic valid-linking fixtures, the reusable valid generator lane, valid-linking runner classification, unlinkable fixtures, and generated unlinkable `assert_unlinkable` cases across function/memory/table/global/tag imports. Remaining slice `[FUZ]1055B4` promotes intentionally missing or type-mismatched imports into runner classifications and repro metadata.
   - Required APIs: WAST arbitrary generator, static assertion evaluator, text parser/lowerer, import/export planning.
   - Invariants: unlinkable cases must be classified separately from invalid modules; unsupported WAST script commands should be skipped with explicit counters.
   - Dependencies: landed dynamic spec-seed scanner/CI floors and [FUZ]1027 WAST reporting.
