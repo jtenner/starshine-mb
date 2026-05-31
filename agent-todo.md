@@ -622,7 +622,6 @@ p2 invalid/binary/text tiny slices:
 p2 oracle/reporting/infrastructure tiny slices:
 - [FUZ]1048A - Ensure every fuzz summary JSON records feature/opcode/strategy counters needed by coverage-delta.
 - [FUZ]1050A - Add raw bytes/text and normalized canonical hashes to artifact metadata.
-- [FUZ]1052B3 - Classify equal result, equal trap, unsupported runtime, nondeterministic import, and semantic mismatch.
 - [FUZ]1053A1 - Add per-case timeout budget and timeout classification to the ordinary fuzz runner.
 - [FUZ]1053A2 - Add per-case timeout budget and timeout classification to pass-fuzz.
 - [FUZ]1053A3 - Add per-case timeout budget and timeout classification to external adapters.

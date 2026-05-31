@@ -20,6 +20,17 @@ type CompareNormalizer = "drop-consts" | "unreachable-control-debris";
 type CaseStatus = "match" | "mismatch" | "validation-failure" | "generator-failure" | "command-failure" | "property-failure";
 type ExternalValidatorKind = "wasm-tools" | "binaryen" | "wabt";
 type RuntimeExecutionMode = "off" | "node";
+export type RuntimeInvocationOutcome =
+  | { kind: "result"; value: unknown }
+  | { kind: "trap"; detail: string }
+  | { kind: "unsupported"; detail: string }
+  | { kind: "nondeterministic-import"; detail: string };
+export type RuntimeInvocationClassification =
+  | "equal-result"
+  | "equal-trap"
+  | "unsupported-runtime"
+  | "nondeterministic-import"
+  | "semantic-mismatch";
 type PropertyMode = "none" | "idempotence" | "composition";
 type CommandFailureClass =
   | "starshine-command-failed"
@@ -593,6 +604,28 @@ export function runtimeImportStubCandidates(descriptor: WebAssembly.ModuleImport
     default:
       return [];
   }
+}
+
+function runtimeValueKey(value: unknown): string {
+  if (typeof value === "bigint") return `bigint:${value.toString()}`;
+  if (typeof value === "number" && Object.is(value, -0)) return "number:-0";
+  if (typeof value === "number" && Number.isNaN(value)) return "number:NaN";
+  return `${typeof value}:${String(value)}`;
+}
+
+export function classifyRuntimeInvocationPair(
+  actual: RuntimeInvocationOutcome,
+  expected: RuntimeInvocationOutcome,
+): RuntimeInvocationClassification {
+  if (actual.kind === "unsupported" || expected.kind === "unsupported") return "unsupported-runtime";
+  if (actual.kind === "nondeterministic-import" || expected.kind === "nondeterministic-import") {
+    return "nondeterministic-import";
+  }
+  if (actual.kind === "trap" && expected.kind === "trap" && actual.detail === expected.detail) return "equal-trap";
+  if (actual.kind === "result" && expected.kind === "result" && runtimeValueKey(actual.value) === runtimeValueKey(expected.value)) {
+    return "equal-result";
+  }
+  return "semantic-mismatch";
 }
 
 export function deterministicExportArgumentVector(func: Function): unknown[] {

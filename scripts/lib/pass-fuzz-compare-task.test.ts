@@ -4,7 +4,11 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
-import { deterministicExportArgumentVector, smokeExecuteNodeRuntime } from "./pass-fuzz-compare-task";
+import {
+  classifyRuntimeInvocationPair,
+  deterministicExportArgumentVector,
+  smokeExecuteNodeRuntime,
+} from "./pass-fuzz-compare-task";
 
 function wasmFromWat(wat: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-runtime-stubs-"));
@@ -17,6 +21,16 @@ function wasmFromWat(wat: string): string {
   }
   return wasmPath;
 }
+
+describe("runtime result classification", () => {
+  test("classify equal results, equal traps, unsupported runtime, nondeterminism, and semantic mismatch", () => {
+    expect(classifyRuntimeInvocationPair({ kind: "result", value: 1 }, { kind: "result", value: 1 })).toBe("equal-result");
+    expect(classifyRuntimeInvocationPair({ kind: "trap", detail: "unreachable" }, { kind: "trap", detail: "unreachable" })).toBe("equal-trap");
+    expect(classifyRuntimeInvocationPair({ kind: "unsupported", detail: "externref" }, { kind: "result", value: 0 })).toBe("unsupported-runtime");
+    expect(classifyRuntimeInvocationPair({ kind: "nondeterministic-import", detail: "env.now" }, { kind: "result", value: 0 })).toBe("nondeterministic-import");
+    expect(classifyRuntimeInvocationPair({ kind: "result", value: 1 }, { kind: "result", value: 2 })).toBe("semantic-mismatch");
+  });
+});
 
 describe("runtime export invocation", () => {
   test("choose deterministic zero argument vectors from exported function arity", () => {
