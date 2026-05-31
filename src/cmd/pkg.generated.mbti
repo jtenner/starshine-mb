@@ -49,6 +49,8 @@ pub fn reduce_fuzz_bytes_by_slice_deletion(Bytes, (Bytes) -> Bool) -> FuzzReduct
 
 pub fn[T] reduce_fuzz_sequence_by_deletion(Array[T], (Array[T]) -> Bool) -> FuzzReductionReport[Array[T]]
 
+pub fn reduce_fuzz_text_tokens_by_deletion(String, (String) -> Bool) -> FuzzReductionReport[String]
+
 pub fn run_cmd(Array[String]) -> Result[CmdRunSummary, CmdError]
 
 pub fn run_cmd_exit_code(Array[String]) -> Int

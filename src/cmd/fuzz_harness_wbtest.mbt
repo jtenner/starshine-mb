@@ -814,6 +814,24 @@ test "fuzz byte reducer deletes irrelevant byte slices" {
 }
 
 ///|
+test "fuzz text token reducer deletes irrelevant token ranges" {
+  let report = reduce_fuzz_text_tokens_by_deletion(
+    "(module noise_a noise_b (func $trigger) tail)",
+    fn(text) {
+      text.contains("$trigger") &&
+      text.contains("(module") &&
+      text.contains("(func")
+    },
+  )
+  @debug.assert_eq(report.result, "(module (func $trigger)")
+  @debug.assert_eq(report.original_size, 6)
+  @debug.assert_eq(report.final_size, 3)
+  assert_true(report.predicate_evaluations > 1)
+  assert_true(report.steps.length() > 0)
+  @debug.assert_eq(report.steps[0].kind, "delete-text-token-range")
+}
+
+///|
 test "fuzz corpus dedup index records source and duplicate decisions by hash" {
   let index = FuzzCorpusDedupIndex::new()
   let first = FuzzCorpusSource::new(

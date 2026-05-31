@@ -1387,6 +1387,90 @@ pub fn reduce_fuzz_bytes_by_slice_deletion(
 }
 
 ///|
+fn fuzz_text_is_space(c : Int) -> Bool {
+  c == 0x20 || c == 0x0a || c == 0x0d || c == 0x09
+}
+
+///|
+fn fuzz_text_slice(text : String, start : Int, end : Int) -> String {
+  let len = end - start
+  let chars : Array[Char] = Array::make(len, '\u{00}')
+  for i = 0; i < len; i = i + 1 {
+    chars[i] = text[start + i].to_int().unsafe_to_char()
+  }
+  String::from_array(chars)
+}
+
+///|
+fn fuzz_text_tokens(text : String) -> Array[String] {
+  let tokens : Array[String] = []
+  let mut start = 0
+  let mut in_token = false
+  for i = 0; i < text.length(); i = i + 1 {
+    if fuzz_text_is_space(text[i].to_int()) {
+      if in_token {
+        tokens.push(fuzz_text_slice(text, start, i))
+        in_token = false
+      }
+    } else if !in_token {
+      start = i
+      in_token = true
+    }
+  }
+  if in_token {
+    tokens.push(fuzz_text_slice(text, start, text.length()))
+  }
+  tokens
+}
+
+///|
+fn fuzz_text_join_tokens(tokens : Array[String]) -> String {
+  let out = StringBuilder::new()
+  for i = 0; i < tokens.length(); i = i + 1 {
+    if i > 0 {
+      out.write_string(" ")
+    }
+    out.write_string(tokens[i])
+  }
+  out.to_string()
+}
+
+///|
+fn fuzz_text_relabel_reduction_steps(
+  steps : Array[FuzzReductionStep],
+) -> Array[FuzzReductionStep] {
+  let out : Array[FuzzReductionStep] = []
+  for step in steps {
+    out.push({
+      kind: "delete-text-token-range",
+      start: step.start,
+      len: step.len,
+      before_size: step.before_size,
+      after_size: step.after_size,
+    })
+  }
+  out
+}
+
+///|
+pub fn reduce_fuzz_text_tokens_by_deletion(
+  text : String,
+  reproduces : (String) -> Bool,
+) -> FuzzReductionReport[String] {
+  let tokens = fuzz_text_tokens(text)
+  let report = reduce_fuzz_sequence_by_deletion(tokens, fn(candidate_tokens) {
+    reproduces(fuzz_text_join_tokens(candidate_tokens))
+  })
+  {
+    result: fuzz_text_join_tokens(report.result),
+    original_size: report.original_size,
+    final_size: report.final_size,
+    predicate_evaluations: report.predicate_evaluations,
+    steps: fuzz_text_relabel_reduction_steps(report.steps),
+  }
+}
+
+///|
 pub fn minimize_fuzz_passes(
   passes : Array[String],
   reproduces : (Array[String]) -> Bool,

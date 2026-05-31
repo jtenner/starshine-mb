@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1043G Moon text-token reducer
+
+- Advanced `[FUZ]1043` by adding `reduce_fuzz_text_tokens_by_deletion(...)` to the Moon command fuzz harness as a text-token adapter over the shared sequence reducer.
+- The adapter tokenizes WAT/WAST-like text by non-whitespace runs, rejoins surviving tokens with single spaces, and records relabeled `delete-text-token-range` reduction steps so future text/module-artifact shrink paths can reduce within generated text before falling back to strategy-minimal fixtures.
+- Validation: `moon test src/cmd` first failed on the missing text-token reducer API, then passed after implementation; final validation is recorded in the commit message.
+
 ## [2026-05-31] fuzzing | FUZ1043F invalid-fuzz shrink metadata
 
 - Advanced `[FUZ]1043` by making `shrink_invalid_fuzz_failure_report(...)` attach concrete reduction-summary metadata when it creates strategy-minimal reduced artifacts for AST, binary, inline-text, or spec-seed invalid repros.

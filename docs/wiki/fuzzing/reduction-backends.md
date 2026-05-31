@@ -1,7 +1,7 @@
 ---
 kind: tooling-note
 status: active
-last_reviewed: 2026-05-25
+last_reviewed: 2026-05-31
 sources:
   - ../../../scripts/lib/fuzz-reducers.ts
   - ../../../scripts/test/fuzz-reducers.ts
@@ -31,3 +31,5 @@ The initial unit coverage in `scripts/test/fuzz-reducers.ts` proves each backend
 `[FUZ]1043E` extends the same artifact contract to invalid-fuzz repro bundles. `InvalidFuzzFailureReport` now records optional reduction original/final sizes, predicate-evaluation count, and deletion-step metadata alongside existing reduced artifacts; `persist_invalid_fuzz_failure_report(...)` writes a `reduction.txt` shrink log in the deterministic suite/strategy/seed repro directory and records `reduction_log=reduction.txt` plus `reduction_step=kind|start|len|before|after` metadata. Parsing roundtrips the reduction fields without loading the log, so corpus tooling can discover shrink evidence while replay still chooses original versus reduced artifacts explicitly.
 
 `[FUZ]1043F` makes the built-in invalid-fuzz shrink path produce that evidence itself. `shrink_invalid_fuzz_failure_report(...)` still returns strategy-minimal replayable artifacts for AST, binary, inline-text, and spec-seed invalid reports, but now annotates the report with original/final byte sizes, a two-replay predicate-evaluation count, and a `strategy-minimal-repro` reduction step. This keeps supplied reduction evidence and locally generated shrink evidence in the same metadata/log contract while preserving the original artifact.
+
+`[FUZ]1043G` adds a Moon text-token adapter over the shared sequence reducer through `reduce_fuzz_text_tokens_by_deletion(...)`. It splits WAT/WAST-like text into non-whitespace token units, runs the same predicate-preserving chunk deletion loop, rejoins surviving tokens with single spaces, and relabels reduction steps as `delete-text-token-range`. This gives future text, WAST, and module-artifact shrink paths an in-process reducer before they need parser-aware module-field deletion.
