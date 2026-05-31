@@ -54,6 +54,9 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     stable_ids.contains("invalid-binary-struct-get-field-index-module"),
   )
   assert_true(stable_ids.contains("invalid-binary-throw-payload-module"))
+  assert_true(
+    stable_ids.contains("invalid-binary-shared-memory-without-max-module"),
+  )
   let expected_labels = registry.map(fn(spec) {
     invalid_binary_test_expected_label(spec.expected_result)
   })
@@ -197,6 +200,17 @@ test "decode-accepted binary throw payload mismatch rejects at validation stage"
   match
     invalid_binary_expect_strategy_rejects(
       "invalid-binary-throw-payload-module", 0x1022B1UL, "function-body",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "decode-accepted binary shared memory without max rejects at validation stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-binary-shared-memory-without-max-module", 0x1022B2UL, "memory",
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)

@@ -90,6 +90,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidBinaryCallRefTypeModule
   InvalidBinaryStructGetFieldIndexModule
   InvalidBinaryThrowPayloadModule
+  InvalidBinarySharedMemoryWithoutMaxModule
   MalformedSimdImmediate
   SimdLaneIndexOverflow
   MalformedCustomSectionPayload
@@ -873,6 +874,8 @@ fn validate_invalid_binary_strategy_label(
     InvalidBinaryStructGetFieldIndexModule =>
       "invalid-binary-struct-get-field-index-module"
     InvalidBinaryThrowPayloadModule => "invalid-binary-throw-payload-module"
+    InvalidBinarySharedMemoryWithoutMaxModule =>
+      "invalid-binary-shared-memory-without-max-module"
     MalformedSimdImmediate => "malformed-simd-immediate"
     SimdLaneIndexOverflow => "simd-lane-index-overflow"
     MalformedCustomSectionPayload => "malformed-custom-section-payload"
@@ -1781,6 +1784,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       "invalid-binary-throw-payload-module",
       "encoded module with a throw payload stack type mismatch",
       ValidateRejected("function-body"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinarySharedMemoryWithoutMaxModule,
+      "invalid-binary-shared-memory-without-max-module",
+      "encoded module with shared memory missing its required maximum",
+      ValidateRejected("memory"),
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
@@ -17641,6 +17651,21 @@ pub fn apply_validate_invalid_binary_strategy(
         InvalidBinaryThrowPayloadModule,
         ast_strategy,
         "function-body",
+        base,
+      )
+    }
+    InvalidBinarySharedMemoryWithoutMaxModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "shared-memory-without-max",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinarySharedMemoryWithoutMaxModule,
+        ast_strategy,
+        "memory",
         base,
       )
     }
