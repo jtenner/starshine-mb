@@ -52,6 +52,8 @@ pub fn gen_valid_config_label(GenValidConfig) -> String
 
 pub fn gen_valid_const_expr_allowed_op_matrix() -> Array[GenValidConstExprAllowedOps]
 
+pub fn gen_valid_const_expr_observed_op_matrix(@lib.Module) -> Array[GenValidConstExprObservedOps]
+
 pub fn gen_valid_coverage_template_signature(@lib.Module) -> String
 
 pub fn gen_valid_derive_stream_seed(UInt64, GenValidRandomStreamLabel) -> UInt64
@@ -354,12 +356,18 @@ pub struct GenValidConstExprAllowedOps {
   allowed_ops : Array[GenValidConstExprOpFamily]
 } derive(Eq, @debug.Debug)
 
+pub struct GenValidConstExprObservedOps {
+  context : GenValidConstExprUse
+  observed_ops : Array[GenValidConstExprOpFamily]
+} derive(Eq, @debug.Debug)
+
 pub enum GenValidConstExprOpFamily {
   NumericConstExprOp
   RefNullConstExprOp
   RefFuncConstExprOp
   ImportedImmutableGlobalGetConstExprOp
   I31RefConstExprOp
+  GcConstructorConstExprOp
 } derive(Eq, @debug.Debug)
 
 pub enum GenValidConstExprUse {

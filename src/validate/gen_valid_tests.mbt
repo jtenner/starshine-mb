@@ -288,6 +288,7 @@ test "gen-valid const-expression allowed-op matrix covers section contexts" {
     RefFuncConstExprOp,
     ImportedImmutableGlobalGetConstExprOp,
     I31RefConstExprOp,
+    GcConstructorConstExprOp,
   ])
   @debug.assert_eq(matrix[1].allowed_ops, [
     NumericConstExprOp,
@@ -302,13 +303,95 @@ test "gen-valid const-expression allowed-op matrix covers section contexts" {
     RefFuncConstExprOp,
     ImportedImmutableGlobalGetConstExprOp,
     I31RefConstExprOp,
+    GcConstructorConstExprOp,
   ])
   @debug.assert_eq(matrix[4].allowed_ops, [
     RefNullConstExprOp,
     RefFuncConstExprOp,
     ImportedImmutableGlobalGetConstExprOp,
     I31RefConstExprOp,
+    GcConstructorConstExprOp,
   ])
+}
+
+///|
+test "gen-valid const-expression observed-op report attributes contexts" {
+  let mod_ = Module::new()
+    .with_table_sec(
+      TableSec::new([
+        Table::new(
+          TableType::new(
+            RefType::new(true, HeapType::abs(AbsHeapType::extern_())),
+            Limits::i32(1U, Some(1U)),
+          ),
+          Some(
+            Expr::new([
+              Instruction::ref_null(HeapType::abs(AbsHeapType::extern_())),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::i32(), false),
+          Expr::new([Instruction::i32_const(I32(1))]),
+        ),
+        Global::new(
+          GlobalType::new(
+            ValType::ref_type(RefType::abs(AbsHeapType::i31())),
+            false,
+          ),
+          Expr::new([Instruction::i32_const(I32(31)), Instruction::ref_i31()]),
+        ),
+        Global::new(
+          GlobalType::new(ValType::externref(), false),
+          Expr::new([
+            Instruction::global_get(GlobalIdx::new(0U)),
+            Instruction::struct_new_default(TypeIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      ElemSec::new([
+        Elem::new(
+          ElemMode::active(
+            TableIdx::new(0U),
+            Expr::new([Instruction::i32_const(I32(2))]),
+          ),
+          ElemKind::func_exprs([
+            Expr::new([Instruction::ref_func(FuncIdx::new(0U))]),
+          ]),
+        ),
+      ]),
+    )
+    .with_data_sec(
+      DataSec::new([
+        Data::new(
+          DataMode::active(
+            MemIdx::new(0U),
+            Expr::new([Instruction::global_get(GlobalIdx::new(0U))]),
+          ),
+          b"x",
+        ),
+      ]),
+    )
+  let report = gen_valid_const_expr_observed_op_matrix(mod_)
+  @debug.assert_eq(report[0].context, GlobalInitializerConstExpr)
+  assert_true(report[0].observed_ops.contains(NumericConstExprOp))
+  assert_true(
+    report[0].observed_ops.contains(ImportedImmutableGlobalGetConstExprOp),
+  )
+  assert_true(report[0].observed_ops.contains(I31RefConstExprOp))
+  assert_true(report[0].observed_ops.contains(GcConstructorConstExprOp))
+  @debug.assert_eq(report[1].observed_ops, [
+    ImportedImmutableGlobalGetConstExprOp,
+  ])
+  @debug.assert_eq(report[2].observed_ops, [NumericConstExprOp])
+  @debug.assert_eq(report[3].observed_ops, [RefFuncConstExprOp])
+  @debug.assert_eq(report[4].observed_ops, [RefNullConstExprOp])
 }
 
 ///|

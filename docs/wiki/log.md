@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1037R4 context/op const-expression reporting
+
+- Completed `[FUZ]1037R4` in research note [`0691`](raw/research/0691-2026-05-31-fuz1037-context-op-report.md) by adding `gen_valid_const_expr_observed_op_matrix(...)`, which reports observed GenValid const-expression operation families per global initializer, active data offset, active element offset, element payload, and table initializer context while keeping `ConstExprVariants` as the stable coarse feature-floor key.
+- Added `GcConstructorConstExprOp` to the const-expression op-family vocabulary and TDD coverage for numeric, immutable `global.get`, `ref.i31`, GC constructor, `ref.func`, and `ref.null` attribution across the context rows. Synced the constant-expression and generator-ledger wiki pages.
+
 ## [2026-05-31] fuzzing | FUZ1037R3 descriptor-bearing const initializers
 
 - Completed `[FUZ]1037R3` in research note [`0690`](raw/research/0690-2026-05-31-fuz1037-descriptor-initializers.md) by adding GenValid coverage for a valid descriptor/describes initializer: an imported immutable exact descriptor global feeds `struct.new_default_desc` to build the descriptor-bearing described struct in a global initializer.

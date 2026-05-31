@@ -3369,6 +3369,7 @@ pub enum GenValidConstExprOpFamily {
   RefFuncConstExprOp
   ImportedImmutableGlobalGetConstExprOp
   I31RefConstExprOp
+  GcConstructorConstExprOp
 } derive(Eq, Debug)
 
 ///|
@@ -3390,6 +3391,7 @@ pub fn gen_valid_const_expr_allowed_op_matrix() -> Array[
         RefFuncConstExprOp,
         ImportedImmutableGlobalGetConstExprOp,
         I31RefConstExprOp,
+        GcConstructorConstExprOp,
       ],
     },
     {
@@ -3407,6 +3409,7 @@ pub fn gen_valid_const_expr_allowed_op_matrix() -> Array[
         RefFuncConstExprOp,
         ImportedImmutableGlobalGetConstExprOp,
         I31RefConstExprOp,
+        GcConstructorConstExprOp,
       ],
     },
     {
@@ -3416,9 +3419,141 @@ pub fn gen_valid_const_expr_allowed_op_matrix() -> Array[
         RefFuncConstExprOp,
         ImportedImmutableGlobalGetConstExprOp,
         I31RefConstExprOp,
+        GcConstructorConstExprOp,
       ],
     },
   ]
+}
+
+///|
+pub struct GenValidConstExprObservedOps {
+  context : GenValidConstExprUse
+  observed_ops : Array[GenValidConstExprOpFamily]
+} derive(Eq, Debug)
+
+///|
+fn gen_valid_const_expr_add_observed_op(
+  ops : Array[GenValidConstExprOpFamily],
+  op : GenValidConstExprOpFamily,
+) -> Unit {
+  for existing in ops {
+    if existing == op {
+      return
+    }
+  }
+  ops.push(op)
+}
+
+///|
+fn gen_valid_const_expr_observe(
+  rows : Array[GenValidConstExprObservedOps],
+  context : GenValidConstExprUse,
+  expr : Expr,
+) -> Unit {
+  let mut target_ops : Array[GenValidConstExprOpFamily] = []
+  for row in rows {
+    if row.context == context {
+      target_ops = row.observed_ops
+    }
+  }
+  let Expr(instrs) = expr
+  let mut saw_numeric_const = false
+  let mut saw_ref_i31 = false
+  for instr in instrs {
+    match instr {
+      I32Const(_)
+      | I64Const(_)
+      | F32Const(_)
+      | F64Const(_)
+      | V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+        saw_numeric_const = true
+      RefNull(_) =>
+        gen_valid_const_expr_add_observed_op(target_ops, RefNullConstExprOp)
+      RefFunc(_) =>
+        gen_valid_const_expr_add_observed_op(target_ops, RefFuncConstExprOp)
+      GlobalGet(_) =>
+        gen_valid_const_expr_add_observed_op(
+          target_ops,
+          ImportedImmutableGlobalGetConstExprOp,
+        )
+      RefI31 => saw_ref_i31 = true
+      StructNew(_)
+      | StructNewDefault(_)
+      | StructNewDesc(_)
+      | StructNewDefaultDesc(_) =>
+        gen_valid_const_expr_add_observed_op(
+          target_ops,
+          GcConstructorConstExprOp,
+        )
+      _ => ()
+    }
+  }
+  if saw_ref_i31 {
+    gen_valid_const_expr_add_observed_op(target_ops, I31RefConstExprOp)
+  } else if saw_numeric_const {
+    gen_valid_const_expr_add_observed_op(target_ops, NumericConstExprOp)
+  }
+}
+
+///|
+pub fn gen_valid_const_expr_observed_op_matrix(
+  mod : Module,
+) -> Array[GenValidConstExprObservedOps] {
+  let rows = gen_valid_const_expr_allowed_op_matrix().map(fn(row) {
+    { context: row.context, observed_ops: [] }
+  })
+  match mod.table_sec {
+    Some(TableSec(tables)) =>
+      for table in tables {
+        let Table(_, init_opt) = table
+        match init_opt {
+          Some(expr) =>
+            gen_valid_const_expr_observe(rows, TableInitializerConstExpr, expr)
+          None => ()
+        }
+      }
+    None => ()
+  }
+  match mod.global_sec {
+    Some(GlobalSec(globals)) =>
+      for global in globals {
+        let Global(_, expr) = global
+        gen_valid_const_expr_observe(rows, GlobalInitializerConstExpr, expr)
+      }
+    None => ()
+  }
+  match mod.elem_sec {
+    Some(ElemSec(elems)) =>
+      for elem in elems {
+        let Elem(mode, kind) = elem
+        match mode {
+          Active(_, expr) =>
+            gen_valid_const_expr_observe(rows, ElementOffsetConstExpr, expr)
+          _ => ()
+        }
+        match kind {
+          FuncExprsElemKind(exprs) | TypedExprsElemKind(_, exprs) =>
+            for expr in exprs {
+              gen_valid_const_expr_observe(rows, ElementPayloadConstExpr, expr)
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod.data_sec {
+    Some(DataSec(datas)) =>
+      for data in datas {
+        let Data(mode, _) = data
+        match mode {
+          Active(_, expr) =>
+            gen_valid_const_expr_observe(rows, DataOffsetConstExpr, expr)
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  rows
 }
 
 ///|
