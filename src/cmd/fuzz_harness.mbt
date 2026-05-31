@@ -130,6 +130,46 @@ pub fn classify_binary_canonicality_differential(
 }
 
 ///|
+pub struct BinaryCanonicalitySummary {
+  total : Int
+  canonical : Int
+  accepted_noncanonical : Int
+  malformed_rejected : Int
+  external_policy_disagreements : Int
+  decoder_bug_disagreements : Int
+} derive(Eq, Debug)
+
+///|
+pub fn summarize_binary_canonicality_classifications(
+  classifications : Array[BinaryCanonicalityClassification],
+) -> BinaryCanonicalitySummary {
+  let mut canonical = 0
+  let mut accepted_noncanonical = 0
+  let mut malformed_rejected = 0
+  let mut external_policy_disagreements = 0
+  let mut decoder_bug_disagreements = 0
+  for classification in classifications {
+    match classification {
+      CanonicalAccepted => canonical = canonical + 1
+      AcceptedNoncanonical => accepted_noncanonical = accepted_noncanonical + 1
+      MalformedRejected => malformed_rejected = malformed_rejected + 1
+      ExternalPolicyDisagreement =>
+        external_policy_disagreements = external_policy_disagreements + 1
+      DecoderBugDisagreement =>
+        decoder_bug_disagreements = decoder_bug_disagreements + 1
+    }
+  }
+  {
+    total: classifications.length(),
+    canonical,
+    accepted_noncanonical,
+    malformed_rejected,
+    external_policy_disagreements,
+    decoder_bug_disagreements,
+  }
+}
+
+///|
 pub enum ExportInvocationResult {
   Value(String)
   Trap(String)

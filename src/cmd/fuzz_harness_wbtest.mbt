@@ -89,6 +89,24 @@ test "FUZ1057A2 binary canonicality classifier distinguishes policy disagreement
 }
 
 ///|
+test "FUZ1057A3 binary canonicality summary counts report outcomes" {
+  let summary = summarize_binary_canonicality_classifications([
+    BinaryCanonicalityClassification::canonical_accepted(),
+    BinaryCanonicalityClassification::accepted_noncanonical(),
+    BinaryCanonicalityClassification::accepted_noncanonical(),
+    BinaryCanonicalityClassification::malformed_rejected(),
+    BinaryCanonicalityClassification::external_policy_disagreement(),
+    BinaryCanonicalityClassification::decoder_bug_disagreement(),
+  ])
+  @debug.assert_eq(summary.total, 6)
+  @debug.assert_eq(summary.canonical, 1)
+  @debug.assert_eq(summary.accepted_noncanonical, 2)
+  @debug.assert_eq(summary.malformed_rejected, 1)
+  @debug.assert_eq(summary.external_policy_disagreements, 1)
+  @debug.assert_eq(summary.decoder_bug_disagreements, 1)
+}
+
+///|
 test "FUZ1052B1 export invocation classifier covers result matrix" {
   @debug.assert_eq(
     classify_export_invocation_results(

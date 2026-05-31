@@ -654,7 +654,7 @@ p2 oracle/reporting/infrastructure tiny slices:
 - `[FUZ]1055A4` - Valid linking runner classification: run generated valid multi-module scripts through the WAST harness and report link-success counters separately from single-module validation counters.
 - `[FUZ]1055B3` - Unlinkable WAST generator lane: generalize deterministic missing-import and type-mismatch fixtures into generated `assert_unlinkable` cases across function/memory/table/global/tag imports.
 - `[FUZ]1055B4` - Unlinkable outcome classifier/repro metadata: persist unlinkable reason, registered module/name, expected import type, provider export type, and pre-link validation status separately from invalid-module failures.
-- `[FUZ]1057A3` - Canonicality report counters/docs sync: add report counters for canonical, accepted-noncanonical, malformed-rejected, and external-policy-disagreement cases, then sync the binary canonicality wiki page.
+
 
 #### Named remaining FUZ slice index
 
@@ -699,7 +699,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1056B (p2) - Fuzz Diagnostic Location Metadata
   - Unit: persist best-effort diagnostic locations in invalid text/binary repro artifacts without requiring exact randomized matches.
 - [FUZ]1057A (p2) - Binary Canonicality Policy Decision
-  - Completed tiny slices: `[FUZ]1057A1` documents the decoder/encoder canonicality policy, and `[FUZ]1057A2` adds the command-harness canonicality disagreement classifier hook for policy differences versus possible decoder bugs. Remaining concrete slice: `[FUZ]1057A3` canonicality report counters/docs sync.
+  - Unit: completed for tracked tiny slices. `[FUZ]1057A1` documents the decoder/encoder canonicality policy, `[FUZ]1057A2` adds the command-harness canonicality disagreement classifier hook for policy differences versus possible decoder bugs, and `[FUZ]1057A3` adds canonicality report counters plus binary canonicality wiki sync.
 - [FUZ]1057B (p2) - Binary Canonicality Fixture Matrix
   - Unit: completed for tracked fixture slices. `[FUZ]1057B1` through `[FUZ]1057B3` cover unsigned LEB, signed LEB, section-size/custom-section, NaN payload, and preservation fixtures.
 
@@ -893,7 +893,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1057 (p2) - Binary Canonical Versus Noncanonical Encoding Policy
   - Goal: decide and test how the binary decoder handles noncanonical-but-well-formed encodings.
   - Why: malformed byte fuzzing needs to distinguish truly invalid encodings from encodings that some tools accept but canonical encoders do not emit, especially overwide LEBs, section lengths, blocktypes, and immediates.
-  - Deliverables remaining: `[FUZ]1057A1`, `[FUZ]1057A2`, and `[FUZ]1057B1` through `[FUZ]1057B3` closed the policy, classifier hook, and fixture matrix. Remaining slice `[FUZ]1057A3` adds canonicality report counters and syncs the wiki if the report shape changes.
+  - Deliverables remaining: completed for tracked tiny slices. `[FUZ]1057A1`, `[FUZ]1057A2`, `[FUZ]1057A3`, and `[FUZ]1057B1` through `[FUZ]1057B3` closed the policy, classifier hook, report counters, wiki sync, and fixture matrix.
   - Required APIs: binary decoder/encoder, invalid binary strategy specs, external binary differential from [FUZ]1044.
   - Invariants: encoder should keep emitting canonical encodings unless explicitly configured otherwise; decoder acceptance/rejection must be consistent and documented.
   - Dependencies: [FUZ]1021 malformed-byte matrix and [FUZ]1044 n-way binary differential.
