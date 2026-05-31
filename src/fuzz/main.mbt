@@ -53,6 +53,23 @@ pub struct FuzzInterestingnessCaseKey {
 } derive(Eq, Debug)
 
 ///|
+pub struct FuzzCorpusPromotionMetadata {
+  id : String
+  state : String
+  source : String
+  input : String
+  created_at : String
+  generator : String
+  features : Array[String]
+  expectation : String
+  classification : String
+  replay : String
+  artifacts : Array[String]
+  owner_or_task : String
+  notes : String
+} derive(Eq, Debug)
+
+///|
 pub fn FuzzInterestingnessCaseKey::new(
   raw_hash : String,
   decoded_shape_hash : String,
@@ -68,6 +85,39 @@ pub fn FuzzInterestingnessCaseKey::new(
     normalized_hash,
     predicate_hash,
     reduced_artifact_hash,
+  }
+}
+
+///|
+pub fn FuzzCorpusPromotionMetadata::new(
+  id : String,
+  state : String,
+  source : String,
+  input : String,
+  created_at : String,
+  generator : String,
+  features : Array[String],
+  expectation : String,
+  classification : String,
+  replay : String,
+  artifacts : Array[String],
+  owner_or_task : String,
+  notes : String,
+) -> FuzzCorpusPromotionMetadata {
+  {
+    id,
+    state,
+    source,
+    input,
+    created_at,
+    generator,
+    features,
+    expectation,
+    classification,
+    replay,
+    artifacts,
+    owner_or_task,
+    notes,
   }
 }
 
@@ -3430,6 +3480,222 @@ fn format_fuzz_string_array_json(items : Array[String]) -> String {
   }
   out.write_char(']')
   out.to_string()
+}
+
+///|
+fn fuzz_corpus_promotion_state_is_known(state : String) -> Bool {
+  state == "promoted-valid" ||
+  state == "promoted-invalid" ||
+  state == "pass-mismatch" ||
+  state == "tool-failure" ||
+  state == "accepted-divergence" ||
+  state == "quarantine"
+}
+
+///|
+pub fn fuzz_corpus_promotion_metadata_schema_json() -> String {
+  "{\"schema\":\"starshine.fuzz-corpus-entry.v1\",\"states\":[\"promoted-valid\",\"promoted-invalid\",\"pass-mismatch\",\"tool-failure\",\"accepted-divergence\",\"quarantine\"],\"required\":[\"id\",\"state\",\"source\",\"input\",\"created_at\",\"generator\",\"features\",\"expectation\",\"classification\",\"replay\",\"artifacts\",\"owner_or_task\",\"notes\"]}"
+}
+
+///|
+pub fn format_fuzz_corpus_promotion_metadata_json(
+  entry : FuzzCorpusPromotionMetadata,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("{\"schema\":\"starshine.fuzz-corpus-entry.v1\",\"id\":\"")
+  out.write_string(fuzz_json_escape(entry.id))
+  out.write_string("\",\"state\":\"")
+  out.write_string(fuzz_json_escape(entry.state))
+  out.write_string("\",\"source\":\"")
+  out.write_string(fuzz_json_escape(entry.source))
+  out.write_string("\",\"input\":\"")
+  out.write_string(fuzz_json_escape(entry.input))
+  out.write_string("\",\"created_at\":\"")
+  out.write_string(fuzz_json_escape(entry.created_at))
+  out.write_string("\",\"generator\":\"")
+  out.write_string(fuzz_json_escape(entry.generator))
+  out.write_string("\",\"features\":")
+  out.write_string(format_fuzz_string_array_json(entry.features))
+  out.write_string(",\"expectation\":\"")
+  out.write_string(fuzz_json_escape(entry.expectation))
+  out.write_string("\",\"classification\":\"")
+  out.write_string(fuzz_json_escape(entry.classification))
+  out.write_string("\",\"replay\":\"")
+  out.write_string(fuzz_json_escape(entry.replay))
+  out.write_string("\",\"artifacts\":")
+  out.write_string(format_fuzz_string_array_json(entry.artifacts))
+  out.write_string(",\"owner_or_task\":\"")
+  out.write_string(fuzz_json_escape(entry.owner_or_task))
+  out.write_string("\",\"notes\":\"")
+  out.write_string(fuzz_json_escape(entry.notes))
+  out.write_string("\"}")
+  out.to_string()
+}
+
+///|
+fn fuzz_parse_json_string_with_escapes_at(
+  text : String,
+  start : Int,
+) -> (String, Int)? {
+  if start >= text.length() || text[start] != '"' {
+    return None
+  }
+  let out = StringBuilder::new()
+  let mut i = start + 1
+  while i < text.length() {
+    let c = text[i]
+    if c == '"' {
+      return Some((out.to_string(), i + 1))
+    }
+    if c == '\\' {
+      i += 1
+      if i >= text.length() {
+        return None
+      }
+      match text[i] {
+        '"' => out.write_char('"')
+        '\\' => out.write_char('\\')
+        'n' => out.write_char('\n')
+        'r' => out.write_char('\r')
+        't' => out.write_char('\t')
+        _ => return None
+      }
+    } else {
+      out.write_char(c.unsafe_to_char())
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+fn fuzz_parse_corpus_metadata_string_field(
+  json : String,
+  field : String,
+) -> Result[String, String] {
+  let key = "\"\{field}\":"
+  let pos = fuzz_find_text_from(json, key, 0)
+  if pos < 0 {
+    return Err("missing corpus metadata field \{field}")
+  }
+  match fuzz_parse_json_string_with_escapes_at(json, pos + key.length()) {
+    Some(v) => Ok(v.0)
+    None => Err("malformed corpus metadata field \{field}")
+  }
+}
+
+///|
+fn fuzz_parse_corpus_metadata_string_array_field(
+  json : String,
+  field : String,
+) -> Result[Array[String], String] {
+  let key = "\"\{field}\":["
+  let pos = fuzz_find_text_from(json, key, 0)
+  if pos < 0 {
+    return Err("missing corpus metadata field \{field}")
+  }
+  let end = fuzz_find_text_from(json, "]", pos + key.length())
+  if end < 0 {
+    return Err("unterminated corpus metadata array \{field}")
+  }
+  let out : Array[String] = []
+  let mut cursor = pos + key.length()
+  while cursor < end {
+    let parsed = match fuzz_parse_json_string_with_escapes_at(json, cursor) {
+      Some(v) => v
+      None => return Err("malformed corpus metadata array \{field}")
+    }
+    out.push(parsed.0)
+    cursor = parsed.1
+    if cursor < end {
+      if json[cursor] != ',' {
+        return Err("malformed corpus metadata array \{field}")
+      }
+      cursor += 1
+    }
+  }
+  Ok(out)
+}
+
+///|
+pub fn parse_fuzz_corpus_promotion_metadata_json(
+  json : String,
+) -> Result[FuzzCorpusPromotionMetadata, String] {
+  let schema = match fuzz_parse_corpus_metadata_string_field(json, "schema") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  if schema != "starshine.fuzz-corpus-entry.v1" {
+    return Err("unsupported corpus metadata schema \{schema}")
+  }
+  let id = match fuzz_parse_corpus_metadata_string_field(json, "id") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let state = match fuzz_parse_corpus_metadata_string_field(json, "state") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  if !fuzz_corpus_promotion_state_is_known(state) {
+    return Err("unknown corpus state \{state}")
+  }
+  let source = match fuzz_parse_corpus_metadata_string_field(json, "source") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let input = match fuzz_parse_corpus_metadata_string_field(json, "input") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let created_at = match
+    fuzz_parse_corpus_metadata_string_field(json, "created_at") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let generator = match
+    fuzz_parse_corpus_metadata_string_field(json, "generator") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let features = match
+    fuzz_parse_corpus_metadata_string_array_field(json, "features") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let expectation = match
+    fuzz_parse_corpus_metadata_string_field(json, "expectation") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let classification = match
+    fuzz_parse_corpus_metadata_string_field(json, "classification") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let replay = match fuzz_parse_corpus_metadata_string_field(json, "replay") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let artifacts = match
+    fuzz_parse_corpus_metadata_string_array_field(json, "artifacts") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let owner_or_task = match
+    fuzz_parse_corpus_metadata_string_field(json, "owner_or_task") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let notes = match fuzz_parse_corpus_metadata_string_field(json, "notes") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  Ok(
+    FuzzCorpusPromotionMetadata::new(
+      id, state, source, input, created_at, generator, features, expectation, classification,
+      replay, artifacts, owner_or_task, notes,
+    ),
+  )
 }
 
 ///|

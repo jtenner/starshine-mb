@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1042B corpus promotion metadata schema
+
+- Closed `[FUZ]1042B` by adding `FuzzCorpusPromotionMetadata`, deterministic JSON formatting, a parser, and a schema-summary helper for the six corpus states from `docs/wiki/tooling/fuzz-corpus-policy.md`.
+- The parser validates `starshine.fuzz-corpus-entry.v1`, rejects unknown states, requires the policy metadata fields, and roundtrips features/artifacts arrays without executing replays.
+- Validation: `moon test src/fuzz` first failed on the missing metadata API, then passed after implementation; final validation is recorded in the commit message.
+
 ## [2026-05-31] fuzzing | FUZ1044D binary differential smoke report
 
 - Completed `[FUZ]1044D` by adding a command-harness binary differential smoke/report helper. `run_binary_differential_smoke(...)` feeds a small byte corpus through Starshine decode/validate and any injected optional adapters, then aggregates the existing FUZ1044A classification buckets per case.

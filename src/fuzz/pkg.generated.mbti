@@ -45,6 +45,8 @@ pub fn emit_gen_valid_batch_artifacts_with_manifest(Int, UInt64) -> Result[GenVa
 
 pub fn evaluate_validate_invalid_text_assertion_source(String, String, ValidateInvalidTextAssertionKind) -> Result[ValidateInvalidTextStage, String]
 
+pub fn format_fuzz_corpus_promotion_metadata_json(FuzzCorpusPromotionMetadata) -> String
+
 pub fn format_fuzz_golden_seed_smoke_report(FuzzGoldenSeedSmokeReport) -> String
 
 pub fn format_fuzz_run_report_json(String, String, Int64, Int, Int, Int, Array[FuzzSuiteResult]) -> String
@@ -56,6 +58,8 @@ pub fn format_golden_seed_catalog_entry_json(GoldenSeedCatalogEntry) -> String
 pub fn format_golden_seed_catalog_json(Array[GoldenSeedCatalogEntry]) -> String
 
 pub fn fuzz_active_suite_names() -> Array[String]
+
+pub fn fuzz_corpus_promotion_metadata_schema_json() -> String
 
 pub fn fuzz_interestingness_hash_schema() -> FuzzInterestingnessHashSchema
 
@@ -142,6 +146,8 @@ pub fn parse_fuzz_cli_args(Array[String]) -> FuzzCliArgs
 pub fn parse_fuzz_cli_args_with_recipe(Array[String], FuzzRecipe?) -> FuzzCliArgs
 
 pub fn parse_fuzz_cli_command(Array[String]) -> FuzzCliCommand
+
+pub fn parse_fuzz_corpus_promotion_metadata_json(String) -> Result[FuzzCorpusPromotionMetadata, String]
 
 pub fn parse_fuzz_recipe_text(String) -> Result[FuzzRecipe, String]
 
@@ -287,6 +293,23 @@ pub enum FuzzCliCommand {
   ReplayCorpus(String)
   GoldenSeedSmoke
 } derive(Eq, @debug.Debug)
+
+pub struct FuzzCorpusPromotionMetadata {
+  id : String
+  state : String
+  source : String
+  input : String
+  created_at : String
+  generator : String
+  features : Array[String]
+  expectation : String
+  classification : String
+  replay : String
+  artifacts : Array[String]
+  owner_or_task : String
+  notes : String
+} derive(Eq, @debug.Debug)
+pub fn FuzzCorpusPromotionMetadata::new(String, String, String, String, String, String, Array[String], String, String, String, Array[String], String, String) -> Self
 
 pub struct FuzzGoldenSeedSmokeCase {
   suite : String

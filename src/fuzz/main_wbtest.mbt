@@ -337,6 +337,94 @@ test "run_fuzz_suite_sweep derives deterministic shard seeds" {
 }
 
 ///|
+test "format and parse fuzz corpus promotion metadata states" {
+  let states = [
+    "promoted-valid", "promoted-invalid", "pass-mismatch", "tool-failure", "accepted-divergence",
+    "quarantine",
+  ]
+  for state in states {
+    let entry = FuzzCorpusPromotionMetadata::new(
+      "case-\{state}",
+      state,
+      "validate-valid smoke seed 42",
+      "corpus/\{state}/case.wasm",
+      "2026-05-31",
+      "suite=validate-valid profile=smoke seed=42 attempt=1",
+      ["gc", "simd"],
+      "must replay recorded outcome",
+      "semantic-safe",
+      "moon run src/fuzz -- validate-valid smoke --seed 42",
+      ["corpus/\{state}/case.wasm", "corpus/\{state}/reduction.txt"],
+      "[FUZ]1042B",
+      "fixture metadata",
+    )
+    let json = format_fuzz_corpus_promotion_metadata_json(entry)
+    assert_true(json.contains("\"schema\":\"starshine.fuzz-corpus-entry.v1\""))
+    assert_true(json.contains("\"state\":\"\{state}\""))
+    let parsed = match parse_fuzz_corpus_promotion_metadata_json(json) {
+      Ok(v) => v
+      Err(msg) => fail(msg)
+    }
+    @debug.assert_eq(parsed.id, "case-\{state}")
+    @debug.assert_eq(parsed.state, state)
+    @debug.assert_eq(parsed.features, ["gc", "simd"])
+    @debug.assert_eq(parsed.artifacts.length(), 2)
+    @debug.assert_eq(parsed.owner_or_task, "[FUZ]1042B")
+  }
+  let escaped = FuzzCorpusPromotionMetadata::new(
+    "case-escaped",
+    "quarantine",
+    "manual",
+    "corpus/quarantine/case.wat",
+    "2026-05-31",
+    "manual generator",
+    ["text\\wat"],
+    "must preserve \"quoted\" note",
+    "unknown/risky",
+    "moon run src/fuzz -- validate-invalid-text smoke",
+    ["corpus/quarantine/case.wat"],
+    "[FUZ]1042B",
+    "line one\nline two",
+  )
+  let escaped_json = format_fuzz_corpus_promotion_metadata_json(escaped)
+  let escaped_parsed = match
+    parse_fuzz_corpus_promotion_metadata_json(escaped_json) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(escaped_parsed.features, ["text\\wat"])
+  @debug.assert_eq(escaped_parsed.expectation, "must preserve \"quoted\" note")
+  @debug.assert_eq(escaped_parsed.notes, "line one\nline two")
+}
+
+///|
+test "parse_fuzz_corpus_promotion_metadata rejects malformed state and missing fields" {
+  let bad_state = "{\"schema\":\"starshine.fuzz-corpus-entry.v1\",\"id\":\"bad\",\"state\":\"maybe\",\"source\":\"manual\",\"input\":\"case.wasm\",\"created_at\":\"2026-05-31\",\"generator\":\"manual\",\"features\":[],\"expectation\":\"none\",\"classification\":\"unknown\",\"replay\":\"echo replay\",\"artifacts\":[],\"owner_or_task\":\"[FUZ]1042B\",\"notes\":\"bad\"}"
+  match parse_fuzz_corpus_promotion_metadata_json(bad_state) {
+    Ok(_) => fail("expected unknown state rejection")
+    Err(msg) => assert_true(msg.contains("unknown corpus state"))
+  }
+  let missing_owner = "{\"schema\":\"starshine.fuzz-corpus-entry.v1\",\"id\":\"bad\",\"state\":\"quarantine\",\"source\":\"manual\",\"input\":\"case.wasm\",\"created_at\":\"2026-05-31\",\"generator\":\"manual\",\"features\":[],\"expectation\":\"none\",\"classification\":\"unknown\",\"replay\":\"echo replay\",\"artifacts\":[],\"notes\":\"bad\"}"
+  match parse_fuzz_corpus_promotion_metadata_json(missing_owner) {
+    Ok(_) => fail("expected missing owner rejection")
+    Err(msg) =>
+      assert_true(msg.contains("missing corpus metadata field owner_or_task"))
+  }
+}
+
+///|
+test "fuzz_corpus_promotion_metadata_schema names required states" {
+  let schema = fuzz_corpus_promotion_metadata_schema_json()
+  assert_true(schema.contains("promoted-valid"))
+  assert_true(schema.contains("promoted-invalid"))
+  assert_true(schema.contains("pass-mismatch"))
+  assert_true(schema.contains("tool-failure"))
+  assert_true(schema.contains("accepted-divergence"))
+  assert_true(schema.contains("quarantine"))
+  assert_true(schema.contains("owner_or_task"))
+}
+
+///|
 test "parse_fuzz_replay_manifest_commands keeps deterministic corpus order" {
   let manifest = "{\"schema\":\"starshine.fuzz-replay-manifest.v1\",\"commands\":[{\"suite\":\"cmd-harness\",\"profile\":\"smoke\",\"seed\":16,\"seed_index\":0},{\"suite\":\"validate-valid\",\"profile\":\"ci\",\"seed\":17,\"seed_index\":1}]}"
   let commands = match parse_fuzz_replay_manifest_commands(manifest) {

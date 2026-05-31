@@ -18,7 +18,7 @@ related:
 
 ## Purpose
 
-This policy names the long-lived fuzz corpus states used by Starshine runners, compare lanes, reducers, and future replay-all tooling. It closes the `[FUZ]1042A` documentation slice; code that persists or replays corpus entries should use these names instead of inventing ad hoc directories or statuses.
+This policy names the long-lived fuzz corpus states used by Starshine runners, compare lanes, reducers, and future replay-all tooling. It closes the `[FUZ]1042A` documentation slice; code that persists or replays corpus entries should use these names instead of inventing ad hoc directories or statuses. `[FUZ]1042B` adds the first Moon schema/format/parse helper for single-entry metadata under `starshine.fuzz-corpus-entry.v1`.
 
 The policy is intentionally metadata-first. Large generated corpora should not be committed by default. Promote small, durable repro artifacts only when they are useful for regression, oracle triage, or tool-gap tracking, and keep noisy or machine-local bulk output under `.tmp/` unless a maintainer explicitly chooses otherwise.
 
@@ -53,6 +53,16 @@ Every promoted or quarantined entry should carry these fields in a sidecar manif
 - `notes`: short rationale, caveats, and supersession links.
 
 Use relative paths rooted at the repository when possible. Do not store absolute host paths, credentials, environment-specific cache paths, or private machine details in committed metadata.
+
+## Current Moon Metadata Helper
+
+`src/fuzz/main.mbt` exposes `FuzzCorpusPromotionMetadata`, `format_fuzz_corpus_promotion_metadata_json(...)`, `parse_fuzz_corpus_promotion_metadata_json(...)`, and `fuzz_corpus_promotion_metadata_schema_json()` for the initial single-entry sidecar shape:
+
+- schema id: `starshine.fuzz-corpus-entry.v1`;
+- allowed `state` values: `promoted-valid`, `promoted-invalid`, `pass-mismatch`, `tool-failure`, `accepted-divergence`, and `quarantine`;
+- required fields: `id`, `state`, `source`, `input`, `created_at`, `generator`, `features`, `expectation`, `classification`, `replay`, `artifacts`, `owner_or_task`, and `notes`.
+
+The helper intentionally formats and parses a compact deterministic JSON subset for metadata produced by Starshine itself. It does not execute replays; replay command construction and replay-all planning remain the follow-up `[FUZ]1042C` and `[FUZ]1042D` slices.
 
 ## Promotion Rules
 
