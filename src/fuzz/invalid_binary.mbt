@@ -167,9 +167,11 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedExportNameLengthUleb
   OverwideExportNameLengthUleb
   InvalidImportModuleNameUtf8
+  MalformedImportModuleNameUtf8
   MalformedImportModuleNameLengthUleb
   OverwideImportModuleNameLengthUleb
   InvalidImportFieldNameUtf8
+  MalformedImportFieldNameUtf8
   MalformedImportFieldNameLengthUleb
   OverwideImportFieldNameLengthUleb
   InvalidImportKindByte
@@ -986,11 +988,13 @@ fn validate_invalid_binary_strategy_label(
     MalformedExportNameLengthUleb => "malformed-export-name-length-uleb"
     OverwideExportNameLengthUleb => "overwide-export-name-length-uleb"
     InvalidImportModuleNameUtf8 => "invalid-import-module-name-utf8"
+    MalformedImportModuleNameUtf8 => "malformed-import-module-name-utf8"
     MalformedImportModuleNameLengthUleb =>
       "malformed-import-module-name-length-uleb"
     OverwideImportModuleNameLengthUleb =>
       "overwide-import-module-name-length-uleb"
     InvalidImportFieldNameUtf8 => "invalid-import-field-name-utf8"
+    MalformedImportFieldNameUtf8 => "malformed-import-field-name-utf8"
     MalformedImportFieldNameLengthUleb =>
       "malformed-import-field-name-length-uleb"
     OverwideImportFieldNameLengthUleb =>
@@ -2416,6 +2420,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
+      MalformedImportModuleNameUtf8,
+      "malformed-import-module-name-utf8",
+      "import section with truncated multibyte UTF-8 module name",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
       MalformedImportModuleNameLengthUleb,
       "malformed-import-module-name-length-uleb",
       "import section with a malformed module name-length ULEB",
@@ -2433,6 +2444,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidImportFieldNameUtf8,
       "invalid-import-field-name-utf8",
       "import section with an invalid UTF-8 field name",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedImportFieldNameUtf8,
+      "malformed-import-field-name-utf8",
+      "import section with truncated multibyte UTF-8 field name",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -13812,6 +13830,50 @@ fn validate_invalid_binary_module_with_overwide_import_module_name_length_uleb()
 }
 
 ///|
+fn validate_invalid_binary_module_with_malformed_import_module_name_utf8() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x02).to_byte(),
+    (0x08).to_byte(),
+    (0x01).to_byte(),
+    (0x02).to_byte(),
+    (0xe2).to_byte(),
+    (0x82).to_byte(),
+    (0x01).to_byte(),
+    (0x78).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_import_module_name_utf8(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedImportModuleNameUtf8,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_import_module_name_utf8(),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_malformed_import_module_name_length_uleb(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -13956,6 +14018,50 @@ fn validate_invalid_binary_mutate_invalid_import_field_name_utf8(
       DecodeRejected,
       true,
       validate_invalid_binary_module_with_invalid_import_field_name_utf8(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_module_with_malformed_import_field_name_utf8() -> Bytes {
+  Bytes::from_array([
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x02).to_byte(),
+    (0x08).to_byte(),
+    (0x01).to_byte(),
+    (0x01).to_byte(),
+    (0x6d).to_byte(),
+    (0x02).to_byte(),
+    (0xe2).to_byte(),
+    (0x82).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+  ])
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_import_field_name_utf8(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedImportFieldNameUtf8,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_module_with_malformed_import_field_name_utf8(),
     ),
   )
 }
@@ -16232,6 +16338,8 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_overwide_export_name_length_uleb(base)
     InvalidImportModuleNameUtf8 =>
       validate_invalid_binary_mutate_invalid_import_module_name_utf8(base)
+    MalformedImportModuleNameUtf8 =>
+      validate_invalid_binary_mutate_malformed_import_module_name_utf8(base)
     MalformedImportModuleNameLengthUleb =>
       validate_invalid_binary_mutate_malformed_import_module_name_length_uleb(
         base,
@@ -16242,6 +16350,8 @@ pub fn apply_validate_invalid_binary_strategy(
       )
     InvalidImportFieldNameUtf8 =>
       validate_invalid_binary_mutate_invalid_import_field_name_utf8(base)
+    MalformedImportFieldNameUtf8 =>
+      validate_invalid_binary_mutate_malformed_import_field_name_utf8(base)
     MalformedImportFieldNameLengthUleb =>
       validate_invalid_binary_mutate_malformed_import_field_name_length_uleb(
         base,

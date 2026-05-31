@@ -1208,9 +1208,11 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedExportNameLengthUleb
   OverwideExportNameLengthUleb
   InvalidImportModuleNameUtf8
+  MalformedImportModuleNameUtf8
   MalformedImportModuleNameLengthUleb
   OverwideImportModuleNameLengthUleb
   InvalidImportFieldNameUtf8
+  MalformedImportFieldNameUtf8
   MalformedImportFieldNameLengthUleb
   OverwideImportFieldNameLengthUleb
   InvalidImportKindByte

@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1021A2 import-name UTF-8 corruptions
+
+- Closed `[FUZ]1021A2` by adding decode-rejected binary-invalid strategies `malformed-import-module-name-utf8` and `malformed-import-field-name-utf8`, each preserving import-section count, string length framing, import kind, and type index while truncating a multibyte UTF-8 payload.
+- Kept the existing `invalid-import-module-name-utf8` and `invalid-import-field-name-utf8` stable ids intact, and updated the fuzz-hardening summary to distinguish malformed import string bytes from malformed import string-length ULEBs.
+- Validation: `moon test src/fuzz` first failed on missing strategy stable ids, then passed after registry, label, mutation, and dispatcher wiring.
+
 ## [2026-05-31] fuzzing | FUZ1021A1 custom-section name UTF-8 corruptions
 
 - Closed `[FUZ]1021A1` by adding decode-rejected binary-invalid strategies `malformed-custom-section-name-utf8` and `overlong-custom-section-name-utf8` for custom-section name payload bytes whose surrounding section id, payload size, and name-length framing remain well formed.
