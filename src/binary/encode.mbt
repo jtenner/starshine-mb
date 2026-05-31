@@ -409,24 +409,13 @@ pub fn size_signed(val : Int64, nbits : Int) -> Result[Int, BinaryEncodeError] {
       return Err(BinaryEncodeError::SignedLebValueOutOfRange)
     }
   }
-  let rem = nbits % 7
-  let used_mask = if rem == 0 { 0UL } else { (1UL << rem) - 1UL }
-  let inv_used7 = UInt64::lnot(used_mask) & 0x7fUL
   let mut x = val
   let mut count = 0
   while true {
     let payload_u = (x & 0x7f).reinterpret_as_uint64()
     let sign_bit = (payload_u & 0x40UL) != 0UL
     x = x >> 7
-    let done_std = (x == 0 && !sign_bit) || (x == -1 && sign_bit)
-    let done_bits_ok = if nbits == 64 || rem == 0 {
-      true
-    } else if val >= 0 {
-      (payload_u & inv_used7) == 0UL
-    } else {
-      (payload_u & inv_used7) == inv_used7
-    }
-    let done = done_std && done_bits_ok
+    let done = (x == 0 && !sign_bit) || (x == -1 && sign_bit)
     count += 1
     if done {
       break
@@ -486,9 +475,6 @@ fn encode_signed(
     }
   }
   let max_bytes = max_leb_bytes(nbits)
-  let rem = nbits % 7
-  let used_mask = if rem == 0 { 0UL } else { (1UL << rem) - 1UL }
-  let inv_used7 = UInt64::lnot(used_mask) & 0x7fUL
   let mut x = val
   let mut count = 0
   while true {
@@ -498,15 +484,7 @@ fn encode_signed(
     let payload_u = (x & 0x7f).reinterpret_as_uint64()
     let sign_bit = (payload_u & 0x40UL) != 0UL
     x = x >> 7
-    let done_std = (x == 0 && !sign_bit) || (x == -1 && sign_bit)
-    let done_bits_ok = if nbits == 64 || rem == 0 {
-      true
-    } else if val >= 0 {
-      (payload_u & inv_used7) == 0UL
-    } else {
-      (payload_u & inv_used7) == inv_used7
-    }
-    let done = done_std && done_bits_ok
+    let done = (x == 0 && !sign_bit) || (x == -1 && sign_bit)
     let out = if done { payload_u } else { payload_u | 0x80UL }
     buf.write_byte(out.to_byte())
     count += 1

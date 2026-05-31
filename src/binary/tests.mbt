@@ -1505,6 +1505,45 @@ test "uleb roundtrip u33" {
 }
 
 ///|
+test "FUZ1057B2 sleb encoder emits compact signed boundary forms" {
+  let cases : Array[(Int64, Bytes)] = [
+    (0L, b"\x00"),
+    (1L, b"\x01"),
+    (-1L, b"\x7f"),
+    (63L, b"\x3f"),
+    (-64L, b"\x40"),
+    (64L, b"\xc0\x00"),
+    (-65L, b"\xbf\x7f"),
+  ]
+  for case in cases {
+    let (value, expected) = case
+    let buf = @buffer.new()
+    encode_signed(value, buf, 32).unwrap()
+    let bytes = buf.to_bytes()
+    @debug.assert_eq(bytes, expected)
+    let (decoded, next) = decode_signed(bytes, 0, 32).unwrap()
+    @debug.assert_eq(decoded, value)
+    @debug.assert_eq(next, expected.length())
+  }
+}
+
+///|
+test "FUZ1057B2 sleb decoder accepts bounded overwide sign extension" {
+  let cases : Array[(Bytes, Int64)] = [
+    (b"\x80\x00", 0L),
+    (b"\xff\x7f", -1L),
+    (b"\xbf\x00", 63L),
+    (b"\xc0\x7f", -64L),
+  ]
+  for case in cases {
+    let (bytes, expected) = case
+    let (decoded, next) = decode_signed(bytes, 0, 32).unwrap()
+    @debug.assert_eq(decoded, expected)
+    @debug.assert_eq(next, bytes.length())
+  }
+}
+
+///|
 test "sleb roundtrip s33 boundary" {
   let vals : Array[Int64] = [
     0, 1, -1, 63, -64, 64, -65, 2147483647, -2147483648,
