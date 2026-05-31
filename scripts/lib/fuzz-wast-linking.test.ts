@@ -1,8 +1,23 @@
 import { describe, expect, test } from "bun:test";
 
-import { buildMissingImportUnlinkableWast, buildNamedTwoModuleWast, buildValidImportExportWast } from "./fuzz-wast-linking";
+import {
+  buildMissingImportUnlinkableWast,
+  buildNamedTwoModuleWast,
+  buildTypeMismatchImportUnlinkableWast,
+  buildValidImportExportWast,
+} from "./fuzz-wast-linking";
 
 describe("fuzz WAST linking fixtures", () => {
+  test("generates assert_unlinkable for type-mismatched imports", () => {
+    const script = buildTypeMismatchImportUnlinkableWast();
+
+    expect(script).toContain('(module $provider');
+    expect(script).toContain('(register "provider" $provider)');
+    expect(script).toContain('(assert_unlinkable');
+    expect(script).toContain('(import "provider" "value" (func $value (param i32) (result i32)))');
+    expect(script).toContain('"incompatible import type"');
+  });
+
   test("generates assert_unlinkable for missing imports", () => {
     const script = buildMissingImportUnlinkableWast();
 

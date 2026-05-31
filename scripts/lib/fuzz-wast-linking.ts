@@ -1,3 +1,21 @@
+export function buildTypeMismatchImportUnlinkableWast(): string {
+  return [
+    `(module $provider`,
+    `  (func $value (export "value") (result i32) i32.const 7)`,
+    `)`,
+    `(register "provider" $provider)`,
+    `(assert_unlinkable`,
+    `  (module $consumer`,
+    `    (import "provider" "value" (func $value (param i32) (result i32)))`,
+    `    (func (export "read") (result i32)`,
+    `      i32.const 0`,
+    `      call $value)`,
+    `  )`,
+    `  "incompatible import type")`,
+    ``,
+  ].join("\n");
+}
+
 export function buildMissingImportUnlinkableWast(): string {
   return [
     `(assert_unlinkable`,
