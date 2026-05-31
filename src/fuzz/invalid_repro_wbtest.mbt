@@ -95,6 +95,7 @@ test "persist_invalid_fuzz_failure_report writes deterministic suite strategy la
     expected_diagnostic_family=Some("function"),
     actual_stage="validate-rejected",
     actual_diagnostic_family=Some("function"),
+    actual_diagnostic_location=Some("binary:offset=8:length=5"),
     artifacts=original.artifacts,
     reduced_artifacts=[
       InvalidFuzzArtifact::new("reduced", "reduced.wasm", reduced),
@@ -131,6 +132,7 @@ test "persist_invalid_fuzz_failure_report writes deterministic suite strategy la
       assert_true(text.contains("suite=validate-invalid-binary"))
       assert_true(text.contains("strategy_id=invalid-func-type-index"))
       assert_true(text.contains("source_kind=binary"))
+      assert_true(text.contains("actual_diagnostic_location=binary:offset=8:length=5"))
       assert_true(text.contains("artifact=original|original.wasm"))
       assert_true(text.contains("artifact=seed|seed.wasm"))
       assert_true(text.contains("reduced=reduced|reduced.wasm"))

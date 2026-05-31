@@ -227,6 +227,7 @@ pub struct InvalidFuzzFailureReport {
   expected_diagnostic_family : String?
   actual_stage : String
   actual_diagnostic_family : String?
+  actual_diagnostic_location : String?
   seed_profile : String?
   seed_mode : String?
   seed_require_strategy_prereqs : Bool?
@@ -252,6 +253,7 @@ pub fn InvalidFuzzFailureReport::new(
   expected_diagnostic_family? : String? = None,
   actual_stage? : String = expected_stage,
   actual_diagnostic_family? : String? = expected_diagnostic_family,
+  actual_diagnostic_location? : String? = None,
   seed_profile? : String? = None,
   seed_mode? : String? = None,
   seed_require_strategy_prereqs? : Bool? = None,
@@ -275,6 +277,7 @@ pub fn InvalidFuzzFailureReport::new(
     expected_diagnostic_family,
     actual_stage,
     actual_diagnostic_family,
+    actual_diagnostic_location,
     seed_profile,
     seed_mode,
     seed_require_strategy_prereqs,
@@ -306,6 +309,7 @@ fn invalid_fuzz_failure_report_copy(
     expected_diagnostic_family=report.expected_diagnostic_family,
     actual_stage=report.actual_stage,
     actual_diagnostic_family=report.actual_diagnostic_family,
+    actual_diagnostic_location=report.actual_diagnostic_location,
     seed_profile=report.seed_profile,
     seed_mode=report.seed_mode,
     seed_require_strategy_prereqs=report.seed_require_strategy_prereqs,
@@ -485,6 +489,14 @@ fn invalid_fuzz_failure_meta_text(report : InvalidFuzzFailureReport) -> String {
     invalid_fuzz_optional_meta_line(
       "actual_diagnostic_family",
       report.actual_diagnostic_family,
+    ) {
+    Some(line) => lines.push(line)
+    None => ()
+  }
+  match
+    invalid_fuzz_optional_meta_line(
+      "actual_diagnostic_location",
+      report.actual_diagnostic_location,
     ) {
     Some(line) => lines.push(line)
     None => ()
@@ -740,6 +752,7 @@ pub fn parse_invalid_fuzz_failure_report(
   let mut expected_diagnostic_family : String? = None
   let mut actual_stage : String? = None
   let mut actual_diagnostic_family : String? = None
+  let mut actual_diagnostic_location : String? = None
   let mut seed_profile : String? = None
   let mut seed_mode : String? = None
   let mut seed_require_strategy_prereqs : Bool? = None
@@ -783,6 +796,7 @@ pub fn parse_invalid_fuzz_failure_report(
       "expected_diagnostic_family" => expected_diagnostic_family = Some(value)
       "actual_stage" => actual_stage = Some(value)
       "actual_diagnostic_family" => actual_diagnostic_family = Some(value)
+      "actual_diagnostic_location" => actual_diagnostic_location = Some(value)
       "seed_profile" => seed_profile = Some(value)
       "seed_mode" => seed_mode = Some(value)
       "seed_require_strategy_prereqs" =>
@@ -865,6 +879,7 @@ pub fn parse_invalid_fuzz_failure_report(
       expected_diagnostic_family~,
       actual_stage=resolved_actual_stage,
       actual_diagnostic_family~,
+      actual_diagnostic_location~,
       seed_profile~,
       seed_mode~,
       seed_require_strategy_prereqs~,
