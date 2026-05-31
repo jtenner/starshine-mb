@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1020B3 datacount mismatch invalid strategies
+
+- Closed `[FUZ]1020B3` by verifying the already-landed data-count mismatch lane is complete: AST-invalid strategies `datacount-mismatch-too-small` and `datacount-mismatch-too-large` plus binary-invalid strategies `datacount-mismatch-too-small-module` and `datacount-mismatch-too-large-module` all reject with the data-count diagnostic family.
+- Synced the active backlog and invalid-repro wiki so present-but-wrong data-count coverage is distinguished from the older `datacount-without-data-sec` shape.
+
 ## [2026-05-31] fuzzing | FUZ1020A5 recursive-group supertype cycle invalid AST
 
 - Completed `[FUZ]1020A5` by adding `invalid-subtype-super-cycle`, a deterministic invalid-AST strategy that appends a two-member recursive group whose members name each other as supertypes.
