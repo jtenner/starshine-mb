@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-30] fuzzing | FUZ1045A1 text adapter result schema
+
+- Completed `[FUZ]1045A1` by adding the `starshine.fuzz.text-adapters.v1` TypeScript result schema and fake adapter classifications for n-way text parse/print comparison scaffolding.
+- The schema records a source hash, per-adapter `accepted`, `parse-error`, `unsupported-syntax`, `adapter-unavailable`, or `adapter-error` classifications, and aggregate summary counts. Removed the completed tiny slice from the active FUZ board.
+
 ## [2026-05-30] fuzzing | FUZ1052B2 optional runtime simple export execution
 
 - Completed `[FUZ]1052B2` by moving the pass-fuzz compare command-level `--runtime-execution node` fixture from a zero-argument export to a simple exported `i32.add` function with two `i32` parameters.
