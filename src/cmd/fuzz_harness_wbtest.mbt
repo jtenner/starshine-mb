@@ -81,6 +81,25 @@ test "FUZ1052B1 export invocation classifier covers result matrix" {
 }
 
 ///|
+test "FUZ1052B2 simple export invocation args cover numeric params" {
+  let args = match
+    choose_simple_export_invocation_args([
+      @lib.ValType::i32(),
+      @lib.ValType::i64(),
+      @lib.ValType::f32(),
+      @lib.ValType::f64(),
+    ]) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(args, ["i32:0", "i64:0", "f32:0", "f64:0"])
+  match choose_simple_export_invocation_args([@lib.ValType::v128()]) {
+    Ok(v) => fail("expected unsupported vector param, got \{@debug.to_string(v)}")
+    Err(msg) => assert_true(msg.contains("unsupported export param type"))
+  }
+}
+
+///|
 test "FUZ1053A3 differential adapters classify per-case timeout results" {
   let bytes = encode_fixture_module(23)
   let adapters = DifferentialAdapters::new(

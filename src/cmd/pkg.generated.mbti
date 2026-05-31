@@ -11,6 +11,8 @@ import {
 }
 
 // Values
+pub fn choose_simple_export_invocation_args(Array[@lib.ValType]) -> Result[Array[String], String]
+
 pub fn classify_export_invocation_results(ExportInvocationResult, ExportInvocationResult) -> ExportInvocationClassification
 
 pub fn cmd_fuzz_harness_profile_config(String) -> Result[CmdFuzzHarnessProfileConfig, String]

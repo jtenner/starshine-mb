@@ -102,6 +102,26 @@ pub fn ExportInvocationClassification::semantic_mismatch(
 }
 
 ///|
+pub fn choose_simple_export_invocation_args(
+  params : Array[@lib.ValType],
+) -> Result[Array[String], String] {
+  let args = Array::new(capacity=params.length())
+  for param in params {
+    match param {
+      @lib.NumTypeValType(@lib.I32NumType) => args.push("i32:0")
+      @lib.NumTypeValType(@lib.I64NumType) => args.push("i64:0")
+      @lib.NumTypeValType(@lib.F32NumType) => args.push("f32:0")
+      @lib.NumTypeValType(@lib.F64NumType) => args.push("f64:0")
+      other =>
+        return Err(
+          "unsupported export param type for simple invocation: \{@debug.to_string(other)}",
+        )
+    }
+  }
+  Ok(args)
+}
+
+///|
 pub fn classify_export_invocation_results(
   left : ExportInvocationResult,
   right : ExportInvocationResult,
