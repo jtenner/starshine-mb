@@ -246,6 +246,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyAtomicCmpxchgAddressType
   InvalidFunctionBodyAtomicCmpxchgExpectedType
   InvalidFunctionBodyBrOnCastInputType
+  InvalidFunctionBodyBrOnCastTargetSubtype
   InvalidFunctionBodyBrOnCastFailInputType
   InvalidFunctionBodyBrOnNonNullPayloadMismatch
   InvalidFunctionBodyTableSetValueType
@@ -2023,6 +2024,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyBrOnCastTargetSubtype,
+      "invalid-function-body-br-on-cast-target-subtype",
+      "invalid function-body br_on_cast target subtype",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyBrOnCastFailInputType,
       "invalid-function-body-br-on-cast-fail-input-type",
       "invalid function-body br_on_cast_fail input type",
@@ -2438,6 +2446,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyAtomicCmpxchgAddressType => 148
     InvalidFunctionBodyAtomicCmpxchgExpectedType => 149
     InvalidFunctionBodyBrOnCastInputType => 99
+    InvalidFunctionBodyBrOnCastTargetSubtype => 254
     InvalidFunctionBodyBrOnCastFailInputType => 100
     InvalidFunctionBodyBrOnNonNullPayloadMismatch => 251
     InvalidFunctionBodyTableSetValueType => 62
@@ -8556,16 +8565,27 @@ fn validate_invalid_ast_mutate_invalid_function_body_atomic_cmpxchg_expected_typ
 }
 
 ///|
-fn validate_invalid_ast_make_br_on_cast_input_type_body(
+fn validate_invalid_ast_make_br_on_cast_body_with_input(
   instr : Instruction,
+  input : Instruction,
 ) -> Expr {
   Expr::new([
     Instruction::block(
       BlockType::val_type(ValType::ref_type(RefType::abs(AbsHeapType::any()))),
-      Expr::new([Instruction::i32_const(I32(0)), instr]),
+      Expr::new([input, instr]),
     ),
     Instruction::drop(),
   ])
+}
+
+///|
+fn validate_invalid_ast_make_br_on_cast_input_type_body(
+  instr : Instruction,
+) -> Expr {
+  validate_invalid_ast_make_br_on_cast_body_with_input(
+    instr,
+    Instruction::i32_const(I32(0)),
+  )
 }
 
 ///|
@@ -8591,6 +8611,36 @@ fn validate_invalid_ast_mutate_invalid_function_body_br_on_cast_input_type(
   )
   {
     strategy: InvalidFunctionBodyBrOnCastInputType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_br_on_cast_target_subtype(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = validate_invalid_ast_make_br_on_cast_body_with_input(
+    Instruction::br_on_cast(
+      LabelIdx::new(0U),
+      true,
+      HeapType::abs(AbsHeapType::func()),
+      true,
+      HeapType::abs(AbsHeapType::eq()),
+    ),
+    Instruction::ref_null(HeapType::abs(AbsHeapType::func())),
+  )
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyBrOnCastTargetSubtype,
     applicable: true,
     expected_family: FunctionBodyFamily,
     mutated_module: with_func,
@@ -10722,6 +10772,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_br_on_cast_input_type(
           base,
         )
+      InvalidFunctionBodyBrOnCastTargetSubtype =>
+        validate_invalid_ast_mutate_invalid_function_body_br_on_cast_target_subtype(
+          base,
+        )
       InvalidFunctionBodyBrOnCastFailInputType =>
         validate_invalid_ast_mutate_invalid_function_body_br_on_cast_fail_input_type(
           base,
@@ -11386,14 +11440,15 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-atomic-wait-address-type", "invalid-function-body-atomic-wait-expected-type",
     "invalid-function-body-atomic-rmw-address-type", "invalid-function-body-atomic-cmpxchg-address-type",
     "invalid-function-body-atomic-cmpxchg-expected-type", "invalid-function-body-br-on-cast-input-type",
-    "invalid-function-body-br-on-cast-fail-input-type", "invalid-function-body-table-set-value-type",
-    "invalid-function-body-global-set-value-type", "invalid-memory-name-section-index",
-    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
-    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
-    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
-    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
-    "datacount-mismatch-too-small", "datacount-mismatch-too-large", "invalid-subtype-mutable-field-variance",
-    "invalid-function-body-br-on-null-payload-mismatch", "invalid-function-body-br-on-non-null-payload-mismatch",
+    "invalid-function-body-br-on-cast-target-subtype", "invalid-function-body-br-on-cast-fail-input-type",
+    "invalid-function-body-table-set-value-type", "invalid-function-body-global-set-value-type",
+    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
+    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
+    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
+    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
+    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-subtype-mutable-field-variance", "invalid-function-body-br-on-null-payload-mismatch",
+    "invalid-function-body-br-on-non-null-payload-mismatch",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 24)
@@ -13043,6 +13098,19 @@ test "invalid br_on_cast input type strategy rejects with FunctionBody family" {
     invalid_ast_expect_strategy_rejects_with_family(
       InvalidFunctionBodyBrOnCastInputType,
       0x10d04UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid br_on_cast target subtype strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyBrOnCastTargetSubtype,
+      0x10d73UL,
       FunctionBodyFamily,
     ) {
     Ok(_) => ()
@@ -14741,6 +14809,45 @@ test "function-body br_on_cast input mutation repairs by using a reference opera
     Ok(_) => ()
     Err(err) =>
       fail("expected repaired br_on_cast input module to validate: \{err}")
+  }
+}
+
+///|
+test "function-body br_on_cast target subtype mutation repairs by making target a source subtype" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_br_on_cast_target_subtype(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected br_on_cast target outside source subtype to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let body = validate_invalid_ast_make_br_on_cast_body_with_input(
+    Instruction::br_on_cast(
+      LabelIdx::new(0U),
+      true,
+      HeapType::abs(AbsHeapType::any()),
+      true,
+      HeapType::abs(AbsHeapType::eq()),
+    ),
+    Instruction::ref_null(HeapType::abs(AbsHeapType::any())),
+  )
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  match validate_module(with_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected repaired br_on_cast target-subtype module to validate: \{err}",
+      )
   }
 }
 

@@ -548,6 +548,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-atomic-cmpxchg-expected-type"
     InvalidFunctionBodyBrOnCastInputType =>
       "invalid-function-body-br-on-cast-input-type"
+    InvalidFunctionBodyBrOnCastTargetSubtype =>
+      "invalid-function-body-br-on-cast-target-subtype"
     InvalidFunctionBodyBrOnCastFailInputType =>
       "invalid-function-body-br-on-cast-fail-input-type"
     InvalidFunctionBodyBrOnNonNullPayloadMismatch =>

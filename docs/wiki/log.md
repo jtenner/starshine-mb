@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1020C7 br_on_cast target subtype invalid AST
+
+- Advanced `[FUZ]1020C7` by adding the `invalid-function-body-br-on-cast-target-subtype` AST-invalid strategy for a GC branch/ref body where `br_on_cast` names a target heap type that is not a subtype of the declared source heap type.
+- The focused mutation keeps the operand stack reference-typed so the rejection is attributed to the cast hierarchy rule rather than the earlier input-type failure; repair coverage proves the same branch shape validates once the source/target hierarchy is compatible.
+- Validation: `moon test src/validate` first failed on the missing strategy constructor and mutator, then passed after implementation; final validation is recorded in the commit message.
+
 ## [2026-05-31] fuzzing | FUZ1056A section-aware binary diagnostics
 
 - Advanced `[FUZ]1056A` by extending `ModuleDecodeErrorDetail` with the numeric section id for section-scoped decode failures while preserving the public `DecodeAt(error, offset, length)` wrapper shape.

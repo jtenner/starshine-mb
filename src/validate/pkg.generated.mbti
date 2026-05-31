@@ -1307,6 +1307,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyAtomicCmpxchgAddressType
   InvalidFunctionBodyAtomicCmpxchgExpectedType
   InvalidFunctionBodyBrOnCastInputType
+  InvalidFunctionBodyBrOnCastTargetSubtype
   InvalidFunctionBodyBrOnCastFailInputType
   InvalidFunctionBodyBrOnNonNullPayloadMismatch
   InvalidFunctionBodyTableSetValueType
