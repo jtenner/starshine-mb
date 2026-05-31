@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-30] fuzzing | FUZ1048A coverage-delta summary counters
+
+- Completed `[FUZ]1048A` by adding a reusable coverage-delta summary normalizer that guarantees fuzz summary JSON has numeric feature, opcode, strategy, artifact, failure-class, pass-status, and timing counter groups.
+- The helper preserves existing report fields while filtering each counter group to finite numeric values, giving future report writers a single shape to emit before `bun fuzz coverage-delta` compares reports. Removed the completed tiny slice from the active FUZ board.
+
 ## [2026-05-30] fuzzing | FUZ1050A artifact metadata hashes
 
 - Completed `[FUZ]1050A` by adding a reusable artifact metadata helper that records raw byte/text lengths and SHA-256 hashes alongside normalized canonical byte/text lengths and SHA-256 hashes.

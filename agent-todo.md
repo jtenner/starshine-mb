@@ -620,7 +620,6 @@ p2 invalid/binary/text tiny slices:
 - [FUZ]1026B1 - Persist all mutation ids and broad outcomes for multi-fault repros.
 
 p2 oracle/reporting/infrastructure tiny slices:
-- [FUZ]1048A - Ensure every fuzz summary JSON records feature/opcode/strategy counters needed by coverage-delta.
 - [FUZ]1053A1 - Add per-case timeout budget and timeout classification to the ordinary fuzz runner.
 - [FUZ]1053A2 - Add per-case timeout budget and timeout classification to pass-fuzz.
 - [FUZ]1053A3 - Add per-case timeout budget and timeout classification to external adapters.
