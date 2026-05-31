@@ -735,6 +735,31 @@ pub fn classify_binary_differential_results(
 }
 
 ///|
+fn binary_differential_message_is_unsupported(message : String) -> Bool {
+  let lower = differential_adapter_ascii_lower(message)
+  lower.contains("unsupported") || lower.contains("proposal")
+}
+
+///|
+pub fn binary_differential_failed_validation_result(
+  adapter_name : String,
+  bytes : Bytes,
+  message : String,
+) -> BinaryDifferentialAdapterResult {
+  if binary_differential_message_is_unsupported(message) {
+    return BinaryDifferentialAdapterResult::unsupported_feature(
+      adapter_name, message,
+    )
+  }
+  match decode_module(bytes) {
+    Err(_) =>
+      BinaryDifferentialAdapterResult::invalid_decode(adapter_name, message)
+    Ok(_) =>
+      BinaryDifferentialAdapterResult::invalid_validate(adapter_name, message)
+  }
+}
+
+///|
 pub struct DifferentialValidationReport {
   internal_valid : Bool
   wasm_tools_valid : Bool?
@@ -2741,6 +2766,87 @@ fn cmd_native_validate_wasm_with(
   let code = cmd_native_system(cmd_native_c_string(run))
   cmd_native_remove_file(path)
   Ok(code == 0)
+}
+
+///|
+#cfg(target="native")
+pub fn run_wasm_tools_binary_validation_adapter(
+  bytes : Bytes,
+) -> BinaryDifferentialAdapterResult {
+  let adapter_name = "wasm-tools"
+  if !cmd_native_has_command(adapter_name) {
+    return BinaryDifferentialAdapterResult::adapter_unavailable(
+      adapter_name, "wasm-tools not available",
+    )
+  }
+  let path = cmd_native_tmp_path("wasm-tools-binary-adapter", ".wasm")
+  let log_path = cmd_native_tmp_path("wasm-tools-binary-adapter", ".log")
+  if cmd_native_write_file(path, bytes) is Err(e) {
+    cmd_native_remove_file(path)
+    cmd_native_remove_file(log_path)
+    return BinaryDifferentialAdapterResult::tool_failure(
+      adapter_name,
+      "failed to stage wasm for wasm-tools validate: \{e}",
+    )
+  }
+  let run = "wasm-tools validate \{cmd_native_shell_quote(path)} >\{cmd_native_shell_quote(log_path)} 2>&1"
+  let code = cmd_native_system(cmd_native_c_string(run))
+  let message = match cmd_native_read_file(log_path) {
+    Ok(log_bytes) => {
+      let text = @utf8.decode(log_bytes) catch {
+        _ => "wasm-tools validate emitted non-utf8 diagnostics"
+      }
+      text.trim().to_owned()
+    }
+    Err(e) => "failed to read wasm-tools validate diagnostics: \{e}"
+  }
+  cmd_native_remove_file(path)
+  cmd_native_remove_file(log_path)
+  if code == 0 {
+    BinaryDifferentialAdapterResult::valid(adapter_name)
+  } else {
+    binary_differential_failed_validation_result(adapter_name, bytes, message)
+  }
+}
+
+///|
+#cfg(target="wasm-gc")
+pub fn run_wasm_tools_binary_validation_adapter(
+  _bytes : Bytes,
+) -> BinaryDifferentialAdapterResult {
+  BinaryDifferentialAdapterResult::adapter_unavailable(
+    "wasm-tools", "wasm-tools adapter requires native target",
+  )
+}
+
+///|
+#cfg(target="wasm")
+pub fn run_wasm_tools_binary_validation_adapter(
+  _bytes : Bytes,
+) -> BinaryDifferentialAdapterResult {
+  BinaryDifferentialAdapterResult::adapter_unavailable(
+    "wasm-tools", "wasm-tools adapter requires native target",
+  )
+}
+
+///|
+#cfg(target="js")
+pub fn run_wasm_tools_binary_validation_adapter(
+  _bytes : Bytes,
+) -> BinaryDifferentialAdapterResult {
+  BinaryDifferentialAdapterResult::adapter_unavailable(
+    "wasm-tools", "wasm-tools adapter requires native target",
+  )
+}
+
+///|
+#cfg(target="llvm")
+pub fn run_wasm_tools_binary_validation_adapter(
+  _bytes : Bytes,
+) -> BinaryDifferentialAdapterResult {
+  BinaryDifferentialAdapterResult::adapter_unavailable(
+    "wasm-tools", "wasm-tools adapter requires native target",
+  )
 }
 
 ///|

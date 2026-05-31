@@ -615,7 +615,6 @@ Use this board as the tracking view for fuzzer work. Each slice should be small 
 p1 next-up / active:
 
 p2 invalid/binary/text tiny slices:
-- `[FUZ]1044B` - Optional `wasm-tools validate` binary adapter.
 - `[FUZ]1044C` - Optional WABT and Binaryen binary validation adapters.
 - `[FUZ]1044D` - Binary differential runner/report integration smoke.
 
@@ -669,8 +668,6 @@ p1/p2 oracle, reporting, and infrastructure slices:
   - Unit: completed for tracked tiny slices. `[FUZ]1053B2` closed with timeout/resource repro persistence tolerating partial artifact write failures and recording `partial_artifact_write_failure` manifest entries. `[FUZ]1053B1` closed with invalid repro metadata carrying timeout stage, diagnostic location, and `timeout_budget_ms` through persist/parse.
 
 p2 invalid/binary/text slices:
-- [FUZ]1044B (p2) - Optional wasm-tools Binary Adapter
-  - Unit: add an optional subprocess adapter for `wasm-tools validate`, skip cleanly when unavailable, and classify one known malformed/valid fixture through the FUZ1044A schema.
 - [FUZ]1044C (p2) - Optional WABT And Binaryen Binary Adapters
   - Unit: add optional `wasm-validate` adapters for WABT and Binaryen with unavailable-tool tests and one fake/fixture classification each.
 - [FUZ]1044D (p2) - Binary Differential Runner/Report Smoke
@@ -809,7 +806,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1044 (p2) - N-Way Binary Parser And Validator Differential
   - Goal: compare Starshine binary decode/validate results against multiple external tools when available.
   - Why: Binaryen alone is not a complete oracle. WABT, wasm-tools, and Starshine may disagree on proposal support, malformed encodings, canonical LEB policy, and diagnostic staging.
-  - Deliverables: `[FUZ]1044A` adds the adapter result schema and pure classifier; `[FUZ]1044B` adds optional `wasm-tools validate`; `[FUZ]1044C` adds optional WABT/Binaryen `wasm-validate`; `[FUZ]1044D` adds opt-in runner/report smoke. Classify agree-valid, agree-invalid, proposal-gap, decoder-stage disagreement, validator-stage disagreement, tool-failure, unsupported-feature, and adapter-unavailable.
+  - Deliverables: `[FUZ]1044A` adds the adapter result schema and pure classifier; `[FUZ]1044B` closed on 2026-05-31 with an optional `wasm-tools validate` binary adapter that stages bytes through the native CLI when available, returns adapter-unavailable on non-native or missing-tool paths, and maps valid plus malformed fixtures into the FUZ1044A result schema; `[FUZ]1044C` adds optional WABT/Binaryen `wasm-validate`; `[FUZ]1044D` adds opt-in runner/report smoke. Classify agree-valid, agree-invalid, proposal-gap, decoder-stage disagreement, validator-stage disagreement, tool-failure, unsupported-feature, and adapter-unavailable.
   - Required APIs: external adapter layer from [FUZ]1032, invalid binary lane, valid-module binary roundtrip lane, result schema.
   - Invariants: external tool absence must skip cleanly; proposal support differences must be reported, not auto-labeled as Starshine bugs.
   - Dependencies: [FUZ]1029 and [FUZ]1032.

@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1044B optional wasm-tools binary adapter
+
+- Advanced `[FUZ]1044B` by adding `run_wasm_tools_binary_validation_adapter(...)` to the command fuzz harness. Native builds stage candidate wasm bytes to a temp file, run `wasm-tools validate`, capture diagnostics, and return FUZ1044A adapter results; non-native and missing-tool paths return `adapter-unavailable` instead of failing the harness.
+- Added stage mapping for failed external validation: unsupported/proposal diagnostics classify as `unsupported-feature`, locally decode-rejected bytes classify as `decode-invalid`, and locally decoded-but-invalid bytes classify as `validate-invalid`.
+- Validation: `moon test src/cmd -f FUZ1044B` first failed on the missing adapter API, then `moon test src/cmd` passed after implementation. `moon test --target native src/cmd` still hits an existing unrelated `cmd_native_wbtest.mbt` `@binary.encode_unsigned` compile error, but the new native adapter compile error found there was fixed.
+
 ## [2026-05-31] fuzzing | FUZ1044A binary differential result schema
 
 - Advanced `[FUZ]1044A` by adding pure binary differential adapter result types to `src/cmd/fuzz_harness.mbt` for valid, decode-invalid, validate-invalid, tool-failure, unsupported-feature, and adapter-unavailable outcomes.

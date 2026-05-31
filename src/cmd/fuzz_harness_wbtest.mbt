@@ -332,6 +332,52 @@ test "FUZ1044A binary differential classifier separates decoder and validator di
 }
 
 ///|
+test "FUZ1044B wasm-tools binary adapter maps optional valid and malformed fixtures into schema" {
+  let valid_result = run_wasm_tools_binary_validation_adapter(
+    encode_fixture_module(41),
+  )
+  match valid_result.outcome {
+    BinaryValid =>
+      @debug.assert_eq(
+        classify_binary_differential_results([
+          BinaryDifferentialAdapterResult::valid("starshine"),
+          valid_result,
+        ]),
+        BinaryDifferentialClassification::agree_valid(),
+      )
+    BinaryAdapterUnavailable =>
+      @debug.assert_eq(
+        classify_binary_differential_results([valid_result]),
+        BinaryDifferentialClassification::adapter_unavailable(),
+      )
+    _ => fail("expected wasm-tools valid or unavailable outcome")
+  }
+  let malformed = bytes_from_ascii_for_fuzz_reducer("not wasm")
+  let malformed_result = run_wasm_tools_binary_validation_adapter(malformed)
+  match malformed_result.outcome {
+    BinaryInvalidDecode =>
+      @debug.assert_eq(
+        classify_binary_differential_results([
+          BinaryDifferentialAdapterResult::invalid_decode(
+            "starshine", "bad magic",
+          ),
+          malformed_result,
+        ]),
+        BinaryDifferentialClassification::agree_invalid(),
+      )
+    BinaryAdapterUnavailable =>
+      @debug.assert_eq(
+        classify_binary_differential_results([malformed_result]),
+        BinaryDifferentialClassification::adapter_unavailable(),
+      )
+    _ =>
+      fail(
+        "expected wasm-tools malformed decode-invalid or unavailable outcome",
+      )
+  }
+}
+
+///|
 test "differential_validate_wasm returns report when all validators agree" {
   let bytes = encode_fixture_module(11)
   let adapters = DifferentialAdapters::new(
