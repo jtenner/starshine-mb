@@ -3358,6 +3358,7 @@ pub enum GenValidConstExprUse {
   GlobalInitializerConstExpr
   DataOffsetConstExpr
   ElementOffsetConstExpr
+  ElementPayloadConstExpr
   TableInitializerConstExpr
 } derive(Eq, Debug)
 
@@ -3400,6 +3401,15 @@ pub fn gen_valid_const_expr_allowed_op_matrix() -> Array[
       allowed_ops: [NumericConstExprOp, ImportedImmutableGlobalGetConstExprOp],
     },
     {
+      context: ElementPayloadConstExpr,
+      allowed_ops: [
+        RefNullConstExprOp,
+        RefFuncConstExprOp,
+        ImportedImmutableGlobalGetConstExprOp,
+        I31RefConstExprOp,
+      ],
+    },
+    {
       context: TableInitializerConstExpr,
       allowed_ops: [
         RefNullConstExprOp,
@@ -3428,6 +3438,48 @@ fn GenValidConstExprContext::numeric_only() -> GenValidConstExprContext {
     allow_ref_func: false,
     allow_imported_immutable_global_get: false,
     allow_ref_i31: false,
+  }
+}
+
+///|
+fn gen_valid_const_expr_context_for_use(
+  context_use : GenValidConstExprUse,
+) -> GenValidConstExprContext {
+  match context_use {
+    GlobalInitializerConstExpr =>
+      {
+        ..GenValidConstExprContext::numeric_only(),
+        allow_ref_null: true,
+        allow_ref_func: true,
+        allow_imported_immutable_global_get: true,
+        allow_ref_i31: true,
+      }
+    DataOffsetConstExpr =>
+      {
+        ..GenValidConstExprContext::numeric_only(),
+        allow_imported_immutable_global_get: true,
+      }
+    ElementOffsetConstExpr =>
+      {
+        ..GenValidConstExprContext::numeric_only(),
+        allow_imported_immutable_global_get: true,
+      }
+    ElementPayloadConstExpr =>
+      {
+        allow_numeric_const: false,
+        allow_ref_null: true,
+        allow_ref_func: true,
+        allow_imported_immutable_global_get: true,
+        allow_ref_i31: true,
+      }
+    TableInitializerConstExpr =>
+      {
+        allow_numeric_const: false,
+        allow_ref_null: true,
+        allow_ref_func: true,
+        allow_imported_immutable_global_get: true,
+        allow_ref_i31: true,
+      }
   }
 }
 
@@ -4592,11 +4644,7 @@ fn gen_valid_elem_ref_expr(
       ctx,
       ElemStream,
       vt,
-      {
-        ..GenValidConstExprContext::numeric_only(),
-        allow_ref_null: true,
-        allow_ref_i31: true,
-      },
+      gen_valid_const_expr_context_for_use(ElementPayloadConstExpr),
       [],
       None,
     )

@@ -279,6 +279,7 @@ test "gen-valid const-expression allowed-op matrix covers section contexts" {
     GlobalInitializerConstExpr,
     DataOffsetConstExpr,
     ElementOffsetConstExpr,
+    ElementPayloadConstExpr,
     TableInitializerConstExpr,
   ])
   @debug.assert_eq(matrix[0].allowed_ops, [
@@ -297,6 +298,12 @@ test "gen-valid const-expression allowed-op matrix covers section contexts" {
     ImportedImmutableGlobalGetConstExprOp,
   ])
   @debug.assert_eq(matrix[3].allowed_ops, [
+    RefNullConstExprOp,
+    RefFuncConstExprOp,
+    ImportedImmutableGlobalGetConstExprOp,
+    I31RefConstExprOp,
+  ])
+  @debug.assert_eq(matrix[4].allowed_ops, [
     RefNullConstExprOp,
     RefFuncConstExprOp,
     ImportedImmutableGlobalGetConstExprOp,
@@ -495,6 +502,52 @@ test "gen-valid init-heavy combines active segment offsets with passive drops" {
     gen_valid_test_has_passive_elem_drop(generated.wasm_module),
     msg="coverage-forced GenValid should drop a passive element segment from a valid body",
   )
+}
+
+///|
+test "gen-valid shared const-expression context gates match matrix rows" {
+  let global_ctx = gen_valid_const_expr_context_for_use(
+    GlobalInitializerConstExpr,
+  )
+  assert_true(global_ctx.allow_numeric_const)
+  assert_true(global_ctx.allow_ref_null)
+  assert_true(global_ctx.allow_ref_func)
+  assert_true(global_ctx.allow_imported_immutable_global_get)
+  assert_true(global_ctx.allow_ref_i31)
+
+  let data_ctx = gen_valid_const_expr_context_for_use(DataOffsetConstExpr)
+  assert_true(data_ctx.allow_numeric_const)
+  assert_false(data_ctx.allow_ref_null)
+  assert_false(data_ctx.allow_ref_func)
+  assert_true(data_ctx.allow_imported_immutable_global_get)
+  assert_false(data_ctx.allow_ref_i31)
+
+  let elem_offset_ctx = gen_valid_const_expr_context_for_use(
+    ElementOffsetConstExpr,
+  )
+  assert_true(elem_offset_ctx.allow_numeric_const)
+  assert_false(elem_offset_ctx.allow_ref_null)
+  assert_false(elem_offset_ctx.allow_ref_func)
+  assert_true(elem_offset_ctx.allow_imported_immutable_global_get)
+  assert_false(elem_offset_ctx.allow_ref_i31)
+
+  let elem_payload_ctx = gen_valid_const_expr_context_for_use(
+    ElementPayloadConstExpr,
+  )
+  assert_false(elem_payload_ctx.allow_numeric_const)
+  assert_true(elem_payload_ctx.allow_ref_null)
+  assert_true(elem_payload_ctx.allow_ref_func)
+  assert_true(elem_payload_ctx.allow_imported_immutable_global_get)
+  assert_true(elem_payload_ctx.allow_ref_i31)
+
+  let table_ctx = gen_valid_const_expr_context_for_use(
+    TableInitializerConstExpr,
+  )
+  assert_false(table_ctx.allow_numeric_const)
+  assert_true(table_ctx.allow_ref_null)
+  assert_true(table_ctx.allow_ref_func)
+  assert_true(table_ctx.allow_imported_immutable_global_get)
+  assert_true(table_ctx.allow_ref_i31)
 }
 
 ///|

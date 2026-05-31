@@ -366,6 +366,7 @@ pub enum GenValidConstExprUse {
   GlobalInitializerConstExpr
   DataOffsetConstExpr
   ElementOffsetConstExpr
+  ElementPayloadConstExpr
   TableInitializerConstExpr
 } derive(Eq, @debug.Debug)
 

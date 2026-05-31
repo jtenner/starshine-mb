@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1037 element payload const-expression matrix
+
+- Continued `[FUZ]1037` by splitting element payload constant expressions into a distinct `ElementPayloadConstExpr` GenValid matrix/context row instead of overloading active element offsets.
+- Added TDD coverage that first failed on the missing row, then covered the payload-specific reference families including `ref.i31`. Added `gen_valid_const_expr_context_for_use(...)` so the matrix has an executable gate helper, and routed non-funcref element payload generation through that helper. Synced the constant-expression wiki page.
+
 ## [2026-05-30] fuzzing | FUZ1037 active offset matrix hygiene
 
 - Continued `[FUZ]1037` by narrowing the GenValid const-expression allowed-op matrix for active element offsets to the same i32-only surface as active data offsets: numeric constants and immutable imported `i32 global.get`.
