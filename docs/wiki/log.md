@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-30] fuzzing | FUZ1050A artifact metadata hashes
+
+- Completed `[FUZ]1050A` by adding a reusable artifact metadata helper that records raw byte/text lengths and SHA-256 hashes alongside normalized canonical byte/text lengths and SHA-256 hashes.
+- The schema gives future repro writers a stable `starshine.fuzz.artifact-metadata.v1` block for raw and canonical identity. Removed the completed tiny slice from the active FUZ board.
+
 ## [2026-05-30] fuzzing | FUZ1052B3 runtime invocation classifications
 
 - Completed `[FUZ]1052B3` by adding the runtime invocation outcome/classification helper for future export-result comparison. The classifier distinguishes `equal-result`, `equal-trap`, `unsupported-runtime`, `nondeterministic-import`, and `semantic-mismatch` outcomes with stable handling for numeric edge values.
