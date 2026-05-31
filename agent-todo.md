@@ -624,7 +624,6 @@ p2 oracle/reporting/infrastructure tiny slices:
 - [FUZ]1045A2 - Wire local WAT/WAST parser against optional WABT text command.
 - [FUZ]1045A3 - Wire optional wasm-tools text command and unsupported-syntax classification.
 - [FUZ]1048A - Ensure every fuzz summary JSON records feature/opcode/strategy counters needed by coverage-delta.
-- [FUZ]1048B - Add a docs example for `bun fuzz coverage-delta` required vs optional counters.
 - [FUZ]1050A - Add raw bytes/text and normalized canonical hashes to artifact metadata.
 - [FUZ]1052B1 - Choose deterministic simple argument vectors for exported functions.
 - [FUZ]1052B2 - Execute one simple exported function under the optional runtime adapter.

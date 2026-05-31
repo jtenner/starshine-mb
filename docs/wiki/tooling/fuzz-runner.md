@@ -163,6 +163,39 @@ Use compare-pass for optimizer parity signoff or failure-replay workflows, not b
 
 `bun fuzz coverage-delta [--optional] <before-report.json> <after-report.json>` compares numeric counters under a persisted summary report's `summary` object. Counter paths containing a component that starts with `required` are treated as required coverage: decreases are printed and make the command exit nonzero. Optional counters are tolerated by default so new or removed optional surfaces do not break CI noise floors; pass `--optional` / `--include-optional` to print optional changes as well. Artifact counts, failure classes, pass statuses, and timings are always shown when changed so run-shape drift remains visible even when the changed counter is not a required coverage floor.
 
+A minimal coverage-delta input shape can be kept small in docs or tests:
+
+```json
+{
+  "summary": {
+    "features": {
+      "required_gc": 3,
+      "optional_strings": 1
+    },
+    "opcodes": {
+      "required_ref_func": 2
+    },
+    "strategies": {
+      "required_invalid_ast": 4
+    },
+    "artifacts": {
+      "repro": 1
+    },
+    "failures": {
+      "validation": 0
+    },
+    "passes": {
+      "validate-invalid-ast": 1
+    },
+    "timings": {
+      "wall_ms": 25
+    }
+  }
+}
+```
+
+In that example, decreasing `summary.features.required_gc`, `summary.opcodes.required_ref_func`, or `summary.strategies.required_invalid_ast` is a required-counter regression and fails the command. Decreasing `summary.features.optional_strings` is hidden and tolerated by default, then printed without failing when `--optional` is supplied. Non-coverage run-shape counters such as artifacts, failures, passes, and timings are reported when they drift so reviewers can distinguish coverage loss from ordinary run-shape changes.
+
 ## Maintenance Guidance
 
 - Add or extend a named `src/fuzz` suite for new broad randomized work; keep `moon test` deterministic and fast.
