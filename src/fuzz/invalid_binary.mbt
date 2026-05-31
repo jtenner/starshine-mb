@@ -103,6 +103,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidBinaryMemory64AddressTypeModule
   InvalidBinaryGlobalInitTypeModule
   InvalidBinaryRelaxedSimdSwizzleLeftTypeModule
+  InvalidBinaryAtomicLoadIndexModule
+  InvalidBinaryAtomicLoadNonSharedMemoryModule
   MalformedSimdImmediate
   SimdLaneIndexOverflow
   MalformedCustomSectionPayload
@@ -921,6 +923,10 @@ fn validate_invalid_binary_strategy_label(
       "invalid-binary-global-init-type-module"
     InvalidBinaryRelaxedSimdSwizzleLeftTypeModule =>
       "invalid-binary-relaxed-simd-swizzle-left-type-module"
+    InvalidBinaryAtomicLoadIndexModule =>
+      "invalid-binary-atomic-load-index-module"
+    InvalidBinaryAtomicLoadNonSharedMemoryModule =>
+      "invalid-binary-atomic-load-non-shared-memory-module"
     MalformedSimdImmediate => "malformed-simd-immediate"
     SimdLaneIndexOverflow => "simd-lane-index-overflow"
     MalformedCustomSectionPayload => "malformed-custom-section-payload"
@@ -1942,6 +1948,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidBinaryRelaxedSimdSwizzleLeftTypeModule,
       "invalid-binary-relaxed-simd-swizzle-left-type-module",
       "encoded module with relaxed-SIMD swizzle left operand type mismatch",
+      ValidateRejected("function-body"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryAtomicLoadIndexModule,
+      "invalid-binary-atomic-load-index-module",
+      "encoded module with atomic.load targeting a missing memory",
+      ValidateRejected("function-body"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryAtomicLoadNonSharedMemoryModule,
+      "invalid-binary-atomic-load-non-shared-memory-module",
+      "encoded module with atomic.load targeting a non-shared memory",
       ValidateRejected("function-body"),
       required_in_smoke=false,
     ),
@@ -18531,6 +18551,36 @@ pub fn apply_validate_invalid_binary_strategy(
       }
       validate_invalid_binary_mutate_encoded_invalid_ast_module(
         InvalidBinaryRelaxedSimdSwizzleLeftTypeModule,
+        ast_strategy,
+        "function-body",
+        base,
+      )
+    }
+    InvalidBinaryAtomicLoadIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-function-body-atomic-load-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryAtomicLoadIndexModule,
+        ast_strategy,
+        "function-body",
+        base,
+      )
+    }
+    InvalidBinaryAtomicLoadNonSharedMemoryModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-function-body-atomic-load-non-shared-memory",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryAtomicLoadNonSharedMemoryModule,
         ast_strategy,
         "function-body",
         base,
