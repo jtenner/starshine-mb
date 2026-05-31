@@ -373,6 +373,197 @@ pub fn classify_n_way_text_aggregate(
 }
 
 ///|
+pub fn text_aggregate_classification_label(
+  classification : TextAggregateClassification,
+) -> String {
+  match classification {
+    Accepted => "accepted"
+    ParseDisagreement => "parse-disagreement"
+    PrintDisagreement => "print-disagreement"
+    LowerDisagreement => "lower-disagreement"
+    UnsupportedSyntax => "unsupported-syntax"
+    SemanticValidationDisagreement => "semantic-validation-disagreement"
+    AdapterUnavailable => "adapter-unavailable"
+  }
+}
+
+///|
+pub struct TextDifferentialArtifactPaths {
+  case_dir : String
+  original_text_path : String
+  starshine_printed_text_path : String?
+  starshine_original_wasm_path : String?
+  starshine_reparsed_wasm_path : String?
+  adapters_path : String
+  classification_path : String
+} derive(Eq, Debug)
+
+///|
+fn text_adapter_result_meta(result : TextAggregateAdapterResult) -> String {
+  let out = StringBuilder::new()
+  out.write_string("adapter=\{result.adapter_name}\n")
+  out.write_string("adapter_available=\{result.adapter_available}\n")
+  out.write_string("unsupported_syntax=\{result.unsupported_syntax}\n")
+  out.write_string("parse_ok=\{result.parse_ok}\n")
+  out.write_string("print_ok=\{@debug.to_string(result.print_ok)}\n")
+  out.write_string("lower_ok=\{@debug.to_string(result.lower_ok)}\n")
+  out.write_string("validates_ok=\{@debug.to_string(result.validates_ok)}\n")
+  match result.message {
+    Some(message) => out.write_string("message=\{fuzz_single_line(message)}\n")
+    None => out.write_string("message=\n")
+  }
+  out.to_string()
+}
+
+///|
+fn text_differential_adapters_meta(
+  local_report : TextParsePrintLowerReport,
+  external_results : Array[TextAggregateAdapterResult],
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("[local]\n")
+  out.write_string(
+    text_adapter_result_meta(text_aggregate_local_result(local_report)),
+  )
+  let mut i = 0
+  while i < external_results.length() {
+    out.write_string("[external \{i}]\n")
+    out.write_string(text_adapter_result_meta(external_results[i]))
+    i += 1
+  }
+  out.to_string()
+}
+
+///|
+fn text_differential_classification_meta(
+  local_report : TextParsePrintLowerReport,
+  classification : TextAggregateClassification,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "classification=\{text_aggregate_classification_label(classification)}\n",
+  )
+  out.write_string("local_adapter=\{local_report.adapter_name}\n")
+  out.write_string("original_parse_ok=\{local_report.original_parse_ok}\n")
+  out.write_string("print_ok=\{local_report.print_ok}\n")
+  out.write_string("reparse_lower_ok=\{local_report.reparse_lower_ok}\n")
+  match local_report.message {
+    Some(message) =>
+      out.write_string("local_message=\{fuzz_single_line(message)}\n")
+    None => out.write_string("local_message=\n")
+  }
+  out.to_string()
+}
+
+///|
+pub fn persist_text_differential_artifacts(
+  original_text : String,
+  local_report : TextParsePrintLowerReport,
+  external_results : Array[TextAggregateAdapterResult],
+  classification : TextAggregateClassification,
+  io : FuzzFailurePersistIO,
+  repro_dir? : String = "text-repros",
+  seed? : UInt64 = 0UL,
+  attempt? : Int = 0,
+) -> Result[TextDifferentialArtifactPaths, String] {
+  let trimmed = repro_dir.trim().to_owned()
+  let base_dir = if trimmed.length() == 0 { "text-repros" } else { trimmed }
+  match (io.ensure_dir)(base_dir) {
+    Ok(_) => ()
+    Err(e) => return Err("failed to ensure text repro dir \{base_dir}: \{e}")
+  }
+  let class_slug = text_aggregate_classification_label(classification)
+  let case_dir = "\{base_dir}/seed-\{seed}-attempt-\{attempt}-\{class_slug}"
+  match (io.ensure_dir)(case_dir) {
+    Ok(_) => ()
+    Err(e) =>
+      return Err("failed to ensure text repro case dir \{case_dir}: \{e}")
+  }
+  let original_path = "\{case_dir}/original.wat"
+  match (io.write_file)(original_path, fuzz_bytes_from_string(original_text)) {
+    Ok(_) => ()
+    Err(e) =>
+      return Err(
+        "failed to write original text artifact \{original_path}: \{e}",
+      )
+  }
+  let printed_path = match local_report.printed_text {
+    Some(text) => {
+      let path = "\{case_dir}/starshine.printed.wat"
+      match (io.write_file)(path, fuzz_bytes_from_string(text)) {
+        Ok(_) => Some(path)
+        Err(e) =>
+          return Err(
+            "failed to write Starshine printed text artifact \{path}: \{e}",
+          )
+      }
+    }
+    None => None
+  }
+  let original_wasm_path = match local_report.original_lowered_bytes {
+    Some(bytes) => {
+      let path = "\{case_dir}/starshine.original.wasm"
+      match (io.write_file)(path, bytes) {
+        Ok(_) => Some(path)
+        Err(e) =>
+          return Err(
+            "failed to write Starshine original wasm artifact \{path}: \{e}",
+          )
+      }
+    }
+    None => None
+  }
+  let reparsed_wasm_path = match local_report.reparsed_lowered_bytes {
+    Some(bytes) => {
+      let path = "\{case_dir}/starshine.reparsed.wasm"
+      match (io.write_file)(path, bytes) {
+        Ok(_) => Some(path)
+        Err(e) =>
+          return Err(
+            "failed to write Starshine reparsed wasm artifact \{path}: \{e}",
+          )
+      }
+    }
+    None => None
+  }
+  let adapters_path = "\{case_dir}/adapters.txt"
+  match
+    (io.write_file)(
+      adapters_path,
+      fuzz_bytes_from_string(
+        text_differential_adapters_meta(local_report, external_results),
+      ),
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      return Err("failed to write text adapter artifact \{adapters_path}: \{e}")
+  }
+  let classification_path = "\{case_dir}/classification.txt"
+  match
+    (io.write_file)(
+      classification_path,
+      fuzz_bytes_from_string(
+        text_differential_classification_meta(local_report, classification),
+      ),
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      return Err(
+        "failed to write text classification artifact \{classification_path}: \{e}",
+      )
+  }
+  Ok(TextDifferentialArtifactPaths::{
+    case_dir,
+    original_text_path: original_path,
+    starshine_printed_text_path: printed_path,
+    starshine_original_wasm_path: original_wasm_path,
+    starshine_reparsed_wasm_path: reparsed_wasm_path,
+    adapters_path,
+    classification_path,
+  })
+}
+
+///|
 pub struct DifferentialValidationReport {
   internal_valid : Bool
   wasm_tools_valid : Bool?

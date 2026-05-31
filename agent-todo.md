@@ -617,7 +617,6 @@ p1 next-up / active:
 p2 invalid/binary/text tiny slices:
 
 p2 oracle/reporting/infrastructure tiny slices:
-- `[FUZ]1045A6` - Text differential artifact persistence: persist original WAT/WAST, Starshine-printed text, optional external outputs, adapter stderr snippets, and the aggregate classification in a repro directory.
 - `[FUZ]1045A7` - Text fuzz runner integration smoke: expose the n-way text matrix behind an opt-in fuzz runner flag or recipe and add an unavailable-tool skip test.
 - `[FUZ]1052B8` - Real export matrix runner wiring: collect simple exported numeric functions from pass-fuzz Starshine/Binaryen outputs, invoke both through the selected runtime adapter, and build `ExportInvocationComparisonReport` rows.
 - `[FUZ]1052B9` - Export matrix report persistence: write matrix summary, matrix outcome, and semantic-mismatch report samples into pass-fuzz result JSON and repro manifests without requiring runtime execution by default.
@@ -658,7 +657,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1026B (p2) - Multi-Fault Repro Metadata
   - Unit: completed for tracked tiny slices. `[FUZ]1026B1` closed with first-class `multi_fault_mutation_id` and `multi_fault_broad_outcome` repro metadata, plus parse/persist coverage for all mutation ids and broad outcomes.
 - [FUZ]1045A (p2) - N-Way Text Parse/Print Classification
-  - Completed tiny slices: `[FUZ]1045A1` text-adapter result schema, `[FUZ]1045A2` optional WABT adapter, `[FUZ]1045A3` optional wasm-tools adapter, `[FUZ]1045A4` local parse/print/lower matrix, and `[FUZ]1045A5` aggregate classifier. Remaining concrete slices: `[FUZ]1045A6` artifact persistence and `[FUZ]1045A7` runner integration smoke.
+  - Completed tiny slices: `[FUZ]1045A1` text-adapter result schema, `[FUZ]1045A2` optional WABT adapter, `[FUZ]1045A3` optional wasm-tools adapter, `[FUZ]1045A4` local parse/print/lower matrix, `[FUZ]1045A5` aggregate classifier, and `[FUZ]1045A6` artifact persistence. Remaining concrete slice: `[FUZ]1045A7` runner integration smoke.
 - [FUZ]1055A (p2) - Multi-Module WAST Valid Linking Lane
   - Completed tiny slices: `[FUZ]1055A1` named two-module fixture, `[FUZ]1055A2` valid import/export wiring fixture, `[FUZ]1055A3` reusable valid multi-module WAST generator lane, and `[FUZ]1055A4` valid linking runner classification. Remaining concrete slices: none for the current tracked 1055A board.
 - [FUZ]1055B (p2) - Multi-Module WAST Unlinkable Lane

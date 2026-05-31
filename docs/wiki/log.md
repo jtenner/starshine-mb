@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1045A6 text differential artifact persistence
+
+- Closed `[FUZ]1045A6` by adding `persist_text_differential_artifacts(...)`, `TextDifferentialArtifactPaths`, and a stable text-aggregate classification label helper in `src/cmd/fuzz_harness.mbt`.
+- Text differential repros now persist a per-case directory containing the original WAT/WAST, Starshine-printed text when available, Starshine original/reparsed wasm bytes when available, adapter stderr/message snippets, and a classification summary with the aggregate bucket.
+- Validation: `moon test src/cmd` first failed on the missing persistence API, then passed after implementation. Final validation also passed `moon test src/fuzz`, `moon run src/fuzz -- validate-invalid-text smoke --seed 0x1045A6`, `moon info`, `moon fmt`, and `moon test`.
+
 ## [2026-05-31] fuzzing | FUZ1045A5 n-way text aggregate classifier
 
 - Closed `[FUZ]1045A5` by adding `TextAggregateAdapterResult`, `TextAggregateClassification`, local-report conversion, and `classify_n_way_text_aggregate(...)` in `src/cmd/fuzz_harness.mbt`.

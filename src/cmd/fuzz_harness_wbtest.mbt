@@ -161,6 +161,83 @@ test "FUZ1045A5 n-way text aggregate classifier covers parse print lower and ext
 }
 
 ///|
+test "FUZ1045A6 persists text differential repro artifacts" {
+  let ensured_dirs : Array[String] = []
+  let writes : Array[(String, Bytes)] = []
+  let io = FuzzFailurePersistIO::new(
+    ensure_dir=fn(path) {
+      ensured_dirs.push(path)
+      Ok(())
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let source = "(module (func (export \"answer\") (result i32) i32.const 42))"
+  let local_report = run_local_text_parse_print_lower_matrix(
+    source,
+    filename="case.wat",
+  )
+  let external = TextAggregateAdapterResult::external_parse_error(
+    "wabt", "stderr: unexpected token near answer",
+  )
+  let classification = classify_n_way_text_aggregate([
+    text_aggregate_local_result(local_report),
+    external,
+  ])
+  let paths = match
+    persist_text_differential_artifacts(
+      source,
+      local_report,
+      [external],
+      classification,
+      io,
+      repro_dir="tmp-text-repros",
+      seed=0x1045A6UL,
+      attempt=3,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("expected text artifact persistence success, got \{e}")
+  }
+  @debug.assert_eq(ensured_dirs, ["tmp-text-repros", paths.case_dir])
+  assert_true(paths.case_dir.contains("seed-1066406"), msg=paths.case_dir)
+  assert_true(paths.original_text_path.contains("original.wat"))
+  match paths.starshine_printed_text_path {
+    Some(path) => assert_true(path.contains("starshine.printed.wat"))
+    None => fail("expected printed text path")
+  }
+  @debug.assert_eq(writes.length(), 6)
+  let mut saw_original = false
+  let mut saw_printed = false
+  let mut saw_adapters = false
+  let mut saw_classification = false
+  for entry in writes {
+    let path = entry.0
+    let text = bytes_to_ascii(entry.1)
+    if path.contains("original.wat") {
+      saw_original = true
+      assert_true(text.contains("answer"), msg=text)
+    } else if path.contains("starshine.printed.wat") {
+      saw_printed = true
+      assert_true(text.contains("answer"), msg=text)
+    } else if path.contains("adapters.txt") {
+      saw_adapters = true
+      assert_true(text.contains("adapter=wabt"), msg=text)
+      assert_true(text.contains("unexpected token"), msg=text)
+    } else if path.contains("classification.txt") {
+      saw_classification = true
+      assert_true(text.contains("classification=parse-disagreement"), msg=text)
+      assert_true(text.contains("local_adapter=starshine-local"), msg=text)
+    }
+  }
+  assert_true(saw_original)
+  assert_true(saw_printed)
+  assert_true(saw_adapters)
+  assert_true(saw_classification)
+}
+
+///|
 test "differential_validate_wasm returns report when all validators agree" {
   let bytes = encode_fixture_module(11)
   let adapters = DifferentialAdapters::new(

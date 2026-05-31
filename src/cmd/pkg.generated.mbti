@@ -43,6 +43,8 @@ pub fn native_differential_tools_available() -> (Bool, Bool)
 
 pub fn persist_fuzz_failure_report(FuzzFailureReport, FuzzFailurePersistIO, corpus_dir? : String) -> Result[(String, String?), String]
 
+pub fn persist_text_differential_artifacts(String, TextParsePrintLowerReport, Array[TextAggregateAdapterResult], TextAggregateClassification, FuzzFailurePersistIO, repro_dir? : String, seed? : UInt64, attempt? : Int) -> Result[TextDifferentialArtifactPaths, String]
+
 pub fn run_cmd(Array[String]) -> Result[CmdRunSummary, CmdError]
 
 pub fn run_cmd_exit_code(Array[String]) -> Int
@@ -60,6 +62,8 @@ pub fn run_local_text_parse_print_lower_matrix(String, filename? : String) -> Te
 pub fn summarize_binary_canonicality_classifications(Array[BinaryCanonicalityClassification]) -> BinaryCanonicalitySummary
 
 pub fn summarize_export_invocation_matrix(Array[ExportInvocationComparisonReport]) -> ExportInvocationMatrixSummary
+
+pub fn text_aggregate_classification_label(TextAggregateClassification) -> String
 
 pub fn text_aggregate_local_result(TextParsePrintLowerReport, validates_ok? : Bool?) -> TextAggregateAdapterResult
 
@@ -390,6 +394,16 @@ pub fn TextAggregateClassification::parse_disagreement() -> Self
 pub fn TextAggregateClassification::print_disagreement() -> Self
 pub fn TextAggregateClassification::semantic_validation_disagreement() -> Self
 pub fn TextAggregateClassification::unsupported_syntax() -> Self
+
+pub struct TextDifferentialArtifactPaths {
+  case_dir : String
+  original_text_path : String
+  starshine_printed_text_path : String?
+  starshine_original_wasm_path : String?
+  starshine_reparsed_wasm_path : String?
+  adapters_path : String
+  classification_path : String
+} derive(Eq, @debug.Debug)
 
 pub struct TextParsePrintLowerReport {
   adapter_name : String
