@@ -70,7 +70,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     expected_labels
     .filter(fn(label) { label == "validate-function-body" })
     .length(),
-    7,
+    8,
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 40)
@@ -236,6 +236,17 @@ test "decode-accepted binary global init type mismatch rejects at validation sta
   match
     invalid_binary_expect_strategy_rejects(
       "invalid-binary-global-init-type-module", 0x1022B4UL, "global",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "decode-accepted binary relaxed SIMD swizzle mismatch rejects at validation stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-binary-relaxed-simd-swizzle-left-type-module", 0x1022B5UL, "function-body",
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)
