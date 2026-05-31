@@ -473,6 +473,75 @@ test "build_fuzz_corpus_replay_command_metadata falls back to artifact path" {
 }
 
 ///|
+test "plan_fuzz_corpus_replay_manifest reports planned skipped and malformed entries" {
+  let promoted = format_fuzz_corpus_promotion_metadata_json(
+    FuzzCorpusPromotionMetadata::new(
+      "case-promoted",
+      "promoted-valid",
+      "manual",
+      "cases/promoted.wasm",
+      "2026-05-31",
+      "suite=validate-valid profile=smoke seed=100 seed_index=2",
+      [],
+      "must validate",
+      "valid",
+      "moon run src/fuzz -- validate-valid smoke --seed 100",
+      [],
+      "[FUZ]1042D",
+      "promoted fixture",
+    ),
+  )
+  let quarantined = format_fuzz_corpus_promotion_metadata_json(
+    FuzzCorpusPromotionMetadata::new(
+      "case-quarantine",
+      "quarantine",
+      "manual",
+      "cases/quarantine.wat",
+      "2026-05-31",
+      "suite=validate-invalid-text profile=smoke seed=101 strategy=bad-wat",
+      [],
+      "may reject",
+      "unknown/risky",
+      "moon run src/fuzz -- validate-invalid-text smoke --seed 101",
+      ["cases/quarantine.wat"],
+      "[FUZ]1042D",
+      "quarantine fixture",
+    ),
+  )
+  let missing_seed = format_fuzz_corpus_promotion_metadata_json(
+    FuzzCorpusPromotionMetadata::new(
+      "case-missing-seed",
+      "promoted-invalid",
+      "manual",
+      "cases/missing-seed.wat",
+      "2026-05-31",
+      "suite=validate-invalid-text profile=smoke",
+      [],
+      "must reject",
+      "validate-rejected",
+      "moon run src/fuzz -- validate-invalid-text smoke",
+      [],
+      "[FUZ]1042D",
+      "missing seed should skip planning",
+    ),
+  )
+  let manifest = "{\"schema\":\"starshine.fuzz-corpus-replay-all-manifest.v1\",\"entries\":[\{promoted},\{quarantined},\{missing_seed},{\"schema\":\"wrong\"}]}"
+  let plan = match plan_fuzz_corpus_replay_manifest(manifest) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(plan.planned_count, 2)
+  @debug.assert_eq(plan.skipped_count, 1)
+  @debug.assert_eq(plan.malformed_count, 1)
+  @debug.assert_eq(plan.commands.length(), 2)
+  @debug.assert_eq(plan.commands[0].case_id, "case-promoted")
+  @debug.assert_eq(plan.commands[0].seed, 100UL)
+  @debug.assert_eq(plan.commands[0].seed_index, 2)
+  @debug.assert_eq(plan.commands[1].case_id, "case-quarantine")
+  @debug.assert_eq(plan.commands[1].strategy_or_artifact, "bad-wat")
+}
+
+///|
 test "parse_fuzz_corpus_promotion_metadata rejects malformed state and missing fields" {
   let bad_state = "{\"schema\":\"starshine.fuzz-corpus-entry.v1\",\"id\":\"bad\",\"state\":\"maybe\",\"source\":\"manual\",\"input\":\"case.wasm\",\"created_at\":\"2026-05-31\",\"generator\":\"manual\",\"features\":[],\"expectation\":\"none\",\"classification\":\"unknown\",\"replay\":\"echo replay\",\"artifacts\":[],\"owner_or_task\":\"[FUZ]1042B\",\"notes\":\"bad\"}"
   match parse_fuzz_corpus_promotion_metadata_json(bad_state) {

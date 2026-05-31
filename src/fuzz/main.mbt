@@ -83,6 +83,14 @@ pub struct FuzzCorpusReplayCommandMetadata {
 } derive(Eq, Debug)
 
 ///|
+pub struct FuzzCorpusReplayAllPlan {
+  planned_count : Int
+  skipped_count : Int
+  malformed_count : Int
+  commands : Array[FuzzCorpusReplayCommandMetadata]
+} derive(Eq, Debug)
+
+///|
 pub fn FuzzInterestingnessCaseKey::new(
   raw_hash : String,
   decoded_shape_hash : String,
@@ -3944,6 +3952,121 @@ pub fn parse_fuzz_corpus_replay_command_metadata_json(
       classification, command,
     ),
   )
+}
+
+///|
+fn fuzz_find_json_object_end(text : String, start : Int, limit : Int) -> Int? {
+  if start >= limit || text[start] != '{' {
+    return None
+  }
+  let mut depth = 0
+  let mut in_string = false
+  let mut escaped = false
+  let mut i = start
+  while i < limit {
+    let c = text[i]
+    if in_string {
+      if escaped {
+        escaped = false
+      } else if c == '\\' {
+        escaped = true
+      } else if c == '"' {
+        in_string = false
+      }
+    } else if c == '"' {
+      in_string = true
+    } else if c == '{' {
+      depth += 1
+    } else if c == '}' {
+      depth -= 1
+      if depth == 0 {
+        return Some(i + 1)
+      }
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+fn fuzz_skip_manifest_ws_and_commas(
+  text : String,
+  pos : Int,
+  limit : Int,
+) -> Int {
+  let mut i = pos
+  while i < limit &&
+        (
+          text[i] == ' ' ||
+          text[i] == '\n' ||
+          text[i] == '\r' ||
+          text[i] == '\t' ||
+          text[i] == ','
+        ) {
+    i += 1
+  }
+  i
+}
+
+///|
+pub fn plan_fuzz_corpus_replay_manifest(
+  manifest_json : String,
+) -> Result[FuzzCorpusReplayAllPlan, String] {
+  let schema = match
+    fuzz_parse_corpus_metadata_string_field(manifest_json, "schema") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  if schema != "starshine.fuzz-corpus-replay-all-manifest.v1" {
+    return Err("unsupported replay-all manifest schema \{schema}")
+  }
+  let entries_key = "\"entries\":["
+  let entries_start = fuzz_find_text_from(manifest_json, entries_key, 0)
+  if entries_start < 0 {
+    return Err("missing replay-all entries array")
+  }
+  let body_start = entries_start + entries_key.length()
+  let entries_end = fuzz_find_text_last_from(manifest_json, "]", body_start)
+  if entries_end < 0 {
+    return Err("unterminated replay-all entries array")
+  }
+  let commands : Array[FuzzCorpusReplayCommandMetadata] = []
+  let mut planned_count = 0
+  let mut skipped_count = 0
+  let mut malformed_count = 0
+  let mut pos = fuzz_skip_manifest_ws_and_commas(
+    manifest_json, body_start, entries_end,
+  )
+  while pos < entries_end {
+    if manifest_json[pos] != '{' {
+      malformed_count += 1
+      pos += 1
+    } else {
+      match fuzz_find_json_object_end(manifest_json, pos, entries_end) {
+        Some(end_pos) => {
+          let entry_json = manifest_json.sub(start=pos, end=end_pos).to_owned()
+          match parse_fuzz_corpus_promotion_metadata_json(entry_json) {
+            Ok(entry) =>
+              match build_fuzz_corpus_replay_command_metadata(entry) {
+                Ok(command) => {
+                  commands.push(command)
+                  planned_count += 1
+                }
+                Err(_) => skipped_count += 1
+              }
+            Err(_) => malformed_count += 1
+          }
+          pos = end_pos
+        }
+        None => {
+          malformed_count += 1
+          pos = entries_end
+        }
+      }
+    }
+    pos = fuzz_skip_manifest_ws_and_commas(manifest_json, pos, entries_end)
+  }
+  Ok({ planned_count, skipped_count, malformed_count, commands })
 }
 
 ///|

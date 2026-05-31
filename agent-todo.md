@@ -617,7 +617,6 @@ p1 next-up / active:
 p2 invalid/binary/text tiny slices:
 
 p2 oracle/reporting/infrastructure tiny slices:
-- `[FUZ]1042D` - Replay-all manifest task over promoted/quarantined cases.
 - `[FUZ]1043H` - Concrete text/WAST shrink path using `reduce_fuzz_text_tokens_by_deletion(...)`.
 - `[FUZ]1043I` - Parser-aware module-field deletion adapter over the shared sequence reducer.
 - `[FUZ]1048A` - Fuzz summary report schema fixture.
@@ -633,8 +632,6 @@ p2 oracle/reporting/infrastructure tiny slices:
 Use these slice ids when selecting or reporting future FUZ work. Parent tasks below keep the fuller goals, invariants, and historical evidence; this index names the remaining units so agents do not have to infer the next slice from long status paragraphs.
 
 p1/p2 oracle, reporting, and infrastructure slices:
-- [FUZ]1042D (p2) - Replay-All Manifest Task
-  - Unit: add a manifest reader/planner that enumerates replay commands from promoted/quarantined metadata and reports planned/skipped/malformed counts; execution can remain stubbed or dry-run only.
 - [FUZ]1043H (p2) - Concrete Text/WAST Token Shrink Path
   - Unit: wire one invalid text or spec-seed shrink path through `reduce_fuzz_text_tokens_by_deletion(...)` with a replay predicate and record shrink metadata. Preserve original artifacts and fall back to the strategy-minimal reducer when token deletion cannot shrink.
 - [FUZ]1043I (p2) - Parser-Aware Module-Field Adapter
@@ -767,7 +764,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1042 (p2) - Corpus Promotion, Quarantine, And Regression Replay Workflow
   - Goal: define how interesting fuzz findings become durable regression inputs.
   - Why: without a promotion workflow, agents either lose valuable seeds or commit noisy unminimized corpora. A quarantine lane keeps known tool failures and accepted semantic-safe divergences from blocking unrelated work.
-  - Deliverables remaining: `[FUZ]1042D` replay-all manifest planner. `[FUZ]1042A` closed on 2026-05-28 with `docs/wiki/tooling/fuzz-corpus-policy.md`, which defines promoted-valid, promoted-invalid, pass-mismatch, tool-failure, accepted-divergence, and quarantine states plus required metadata and promotion/quarantine rules. `[FUZ]1042B` closed on 2026-05-31 with the `starshine.fuzz-corpus-entry.v1` metadata shape, deterministic formatter/parser, schema helper, and state/required-field tests in `src/fuzz/main.mbt`. `[FUZ]1042C` closed on 2026-05-31 with `starshine.fuzz-replay-command.v1` metadata helpers that build, format, and parse one replay command per corpus entry, preserving suite/profile/seed, optional strategy or artifact path, expected outcome, classification, and exact replay command.
+  - Deliverables remaining: completed for tracked tiny slices. `[FUZ]1042A` closed on 2026-05-28 with `docs/wiki/tooling/fuzz-corpus-policy.md`, which defines promoted-valid, promoted-invalid, pass-mismatch, tool-failure, accepted-divergence, and quarantine states plus required metadata and promotion/quarantine rules. `[FUZ]1042B` closed on 2026-05-31 with the `starshine.fuzz-corpus-entry.v1` metadata shape, deterministic formatter/parser, schema helper, and state/required-field tests in `src/fuzz/main.mbt`. `[FUZ]1042C` closed on 2026-05-31 with `starshine.fuzz-replay-command.v1` metadata helpers that build, format, and parse one replay command per corpus entry, preserving suite/profile/seed, optional strategy or artifact path, expected outcome, classification, and exact replay command. `[FUZ]1042D` closed on 2026-05-31 with `FuzzCorpusReplayAllPlan` and a dry-run `starshine.fuzz-corpus-replay-all-manifest.v1` planner that enumerates replay command metadata from promoted/quarantined entries and reports planned, skipped, and malformed counts without executing replays.
   - Required APIs: fuzz output dirs from [FUZ]1031, invalid repro metadata, pass-fuzz result schema, docs/wiki corpus page.
   - Invariants: no large or private artifacts should be committed accidentally; every promoted case must have a human-readable reason and replay command.
   - Dependencies: [FUZ]1031 and [FUZ]1016 recommended.

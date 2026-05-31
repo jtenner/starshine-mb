@@ -18,7 +18,7 @@ related:
 
 ## Purpose
 
-This policy names the long-lived fuzz corpus states used by Starshine runners, compare lanes, reducers, and future replay-all tooling. It closes the `[FUZ]1042A` documentation slice; code that persists or replays corpus entries should use these names instead of inventing ad hoc directories or statuses. `[FUZ]1042B` adds the first Moon schema/format/parse helper for single-entry metadata under `starshine.fuzz-corpus-entry.v1`.
+This policy names the long-lived fuzz corpus states used by Starshine runners, compare lanes, reducers, and replay-all tooling. It closes the `[FUZ]1042A` documentation slice; code that persists or replays corpus entries should use these names instead of inventing ad hoc directories or statuses. `[FUZ]1042B` adds the first Moon schema/format/parse helper for single-entry metadata under `starshine.fuzz-corpus-entry.v1`.
 
 The policy is intentionally metadata-first. Large generated corpora should not be committed by default. Promote small, durable repro artifacts only when they are useful for regression, oracle triage, or tool-gap tracking, and keep noisy or machine-local bulk output under `.tmp/` unless a maintainer explicitly chooses otherwise.
 
@@ -64,7 +64,9 @@ Use relative paths rooted at the repository when possible. Do not store absolute
 
 The helper intentionally formats and parses a compact deterministic JSON subset for metadata produced by Starshine itself. It does not execute replays.
 
-`[FUZ]1042C` adds replay-command metadata helpers for a single promoted or quarantined case. `build_fuzz_corpus_replay_command_metadata(...)` derives a deterministic `starshine.fuzz-replay-command.v1` entry from corpus metadata when `generator` includes `suite=...`, `profile=...`, `seed=...`, and optional `seed_index=...` / `strategy=...` tokens. If no strategy token is present, the helper records the first artifact path, or the input path when no artifact is listed. `format_fuzz_corpus_replay_command_metadata_json(...)` and `parse_fuzz_corpus_replay_command_metadata_json(...)` roundtrip the case id, suite, profile, seed, seed index, strategy-or-artifact, expected outcome, classification, and exact replay command. Replay-all planning remains the follow-up `[FUZ]1042D` slice.
+`[FUZ]1042C` adds replay-command metadata helpers for a single promoted or quarantined case. `build_fuzz_corpus_replay_command_metadata(...)` derives a deterministic `starshine.fuzz-replay-command.v1` entry from corpus metadata when `generator` includes `suite=...`, `profile=...`, `seed=...`, and optional `seed_index=...` / `strategy=...` tokens. If no strategy token is present, the helper records the first artifact path, or the input path when no artifact is listed. `format_fuzz_corpus_replay_command_metadata_json(...)` and `parse_fuzz_corpus_replay_command_metadata_json(...)` roundtrip the case id, suite, profile, seed, seed index, strategy-or-artifact, expected outcome, classification, and exact replay command.
+
+`[FUZ]1042D` adds the first replay-all manifest planner. `plan_fuzz_corpus_replay_manifest(...)` reads a compact `starshine.fuzz-corpus-replay-all-manifest.v1` JSON manifest with an `entries` array of `starshine.fuzz-corpus-entry.v1` objects, derives replay-command metadata for every plannable entry, and reports `planned_count`, `skipped_count`, and `malformed_count` without executing any replay. Parse-invalid entries are counted as malformed; parseable entries that cannot build a replay command, such as metadata missing required `suite` / `profile` / `seed` generator tokens, are counted as skipped.
 
 ## Promotion Rules
 
@@ -92,7 +94,7 @@ A quarantine entry should have an explicit exit condition: promote, mark as acce
 
 ## Replay-All Implications
 
-Future replay-all tooling should treat these states differently:
+Replay-all tooling should treat these states differently:
 
 - `promoted-valid` and `promoted-invalid` are ordinary deterministic corpus lanes.
 - `pass-mismatch` is a targeted compare-pass lane and needs stored pass flags.

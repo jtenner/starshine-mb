@@ -167,6 +167,8 @@ pub fn persist_fuzz_run_output(String, String, String, Int64, Int, Int, Int, Arr
 
 pub fn persist_invalid_fuzz_failure_report(InvalidFuzzFailureReport, InvalidFuzzPersistIO, corpus_dir? : String) -> Result[(String, Array[String]), String]
 
+pub fn plan_fuzz_corpus_replay_manifest(String) -> Result[FuzzCorpusReplayAllPlan, String]
+
 pub fn replay_invalid_fuzz_failure_report(InvalidFuzzFailureReport, prefer_reduced? : Bool) -> Result[InvalidFuzzReplayResult, String]
 
 pub fn run_fuzz_golden_seed_smoke() -> Result[FuzzGoldenSeedSmokeReport, String]
@@ -316,6 +318,13 @@ pub struct FuzzCorpusPromotionMetadata {
   notes : String
 } derive(Eq, @debug.Debug)
 pub fn FuzzCorpusPromotionMetadata::new(String, String, String, String, String, String, Array[String], String, String, String, Array[String], String, String) -> Self
+
+pub struct FuzzCorpusReplayAllPlan {
+  planned_count : Int
+  skipped_count : Int
+  malformed_count : Int
+  commands : Array[FuzzCorpusReplayCommandMetadata]
+} derive(Eq, @debug.Debug)
 
 pub struct FuzzCorpusReplayCommandMetadata {
   case_id : String

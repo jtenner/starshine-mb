@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1042D replay-all manifest planner
+
+- Closed `[FUZ]1042D` by adding `FuzzCorpusReplayAllPlan` and `plan_fuzz_corpus_replay_manifest(...)` for compact `starshine.fuzz-corpus-replay-all-manifest.v1` JSON manifests containing promoted/quarantined corpus-entry metadata.
+- The planner derives replay-command metadata for plannable entries without executing replays, preserves deterministic manifest order, reports planned/skipped/malformed counts, skips parseable entries that cannot produce a replay command, and counts parse-invalid entry objects as malformed.
+- Validation: `moon test src/fuzz` first failed on the missing replay-all planner API, then passed after implementation; final validation is recorded in the commit message.
+
 ## [2026-05-31] fuzzing | FUZ1042C replay command metadata
 
 - Closed `[FUZ]1042C` by adding `FuzzCorpusReplayCommandMetadata`, a corpus-entry builder, and deterministic JSON format/parse helpers for `starshine.fuzz-replay-command.v1`.
