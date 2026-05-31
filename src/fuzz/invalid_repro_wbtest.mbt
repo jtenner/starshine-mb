@@ -246,6 +246,89 @@ test "persist_invalid_fuzz_failure_report writes deterministic suite strategy la
 }
 
 ///|
+test "FUZ1043E invalid repro persistence records reduction contract" {
+  let writes : Map[String, Bytes] = {}
+  let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
+    path,
+    bytes,
+  ) {
+    writes[path] = bytes
+    Ok(())
+  })
+  let report = InvalidFuzzFailureReport::new(
+    "validate-invalid-binary",
+    "smoke",
+    0x1043UL,
+    5,
+    "trailing-garbage",
+    invalid_fuzz_binary_source_kind(),
+    "decode-rejected",
+    actual_stage="decode-rejected",
+    artifacts=[
+      InvalidFuzzArtifact::new("original", "original.wasm", b"ORIGINAL"),
+    ],
+    reduced_artifacts=[
+      InvalidFuzzArtifact::new("reduced", "reduced.wasm", b"RED"),
+    ],
+    reduction_original_size=Some(8),
+    reduction_final_size=Some(3),
+    reduction_predicate_evaluations=Some(4),
+    reduction_steps=[
+      InvalidFuzzReductionStep::new("delete-byte-range", 1, 5, 8, 3),
+    ],
+  )
+  let (meta_path, artifact_paths) = match
+    persist_invalid_fuzz_failure_report(report, io) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_true(
+    artifact_paths.contains(
+      "fuzz-corpus/invalid/validate-invalid-binary/trailing-garbage/seed-4163-attempt-5/reduction.txt",
+    ),
+  )
+  let meta_text = match writes.get(meta_path) {
+    Some(v) => invalid_repro_test_bytes_to_ascii(v)
+    None => fail("missing reduction metadata")
+  }
+  assert_true(meta_text.contains("reduction_original_size=8"))
+  assert_true(meta_text.contains("reduction_final_size=3"))
+  assert_true(meta_text.contains("reduction_predicate_evaluations=4"))
+  assert_true(meta_text.contains("reduction_step=delete-byte-range|1|5|8|3"))
+  assert_true(meta_text.contains("reduction_log=reduction.txt"))
+  let log_bytes = match
+    writes.get(
+      "fuzz-corpus/invalid/validate-invalid-binary/trailing-garbage/seed-4163-attempt-5/reduction.txt",
+    ) {
+    Some(v) => v
+    None => fail("missing reduction log")
+  }
+  let log_text = invalid_repro_test_bytes_to_ascii(log_bytes)
+  assert_true(log_text.contains("original_size=8"))
+  assert_true(log_text.contains("step=delete-byte-range|1|5|8|3"))
+  let parsed = match
+    parse_invalid_fuzz_failure_report(meta_text, fn(name) {
+      match
+        writes.get(
+          "fuzz-corpus/invalid/validate-invalid-binary/trailing-garbage/seed-4163-attempt-5/" +
+          name,
+        ) {
+        Some(v) => Ok(v)
+        None => Err("missing artifact " + name)
+      }
+    }) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(parsed.reduction_original_size, Some(8))
+  @debug.assert_eq(parsed.reduction_final_size, Some(3))
+  @debug.assert_eq(parsed.reduction_predicate_evaluations, Some(4))
+  @debug.assert_eq(parsed.reduction_steps, [
+    InvalidFuzzReductionStep::new("delete-byte-range", 1, 5, 8, 3),
+  ])
+}
+
+///|
 test "FUZ1053B1 timeout repro metadata persists resource budgets" {
   let writes : Map[String, Bytes] = {}
   let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(

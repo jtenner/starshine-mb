@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1043E invalid-fuzz reduction artifact persistence
+
+- Advanced `[FUZ]1043` by extending invalid-fuzz repro reports with the same reduction metadata shape used by command-harness repros: optional original/final sizes, predicate-evaluation count, and deletion-step entries.
+- `persist_invalid_fuzz_failure_report(...)` now writes a deterministic `reduction.txt` shrink log next to original and reduced invalid repro artifacts when reduction data is present, while metadata records `reduction_log=reduction.txt` and roundtrippable `reduction_step=kind|start|len|before|after` lines.
+- Validation: `moon test src/fuzz` first failed on missing reduction fields/step type, then passed after implementation; final validation is recorded in the commit message.
+
 ## [2026-05-31] fuzzing | FUZ1043D command-harness reduction artifact persistence
 
 - Advanced `[FUZ]1043` by threading Moon reducer output into command-harness failure reports: `FuzzFailureReport` now carries optional reduced wasm bytes plus reduction original/final sizes, predicate-evaluation count, and deletion-step metadata.

@@ -371,6 +371,26 @@ pub fn InvalidFuzzArtifact::new(
 }
 
 ///|
+pub struct InvalidFuzzReductionStep {
+  kind : String
+  start : Int
+  len : Int
+  before_size : Int
+  after_size : Int
+} derive(Eq, Debug)
+
+///|
+pub fn InvalidFuzzReductionStep::new(
+  kind : String,
+  start : Int,
+  len : Int,
+  before_size : Int,
+  after_size : Int,
+) -> InvalidFuzzReductionStep {
+  { kind, start, len, before_size, after_size }
+}
+
+///|
 pub struct InvalidFuzzFailureReport {
   suite : String
   profile : String
@@ -404,6 +424,10 @@ pub struct InvalidFuzzFailureReport {
   multi_fault_broad_outcomes : Array[String]
   artifacts : Array[InvalidFuzzArtifact]
   reduced_artifacts : Array[InvalidFuzzArtifact]
+  reduction_original_size : Int?
+  reduction_final_size : Int?
+  reduction_predicate_evaluations : Int?
+  reduction_steps : Array[InvalidFuzzReductionStep]
 } derive(Eq, Debug)
 
 ///|
@@ -440,6 +464,10 @@ pub fn InvalidFuzzFailureReport::new(
   multi_fault_broad_outcomes? : Array[String] = [],
   artifacts? : Array[InvalidFuzzArtifact] = [],
   reduced_artifacts? : Array[InvalidFuzzArtifact] = [],
+  reduction_original_size? : Int? = None,
+  reduction_final_size? : Int? = None,
+  reduction_predicate_evaluations? : Int? = None,
+  reduction_steps? : Array[InvalidFuzzReductionStep] = [],
 ) -> InvalidFuzzFailureReport {
   {
     suite,
@@ -474,6 +502,10 @@ pub fn InvalidFuzzFailureReport::new(
     multi_fault_broad_outcomes,
     artifacts,
     reduced_artifacts,
+    reduction_original_size,
+    reduction_final_size,
+    reduction_predicate_evaluations,
+    reduction_steps,
   }
 }
 
@@ -516,6 +548,10 @@ fn invalid_fuzz_failure_report_copy(
     multi_fault_broad_outcomes=report.multi_fault_broad_outcomes,
     artifacts=report.artifacts,
     reduced_artifacts~,
+    reduction_original_size=report.reduction_original_size,
+    reduction_final_size=report.reduction_final_size,
+    reduction_predicate_evaluations=report.reduction_predicate_evaluations,
+    reduction_steps=report.reduction_steps,
   )
 }
 
@@ -636,6 +672,48 @@ fn invalid_fuzz_artifact_meta_lines(
     lines.push(prefix + "=" + artifact.label + "|" + artifact.file_name)
   }
   lines
+}
+
+///|
+fn invalid_fuzz_reduction_step_text(step : InvalidFuzzReductionStep) -> String {
+  step.kind +
+  "|" +
+  step.start.to_string() +
+  "|" +
+  step.len.to_string() +
+  "|" +
+  step.before_size.to_string() +
+  "|" +
+  step.after_size.to_string()
+}
+
+///|
+fn invalid_fuzz_reduction_has_log(report : InvalidFuzzFailureReport) -> Bool {
+  report.reduction_steps.length() > 0 ||
+  report.reduction_original_size != None ||
+  report.reduction_final_size != None ||
+  report.reduction_predicate_evaluations != None
+}
+
+///|
+fn invalid_fuzz_reduction_log_text(report : InvalidFuzzFailureReport) -> String {
+  let out = StringBuilder::new()
+  match report.reduction_original_size {
+    Some(v) => out.write_string("original_size=" + v.to_string() + "\n")
+    None => out.write_string("original_size=\n")
+  }
+  match report.reduction_final_size {
+    Some(v) => out.write_string("final_size=" + v.to_string() + "\n")
+    None => out.write_string("final_size=\n")
+  }
+  match report.reduction_predicate_evaluations {
+    Some(v) => out.write_string("predicate_evaluations=" + v.to_string() + "\n")
+    None => out.write_string("predicate_evaluations=\n")
+  }
+  for step in report.reduction_steps {
+    out.write_string("step=" + invalid_fuzz_reduction_step_text(step) + "\n")
+  }
+  out.to_string()
 }
 
 ///|
@@ -811,6 +889,24 @@ fn invalid_fuzz_failure_meta_text(report : InvalidFuzzFailureReport) -> String {
     ) {
     lines.push(line)
   }
+  match report.reduction_original_size {
+    Some(v) => lines.push("reduction_original_size=" + v.to_string())
+    None => ()
+  }
+  match report.reduction_final_size {
+    Some(v) => lines.push("reduction_final_size=" + v.to_string())
+    None => ()
+  }
+  match report.reduction_predicate_evaluations {
+    Some(v) => lines.push("reduction_predicate_evaluations=" + v.to_string())
+    None => ()
+  }
+  for step in report.reduction_steps {
+    lines.push("reduction_step=" + invalid_fuzz_reduction_step_text(step))
+  }
+  if invalid_fuzz_reduction_has_log(report) {
+    lines.push("reduction_log=reduction.txt")
+  }
   invalid_fuzz_join(lines, "\n") + "\n"
 }
 
@@ -911,6 +1007,26 @@ pub fn persist_invalid_fuzz_failure_report(
           )
         } else {
           return Err("failed to write invalid repro artifact \{path}: \{msg}")
+        }
+    }
+  }
+  if invalid_fuzz_reduction_has_log(report) {
+    let reduction_log_path = invalid_fuzz_join_path(repro_dir, "reduction.txt")
+    match
+      (io.write_file)(
+        reduction_log_path,
+        invalid_fuzz_string_bytes(invalid_fuzz_reduction_log_text(report)),
+      ) {
+      Ok(_) => artifact_paths.push(reduction_log_path)
+      Err(msg) =>
+        if allow_partial_artifacts {
+          partial_failures.push(
+            "partial_artifact_write_failure=reduction.txt|" + msg,
+          )
+        } else {
+          return Err(
+            "failed to write invalid repro artifact \{reduction_log_path}: \{msg}",
+          )
         }
     }
   }
@@ -1027,6 +1143,40 @@ fn invalid_fuzz_parse_artifact_entry(
 }
 
 ///|
+fn invalid_fuzz_parse_reduction_step(
+  raw : String,
+) -> Result[InvalidFuzzReductionStep, String] {
+  let parts : Array[String] = []
+  for part in raw.split("|") {
+    parts.push(part.to_owned())
+  }
+  if parts.length() != 5 {
+    return Err("invalid reduction step entry '\{raw}'")
+  }
+  let start = match invalid_fuzz_parse_int(parts[1], "reduction_step.start") {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let len = match invalid_fuzz_parse_int(parts[2], "reduction_step.len") {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let before_size = match
+    invalid_fuzz_parse_int(parts[3], "reduction_step.before_size") {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let after_size = match
+    invalid_fuzz_parse_int(parts[4], "reduction_step.after_size") {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  Ok(
+    InvalidFuzzReductionStep::new(parts[0], start, len, before_size, after_size),
+  )
+}
+
+///|
 pub fn parse_invalid_fuzz_failure_report(
   meta_text : String,
   load_artifact : (String) -> Result[Bytes, String],
@@ -1063,6 +1213,10 @@ pub fn parse_invalid_fuzz_failure_report(
   let multi_fault_broad_outcomes : Array[String] = []
   let artifacts : Array[InvalidFuzzArtifact] = []
   let reduced_artifacts : Array[InvalidFuzzArtifact] = []
+  let mut reduction_original_size : Int? = None
+  let mut reduction_final_size : Int? = None
+  let mut reduction_predicate_evaluations : Int? = None
+  let reduction_steps : Array[InvalidFuzzReductionStep] = []
   for raw_line in meta_text.split("\n") {
     let line = raw_line.trim().to_owned()
     if line.length() == 0 {
@@ -1145,6 +1299,27 @@ pub fn parse_invalid_fuzz_failure_report(
           Ok(v) => reduced_artifacts.push(v)
           Err(msg) => return Err(msg)
         }
+      "reduction_original_size" =>
+        match invalid_fuzz_parse_int(value, "reduction_original_size") {
+          Ok(v) => reduction_original_size = Some(v)
+          Err(msg) => return Err(msg)
+        }
+      "reduction_final_size" =>
+        match invalid_fuzz_parse_int(value, "reduction_final_size") {
+          Ok(v) => reduction_final_size = Some(v)
+          Err(msg) => return Err(msg)
+        }
+      "reduction_predicate_evaluations" =>
+        match invalid_fuzz_parse_int(value, "reduction_predicate_evaluations") {
+          Ok(v) => reduction_predicate_evaluations = Some(v)
+          Err(msg) => return Err(msg)
+        }
+      "reduction_step" =>
+        match invalid_fuzz_parse_reduction_step(value) {
+          Ok(v) => reduction_steps.push(v)
+          Err(msg) => return Err(msg)
+        }
+      "reduction_log" => ()
       "partial_artifact_write_failure" => ()
       _ => return Err("unknown invalid repro metadata key '\{key}'")
     }
@@ -1215,6 +1390,10 @@ pub fn parse_invalid_fuzz_failure_report(
       multi_fault_broad_outcomes~,
       artifacts~,
       reduced_artifacts~,
+      reduction_original_size~,
+      reduction_final_size~,
+      reduction_predicate_evaluations~,
+      reduction_steps~,
     ),
   )
 }

@@ -548,14 +548,27 @@ pub struct InvalidFuzzFailureReport {
   multi_fault_broad_outcomes : Array[String]
   artifacts : Array[InvalidFuzzArtifact]
   reduced_artifacts : Array[InvalidFuzzArtifact]
+  reduction_original_size : Int?
+  reduction_final_size : Int?
+  reduction_predicate_evaluations : Int?
+  reduction_steps : Array[InvalidFuzzReductionStep]
 } derive(Eq, @debug.Debug)
-pub fn InvalidFuzzFailureReport::new(String, String, UInt64, Int, String, InvalidFuzzSourceKind, String, expected_diagnostic_family? : String?, actual_stage? : String, actual_diagnostic_family? : String?, actual_diagnostic_location? : String?, timeout_budget_ms? : Int?, seed_profile? : String?, seed_mode? : String?, seed_require_strategy_prereqs? : Bool?, stream_label? : String?, stream_seed? : UInt64?, attempt_seed? : UInt64?, source_path? : String?, valid_before_link? : Bool?, unlinkable_reason? : String?, registered_module_name? : String?, import_module_name? : String?, import_name? : String?, expected_import_type? : String?, provider_export_type? : String?, pre_link_validation_status? : String?, source_feature_facts? : Array[String], multi_fault_mutation_ids? : Array[String], multi_fault_broad_outcomes? : Array[String], artifacts? : Array[InvalidFuzzArtifact], reduced_artifacts? : Array[InvalidFuzzArtifact]) -> Self
+pub fn InvalidFuzzFailureReport::new(String, String, UInt64, Int, String, InvalidFuzzSourceKind, String, expected_diagnostic_family? : String?, actual_stage? : String, actual_diagnostic_family? : String?, actual_diagnostic_location? : String?, timeout_budget_ms? : Int?, seed_profile? : String?, seed_mode? : String?, seed_require_strategy_prereqs? : Bool?, stream_label? : String?, stream_seed? : UInt64?, attempt_seed? : UInt64?, source_path? : String?, valid_before_link? : Bool?, unlinkable_reason? : String?, registered_module_name? : String?, import_module_name? : String?, import_name? : String?, expected_import_type? : String?, provider_export_type? : String?, pre_link_validation_status? : String?, source_feature_facts? : Array[String], multi_fault_mutation_ids? : Array[String], multi_fault_broad_outcomes? : Array[String], artifacts? : Array[InvalidFuzzArtifact], reduced_artifacts? : Array[InvalidFuzzArtifact], reduction_original_size? : Int?, reduction_final_size? : Int?, reduction_predicate_evaluations? : Int?, reduction_steps? : Array[InvalidFuzzReductionStep]) -> Self
 
 pub struct InvalidFuzzPersistIO {
   ensure_dir : (String) -> Result[Unit, String]
   write_file : (String, Bytes) -> Result[Unit, String]
 }
 pub fn InvalidFuzzPersistIO::new(ensure_dir? : (String) -> Result[Unit, String], write_file? : (String, Bytes) -> Result[Unit, String]) -> Self
+
+pub struct InvalidFuzzReductionStep {
+  kind : String
+  start : Int
+  len : Int
+  before_size : Int
+  after_size : Int
+} derive(Eq, @debug.Debug)
+pub fn InvalidFuzzReductionStep::new(String, Int, Int, Int, Int) -> Self
 
 pub struct InvalidFuzzReplayResult {
   stage : String
