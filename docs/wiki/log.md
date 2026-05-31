@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1037R3 descriptor-bearing const initializers
+
+- Completed `[FUZ]1037R3` in research note [`0690`](raw/research/0690-2026-05-31-fuz1037-descriptor-initializers.md) by adding GenValid coverage for a valid descriptor/describes initializer: an imported immutable exact descriptor global feeds `struct.new_default_desc` to build the descriptor-bearing described struct in a global initializer.
+- Added TDD coverage that first failed on the helper falling back to `ref.null`, then on the generated module missing the descriptor initializer, and passed after reserving coverage-forced descriptor globals and adding the descriptor-aware global-initializer branch.
+
 ## [2026-05-31] fuzzing | FUZ1037R2 boundary active-offset literals
 
 - Completed `[FUZ]1037R2` in research note [`0689`](raw/research/0689-2026-05-31-fuz1037-boundary-active-offsets.md) by adding focused coverage-forced active-offset literal coverage for memory/table32 (`i32.const 65536`) and no-import memory64 active data (`i64.const 4294967296`).

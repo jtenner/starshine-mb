@@ -4362,6 +4362,27 @@ fn gen_valid_const_expr_for_global(
         None,
       )
     }
+    match
+      (vt, gc_type_plan.descriptor_struct_idx, gc_type_plan.descriptor_type_idx) {
+      (
+        RefTypeValType(HeapTypeRefType(false, true, HeapType(type_idx))),
+        Some(described_idx),
+        Some(descriptor_idx),
+      ) if type_idx == described_idx => {
+        let descriptor_vt = ValType::ref_type(
+          RefType::new(true, HeapType::new(descriptor_idx), exact=true),
+        )
+        match gen_matching_immutable_global_idx(prior_globals, descriptor_vt) {
+          Some(global_idx) =>
+            return Expr::new([
+              Instruction::global_get(global_idx),
+              Instruction::struct_new_default_desc(described_idx),
+            ])
+          None => ()
+        }
+      }
+      _ => ()
+    }
     match vt {
       RefTypeValType(HeapTypeRefType(true, _, HeapType(type_idx))) =>
         if gen_valid_contains_type_idx(gc_type_plan.struct_type_idxs, type_idx) &&
@@ -10159,6 +10180,24 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       }
       remaining_imports -= 1
     }
+    if config.features.allow_const_expr_variants &&
+      config.features.allow_globals &&
+      remaining_imports > 0 {
+      import_plan = {
+        ..import_plan,
+        global_count: import_plan.global_count + 1,
+      }
+      remaining_imports -= 1
+    }
+    if config.features.allow_const_expr_variants &&
+      config.features.allow_globals &&
+      remaining_imports > 0 {
+      import_plan = {
+        ..import_plan,
+        global_count: import_plan.global_count + 1,
+      }
+      remaining_imports -= 1
+    }
   }
   let import_choice_count = 1 +
     gen_valid_bool_count(config.features.allow_tables) +
@@ -10247,7 +10286,7 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
     config.max_globals,
     config.section_bias.globals_percent,
     if config.features.allow_const_expr_variants {
-      4
+      6
     } else {
       1
     },
@@ -10517,6 +10556,16 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       ctx.config.mode == CoverageForced &&
       i == 2 {
       ValType::i64()
+    } else if ctx.config.features.allow_const_expr_variants &&
+      ctx.config.mode == CoverageForced &&
+      i == 3 {
+      match gc_type_plan.descriptor_type_idx {
+        Some(descriptor_idx) =>
+          ValType::ref_type(
+            RefType::new(true, HeapType::new(descriptor_idx), exact=true),
+          )
+        None => ValType::externref()
+      }
     } else if i == 0 &&
       !gc_type_plan.exact_ref_types.is_empty() &&
       (
@@ -10547,7 +10596,7 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
     }
     let is_mut = if ctx.config.features.allow_const_expr_variants &&
       ctx.config.mode == CoverageForced &&
-      i <= 2 {
+      i <= 3 {
       false
     } else {
       ctx.config.mode == CoverageForced || ctx.random_bool_from(GlobalStream)
@@ -10620,6 +10669,16 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       ctx.config.mode == CoverageForced &&
       i == 4 {
       ValType::ref_type(RefType::new(true, HeapType::new(TypeIdx::new(0U))))
+    } else if ctx.config.features.allow_const_expr_variants &&
+      ctx.config.mode == CoverageForced &&
+      i == 5 {
+      match gc_type_plan.descriptor_struct_idx {
+        Some(described_idx) =>
+          ValType::ref_type(
+            RefType::new(false, HeapType::new(described_idx), exact=true),
+          )
+        None => ValType::externref()
+      }
     } else if i == 0 &&
       !gc_type_plan.exact_ref_types.is_empty() &&
       (

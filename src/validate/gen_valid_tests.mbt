@@ -755,6 +755,39 @@ test "gen-valid global initializer can read imported immutable reference global"
 }
 
 ///|
+test "gen-valid global initializer can build descriptor-bearing structs from descriptor globals" {
+  let described_idx = TypeIdx::new(0U)
+  let descriptor_idx = TypeIdx::new(1U)
+  let ctx = GenValidContext::new_streamed(0x1037D3UL, {
+    ..GenValidConfig::coverage_forced_default()
+  })
+  let described_ref = ValType::ref_type(
+    RefType::new(false, HeapType::new(described_idx), exact=true),
+  )
+  let descriptor_ref = ValType::ref_type(
+    RefType::new(true, HeapType::new(descriptor_idx), exact=true),
+  )
+  let init = gen_valid_const_expr_for_global(
+    ctx,
+    described_ref,
+    [GlobalType::new(descriptor_ref, false)],
+    FuncIdx::new(0U),
+    {
+      ..gen_valid_gc_type_plan_empty(),
+      descriptor_struct_idx: Some(described_idx),
+      descriptor_type_idx: Some(descriptor_idx),
+    },
+  )
+  @debug.assert_eq(
+    init,
+    Expr::new([
+      Instruction::global_get(GlobalIdx::new(0U)),
+      Instruction::struct_new_default_desc(described_idx),
+    ]),
+  )
+}
+
+///|
 test "gen-valid proposal feature-gate matrix exposes positive and negative rows" {
   let rows = gen_valid_proposal_feature_gate_matrix()
   @debug.assert_eq(rows.length(), gen_valid_proposal_features().length())
@@ -889,6 +922,23 @@ fn gen_valid_test_has_i31_table_initializer(mod_ : Module) -> Bool {
 }
 
 ///|
+fn gen_valid_test_has_descriptor_global_initializer(mod_ : Module) -> Bool {
+  match mod_.global_sec {
+    Some(GlobalSec(globals)) => {
+      for global in globals {
+        let Global(_, expr) = global
+        match expr {
+          Expr([GlobalGet(_), StructNewDefaultDesc(_)]) => return true
+          _ => ()
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
 test "gen-valid coverage-forced table initializers use ref.func and typed refs" {
   let config = GenValidConfig::coverage_forced_default()
   let generated = match gen_valid_module_result_from_seed(0x1039CUL, config) {
@@ -928,6 +978,27 @@ test "gen-valid coverage-forced table initializers include ref.i31" {
   assert_true(
     gen_valid_test_has_i31_table_initializer(generated.wasm_module),
     msg="coverage-forced GenValid should emit a table initializer using ref.i31",
+  )
+}
+
+///|
+test "gen-valid coverage-forced globals include descriptor-bearing initializer" {
+  let config = GenValidConfig::{
+    ..GenValidConfig::coverage_forced_default(),
+    max_imports: 8,
+    max_globals: 6,
+  }
+  let generated = match gen_valid_module_result_from_seed(0x51037D3UL, config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(
+    gen_valid_test_has_descriptor_global_initializer(generated.wasm_module),
+    msg="coverage-forced GenValid should build a descriptor-bearing struct in a global initializer from an imported descriptor global",
   )
 }
 
