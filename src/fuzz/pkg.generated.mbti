@@ -17,6 +17,8 @@ pub fn build_fuz1026_two_fault_ast_stress_report(UInt64, Int) -> InvalidFuzzFail
 
 pub fn build_fuz1055b4_unlinkable_failure_report(UInt64, Int) -> InvalidFuzzFailureReport
 
+pub fn build_fuzz_corpus_replay_command_metadata(FuzzCorpusPromotionMetadata) -> Result[FuzzCorpusReplayCommandMetadata, String]
+
 pub fn build_fuzz_resume_shard_queue(FuzzRecipe, String?, Array[String]) -> Result[Array[FuzzShardWorkItem], String]
 
 pub fn build_fuzz_shard_queue(FuzzRecipe, String?) -> Result[Array[FuzzShardWorkItem], String]
@@ -46,6 +48,8 @@ pub fn emit_gen_valid_batch_artifacts_with_manifest(Int, UInt64) -> Result[GenVa
 pub fn evaluate_validate_invalid_text_assertion_source(String, String, ValidateInvalidTextAssertionKind) -> Result[ValidateInvalidTextStage, String]
 
 pub fn format_fuzz_corpus_promotion_metadata_json(FuzzCorpusPromotionMetadata) -> String
+
+pub fn format_fuzz_corpus_replay_command_metadata_json(FuzzCorpusReplayCommandMetadata) -> String
 
 pub fn format_fuzz_golden_seed_smoke_report(FuzzGoldenSeedSmokeReport) -> String
 
@@ -148,6 +152,8 @@ pub fn parse_fuzz_cli_args_with_recipe(Array[String], FuzzRecipe?) -> FuzzCliArg
 pub fn parse_fuzz_cli_command(Array[String]) -> FuzzCliCommand
 
 pub fn parse_fuzz_corpus_promotion_metadata_json(String) -> Result[FuzzCorpusPromotionMetadata, String]
+
+pub fn parse_fuzz_corpus_replay_command_metadata_json(String) -> Result[FuzzCorpusReplayCommandMetadata, String]
 
 pub fn parse_fuzz_recipe_text(String) -> Result[FuzzRecipe, String]
 
@@ -310,6 +316,19 @@ pub struct FuzzCorpusPromotionMetadata {
   notes : String
 } derive(Eq, @debug.Debug)
 pub fn FuzzCorpusPromotionMetadata::new(String, String, String, String, String, String, Array[String], String, String, String, Array[String], String, String) -> Self
+
+pub struct FuzzCorpusReplayCommandMetadata {
+  case_id : String
+  suite : String
+  profile : String
+  seed : UInt64
+  seed_index : Int
+  strategy_or_artifact : String
+  expected_outcome : String
+  classification : String
+  command : String
+} derive(Eq, @debug.Debug)
+pub fn FuzzCorpusReplayCommandMetadata::new(String, String, String, UInt64, Int, String, String, String, String) -> Self
 
 pub struct FuzzGoldenSeedSmokeCase {
   suite : String

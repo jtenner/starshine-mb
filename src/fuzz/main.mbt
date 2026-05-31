@@ -70,6 +70,19 @@ pub struct FuzzCorpusPromotionMetadata {
 } derive(Eq, Debug)
 
 ///|
+pub struct FuzzCorpusReplayCommandMetadata {
+  case_id : String
+  suite : String
+  profile : String
+  seed : UInt64
+  seed_index : Int
+  strategy_or_artifact : String
+  expected_outcome : String
+  classification : String
+  command : String
+} derive(Eq, Debug)
+
+///|
 pub fn FuzzInterestingnessCaseKey::new(
   raw_hash : String,
   decoded_shape_hash : String,
@@ -118,6 +131,31 @@ pub fn FuzzCorpusPromotionMetadata::new(
     artifacts,
     owner_or_task,
     notes,
+  }
+}
+
+///|
+pub fn FuzzCorpusReplayCommandMetadata::new(
+  case_id : String,
+  suite : String,
+  profile : String,
+  seed : UInt64,
+  seed_index : Int,
+  strategy_or_artifact : String,
+  expected_outcome : String,
+  classification : String,
+  command : String,
+) -> FuzzCorpusReplayCommandMetadata {
+  {
+    case_id,
+    suite,
+    profile,
+    seed,
+    seed_index,
+    strategy_or_artifact,
+    expected_outcome,
+    classification,
+    command,
   }
 }
 
@@ -3694,6 +3732,216 @@ pub fn parse_fuzz_corpus_promotion_metadata_json(
     FuzzCorpusPromotionMetadata::new(
       id, state, source, input, created_at, generator, features, expectation, classification,
       replay, artifacts, owner_or_task, notes,
+    ),
+  )
+}
+
+///|
+fn fuzz_parse_space_delimited_kv_token(text : String, key : String) -> String? {
+  let needle = "\{key}="
+  let pos = fuzz_find_text_from(text, needle, 0)
+  if pos < 0 {
+    return None
+  }
+  let start = pos + needle.length()
+  let mut end = start
+  while end < text.length() &&
+        text[end] != ' ' &&
+        text[end] != '\t' &&
+        text[end] != '\n' &&
+        text[end] != '\r' {
+    end += 1
+  }
+  Some(text.sub(start~, end~).to_owned())
+}
+
+///|
+fn fuzz_parse_required_kv_token(
+  text : String,
+  key : String,
+  case_id : String,
+) -> Result[String, String] {
+  match fuzz_parse_space_delimited_kv_token(text, key) {
+    Some(v) => Ok(v)
+    None => Err("missing replay metadata token \{key}= for \{case_id}")
+  }
+}
+
+///|
+fn fuzz_corpus_replay_strategy_or_artifact(
+  entry : FuzzCorpusPromotionMetadata,
+) -> String {
+  match fuzz_parse_space_delimited_kv_token(entry.generator, "strategy") {
+    Some(v) => v
+    None =>
+      if entry.artifacts.length() > 0 {
+        entry.artifacts[0]
+      } else {
+        entry.input
+      }
+  }
+}
+
+///|
+pub fn build_fuzz_corpus_replay_command_metadata(
+  entry : FuzzCorpusPromotionMetadata,
+) -> Result[FuzzCorpusReplayCommandMetadata, String] {
+  let suite = match
+    fuzz_parse_required_kv_token(entry.generator, "suite", entry.id) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let profile = match
+    fuzz_parse_required_kv_token(entry.generator, "profile", entry.id) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let seed_text = match
+    fuzz_parse_required_kv_token(entry.generator, "seed", entry.id) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let seed = match fuzz_parse_uint64_decimal_at(seed_text, 0) {
+    Some(v) =>
+      if v.1 == seed_text.length() {
+        v.0
+      } else {
+        return Err("malformed replay seed for \{entry.id}")
+      }
+    None => return Err("malformed replay seed for \{entry.id}")
+  }
+  let seed_index = match
+    fuzz_parse_space_delimited_kv_token(entry.generator, "seed_index") {
+    Some(text) =>
+      match fuzz_parse_uint64_decimal_at(text, 0) {
+        Some(v) =>
+          if v.1 == text.length() {
+            v.0.to_int()
+          } else {
+            return Err("malformed replay seed_index for \{entry.id}")
+          }
+        None => return Err("malformed replay seed_index for \{entry.id}")
+      }
+    None => 0
+  }
+  Ok(
+    FuzzCorpusReplayCommandMetadata::new(
+      entry.id,
+      suite,
+      profile,
+      seed,
+      seed_index,
+      fuzz_corpus_replay_strategy_or_artifact(entry),
+      entry.expectation,
+      entry.classification,
+      entry.replay,
+    ),
+  )
+}
+
+///|
+pub fn format_fuzz_corpus_replay_command_metadata_json(
+  replay : FuzzCorpusReplayCommandMetadata,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "{\"schema\":\"starshine.fuzz-replay-command.v1\",\"case_id\":\"",
+  )
+  out.write_string(fuzz_json_escape(replay.case_id))
+  out.write_string("\",\"suite\":\"")
+  out.write_string(fuzz_json_escape(replay.suite))
+  out.write_string("\",\"profile\":\"")
+  out.write_string(fuzz_json_escape(replay.profile))
+  out.write_string(
+    "\",\"seed\":\{replay.seed},\"seed_index\":\{replay.seed_index},\"strategy_or_artifact\":\"",
+  )
+  out.write_string(fuzz_json_escape(replay.strategy_or_artifact))
+  out.write_string("\",\"expected_outcome\":\"")
+  out.write_string(fuzz_json_escape(replay.expected_outcome))
+  out.write_string("\",\"classification\":\"")
+  out.write_string(fuzz_json_escape(replay.classification))
+  out.write_string("\",\"command\":\"")
+  out.write_string(fuzz_json_escape(replay.command))
+  out.write_string("\"}")
+  out.to_string()
+}
+
+///|
+fn fuzz_parse_corpus_metadata_uint_field(
+  json : String,
+  field : String,
+) -> Result[UInt64, String] {
+  let key = "\"\{field}\":"
+  let pos = fuzz_find_text_from(json, key, 0)
+  if pos < 0 {
+    return Err("missing corpus metadata field \{field}")
+  }
+  match fuzz_parse_uint64_decimal_at(json, pos + key.length()) {
+    Some(v) =>
+      if v.1 == json.length() || json[v.1] == ',' || json[v.1] == '}' {
+        Ok(v.0)
+      } else {
+        Err("malformed corpus metadata field \{field}")
+      }
+    None => Err("malformed corpus metadata field \{field}")
+  }
+}
+
+///|
+pub fn parse_fuzz_corpus_replay_command_metadata_json(
+  json : String,
+) -> Result[FuzzCorpusReplayCommandMetadata, String] {
+  let schema = match fuzz_parse_corpus_metadata_string_field(json, "schema") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  if schema != "starshine.fuzz-replay-command.v1" {
+    return Err("unsupported replay command schema \{schema}")
+  }
+  let case_id = match fuzz_parse_corpus_metadata_string_field(json, "case_id") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let suite = match fuzz_parse_corpus_metadata_string_field(json, "suite") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let profile = match fuzz_parse_corpus_metadata_string_field(json, "profile") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let seed = match fuzz_parse_corpus_metadata_uint_field(json, "seed") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let seed_index = match
+    fuzz_parse_corpus_metadata_uint_field(json, "seed_index") {
+    Ok(v) => v.to_int()
+    Err(e) => return Err(e)
+  }
+  let strategy_or_artifact = match
+    fuzz_parse_corpus_metadata_string_field(json, "strategy_or_artifact") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let expected_outcome = match
+    fuzz_parse_corpus_metadata_string_field(json, "expected_outcome") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let classification = match
+    fuzz_parse_corpus_metadata_string_field(json, "classification") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let command = match fuzz_parse_corpus_metadata_string_field(json, "command") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  Ok(
+    FuzzCorpusReplayCommandMetadata::new(
+      case_id, suite, profile, seed, seed_index, strategy_or_artifact, expected_outcome,
+      classification, command,
     ),
   )
 }

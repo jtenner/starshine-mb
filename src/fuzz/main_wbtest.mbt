@@ -398,6 +398,81 @@ test "format and parse fuzz corpus promotion metadata states" {
 }
 
 ///|
+test "build and parse fuzz corpus replay command metadata" {
+  let entry = FuzzCorpusPromotionMetadata::new(
+    "case-1042c",
+    "quarantine",
+    "pass-fuzz seed 48879",
+    ".tmp/pass-fuzz/case.wasm",
+    "2026-05-31",
+    "suite=pass-fuzz profile=gen-valid seed=48879 strategy=gen-valid-stack seed_index=7",
+    ["gc"],
+    "expect semantic mismatch replay",
+    "semantic-mismatch",
+    "bun scripts/pass-fuzz-compare.ts --pass vacuum --seed 48879 --profile gen-valid",
+    [".tmp/pass-fuzz/case.wasm", ".tmp/pass-fuzz/result.json"],
+    "[FUZ]1042C",
+    "metadata fixture",
+  )
+  let replay = match build_fuzz_corpus_replay_command_metadata(entry) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(replay.case_id, "case-1042c")
+  @debug.assert_eq(replay.suite, "pass-fuzz")
+  @debug.assert_eq(replay.profile, "gen-valid")
+  @debug.assert_eq(replay.seed, 48879UL)
+  @debug.assert_eq(replay.seed_index, 7)
+  @debug.assert_eq(replay.strategy_or_artifact, "gen-valid-stack")
+  @debug.assert_eq(replay.expected_outcome, "expect semantic mismatch replay")
+  @debug.assert_eq(replay.classification, "semantic-mismatch")
+  @debug.assert_eq(
+    replay.command,
+    "bun scripts/pass-fuzz-compare.ts --pass vacuum --seed 48879 --profile gen-valid",
+  )
+  let json = format_fuzz_corpus_replay_command_metadata_json(replay)
+  assert_true(json.contains("\"schema\":\"starshine.fuzz-replay-command.v1\""))
+  assert_true(json.contains("\"strategy_or_artifact\":\"gen-valid-stack\""))
+  let parsed = match parse_fuzz_corpus_replay_command_metadata_json(json) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(parsed.case_id, "case-1042c")
+  @debug.assert_eq(parsed.suite, "pass-fuzz")
+  @debug.assert_eq(parsed.profile, "gen-valid")
+  @debug.assert_eq(parsed.seed, 48879UL)
+  @debug.assert_eq(parsed.seed_index, 7)
+  @debug.assert_eq(parsed.strategy_or_artifact, "gen-valid-stack")
+  @debug.assert_eq(parsed.expected_outcome, "expect semantic mismatch replay")
+  @debug.assert_eq(parsed.classification, "semantic-mismatch")
+}
+
+///|
+test "build_fuzz_corpus_replay_command_metadata falls back to artifact path" {
+  let entry = FuzzCorpusPromotionMetadata::new(
+    "case-artifact",
+    "promoted-invalid",
+    "manual",
+    "cases/invalid.wat",
+    "2026-05-31",
+    "suite=validate-invalid-text profile=smoke seed=42",
+    [],
+    "must reject",
+    "validate-rejected",
+    "moon run src/fuzz -- validate-invalid-text smoke --seed 42",
+    [],
+    "[FUZ]1042C",
+    "artifact fallback",
+  )
+  let replay = match build_fuzz_corpus_replay_command_metadata(entry) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(replay.strategy_or_artifact, "cases/invalid.wat")
+  @debug.assert_eq(replay.seed_index, 0)
+}
+
+///|
 test "parse_fuzz_corpus_promotion_metadata rejects malformed state and missing fields" {
   let bad_state = "{\"schema\":\"starshine.fuzz-corpus-entry.v1\",\"id\":\"bad\",\"state\":\"maybe\",\"source\":\"manual\",\"input\":\"case.wasm\",\"created_at\":\"2026-05-31\",\"generator\":\"manual\",\"features\":[],\"expectation\":\"none\",\"classification\":\"unknown\",\"replay\":\"echo replay\",\"artifacts\":[],\"owner_or_task\":\"[FUZ]1042B\",\"notes\":\"bad\"}"
   match parse_fuzz_corpus_promotion_metadata_json(bad_state) {

@@ -62,7 +62,9 @@ Use relative paths rooted at the repository when possible. Do not store absolute
 - allowed `state` values: `promoted-valid`, `promoted-invalid`, `pass-mismatch`, `tool-failure`, `accepted-divergence`, and `quarantine`;
 - required fields: `id`, `state`, `source`, `input`, `created_at`, `generator`, `features`, `expectation`, `classification`, `replay`, `artifacts`, `owner_or_task`, and `notes`.
 
-The helper intentionally formats and parses a compact deterministic JSON subset for metadata produced by Starshine itself. It does not execute replays; replay command construction and replay-all planning remain the follow-up `[FUZ]1042C` and `[FUZ]1042D` slices.
+The helper intentionally formats and parses a compact deterministic JSON subset for metadata produced by Starshine itself. It does not execute replays.
+
+`[FUZ]1042C` adds replay-command metadata helpers for a single promoted or quarantined case. `build_fuzz_corpus_replay_command_metadata(...)` derives a deterministic `starshine.fuzz-replay-command.v1` entry from corpus metadata when `generator` includes `suite=...`, `profile=...`, `seed=...`, and optional `seed_index=...` / `strategy=...` tokens. If no strategy token is present, the helper records the first artifact path, or the input path when no artifact is listed. `format_fuzz_corpus_replay_command_metadata_json(...)` and `parse_fuzz_corpus_replay_command_metadata_json(...)` roundtrip the case id, suite, profile, seed, seed index, strategy-or-artifact, expected outcome, classification, and exact replay command. Replay-all planning remains the follow-up `[FUZ]1042D` slice.
 
 ## Promotion Rules
 

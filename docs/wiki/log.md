@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1042C replay command metadata
+
+- Closed `[FUZ]1042C` by adding `FuzzCorpusReplayCommandMetadata`, a corpus-entry builder, and deterministic JSON format/parse helpers for `starshine.fuzz-replay-command.v1`.
+- The builder extracts `suite`, `profile`, `seed`, optional `seed_index`, and optional `strategy` tokens from corpus metadata, falls back to artifact/input paths when strategy is absent, and preserves expected outcome, classification, and exact replay command for one promoted/quarantined case.
+- Validation: `moon test src/fuzz` first failed on the missing replay metadata API, then passed after implementation; final validation is recorded in the commit message.
+
 ## [2026-05-31] fuzzing | FUZ1042B corpus promotion metadata schema
 
 - Closed `[FUZ]1042B` by adding `FuzzCorpusPromotionMetadata`, deterministic JSON formatting, a parser, and a schema-summary helper for the six corpus states from `docs/wiki/tooling/fuzz-corpus-policy.md`.
