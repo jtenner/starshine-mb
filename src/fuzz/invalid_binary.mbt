@@ -101,6 +101,11 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidBinaryThrowPayloadModule
   InvalidBinarySharedMemoryWithoutMaxModule
   InvalidBinaryMemory64AddressTypeModule
+  InvalidBinaryMemory64StoreAddressTypeModule
+  InvalidBinaryMemory64CopyDestTypeModule
+  InvalidBinaryMemory64CopySourceTypeModule
+  InvalidBinaryMemory64CopyLengthTypeModule
+  InvalidBinaryMemory64InitDestTypeModule
   InvalidBinaryGlobalInitTypeModule
   InvalidBinaryRelaxedSimdSwizzleLeftTypeModule
   InvalidBinaryAtomicLoadIndexModule
@@ -919,6 +924,16 @@ fn validate_invalid_binary_strategy_label(
       "invalid-binary-shared-memory-without-max-module"
     InvalidBinaryMemory64AddressTypeModule =>
       "invalid-binary-memory64-address-type-module"
+    InvalidBinaryMemory64StoreAddressTypeModule =>
+      "invalid-binary-memory64-store-address-type-module"
+    InvalidBinaryMemory64CopyDestTypeModule =>
+      "invalid-binary-memory64-copy-dest-type-module"
+    InvalidBinaryMemory64CopySourceTypeModule =>
+      "invalid-binary-memory64-copy-source-type-module"
+    InvalidBinaryMemory64CopyLengthTypeModule =>
+      "invalid-binary-memory64-copy-length-type-module"
+    InvalidBinaryMemory64InitDestTypeModule =>
+      "invalid-binary-memory64-init-dest-type-module"
     InvalidBinaryGlobalInitTypeModule =>
       "invalid-binary-global-init-type-module"
     InvalidBinaryRelaxedSimdSwizzleLeftTypeModule =>
@@ -1934,6 +1949,41 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidBinaryMemory64AddressTypeModule,
       "invalid-binary-memory64-address-type-module",
       "encoded module with a memory64 load address stack type mismatch",
+      ValidateRejected("function-body"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryMemory64StoreAddressTypeModule,
+      "invalid-binary-memory64-store-address-type-module",
+      "encoded module with a memory64 store address stack type mismatch",
+      ValidateRejected("function-body"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryMemory64CopyDestTypeModule,
+      "invalid-binary-memory64-copy-dest-type-module",
+      "encoded module with a memory64.copy destination address stack type mismatch",
+      ValidateRejected("function-body"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryMemory64CopySourceTypeModule,
+      "invalid-binary-memory64-copy-source-type-module",
+      "encoded module with a memory64.copy source address stack type mismatch",
+      ValidateRejected("function-body"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryMemory64CopyLengthTypeModule,
+      "invalid-binary-memory64-copy-length-type-module",
+      "encoded module with a memory64.copy length stack type mismatch",
+      ValidateRejected("function-body"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryMemory64InitDestTypeModule,
+      "invalid-binary-memory64-init-dest-type-module",
+      "encoded module with a memory64 memory.init destination address stack type mismatch",
       ValidateRejected("function-body"),
       required_in_smoke=false,
     ),
@@ -18521,6 +18571,81 @@ pub fn apply_validate_invalid_binary_strategy(
       }
       validate_invalid_binary_mutate_encoded_invalid_ast_module(
         InvalidBinaryMemory64AddressTypeModule,
+        ast_strategy,
+        "function-body",
+        base,
+      )
+    }
+    InvalidBinaryMemory64StoreAddressTypeModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-function-body-memory64-store-address-type",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryMemory64StoreAddressTypeModule,
+        ast_strategy,
+        "function-body",
+        base,
+      )
+    }
+    InvalidBinaryMemory64CopyDestTypeModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-function-body-memory64-copy-dest-type",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryMemory64CopyDestTypeModule,
+        ast_strategy,
+        "function-body",
+        base,
+      )
+    }
+    InvalidBinaryMemory64CopySourceTypeModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-function-body-memory64-copy-source-type",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryMemory64CopySourceTypeModule,
+        ast_strategy,
+        "function-body",
+        base,
+      )
+    }
+    InvalidBinaryMemory64CopyLengthTypeModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-function-body-memory64-copy-length-type",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryMemory64CopyLengthTypeModule,
+        ast_strategy,
+        "function-body",
+        base,
+      )
+    }
+    InvalidBinaryMemory64InitDestTypeModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-function-body-memory64-init-dest-type",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryMemory64InitDestTypeModule,
         ast_strategy,
         "function-body",
         base,

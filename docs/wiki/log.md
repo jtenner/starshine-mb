@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1022B7 memory64 binary validation matrix
+
+- Closed `[FUZ]1022B7` by adding decode-accepted binary-invalid strategies `invalid-binary-memory64-store-address-type-module`, `invalid-binary-memory64-copy-dest-type-module`, `invalid-binary-memory64-copy-source-type-module`, `invalid-binary-memory64-copy-length-type-module`, and `invalid-binary-memory64-init-dest-type-module` alongside the existing memory64 load-address fixture.
+- The specimens reuse deterministic AST-invalid memory64 stack-type mutations, encode and decode successfully, then fail validation with the function-body diagnostic family, widening memory64 proposal coverage across load/store, bulk copy, and memory.init address/length operands.
+- Validation: `moon test src/fuzz` first failed on the missing binary strategy stable ids, then passed after registry, mutation-dispatch, focused-test, and wiki wiring.
+
 ## [2026-05-31] fuzzing | FUZ1022B6 atomic binary validation
 
 - Closed `[FUZ]1022B6` by adding decode-accepted binary-invalid strategies `invalid-binary-atomic-load-index-module` and `invalid-binary-atomic-load-non-shared-memory-module`.

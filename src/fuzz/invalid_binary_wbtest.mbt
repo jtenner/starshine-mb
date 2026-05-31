@@ -71,6 +71,21 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
   assert_true(
     stable_ids.contains("invalid-binary-memory64-address-type-module"),
   )
+  assert_true(
+    stable_ids.contains("invalid-binary-memory64-store-address-type-module"),
+  )
+  assert_true(
+    stable_ids.contains("invalid-binary-memory64-copy-dest-type-module"),
+  )
+  assert_true(
+    stable_ids.contains("invalid-binary-memory64-copy-source-type-module"),
+  )
+  assert_true(
+    stable_ids.contains("invalid-binary-memory64-copy-length-type-module"),
+  )
+  assert_true(
+    stable_ids.contains("invalid-binary-memory64-init-dest-type-module"),
+  )
   assert_true(stable_ids.contains("invalid-binary-global-init-type-module"))
   assert_true(
     stable_ids.contains("invalid-binary-relaxed-simd-swizzle-left-type-module"),
@@ -89,7 +104,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     expected_labels
     .filter(fn(label) { label == "validate-function-body" })
     .length(),
-    17,
+    22,
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 40)
@@ -321,6 +336,61 @@ test "decode-accepted binary memory64 address mismatch rejects at validation sta
   match
     invalid_binary_expect_strategy_rejects(
       "invalid-binary-memory64-address-type-module", 0x1022B3UL, "function-body",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "decode-accepted binary memory64 store address mismatch rejects at validation stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-binary-memory64-store-address-type-module", 0x1022B7UL, "function-body",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "decode-accepted binary memory64 copy dest mismatch rejects at validation stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-binary-memory64-copy-dest-type-module", 0x1022B70UL, "function-body",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "decode-accepted binary memory64 copy source mismatch rejects at validation stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-binary-memory64-copy-source-type-module", 0x1022B71UL, "function-body",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "decode-accepted binary memory64 copy length mismatch rejects at validation stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-binary-memory64-copy-length-type-module", 0x1022B72UL, "function-body",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "decode-accepted binary memory64 init dest mismatch rejects at validation stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-binary-memory64-init-dest-type-module", 0x1022B73UL, "function-body",
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)
