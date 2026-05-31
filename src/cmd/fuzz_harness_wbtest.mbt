@@ -40,6 +40,55 @@ test "differential_validate_wasm returns report when all validators agree" {
 }
 
 ///|
+test "FUZ1057A2 binary canonicality classifier distinguishes policy disagreements" {
+  @debug.assert_eq(
+    classify_binary_canonicality_differential(
+      BinaryCanonicalityInputClass::canonical(),
+      true,
+      Some(true),
+      Some(true),
+    ),
+    BinaryCanonicalityClassification::canonical_accepted(),
+  )
+  @debug.assert_eq(
+    classify_binary_canonicality_differential(
+      BinaryCanonicalityInputClass::accepted_noncanonical(),
+      true,
+      Some(true),
+      Some(true),
+    ),
+    BinaryCanonicalityClassification::accepted_noncanonical(),
+  )
+  @debug.assert_eq(
+    classify_binary_canonicality_differential(
+      BinaryCanonicalityInputClass::accepted_noncanonical(),
+      true,
+      Some(false),
+      Some(true),
+    ),
+    BinaryCanonicalityClassification::external_policy_disagreement(),
+  )
+  @debug.assert_eq(
+    classify_binary_canonicality_differential(
+      BinaryCanonicalityInputClass::canonical(),
+      true,
+      Some(false),
+      Some(true),
+    ),
+    BinaryCanonicalityClassification::decoder_bug_disagreement(),
+  )
+  @debug.assert_eq(
+    classify_binary_canonicality_differential(
+      BinaryCanonicalityInputClass::malformed(),
+      false,
+      Some(false),
+      Some(false),
+    ),
+    BinaryCanonicalityClassification::malformed_rejected(),
+  )
+}
+
+///|
 test "FUZ1052B1 export invocation classifier covers result matrix" {
   @debug.assert_eq(
     classify_export_invocation_results(
@@ -94,7 +143,8 @@ test "FUZ1052B2 simple export invocation args cover numeric params" {
   }
   @debug.assert_eq(args, ["i32:0", "i64:0", "f32:0", "f64:0"])
   match choose_simple_export_invocation_args([@lib.ValType::v128()]) {
-    Ok(v) => fail("expected unsupported vector param, got \{@debug.to_string(v)}")
+    Ok(v) =>
+      fail("expected unsupported vector param, got \{@debug.to_string(v)}")
     Err(msg) => assert_true(msg.contains("unsupported export param type"))
   }
 }
@@ -123,19 +173,34 @@ test "FUZ1052B3 export invocation comparison report retains context" {
 test "FUZ1052B4 export invocation matrix summary counts classifications" {
   let reports = [
     compare_export_invocation_results(
-      "ok", [], ExportInvocationResult::value("i32:1"), ExportInvocationResult::value("i32:1"),
+      "ok",
+      [],
+      ExportInvocationResult::value("i32:1"),
+      ExportInvocationResult::value("i32:1"),
     ),
     compare_export_invocation_results(
-      "trap", [], ExportInvocationResult::trap("left"), ExportInvocationResult::trap("right"),
+      "trap",
+      [],
+      ExportInvocationResult::trap("left"),
+      ExportInvocationResult::trap("right"),
     ),
     compare_export_invocation_results(
-      "unsupported", [], ExportInvocationResult::unsupported_runtime("missing"), ExportInvocationResult::value("i32:1"),
+      "unsupported",
+      [],
+      ExportInvocationResult::unsupported_runtime("missing"),
+      ExportInvocationResult::value("i32:1"),
     ),
     compare_export_invocation_results(
-      "nondet", [], ExportInvocationResult::nondeterministic_import("env.now"), ExportInvocationResult::value("i32:1"),
+      "nondet",
+      [],
+      ExportInvocationResult::nondeterministic_import("env.now"),
+      ExportInvocationResult::value("i32:1"),
     ),
     compare_export_invocation_results(
-      "bad", [], ExportInvocationResult::value("i32:1"), ExportInvocationResult::value("i32:2"),
+      "bad",
+      [],
+      ExportInvocationResult::value("i32:1"),
+      ExportInvocationResult::value("i32:2"),
     ),
   ]
   let summary = summarize_export_invocation_matrix(reports)
@@ -151,12 +216,18 @@ test "FUZ1052B4 export invocation matrix summary counts classifications" {
 test "FUZ1052B5 export invocation summary exposes mismatch predicate" {
   let clean = summarize_export_invocation_matrix([
     compare_export_invocation_results(
-      "ok", [], ExportInvocationResult::value("i32:1"), ExportInvocationResult::value("i32:1"),
+      "ok",
+      [],
+      ExportInvocationResult::value("i32:1"),
+      ExportInvocationResult::value("i32:1"),
     ),
   ])
   let bad = summarize_export_invocation_matrix([
     compare_export_invocation_results(
-      "bad", [], ExportInvocationResult::value("i32:1"), ExportInvocationResult::value("i32:2"),
+      "bad",
+      [],
+      ExportInvocationResult::value("i32:1"),
+      ExportInvocationResult::value("i32:2"),
     ),
   ])
   assert_true(!export_invocation_summary_has_semantic_mismatch(clean))
@@ -168,45 +239,84 @@ test "FUZ1052B6 export invocation matrix broad outcome prioritizes mismatches" {
   let empty = summarize_export_invocation_matrix([])
   let clean = summarize_export_invocation_matrix([
     compare_export_invocation_results(
-      "ok", [], ExportInvocationResult::value("i32:1"), ExportInvocationResult::value("i32:1"),
+      "ok",
+      [],
+      ExportInvocationResult::value("i32:1"),
+      ExportInvocationResult::value("i32:1"),
     ),
     compare_export_invocation_results(
-      "trap", [], ExportInvocationResult::trap("left"), ExportInvocationResult::trap("right"),
+      "trap",
+      [],
+      ExportInvocationResult::trap("left"),
+      ExportInvocationResult::trap("right"),
     ),
   ])
   let blocked = summarize_export_invocation_matrix([
     compare_export_invocation_results(
-      "unsupported", [], ExportInvocationResult::unsupported_runtime("missing"), ExportInvocationResult::value("i32:1"),
+      "unsupported",
+      [],
+      ExportInvocationResult::unsupported_runtime("missing"),
+      ExportInvocationResult::value("i32:1"),
     ),
   ])
   let bad = summarize_export_invocation_matrix([
     compare_export_invocation_results(
-      "unsupported", [], ExportInvocationResult::unsupported_runtime("missing"), ExportInvocationResult::value("i32:1"),
+      "unsupported",
+      [],
+      ExportInvocationResult::unsupported_runtime("missing"),
+      ExportInvocationResult::value("i32:1"),
     ),
     compare_export_invocation_results(
-      "bad", [], ExportInvocationResult::value("i32:1"), ExportInvocationResult::value("i32:2"),
+      "bad",
+      [],
+      ExportInvocationResult::value("i32:1"),
+      ExportInvocationResult::value("i32:2"),
     ),
   ])
-  @debug.assert_eq(classify_export_invocation_matrix(empty), ExportInvocationMatrixOutcome::empty())
-  @debug.assert_eq(classify_export_invocation_matrix(clean), ExportInvocationMatrixOutcome::all_equal())
-  @debug.assert_eq(classify_export_invocation_matrix(blocked), ExportInvocationMatrixOutcome::blocked())
-  @debug.assert_eq(classify_export_invocation_matrix(bad), ExportInvocationMatrixOutcome::semantic_mismatch())
+  @debug.assert_eq(
+    classify_export_invocation_matrix(empty),
+    ExportInvocationMatrixOutcome::empty(),
+  )
+  @debug.assert_eq(
+    classify_export_invocation_matrix(clean),
+    ExportInvocationMatrixOutcome::all_equal(),
+  )
+  @debug.assert_eq(
+    classify_export_invocation_matrix(blocked),
+    ExportInvocationMatrixOutcome::blocked(),
+  )
+  @debug.assert_eq(
+    classify_export_invocation_matrix(bad),
+    ExportInvocationMatrixOutcome::semantic_mismatch(),
+  )
 }
 
 ///|
 test "FUZ1052B7 export invocation semantic mismatch report filter keeps context" {
   let reports = [
     compare_export_invocation_results(
-      "ok", [], ExportInvocationResult::value("i32:1"), ExportInvocationResult::value("i32:1"),
+      "ok",
+      [],
+      ExportInvocationResult::value("i32:1"),
+      ExportInvocationResult::value("i32:1"),
     ),
     compare_export_invocation_results(
-      "bad-a", ["i32:0"], ExportInvocationResult::value("i32:1"), ExportInvocationResult::value("i32:2"),
+      "bad-a",
+      ["i32:0"],
+      ExportInvocationResult::value("i32:1"),
+      ExportInvocationResult::value("i32:2"),
     ),
     compare_export_invocation_results(
-      "blocked", [], ExportInvocationResult::unsupported_runtime("missing"), ExportInvocationResult::value("i32:1"),
+      "blocked",
+      [],
+      ExportInvocationResult::unsupported_runtime("missing"),
+      ExportInvocationResult::value("i32:1"),
     ),
     compare_export_invocation_results(
-      "bad-b", [], ExportInvocationResult::trap("left"), ExportInvocationResult::value("i32:2"),
+      "bad-b",
+      [],
+      ExportInvocationResult::trap("left"),
+      ExportInvocationResult::value("i32:2"),
     ),
   ]
   let mismatches = export_invocation_semantic_mismatch_reports(reports)

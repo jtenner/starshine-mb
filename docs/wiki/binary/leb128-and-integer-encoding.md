@@ -87,6 +87,8 @@ The encoder should normally produce a compact form, but the decoder must remain 
 - **validator logic** should only see decoded values, not byte spelling choices;
 - **external-tool disagreements** over bounded overlong encodings should be classified as canonicality-policy differences, not automatically as Starshine decoder bugs.
 
+`src/cmd/fuzz_harness.mbt` now exposes the `[FUZ]1057A2` binary canonicality classifier hook. Given an input class (`canonical`, `accepted_noncanonical`, or `malformed`) plus Starshine / external validation booleans, it reports canonical acceptance, accepted noncanonical input, malformed rejection, external canonicality-policy disagreement, or a possible decoder-bug disagreement. This keeps bounded-overlong LEB disagreements out of generic decoder-bug buckets while later n-way binary differential runners wire real tool results into the same shape.
+
 This split matters for pass docs that mention LEB size. For example, [`const-hoisting`](../binaryen/passes/const-hoisting/index.md) profitability depends on signed integer literal byte width, while [`reorder-globals`](../binaryen/passes/reorder-globals/index.md) depends on unsigned index byte width. Those passes should use or mirror the real binary helpers instead of approximating with rough value ranges.
 
 ## Where LEB Shows Up

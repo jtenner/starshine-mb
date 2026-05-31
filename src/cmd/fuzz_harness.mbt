@@ -34,6 +34,102 @@ pub impl Show for DifferentialValidationReport with output(self, logger) {
 }
 
 ///|
+pub enum BinaryCanonicalityInputClass {
+  CanonicalInput
+  AcceptedNoncanonicalInput
+  MalformedInput
+} derive(Eq, Debug)
+
+///|
+pub enum BinaryCanonicalityClassification {
+  CanonicalAccepted
+  AcceptedNoncanonical
+  MalformedRejected
+  ExternalPolicyDisagreement
+  DecoderBugDisagreement
+} derive(Eq, Debug)
+
+///|
+pub fn BinaryCanonicalityInputClass::canonical() -> BinaryCanonicalityInputClass {
+  CanonicalInput
+}
+
+///|
+pub fn BinaryCanonicalityInputClass::accepted_noncanonical() -> BinaryCanonicalityInputClass {
+  AcceptedNoncanonicalInput
+}
+
+///|
+pub fn BinaryCanonicalityInputClass::malformed() -> BinaryCanonicalityInputClass {
+  MalformedInput
+}
+
+///|
+pub fn BinaryCanonicalityClassification::canonical_accepted() -> BinaryCanonicalityClassification {
+  CanonicalAccepted
+}
+
+///|
+pub fn BinaryCanonicalityClassification::accepted_noncanonical() -> BinaryCanonicalityClassification {
+  AcceptedNoncanonical
+}
+
+///|
+pub fn BinaryCanonicalityClassification::malformed_rejected() -> BinaryCanonicalityClassification {
+  MalformedRejected
+}
+
+///|
+pub fn BinaryCanonicalityClassification::external_policy_disagreement() -> BinaryCanonicalityClassification {
+  ExternalPolicyDisagreement
+}
+
+///|
+pub fn BinaryCanonicalityClassification::decoder_bug_disagreement() -> BinaryCanonicalityClassification {
+  DecoderBugDisagreement
+}
+
+///|
+fn binary_canonicality_external_disagrees(
+  internal_valid : Bool,
+  wasm_tools_valid : Bool?,
+  binaryen_valid : Bool?,
+) -> Bool {
+  match wasm_tools_valid {
+    Some(v) => if v != internal_valid { return true }
+    None => ()
+  }
+  match binaryen_valid {
+    Some(v) => if v != internal_valid { return true }
+    None => ()
+  }
+  false
+}
+
+///|
+pub fn classify_binary_canonicality_differential(
+  input_class : BinaryCanonicalityInputClass,
+  internal_valid : Bool,
+  wasm_tools_valid : Bool?,
+  binaryen_valid : Bool?,
+) -> BinaryCanonicalityClassification {
+  if binary_canonicality_external_disagrees(
+      internal_valid, wasm_tools_valid, binaryen_valid,
+    ) {
+    match input_class {
+      AcceptedNoncanonicalInput => ExternalPolicyDisagreement
+      _ => DecoderBugDisagreement
+    }
+  } else {
+    match input_class {
+      CanonicalInput => CanonicalAccepted
+      AcceptedNoncanonicalInput => AcceptedNoncanonical
+      MalformedInput => MalformedRejected
+    }
+  }
+}
+
+///|
 pub enum ExportInvocationResult {
   Value(String)
   Trap(String)
@@ -222,7 +318,8 @@ pub fn summarize_export_invocation_matrix(
       EqualResult => equal_results = equal_results + 1
       EqualTrap => equal_traps = equal_traps + 1
       UnsupportedRuntime => unsupported_runtimes = unsupported_runtimes + 1
-      NondeterministicImport => nondeterministic_imports = nondeterministic_imports + 1
+      NondeterministicImport =>
+        nondeterministic_imports = nondeterministic_imports + 1
       SemanticMismatch(_) => semantic_mismatches = semantic_mismatches + 1
     }
   }
@@ -251,7 +348,8 @@ pub fn classify_export_invocation_matrix(
     Empty
   } else if summary.semantic_mismatches > 0 {
     SemanticMismatch
-  } else if summary.unsupported_runtimes > 0 || summary.nondeterministic_imports > 0 {
+  } else if summary.unsupported_runtimes > 0 ||
+    summary.nondeterministic_imports > 0 {
     Blocked
   } else {
     AllEqual

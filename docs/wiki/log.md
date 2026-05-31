@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-30] fuzzing | FUZ1057A2 canonicality disagreement classifier hook
+
+- Completed `[FUZ]1057A2` by adding a command-harness binary canonicality classifier hook for canonical, accepted-noncanonical, malformed, external-policy-disagreement, and possible decoder-bug disagreement outcomes.
+- Synced the LEB/canonicality wiki page and removed the completed tiny slice from the active FUZ board.
+
 ## [2026-05-30] fuzzing | FUZ1053A2 pass-fuzz timeout classification
 
 - Completed `[FUZ]1053A2` by adding the `pass-fuzz` per-case timeout budget to the shared timeout helper and proving pass-fuzz cases classify through the same completed/timeout path.
