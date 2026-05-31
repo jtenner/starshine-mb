@@ -1046,6 +1046,11 @@ pub struct FuzzFailureReport {
   generated_attempts : Int
   feature_facts : String
   wasm : Bytes?
+  reduced_wasm : Bytes?
+  reduction_original_size : Int?
+  reduction_final_size : Int?
+  reduction_predicate_evaluations : Int?
+  reduction_steps : Array[FuzzReductionStep]
 } derive(Eq, Debug)
 
 ///|
@@ -1120,6 +1125,11 @@ pub fn FuzzFailureReport::new(
   generated_attempts? : Int = 0,
   feature_facts? : String = "unknown",
   wasm? : Bytes? = None,
+  reduced_wasm? : Bytes? = None,
+  reduction_original_size? : Int? = None,
+  reduction_final_size? : Int? = None,
+  reduction_predicate_evaluations? : Int? = None,
+  reduction_steps? : Array[FuzzReductionStep] = [],
 ) -> FuzzFailureReport {
   {
     seed,
@@ -1135,6 +1145,11 @@ pub fn FuzzFailureReport::new(
     generated_attempts,
     feature_facts,
     wasm,
+    reduced_wasm,
+    reduction_original_size,
+    reduction_final_size,
+    reduction_predicate_evaluations,
+    reduction_steps,
   }
 }
 
@@ -1664,7 +1679,42 @@ fn fuzz_slug(value : String) -> String {
 }
 
 ///|
-fn fuzz_failure_meta_text(report : FuzzFailureReport) -> String {
+fn fuzz_reduction_option_int_text(value : Int?) -> String {
+  match value {
+    Some(v) => "\{v}"
+    None => ""
+  }
+}
+
+///|
+fn fuzz_reduction_log_text(report : FuzzFailureReport) -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "original_size=\{fuzz_reduction_option_int_text(report.reduction_original_size)}\n",
+  )
+  out.write_string(
+    "final_size=\{fuzz_reduction_option_int_text(report.reduction_final_size)}\n",
+  )
+  out.write_string(
+    "predicate_evaluations=\{fuzz_reduction_option_int_text(report.reduction_predicate_evaluations)}\n",
+  )
+  let mut i = 0
+  while i < report.reduction_steps.length() {
+    let step = report.reduction_steps[i]
+    out.write_string(
+      "step kind=\{step.kind} start=\{step.start} len=\{step.len} before_size=\{step.before_size} after_size=\{step.after_size}\n",
+    )
+    i += 1
+  }
+  out.to_string()
+}
+
+///|
+fn fuzz_failure_meta_text(
+  report : FuzzFailureReport,
+  reduced_wasm_path? : String? = None,
+  reduction_log_path? : String? = None,
+) -> String {
   let out = StringBuilder::new()
   out.write_string("seed=\{report.seed}\n")
   out.write_string("attempt=\{report.attempt}\n")
@@ -1680,6 +1730,23 @@ fn fuzz_failure_meta_text(report : FuzzFailureReport) -> String {
   out.write_string("generator_config_label=\{report.generator_config_label}\n")
   out.write_string("generated_attempts=\{report.generated_attempts}\n")
   out.write_string("feature_facts=\{fuzz_single_line(report.feature_facts)}\n")
+  out.write_string(
+    "reduction_original_size=\{fuzz_reduction_option_int_text(report.reduction_original_size)}\n",
+  )
+  out.write_string(
+    "reduction_final_size=\{fuzz_reduction_option_int_text(report.reduction_final_size)}\n",
+  )
+  out.write_string(
+    "reduction_predicate_evaluations=\{fuzz_reduction_option_int_text(report.reduction_predicate_evaluations)}\n",
+  )
+  match reduced_wasm_path {
+    Some(path) => out.write_string("reduced_wasm_path=\{path}\n")
+    None => out.write_string("reduced_wasm_path=\n")
+  }
+  match reduction_log_path {
+    Some(path) => out.write_string("reduction_log_path=\{path}\n")
+    None => out.write_string("reduction_log_path=\n")
+  }
   out.to_string()
 }
 
@@ -1698,7 +1765,22 @@ pub fn persist_fuzz_failure_report(
   let slug = fuzz_slug(report.stage)
   let prefix = "\{dir}/seed-\{report.seed}-attempt-\{report.attempt}-valid-\{report.generated_valid}-\{slug}"
   let meta_path = "\{prefix}.meta.txt"
-  let meta_bytes = fuzz_bytes_from_string(fuzz_failure_meta_text(report))
+  let reduced_wasm_path = match report.reduced_wasm {
+    Some(_) => Some("\{prefix}.reduced.wasm")
+    None => None
+  }
+  let has_reduction_log = report.reduction_steps.length() > 0 ||
+    report.reduction_original_size != None ||
+    report.reduction_final_size != None ||
+    report.reduction_predicate_evaluations != None
+  let reduction_log_path = if has_reduction_log {
+    Some("\{prefix}.reduction.txt")
+  } else {
+    None
+  }
+  let meta_bytes = fuzz_bytes_from_string(
+    fuzz_failure_meta_text(report, reduced_wasm_path~, reduction_log_path~),
+  )
   match (io.write_file)(meta_path, meta_bytes) {
     Ok(_) => ()
     Err(e) => return Err("failed to write corpus metadata \{meta_path}: \{e}")
@@ -1712,6 +1794,27 @@ pub fn persist_fuzz_failure_report(
       }
     }
     None => None
+  }
+  match (report.reduced_wasm, reduced_wasm_path) {
+    (Some(bytes), Some(path)) =>
+      match (io.write_file)(path, bytes) {
+        Ok(_) => ()
+        Err(e) =>
+          return Err("failed to write reduced corpus wasm \{path}: \{e}")
+      }
+    _ => ()
+  }
+  match reduction_log_path {
+    Some(path) =>
+      match
+        (io.write_file)(
+          path,
+          fuzz_bytes_from_string(fuzz_reduction_log_text(report)),
+        ) {
+        Ok(_) => ()
+        Err(e) => return Err("failed to write reduction log \{path}: \{e}")
+      }
+    None => ()
   }
   Ok((meta_path, wasm_path))
 }

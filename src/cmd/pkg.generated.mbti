@@ -320,8 +320,13 @@ pub struct FuzzFailureReport {
   generated_attempts : Int
   feature_facts : String
   wasm : Bytes?
+  reduced_wasm : Bytes?
+  reduction_original_size : Int?
+  reduction_final_size : Int?
+  reduction_predicate_evaluations : Int?
+  reduction_steps : Array[FuzzReductionStep]
 } derive(Eq, @debug.Debug)
-pub fn FuzzFailureReport::new(UInt64, Int, Int, String, String, optimize_passes? : Array[String], minimized_passes? : Array[String], generator_profile? : String, pass_profile? : String, generator_config_label? : String, generated_attempts? : Int, feature_facts? : String, wasm? : Bytes?) -> Self
+pub fn FuzzFailureReport::new(UInt64, Int, Int, String, String, optimize_passes? : Array[String], minimized_passes? : Array[String], generator_profile? : String, pass_profile? : String, generator_config_label? : String, generated_attempts? : Int, feature_facts? : String, wasm? : Bytes?, reduced_wasm? : Bytes?, reduction_original_size? : Int?, reduction_final_size? : Int?, reduction_predicate_evaluations? : Int?, reduction_steps? : Array[FuzzReductionStep]) -> Self
 pub impl Show for FuzzFailureReport
 
 pub struct FuzzReductionReport[T] {

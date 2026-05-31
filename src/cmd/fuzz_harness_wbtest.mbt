@@ -844,7 +844,7 @@ test "fuzz corpus dedup index records source and duplicate decisions by hash" {
 }
 
 ///|
-test "persist_fuzz_failure_report writes deterministic corpus artifacts" {
+test "persist_fuzz_failure_report writes original reduced artifacts and shrink log" {
   let ensured_dirs : Array[String] = []
   let writes : Array[(String, Bytes)] = []
   let io = FuzzFailurePersistIO::new(
@@ -857,6 +857,11 @@ test "persist_fuzz_failure_report writes deterministic corpus artifacts" {
       Ok(())
     },
   )
+  let original_wasm = encode_fixture_module(33)
+  let reduction = reduce_fuzz_bytes_by_slice_deletion(
+    bytes_from_ascii_for_fuzz_reducer("noiseTRIGGERtail"),
+    fn(bytes) { bytes_to_ascii(bytes).contains("TRIGGER") },
+  )
   let report = FuzzFailureReport::new(
     0x5eedUL,
     13,
@@ -868,7 +873,12 @@ test "persist_fuzz_failure_report writes deterministic corpus artifacts" {
     generator_config_label="natural-small",
     generated_attempts=2,
     feature_facts="has_call=false;uses_v128=false",
-    wasm=Some(encode_fixture_module(33)),
+    wasm=Some(original_wasm),
+    reduced_wasm=Some(reduction.result),
+    reduction_original_size=Some(reduction.original_size),
+    reduction_final_size=Some(reduction.final_size),
+    reduction_predicate_evaluations=Some(reduction.predicate_evaluations),
+    reduction_steps=reduction.steps,
   )
   let (meta_path, wasm_path) = match
     persist_fuzz_failure_report(report, io, corpus_dir="tmp-corpus") {
@@ -881,9 +891,11 @@ test "persist_fuzz_failure_report writes deterministic corpus artifacts" {
     Some(path) => assert_true(path.contains(".wasm"))
     None => fail("expected wasm artifact path")
   }
-  @debug.assert_eq(writes.length(), 2)
+  @debug.assert_eq(writes.length(), 4)
   let mut saw_meta = false
   let mut saw_wasm = false
+  let mut saw_reduced_wasm = false
+  let mut saw_reduction_log = false
   for entry in writes {
     let path = entry.0
     let bytes = entry.1
@@ -896,6 +908,20 @@ test "persist_fuzz_failure_report writes deterministic corpus artifacts" {
       assert_true(text.contains("generator_config_label=natural-small"))
       assert_true(text.contains("generated_attempts=2"))
       assert_true(text.contains("feature_facts=has_call=false;uses_v128=false"))
+      assert_true(text.contains("reduction_original_size=16"))
+      assert_true(text.contains("reduction_final_size=7"))
+      assert_true(text.contains("reduction_predicate_evaluations="))
+      assert_true(text.contains("reduced_wasm_path="))
+      assert_true(text.contains("reduction_log_path="))
+    } else if path.contains(".reduced.wasm") {
+      saw_reduced_wasm = true
+      @debug.assert_eq(bytes_to_ascii(bytes), "TRIGGER")
+    } else if path.contains(".reduction.txt") {
+      saw_reduction_log = true
+      let text = bytes_to_ascii(bytes)
+      assert_true(text.contains("original_size=16"))
+      assert_true(text.contains("final_size=7"))
+      assert_true(text.contains("step kind=delete-byte-range"))
     } else if path.contains(".wasm") {
       saw_wasm = true
       assert_true(bytes.length() > 0)
@@ -903,6 +929,8 @@ test "persist_fuzz_failure_report writes deterministic corpus artifacts" {
   }
   assert_true(saw_meta)
   assert_true(saw_wasm)
+  assert_true(saw_reduced_wasm)
+  assert_true(saw_reduction_log)
 }
 
 ///|
