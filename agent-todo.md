@@ -615,7 +615,6 @@ Use this board as the tracking view for fuzzer work. Each slice should be small 
 p1 next-up / active:
 
 p2 invalid/binary/text tiny slices:
-- `[FUZ]1020C7` - GC branch/ref body proposal slice: add one remaining GC reference-branch or aggregate instruction body variant that exercises payload/ref-type validation not already covered by `br_on_null`, cast/test, struct, or array cases.
 - `[FUZ]1021A1` - Custom-section name UTF-8 corruption: add malformed and overlong UTF-8 byte strategies for the custom section name string while keeping the surrounding section framing well formed.
 - `[FUZ]1021A2` - Import module/name UTF-8 corruption: add malformed import module-name and field-name string corruptions with decode-rejected expectations and stable ids.
 - `[FUZ]1021A3` - Export name UTF-8 corruption: add malformed export-name string corruptions for at least one function export while preserving the export kind/index bytes.

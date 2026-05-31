@@ -245,6 +245,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyAtomicCmpxchgExpectedType
   InvalidFunctionBodyBrOnCastInputType
   InvalidFunctionBodyBrOnCastFailInputType
+  InvalidFunctionBodyBrOnNonNullPayloadMismatch
   InvalidFunctionBodyTableSetValueType
   InvalidFunctionBodyGlobalSetValueType
   InvalidNameSectionFuncIndex
@@ -2147,6 +2148,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       FunctionBodyFamily,
       required_in_smoke=false,
     ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyBrOnNonNullPayloadMismatch,
+      "invalid-function-body-br-on-non-null-payload-mismatch",
+      "invalid function-body br_on_non_null payload",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -2413,6 +2421,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyAtomicCmpxchgExpectedType => 149
     InvalidFunctionBodyBrOnCastInputType => 99
     InvalidFunctionBodyBrOnCastFailInputType => 100
+    InvalidFunctionBodyBrOnNonNullPayloadMismatch => 251
     InvalidFunctionBodyTableSetValueType => 62
     InvalidFunctionBodyGlobalSetValueType => 63
     InvalidMemoryNameSectionIndex => 47
@@ -8544,6 +8553,37 @@ fn validate_invalid_ast_mutate_invalid_function_body_br_on_cast_fail_input_type(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_br_on_non_null_payload_mismatch(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([
+        Instruction::ref_null(HeapType::abs(AbsHeapType::extern_())),
+        Instruction::br_on_non_null(LabelIdx::new(0U)),
+        Instruction::i32_const(I32(0)),
+      ]),
+    ),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyBrOnNonNullPayloadMismatch,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_table_set_value_type(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -10606,6 +10646,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_br_on_cast_fail_input_type(
           base,
         )
+      InvalidFunctionBodyBrOnNonNullPayloadMismatch =>
+        validate_invalid_ast_mutate_invalid_function_body_br_on_non_null_payload_mismatch(
+          base,
+        )
       InvalidFunctionBodyTableSetValueType =>
         validate_invalid_ast_mutate_invalid_function_body_table_set_value_type(
           base,
@@ -11268,7 +11312,7 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
     "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
     "datacount-mismatch-too-small", "datacount-mismatch-too-large", "invalid-subtype-mutable-field-variance",
-    "invalid-function-body-br-on-null-payload-mismatch",
+    "invalid-function-body-br-on-null-payload-mismatch", "invalid-function-body-br-on-non-null-payload-mismatch",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 24)
@@ -12931,6 +12975,19 @@ test "invalid br_on_cast_fail input type strategy rejects with FunctionBody fami
     invalid_ast_expect_strategy_rejects_with_family(
       InvalidFunctionBodyBrOnCastFailInputType,
       0x10d05UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid br_on_non_null payload strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyBrOnNonNullPayloadMismatch,
+      0x1020c7UL,
       FunctionBodyFamily,
     ) {
     Ok(_) => ()

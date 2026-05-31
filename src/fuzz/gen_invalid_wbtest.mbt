@@ -148,3 +148,33 @@ test "fuzz package can consume GC struct.new_default invalid AST strategy" {
     Err(_) => ()
   }
 }
+
+///|
+test "fuzz package can consume GC br_on_non_null invalid AST strategy" {
+  let strategy = match
+    @validate.validate_invalid_ast_strategy_by_stable_id(
+      "invalid-function-body-br-on-non-null-payload-mismatch",
+    ) {
+    Some(spec) => spec.id
+    None => fail("expected br_on_non_null invalid strategy to exist")
+  }
+  let generated = match
+    @validate.gen_invalid_ast_generate(
+      @splitmix.new(seed=0x1020c7UL),
+      @validate.GenInvalidAstParams::minimal_seed(strategy),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected br_on_non_null base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected br_on_non_null invalid module to fail")
+    Err(_) => ()
+  }
+}

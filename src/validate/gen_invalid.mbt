@@ -547,6 +547,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-br-on-cast-input-type"
     InvalidFunctionBodyBrOnCastFailInputType =>
       "invalid-function-body-br-on-cast-fail-input-type"
+    InvalidFunctionBodyBrOnNonNullPayloadMismatch =>
+      "invalid-function-body-br-on-non-null-payload-mismatch"
     InvalidFunctionBodyTableSetValueType =>
       "invalid-function-body-table-set-value-type"
     InvalidFunctionBodyGlobalSetValueType =>

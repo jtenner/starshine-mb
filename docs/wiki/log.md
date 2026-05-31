@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1020C7 br_on_non_null payload invalid AST
+
+- Closed `[FUZ]1020C7` by adding `invalid-function-body-br-on-non-null-payload-mismatch`, a deterministic AST-invalid strategy whose `br_on_non_null` has a valid nullable externref operand but branches to an `i32` result label instead of a compatible non-null reference payload.
+- Updated the public `gen_invalid` stable-id mapping and fuzz package integration coverage so downstream minimal-seed generation can consume the new GC reference-branch strategy.
+- Validation: the focused `moon test src/fuzz` check first failed on the missing stable-id registry entry, then passed after wiring the strategy, mutation dispatcher, and label mapping.
+
 ## [2026-05-31] fuzzing | FUZ1020C6 atomic shared-memory context invalid AST
 
 - Closed `[FUZ]1020C6` by adding `invalid-function-body-atomic-load-non-shared-memory`, a deterministic AST-invalid strategy whose `i32.atomic.load` has a valid stack shape but targets an ordinary non-shared memory.
