@@ -59,6 +59,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1021B6 reserved core opcode byte inventory
+
+- Closed `[FUZ]1021B6` by adding decode-rejected binary-invalid strategies for representative reserved single-byte core opcode gaps outside proposal prefixes: `0x06` (`invalid-core-control-reserved-opcode-byte`), `0x19` (`invalid-core-reference-reserved-opcode-byte`), `0x27` (`invalid-core-memory-reserved-opcode-byte`), and `0xC5` (`invalid-core-post-signext-reserved-opcode-byte`). The existing `invalid-opcode-byte` keeps the high reserved `0xFF` sample.
+- Added a white-box inventory assertion for every current non-prefix reserved core byte tested by this slice: `0x06`, `0x07`, `0x09`, `0x16..0x19`, `0x1D`, `0x1E`, `0x27`, `0xC5..0xCF`, `0xD7..0xFA`, and `0xFF`; expression terminator `0x0B` and proposal prefixes `0xFB..0xFE` stay in their separate families.
+- Updated the instruction-encoding and fuzz-hardening wiki pages with the exact reserved bytes tested so future opcode audits can distinguish single-byte core gaps from prefixed-subopcode coverage.
+- Validation: `moon test src/fuzz` first failed on the missing `invalid-core-control-reserved-opcode-byte` stable id, then passed after registry, mutation, dispatcher, focused test, and docs wiring.
+
 ## [2026-05-31] fuzzing | FUZ1021B5 prefixed trailing immediates
 
 - Closed `[FUZ]1021B5` by adding decode-rejected binary-invalid strategies that pass a valid prefixed subopcode before corrupting the following immediate: `malformed-gc-struct-new-trailing-immediate`, `malformed-bulk-table-init-trailing-immediate`, `malformed-simd-extract-lane-trailing-immediate`, and `malformed-atomic-load-trailing-immediate`.

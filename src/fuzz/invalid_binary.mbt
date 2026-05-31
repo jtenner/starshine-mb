@@ -106,6 +106,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidNameSubsectionIdByte
   OutOfOrderNameSubsectionId
   InvalidOpcodeByte
+  InvalidCoreControlReservedOpcodeByte
+  InvalidCoreReferenceReservedOpcodeByte
+  InvalidCoreMemoryReservedOpcodeByte
+  InvalidCorePostSignextReservedOpcodeByte
   InvalidPrefixSubopcodeByte
   InvalidGcPrefixSubopcodeByte
   InvalidBulkPrefixSubopcodeByte
@@ -912,6 +916,14 @@ fn validate_invalid_binary_strategy_label(
     InvalidNameSubsectionIdByte => "invalid-name-subsection-id-byte"
     OutOfOrderNameSubsectionId => "out-of-order-name-subsection-id"
     InvalidOpcodeByte => "invalid-opcode-byte"
+    InvalidCoreControlReservedOpcodeByte =>
+      "invalid-core-control-reserved-opcode-byte"
+    InvalidCoreReferenceReservedOpcodeByte =>
+      "invalid-core-reference-reserved-opcode-byte"
+    InvalidCoreMemoryReservedOpcodeByte =>
+      "invalid-core-memory-reserved-opcode-byte"
+    InvalidCorePostSignextReservedOpcodeByte =>
+      "invalid-core-post-signext-reserved-opcode-byte"
     InvalidPrefixSubopcodeByte => "invalid-prefix-subopcode-byte"
     InvalidGcPrefixSubopcodeByte => "invalid-gc-prefix-subopcode-byte"
     InvalidBulkPrefixSubopcodeByte => "invalid-bulk-prefix-subopcode-byte"
@@ -2011,6 +2023,34 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidOpcodeByte,
       "invalid-opcode-byte",
       "function body with an invalid core opcode byte",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidCoreControlReservedOpcodeByte,
+      "invalid-core-control-reserved-opcode-byte",
+      "function body with reserved core control opcode byte 0x06",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidCoreReferenceReservedOpcodeByte,
+      "invalid-core-reference-reserved-opcode-byte",
+      "function body with reserved core reference/call opcode byte 0x19",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidCoreMemoryReservedOpcodeByte,
+      "invalid-core-memory-reserved-opcode-byte",
+      "function body with reserved core variable/memory opcode byte 0x27",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidCorePostSignextReservedOpcodeByte,
+      "invalid-core-post-signext-reserved-opcode-byte",
+      "function body with reserved core post-signext opcode byte 0xc5",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -6169,6 +6209,61 @@ fn validate_invalid_binary_mutate_invalid_opcode_byte(
       true,
       validate_invalid_binary_minimal_code_with_instr([(0xff).to_byte()]),
     ),
+  )
+}
+
+///|
+fn validate_invalid_binary_reserved_core_opcode_mutation(
+  id : ValidateInvalidBinaryStrategyId,
+  opcode : Byte,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      id,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([opcode]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_core_control_reserved_opcode_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  validate_invalid_binary_reserved_core_opcode_mutation(
+    InvalidCoreControlReservedOpcodeByte,
+    (0x06).to_byte(),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_core_reference_reserved_opcode_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  validate_invalid_binary_reserved_core_opcode_mutation(
+    InvalidCoreReferenceReservedOpcodeByte,
+    (0x19).to_byte(),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_core_memory_reserved_opcode_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  validate_invalid_binary_reserved_core_opcode_mutation(
+    InvalidCoreMemoryReservedOpcodeByte,
+    (0x27).to_byte(),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_core_post_signext_reserved_opcode_byte(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  validate_invalid_binary_reserved_core_opcode_mutation(
+    InvalidCorePostSignextReservedOpcodeByte,
+    (0xc5).to_byte(),
   )
 }
 
@@ -16483,6 +16578,22 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_out_of_order_name_subsection_id(base)
     InvalidOpcodeByte =>
       validate_invalid_binary_mutate_invalid_opcode_byte(base)
+    InvalidCoreControlReservedOpcodeByte =>
+      validate_invalid_binary_mutate_invalid_core_control_reserved_opcode_byte(
+        base,
+      )
+    InvalidCoreReferenceReservedOpcodeByte =>
+      validate_invalid_binary_mutate_invalid_core_reference_reserved_opcode_byte(
+        base,
+      )
+    InvalidCoreMemoryReservedOpcodeByte =>
+      validate_invalid_binary_mutate_invalid_core_memory_reserved_opcode_byte(
+        base,
+      )
+    InvalidCorePostSignextReservedOpcodeByte =>
+      validate_invalid_binary_mutate_invalid_core_post_signext_reserved_opcode_byte(
+        base,
+      )
     InvalidPrefixSubopcodeByte =>
       validate_invalid_binary_mutate_invalid_prefix_subopcode_byte(base)
     InvalidGcPrefixSubopcodeByte =>

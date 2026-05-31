@@ -1157,6 +1157,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidNameSubsectionIdByte
   OutOfOrderNameSubsectionId
   InvalidOpcodeByte
+  InvalidCoreControlReservedOpcodeByte
+  InvalidCoreReferenceReservedOpcodeByte
+  InvalidCoreMemoryReservedOpcodeByte
+  InvalidCorePostSignextReservedOpcodeByte
   InvalidPrefixSubopcodeByte
   InvalidGcPrefixSubopcodeByte
   InvalidBulkPrefixSubopcodeByte
