@@ -60,6 +60,36 @@ test "fuzz package can consume public natural-seed gen-invalid AST API" {
 }
 
 ///|
+test "fuzz package can consume function subtype variance invalid AST strategy" {
+  let strategy = match
+    @validate.validate_invalid_ast_strategy_by_stable_id(
+      "invalid-subtype-func-variance",
+    ) {
+    Some(spec) => spec.id
+    None => fail("expected function subtype variance invalid strategy to exist")
+  }
+  let generated = match
+    @validate.gen_invalid_ast_generate(
+      @splitmix.new(seed=0x1020a3UL),
+      @validate.GenInvalidAstParams::minimal_seed(strategy),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected function subtype variance base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected function subtype variance invalid module to fail")
+    Err(_) => ()
+  }
+}
+
+///|
 test "fuzz package can consume GC struct.new_default invalid AST strategy" {
   let strategy = match
     @validate.validate_invalid_ast_strategy_by_stable_id(

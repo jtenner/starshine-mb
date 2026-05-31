@@ -600,6 +600,7 @@ fn gen_invalid_ast_strategy_label(
     InvalidTagResultType => "invalid-tag-result-type"
     InvalidSubtypeSuperIndex => "invalid-subtype-super-index"
     InvalidSubtypeSuperShape => "invalid-subtype-super-shape"
+    InvalidSubtypeFuncVariance => "invalid-subtype-func-variance"
     InvalidSubtypeMutableFieldVariance =>
       "invalid-subtype-mutable-field-variance"
     DescriptorOnFuncType => "descriptor-on-func-type"

@@ -616,7 +616,6 @@ p1 next-up / active:
 - No active p1 FUZ slice is selected in this board. Prefer finishing one p2 slice below before widening a parent task.
 
 p2 invalid/binary/text tiny slices:
-- `[FUZ]1020A3` - Function-type subtype variance guard: add an AST-invalid strategy for contravariant parameter / covariant result mismatch between a subtype and its declared supertype, with a repair fixture that restores a valid subtype relation.
 - `[FUZ]1020A4` - Descriptor-edge heap-type failure: add an AST-invalid strategy where a typed descriptor or described type references an out-of-range or wrong-kind heap type outside the already-landed table/global ref-type cases.
 - `[FUZ]1020A5` - Recursive-group cycle refinement: add a focused descriptor or supertype cycle variant that differs from the landed direct `descriptor-cycle` fixture, and classify whether the validator reports cycle, index, or shape family.
 - `[FUZ]1020B3` - Data-count/data-section mismatch: add AST/binary-invalid coverage for present-but-wrong `datacount` values versus the data section, distinct from `datacount` without data section.
@@ -670,7 +669,7 @@ p1/p2 oracle, reporting, and infrastructure slices:
 
 p2 invalid/binary/text slices:
 - [FUZ]1020A (p2) - Remaining AST Type/Subtyping Invalid Strategies
-  - Remaining concrete slices: `[FUZ]1020A3` function-type subtype variance guard, `[FUZ]1020A4` descriptor-edge heap-type failure, and `[FUZ]1020A5` recursive-group cycle refinement. Earlier `[FUZ]1020A1`/`A2` covered representative subtype variance and descriptor-cycle basics.
+  - Remaining concrete slices: `[FUZ]1020A4` descriptor-edge heap-type failure and `[FUZ]1020A5` recursive-group cycle refinement. Earlier `[FUZ]1020A1`/`A2` covered representative subtype variance and descriptor-cycle basics; `[FUZ]1020A3` covered focused function parameter/result variance.
 - [FUZ]1020B (p2) - Remaining AST Section/Index Invalid Strategies
   - Remaining concrete slices: `[FUZ]1020B3` data-count/data-section mismatch, `[FUZ]1020B4` start/export index cross-section variants, and `[FUZ]1020B5` code/function section arity edge. Earlier `[FUZ]1020B2` covered duplicate start-section invalid binary behavior, and Run 23 landed many table/memory/tag/global/element/data/name-section variants.
 - [FUZ]1020C (p2) - Remaining AST Function-Body Proposal Strategies
@@ -703,7 +702,7 @@ p2 invalid/binary/text slices:
   - Unit: completed for tracked fixture slices. `[FUZ]1057B1` through `[FUZ]1057B3` cover unsigned LEB, signed LEB, section-size/custom-section, NaN payload, and preservation fixtures.
 
 - [FUZ]1020 (p2) - Invalid AST Strategy Expansion Across Validator Families
-  - Status: unblocked on 2026-05-27 by user request. Continue only through the small tracked remaining slices `[FUZ]1020A3` through `[FUZ]1020C7` listed in the tiny FUZ work-slice board; if more work is found, add a new tiny slice before implementation.
+  - Status: unblocked on 2026-05-27 by user request. Continue only through the small tracked remaining slices `[FUZ]1020A4` through `[FUZ]1020C7` listed in the tiny FUZ work-slice board; if more work is found, add a new tiny slice before implementation.
   - Run 23 continuation update: now added `invalid-table-ref-type` and `invalid-global-ref-type` strategies for defined table/global declarations whose reference types point at a missing heap type index. TDD first failed in `moon test src/validate` because `ConstExpr` was not a valid initializer helper for the new focused global mutator, then passed after adding the strategy registry entries, stable ids, mutators, dispatcher cases, focused reject tests, `gen_invalid` generation tests, registry expected-id update, and wiki summaries. Final validation for this slice is in the commit message.
   - Run 23 continuation update: now added `codesec-length-mismatch-too-small` and `codesec-length-mismatch-too-large` strategies for function/code section length mismatches in both directions. TDD first failed in `moon test src/validate` because the new strategy constructors were missing, then passed after adding the strategy registry entries, stable ids, mutators, dispatcher cases, focused reject tests, `gen_invalid` generation tests, registry expected-id update, and wiki summaries. Final validation for this slice is in the commit message.
   - Run 23 continuation update: now added `invalid-function-body-table-copy-dest-index` and `invalid-function-body-table-copy-source-index` strategies for `table.copy` instructions whose destination/source table immediates point at a missing table while the operand stack stays valid. TDD first failed in `moon test src/validate` because the new strategy constructors were missing, then passed after adding the strategy registry entries, stable ids, mutators, dispatcher cases, focused reject/repair tests, `gen_invalid` generation tests, registry expected-id update, and wiki summaries. Final validation for this slice is in the commit message.

@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-30] fuzzing | FUZ1020A3 function subtype variance invalid AST
+
+- Completed `[FUZ]1020A3` by adding `invalid-subtype-func-variance`, a deterministic type-section invalid AST strategy whose child function type violates parameter contravariance and result covariance against its declared supertype.
+- Added focused validator rejection and repair coverage plus a downstream fuzz-package public `gen_invalid` stable-id test. Synced the type-section/subtyping, generator ledger, and fuzz-hardening wiki pages.
+- Validation: `moon test src/validate` first failed on the missing constructor/mutator, then passed after registry, dispatcher, label, and expected-list wiring. Final validation passed: `moon info`, `moon fmt`, `moon test src/validate`, `moon test src/fuzz`, full `moon test`, and `bun fuzz run --suite validate-invalid-ast --profile smoke --seed 0x1020a3 --target native --out-dir .tmp/fuz1020a3-invalid-ast-smoke`.
+
 ## [2026-05-30] fuzzing | FUZ1037 ref.i31 table initializers
 
 - Continued `[FUZ]1037` by routing coverage-forced `(ref null i31)` table initializers through the shared const-expression helper, so they now emit `i32.const 31; ref.i31` instead of only falling back to `ref.null`.

@@ -87,7 +87,7 @@ Important matching rules future maintainers should keep in mind:
 - **Reference types** combine heap-type matching with nullability (`non-null <: nullable`) and exactness constraints.
 - **Abstract heap types** keep the usual families visible: `struct` / `array` / `i31` under `eq`, `eq` under `any`, `nofunc` under `func`, `noextern` under `extern`, and so on.
 
-The official Core 3.0 rules are stricter than mere Starshine parser acceptance. As of this review, the documented and fuzzed local TypeSection invalid families cover out-of-range supertypes, incompatible supertype shapes, and descriptor metadata on non-struct types. Do **not** claim full coverage of every official side condition, such as single-supertype, earlier-supertype, or final-supertype restrictions, unless a focused validator test or implementation audit proves it.
+The official Core 3.0 rules are stricter than mere Starshine parser acceptance. As of this review, the documented and fuzzed local TypeSection invalid families cover out-of-range supertypes, incompatible supertype shapes, focused function parameter/result variance mismatches, mutable struct-field variance mismatches, and descriptor metadata on non-struct types. Do **not** claim full coverage of every official side condition, such as single-supertype, earlier-supertype, or final-supertype restrictions, unless a focused validator test or implementation audit proves it.
 
 ## Descriptor Metadata And Exact References
 
@@ -127,6 +127,10 @@ SubType(final=false, supers=[TypeIdx(9999)], comp=func [] -> [])
 ### Invalid supertype shape
 
 A function subtype cannot extend an incompatible function type. Starshine's `InvalidSubtypeSuperShape` mutation first appends a `func [] -> []` supertype, then appends a `func [i32] -> []` child that names it. Validation rejects this as a TypeSection-family shape mismatch.
+
+### Invalid function subtype variance
+
+Function subtype matching is contravariant in parameters and covariant in results. The `InvalidSubtypeFuncVariance` mutation appends a supertype `func [(ref any)] -> [(ref eq)]` and a child `func [(ref eq)] -> [(ref any)]`, so the child accepts a narrower parameter and returns a wider result than its declared supertype permits. The focused repair fixture flips the relation to a valid supertype `func [(ref eq)] -> [(ref any)]` with child `func [(ref any)] -> [(ref eq)]`.
 
 ### Descriptor pair inside one rec group
 
