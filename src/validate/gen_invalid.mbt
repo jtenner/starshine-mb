@@ -570,6 +570,7 @@ fn gen_invalid_ast_strategy_label(
     FuncSecWithoutCodeSec => "funcsec-without-codesec"
     CodeSecLengthMismatchTooSmall => "codesec-length-mismatch-too-small"
     CodeSecLengthMismatchTooLarge => "codesec-length-mismatch-too-large"
+    CodeSecIncludesImportedBody => "codesec-includes-imported-body"
     MutableGlobalGetInConstInit => "mutable-global-get-in-const-init"
     InvalidGlobalInitType => "invalid-global-init-type"
     NonConstantDataOffset => "non-constant-data-offset"

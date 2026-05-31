@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1020B5 code-section imported body arity edge
+
+- Closed `[FUZ]1020B5` by adding `codesec-includes-imported-body`, a deterministic AST-invalid strategy for a module with one imported function, one defined function declaration, and two code bodies.
+- The slice proves code-section arity is checked against the defined-function declarations in the function section, not the total function index space after imports. Focused validator-family and `gen_invalid` tests cover the stable id and CodeSection-family rejection.
+- Validation: `moon test src/validate` first failed on the missing `CodeSecIncludesImportedBody` constructor, then passed after registry, mutator, dispatcher, label, and expected-list wiring. Final checks passed: `moon fmt`, `moon info`, `moon test src/validate`, `moon test src/fuzz`, `moon run src/fuzz -- validate-invalid-ast smoke --seed 0x1020b5 --out-dir .tmp/fuz1020b5-invalid-ast-smoke`, full `moon test`, and `git diff --check`.
+
 ## [2026-05-31] fuzzing | FUZ1020B4 start/export cross-section invalid strategies
 
 - Continued `[FUZ]1020B4` by adding `invalid-export-func-wrong-kind-index` and `start-func-wrong-kind-index`, deterministic AST-invalid strategies for modules where numeric index `0` exists in the table index space but not the function index space.

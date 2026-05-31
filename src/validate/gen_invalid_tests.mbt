@@ -1304,6 +1304,34 @@ test "gen_invalid_ast_generate supports codesec length too large strategy" {
 }
 
 ///|
+test "gen_invalid_ast_generate supports codesec imported body strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5f013UL),
+      GenInvalidAstParams::repro_seed(CodeSecIncludesImportedBody),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected codesec-includes-imported-body base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected codesec-includes-imported-body mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == CodeSectionFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports invalid table name index strategy" {
   let generated = match
     gen_invalid_ast_generate(
