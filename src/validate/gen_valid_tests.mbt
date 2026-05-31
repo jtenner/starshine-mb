@@ -574,6 +574,24 @@ test "gen-valid shared const-expression contexts select allowed op families" {
 }
 
 ///|
+test "gen-valid global initializer uses ref.i31 const expression when allowed" {
+  let ctx = GenValidContext::new_streamed(0x1037BUL, {
+    ..GenValidConfig::coverage_forced_default()
+  })
+  let i31_global = gen_valid_const_expr_for_global(
+    ctx,
+    ValType::ref_type(RefType::abs(AbsHeapType::i31())),
+    [],
+    FuncIdx::new(0U),
+    gen_valid_gc_type_plan_empty(),
+  )
+  @debug.assert_eq(
+    i31_global,
+    Expr::new([Instruction::i32_const(I32(31)), Instruction::ref_i31()]),
+  )
+}
+
+///|
 test "gen-valid proposal feature-gate matrix exposes positive and negative rows" {
   let rows = gen_valid_proposal_feature_gate_matrix()
   @debug.assert_eq(rows.length(), gen_valid_proposal_features().length())

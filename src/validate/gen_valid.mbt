@@ -4304,6 +4304,17 @@ fn gen_valid_const_expr_for_global(
         Some(func_idx),
       )
     }
+    if vt == ValType::ref_type(RefType::abs(AbsHeapType::i31())) &&
+      ctx.config.mode == CoverageForced {
+      return gen_valid_const_expr_from_context(
+        ctx,
+        GlobalStream,
+        vt,
+        { ..GenValidConstExprContext::numeric_only(), allow_ref_i31: true },
+        [],
+        None,
+      )
+    }
     match vt {
       RefTypeValType(HeapTypeRefType(true, _, HeapType(type_idx))) =>
         if gen_valid_contains_type_idx(gc_type_plan.struct_type_idxs, type_idx) &&
