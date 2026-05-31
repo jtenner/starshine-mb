@@ -615,7 +615,6 @@ Use this board as the tracking view for fuzzer work. Each slice should be small 
 p1 next-up / active:
 
 p2 invalid/binary/text tiny slices:
-- [FUZ]1026B1 - Persist all mutation ids and broad outcomes for multi-fault repros.
 
 p2 oracle/reporting/infrastructure tiny slices:
 
@@ -649,7 +648,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1026A (p2) - Multi-Fault Invalid Composition Runner
   - Unit: completed for tracked tiny slices. `[FUZ]1026A2` closed with a deterministic binary+text multi-fault stress report builder and metadata fixture. `[FUZ]1026A1` closed with a deterministic two-fault AST invalid stress report builder and metadata fixture.
 - [FUZ]1026B (p2) - Multi-Fault Repro Metadata
-  - Unit: persist all mutation ids and broad outcome data without weakening single-fault diagnostic floors.
+  - Unit: completed for tracked tiny slices. `[FUZ]1026B1` closed with first-class `multi_fault_mutation_id` and `multi_fault_broad_outcome` repro metadata, plus parse/persist coverage for all mutation ids and broad outcomes.
 - [FUZ]1045A (p2) - N-Way Text Parse/Print Classification
   - Unit: compare local WAT/WAST parse/print/lower behavior with optional WABT and wasm-tools text commands.
 - [FUZ]1055A (p2) - Multi-Module WAST Valid Linking Lane

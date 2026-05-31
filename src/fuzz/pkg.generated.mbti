@@ -518,10 +518,12 @@ pub struct InvalidFuzzFailureReport {
   source_path : String?
   valid_before_link : Bool?
   source_feature_facts : Array[String]
+  multi_fault_mutation_ids : Array[String]
+  multi_fault_broad_outcomes : Array[String]
   artifacts : Array[InvalidFuzzArtifact]
   reduced_artifacts : Array[InvalidFuzzArtifact]
 } derive(Eq, @debug.Debug)
-pub fn InvalidFuzzFailureReport::new(String, String, UInt64, Int, String, InvalidFuzzSourceKind, String, expected_diagnostic_family? : String?, actual_stage? : String, actual_diagnostic_family? : String?, actual_diagnostic_location? : String?, timeout_budget_ms? : Int?, seed_profile? : String?, seed_mode? : String?, seed_require_strategy_prereqs? : Bool?, stream_label? : String?, stream_seed? : UInt64?, attempt_seed? : UInt64?, source_path? : String?, valid_before_link? : Bool?, source_feature_facts? : Array[String], artifacts? : Array[InvalidFuzzArtifact], reduced_artifacts? : Array[InvalidFuzzArtifact]) -> Self
+pub fn InvalidFuzzFailureReport::new(String, String, UInt64, Int, String, InvalidFuzzSourceKind, String, expected_diagnostic_family? : String?, actual_stage? : String, actual_diagnostic_family? : String?, actual_diagnostic_location? : String?, timeout_budget_ms? : Int?, seed_profile? : String?, seed_mode? : String?, seed_require_strategy_prereqs? : Bool?, stream_label? : String?, stream_seed? : UInt64?, attempt_seed? : UInt64?, source_path? : String?, valid_before_link? : Bool?, source_feature_facts? : Array[String], multi_fault_mutation_ids? : Array[String], multi_fault_broad_outcomes? : Array[String], artifacts? : Array[InvalidFuzzArtifact], reduced_artifacts? : Array[InvalidFuzzArtifact]) -> Self
 
 pub struct InvalidFuzzPersistIO {
   ensure_dir : (String) -> Result[Unit, String]

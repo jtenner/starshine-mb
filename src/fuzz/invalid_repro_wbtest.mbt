@@ -76,13 +76,13 @@ test "FUZ1026A1 builds deterministic two-fault AST invalid stress report" {
   @debug.assert_eq(report.strategy_id, "two-fault-ast-invalid-stress")
   assert_true(report.source_feature_facts.contains("multi_fault:true"))
   assert_true(
-    report.source_feature_facts.contains(
-      "mutation:invalid-function-body-local-set-value-type",
+    report.multi_fault_mutation_ids.contains(
+      "invalid-function-body-local-set-value-type",
     ),
   )
   assert_true(
-    report.source_feature_facts.contains(
-      "mutation:invalid-function-body-branch-payload-type",
+    report.multi_fault_mutation_ids.contains(
+      "invalid-function-body-branch-payload-type",
     ),
   )
   let (meta_path, artifact_paths) = match persist_invalid_fuzz_failure_report(report, io) {
@@ -95,7 +95,12 @@ test "FUZ1026A1 builds deterministic two-fault AST invalid stress report" {
     None => fail("missing multifault AST metadata")
   }
   assert_true(meta_text.contains("source_feature_fact=multi_fault:true"))
-  assert_true(meta_text.contains("source_feature_fact=broad_outcome:validate-rejected"))
+  assert_true(
+    meta_text.contains(
+      "multi_fault_mutation_id=invalid-function-body-local-set-value-type",
+    ),
+  )
+  assert_true(meta_text.contains("multi_fault_broad_outcome=validate-rejected"))
 }
 
 ///|
@@ -111,10 +116,10 @@ test "FUZ1026A2 builds deterministic binary plus text multi-fault stress report"
   let report = build_fuz1026_binary_text_multifault_stress_report(0x1026UL, 2)
   @debug.assert_eq(report.suite, "validate-invalid-binary-text-multifault")
   @debug.assert_eq(report.strategy_id, "binary-text-multifault-invalid-stress")
-  assert_true(report.source_feature_facts.contains("mutation:binary:trailing-garbage"))
+  assert_true(report.multi_fault_mutation_ids.contains("binary:trailing-garbage"))
   assert_true(
-    report.source_feature_facts.contains(
-      "mutation:text:malformed-trailing-garbage",
+    report.multi_fault_mutation_ids.contains(
+      "text:malformed-trailing-garbage",
     ),
   )
   let (meta_path, artifact_paths) = match persist_invalid_fuzz_failure_report(report, io) {
@@ -126,13 +131,30 @@ test "FUZ1026A2 builds deterministic binary plus text multi-fault stress report"
     Some(v) => invalid_repro_test_bytes_to_ascii(v)
     None => fail("missing binary+text multifault metadata")
   }
-  assert_true(meta_text.contains("source_feature_fact=mutation:binary:trailing-garbage"))
+  assert_true(meta_text.contains("multi_fault_mutation_id=binary:trailing-garbage"))
   assert_true(
     meta_text.contains(
-      "source_feature_fact=mutation:text:malformed-trailing-garbage",
+      "multi_fault_mutation_id=text:malformed-trailing-garbage",
     ),
   )
-  assert_true(meta_text.contains("source_feature_fact=broad_outcome:decode-or-parse-rejected"))
+  assert_true(meta_text.contains("multi_fault_broad_outcome=decode-or-parse-rejected"))
+}
+
+///|
+test "FUZ1026B1 parses all multi-fault mutation ids and broad outcomes" {
+  let report = build_fuz1026_binary_text_multifault_stress_report(0x1026UL, 3)
+  let meta_text = invalid_fuzz_failure_meta_text(report)
+  let parsed = match parse_invalid_fuzz_failure_report(meta_text, fn(_) { Ok(b"") }) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(parsed.multi_fault_mutation_ids, [
+    "binary:trailing-garbage",
+    "text:malformed-trailing-garbage",
+  ])
+  @debug.assert_eq(parsed.multi_fault_broad_outcomes, [
+    "decode-or-parse-rejected",
+  ])
 }
 
 ///|

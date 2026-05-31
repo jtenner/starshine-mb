@@ -51,12 +51,12 @@ pub fn build_fuz1026_two_fault_ast_stress_report(
     "validate-rejected",
     actual_stage="validate-rejected",
     actual_diagnostic_family=Some("function-body"),
-    source_feature_facts=[
-      "multi_fault:true",
-      "mutation:invalid-function-body-local-set-value-type",
-      "mutation:invalid-function-body-branch-payload-type",
-      "broad_outcome:validate-rejected",
+    source_feature_facts=["multi_fault:true"],
+    multi_fault_mutation_ids=[
+      "invalid-function-body-local-set-value-type",
+      "invalid-function-body-branch-payload-type",
     ],
+    multi_fault_broad_outcomes=["validate-rejected"],
     artifacts=[
       InvalidFuzzArtifact::new(
         "stress-summary",
@@ -83,12 +83,12 @@ pub fn build_fuz1026_binary_text_multifault_stress_report(
     invalid_fuzz_binary_source_kind(),
     "decode-or-parse-rejected",
     actual_stage="decode-or-parse-rejected",
-    source_feature_facts=[
-      "multi_fault:true",
-      "mutation:binary:trailing-garbage",
-      "mutation:text:malformed-trailing-garbage",
-      "broad_outcome:decode-or-parse-rejected",
+    source_feature_facts=["multi_fault:true"],
+    multi_fault_mutation_ids=[
+      "binary:trailing-garbage",
+      "text:malformed-trailing-garbage",
     ],
+    multi_fault_broad_outcomes=["decode-or-parse-rejected"],
     artifacts=[
       InvalidFuzzArtifact::new(
         "stress-summary",
@@ -303,6 +303,8 @@ pub struct InvalidFuzzFailureReport {
   source_path : String?
   valid_before_link : Bool?
   source_feature_facts : Array[String]
+  multi_fault_mutation_ids : Array[String]
+  multi_fault_broad_outcomes : Array[String]
   artifacts : Array[InvalidFuzzArtifact]
   reduced_artifacts : Array[InvalidFuzzArtifact]
 } derive(Eq, Debug)
@@ -330,6 +332,8 @@ pub fn InvalidFuzzFailureReport::new(
   source_path? : String? = None,
   valid_before_link? : Bool? = None,
   source_feature_facts? : Array[String] = [],
+  multi_fault_mutation_ids? : Array[String] = [],
+  multi_fault_broad_outcomes? : Array[String] = [],
   artifacts? : Array[InvalidFuzzArtifact] = [],
   reduced_artifacts? : Array[InvalidFuzzArtifact] = [],
 ) -> InvalidFuzzFailureReport {
@@ -355,6 +359,8 @@ pub fn InvalidFuzzFailureReport::new(
     source_path,
     valid_before_link,
     source_feature_facts,
+    multi_fault_mutation_ids,
+    multi_fault_broad_outcomes,
     artifacts,
     reduced_artifacts,
   }
@@ -388,6 +394,8 @@ fn invalid_fuzz_failure_report_copy(
     source_path~,
     valid_before_link=report.valid_before_link,
     source_feature_facts=report.source_feature_facts,
+    multi_fault_mutation_ids=report.multi_fault_mutation_ids,
+    multi_fault_broad_outcomes=report.multi_fault_broad_outcomes,
     artifacts=report.artifacts,
     reduced_artifacts~,
   )
@@ -616,6 +624,12 @@ fn invalid_fuzz_failure_meta_text(report : InvalidFuzzFailureReport) -> String {
   }
   for fact in report.source_feature_facts {
     lines.push("source_feature_fact=" + fact)
+  }
+  for id in report.multi_fault_mutation_ids {
+    lines.push("multi_fault_mutation_id=" + id)
+  }
+  for outcome in report.multi_fault_broad_outcomes {
+    lines.push("multi_fault_broad_outcome=" + outcome)
   }
   for line in invalid_fuzz_artifact_meta_lines("artifact", report.artifacts) {
     lines.push(line)
@@ -861,6 +875,8 @@ pub fn parse_invalid_fuzz_failure_report(
   let mut source_path : String? = None
   let mut valid_before_link : Bool? = None
   let source_feature_facts : Array[String] = []
+  let multi_fault_mutation_ids : Array[String] = []
+  let multi_fault_broad_outcomes : Array[String] = []
   let artifacts : Array[InvalidFuzzArtifact] = []
   let reduced_artifacts : Array[InvalidFuzzArtifact] = []
   for raw_line in meta_text.split("\n") {
@@ -926,6 +942,8 @@ pub fn parse_invalid_fuzz_failure_report(
           Err(msg) => return Err(msg)
         }
       "source_feature_fact" => source_feature_facts.push(value)
+      "multi_fault_mutation_id" => multi_fault_mutation_ids.push(value)
+      "multi_fault_broad_outcome" => multi_fault_broad_outcomes.push(value)
       "artifact" =>
         match invalid_fuzz_parse_artifact_entry(value, load_artifact) {
           Ok(v) => artifacts.push(v)
@@ -995,6 +1013,8 @@ pub fn parse_invalid_fuzz_failure_report(
       source_path~,
       valid_before_link~,
       source_feature_facts~,
+      multi_fault_mutation_ids~,
+      multi_fault_broad_outcomes~,
       artifacts~,
       reduced_artifacts~,
     ),
