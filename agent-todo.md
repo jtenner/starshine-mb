@@ -624,7 +624,6 @@ p2 oracle/reporting/infrastructure tiny slices:
 - [FUZ]1053B1 - Persist timeout/resource repro metadata without failing to write partial artifacts.
 - [FUZ]1053B2 - Add cleanup/manifest behavior for partial timeout artifacts.
 - [FUZ]1056A1 - Add curated invalid binary byte-offset/section diagnostic fixture.
-- [FUZ]1056A2 - Add curated invalid text line/column diagnostic fixture.
 - [FUZ]1056B1 - Persist best-effort diagnostic locations in binary invalid repros.
 - [FUZ]1056B2 - Persist best-effort diagnostic locations in text invalid repros.
 
@@ -854,7 +853,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1056 (p2) - Parser Recovery, Error Span, And Diagnostic Location Fuzzing
   - Goal: verify that parser and decoder errors include stable, useful locations when possible.
   - Why: invalid fuzzing currently emphasizes accept/reject and diagnostic family. Developer productivity also depends on error spans, byte offsets, section ids, line/column info, and stable first-error behavior.
-  - Deliverables: add optional expected byte offset/section/line/column checks for curated invalid binary/text cases; fuzz malformed inputs near boundaries; persist diagnostic location metadata in repros.
+  - Deliverables: add optional expected byte offset/section checks for curated invalid binary cases; fuzz malformed inputs near boundaries; persist diagnostic location metadata in repros. `[FUZ]1056A2` closed with WAST parse diagnostics now reporting `filename:line:column` plus a multiline fixture in `src/wast/module_wast_tests.mbt`.
   - Required APIs: binary decoder diagnostics, WAT/WAST parser diagnostics, invalid text/binary strategy specs, repro metadata.
   - Invariants: location assertions should be exact only for curated stable cases; randomized lanes may record locations without requiring exact match.
   - Dependencies: [FUZ]1018 exact diagnostic expectations and [FUZ]1025 repro metadata.

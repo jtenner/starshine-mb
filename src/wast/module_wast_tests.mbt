@@ -1,10 +1,10 @@
 ///|
-test "wast_to_module parse errors include filename and line" {
-  match wast_to_module("(module (func", filename="sample.wast") {
+test "wast_to_module parse errors include filename line and column" {
+  match wast_to_module("(module\n  (func", filename="sample.wast") {
     Ok(_) => fail("expected parse error for incomplete module text")
     Err(msg) => {
       assert_true(msg.contains("sample.wast"))
-      assert_true(msg.contains(":1"))
+      assert_true(msg.contains(":2:8"))
     }
   }
 }

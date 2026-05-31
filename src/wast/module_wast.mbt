@@ -1203,7 +1203,9 @@ pub fn wast_to_module(
   let parser = WastParser::new(lexer)
   Result::Ok(parser.parse_module()) catch {
     ParserError::UnexpectedToken(tok, msg) =>
-      Err("\{msg} at \{tok.location.filename}:\{tok.location.line}")
+      Err(
+        "\{msg} at \{tok.location.filename}:\{tok.location.line}:\{tok.location.first_column}",
+      )
     ParserError::InvalidInstruction(msg) => Err(msg)
     ParserError::Custom(msg) => Err(msg)
   }
@@ -1218,7 +1220,9 @@ pub fn wast_to_script(
   let parser = WastParser::new(lexer)
   Result::Ok(parser.parse_script()) catch {
     ParserError::UnexpectedToken(tok, msg) =>
-      Err("\{msg} at \{tok.location.filename}:\{tok.location.line}")
+      Err(
+        "\{msg} at \{tok.location.filename}:\{tok.location.line}:\{tok.location.first_column}",
+      )
     ParserError::InvalidInstruction(msg) => Err(msg)
     ParserError::Custom(msg) => Err(msg)
   }
