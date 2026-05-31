@@ -164,6 +164,36 @@ test "FUZ1052B5 export invocation summary exposes mismatch predicate" {
 }
 
 ///|
+test "FUZ1052B6 export invocation matrix broad outcome prioritizes mismatches" {
+  let empty = summarize_export_invocation_matrix([])
+  let clean = summarize_export_invocation_matrix([
+    compare_export_invocation_results(
+      "ok", [], ExportInvocationResult::value("i32:1"), ExportInvocationResult::value("i32:1"),
+    ),
+    compare_export_invocation_results(
+      "trap", [], ExportInvocationResult::trap("left"), ExportInvocationResult::trap("right"),
+    ),
+  ])
+  let blocked = summarize_export_invocation_matrix([
+    compare_export_invocation_results(
+      "unsupported", [], ExportInvocationResult::unsupported_runtime("missing"), ExportInvocationResult::value("i32:1"),
+    ),
+  ])
+  let bad = summarize_export_invocation_matrix([
+    compare_export_invocation_results(
+      "unsupported", [], ExportInvocationResult::unsupported_runtime("missing"), ExportInvocationResult::value("i32:1"),
+    ),
+    compare_export_invocation_results(
+      "bad", [], ExportInvocationResult::value("i32:1"), ExportInvocationResult::value("i32:2"),
+    ),
+  ])
+  @debug.assert_eq(classify_export_invocation_matrix(empty), ExportInvocationMatrixOutcome::empty())
+  @debug.assert_eq(classify_export_invocation_matrix(clean), ExportInvocationMatrixOutcome::all_equal())
+  @debug.assert_eq(classify_export_invocation_matrix(blocked), ExportInvocationMatrixOutcome::blocked())
+  @debug.assert_eq(classify_export_invocation_matrix(bad), ExportInvocationMatrixOutcome::semantic_mismatch())
+}
+
+///|
 test "FUZ1053A3 differential adapters classify per-case timeout results" {
   let bytes = encode_fixture_module(23)
   let adapters = DifferentialAdapters::new(

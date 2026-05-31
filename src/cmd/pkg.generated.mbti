@@ -13,6 +13,8 @@ import {
 // Values
 pub fn choose_simple_export_invocation_args(Array[@lib.ValType]) -> Result[Array[String], String]
 
+pub fn classify_export_invocation_matrix(ExportInvocationMatrixSummary) -> ExportInvocationMatrixOutcome
+
 pub fn classify_export_invocation_results(ExportInvocationResult, ExportInvocationResult) -> ExportInvocationClassification
 
 pub fn cmd_fuzz_harness_profile_config(String) -> Result[CmdFuzzHarnessProfileConfig, String]
@@ -179,6 +181,17 @@ pub struct ExportInvocationComparisonReport {
   right_result : ExportInvocationResult
   classification : ExportInvocationClassification
 } derive(Eq, @debug.Debug)
+
+pub enum ExportInvocationMatrixOutcome {
+  Empty
+  AllEqual
+  Blocked
+  SemanticMismatch
+} derive(Eq, @debug.Debug)
+pub fn ExportInvocationMatrixOutcome::all_equal() -> Self
+pub fn ExportInvocationMatrixOutcome::blocked() -> Self
+pub fn ExportInvocationMatrixOutcome::empty() -> Self
+pub fn ExportInvocationMatrixOutcome::semantic_mismatch() -> Self
 
 pub struct ExportInvocationMatrixSummary {
   total : Int

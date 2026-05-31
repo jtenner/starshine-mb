@@ -94,6 +94,14 @@ pub struct ExportInvocationMatrixSummary {
 } derive(Eq, Debug)
 
 ///|
+pub enum ExportInvocationMatrixOutcome {
+  Empty
+  AllEqual
+  Blocked
+  SemanticMismatch
+} derive(Eq, Debug)
+
+///|
 pub fn ExportInvocationClassification::equal_result() -> ExportInvocationClassification {
   EqualResult
 }
@@ -118,6 +126,26 @@ pub fn ExportInvocationClassification::semantic_mismatch(
   message : String,
 ) -> ExportInvocationClassification {
   SemanticMismatch(message)
+}
+
+///|
+pub fn ExportInvocationMatrixOutcome::empty() -> ExportInvocationMatrixOutcome {
+  Empty
+}
+
+///|
+pub fn ExportInvocationMatrixOutcome::all_equal() -> ExportInvocationMatrixOutcome {
+  AllEqual
+}
+
+///|
+pub fn ExportInvocationMatrixOutcome::blocked() -> ExportInvocationMatrixOutcome {
+  Blocked
+}
+
+///|
+pub fn ExportInvocationMatrixOutcome::semantic_mismatch() -> ExportInvocationMatrixOutcome {
+  SemanticMismatch
 }
 
 ///|
@@ -213,6 +241,21 @@ pub fn export_invocation_summary_has_semantic_mismatch(
   summary : ExportInvocationMatrixSummary,
 ) -> Bool {
   summary.semantic_mismatches > 0
+}
+
+///|
+pub fn classify_export_invocation_matrix(
+  summary : ExportInvocationMatrixSummary,
+) -> ExportInvocationMatrixOutcome {
+  if summary.total == 0 {
+    Empty
+  } else if summary.semantic_mismatches > 0 {
+    SemanticMismatch
+  } else if summary.unsupported_runtimes > 0 || summary.nondeterministic_imports > 0 {
+    Blocked
+  } else {
+    AllEqual
+  }
 }
 
 ///|
