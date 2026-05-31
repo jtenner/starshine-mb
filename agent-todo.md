@@ -615,7 +615,6 @@ Use this board as the tracking view for fuzzer work. Each slice should be small 
 p1 next-up / active:
 
 p2 invalid/binary/text tiny slices:
-- [FUZ]1022A5 - Add decode-accepted binary cases for GC struct/array field failures.
 - [FUZ]1022B1 - Add decode-accepted binary cases for exception validation failures.
 - [FUZ]1022B2 - Add decode-accepted binary cases for atomics on non-shared memory.
 - [FUZ]1022B3 - Add decode-accepted binary cases for memory64 address typing failures.
@@ -744,7 +743,7 @@ p2 invalid/binary/text slices:
   - Exit Criteria: binary-invalid smoke/CI can prove coverage for many malformed byte classes rather than only the current curated set.
 
 - [FUZ]1022 (p2) - Invalid Binary Validator-Rejected Encoded Modules
-  - Status: `[FUZ]1022A1` through `[FUZ]1022A4` are implemented locally with decode-accepted binary strategies that encode existing AST invalid body stack, branch payload, local-index, and call_ref mutations, plus focused binary validation-stage tests.
+  - Status: `[FUZ]1022A1` through `[FUZ]1022A5` are implemented locally with decode-accepted binary strategies that encode existing AST invalid body stack, branch payload, local-index, call_ref, and struct.get field-index mutations, plus focused binary validation-stage tests.
   - Goal: expand binary-invalid cases that decode successfully but fail validation for semantic reasons.
   - Why: encoded invalid AST modules currently cover several families, but body-level and proposal-heavy validation failures need more direct binary evidence.
   - Deliverables: add validator-rejected binary strategies for body stack mismatch, bad branch labels/payloads, bad local/global/table/memory/tag/type indices, invalid call_indirect/call_ref signatures, GC field/array errors, invalid exception payloads, atomic-on-non-shared memory, invalid memory64 address typing, invalid const expressions, and relaxed SIMD validation failures where represented.
