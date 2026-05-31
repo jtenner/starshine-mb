@@ -19,6 +19,145 @@ pub fn DifferentialAdapters::new(
 }
 
 ///|
+pub struct TextParsePrintLowerReport {
+  adapter_name : String
+  original_parse_ok : Bool
+  print_ok : Bool
+  reparse_lower_ok : Bool
+  printed_text : String?
+  original_lowered_bytes : Bytes?
+  reparsed_lowered_bytes : Bytes?
+  message : String?
+} derive(Eq, Debug)
+
+///|
+fn encode_text_matrix_module(mod : Module) -> Result[Bytes, String] {
+  match encode_module(mod) {
+    Ok(bytes) => Ok(bytes)
+    Err(e) => Err("encode failed: \{e}")
+  }
+}
+
+///|
+pub fn run_local_text_parse_print_lower_matrix(
+  source : String,
+  filename? : String = "fuzz-text.wat",
+) -> TextParsePrintLowerReport {
+  let adapter_name = "starshine-local"
+  let parsed = match @wast.wast_to_module(source, filename~) {
+    Ok(wast_mod) => wast_mod
+    Err(e) =>
+      return TextParsePrintLowerReport::{
+        adapter_name,
+        original_parse_ok: false,
+        print_ok: false,
+        reparse_lower_ok: false,
+        printed_text: None,
+        original_lowered_bytes: None,
+        reparsed_lowered_bytes: None,
+        message: Some("parse failed: \{e}"),
+      }
+  }
+  let original_lowered = match @wast.wast_ast_to_binary_module(parsed) {
+    Ok(mod) => mod
+    Err(e) =>
+      return TextParsePrintLowerReport::{
+        adapter_name,
+        original_parse_ok: true,
+        print_ok: false,
+        reparse_lower_ok: false,
+        printed_text: None,
+        original_lowered_bytes: None,
+        reparsed_lowered_bytes: None,
+        message: Some("lower failed: \{e}"),
+      }
+  }
+  let original_lowered_bytes = match
+    encode_text_matrix_module(original_lowered) {
+    Ok(bytes) => Some(bytes)
+    Err(e) =>
+      return TextParsePrintLowerReport::{
+        adapter_name,
+        original_parse_ok: true,
+        print_ok: false,
+        reparse_lower_ok: false,
+        printed_text: None,
+        original_lowered_bytes: None,
+        reparsed_lowered_bytes: None,
+        message: Some(e),
+      }
+  }
+  let printed_text = match @wast.module_to_wast(parsed) {
+    Ok(text) => text
+    Err(e) =>
+      return TextParsePrintLowerReport::{
+        adapter_name,
+        original_parse_ok: true,
+        print_ok: false,
+        reparse_lower_ok: false,
+        printed_text: None,
+        original_lowered_bytes,
+        reparsed_lowered_bytes: None,
+        message: Some("print failed: \{e}"),
+      }
+  }
+  let reparsed = match
+    @wast.wast_to_module(printed_text, filename="\{filename}.printed") {
+    Ok(wast_mod) => wast_mod
+    Err(e) =>
+      return TextParsePrintLowerReport::{
+        adapter_name,
+        original_parse_ok: true,
+        print_ok: true,
+        reparse_lower_ok: false,
+        printed_text: Some(printed_text),
+        original_lowered_bytes,
+        reparsed_lowered_bytes: None,
+        message: Some("reparse failed: \{e}"),
+      }
+  }
+  let reparsed_lowered = match @wast.wast_ast_to_binary_module(reparsed) {
+    Ok(mod) => mod
+    Err(e) =>
+      return TextParsePrintLowerReport::{
+        adapter_name,
+        original_parse_ok: true,
+        print_ok: true,
+        reparse_lower_ok: false,
+        printed_text: Some(printed_text),
+        original_lowered_bytes,
+        reparsed_lowered_bytes: None,
+        message: Some("reparse lower failed: \{e}"),
+      }
+  }
+  let reparsed_lowered_bytes = match
+    encode_text_matrix_module(reparsed_lowered) {
+    Ok(bytes) => Some(bytes)
+    Err(e) =>
+      return TextParsePrintLowerReport::{
+        adapter_name,
+        original_parse_ok: true,
+        print_ok: true,
+        reparse_lower_ok: false,
+        printed_text: Some(printed_text),
+        original_lowered_bytes,
+        reparsed_lowered_bytes: None,
+        message: Some(e),
+      }
+  }
+  TextParsePrintLowerReport::{
+    adapter_name,
+    original_parse_ok: true,
+    print_ok: true,
+    reparse_lower_ok: true,
+    printed_text: Some(printed_text),
+    original_lowered_bytes,
+    reparsed_lowered_bytes,
+    message: None,
+  }
+}
+
+///|
 pub struct DifferentialValidationReport {
   internal_valid : Bool
   wasm_tools_valid : Bool?

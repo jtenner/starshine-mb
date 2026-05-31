@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1045A4 local text parse/print/lower matrix
+
+- Closed `[FUZ]1045A4` by adding a local `run_local_text_parse_print_lower_matrix(...)` helper in `src/cmd/fuzz_harness.mbt`.
+- The helper parses WAT/WAST text into Starshine's WAST AST, lowers and encodes the original module, prints the AST back to text, reparses/relowers the printed text, and returns a report with local adapter name, stage booleans, printed text, optional encoded bytes, and diagnostic text for the first failed stage.
+- Validation: `moon test src/cmd` first failed on the missing local-matrix helper, then passed after adding the report shape, helper, and focused success/parse-failure tests. Final validation also passed `bun test scripts/lib/fuzz-text-adapters.test.ts`, `git diff --check`, `moon info`, `moon fmt`, and `moon test`.
+
 ## [2026-05-31] fuzzing | FUZ1022B9 relaxed-SIMD binary validation
 
 - Closed `[FUZ]1022B9` by adding the AST-invalid strategy `invalid-function-body-relaxed-simd-laneselect-mask-type` plus the decode-accepted binary-invalid strategy `invalid-binary-relaxed-simd-laneselect-mask-type-module`.

@@ -53,6 +53,8 @@ pub fn run_cmd_fuzz_harness_profile(String, UInt64) -> Result[CmdFuzzStats, Stri
 
 pub fn run_cmd_with_adapter(Array[String], CmdIO, config_json? : String?) -> Result[CmdRunSummary, CmdError]
 
+pub fn run_local_text_parse_print_lower_matrix(String, filename? : String) -> TextParsePrintLowerReport
+
 pub fn summarize_binary_canonicality_classifications(Array[BinaryCanonicalityClassification]) -> BinaryCanonicalitySummary
 
 pub fn summarize_export_invocation_matrix(Array[ExportInvocationComparisonReport]) -> ExportInvocationMatrixSummary
@@ -352,6 +354,17 @@ pub impl Show for OptimizeValidationPolicy
 
 type ReadmeApiVerifyBlock derive(Eq, @debug.Debug)
 pub impl Show for ReadmeApiVerifyBlock
+
+pub struct TextParsePrintLowerReport {
+  adapter_name : String
+  original_parse_ok : Bool
+  print_ok : Bool
+  reparse_lower_ok : Bool
+  printed_text : String?
+  original_lowered_bytes : Bytes?
+  reparsed_lowered_bytes : Bytes?
+  message : String?
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 

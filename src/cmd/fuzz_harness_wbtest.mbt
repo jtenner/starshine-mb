@@ -21,6 +21,52 @@ fn bytes_to_ascii(bytes : Bytes) -> String {
 }
 
 ///|
+test "FUZ1045A4 local text matrix lowers prints and reparses valid WAT" {
+  let report = run_local_text_parse_print_lower_matrix(
+    "(module (func (export \"answer\") (result i32) i32.const 42))",
+    filename="local-matrix.wat",
+  )
+  @debug.assert_eq(report.adapter_name, "starshine-local")
+  let msg = match report.message {
+    Some(v) => v
+    None => ""
+  }
+  assert_true(report.original_parse_ok, msg~)
+  assert_true(report.print_ok, msg~)
+  assert_true(report.reparse_lower_ok, msg~)
+  match report.printed_text {
+    Some(text) => assert_true(text.contains("answer"), msg=text)
+    None => fail("expected printed text")
+  }
+  match (report.original_lowered_bytes, report.reparsed_lowered_bytes) {
+    (Some(original), Some(reparsed)) => {
+      assert_true(original.length() > 0)
+      @debug.assert_eq(reparsed, original)
+    }
+    _ => fail("expected original and reparsed bytes")
+  }
+}
+
+///|
+test "FUZ1045A4 local text matrix reports parse failure without print or reparse" {
+  let report = run_local_text_parse_print_lower_matrix(
+    "(module (func",
+    filename="bad.wat",
+  )
+  @debug.assert_eq(report.adapter_name, "starshine-local")
+  assert_false(report.original_parse_ok)
+  assert_false(report.print_ok)
+  assert_false(report.reparse_lower_ok)
+  @debug.assert_eq(report.printed_text, None)
+  @debug.assert_eq(report.original_lowered_bytes, None)
+  @debug.assert_eq(report.reparsed_lowered_bytes, None)
+  match report.message {
+    Some(msg) => assert_true(msg.contains("parse"), msg~)
+    None => fail("expected parse failure message")
+  }
+}
+
+///|
 test "differential_validate_wasm returns report when all validators agree" {
   let bytes = encode_fixture_module(11)
   let adapters = DifferentialAdapters::new(
