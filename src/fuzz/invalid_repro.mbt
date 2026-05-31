@@ -70,6 +70,38 @@ pub fn build_fuz1026_two_fault_ast_stress_report(
 }
 
 ///|
+pub fn build_fuz1026_binary_text_multifault_stress_report(
+  seed : UInt64,
+  attempt : Int,
+) -> InvalidFuzzFailureReport {
+  InvalidFuzzFailureReport::new(
+    "validate-invalid-binary-text-multifault",
+    "stress",
+    seed,
+    attempt,
+    "binary-text-multifault-invalid-stress",
+    invalid_fuzz_binary_source_kind(),
+    "decode-or-parse-rejected",
+    actual_stage="decode-or-parse-rejected",
+    source_feature_facts=[
+      "multi_fault:true",
+      "mutation:binary:trailing-garbage",
+      "mutation:text:malformed-trailing-garbage",
+      "broad_outcome:decode-or-parse-rejected",
+    ],
+    artifacts=[
+      InvalidFuzzArtifact::new(
+        "stress-summary",
+        "binary-text-multifault-invalid-stress.txt",
+        invalid_fuzz_string_bytes(
+          "multi_fault=true\nmutation=binary:trailing-garbage\nmutation=text:malformed-trailing-garbage\nbroad_outcome=decode-or-parse-rejected\n",
+        ),
+      ),
+    ],
+  )
+}
+
+///|
 pub enum FuzzReductionFailureKind {
   ValidationFailure
   ParseFailure

@@ -11,6 +11,8 @@ import {
 // Values
 pub fn apply_validate_invalid_binary_strategy(ValidateInvalidBinaryStrategyId, @lib.Module) -> Result[ValidateInvalidBinaryMutation, String]
 
+pub fn build_fuz1026_binary_text_multifault_stress_report(UInt64, Int) -> InvalidFuzzFailureReport
+
 pub fn build_fuz1026_two_fault_ast_stress_report(UInt64, Int) -> InvalidFuzzFailureReport
 
 pub fn build_fuzz_resume_shard_queue(FuzzRecipe, String?, Array[String]) -> Result[Array[FuzzShardWorkItem], String]

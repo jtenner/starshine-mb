@@ -99,6 +99,43 @@ test "FUZ1026A1 builds deterministic two-fault AST invalid stress report" {
 }
 
 ///|
+test "FUZ1026A2 builds deterministic binary plus text multi-fault stress report" {
+  let writes : Map[String, Bytes] = {}
+  let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
+    path,
+    bytes,
+  ) {
+    writes[path] = bytes
+    Ok(())
+  })
+  let report = build_fuz1026_binary_text_multifault_stress_report(0x1026UL, 2)
+  @debug.assert_eq(report.suite, "validate-invalid-binary-text-multifault")
+  @debug.assert_eq(report.strategy_id, "binary-text-multifault-invalid-stress")
+  assert_true(report.source_feature_facts.contains("mutation:binary:trailing-garbage"))
+  assert_true(
+    report.source_feature_facts.contains(
+      "mutation:text:malformed-trailing-garbage",
+    ),
+  )
+  let (meta_path, artifact_paths) = match persist_invalid_fuzz_failure_report(report, io) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(artifact_paths.length(), 1)
+  let meta_text = match writes.get(meta_path) {
+    Some(v) => invalid_repro_test_bytes_to_ascii(v)
+    None => fail("missing binary+text multifault metadata")
+  }
+  assert_true(meta_text.contains("source_feature_fact=mutation:binary:trailing-garbage"))
+  assert_true(
+    meta_text.contains(
+      "source_feature_fact=mutation:text:malformed-trailing-garbage",
+    ),
+  )
+  assert_true(meta_text.contains("source_feature_fact=broad_outcome:decode-or-parse-rejected"))
+}
+
+///|
 test "persist_invalid_fuzz_failure_report writes deterministic suite strategy layout" {
   let ensured_dirs : Array[String] = []
   let writes : Array[(String, Bytes)] = []
