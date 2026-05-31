@@ -209,6 +209,13 @@ pub fn summarize_export_invocation_matrix(
 }
 
 ///|
+pub fn export_invocation_summary_has_semantic_mismatch(
+  summary : ExportInvocationMatrixSummary,
+) -> Bool {
+  summary.semantic_mismatches > 0
+}
+
+///|
 pub struct CmdFuzzStats {
   attempts : Int
   generated_valid : Int

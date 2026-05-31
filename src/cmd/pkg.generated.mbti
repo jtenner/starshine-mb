@@ -25,6 +25,8 @@ pub fn compare_export_invocation_results(String, Array[String], ExportInvocation
 
 pub fn differential_validate_wasm(Bytes, adapters? : DifferentialAdapters) -> Result[DifferentialValidationReport, String]
 
+pub fn export_invocation_summary_has_semantic_mismatch(ExportInvocationMatrixSummary) -> Bool
+
 pub fn minimize_fuzz_passes(Array[String], (Array[String]) -> Bool) -> Array[String]
 
 pub fn native_differential_tools_available() -> (Bool, Bool)

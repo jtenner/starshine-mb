@@ -148,6 +148,22 @@ test "FUZ1052B4 export invocation matrix summary counts classifications" {
 }
 
 ///|
+test "FUZ1052B5 export invocation summary exposes mismatch predicate" {
+  let clean = summarize_export_invocation_matrix([
+    compare_export_invocation_results(
+      "ok", [], ExportInvocationResult::value("i32:1"), ExportInvocationResult::value("i32:1"),
+    ),
+  ])
+  let bad = summarize_export_invocation_matrix([
+    compare_export_invocation_results(
+      "bad", [], ExportInvocationResult::value("i32:1"), ExportInvocationResult::value("i32:2"),
+    ),
+  ])
+  assert_true(!export_invocation_summary_has_semantic_mismatch(clean))
+  assert_true(export_invocation_summary_has_semantic_mismatch(bad))
+}
+
+///|
 test "FUZ1053A3 differential adapters classify per-case timeout results" {
   let bytes = encode_fixture_module(23)
   let adapters = DifferentialAdapters::new(
