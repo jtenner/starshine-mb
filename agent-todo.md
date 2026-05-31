@@ -617,7 +617,6 @@ p1 next-up / active:
   - Blocker/evidence: numeric constants are valid for global initializers and active data/element offsets, but a table initializer expression must produce the table element reference type, not a numeric value. `wasm-tools validate .tmp/fuz1037b-table-init-numeric.wat` rejects `(table 1 funcref (i32.const 0))` with `type mismatch: expected funcref, found i32`. Starshine's checked-in GenValid const-expression matrix already excludes `NumericConstExprOp` from `TableInitializerConstExpr` for this reason. Resume only if the slice is redefined to cover numeric table limits/indices instead of table initializer expressions, or split the valid global/data/element numeric coverage into a narrower task.
 
 p2 invalid/binary/text tiny slices:
-- [FUZ]1022A1 - Add decode-accepted binary cases for body stack mismatches.
 - [FUZ]1022A2 - Add decode-accepted binary cases for bad branch labels/payloads.
 - [FUZ]1022A3 - Add decode-accepted binary cases for bad local/global/table/memory/tag/type indices.
 - [FUZ]1022A4 - Add decode-accepted binary cases for call_indirect/call_ref signature failures.
@@ -750,6 +749,7 @@ p2 invalid/binary/text slices:
   - Exit Criteria: binary-invalid smoke/CI can prove coverage for many malformed byte classes rather than only the current curated set.
 
 - [FUZ]1022 (p2) - Invalid Binary Validator-Rejected Encoded Modules
+  - Status: `[FUZ]1022A1` is implemented locally with a decode-accepted binary strategy that encodes the existing AST invalid local.set body-stack mutation, plus a focused binary validation-stage test.
   - Goal: expand binary-invalid cases that decode successfully but fail validation for semantic reasons.
   - Why: encoded invalid AST modules currently cover several families, but body-level and proposal-heavy validation failures need more direct binary evidence.
   - Deliverables: add validator-rejected binary strategies for body stack mismatch, bad branch labels/payloads, bad local/global/table/memory/tag/type indices, invalid call_indirect/call_ref signatures, GC field/array errors, invalid exception payloads, atomic-on-non-shared memory, invalid memory64 address typing, invalid const expressions, and relaxed SIMD validation failures where represented.

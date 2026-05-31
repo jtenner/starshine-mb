@@ -84,6 +84,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidImportedTagTypeIndexModule
   DataCountMismatchTooSmallModule
   DataCountMismatchTooLargeModule
+  InvalidBinaryBodyLocalSetValueTypeModule
   MalformedSimdImmediate
   SimdLaneIndexOverflow
   MalformedCustomSectionPayload
@@ -858,6 +859,8 @@ fn validate_invalid_binary_strategy_label(
       "invalid-imported-tag-type-index-module"
     DataCountMismatchTooSmallModule => "datacount-mismatch-too-small-module"
     DataCountMismatchTooLargeModule => "datacount-mismatch-too-large-module"
+    InvalidBinaryBodyLocalSetValueTypeModule =>
+      "invalid-binary-body-local-set-value-type-module"
     MalformedSimdImmediate => "malformed-simd-immediate"
     SimdLaneIndexOverflow => "simd-lane-index-overflow"
     MalformedCustomSectionPayload => "malformed-custom-section-payload"
@@ -1725,6 +1728,13 @@ pub fn validate_invalid_binary_registry() -> Array[
       "datacount-mismatch-too-large-module",
       "encoded module with datacount larger than data segment count",
       ValidateRejected("datacount"),
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryBodyLocalSetValueTypeModule,
+      "invalid-binary-body-local-set-value-type-module",
+      "encoded module with a local.set body stack type mismatch",
+      ValidateRejected("function-body"),
+      required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
       DuplicateImportSection,
@@ -17494,6 +17504,21 @@ pub fn apply_validate_invalid_binary_strategy(
         DataCountMismatchTooLargeModule,
         ast_strategy,
         "datacount",
+        base,
+      )
+    }
+    InvalidBinaryBodyLocalSetValueTypeModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-function-body-local-set-value-type",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryBodyLocalSetValueTypeModule,
+        ast_strategy,
+        "function-body",
         base,
       )
     }
