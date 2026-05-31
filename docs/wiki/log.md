@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-30] fuzzing | FUZ1052B1 deterministic export arguments
+
+- Completed `[FUZ]1052B1` by adding a deterministic simple exported-function argument-vector helper for the Node runtime smoke adapter. The current vector is arity-capped and fills parameters with numeric zero values, giving i32/f32/f64-compatible exports a stable invocation surface while later result-classification slices can widen type-specific probes.
+- The runtime smoke adapter now invokes simple non-zero-argument exports with that vector instead of limiting smoke calls to zero-argument functions. Removed the completed tiny slice from the active FUZ board.
+
 ## [2026-05-30] fuzzing | FUZ1048B coverage-delta counter example
 
 - Completed `[FUZ]1048B` by adding a minimal `bun fuzz coverage-delta` summary JSON example to [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md), showing required feature/opcode/strategy counters, optional counters, and always-reported artifact/failure/pass/timing drift.

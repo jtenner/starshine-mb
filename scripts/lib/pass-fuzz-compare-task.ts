@@ -595,6 +595,15 @@ export function runtimeImportStubCandidates(descriptor: WebAssembly.ModuleImport
   }
 }
 
+export function deterministicExportArgumentVector(func: Function): unknown[] {
+  const arity = Math.max(0, Math.min(func.length, 8));
+  const args: unknown[] = [];
+  for (let index = 0; index < arity; index += 1) {
+    args.push(0);
+  }
+  return args;
+}
+
 export async function smokeExecuteNodeRuntime(
   wasmPath: string,
 ): Promise<{ ok: boolean; unsupported: boolean; detail: string }> {
@@ -641,9 +650,10 @@ export async function smokeExecuteNodeRuntime(
     }
     let invoked = 0;
     for (const value of Object.values(instance.exports)) {
-      if (typeof value === "function" && value.length === 0) {
+      if (typeof value === "function") {
+        const args = deterministicExportArgumentVector(value);
         try {
-          value();
+          value(...args);
           invoked += 1;
         } catch {
           invoked += 1;
@@ -658,8 +668,8 @@ export async function smokeExecuteNodeRuntime(
       unsupported: false,
       detail:
         invoked === 0
-          ? "instantiated; no zero-arg function exports"
-          : `instantiated; invoked ${invoked} zero-arg function export(s)`,
+          ? "instantiated; no function exports"
+          : `instantiated; invoked ${invoked} function export(s) with deterministic simple argument vector(s)`,
     };
   } catch (error) {
     return { ok: false, unsupported: true, detail: commandFailureDetail(error) };

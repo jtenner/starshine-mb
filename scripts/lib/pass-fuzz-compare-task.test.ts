@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
-import { smokeExecuteNodeRuntime } from "./pass-fuzz-compare-task";
+import { deterministicExportArgumentVector, smokeExecuteNodeRuntime } from "./pass-fuzz-compare-task";
 
 function wasmFromWat(wat: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-runtime-stubs-"));
@@ -17,6 +17,31 @@ function wasmFromWat(wat: string): string {
   }
   return wasmPath;
 }
+
+describe("runtime export invocation", () => {
+  test("choose deterministic zero argument vectors from exported function arity", () => {
+    function noArgs() { return 1; }
+    function threeArgs(_a: unknown, _b: unknown, _c: unknown) { return 1; }
+
+    expect(deterministicExportArgumentVector(noArgs)).toEqual([]);
+    expect(deterministicExportArgumentVector(threeArgs)).toEqual([0, 0, 0]);
+  });
+
+  test("invoke simple non-zero-arg exported functions with deterministic arguments", async () => {
+    const wasmPath = wasmFromWat(`
+      (module
+        (func (export "add") (param i32 i32) (result i32)
+          local.get 0
+          local.get 1
+          i32.add))
+    `);
+
+    const result = await smokeExecuteNodeRuntime(wasmPath);
+
+    expect(result).toMatchObject({ ok: true, unsupported: false });
+    expect(result.detail).toContain("deterministic simple argument vector");
+  });
+});
 
 describe("runtime import stubs", () => {
   test("instantiate i64 global imports with deterministic zero BigInt stubs", async () => {
