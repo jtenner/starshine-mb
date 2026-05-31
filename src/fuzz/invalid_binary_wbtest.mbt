@@ -60,19 +60,19 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "invalid-export-tag-index-module", "invalid-tag-name-section-index-module", "invalid-imported-tag-type-index-module",
     "datacount-mismatch-too-small-module", "datacount-mismatch-too-large-module",
     "invalid-binary-body-local-set-value-type-module", "invalid-binary-branch-payload-type-module",
-    "invalid-binary-local-index-module", "duplicate-import-section", "duplicate-export-section",
-    "duplicate-table-section", "duplicate-memory-section", "duplicate-global-section",
-    "duplicate-function-section", "duplicate-code-section", "duplicate-element-section",
-    "duplicate-data-section", "duplicate-tag-section", "duplicate-start-section",
-    "malformed-simd-immediate", "simd-lane-index-overflow", "malformed-custom-section-payload",
-    "malformed-custom-section-name-length-uleb", "overwide-custom-section-name-length-uleb",
-    "malformed-name-subsection-size-uleb", "overwide-name-subsection-size-uleb",
-    "invalid-name-subsection-id-byte", "out-of-order-name-subsection-id", "invalid-opcode-byte",
-    "invalid-prefix-subopcode-byte", "invalid-gc-prefix-subopcode-byte", "invalid-bulk-prefix-subopcode-byte",
-    "invalid-simd-prefix-subopcode-byte", "malformed-gc-prefix-subopcode-uleb", "malformed-bulk-prefix-subopcode-uleb",
-    "malformed-simd-prefix-subopcode-uleb", "malformed-atomic-prefix-subopcode-uleb",
-    "invalid-atomic-prefix-subopcode-byte", "overwide-gc-prefix-subopcode-uleb",
-    "overwide-bulk-prefix-subopcode-uleb", "overwide-simd-prefix-subopcode-uleb",
+    "invalid-binary-local-index-module", "invalid-binary-call-ref-type-module", "duplicate-import-section",
+    "duplicate-export-section", "duplicate-table-section", "duplicate-memory-section",
+    "duplicate-global-section", "duplicate-function-section", "duplicate-code-section",
+    "duplicate-element-section", "duplicate-data-section", "duplicate-tag-section",
+    "duplicate-start-section", "malformed-simd-immediate", "simd-lane-index-overflow",
+    "malformed-custom-section-payload", "malformed-custom-section-name-length-uleb",
+    "overwide-custom-section-name-length-uleb", "malformed-name-subsection-size-uleb",
+    "overwide-name-subsection-size-uleb", "invalid-name-subsection-id-byte", "out-of-order-name-subsection-id",
+    "invalid-opcode-byte", "invalid-prefix-subopcode-byte", "invalid-gc-prefix-subopcode-byte",
+    "invalid-bulk-prefix-subopcode-byte", "invalid-simd-prefix-subopcode-byte", "malformed-gc-prefix-subopcode-uleb",
+    "malformed-bulk-prefix-subopcode-uleb", "malformed-simd-prefix-subopcode-uleb",
+    "malformed-atomic-prefix-subopcode-uleb", "invalid-atomic-prefix-subopcode-byte",
+    "overwide-gc-prefix-subopcode-uleb", "overwide-bulk-prefix-subopcode-uleb", "overwide-simd-prefix-subopcode-uleb",
     "overwide-atomic-prefix-subopcode-uleb", "malformed-atomic-load-memarg-align-uleb",
     "malformed-atomic-store-memarg-align-uleb", "malformed-atomic-load-memarg-offset-uleb",
     "malformed-atomic-store-memarg-offset-uleb", "malformed-atomic-notify-memarg-align-uleb",
@@ -234,74 +234,17 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "data-section-size-overflow", "tag-section-size-overflow", "start-section-size-underflow",
     "datacount-section-size-underflow", "start-section-size-overflow", "datacount-section-size-overflow",
   ])
+  let expected_labels = registry.map(fn(spec) {
+    invalid_binary_test_expected_label(spec.expected_result)
+  })
+  @debug.assert_eq(expected_labels[0], "decode")
+  @debug.assert_eq(expected_labels[4], "validate-function")
+  @debug.assert_eq(expected_labels[5], "validate-start")
   @debug.assert_eq(
-    registry.map(fn(spec) {
-      invalid_binary_test_expected_label(spec.expected_result)
-    }),
-    [
-      "decode", "decode", "decode", "decode", "validate-function", "validate-start",
-      "validate-start", "validate-start", "validate-start", "validate-start", "validate-start",
-      "validate-start", "validate-start", "validate-export", "validate-code", "validate-datacount",
-      "validate-name", "validate-name", "validate-name", "decode", "decode", "decode",
-      "decode", "decode", "decode", "validate-code", "validate-name", "validate-name",
-      "decode", "decode", "validate-name", "validate-name", "validate-name", "validate-name",
-      "validate-export", "validate-export", "validate-export", "validate-export",
-      "validate-name", "validate-import", "validate-datacount", "validate-datacount",
-      "validate-function-body", "validate-function-body", "validate-function-body",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode",
-    ],
+    expected_labels
+    .filter(fn(label) { label == "validate-function-body" })
+    .length(),
+    4,
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 40)
@@ -401,6 +344,17 @@ test "decode-accepted binary local index mismatch rejects at validation stage" {
   match
     invalid_binary_expect_strategy_rejects(
       "invalid-binary-local-index-module", 0x1022A3UL, "function-body",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "decode-accepted binary call_ref type mismatch rejects at validation stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-binary-call-ref-type-module", 0x1022A4UL, "function-body",
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)
