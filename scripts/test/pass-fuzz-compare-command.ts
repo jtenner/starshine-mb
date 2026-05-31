@@ -658,7 +658,8 @@ export function runPassFuzzCompareRuntimeExecutionNodeTest(): void {
   const repoRoot = path.resolve(import.meta.dir, "..", "..");
   const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-runtime-"));
   const outDir = path.join(tmpdir, "out");
-  const wasmBase64 = "AGFzbQEAAAABBAFgAAADAgEABwcBA2ZvbwAACgQBAgAL";
+  // (module (func (export "foo") (param i32 i32) (result i32) local.get 0 local.get 1 i32.add))
+  const wasmBase64 = "AGFzbQEAAAABBwFgAn9/AX8DAgEABwcBA2ZvbwAACgkBBwAgACABags=";
 
   const fakeStarshine = makeExecutable(
     path.join(tmpdir, "fake-starshine"),

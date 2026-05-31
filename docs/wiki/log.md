@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-30] fuzzing | FUZ1052B2 optional runtime simple export execution
+
+- Completed `[FUZ]1052B2` by moving the pass-fuzz compare command-level `--runtime-execution node` fixture from a zero-argument export to a simple exported `i32.add` function with two `i32` parameters.
+- The integration test now proves the optional runtime adapter executes at least one simple exported function through the pass-fuzz compare harness and records it as a checked runtime execution. Removed the completed tiny slice from the active FUZ board.
+
 ## [2026-05-30] fuzzing | FUZ1052B1 deterministic export arguments
 
 - Completed `[FUZ]1052B1` by adding a deterministic simple exported-function argument-vector helper for the Node runtime smoke adapter. The current vector is arity-capped and fills parameters with numeric zero values, giving i32/f32/f64-compatible exports a stable invocation surface while later result-classification slices can widen type-specific probes.
