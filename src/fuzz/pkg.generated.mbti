@@ -1112,6 +1112,16 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidImportedTagTypeIndexModule
   DataCountMismatchTooSmallModule
   DataCountMismatchTooLargeModule
+  InvalidBinaryBodyLocalSetValueTypeModule
+  InvalidBinaryBranchPayloadTypeModule
+  InvalidBinaryLocalIndexModule
+  InvalidBinaryCallRefTypeModule
+  InvalidBinaryStructGetFieldIndexModule
+  InvalidBinaryThrowPayloadModule
+  InvalidBinarySharedMemoryWithoutMaxModule
+  InvalidBinaryMemory64AddressTypeModule
+  InvalidBinaryGlobalInitTypeModule
+  InvalidBinaryRelaxedSimdSwizzleLeftTypeModule
   MalformedSimdImmediate
   SimdLaneIndexOverflow
   MalformedCustomSectionPayload

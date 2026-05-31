@@ -5767,6 +5767,7 @@ priv struct ValidateTestTableLimitForms {
   externref_table : Bool
   gc_table : Bool
   init_expr : Bool
+  nonzero_active_elem_table : Bool
 }
 
 ///|
@@ -5777,6 +5778,7 @@ fn validate_test_table_limit_forms_empty() -> ValidateTestTableLimitForms {
     externref_table: false,
     gc_table: false,
     init_expr: false,
+    nonzero_active_elem_table: false,
   }
 }
 
@@ -5806,6 +5808,7 @@ fn validate_test_table_limit_forms_table(
     externref_table: forms.externref_table || externref_table,
     gc_table: forms.gc_table || gc_table,
     init_expr: forms.init_expr || init_opt is Some(_),
+    nonzero_active_elem_table: forms.nonzero_active_elem_table,
   }
 }
 
@@ -5836,6 +5839,18 @@ fn validate_test_table_limit_forms_module(
       }
     None => ()
   }
+  match mod.elem_sec {
+    Some(ElemSec(elems)) =>
+      for elem in elems {
+        let Elem(mode, _) = elem
+        match mode {
+          Active(TableIdx(table_idx), _) if table_idx.reinterpret_as_int() > 0 =>
+            forms = { ..forms, nonzero_active_elem_table: true }
+          _ => ()
+        }
+      }
+    None => ()
+  }
   forms
 }
 
@@ -5854,6 +5869,7 @@ test "gen_valid coverage-forced emits table limit and initializer variants" {
   assert_true(forms.externref_table)
   assert_true(forms.gc_table)
   assert_true(forms.init_expr)
+  assert_true(forms.nonzero_active_elem_table)
   let facts = gen_valid_feature_facts(mod, config.mode)
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
   assert_true(
@@ -5897,6 +5913,7 @@ test "gen_valid table limit variants obey toggle" {
 
 ///|
 priv struct ValidateTestConstExprForms {
+  numeric_const_in_global : Bool
   global_get_in_global : Bool
   imported_global_get_in_global : Bool
   prior_global_get_in_global : Bool
@@ -5908,13 +5925,16 @@ priv struct ValidateTestConstExprForms {
   ref_null_in_table_init : Bool
   global_get_in_elem_offset : Bool
   imported_global_get_in_elem_offset : Bool
+  numeric_const_in_elem_offset : Bool
   global_get_in_data_offset : Bool
   imported_global_get_in_data_offset : Bool
+  numeric_const_in_data_offset : Bool
 }
 
 ///|
 fn validate_test_const_expr_forms_empty() -> ValidateTestConstExprForms {
   {
+    numeric_const_in_global: false,
     global_get_in_global: false,
     imported_global_get_in_global: false,
     prior_global_get_in_global: false,
@@ -5926,9 +5946,23 @@ fn validate_test_const_expr_forms_empty() -> ValidateTestConstExprForms {
     ref_null_in_table_init: false,
     global_get_in_elem_offset: false,
     imported_global_get_in_elem_offset: false,
+    numeric_const_in_elem_offset: false,
     global_get_in_data_offset: false,
     imported_global_get_in_data_offset: false,
+    numeric_const_in_data_offset: false,
   }
+}
+
+///|
+fn validate_test_expr_has_numeric_const(expr : Expr) -> Bool {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      I32Const(_) | I64Const(_) | F32Const(_) | F64Const(_) => return true
+      _ => ()
+    }
+  }
+  false
 }
 
 ///|
@@ -6052,6 +6086,8 @@ fn validate_test_const_expr_forms_module(
         let Global(_, init) = globals[i]
         forms = {
           ..forms,
+          numeric_const_in_global: forms.numeric_const_in_global ||
+          validate_test_expr_has_numeric_const(init),
           global_get_in_global: forms.global_get_in_global ||
           validate_test_expr_has_global_get(init),
           imported_global_get_in_global: forms.imported_global_get_in_global ||
@@ -6101,6 +6137,8 @@ fn validate_test_const_expr_forms_module(
           Active(_, offset) =>
             forms = {
               ..forms,
+              numeric_const_in_elem_offset: forms.numeric_const_in_elem_offset ||
+              validate_test_expr_has_numeric_const(offset),
               global_get_in_elem_offset: forms.global_get_in_elem_offset ||
               validate_test_expr_has_global_get(offset),
               imported_global_get_in_elem_offset: forms.imported_global_get_in_elem_offset ||
@@ -6121,6 +6159,8 @@ fn validate_test_const_expr_forms_module(
           Active(_, offset) =>
             forms = {
               ..forms,
+              numeric_const_in_data_offset: forms.numeric_const_in_data_offset ||
+              validate_test_expr_has_numeric_const(offset),
               global_get_in_data_offset: forms.global_get_in_data_offset ||
               validate_test_expr_has_global_get(offset),
               imported_global_get_in_data_offset: forms.imported_global_get_in_data_offset ||
@@ -6146,6 +6186,7 @@ test "gen_valid coverage-forced emits const-expression variants" {
       fail("expected coverage-forced gen-valid module to validate, got \{msg}")
   }
   let forms = validate_test_const_expr_forms_module(mod)
+  assert_true(forms.numeric_const_in_global)
   assert_true(forms.global_get_in_global)
   assert_true(forms.imported_global_get_in_global)
   assert_true(forms.prior_global_get_in_global)
@@ -6157,8 +6198,10 @@ test "gen_valid coverage-forced emits const-expression variants" {
   assert_true(forms.ref_null_in_table_init)
   assert_true(forms.global_get_in_elem_offset)
   assert_true(forms.imported_global_get_in_elem_offset)
+  assert_true(forms.numeric_const_in_elem_offset)
   assert_true(forms.global_get_in_data_offset)
   assert_true(forms.imported_global_get_in_data_offset)
+  assert_true(forms.numeric_const_in_data_offset)
   let facts = gen_valid_feature_facts(mod, config.mode)
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
   assert_true(validate_valid_feature_actual_count(stats, ConstExprVariants) > 0)

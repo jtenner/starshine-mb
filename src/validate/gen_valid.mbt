@@ -10491,14 +10491,17 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       ctx.config.mode == CoverageForced || ctx.random_bool_from(GlobalStream)
     }
     let global_type = GlobalType::new(vt, is_mut)
-    globals.push(
-      Global::new(
-        global_type,
-        gen_valid_const_expr_for_global(
-          ctx, vt, global_types_for_inits, first_defined_func_idx, gc_type_plan,
-        ),
-      ),
-    )
+    let init_expr = if ctx.config.features.allow_const_expr_variants &&
+      ctx.config.mode == CoverageForced &&
+      i == 0 &&
+      vt == ValType::i32() {
+      Expr::new([Instruction::i32_const(0)])
+    } else {
+      gen_valid_const_expr_for_global(
+        ctx, vt, global_types_for_inits, first_defined_func_idx, gc_type_plan,
+      )
+    }
+    globals.push(Global::new(global_type, init_expr))
     global_types_for_inits.push(global_type)
   }
   let global_types = global_types_for_inits
@@ -10685,11 +10688,7 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
             Elem::new(
               ElemMode::active(
                 table_idx,
-                gen_valid_active_i32_offset_from(
-                  ctx,
-                  ElemStream,
-                  global_idx=const_i32_global_idx,
-                ),
+                Expr::new([Instruction::i32_const(1)]),
               ),
               ElemKind::funcs([func_idx, second_func_idx]),
             )

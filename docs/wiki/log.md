@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-28] fuzzing | FUZ1037B1-B2 numeric const and table numeric split
+
+- Completed `[FUZ]1037B1` by making coverage-forced GenValid keep an explicit numeric global initializer alongside the existing imported/prior `global.get`, `ref.func`, `ref.null`, and GC constructor initializer anchors. The const-expression regression now also proves numeric constants appear in active element and active data offsets, so numeric const-expression coverage is limited to contexts whose expected type is numeric.
+- Completed `[FUZ]1037B2` by treating table-side numeric coverage as table limits and active element table indices rather than invalid table initializer numeric expressions. The table-limit regression now proves zero-min/unbounded table limits, table initializer expressions, and nonzero active element table targets in the same coverage-forced module.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) and removed both completed slices from the active backlog.
+
 ## [2026-05-28] fuzzing | FUZ1042A corpus policy and FUZ1057A1 canonicality policy closeout
 
 - Closed `[FUZ]1042A` with the existing [`tooling/fuzz-corpus-policy.md`](tooling/fuzz-corpus-policy.md) contract, now explicitly marked as the promoted/quarantine corpus-state documentation slice. The active parent remains open for metadata persistence and replay-all tooling.
