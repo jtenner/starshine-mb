@@ -615,7 +615,6 @@ Use this board as the tracking view for fuzzer work. Each slice should be small 
 p1 next-up / active:
 
 p2 invalid/binary/text tiny slices:
-- `[FUZ]1044D` - Binary differential runner/report integration smoke.
 
 p2 oracle/reporting/infrastructure tiny slices:
 - `[FUZ]1042B` - Corpus promotion metadata schema and parser.
@@ -667,8 +666,6 @@ p1/p2 oracle, reporting, and infrastructure slices:
   - Unit: completed for tracked tiny slices. `[FUZ]1053B2` closed with timeout/resource repro persistence tolerating partial artifact write failures and recording `partial_artifact_write_failure` manifest entries. `[FUZ]1053B1` closed with invalid repro metadata carrying timeout stage, diagnostic location, and `timeout_budget_ms` through persist/parse.
 
 p2 invalid/binary/text slices:
-- [FUZ]1044D (p2) - Binary Differential Runner/Report Smoke
-  - Unit: add an opt-in runner or smoke helper that feeds a small binary corpus through Starshine plus available adapters and reports aggregate classifications without requiring external tools in default tests.
 - [FUZ]1020A (p2) - Remaining AST Type/Subtyping Invalid Strategies
   - Remaining concrete slices: none for the current tracked 1020A board. Earlier `[FUZ]1020A1`/`A2` covered representative subtype variance and descriptor-cycle basics; `[FUZ]1020A3` covered focused function parameter/result variance; `[FUZ]1020A4` covered descriptor-edge missing heap-type refs; `[FUZ]1020A5` covered recursive-group supertype-cycle rejection.
 - [FUZ]1020B (p2) - Remaining AST Section/Index Invalid Strategies
@@ -803,12 +800,12 @@ p2 invalid/binary/text slices:
 - [FUZ]1044 (p2) - N-Way Binary Parser And Validator Differential
   - Goal: compare Starshine binary decode/validate results against multiple external tools when available.
   - Why: Binaryen alone is not a complete oracle. WABT, wasm-tools, and Starshine may disagree on proposal support, malformed encodings, canonical LEB policy, and diagnostic staging.
-  - Deliverables: `[FUZ]1044A` adds the adapter result schema and pure classifier; `[FUZ]1044B` closed on 2026-05-31 with an optional `wasm-tools validate` binary adapter that stages bytes through the native CLI when available, returns adapter-unavailable on non-native or missing-tool paths, and maps valid plus malformed fixtures into the FUZ1044A result schema; `[FUZ]1044C` adds optional WABT/Binaryen `wasm-validate`; `[FUZ]1044D` adds opt-in runner/report smoke. Classify agree-valid, agree-invalid, proposal-gap, decoder-stage disagreement, validator-stage disagreement, tool-failure, unsupported-feature, and adapter-unavailable.
+  - Deliverables: `[FUZ]1044A` adds the adapter result schema and pure classifier; `[FUZ]1044B` closed on 2026-05-31 with an optional `wasm-tools validate` binary adapter that stages bytes through the native CLI when available, returns adapter-unavailable on non-native or missing-tool paths, and maps valid plus malformed fixtures into the FUZ1044A result schema; `[FUZ]1044C` adds optional WABT/Binaryen `wasm-validate`; `[FUZ]1044D` closed on 2026-05-31 with an opt-in smoke/report helper over small binary corpora. Classify agree-valid, agree-invalid, proposal-gap, decoder-stage disagreement, validator-stage disagreement, tool-failure, unsupported-feature, and adapter-unavailable.
   - Required APIs: external adapter layer from [FUZ]1032, invalid binary lane, valid-module binary roundtrip lane, result schema.
   - Invariants: external tool absence must skip cleanly; proposal support differences must be reported, not auto-labeled as Starshine bugs.
   - Dependencies: [FUZ]1029 and [FUZ]1032.
   - Suggested Tests: fake adapter classification tests, unavailable-tool tests, known malformed binary disagreements, docs for supported tool versions.
-  - Exit Criteria: binary fuzz runs can provide n-way evidence for decode/validation behavior without hard-requiring every external tool.
+  - Exit Criteria: closed for the tracked tiny board; binary fuzz helper surfaces can provide n-way evidence for decode/validation behavior without hard-requiring every external tool.
 
 - [FUZ]1045 (p2) - N-Way Text Printer, Parser, And Lowering Differential
   - Goal: compare WAT/WAST parsing, printing, and lowering against external text tools when available.

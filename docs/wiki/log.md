@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1044D binary differential smoke report
+
+- Completed `[FUZ]1044D` by adding a command-harness binary differential smoke/report helper. `run_binary_differential_smoke(...)` feeds a small byte corpus through Starshine decode/validate and any injected optional adapters, then aggregates the existing FUZ1044A classification buckets per case.
+- Added `BinaryDifferentialSmokeAdapter`, `BinaryDifferentialSmokeReport`, and `format_binary_differential_smoke_report_json(...)` so future runners can emit compact suite/counter summaries without hard-requiring wasm-tools, WABT, or Binaryen in default tests.
+- Validation: `moon test src/cmd` first failed on the missing smoke-helper APIs, then passed after implementation.
+
 ## [2026-05-31] fuzzing | FUZ1044C optional WABT/Binaryen binary adapters
 
 - Advanced `[FUZ]1044C` by adding `run_wabt_binary_validation_adapter(...)` and `run_binaryen_binary_validation_adapter(...)` to the command fuzz harness. Native builds stage candidate wasm bytes, capture external diagnostics, and classify WABT `wasm-validate` or Binaryen `wasm-opt --validate` results through the existing FUZ1044A binary-differential schema.

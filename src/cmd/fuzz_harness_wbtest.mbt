@@ -457,6 +457,34 @@ test "FUZ1044C WABT and Binaryen binary adapters map optional valid and malforme
 }
 
 ///|
+test "FUZ1044D binary differential smoke helper aggregates small corpus classifications" {
+  let valid = encode_fixture_module(43)
+  let malformed = bytes_from_ascii_for_fuzz_reducer("not wasm")
+  let report = run_binary_differential_smoke([valid, malformed], external_adapters=[
+    BinaryDifferentialSmokeAdapter::new("fake-validator", fn(bytes) {
+      match decode_module(bytes) {
+        Ok(_) => BinaryDifferentialAdapterResult::valid("fake-validator")
+        Err(_) =>
+          BinaryDifferentialAdapterResult::invalid_decode(
+            "fake-validator", "bad magic",
+          )
+      }
+    }),
+  ])
+  @debug.assert_eq(report.cases, 2)
+  @debug.assert_eq(report.agree_valid, 1)
+  @debug.assert_eq(report.agree_invalid, 1)
+  @debug.assert_eq(report.decoder_stage_disagreement, 0)
+  @debug.assert_eq(report.adapter_unavailable, 0)
+  @debug.assert_eq(report.external_adapters, ["fake-validator"])
+  let json = format_binary_differential_smoke_report_json(report)
+  assert_true(json.contains("\"suite\":\"binary-differential\""), msg=json)
+  assert_true(json.contains("\"agree_valid\":1"), msg=json)
+  assert_true(json.contains("\"agree_invalid\":1"), msg=json)
+  assert_true(json.contains("fake-validator"), msg=json)
+}
+
+///|
 test "differential_validate_wasm returns report when all validators agree" {
   let bytes = encode_fixture_module(11)
   let adapters = DifferentialAdapters::new(

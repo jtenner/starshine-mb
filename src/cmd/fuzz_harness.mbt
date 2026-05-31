@@ -760,6 +760,164 @@ pub fn binary_differential_failed_validation_result(
 }
 
 ///|
+pub struct BinaryDifferentialSmokeAdapter {
+  adapter_name : String
+  run : (Bytes) -> BinaryDifferentialAdapterResult
+}
+
+///|
+pub fn BinaryDifferentialSmokeAdapter::new(
+  adapter_name : String,
+  run : (Bytes) -> BinaryDifferentialAdapterResult,
+) -> BinaryDifferentialSmokeAdapter {
+  { adapter_name, run }
+}
+
+///|
+pub struct BinaryDifferentialSmokeReport {
+  suite : String
+  cases : Int
+  agree_valid : Int
+  agree_invalid : Int
+  proposal_gap : Int
+  decoder_stage_disagreement : Int
+  validator_stage_disagreement : Int
+  tool_failure : Int
+  unsupported_feature : Int
+  adapter_unavailable : Int
+  external_adapters : Array[String]
+} derive(Eq, Debug)
+
+///|
+fn binary_differential_append_unique_name(
+  names : Array[String],
+  name : String,
+) -> Unit {
+  for existing in names {
+    if existing == name {
+      return
+    }
+  }
+  names.push(name)
+}
+
+///|
+fn binary_differential_starshine_result(
+  bytes : Bytes,
+) -> BinaryDifferentialAdapterResult {
+  match decode_module(bytes) {
+    Err(e) =>
+      BinaryDifferentialAdapterResult::invalid_decode(
+        "starshine",
+        "decode failed: \{e}",
+      )
+    Ok(mod) =>
+      match validate_module(mod) {
+        Ok(_) => BinaryDifferentialAdapterResult::valid("starshine")
+        Err(e) =>
+          BinaryDifferentialAdapterResult::invalid_validate(
+            "starshine",
+            validation_error_message(e),
+          )
+      }
+  }
+}
+
+///|
+pub fn run_binary_differential_smoke(
+  corpus : Array[Bytes],
+  external_adapters? : Array[BinaryDifferentialSmokeAdapter] = [],
+) -> BinaryDifferentialSmokeReport {
+  let external_names : Array[String] = []
+  for adapter in external_adapters {
+    binary_differential_append_unique_name(external_names, adapter.adapter_name)
+  }
+  let mut agree_valid = 0
+  let mut agree_invalid = 0
+  let mut proposal_gap = 0
+  let mut decoder_stage_disagreement = 0
+  let mut validator_stage_disagreement = 0
+  let mut tool_failure = 0
+  let mut unsupported_feature = 0
+  let mut adapter_unavailable = 0
+  for bytes in corpus {
+    let results = [binary_differential_starshine_result(bytes)]
+    for adapter in external_adapters {
+      results.push((adapter.run)(bytes))
+    }
+    match classify_binary_differential_results(results) {
+      BinaryAgreeValid => agree_valid += 1
+      BinaryAgreeInvalid => agree_invalid += 1
+      BinaryProposalGap => proposal_gap += 1
+      BinaryDecoderStageDisagreement => decoder_stage_disagreement += 1
+      BinaryValidatorStageDisagreement => validator_stage_disagreement += 1
+      BinaryToolFailureClassification => tool_failure += 1
+      BinaryUnsupportedFeatureClassification => unsupported_feature += 1
+      BinaryAdapterUnavailableClassification => adapter_unavailable += 1
+    }
+  }
+  BinaryDifferentialSmokeReport::{
+    suite: "binary-differential",
+    cases: corpus.length(),
+    agree_valid,
+    agree_invalid,
+    proposal_gap,
+    decoder_stage_disagreement,
+    validator_stage_disagreement,
+    tool_failure,
+    unsupported_feature,
+    adapter_unavailable,
+    external_adapters: external_names,
+  }
+}
+
+///|
+fn binary_differential_json_escape(input : String) -> String {
+  let out = StringBuilder::new()
+  for c in input {
+    if c == '\\' {
+      out.write_string("\\\\")
+    } else if c == '"' {
+      out.write_string("\\\"")
+    } else if c == '\n' {
+      out.write_string("\\n")
+    } else if c == '\r' {
+      out.write_string("\\r")
+    } else if c == '\t' {
+      out.write_string("\\t")
+    } else {
+      out.write_char(c)
+    }
+  }
+  out.to_string()
+}
+
+///|
+fn binary_differential_adapter_names_json(names : Array[String]) -> String {
+  let out = StringBuilder::new()
+  out.write_char('[')
+  let mut i = 0
+  while i < names.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    out.write_char('"')
+    out.write_string(binary_differential_json_escape(names[i]))
+    out.write_char('"')
+    i += 1
+  }
+  out.write_char(']')
+  out.to_string()
+}
+
+///|
+pub fn format_binary_differential_smoke_report_json(
+  report : BinaryDifferentialSmokeReport,
+) -> String {
+  "{\"suite\":\"\{binary_differential_json_escape(report.suite)}\",\"cases\":\{report.cases},\"agree_valid\":\{report.agree_valid},\"agree_invalid\":\{report.agree_invalid},\"proposal_gap\":\{report.proposal_gap},\"decoder_stage_disagreement\":\{report.decoder_stage_disagreement},\"validator_stage_disagreement\":\{report.validator_stage_disagreement},\"tool_failure\":\{report.tool_failure},\"unsupported_feature\":\{report.unsupported_feature},\"adapter_unavailable\":\{report.adapter_unavailable},\"external_adapters\":\{binary_differential_adapter_names_json(report.external_adapters)}}"
+}
+
+///|
 pub struct DifferentialValidationReport {
   internal_valid : Bool
   wasm_tools_valid : Bool?

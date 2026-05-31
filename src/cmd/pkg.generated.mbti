@@ -43,6 +43,8 @@ pub fn export_invocation_semantic_mismatch_reports(Array[ExportInvocationCompari
 
 pub fn export_invocation_summary_has_semantic_mismatch(ExportInvocationMatrixSummary) -> Bool
 
+pub fn format_binary_differential_smoke_report_json(BinaryDifferentialSmokeReport) -> String
+
 pub fn minimize_fuzz_passes(Array[String], (Array[String]) -> Bool) -> Array[String]
 
 pub fn native_differential_tools_available() -> (Bool, Bool)
@@ -56,6 +58,8 @@ pub fn reduce_fuzz_bytes_by_slice_deletion(Bytes, (Bytes) -> Bool) -> FuzzReduct
 pub fn[T] reduce_fuzz_sequence_by_deletion(Array[T], (Array[T]) -> Bool) -> FuzzReductionReport[Array[T]]
 
 pub fn reduce_fuzz_text_tokens_by_deletion(String, (String) -> Bool) -> FuzzReductionReport[String]
+
+pub fn run_binary_differential_smoke(Array[Bytes], external_adapters? : Array[BinaryDifferentialSmokeAdapter]) -> BinaryDifferentialSmokeReport
 
 pub fn run_binaryen_binary_validation_adapter(Bytes) -> BinaryDifferentialAdapterResult
 
@@ -160,6 +164,26 @@ pub fn BinaryDifferentialClassification::proposal_gap() -> Self
 pub fn BinaryDifferentialClassification::tool_failure() -> Self
 pub fn BinaryDifferentialClassification::unsupported_feature() -> Self
 pub fn BinaryDifferentialClassification::validator_stage_disagreement() -> Self
+
+pub struct BinaryDifferentialSmokeAdapter {
+  adapter_name : String
+  run : (Bytes) -> BinaryDifferentialAdapterResult
+}
+pub fn BinaryDifferentialSmokeAdapter::new(String, (Bytes) -> BinaryDifferentialAdapterResult) -> Self
+
+pub struct BinaryDifferentialSmokeReport {
+  suite : String
+  cases : Int
+  agree_valid : Int
+  agree_invalid : Int
+  proposal_gap : Int
+  decoder_stage_disagreement : Int
+  validator_stage_disagreement : Int
+  tool_failure : Int
+  unsupported_feature : Int
+  adapter_unavailable : Int
+  external_adapters : Array[String]
+} derive(Eq, @debug.Debug)
 
 pub enum BinaryValidationOutcome {
   BinaryValid
