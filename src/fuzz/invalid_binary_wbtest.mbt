@@ -59,19 +59,20 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "invalid-export-table-index-module", "invalid-export-global-index-module", "invalid-export-memory-index-module",
     "invalid-export-tag-index-module", "invalid-tag-name-section-index-module", "invalid-imported-tag-type-index-module",
     "datacount-mismatch-too-small-module", "datacount-mismatch-too-large-module",
-    "invalid-binary-body-local-set-value-type-module", "duplicate-import-section",
-    "duplicate-export-section", "duplicate-table-section", "duplicate-memory-section",
-    "duplicate-global-section", "duplicate-function-section", "duplicate-code-section",
-    "duplicate-element-section", "duplicate-data-section", "duplicate-tag-section",
-    "duplicate-start-section", "malformed-simd-immediate", "simd-lane-index-overflow",
-    "malformed-custom-section-payload", "malformed-custom-section-name-length-uleb",
-    "overwide-custom-section-name-length-uleb", "malformed-name-subsection-size-uleb",
-    "overwide-name-subsection-size-uleb", "invalid-name-subsection-id-byte", "out-of-order-name-subsection-id",
-    "invalid-opcode-byte", "invalid-prefix-subopcode-byte", "invalid-gc-prefix-subopcode-byte",
-    "invalid-bulk-prefix-subopcode-byte", "invalid-simd-prefix-subopcode-byte", "malformed-gc-prefix-subopcode-uleb",
-    "malformed-bulk-prefix-subopcode-uleb", "malformed-simd-prefix-subopcode-uleb",
-    "malformed-atomic-prefix-subopcode-uleb", "invalid-atomic-prefix-subopcode-byte",
-    "overwide-gc-prefix-subopcode-uleb", "overwide-bulk-prefix-subopcode-uleb", "overwide-simd-prefix-subopcode-uleb",
+    "invalid-binary-body-local-set-value-type-module", "invalid-binary-branch-payload-type-module",
+    "invalid-binary-local-index-module", "duplicate-import-section", "duplicate-export-section",
+    "duplicate-table-section", "duplicate-memory-section", "duplicate-global-section",
+    "duplicate-function-section", "duplicate-code-section", "duplicate-element-section",
+    "duplicate-data-section", "duplicate-tag-section", "duplicate-start-section",
+    "malformed-simd-immediate", "simd-lane-index-overflow", "malformed-custom-section-payload",
+    "malformed-custom-section-name-length-uleb", "overwide-custom-section-name-length-uleb",
+    "malformed-name-subsection-size-uleb", "overwide-name-subsection-size-uleb",
+    "invalid-name-subsection-id-byte", "out-of-order-name-subsection-id", "invalid-opcode-byte",
+    "invalid-prefix-subopcode-byte", "invalid-gc-prefix-subopcode-byte", "invalid-bulk-prefix-subopcode-byte",
+    "invalid-simd-prefix-subopcode-byte", "malformed-gc-prefix-subopcode-uleb", "malformed-bulk-prefix-subopcode-uleb",
+    "malformed-simd-prefix-subopcode-uleb", "malformed-atomic-prefix-subopcode-uleb",
+    "invalid-atomic-prefix-subopcode-byte", "overwide-gc-prefix-subopcode-uleb",
+    "overwide-bulk-prefix-subopcode-uleb", "overwide-simd-prefix-subopcode-uleb",
     "overwide-atomic-prefix-subopcode-uleb", "malformed-atomic-load-memarg-align-uleb",
     "malformed-atomic-store-memarg-align-uleb", "malformed-atomic-load-memarg-offset-uleb",
     "malformed-atomic-store-memarg-offset-uleb", "malformed-atomic-notify-memarg-align-uleb",
@@ -246,7 +247,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "validate-name", "validate-name", "validate-name", "validate-name",
       "validate-export", "validate-export", "validate-export", "validate-export",
       "validate-name", "validate-import", "validate-datacount", "validate-datacount",
-      "validate-function-body", "decode", "decode", "decode", "decode", "decode",
+      "validate-function-body", "validate-function-body", "validate-function-body",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
@@ -298,7 +299,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
       "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
-      "decode", "decode", "decode", "decode",
+      "decode", "decode", "decode", "decode", "decode", "decode", "decode", "decode",
+      "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -377,6 +379,28 @@ test "decode-accepted binary body local.set value mismatch rejects at validation
   match
     invalid_binary_expect_strategy_rejects(
       "invalid-binary-body-local-set-value-type-module", 0x1022A1UL, "function-body",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "decode-accepted binary branch payload mismatch rejects at validation stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-binary-branch-payload-type-module", 0x1022A2UL, "function-body",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "decode-accepted binary local index mismatch rejects at validation stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-binary-local-index-module", 0x1022A3UL, "function-body",
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)

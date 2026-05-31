@@ -85,6 +85,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   DataCountMismatchTooSmallModule
   DataCountMismatchTooLargeModule
   InvalidBinaryBodyLocalSetValueTypeModule
+  InvalidBinaryBranchPayloadTypeModule
+  InvalidBinaryLocalIndexModule
   MalformedSimdImmediate
   SimdLaneIndexOverflow
   MalformedCustomSectionPayload
@@ -861,6 +863,9 @@ fn validate_invalid_binary_strategy_label(
     DataCountMismatchTooLargeModule => "datacount-mismatch-too-large-module"
     InvalidBinaryBodyLocalSetValueTypeModule =>
       "invalid-binary-body-local-set-value-type-module"
+    InvalidBinaryBranchPayloadTypeModule =>
+      "invalid-binary-branch-payload-type-module"
+    InvalidBinaryLocalIndexModule => "invalid-binary-local-index-module"
     MalformedSimdImmediate => "malformed-simd-immediate"
     SimdLaneIndexOverflow => "simd-lane-index-overflow"
     MalformedCustomSectionPayload => "malformed-custom-section-payload"
@@ -1733,6 +1738,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidBinaryBodyLocalSetValueTypeModule,
       "invalid-binary-body-local-set-value-type-module",
       "encoded module with a local.set body stack type mismatch",
+      ValidateRejected("function-body"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryBranchPayloadTypeModule,
+      "invalid-binary-branch-payload-type-module",
+      "encoded module with a branch payload stack type mismatch",
+      ValidateRejected("function-body"),
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidBinaryLocalIndexModule,
+      "invalid-binary-local-index-module",
+      "encoded module with an out-of-range function-body local index",
       ValidateRejected("function-body"),
       required_in_smoke=false,
     ),
@@ -17517,6 +17536,36 @@ pub fn apply_validate_invalid_binary_strategy(
       }
       validate_invalid_binary_mutate_encoded_invalid_ast_module(
         InvalidBinaryBodyLocalSetValueTypeModule,
+        ast_strategy,
+        "function-body",
+        base,
+      )
+    }
+    InvalidBinaryBranchPayloadTypeModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-function-body-br-if-payload-mismatch",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryBranchPayloadTypeModule,
+        ast_strategy,
+        "function-body",
+        base,
+      )
+    }
+    InvalidBinaryLocalIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-function-body-local-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidBinaryLocalIndexModule,
         ast_strategy,
         "function-body",
         base,
