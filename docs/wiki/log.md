@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-30] fuzzing | FUZ1055A2 valid WAST import/export wiring
+
+- Completed `[FUZ]1055A2` by extending the deterministic multi-module WAST fixture support with valid cross-module function, memory, table, and global import/export wiring.
+- Removed the completed tiny slice from the active FUZ board.
+
 ## [2026-05-30] fuzzing | FUZ1055A1 named two-module WAST fixture
 
 - Completed `[FUZ]1055A1` by adding a deterministic WAST linking fixture generator for a named provider module, a `register` command, and a named consumer module that imports the provider function.

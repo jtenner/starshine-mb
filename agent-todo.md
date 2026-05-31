@@ -625,7 +625,6 @@ p2 oracle/reporting/infrastructure tiny slices:
 - [FUZ]1053A3 - Add per-case timeout budget and timeout classification to external adapters.
 - [FUZ]1053B1 - Persist timeout/resource repro metadata without failing to write partial artifacts.
 - [FUZ]1053B2 - Add cleanup/manifest behavior for partial timeout artifacts.
-- [FUZ]1055A2 - Generate valid import/export wiring across multiple modules.
 - [FUZ]1055B1 - Generate `assert_unlinkable` for missing imports.
 - [FUZ]1055B2 - Generate `assert_unlinkable` for type-mismatched imports.
 - [FUZ]1056A1 - Add curated invalid binary byte-offset/section diagnostic fixture.
