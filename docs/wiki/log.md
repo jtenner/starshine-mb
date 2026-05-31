@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1037R2 boundary active-offset literals
+
+- Completed `[FUZ]1037R2` in research note [`0689`](raw/research/0689-2026-05-31-fuz1037-boundary-active-offsets.md) by adding focused coverage-forced active-offset literal coverage for memory/table32 (`i32.const 65536`) and no-import memory64 active data (`i64.const 4294967296`).
+- Added TDD coverage that first failed on the missing i32 active data boundary literal, then on the missing active element boundary literal, and passed after the generator routed deterministic coverage-forced slots through boundary helpers. Synced the constant-expression and generator-ledger wiki pages.
+
 ## [2026-05-31] fuzzing | FUZ1037R1 const-expression inventory
 
 - Completed `[FUZ]1037R1` as an audit-only slice in research note [`0688`](raw/research/0688-2026-05-31-fuz1037-const-expr-inventory.md), covering the current GenValid const-expression matrix, generator call sites, feature-fact attribution, focused tests, and docs.

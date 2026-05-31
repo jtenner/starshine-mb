@@ -513,6 +513,42 @@ test "gen-valid coverage-forced memory64 data segment can use imported i64 offse
 }
 
 ///|
+test "gen-valid coverage-forced active offsets include boundary literals" {
+  let config = GenValidConfig::{
+    ..GenValidConfig::coverage_forced_default(),
+    max_imports: 0,
+    max_mems: 3,
+    max_datas: 4,
+    features: GenValidFeatureToggles::{
+      ..GenValidConfig::coverage_forced_default().features,
+      allow_imports: false,
+    },
+  }
+  let generated = match gen_valid_module_result_from_seed(0x1037FUL, config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(
+    gen_valid_test_has_i32_boundary_active_data_offset(generated.wasm_module),
+    msg="coverage-forced GenValid should cover a boundary-ish i32 active data offset literal",
+  )
+  assert_true(
+    gen_valid_test_has_i32_boundary_active_elem_offset(generated.wasm_module),
+    msg="coverage-forced GenValid should cover a boundary-ish i32 active element offset literal",
+  )
+  assert_true(
+    gen_valid_test_has_memory64_active_data_i64_boundary_offset(
+      generated.wasm_module,
+    ),
+    msg="coverage-forced GenValid should cover a boundary-ish i64 active data offset literal for memory64",
+  )
+}
+
+///|
 test "gen-valid active segments can use imported immutable global offsets" {
   let config = GenValidConfig::coverage_forced_default()
   let generated = match gen_valid_module_result_from_seed(0x1039BUL, config) {
@@ -3997,6 +4033,80 @@ fn gen_valid_test_has_memory64_active_data_imported_global_offset(
                   return true
                 _ => ()
               }
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_i32_is_boundary_active_offset(value : Int) -> Bool {
+  value == -1 || value == 65535 || value == 65536 || value == 2147483647
+}
+
+///|
+fn gen_valid_test_i64_is_boundary_active_offset(value : Int64) -> Bool {
+  value == -1L || value == 65535L || value == 65536L || value == 4294967296L
+}
+
+///|
+fn gen_valid_test_has_i32_boundary_active_data_offset(mod_ : Module) -> Bool {
+  match mod_.data_sec {
+    Some(DataSec(datas)) =>
+      for data in datas {
+        let Data(mode, _) = data
+        match mode {
+          Active(mem_idx, Expr([I32Const(I32(value))])) =>
+            match gen_valid_test_mem_type_at(mod_, mem_idx) {
+              Some(mt) if !gen_valid_test_mem_type_is_memory64(mt) &&
+                gen_valid_test_i32_is_boundary_active_offset(value) =>
+                return true
+              _ => ()
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_has_i32_boundary_active_elem_offset(mod_ : Module) -> Bool {
+  match mod_.elem_sec {
+    Some(ElemSec(elems)) =>
+      for elem in elems {
+        let Elem(mode, _) = elem
+        match mode {
+          Active(_, Expr([I32Const(I32(value))])) if gen_valid_test_i32_is_boundary_active_offset(
+              value,
+            ) => return true
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gen_valid_test_has_memory64_active_data_i64_boundary_offset(
+  mod_ : Module,
+) -> Bool {
+  match mod_.data_sec {
+    Some(DataSec(datas)) =>
+      for data in datas {
+        let Data(mode, _) = data
+        match mode {
+          Active(mem_idx, Expr([I64Const(I64(value))])) =>
+            match gen_valid_test_mem_type_at(mod_, mem_idx) {
+              Some(mt) if gen_valid_test_mem_type_is_memory64(mt) &&
+                gen_valid_test_i64_is_boundary_active_offset(value) =>
+                return true
+              _ => ()
             }
           _ => ()
         }

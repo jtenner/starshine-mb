@@ -9766,6 +9766,16 @@ fn gen_valid_active_i32_offset_from(
 }
 
 ///|
+fn gen_valid_active_i32_boundary_offset() -> Expr {
+  Expr::new([Instruction::i32_const(I32(65536))])
+}
+
+///|
+fn gen_valid_active_i64_boundary_offset() -> Expr {
+  Expr::new([Instruction::i64_const(I64(4294967296L))])
+}
+
+///|
 fn gen_valid_active_offset_from(
   ctx : GenValidContext,
   label : GenValidRandomStreamLabel,
@@ -10278,7 +10288,12 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       config.features.allow_datas,
       config.max_datas,
       config.section_bias.datas_percent,
-      2,
+      if ctx.config.mode == CoverageForced &&
+        config.features.allow_const_expr_variants {
+        4
+      } else {
+        2
+      },
     )
   } else {
     0
@@ -10843,7 +10858,7 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
             Elem::new(
               ElemMode::active(
                 table_idx,
-                Expr::new([Instruction::i32_const(1)]),
+                gen_valid_active_i32_boundary_offset(),
               ),
               ElemKind::funcs([func_idx, second_func_idx]),
             )
@@ -10854,10 +10869,7 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
                 Elem::new(
                   ElemMode::active(
                     table_idx,
-                    gen_valid_active_i32_offset(
-                      ctx,
-                      global_idx=const_i32_global_idx,
-                    ),
+                    gen_valid_active_i32_boundary_offset(),
                   ),
                   ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
                 )
@@ -11035,12 +11047,16 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
             Data::new(
               DataMode::active(
                 mem_idx,
-                gen_valid_active_offset_from(
-                  ctx,
-                  DataStream,
-                  gen_valid_mem_type_addr_type(mem_type),
-                  global_idx=imported_i64_global_idx,
-                ),
+                match imported_i64_global_idx {
+                  Some(_) =>
+                    gen_valid_active_offset_from(
+                      ctx,
+                      DataStream,
+                      gen_valid_mem_type_addr_type(mem_type),
+                      global_idx=imported_i64_global_idx,
+                    )
+                  None => gen_valid_active_i64_boundary_offset()
+                },
               ),
               gen_valid_payload(ctx, b""),
             )
@@ -11056,8 +11072,11 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
         }
       } else if ctx.config.mode == CoverageForced && i == 3 {
         Data::new(
-          DataMode::passive(),
-          gen_valid_payload(ctx, b"\x00\x01\x02\x03\x04\x05\x06\x07"),
+          DataMode::active(
+            MemIdx::new(0U),
+            gen_valid_active_i32_boundary_offset(),
+          ),
+          gen_valid_payload(ctx, b""),
         )
       } else {
         let payload = match ctx.random_int_from(DataStream, 4) {
