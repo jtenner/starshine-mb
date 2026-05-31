@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1044A binary differential result schema
+
+- Advanced `[FUZ]1044A` by adding pure binary differential adapter result types to `src/cmd/fuzz_harness.mbt` for valid, decode-invalid, validate-invalid, tool-failure, unsupported-feature, and adapter-unavailable outcomes.
+- Added the paired aggregate classifier buckets needed by later binary differential adapter/runner work: agree-valid, agree-invalid, proposal-gap, decoder-stage disagreement, validator-stage disagreement, tool-failure, unsupported-feature, and adapter-unavailable.
+- Validation: `moon test src/cmd` first failed on the missing result/classifier API, then passed after implementation; final validation is recorded in the commit message.
+
 ## [2026-05-31] fuzzing | FUZ1043G Moon text-token reducer
 
 - Advanced `[FUZ]1043` by adding `reduce_fuzz_text_tokens_by_deletion(...)` to the Moon command fuzz harness as a text-token adapter over the shared sequence reducer.

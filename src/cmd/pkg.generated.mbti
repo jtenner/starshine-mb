@@ -11,9 +11,13 @@ import {
 }
 
 // Values
+pub fn binary_differential_classification_label(BinaryDifferentialClassification) -> String
+
 pub fn choose_simple_export_invocation_args(Array[@lib.ValType]) -> Result[Array[String], String]
 
 pub fn classify_binary_canonicality_differential(BinaryCanonicalityInputClass, Bool, Bool?, Bool?) -> BinaryCanonicalityClassification
+
+pub fn classify_binary_differential_results(Array[BinaryDifferentialAdapterResult]) -> BinaryDifferentialClassification
 
 pub fn classify_export_invocation_matrix(ExportInvocationMatrixSummary) -> ExportInvocationMatrixOutcome
 
@@ -116,6 +120,46 @@ pub struct BinaryCanonicalitySummary {
   malformed_rejected : Int
   external_policy_disagreements : Int
   decoder_bug_disagreements : Int
+} derive(Eq, @debug.Debug)
+
+pub struct BinaryDifferentialAdapterResult {
+  adapter_name : String
+  outcome : BinaryValidationOutcome
+  message : String?
+} derive(Eq, @debug.Debug)
+pub fn BinaryDifferentialAdapterResult::adapter_unavailable(String, String) -> Self
+pub fn BinaryDifferentialAdapterResult::invalid_decode(String, String) -> Self
+pub fn BinaryDifferentialAdapterResult::invalid_validate(String, String) -> Self
+pub fn BinaryDifferentialAdapterResult::tool_failure(String, String) -> Self
+pub fn BinaryDifferentialAdapterResult::unsupported_feature(String, String) -> Self
+pub fn BinaryDifferentialAdapterResult::valid(String) -> Self
+
+pub enum BinaryDifferentialClassification {
+  BinaryAgreeValid
+  BinaryAgreeInvalid
+  BinaryProposalGap
+  BinaryDecoderStageDisagreement
+  BinaryValidatorStageDisagreement
+  BinaryToolFailureClassification
+  BinaryUnsupportedFeatureClassification
+  BinaryAdapterUnavailableClassification
+} derive(Eq, @debug.Debug)
+pub fn BinaryDifferentialClassification::adapter_unavailable() -> Self
+pub fn BinaryDifferentialClassification::agree_invalid() -> Self
+pub fn BinaryDifferentialClassification::agree_valid() -> Self
+pub fn BinaryDifferentialClassification::decoder_stage_disagreement() -> Self
+pub fn BinaryDifferentialClassification::proposal_gap() -> Self
+pub fn BinaryDifferentialClassification::tool_failure() -> Self
+pub fn BinaryDifferentialClassification::unsupported_feature() -> Self
+pub fn BinaryDifferentialClassification::validator_stage_disagreement() -> Self
+
+pub enum BinaryValidationOutcome {
+  BinaryValid
+  BinaryInvalidDecode
+  BinaryInvalidValidate
+  BinaryToolFailure
+  BinaryUnsupportedFeature
+  BinaryAdapterUnavailable
 } derive(Eq, @debug.Debug)
 
 pub enum CmdError {

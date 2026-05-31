@@ -247,6 +247,91 @@ test "FUZ1045A6 persists text differential repro artifacts" {
 }
 
 ///|
+test "FUZ1044A binary differential result schema classifies agreement and adapter issues" {
+  let starshine_valid = BinaryDifferentialAdapterResult::valid("starshine")
+  let wasm_tools_valid = BinaryDifferentialAdapterResult::valid("wasm-tools")
+  let agree_valid = classify_binary_differential_results([
+    starshine_valid, wasm_tools_valid,
+  ])
+  @debug.assert_eq(agree_valid, BinaryDifferentialClassification::agree_valid())
+  @debug.assert_eq(
+    binary_differential_classification_label(agree_valid),
+    "agree-valid",
+  )
+  @debug.assert_eq(
+    classify_binary_differential_results([
+      BinaryDifferentialAdapterResult::invalid_decode("starshine", "bad magic"),
+      BinaryDifferentialAdapterResult::invalid_decode("wasm-tools", "bad magic"),
+    ]),
+    BinaryDifferentialClassification::agree_invalid(),
+  )
+  @debug.assert_eq(
+    classify_binary_differential_results([
+      starshine_valid,
+      BinaryDifferentialAdapterResult::unsupported_feature(
+        "wabt", "gc proposal disabled",
+      ),
+    ]),
+    BinaryDifferentialClassification::proposal_gap(),
+  )
+  @debug.assert_eq(
+    classify_binary_differential_results([
+      BinaryDifferentialAdapterResult::unsupported_feature(
+        "wabt", "gc proposal disabled",
+      ),
+    ]),
+    BinaryDifferentialClassification::unsupported_feature(),
+  )
+  @debug.assert_eq(
+    classify_binary_differential_results([
+      starshine_valid,
+      BinaryDifferentialAdapterResult::tool_failure("binaryen", "crash"),
+    ]),
+    BinaryDifferentialClassification::tool_failure(),
+  )
+  @debug.assert_eq(
+    classify_binary_differential_results([
+      starshine_valid,
+      BinaryDifferentialAdapterResult::adapter_unavailable(
+        "wasm-tools", "missing executable",
+      ),
+    ]),
+    BinaryDifferentialClassification::adapter_unavailable(),
+  )
+}
+
+///|
+test "FUZ1044A binary differential classifier separates decoder and validator disagreements" {
+  @debug.assert_eq(
+    classify_binary_differential_results([
+      BinaryDifferentialAdapterResult::valid("starshine"),
+      BinaryDifferentialAdapterResult::invalid_decode(
+        "wasm-tools", "bad section",
+      ),
+    ]),
+    BinaryDifferentialClassification::decoder_stage_disagreement(),
+  )
+  @debug.assert_eq(
+    classify_binary_differential_results([
+      BinaryDifferentialAdapterResult::valid("starshine"),
+      BinaryDifferentialAdapterResult::invalid_validate(
+        "binaryen", "type mismatch",
+      ),
+    ]),
+    BinaryDifferentialClassification::validator_stage_disagreement(),
+  )
+  @debug.assert_eq(
+    classify_binary_differential_results([
+      BinaryDifferentialAdapterResult::invalid_decode("starshine", "decode"),
+      BinaryDifferentialAdapterResult::invalid_validate(
+        "wasm-tools", "validate",
+      ),
+    ]),
+    BinaryDifferentialClassification::decoder_stage_disagreement(),
+  )
+}
+
+///|
 test "differential_validate_wasm returns report when all validators agree" {
   let bytes = encode_fixture_module(11)
   let adapters = DifferentialAdapters::new(

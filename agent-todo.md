@@ -615,7 +615,6 @@ Use this board as the tracking view for fuzzer work. Each slice should be small 
 p1 next-up / active:
 
 p2 invalid/binary/text tiny slices:
-- `[FUZ]1044A` - Binary differential adapter result schema and pure classifier.
 - `[FUZ]1044B` - Optional `wasm-tools validate` binary adapter.
 - `[FUZ]1044C` - Optional WABT and Binaryen binary validation adapters.
 - `[FUZ]1044D` - Binary differential runner/report integration smoke.
@@ -670,8 +669,6 @@ p1/p2 oracle, reporting, and infrastructure slices:
   - Unit: completed for tracked tiny slices. `[FUZ]1053B2` closed with timeout/resource repro persistence tolerating partial artifact write failures and recording `partial_artifact_write_failure` manifest entries. `[FUZ]1053B1` closed with invalid repro metadata carrying timeout stage, diagnostic location, and `timeout_budget_ms` through persist/parse.
 
 p2 invalid/binary/text slices:
-- [FUZ]1044A (p2) - Binary Differential Adapter Result Schema
-  - Unit: add pure result/classifier types for Starshine/wasm-tools/WABT/Binaryen binary validation outcomes: agree-valid, agree-invalid, proposal-gap, decoder-stage disagreement, validator-stage disagreement, tool-failure, unsupported-feature, and adapter-unavailable.
 - [FUZ]1044B (p2) - Optional wasm-tools Binary Adapter
   - Unit: add an optional subprocess adapter for `wasm-tools validate`, skip cleanly when unavailable, and classify one known malformed/valid fixture through the FUZ1044A schema.
 - [FUZ]1044C (p2) - Optional WABT And Binaryen Binary Adapters

@@ -18,6 +18,7 @@ sources:
   - ../../../src/fuzz/invalid_repro.mbt
   - ../../../src/fuzz/invalid_text.mbt
   - ../../../src/fuzz/main.mbt
+  - ../../../src/cmd/fuzz_harness.mbt
   - ../../../scripts/lib/fuzz-task.ts
   - ../../../src/validate/gen_valid.mbt
   - ../../../src/validate/gen_valid_tests.mbt
@@ -109,6 +110,7 @@ The key invariant is that coverage means **the intended strategy ran and reached
   - Spec-seed cases reduce the larger fixture down to the one extracted raw assertion S-expression.
 - A rejected module only counts as meaningful coverage if the intended mutation ran and the diagnostic family matches the expected failure class; use [`./module-validation-phases.md`](./module-validation-phases.md) for phase order and [`./diagnostics-and-invalid-repro.md`](./diagnostics-and-invalid-repro.md) for issue-family, stable-id, stage, and repro-artifact rules when adding or reclassifying validator diagnostics.
 - Heavy fuzz work stays in `src/fuzz`, not `moon test`.
+- `[FUZ]1044A` starts the command-harness binary differential result surface in `src/cmd/fuzz_harness.mbt`: pure adapter results now distinguish valid, decode-invalid, validate-invalid, tool-failure, unsupported-feature, and adapter-unavailable outcomes for Starshine and external tools such as wasm-tools, WABT, and Binaryen. The paired classifier reports agree-valid, agree-invalid, proposal-gap, decoder-stage disagreement, validator-stage disagreement, tool-failure, unsupported-feature, and adapter-unavailable buckets before later slices add subprocess adapters or runner integration.
 
 ## Main Gaps
 

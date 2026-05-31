@@ -564,6 +564,177 @@ pub fn persist_text_differential_artifacts(
 }
 
 ///|
+pub enum BinaryValidationOutcome {
+  BinaryValid
+  BinaryInvalidDecode
+  BinaryInvalidValidate
+  BinaryToolFailure
+  BinaryUnsupportedFeature
+  BinaryAdapterUnavailable
+} derive(Eq, Debug)
+
+///|
+pub struct BinaryDifferentialAdapterResult {
+  adapter_name : String
+  outcome : BinaryValidationOutcome
+  message : String?
+} derive(Eq, Debug)
+
+///|
+pub enum BinaryDifferentialClassification {
+  BinaryAgreeValid
+  BinaryAgreeInvalid
+  BinaryProposalGap
+  BinaryDecoderStageDisagreement
+  BinaryValidatorStageDisagreement
+  BinaryToolFailureClassification
+  BinaryUnsupportedFeatureClassification
+  BinaryAdapterUnavailableClassification
+} derive(Eq, Debug)
+
+///|
+pub fn BinaryDifferentialAdapterResult::valid(
+  adapter_name : String,
+) -> BinaryDifferentialAdapterResult {
+  { adapter_name, outcome: BinaryValid, message: None }
+}
+
+///|
+pub fn BinaryDifferentialAdapterResult::invalid_decode(
+  adapter_name : String,
+  message : String,
+) -> BinaryDifferentialAdapterResult {
+  { adapter_name, outcome: BinaryInvalidDecode, message: Some(message) }
+}
+
+///|
+pub fn BinaryDifferentialAdapterResult::invalid_validate(
+  adapter_name : String,
+  message : String,
+) -> BinaryDifferentialAdapterResult {
+  { adapter_name, outcome: BinaryInvalidValidate, message: Some(message) }
+}
+
+///|
+pub fn BinaryDifferentialAdapterResult::tool_failure(
+  adapter_name : String,
+  message : String,
+) -> BinaryDifferentialAdapterResult {
+  { adapter_name, outcome: BinaryToolFailure, message: Some(message) }
+}
+
+///|
+pub fn BinaryDifferentialAdapterResult::unsupported_feature(
+  adapter_name : String,
+  message : String,
+) -> BinaryDifferentialAdapterResult {
+  { adapter_name, outcome: BinaryUnsupportedFeature, message: Some(message) }
+}
+
+///|
+pub fn BinaryDifferentialAdapterResult::adapter_unavailable(
+  adapter_name : String,
+  message : String,
+) -> BinaryDifferentialAdapterResult {
+  { adapter_name, outcome: BinaryAdapterUnavailable, message: Some(message) }
+}
+
+///|
+pub fn BinaryDifferentialClassification::agree_valid() -> BinaryDifferentialClassification {
+  BinaryAgreeValid
+}
+
+///|
+pub fn BinaryDifferentialClassification::agree_invalid() -> BinaryDifferentialClassification {
+  BinaryAgreeInvalid
+}
+
+///|
+pub fn BinaryDifferentialClassification::proposal_gap() -> BinaryDifferentialClassification {
+  BinaryProposalGap
+}
+
+///|
+pub fn BinaryDifferentialClassification::decoder_stage_disagreement() -> BinaryDifferentialClassification {
+  BinaryDecoderStageDisagreement
+}
+
+///|
+pub fn BinaryDifferentialClassification::validator_stage_disagreement() -> BinaryDifferentialClassification {
+  BinaryValidatorStageDisagreement
+}
+
+///|
+pub fn BinaryDifferentialClassification::tool_failure() -> BinaryDifferentialClassification {
+  BinaryToolFailureClassification
+}
+
+///|
+pub fn BinaryDifferentialClassification::unsupported_feature() -> BinaryDifferentialClassification {
+  BinaryUnsupportedFeatureClassification
+}
+
+///|
+pub fn BinaryDifferentialClassification::adapter_unavailable() -> BinaryDifferentialClassification {
+  BinaryAdapterUnavailableClassification
+}
+
+///|
+pub fn binary_differential_classification_label(
+  classification : BinaryDifferentialClassification,
+) -> String {
+  match classification {
+    BinaryAgreeValid => "agree-valid"
+    BinaryAgreeInvalid => "agree-invalid"
+    BinaryProposalGap => "proposal-gap"
+    BinaryDecoderStageDisagreement => "decoder-stage-disagreement"
+    BinaryValidatorStageDisagreement => "validator-stage-disagreement"
+    BinaryToolFailureClassification => "tool-failure"
+    BinaryUnsupportedFeatureClassification => "unsupported-feature"
+    BinaryAdapterUnavailableClassification => "adapter-unavailable"
+  }
+}
+
+///|
+pub fn classify_binary_differential_results(
+  results : Array[BinaryDifferentialAdapterResult],
+) -> BinaryDifferentialClassification {
+  let mut saw_valid = false
+  let mut saw_decode_invalid = false
+  let mut saw_validate_invalid = false
+  let mut saw_unsupported = false
+  for result in results {
+    match result.outcome {
+      BinaryAdapterUnavailable => return BinaryAdapterUnavailableClassification
+      BinaryToolFailure => return BinaryToolFailureClassification
+      BinaryUnsupportedFeature => saw_unsupported = true
+      BinaryValid => saw_valid = true
+      BinaryInvalidDecode => saw_decode_invalid = true
+      BinaryInvalidValidate => saw_validate_invalid = true
+    }
+  }
+  if saw_unsupported {
+    if saw_valid || saw_decode_invalid || saw_validate_invalid {
+      return BinaryProposalGap
+    }
+    return BinaryUnsupportedFeatureClassification
+  }
+  if saw_valid && !saw_decode_invalid && !saw_validate_invalid {
+    return BinaryAgreeValid
+  }
+  if !saw_valid && saw_decode_invalid && !saw_validate_invalid {
+    return BinaryAgreeInvalid
+  }
+  if !saw_valid && !saw_decode_invalid && saw_validate_invalid {
+    return BinaryAgreeInvalid
+  }
+  if saw_decode_invalid {
+    return BinaryDecoderStageDisagreement
+  }
+  BinaryValidatorStageDisagreement
+}
+
+///|
 pub struct DifferentialValidationReport {
   internal_valid : Bool
   wasm_tools_valid : Bool?
