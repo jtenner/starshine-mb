@@ -21,6 +21,15 @@ fn bytes_to_ascii(bytes : Bytes) -> String {
 }
 
 ///|
+fn bytes_from_ascii_for_fuzz_reducer(text : String) -> Bytes {
+  let out = @buffer.new(size_hint=text.length())
+  for c in text {
+    out.write_byte(c.to_int().to_byte())
+  }
+  out.to_bytes()
+}
+
+///|
 test "FUZ1045A4 local text matrix lowers prints and reparses valid WAT" {
   let report = run_local_text_parse_print_lower_matrix(
     "(module (func (export \"answer\") (result i32) i32.const 42))",
@@ -776,6 +785,32 @@ test "minimize_fuzz_passes can remove dependent chunks before single-pass cleanu
     },
   )
   @debug.assert_eq(minimized, ["trigger"])
+}
+
+///|
+test "fuzz sequence reducer records applied range deletions" {
+  let report = reduce_fuzz_sequence_by_deletion(
+    ["setup", "noise-a", "noise-b", "trigger", "tail"],
+    fn(items) { items.contains("trigger") },
+  )
+  @debug.assert_eq(report.result, ["trigger"])
+  @debug.assert_eq(report.original_size, 5)
+  @debug.assert_eq(report.final_size, 1)
+  assert_true(report.predicate_evaluations > 1)
+  assert_true(report.steps.length() > 0)
+  @debug.assert_eq(report.steps[0].kind, "delete-range")
+}
+
+///|
+test "fuzz byte reducer deletes irrelevant byte slices" {
+  let report = reduce_fuzz_bytes_by_slice_deletion(
+    bytes_from_ascii_for_fuzz_reducer("abcTRIGGERxyz"),
+    fn(bytes) { bytes_to_ascii(bytes).contains("TRIGGER") },
+  )
+  @debug.assert_eq(bytes_to_ascii(report.result), "TRIGGER")
+  @debug.assert_eq(report.original_size, 13)
+  @debug.assert_eq(report.final_size, 7)
+  assert_true(report.steps.length() > 0)
 }
 
 ///|

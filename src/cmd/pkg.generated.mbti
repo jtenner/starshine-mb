@@ -45,6 +45,10 @@ pub fn persist_fuzz_failure_report(FuzzFailureReport, FuzzFailurePersistIO, corp
 
 pub fn persist_text_differential_artifacts(String, TextParsePrintLowerReport, Array[TextAggregateAdapterResult], TextAggregateClassification, FuzzFailurePersistIO, repro_dir? : String, seed? : UInt64, attempt? : Int) -> Result[TextDifferentialArtifactPaths, String]
 
+pub fn reduce_fuzz_bytes_by_slice_deletion(Bytes, (Bytes) -> Bool) -> FuzzReductionReport[Bytes]
+
+pub fn[T] reduce_fuzz_sequence_by_deletion(Array[T], (Array[T]) -> Bool) -> FuzzReductionReport[Array[T]]
+
 pub fn run_cmd(Array[String]) -> Result[CmdRunSummary, CmdError]
 
 pub fn run_cmd_exit_code(Array[String]) -> Int
@@ -319,6 +323,22 @@ pub struct FuzzFailureReport {
 } derive(Eq, @debug.Debug)
 pub fn FuzzFailureReport::new(UInt64, Int, Int, String, String, optimize_passes? : Array[String], minimized_passes? : Array[String], generator_profile? : String, pass_profile? : String, generator_config_label? : String, generated_attempts? : Int, feature_facts? : String, wasm? : Bytes?) -> Self
 pub impl Show for FuzzFailureReport
+
+pub struct FuzzReductionReport[T] {
+  result : T
+  original_size : Int
+  final_size : Int
+  predicate_evaluations : Int
+  steps : Array[FuzzReductionStep]
+} derive(@debug.Debug)
+
+pub struct FuzzReductionStep {
+  kind : String
+  start : Int
+  len : Int
+  before_size : Int
+  after_size : Int
+} derive(Eq, @debug.Debug)
 
 pub struct InliningOptions {
   no_op : Bool

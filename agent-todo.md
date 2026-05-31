@@ -747,14 +747,16 @@ p2 invalid/binary/text slices:
   - Suggested Tests: metadata schema tests, replay command parser tests, small promoted fixture replay in CI.
   - Exit Criteria: agents know whether to promote, quarantine, or discard a fuzz artifact and can replay all promoted cases deterministically.
 
-- [FUZ]1043 (p2) - Cross-Harness Failure Minimizer And Case Reducer
+- [FUZ]1043 (p2) - Cross-Harness Failure Minimizer And Case Reducer — IN PROGRESS
   - Goal: share shrinking/minimization logic across GenValid, invalid fuzzing, command harness, and pass-fuzz compare.
   - Why: every harness currently risks inventing its own minimizer. Shared reduction makes failures smaller and more comparable across validator, parser, binary, and optimizer lanes.
+  - Current slice `[FUZ]1043C` (2026-05-31): added predicate-only Moon command-harness reducers `reduce_fuzz_sequence_by_deletion(...)` and `reduce_fuzz_bytes_by_slice_deletion(...)`; `minimize_fuzz_passes(...)` now reuses the shared sequence reducer; reduction reports record original/final size, predicate-evaluation count, and applied deletion steps. TDD first failed in `moon test src/cmd` on missing reducer APIs, then passed after implementation. Docs synced in `docs/wiki/fuzzing/reduction-backends.md` and `docs/wiki/log.md`.
   - Deliverables: implement a common reduction interface with predicates for validation failure, parse failure, pass mismatch, command crash, and property failure; support module-level deletion, function deletion, section deletion where legal, instruction subtree replacement, byte-slice deletion, and text token deletion.
   - Required APIs: invalid shrinking from [FUZ]1025, pass-fuzz artifacts, module traversal/edit helpers, binary/text persistence helpers.
   - Invariants: minimization must never replace the original artifact unless the predicate still reproduces; store original and reduced artifacts separately.
   - Dependencies: [FUZ]1025 and [FUZ]1031.
   - Suggested Tests: fake predicate reducer tests, known fixture reductions, original-vs-reduced metadata roundtrip tests.
+  - Next concrete slice: connect the Moon reducer report to persisted invalid or command-harness repro metadata so original and reduced artifacts plus the shrink log are stored side by side; alternatively add a text-token or module-field adapter over the new sequence reducer if persistence needs a narrower precursor.
   - Exit Criteria: any fuzz harness can hand a failure to one reducer and get a smaller reproducible artifact plus shrink log.
 
 - [FUZ]1044 (p2) - N-Way Binary Parser And Validator Differential

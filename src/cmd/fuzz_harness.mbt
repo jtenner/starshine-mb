@@ -1166,24 +1166,38 @@ fn fuzz_clone_passes(values : Array[String]) -> Array[String] {
 }
 
 ///|
-fn fuzz_without_pass_index(values : Array[String], skip : Int) -> Array[String] {
+pub struct FuzzReductionStep {
+  kind : String
+  start : Int
+  len : Int
+  before_size : Int
+  after_size : Int
+} derive(Eq, Debug)
+
+///|
+pub struct FuzzReductionReport[T] {
+  result : T
+  original_size : Int
+  final_size : Int
+  predicate_evaluations : Int
+  steps : Array[FuzzReductionStep]
+} derive(Debug)
+
+///|
+fn[T] fuzz_clone_sequence(values : Array[T]) -> Array[T] {
   let out = Array::new(capacity=values.length())
-  let mut i = 0
-  while i < values.length() {
-    if i != skip {
-      out.push(values[i])
-    }
-    i += 1
+  for value in values {
+    out.push(value)
   }
   out
 }
 
 ///|
-fn fuzz_without_pass_range(
-  values : Array[String],
+fn[T] fuzz_without_sequence_range(
+  values : Array[T],
   start : Int,
   len : Int,
-) -> Array[String] {
+) -> Array[T] {
   let out = Array::new(capacity=values.length())
   let end = start + len
   let mut i = 0
@@ -1197,21 +1211,38 @@ fn fuzz_without_pass_range(
 }
 
 ///|
-pub fn minimize_fuzz_passes(
-  passes : Array[String],
-  reproduces : (Array[String]) -> Bool,
-) -> Array[String] {
-  if !reproduces(passes) {
-    return fuzz_clone_passes(passes)
+pub fn[T] reduce_fuzz_sequence_by_deletion(
+  values : Array[T],
+  reproduces : (Array[T]) -> Bool,
+) -> FuzzReductionReport[Array[T]] {
+  let mut predicate_evaluations = 1
+  let steps : Array[FuzzReductionStep] = []
+  if !reproduces(values) {
+    let result = fuzz_clone_sequence(values)
+    return {
+      result,
+      original_size: values.length(),
+      final_size: result.length(),
+      predicate_evaluations,
+      steps,
+    }
   }
-  let mut current = fuzz_clone_passes(passes)
+  let mut current = fuzz_clone_sequence(values)
   let mut chunk = current.length() / 2
   while chunk > 0 {
     let mut changed = false
     let mut i = 0
     while i + chunk <= current.length() {
-      let candidate = fuzz_without_pass_range(current, i, chunk)
+      let candidate = fuzz_without_sequence_range(current, i, chunk)
+      predicate_evaluations = predicate_evaluations + 1
       if reproduces(candidate) {
+        steps.push({
+          kind: "delete-range",
+          start: i,
+          len: chunk,
+          before_size: current.length(),
+          after_size: candidate.length(),
+        })
         current = candidate
         changed = true
       } else {
@@ -1226,14 +1257,126 @@ pub fn minimize_fuzz_passes(
   }
   let mut i = 0
   while i < current.length() {
-    let candidate = fuzz_without_pass_index(current, i)
+    let candidate = fuzz_without_sequence_range(current, i, 1)
+    predicate_evaluations = predicate_evaluations + 1
     if reproduces(candidate) {
+      steps.push({
+        kind: "delete-range",
+        start: i,
+        len: 1,
+        before_size: current.length(),
+        after_size: candidate.length(),
+      })
       current = candidate
     } else {
       i += 1
     }
   }
-  current
+  {
+    result: current,
+    original_size: values.length(),
+    final_size: current.length(),
+    predicate_evaluations,
+    steps,
+  }
+}
+
+///|
+fn fuzz_without_byte_range(bytes : Bytes, start : Int, len : Int) -> Bytes {
+  let out = @buffer.new(size_hint=bytes.length())
+  let end = start + len
+  let mut i = 0
+  while i < bytes.length() {
+    if i < start || i >= end {
+      out.write_byte(bytes[i])
+    }
+    i += 1
+  }
+  out.to_bytes()
+}
+
+///|
+fn fuzz_clone_bytes(bytes : Bytes) -> Bytes {
+  fuzz_without_byte_range(bytes, bytes.length(), 0)
+}
+
+///|
+pub fn reduce_fuzz_bytes_by_slice_deletion(
+  bytes : Bytes,
+  reproduces : (Bytes) -> Bool,
+) -> FuzzReductionReport[Bytes] {
+  let mut predicate_evaluations = 1
+  let steps : Array[FuzzReductionStep] = []
+  if !reproduces(bytes) {
+    let result = fuzz_clone_bytes(bytes)
+    return {
+      result,
+      original_size: bytes.length(),
+      final_size: result.length(),
+      predicate_evaluations,
+      steps,
+    }
+  }
+  let mut current = fuzz_clone_bytes(bytes)
+  let mut chunk = current.length() / 2
+  while chunk > 0 {
+    let mut changed = false
+    let mut i = 0
+    while i + chunk <= current.length() {
+      let candidate = fuzz_without_byte_range(current, i, chunk)
+      predicate_evaluations = predicate_evaluations + 1
+      if reproduces(candidate) {
+        steps.push({
+          kind: "delete-byte-range",
+          start: i,
+          len: chunk,
+          before_size: current.length(),
+          after_size: candidate.length(),
+        })
+        current = candidate
+        changed = true
+      } else {
+        i += 1
+      }
+    }
+    if !changed {
+      chunk = chunk / 2
+    } else if chunk > current.length() {
+      chunk = current.length()
+    }
+  }
+  let mut i = 0
+  while i < current.length() {
+    let candidate = fuzz_without_byte_range(current, i, 1)
+    predicate_evaluations = predicate_evaluations + 1
+    if reproduces(candidate) {
+      steps.push({
+        kind: "delete-byte-range",
+        start: i,
+        len: 1,
+        before_size: current.length(),
+        after_size: candidate.length(),
+      })
+      current = candidate
+    } else {
+      i += 1
+    }
+  }
+  {
+    result: current,
+    original_size: bytes.length(),
+    final_size: current.length(),
+    predicate_evaluations,
+    steps,
+  }
+}
+
+///|
+pub fn minimize_fuzz_passes(
+  passes : Array[String],
+  reproduces : (Array[String]) -> Bool,
+) -> Array[String] {
+  reduce_fuzz_sequence_by_deletion(passes, reproduces).result
 }
 
 ///|
