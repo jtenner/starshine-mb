@@ -1583,6 +1583,27 @@ test "gen_invalid_ast_generate supports invalid descriptor field ref type strate
 }
 
 ///|
+test "gen_invalid_ast_generate supports invalid subtype super cycle strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x1020a5UL),
+      GenInvalidAstParams::repro_seed(InvalidSubtypeSuperCycle),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-subtype-super-cycle mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == TypeSectionFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports invalid global ref type strategy" {
   let generated = match
     gen_invalid_ast_generate(

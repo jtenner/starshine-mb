@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1020A5 recursive-group supertype cycle invalid AST
+
+- Completed `[FUZ]1020A5` by adding `invalid-subtype-super-cycle`, a deterministic invalid-AST strategy that appends a two-member recursive group whose members name each other as supertypes.
+- Added a type-section validator guard that detects supertype cycles inside the current recursive group and reports the TypeSection family with `subtype supertype cycle`, classifying this slice as a supertype-cycle family rather than a descriptor-pair agreement or missing-index failure.
+- Updated the type-section/subtyping and generator-ledger wiki pages with the new stable id and classification. Validation: `moon test src/validate` first failed on the missing `InvalidSubtypeSuperCycle` constructor, then passed after registry, mutator, dispatcher, label, and validator wiring.
+
 ## [2026-05-31] fuzzing | FUZ1058 golden seed executable catalog smoke
 
 - Continued `[FUZ]1058` by making `--golden-seed-smoke` replay the cataloged `gen-valid-coverage-forced-smoke` entry in addition to the standard smoke recipe and assert the entry's expected GenValid counters before reporting its catalog id and asserted counter count.

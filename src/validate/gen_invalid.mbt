@@ -603,6 +603,7 @@ fn gen_invalid_ast_strategy_label(
     InvalidSubtypeFuncVariance => "invalid-subtype-func-variance"
     InvalidSubtypeMutableFieldVariance =>
       "invalid-subtype-mutable-field-variance"
+    InvalidSubtypeSuperCycle => "invalid-subtype-super-cycle"
     DescriptorOnFuncType => "descriptor-on-func-type"
     DescriptorCycle => "descriptor-cycle"
     InvalidDescriptorFieldRefType => "invalid-descriptor-field-ref-type"

@@ -285,6 +285,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidSubtypeSuperShape
   InvalidSubtypeFuncVariance
   InvalidSubtypeMutableFieldVariance
+  InvalidSubtypeSuperCycle
   DescriptorOnFuncType
   DescriptorCycle
   InvalidDescriptorFieldRefType
@@ -737,6 +738,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       InvalidSubtypeFuncVariance,
       "invalid-subtype-func-variance",
       "function subtype parameter/result variance mismatch",
+      TypeSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidSubtypeSuperCycle,
+      "invalid-subtype-super-cycle",
+      "recursive-group supertype cycle",
       TypeSectionFamily,
       required_in_smoke=false,
     ),
@@ -2175,6 +2183,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidSubtypeSuperShape => 26
     InvalidSubtypeFuncVariance => 242
     InvalidSubtypeMutableFieldVariance => 233
+    InvalidSubtypeSuperCycle => 244
     DescriptorOnFuncType => 27
     DescriptorCycle => 234
     InvalidDescriptorFieldRefType => 243
@@ -9548,6 +9557,25 @@ fn validate_invalid_ast_mutate_invalid_subtype_mutable_field_variance(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_subtype_super_cycle(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let types = validate_invalid_ast_type_entries(mod)
+  types.push(
+    RecType::group([
+      SubType::new(false, [TypeIdx::rec(1U)], CompType::struct_([])),
+      SubType::new(false, [TypeIdx::rec(0U)], CompType::struct_([])),
+    ]),
+  )
+  {
+    strategy: InvalidSubtypeSuperCycle,
+    applicable: true,
+    expected_family: TypeSectionFamily,
+    mutated_module: mod.with_type_sec(TypeSec::new(types)),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_descriptor_on_func_type(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -10465,6 +10493,8 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_subtype_func_variance(base)
       InvalidSubtypeMutableFieldVariance =>
         validate_invalid_ast_mutate_invalid_subtype_mutable_field_variance(base)
+      InvalidSubtypeSuperCycle =>
+        validate_invalid_ast_mutate_invalid_subtype_super_cycle(base)
       DescriptorOnFuncType =>
         validate_invalid_ast_mutate_descriptor_on_func_type(base)
       DescriptorCycle => validate_invalid_ast_mutate_descriptor_cycle(base)
@@ -10918,11 +10948,11 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-imported-shared-memory-without-max", "invalid-imported-shared-memory64-without-max",
     "shared-memory-without-max", "shared-memory64-without-max", "invalid-tag-type-index",
     "invalid-tag-result-type", "invalid-subtype-super-index", "invalid-subtype-super-shape",
-    "invalid-subtype-func-variance", "descriptor-on-func-type", "descriptor-cycle",
-    "invalid-descriptor-field-ref-type", "datacount-without-data-sec", "invalid-export-func-index",
-    "start-func-out-of-range", "missing-datacount-data-drop", "invalid-function-body-local-index",
-    "invalid-function-body-global-index", "invalid-function-body-table-index", "invalid-function-body-memory-index",
-    "invalid-function-body-call-index", "invalid-function-body-branch-label-index",
+    "invalid-subtype-func-variance", "invalid-subtype-super-cycle", "descriptor-on-func-type",
+    "descriptor-cycle", "invalid-descriptor-field-ref-type", "datacount-without-data-sec",
+    "invalid-export-func-index", "start-func-out-of-range", "missing-datacount-data-drop",
+    "invalid-function-body-local-index", "invalid-function-body-global-index", "invalid-function-body-table-index",
+    "invalid-function-body-memory-index", "invalid-function-body-call-index", "invalid-function-body-branch-label-index",
     "invalid-function-body-branch-payload-mismatch", "invalid-function-body-call-payload-mismatch",
     "invalid-function-body-br-if-payload-mismatch", "invalid-function-body-br-table-payload-mismatch",
     "invalid-function-body-if-condition-type", "invalid-function-body-if-branch-result-type",
@@ -11725,6 +11755,19 @@ test "descriptor cycle strategy rejects with TypeSection family" {
     invalid_ast_expect_strategy_rejects_with_family(
       DescriptorCycle,
       0x5efb1UL,
+      TypeSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid subtype super cycle strategy rejects with TypeSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidSubtypeSuperCycle,
+      0x1020a5UL,
       TypeSectionFamily,
     ) {
     Ok(_) => ()

@@ -618,6 +618,52 @@ fn descriptor_target_lookup_subtype(
 }
 
 ///|
+fn validate_rectype_super_cycle_visit(
+  sts : Array[SubType],
+  base : Int,
+  idx : Int,
+  colors : Array[Int],
+) -> Bool {
+  match colors.get(idx) {
+    Some(1) => return true
+    Some(2) => return false
+    _ => ()
+  }
+  colors.set(idx, 1)
+  match sts[idx] {
+    SubType(_, supers, _, _) =>
+      for super_idx in supers {
+        let super_abs = match
+          descriptor_target_absolute_index(super_idx, base, sts.length()) {
+          Some(super_abs) => super_abs
+          None => continue
+        }
+        match group_member_relative_index(base, sts.length(), super_abs) {
+          Some(super_rel) =>
+            if validate_rectype_super_cycle_visit(sts, base, super_rel, colors) {
+              return true
+            }
+          None => ()
+        }
+      }
+    _ => ()
+  }
+  colors.set(idx, 2)
+  false
+}
+
+///|
+fn validate_rectype_has_super_cycle(sts : Array[SubType], base : Int) -> Bool {
+  let colors = Array::make(sts.length(), 0)
+  for i in 0..<sts.length() {
+    if validate_rectype_super_cycle_visit(sts, base, i, colors) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn validate_descriptor_metadata_group(
   sts : Array[SubType],
   env : Env,
@@ -629,6 +675,10 @@ fn validate_descriptor_metadata_group(
     Some(base) => base
     None => env.global_types.length()
   }
+  if validate_rectype_has_super_cycle(sts, base) {
+    return Err("subtype supertype cycle")
+  }
+
   let mut i = 0
   while i < sts.length() {
     let st = sts[i]

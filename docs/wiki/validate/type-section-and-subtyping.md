@@ -155,6 +155,10 @@ SubType(comp=func [] -> [], metadata={ descriptor = TypeIdx(0) })
 
 Starshine rejects this through `validate_descriptor_metadata_group(...)`. The invalid-AST strategy is `DescriptorOnFuncType`.
 
+### Invalid recursive-group supertype cycle
+
+A lowered module can otherwise form a recursive group whose members name each other as supertypes. Starshine now rejects that graph as a TypeSection-family `subtype supertype cycle` before descriptor checks. The invalid-AST strategy is `InvalidSubtypeSuperCycle` with stable id `invalid-subtype-super-cycle`; this classifies the refinement as a supertype-cycle family, distinct from descriptor-pair agreement and missing-index failures.
+
 ### Invalid descriptor field heap type
 
 A lowered module can otherwise form a valid descriptor/describes pair while placing a field on the descriptor type whose reference heap type points past the flattened type section. Starshine rejects this through the ordinary type-reference validation path while the descriptor edge keeps the failure distinct from table/global ref-type strategies. The invalid-AST strategy is `InvalidDescriptorFieldRefType` with stable id `invalid-descriptor-field-ref-type`.

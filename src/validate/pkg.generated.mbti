@@ -1346,6 +1346,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidSubtypeSuperShape
   InvalidSubtypeFuncVariance
   InvalidSubtypeMutableFieldVariance
+  InvalidSubtypeSuperCycle
   DescriptorOnFuncType
   DescriptorCycle
   InvalidDescriptorFieldRefType
