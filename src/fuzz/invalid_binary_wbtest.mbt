@@ -2323,6 +2323,20 @@ test "invalid binary FZG035 decodes invalid blocktype valtype byte as invalid" {
 }
 
 ///|
+test "invalid binary FUZ1021B7 decodes loop and if malformed blocktypes as invalid" {
+  for
+    strategy in [
+      "malformed-loop-blocktype-immediate", "malformed-if-blocktype-immediate",
+    ] {
+    match
+      invalid_binary_expect_strategy_rejects(strategy, 0x1021b7UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG036 decodes overwide element segment index ULEBs as invalid" {
   for
     stable_id in [

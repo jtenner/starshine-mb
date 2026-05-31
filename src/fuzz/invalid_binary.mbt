@@ -185,6 +185,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   OverwideLoadMemargOffsetUleb
   OverwideStoreMemargOffsetUleb
   MalformedBlocktypeImmediate
+  MalformedLoopBlocktypeImmediate
+  MalformedIfBlocktypeImmediate
   InvalidBlocktypeValTypeByte
   OverwideBlocktypeTypeIndexUleb
   MalformedMemoryMinUleb
@@ -1063,6 +1065,8 @@ fn validate_invalid_binary_strategy_label(
     OverwideLoadMemargOffsetUleb => "overwide-load-memarg-offset-uleb"
     OverwideStoreMemargOffsetUleb => "overwide-store-memarg-offset-uleb"
     MalformedBlocktypeImmediate => "malformed-blocktype-immediate"
+    MalformedLoopBlocktypeImmediate => "malformed-loop-blocktype-immediate"
+    MalformedIfBlocktypeImmediate => "malformed-if-blocktype-immediate"
     InvalidBlocktypeValTypeByte => "invalid-blocktype-valtype-byte"
     OverwideBlocktypeTypeIndexUleb => "overwide-blocktype-type-index-uleb"
     MalformedMemoryMinUleb => "malformed-memory-min-uleb"
@@ -2632,6 +2636,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       MalformedBlocktypeImmediate,
       "malformed-blocktype-immediate",
       "block instruction with a malformed blocktype encoding",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedLoopBlocktypeImmediate,
+      "malformed-loop-blocktype-immediate",
+      "loop instruction with a malformed blocktype encoding",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedIfBlocktypeImmediate,
+      "malformed-if-blocktype-immediate",
+      "if instruction with a malformed blocktype encoding",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -7674,6 +7692,48 @@ fn validate_invalid_binary_mutate_malformed_blocktype_immediate(
       true,
       validate_invalid_binary_minimal_code_with_instr([
         (0x02).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_loop_blocktype_immediate(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedLoopBlocktypeImmediate,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x03).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_if_blocktype_immediate(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedIfBlocktypeImmediate,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x04).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
         (0x80).to_byte(),
@@ -16956,6 +17016,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_overwide_store_memarg_offset_uleb(base)
     MalformedBlocktypeImmediate =>
       validate_invalid_binary_mutate_malformed_blocktype_immediate(base)
+    MalformedLoopBlocktypeImmediate =>
+      validate_invalid_binary_mutate_malformed_loop_blocktype_immediate(base)
+    MalformedIfBlocktypeImmediate =>
+      validate_invalid_binary_mutate_malformed_if_blocktype_immediate(base)
     InvalidBlocktypeValTypeByte =>
       validate_invalid_binary_mutate_invalid_blocktype_valtype_byte(base)
     OverwideBlocktypeTypeIndexUleb =>
