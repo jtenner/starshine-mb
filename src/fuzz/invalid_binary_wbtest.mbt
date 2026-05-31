@@ -485,6 +485,28 @@ test "invalid custom section name utf8 strategy rejects at decode stage" {
 }
 
 ///|
+test "malformed custom section name utf8 strategy rejects at decode stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "malformed-custom-section-name-utf8", 0x5f1fUL, "decode",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "overlong custom section name utf8 strategy rejects at decode stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "overlong-custom-section-name-utf8", 0x5f20UL, "decode",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "invalid type name-section index binary strategy rejects at validate stage" {
   match
     invalid_binary_expect_strategy_rejects(

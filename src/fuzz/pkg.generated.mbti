@@ -1113,6 +1113,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidGlobalNameSectionIndexModule
   ReservedSectionId
   InvalidCustomSectionNameUtf8
+  MalformedCustomSectionNameUtf8
+  OverlongCustomSectionNameUtf8
   InvalidTypeNameSectionIndexModule
   InvalidFieldNameSectionIndexModule
   InvalidElemNameSectionIndexModule

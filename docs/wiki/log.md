@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1021A1 custom-section name UTF-8 corruptions
+
+- Closed `[FUZ]1021A1` by adding decode-rejected binary-invalid strategies `malformed-custom-section-name-utf8` and `overlong-custom-section-name-utf8` for custom-section name payload bytes whose surrounding section id, payload size, and name-length framing remain well formed.
+- Kept the existing legacy `invalid-custom-section-name-utf8` stable id intact, and synced the custom/name-section and fuzz-hardening wiki summaries so custom-section-name UTF-8 coverage now distinguishes malformed and overlong byte families from name-length ULEB corruption.
+- Validation: `moon test src/fuzz` first failed on missing strategy stable ids, then passed after registry, label, mutation, and dispatcher wiring.
+
 ## [2026-05-31] fuzzing | FUZ1020C7 br_on_non_null payload invalid AST
 
 - Closed `[FUZ]1020C7` by adding `invalid-function-body-br-on-non-null-payload-mismatch`, a deterministic AST-invalid strategy whose `br_on_non_null` has a valid nullable externref operand but branches to an `i32` result label instead of a compatible non-null reference payload.

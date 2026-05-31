@@ -72,6 +72,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidGlobalNameSectionIndexModule
   ReservedSectionId
   InvalidCustomSectionNameUtf8
+  MalformedCustomSectionNameUtf8
+  OverlongCustomSectionNameUtf8
   InvalidTypeNameSectionIndexModule
   InvalidFieldNameSectionIndexModule
   InvalidElemNameSectionIndexModule
@@ -851,6 +853,8 @@ fn validate_invalid_binary_strategy_label(
       "invalid-global-name-section-index-module"
     ReservedSectionId => "reserved-section-id"
     InvalidCustomSectionNameUtf8 => "invalid-custom-section-name-utf8"
+    MalformedCustomSectionNameUtf8 => "malformed-custom-section-name-utf8"
+    OverlongCustomSectionNameUtf8 => "overlong-custom-section-name-utf8"
     InvalidTypeNameSectionIndexModule =>
       "invalid-type-name-section-index-module"
     InvalidFieldNameSectionIndexModule =>
@@ -1680,6 +1684,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       "invalid-custom-section-name-utf8",
       "custom section with invalid utf8 name",
       DecodeRejected,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedCustomSectionNameUtf8,
+      "malformed-custom-section-name-utf8",
+      "custom section with truncated multibyte utf8 name",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverlongCustomSectionNameUtf8,
+      "overlong-custom-section-name-utf8",
+      "custom section with overlong utf8 name encoding",
+      DecodeRejected,
+      required_in_smoke=false,
     ),
     validate_invalid_binary_strategy_spec(
       InvalidTypeNameSectionIndexModule,
@@ -5646,8 +5664,10 @@ fn validate_invalid_binary_mutate_reserved_section_id(
 }
 
 ///|
-fn validate_invalid_binary_mutate_invalid_custom_section_name_utf8(
+fn validate_invalid_binary_mutate_custom_section_name_utf8_bytes(
+  strategy : ValidateInvalidBinaryStrategyId,
   mod : Module,
+  name_bytes : Array[Byte],
 ) -> Result[ValidateInvalidBinaryMutation, String] {
   let encoded = match validate_invalid_binary_encode_seed_module(mod) {
     Ok(v) => v
@@ -5655,16 +5675,51 @@ fn validate_invalid_binary_mutate_invalid_custom_section_name_utf8(
   }
   let mutated = encoded.to_array()
   mutated.push((0).to_byte())
-  mutated.push((2).to_byte())
-  mutated.push((1).to_byte())
-  mutated.push((0x80).to_byte())
+  mutated.push((name_bytes.length() + 1).to_byte())
+  mutated.push(name_bytes.length().to_byte())
+  for byte in name_bytes {
+    mutated.push(byte)
+  }
   Ok(
     validate_invalid_binary_mutation(
-      InvalidCustomSectionNameUtf8,
+      strategy,
       DecodeRejected,
       true,
       Bytes::from_array(mutated),
     ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_custom_section_name_utf8(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  validate_invalid_binary_mutate_custom_section_name_utf8_bytes(
+    InvalidCustomSectionNameUtf8,
+    mod,
+    [(0x80).to_byte()],
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_custom_section_name_utf8(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  validate_invalid_binary_mutate_custom_section_name_utf8_bytes(
+    MalformedCustomSectionNameUtf8,
+    mod,
+    [(0xe2).to_byte(), (0x82).to_byte()],
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overlong_custom_section_name_utf8(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  validate_invalid_binary_mutate_custom_section_name_utf8_bytes(
+    OverlongCustomSectionNameUtf8,
+    mod,
+    [(0xc0).to_byte(), (0xaf).to_byte()],
   )
 }
 
@@ -15979,6 +16034,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_reserved_section_id(base)
     InvalidCustomSectionNameUtf8 =>
       validate_invalid_binary_mutate_invalid_custom_section_name_utf8(base)
+    MalformedCustomSectionNameUtf8 =>
+      validate_invalid_binary_mutate_malformed_custom_section_name_utf8(base)
+    OverlongCustomSectionNameUtf8 =>
+      validate_invalid_binary_mutate_overlong_custom_section_name_utf8(base)
     MalformedSimdImmediate =>
       validate_invalid_binary_mutate_malformed_simd_immediate(base)
     SimdLaneIndexOverflow =>
