@@ -183,6 +183,37 @@ test "fuzz package can consume datacount active/passive mismatch invalid AST str
 }
 
 ///|
+test "fuzz package can consume call_indirect table element type invalid AST strategy" {
+  let strategy = match
+    @validate.validate_invalid_ast_strategy_by_stable_id(
+      "invalid-function-body-call-indirect-table-element-type",
+    ) {
+    Some(spec) => spec.id
+    None => fail("expected call_indirect table element type strategy to exist")
+  }
+  let generated = match
+    @validate.gen_invalid_ast_generate(
+      @splitmix.new(seed=0x1020e2UL),
+      @validate.GenInvalidAstParams::minimal_seed(strategy),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected call_indirect table element type base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail("expected call_indirect table element type invalid module to fail")
+    Err(_) => ()
+  }
+}
+
+///|
 test "fuzz package can consume GC br_on_non_null invalid AST strategy" {
   let strategy = match
     @validate.validate_invalid_ast_strategy_by_stable_id(
