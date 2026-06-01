@@ -71,7 +71,7 @@ A separate instantiation/linking step would ask: "Does the host actually provide
 | `exportsec` | Validates each `ExternIdx` against the completed index spaces, then rejects duplicate export names. | [`validate_exportsec_unique(...)`](../../../src/validate/validate.mbt) |
 | later phases | `ref.func` declarations, code bodies, and name maps use the same imported-prefix index spaces. | [`ref-func-declarations.md`](ref-func-declarations.md), [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md) |
 
-The user-visible diagnostic split is stable: invalid import declarations report `ImportSection`, while invalid export indices or duplicate export names report `ExportSection`. The invalid-fuzzer registry keeps both families explicit in [`src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt) and covers export-index strategies in [`src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt), including both ordinary out-of-range targets and a wrong-kind function-export case where index `0` exists in the table space but not the function space.
+The user-visible diagnostic split is stable: invalid import declarations report `ImportSection`, while invalid export indices or duplicate export names report `ExportSection`. The invalid-fuzzer registry keeps both families explicit in [`src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt): the duplicate-name strategy now uses a cross-kind function/memory duplicate with individually valid indices, while the export-index strategies include both ordinary out-of-range targets and a wrong-kind function-export case where index `0` exists in the table space but not the function space.
 
 ## What Counts As A Valid Import Declaration
 

@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-06-01] fuzzing | FUZ1020D3 cross-kind duplicate export invalid AST
+
+- Hardened `duplicate-export-name` so the deterministic invalid-AST mutation appends duplicate names across valid function and memory exports, proving export-name uniqueness is kind-independent.
+- Added a focused validator test for the cross-kind function/memory shape and updated the validator/fuzz wiki summaries.
+- Validation: `moon test src/validate`, `moon test src/fuzz`, `moon info`, `moon fmt`, full `moon test`, and `git diff --check` passed. `moon fmt` attempted a workspace metadata migration on this toolchain; the migration-only churn was reverted before commit.
+
 ## [2026-06-01] fuzzing | FUZ1020D1 invalid AST coverage census
 
 - Audited `src/validate/invalid_fuzzer.mbt`, `src/validate/gen_invalid.mbt`, `src/validate/gen_invalid_tests.mbt`, existing FUZ1020 log entries, and the living fuzz/validator wiki summaries.

@@ -3286,18 +3286,12 @@ fn validate_invalid_ast_with_tag_names(
 fn validate_invalid_ast_mutate_duplicate_export_name(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
-  let (base, target_func) = validate_invalid_ast_ensure_any_func(mod)
+  let (with_func, target_func) = validate_invalid_ast_ensure_any_func(mod)
+  let base = validate_invalid_ast_ensure_memory(with_func)
   let exports = validate_invalid_ast_export_entries(base)
-  let duplicate_name = if exports.length() > 0 {
-    let Export(name, _) = exports[0]
-    name
-  } else {
-    Name::new("dup")
-  }
-  if exports.is_empty() {
-    exports.push(Export::new(duplicate_name, ExternIdx::func(target_func)))
-  }
+  let duplicate_name = Name::new("dup-cross-kind")
   exports.push(Export::new(duplicate_name, ExternIdx::func(target_func)))
+  exports.push(Export::new(duplicate_name, ExternIdx::mem(MemIdx::new(0U))))
   {
     strategy: DuplicateExportName,
     applicable: true,
@@ -11510,6 +11504,35 @@ test "duplicate export strategy rejects with ExportSection family" {
     Ok(_) => ()
     Err(msg) => fail(msg)
   }
+}
+
+///|
+test "duplicate export strategy uses cross-kind duplicate names" {
+  let base = invalid_ast_test_base_module(0x5eedUL)
+  let mutation = match
+    apply_validate_invalid_ast_strategy(DuplicateExportName, base) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let exports = validate_invalid_ast_export_entries(mutation.mutated_module)
+  let mut saw_func = false
+  let mut saw_mem = false
+  let mut duplicate_name = None
+  for export_entry in exports {
+    let Export(name, desc) = export_entry
+    if name == Name::new("dup-cross-kind") {
+      duplicate_name = Some(name)
+      match desc {
+        FuncExternIdx(_) => saw_func = true
+        MemExternIdx(_) => saw_mem = true
+        _ => ()
+      }
+    }
+  }
+  assert_true(
+    duplicate_name != None && saw_func && saw_mem,
+    msg="duplicate-export-name should cover cross-kind func/memory duplicate names with valid indices",
+  )
 }
 
 ///|
