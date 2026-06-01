@@ -613,9 +613,7 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 Use this board as the tracking view for fuzzer work. Each slice should be small enough for one focused TDD loop: add/adjust focused tests, implement one narrow behavior, update docs/wiki counters, and run the targeted fuzz smoke plus `moon test src/fuzz` or the relevant package test. Prefer finishing p1 GenValid/metamorphic slices before p2 infrastructure unless a bug or release need says otherwise.
 
 p1 next-up / active:
-- [FUZ]1043K (p1, GenValid) - Pass-Fuzz Mismatch Reducer Hook
-  - Unit: wire one pass-fuzz / GenValid mismatch persistence path to the shared reducer contract so a reproduced optimizer mismatch can emit original and reduced wasm artifacts plus `reduction.txt` metadata without changing the mismatch oracle.
-  - Suggested tests: focused command-harness fixture with a fake mismatch predicate proving reduced bytes/log paths persist and original artifacts remain untouched.
+- None currently tracked. Prefer adding a new tiny GenValid/metamorphic slice before broad p2 infrastructure work if a release need appears.
 
 p2 invalid/binary/text tiny slices:
 - [FUZ]1021C1 (p2) - SIMD Relaxed-Laneselect Operand-Context Corruptions
@@ -642,9 +640,6 @@ p2 oracle/reporting/infrastructure tiny slices:
 Use these slice ids when selecting or reporting future FUZ work. Parent tasks below keep the fuller goals, invariants, and historical evidence; this index names the remaining units so agents do not have to infer the next slice from long status paragraphs.
 
 p1/p2 oracle, reporting, and infrastructure slices:
-- [FUZ]1043K (p1, GenValid) - Pass-Fuzz Mismatch Reducer Hook
-  - Unit: wire one pass-fuzz / GenValid mismatch persistence path to the shared reducer contract so a reproduced optimizer mismatch can emit original and reduced wasm artifacts plus `reduction.txt` metadata without changing the mismatch oracle.
-  - Parent: [FUZ]1043.
 - [FUZ]1050D1 (p2) - Normalized Shape Interestingness Hash
   - Unit: add a report-only normalized/canonical shape hash field for corpus entries without deduplicating or deleting artifacts.
   - Parent: [FUZ]1050.
@@ -787,6 +782,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1043 (p2) - Cross-Harness Failure Minimizer And Case Reducer
   - Goal: share shrinking/minimization logic across GenValid, invalid fuzzing, command harness, and pass-fuzz compare.
   - Why: every harness currently risks inventing its own minimizer. Shared reduction makes failures smaller and more comparable across validator, parser, binary, and optimizer lanes.
+  - Previous slice `[FUZ]1043K` (2026-05-31): synced the script-side GenValid pass-fuzz mismatch reducer with the shared reduction artifact contract. `reduceBinaryByByteSlicesWithReport(...)` returns reduced bytes plus original/final sizes, predicate-evaluation count, and `delete-byte-slice` steps; pass-fuzz mismatch persistence now writes those steps to `reduction.txt` and `failure-metadata.json` beside `reduced-input.wasm` while preserving original `input.wasm` replay semantics. TDD first failed in `bun scripts/test/fuzz-reducers.ts` on the missing report-returning reducer API and in `bun test scripts/lib/pass-fuzz-compare-task.test.ts` on the missing reduction-log helper, then passed after implementation. Docs synced in `docs/wiki/fuzzing/reduction-backends.md` and `docs/wiki/log.md`.
   - Previous slice `[FUZ]1043J` (2026-05-31): wired invalid-fuzz inline text and spec-seed shrink reports through a parser-aware inline-module field deletion pass before token deletion or strategy-minimal fallback. The reducer preserves assertion kind/message, replays candidates through the existing invalid-text oracle, records `delete-module-field-range` metadata, and uses a new WAST `Module::new(...)` constructor for re-rendering reduced module-field arrays. TDD first failed in `moon test src/fuzz` because the shrinker still reported token-only reduction metadata, then passed after implementation. Docs synced in `docs/wiki/fuzzing/reduction-backends.md` and `docs/wiki/log.md`.
   - Previous slice `[FUZ]1043I` (2026-05-31): added the parser-aware Moon module-field reducer adapter `reduce_fuzz_module_fields_by_deletion(...)` over the shared sequence reducer. It accepts parsed WAST `ModuleField` arrays, keeps the caller-owned replay predicate, deletes contiguous field ranges, and relabels deletion metadata as `delete-module-field-range`. TDD first failed in `moon test src/cmd` on the missing reducer API, then passed after implementation. Docs synced in `docs/wiki/fuzzing/reduction-backends.md` and `docs/wiki/log.md`.
   - Previous slice `[FUZ]1043H` (2026-05-31): wired the token-deletion shape into one concrete invalid-fuzz shrink path. `shrink_invalid_fuzz_failure_report(...)` now tries replay-predicate-preserving text-token deletion for inline text and spec-seed WAST reports before falling back to the existing strategy-minimal reducer. Successful token reductions preserve the original artifact, write a reduced WAST artifact, and record `delete-text-token-range` steps plus predicate-evaluation counts in the normal invalid-fuzz reduction metadata.
@@ -800,7 +796,7 @@ p2 invalid/binary/text slices:
   - Invariants: minimization must never replace the original artifact unless the predicate still reproduces; store original and reduced artifacts separately.
   - Dependencies: [FUZ]1025 and [FUZ]1031.
   - Suggested Tests: fake predicate reducer tests, known fixture reductions, original-vs-reduced metadata roundtrip tests.
-  - Next concrete slice: `[FUZ]1043K` wires one pass-fuzz / GenValid mismatch persistence path to the shared reducer contract.
+  - Next concrete slice: none currently tracked; add a new tiny reducer slice before broad minimizer work.
   - Exit Criteria: any fuzz harness can hand a failure to one reducer and get a smaller reproducible artifact plus shrink log.
 
 - [FUZ]1045 (p2) - N-Way Text Printer, Parser, And Lowering Differential

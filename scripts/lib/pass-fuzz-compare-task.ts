@@ -14,6 +14,7 @@ import {
 } from "./task-runtime";
 import { type FuzzSummaryReport, formatFuzzSummaryReport, normalizeFuzzSummaryReport } from "./fuzz-summary-counters";
 import { type EffectTrapFacts, scanEffectTrapFactsFromWasmBytes } from "./effect-trap-scanner";
+import { reduceBinaryByByteSlicesWithReport, type ReductionStep } from "./fuzz-reducers";
 
 type GeneratorMode = "both" | "wasm-smith" | "gen-valid";
 type GeneratorKind = "wasm-smith" | "gen-valid";
@@ -127,6 +128,14 @@ type ReplayCase = {
   caseIndex: number;
   generator: GeneratorKind;
   inputPath: string;
+};
+
+export type MismatchReductionArtifact = {
+  reducedBytes: Uint8Array;
+  originalSize: number;
+  finalSize: number;
+  predicateEvaluations: number;
+  steps: ReductionStep[];
 };
 
 export type PassFuzzCompareSummary = {
@@ -1497,6 +1506,19 @@ function safeArtifactNameSegment(value: string): string {
   return value.replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^_+|_+$/g, "") || "unknown";
 }
 
+export function passFuzzReductionLogTextForTest(status: CaseStatus, reductionArtifact: MismatchReductionArtifact): string {
+  return [
+    `status=${status}`,
+    `original_size=${reductionArtifact.originalSize}`,
+    `final_size=${reductionArtifact.finalSize}`,
+    `predicate_evaluations=${reductionArtifact.predicateEvaluations}`,
+    "reduced_wasm_path=reduced-input.wasm",
+    ...reductionArtifact.steps.map((step) =>
+      `step=${step.kind}|start=${step.start}|len=${step.length}|before=${step.beforeSize}|after=${step.afterSize}`
+    ),
+  ].join("\n") + "\n";
+}
+
 function persistFailureArtifacts(
   outDir: string,
   caseIndex: number,
@@ -1510,6 +1532,7 @@ function persistFailureArtifacts(
   genValidManifestEntry: unknown | null = null,
   inputEffectTrapFacts: EffectTrapFacts | null = null,
   runtimeInvocationReports: RuntimeExportInvocationReport[] | null = null,
+  reductionArtifact: MismatchReductionArtifact | null = null,
 ): string {
   const transformId = genValidManifestTransformId(genValidManifestEntry);
   const failureDir = path.join(
@@ -1542,6 +1565,11 @@ function persistFailureArtifacts(
       artifacts.push("input.print.wat");
     }
   }
+  if (reductionArtifact !== null) {
+    fs.writeFileSync(path.join(failureDir, "reduced-input.wasm"), reductionArtifact.reducedBytes);
+    fs.writeFileSync(path.join(failureDir, "reduction.txt"), passFuzzReductionLogTextForTest(status, reductionArtifact));
+    artifacts.push("reduced-input.wasm", "reduction.txt");
+  }
   fs.writeFileSync(
     path.join(failureDir, "failure-metadata.json"),
     JSON.stringify(
@@ -1558,6 +1586,17 @@ function persistFailureArtifacts(
           runtimeInvocationReports === null
             ? null
             : runtimeExportInvocationMatrixPersistence(runtimeInvocationReports),
+        reduction:
+          reductionArtifact === null
+            ? null
+            : {
+                originalSize: reductionArtifact.originalSize,
+                finalSize: reductionArtifact.finalSize,
+                predicateEvaluations: reductionArtifact.predicateEvaluations,
+                steps: reductionArtifact.steps,
+                reducedWasm: "reduced-input.wasm",
+                log: "reduction.txt",
+              },
         replay: {
           input: "input.wasm",
           passFlags,
@@ -1568,6 +1607,142 @@ function persistFailureArtifacts(
     ) + "\n",
   );
   return failureDir;
+}
+
+function runSyncOk(
+  command: string,
+  args: string[],
+  repoRoot: string,
+  env: NodeJS.ProcessEnv,
+): boolean {
+  const result = spawnSync(command, args, {
+    cwd: repoRoot,
+    env,
+    encoding: "utf8",
+    maxBuffer: 128 * 1024 * 1024,
+  });
+  return !result.error && result.status === 0;
+}
+
+function normalizePrintWatSync(
+  wasmOptBin: string,
+  wasmPath: string,
+  watPath: string,
+  repoRoot: string,
+  env: NodeJS.ProcessEnv,
+): string | null {
+  if (!runSyncOk(wasmOptBin, [wasmPath, "--all-features", "--strip-debug", "-S", "-o", watPath], repoRoot, env)) {
+    return null;
+  }
+  return fs.readFileSync(watPath, "utf8");
+}
+
+function canonicalizeWasmSync(
+  wasmOptBin: string,
+  inputPath: string,
+  outputPath: string,
+  repoRoot: string,
+  env: NodeJS.ProcessEnv,
+): boolean {
+  return runSyncOk(wasmOptBin, [inputPath, "--all-features", "--strip-debug", "-o", outputPath], repoRoot, env);
+}
+
+function candidateStillHasPassFuzzMismatch(
+  candidateBytes: Uint8Array,
+  options: PassFuzzCompareOptions,
+  starshineInvocation: StarshineInvocation,
+  binaryenPassFlags: string[],
+  repoRoot: string,
+  repoTmpDir: string,
+  repoTmpEnv: NodeJS.ProcessEnv,
+): boolean {
+  const workDir = fs.mkdtempSync(path.join(repoTmpDir, "starshine-pass-fuzz-reduce-"));
+  try {
+    const inputPath = path.join(workDir, "input.wasm");
+    const starshineRawPath = path.join(workDir, "starshine.raw.wasm");
+    const starshinePath = path.join(workDir, "starshine.wasm");
+    const binaryenRawPath = path.join(workDir, "binaryen.raw.wasm");
+    const binaryenPath = path.join(workDir, "binaryen.wasm");
+    const starshineWatPath = path.join(workDir, "starshine.wat");
+    const binaryenWatPath = path.join(workDir, "binaryen.wat");
+    fs.writeFileSync(inputPath, candidateBytes);
+    if (!runSyncOk(options.wasmToolsBin, ["validate", "--features", "all", inputPath], repoRoot, repoTmpEnv)) {
+      return false;
+    }
+    const starshineArgs = [
+      ...starshineInvocation.argsPrefix,
+      ...options.passFlags,
+      "--out",
+      starshineRawPath,
+      inputPath,
+    ];
+    if (!runSyncOk(starshineInvocation.command, starshineArgs, repoRoot, repoTmpEnv)) {
+      return false;
+    }
+    if (!runSyncOk(options.wasmToolsBin, ["validate", "--features", "all", starshineRawPath], repoRoot, repoTmpEnv)) {
+      return false;
+    }
+    if (!runSyncOk(options.wasmOptBin, [inputPath, "--all-features", ...binaryenPassFlags, "-o", binaryenRawPath], repoRoot, repoTmpEnv)) {
+      return false;
+    }
+    if (!canonicalizeWasmSync(options.wasmOptBin, starshineRawPath, starshinePath, repoRoot, repoTmpEnv)) {
+      return false;
+    }
+    if (!canonicalizeWasmSync(options.wasmOptBin, binaryenRawPath, binaryenPath, repoRoot, repoTmpEnv)) {
+      return false;
+    }
+    const starshineWat = normalizePrintWatSync(options.wasmOptBin, starshinePath, starshineWatPath, repoRoot, repoTmpEnv);
+    if (starshineWat === null) {
+      return false;
+    }
+    const binaryenWat = normalizePrintWatSync(options.wasmOptBin, binaryenPath, binaryenWatPath, repoRoot, repoTmpEnv);
+    if (binaryenWat === null) {
+      return false;
+    }
+    if (starshineWat === binaryenWat) {
+      return false;
+    }
+    if (options.normalizers.length > 0) {
+      return applyCompareNormalizers(starshineWat, options.normalizers) !==
+        applyCompareNormalizers(binaryenWat, options.normalizers);
+    }
+    return true;
+  } finally {
+    fs.rmSync(workDir, { recursive: true, force: true });
+  }
+}
+
+function reduceGenValidMismatchInput(
+  inputPath: string,
+  options: PassFuzzCompareOptions,
+  starshineInvocation: StarshineInvocation,
+  binaryenPassFlags: string[],
+  repoRoot: string,
+  repoTmpDir: string,
+  repoTmpEnv: NodeJS.ProcessEnv,
+): MismatchReductionArtifact | null {
+  const originalBytes = fs.readFileSync(inputPath);
+  const reduction = reduceBinaryByByteSlicesWithReport(originalBytes, (candidate) => {
+    return candidateStillHasPassFuzzMismatch(
+      candidate,
+      options,
+      starshineInvocation,
+      binaryenPassFlags,
+      repoRoot,
+      repoTmpDir,
+      repoTmpEnv,
+    );
+  });
+  if (reduction.finalSize >= reduction.originalSize) {
+    return null;
+  }
+  return {
+    reducedBytes: reduction.result,
+    originalSize: reduction.originalSize,
+    finalSize: reduction.finalSize,
+    predicateEvaluations: reduction.predicateEvaluations,
+    steps: reduction.steps,
+  };
 }
 
 function loadReplayCases(
@@ -2617,6 +2792,17 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         summary.mismatchCount += 1;
         failures += 1;
         const detail = "normalized outputs differed";
+        const reductionArtifact = generator === "gen-valid" && replayCase === null
+          ? reduceGenValidMismatchInput(
+              inputPath,
+              options,
+              starshineInvocation,
+              binaryenPassFlags,
+              repoRoot,
+              repoTmpDir,
+              repoTmpEnv,
+            )
+          : null;
         summary.failureDirs.push(
           persistFailureArtifacts(
             outDir,
@@ -2631,6 +2817,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             genValidManifestEntry,
             inputEffectTrapFacts,
             runtimeInvocationReports,
+            reductionArtifact,
           ),
         );
         recordCase({

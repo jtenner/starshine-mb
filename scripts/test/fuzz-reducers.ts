@@ -2,6 +2,7 @@ import { strict as assert } from "node:assert";
 
 import {
   reduceBinaryByByteSlices,
+  reduceBinaryByByteSlicesWithReport,
   reduceModuleFieldsByDeletion,
   reduceTextByTokenDeletion,
 } from "../lib/fuzz-reducers";
@@ -18,6 +19,16 @@ export function runFuzzReducersTest(): void {
     return candidate.includes(2) && candidate.includes(5) && !candidate.includes(6);
   });
   assert.deepEqual(Array.from(reducedBytes), [2, 5], "binary reducer should delete byte slices while preserving predicate");
+
+  const reducedBytesReport = reduceBinaryByByteSlicesWithReport(bytes, (candidate) => {
+    return candidate.includes(2) && candidate.includes(5) && !candidate.includes(6);
+  });
+  assert.deepEqual(Array.from(reducedBytesReport.result), [2, 5], "binary reducer report should carry the reduced bytes");
+  assert.equal(reducedBytesReport.originalSize, 8, "binary reducer report should carry the original size");
+  assert.equal(reducedBytesReport.finalSize, 2, "binary reducer report should carry the final size");
+  assert.ok(reducedBytesReport.predicateEvaluations > 0, "binary reducer report should count predicate evaluations");
+  assert.ok(reducedBytesReport.steps.length > 0, "binary reducer report should record deletion steps");
+  assert.equal(reducedBytesReport.steps[0].kind, "delete-byte-slice", "binary reducer report should label byte deletions");
 
   const reducedText = reduceTextByTokenDeletion("( module ( func $keep ) ( export \"x\" ) )", (candidate) => {
     return candidate.includes("func") && candidate.includes("export") && !candidate.includes("module");

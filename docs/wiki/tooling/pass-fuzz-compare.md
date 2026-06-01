@@ -156,6 +156,8 @@ Each failure directory includes:
 - `input.print.wat` when `wasm-tools print` succeeds;
 - `failure-metadata.json` with `caseIndex`, `generator`, failure `status`, `detail`, copied artifact names, relative replay input plus pass flags, the per-input GenValid manifest entry when the failing case came from a manifest-backed `gen-valid` batch, and a `runtimeExecutionMatrix` block for runtime-enabled mismatches after the Node export matrix has run.
 
+For fresh `gen-valid` normalized mismatches, pass-fuzz also attempts a byte-slice reduction after the mismatch has already been classified by the ordinary oracle. Successful reductions add `reduced-input.wasm`, `reduction.txt`, and a `reduction` block in `failure-metadata.json`; the reduction metadata includes original/final sizes, predicate-evaluation count, and `delete-byte-slice` steps. `input.wasm` remains the original replay input, so this artifact path does not change mismatch counting or replay semantics.
+
 The generator ledger records this as `[FZG]029`; see [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md).
 
 ## Failure Statuses And How To Report Them

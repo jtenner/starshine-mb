@@ -1,17 +1,48 @@
 export type ReductionPredicate<T> = (candidate: T) => boolean;
 
+export type ReductionStep = {
+  kind: string;
+  start: number;
+  length: number;
+  beforeSize: number;
+  afterSize: number;
+};
+
+export type ReductionReport<T> = {
+  result: T;
+  originalSize: number;
+  finalSize: number;
+  predicateEvaluations: number;
+  steps: ReductionStep[];
+};
+
 export function reduceModuleFieldsByDeletion<T>(fields: readonly T[], predicate: ReductionPredicate<readonly T[]>): T[] {
   return reduceSequenceByChunkDeletion(fields, (candidate) => candidate, predicate).items;
 }
 
 export function reduceBinaryByByteSlices(bytes: Uint8Array, predicate: ReductionPredicate<Uint8Array>): Uint8Array {
+  return reduceBinaryByByteSlicesWithReport(bytes, predicate).result;
+}
+
+export function reduceBinaryByByteSlicesWithReport(
+  bytes: Uint8Array,
+  predicate: ReductionPredicate<Uint8Array>,
+): ReductionReport<Uint8Array> {
   const values = Array.from(bytes);
   const reduced = reduceSequenceByChunkDeletion(
     values,
     (candidate) => Uint8Array.from(candidate),
     predicate,
+    "delete-byte-slice",
   );
-  return Uint8Array.from(reduced.items);
+  const result = Uint8Array.from(reduced.items);
+  return {
+    result,
+    originalSize: bytes.length,
+    finalSize: result.length,
+    predicateEvaluations: reduced.predicateEvaluations,
+    steps: reduced.steps,
+  };
 }
 
 export function reduceTextByTokenDeletion(text: string, predicate: ReductionPredicate<string>): string {
@@ -28,11 +59,14 @@ function reduceSequenceByChunkDeletion<T, Candidate>(
   original: readonly T[],
   makeCandidate: (items: readonly T[]) => Candidate,
   predicate: ReductionPredicate<Candidate>,
-): { items: T[]; changed: boolean } {
+  stepKind: string = "delete-sequence-range",
+): { items: T[]; changed: boolean; predicateEvaluations: number; steps: ReductionStep[] } {
   let current = Array.from(original);
   let anyChanged = false;
+  let predicateEvaluations = 0;
+  const steps: ReductionStep[] = [];
   if (current.length === 0) {
-    return { items: current, changed: false };
+    return { items: current, changed: false, predicateEvaluations, steps };
   }
 
   let chunkSize = largestPowerOfTwoAtMost(current.length);
@@ -44,11 +78,20 @@ function reduceSequenceByChunkDeletion<T, Candidate>(
         start = end;
         continue;
       }
+      const beforeSize = current.length;
       const candidateItems = current.slice(0, start).concat(current.slice(end));
+      predicateEvaluations += 1;
       if (predicate(makeCandidate(candidateItems))) {
         current = candidateItems;
         changed = true;
         anyChanged = true;
+        steps.push({
+          kind: stepKind,
+          start,
+          length: end - start,
+          beforeSize,
+          afterSize: current.length,
+        });
         continue;
       }
       start = end;
@@ -57,7 +100,7 @@ function reduceSequenceByChunkDeletion<T, Candidate>(
       chunkSize = Math.floor(chunkSize / 2);
     }
   }
-  return { items: current, changed: anyChanged };
+  return { items: current, changed: anyChanged, predicateEvaluations, steps };
 }
 
 function largestPowerOfTwoAtMost(value: number): number {
@@ -69,6 +112,6 @@ function largestPowerOfTwoAtMost(value: number): number {
 }
 
 function tokenizeReductionText(text: string): string[] {
-  const matches = text.match(/[A-Za-z0-9_.$:@+\-*/<>=!?|&%^~'`\\"]+/g);
+  const matches = text.match(/[A-Za-z0-9_.$:@+\-*/<>=!?|&%^~'`\\\"]+/g);
   return matches === null ? [] : matches;
 }

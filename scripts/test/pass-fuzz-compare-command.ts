@@ -2943,6 +2943,137 @@ process.exit(0);
   assert(entry.failureClass === "binaryen-invalid-tag-index", `expected replayed invalid-tag-index classification, got ${JSON.stringify(entry)}`);
 }
 
+export function runPassFuzzCompareGenValidMismatchReductionArtifactsTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-mismatch-reduction-"));
+  const outDir = path.join(tmpdir, "out");
+  const moonLog = path.join(tmpdir, "moon.log");
+
+  const fakeMoon = makeExecutable(
+    path.join(tmpdir, "fake-moon"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_MOON_LOG, JSON.stringify(args) + "\\n");
+if (args[0] === "run" && args.includes("src/fuzz")) {
+  const outDir = args[args.indexOf("--out-dir") + 1];
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(path.join(outDir, "gen-valid-000001.wasm"), "noiseTRIGGERtail");
+  fs.writeFileSync(path.join(outDir, "manifest.json"), JSON.stringify({ records: [
+    { file_name: "gen-valid-000001.wasm", feature_facts: { has_trigger: true } },
+  ] }));
+}
+process.exit(0);
+`,
+  );
+
+  const fakeStarshine = makeExecutable(
+    path.join(tmpdir, "fake-starshine"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+const outIndex = args.indexOf("--out");
+const input = fs.readFileSync(args[args.length - 1], "utf8");
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+fs.writeFileSync(args[outIndex + 1], input.includes("TRIGGER") ? "starshine:TRIGGER" : "same");
+process.exit(0);
+`,
+  );
+
+  const fakeWasmOpt = makeExecutable(
+    path.join(tmpdir, "fake-wasm-opt"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+const outIndex = args.indexOf("-o");
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+const input = fs.readFileSync(args[0], "utf8");
+if (args.includes("-S")) {
+  fs.writeFileSync(args[outIndex + 1], input + "\\n");
+} else if (args.includes("--remove-unused-brs")) {
+  fs.writeFileSync(args[outIndex + 1], input.includes("TRIGGER") ? "binaryen:TRIGGER" : "same");
+} else {
+  fs.writeFileSync(args[outIndex + 1], input);
+}
+process.exit(0);
+`,
+  );
+
+  const fakeWasmTools = makeExecutable(
+    path.join(tmpdir, "fake-wasm-tools"),
+    `
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+if (args[0] === "print") {
+  process.stdout.write(fs.readFileSync(args[1], "utf8"));
+}
+process.exit(0);
+`,
+  );
+
+  const result = spawnSync(
+    "bun",
+    [
+      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--count",
+      "1",
+      "--generator",
+      "gen-valid",
+      "--max-failures",
+      "1",
+      "--out-dir",
+      outDir,
+      "--moon",
+      fakeMoon,
+      "--starshine-bin",
+      fakeStarshine,
+      "--wasm-opt-bin",
+      fakeWasmOpt,
+      "--wasm-tools-bin",
+      fakeWasmTools,
+      "--pass",
+      "remove-unused-brs",
+    ],
+    {
+      cwd: repoRoot,
+      env: { ...process.env, FAKE_MOON_LOG: moonLog },
+      encoding: "utf8",
+    },
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    fail(`pass-fuzz-compare gen-valid mismatch reduction failed:\n${result.stderr}`);
+  }
+
+  const failureDir = path.join(outDir, "failures", "case-000001-gen-valid");
+  const input = fs.readFileSync(path.join(failureDir, "input.wasm"), "utf8");
+  const reduced = fs.readFileSync(path.join(failureDir, "reduced-input.wasm"), "utf8");
+  const reductionLog = fs.readFileSync(path.join(failureDir, "reduction.txt"), "utf8");
+  assert(input === "noiseTRIGGERtail", `expected original input preserved, got ${JSON.stringify(input)}`);
+  assert(reduced === "TRIGGER", `expected reduced wasm to keep only trigger bytes, got ${JSON.stringify(reduced)}`);
+  assert(reductionLog.includes("status=mismatch"), `expected mismatch status in reduction log, got ${reductionLog}`);
+  assert(reductionLog.includes("original_size=16"), `expected original size in reduction log, got ${reductionLog}`);
+  assert(reductionLog.includes("final_size=7"), `expected final size in reduction log, got ${reductionLog}`);
+  assert(reductionLog.includes("predicate_evaluations="), `expected predicate count in reduction log, got ${reductionLog}`);
+
+  const metadata = JSON.parse(fs.readFileSync(path.join(failureDir, "failure-metadata.json"), "utf8")) as {
+    artifacts: string[];
+    reduction: null | { originalSize: number; finalSize: number; predicateEvaluations: number };
+  };
+  assert(metadata.artifacts.includes("input.wasm"), `expected original input artifact, got ${metadata.artifacts.join(",")}`);
+  assert(metadata.artifacts.includes("reduced-input.wasm"), `expected reduced input artifact, got ${metadata.artifacts.join(",")}`);
+  assert(metadata.artifacts.includes("reduction.txt"), `expected reduction log artifact, got ${metadata.artifacts.join(",")}`);
+  assert(metadata.reduction?.originalSize === 16, `expected reduction metadata original size, got ${JSON.stringify(metadata.reduction)}`);
+  assert(metadata.reduction?.finalSize === 7, `expected reduction metadata final size, got ${JSON.stringify(metadata.reduction)}`);
+  assert((metadata.reduction?.predicateEvaluations ?? 0) > 0, `expected predicate evaluations, got ${JSON.stringify(metadata.reduction)}`);
+}
+
 export function runPassFuzzCompareReplayMismatchStatusTest(): void {
   const repoRoot = path.resolve(import.meta.dir, "..", "..");
   const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-replay-mismatch-status-"));
@@ -3498,6 +3629,7 @@ if (import.meta.main) {
   runPassFuzzCompareReplayFailureClassTest();
   runPassFuzzCompareReplayLegacyCaseIndexTest();
   runPassFuzzCompareReplayMismatchStatusTest();
+  runPassFuzzCompareGenValidMismatchReductionArtifactsTest();
   runPassFuzzCompareMinComparedGateTest();
   runPassFuzzCompareParallelJobsRequireStarshineBinTest();
   runPassFuzzCompareDefaultStarshineInvocationTest();

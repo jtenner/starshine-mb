@@ -12,6 +12,7 @@ import {
   runNodeExportInvocationMatrix,
   smokeExecuteNodeRuntime,
   summarizeRuntimeExportInvocationMatrix,
+  passFuzzReductionLogTextForTest,
   passFuzzSummaryCoverageReport,
 } from "./pass-fuzz-compare-task";
 
@@ -26,6 +27,27 @@ function wasmFromWat(wat: string): string {
   }
   return wasmPath;
 }
+
+describe("pass-fuzz mismatch reduction metadata", () => {
+  test("FUZ1043K records shared reducer deletion steps in reduction logs", () => {
+    const text = passFuzzReductionLogTextForTest("mismatch", {
+      reducedBytes: Uint8Array.from([0x00, 0x61, 0x73, 0x6d]),
+      originalSize: 16,
+      finalSize: 4,
+      predicateEvaluations: 7,
+      steps: [
+        { kind: "delete-byte-slice", start: 4, length: 8, beforeSize: 16, afterSize: 8 },
+      ],
+    });
+
+    expect(text).toContain("status=mismatch\n");
+    expect(text).toContain("original_size=16\n");
+    expect(text).toContain("final_size=4\n");
+    expect(text).toContain("predicate_evaluations=7\n");
+    expect(text).toContain("reduced_wasm_path=reduced-input.wasm\n");
+    expect(text).toContain("step=delete-byte-slice|start=4|len=8|before=16|after=8\n");
+  });
+});
 
 describe("pass fuzz summary coverage report", () => {
   test("FUZ1048C maps pass-fuzz result counters into compact summary groups", () => {
