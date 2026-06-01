@@ -59,6 +59,18 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-06-01] fuzzing | FUZ1020F3 packed field accessor invalid AST
+
+- Added `invalid-function-body-struct-get-packed-field-plain-accessor` as the 265th checked-in AST-invalid strategy. The mutation builds a valid `i8` packed struct field and a valid nullable receiver, then selects plain `struct.get` so validation isolates the packed-field accessor-shape rule from field-index, receiver-type, immutable-field, and unpacked `struct.get_s` failures.
+- Added focused rejection, repair, `gen_invalid`, stable-id label, dispatcher, expected-list, and census/wiki coverage so downstream invalid-AST generation can replay the new packed-field rule by stable id.
+- Validation: `moon test src/validate` first failed on the missing constructor, then passed after registry, mutator, stable-id label, dispatcher, and tests were wired. Final validation is recorded in the commit message.
+
+## [2026-06-01] fuzzing | FUZ1020F2 descriptor boundary invalid AST
+
+- Added `invalid-describes-forward-type-ref` as the 264th checked-in AST-invalid strategy. The mutation appends a two-member descriptor/describes recursive group where both referenced heap types exist, but the descriptor type appears first and its `describes` clause points forward, isolating descriptor metadata ordering from missing heap-type references.
+- Added focused rejection and repair coverage plus `gen_invalid` stable-id mapping, and synced the type-section/subtyping and generator-ledger wiki pages.
+- Validation: `moon test src/validate` first failed on the missing stable id in the registry expected-list, then passed after registry, mutator, dispatcher, stable-id label, and tests were wired. Final validation is recorded in the commit message.
+
 ## [2026-06-01] fuzzing | FUZ1020F1 final-supertype invalid AST
 
 - Added `invalid-subtype-final-super` as the 263rd checked-in AST-invalid strategy. The mutation appends a final struct supertype and a shape-compatible subtype that names it as a supertype, isolating final-supertype policy from super-index, super-shape, variance, and cycle failures.

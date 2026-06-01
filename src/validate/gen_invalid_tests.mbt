@@ -5361,6 +5361,32 @@ test "gen_invalid_ast_generate supports function-body struct.get signed field ty
 }
 
 ///|
+test "gen_invalid_ast_generate supports function-body packed struct.get plain accessor strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x1020f3UL),
+      GenInvalidAstParams::repro_seed(
+        InvalidFunctionBodyStructGetPackedFieldPlainAccessor,
+      ),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-struct-get-packed-field-plain-accessor mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports function-body atomic.notify count type strategy" {
   let generated = match
     gen_invalid_ast_generate(

@@ -1257,6 +1257,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyStructSetFieldIndex
   InvalidFunctionBodyStructSetImmutableField
   InvalidFunctionBodyStructGetSignedFieldType
+  InvalidFunctionBodyStructGetPackedFieldPlainAccessor
   InvalidFunctionBodyAtomicNotifyCountType
   InvalidFunctionBodyAtomicWaitTimeoutType
   InvalidFunctionBodyAtomicRmwValueType
@@ -1365,6 +1366,7 @@ pub enum ValidateInvalidAstStrategyId {
   DescriptorOnFuncType
   DescriptorCycle
   InvalidDescriptorFieldRefType
+  InvalidDescribesForwardTypeRef
   DataCountWithoutDataSec
   InvalidExportFuncIndex
   InvalidExportFuncWrongKindIndex

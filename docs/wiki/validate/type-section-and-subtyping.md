@@ -167,6 +167,10 @@ A lowered module can otherwise form a recursive group whose members name each ot
 
 A lowered module can otherwise form a valid descriptor/describes pair while placing a field on the descriptor type whose reference heap type points past the flattened type section. Starshine rejects this through the ordinary type-reference validation path while the descriptor edge keeps the failure distinct from table/global ref-type strategies. The invalid-AST strategy is `InvalidDescriptorFieldRefType` with stable id `invalid-descriptor-field-ref-type`.
 
+### Invalid forward `describes` reference
+
+Descriptor metadata is asymmetric inside a recursive group: the described struct can point forward to its descriptor type, but the descriptor's `describes` clause must point to a previously defined struct. The `InvalidDescribesForwardTypeRef` invalid-AST strategy with stable id `invalid-describes-forward-type-ref` builds a two-member group where both type indices exist and agree structurally, but the descriptor appears first and points forward to the described struct, so validation rejects the descriptor boundary separately from missing heap-type references.
+
 ## Rewrite And Signoff Guidance
 
 When changing type-section validation, WAST type lowering, or a pass that rewrites types:

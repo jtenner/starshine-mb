@@ -448,6 +448,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-struct-set-immutable-field"
     InvalidFunctionBodyStructGetSignedFieldType =>
       "invalid-function-body-struct-get-signed-field-type"
+    InvalidFunctionBodyStructGetPackedFieldPlainAccessor =>
+      "invalid-function-body-struct-get-packed-field-plain-accessor"
     InvalidFunctionBodyAtomicNotifyCountType =>
       "invalid-function-body-atomic-notify-count-type"
     InvalidFunctionBodyAtomicWaitTimeoutType =>
@@ -637,6 +639,7 @@ fn gen_invalid_ast_strategy_label(
     DescriptorOnFuncType => "descriptor-on-func-type"
     DescriptorCycle => "descriptor-cycle"
     InvalidDescriptorFieldRefType => "invalid-descriptor-field-ref-type"
+    InvalidDescribesForwardTypeRef => "invalid-describes-forward-type-ref"
     DataCountWithoutDataSec => "datacount-without-data-sec"
   }
 }
