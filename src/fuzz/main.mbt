@@ -120,6 +120,24 @@ pub struct FuzzCorpusCaseIndex {
 } derive(Eq, Debug)
 
 ///|
+pub struct FuzzCorpusDedupDryRunDecision {
+  action : String
+  hash_kind : String
+  hash : String
+  case_ids : Array[String]
+  artifact_paths : Array[String]
+  reason : String
+} derive(Eq, Debug)
+
+///|
+pub struct FuzzCorpusDedupDryRunPlan {
+  duplicate_count : Int
+  compress_count : Int
+  keep_count : Int
+  decisions : Array[FuzzCorpusDedupDryRunDecision]
+} derive(Eq, Debug)
+
+///|
 pub fn FuzzInterestingnessCaseKey::new(
   raw_hash : String,
   decoded_shape_hash : String,
@@ -316,6 +334,28 @@ pub fn FuzzCorpusCaseIndex::new(
   entries : Array[FuzzCorpusCaseIndexEntry],
 ) -> FuzzCorpusCaseIndex {
   { entries, }
+}
+
+///|
+pub fn FuzzCorpusDedupDryRunDecision::new(
+  action : String,
+  hash_kind : String,
+  hash : String,
+  case_ids : Array[String],
+  artifact_paths : Array[String],
+  reason : String,
+) -> FuzzCorpusDedupDryRunDecision {
+  { action, hash_kind, hash, case_ids, artifact_paths, reason }
+}
+
+///|
+pub fn FuzzCorpusDedupDryRunPlan::new(
+  duplicate_count : Int,
+  compress_count : Int,
+  keep_count : Int,
+  decisions : Array[FuzzCorpusDedupDryRunDecision],
+) -> FuzzCorpusDedupDryRunPlan {
+  { duplicate_count, compress_count, keep_count, decisions }
 }
 
 ///|
@@ -4379,6 +4419,115 @@ fn parse_fuzz_corpus_case_index_entry_json(
       hash_kind, hash, case_ids, seeds, profiles, artifact_paths,
     ),
   )
+}
+
+///|
+pub fn classify_fuzz_corpus_dedup_dry_run(
+  index : FuzzCorpusCaseIndex,
+) -> FuzzCorpusDedupDryRunPlan {
+  let decisions : Array[FuzzCorpusDedupDryRunDecision] = []
+  let mut duplicate_count = 0
+  let mut compress_count = 0
+  let mut keep_count = 0
+  for entry in index.entries {
+    let duplicate_cases = entry.case_ids.length() > 1
+    if entry.hash_kind == "reduced" && duplicate_cases {
+      compress_count += 1
+      decisions.push(
+        FuzzCorpusDedupDryRunDecision::new(
+          "compress",
+          entry.hash_kind,
+          entry.hash,
+          entry.case_ids,
+          entry.artifact_paths,
+          "duplicate reduced artifacts can be compressed later; dry-run only, no files are deleted",
+        ),
+      )
+    } else if entry.hash_kind == "raw" {
+      keep_count += 1
+      let reason = if duplicate_cases {
+        "raw artifacts are originals; report duplicate raw hash only and never delete sole artifact for an unreduced failure"
+      } else {
+        "raw artifact is the sole artifact for this unreduced failure; never delete it"
+      }
+      decisions.push(
+        FuzzCorpusDedupDryRunDecision::new(
+          "keep",
+          entry.hash_kind,
+          entry.hash,
+          entry.case_ids,
+          entry.artifact_paths,
+          reason,
+        ),
+      )
+    } else if duplicate_cases {
+      duplicate_count += 1
+      decisions.push(
+        FuzzCorpusDedupDryRunDecision::new(
+          "duplicate",
+          entry.hash_kind,
+          entry.hash,
+          entry.case_ids,
+          entry.artifact_paths,
+          "duplicate non-raw hash group reported by dry-run only",
+        ),
+      )
+    } else {
+      keep_count += 1
+      decisions.push(
+        FuzzCorpusDedupDryRunDecision::new(
+          "keep",
+          entry.hash_kind,
+          entry.hash,
+          entry.case_ids,
+          entry.artifact_paths,
+          "unique hash group has no dedup action",
+        ),
+      )
+    }
+  }
+  FuzzCorpusDedupDryRunPlan::new(
+    duplicate_count, compress_count, keep_count, decisions,
+  )
+}
+
+///|
+pub fn format_fuzz_corpus_dedup_dry_run_json(
+  plan : FuzzCorpusDedupDryRunPlan,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "{\"schema\":\"starshine.fuzz-corpus-dedup-dry-run.v1\",\"duplicate_count\":",
+  )
+  out.write_string("\{plan.duplicate_count}")
+  out.write_string(",\"compress_count\":")
+  out.write_string("\{plan.compress_count}")
+  out.write_string(",\"keep_count\":")
+  out.write_string("\{plan.keep_count}")
+  out.write_string(",\"decisions\":[")
+  let mut i = 0
+  while i < plan.decisions.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    let decision = plan.decisions[i]
+    out.write_string("{\"action\":\"")
+    out.write_string(fuzz_json_escape(decision.action))
+    out.write_string("\",\"hash_kind\":\"")
+    out.write_string(fuzz_json_escape(decision.hash_kind))
+    out.write_string("\",\"hash\":\"")
+    out.write_string(fuzz_json_escape(decision.hash))
+    out.write_string("\",\"case_ids\":")
+    out.write_string(format_fuzz_string_array_json(decision.case_ids))
+    out.write_string(",\"artifact_paths\":")
+    out.write_string(format_fuzz_string_array_json(decision.artifact_paths))
+    out.write_string(",\"reason\":\"")
+    out.write_string(fuzz_json_escape(decision.reason))
+    out.write_string("\"}")
+    i += 1
+  }
+  out.write_string("]}")
+  out.to_string()
 }
 
 ///|

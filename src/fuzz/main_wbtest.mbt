@@ -130,6 +130,63 @@ fn bytes_to_ascii(bytes : Bytes) -> String {
 }
 
 ///|
+test "fuzz corpus dedup dry-run classifies duplicate reduced artifacts but keeps raw originals" {
+  let index = FuzzCorpusCaseIndex::new([
+    FuzzCorpusCaseIndexEntry::new(
+      "raw",
+      "fnv1a64-raw-shared",
+      ["case-a", "case-b"],
+      [1UL, 2UL],
+      ["gen-valid", "gen-valid"],
+      ["cases/a/raw.wasm", "cases/b/raw.wasm"],
+    ),
+    FuzzCorpusCaseIndexEntry::new(
+      "reduced",
+      "fnv1a64-reduced-shared",
+      ["case-a", "case-b"],
+      [1UL, 2UL],
+      ["gen-valid", "gen-valid"],
+      ["cases/a/reduced.wasm", "cases/b/reduced.wasm"],
+    ),
+  ])
+  let plan = classify_fuzz_corpus_dedup_dry_run(index)
+  @debug.assert_eq(plan.keep_count, 1)
+  @debug.assert_eq(plan.duplicate_count, 0)
+  @debug.assert_eq(plan.compress_count, 1)
+  @debug.assert_eq(plan.decisions.length(), 2)
+  @debug.assert_eq(plan.decisions[0].action, "keep")
+  assert_true(plan.decisions[0].reason.contains("raw artifacts are originals"))
+  @debug.assert_eq(plan.decisions[1].action, "compress")
+  assert_true(plan.decisions[1].reason.contains("dry-run only"))
+}
+
+///|
+test "fuzz corpus dedup dry-run never deletes sole unreduced failure artifact" {
+  let index = FuzzCorpusCaseIndex::new([
+    FuzzCorpusCaseIndexEntry::new(
+      "raw",
+      "fnv1a64-raw-only",
+      ["case-unreduced"],
+      [9UL],
+      ["gen-valid"],
+      ["cases/unreduced/raw.wasm"],
+    ),
+  ])
+  let plan = classify_fuzz_corpus_dedup_dry_run(index)
+  @debug.assert_eq(plan.keep_count, 1)
+  @debug.assert_eq(plan.duplicate_count, 0)
+  @debug.assert_eq(plan.compress_count, 0)
+  @debug.assert_eq(plan.decisions[0].action, "keep")
+  assert_true(plan.decisions[0].reason.contains("sole artifact"))
+  let json = format_fuzz_corpus_dedup_dry_run_json(plan)
+  assert_true(
+    json.contains("\"schema\":\"starshine.fuzz-corpus-dedup-dry-run.v1\""),
+  )
+  assert_true(json.contains("\"action\":\"keep\""))
+  assert_true(json.contains("never delete"))
+}
+
+///|
 test "parse_fuzz_cli_args defaults to all smoke seed" {
   let parsed = parse_fuzz_cli_args([])
   @debug.assert_eq(parsed.suite, "all")

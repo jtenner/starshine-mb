@@ -43,6 +43,8 @@ pub fn build_validate_invalid_binary_minimal_repro(ValidateInvalidBinaryStrategy
 
 pub fn build_validate_invalid_binary_minimal_repro_by_stable_id(String) -> Result[Bytes, String]
 
+pub fn classify_fuzz_corpus_dedup_dry_run(FuzzCorpusCaseIndex) -> FuzzCorpusDedupDryRunPlan
+
 pub fn emit_gen_valid_batch_artifacts(Int, UInt64) -> Result[Array[(String, Bytes)], String]
 
 pub fn emit_gen_valid_batch_artifacts_until_features(Int, UInt64, @validate.GenValidConfig, Array[@validate.ValidateValidFeatureFloor], Array[@validate.ValidateValidFeatureKey], Int, metamorphic_transform_ids? : Array[String]) -> Result[GenValidCoverageSelection, String]
@@ -52,6 +54,8 @@ pub fn emit_gen_valid_batch_artifacts_with_manifest(Int, UInt64) -> Result[GenVa
 pub fn evaluate_validate_invalid_text_assertion_source(String, String, ValidateInvalidTextAssertionKind) -> Result[ValidateInvalidTextStage, String]
 
 pub fn format_fuzz_corpus_case_index_json(FuzzCorpusCaseIndex) -> String
+
+pub fn format_fuzz_corpus_dedup_dry_run_json(FuzzCorpusDedupDryRunPlan) -> String
 
 pub fn format_fuzz_corpus_promotion_metadata_json(FuzzCorpusPromotionMetadata) -> String
 
@@ -328,6 +332,24 @@ pub struct FuzzCorpusCaseIndexEntry {
   artifact_paths : Array[String]
 } derive(Eq, @debug.Debug)
 pub fn FuzzCorpusCaseIndexEntry::new(String, String, Array[String], Array[UInt64], Array[String], Array[String]) -> Self
+
+pub struct FuzzCorpusDedupDryRunDecision {
+  action : String
+  hash_kind : String
+  hash : String
+  case_ids : Array[String]
+  artifact_paths : Array[String]
+  reason : String
+} derive(Eq, @debug.Debug)
+pub fn FuzzCorpusDedupDryRunDecision::new(String, String, String, Array[String], Array[String], String) -> Self
+
+pub struct FuzzCorpusDedupDryRunPlan {
+  duplicate_count : Int
+  compress_count : Int
+  keep_count : Int
+  decisions : Array[FuzzCorpusDedupDryRunDecision]
+} derive(Eq, @debug.Debug)
+pub fn FuzzCorpusDedupDryRunPlan::new(Int, Int, Int, Array[FuzzCorpusDedupDryRunDecision]) -> Self
 
 pub struct FuzzCorpusHashMetadata {
   raw_artifact_hash : String

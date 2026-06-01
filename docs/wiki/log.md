@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1050C dry-run dedup classifier
+
+- Closed `[FUZ]1050C` by adding `FuzzCorpusDedupDryRunDecision`, `FuzzCorpusDedupDryRunPlan`, `classify_fuzz_corpus_dedup_dry_run(...)`, and deterministic `starshine.fuzz-corpus-dedup-dry-run.v1` formatting.
+- The classifier is report-only: raw artifact hash groups are always kept so unreduced failures never lose their sole original artifact, while duplicate reduced-artifact hash groups are classified as future `compress` candidates without deleting files.
+- Synced the corpus policy and interestingness schema docs. Validation: `moon test src/fuzz` first failed on the missing dry-run classifier APIs, then passed after implementation; final validation is recorded in the commit message.
+
 ## [2026-05-31] fuzzing | FUZ1050B corpus case index roundtrip
 
 - Closed `[FUZ]1050B` by adding `FuzzCorpusCaseIndex` and deterministic `starshine.fuzz-corpus-case-index.v1` format/parse helpers that roundtrip duplicate raw and reduced artifact hashes.
