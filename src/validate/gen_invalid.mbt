@@ -460,6 +460,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-atomic-load-address-type"
     InvalidFunctionBodyAtomicLoadNonSharedMemory =>
       "invalid-function-body-atomic-load-non-shared-memory"
+    InvalidFunctionBodyAtomicLoadAlignment =>
+      "invalid-function-body-atomic-load-alignment"
     InvalidFunctionBodyAtomicStoreAddressType =>
       "invalid-function-body-atomic-store-address-type"
     InvalidFunctionBodyAtomicStoreValueType =>

@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-06-01] fuzzing | FUZ1020E5 atomic alignment invalid AST
+
+- Added `invalid-function-body-atomic-load-alignment` as the 262nd checked-in AST-invalid strategy. The mutation uses a shared-memory `i32.atomic.load` with a valid i32 address operand and default memory index, but sets the memarg alignment power to 3 so validation isolates the natural-alignment rule from non-shared memory, bad memarg index, and stack-operand failures.
+- Added focused rejection, repair, `gen_invalid`, stable-id, and generated interface coverage, and updated the FUZ1020 census to mark atomic natural-alignment coverage complete.
+- Validation: `moon test src/validate` first failed on the missing constructor and mutator, then passed after registry, stable-id label, dispatcher, expected-list, mutation, and tests were wired. Final validation passed `moon test src/validate`, `moon run --target native src/fuzz -- validate-invalid-ast smoke --seed 0x1020e5 --out-dir .tmp/fuz1020e5-invalid-ast-smoke` with `attempts=262`, `moon fmt`, `moon info`, and full `moon test` (`4590/4590`).
+
 ## [2026-06-01] fuzzing | FUZ1020E4 try_table catch_ref payload invalid AST
 
 - Added `invalid-function-body-try-table-catch-ref-payload-mismatch` as the 261st checked-in AST-invalid strategy. The mutation keeps the tag index, thrown payload, enclosing catch label, and body shape valid while targeting a `catch_ref` label that accepts the tag payload but omits the required non-null `exnref`, isolating the catch-reference compatibility diagnostic from ordinary `catch`, `throw`, arity, and label-index failures.

@@ -202,6 +202,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyAtomicCmpxchgReplacementType
   InvalidFunctionBodyAtomicLoadAddressType
   InvalidFunctionBodyAtomicLoadNonSharedMemory
+  InvalidFunctionBodyAtomicLoadAlignment
   InvalidFunctionBodyAtomicStoreAddressType
   InvalidFunctionBodyAtomicStoreValueType
   InvalidFunctionBodyAtomicLoadIndex
@@ -1722,6 +1723,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyAtomicLoadAlignment,
+      "invalid-function-body-atomic-load-alignment",
+      "invalid function-body atomic.load alignment",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyAtomicStoreAddressType,
       "invalid-function-body-atomic-store-address-type",
       "invalid function-body atomic.store address type",
@@ -2452,6 +2460,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyAtomicCmpxchgReplacementType => 140
     InvalidFunctionBodyAtomicLoadAddressType => 141
     InvalidFunctionBodyAtomicLoadNonSharedMemory => 250
+    InvalidFunctionBodyAtomicLoadAlignment => 261
     InvalidFunctionBodyAtomicStoreAddressType => 142
     InvalidFunctionBodyAtomicStoreValueType => 143
     InvalidFunctionBodyAtomicLoadIndex => 174
@@ -8546,6 +8555,31 @@ fn validate_invalid_ast_mutate_invalid_function_body_atomic_load_non_shared_memo
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_function_body_atomic_load_alignment(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_atomic_load(MemArg::new(3U, None, 0UL)),
+    Instruction::drop(),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_shared_memory_module(),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyAtomicLoadAlignment,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_function_body_atomic_store_address_type(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -10849,6 +10883,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_atomic_load_non_shared_memory(
           base,
         )
+      InvalidFunctionBodyAtomicLoadAlignment =>
+        validate_invalid_ast_mutate_invalid_function_body_atomic_load_alignment(
+          base,
+        )
       InvalidFunctionBodyAtomicStoreAddressType =>
         validate_invalid_ast_mutate_invalid_function_body_atomic_store_address_type(
           base,
@@ -11689,40 +11727,40 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-atomic-notify-count-type", "invalid-function-body-atomic-wait-timeout-type",
     "invalid-function-body-atomic-rmw-value-type", "invalid-function-body-atomic-cmpxchg-replacement-type",
     "invalid-function-body-atomic-load-address-type", "invalid-function-body-atomic-load-non-shared-memory",
-    "invalid-function-body-atomic-store-address-type", "invalid-function-body-atomic-store-value-type",
-    "invalid-function-body-atomic-load-index", "invalid-function-body-atomic-store-index",
-    "invalid-function-body-atomic-notify-index", "invalid-function-body-atomic-wait-index",
-    "invalid-function-body-atomic-rmw-index", "invalid-function-body-atomic-cmpxchg-index",
-    "invalid-function-body-simd-extract-lane-index", "invalid-function-body-simd-replace-lane-index",
-    "invalid-function-body-simd-load-lane-index", "invalid-function-body-simd-store-lane-index",
-    "invalid-function-body-simd-splat-input-type", "invalid-function-body-simd-swizzle-input-type",
-    "invalid-function-body-simd-bitselect-mask-type", "invalid-function-body-simd-bitselect-left-type",
-    "invalid-function-body-simd-bitselect-right-type", "invalid-function-body-simd-extract-input-type",
-    "invalid-function-body-simd-replace-vector-type", "invalid-function-body-simd-replace-value-type",
-    "invalid-function-body-simd-load-address-type", "invalid-function-body-simd-store-address-type",
-    "invalid-function-body-simd-store-value-type", "invalid-function-body-simd-load-extend-address-type",
-    "invalid-function-body-simd-load-splat-address-type", "invalid-function-body-simd-load-zero-address-type",
-    "invalid-function-body-simd-unary-input-type", "invalid-function-body-simd-binary-left-type",
-    "invalid-function-body-simd-binary-right-type", "invalid-function-body-relaxed-simd-swizzle-left-type",
-    "invalid-function-body-relaxed-simd-laneselect-mask-type", "invalid-function-body-simd-shift-vector-type",
-    "invalid-function-body-simd-shift-count-type", "invalid-function-body-simd-load-lane-address-type",
-    "invalid-function-body-simd-load-lane-vector-type", "invalid-function-body-simd-store-lane-address-type",
-    "invalid-function-body-simd-store-lane-vector-type", "invalid-function-body-simd-load-memory-index",
-    "invalid-function-body-simd-store-memory-index", "invalid-function-body-simd-load-lane-memory-index",
-    "invalid-function-body-simd-store-lane-memory-index", "invalid-function-body-atomic-notify-address-type",
-    "invalid-function-body-atomic-wait-address-type", "invalid-function-body-atomic-wait-expected-type",
-    "invalid-function-body-atomic-rmw-address-type", "invalid-function-body-atomic-cmpxchg-address-type",
-    "invalid-function-body-atomic-cmpxchg-expected-type", "invalid-function-body-br-on-cast-input-type",
-    "invalid-function-body-br-on-cast-target-subtype", "invalid-function-body-br-on-cast-fail-input-type",
-    "invalid-function-body-table-set-value-type", "invalid-function-body-global-set-value-type",
-    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
-    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
-    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
-    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
-    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
-    "datacount-active-passive-mismatch", "invalid-subtype-mutable-field-variance",
-    "invalid-function-body-br-on-null-payload-mismatch", "invalid-function-body-br-on-non-null-payload-mismatch",
-    "invalid-function-body-br-table-multivalue-payload-arity-mismatch",
+    "invalid-function-body-atomic-load-alignment", "invalid-function-body-atomic-store-address-type",
+    "invalid-function-body-atomic-store-value-type", "invalid-function-body-atomic-load-index",
+    "invalid-function-body-atomic-store-index", "invalid-function-body-atomic-notify-index",
+    "invalid-function-body-atomic-wait-index", "invalid-function-body-atomic-rmw-index",
+    "invalid-function-body-atomic-cmpxchg-index", "invalid-function-body-simd-extract-lane-index",
+    "invalid-function-body-simd-replace-lane-index", "invalid-function-body-simd-load-lane-index",
+    "invalid-function-body-simd-store-lane-index", "invalid-function-body-simd-splat-input-type",
+    "invalid-function-body-simd-swizzle-input-type", "invalid-function-body-simd-bitselect-mask-type",
+    "invalid-function-body-simd-bitselect-left-type", "invalid-function-body-simd-bitselect-right-type",
+    "invalid-function-body-simd-extract-input-type", "invalid-function-body-simd-replace-vector-type",
+    "invalid-function-body-simd-replace-value-type", "invalid-function-body-simd-load-address-type",
+    "invalid-function-body-simd-store-address-type", "invalid-function-body-simd-store-value-type",
+    "invalid-function-body-simd-load-extend-address-type", "invalid-function-body-simd-load-splat-address-type",
+    "invalid-function-body-simd-load-zero-address-type", "invalid-function-body-simd-unary-input-type",
+    "invalid-function-body-simd-binary-left-type", "invalid-function-body-simd-binary-right-type",
+    "invalid-function-body-relaxed-simd-swizzle-left-type", "invalid-function-body-relaxed-simd-laneselect-mask-type",
+    "invalid-function-body-simd-shift-vector-type", "invalid-function-body-simd-shift-count-type",
+    "invalid-function-body-simd-load-lane-address-type", "invalid-function-body-simd-load-lane-vector-type",
+    "invalid-function-body-simd-store-lane-address-type", "invalid-function-body-simd-store-lane-vector-type",
+    "invalid-function-body-simd-load-memory-index", "invalid-function-body-simd-store-memory-index",
+    "invalid-function-body-simd-load-lane-memory-index", "invalid-function-body-simd-store-lane-memory-index",
+    "invalid-function-body-atomic-notify-address-type", "invalid-function-body-atomic-wait-address-type",
+    "invalid-function-body-atomic-wait-expected-type", "invalid-function-body-atomic-rmw-address-type",
+    "invalid-function-body-atomic-cmpxchg-address-type", "invalid-function-body-atomic-cmpxchg-expected-type",
+    "invalid-function-body-br-on-cast-input-type", "invalid-function-body-br-on-cast-target-subtype",
+    "invalid-function-body-br-on-cast-fail-input-type", "invalid-function-body-table-set-value-type",
+    "invalid-function-body-global-set-value-type", "invalid-memory-name-section-index",
+    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
+    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
+    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
+    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
+    "datacount-mismatch-too-small", "datacount-mismatch-too-large", "datacount-active-passive-mismatch",
+    "invalid-subtype-mutable-field-variance", "invalid-function-body-br-on-null-payload-mismatch",
+    "invalid-function-body-br-on-non-null-payload-mismatch", "invalid-function-body-br-table-multivalue-payload-arity-mismatch",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 24)
@@ -14764,6 +14802,51 @@ test "invalid atomic.load non-shared memory strategy rejects with FunctionBody f
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid atomic load alignment strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyAtomicLoadAlignment,
+      0x1020e5UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body atomic load alignment mutation repairs by using natural alignment" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_atomic_load_alignment(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected over-aligned atomic load to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired_body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_atomic_load(MemArg::new(2U, None, 0UL)),
+    Instruction::drop(),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_shared_memory_module(),
+    [],
+    [],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected repaired atomic load alignment module to validate: \{err}")
   }
 }
 

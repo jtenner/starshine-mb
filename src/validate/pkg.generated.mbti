@@ -1263,6 +1263,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyAtomicCmpxchgReplacementType
   InvalidFunctionBodyAtomicLoadAddressType
   InvalidFunctionBodyAtomicLoadNonSharedMemory
+  InvalidFunctionBodyAtomicLoadAlignment
   InvalidFunctionBodyAtomicStoreAddressType
   InvalidFunctionBodyAtomicStoreValueType
   InvalidFunctionBodyAtomicLoadIndex
