@@ -99,6 +99,74 @@ test "ssa-nomerge keeps the latest straight-line local alias live" {
 }
 
 ///|
+fn ssa_test_large_structured_branch_fixture() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module (func (local i32")
+  for i = 0; i < 64; i = i + 1 {
+    out.write_string(" i32")
+  }
+  out.write_string(") block i32.const 0 br 0 end i32.const 1 local.set 64))")
+  out.to_string()
+}
+
+///|
+test "ssa-nomerge skips large structured branch functions instead of hot fallback" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      ssa_test_large_structured_branch_fixture(),
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected large structured ssa-nomerge skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=large-structured-local-writes",
+      )
+    }),
+  )
+}
+
+///|
+fn ssa_test_large_structured_local_write_fixture() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module (func (local i32) ")
+  for i = 0; i < 130; i = i + 1 {
+    out.write_string("i32.const 0 if nop else nop end ")
+  }
+  out.write_string("i32.const 1 local.set 0))")
+  out.to_string()
+}
+
+///|
+test "ssa-nomerge skips very large structured local-write functions without branches" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      ssa_test_large_structured_local_write_fixture(),
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected large structured local-write ssa-nomerge skip success, got \{err}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=large-structured-local-writes",
+      )
+    }),
+  )
+}
+
+///|
 test "ssa-nomerge rewrites dead param sets through fresh locals" {
   let optimized = match
     pass_test_run_pipeline(

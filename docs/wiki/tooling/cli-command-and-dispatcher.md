@@ -94,6 +94,8 @@ Boundary-only and removed registry names are intentionally tracked for planning,
 
 Both local presets currently expand to the same implemented mixed module/hot pass sequence in [`optimize_preset_passes(...)`](../../../src/passes/optimize.mbt) and [`shrink_preset_passes(...)`](../../../src/passes/optimize.mbt). The deeper Binaryen `-O` / no-DWARF comparison lives in [`../binaryen/no-dwarf-default-optimize-path.md`](../binaryen/no-dwarf-default-optimize-path.md) and the pass namespace map lives in [`../ir2/registry-map.md`](../ir2/registry-map.md).
 
+Some hot passes have trace-labeled conservative fallbacks for pathological module or function shapes. For example, `ssa-nomerge`, `simplify-locals`, `optimize-instructions`, `precompute`, and `code-pushing` can skip very large, structured, or branch-heavy shapes rather than risk an unsafe transform, abort, OOM, or non-terminating self-optimization run; these are no-op fallbacks, not silent pass-name acceptance.
+
 ### Ordered utility steps
 
 Utility steps split the optimization queue into segments:
@@ -116,7 +118,7 @@ The dispatcher flushes pending optimizer passes before each utility step. That m
 The command pipeline intentionally validates at multiple layers:
 
 1. decode input bytes to a structured module;
-2. run ordered pass segments with final validation disabled inside each segment because command-level utility steps need to interleave with them;
+2. run ordered pass segments with final validation disabled inside each segment because command-level utility steps need to interleave with them; compatible adjacent hot passes may be stacked per function so the scheduler does not materialize a full module between those passes;
 3. validate the final module before encoding;
 4. encode output bytes; and
 5. when `--debug-serial-passes` is enabled, decode and validate the encoded output too.
@@ -127,7 +129,7 @@ A no-op wasm input with at least one pass may reuse original input bytes when th
 
 ## Tracing And Debug Limits
 
-`--tracing <pass|phase|helper>` or `STARSHINE_TRACING` enables command-level trace lines and passes the matching trace level into the optimizer. `STARSHINE_OPTIMIZE_MAX_PASSES` truncates the scheduled pass queue by prefix length, including `0` for a decode/encode baseline. `--debug-serial-passes` switches the optimizer options to validate after each pass segment and disables stacked function-pass execution, prioritizing debuggability over throughput.
+`--tracing <pass|phase|helper>` or `STARSHINE_TRACING` enables command-level trace lines and passes the matching trace level into the optimizer. `STARSHINE_OPTIMIZE_MAX_PASSES` truncates the scheduled pass queue by prefix length, including `0` for a decode/encode baseline. Normal command runs enable stacked function-pass scheduling for compatible adjacent hot passes; `--debug-serial-passes` switches the optimizer options to validate after each pass segment and disables stacked function-pass execution, prioritizing debuggability over throughput.
 
 Use [`tracing-playbook.md`](./tracing-playbook.md) for trace-line shape and [`validation-gates.md`](./validation-gates.md) for signoff commands. Do not add trace-only tests; change existing command or pass contract tests when the shape changes.
 

@@ -47,6 +47,25 @@ test "dead-code-elimination preserves pure drop roots for oracle parity" {
 }
 
 ///|
+test "cleanup prefix preserves trailing unreachable after terminal void if in result function" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) local.get 0 if unreachable else i32.const 0 return end unreachable))",
+      ["dead-code-elimination", "remove-unused-names", "remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected cleanup prefix terminal void-if success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(
+    dead_code_elimination_test_count_occurrences(pretty, "unreachable") >= 2,
+    msg=pretty,
+  )
+}
+
+///|
 test "dead-code-elimination removes unreachable roots after return" {
   let optimized = match
     pass_test_run_pipeline(

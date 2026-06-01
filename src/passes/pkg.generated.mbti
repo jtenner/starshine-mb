@@ -382,11 +382,12 @@ pub struct HotPipelineOptions {
   closed_world : Bool
   optimize_level : Int
   shrink_level : Int
+  stack_function_passes : Bool
   trace_enabled : Bool
   trace : (String) -> Unit
   perf : HotPerfSession?
 }
-pub fn HotPipelineOptions::new(verify_policy? : HotPipelineVerifyPolicy, validate_final_module? : Bool, closed_world? : Bool, optimize_level? : Int, shrink_level? : Int, trace? : ((String) -> Unit)?, perf? : HotPerfSession?) -> Self
+pub fn HotPipelineOptions::new(verify_policy? : HotPipelineVerifyPolicy, validate_final_module? : Bool, closed_world? : Bool, optimize_level? : Int, shrink_level? : Int, stack_function_passes? : Bool, trace? : ((String) -> Unit)?, perf? : HotPerfSession?) -> Self
 
 pub enum HotPipelineVerifyPolicy {
   FinalModuleOnly

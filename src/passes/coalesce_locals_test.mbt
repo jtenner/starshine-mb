@@ -210,6 +210,61 @@ test "coalesce-locals keeps locals live after an early read when read again late
 }
 
 ///|
+test "coalesce-locals keeps structured-control locals conservative" {
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32) (local i32 i32)
+    #|     local.get 0
+    #|     if
+    #|       i32.const 11
+    #|       local.set 1
+    #|       local.get 1
+    #|       drop
+    #|     end
+    #|     i32.const 22
+    #|     local.set 2
+    #|     local.get 2))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+}
+
+///|
+test "coalesce-locals keeps preserved structured dead sets from clobbering live locals" {
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32) (local i32 i32)
+    #|     i32.const 11
+    #|     local.set 1
+    #|     local.get 0
+    #|     if
+    #|       i32.const 22
+    #|       local.set 2
+    #|     end
+    #|     local.get 1))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = cl_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  @debug.assert_eq(
+    instrs[instrs.length() - 1],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  )
+}
+
+///|
 test "coalesce-locals removes redundant copies after index sharing" {
   let input =
     #| (module

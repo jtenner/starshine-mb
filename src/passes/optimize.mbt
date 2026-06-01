@@ -598,6 +598,18 @@ fn run_hot_pipeline_expand_passes(
 }
 
 ///|
+fn run_hot_pipeline_entry_can_stack(entry : HotPassRegistryEntry) -> Bool {
+  match entry.descriptor {
+    Some(descriptor) =>
+      match descriptor.name {
+        "remove-unused-names" => true
+        _ => false
+      }
+    None => false
+  }
+}
+
+///|
 fn run_hot_pipeline_format_final_validate_error(
   before_mod : @lib.Module,
   mod_ : @lib.Module,
@@ -631,20 +643,68 @@ pub fn run_hot_pipeline(
   }
   (options.trace)("pipeline:start requested=\{requested_passes.length()}")
   let mut current = mod_
-  for entry in entries {
-    current = match entry.category {
-      HotPassRegistryCategory::HotPass =>
-        match run_hot_pipeline_apply_hot_pass(current, entry, options) {
-          Ok(next) => next
-          Err(err) => return Err(err)
-        }
-      HotPassRegistryCategory::ModulePass =>
-        match run_hot_pipeline_apply_module_pass(current, entry, options) {
-          Ok(next) => next
-          Err(err) => return Err(err)
-        }
-      _ => current
+  let pending_hot_passes : Array[HotPassRegistryEntry] = []
+  let flush_hot_passes = fn() -> Result[Unit, String] {
+    if pending_hot_passes.length() == 0 {
+      return Ok(())
     }
+    current = if options.stack_function_passes &&
+      pending_hot_passes.length() > 1 {
+      match
+        run_hot_pipeline_apply_hot_pass_stack(
+          current, pending_hot_passes, options,
+        ) {
+        Ok(next) => next
+        Err(err) => return Err(err)
+      }
+    } else {
+      let mut next_current = current
+      for pending in pending_hot_passes {
+        next_current = match
+          run_hot_pipeline_apply_hot_pass(next_current, pending, options) {
+          Ok(next) => next
+          Err(err) => return Err(err)
+        }
+      }
+      next_current
+    }
+    pending_hot_passes.clear()
+    Ok(())
+  }
+  for entry in entries {
+    match entry.category {
+      HotPassRegistryCategory::HotPass =>
+        if options.stack_function_passes &&
+          run_hot_pipeline_entry_can_stack(entry) {
+          pending_hot_passes.push(entry)
+        } else {
+          match flush_hot_passes() {
+            Ok(_) => ()
+            Err(err) => return Err(err)
+          }
+          current = match
+            run_hot_pipeline_apply_hot_pass(current, entry, options) {
+            Ok(next) => next
+            Err(err) => return Err(err)
+          }
+        }
+      HotPassRegistryCategory::ModulePass => {
+        match flush_hot_passes() {
+          Ok(_) => ()
+          Err(err) => return Err(err)
+        }
+        current = match
+          run_hot_pipeline_apply_module_pass(current, entry, options) {
+          Ok(next) => next
+          Err(err) => return Err(err)
+        }
+      }
+      _ => ()
+    }
+  }
+  match flush_hot_passes() {
+    Ok(_) => ()
+    Err(err) => return Err(err)
   }
   if options.validate_final_module {
     let validate_start_us = perf_start_timer_opt(

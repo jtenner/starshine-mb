@@ -1,4 +1,38 @@
 ///|
+fn optimize_instructions_large_local_fixture() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module (func (local i32")
+  for i = 0; i < 1024; i = i + 1 {
+    let _ = i
+    out.write_string(" i32")
+  }
+  out.write_string(") i32.const 0 i32.eqz drop))")
+  out.to_string()
+}
+
+///|
+test "optimize-instructions skips very large local-heavy functions" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      optimize_instructions_large_local_fixture(),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected large optimize-instructions skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=large-local-optimize-instructions",
+      )
+    }),
+  )
+}
+
+///|
 test "optimize-instructions keeps i32.eqz on constant zero" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (result i32) i32.const 0 i32.eqz))",

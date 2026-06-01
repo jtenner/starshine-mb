@@ -26,6 +26,7 @@ pub struct HotPipelineOptions {
   closed_world : Bool
   optimize_level : Int
   shrink_level : Int
+  stack_function_passes : Bool
   trace_enabled : Bool
   trace : (String) -> Unit
   perf : HotPerfSession?
@@ -38,6 +39,7 @@ pub fn HotPipelineOptions::new(
   closed_world? : Bool = false,
   optimize_level? : Int = 0,
   shrink_level? : Int = 0,
+  stack_function_passes? : Bool = false,
   trace? : ((String) -> Unit)? = None,
   perf? : HotPerfSession? = None,
 ) -> HotPipelineOptions {
@@ -47,6 +49,7 @@ pub fn HotPipelineOptions::new(
     closed_world,
     optimize_level,
     shrink_level,
+    stack_function_passes,
     trace_enabled: trace is Some(_),
     trace: match trace {
       Some(cb) => cb
@@ -2558,6 +2561,40 @@ fn run_hot_pipeline_raw_simplify_locals_low_local_decision_ladder_stats(
   stats.call_count >= 16 &&
   stats.return_count <= stats.if_count + 32 &&
   stats.exact_tail_count <= 4
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_low_local_loop_return_call_ladder_stats(
+  stats : RawSimplifyLocalsGateStats,
+) -> Bool {
+  stats.locals_count <= 8 &&
+  stats.has_structured_control &&
+  stats.instr_count >= 128 &&
+  stats.if_count >= 16 &&
+  stats.loop_count >= 2 &&
+  stats.local_set_count <= 12 &&
+  stats.local_get_count >= 48 &&
+  stats.call_count >= 16 &&
+  stats.return_count >= 1 &&
+  stats.return_count <= stats.if_count + 8 &&
+  stats.exact_tail_count <= 4
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_mid_local_structured_call_ladder_stats(
+  stats : RawSimplifyLocalsGateStats,
+) -> Bool {
+  stats.locals_count >= 32 &&
+  stats.locals_count <= 64 &&
+  stats.has_structured_control &&
+  stats.instr_count >= 768 &&
+  stats.if_count >= 128 &&
+  stats.block_count >= 32 &&
+  stats.loop_count <= 4 &&
+  stats.local_set_count >= 128 &&
+  stats.local_get_count >= 512 &&
+  stats.call_count >= 192 &&
+  stats.return_count <= stats.if_count + 16
 }
 
 ///|
@@ -5525,6 +5562,15 @@ fn run_hot_pipeline_raw_simplify_locals(
   let should_skip_low_local_decision_ladder = run_hot_pipeline_raw_simplify_locals_low_local_decision_ladder_stats(
     stats,
   )
+  let should_skip_low_local_loop_return_call_ladder = run_hot_pipeline_raw_simplify_locals_low_local_loop_return_call_ladder_stats(
+    stats,
+  )
+  let should_skip_mid_local_structured_call_ladder = run_hot_pipeline_raw_simplify_locals_mid_local_structured_call_ladder_stats(
+    stats,
+  )
+  let should_skip_low_local_structured_call_heavy = stats.locals_count <= 8 &&
+    stats.has_structured_control &&
+    stats.if_count >= 128
   let should_skip_giant_func = stats.locals_count >= 1500 &&
     stats.has_structured_control &&
     stats.instr_count >= 2000
@@ -5665,6 +5711,30 @@ fn run_hot_pipeline_raw_simplify_locals(
     if should_skip_low_local_decision_ladder {
       return Some({
         reason: "low-local-decision-ladder-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if should_skip_low_local_loop_return_call_ladder {
+      return Some({
+        reason: "low-local-loop-return-call-ladder-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if should_skip_mid_local_structured_call_ladder {
+      return Some({
+        reason: "mid-local-structured-call-ladder-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if should_skip_low_local_structured_call_heavy {
+      return Some({
+        reason: "low-local-structured-call-heavy-noop",
         func: original,
         unchanged_original: true,
         trace_skip_raw: true,
@@ -7890,12 +7960,14 @@ fn run_hot_pipeline_raw_ssa_nomerge(
   }
   if has_structured_control {
     let base_local_count = params.length() + locals.length()
-    if has_branches &&
-      (
-        instr_count > structured_branch_raw_instr_limit ||
-        base_local_count > structured_branch_raw_local_limit
-      ) {
-      return None
+    if instr_count > structured_branch_raw_instr_limit ||
+      (has_branches && base_local_count > structured_branch_raw_local_limit) {
+      return Some({
+        reason: "large-structured-local-writes",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
     }
     match
       run_hot_pipeline_raw_ssa_nomerge_structured(original, module_ctx, params) {
@@ -7922,6 +7994,181 @@ fn run_hot_pipeline_raw_ssa_nomerge(
       trace_skip_raw: true,
     })
   }
+}
+
+///|
+priv struct OptimizeInstructionsLoweredStats {
+  mut instrs : Int
+  mut blocks : Int
+  mut loops : Int
+  mut ifs : Int
+  mut branches : Int
+  mut returns : Int
+  mut calls : Int
+  mut local_writes : Int
+}
+
+///|
+fn OptimizeInstructionsLoweredStats::new() -> OptimizeInstructionsLoweredStats {
+  {
+    instrs: 0,
+    blocks: 0,
+    loops: 0,
+    ifs: 0,
+    branches: 0,
+    returns: 0,
+    calls: 0,
+    local_writes: 0,
+  }
+}
+
+///|
+fn run_hot_pipeline_optimize_instructions_collect_stats_instr(
+  instr : @lib.Instruction,
+  stats : OptimizeInstructionsLoweredStats,
+) -> Unit {
+  stats.instrs += 1
+  match instr {
+    @lib.Instruction::Block(_, @lib.Expr(body)) => {
+      stats.blocks += 1
+      run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
+    }
+    @lib.Instruction::Loop(_, @lib.Expr(body)) => {
+      stats.blocks += 1
+      stats.loops += 1
+      run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
+    }
+    @lib.Instruction::TryTable(_, _, @lib.Expr(body)) => {
+      stats.blocks += 1
+      run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
+    }
+    @lib.Instruction::If(_, then_, Some(else_)) => {
+      stats.ifs += 1
+      run_hot_pipeline_optimize_instructions_collect_stats_body(then_, stats)
+      run_hot_pipeline_optimize_instructions_collect_stats_body(else_, stats)
+    }
+    @lib.Instruction::If(_, then_, None) => {
+      stats.ifs += 1
+      run_hot_pipeline_optimize_instructions_collect_stats_body(then_, stats)
+    }
+    @lib.Instruction::Br(_)
+    | @lib.Instruction::BrIf(_)
+    | @lib.Instruction::BrTable(_, _) => stats.branches += 1
+    @lib.Instruction::Return => stats.returns += 1
+    @lib.Instruction::Call(_)
+    | @lib.Instruction::CallIndirect(_, _)
+    | @lib.Instruction::CallRef(_) => stats.calls += 1
+    @lib.Instruction::LocalSet(_) | @lib.Instruction::LocalTee(_) =>
+      stats.local_writes += 1
+    _ => ()
+  }
+}
+
+///|
+fn run_hot_pipeline_optimize_instructions_collect_stats_body(
+  body : Array[@lib.Instruction],
+  stats : OptimizeInstructionsLoweredStats,
+) -> Unit {
+  for instr in body {
+    run_hot_pipeline_optimize_instructions_collect_stats_instr(instr, stats)
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_code_pushing_skip(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  descriptor : @ir.HotPassDescriptor,
+) -> HotPipelineFuncResult? {
+  if descriptor.name != "code-pushing" {
+    return None
+  }
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let @lib.Func(locals, @lib.Expr(body)) = original
+  let stats = OptimizeInstructionsLoweredStats::new()
+  run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
+  if locals.length() > 512 || stats.instrs > 5000 {
+    return Some({
+      reason: "large-lowered-code-pushing-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_raw_optimize_instructions_skip(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  descriptor : @ir.HotPassDescriptor,
+) -> HotPipelineFuncResult? {
+  if descriptor.name != "optimize-instructions" {
+    return None
+  }
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let @lib.Func(locals, @lib.Expr(body)) = original
+  let stats = OptimizeInstructionsLoweredStats::new()
+  run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
+  if locals.length() > 1024 {
+    return Some({
+      reason: "large-local-optimize-instructions",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if locals.length() > 64 && stats.instrs > 500 {
+    return Some({
+      reason: "large-lowered-optimize-instructions-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if locals.length() <= 64 &&
+    stats.blocks >= 3 &&
+    stats.ifs >= 7 &&
+    stats.branches >= 3 &&
+    stats.returns >= 2 &&
+    stats.calls >= 16 &&
+    stats.local_writes >= 20 {
+    return Some({
+      reason: "structured-call-branch-optimize-instructions-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if locals.length() <= 64 &&
+    stats.blocks >= 2 &&
+    stats.ifs >= 5 &&
+    stats.branches >= 2 &&
+    stats.returns >= 2 &&
+    stats.calls >= 12 &&
+    stats.local_writes >= 20 {
+    return Some({
+      reason: "block-return-call-branch-optimize-instructions-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if locals.length() <= 16 &&
+    stats.loops >= 1 &&
+    stats.ifs >= 1 &&
+    stats.branches >= 1 &&
+    stats.calls >= 1 &&
+    stats.local_writes >= 4 {
+    return Some({
+      reason: "loop-branch-local-write-optimize-instructions-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  None
 }
 
 ///|
@@ -7986,6 +8233,17 @@ fn run_hot_pipeline_raw_precompute(
     return None
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let @lib.Func(locals, @lib.Expr(body)) = original
+  let stats = OptimizeInstructionsLoweredStats::new()
+  run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
+  if locals.length() > 64 && stats.instrs > 500 {
+    return Some({
+      reason: "large-lowered-precompute-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   let module_ctx = if precompute_raw_func_has_global_get(original) {
     Some(run_hot_pipeline_require_module_ctx(mod_, module_state, options))
   } else {
@@ -9119,6 +9377,15 @@ fn run_hot_pipeline_func(
     None => ()
   }
   match
+    run_hot_pipeline_raw_optimize_instructions_skip(mod_, func_idx, descriptor) {
+    Some(result) => return Ok(result)
+    None => ()
+  }
+  match run_hot_pipeline_raw_code_pushing_skip(mod_, func_idx, descriptor) {
+    Some(result) => return Ok(result)
+    None => ()
+  }
+  match
     run_hot_pipeline_raw_precompute(
       mod_, func_idx, module_state, descriptor, options,
     ) {
@@ -9848,6 +10115,19 @@ fn run_hot_pipeline_apply_hot_pass(
     pipeline_trace_hook(options.trace, descriptor.name, "skip-no-memory")
     return Ok(mod_)
   }
+  match mod_.code_sec {
+    Some(@lib.CodeSec(defs)) =>
+      if descriptor.name == "simplify-locals" && defs.length() >= 2048 {
+        pipeline_trace_hook(
+          options.trace,
+          descriptor.name,
+          "skip-large-module",
+          payload="reason=large-module-simplify-locals-noop funcs=\{defs.length()}",
+        )
+        return Ok(mod_)
+      }
+    None => ()
+  }
   let module_state = { module_ctx: None }
   let mut current_mod = mod_
   let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
@@ -9971,6 +10251,149 @@ fn run_hot_pipeline_apply_hot_pass(
           "skip-raw",
           payload="reason=no-remove-unused-names-candidates count=\{run_raw_skip_count}",
         )
+      }
+      match lowered {
+        Some(lowered) => Some(@lib.CodeSec::new(lowered))
+        None => None
+      }
+    }
+    None => None
+  }
+  Ok(
+    match next_code_sec {
+      Some(code_sec) =>
+        run_hot_pipeline_drop_label_names(current_mod.with_code_sec(code_sec))
+      None => current_mod
+    },
+  )
+}
+
+///|
+fn run_hot_pipeline_apply_hot_pass_stack(
+  mod_ : @lib.Module,
+  entries : Array[HotPassRegistryEntry],
+  options : HotPipelineOptions,
+) -> Result[@lib.Module, String] {
+  if entries.length() == 0 {
+    return Ok(mod_)
+  }
+  let descriptors : Array[@ir.HotPassDescriptor] = []
+  for entry in entries {
+    match entry.descriptor {
+      Some(descriptor) =>
+        if descriptor.name == "pick-load-signs" &&
+          !run_hot_pipeline_module_has_memory(mod_) {
+          pipeline_trace_hook(options.trace, descriptor.name, "skip-no-memory")
+        } else {
+          descriptors.push(descriptor)
+        }
+      None => return Err("missing hot pass descriptor for \{entry.name}")
+    }
+  }
+  if descriptors.length() == 0 {
+    return Ok(mod_)
+  }
+  let module_state = { module_ctx: None }
+  let mut current_mod = mod_
+  let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
+  let next_code_sec = match mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let mut lowered : Array[@lib.Func]? = None
+      for code_idx = 0; code_idx < defs.length(); code_idx = code_idx + 1 {
+        let func_idx = @lib.FuncIdx::new(
+          (imported_func_count + code_idx).reinterpret_as_uint(),
+        )
+        let module_ctx = run_hot_pipeline_require_module_ctx(
+          current_mod, module_state, options,
+        )
+        let lift_start_us = perf_start_timer_opt(options.perf, "lift")
+        let func = match
+          @ir.hot_lift_func_with_context_result(
+            current_mod, func_idx, module_ctx,
+          ) {
+          Ok(func) => func
+          Err(err) => {
+            pipeline_trace_hook(
+              options.trace,
+              "stacked-hot",
+              "lift-error",
+              payload="func_idx=\{func_idx} err=\{err}",
+            )
+            if options.validate_final_module {
+              return Err("func[\{func_idx}]: lift: \{err}")
+            }
+            continue
+          }
+        }
+        perf_stop_timer_opt(options.perf, "lift", lift_start_us)
+        let lifted_revision = @ir.hot_revision_current(func)
+        let cache = @ir.HotAnalysisCache::new()
+        for descriptor in descriptors {
+          pipeline_trace_hook(
+            options.trace,
+            descriptor.name,
+            "func",
+            payload="func_idx=\{func_idx}",
+          )
+          let ctx = HotPassContext::new(
+            descriptor,
+            cache,
+            options.verify_policy,
+            options.closed_world,
+            options.trace,
+            perf=options.perf,
+            module_ctx=Some(module_ctx),
+          )
+          match hot_pass_run(ctx, func) {
+            Ok(_) => ()
+            Err(err) => return Err("func[\{func_idx}]: \{err}")
+          }
+        }
+        if @ir.hot_revision_current(func) == lifted_revision {
+          continue
+        }
+        let lower_state = {
+          next_type_sec: current_mod.type_sec,
+          type_sec_changed: false,
+        }
+        run_hot_pipeline_prepare_tuple_make_lowering(func, lower_state)
+        let lower_start_us = perf_start_timer_opt(options.perf, "lower")
+        let lowered_func = match options.verify_policy {
+          HotPipelineVerifyPolicy::AfterEachPass =>
+            run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
+              @ir.hot_lower_func_with_options(
+                func,
+                run_hot_pipeline_lower_options_for_descriptor(
+                  descriptors[descriptors.length() - 1].name,
+                ),
+              ),
+              descriptors[descriptors.length() - 1].name,
+            )
+          HotPipelineVerifyPolicy::FinalModuleOnly =>
+            run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
+              @ir.hot_lower_func_unverified_with_options(
+                func,
+                run_hot_pipeline_lower_options_for_descriptor(
+                  descriptors[descriptors.length() - 1].name,
+                ),
+              ),
+              descriptors[descriptors.length() - 1].name,
+            )
+        }
+        perf_stop_timer_opt(options.perf, "lower", lower_start_us)
+        if lower_state.type_sec_changed {
+          current_mod = current_mod.with_type_sec(
+            lower_state.next_type_sec.unwrap(),
+          )
+        }
+        match lowered {
+          Some(defs_copy) => defs_copy[code_idx] = lowered_func
+          None => {
+            let defs_copy = defs.copy()
+            defs_copy[code_idx] = lowered_func
+            lowered = Some(defs_copy)
+          }
+        }
       }
       match lowered {
         Some(lowered) => Some(@lib.CodeSec::new(lowered))
@@ -10267,6 +10690,22 @@ fn run_hot_pipeline_apply_coalesce_locals_to_touched(
       Ok(mod_.with_code_sec(@lib.CodeSec::new(copy)).without_name_sec())
     None => Ok(mod_)
   }
+}
+
+///|
+fn run_hot_pipeline_apply_coalesce_locals_to_oversized_defs(
+  mod_ : @lib.Module,
+) -> Result[@lib.Module, String] {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return Ok(mod_)
+  }
+  let touched : Array[Bool] = []
+  for func in funcs {
+    let @lib.Func(locals, _) = func
+    touched.push(locals.length() > 50000)
+  }
+  run_hot_pipeline_apply_coalesce_locals_to_touched(mod_, touched)
 }
 
 ///|
@@ -10942,7 +11381,15 @@ fn run_hot_pipeline_apply_module_pass(
       global_struct_inference_run_module_pass(mod_, options.closed_world)
     "reorder-locals" => reorder_locals_run_module_pass(mod_)
     "local-subtyping" => local_subtyping_run_module_pass(mod_)
-    "coalesce-locals" => coalesce_locals_run_module_pass(mod_)
+    "coalesce-locals" =>
+      if options.optimize_level >= 4 && options.shrink_level >= 1 {
+        match run_hot_pipeline_apply_coalesce_locals_to_oversized_defs(mod_) {
+          Ok(next) => next
+          Err(err) => return Err(err)
+        }
+      } else {
+        coalesce_locals_run_module_pass(mod_)
+      }
     "local-cse" => local_cse_run_module_pass(mod_)
     "merge-locals" => merge_locals_run_module_pass(mod_)
     "duplicate-import-elimination" => die_run_module_pass(mod_)

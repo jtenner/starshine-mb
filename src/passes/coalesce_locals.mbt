@@ -211,6 +211,126 @@ fn cl_instr_makes_rest_unreachable(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn cl_instrs_have_structured_control(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) => {
+        ignore(body)
+        return true
+      }
+      @lib.If(_, _, _) => return true
+      @lib.Br(_) | @lib.BrIf(_) | @lib.BrTable(_, _) | @lib.Return =>
+        return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn cl_rewrite_all_local_idxs_in_place(
+  instrs : Array[@lib.Instruction],
+  old_to_new : Array[Int],
+) -> Unit {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        cl_rewrite_all_local_idxs_in_place(body, old_to_new)
+        instrs[idx] = @lib.Instruction::block(block_type, @lib.Expr::new(body))
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        cl_rewrite_all_local_idxs_in_place(body, old_to_new)
+        instrs[idx] = @lib.Instruction::loop_(block_type, @lib.Expr::new(body))
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        cl_rewrite_all_local_idxs_in_place(then_body, old_to_new)
+        match else_body {
+          Some(else_instrs) =>
+            cl_rewrite_all_local_idxs_in_place(else_instrs, old_to_new)
+          None => ()
+        }
+        instrs[idx] = @lib.Instruction::if_(block_type, then_body, else_body)
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        cl_rewrite_all_local_idxs_in_place(body, old_to_new)
+        instrs[idx] = @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(body),
+        )
+      }
+      @lib.LocalGet(local_idx) =>
+        instrs[idx] = @lib.Instruction::local_get(
+          cl_rewrite_local_idx(local_idx, old_to_new),
+        )
+      @lib.LocalSet(local_idx) =>
+        instrs[idx] = @lib.Instruction::local_set(
+          cl_rewrite_local_idx(local_idx, old_to_new),
+        )
+      @lib.LocalTee(local_idx) =>
+        instrs[idx] = @lib.Instruction::local_tee(
+          cl_rewrite_local_idx(local_idx, old_to_new),
+        )
+      _ => ()
+    }
+  }
+}
+
+///|
+fn cl_rewrite_func_structured_conservative(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+) -> CLFuncRewrite {
+  let @lib.Func(body_locals, body) = func
+  let body_local_count = body_locals.length()
+  if body_local_count == 0 {
+    return { func, changed: false }
+  }
+  let types = cl_all_local_types(params, body_locals)
+  let total_locals = types.length()
+  let actions : Array[CLAction] = []
+  let @lib.Expr(original_instrs) = body
+  cl_collect_instrs(original_instrs, actions, total_locals)
+  let liveness = cl_compute_liveness(actions, total_locals)
+  let interferences = cl_compute_interferences(
+    actions,
+    liveness,
+    types,
+    params.length(),
+  )
+  cl_add_plain_live_interferences(actions, liveness, interferences)
+  for local_idx = params.length()
+      local_idx < total_locals
+      local_idx = local_idx + 1 {
+    for param_idx = 0; param_idx < params.length(); param_idx = param_idx + 1 {
+      cl_add_interference(interferences, local_idx, param_idx)
+    }
+  }
+  let weights = cl_copy_weights(actions, total_locals)
+  let coloring = cl_pick_coloring(
+    types,
+    params.length(),
+    interferences,
+    weights,
+  )
+  let rewritten_locals = @lib.Locals::from_types(coloring.slot_types)
+  let rewritten_instrs = original_instrs.copy()
+  cl_rewrite_all_local_idxs_in_place(rewritten_instrs, coloring.old_to_new)
+  let changed = rewritten_instrs != original_instrs ||
+    !cl_old_to_new_is_identity(coloring.old_to_new) ||
+    rewritten_locals != body_locals
+  if !changed {
+    return { func, changed: false }
+  }
+  {
+    func: @lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)),
+    changed: true,
+  }
+}
+
+///|
 fn cl_collect_instrs(
   instrs : Array[@lib.Instruction],
   actions : Array[CLAction],
@@ -455,6 +575,52 @@ fn cl_compute_interferences(
     }
   }
   interferences
+}
+
+///|
+fn cl_add_plain_live_interferences(
+  actions : Array[CLAction],
+  liveness : CLLiveness,
+  interferences : Array[Array[Bool]],
+) -> Unit {
+  let total_locals = interferences.length()
+  let remaining_gets = Array::make(total_locals, 0)
+  for action in actions {
+    match action.kind {
+      CLActionKind::Get => remaining_gets[action.local_idx] += 1
+      _ => ()
+    }
+  }
+  let live = liveness.live_at_entry.copy()
+  for action_idx = 0; action_idx < actions.length(); action_idx = action_idx + 1 {
+    let action = actions[action_idx]
+    match action.kind {
+      CLActionKind::Get => {
+        live[action.local_idx] = true
+        for other = 0; other < total_locals; other = other + 1 {
+          if other != action.local_idx && live[other] {
+            cl_add_interference(interferences, action.local_idx, other)
+          }
+        }
+        remaining_gets[action.local_idx] -= 1
+        if remaining_gets[action.local_idx] == 0 {
+          live[action.local_idx] = false
+        }
+      }
+      CLActionKind::Set | CLActionKind::Tee => {
+        for other = 0; other < total_locals; other = other + 1 {
+          if other != action.local_idx && live[other] {
+            cl_add_interference(interferences, action.local_idx, other)
+          }
+        }
+        if liveness.effective[action_idx] {
+          live[action.local_idx] = true
+        } else {
+          live[action.local_idx] = false
+        }
+      }
+    }
+  }
 }
 
 ///|
@@ -857,10 +1023,13 @@ fn cl_rewrite_func(
   if body_local_count == 0 {
     return { func, changed: false }
   }
+  let @lib.Expr(original_instrs) = body
+  if cl_instrs_have_structured_control(original_instrs) {
+    return cl_rewrite_func_structured_conservative(func, params)
+  }
   let types = cl_all_local_types(params, body_locals)
   let total_locals = types.length()
   let actions : Array[CLAction] = []
-  let @lib.Expr(original_instrs) = body
   cl_collect_instrs(original_instrs, actions, total_locals)
   let liveness = cl_compute_liveness(actions, total_locals)
   let interferences = cl_compute_interferences(

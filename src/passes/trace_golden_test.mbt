@@ -29,3 +29,36 @@ test "pass test helpers capture deterministic vacuum trace lines" {
     ]),
   )
 }
+
+///|
+test "stacked hot scheduler runs compatible passes per function" {
+  let trace : Array[String] = []
+  let fixture =
+    #|(module
+    #|  (func nop)
+    #|  (func nop))
+    #|
+  match
+    pass_test_run_pipeline(
+      fixture,
+      ["remove-unused-names", "remove-unused-names"],
+      options=HotPipelineOptions::new(
+        stack_function_passes=true,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected stacked hot pipeline success, got \{err}")
+  }
+  let expected = [
+    "pass[remove-unused-names]:func func_idx=(Func 0)", "pass[remove-unused-names]:func func_idx=(Func 0)",
+    "pass[remove-unused-names]:func func_idx=(Func 1)",
+  ]
+  let mut cursor = 0
+  for line in trace {
+    if cursor < expected.length() && line == expected[cursor] {
+      cursor += 1
+    }
+  }
+  @debug.assert_eq(cursor, expected.length())
+}

@@ -18,6 +18,196 @@ fn simplify_locals_test_count_substring(text : String, needle : String) -> Int {
 }
 
 ///|
+fn simplify_locals_test_low_local_structured_call_heavy_fixture() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func $use (param i32))\n")
+  out.write_string("  (func (local i32 i32 i32 i32)\n")
+  let mut i = 0
+  while i < 128 {
+    out.write_string("    local.get 0\n")
+    out.write_string("    if\n")
+    out.write_string("      local.get 0 call $use\n")
+    out.write_string("      local.get 1 call $use\n")
+    out.write_string("      local.get 2 call $use\n")
+    out.write_string("      local.get 3 call $use\n")
+    out.write_string("    end\n")
+    i += 1
+  }
+  out.write_string("    i32.const 1 local.set 0))\n")
+  out.to_string()
+}
+
+///|
+test "simplify-locals skips low-local structured call-heavy functions" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      simplify_locals_test_low_local_structured_call_heavy_fixture(),
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected low-local structured skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[simplify-locals]:skip-raw reason=low-local-")
+    }),
+  )
+}
+
+///|
+fn simplify_locals_test_low_local_loop_return_call_ladder_fixture() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func $use (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func (param i32) (result i32) (local i32 i32 i32 i32)\n")
+  out.write_string("    i32.const 0\n")
+  out.write_string("    local.set 1\n")
+  out.write_string("    local.get 0\n")
+  out.write_string("    if\n")
+  out.write_string("      i32.const 0\n")
+  out.write_string("      return\n")
+  out.write_string("    end\n")
+  out.write_string("    loop\n")
+  out.write_string("      loop\n")
+  let mut i = 0
+  while i < 20 {
+    out.write_string("        local.get 0\n")
+    out.write_string("        if\n")
+    out.write_string("          local.get 0\n")
+    out.write_string("          call $use\n")
+    out.write_string("          drop\n")
+    out.write_string("          local.get 1\n")
+    out.write_string("          drop\n")
+    out.write_string("        end\n")
+    i += 1
+  }
+  out.write_string("      end\n")
+  out.write_string("    end\n")
+  out.write_string("    local.get 0))\n")
+  out.to_string()
+}
+
+///|
+test "simplify-locals skips low-local loop return call ladders" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      simplify_locals_test_low_local_loop_return_call_ladder_fixture(),
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected low-local loop return skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals]:skip-raw reason=low-local-loop-return-call-ladder-noop",
+      )
+    }),
+  )
+}
+
+///|
+fn simplify_locals_test_mid_local_structured_call_ladder_fixture() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func $use (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func (param i32) (result i32) (local")
+  let mut local_count = 0
+  while local_count < 38 {
+    out.write_string(" i32")
+    local_count += 1
+  }
+  out.write_string(")\n")
+  let mut i = 0
+  while i < 130 {
+    out.write_string("    block\n")
+    out.write_string("      local.get 0\n")
+    out.write_string("      if\n")
+    out.write_string("        i32.const ")
+    out.write_string(i.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string((i % 38 + 1).to_string())
+    out.write_string("\n")
+    let mut j = 0
+    while j < 4 {
+      out.write_string("        local.get ")
+      out.write_string((j % 4 + 1).to_string())
+      out.write_string("\n")
+      out.write_string("        call $use\n")
+      out.write_string("        drop\n")
+      j += 1
+    }
+    out.write_string("      end\n")
+    out.write_string("    end\n")
+    i += 1
+  }
+  out.write_string("    local.get 0))\n")
+  out.to_string()
+}
+
+///|
+test "simplify-locals skips mid-local structured call ladders" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      simplify_locals_test_mid_local_structured_call_ladder_fixture(),
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected mid-local structured skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals]:skip-raw reason=mid-local-structured-call-ladder-noop",
+      )
+    }),
+  )
+}
+
+///|
+fn simplify_locals_test_large_module_fixture() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  let mut i = 0
+  while i < 2048 {
+    out.write_string("  (func (param i32) (result i32) local.get 0)\n")
+    i += 1
+  }
+  out.write_string(")")
+  out.to_string()
+}
+
+///|
+test "simplify-locals skips very large modules conservatively" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      simplify_locals_test_large_module_fixture(),
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected large-module simplify-locals skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals]:skip-large-module reason=large-module-simplify-locals-noop funcs=2048",
+      )
+    }),
+  )
+}
+
+///|
 fn simplify_locals_test_make_large_structured_raw_repro() -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")

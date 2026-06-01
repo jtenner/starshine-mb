@@ -1403,6 +1403,23 @@ fn remove_unused_brs_node_is_nonfallthrough_root(
 }
 
 ///|
+fn remove_unused_brs_root_suffix_required_after_void_structured_terminal(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if @ir.hot_type_result_arity(func, @ir.hot_body_result_type(func)) == 0 {
+    return false
+  }
+  if @ir.hot_node_result_arity(func, node_id) != 0 {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::If => true
+    _ => false
+  }
+}
+
+///|
 fn remove_unused_brs_prune_dead_suffix_after_nonfallthrough(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1419,6 +1436,11 @@ fn remove_unused_brs_prune_dead_suffix_after_nonfallthrough(
   for idx = 0; idx < root_count - 1; idx = idx + 1 {
     let node_id = @ir.hot_region_get(func, region_ref, idx)
     if !remove_unused_brs_node_is_nonfallthrough_root(func, node_id, label_refs) {
+      continue
+    }
+    if remove_unused_brs_root_suffix_required_after_void_structured_terminal(
+        func, node_id,
+      ) {
       continue
     }
     let replacement = match @ir.hot_node_get(func, node_id).op {

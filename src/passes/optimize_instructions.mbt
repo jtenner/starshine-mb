@@ -207,6 +207,24 @@ fn optimize_instructions_node_is_i32_value(
 }
 
 ///|
+fn optimize_instructions_node_is_control_carrier(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable => true
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_node_block_type(
   func : @ir.HotFunc,
   node_id : Int,
@@ -282,11 +300,16 @@ fn optimize_instructions_try_fold_constant_if_condition(
     return true
   }
   if root_count == 1 {
-    @ir.hot_replace_node(
-      func,
-      node_id,
-      @ir.hot_node_get(func, @ir.hot_region_get(func, chosen_region, 0)),
-    )
+    let replacement_id = @ir.hot_region_get(func, chosen_region, 0)
+    // Moving an existing structured control carrier by copying its raw node would
+    // also copy its label id while leaving the label owned by the old node. Later
+    // cleanup can delete that old owner and make the hot IR invalid. Keep the
+    // rewrite conservative for structured single-root arms; the surrounding pass
+    // will still optimize scalar single-root arms and multi-root arms safely.
+    if optimize_instructions_node_is_control_carrier(func, replacement_id) {
+      return false
+    }
+    @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement_id))
     pass_mark_mutated(ctx, func)
     return true
   }

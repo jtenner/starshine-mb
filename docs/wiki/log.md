@@ -2,6 +2,21 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-31] passes | O4z self-optimize size recovery
+
+- Narrowed the conservative `ssa-nomerge` structured fallback so very large structured local-write functions skip the raw SSA rewrite even when they have no explicit branch op. This prevents the full self/debug function 518 body from expanding from ~857 KiB to ~119 MiB during the `ssa-nomerge` prefix while preserving the completion/validation path.
+- Removed the broad large-module no-op fallbacks for `vacuum`, `local-subtyping`, `coalesce-locals`, and `local-cse`; with the `ssa-nomerge` size guard in place, the prior reduced reliability cases and the full self/debug `-O4z` path complete. Evidence: `.tmp/o4z-hang/extract523.wasm` writes 375,358 bytes in 15s, `.tmp/o4z-hang/extract1067.wasm` writes 168,603 bytes in <1s, `.tmp/o4z-hang/extract2208.wasm` writes 167,420 bytes in 16s, and `tests/node/dist/starshine-debug-wasi.wasm -O4z` writes 400,588 bytes in 67s versus the prior Starshine 122,121,779-byte artifact and the saved Binaryen 1,116,111-byte artifact. Validation: `moon fmt` and `moon test src/passes` passed (`1427/1427`).
+
+## [2026-05-31] passes | O4z self-optimize bottleneck guards
+
+- Added conservative `simplify-locals` raw fallbacks for low-local loop/return call ladders and mid-local structured call ladders, plus a large-module `simplify-locals` no-op fallback at 2048+ defined functions in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), guarded by [`../../src/passes/simplify_locals_test.mbt`](../../src/passes/simplify_locals_test.mbt).
+- Evidence: direct `--simplify-locals` on `.tmp/o4z-prefix/out-26.wasm` now finishes in ~0.08s via `pass[simplify-locals]:skip-large-module reason=large-module-simplify-locals-noop funcs=2886`; `-O4z` on `.tmp/o4z-hang/extract409-o1.wasm` finishes in ~14.4s and writes 396,819 bytes. Follow-up guards for `optimize-instructions`, `precompute`, and `code-pushing`, plus now-retired large-module local module and `vacuum` guards, moved the full self/debug `-O4z` path from abort/timeout to completion in 4m20.775s, writing a valid but very large 122,121,779-byte output. Validation: `moon fmt` and `moon test src/passes` passed (`1426/1426`).
+
+## [2026-05-31] passes | stacked hot scheduler
+
+- Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
+- Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+
 ## [2026-05-27] passes | dae DAE004 closeout evidence
 
 - Added [`raw/research/0687-2026-05-27-dae004-closeout-evidence.md`](raw/research/0687-2026-05-27-dae004-closeout-evidence.md) and updated [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) plus [`../../agent-todo.md`](../../agent-todo.md) to close `[DAE004-H]`, `[DAE004-I]`, and `[DAE]004` for the current v0.1.0 surface.
