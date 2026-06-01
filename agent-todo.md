@@ -616,15 +616,15 @@ p1 next-up / active:
 - None currently tracked. Prefer adding a new tiny GenValid/metamorphic slice before broad p2 infrastructure work if a release need appears.
 
 p2 invalid/binary/text tiny slices:
-- [FUZ]1055C1 (p2, IN PROGRESS - NEXT SLICE 1055C1b) - Duplicate Module/Register WAST Fixture
+- [FUZ]1055C1 (p2, IN PROGRESS - NEXT SLICE 1055C1c) - Duplicate Module/Register WAST Fixture
   - Unit: add a deterministic multi-module WAST fixture for duplicate module name or register-name behavior and classify it separately from ordinary validation/unlinkable failures.
   - Current state: implementation and focused tests are already present in `src/fuzz/main.mbt` and `src/fuzz/main_wbtest.mbt`; docs are already updated. The local Moon core blocker is repaired for this workspace/toolchain as of 2026-06-01 09:54 EDT by replacing the broken `lib/core` state with the matching `core-latest` bundle for `moon 0.1.20260522`, rebuilding the core bundles, and disambiguating `FuzzReductionFailureKind::{ParseFailure,PropertyFailure,ValidationFailure}` after the restored toolchain exposed the constructor-name collision with `MultiModuleWastClassification::ParseFailure`. Validation evidence: `moon info` now resolves `moonbitlang/core` and finishes with existing deprecation warnings only.
   - Remaining work is sliced as:
     - [x] [FUZ]1055C1a (p2) - Repair or replace the local Moon core/standard-library install so dependency graph resolution succeeds. Acceptance met: `moon info` no longer fails with `Cannot inject the standard library moonbitlang/core` and now completes successfully after the enum-constructor disambiguation.
-    - [FUZ]1055C1b (p2, IN PROGRESS NEXT) - Validate the already-landed duplicate module/register fixture implementation. Acceptance: `moon test src/fuzz` passes and covers the focused WAST runner/classifier fixture plus repro metadata assertion.
-    - [FUZ]1055C1c (p2, depends on 1055C1b) - Run commit-ready repository validation. Acceptance: `moon info`, `moon fmt`, and full `moon test` pass; review and revert any incidental `moon fmt` migration-only diff that is unrelated to the FUZ slice.
+    - [x] [FUZ]1055C1b (p2) - Validate the already-landed duplicate module/register fixture implementation. Acceptance met: `moon test src/fuzz` passed on 2026-06-01 with `621` tests passed, including the focused duplicate module/register WAST classifier fixture after formatting the failure messages through `@debug.to_string` for `MultiModuleWastClassification`.
+    - [FUZ]1055C1c (p2, IN PROGRESS NEXT) - Run commit-ready repository validation. Acceptance: `moon info`, `moon fmt`, and full `moon test` pass; review and revert any incidental `moon fmt` migration-only diff that is unrelated to the FUZ slice.
     - [FUZ]1055C1d (p2, depends on 1055C1c) - Close the task. Acceptance: remove `[FUZ]1055C1` from the active backlog, review the diff, and commit the fixture/docs/validation evidence with a detailed message.
-  - Next runnable step: run `[FUZ]1055C1b` with `moon test src/fuzz`; do not start broader validation until the focused fuzz package test passes.
+  - Next runnable step: run `[FUZ]1055C1c` commit-ready validation with `moon info`, `moon fmt`, and full `moon test`; review/revert unrelated formatter migration diffs before closeout.
 
 p2 oracle/reporting/infrastructure tiny slices:
 
@@ -646,8 +646,8 @@ p2 invalid/binary/text slices:
 - [FUZ]1055C1 (p2) - Duplicate Module/Register WAST Fixture
   - Remaining concrete slices:
     - [x] [FUZ]1055C1a (p2) - Repaired local Moon core injection so `moon info` resolves `moonbitlang/core` and completes.
-    - [FUZ]1055C1b (p2, IN PROGRESS NEXT) - Rerun focused duplicate module/register fixture validation with `moon test src/fuzz`.
-    - [FUZ]1055C1c (p2, depends on 1055C1b) - Run commit-ready validation: `moon info`, `moon fmt`, and full `moon test`; revert unrelated migration-only formatting diffs if they appear.
+    - [x] [FUZ]1055C1b (p2) - Reran focused duplicate module/register fixture validation with `moon test src/fuzz`; passed with `621` tests.
+    - [FUZ]1055C1c (p2, IN PROGRESS NEXT) - Run commit-ready validation: `moon info`, `moon fmt`, and full `moon test`; revert unrelated migration-only formatting diffs if they appear.
     - [FUZ]1055C1d (p2, depends on 1055C1c) - Remove the active task and commit the completed fixture/docs/validation evidence.
   - Parent: [FUZ]1055.
 - [FUZ]1020A (p2) - Remaining AST Type/Subtyping Invalid Strategies

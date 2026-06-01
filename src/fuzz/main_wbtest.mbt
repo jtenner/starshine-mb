@@ -1863,7 +1863,10 @@ test "duplicate multi-module wast fixtures classify script-name failures separat
   assert_true(module_specimen.feature_facts.contains("duplicate-module-name"))
   match classify_multi_module_wast_case(module_specimen) {
     DuplicateModuleName => ()
-    other => fail("expected duplicate module-name classification, got \{other}")
+    other =>
+      fail(
+        "expected duplicate module-name classification, got \{@debug.to_string(other)}",
+      )
   }
 
   let register_specimen = gen_duplicate_multi_module_wast_case(0x1055C2UL)
@@ -1874,7 +1877,9 @@ test "duplicate multi-module wast fixtures classify script-name failures separat
   match classify_multi_module_wast_case(register_specimen) {
     DuplicateRegisterName => ()
     other =>
-      fail("expected duplicate register-name classification, got \{other}")
+      fail(
+        "expected duplicate register-name classification, got \{@debug.to_string(other)}",
+      )
   }
 }
 
