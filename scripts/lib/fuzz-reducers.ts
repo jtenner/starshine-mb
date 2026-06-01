@@ -26,6 +26,16 @@ export type ReductionReportLogOptions = {
   steps: readonly ReductionStep[];
 };
 
+export type ParsedReductionReportLog = {
+  status?: string;
+  artifactPath?: string;
+  artifactPathKey?: string;
+  originalSize: number;
+  finalSize: number;
+  predicateEvaluations: number;
+  steps: ReductionStep[];
+};
+
 export function formatReductionReportLog(options: ReductionReportLogOptions): string {
   const lines: string[] = [];
   if (options.status !== undefined) {
@@ -43,6 +53,109 @@ export function formatReductionReportLog(options: ReductionReportLogOptions): st
     lines.push(`step=${step.kind}|start=${step.start}|len=${step.length}|before=${step.beforeSize}|after=${step.afterSize}`);
   }
   return lines.join("\n") + "\n";
+}
+
+export function parseReductionReportLog(log: string): ParsedReductionReportLog {
+  let status: string | undefined;
+  let artifactPath: string | undefined;
+  let artifactPathKey: string | undefined;
+  let originalSize: number | undefined;
+  let finalSize: number | undefined;
+  let predicateEvaluations: number | undefined;
+  const steps: ReductionStep[] = [];
+
+  for (const rawLine of log.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (line.length === 0) {
+      continue;
+    }
+    if (line.startsWith("step=")) {
+      steps.push(parseReductionStepLogLine(line));
+      continue;
+    }
+    const separator = line.indexOf("=");
+    if (separator < 0) {
+      throw new Error(`Malformed reduction log line: ${line}`);
+    }
+    const key = line.slice(0, separator);
+    const value = line.slice(separator + 1);
+    switch (key) {
+      case "status":
+        status = value;
+        break;
+      case "original_size":
+        originalSize = parseReductionLogInteger(key, value);
+        break;
+      case "final_size":
+        finalSize = parseReductionLogInteger(key, value);
+        break;
+      case "predicate_evaluations":
+        predicateEvaluations = parseReductionLogInteger(key, value);
+        break;
+      default:
+        artifactPathKey = key;
+        artifactPath = value;
+        break;
+    }
+  }
+
+  if (originalSize === undefined) {
+    throw new Error("Reduction log is missing original_size");
+  }
+  if (finalSize === undefined) {
+    throw new Error("Reduction log is missing final_size");
+  }
+  if (predicateEvaluations === undefined) {
+    throw new Error("Reduction log is missing predicate_evaluations");
+  }
+
+  return {
+    status,
+    artifactPath,
+    artifactPathKey,
+    originalSize,
+    finalSize,
+    predicateEvaluations,
+    steps,
+  };
+}
+
+function parseReductionStepLogLine(line: string): ReductionStep {
+  const fields = new Map<string, string>();
+  for (const part of line.split("|")) {
+    const separator = part.indexOf("=");
+    if (separator < 0) {
+      throw new Error(`Malformed reduction step field: ${part}`);
+    }
+    fields.set(part.slice(0, separator), part.slice(separator + 1));
+  }
+  const kind = fields.get("step");
+  if (kind === undefined || kind.length === 0) {
+    throw new Error(`Reduction step is missing kind: ${line}`);
+  }
+  return {
+    kind,
+    start: parseRequiredReductionStepInteger(fields, "start", line),
+    length: parseRequiredReductionStepInteger(fields, "len", line),
+    beforeSize: parseRequiredReductionStepInteger(fields, "before", line),
+    afterSize: parseRequiredReductionStepInteger(fields, "after", line),
+  };
+}
+
+function parseRequiredReductionStepInteger(fields: Map<string, string>, key: string, line: string): number {
+  const value = fields.get(key);
+  if (value === undefined) {
+    throw new Error(`Reduction step is missing ${key}: ${line}`);
+  }
+  return parseReductionLogInteger(key, value);
+}
+
+function parseReductionLogInteger(key: string, value: string): number {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 0) {
+    throw new Error(`Invalid reduction log integer ${key}=${value}`);
+  }
+  return parsed;
 }
 
 export function reduceModuleFieldsByDeletion<T>(fields: readonly T[], predicate: ReductionPredicate<readonly T[]>): T[] {

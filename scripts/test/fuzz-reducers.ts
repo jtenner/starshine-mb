@@ -2,6 +2,7 @@ import { strict as assert } from "node:assert";
 
 import {
   formatReductionReportLog,
+  parseReductionReportLog,
   reduceBinaryByByteSlices,
   reduceBinaryByByteSlicesWithReport,
   reduceModuleFieldsByDeletion,
@@ -107,6 +108,46 @@ export function runFuzzReducersTest(): void {
   );
   assert.match(reductionLog, /\nstep=delete-byte-slice\|start=/, "reduction log should record reduction steps");
   assert.ok(reductionLog.endsWith("\n"), "reduction log should end with a newline for stable artifact diffs");
+
+  const parsedReductionLog = parseReductionReportLog(reductionLog);
+  assert.equal(parsedReductionLog.status, "mismatch", "reduction log parser should roundtrip status context");
+  assert.equal(parsedReductionLog.originalSize, 8, "reduction log parser should roundtrip original size");
+  assert.equal(parsedReductionLog.finalSize, 2, "reduction log parser should roundtrip final size");
+  assert.equal(
+    parsedReductionLog.predicateEvaluations,
+    reducedBytesReport.predicateEvaluations,
+    "reduction log parser should roundtrip predicate evaluation counts",
+  );
+  assert.equal(
+    parsedReductionLog.artifactPath,
+    "reduced-input.wasm",
+    "reduction log parser should roundtrip the default reduced artifact path",
+  );
+  assert.deepEqual(
+    parsedReductionLog.steps,
+    reducedBytesReport.steps,
+    "reduction log parser should roundtrip deletion steps",
+  );
+
+  const customArtifactLog = formatReductionReportLog({
+    artifactPathKey: "reduced_wasm_path",
+    artifactPath: "case/reduced.wasm",
+    originalSize: 10,
+    finalSize: 4,
+    predicateEvaluations: 3,
+    steps: [],
+  });
+  const parsedCustomArtifactLog = parseReductionReportLog(customArtifactLog);
+  assert.equal(
+    parsedCustomArtifactLog.artifactPathKey,
+    "reduced_wasm_path",
+    "reduction log parser should preserve custom artifact path keys",
+  );
+  assert.equal(
+    parsedCustomArtifactLog.artifactPath,
+    "case/reduced.wasm",
+    "reduction log parser should parse custom artifact paths",
+  );
 }
 
 if (import.meta.main) {
