@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-06-01] fuzzing | FUZ1020E1 multi-value br_table payload arity invalid AST
+
+- Added `invalid-function-body-br-table-multivalue-payload-arity-mismatch` as the 258th checked-in AST-invalid strategy. The mutation builds a multi-result block addressed by `br_table`, keeps the selector valid, and omits one branch payload value so validation fails in the FunctionBody family for stack arity/type rather than label-index or selector typing.
+- Added focused rejection, repair, and `gen_invalid` stable-id coverage, and updated the fuzz-hardening census to remove this branch/control arity gap from the remaining FUZ1020 list.
+- Validation: `moon test src/validate` first failed on the missing constructor/mutator and then passed after registry, dispatcher, label, expected-list, and tests were wired.
+
 ## [2026-06-01] fuzzing | FUZ1020D3 cross-kind duplicate export invalid AST
 
 - Hardened `duplicate-export-name` so the deterministic invalid-AST mutation appends duplicate names across valid function and memory exports, proving export-name uniqueness is kind-independent.

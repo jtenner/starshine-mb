@@ -228,6 +228,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-br-if-payload-mismatch"
     InvalidFunctionBodyBrTablePayloadMismatch =>
       "invalid-function-body-br-table-payload-mismatch"
+    InvalidFunctionBodyBrTableMultiValuePayloadArityMismatch =>
+      "invalid-function-body-br-table-multivalue-payload-arity-mismatch"
     InvalidFunctionBodyBrOnNullPayloadMismatch =>
       "invalid-function-body-br-on-null-payload-mismatch"
     InvalidFunctionBodyIfConditionType =>

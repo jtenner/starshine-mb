@@ -2011,6 +2011,33 @@ test "gen_invalid_ast_generate supports function-body br_table payload mismatch 
 }
 
 ///|
+test "gen_invalid_ast_generate supports function-body br_table multi-value payload arity strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x1020e1UL),
+      GenInvalidAstParams::repro_seed(
+        InvalidFunctionBodyBrTableMultiValuePayloadArityMismatch,
+      ),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-br-table-multivalue-payload-arity-mismatch mutation to fail",
+      )
+    Err(err) => {
+      let diagnostic = validation_error_diagnostic(err)
+      let family = validation_issue_family(diagnostic.issue)
+      assert_true(family == FunctionBodyFamily)
+      let message = validation_error_message(err)
+      assert_true(message.contains("type mismatch"))
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports function-body memory64 address type strategy" {
   let generated = match
     gen_invalid_ast_generate(

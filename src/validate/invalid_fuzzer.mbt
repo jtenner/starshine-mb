@@ -84,6 +84,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyCallPayloadMismatch
   InvalidFunctionBodyBrIfPayloadMismatch
   InvalidFunctionBodyBrTablePayloadMismatch
+  InvalidFunctionBodyBrTableMultiValuePayloadArityMismatch
   InvalidFunctionBodyBrOnNullPayloadMismatch
   InvalidFunctionBodyIfConditionType
   InvalidFunctionBodyIfBranchResultType
@@ -2196,6 +2197,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       FunctionBodyFamily,
       required_in_smoke=false,
     ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyBrTableMultiValuePayloadArityMismatch,
+      "invalid-function-body-br-table-multivalue-payload-arity-mismatch",
+      "invalid function-body br_table multi-value payload arity",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -2302,6 +2310,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyCallPayloadMismatch => 39
     InvalidFunctionBodyBrIfPayloadMismatch => 40
     InvalidFunctionBodyBrTablePayloadMismatch => 41
+    InvalidFunctionBodyBrTableMultiValuePayloadArityMismatch => 257
     InvalidFunctionBodyBrOnNullPayloadMismatch => 238
     InvalidFunctionBodyIfConditionType => 162
     InvalidFunctionBodyIfBranchResultType => 163
@@ -4001,6 +4010,40 @@ fn validate_invalid_ast_mutate_invalid_function_body_br_table_payload_mismatch(
   )
   {
     strategy: InvalidFunctionBodyBrTablePayloadMismatch,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_br_table_multivalue_payload_arity_mismatch(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let results = [ValType::i32(), ValType::i64()]
+  let body = Expr::new([
+    Instruction::block(
+      BlockType::type_idx(
+        TypeIdx::new(
+          validate_invalid_ast_flat_type_count(mod).reinterpret_as_uint(),
+        ),
+      ),
+      Expr::new([
+        Instruction::i32_const(I32(0)),
+        Instruction::i32_const(I32(0)),
+        Instruction::br_table([], LabelIdx::new(0U)),
+      ]),
+    ),
+  ])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    mod,
+    [],
+    results,
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyBrTableMultiValuePayloadArityMismatch,
     applicable: true,
     expected_family: FunctionBodyFamily,
     mutated_module: with_func,
@@ -10220,6 +10263,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_br_table_payload_mismatch(
           base,
         )
+      InvalidFunctionBodyBrTableMultiValuePayloadArityMismatch =>
+        validate_invalid_ast_mutate_invalid_function_body_br_table_multivalue_payload_arity_mismatch(
+          base,
+        )
       InvalidFunctionBodyBrOnNullPayloadMismatch =>
         validate_invalid_ast_mutate_invalid_function_body_br_on_null_payload_mismatch(
           base,
@@ -11537,7 +11584,7 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
     "datacount-mismatch-too-small", "datacount-mismatch-too-large", "datacount-active-passive-mismatch",
     "invalid-subtype-mutable-field-variance", "invalid-function-body-br-on-null-payload-mismatch",
-    "invalid-function-body-br-on-non-null-payload-mismatch",
+    "invalid-function-body-br-on-non-null-payload-mismatch", "invalid-function-body-br-table-multivalue-payload-arity-mismatch",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 24)
@@ -12587,6 +12634,58 @@ test "invalid br_table payload strategy rejects with FunctionBody family" {
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid br_table multi-value payload arity strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyBrTableMultiValuePayloadArityMismatch,
+      0x1020e1UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body br_table multi-value payload arity mutation repairs by supplying both payload values" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_br_table_multivalue_payload_arity_mismatch(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected multi-value payload arity mutation to fail")
+    Err(err) => {
+      let message = validation_error_message(err)
+      assert_true(message.contains("type mismatch"))
+    }
+  }
+  let repaired_body = Expr::new([
+    Instruction::block(
+      BlockType::type_idx(TypeIdx::new(0U)),
+      Expr::new([
+        Instruction::i32_const(I32(0)),
+        Instruction::i64_const(I64(0)),
+        Instruction::i32_const(I32(0)),
+        Instruction::br_table([], LabelIdx::new(0U)),
+      ]),
+    ),
+  ])
+  let (repaired, _, _) = validate_invalid_ast_append_defined_func(
+    Module::new(),
+    [],
+    [ValType::i32(), ValType::i64()],
+    Locals::empty(),
+    repaired_body,
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected repaired multi-value br_table payload module to validate: \{validation_error_message(err)}",
+      )
   }
 }
 
