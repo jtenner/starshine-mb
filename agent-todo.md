@@ -403,10 +403,7 @@ p1 next-up / active:
 - None currently tracked. Prefer adding a new tiny GenValid/metamorphic slice before broad p2 infrastructure work if a release need appears.
 
 p2 invalid/binary/text tiny slices:
-- [FUZ]1020D1 (p2) - Invalid AST coverage census and de-dup map
-  - Unit: audit the current invalid-AST strategy registry, validator family summaries, and FUZ1020 historical notes; produce a concise gap map that distinguishes already-covered rules from new candidate slices.
-  - Acceptance: `agent-todo.md` and relevant fuzz/validator wiki summaries identify the next concrete gaps without reopening closed `[FUZ]1020A`/`B`/`C` variants; no behavior change required.
-  - Suggested tests: docs/backlog-only slice; run `git diff --check` and prefer `moon test src/validate` if any generated IDs or code comments change.
+- Census note: `[FUZ]1020D1` audited the checked-in invalid-AST registry and wiki history. The registry currently has 255 deterministic AST-invalid strategy specs across all 15 `ValidationIssueFamily` buckets (180 function-body, 13 name, 10 start, 9 import, 8 type, 7 export, 5 code, 4 table, 4 element, 3 global, 3 data, 3 memory, 3 datacount, 2 tag, 1 function). Already-covered breadth includes the closed `[FUZ]1020A`/`B`/`C` families: start out-of-range/wrong-kind plus imported-start signature variants, duplicate export names, datacount absent/too-small/too-large, element function-index/typed-expression/table-index basics, table/data/memory bulk operand/index families, atomics non-shared and stack/index families, SIMD lane/operand/index families, GC aggregate/input/variance/descriptor basics, ref/branch payloads including `br_on_null`, `br_on_non_null`, and `br_on_cast`, name-map out-of-range indices, and code-section cardinality/imported-body families. The remaining open `[FUZ]1020D*`/`E*`/`F*`/`G*` slices below are the de-duplicated next concrete gaps; do not reopen older A/B/C variants unless new evidence shows their tests no longer cover the stated rule.
 
 - [FUZ]1020D2 (p2) - Start function signature invalid AST strategy
   - Unit: add an AST-invalid strategy for a start function that exists in the function namespace but has parameters and/or results, distinct from the already-covered wrong-kind start index.
