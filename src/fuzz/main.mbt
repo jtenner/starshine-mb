@@ -879,6 +879,18 @@ pub struct ValidMultiModuleWastCase {
 } derive(Eq, Debug)
 
 ///|
+pub enum MultiModuleWastClassification {
+  ValidLinking
+  Unlinkable
+  DuplicateModuleName
+  DuplicateRegisterName
+  ParseFailure
+  SingleModuleValidationFailure
+  LinkFailure
+  LinkSkipped
+} derive(Eq, Debug)
+
+///|
 pub struct ValidMultiModuleLinkingFuzzStats {
   profile : String
   seed : UInt64
@@ -1081,6 +1093,137 @@ pub fn gen_unlinkable_multi_module_wast_cases(
     cases.push(gen_unlinkable_multi_module_wast_case(seed + i.to_uint64()))
   }
   cases
+}
+
+///|
+fn gen_duplicate_module_name_wast_case(
+  suffix : String,
+) -> ValidMultiModuleWastCase {
+  let module_name = "dup_module_" + suffix
+  {
+    name: "duplicate-module-name-multi-module-\{suffix}",
+    text: "(module $" +
+    module_name +
+    " (func))\n" +
+    "(module $" +
+    module_name +
+    " (func))\n",
+    feature_facts: ["multi-module", "duplicate-module-name"],
+  }
+}
+
+///|
+fn gen_duplicate_register_name_wast_case(
+  suffix : String,
+) -> ValidMultiModuleWastCase {
+  let first_module_name = "dup_register_a_" + suffix
+  let second_module_name = "dup_register_b_" + suffix
+  {
+    name: "duplicate-register-name-multi-module-\{suffix}",
+    text: "(module $" +
+    first_module_name +
+    " (func))\n" +
+    "(register \"dupe\" $" +
+    first_module_name +
+    ")\n" +
+    "(module $" +
+    second_module_name +
+    " (func))\n" +
+    "(register \"dupe\" $" +
+    second_module_name +
+    ")\n",
+    feature_facts: ["multi-module", "duplicate-register-name", "register"],
+  }
+}
+
+///|
+pub fn gen_duplicate_multi_module_wast_case(
+  seed : UInt64,
+) -> ValidMultiModuleWastCase {
+  let suffix = fuzz_zero_pad_decimal((seed % 100000UL).to_int(), 5)
+  if seed % 2UL == 1UL {
+    gen_duplicate_module_name_wast_case(suffix)
+  } else {
+    gen_duplicate_register_name_wast_case(suffix)
+  }
+}
+
+///|
+fn fuzz_string_array_contains(items : Array[String], needle : String) -> Bool {
+  for item in items {
+    if item == needle {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn classify_multi_module_note_module_id(
+  seen : Array[String],
+  id : String?,
+) -> Bool {
+  match id {
+    Some(name) => {
+      if fuzz_string_array_contains(seen, name) {
+        return true
+      }
+      seen.push(name)
+      false
+    }
+    None => false
+  }
+}
+
+///|
+pub fn classify_multi_module_wast_case(
+  case : ValidMultiModuleWastCase,
+) -> MultiModuleWastClassification {
+  let script = match wast_to_script(case.text, filename=case.name + ".wast") {
+    Ok(v) => v
+    Err(_) => return ParseFailure
+  }
+  let seen_module_ids : Array[String] = []
+  let seen_register_names : Array[String] = []
+  let mut saw_unlinkable = false
+  for cmd in script.commands {
+    match cmd {
+      WastCommand::Module(m) =>
+        if classify_multi_module_note_module_id(seen_module_ids, m.id) {
+          return DuplicateModuleName
+        }
+      WastCommand::ModuleBinary(id, _) =>
+        if classify_multi_module_note_module_id(seen_module_ids, id) {
+          return DuplicateModuleName
+        }
+      WastCommand::ModuleQuote(id, _) =>
+        if classify_multi_module_note_module_id(seen_module_ids, id) {
+          return DuplicateModuleName
+        }
+      WastCommand::Register(name, _) => {
+        if fuzz_string_array_contains(seen_register_names, name) {
+          return DuplicateRegisterName
+        }
+        seen_register_names.push(name)
+      }
+      WastCommand::AssertUnlinkable(_, _) => saw_unlinkable = true
+      _ => ()
+    }
+  }
+  if saw_unlinkable {
+    return Unlinkable
+  }
+  match @wast.run_wast_spec_file(case.name + ".wast", case.text).status {
+    @wast.WastSpecFileStatus::Passed => ValidLinking
+    @wast.WastSpecFileStatus::Skipped(_) => LinkSkipped
+    @wast.WastSpecFileStatus::Failed(msg) =>
+      if msg.contains("validation failed:") ||
+        msg.contains("module lower failed:") {
+        SingleModuleValidationFailure
+      } else {
+        LinkFailure
+      }
+  }
 }
 
 ///|

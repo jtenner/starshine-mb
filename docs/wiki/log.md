@@ -59,6 +59,18 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-06-01] fuzzing | FUZ1055C1 duplicate multi-module script names
+
+- Advanced `[FUZ]1055C1` by adding deterministic duplicate-module-id and duplicate-`register` multi-module WAST fixtures plus a shared classifier that reports `DuplicateModuleName` and `DuplicateRegisterName` separately from parse, single-module validation, unlinkable, link-failure, and skipped-runtime outcomes.
+- The focused fuzz test now exercises both duplicate fixture variants and proves their feature facts and classifications are stable for future multi-module runner/repro wiring.
+- Validation blocker: `moon test src/fuzz`, `moon info`, and `moon test` are currently blocked in this cron environment before dependency graph resolution by `Cannot inject the standard library moonbitlang/core: Cannot load the core file`; `moon fmt` completed. Rerun Moon validation once the local Moon core install is repaired before closing the slice.
+
+## [2026-06-01] fuzzing | FUZ1021C1 relaxed-SIMD laneselect operand-context bytes
+
+- Closed `[FUZ]1021C1` by adding decode-rejected binary-invalid strategies for malformed and overwide mask-operand `local.get` local-index ULEBs immediately before a valid `i8x16.relaxed_laneselect` subopcode: `malformed-relaxed-simd-laneselect-mask-local-index-uleb` and `overwide-relaxed-simd-laneselect-mask-local-index-uleb`.
+- The fixtures keep two leading `v128.const` operands and the relaxed-laneselect subopcode bytes in the same function-body context so this lane is distinct from generic local-index corruption, prefixed subopcode malformed-byte coverage, and SIMD load/memarg operand-context corruption.
+- Validation note: `moon test src/fuzz` could not run in this cron environment because Moon failed before graph resolution with `Cannot inject the standard library moonbitlang/core: Cannot load the core file`; the focused test was added first and the implementation/docs were wired, but Moon validation remains blocked by the missing local core install.
+
 ## [2026-05-31] fuzzing | FUZ1043K pass-fuzz reducer step metadata
 
 - Synced the script-side GenValid pass-fuzz mismatch reducer with the shared reduction artifact contract by adding `reduceBinaryByByteSlicesWithReport(...)` and threading `delete-byte-slice` steps through mismatch reduction artifacts.

@@ -49,7 +49,7 @@ The live suite inventory is owned by [`fuzz_active_suite_names()`](../../../src/
 | `wat-roundtrip` | WAT parse/print stability coverage. |
 | `wast-validate-roundtrip` | WAST AST print/parse/lower/validate reporting, including lower and validation failure counters. |
 | `gen-valid-wat-validate-roundtrip` | GenValid lib-module generation through the first-class WAT text printer, WAT parse, WAST-to-lib lowering, and validation counters. |
-| `valid-multi-module-linking` | Generated valid multi-module WAST scripts through single-module validation plus WAST harness linking, with separate single-module and link-success counters. |
+| `valid-multi-module-linking` | Generated valid multi-module WAST scripts through single-module validation plus WAST harness linking, with separate single-module and link-success counters. The shared multi-module classifier also distinguishes duplicate script module ids and duplicate `register` aliases from ordinary validation, unlinkable, and link failures. |
 | `validate-valid` | Valid-module generation plus direct validator checks and profile-dependent WAT companion checks. |
 | `validate-valid-metamorphic` | GenValid source modules plus semantics-preserving transforms, including custom-section stress variants with empty, binary, UTF-8-name, and larger opaque payloads that must survive binary roundtrip validation. |
 | `validate-invalid-ast` | AST-level invalid mutation coverage. |

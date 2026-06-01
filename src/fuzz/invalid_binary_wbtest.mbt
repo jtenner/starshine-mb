@@ -2280,6 +2280,20 @@ test "invalid binary FZG043 decodes SIMD load-zero memarg ULEBs as invalid" {
 }
 
 ///|
+test "invalid binary FUZ1021C1 decodes relaxed-SIMD laneselect mask local-index ULEBs as invalid" {
+  for
+    strategy in [
+      "malformed-relaxed-simd-laneselect-mask-local-index-uleb", "overwide-relaxed-simd-laneselect-mask-local-index-uleb",
+    ] {
+    match
+      invalid_binary_expect_strategy_rejects(strategy, 0x1021c1UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
+  }
+}
+
+///|
 test "invalid binary FZG032 decodes custom-section overwide name length as invalid" {
   match
     invalid_binary_expect_strategy_rejects(

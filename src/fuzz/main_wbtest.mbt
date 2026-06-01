@@ -1792,6 +1792,28 @@ test "unlinkable multi-module wast generator emits missing and mismatch import a
 }
 
 ///|
+test "duplicate multi-module wast fixtures classify script-name failures separately" {
+  let module_specimen = gen_duplicate_multi_module_wast_case(0x1055C1UL)
+  assert_true(module_specimen.text.contains("(module $dup_module_"))
+  assert_true(module_specimen.feature_facts.contains("duplicate-module-name"))
+  match classify_multi_module_wast_case(module_specimen) {
+    DuplicateModuleName => ()
+    other => fail("expected duplicate module-name classification, got \{other}")
+  }
+
+  let register_specimen = gen_duplicate_multi_module_wast_case(0x1055C2UL)
+  assert_true(register_specimen.text.contains("(register \"dupe\""))
+  assert_true(
+    register_specimen.feature_facts.contains("duplicate-register-name"),
+  )
+  match classify_multi_module_wast_case(register_specimen) {
+    DuplicateRegisterName => ()
+    other =>
+      fail("expected duplicate register-name classification, got \{other}")
+  }
+}
+
+///|
 test "valid multi-module linking fuzz runner reports link counters separately" {
   assert_true(fuzz_active_suite_names().contains("valid-multi-module-linking"))
   let stats = match run_valid_multi_module_linking_fuzz("smoke", 0x1055A4UL) {

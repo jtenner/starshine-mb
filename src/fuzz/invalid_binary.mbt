@@ -398,6 +398,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedSimdLoadZeroMemargOffsetUleb
   OverwideSimdLoadZeroMemargAlignUleb
   OverwideSimdLoadZeroMemargOffsetUleb
+  MalformedRelaxedSimdLaneselectMaskLocalIndexUleb
+  OverwideRelaxedSimdLaneselectMaskLocalIndexUleb
   MalformedDataIndexUleb
   OverwideDataIndexUleb
   MalformedDataSegmentByteCountUleb
@@ -1342,6 +1344,10 @@ fn validate_invalid_binary_strategy_label(
       "overwide-simd-load-zero-memarg-align-uleb"
     OverwideSimdLoadZeroMemargOffsetUleb =>
       "overwide-simd-load-zero-memarg-offset-uleb"
+    MalformedRelaxedSimdLaneselectMaskLocalIndexUleb =>
+      "malformed-relaxed-simd-laneselect-mask-local-index-uleb"
+    OverwideRelaxedSimdLaneselectMaskLocalIndexUleb =>
+      "overwide-relaxed-simd-laneselect-mask-local-index-uleb"
     MalformedDataIndexUleb => "malformed-data-index-uleb"
     OverwideDataIndexUleb => "overwide-data-index-uleb"
     MalformedDataSegmentByteCountUleb =>
@@ -4132,6 +4138,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       OverwideSimdLoadZeroMemargOffsetUleb,
       "overwide-simd-load-zero-memarg-offset-uleb",
       "SIMD load-zero instruction with an overwide memarg offset ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedRelaxedSimdLaneselectMaskLocalIndexUleb,
+      "malformed-relaxed-simd-laneselect-mask-local-index-uleb",
+      "relaxed-SIMD laneselect mask operand encoded as local.get with a malformed local-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideRelaxedSimdLaneselectMaskLocalIndexUleb,
+      "overwide-relaxed-simd-laneselect-mask-local-index-uleb",
+      "relaxed-SIMD laneselect mask operand encoded as local.get with an overwide local-index ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -10232,6 +10252,49 @@ fn validate_invalid_binary_simd_load_extend_memarg_prefix() -> Array[Byte] {
 ///|
 fn validate_invalid_binary_simd_load_zero_memarg_prefix() -> Array[Byte] {
   [(0xfd).to_byte(), (0x5c).to_byte()]
+}
+
+///|
+fn validate_invalid_binary_relaxed_laneselect_two_operands_prefix() -> Array[
+  Byte,
+] {
+  let instr : Array[Byte] = []
+  for _ in 0..<2 {
+    instr.append([(0xfd).to_byte(), (0x0c).to_byte()])
+    for _ in 0..<16 {
+      instr.push((0x00).to_byte())
+    }
+  }
+  instr
+}
+
+///|
+fn validate_invalid_binary_mutate_relaxed_simd_laneselect_mask_local_index_uleb(
+  kind : ValidateInvalidBinaryStrategyId,
+  malformed : Bool,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let instr = validate_invalid_binary_relaxed_laneselect_two_operands_prefix()
+  instr.push((0x20).to_byte())
+  if malformed {
+    instr.append([
+      (0x80).to_byte(),
+      (0x80).to_byte(),
+      (0x80).to_byte(),
+      (0x80).to_byte(),
+      (0x80).to_byte(),
+    ])
+  } else {
+    instr.append(validate_invalid_binary_overwide_u32_uleb_bytes())
+  }
+  instr.append([(0xfd).to_byte(), (0x89).to_byte(), (0x02).to_byte()])
+  Ok(
+    validate_invalid_binary_mutation(
+      kind,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr(instr),
+    ),
+  )
 }
 
 ///|
@@ -17639,6 +17702,14 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_overwide_simd_memarg_offset_uleb_with_prefix(
         strategy,
         validate_invalid_binary_simd_load_zero_memarg_prefix(),
+      )
+    MalformedRelaxedSimdLaneselectMaskLocalIndexUleb =>
+      validate_invalid_binary_mutate_relaxed_simd_laneselect_mask_local_index_uleb(
+        strategy, true,
+      )
+    OverwideRelaxedSimdLaneselectMaskLocalIndexUleb =>
+      validate_invalid_binary_mutate_relaxed_simd_laneselect_mask_local_index_uleb(
+        strategy, false,
       )
     MalformedDataIndexUleb =>
       validate_invalid_binary_mutate_malformed_data_index_uleb(base)
