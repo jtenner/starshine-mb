@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-06-01] fuzzing | FUZ1020E3 return_call_indirect table element invalid AST
+
+- Added `invalid-function-body-return-call-indirect-table-element-type` as the 260th checked-in AST-invalid strategy. The mutation keeps the function type index, table index, i32 table-index operand, and tail-call result context valid while targeting an `externref` table so validation isolates `return_call_indirect` table element-type compatibility.
+- Added focused rejection, repair, and `gen_invalid` stable-id coverage, and updated the validator/fuzzing wiki census to remove the tail indirect-call table-compatibility gap from FUZ1020.
+- Validation: `moon test src/validate` first failed on the missing constructor/mutator, then passed after registry, dispatcher, label, expected-list, mutation, and tests were wired; `moon run --target native src/fuzz -- validate-invalid-ast smoke --seed 0x1020e3 --out-dir .tmp/fuz1020e3-invalid-ast-smoke` passed with `attempts=260`; `moon test src/fuzz` also passed.
+
 ## [2026-06-01] fuzzing | FUZ1020E2 call_indirect table element invalid AST
 
 - Added `invalid-function-body-call-indirect-table-element-type` as the 259th checked-in AST-invalid strategy. The mutation keeps the function type index, table index, and i32 table-index operand valid while targeting an `externref` table so validation isolates `call_indirect` table element-type compatibility.

@@ -151,6 +151,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidFunctionBodyCallIndirectIndexType
   InvalidFunctionBodyCallIndirectTableElementType
   InvalidFunctionBodyReturnCallIndirectIndexType
+  InvalidFunctionBodyReturnCallIndirectTableElementType
   InvalidFunctionBodyReturnCallRefType
   InvalidFunctionBodyCallRefType
   InvalidFunctionBodyRefCastInputType
@@ -1363,6 +1364,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFunctionBodyReturnCallIndirectTableElementType,
+      "invalid-function-body-return-call-indirect-table-element-type",
+      "invalid function-body return_call_indirect table element type",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidFunctionBodyReturnCallRefType,
       "invalid-function-body-return-call-ref-type",
       "invalid function-body return_call_ref ref type",
@@ -2385,6 +2393,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidFunctionBodyCallIndirectIndexType => 91
     InvalidFunctionBodyCallIndirectTableElementType => 258
     InvalidFunctionBodyReturnCallIndirectIndexType => 92
+    InvalidFunctionBodyReturnCallIndirectTableElementType => 259
     InvalidFunctionBodyReturnCallRefType => 93
     InvalidFunctionBodyCallRefType => 94
     InvalidFunctionBodyRefCastInputType => 95
@@ -5964,6 +5973,31 @@ fn validate_invalid_ast_mutate_invalid_function_body_return_call_indirect_index_
   )
   {
     strategy: InvalidFunctionBodyReturnCallIndirectIndexType,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: with_func,
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_function_body_return_call_indirect_table_element_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let body = Expr::new([
+    Instruction::i32_const(I32(0)),
+    Instruction::return_call_indirect(TypeIdx::new(0U), TableIdx::new(0U)),
+  ])
+  let extern_ref = RefType::new(true, HeapType::abs(AbsHeapType::extern_()))
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    validate_invalid_ast_make_indirect_call_base_with_table_ref(extern_ref),
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: InvalidFunctionBodyReturnCallIndirectTableElementType,
     applicable: true,
     expected_family: FunctionBodyFamily,
     mutated_module: with_func,
@@ -10565,6 +10599,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_function_body_return_call_indirect_index_type(
           base,
         )
+      InvalidFunctionBodyReturnCallIndirectTableElementType =>
+        validate_invalid_ast_mutate_invalid_function_body_return_call_indirect_table_element_type(
+          base,
+        )
       InvalidFunctionBodyReturnCallRefType =>
         validate_invalid_ast_mutate_invalid_function_body_return_call_ref_type(
           base,
@@ -11573,65 +11611,65 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-function-body-data-drop-index", "invalid-function-body-elem-drop-index",
     "invalid-function-body-table-size-index", "invalid-function-body-table-set-index-type",
     "invalid-function-body-call-indirect-index-type", "invalid-function-body-call-indirect-table-element-type",
-    "invalid-function-body-return-call-indirect-index-type", "invalid-function-body-return-call-ref-type",
-    "invalid-function-body-call-ref-type", "invalid-function-body-ref-cast-input-type",
-    "invalid-function-body-ref-test-input-type", "invalid-function-body-ref-test-desc-input-type",
-    "invalid-function-body-ref-cast-desc-eq-input-type", "invalid-function-body-ref-get-desc-input-type",
-    "invalid-function-body-ref-eq-input-type", "invalid-function-body-array-len-input-type",
-    "invalid-function-body-array-get-input-type", "invalid-function-body-array-set-input-type",
-    "invalid-function-body-array-set-value-type", "invalid-function-body-array-fill-input-type",
-    "invalid-function-body-array-fill-value-type", "invalid-function-body-array-fill-length-type",
-    "invalid-function-body-array-copy-input-type", "invalid-function-body-array-copy-source-input-type",
-    "invalid-function-body-array-copy-length-type", "invalid-function-body-array-init-data-input-type",
-    "invalid-function-body-array-init-data-dest-type", "invalid-function-body-array-init-data-source-type",
-    "invalid-function-body-array-init-data-length-type", "invalid-function-body-array-init-elem-input-type",
-    "invalid-function-body-array-init-elem-dest-type", "invalid-function-body-array-init-elem-source-type",
-    "invalid-function-body-array-init-elem-length-type", "invalid-function-body-array-new-value-type",
-    "invalid-function-body-array-new-length-type", "invalid-function-body-array-new-default-length-type",
-    "invalid-function-body-array-new-fixed-value-type", "invalid-function-body-array-new-data-source-type",
-    "invalid-function-body-array-new-data-length-type", "invalid-function-body-array-new-elem-source-type",
-    "invalid-function-body-array-new-elem-length-type", "invalid-function-body-struct-new-value-type",
-    "invalid-function-body-struct-new-default-field-type", "invalid-function-body-struct-get-input-type",
-    "invalid-function-body-struct-set-input-type", "invalid-function-body-struct-set-value-type",
-    "invalid-function-body-struct-get-field-index", "invalid-function-body-struct-set-field-index",
-    "invalid-function-body-struct-set-immutable-field", "invalid-function-body-struct-get-signed-field-type",
-    "invalid-function-body-atomic-notify-count-type", "invalid-function-body-atomic-wait-timeout-type",
-    "invalid-function-body-atomic-rmw-value-type", "invalid-function-body-atomic-cmpxchg-replacement-type",
-    "invalid-function-body-atomic-load-address-type", "invalid-function-body-atomic-load-non-shared-memory",
-    "invalid-function-body-atomic-store-address-type", "invalid-function-body-atomic-store-value-type",
-    "invalid-function-body-atomic-load-index", "invalid-function-body-atomic-store-index",
-    "invalid-function-body-atomic-notify-index", "invalid-function-body-atomic-wait-index",
-    "invalid-function-body-atomic-rmw-index", "invalid-function-body-atomic-cmpxchg-index",
-    "invalid-function-body-simd-extract-lane-index", "invalid-function-body-simd-replace-lane-index",
-    "invalid-function-body-simd-load-lane-index", "invalid-function-body-simd-store-lane-index",
-    "invalid-function-body-simd-splat-input-type", "invalid-function-body-simd-swizzle-input-type",
-    "invalid-function-body-simd-bitselect-mask-type", "invalid-function-body-simd-bitselect-left-type",
-    "invalid-function-body-simd-bitselect-right-type", "invalid-function-body-simd-extract-input-type",
-    "invalid-function-body-simd-replace-vector-type", "invalid-function-body-simd-replace-value-type",
-    "invalid-function-body-simd-load-address-type", "invalid-function-body-simd-store-address-type",
-    "invalid-function-body-simd-store-value-type", "invalid-function-body-simd-load-extend-address-type",
-    "invalid-function-body-simd-load-splat-address-type", "invalid-function-body-simd-load-zero-address-type",
-    "invalid-function-body-simd-unary-input-type", "invalid-function-body-simd-binary-left-type",
-    "invalid-function-body-simd-binary-right-type", "invalid-function-body-relaxed-simd-swizzle-left-type",
-    "invalid-function-body-relaxed-simd-laneselect-mask-type", "invalid-function-body-simd-shift-vector-type",
-    "invalid-function-body-simd-shift-count-type", "invalid-function-body-simd-load-lane-address-type",
-    "invalid-function-body-simd-load-lane-vector-type", "invalid-function-body-simd-store-lane-address-type",
-    "invalid-function-body-simd-store-lane-vector-type", "invalid-function-body-simd-load-memory-index",
-    "invalid-function-body-simd-store-memory-index", "invalid-function-body-simd-load-lane-memory-index",
-    "invalid-function-body-simd-store-lane-memory-index", "invalid-function-body-atomic-notify-address-type",
-    "invalid-function-body-atomic-wait-address-type", "invalid-function-body-atomic-wait-expected-type",
-    "invalid-function-body-atomic-rmw-address-type", "invalid-function-body-atomic-cmpxchg-address-type",
-    "invalid-function-body-atomic-cmpxchg-expected-type", "invalid-function-body-br-on-cast-input-type",
-    "invalid-function-body-br-on-cast-target-subtype", "invalid-function-body-br-on-cast-fail-input-type",
-    "invalid-function-body-table-set-value-type", "invalid-function-body-global-set-value-type",
-    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
-    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
-    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
-    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
-    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
-    "datacount-active-passive-mismatch", "invalid-subtype-mutable-field-variance",
-    "invalid-function-body-br-on-null-payload-mismatch", "invalid-function-body-br-on-non-null-payload-mismatch",
-    "invalid-function-body-br-table-multivalue-payload-arity-mismatch",
+    "invalid-function-body-return-call-indirect-index-type", "invalid-function-body-return-call-indirect-table-element-type",
+    "invalid-function-body-return-call-ref-type", "invalid-function-body-call-ref-type",
+    "invalid-function-body-ref-cast-input-type", "invalid-function-body-ref-test-input-type",
+    "invalid-function-body-ref-test-desc-input-type", "invalid-function-body-ref-cast-desc-eq-input-type",
+    "invalid-function-body-ref-get-desc-input-type", "invalid-function-body-ref-eq-input-type",
+    "invalid-function-body-array-len-input-type", "invalid-function-body-array-get-input-type",
+    "invalid-function-body-array-set-input-type", "invalid-function-body-array-set-value-type",
+    "invalid-function-body-array-fill-input-type", "invalid-function-body-array-fill-value-type",
+    "invalid-function-body-array-fill-length-type", "invalid-function-body-array-copy-input-type",
+    "invalid-function-body-array-copy-source-input-type", "invalid-function-body-array-copy-length-type",
+    "invalid-function-body-array-init-data-input-type", "invalid-function-body-array-init-data-dest-type",
+    "invalid-function-body-array-init-data-source-type", "invalid-function-body-array-init-data-length-type",
+    "invalid-function-body-array-init-elem-input-type", "invalid-function-body-array-init-elem-dest-type",
+    "invalid-function-body-array-init-elem-source-type", "invalid-function-body-array-init-elem-length-type",
+    "invalid-function-body-array-new-value-type", "invalid-function-body-array-new-length-type",
+    "invalid-function-body-array-new-default-length-type", "invalid-function-body-array-new-fixed-value-type",
+    "invalid-function-body-array-new-data-source-type", "invalid-function-body-array-new-data-length-type",
+    "invalid-function-body-array-new-elem-source-type", "invalid-function-body-array-new-elem-length-type",
+    "invalid-function-body-struct-new-value-type", "invalid-function-body-struct-new-default-field-type",
+    "invalid-function-body-struct-get-input-type", "invalid-function-body-struct-set-input-type",
+    "invalid-function-body-struct-set-value-type", "invalid-function-body-struct-get-field-index",
+    "invalid-function-body-struct-set-field-index", "invalid-function-body-struct-set-immutable-field",
+    "invalid-function-body-struct-get-signed-field-type", "invalid-function-body-atomic-notify-count-type",
+    "invalid-function-body-atomic-wait-timeout-type", "invalid-function-body-atomic-rmw-value-type",
+    "invalid-function-body-atomic-cmpxchg-replacement-type", "invalid-function-body-atomic-load-address-type",
+    "invalid-function-body-atomic-load-non-shared-memory", "invalid-function-body-atomic-store-address-type",
+    "invalid-function-body-atomic-store-value-type", "invalid-function-body-atomic-load-index",
+    "invalid-function-body-atomic-store-index", "invalid-function-body-atomic-notify-index",
+    "invalid-function-body-atomic-wait-index", "invalid-function-body-atomic-rmw-index",
+    "invalid-function-body-atomic-cmpxchg-index", "invalid-function-body-simd-extract-lane-index",
+    "invalid-function-body-simd-replace-lane-index", "invalid-function-body-simd-load-lane-index",
+    "invalid-function-body-simd-store-lane-index", "invalid-function-body-simd-splat-input-type",
+    "invalid-function-body-simd-swizzle-input-type", "invalid-function-body-simd-bitselect-mask-type",
+    "invalid-function-body-simd-bitselect-left-type", "invalid-function-body-simd-bitselect-right-type",
+    "invalid-function-body-simd-extract-input-type", "invalid-function-body-simd-replace-vector-type",
+    "invalid-function-body-simd-replace-value-type", "invalid-function-body-simd-load-address-type",
+    "invalid-function-body-simd-store-address-type", "invalid-function-body-simd-store-value-type",
+    "invalid-function-body-simd-load-extend-address-type", "invalid-function-body-simd-load-splat-address-type",
+    "invalid-function-body-simd-load-zero-address-type", "invalid-function-body-simd-unary-input-type",
+    "invalid-function-body-simd-binary-left-type", "invalid-function-body-simd-binary-right-type",
+    "invalid-function-body-relaxed-simd-swizzle-left-type", "invalid-function-body-relaxed-simd-laneselect-mask-type",
+    "invalid-function-body-simd-shift-vector-type", "invalid-function-body-simd-shift-count-type",
+    "invalid-function-body-simd-load-lane-address-type", "invalid-function-body-simd-load-lane-vector-type",
+    "invalid-function-body-simd-store-lane-address-type", "invalid-function-body-simd-store-lane-vector-type",
+    "invalid-function-body-simd-load-memory-index", "invalid-function-body-simd-store-memory-index",
+    "invalid-function-body-simd-load-lane-memory-index", "invalid-function-body-simd-store-lane-memory-index",
+    "invalid-function-body-atomic-notify-address-type", "invalid-function-body-atomic-wait-address-type",
+    "invalid-function-body-atomic-wait-expected-type", "invalid-function-body-atomic-rmw-address-type",
+    "invalid-function-body-atomic-cmpxchg-address-type", "invalid-function-body-atomic-cmpxchg-expected-type",
+    "invalid-function-body-br-on-cast-input-type", "invalid-function-body-br-on-cast-target-subtype",
+    "invalid-function-body-br-on-cast-fail-input-type", "invalid-function-body-table-set-value-type",
+    "invalid-function-body-global-set-value-type", "invalid-memory-name-section-index",
+    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
+    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
+    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
+    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
+    "datacount-mismatch-too-small", "datacount-mismatch-too-large", "datacount-active-passive-mismatch",
+    "invalid-subtype-mutable-field-variance", "invalid-function-body-br-on-null-payload-mismatch",
+    "invalid-function-body-br-on-non-null-payload-mismatch", "invalid-function-body-br-table-multivalue-payload-arity-mismatch",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 24)
@@ -13252,6 +13290,55 @@ test "function-body call_indirect table element mutation repairs by using funcre
     Err(err) =>
       fail(
         "expected repaired call_indirect table element module to validate: \{err}",
+      )
+  }
+}
+
+///|
+test "invalid return_call_indirect table element type strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFunctionBodyReturnCallIndirectTableElementType,
+      0x1020e3UL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "function-body return_call_indirect table element mutation repairs by using funcref-compatible tables" {
+  let mutation = validate_invalid_ast_mutate_invalid_function_body_return_call_indirect_table_element_type(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected return_call_indirect table element type mismatch to reject",
+      )
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        FunctionBodyFamily,
+      )
+  }
+  let repaired = validate_invalid_ast_make_indirect_call_base()
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    repaired,
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([
+      Instruction::i32_const(I32(0)),
+      Instruction::return_call_indirect(TypeIdx::new(0U), TableIdx::new(0U)),
+    ]),
+  )
+  match validate_module(with_func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected repaired return_call_indirect table element module to validate: \{err}",
       )
   }
 }

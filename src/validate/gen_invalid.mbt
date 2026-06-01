@@ -359,6 +359,8 @@ fn gen_invalid_ast_strategy_label(
       "invalid-function-body-call-indirect-table-element-type"
     InvalidFunctionBodyReturnCallIndirectIndexType =>
       "invalid-function-body-return-call-indirect-index-type"
+    InvalidFunctionBodyReturnCallIndirectTableElementType =>
+      "invalid-function-body-return-call-indirect-table-element-type"
     InvalidFunctionBodyReturnCallRefType =>
       "invalid-function-body-return-call-ref-type"
     InvalidFunctionBodyCallRefType => "invalid-function-body-call-ref-type"

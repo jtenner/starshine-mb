@@ -2402,6 +2402,32 @@ test "gen_invalid_ast_generate supports function-body call_indirect table elemen
 }
 
 ///|
+test "gen_invalid_ast_generate supports function-body return_call_indirect table element type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x1020e3UL),
+      GenInvalidAstParams::repro_seed(
+        InvalidFunctionBodyReturnCallIndirectTableElementType,
+      ),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail(
+        "expected invalid-function-body-return-call-indirect-table-element-type mutation to fail",
+      )
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports function-body return_call_indirect index type strategy" {
   let generated = match
     gen_invalid_ast_generate(
