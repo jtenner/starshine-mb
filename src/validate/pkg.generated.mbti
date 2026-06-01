@@ -1358,6 +1358,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidTagResultType
   InvalidSubtypeSuperIndex
   InvalidSubtypeSuperShape
+  InvalidSubtypeFinalSuper
   InvalidSubtypeFuncVariance
   InvalidSubtypeMutableFieldVariance
   InvalidSubtypeSuperCycle

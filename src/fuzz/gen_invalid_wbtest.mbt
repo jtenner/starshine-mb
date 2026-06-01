@@ -60,6 +60,36 @@ test "fuzz package can consume public natural-seed gen-invalid AST API" {
 }
 
 ///|
+test "fuzz package can consume final-super subtype invalid AST strategy" {
+  let strategy = match
+    @validate.validate_invalid_ast_strategy_by_stable_id(
+      "invalid-subtype-final-super",
+    ) {
+    Some(spec) => spec.id
+    None => fail("expected final-super invalid strategy to exist")
+  }
+  let generated = match
+    @validate.gen_invalid_ast_generate(
+      @splitmix.new(seed=0x1020f1UL),
+      @validate.GenInvalidAstParams::minimal_seed(strategy),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected final-super base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected final-super invalid module to fail")
+    Err(_) => ()
+  }
+}
+
+///|
 test "fuzz package can consume function subtype variance invalid AST strategy" {
   let strategy = match
     @validate.validate_invalid_ast_strategy_by_stable_id(

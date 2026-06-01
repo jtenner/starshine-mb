@@ -297,6 +297,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidTagResultType
   InvalidSubtypeSuperIndex
   InvalidSubtypeSuperShape
+  InvalidSubtypeFinalSuper
   InvalidSubtypeFuncVariance
   InvalidSubtypeMutableFieldVariance
   InvalidSubtypeSuperCycle
@@ -764,6 +765,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       "invalid-subtype-super-shape",
       "subtype super shape mismatch",
       TypeSectionFamily,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidSubtypeFinalSuper,
+      "invalid-subtype-final-super",
+      "subtype extends final supertype",
+      TypeSectionFamily,
+      required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
       InvalidSubtypeFuncVariance,
@@ -2320,6 +2328,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidTagResultType => 226
     InvalidSubtypeSuperIndex => 25
     InvalidSubtypeSuperShape => 26
+    InvalidSubtypeFinalSuper => 262
     InvalidSubtypeFuncVariance => 242
     InvalidSubtypeMutableFieldVariance => 233
     InvalidSubtypeSuperCycle => 244
@@ -10151,6 +10160,26 @@ fn validate_invalid_ast_mutate_invalid_subtype_super_shape(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_subtype_final_super(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let types = validate_invalid_ast_type_entries(mod)
+  let super_idx = TypeIdx::new(
+    validate_invalid_ast_flat_type_count(mod).reinterpret_as_uint(),
+  )
+  types.push(RecType::new(SubType::new(true, [], CompType::struct_([]))))
+  types.push(
+    RecType::new(SubType::new(false, [super_idx], CompType::struct_([]))),
+  )
+  {
+    strategy: InvalidSubtypeFinalSuper,
+    applicable: true,
+    expected_family: TypeSectionFamily,
+    mutated_module: mod.with_type_sec(TypeSec::new(types)),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_subtype_func_variance(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -11201,6 +11230,8 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_subtype_super_index(base)
       InvalidSubtypeSuperShape =>
         validate_invalid_ast_mutate_invalid_subtype_super_shape(base)
+      InvalidSubtypeFinalSuper =>
+        validate_invalid_ast_mutate_invalid_subtype_final_super(base)
       InvalidSubtypeFuncVariance =>
         validate_invalid_ast_mutate_invalid_subtype_func_variance(base)
       InvalidSubtypeMutableFieldVariance =>
@@ -11661,12 +11692,12 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-imported-shared-memory-without-max", "invalid-imported-shared-memory64-without-max",
     "shared-memory-without-max", "shared-memory64-without-max", "invalid-tag-type-index",
     "invalid-tag-result-type", "invalid-subtype-super-index", "invalid-subtype-super-shape",
-    "invalid-subtype-func-variance", "invalid-subtype-super-cycle", "descriptor-on-func-type",
-    "descriptor-cycle", "invalid-descriptor-field-ref-type", "datacount-without-data-sec",
-    "invalid-export-func-index", "invalid-export-func-wrong-kind-index", "start-func-out-of-range",
-    "start-func-wrong-kind-index", "missing-datacount-data-drop", "invalid-function-body-local-index",
-    "invalid-function-body-global-index", "invalid-function-body-table-index", "invalid-function-body-memory-index",
-    "invalid-function-body-call-index", "invalid-function-body-branch-label-index",
+    "invalid-subtype-final-super", "invalid-subtype-func-variance", "invalid-subtype-super-cycle",
+    "descriptor-on-func-type", "descriptor-cycle", "invalid-descriptor-field-ref-type",
+    "datacount-without-data-sec", "invalid-export-func-index", "invalid-export-func-wrong-kind-index",
+    "start-func-out-of-range", "start-func-wrong-kind-index", "missing-datacount-data-drop",
+    "invalid-function-body-local-index", "invalid-function-body-global-index", "invalid-function-body-table-index",
+    "invalid-function-body-memory-index", "invalid-function-body-call-index", "invalid-function-body-branch-label-index",
     "invalid-function-body-branch-payload-mismatch", "invalid-function-body-call-payload-mismatch",
     "invalid-function-body-br-if-payload-mismatch", "invalid-function-body-br-table-payload-mismatch",
     "invalid-function-body-if-condition-type", "invalid-function-body-if-branch-result-type",
@@ -12516,6 +12547,34 @@ test "invalid subtype super shape strategy rejects with TypeSection family" {
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid subtype final super strategy rejects and repairs" {
+  let mutation = validate_invalid_ast_mutate_invalid_subtype_final_super(
+    Module::new(),
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected subtype of final supertype module to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      @debug.assert_eq(family, TypeSectionFamily)
+    }
+  }
+  let super_idx = TypeIdx::new(0U)
+  let repaired = Module::new().with_type_sec(
+    TypeSec::new([
+      RecType::new(SubType::new(false, [], CompType::struct_([]))),
+      RecType::new(SubType::new(false, [super_idx], CompType::struct_([]))),
+    ]),
+  )
+  match validate_module(repaired) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected subtype of non-final supertype to validate: \{err}")
   }
 }
 

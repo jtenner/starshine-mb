@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-06-01] fuzzing | FUZ1020F1 final-supertype invalid AST
+
+- Added `invalid-subtype-final-super` as the 263rd checked-in AST-invalid strategy. The mutation appends a final struct supertype and a shape-compatible subtype that names it as a supertype, isolating final-supertype policy from super-index, super-shape, variance, and cycle failures.
+- Added a validator guard rejecting subtypes of final supertypes while preserving the positive control that a `final` subtype may extend a non-final supertype. Synced the type-section/subtyping, fuzz-hardening, and generator-ledger wiki pages.
+- Validation: `moon test src/validate` first failed on the missing mutator, then passed after registry, stable-id label, dispatcher, validation guard, and tests were wired. Final validation is recorded in the commit message.
+
 ## [2026-06-01] fuzzing | FUZ1020E5 atomic alignment invalid AST
 
 - Added `invalid-function-body-atomic-load-alignment` as the 262nd checked-in AST-invalid strategy. The mutation uses a shared-memory `i32.atomic.load` with a valid i32 address operand and default memory index, but sets the memarg alignment power to 3 so validation isolates the natural-alignment rule from non-shared memory, bad memarg index, and stack-operand failures.

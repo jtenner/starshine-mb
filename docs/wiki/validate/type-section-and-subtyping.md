@@ -155,6 +155,10 @@ SubType(comp=func [] -> [], metadata={ descriptor = TypeIdx(0) })
 
 Starshine rejects this through `validate_descriptor_metadata_group(...)`. The invalid-AST strategy is `DescriptorOnFuncType`.
 
+### Invalid final supertype edge
+
+A lowered module can otherwise declare a subtype whose supertype is marked `final`. Starshine rejects that as a TypeSection-family invalid subtype while still allowing a `final` subtype to extend a non-final supertype. The invalid-AST strategy is `InvalidSubtypeFinalSuper` with stable id `invalid-subtype-final-super`; this isolates final-supertype policy from supertype shape, variance, index, and cycle failures.
+
 ### Invalid recursive-group supertype cycle
 
 A lowered module can otherwise form a recursive group whose members name each other as supertypes. Starshine now rejects that graph as a TypeSection-family `subtype supertype cycle` before descriptor checks. The invalid-AST strategy is `InvalidSubtypeSuperCycle` with stable id `invalid-subtype-super-cycle`; this classifies the refinement as a supertype-cycle family, distinct from descriptor-pair agreement and missing-index failures.

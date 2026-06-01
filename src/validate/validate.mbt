@@ -822,7 +822,11 @@ pub impl Validate for SubType with validate(self, env) {
       for m in matches {
         match Validate::validate(m, env) {
           Ok(_) if env.resolve_subtype(m) is Some(t) &&
-            Match::matches(ct, t.get_comptype(), env) => ()
+            Match::matches(ct, t.get_comptype(), env) =>
+            match t {
+              SubType(true, _, _, _) => return Err("Invalid subtype")
+              _ => ()
+            }
           Ok(_) => return Err("Invalid subtype")
           Err(t) => return Err(t)
         }
