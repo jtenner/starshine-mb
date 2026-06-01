@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-01] docs | no-DWARF optimize-path version_130 baseline sync
+
+- Refreshed [`binaryen/no-dwarf-default-optimize-path.md`](binaryen/no-dwarf-default-optimize-path.md) so the page now acknowledges the `version_130` release horizon, links the new release-horizon raw source and official release/changelog pages, and treats the older `version_129` path audit as a historical baseline rather than newest-tag coverage.
+- No repo code or tests changed; this was a wiki/source-hygiene correction to reconcile the no-DWARF orientation page with the 2026-06-01 Binaryen release-horizon refresh.
+
 ## [2026-06-01] docs | binaryen version_130 release-horizon advance
 
 - Added `docs/wiki/raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md` and refreshed [`binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md) so the release oracle now uses `version_130` as the latest Binaryen tag instead of stopping at `version_129`.
