@@ -1825,6 +1825,38 @@ pub fn reduce_fuzz_text_tokens_by_deletion(
 }
 
 ///|
+fn fuzz_module_field_relabel_reduction_steps(
+  steps : Array[FuzzReductionStep],
+) -> Array[FuzzReductionStep] {
+  let out : Array[FuzzReductionStep] = []
+  for step in steps {
+    out.push({
+      kind: "delete-module-field-range",
+      start: step.start,
+      len: step.len,
+      before_size: step.before_size,
+      after_size: step.after_size,
+    })
+  }
+  out
+}
+
+///|
+pub fn reduce_fuzz_module_fields_by_deletion(
+  fields : Array[ModuleField],
+  reproduces : (Array[ModuleField]) -> Bool,
+) -> FuzzReductionReport[Array[ModuleField]] {
+  let report = reduce_fuzz_sequence_by_deletion(fields, reproduces)
+  {
+    result: report.result,
+    original_size: report.original_size,
+    final_size: report.final_size,
+    predicate_evaluations: report.predicate_evaluations,
+    steps: fuzz_module_field_relabel_reduction_steps(report.steps),
+  }
+}
+
+///|
 pub fn minimize_fuzz_passes(
   passes : Array[String],
   reproduces : (Array[String]) -> Bool,

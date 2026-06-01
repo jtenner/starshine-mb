@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1043I parser-aware module-field reducer adapter
+
+- Closed `[FUZ]1043I` by adding `reduce_fuzz_module_fields_by_deletion(...)`, a Moon command-harness adapter over the shared sequence reducer for parsed WAST `ModuleField` arrays.
+- The adapter remains predicate-only, deletes contiguous module-field ranges while the caller-supplied predicate still reproduces, and relabels reduction metadata as `delete-module-field-range` for future WAST/module shrink integrations.
+- Validation: `moon test src/cmd` first failed on the missing module-field reducer API, then passed after implementation; final validation is recorded in the commit message.
+
 ## [2026-05-31] fuzzing | FUZ1043H concrete invalid text token shrink
 
 - Closed `[FUZ]1043H` by wiring invalid-fuzz inline text and spec-seed WAST shrink reports through a replay-predicate-preserving text-token deletion pass before falling back to the existing strategy-minimal reducer.

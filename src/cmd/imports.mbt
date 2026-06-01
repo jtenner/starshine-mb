@@ -43,3 +43,6 @@ using @validate {
 
 ///|
 using @json {parse}
+
+///|
+using @wast {type ModuleField}

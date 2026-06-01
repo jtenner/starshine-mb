@@ -6,6 +6,7 @@ import {
   "jtenner/starshine/cli",
   "jtenner/starshine/lib",
   "jtenner/starshine/validate",
+  "jtenner/starshine/wast",
   "moonbitlang/core/debug",
   "moonbitlang/core/hashmap",
 }
@@ -54,6 +55,8 @@ pub fn persist_fuzz_failure_report(FuzzFailureReport, FuzzFailurePersistIO, corp
 pub fn persist_text_differential_artifacts(String, TextParsePrintLowerReport, Array[TextAggregateAdapterResult], TextAggregateClassification, FuzzFailurePersistIO, repro_dir? : String, seed? : UInt64, attempt? : Int) -> Result[TextDifferentialArtifactPaths, String]
 
 pub fn reduce_fuzz_bytes_by_slice_deletion(Bytes, (Bytes) -> Bool) -> FuzzReductionReport[Bytes]
+
+pub fn reduce_fuzz_module_fields_by_deletion(Array[@wast.ModuleField], (Array[@wast.ModuleField]) -> Bool) -> FuzzReductionReport[Array[@wast.ModuleField]]
 
 pub fn[T] reduce_fuzz_sequence_by_deletion(Array[T], (Array[T]) -> Bool) -> FuzzReductionReport[Array[T]]
 

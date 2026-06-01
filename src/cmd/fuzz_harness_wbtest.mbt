@@ -1070,6 +1070,30 @@ test "fuzz text token reducer deletes irrelevant token ranges" {
 }
 
 ///|
+test "fuzz module-field reducer deletes irrelevant parsed fields" {
+  let parsed_module = @wast.wast_to_module(
+    "(module (type (func)) (memory 1) (func $trigger) (export \"trigger\" (func $trigger)))",
+  ).unwrap()
+  let report = reduce_fuzz_module_fields_by_deletion(parsed_module.fields, fn(
+    fields,
+  ) {
+    let mut has_export = false
+    for field in fields {
+      match field {
+        @wast.ModuleField::ExportField(_) => has_export = true
+        _ => ()
+      }
+    }
+    has_export
+  })
+  @debug.assert_eq(report.original_size, 4)
+  @debug.assert_eq(report.final_size, 1)
+  assert_true(report.predicate_evaluations > 1)
+  assert_true(report.steps.length() > 0)
+  @debug.assert_eq(report.steps[0].kind, "delete-module-field-range")
+}
+
+///|
 test "fuzz corpus dedup index records source and duplicate decisions by hash" {
   let index = FuzzCorpusDedupIndex::new()
   let first = FuzzCorpusSource::new(
