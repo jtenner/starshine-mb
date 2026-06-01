@@ -616,6 +616,66 @@ p1 next-up / active:
 - None currently tracked. Prefer adding a new tiny GenValid/metamorphic slice before broad p2 infrastructure work if a release need appears.
 
 p2 invalid/binary/text tiny slices:
+- [FUZ]1020D1 (p2) - Invalid AST coverage census and de-dup map
+  - Unit: audit the current invalid-AST strategy registry, validator family summaries, and FUZ1020 historical notes; produce a concise gap map that distinguishes already-covered rules from new candidate slices.
+  - Acceptance: `agent-todo.md` and relevant fuzz/validator wiki summaries identify the next concrete gaps without reopening closed `[FUZ]1020A`/`B`/`C` variants; no behavior change required.
+  - Suggested tests: docs/backlog-only slice; run `git diff --check` and prefer `moon test src/validate` if any generated IDs or code comments change.
+- [FUZ]1020D2 (p2) - Start function signature invalid AST strategy
+  - Unit: add an AST-invalid strategy for a start function that exists in the function namespace but has parameters and/or results, distinct from the already-covered wrong-kind start index.
+  - Acceptance: focused reject test identifies the start-signature diagnostic family; `gen_invalid` can select the stable strategy id; repair or positive control with a no-param/no-result start validates.
+  - Suggested tests: `moon test src/validate`; smoke `moon run src/fuzz -- validate-invalid-ast smoke+seed-profiles=repro --seed <slice-seed>`.
+- [FUZ]1020D3 (p2) - Duplicate export-name invalid AST strategy
+  - Unit: add a deterministic AST-invalid strategy where two exports use the same string name across either same-kind or cross-kind export descriptors.
+  - Acceptance: validator rejects duplicate export names independently of index validity; `gen_invalid` exposes the stable id; focused tests cover at least one cross-kind duplicate if same-kind is already implicitly covered.
+  - Suggested tests: `moon test src/validate`; invalid AST smoke.
+- [FUZ]1020D4 (p2) - Element segment table/ref-type mismatch strategy
+  - Unit: add an AST-invalid element segment whose table index is valid and initializer expressions are individually valid, but the element reference type is not compatible with the target table type.
+  - Acceptance: focused reject/repair test proves the failure is table element-type compatibility rather than missing table/function index; `gen_invalid` exposes the stable id.
+  - Suggested tests: `moon test src/validate`; invalid AST smoke.
+- [FUZ]1020D5 (p2) - DataCount section active-data cardinality edge strategy
+  - Unit: add or verify an AST-invalid strategy where the declared datacount is present and non-negative but disagrees with active/passive data segment usage in a way not covered by the existing too-small/too-large count fixtures.
+  - Acceptance: either land a new focused strategy or document with test evidence that the existing `[FUZ]1020B3` datacount too-small/too-large strategies already cover the remaining validator branch.
+  - Suggested tests: `moon test src/validate`; invalid AST smoke.
+- [FUZ]1020E1 (p2) - Function-body block/loop/br_table multi-value payload arity strategy
+  - Unit: add one focused body strategy for a multi-value branch/control payload arity mismatch not already covered by direct-call, `br_if`, or `br_table` payload slices.
+  - Acceptance: reject/repair tests prove the operand stack shape is valid up to the branch/control instruction and the failure family is payload arity/type; `gen_invalid` exposes the stable id.
+  - Suggested tests: `moon test src/validate`; invalid AST smoke.
+- [FUZ]1020E2 (p2) - `call_indirect` table element-type compatibility strategy
+  - Unit: add a body strategy where `call_indirect` uses a valid table index and operand stack, but the selected table is not a compatible `funcref`/function-reference table for the call.
+  - Acceptance: distinct from the already-covered table-index operand type and out-of-range table-index cases; focused reject/repair tests and stable `gen_invalid` id.
+  - Suggested tests: `moon test src/validate`; invalid AST smoke.
+- [FUZ]1020E3 (p2) - `return_call_indirect` table/signature compatibility strategy
+  - Unit: mirror the `call_indirect` compatibility gap for `return_call_indirect`, including result/return compatibility if the table-type branch is already covered.
+  - Acceptance: focused reject/repair tests show the failure is tail-call/table/signature compatibility, not missing table index or table-index operand type; stable id exposed.
+  - Suggested tests: `moon test src/validate`; invalid AST smoke.
+- [FUZ]1020E4 (p2) - `try_table` catch/reference payload compatibility strategy
+  - Unit: add a focused exception body strategy for a `try_table` catch/catch_ref payload or target compatibility rule not covered by throw payload arity or catch-target payload mismatch slices.
+  - Acceptance: reject/repair test isolates the catch/reference compatibility diagnostic; stable id exposed.
+  - Suggested tests: `moon test src/validate`; invalid AST smoke.
+- [FUZ]1020E5 (p2) - Atomic alignment invalid AST strategy
+  - Unit: add an atomic memory instruction strategy whose memory is shared and index/address/value operands are valid, but the memarg alignment exceeds the selected atomic operation's natural alignment.
+  - Acceptance: distinct from non-shared memory and operand stack-type atomic strategies; reject/repair tests and stable id.
+  - Suggested tests: `moon test src/validate`; invalid AST smoke.
+- [FUZ]1020F1 (p2) - GC final-supertype/subtype invalid strategy
+  - Unit: add a type/subtyping strategy where a type attempts to subtype a final or otherwise non-subtypable supertype, distinct from variance and supertype-cycle coverage.
+  - Acceptance: focused reject test isolates final/supertype policy; positive control with non-final compatible supertype validates; stable id exposed.
+  - Suggested tests: `moon test src/validate`; invalid AST smoke.
+- [FUZ]1020F2 (p2) - GC recursive-group descriptor reference boundary strategy
+  - Unit: add a descriptor/reference strategy for a type, field, array, table, global, or tag reference that crosses an invalid recursive-group/module boundary not covered by missing heap-type refs.
+  - Acceptance: focused reject/repair test proves the referenced heap type exists but is not legal in that descriptor context; stable id exposed.
+  - Suggested tests: `moon test src/validate`; invalid AST smoke.
+- [FUZ]1020F3 (p2) - Packed-field signedness/operator mismatch strategy
+  - Unit: add a struct/array packed-field strategy where field existence and receiver/value stack types are valid, but the selected signed/unsigned accessor form is invalid for the field shape.
+  - Acceptance: distinct from existing field-index, immutable-field, and unpacked `struct.get_s` coverage; reject/repair tests and stable id.
+  - Suggested tests: `moon test src/validate`; invalid AST smoke.
+- [FUZ]1020G1 (p2) - Name-section indirect-map ordering/count invalid AST or binary classification
+  - Unit: decide whether name-section indirect-map ordering/count invalidity belongs in AST-invalid or binary-invalid lanes; add a tiny strategy/test only if AST construction can represent the invalid state.
+  - Acceptance: either focused strategy plus test, or docs/backlog note redirecting this family to binary-invalid coverage with evidence.
+  - Suggested tests: `moon test src/validate` or binary-invalid package tests depending on classification.
+- [FUZ]1020Z1 (p2) - FUZ1020 closeout census
+  - Unit: after the new D/E/F/G slices are complete or explicitly redirected, close the parent `[FUZ]1020` entry by summarizing coverage, remaining deferred policy, and validation evidence.
+  - Acceptance: no tracked `[FUZ]1020*` slice remains open; `agent-todo.md` keeps only active unreleased work; docs/wiki summaries point to durable evidence.
+  - Suggested tests: `git diff --check`; prefer `moon info`, `moon fmt`, and `moon test` if closeout changes generated docs or code.
 p2 oracle/reporting/infrastructure tiny slices:
 
 
@@ -634,11 +694,21 @@ p1/p2 oracle, reporting, and infrastructure slices:
 
 p2 invalid/binary/text slices:
 - [FUZ]1020A (p2) - Remaining AST Type/Subtyping Invalid Strategies
-  - Remaining concrete slices: none for the current tracked 1020A board. Earlier `[FUZ]1020A1`/`A2` covered representative subtype variance and descriptor-cycle basics; `[FUZ]1020A3` covered focused function parameter/result variance; `[FUZ]1020A4` covered descriptor-edge missing heap-type refs; `[FUZ]1020A5` covered recursive-group supertype-cycle rejection.
+  - Remaining concrete slices: none for the old tracked 1020A board. Earlier `[FUZ]1020A1`/`A2` covered representative subtype variance and descriptor-cycle basics; `[FUZ]1020A3` covered focused function parameter/result variance; `[FUZ]1020A4` covered descriptor-edge missing heap-type refs; `[FUZ]1020A5` covered recursive-group supertype-cycle rejection. New type/descriptor follow-up is tracked under `[FUZ]1020F*`.
 - [FUZ]1020B (p2) - Remaining AST Section/Index Invalid Strategies
-  - Remaining concrete slices: none for the current tracked 1020B board. `[FUZ]1020B5` is closed with `codesec-includes-imported-body`, proving code-section arity is checked against defined function declarations rather than the total function index space after imports. `[FUZ]1020B4` is closed with `invalid-export-func-wrong-kind-index` and `start-func-wrong-kind-index`, proving numeric index `0` in another namespace does not satisfy function-index carriers. `[FUZ]1020B3` is closed with AST and binary-invalid present-but-wrong datacount coverage in both too-small and too-large directions. Earlier `[FUZ]1020B2` covered duplicate start-section invalid binary behavior, and Run 23 landed many table/memory/tag/global/element/data/name-section variants.
+  - Remaining concrete slices: none for the old tracked 1020B board. `[FUZ]1020B5` is closed with `codesec-includes-imported-body`, proving code-section arity is checked against defined function declarations rather than total function indexes. `[FUZ]1020B4` is closed with `invalid-export-func-wrong-kind-index` and `start-func-wrong-kind-index`, proving numeric index `0` in another namespace does not satisfy function-index carriers. `[FUZ]1020B3` is closed with AST and binary-invalid present-but-wrong datacount coverage in both too-small and too-large directions. Earlier `[FUZ]1020B2` covered duplicate start-section invalid binary behavior, and Run 23 landed many table/memory/tag/global/element/data/name-section variants. New section/index follow-up is tracked under `[FUZ]1020D*` and `[FUZ]1020G1`.
 - [FUZ]1020C (p2) - Remaining AST Function-Body Proposal Strategies
-  - Remaining concrete slices: none for the current tracked 1020C board. `[FUZ]1020C7` closed with `invalid-function-body-br-on-cast-target-subtype`, covering a GC branch/ref body whose `br_on_cast` target heap type is not a subtype of its declared source heap type. Earlier `[FUZ]1020C1` through `[FUZ]1020C6` covered GC `struct.new_default`, `br_on_null`, relaxed-SIMD swizzle, throw payload arity, memory64 `memory.init` destination-address typing, and atomic shared-memory context validation.
+  - Remaining concrete slices: none for the old tracked 1020C board. `[FUZ]1020C7` closed with `invalid-function-body-br-on-cast-target-subtype`, covering a GC branch/ref body whose `br_on_cast` target heap type is not a subtype of its declared source heap type. Earlier `[FUZ]1020C1` through `[FUZ]1020C6` covered GC `struct.new_default`, `br_on_null`, relaxed-SIMD swizzle, throw payload arity, memory64 `memory.init` destination-address typing, and atomic shared-memory context validation. New function-body follow-up is tracked under `[FUZ]1020E*`.
+- [FUZ]1020D (p2) - AST Section/Index Follow-Up Matrix
+  - Remaining concrete slices: `[FUZ]1020D1` coverage census/de-dup map, `[FUZ]1020D2` start function signature, `[FUZ]1020D3` duplicate export names, `[FUZ]1020D4` element table/ref-type mismatch, and `[FUZ]1020D5` datacount active/passive edge verification or redirect.
+- [FUZ]1020E (p2) - AST Function-Body Compatibility Follow-Up Matrix
+  - Remaining concrete slices: `[FUZ]1020E1` multi-value branch/control payload arity, `[FUZ]1020E2` `call_indirect` table compatibility, `[FUZ]1020E3` `return_call_indirect` table/signature compatibility, `[FUZ]1020E4` `try_table` catch/reference compatibility, and `[FUZ]1020E5` atomic alignment.
+- [FUZ]1020F (p2) - AST GC Type/Descriptor Follow-Up Matrix
+  - Remaining concrete slices: `[FUZ]1020F1` final-supertype/subtype policy, `[FUZ]1020F2` recursive-group descriptor reference boundary, and `[FUZ]1020F3` packed-field signedness/operator mismatch.
+- [FUZ]1020G (p2) - AST/Binary Boundary Classification Follow-Up
+  - Remaining concrete slice: `[FUZ]1020G1` name-section indirect-map ordering/count classification and implementation only if it belongs in AST-invalid.
+- [FUZ]1020Z (p2) - Parent Closeout
+  - Remaining concrete slice: `[FUZ]1020Z1` closeout census once `[FUZ]1020D*`, `[FUZ]1020E*`, `[FUZ]1020F*`, and `[FUZ]1020G1` are complete or explicitly redirected.
 - [FUZ]1021A (p2) - Remaining Invalid UTF-8 Binary Corruptions
   - Remaining concrete slice: none for the current tracked 1021A board. `[FUZ]1021A4` is closed: the checked-in binary-invalid lane already covers decode-rejected function, local, and label name-section payload UTF-8 corruption through `invalid-name-section-func-name-utf8`, `invalid-name-section-local-name-utf8`, and `invalid-name-section-label-name-utf8`, distinct from name-section count and length ULEB corruptions.
 - [FUZ]1021B (p2) - Remaining Opcode/Prefix/Subopcode Binary Corruptions
@@ -663,7 +733,7 @@ p2 invalid/binary/text slices:
   - Unit: completed for tracked fixture slices. `[FUZ]1057B1` through `[FUZ]1057B3` cover unsigned LEB, signed LEB, section-size/custom-section, NaN payload, and preservation fixtures.
 
 - [FUZ]1020 (p2) - Invalid AST Strategy Expansion Across Validator Families
-  - Status: unblocked on 2026-05-27 by user request. Continue only through the small tracked remaining slices listed in the tiny FUZ work-slice board; if more work is found, add a new tiny slice before implementation.
+  - Status: resliced on 2026-06-01. Continue only through the small tracked remaining slices listed in the tiny FUZ work-slice board and named `[FUZ]1020D*`, `[FUZ]1020E*`, `[FUZ]1020F*`, `[FUZ]1020G1`, and `[FUZ]1020Z1` below. Do not reopen closed `[FUZ]1020A`/`B`/`C` variants unless `[FUZ]1020D1` finds a concrete duplicate or stale classification.
   - Run 23 continuation update: now added `codesec-includes-imported-body`, a code-section/body-index strategy for a module with one imported function, one defined function declaration, and two code bodies, proving code-section arity is checked against the function section's defined declarations rather than total function indexes. TDD first failed in `moon test src/validate` because the new strategy constructor was missing, then passed after adding the strategy registry entry, stable id, mutator, dispatcher case, focused reject test, `gen_invalid` generation test, registry expected-id update, and wiki summaries. Final validation for this slice is in the commit message.
   - Run 23 continuation update: now added `invalid-export-func-wrong-kind-index` and `start-func-wrong-kind-index` strategies for otherwise valid table-only modules where numeric index `0` exists in the table namespace but not the function namespace, so export/start function-index carriers reject with the export/start diagnostic family. TDD first failed in `moon test src/validate` because the new strategy constructors were missing, then passed after adding the strategy registry entries, stable ids, mutators, dispatcher cases, focused reject tests, `gen_invalid` generation tests, registry expected-id update, and wiki summaries. Final validation for this slice is in the commit message.
   - Run 23 continuation update: now added `invalid-subtype-super-cycle`, a recursive-group supertype-cycle strategy whose two group members name each other as supertypes. TDD first failed in `moon test src/validate` because `InvalidSubtypeSuperCycle` was missing, then passed after adding the strategy registry entry, stable id, mutator, dispatcher case, validator super-cycle guard, focused reject test, `gen_invalid` generation test, registry expected-id update, and wiki summaries. Final validation for this slice is in the commit message.
