@@ -5,6 +5,7 @@ import {
   reduceBinaryByByteSlicesWithReport,
   reduceModuleFieldsByDeletion,
   reduceTextByTokenDeletion,
+  reduceTextByTokenDeletionWithReport,
 } from "../lib/fuzz-reducers";
 
 export function runFuzzReducersTest(): void {
@@ -34,6 +35,19 @@ export function runFuzzReducersTest(): void {
     return candidate.includes("func") && candidate.includes("export") && !candidate.includes("module");
   });
   assert.equal(reducedText, "func export", "text reducer should delete tokens while preserving predicate");
+
+  const reducedTextReport = reduceTextByTokenDeletionWithReport(
+    "( module ( func $keep ) ( export \"x\" ) )",
+    (candidate) => {
+      return candidate.includes("func") && candidate.includes("export") && !candidate.includes("module");
+    },
+  );
+  assert.equal(reducedTextReport.result, "func export", "text reducer report should carry reduced text");
+  assert.equal(reducedTextReport.originalSize, 5, "text reducer report should count original tokens");
+  assert.equal(reducedTextReport.finalSize, 2, "text reducer report should count final tokens");
+  assert.ok(reducedTextReport.predicateEvaluations > 0, "text reducer report should count predicate evaluations");
+  assert.ok(reducedTextReport.steps.length > 0, "text reducer report should record deletion steps");
+  assert.equal(reducedTextReport.steps[0].kind, "delete-text-token-range", "text reducer report should label token deletions");
 
   const unchanged = reduceTextByTokenDeletion("alpha beta", () => false);
   assert.equal(unchanged, "alpha beta", "reducers must preserve original when no deletion preserves predicate");

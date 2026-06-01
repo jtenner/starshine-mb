@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-06-01] fuzzing | FUZ1043L script text reducer reports
+
+- Added `reduceTextByTokenDeletionWithReport(...)` to the script-side fuzz reducer library so WAT/WAST-like token deletion can return reduced text plus original/final token counts, predicate-evaluation count, and `delete-text-token-range` steps.
+- Kept `reduceTextByTokenDeletion(...)` as a compatibility wrapper over the report-returning API, matching the byte-slice reducer shape added for GenValid pass-fuzz reductions.
+- Validation: `bun scripts/test/fuzz-reducers.ts` first failed on the missing export, then passed after implementation and test expectation repair.
+
 ## [2026-06-01] fuzzing | FUZ1055C1 duplicate multi-module script names
 
 - Advanced `[FUZ]1055C1` by adding deterministic duplicate-module-id and duplicate-`register` multi-module WAST fixtures plus a shared classifier that reports `DuplicateModuleName` and `DuplicateRegisterName` separately from parse, single-module validation, unlinkable, link-failure, and skipped-runtime outcomes.

@@ -46,13 +46,28 @@ export function reduceBinaryByByteSlicesWithReport(
 }
 
 export function reduceTextByTokenDeletion(text: string, predicate: ReductionPredicate<string>): string {
+  return reduceTextByTokenDeletionWithReport(text, predicate).result;
+}
+
+export function reduceTextByTokenDeletionWithReport(
+  text: string,
+  predicate: ReductionPredicate<string>,
+): ReductionReport<string> {
   const tokens = tokenizeReductionText(text);
   const reduced = reduceSequenceByChunkDeletion(
     tokens,
     (candidate) => candidate.join(" "),
     predicate,
+    "delete-text-token-range",
   );
-  return reduced.changed ? reduced.items.join(" ") : text;
+  const result = reduced.changed ? reduced.items.join(" ") : text;
+  return {
+    result,
+    originalSize: tokens.length,
+    finalSize: reduced.changed ? reduced.items.length : tokens.length,
+    predicateEvaluations: reduced.predicateEvaluations,
+    steps: reduced.steps,
+  };
 }
 
 function reduceSequenceByChunkDeletion<T, Candidate>(
