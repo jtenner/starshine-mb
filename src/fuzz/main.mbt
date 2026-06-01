@@ -4994,6 +4994,75 @@ pub fn format_fuzz_suite_result(
 }
 
 ///|
+fn fuzz_uint64_to_lower_hex(value : UInt64) -> String {
+  if value == 0UL {
+    return "0"
+  }
+  let digits = "0123456789abcdef"
+  let out = StringBuilder::new()
+  let mut started = false
+  let mut shift = 60
+  while shift >= 0 {
+    let nibble = ((value >> shift) & 0xfUL).to_int()
+    if nibble != 0 || started {
+      started = true
+      out.write_char(digits[nibble].unsafe_to_char())
+    }
+    shift -= 4
+  }
+  out.to_string()
+}
+
+///|
+fn fuzz_json_number_field_or_zero(json : String, field : String) -> UInt64 {
+  let key = "\"\{field}\":"
+  let pos = fuzz_find_text_from(json, key, 0)
+  if pos < 0 {
+    return 0UL
+  }
+  match fuzz_parse_uint64_decimal_at(json, pos + key.length()) {
+    Some(v) => v.0
+    None => 0UL
+  }
+}
+
+///|
+fn fuzz_validate_valid_summary_feature_counter(
+  results : Array[FuzzSuiteResult],
+  field : String,
+) -> UInt64 {
+  let mut total = 0UL
+  for result in results {
+    match result.details_json {
+      Some(details) => total += fuzz_json_number_field_or_zero(details, field)
+      None => ()
+    }
+  }
+  total
+}
+
+///|
+fn format_validate_valid_fuzz_summary_report_json(
+  profile : String,
+  base_seed : Int64,
+  results : Array[FuzzSuiteResult],
+) -> String {
+  let mut total_attempts = 0
+  let mut total_elapsed_ms = 0UL
+  for result in results {
+    total_attempts += result.attempts
+    total_elapsed_ms += result.elapsed_ms
+  }
+  let modules = fuzz_validate_valid_summary_feature_counter(results, "modules")
+  let imports = fuzz_validate_valid_summary_feature_counter(results, "imports")
+  let ref_types = fuzz_validate_valid_summary_feature_counter(
+    results, "ref_types",
+  )
+  let v128 = fuzz_validate_valid_summary_feature_counter(results, "v128")
+  "{\"schema\":\"starshine.fuzz-summary-report.v1\",\"suite\":\"validate-valid\",\"profile\":\"\{fuzz_json_escape(profile)}\",\"seed\":\"0x\{fuzz_uint64_to_lower_hex(base_seed.reinterpret_as_uint64())}\",\"summary\":{\"features\":{\"required_modules\":\{modules},\"optional_imports\":\{imports},\"optional_ref_types\":\{ref_types},\"optional_v128\":\{v128}},\"opcodes\":{},\"strategies\":{\"required_validate_valid\":\{total_attempts}},\"statuses\":{\"validate-valid\":\{results.length()}},\"failures\":{\"validation\":0},\"timings\":{\"wall_ms\":\{total_elapsed_ms}},\"artifacts\":{\"runs\":\{results.length()}}}}"
+}
+
+///|
 pub fn format_fuzz_run_report_json(
   suite : String,
   profile : String,
@@ -5142,7 +5211,20 @@ pub fn persist_fuzz_run_output(
   let replay_manifest = format_fuzz_replay_manifest_json(
     suite, profile, base_seed, seed_count, shard_index, shard_count, results,
   )
-  let manifest = "{\"schema\":\"starshine.fuzz-output.v1\",\"files\":[\"result.json\",\"cases.jsonl\",\"\{ledger_path}\",\"\{replay_path}\"],\"artifact_dirs\":[\"inputs\",\"failures\",\"ledgers\",\"replay\"]}"
+  let summary_json = if suite == "validate-valid" {
+    Some(
+      format_validate_valid_fuzz_summary_report_json(
+        profile, base_seed, results,
+      ),
+    )
+  } else {
+    None
+  }
+  let summary_file = match summary_json {
+    Some(_) => ",\"summary.json\""
+    None => ""
+  }
+  let manifest = "{\"schema\":\"starshine.fuzz-output.v1\",\"files\":[\"result.json\",\"cases.jsonl\",\"\{ledger_path}\",\"\{replay_path}\"\{summary_file}],\"artifact_dirs\":[\"inputs\",\"failures\",\"ledgers\",\"replay\"]}"
   let writes = [
     ("result.json", fuzz_string_to_bytes(result_json)),
     ("cases.jsonl", fuzz_string_to_bytes(cases.to_string())),
@@ -5156,6 +5238,16 @@ pub fn persist_fuzz_run_output(
       Ok(_) => ()
       Err(e) => return Err("failed to write fuzz output \{path}: \{e}")
     }
+  }
+  match summary_json {
+    Some(json) => {
+      let path = fuzz_join_path(dir, "summary.json")
+      match (io.write_file)(path, fuzz_string_to_bytes(json)) {
+        Ok(_) => ()
+        Err(e) => return Err("failed to write fuzz output \{path}: \{e}")
+      }
+    }
+    None => ()
   }
   Ok(())
 }

@@ -320,6 +320,70 @@ test "persist_fuzz_run_output writes result cases and manifest only when request
 }
 
 ///|
+test "persist_fuzz_run_output writes validate-valid coverage summary report" {
+  let writes : Array[(String, Bytes)] = []
+  let io = FuzzRunOutputIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
+    path,
+    bytes,
+  ) {
+    writes.push((path, bytes))
+    Ok(())
+  })
+  let details = "{\"validated\":2,\"feature_stats\":{\"modules\":2,\"imports\":1,\"ref_types\":2,\"v128\":1}}"
+  let result = FuzzSuiteResult::{
+    suite: "validate-valid",
+    profile: "smoke",
+    seed: 0x1048BL,
+    attempts: 2,
+    elapsed_ms: 11UL,
+    seed_index: 0,
+    seed_count: 1,
+    shard_index: 0,
+    shard_count: 1,
+    details_json: Some(details),
+  }
+  match
+    persist_fuzz_run_output(
+      "tmp/fuzz-valid",
+      "validate-valid",
+      "smoke",
+      0x1048BL,
+      1,
+      0,
+      1,
+      [result],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+  let mut saw_summary = false
+  let mut saw_manifest_summary = false
+  for entry in writes {
+    let path = entry.0
+    let text = bytes_to_ascii(entry.1)
+    if path == "tmp/fuzz-valid/summary.json" {
+      saw_summary = true
+      assert_true(
+        text.contains("\"schema\":\"starshine.fuzz-summary-report.v1\""),
+      )
+      assert_true(text.contains("\"suite\":\"validate-valid\""))
+      assert_true(text.contains("\"seed\":\"0x1048b\""))
+      assert_true(text.contains("\"required_modules\":2"))
+      assert_true(text.contains("\"optional_imports\":1"))
+      assert_true(text.contains("\"required_validate_valid\":2"))
+      assert_true(text.contains("\"validate-valid\":1"))
+      assert_true(text.contains("\"wall_ms\":11"))
+      assert_true(text.contains("\"runs\":1"))
+    } else if path == "tmp/fuzz-valid/manifest.json" {
+      saw_manifest_summary = text.contains("summary.json")
+    }
+  }
+  assert_true(saw_summary)
+  assert_true(saw_manifest_summary)
+}
+
+///|
 test "run_fuzz_suite_sweep derives deterministic shard seeds" {
   let results = match
     run_fuzz_suite_sweep("cmd-harness", "smoke", 10L, 5, 1, 2) {

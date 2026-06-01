@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1048B validate-valid summary writer
+
+- Closed `[FUZ]1048B` by wiring the ordinary Moon fuzz runner's representative `validate-valid` suite to emit `summary.json` in `--out-dir` runs using the compact `starshine.fuzz-summary-report.v1` shape.
+- The new report records required module/attempt counters, optional import/ref-type/v128 feature counters, and status/failure/timing/artifact groups, while `manifest.json` lists `summary.json` beside the existing result, cases, ledger, and replay artifacts.
+- Validation: `moon test src/fuzz` first failed on the missing `summary.json` writer, then passed after implementation; final validation is recorded in the commit message.
+
 ## [2026-05-31] fuzzing | FUZ1048A fuzz summary report schema fixture
 
 - Closed the refreshed `[FUZ]1048A` tiny slice by adding `starshine.fuzz-summary-report.v1` parse/format helpers in `scripts/lib/fuzz-summary-counters.ts`.
