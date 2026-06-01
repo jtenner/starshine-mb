@@ -767,16 +767,6 @@ p2 invalid/binary/text slices:
   - Next concrete slices: add a new tiny `[FUZ]1043*` slice before further reducer integration work.
   - Exit Criteria: any fuzz harness can hand a failure to one reducer and get a smaller reproducible artifact plus shrink log.
 
-- [FUZ]1044 (p2) - N-Way Binary Parser And Validator Differential
-  - Goal: compare Starshine binary decode/validate results against multiple external tools when available.
-  - Why: Binaryen alone is not a complete oracle. WABT, wasm-tools, and Starshine may disagree on proposal support, malformed encodings, canonical LEB policy, and diagnostic staging.
-  - Deliverables: `[FUZ]1044A` adds the adapter result schema and pure classifier; `[FUZ]1044B` closed on 2026-05-31 with an optional `wasm-tools validate` binary adapter that stages bytes through the native CLI when available, returns adapter-unavailable on non-native or missing-tool paths, and maps valid plus malformed fixtures into the FUZ1044A result schema; `[FUZ]1044C` adds optional WABT/Binaryen `wasm-validate`; `[FUZ]1044D` closed on 2026-05-31 with an opt-in smoke/report helper over small binary corpora. Classify agree-valid, agree-invalid, proposal-gap, decoder-stage disagreement, validator-stage disagreement, tool-failure, unsupported-feature, and adapter-unavailable.
-  - Required APIs: external adapter layer from [FUZ]1032, invalid binary lane, valid-module binary roundtrip lane, result schema.
-  - Invariants: external tool absence must skip cleanly; proposal support differences must be reported, not auto-labeled as Starshine bugs.
-  - Dependencies: [FUZ]1029 and [FUZ]1032.
-  - Suggested Tests: fake adapter classification tests, unavailable-tool tests, known malformed binary disagreements, docs for supported tool versions.
-  - Exit Criteria: closed for the tracked tiny board; binary fuzz helper surfaces can provide n-way evidence for decode/validation behavior without hard-requiring every external tool.
-
 - [FUZ]1045 (p2) - N-Way Text Printer, Parser, And Lowering Differential
   - Goal: compare WAT/WAST parsing, printing, and lowering against external text tools when available.
   - Why: local text support can drift from WABT or wasm-tools in syntax, abbreviation handling, name resolution, blocktype/typeuse forms, and assertion scripts.
