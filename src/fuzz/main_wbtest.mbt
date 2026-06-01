@@ -350,6 +350,9 @@ test "merge_fuzz_shard_results orders cases by seed index then suite" {
     seed_count: 4,
     shard_index: 0,
     shard_count: 2,
+    total_run_budget_ms: None,
+    total_run_budget_exceeded: false,
+    run_budget_classification: "within-budget",
     details_json: None,
   }
   let early = FuzzSuiteResult::{
@@ -362,6 +365,9 @@ test "merge_fuzz_shard_results orders cases by seed index then suite" {
     seed_count: 4,
     shard_index: 1,
     shard_count: 2,
+    total_run_budget_ms: None,
+    total_run_budget_exceeded: false,
+    run_budget_classification: "within-budget",
     details_json: None,
   }
   let same_seed_other_suite = FuzzSuiteResult::{
@@ -374,6 +380,9 @@ test "merge_fuzz_shard_results orders cases by seed index then suite" {
     seed_count: 4,
     shard_index: 1,
     shard_count: 2,
+    total_run_budget_ms: None,
+    total_run_budget_exceeded: false,
+    run_budget_classification: "within-budget",
     details_json: None,
   }
   let merged = merge_fuzz_shard_results([[late], [early, same_seed_other_suite]])
@@ -409,6 +418,9 @@ test "persist_fuzz_run_output writes result cases and manifest only when request
     seed_count: 1,
     shard_index: 0,
     shard_count: 1,
+    total_run_budget_ms: None,
+    total_run_budget_exceeded: false,
+    run_budget_classification: "within-budget",
     details_json: Some("{\"optimized\":3}"),
   }
   match
@@ -478,6 +490,41 @@ test "persist_fuzz_run_output writes result cases and manifest only when request
 }
 
 ///|
+test "FUZ1053C1 total run budget timeout is distinct in result and summary metadata" {
+  let base = FuzzSuiteResult::{
+    suite: "cmd-harness",
+    profile: "smoke",
+    seed: 0x1053L,
+    attempts: 5,
+    elapsed_ms: 150UL,
+    seed_index: 0,
+    seed_count: 1,
+    shard_index: 0,
+    shard_count: 1,
+    total_run_budget_ms: None,
+    total_run_budget_exceeded: false,
+    run_budget_classification: "within-budget",
+    details_json: Some("{\"cases\":5}"),
+  }
+  let budgeted = fuzz_suite_result_with_total_run_budget(base, 100UL)
+  @debug.assert_eq(budgeted.total_run_budget_ms, Some(100UL))
+  @debug.assert_eq(budgeted.total_run_budget_exceeded, true)
+  @debug.assert_eq(budgeted.run_budget_classification, "run-budget-timeout")
+  let line = format_fuzz_suite_result(budgeted, FuzzOutputMode::Jsonl)
+  assert_true(line.contains("\"pass\":false"))
+  assert_true(line.contains("\"total_run_budget_ms\":100"))
+  assert_true(
+    line.contains("\"run_budget_classification\":\"run-budget-timeout\""),
+  )
+  let report = format_fuzz_run_report_json(
+    "cmd-harness", "smoke", 0x1053L, 1, 0, 1, [budgeted],
+  )
+  assert_true(report.contains("\"pass\":false"))
+  assert_true(report.contains("\"run-budget-timeout\":1"))
+  assert_true(report.contains("\"failures\":1"))
+}
+
+///|
 test "persist_fuzz_run_output writes validate-valid coverage summary report" {
   let writes : Array[(String, Bytes)] = []
   let io = FuzzRunOutputIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
@@ -498,6 +545,9 @@ test "persist_fuzz_run_output writes validate-valid coverage summary report" {
     seed_count: 1,
     shard_index: 0,
     shard_count: 1,
+    total_run_budget_ms: None,
+    total_run_budget_exceeded: false,
+    run_budget_classification: "within-budget",
     details_json: Some(details),
   }
   match

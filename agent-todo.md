@@ -622,9 +622,6 @@ p2 invalid/binary/text tiny slices:
   - Suggested tests: focused WAST runner/classifier fixture and repro metadata assertion.
 
 p2 oracle/reporting/infrastructure tiny slices:
-- [FUZ]1053C1 (p2) - Fuzz Runner Total-Budget Classification
-  - Unit: add total-run budget metadata and a deterministic fake-budget test that reports a run-budget timeout separately from per-case timeout, crash, validation failure, or tool failure.
-  - Suggested tests: fake clock/runner fixture plus summary/repro metadata formatting assertions.
 
 
 #### Named remaining FUZ slice index
@@ -632,9 +629,6 @@ p2 oracle/reporting/infrastructure tiny slices:
 Use these slice ids when selecting or reporting future FUZ work. Parent tasks below keep the fuller goals, invariants, and historical evidence; this index names the remaining units so agents do not have to infer the next slice from long status paragraphs.
 
 p1/p2 oracle, reporting, and infrastructure slices:
-- [FUZ]1053C1 (p2) - Fuzz Runner Total-Budget Classification
-  - Unit: add total-run budget metadata and a deterministic fake-budget test that reports run-budget timeout separately from per-case timeout, crash, validation failure, or tool failure.
-  - Parent: [FUZ]1053.
 - [FUZ]1052B (p2) - Export Invocation Result Matrix
   - Completed tiny slices: `[FUZ]1052B1` through `[FUZ]1052B7` cover the pure classifier, deterministic simple arguments, named comparison reports, summary counts, mismatch predicate, matrix outcome, and mismatch-report filtering in `src/cmd/fuzz_harness.mbt`; `[FUZ]1052B8` wires pass-fuzz `--runtime-execution node` to invoke same-named Starshine/Binaryen exports through the Node adapter and summarize checked/unsupported/failed runtime evidence; `[FUZ]1052B9` persists the runtime matrix summary/outcome and semantic-mismatch samples into `result.json` plus runtime-enabled mismatch repro manifests without requiring runtime execution by default; `[FUZ]1052B10` adds the opt-in semantic-mismatch failure policy while unsupported runtime and nondeterministic imports remain blocked/skipped classifications.
   - Remaining concrete slices: none for the current tracked 1052B board.

@@ -221,6 +221,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - The focused mutation keeps the operand stack reference-typed so the rejection is attributed to the cast hierarchy rule rather than the earlier input-type failure; repair coverage proves the same branch shape validates once the source/target hierarchy is compatible.
 - Validation: `moon test src/validate` first failed on the missing strategy constructor and mutator, then passed after implementation; final validation is recorded in the commit message.
 
+## [2026-05-31] fuzzing | FUZ1053C1 total-run budget classification
+
+- Completed `[FUZ]1053C1` by adding total-run budget metadata to `FuzzSuiteResult`, a helper that classifies elapsed wall time over the configured run budget as `run-budget-timeout`, and summary/result formatting that reports this separately from per-case timeouts, crashes, validation failures, or tool failures.
+- Added a deterministic fake-budget white-box fixture proving a 150ms fake run with a 100ms total budget emits `pass=false`, `total_run_budget_ms`, `run_budget_classification=run-budget-timeout`, and a `failure_classes.run-budget-timeout` summary count.
+
 ## [2026-05-31] fuzzing | FUZ1050D1 normalized shape corpus hash
 
 - Completed `[FUZ]1050D1` by adding a report-only `normalized_shape_hash` field to fuzz corpus promotion metadata, JSON formatting/parsing, schema docs, and case-index grouping.

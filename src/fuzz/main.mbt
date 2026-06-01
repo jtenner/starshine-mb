@@ -678,6 +678,9 @@ pub struct FuzzSuiteResult {
   seed_count : Int
   shard_index : Int
   shard_count : Int
+  total_run_budget_ms : UInt64?
+  total_run_budget_exceeded : Bool
+  run_budget_classification : String
   details_json : String?
 } derive(Eq, Debug)
 
@@ -3051,6 +3054,9 @@ fn run_single_suite(
     seed_count: 1,
     shard_index: 0,
     shard_count: 1,
+    total_run_budget_ms: None,
+    total_run_budget_exceeded: false,
+    run_budget_classification: "within-budget",
     details_json,
   })
 }
@@ -5526,6 +5532,9 @@ fn fuzz_suite_result_with_sweep_metadata(
     seed_count,
     shard_index,
     shard_count,
+    total_run_budget_ms: result.total_run_budget_ms,
+    total_run_budget_exceeded: result.total_run_budget_exceeded,
+    run_budget_classification: result.run_budget_classification,
     details_json: result.details_json,
   }
 }
@@ -5572,6 +5581,33 @@ pub fn merge_fuzz_shard_results(
     ignore(remaining.pop())
   }
   merged
+}
+
+///|
+pub fn fuzz_suite_result_with_total_run_budget(
+  result : FuzzSuiteResult,
+  total_run_budget_ms : UInt64,
+) -> FuzzSuiteResult {
+  let exceeded = result.elapsed_ms > total_run_budget_ms
+  {
+    suite: result.suite,
+    profile: result.profile,
+    seed: result.seed,
+    attempts: result.attempts,
+    elapsed_ms: result.elapsed_ms,
+    seed_index: result.seed_index,
+    seed_count: result.seed_count,
+    shard_index: result.shard_index,
+    shard_count: result.shard_count,
+    total_run_budget_ms: Some(total_run_budget_ms),
+    total_run_budget_exceeded: exceeded,
+    run_budget_classification: if exceeded {
+      "run-budget-timeout"
+    } else {
+      "within-budget"
+    },
+    details_json: result.details_json,
+  }
 }
 
 ///|
@@ -5762,15 +5798,26 @@ pub fn format_fuzz_suite_result(
   } else {
     " seed_index=\{result.seed_index} seed_count=\{result.seed_count} shard_index=\{result.shard_index} shard_count=\{result.shard_count}"
   }
+  let budget_suffix = match result.total_run_budget_ms {
+    Some(budget) =>
+      " total_run_budget_ms=\{budget} run_budget_classification=\{result.run_budget_classification}"
+    None => ""
+  }
+  let pass = !result.total_run_budget_exceeded
   match output_mode {
     FuzzOutputMode::Text =>
-      "suite=\{result.suite} profile=\{result.profile} seed=\{result.seed} attempts=\{result.attempts} pass=true elapsed_ms=\{result.elapsed_ms}\{sweep_suffix}"
+      "suite=\{result.suite} profile=\{result.profile} seed=\{result.seed} attempts=\{result.attempts} pass=\{pass} elapsed_ms=\{result.elapsed_ms}\{budget_suffix}\{sweep_suffix}"
     FuzzOutputMode::Jsonl => {
       let details_suffix = match result.details_json {
         Some(details) => ",\"details\":\{details}"
         None => ""
       }
-      "{\"suite\":\"\{fuzz_json_escape(result.suite)}\",\"profile\":\"\{fuzz_json_escape(result.profile)}\",\"seed\":\{result.seed},\"attempts\":\{result.attempts},\"pass\":true,\"elapsed_ms\":\{result.elapsed_ms},\"seed_index\":\{result.seed_index},\"seed_count\":\{result.seed_count},\"shard_index\":\{result.shard_index},\"shard_count\":\{result.shard_count}\{details_suffix}}"
+      let budget_json = match result.total_run_budget_ms {
+        Some(budget) =>
+          ",\"total_run_budget_ms\":\{budget},\"run_budget_classification\":\"\{fuzz_json_escape(result.run_budget_classification)}\""
+        None => ""
+      }
+      "{\"suite\":\"\{fuzz_json_escape(result.suite)}\",\"profile\":\"\{fuzz_json_escape(result.profile)}\",\"seed\":\{result.seed},\"attempts\":\{result.attempts},\"pass\":\{pass},\"elapsed_ms\":\{result.elapsed_ms}\{budget_json},\"seed_index\":\{result.seed_index},\"seed_count\":\{result.seed_count},\"shard_index\":\{result.shard_index},\"shard_count\":\{result.shard_count}\{details_suffix}}"
     }
   }
 }
@@ -5862,14 +5909,24 @@ pub fn format_fuzz_run_report_json(
   let out = StringBuilder::new()
   let mut total_attempts = 0
   let mut total_elapsed_ms = 0UL
+  let mut run_budget_timeout_count = 0
   let mut summary_i = 0
   while summary_i < results.length() {
     total_attempts += results[summary_i].attempts
     total_elapsed_ms += results[summary_i].elapsed_ms
+    if results[summary_i].total_run_budget_exceeded {
+      run_budget_timeout_count += 1
+    }
     summary_i += 1
   }
+  let failure_classes = if run_budget_timeout_count > 0 {
+    "{\"run-budget-timeout\":\{run_budget_timeout_count}}"
+  } else {
+    "{}"
+  }
+  let pass = run_budget_timeout_count == 0
   out.write_string(
-    "{\"schema\":\"starshine.fuzz.summary.v1\",\"suite\":\"\{fuzz_json_escape(suite)}\",\"profile\":\"\{fuzz_json_escape(profile)}\",\"base_seed\":\{base_seed},\"seed_count\":\{seed_count},\"shard_index\":\{shard_index},\"shard_count\":\{shard_count},\"pass\":true,\"run_count\":\{results.length()},\"summary\":{\"total_attempts\":\{total_attempts},\"total_elapsed_ms\":\{total_elapsed_ms},\"failure_classes\":{},\"strategy_outcomes\":{},\"artifact_counts\":{\"runs\":\{results.length()},\"ledgers\":1,\"replay_manifests\":1,\"inputs\":0,\"failures\":0}},\"runs\":[",
+    "{\"schema\":\"starshine.fuzz.summary.v1\",\"suite\":\"\{fuzz_json_escape(suite)}\",\"profile\":\"\{fuzz_json_escape(profile)}\",\"base_seed\":\{base_seed},\"seed_count\":\{seed_count},\"shard_index\":\{shard_index},\"shard_count\":\{shard_count},\"pass\":\{pass},\"run_count\":\{results.length()},\"summary\":{\"total_attempts\":\{total_attempts},\"total_elapsed_ms\":\{total_elapsed_ms},\"failure_classes\":\{failure_classes},\"strategy_outcomes\":{},\"artifact_counts\":{\"runs\":\{results.length()},\"ledgers\":1,\"replay_manifests\":1,\"inputs\":0,\"failures\":\{run_budget_timeout_count}}},\"runs\":[",
   )
   let mut i = 0
   while i < results.length() {
