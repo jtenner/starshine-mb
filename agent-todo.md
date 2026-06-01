@@ -613,10 +613,31 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 Use this board as the tracking view for fuzzer work. Each slice should be small enough for one focused TDD loop: add/adjust focused tests, implement one narrow behavior, update docs/wiki counters, and run the targeted fuzz smoke plus `moon test src/fuzz` or the relevant package test. Prefer finishing p1 GenValid/metamorphic slices before p2 infrastructure unless a bug or release need says otherwise.
 
 p1 next-up / active:
+- [FUZ]1043K (p1, GenValid) - Pass-Fuzz Mismatch Reducer Hook
+  - Unit: wire one pass-fuzz / GenValid mismatch persistence path to the shared reducer contract so a reproduced optimizer mismatch can emit original and reduced wasm artifacts plus `reduction.txt` metadata without changing the mismatch oracle.
+  - Suggested tests: focused command-harness fixture with a fake mismatch predicate proving reduced bytes/log paths persist and original artifacts remain untouched.
+- [FUZ]1048D (p1, GenValid) - GenValid Required-Counter Floors
+  - Unit: declare the first required `summary.json` counters for a stable GenValid smoke profile and prove `bun fuzz coverage-delta` fails on a dropped required counter while still tolerating optional counter drift.
+  - Suggested tests: compact before/after report fixtures for a required GenValid counter drop and an optional counter addition.
 
 p2 invalid/binary/text tiny slices:
+- [FUZ]1021C1 (p2) - SIMD Relaxed-Laneselect Operand-Context Corruptions
+  - Unit: add malformed and overwide binary-invalid corruptions for one relaxed-SIMD lane/select immediate or memarg-adjacent operand-context not already covered by the current SIMD load/load-lane/trailing-immediate set.
+  - Suggested tests: focused invalid-binary wbtest for missing stable id first, then registry/mutation/dispatcher coverage plus `moon test src/fuzz`.
+- [FUZ]1055C1 (p2) - Duplicate Module/Register WAST Fixture
+  - Unit: add a deterministic multi-module WAST fixture for duplicate module name or register-name behavior and classify it separately from ordinary validation/unlinkable failures.
+  - Suggested tests: focused WAST runner/classifier fixture and repro metadata assertion.
+- [FUZ]1056A4 (p2) - Name/Custom Section Diagnostic Location Fixture
+  - Unit: add one curated malformed custom/name-section binary fixture with exact byte offset, section id/span when available, and repro metadata location roundtrip.
+  - Suggested tests: binary decoder diagnostic test plus invalid-binary repro metadata roundtrip.
 
 p2 oracle/reporting/infrastructure tiny slices:
+- [FUZ]1050D1 (p2) - Normalized Shape Interestingness Hash
+  - Unit: add a report-only normalized/canonical shape hash field for corpus entries without deduplicating or deleting artifacts.
+  - Suggested tests: raw-different but normalized-same fixture pair and case-index roundtrip preserving raw hashes.
+- [FUZ]1053C1 (p2) - Fuzz Runner Total-Budget Classification
+  - Unit: add total-run budget metadata and a deterministic fake-budget test that reports a run-budget timeout separately from per-case timeout, crash, validation failure, or tool failure.
+  - Suggested tests: fake clock/runner fixture plus summary/repro metadata formatting assertions.
 
 
 #### Named remaining FUZ slice index
@@ -624,6 +645,18 @@ p2 oracle/reporting/infrastructure tiny slices:
 Use these slice ids when selecting or reporting future FUZ work. Parent tasks below keep the fuller goals, invariants, and historical evidence; this index names the remaining units so agents do not have to infer the next slice from long status paragraphs.
 
 p1/p2 oracle, reporting, and infrastructure slices:
+- [FUZ]1043K (p1, GenValid) - Pass-Fuzz Mismatch Reducer Hook
+  - Unit: wire one pass-fuzz / GenValid mismatch persistence path to the shared reducer contract so a reproduced optimizer mismatch can emit original and reduced wasm artifacts plus `reduction.txt` metadata without changing the mismatch oracle.
+  - Parent: [FUZ]1043.
+- [FUZ]1048D (p1, GenValid) - GenValid Required-Counter Floors
+  - Unit: declare the first required `summary.json` counters for a stable GenValid smoke profile and prove coverage-delta rejects required counter drops while tolerating optional drift.
+  - Parent: [FUZ]1048.
+- [FUZ]1050D1 (p2) - Normalized Shape Interestingness Hash
+  - Unit: add a report-only normalized/canonical shape hash field for corpus entries without deduplicating or deleting artifacts.
+  - Parent: [FUZ]1050.
+- [FUZ]1053C1 (p2) - Fuzz Runner Total-Budget Classification
+  - Unit: add total-run budget metadata and a deterministic fake-budget test that reports run-budget timeout separately from per-case timeout, crash, validation failure, or tool failure.
+  - Parent: [FUZ]1053.
 - [FUZ]1052B (p2) - Export Invocation Result Matrix
   - Completed tiny slices: `[FUZ]1052B1` through `[FUZ]1052B7` cover the pure classifier, deterministic simple arguments, named comparison reports, summary counts, mismatch predicate, matrix outcome, and mismatch-report filtering in `src/cmd/fuzz_harness.mbt`; `[FUZ]1052B8` wires pass-fuzz `--runtime-execution node` to invoke same-named Starshine/Binaryen exports through the Node adapter and summarize checked/unsupported/failed runtime evidence; `[FUZ]1052B9` persists the runtime matrix summary/outcome and semantic-mismatch samples into `result.json` plus runtime-enabled mismatch repro manifests without requiring runtime execution by default; `[FUZ]1052B10` adds the opt-in semantic-mismatch failure policy while unsupported runtime and nondeterministic imports remain blocked/skipped classifications.
   - Remaining concrete slices: none for the current tracked 1052B board.
@@ -633,6 +666,15 @@ p1/p2 oracle, reporting, and infrastructure slices:
   - Unit: completed for tracked tiny slices. `[FUZ]1053B2` closed with timeout/resource repro persistence tolerating partial artifact write failures and recording `partial_artifact_write_failure` manifest entries. `[FUZ]1053B1` closed with invalid repro metadata carrying timeout stage, diagnostic location, and `timeout_budget_ms` through persist/parse.
 
 p2 invalid/binary/text slices:
+- [FUZ]1021C1 (p2) - SIMD Relaxed-Laneselect Operand-Context Corruptions
+  - Unit: add malformed and overwide binary-invalid corruptions for one relaxed-SIMD lane/select immediate or memarg-adjacent operand-context not already covered by the current SIMD load/load-lane/trailing-immediate set.
+  - Parent: [FUZ]1021.
+- [FUZ]1055C1 (p2) - Duplicate Module/Register WAST Fixture
+  - Unit: add a deterministic multi-module WAST fixture for duplicate module name or register-name behavior and classify it separately from ordinary validation/unlinkable failures.
+  - Parent: [FUZ]1055.
+- [FUZ]1056A4 (p2) - Name/Custom Section Diagnostic Location Fixture
+  - Unit: add one curated malformed custom/name-section binary fixture with exact byte offset, section id/span when available, and repro metadata location roundtrip.
+  - Parent: [FUZ]1056.
 - [FUZ]1020A (p2) - Remaining AST Type/Subtyping Invalid Strategies
   - Remaining concrete slices: none for the current tracked 1020A board. Earlier `[FUZ]1020A1`/`A2` covered representative subtype variance and descriptor-cycle basics; `[FUZ]1020A3` covered focused function parameter/result variance; `[FUZ]1020A4` covered descriptor-edge missing heap-type refs; `[FUZ]1020A5` covered recursive-group supertype-cycle rejection.
 - [FUZ]1020B (p2) - Remaining AST Section/Index Invalid Strategies
@@ -764,7 +806,7 @@ p2 invalid/binary/text slices:
   - Invariants: minimization must never replace the original artifact unless the predicate still reproduces; store original and reduced artifacts separately.
   - Dependencies: [FUZ]1025 and [FUZ]1031.
   - Suggested Tests: fake predicate reducer tests, known fixture reductions, original-vs-reduced metadata roundtrip tests.
-  - Next concrete slices: add a new tiny `[FUZ]1043*` slice before further reducer integration work.
+  - Next concrete slice: `[FUZ]1043K` wires one pass-fuzz / GenValid mismatch persistence path to the shared reducer contract.
   - Exit Criteria: any fuzz harness can hand a failure to one reducer and get a smaller reproducible artifact plus shrink log.
 
 - [FUZ]1045 (p2) - N-Way Text Printer, Parser, And Lowering Differential
@@ -780,7 +822,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1048 (p2) - Fuzz Result Trend Reports And Coverage Deltas
   - Goal: compare fuzz coverage and outcomes across commits, seeds, and profiles.
   - Why: broad generator work can accidentally remove surfaces while all tests still pass. Trend reports make coverage regressions visible.
-  - Deliverables: `[FUZ]1048A` closed on 2026-05-31 with the compact `starshine.fuzz-summary-report.v1` parse/format fixture for suite/profile/seed and feature/opcode/strategy/status/failure/timing/artifact counter groups; `[FUZ]1048B` closed on 2026-05-31 by writing `summary.json` for representative `validate-valid --out-dir` runs with required module/attempt counters, optional feature counters, and status/failure/timing/artifact groups; `[FUZ]1048C` closed on 2026-05-31 by writing pass-fuzz `summary.json` reports with required requested/compared case counters, optional generator/GenValid-transform/property/input-effect/runtime counters, status counters, failure-class counters, and failure-artifact counts. The coverage-delta diff tool is complete: `bun fuzz coverage-delta [--optional] <before> <after>` compares report counters, fails on required counter drops, tolerates optional counters by default, and always reports artifact/failure/status/timing drift, including compact-schema `artifacts` / `failures` / `statuses` groups.
+  - Deliverables: `[FUZ]1048A` closed on 2026-05-31 with the compact `starshine.fuzz-summary-report.v1` parse/format fixture for suite/profile/seed and feature/opcode/strategy/status/failure/timing/artifact counter groups; `[FUZ]1048B` closed on 2026-05-31 by writing `summary.json` for representative `validate-valid --out-dir` runs with required module/attempt counters, optional feature counters, and status/failure/timing/artifact groups; `[FUZ]1048C` closed on 2026-05-31 by writing pass-fuzz `summary.json` reports with required requested/compared case counters, optional generator/GenValid-transform/property/input-effect/runtime counters, status counters, failure-class counters, and failure-artifact counts. The coverage-delta diff tool is complete: `bun fuzz coverage-delta [--optional] <before> <after>` compares report counters, fails on required counter drops, tolerates optional counters by default, and always reports artifact/failure/status/timing drift, including compact-schema `artifacts` / `failures` / `statuses` groups. Next concrete slice: `[FUZ]1048D` declares the first required GenValid smoke-profile counter floors.
   - Required APIs: fuzz JSON reports from [FUZ]1030, exact ledger from [FUZ]1013, pass-fuzz result schema, docs/wiki tooling.
   - Invariants: report comparison must tolerate newly added optional counters; required counter drops should fail only when a profile declares that floor.
   - Dependencies: [FUZ]1013 and [FUZ]1030.
@@ -790,7 +832,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1050 (p2) - Corpus Deduplication, Interestingness Hashes, And Case Index
   - Goal: prevent fuzz artifact directories and promoted corpora from filling with duplicate or equivalent cases.
   - Why: wide generation will produce many modules that are byte-distinct but structurally or semantically redundant. Dedup keeps review and CI costs manageable.
-  - Deliverables: `[FUZ]1050A` closed on 2026-05-31 with corpus-entry raw/reduced artifact, predicate, feature-fact, and interestingness-label metadata plus deterministic hash helpers; `[FUZ]1050B` closed on 2026-05-31 with a reversible case-index roundtrip over raw/reduced hashes, case ids, seeds, profiles, and artifact paths; `[FUZ]1050C` closed on 2026-05-31 with a report-only dry-run dedup classifier that marks duplicate reduced artifacts as future compress candidates while keeping every raw artifact group so unreduced failures never lose their sole original artifact. Later slices can add decoded-shape or normalized-canonical hashes once the metadata/index contract is stable.
+  - Deliverables: `[FUZ]1050A` closed on 2026-05-31 with corpus-entry raw/reduced artifact, predicate, feature-fact, and interestingness-label metadata plus deterministic hash helpers; `[FUZ]1050B` closed on 2026-05-31 with a reversible case-index roundtrip over raw/reduced hashes, case ids, seeds, profiles, and artifact paths; `[FUZ]1050C` closed on 2026-05-31 with a report-only dry-run dedup classifier that marks duplicate reduced artifacts as future compress candidates while keeping every raw artifact group so unreduced failures never lose their sole original artifact. Next concrete slice: `[FUZ]1050D1` adds report-only normalized/canonical shape hashes without deleting artifacts.
   - Required APIs: feature ledger, normalizers, output directory manifests, corpus workflow.
   - Invariants: never delete the only artifact for an unreduced failure; dedup decisions must be recorded and reversible for debugging.
   - Dependencies: [FUZ]1031, [FUZ]1042, and [FUZ]1047.
@@ -810,7 +852,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1053 (p2) - Resource-Limit, Timeout, And Nontermination Hardening
   - Goal: make every fuzz harness classify timeouts and resource exhaustion safely.
   - Why: deep generated modules, malformed binaries, parser corner cases, and external tools can hang or consume excessive memory. Fuzzing should find and report those cases without wedging CI.
-  - Deliverables: add per-case time budgets, total run budgets, memory/byte-size limits where available, cancellation paths, timeout classifications, and minimized timeout repro artifacts.
+  - Deliverables: add per-case time budgets, total run budgets, memory/byte-size limits where available, cancellation paths, timeout classifications, and minimized timeout repro artifacts. Next concrete slice: `[FUZ]1053C1` adds total-run budget metadata and classification separately from per-case timeout.
   - Required APIs: fuzz runner, pass-fuzz task runner, external adapter subprocess wrappers, output report schema.
   - Invariants: timeout must be reported separately from semantic mismatch, validation failure, or crash; default smoke budgets must be conservative.
   - Dependencies: [FUZ]1030 and [FUZ]1031.
@@ -820,7 +862,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1055 (p2) - Multi-Module WAST, Linking, Unlinkable, And Instantiation Lanes
   - Goal: treat multi-module scripts and link-time behavior as a distinct fuzz target.
   - Why: validation accepts individual modules, but WAST assertions and real tooling also care about imports, exports, duplicate module names, register commands, instantiation, and unlinkable modules.
-  - Deliverables: `[FUZ]1055A1`/`[FUZ]1055A2`/`[FUZ]1055A3`/`[FUZ]1055A4` and `[FUZ]1055B1`/`[FUZ]1055B2`/`[FUZ]1055B3` landed deterministic valid-linking fixtures, the reusable valid generator lane, valid-linking runner classification, unlinkable fixtures, and generated unlinkable `assert_unlinkable` cases across function/memory/table/global/tag imports. Remaining slice `[FUZ]1055B4` promotes intentionally missing or type-mismatched imports into runner classifications and repro metadata.
+  - Deliverables: `[FUZ]1055A1`/`[FUZ]1055A2`/`[FUZ]1055A3`/`[FUZ]1055A4` and `[FUZ]1055B1`/`[FUZ]1055B2`/`[FUZ]1055B3` landed deterministic valid-linking fixtures, the reusable valid generator lane, valid-linking runner classification, unlinkable fixtures, and generated unlinkable `assert_unlinkable` cases across function/memory/table/global/tag imports; `[FUZ]1055B4` is closed in the slice index with unlinkable outcome classifier/repro metadata. Next concrete slice: `[FUZ]1055C1` covers duplicate module/register behavior as a separate multi-module classification.
   - Required APIs: WAST arbitrary generator, static assertion evaluator, text parser/lowerer, import/export planning.
   - Invariants: unlinkable cases must be classified separately from invalid modules; unsupported WAST script commands should be skipped with explicit counters.
   - Dependencies: landed dynamic spec-seed scanner/CI floors and [FUZ]1027 WAST reporting.
@@ -830,7 +872,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1056 (p2) - Parser Recovery, Error Span, And Diagnostic Location Fuzzing
   - Goal: verify that parser and decoder errors include stable, useful locations when possible.
   - Why: invalid fuzzing currently emphasizes accept/reject and diagnostic family. Developer productivity also depends on error spans, byte offsets, section ids, line/column info, and stable first-error behavior.
-  - Deliverables: fuzz malformed inputs near boundaries. `[FUZ]1056B2` closed with text invalid repro metadata roundtripping `actual_diagnostic_location` filename/line/column data. `[FUZ]1056B1` closed with optional `actual_diagnostic_location` metadata roundtripped for binary invalid repros. `[FUZ]1056A1` closed with a curated malformed type-section binary fixture asserting exact byte offset and section-span length in `src/binary/tests.mbt`. `[FUZ]1056A2` closed with WAST parse diagnostics now reporting `filename:line:column` plus a multiline fixture in `src/wast/module_wast_tests.mbt`. `[FUZ]1056A3` closes the current curated diagnostic-location board by threading numeric section ids through `ModuleDecodeErrorDetail` for section-scoped binary decode failures and extending the malformed type-section fixture to assert section id `1`, offset `8`, and length `5`.
+  - Deliverables: fuzz malformed inputs near boundaries. `[FUZ]1056B2` closed with text invalid repro metadata roundtripping `actual_diagnostic_location` filename/line/column data. `[FUZ]1056B1` closed with optional `actual_diagnostic_location` metadata roundtripped for binary invalid repros. `[FUZ]1056A1` closed with a curated malformed type-section binary fixture asserting exact byte offset and section-span length in `src/binary/tests.mbt`. `[FUZ]1056A2` closed with WAST parse diagnostics now reporting `filename:line:column` plus a multiline fixture in `src/wast/module_wast_tests.mbt`. `[FUZ]1056A3` closes the current curated diagnostic-location board by threading numeric section ids through `ModuleDecodeErrorDetail` for section-scoped binary decode failures and extending the malformed type-section fixture to assert section id `1`, offset `8`, and length `5`. Next concrete slice: `[FUZ]1056A4` adds one curated malformed custom/name-section binary fixture with exact location evidence.
   - Required APIs: binary decoder diagnostics, WAT/WAST parser diagnostics, invalid text/binary strategy specs, repro metadata.
   - Invariants: location assertions should be exact only for curated stable cases; randomized lanes may record locations without requiring exact match.
   - Dependencies: [FUZ]1018 exact diagnostic expectations and [FUZ]1025 repro metadata.
