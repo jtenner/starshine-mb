@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-27
 sources:
+  - ../../../raw/research/0687-2026-05-27-dae004-closeout-evidence.md
   - ../../../raw/binaryen/2026-05-05-dae-optimizing-current-main-recheck.md
   - ../../../raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md
@@ -39,7 +40,7 @@ This page keeps the source roles explicit so future work does not blur:
 
 ## Upstream file map
 
-The 2026-05-05 current-main recheck did not find teaching-relevant drift from this map; it keeps the local first-slice / validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) and leaves the earlier 2026-04-25 bridge as the detailed implementation-readiness companion.
+The 2026-05-05 current-main recheck did not find teaching-relevant drift from this map, and the 2026-05-27 DAE004 closeout evidence in note `0687` keeps the same owner/test surface authoritative while closing the current DAE004 breadth slice. The page still keeps the local first-slice / validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) and leaves the earlier 2026-04-25 bridge as the detailed implementation-readiness companion.
 
 | File | What it contributes | Why it matters for a port |
 | --- | --- | --- |

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-01] docs | dae-optimizing closeout sync
+
+- Refreshed [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md) to mark `[DAE]003` and `[DAE]004` closed by research notes `0661` and `0687`, update the review date, and keep the partial/direct-pass and preset guardrails explicit.
+- Synced [`binaryen/passes/dae-optimizing/implementation-structure-and-tests.md`](binaryen/passes/dae-optimizing/implementation-structure-and-tests.md), [`binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md), [`binaryen/passes/tracker.md`](binaryen/passes/tracker.md), and the catalog entry in [`index.md`](index.md) so the wiki catalog, tracker, and support pages match the closeout state.
+- No new external source was needed; the archived closeout note `0687` plus existing repo manifests were sufficient.
+
 ## [2026-05-31] passes | O4z self-optimize size recovery
 
 - Narrowed the conservative `ssa-nomerge` structured fallback so very large structured local-write functions skip the raw SSA rewrite even when they have no explicit branch op. This prevents the full self/debug function 518 body from expanding from ~857 KiB to ~119 MiB during the `ssa-nomerge` prefix while preserving the completion/validation path.
