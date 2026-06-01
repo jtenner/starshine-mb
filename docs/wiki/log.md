@@ -2,11 +2,17 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-01] docs | binaryen version_130 release-horizon advance
+
+- Added `docs/wiki/raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md` and refreshed [`binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md) so the release oracle now uses `version_130` as the latest Binaryen tag instead of stopping at `version_129`.
+- Updated [`docs/wiki/index.md`](index.md) and [`binaryen/passes/index.md`](binaryen/passes/index.md) so both catalogs now treat `version_130` as the release-horizon baseline while keeping the live `main` changelog as a drift watch.
+- No repo code or tests changed; this was a wiki/source-hygiene refresh backed by the official GitHub `version_130` release page, the official `main` changelog, and the Chromium refs listing.
+
 ## [2026-06-01] docs | late-pipeline-dispatch trunk drift refresh
 
-- Added `docs/wiki/raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md` and refreshed [`binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md) to replace the stale "no newer optimization-pass addition" wording with the current `v130` trunk drift watch (`MarkJSCalled`, `RemoveExports`, and `Wide Arithmetic`).
-- Updated [`binaryen/passes/index.md`](binaryen/passes/index.md) so the Tail Dispatch Notes summary now reflects the current-trunk watch alongside the `version_129` release-horizon baseline.
-- No repo code or tests changed; this was a wiki/source-hygiene refresh backed by the official GitHub `main` changelog and the tagged `version_129` release page.
+- Added `docs/wiki/raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md` and refreshed [`binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md) so the release oracle now uses `version_130` as the latest Binaryen tag instead of stopping at `version_129`.
+- Updated [`docs/wiki/index.md`](index.md) and [`binaryen/passes/index.md`](binaryen/passes/index.md) so both catalogs now treat `version_130` as the release-horizon baseline while keeping the live `main` changelog as a drift watch.
+- No repo code or tests changed; this was a wiki/source-hygiene refresh backed by the official GitHub `version_130` release page, the official `main` changelog, and the Chromium refs listing.
 
 ## [2026-06-01] docs | dae-optimizing closeout sync
 
