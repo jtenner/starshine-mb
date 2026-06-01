@@ -602,6 +602,8 @@ fn gen_invalid_ast_strategy_label(
     InvalidDataActiveMemoryIndex => "invalid-data-active-memory-index"
     InvalidElementFuncIndex => "invalid-element-func-index"
     InvalidElementTypedExprType => "invalid-element-typed-expr-type"
+    InvalidElementTableRefTypeMismatch =>
+      "invalid-element-table-ref-type-mismatch"
     InvalidMemoryLimitRange => "invalid-memory-limit-range"
     InvalidTableLimitRange => "invalid-table-limit-range"
     InvalidImportedMemoryLimitRange => "invalid-imported-memory-limit-range"

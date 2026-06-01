@@ -569,6 +569,40 @@ test "gen_invalid_ast_generate supports element-section typed expression type st
 }
 
 ///|
+test "gen_invalid_ast_generate supports element-section table ref-type mismatch strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5ef841UL),
+      GenInvalidAstParams::repro_seed(InvalidElementTableRefTypeMismatch),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected invalid-element-table-ref-type-mismatch base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail("expected invalid-element-table-ref-type-mismatch mutation to fail")
+    Err(err) => {
+      let diagnostic = validation_error_diagnostic(err)
+      assert_true(
+        validation_issue_family(diagnostic.issue) == ElementSectionFamily,
+      )
+      assert_true(
+        validation_error_message(err).contains(
+          "elem.active: elem type does not match table element type",
+        ),
+      )
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports table-section invalid init expression type strategy" {
   let generated = match
     gen_invalid_ast_generate(
