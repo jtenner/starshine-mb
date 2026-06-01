@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1048D GenValid smoke required counters
+
+- Closed `[FUZ]1048D` by promoting the first stable `validate-valid` smoke `summary.json` GenValid feature floors to required coverage-delta counters: `required_imports`, `required_ref_types`, and `required_v128`, alongside existing required module and attempt counters.
+- `bun fuzz coverage-delta` already treats any counter path component beginning with `required` as a required floor; the focused GenValid smoke fixture now proves a required import drop fails while optional GenValid counter drift remains hidden/tolerated by default and timing drift remains visible.
+- Synced the fuzz runner docs. Validation: `moon test src/fuzz` first failed on the missing required smoke counters, then passed after implementation; final validation is recorded in the commit message.
+
 ## [2026-05-31] fuzzing | FUZ1043J invalid module-field shrink integration
 
 - Closed `[FUZ]1043J` by wiring invalid-fuzz inline text and spec-seed shrink reports through a parser-aware inline-module field deletion pass before token deletion or strategy-minimal fallback.

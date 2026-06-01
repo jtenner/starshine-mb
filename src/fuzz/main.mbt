@@ -5681,7 +5681,12 @@ fn format_validate_valid_fuzz_summary_report_json(
     results, "ref_types",
   )
   let v128 = fuzz_validate_valid_summary_feature_counter(results, "v128")
-  "{\"schema\":\"starshine.fuzz-summary-report.v1\",\"suite\":\"validate-valid\",\"profile\":\"\{fuzz_json_escape(profile)}\",\"seed\":\"0x\{fuzz_uint64_to_lower_hex(base_seed.reinterpret_as_uint64())}\",\"summary\":{\"features\":{\"required_modules\":\{modules},\"optional_imports\":\{imports},\"optional_ref_types\":\{ref_types},\"optional_v128\":\{v128}},\"opcodes\":{},\"strategies\":{\"required_validate_valid\":\{total_attempts}},\"statuses\":{\"validate-valid\":\{results.length()}},\"failures\":{\"validation\":0},\"timings\":{\"wall_ms\":\{total_elapsed_ms}},\"artifacts\":{\"runs\":\{results.length()}}}}"
+  let smoke_required_suffix = if profile == "smoke" {
+    ",\"required_imports\":\{imports},\"required_ref_types\":\{ref_types},\"required_v128\":\{v128}"
+  } else {
+    ",\"optional_imports\":\{imports},\"optional_ref_types\":\{ref_types},\"optional_v128\":\{v128}"
+  }
+  "{\"schema\":\"starshine.fuzz-summary-report.v1\",\"suite\":\"validate-valid\",\"profile\":\"\{fuzz_json_escape(profile)}\",\"seed\":\"0x\{fuzz_uint64_to_lower_hex(base_seed.reinterpret_as_uint64())}\",\"summary\":{\"features\":{\"required_modules\":\{modules}\{smoke_required_suffix}},\"opcodes\":{},\"strategies\":{\"required_validate_valid\":\{total_attempts}},\"statuses\":{\"validate-valid\":\{results.length()}},\"failures\":{\"validation\":0},\"timings\":{\"wall_ms\":\{total_elapsed_ms}},\"artifacts\":{\"runs\":\{results.length()}}}}"
 }
 
 ///|

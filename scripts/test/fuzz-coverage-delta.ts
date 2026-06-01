@@ -88,6 +88,43 @@ export function runFuzzCoverageDeltaTest(): void {
   assert(compact.stdout.includes("mismatch: 0 -> 1 (+1)"), `compact failure drift should be visible:\n${compact.stdout}`);
   assert(compact.stdout.includes("match: 2 -> 1 (-1)"), `compact status drift should be visible:\n${compact.stdout}`);
   assert(compact.stdout.includes("wall_ms: 10 -> 12 (+2)"), `compact timing drift should be visible:\n${compact.stdout}`);
+
+  const genValidBefore = path.join(tmpdir, "gen-valid-smoke-before.json");
+  const genValidAfter = path.join(tmpdir, "gen-valid-smoke-after.json");
+  fs.writeFileSync(genValidBefore, JSON.stringify({
+    schema: "starshine.fuzz-summary-report.v1",
+    suite: "validate-valid",
+    profile: "smoke",
+    seed: "0x1048d",
+    summary: {
+      features: { required_modules: 128, required_imports: 4, required_ref_types: 6, required_v128: 3, optional_func_exports: 128 },
+      strategies: { required_validate_valid: 128 },
+      artifacts: { runs: 1 },
+      failures: { validation: 0 },
+      statuses: { "validate-valid": 1 },
+      timings: { wall_ms: 25 }
+    }
+  }));
+  fs.writeFileSync(genValidAfter, JSON.stringify({
+    schema: "starshine.fuzz-summary-report.v1",
+    suite: "validate-valid",
+    profile: "smoke",
+    seed: "0x1048d",
+    summary: {
+      features: { required_modules: 128, required_imports: 3, required_ref_types: 6, required_v128: 3, optional_func_exports: 127, optional_tables: 2 },
+      strategies: { required_validate_valid: 128 },
+      artifacts: { runs: 1 },
+      failures: { validation: 0 },
+      statuses: { "validate-valid": 1 },
+      timings: { wall_ms: 27 }
+    }
+  }));
+  const genValid = run(["fuzz", "coverage-delta", genValidBefore, genValidAfter], repoRoot);
+  assert(genValid.status !== 0, `GenValid required smoke counter drop should fail:\n${genValid.stdout}`);
+  assert(genValid.stdout.includes("required_imports: 4 -> 3 (-1)"), `missing GenValid required drop:\n${genValid.stdout}`);
+  assert(!genValid.stdout.includes("optional_func_exports"), `GenValid optional drift should be tolerated by default:\n${genValid.stdout}`);
+  assert(!genValid.stdout.includes("optional_tables"), `GenValid optional additions should be hidden by default:\n${genValid.stdout}`);
+  assert(genValid.stdout.includes("wall_ms: 25 -> 27 (+2)"), `GenValid timing drift should remain visible:\n${genValid.stdout}`);
 }
 
 if (import.meta.main) runFuzzCoverageDeltaTest();

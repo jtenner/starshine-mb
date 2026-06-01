@@ -616,9 +616,6 @@ p1 next-up / active:
 - [FUZ]1043K (p1, GenValid) - Pass-Fuzz Mismatch Reducer Hook
   - Unit: wire one pass-fuzz / GenValid mismatch persistence path to the shared reducer contract so a reproduced optimizer mismatch can emit original and reduced wasm artifacts plus `reduction.txt` metadata without changing the mismatch oracle.
   - Suggested tests: focused command-harness fixture with a fake mismatch predicate proving reduced bytes/log paths persist and original artifacts remain untouched.
-- [FUZ]1048D (p1, GenValid) - GenValid Required-Counter Floors
-  - Unit: declare the first required `summary.json` counters for a stable GenValid smoke profile and prove `bun fuzz coverage-delta` fails on a dropped required counter while still tolerating optional counter drift.
-  - Suggested tests: compact before/after report fixtures for a required GenValid counter drop and an optional counter addition.
 
 p2 invalid/binary/text tiny slices:
 - [FUZ]1021C1 (p2) - SIMD Relaxed-Laneselect Operand-Context Corruptions
@@ -648,9 +645,6 @@ p1/p2 oracle, reporting, and infrastructure slices:
 - [FUZ]1043K (p1, GenValid) - Pass-Fuzz Mismatch Reducer Hook
   - Unit: wire one pass-fuzz / GenValid mismatch persistence path to the shared reducer contract so a reproduced optimizer mismatch can emit original and reduced wasm artifacts plus `reduction.txt` metadata without changing the mismatch oracle.
   - Parent: [FUZ]1043.
-- [FUZ]1048D (p1, GenValid) - GenValid Required-Counter Floors
-  - Unit: declare the first required `summary.json` counters for a stable GenValid smoke profile and prove coverage-delta rejects required counter drops while tolerating optional drift.
-  - Parent: [FUZ]1048.
 - [FUZ]1050D1 (p2) - Normalized Shape Interestingness Hash
   - Unit: add a report-only normalized/canonical shape hash field for corpus entries without deduplicating or deleting artifacts.
   - Parent: [FUZ]1050.
@@ -822,7 +816,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1048 (p2) - Fuzz Result Trend Reports And Coverage Deltas
   - Goal: compare fuzz coverage and outcomes across commits, seeds, and profiles.
   - Why: broad generator work can accidentally remove surfaces while all tests still pass. Trend reports make coverage regressions visible.
-  - Deliverables: `[FUZ]1048A` closed on 2026-05-31 with the compact `starshine.fuzz-summary-report.v1` parse/format fixture for suite/profile/seed and feature/opcode/strategy/status/failure/timing/artifact counter groups; `[FUZ]1048B` closed on 2026-05-31 by writing `summary.json` for representative `validate-valid --out-dir` runs with required module/attempt counters, optional feature counters, and status/failure/timing/artifact groups; `[FUZ]1048C` closed on 2026-05-31 by writing pass-fuzz `summary.json` reports with required requested/compared case counters, optional generator/GenValid-transform/property/input-effect/runtime counters, status counters, failure-class counters, and failure-artifact counts. The coverage-delta diff tool is complete: `bun fuzz coverage-delta [--optional] <before> <after>` compares report counters, fails on required counter drops, tolerates optional counters by default, and always reports artifact/failure/status/timing drift, including compact-schema `artifacts` / `failures` / `statuses` groups. Next concrete slice: `[FUZ]1048D` declares the first required GenValid smoke-profile counter floors.
+  - Deliverables: `[FUZ]1048A` closed on 2026-05-31 with the compact `starshine.fuzz-summary-report.v1` parse/format fixture for suite/profile/seed and feature/opcode/strategy/status/failure/timing/artifact counter groups; `[FUZ]1048B` closed on 2026-05-31 by writing `summary.json` for representative `validate-valid --out-dir` runs with required module/attempt counters, optional feature counters, and status/failure/timing/artifact groups; `[FUZ]1048C` closed on 2026-05-31 by writing pass-fuzz `summary.json` reports with required requested/compared case counters, optional generator/GenValid-transform/property/input-effect/runtime counters, status counters, failure-class counters, and failure-artifact counts; `[FUZ]1048D` closed on 2026-05-31 by promoting stable validate-valid smoke GenValid feature floors (`required_imports`, `required_ref_types`, `required_v128`) into `summary.json` and adding a focused coverage-delta fixture that fails on a required GenValid drop while tolerating optional drift. The coverage-delta diff tool is complete: `bun fuzz coverage-delta [--optional] <before> <after>` compares report counters, fails on required counter drops, tolerates optional counters by default, and always reports artifact/failure/status/timing drift, including compact-schema `artifacts` / `failures` / `statuses` groups. No active `[FUZ]1048` slice remains.
   - Required APIs: fuzz JSON reports from [FUZ]1030, exact ledger from [FUZ]1013, pass-fuzz result schema, docs/wiki tooling.
   - Invariants: report comparison must tolerate newly added optional counters; required counter drops should fail only when a profile declares that floor.
   - Dependencies: [FUZ]1013 and [FUZ]1030.
