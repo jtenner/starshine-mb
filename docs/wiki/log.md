@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1050B corpus case index roundtrip
+
+- Closed `[FUZ]1050B` by adding `FuzzCorpusCaseIndex` and deterministic `starshine.fuzz-corpus-case-index.v1` format/parse helpers that roundtrip duplicate raw and reduced artifact hashes.
+- `build_fuzz_corpus_case_index(...)` preserves case ids, parsed seeds, profiles, and artifact paths for each raw/reduced hash group without deleting or compressing artifacts, leaving dry-run dedup decisions to `[FUZ]1050C`.
+- Synced the corpus policy and interestingness schema docs. Validation: `moon test src/fuzz` first failed on the missing case-index helper APIs, then passed after implementation; final validation is recorded in the commit message.
+
 ## [2026-05-31] fuzzing | FUZ1050A corpus hash metadata bridge
 
 - Closed `[FUZ]1050A` by extending `starshine.fuzz-corpus-entry.v1` promotion/quarantine metadata with raw-artifact, reduced-artifact, predicate, feature-fact, and initial interestingness-label fields.

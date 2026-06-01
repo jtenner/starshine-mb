@@ -26,7 +26,7 @@ All v1 layers use `fnv1a64-hex` for the local schema contract. The digest algori
 - `predicate_hash`
 - `reduced_artifact_hash`
 
-Keeping fields separate makes the upcoming corpus dedup index reversible: a runner can deduplicate by one layer, by a prefix of layers, or by the full six-tuple while still pointing back to the original seed/profile and reduced artifact.
+Keeping fields separate makes the corpus dedup index reversible: a runner can deduplicate by one layer, by a prefix of layers, or by the full six-tuple while still pointing back to the original seed/profile and reduced artifact.
 
 ## Corpus Metadata Bridge
 
@@ -40,6 +40,8 @@ Keeping fields separate makes the upcoming corpus dedup index reversible: a runn
 
 `build_fuzz_corpus_hash_metadata(...)` hashes raw bytes or text through the same local corpus hash, uses the reduced artifact when present, hashes the replay/failure predicate separately, and sorts feature facts before hashing so equivalent fact sets produce the same metadata. `starshine.fuzz-corpus-entry.v1` entries now persist these fields beside the existing state/source/replay metadata.
 
+`[FUZ]1050B` adds `FuzzCorpusCaseIndex` / `FuzzCorpusCaseIndexEntry` plus `build_fuzz_corpus_case_index(...)`, `format_fuzz_corpus_case_index_json(...)`, and `parse_fuzz_corpus_case_index_json(...)`. The index groups entries by raw and reduced artifact hashes under the compact schema id `starshine.fuzz-corpus-case-index.v1`, preserving duplicate case ids, parsed seeds, profiles, and artifact paths. It is intentionally report-only: it enables later dry-run dedup classification without deleting sole unreduced failures.
+
 ## Current Limits
 
-This slice defines the schema, public in-package data shape, hash metadata helper, and corpus-entry persistence fields. It does not yet persist a corpus index, deduplicate cases, or choose per-suite decoded-shape normalizers; those are follow-up FUZ slices.
+This slice defines the schema, public in-package data shape, hash metadata helper, corpus-entry persistence fields, and reversible case index. It does not yet classify keep/compress/delete decisions or choose per-suite decoded-shape normalizers; those are follow-up FUZ slices.

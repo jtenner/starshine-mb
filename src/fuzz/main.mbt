@@ -105,6 +105,21 @@ pub struct FuzzCorpusReplayAllPlan {
 } derive(Eq, Debug)
 
 ///|
+pub struct FuzzCorpusCaseIndexEntry {
+  hash_kind : String
+  hash : String
+  case_ids : Array[String]
+  seeds : Array[UInt64]
+  profiles : Array[String]
+  artifact_paths : Array[String]
+} derive(Eq, Debug)
+
+///|
+pub struct FuzzCorpusCaseIndex {
+  entries : Array[FuzzCorpusCaseIndexEntry]
+} derive(Eq, Debug)
+
+///|
 pub fn FuzzInterestingnessCaseKey::new(
   raw_hash : String,
   decoded_shape_hash : String,
@@ -282,6 +297,25 @@ pub fn FuzzCorpusReplayCommandMetadata::new(
     classification,
     command,
   }
+}
+
+///|
+pub fn FuzzCorpusCaseIndexEntry::new(
+  hash_kind : String,
+  hash : String,
+  case_ids : Array[String],
+  seeds : Array[UInt64],
+  profiles : Array[String],
+  artifact_paths : Array[String],
+) -> FuzzCorpusCaseIndexEntry {
+  { hash_kind, hash, case_ids, seeds, profiles, artifact_paths }
+}
+
+///|
+pub fn FuzzCorpusCaseIndex::new(
+  entries : Array[FuzzCorpusCaseIndexEntry],
+) -> FuzzCorpusCaseIndex {
+  { entries, }
 }
 
 ///|
@@ -4064,6 +4098,40 @@ fn fuzz_parse_corpus_metadata_uint_field(
 }
 
 ///|
+fn fuzz_parse_corpus_metadata_uint_array_field(
+  json : String,
+  field : String,
+) -> Result[Array[UInt64], String] {
+  let key = "\"\{field}\":["
+  let pos = fuzz_find_text_from(json, key, 0)
+  if pos < 0 {
+    return Err("missing corpus metadata field \{field}")
+  }
+  let end = fuzz_find_text_from(json, "]", pos + key.length())
+  if end < 0 {
+    return Err("unterminated corpus metadata array \{field}")
+  }
+  let out : Array[UInt64] = []
+  let mut cursor = pos + key.length()
+  while cursor < end {
+    match fuzz_parse_uint64_decimal_at(json, cursor) {
+      Some(v) => {
+        out.push(v.0)
+        cursor = v.1
+      }
+      None => return Err("malformed corpus metadata array \{field}")
+    }
+    if cursor < end {
+      if json[cursor] != ',' {
+        return Err("malformed corpus metadata array \{field}")
+      }
+      cursor += 1
+    }
+  }
+  Ok(out)
+}
+
+///|
 pub fn parse_fuzz_corpus_replay_command_metadata_json(
   json : String,
 ) -> Result[FuzzCorpusReplayCommandMetadata, String] {
@@ -4120,6 +4188,243 @@ pub fn parse_fuzz_corpus_replay_command_metadata_json(
       classification, command,
     ),
   )
+}
+
+///|
+fn fuzz_corpus_case_index_seed(entry : FuzzCorpusPromotionMetadata) -> UInt64 {
+  match fuzz_parse_space_delimited_kv_token(entry.generator, "seed") {
+    Some(text) =>
+      match fuzz_parse_uint64_decimal_at(text, 0) {
+        Some(v) => if v.1 == text.length() { v.0 } else { 0UL }
+        None => 0UL
+      }
+    None => 0UL
+  }
+}
+
+///|
+fn fuzz_corpus_case_index_profile(
+  entry : FuzzCorpusPromotionMetadata,
+) -> String {
+  match fuzz_parse_space_delimited_kv_token(entry.generator, "profile") {
+    Some(v) => v
+    None => "unknown"
+  }
+}
+
+///|
+fn fuzz_corpus_case_index_artifact(
+  entry : FuzzCorpusPromotionMetadata,
+  hash_kind : String,
+) -> String {
+  if hash_kind == "reduced" && entry.artifacts.length() > 1 {
+    return entry.artifacts[1]
+  }
+  if entry.artifacts.length() > 0 {
+    entry.artifacts[0]
+  } else {
+    entry.input
+  }
+}
+
+///|
+fn fuzz_corpus_case_index_entry_pos(
+  entries : Array[FuzzCorpusCaseIndexEntry],
+  hash_kind : String,
+  hash : String,
+) -> Int {
+  let mut i = 0
+  while i < entries.length() {
+    if entries[i].hash_kind == hash_kind && entries[i].hash == hash {
+      return i
+    }
+    i += 1
+  }
+  -1
+}
+
+///|
+fn fuzz_corpus_case_index_add(
+  entries : Array[FuzzCorpusCaseIndexEntry],
+  entry : FuzzCorpusPromotionMetadata,
+  hash_kind : String,
+  hash : String,
+) -> Unit {
+  if hash == "" {
+    return
+  }
+  let seed = fuzz_corpus_case_index_seed(entry)
+  let profile = fuzz_corpus_case_index_profile(entry)
+  let artifact = fuzz_corpus_case_index_artifact(entry, hash_kind)
+  let pos = fuzz_corpus_case_index_entry_pos(entries, hash_kind, hash)
+  if pos >= 0 {
+    entries[pos].case_ids.push(entry.id)
+    entries[pos].seeds.push(seed)
+    entries[pos].profiles.push(profile)
+    entries[pos].artifact_paths.push(artifact)
+  } else {
+    entries.push(
+      FuzzCorpusCaseIndexEntry::new(
+        hash_kind,
+        hash,
+        [entry.id],
+        [seed],
+        [profile],
+        [artifact],
+      ),
+    )
+  }
+}
+
+///|
+pub fn build_fuzz_corpus_case_index(
+  corpus_entries : Array[FuzzCorpusPromotionMetadata],
+) -> FuzzCorpusCaseIndex {
+  let entries : Array[FuzzCorpusCaseIndexEntry] = []
+  for entry in corpus_entries {
+    fuzz_corpus_case_index_add(entries, entry, "raw", entry.raw_artifact_hash)
+    fuzz_corpus_case_index_add(
+      entries,
+      entry,
+      "reduced",
+      entry.reduced_artifact_hash,
+    )
+  }
+  FuzzCorpusCaseIndex::new(entries)
+}
+
+///|
+fn format_fuzz_uint64_array_json(items : Array[UInt64]) -> String {
+  let out = StringBuilder::new()
+  out.write_char('[')
+  let mut i = 0
+  while i < items.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    out.write_string("\{items[i]}")
+    i += 1
+  }
+  out.write_char(']')
+  out.to_string()
+}
+
+///|
+pub fn format_fuzz_corpus_case_index_json(
+  index : FuzzCorpusCaseIndex,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "{\"schema\":\"starshine.fuzz-corpus-case-index.v1\",\"entries\":[",
+  )
+  let mut i = 0
+  while i < index.entries.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    let entry = index.entries[i]
+    out.write_string("{\"hash_kind\":\"")
+    out.write_string(fuzz_json_escape(entry.hash_kind))
+    out.write_string("\",\"hash\":\"")
+    out.write_string(fuzz_json_escape(entry.hash))
+    out.write_string("\",\"case_ids\":")
+    out.write_string(format_fuzz_string_array_json(entry.case_ids))
+    out.write_string(",\"seeds\":")
+    out.write_string(format_fuzz_uint64_array_json(entry.seeds))
+    out.write_string(",\"profiles\":")
+    out.write_string(format_fuzz_string_array_json(entry.profiles))
+    out.write_string(",\"artifact_paths\":")
+    out.write_string(format_fuzz_string_array_json(entry.artifact_paths))
+    out.write_char('}')
+    i += 1
+  }
+  out.write_string("]}")
+  out.to_string()
+}
+
+///|
+fn parse_fuzz_corpus_case_index_entry_json(
+  json : String,
+) -> Result[FuzzCorpusCaseIndexEntry, String] {
+  let hash_kind = match
+    fuzz_parse_corpus_metadata_string_field(json, "hash_kind") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let hash = match fuzz_parse_corpus_metadata_string_field(json, "hash") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let case_ids = match
+    fuzz_parse_corpus_metadata_string_array_field(json, "case_ids") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let seeds = match fuzz_parse_corpus_metadata_uint_array_field(json, "seeds") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let profiles = match
+    fuzz_parse_corpus_metadata_string_array_field(json, "profiles") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let artifact_paths = match
+    fuzz_parse_corpus_metadata_string_array_field(json, "artifact_paths") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  Ok(
+    FuzzCorpusCaseIndexEntry::new(
+      hash_kind, hash, case_ids, seeds, profiles, artifact_paths,
+    ),
+  )
+}
+
+///|
+pub fn parse_fuzz_corpus_case_index_json(
+  index_json : String,
+) -> Result[FuzzCorpusCaseIndex, String] {
+  let schema = match
+    fuzz_parse_corpus_metadata_string_field(index_json, "schema") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  if schema != "starshine.fuzz-corpus-case-index.v1" {
+    return Err("unsupported corpus case-index schema \{schema}")
+  }
+  let entries_key = "\"entries\":["
+  let entries_start = fuzz_find_text_from(index_json, entries_key, 0)
+  if entries_start < 0 {
+    return Err("missing corpus case-index entries array")
+  }
+  let body_start = entries_start + entries_key.length()
+  let entries_end = fuzz_find_text_last_from(index_json, "]", body_start)
+  if entries_end < 0 {
+    return Err("unterminated corpus case-index entries array")
+  }
+  let entries : Array[FuzzCorpusCaseIndexEntry] = []
+  let mut pos = fuzz_skip_manifest_ws_and_commas(
+    index_json, body_start, entries_end,
+  )
+  while pos < entries_end {
+    if index_json[pos] != '{' {
+      return Err("malformed corpus case-index entry")
+    }
+    match fuzz_find_json_object_end(index_json, pos, entries_end) {
+      Some(end_pos) => {
+        let entry_json = index_json.sub(start=pos, end=end_pos).to_owned()
+        match parse_fuzz_corpus_case_index_entry_json(entry_json) {
+          Ok(entry) => entries.push(entry)
+          Err(e) => return Err(e)
+        }
+        pos = end_pos
+      }
+      None => return Err("malformed corpus case-index entry")
+    }
+    pos = fuzz_skip_manifest_ws_and_commas(index_json, pos, entries_end)
+  }
+  Ok(FuzzCorpusCaseIndex::new(entries))
 }
 
 ///|

@@ -617,7 +617,6 @@ p1 next-up / active:
 p2 invalid/binary/text tiny slices:
 
 p2 oracle/reporting/infrastructure tiny slices:
-- `[FUZ]1050B` - Case index roundtrip with duplicate raw/reduced hashes.
 - `[FUZ]1050C` - Dry-run dedup classifier that never deletes sole unreduced failures.
 
 
@@ -626,8 +625,6 @@ p2 oracle/reporting/infrastructure tiny slices:
 Use these slice ids when selecting or reporting future FUZ work. Parent tasks below keep the fuller goals, invariants, and historical evidence; this index names the remaining units so agents do not have to infer the next slice from long status paragraphs.
 
 p1/p2 oracle, reporting, and infrastructure slices:
-- [FUZ]1050B (p2) - Case Index Roundtrip
-  - Unit: add an index mapping hashes to source seeds/profiles/artifact paths and roundtrip duplicate raw/reduced cases without deleting anything.
 - [FUZ]1050C (p2) - Dry-Run Dedup Classifier
   - Unit: classify duplicate/compress/keep decisions from the case index while proving the only artifact for an unreduced failure is never deleted; report decisions only.
 - [FUZ]1052B (p2) - Export Invocation Result Matrix
@@ -804,7 +801,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1050 (p2) - Corpus Deduplication, Interestingness Hashes, And Case Index
   - Goal: prevent fuzz artifact directories and promoted corpora from filling with duplicate or equivalent cases.
   - Why: wide generation will produce many modules that are byte-distinct but structurally or semantically redundant. Dedup keeps review and CI costs manageable.
-  - Deliverables: `[FUZ]1050A` closed on 2026-05-31 with corpus-entry raw/reduced artifact, predicate, feature-fact, and interestingness-label metadata plus deterministic hash helpers; `[FUZ]1050B` adds a case-index roundtrip over hashes, seeds, profiles, and artifact paths; `[FUZ]1050C` adds a dry-run dedup classifier that reports duplicate/compress/keep decisions without deleting anything. Later slices can add decoded-shape or normalized-canonical hashes once the metadata/index contract is stable.
+  - Deliverables: `[FUZ]1050A` closed on 2026-05-31 with corpus-entry raw/reduced artifact, predicate, feature-fact, and interestingness-label metadata plus deterministic hash helpers; `[FUZ]1050B` closed on 2026-05-31 with a reversible case-index roundtrip over raw/reduced hashes, case ids, seeds, profiles, and artifact paths; `[FUZ]1050C` adds a dry-run dedup classifier that reports duplicate/compress/keep decisions without deleting anything. Later slices can add decoded-shape or normalized-canonical hashes once the metadata/index contract is stable.
   - Required APIs: feature ledger, normalizers, output directory manifests, corpus workflow.
   - Invariants: never delete the only artifact for an unreduced failure; dedup decisions must be recorded and reversible for debugging.
   - Dependencies: [FUZ]1031, [FUZ]1042, and [FUZ]1047.

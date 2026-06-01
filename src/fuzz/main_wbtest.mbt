@@ -54,6 +54,73 @@ test "build_fuzz_corpus_hash_metadata derives deterministic artifact predicate a
 }
 
 ///|
+test "fuzz corpus case index roundtrips duplicate raw and reduced hashes" {
+  let first = FuzzCorpusPromotionMetadata::new(
+    "case-a",
+    "pass-mismatch",
+    "pass-fuzz seed 1",
+    "cases/a/raw.wasm",
+    "2026-05-31",
+    "suite=pass-fuzz profile=gen-valid seed=1 seed_index=0",
+    ["gc"],
+    "must reproduce mismatch",
+    "semantic-mismatch",
+    "bun scripts/pass-fuzz-compare.ts --seed 1",
+    ["cases/a/raw.wasm", "cases/a/reduced.wasm"],
+    "[FUZ]1050B",
+    "first duplicate fixture",
+    raw_artifact_hash="fnv1a64-raw-shared",
+    reduced_artifact_hash="fnv1a64-reduced-shared",
+    predicate_hash="fnv1a64-predicate-a",
+    feature_fact_hash="fnv1a64-features-gc",
+    interestingness_label="pass-mismatch",
+  )
+  let second = FuzzCorpusPromotionMetadata::new(
+    "case-b",
+    "quarantine",
+    "pass-fuzz seed 2",
+    "cases/b/raw.wasm",
+    "2026-05-31",
+    "suite=pass-fuzz profile=gen-valid seed=2 seed_index=1",
+    ["gc"],
+    "may reproduce mismatch",
+    "unknown/risky",
+    "bun scripts/pass-fuzz-compare.ts --seed 2",
+    ["cases/b/raw.wasm", "cases/b/reduced.wasm"],
+    "[FUZ]1050B",
+    "second duplicate fixture",
+    raw_artifact_hash="fnv1a64-raw-shared",
+    reduced_artifact_hash="fnv1a64-reduced-shared",
+    predicate_hash="fnv1a64-predicate-b",
+    feature_fact_hash="fnv1a64-features-gc",
+    interestingness_label="pass-mismatch",
+  )
+  let index = build_fuzz_corpus_case_index([first, second])
+  @debug.assert_eq(index.entries.length(), 2)
+  @debug.assert_eq(index.entries[0].hash_kind, "raw")
+  @debug.assert_eq(index.entries[0].case_ids, ["case-a", "case-b"])
+  @debug.assert_eq(index.entries[0].seeds, [1UL, 2UL])
+  @debug.assert_eq(index.entries[0].profiles, ["gen-valid", "gen-valid"])
+  @debug.assert_eq(index.entries[0].artifact_paths, [
+    "cases/a/raw.wasm", "cases/b/raw.wasm",
+  ])
+  @debug.assert_eq(index.entries[1].hash_kind, "reduced")
+  @debug.assert_eq(index.entries[1].artifact_paths, [
+    "cases/a/reduced.wasm", "cases/b/reduced.wasm",
+  ])
+  let json = format_fuzz_corpus_case_index_json(index)
+  assert_true(
+    json.contains("\"schema\":\"starshine.fuzz-corpus-case-index.v1\""),
+  )
+  assert_true(json.contains("\"hash\":\"fnv1a64-raw-shared\""))
+  let parsed = match parse_fuzz_corpus_case_index_json(json) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(parsed, index)
+}
+
+///|
 fn bytes_to_ascii(bytes : Bytes) -> String {
   let out = StringBuilder::new()
   for b in bytes {
