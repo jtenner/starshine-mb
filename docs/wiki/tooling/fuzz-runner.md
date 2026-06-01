@@ -11,6 +11,8 @@ sources:
   - ../../../scripts/lib/fuzz-task.ts
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../scripts/lib/fuzz-coverage-delta-task.ts
+  - ../../../scripts/lib/fuzz-summary-counters.ts
+  - ../../../scripts/lib/fuzz-summary-counters.test.ts
   - ../../../scripts/test/task-family-commands.ts
   - ../../../scripts/test/fuzz-coverage-delta.ts
 related:
@@ -168,10 +170,14 @@ Use compare-pass for optimizer parity signoff or failure-replay workflows, not b
 
 `bun fuzz coverage-delta [--optional] <before-report.json> <after-report.json>` compares numeric counters under a persisted summary report's `summary` object. Counter paths containing a component that starts with `required` are treated as required coverage: decreases are printed and make the command exit nonzero. Optional counters are tolerated by default so new or removed optional surfaces do not break CI noise floors; pass `--optional` / `--include-optional` to print optional changes as well. Artifact counts, failure classes, pass statuses, and timings are always shown when changed so run-shape drift remains visible even when the changed counter is not a required coverage floor.
 
-A minimal coverage-delta input shape can be kept small in docs or tests:
+A minimal coverage-delta-compatible fuzz summary report can be kept small in docs or tests. The reusable schema helper in [`fuzz-summary-counters.ts`](../../../scripts/lib/fuzz-summary-counters.ts) normalizes this `starshine.fuzz-summary-report.v1` shape, preserves suite/profile/seed identity, filters each counter group to finite numbers, and roundtrips through deterministic JSON formatting:
 
 ```json
 {
+  "schema": "starshine.fuzz-summary-report.v1",
+  "suite": "validate-invalid-ast",
+  "profile": "smoke",
+  "seed": "0x1048a",
   "summary": {
     "features": {
       "required_gc": 3,
@@ -189,7 +195,7 @@ A minimal coverage-delta input shape can be kept small in docs or tests:
     "failures": {
       "validation": 0
     },
-    "passes": {
+    "statuses": {
       "validate-invalid-ast": 1
     },
     "timings": {
@@ -199,7 +205,7 @@ A minimal coverage-delta input shape can be kept small in docs or tests:
 }
 ```
 
-In that example, decreasing `summary.features.required_gc`, `summary.opcodes.required_ref_func`, or `summary.strategies.required_invalid_ast` is a required-counter regression and fails the command. Decreasing `summary.features.optional_strings` is hidden and tolerated by default, then printed without failing when `--optional` is supplied. Non-coverage run-shape counters such as artifacts, failures, passes, and timings are reported when they drift so reviewers can distinguish coverage loss from ordinary run-shape changes.
+In that example, decreasing `summary.features.required_gc`, `summary.opcodes.required_ref_func`, or `summary.strategies.required_invalid_ast` is a required-counter regression and fails the command. Decreasing `summary.features.optional_strings` is hidden and tolerated by default, then printed without failing when `--optional` is supplied. Non-coverage run-shape counters such as artifacts, failures, statuses, and timings are reported when they drift so reviewers can distinguish coverage loss from ordinary run-shape changes.
 
 ## Maintenance Guidance
 
@@ -216,5 +222,5 @@ In that example, decreasing `summary.features.required_gc`, `summary.opcodes.req
 - Historical extraction note: [`../raw/research/0003-2026-03-12-fuzz-migration.md`](../raw/research/0003-2026-03-12-fuzz-migration.md)
 - MoonBit runner and command tests: [`../../../src/fuzz/main.mbt`](../../../src/fuzz/main.mbt), [`../../../src/fuzz/main_wbtest.mbt`](../../../src/fuzz/main_wbtest.mbt)
 - Invalid repro dispatcher: [`../../../src/fuzz/invalid_repro.mbt`](../../../src/fuzz/invalid_repro.mbt)
-- Bun wrapper and pass compare task: [`../../../scripts/lib/fuzz-task.ts`](../../../scripts/lib/fuzz-task.ts), [`../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts)
-- Wrapper command tests: [`../../../scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts), [`../../../scripts/test/pass-fuzz-compare-command.ts`](../../../scripts/test/pass-fuzz-compare-command.ts)
+- Bun wrapper, summary counters, and pass compare task: [`../../../scripts/lib/fuzz-task.ts`](../../../scripts/lib/fuzz-task.ts), [`../../../scripts/lib/fuzz-summary-counters.ts`](../../../scripts/lib/fuzz-summary-counters.ts), [`../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts)
+- Wrapper command and summary tests: [`../../../scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts), [`../../../scripts/lib/fuzz-summary-counters.test.ts`](../../../scripts/lib/fuzz-summary-counters.test.ts), [`../../../scripts/test/pass-fuzz-compare-command.ts`](../../../scripts/test/pass-fuzz-compare-command.ts)

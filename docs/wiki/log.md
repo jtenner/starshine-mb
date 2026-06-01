@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1048A fuzz summary report schema fixture
+
+- Closed the refreshed `[FUZ]1048A` tiny slice by adding `starshine.fuzz-summary-report.v1` parse/format helpers in `scripts/lib/fuzz-summary-counters.ts`.
+- The schema records suite, profile, seed, and finite numeric feature/opcode/strategy/status/failure/timing/artifact counter groups so future ordinary-suite and pass-fuzz writers have one compact coverage-delta-compatible fixture shape.
+- Validation: `bun test scripts/lib/fuzz-summary-counters.test.ts` first failed on the missing parse/format exports, then passed after implementation; final validation is recorded in the commit message.
+
 ## [2026-05-31] fuzzing | FUZ1043I parser-aware module-field reducer adapter
 
 - Closed `[FUZ]1043I` by adding `reduce_fuzz_module_fields_by_deletion(...)`, a Moon command-harness adapter over the shared sequence reducer for parsed WAST `ModuleField` arrays.
