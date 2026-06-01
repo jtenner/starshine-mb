@@ -819,7 +819,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1053 (p2) - Resource-Limit, Timeout, And Nontermination Hardening
   - Goal: make every fuzz harness classify timeouts and resource exhaustion safely.
   - Why: deep generated modules, malformed binaries, parser corner cases, and external tools can hang or consume excessive memory. Fuzzing should find and report those cases without wedging CI.
-  - Deliverables: add per-case time budgets, total run budgets, memory/byte-size limits where available, cancellation paths, timeout classifications, and minimized timeout repro artifacts. Next concrete slice: `[FUZ]1053C1` adds total-run budget metadata and classification separately from per-case timeout.
+  - Deliverables remaining: completed for tracked tiny slices. `[FUZ]1053A1` through `[FUZ]1053A3` closed ordinary fuzz, pass-fuzz, and differential adapter per-case timeout classification; `[FUZ]1053B1` and `[FUZ]1053B2` closed timeout/resource repro metadata and partial artifact handling; `[FUZ]1053C1` closed total-run budget metadata and `run-budget-timeout` summary classification separately from per-case timeout.
   - Required APIs: fuzz runner, pass-fuzz task runner, external adapter subprocess wrappers, output report schema.
   - Invariants: timeout must be reported separately from semantic mismatch, validation failure, or crash; default smoke budgets must be conservative.
   - Dependencies: [FUZ]1030 and [FUZ]1031.
