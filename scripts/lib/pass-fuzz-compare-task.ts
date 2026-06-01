@@ -14,7 +14,7 @@ import {
 } from "./task-runtime";
 import { type FuzzSummaryReport, formatFuzzSummaryReport, normalizeFuzzSummaryReport } from "./fuzz-summary-counters";
 import { type EffectTrapFacts, scanEffectTrapFactsFromWasmBytes } from "./effect-trap-scanner";
-import { reduceBinaryByByteSlicesWithReport, type ReductionStep } from "./fuzz-reducers";
+import { formatReductionReportLog, reduceBinaryByByteSlicesWithReport, type ReductionStep } from "./fuzz-reducers";
 
 type GeneratorMode = "both" | "wasm-smith" | "gen-valid";
 type GeneratorKind = "wasm-smith" | "gen-valid";
@@ -1507,16 +1507,15 @@ function safeArtifactNameSegment(value: string): string {
 }
 
 export function passFuzzReductionLogTextForTest(status: CaseStatus, reductionArtifact: MismatchReductionArtifact): string {
-  return [
-    `status=${status}`,
-    `original_size=${reductionArtifact.originalSize}`,
-    `final_size=${reductionArtifact.finalSize}`,
-    `predicate_evaluations=${reductionArtifact.predicateEvaluations}`,
-    "reduced_wasm_path=reduced-input.wasm",
-    ...reductionArtifact.steps.map((step) =>
-      `step=${step.kind}|start=${step.start}|len=${step.length}|before=${step.beforeSize}|after=${step.afterSize}`
-    ),
-  ].join("\n") + "\n";
+  return formatReductionReportLog({
+    status,
+    artifactPath: "reduced-input.wasm",
+    artifactPathKey: "reduced_wasm_path",
+    originalSize: reductionArtifact.originalSize,
+    finalSize: reductionArtifact.finalSize,
+    predicateEvaluations: reductionArtifact.predicateEvaluations,
+    steps: reductionArtifact.steps,
+  });
 }
 
 function persistFailureArtifacts(

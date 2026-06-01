@@ -16,6 +16,35 @@ export type ReductionReport<T> = {
   steps: ReductionStep[];
 };
 
+export type ReductionReportLogOptions = {
+  status?: string;
+  artifactPath?: string;
+  artifactPathKey?: string;
+  originalSize: number;
+  finalSize: number;
+  predicateEvaluations: number;
+  steps: readonly ReductionStep[];
+};
+
+export function formatReductionReportLog(options: ReductionReportLogOptions): string {
+  const lines: string[] = [];
+  if (options.status !== undefined) {
+    lines.push(`status=${options.status}`);
+  }
+  lines.push(
+    `original_size=${options.originalSize}`,
+    `final_size=${options.finalSize}`,
+    `predicate_evaluations=${options.predicateEvaluations}`,
+  );
+  if (options.artifactPath !== undefined) {
+    lines.push(`${options.artifactPathKey ?? "reduced_artifact_path"}=${options.artifactPath}`);
+  }
+  for (const step of options.steps) {
+    lines.push(`step=${step.kind}|start=${step.start}|len=${step.length}|before=${step.beforeSize}|after=${step.afterSize}`);
+  }
+  return lines.join("\n") + "\n";
+}
+
 export function reduceModuleFieldsByDeletion<T>(fields: readonly T[], predicate: ReductionPredicate<readonly T[]>): T[] {
   return reduceModuleFieldsByDeletionWithReport(fields, predicate).result;
 }

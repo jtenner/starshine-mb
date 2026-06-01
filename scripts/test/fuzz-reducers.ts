@@ -1,6 +1,7 @@
 import { strict as assert } from "node:assert";
 
 import {
+  formatReductionReportLog,
   reduceBinaryByByteSlices,
   reduceBinaryByByteSlicesWithReport,
   reduceModuleFieldsByDeletion,
@@ -87,6 +88,25 @@ export function runFuzzReducersTest(): void {
 
   const unchangedLines = reduceTextByLineDeletion("alpha\nbeta", () => false);
   assert.equal(unchangedLines, "alpha\nbeta", "line reducer must preserve original when no deletion preserves predicate");
+
+  const reductionLog = formatReductionReportLog({
+    status: "mismatch",
+    artifactPath: "reduced-input.wasm",
+    originalSize: reducedBytesReport.originalSize,
+    finalSize: reducedBytesReport.finalSize,
+    predicateEvaluations: reducedBytesReport.predicateEvaluations,
+    steps: reducedBytesReport.steps,
+  });
+  assert.match(reductionLog, /^status=mismatch\n/, "reduction log should preserve caller status context");
+  assert.match(reductionLog, /\noriginal_size=8\n/, "reduction log should record original size");
+  assert.match(reductionLog, /\nfinal_size=2\n/, "reduction log should record final size");
+  assert.match(
+    reductionLog,
+    /\nreduced_artifact_path=reduced-input\.wasm\n/,
+    "reduction log should record caller artifact path",
+  );
+  assert.match(reductionLog, /\nstep=delete-byte-slice\|start=/, "reduction log should record reduction steps");
+  assert.ok(reductionLog.endsWith("\n"), "reduction log should end with a newline for stable artifact diffs");
 }
 
 if (import.meta.main) {
