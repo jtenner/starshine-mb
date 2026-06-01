@@ -616,16 +616,6 @@ p1 next-up / active:
 - None currently tracked. Prefer adding a new tiny GenValid/metamorphic slice before broad p2 infrastructure work if a release need appears.
 
 p2 invalid/binary/text tiny slices:
-- [FUZ]1055C1 (p2, IN PROGRESS - NEXT SLICE 1055C1d) - Duplicate Module/Register WAST Fixture
-  - Unit: add a deterministic multi-module WAST fixture for duplicate module name or register-name behavior and classify it separately from ordinary validation/unlinkable failures.
-  - Current state: implementation and focused tests are already present in `src/fuzz/main.mbt` and `src/fuzz/main_wbtest.mbt`; docs are already updated. The local Moon core blocker is repaired for this workspace/toolchain as of 2026-06-01 09:54 EDT by replacing the broken `lib/core` state with the matching `core-latest` bundle for `moon 0.1.20260522`, rebuilding the core bundles, and disambiguating `FuzzReductionFailureKind::{ParseFailure,PropertyFailure,ValidationFailure}` after the restored toolchain exposed the constructor-name collision with `MultiModuleWastClassification::ParseFailure`. Validation evidence: `moon info` now resolves `moonbitlang/core` and finishes with existing deprecation warnings only.
-  - Remaining work is sliced as:
-    - [x] [FUZ]1055C1a (p2) - Repair or replace the local Moon core/standard-library install so dependency graph resolution succeeds. Acceptance met: `moon info` no longer fails with `Cannot inject the standard library moonbitlang/core` and now completes successfully after the enum-constructor disambiguation.
-    - [x] [FUZ]1055C1b (p2) - Validate the already-landed duplicate module/register fixture implementation. Acceptance met: `moon test src/fuzz` passed on 2026-06-01 with `621` tests passed, including the focused duplicate module/register WAST classifier fixture after formatting the failure messages through `@debug.to_string` for `MultiModuleWastClassification`.
-    - [x] [FUZ]1055C1c (p2) - Run commit-ready repository validation. Acceptance met on 2026-06-01: `moon info` passed with existing deprecation warnings; `moon fmt` completed but produced only unrelated `moon.mod` migration / broad formatting diffs that were reverted; full `moon test` passed with `4569` tests passed and `0` failed.
-    - [FUZ]1055C1d (p2, IN PROGRESS NEXT) - Close the task. Acceptance: remove `[FUZ]1055C1` from the active backlog, review the diff, and commit the fixture/docs/validation evidence with a detailed message.
-  - Next runnable step: run `[FUZ]1055C1d` closeout by removing `[FUZ]1055C1` from the active backlog and committing the completed fixture/docs/validation evidence.
-
 p2 oracle/reporting/infrastructure tiny slices:
 
 
@@ -643,13 +633,6 @@ p1/p2 oracle, reporting, and infrastructure slices:
   - Unit: completed for tracked tiny slices. `[FUZ]1053B2` closed with timeout/resource repro persistence tolerating partial artifact write failures and recording `partial_artifact_write_failure` manifest entries. `[FUZ]1053B1` closed with invalid repro metadata carrying timeout stage, diagnostic location, and `timeout_budget_ms` through persist/parse.
 
 p2 invalid/binary/text slices:
-- [FUZ]1055C1 (p2) - Duplicate Module/Register WAST Fixture
-  - Remaining concrete slices:
-    - [x] [FUZ]1055C1a (p2) - Repaired local Moon core injection so `moon info` resolves `moonbitlang/core` and completes.
-    - [x] [FUZ]1055C1b (p2) - Reran focused duplicate module/register fixture validation with `moon test src/fuzz`; passed with `621` tests.
-    - [x] [FUZ]1055C1c (p2) - Ran commit-ready validation: `moon info`, `moon fmt`, and full `moon test`; reverted unrelated migration-only formatting diffs; full `moon test` passed with `4569` tests.
-    - [FUZ]1055C1d (p2, IN PROGRESS NEXT) - Remove the active task and commit the completed fixture/docs/validation evidence.
-  - Parent: [FUZ]1055.
 - [FUZ]1020A (p2) - Remaining AST Type/Subtyping Invalid Strategies
   - Remaining concrete slices: none for the current tracked 1020A board. Earlier `[FUZ]1020A1`/`A2` covered representative subtype variance and descriptor-cycle basics; `[FUZ]1020A3` covered focused function parameter/result variance; `[FUZ]1020A4` covered descriptor-edge missing heap-type refs; `[FUZ]1020A5` covered recursive-group supertype-cycle rejection.
 - [FUZ]1020B (p2) - Remaining AST Section/Index Invalid Strategies
