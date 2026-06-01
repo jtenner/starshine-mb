@@ -1380,6 +1380,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidTagNameSectionIndex
   DataCountMismatchTooSmall
   DataCountMismatchTooLarge
+  DataCountActivePassiveMismatch
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidAstStrategySpec {

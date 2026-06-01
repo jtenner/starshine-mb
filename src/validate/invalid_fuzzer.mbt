@@ -319,6 +319,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidTagNameSectionIndex
   DataCountMismatchTooSmall
   DataCountMismatchTooLarge
+  DataCountActivePassiveMismatch
 } derive(Eq, Debug)
 
 ///|
@@ -2167,6 +2168,14 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       seed_prerequisites=[RequiresMemoryData],
     ),
     validate_invalid_ast_strategy_spec(
+      DataCountActivePassiveMismatch,
+      "datacount-active-passive-mismatch",
+      "datacount section mismatches mixed active/passive data segment count",
+      DataCountSectionFamily,
+      required_in_smoke=false,
+      seed_prerequisites=[RequiresMemoryData],
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidSubtypeMutableFieldVariance,
       "invalid-subtype-mutable-field-variance",
       "mutable subtype field type variance",
@@ -2475,6 +2484,7 @@ fn validate_invalid_ast_strategy_index(
     InvalidTagNameSectionIndex => 59
     DataCountMismatchTooSmall => 60
     DataCountMismatchTooLarge => 61
+    DataCountActivePassiveMismatch => 256
   }
 }
 
@@ -2907,6 +2917,23 @@ fn validate_invalid_ast_append_passive_data(mod : Module) -> (Module, DataIdx) {
   let idx = DataIdx::new(datas.length().reinterpret_as_uint())
   datas.push(Data::new(DataMode::passive(), b"x"))
   (mod.with_data_sec(DataSec::new(datas)), idx)
+}
+
+///|
+fn validate_invalid_ast_append_active_data(mod : Module) -> (Module, DataIdx) {
+  let with_memory = validate_invalid_ast_ensure_memory(mod)
+  let datas = validate_invalid_ast_data_entries(with_memory)
+  let idx = DataIdx::new(datas.length().reinterpret_as_uint())
+  datas.push(
+    Data::new(
+      DataMode::active(
+        MemIdx::new(0U),
+        Expr::new([Instruction::i32_const(I32(0))]),
+      ),
+      b"x",
+    ),
+  )
+  (with_memory.with_data_sec(DataSec::new(datas)), idx)
 }
 
 ///|
@@ -9097,6 +9124,28 @@ fn validate_invalid_ast_mutate_datacount_mismatch_too_large(
 }
 
 ///|
+fn validate_invalid_ast_mutate_datacount_active_passive_mismatch(
+  _mod : Module,
+) -> ValidateInvalidAstMutation {
+  let base = Module::new().with_mem_sec(
+    MemSec::new([MemType::new(Limits::i32(1U, Some(1U)))]),
+  )
+  let (with_active, _) = validate_invalid_ast_append_active_data(base)
+  let (with_passive, _) = validate_invalid_ast_append_passive_data(with_active)
+  let actual = validate_invalid_ast_data_entries(with_passive)
+    .length()
+    .reinterpret_as_uint()
+  {
+    strategy: DataCountActivePassiveMismatch,
+    applicable: true,
+    expected_family: DataCountSectionFamily,
+    mutated_module: with_passive.with_data_cnt_sec(
+      DataCntSec::new(U32(actual - 1U)),
+    ),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_func_type_index(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -10131,6 +10180,8 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_datacount_mismatch_too_small(base)
       DataCountMismatchTooLarge =>
         validate_invalid_ast_mutate_datacount_mismatch_too_large(base)
+      DataCountActivePassiveMismatch =>
+        validate_invalid_ast_mutate_datacount_active_passive_mismatch(base)
       InvalidStartSignature =>
         validate_invalid_ast_mutate_invalid_start_signature(base)
       StartFuncOutOfRange =>
@@ -11484,8 +11535,9 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
     "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
     "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
-    "datacount-mismatch-too-small", "datacount-mismatch-too-large", "invalid-subtype-mutable-field-variance",
-    "invalid-function-body-br-on-null-payload-mismatch", "invalid-function-body-br-on-non-null-payload-mismatch",
+    "datacount-mismatch-too-small", "datacount-mismatch-too-large", "datacount-active-passive-mismatch",
+    "invalid-subtype-mutable-field-variance", "invalid-function-body-br-on-null-payload-mismatch",
+    "invalid-function-body-br-on-non-null-payload-mismatch",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   @debug.assert_eq(smoke_required.length(), 24)
@@ -19971,6 +20023,43 @@ test "datacount mismatch too-large strategy rejects with DataCountSection family
     Ok(_) => ()
     Err(msg) => fail(msg)
   }
+}
+
+///|
+test "datacount active/passive mismatch strategy rejects with DataCountSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      DataCountActivePassiveMismatch,
+      0x1020d5UL,
+      DataCountSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "datacount active/passive mismatch strategy builds mixed data modes" {
+  let base = invalid_ast_test_base_module(0x1020d5UL)
+  let mutation = match
+    apply_validate_invalid_ast_strategy(DataCountActivePassiveMismatch, base) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let datas = validate_invalid_ast_data_entries(mutation.mutated_module)
+  let mut active_count = 0
+  let mut passive_count = 0
+  for data in datas {
+    match data {
+      Data(mode, _) =>
+        match mode {
+          Active(_, _) => active_count += 1
+          Passive => passive_count += 1
+        }
+    }
+  }
+  assert_true(active_count > 0)
+  assert_true(passive_count > 0)
 }
 
 ///|

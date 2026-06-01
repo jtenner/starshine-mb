@@ -579,6 +579,7 @@ fn gen_invalid_ast_strategy_label(
     InvalidTagNameSectionIndex => "invalid-tag-name-section-index"
     DataCountMismatchTooSmall => "datacount-mismatch-too-small"
     DataCountMismatchTooLarge => "datacount-mismatch-too-large"
+    DataCountActivePassiveMismatch => "datacount-active-passive-mismatch"
     InvalidFuncTypeIndex => "invalid-func-type-index"
     FuncSecWithoutCodeSec => "funcsec-without-codesec"
     CodeSecLengthMismatchTooSmall => "codesec-length-mismatch-too-small"
