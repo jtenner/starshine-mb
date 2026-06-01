@@ -43,6 +43,7 @@ using @fs {create_dir, list_files_recursive, read_file_sync, write_file_bytes}
 
 ///|
 using @wast {
+  type ModuleField,
   type WastCommand,
   type WastStaticAssertionResult,
   type WastStaticAssertionStage,

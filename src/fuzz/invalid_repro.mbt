@@ -2057,12 +2057,240 @@ fn reduce_fuzz_text_tokens_by_deletion(
 }
 
 ///|
+fn invalid_fuzz_without_module_field_range(
+  fields : Array[ModuleField],
+  start : Int,
+  len : Int,
+) -> Array[ModuleField] {
+  let out : Array[ModuleField] = []
+  let end = start + len
+  for i = 0; i < fields.length(); i = i + 1 {
+    if i < start || i >= end {
+      out.push(fields[i])
+    }
+  }
+  out
+}
+
+///|
+fn invalid_fuzz_clone_module_fields(
+  fields : Array[ModuleField],
+) -> Array[ModuleField] {
+  invalid_fuzz_without_module_field_range(fields, fields.length(), 0)
+}
+
+///|
+fn invalid_fuzz_wast_quote(text : String) -> String {
+  let out = StringBuilder::new()
+  out.write_char('"')
+  for c in text {
+    if c == '\\' {
+      out.write_string("\\\\")
+    } else if c == '"' {
+      out.write_string("\\\"")
+    } else {
+      out.write_char(c)
+    }
+  }
+  out.write_char('"')
+  out.to_string()
+}
+
+///|
+fn invalid_fuzz_assertion_keyword(
+  assertion_kind : ValidateInvalidTextAssertionKind,
+) -> String {
+  match assertion_kind {
+    MalformedTextAssertion => "assert_malformed"
+    InvalidTextAssertion => "assert_invalid"
+    UnlinkableTextAssertion => "assert_unlinkable"
+  }
+}
+
+///|
+fn invalid_fuzz_inline_assertion_source(
+  fields : Array[ModuleField],
+  assertion_kind : ValidateInvalidTextAssertionKind,
+  message : String,
+) -> Result[String, String] {
+  let module_text = match module_to_wast(@wast.Module::new(fields)) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  Ok(
+    "(\{invalid_fuzz_assertion_keyword(assertion_kind)} \{module_text} \{invalid_fuzz_wast_quote(message)})",
+  )
+}
+
+///|
+fn invalid_fuzz_first_inline_assertion_fields(
+  source : String,
+  path : String,
+  assertion_kind : ValidateInvalidTextAssertionKind,
+) -> Result[(Array[ModuleField], String), String] {
+  let script = match wast_to_script(source, filename=path) {
+    Ok(v) => v
+    Err(msg) => return Err("script parse failed: \{msg}")
+  }
+  for cmd in script.commands {
+    match (cmd, assertion_kind) {
+      (
+        @wast.WastCommand::AssertMalformed(
+          @wast.WastModuleDef::Inline(mod),
+          msg
+        ),
+        MalformedTextAssertion,
+      ) => return Ok((mod.fields, msg))
+      (
+        @wast.WastCommand::AssertInvalid(@wast.WastModuleDef::Inline(mod), msg),
+        InvalidTextAssertion,
+      ) => return Ok((mod.fields, msg))
+      (
+        @wast.WastCommand::AssertUnlinkable(
+          @wast.WastModuleDef::Inline(mod),
+          msg
+        ),
+        UnlinkableTextAssertion,
+      ) => return Ok((mod.fields, msg))
+      _ => ()
+    }
+  }
+  Err("missing inline assertion module in \{path}")
+}
+
+///|
+fn reduce_fuzz_module_fields_by_deletion(
+  fields : Array[ModuleField],
+  reproduces : (Array[ModuleField]) -> Bool,
+) -> (Array[ModuleField], Int, Int, Int, Array[InvalidFuzzReductionStep]) {
+  let mut predicate_evaluations = 1
+  let steps : Array[InvalidFuzzReductionStep] = []
+  if !reproduces(fields) {
+    return (
+      fields,
+      fields.length(),
+      fields.length(),
+      predicate_evaluations,
+      steps,
+    )
+  }
+  let mut current = invalid_fuzz_clone_module_fields(fields)
+  let mut chunk = current.length() / 2
+  while chunk > 0 {
+    let mut changed = false
+    let mut i = 0
+    while i + chunk <= current.length() {
+      let candidate = invalid_fuzz_without_module_field_range(current, i, chunk)
+      predicate_evaluations = predicate_evaluations + 1
+      if reproduces(candidate) {
+        steps.push(
+          InvalidFuzzReductionStep::new(
+            "delete-module-field-range",
+            i,
+            chunk,
+            current.length(),
+            candidate.length(),
+          ),
+        )
+        current = candidate
+        changed = true
+      } else {
+        i += 1
+      }
+    }
+    if !changed {
+      chunk = chunk / 2
+    } else if chunk > current.length() {
+      chunk = current.length()
+    }
+  }
+  (current, fields.length(), current.length(), predicate_evaluations, steps)
+}
+
+///|
 fn invalid_fuzz_replay_matches_report(
   replay : InvalidFuzzReplayResult,
   report : InvalidFuzzFailureReport,
 ) -> Bool {
   replay.stage == report.actual_stage &&
   replay.diagnostic_family == report.actual_diagnostic_family
+}
+
+///|
+fn invalid_fuzz_report_with_module_field_reduction(
+  report : InvalidFuzzFailureReport,
+  source_path : String,
+  assertion_kind : ValidateInvalidTextAssertionKind,
+) -> Result[InvalidFuzzFailureReport?, String] {
+  let artifact = match invalid_fuzz_choose_replay_artifact(report.artifacts) {
+    Some(v) => v
+    None => return Ok(None)
+  }
+  let source = match invalid_fuzz_bytes_string(artifact.bytes) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let (fields, message) = match
+    invalid_fuzz_first_inline_assertion_fields(
+      source, source_path, assertion_kind,
+    ) {
+    Ok(v) => v
+    Err(_) => return Ok(None)
+  }
+  let (
+    reduced_fields,
+    _original_field_size,
+    _final_field_size,
+    predicate_evaluations,
+    steps,
+  ) = reduce_fuzz_module_fields_by_deletion(fields, fn(candidate_fields) {
+    let candidate = match
+      invalid_fuzz_inline_assertion_source(
+        candidate_fields, assertion_kind, message,
+      ) {
+      Ok(v) => v
+      Err(_) => return false
+    }
+    match
+      invalid_fuzz_replay_text_like(
+        invalid_fuzz_string_bytes(candidate),
+        source_path,
+        assertion_kind,
+      ) {
+      Ok(replay) => invalid_fuzz_replay_matches_report(replay, report)
+      Err(_) => false
+    }
+  })
+  if steps.length() == 0 {
+    return Ok(None)
+  }
+  let reduced_text = match
+    invalid_fuzz_inline_assertion_source(
+      reduced_fields, assertion_kind, message,
+    ) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let reduced_bytes = invalid_fuzz_string_bytes(reduced_text)
+  if reduced_bytes.length() >= artifact.bytes.length() {
+    return Ok(None)
+  }
+  let reduced = InvalidFuzzArtifact::new(
+    "reduced", "reduced.wast", reduced_bytes,
+  )
+  Ok(
+    Some(
+      invalid_fuzz_failure_report_copy(
+        report,
+        source_path=Some(source_path),
+        reduced_artifacts=[reduced],
+        reduction_original_size=Some(artifact.bytes.length()),
+        reduction_final_size=Some(reduced_bytes.length()),
+        reduction_predicate_evaluations=Some(predicate_evaluations),
+        reduction_steps=steps,
+      ),
+    ),
+  )
 }
 
 ///|
@@ -2186,24 +2414,32 @@ pub fn shrink_invalid_fuzz_failure_report(
         None => path
       }
       match
-        invalid_fuzz_report_with_text_token_reduction(
+        invalid_fuzz_report_with_module_field_reduction(
           report, replay_path, assertion_kind,
         ) {
         Ok(Some(reduced_report)) => Ok(reduced_report)
-        Ok(None) => {
-          let (reduced, path) = match
-            invalid_fuzz_text_strategy_reduce(report.strategy_id) {
-            Ok(v) => v
+        Ok(None) =>
+          match
+            invalid_fuzz_report_with_text_token_reduction(
+              report, replay_path, assertion_kind,
+            ) {
+            Ok(Some(reduced_report)) => Ok(reduced_report)
+            Ok(None) => {
+              let (reduced, path) = match
+                invalid_fuzz_text_strategy_reduce(report.strategy_id) {
+                Ok(v) => v
+                Err(msg) => return Err(msg)
+              }
+              Ok(
+                invalid_fuzz_report_with_reduction(
+                  report,
+                  reduced,
+                  source_path=Some(path),
+                ),
+              )
+            }
             Err(msg) => return Err(msg)
           }
-          Ok(
-            invalid_fuzz_report_with_reduction(
-              report,
-              reduced,
-              source_path=Some(path),
-            ),
-          )
-        }
         Err(msg) => return Err(msg)
       }
     }
@@ -2220,24 +2456,32 @@ pub fn shrink_invalid_fuzz_failure_report(
         None => path
       }
       match
-        invalid_fuzz_report_with_text_token_reduction(
+        invalid_fuzz_report_with_module_field_reduction(
           report, replay_path, assertion_kind,
         ) {
         Ok(Some(reduced_report)) => Ok(reduced_report)
-        Ok(None) => {
-          let (reduced, path) = match
-            invalid_fuzz_spec_seed_reduce(report.strategy_id) {
-            Ok(v) => v
+        Ok(None) =>
+          match
+            invalid_fuzz_report_with_text_token_reduction(
+              report, replay_path, assertion_kind,
+            ) {
+            Ok(Some(reduced_report)) => Ok(reduced_report)
+            Ok(None) => {
+              let (reduced, path) = match
+                invalid_fuzz_spec_seed_reduce(report.strategy_id) {
+                Ok(v) => v
+                Err(msg) => return Err(msg)
+              }
+              Ok(
+                invalid_fuzz_report_with_reduction(
+                  report,
+                  reduced,
+                  source_path=Some(path),
+                ),
+              )
+            }
             Err(msg) => return Err(msg)
           }
-          Ok(
-            invalid_fuzz_report_with_reduction(
-              report,
-              reduced,
-              source_path=Some(path),
-            ),
-          )
-        }
         Err(msg) => return Err(msg)
       }
     }

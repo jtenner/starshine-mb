@@ -451,6 +451,7 @@ pub struct Module {
   id : String?
   fields : Array[ModuleField]
 } derive(Eq, @debug.Debug)
+pub fn Module::new(Array[ModuleField], id? : String?) -> Self
 pub impl @lib.PrettyPrint for Module
 pub impl Show for Module
 pub impl @quickcheck.Arbitrary for Module

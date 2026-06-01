@@ -247,6 +247,11 @@ pub struct Module {
   fields : Array[ModuleField]
 } derive(Eq, Debug)
 
+///|
+pub fn Module::new(fields : Array[ModuleField], id? : String? = None) -> Module {
+  { id, fields }
+}
+
 // ============================================================================
 // Instruction AST
 // ============================================================================

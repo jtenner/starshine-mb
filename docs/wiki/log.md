@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1043J invalid module-field shrink integration
+
+- Closed `[FUZ]1043J` by wiring invalid-fuzz inline text and spec-seed shrink reports through a parser-aware inline-module field deletion pass before token deletion or strategy-minimal fallback.
+- The reducer parses inline `assert_malformed`, `assert_invalid`, and `assert_unlinkable` modules, preserves the original assertion kind/message, replays candidates through the existing invalid-text oracle, and records `delete-module-field-range` metadata when a smaller WAST assertion still reproduces.
+- Added a small public WAST `Module::new(...)` constructor so reducer code outside the `wast` package can re-render reduced module-field arrays without open-struct construction. Validation: `moon test src/fuzz` first failed on token-only reduction metadata, then passed after implementation; final validation is recorded in the commit message.
+
 ## [2026-05-31] fuzzing | FUZ1050C dry-run dedup classifier
 
 - Closed `[FUZ]1050C` by adding `FuzzCorpusDedupDryRunDecision`, `FuzzCorpusDedupDryRunPlan`, `classify_fuzz_corpus_dedup_dry_run(...)`, and deterministic `starshine.fuzz-corpus-dedup-dry-run.v1` formatting.
