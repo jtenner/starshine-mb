@@ -405,11 +405,6 @@ p1 next-up / active:
 p2 invalid/binary/text tiny slices:
 - Census note: `[FUZ]1020D1` audited the checked-in invalid-AST registry and wiki history. The registry currently has 255 deterministic AST-invalid strategy specs across all 15 `ValidationIssueFamily` buckets (180 function-body, 13 name, 10 start, 9 import, 8 type, 7 export, 5 code, 4 table, 4 element, 3 global, 3 data, 3 memory, 3 datacount, 2 tag, 1 function). Already-covered breadth includes the closed `[FUZ]1020A`/`B`/`C` families: start out-of-range/wrong-kind plus imported-start signature variants, duplicate export names, datacount absent/too-small/too-large, element function-index/typed-expression/table-index basics, table/data/memory bulk operand/index families, atomics non-shared and stack/index families, SIMD lane/operand/index families, GC aggregate/input/variance/descriptor basics, ref/branch payloads including `br_on_null`, `br_on_non_null`, and `br_on_cast`, name-map out-of-range indices, and code-section cardinality/imported-body families. The remaining open `[FUZ]1020D*`/`E*`/`F*`/`G*` slices below are the de-duplicated next concrete gaps; do not reopen older A/B/C variants unless new evidence shows their tests no longer cover the stated rule.
 
-- [FUZ]1020D2 (p2) - Start function signature invalid AST strategy
-  - Unit: add an AST-invalid strategy for a start function that exists in the function namespace but has parameters and/or results, distinct from the already-covered wrong-kind start index.
-  - Acceptance: focused reject test identifies the start-signature diagnostic family; `gen_invalid` can select the stable strategy id; repair or positive control with a no-param/no-result start validates.
-  - Suggested tests: `moon test src/validate`; smoke `moon run src/fuzz -- validate-invalid-ast smoke+seed-profiles=repro --seed <slice-seed>`.
-
 - [FUZ]1020D3 (p2) - Duplicate export-name invalid AST strategy
   - Unit: add a deterministic AST-invalid strategy where two exports use the same string name across either same-kind or cross-kind export descriptors.
   - Acceptance: validator rejects duplicate export names independently of index validity; `gen_invalid` exposes the stable id; focused tests cover at least one cross-kind duplicate if same-kind is already implicitly covered.

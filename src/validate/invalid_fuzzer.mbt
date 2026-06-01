@@ -11526,6 +11526,59 @@ test "invalid start signature strategy rejects with StartSection family" {
 }
 
 ///|
+test "invalid start signature strategy targets a defined non-nullary function" {
+  let base = invalid_ast_test_base_module(0x5eeeUL)
+  let mutation = match
+    apply_validate_invalid_ast_strategy(InvalidStartSignature, base) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let mutated = mutation.mutated_module
+  let start_idx = match mutated.start_sec {
+    Some(StartSec(fidx)) => fidx
+    None =>
+      fail("expected invalid start-signature mutation to add a start section")
+  }
+  let FuncIdx(raw_start_idx) = start_idx
+  assert_true(
+    raw_start_idx.reinterpret_as_int() >=
+    validate_invalid_ast_imported_func_count(mutated),
+    msg="invalid-start-signature should target a defined function, not an imported function",
+  )
+  let env = Env::new().with_module(mutated)
+  match env.get_functype_by_funcidx(start_idx) {
+    Some(FuncType(params, results)) =>
+      assert_true(
+        params.length() > 0 || results.length() > 0,
+        msg="invalid-start-signature should make the start function non-nullary",
+      )
+    None => fail("expected start function index to resolve")
+  }
+  match validate_module(mutated) {
+    Ok(_) => fail("expected non-nullary defined start function to fail")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        StartSectionFamily,
+      )
+  }
+  let (repaired, repaired_idx, _) = validate_invalid_ast_append_defined_func(
+    mutated,
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([]),
+  )
+  match validate_module(repaired.with_start_sec(StartSec::new(repaired_idx))) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected no-param/no-result defined start repair to validate, got \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
 test "invalid imported start func param strategy rejects with StartSection family" {
   match
     invalid_ast_expect_strategy_rejects_with_family(
