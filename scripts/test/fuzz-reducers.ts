@@ -4,6 +4,7 @@ import {
   reduceBinaryByByteSlices,
   reduceBinaryByByteSlicesWithReport,
   reduceModuleFieldsByDeletion,
+  reduceModuleFieldsByDeletionWithReport,
   reduceTextByTokenDeletion,
   reduceTextByTokenDeletionWithReport,
 } from "../lib/fuzz-reducers";
@@ -14,6 +15,20 @@ export function runFuzzReducersTest(): void {
     return candidate.includes("func") && candidate.includes("export") && !candidate.includes("custom");
   });
   assert.deepEqual(reducedModule, ["func", "export"], "module reducer should delete fields while preserving predicate");
+
+  const reducedModuleReport = reduceModuleFieldsByDeletionWithReport(moduleFields, (candidate) => {
+    return candidate.includes("func") && candidate.includes("export") && !candidate.includes("custom");
+  });
+  assert.deepEqual(reducedModuleReport.result, ["func", "export"], "module reducer report should carry reduced fields");
+  assert.equal(reducedModuleReport.originalSize, 5, "module reducer report should count original fields");
+  assert.equal(reducedModuleReport.finalSize, 2, "module reducer report should count final fields");
+  assert.ok(reducedModuleReport.predicateEvaluations > 0, "module reducer report should count predicate evaluations");
+  assert.ok(reducedModuleReport.steps.length > 0, "module reducer report should record deletion steps");
+  assert.equal(
+    reducedModuleReport.steps[0].kind,
+    "delete-module-field-range",
+    "module reducer report should label module-field deletions",
+  );
 
   const bytes = new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7]);
   const reducedBytes = reduceBinaryByByteSlices(bytes, (candidate) => {

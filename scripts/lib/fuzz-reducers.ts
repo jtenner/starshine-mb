@@ -17,7 +17,26 @@ export type ReductionReport<T> = {
 };
 
 export function reduceModuleFieldsByDeletion<T>(fields: readonly T[], predicate: ReductionPredicate<readonly T[]>): T[] {
-  return reduceSequenceByChunkDeletion(fields, (candidate) => candidate, predicate).items;
+  return reduceModuleFieldsByDeletionWithReport(fields, predicate).result;
+}
+
+export function reduceModuleFieldsByDeletionWithReport<T>(
+  fields: readonly T[],
+  predicate: ReductionPredicate<readonly T[]>,
+): ReductionReport<T[]> {
+  const reduced = reduceSequenceByChunkDeletion(
+    fields,
+    (candidate) => candidate,
+    predicate,
+    "delete-module-field-range",
+  );
+  return {
+    result: reduced.items,
+    originalSize: fields.length,
+    finalSize: reduced.items.length,
+    predicateEvaluations: reduced.predicateEvaluations,
+    steps: reduced.steps,
+  };
 }
 
 export function reduceBinaryByByteSlices(bytes: Uint8Array, predicate: ReductionPredicate<Uint8Array>): Uint8Array {
