@@ -43,7 +43,7 @@ The official WebAssembly validation sources checked on 2026-05-19 define the sem
 
 Use this page as the focused companion to [`module-validation-phases.md`](module-validation-phases.md). The phase page answers "what does the validator check, and in what order?" This page answers "what user-visible family should the failure report, and how do I produce a stable repro?"
 
-Binary decode failures that occur inside a known section carry the section id, byte offset, and section span through [`ModuleDecodeErrorDetail`](../../../src/binary/decode.mbt). The stable `[FUZ]1056A1` fixture in [`src/binary/tests.mbt`](../../../src/binary/tests.mbt) locks the malformed type-section case at section id `1`, offset `8`, and length `5`; the public `decode_module(...)` wrapper still exposes the established `DecodeAt(error, offset, length)` shape while detail callers can inspect `section_id`.
+Binary decode failures that occur inside a known section carry the section id, byte offset, and section span through [`ModuleDecodeErrorDetail`](../../../src/binary/decode.mbt). The stable `[FUZ]1056A1` fixture in [`src/binary/tests.mbt`](../../../src/binary/tests.mbt) locks the malformed type-section case at section id `1`, offset `8`, and length `5`; `[FUZ]1056A4` adds a malformed `name` custom-section fixture at section id `0`, offset `8`, and length `16`, and invalid-binary repro metadata roundtrips that location as `binary:section=0:offset=8:length=16`. The public `decode_module(...)` wrapper still exposes the established `DecodeAt(error, offset, length)` shape while detail callers can inspect `section_id`.
 
 ## Beginner Model
 

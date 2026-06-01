@@ -3013,3 +3013,17 @@ test "decode_module rejects malformed function name map ordering inside name sec
       fail("expected spanned malformed name-section decode error, got \{e}")
   }
 }
+
+///|
+test "FUZ1056A4 malformed name section detail carries custom section id and span" {
+  let bad = b"\x00\x61\x73\x6d\x01\x00\x00\x00\x00\x0e\x04name\x01\x07\x02\x01\x01b\x00\x01a"
+  match decode_module_with_detail(bad, 0) {
+    Ok(_) => fail("expected detailed malformed name section decode failure")
+    Err(detail) => {
+      @debug.assert_eq(detail.err, BinaryDecodeError::InvalidNameMapOrder)
+      @debug.assert_eq(detail.section_id, Some(0))
+      @debug.assert_eq(detail.section_offset, Some(8))
+      @debug.assert_eq(detail.section_len, Some(16))
+    }
+  }
+}

@@ -563,6 +563,7 @@ fn invalid_fuzz_failure_report_copy(
 pub struct InvalidFuzzReplayResult {
   stage : String
   diagnostic_family : String?
+  diagnostic_location : String?
   message : String?
 } derive(Eq, Debug)
 
@@ -570,9 +571,10 @@ pub struct InvalidFuzzReplayResult {
 pub fn InvalidFuzzReplayResult::new(
   stage : String,
   diagnostic_family? : String? = None,
+  diagnostic_location? : String? = None,
   message? : String? = None,
 ) -> InvalidFuzzReplayResult {
-  { stage, diagnostic_family, message }
+  { stage, diagnostic_family, diagnostic_location, message }
 }
 
 ///|
@@ -1577,6 +1579,7 @@ pub fn build_invalid_fuzz_ast_failure_report_by_stable_id(
       expected_diagnostic_family=expected_family,
       actual_stage=replay.stage,
       actual_diagnostic_family=replay.diagnostic_family,
+      actual_diagnostic_location=replay.diagnostic_location,
       seed_profile=Some(seed_profile_name),
       seed_mode=Some(
         @validate.gen_invalid_seed_mode_name(resolved_params.seed_mode),
@@ -1663,6 +1666,7 @@ pub fn build_invalid_fuzz_binary_failure_report_by_stable_id(
       expected_diagnostic_family=expected_family,
       actual_stage=replay.stage,
       actual_diagnostic_family=replay.diagnostic_family,
+      actual_diagnostic_location=replay.diagnostic_location,
       seed_profile=Some(seed_profile_name),
       seed_mode=Some(
         gen_invalid_binary_seed_mode_name(resolved_params.seed_mode),
@@ -2489,11 +2493,37 @@ pub fn shrink_invalid_fuzz_failure_report(
 }
 
 ///|
+fn invalid_fuzz_binary_decode_location(
+  detail : @binary.ModuleDecodeErrorDetail,
+) -> String? {
+  match (detail.section_offset, detail.section_len) {
+    (Some(offset), Some(len)) => {
+      let section_prefix = match detail.section_id {
+        Some(id) => "section=\{id}:"
+        None => ""
+      }
+      Some("binary:\{section_prefix}offset=\{offset}:length=\{len}")
+    }
+    _ => None
+  }
+}
+
+///|
 fn invalid_fuzz_replay_binary_like(bytes : Bytes) -> InvalidFuzzReplayResult {
-  match decode_module(bytes) {
-    Err(msg) =>
-      InvalidFuzzReplayResult::new("decode-rejected", message=Some("\{msg}"))
-    Ok(decoded) =>
+  match decode_module_with_detail(bytes, 0) {
+    Err(detail) =>
+      InvalidFuzzReplayResult::new(
+        "decode-rejected",
+        diagnostic_location=invalid_fuzz_binary_decode_location(detail),
+        message=Some("\{detail.err}"),
+      )
+    Ok((decoded, next)) if next != bytes.length() =>
+      InvalidFuzzReplayResult::new(
+        "decode-rejected",
+        diagnostic_location=Some("binary:offset=\{next}:length=\{bytes.length() - next}"),
+        message=Some("trailing bytes"),
+      )
+    Ok((decoded, _)) =>
       match validate_module(decoded) {
         Ok(_) => InvalidFuzzReplayResult::new("accepted")
         Err(err) => {

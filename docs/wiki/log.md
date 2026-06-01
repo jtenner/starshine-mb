@@ -223,6 +223,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-05-31] fuzzing | FUZ1056A section-aware binary diagnostics
 
+- Completed `[FUZ]1056A4` by adding a curated malformed `name` custom-section fixture whose detailed decode error carries custom section id `0`, offset `8`, and section span length `16`, plus invalid-binary repro metadata coverage that roundtrips `binary:section=0:offset=8:length=16`.
 - Advanced `[FUZ]1056A` by extending `ModuleDecodeErrorDetail` with the numeric section id for section-scoped decode failures while preserving the public `DecodeAt(error, offset, length)` wrapper shape.
 - The curated malformed type-section fixture now asserts section id `1`, byte offset `8`, and section span length `5`, so binary diagnostic-location checks cover section identity as well as byte range.
 - Validation: `moon test src/binary` first failed on the missing `section_id` detail field, then passed after implementation; final validation is recorded in the commit message.

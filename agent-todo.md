@@ -620,9 +620,6 @@ p2 invalid/binary/text tiny slices:
   - Unit: add a deterministic multi-module WAST fixture for duplicate module name or register-name behavior and classify it separately from ordinary validation/unlinkable failures.
   - Current run update: implementation and focused test are drafted in `src/fuzz/main.mbt` and `src/fuzz/main_wbtest.mbt`; docs are updated. Validation remains blocked on 2026-05-31/2026-06-01 because `moon test src/fuzz` and `moon info` fail before dependency graph resolution with `Cannot inject the standard library moonbitlang/core: Cannot load the core file`; `moon fmt` completed but attempted to migrate `moon.mod.json` to `moon.mod`, and that unintended migration was reverted. Next step: rerun `moon test src/fuzz`, then `moon info`, `moon fmt`, and `moon test` after the local Moon core install is repaired; if green, remove this task from `agent-todo.md` and commit/close it.
   - Suggested tests: focused WAST runner/classifier fixture and repro metadata assertion.
-- [FUZ]1056A4 (p2) - Name/Custom Section Diagnostic Location Fixture
-  - Unit: add one curated malformed custom/name-section binary fixture with exact byte offset, section id/span when available, and repro metadata location roundtrip.
-  - Suggested tests: binary decoder diagnostic test plus invalid-binary repro metadata roundtrip.
 
 p2 oracle/reporting/infrastructure tiny slices:
 - [FUZ]1050D1 (p2) - Normalized Shape Interestingness Hash
@@ -656,9 +653,6 @@ p2 invalid/binary/text slices:
 - [FUZ]1055C1 (p2) - Duplicate Module/Register WAST Fixture
   - Unit: add a deterministic multi-module WAST fixture for duplicate module name or register-name behavior and classify it separately from ordinary validation/unlinkable failures.
   - Parent: [FUZ]1055.
-- [FUZ]1056A4 (p2) - Name/Custom Section Diagnostic Location Fixture
-  - Unit: add one curated malformed custom/name-section binary fixture with exact byte offset, section id/span when available, and repro metadata location roundtrip.
-  - Parent: [FUZ]1056.
 - [FUZ]1020A (p2) - Remaining AST Type/Subtyping Invalid Strategies
   - Remaining concrete slices: none for the current tracked 1020A board. Earlier `[FUZ]1020A1`/`A2` covered representative subtype variance and descriptor-cycle basics; `[FUZ]1020A3` covered focused function parameter/result variance; `[FUZ]1020A4` covered descriptor-edge missing heap-type refs; `[FUZ]1020A5` covered recursive-group supertype-cycle rejection.
 - [FUZ]1020B (p2) - Remaining AST Section/Index Invalid Strategies
