@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-01] docs | late-pipeline-dispatch trunk drift refresh
+
+- Added `docs/wiki/raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md` and refreshed [`binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md) to replace the stale "no newer optimization-pass addition" wording with the current `v130` trunk drift watch (`MarkJSCalled`, `RemoveExports`, and `Wide Arithmetic`).
+- Updated [`binaryen/passes/index.md`](binaryen/passes/index.md) so the Tail Dispatch Notes summary now reflects the current-trunk watch alongside the `version_129` release-horizon baseline.
+- No repo code or tests changed; this was a wiki/source-hygiene refresh backed by the official GitHub `main` changelog and the tagged `version_129` release page.
+
 ## [2026-06-01] docs | dae-optimizing closeout sync
 
 - Refreshed [`binaryen/passes/dae-optimizing/index.md`](binaryen/passes/dae-optimizing/index.md) to mark `[DAE]003` and `[DAE]004` closed by research notes `0661` and `0687`, update the review date, and keep the partial/direct-pass and preset guardrails explicit.

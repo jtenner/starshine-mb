@@ -1,12 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-01
 sources:
   - ../../raw/research/0080-2026-04-11-late-pipeline-pass-dispatch-audit.md
   - ../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
   - ../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
   - ../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
+  - ../../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md
   - ../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md
   - ../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md
   - ../../raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md
@@ -72,7 +73,7 @@ related:
 - Official Binaryen release pages for `version_127` (`2026-03-10`), `version_128` (`2026-03-13`), and `version_129` (`2026-04-01`) are all directly reachable on GitHub, and the Chromium refs listing corroborates that `version_129` is still the newest release tag visible in the mirror.
 - Those directly reachable changelog sections still show the same upstream-only pass additions outside this repo's current implementation set: `--minimize-rec-groups` is already present by `version_119`, [`--string-lifting`](string-lifting/index.md) and `TypeRefiningGUFA` are present by `version_124`, `ReorderTypes` is called out in `version_125`, and [`--remove-relaxed-simd`](remove-relaxed-simd/index.md) plus [`--strip-toolchain-annotations`](strip-toolchain-annotations/index.md) are present by `version_126`. The `string-lifting`, `remove-relaxed-simd`, `strip-toolchain-annotations`, and [`strip-target-features`](strip-target-features/index.md) entries now have dedicated dossiers; `strip-target-features` is source-confirmed in `version_129`, but this run did not find an equally clean changelog-addition line for it.
 - The newer reachable `version_127` / `version_128` / `version_129` changelog sections did not add another optimization pass name relevant to this folder map; `version_128` is explicitly a bugfix release, while `version_127` and `version_129` highlight proposal/API/tooling changes such as Custom Page Sizes, multibyte array load/store support, and new API surfaces.
-- The current `main` branch changelog page on both the Chromium mirror and the official GitHub repository also does not currently advertise a newer optimization-pass addition: the `Current Trunk` section still leads with C/JS API renames from `MemorySegment` to `DataSegment`, not a new optimization pass. Treat that as a useful freshness check, not a complete pass-history audit, because changelog coverage is narrower than source-level pass enumeration.
+- The current `main` branch changelog page on official GitHub now advertises a `v130` trunk section with new additions beyond API renames, including `MarkJSCalled`, `RemoveExports`, and `Wide Arithmetic` support. Treat those as trunk-only drift, not as proof that the tagged release horizon has advanced past `version_129` yet.
 - That matters for source-of-truth hygiene: this folder map tracks Starshine's implemented Binaryen pass subset, not the full current upstream pass catalog. The Debian manpage, docs.rs enum, and bundled README overview are all useful lower-bound public surfaces, but they are incomplete in different directions, so none of them should be treated as authoritative evidence that a newer upstream-only pass was added, renamed, or removed. Use official GitHub tagged release pages as the primary public release-horizon baseline through `version_129`, use the Chromium mirror as corroborating release-note and refs evidence, and use the official GitHub `main` changelog as the stronger current-trunk drift watch, while still treating all of those surfaces as narrower than a full source audit of every Binaryen pass on `main`.
 - Some of those mirror commits are post-`version_129` trunk evidence relative to the repo's tagged source oracle for implemented-pass deep dives, so track them as behavior drift, not as proof that this repo's existing folder names are stale. The corrected `Vacuum` commit `f284d54...` is the important exception here: it is pre-`version_129` and already present in the tag, so treat explicit-`unreachable` preservation as part of the tagged `vacuum` oracle instead of as a newer trunk-only behavior.
 - The safest source-of-truth rule remains: use official GitHub tagged release pages first to anchor the public release horizon, keep the Chromium refs page plus tagged mirror pages as corroboration, and use the current `main` changelog on GitHub or Chromium only as a narrow drift watch for obviously documented post-tag changes.
@@ -112,6 +113,7 @@ related:
 - Binaryen Chromium mirror refs listing: <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+refs>
 - Binaryen Chromium mirror `main` changelog: <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/refs/heads/main/CHANGELOG.md>
 - Binaryen official GitHub `main` changelog: <https://github.com/WebAssembly/binaryen/blob/main/CHANGELOG.md>
+- Current-trunk release-horizon refresh: [`../../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md`](../../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md)
 - Binaryen official GitHub release page for `version_127`: <https://github.com/WebAssembly/binaryen/releases/tag/version_127>
 - Binaryen official GitHub release page for `version_128`: <https://github.com/WebAssembly/binaryen/releases/tag/version_128>
 - Binaryen official GitHub release page for `version_129`: <https://github.com/WebAssembly/binaryen/releases/tag/version_129>
