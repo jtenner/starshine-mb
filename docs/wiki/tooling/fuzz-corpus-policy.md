@@ -53,6 +53,7 @@ Every promoted or quarantined entry should carry these fields in a sidecar manif
 - `notes`: short rationale, caveats, and supersession links.
 - `raw_artifact_hash`: deterministic hash for the original raw bytes or text payload before reduction.
 - `reduced_artifact_hash`: deterministic hash for the reduced artifact that still preserves the predicate, or the raw-artifact hash when no reduced artifact exists.
+- `normalized_shape_hash`: report-only deterministic hash for a normalized/canonical shape used to correlate representation-equivalent cases without deduplicating or deleting raw artifacts.
 - `predicate_hash`: deterministic hash for the replay predicate, failure class, pass/tool verdict, or other oracle condition used to decide that the case remains interesting.
 - `feature_fact_hash`: deterministic hash for sorted feature facts, such as GC, exception, memory64, SIMD, imports, exports, or proposal markers.
 - `interestingness_label`: compact human-readable initial label such as `semantic-mismatch`, `tool-failure`, `rare-feature`, `decode-rejected`, or `validate-rejected`.
@@ -65,11 +66,11 @@ Use relative paths rooted at the repository when possible. Do not store absolute
 
 - schema id: `starshine.fuzz-corpus-entry.v1`;
 - allowed `state` values: `promoted-valid`, `promoted-invalid`, `pass-mismatch`, `tool-failure`, `accepted-divergence`, and `quarantine`;
-- required fields: `id`, `state`, `source`, `input`, `created_at`, `generator`, `features`, `expectation`, `classification`, `replay`, `artifacts`, `owner_or_task`, `notes`, `raw_artifact_hash`, `reduced_artifact_hash`, `predicate_hash`, `feature_fact_hash`, and `interestingness_label`.
+- required fields: `id`, `state`, `source`, `input`, `created_at`, `generator`, `features`, `expectation`, `classification`, `replay`, `artifacts`, `owner_or_task`, `notes`, `raw_artifact_hash`, `reduced_artifact_hash`, `normalized_shape_hash`, `predicate_hash`, `feature_fact_hash`, and `interestingness_label`.
 
 `[FUZ]1050A` also adds `FuzzCorpusHashMetadata` and `build_fuzz_corpus_hash_metadata(...)`, which compute the four hash fields with the local `fnv1a64-*` corpus hash and sort feature facts before hashing. The helper intentionally formats and parses a compact deterministic JSON subset for metadata produced by Starshine itself. It does not execute replays.
 
-`[FUZ]1050B` adds the reversible case-index helper for duplicate corpus cases. `build_fuzz_corpus_case_index(...)` groups `starshine.fuzz-corpus-entry.v1` entries by raw and reduced artifact hash, preserving case ids, parsed seeds, profiles, and artifact paths for each duplicate group. `format_fuzz_corpus_case_index_json(...)` and `parse_fuzz_corpus_case_index_json(...)` roundtrip the compact `starshine.fuzz-corpus-case-index.v1` schema without deleting or compressing artifacts.
+`[FUZ]1050B` adds the reversible case-index helper for duplicate corpus cases. `build_fuzz_corpus_case_index(...)` groups `starshine.fuzz-corpus-entry.v1` entries by raw and reduced artifact hash, preserving case ids, parsed seeds, profiles, and artifact paths for each duplicate group. `[FUZ]1050D1` extends the same index with report-only `normalized-shape` groups keyed by `normalized_shape_hash`; these groups are correlation metadata only and do not delete, compress, or replace raw artifacts. `format_fuzz_corpus_case_index_json(...)` and `parse_fuzz_corpus_case_index_json(...)` roundtrip the compact `starshine.fuzz-corpus-case-index.v1` schema without deleting or compressing artifacts.
 
 `[FUZ]1050C` adds a report-only dry-run dedup classifier. `classify_fuzz_corpus_dedup_dry_run(...)` converts a case index into `keep`, `duplicate`, and `compress` decisions and `format_fuzz_corpus_dedup_dry_run_json(...)` writes `starshine.fuzz-corpus-dedup-dry-run.v1`. The classifier keeps every raw artifact group, even duplicate raw hashes, so an unreduced failure's sole original artifact is never selected for deletion. Duplicate reduced-artifact groups are only marked as future `compress` candidates; the helper itself does not delete, move, or rewrite files.
 

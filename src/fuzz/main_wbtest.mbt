@@ -54,7 +54,7 @@ test "build_fuzz_corpus_hash_metadata derives deterministic artifact predicate a
 }
 
 ///|
-test "fuzz corpus case index roundtrips duplicate raw and reduced hashes" {
+test "FUZ1050D1 fuzz corpus case index roundtrips duplicate raw reduced and normalized-shape hashes" {
   let first = FuzzCorpusPromotionMetadata::new(
     "case-a",
     "pass-mismatch",
@@ -71,6 +71,7 @@ test "fuzz corpus case index roundtrips duplicate raw and reduced hashes" {
     "first duplicate fixture",
     raw_artifact_hash="fnv1a64-raw-shared",
     reduced_artifact_hash="fnv1a64-reduced-shared",
+    normalized_shape_hash="fnv1a64-normalized-shared",
     predicate_hash="fnv1a64-predicate-a",
     feature_fact_hash="fnv1a64-features-gc",
     interestingness_label="pass-mismatch",
@@ -91,12 +92,13 @@ test "fuzz corpus case index roundtrips duplicate raw and reduced hashes" {
     "second duplicate fixture",
     raw_artifact_hash="fnv1a64-raw-shared",
     reduced_artifact_hash="fnv1a64-reduced-shared",
+    normalized_shape_hash="fnv1a64-normalized-shared",
     predicate_hash="fnv1a64-predicate-b",
     feature_fact_hash="fnv1a64-features-gc",
     interestingness_label="pass-mismatch",
   )
   let index = build_fuzz_corpus_case_index([first, second])
-  @debug.assert_eq(index.entries.length(), 2)
+  @debug.assert_eq(index.entries.length(), 3)
   @debug.assert_eq(index.entries[0].hash_kind, "raw")
   @debug.assert_eq(index.entries[0].case_ids, ["case-a", "case-b"])
   @debug.assert_eq(index.entries[0].seeds, [1UL, 2UL])
@@ -108,11 +110,18 @@ test "fuzz corpus case index roundtrips duplicate raw and reduced hashes" {
   @debug.assert_eq(index.entries[1].artifact_paths, [
     "cases/a/reduced.wasm", "cases/b/reduced.wasm",
   ])
+  @debug.assert_eq(index.entries[2].hash_kind, "normalized-shape")
+  @debug.assert_eq(index.entries[2].hash, "fnv1a64-normalized-shared")
+  @debug.assert_eq(index.entries[2].case_ids, ["case-a", "case-b"])
+  @debug.assert_eq(index.entries[2].artifact_paths, [
+    "cases/a/raw.wasm", "cases/b/raw.wasm",
+  ])
   let json = format_fuzz_corpus_case_index_json(index)
   assert_true(
     json.contains("\"schema\":\"starshine.fuzz-corpus-case-index.v1\""),
   )
   assert_true(json.contains("\"hash\":\"fnv1a64-raw-shared\""))
+  assert_true(json.contains("\"hash_kind\":\"normalized-shape\""))
   let parsed = match parse_fuzz_corpus_case_index_json(json) {
     Ok(v) => v
     Err(msg) => fail(msg)
@@ -574,6 +583,7 @@ test "format and parse fuzz corpus promotion metadata states" {
       "fixture metadata",
       raw_artifact_hash="fnv1a64-raw-\{state}",
       reduced_artifact_hash="fnv1a64-reduced-\{state}",
+      normalized_shape_hash="fnv1a64-normalized-\{state}",
       predicate_hash="fnv1a64-predicate-\{state}",
       feature_fact_hash="fnv1a64-features-\{state}",
       interestingness_label="state-\{state}",
@@ -582,6 +592,9 @@ test "format and parse fuzz corpus promotion metadata states" {
     assert_true(json.contains("\"schema\":\"starshine.fuzz-corpus-entry.v1\""))
     assert_true(json.contains("\"state\":\"\{state}\""))
     assert_true(json.contains("\"raw_artifact_hash\":\"fnv1a64-raw-\{state}\""))
+    assert_true(
+      json.contains("\"normalized_shape_hash\":\"fnv1a64-normalized-\{state}\""),
+    )
     let parsed = match parse_fuzz_corpus_promotion_metadata_json(json) {
       Ok(v) => v
       Err(msg) => fail(msg)
@@ -593,6 +606,7 @@ test "format and parse fuzz corpus promotion metadata states" {
     @debug.assert_eq(parsed.owner_or_task, "[FUZ]1042B")
     @debug.assert_eq(parsed.raw_artifact_hash, "fnv1a64-raw-\{state}")
     @debug.assert_eq(parsed.reduced_artifact_hash, "fnv1a64-reduced-\{state}")
+    @debug.assert_eq(parsed.normalized_shape_hash, "fnv1a64-normalized-\{state}")
     @debug.assert_eq(parsed.predicate_hash, "fnv1a64-predicate-\{state}")
     @debug.assert_eq(parsed.feature_fact_hash, "fnv1a64-features-\{state}")
     @debug.assert_eq(parsed.interestingness_label, "state-\{state}")
@@ -769,7 +783,7 @@ test "plan_fuzz_corpus_replay_manifest reports planned skipped and malformed ent
 
 ///|
 test "parse_fuzz_corpus_promotion_metadata rejects malformed state and missing fields" {
-  let bad_state = "{\"schema\":\"starshine.fuzz-corpus-entry.v1\",\"id\":\"bad\",\"state\":\"maybe\",\"source\":\"manual\",\"input\":\"case.wasm\",\"created_at\":\"2026-05-31\",\"generator\":\"manual\",\"features\":[],\"expectation\":\"none\",\"classification\":\"unknown\",\"replay\":\"echo replay\",\"artifacts\":[],\"owner_or_task\":\"[FUZ]1042B\",\"notes\":\"bad\"}"
+  let bad_state = "{\"schema\":\"starshine.fuzz-corpus-entry.v1\",\"id\":\"bad\",\"state\":\"maybe\",\"source\":\"manual\",\"input\":\"case.wasm\",\"created_at\":\"2026-05-31\",\"generator\":\"manual\",\"features\":[],\"expectation\":\"none\",\"classification\":\"unknown\",\"replay\":\"echo replay\",\"artifacts\":[],\"owner_or_task\":\"[FUZ]1042B\",\"notes\":\"bad\",\"raw_artifact_hash\":\"raw\",\"reduced_artifact_hash\":\"reduced\",\"normalized_shape_hash\":\"normalized\",\"predicate_hash\":\"predicate\",\"feature_fact_hash\":\"features\",\"interestingness_label\":\"label\"}"
   match parse_fuzz_corpus_promotion_metadata_json(bad_state) {
     Ok(_) => fail("expected unknown state rejection")
     Err(msg) => assert_true(msg.contains("unknown corpus state"))
@@ -794,6 +808,7 @@ test "fuzz_corpus_promotion_metadata_schema names required states" {
   assert_true(schema.contains("owner_or_task"))
   assert_true(schema.contains("raw_artifact_hash"))
   assert_true(schema.contains("reduced_artifact_hash"))
+  assert_true(schema.contains("normalized_shape_hash"))
   assert_true(schema.contains("predicate_hash"))
   assert_true(schema.contains("feature_fact_hash"))
   assert_true(schema.contains("interestingness_label"))

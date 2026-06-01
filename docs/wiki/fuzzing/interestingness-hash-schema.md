@@ -34,13 +34,14 @@ Keeping fields separate makes the corpus dedup index reversible: a runner can de
 
 - `raw_artifact_hash`
 - `reduced_artifact_hash`
+- `normalized_shape_hash`
 - `predicate_hash`
 - `feature_fact_hash`
 - `interestingness_label`
 
-`build_fuzz_corpus_hash_metadata(...)` hashes raw bytes or text through the same local corpus hash, uses the reduced artifact when present, hashes the replay/failure predicate separately, and sorts feature facts before hashing so equivalent fact sets produce the same metadata. `starshine.fuzz-corpus-entry.v1` entries now persist these fields beside the existing state/source/replay metadata.
+`build_fuzz_corpus_hash_metadata(...)` hashes raw bytes or text through the same local corpus hash, uses the reduced artifact when present, hashes the replay/failure predicate separately, and sorts feature facts before hashing so equivalent fact sets produce the same metadata. `starshine.fuzz-corpus-entry.v1` entries now persist these fields beside the existing state/source/replay metadata. `[FUZ]1050D1` adds the report-only `normalized_shape_hash` entry field for canonical/normalized shape correlation; it is not a deduplication or deletion signal.
 
-`[FUZ]1050B` adds `FuzzCorpusCaseIndex` / `FuzzCorpusCaseIndexEntry` plus `build_fuzz_corpus_case_index(...)`, `format_fuzz_corpus_case_index_json(...)`, and `parse_fuzz_corpus_case_index_json(...)`. The index groups entries by raw and reduced artifact hashes under the compact schema id `starshine.fuzz-corpus-case-index.v1`, preserving duplicate case ids, parsed seeds, profiles, and artifact paths.
+`[FUZ]1050B` adds `FuzzCorpusCaseIndex` / `FuzzCorpusCaseIndexEntry` plus `build_fuzz_corpus_case_index(...)`, `format_fuzz_corpus_case_index_json(...)`, and `parse_fuzz_corpus_case_index_json(...)`. The index groups entries by raw and reduced artifact hashes under the compact schema id `starshine.fuzz-corpus-case-index.v1`, preserving duplicate case ids, parsed seeds, profiles, and artifact paths. `[FUZ]1050D1` adds `normalized-shape` index rows from `normalized_shape_hash` while preserving raw artifact paths and leaving all dedup/compression decisions unchanged.
 
 `[FUZ]1050C` adds the dry-run dedup classifier on top of that index. `classify_fuzz_corpus_dedup_dry_run(...)` returns a `FuzzCorpusDedupDryRunPlan` with `keep`, `duplicate`, and `compress` decisions; `format_fuzz_corpus_dedup_dry_run_json(...)` emits the report-only schema id `starshine.fuzz-corpus-dedup-dry-run.v1`. Raw artifact groups are always classified as `keep`, including duplicate raw hashes, because raw artifacts are originals and may be the only artifact for unreduced failures. Duplicate reduced-hash groups are classified as `compress` candidates, but the helper never deletes or rewrites files.
 

@@ -622,9 +622,6 @@ p2 invalid/binary/text tiny slices:
   - Suggested tests: focused WAST runner/classifier fixture and repro metadata assertion.
 
 p2 oracle/reporting/infrastructure tiny slices:
-- [FUZ]1050D1 (p2) - Normalized Shape Interestingness Hash
-  - Unit: add a report-only normalized/canonical shape hash field for corpus entries without deduplicating or deleting artifacts.
-  - Suggested tests: raw-different but normalized-same fixture pair and case-index roundtrip preserving raw hashes.
 - [FUZ]1053C1 (p2) - Fuzz Runner Total-Budget Classification
   - Unit: add total-run budget metadata and a deterministic fake-budget test that reports a run-budget timeout separately from per-case timeout, crash, validation failure, or tool failure.
   - Suggested tests: fake clock/runner fixture plus summary/repro metadata formatting assertions.
@@ -635,9 +632,6 @@ p2 oracle/reporting/infrastructure tiny slices:
 Use these slice ids when selecting or reporting future FUZ work. Parent tasks below keep the fuller goals, invariants, and historical evidence; this index names the remaining units so agents do not have to infer the next slice from long status paragraphs.
 
 p1/p2 oracle, reporting, and infrastructure slices:
-- [FUZ]1050D1 (p2) - Normalized Shape Interestingness Hash
-  - Unit: add a report-only normalized/canonical shape hash field for corpus entries without deduplicating or deleting artifacts.
-  - Parent: [FUZ]1050.
 - [FUZ]1053C1 (p2) - Fuzz Runner Total-Budget Classification
   - Unit: add total-run budget metadata and a deterministic fake-budget test that reports run-budget timeout separately from per-case timeout, crash, validation failure, or tool failure.
   - Parent: [FUZ]1053.

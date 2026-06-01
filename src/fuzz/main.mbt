@@ -78,6 +78,7 @@ pub struct FuzzCorpusPromotionMetadata {
   notes : String
   raw_artifact_hash : String
   reduced_artifact_hash : String
+  normalized_shape_hash : String
   predicate_hash : String
   feature_fact_hash : String
   interestingness_label : String
@@ -249,6 +250,7 @@ pub fn FuzzCorpusPromotionMetadata::new(
   notes : String,
   raw_artifact_hash? : String = "",
   reduced_artifact_hash? : String = "",
+  normalized_shape_hash? : String = "",
   predicate_hash? : String = "",
   feature_fact_hash? : String = "",
   interestingness_label? : String = "unclassified",
@@ -269,6 +271,7 @@ pub fn FuzzCorpusPromotionMetadata::new(
     notes,
     raw_artifact_hash,
     reduced_artifact_hash,
+    normalized_shape_hash,
     predicate_hash,
     feature_fact_hash,
     interestingness_label,
@@ -3874,7 +3877,7 @@ fn fuzz_corpus_promotion_state_is_known(state : String) -> Bool {
 
 ///|
 pub fn fuzz_corpus_promotion_metadata_schema_json() -> String {
-  "{\"schema\":\"starshine.fuzz-corpus-entry.v1\",\"states\":[\"promoted-valid\",\"promoted-invalid\",\"pass-mismatch\",\"tool-failure\",\"accepted-divergence\",\"quarantine\"],\"required\":[\"id\",\"state\",\"source\",\"input\",\"created_at\",\"generator\",\"features\",\"expectation\",\"classification\",\"replay\",\"artifacts\",\"owner_or_task\",\"notes\",\"raw_artifact_hash\",\"reduced_artifact_hash\",\"predicate_hash\",\"feature_fact_hash\",\"interestingness_label\"]}"
+  "{\"schema\":\"starshine.fuzz-corpus-entry.v1\",\"states\":[\"promoted-valid\",\"promoted-invalid\",\"pass-mismatch\",\"tool-failure\",\"accepted-divergence\",\"quarantine\"],\"required\":[\"id\",\"state\",\"source\",\"input\",\"created_at\",\"generator\",\"features\",\"expectation\",\"classification\",\"replay\",\"artifacts\",\"owner_or_task\",\"notes\",\"raw_artifact_hash\",\"reduced_artifact_hash\",\"normalized_shape_hash\",\"predicate_hash\",\"feature_fact_hash\",\"interestingness_label\"]}"
 }
 
 ///|
@@ -3912,6 +3915,8 @@ pub fn format_fuzz_corpus_promotion_metadata_json(
   out.write_string(fuzz_json_escape(entry.raw_artifact_hash))
   out.write_string("\",\"reduced_artifact_hash\":\"")
   out.write_string(fuzz_json_escape(entry.reduced_artifact_hash))
+  out.write_string("\",\"normalized_shape_hash\":\"")
+  out.write_string(fuzz_json_escape(entry.normalized_shape_hash))
   out.write_string("\",\"predicate_hash\":\"")
   out.write_string(fuzz_json_escape(entry.predicate_hash))
   out.write_string("\",\"feature_fact_hash\":\"")
@@ -4090,6 +4095,11 @@ pub fn parse_fuzz_corpus_promotion_metadata_json(
     Ok(v) => v
     Err(e) => return Err(e)
   }
+  let normalized_shape_hash = match
+    fuzz_parse_corpus_metadata_string_field(json, "normalized_shape_hash") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
   let predicate_hash = match
     fuzz_parse_corpus_metadata_string_field(json, "predicate_hash") {
     Ok(v) => v
@@ -4122,6 +4132,7 @@ pub fn parse_fuzz_corpus_promotion_metadata_json(
       notes,
       raw_artifact_hash~,
       reduced_artifact_hash~,
+      normalized_shape_hash~,
       predicate_hash~,
       feature_fact_hash~,
       interestingness_label~,
@@ -4471,6 +4482,12 @@ pub fn build_fuzz_corpus_case_index(
       entry,
       "reduced",
       entry.reduced_artifact_hash,
+    )
+    fuzz_corpus_case_index_add(
+      entries,
+      entry,
+      "normalized-shape",
+      entry.normalized_shape_hash,
     )
   }
   FuzzCorpusCaseIndex::new(entries)

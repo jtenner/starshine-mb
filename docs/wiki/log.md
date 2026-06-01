@@ -221,6 +221,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - The focused mutation keeps the operand stack reference-typed so the rejection is attributed to the cast hierarchy rule rather than the earlier input-type failure; repair coverage proves the same branch shape validates once the source/target hierarchy is compatible.
 - Validation: `moon test src/validate` first failed on the missing strategy constructor and mutator, then passed after implementation; final validation is recorded in the commit message.
 
+## [2026-05-31] fuzzing | FUZ1050D1 normalized shape corpus hash
+
+- Completed `[FUZ]1050D1` by adding a report-only `normalized_shape_hash` field to fuzz corpus promotion metadata, JSON formatting/parsing, schema docs, and case-index grouping.
+- The case index now records `normalized-shape` entries alongside raw and reduced hashes without deduplicating or deleting raw artifacts; focused fixtures cover raw-different/reduced-different cases that share the same normalized shape hash while preserving raw artifact paths.
+
 ## [2026-05-31] fuzzing | FUZ1056A section-aware binary diagnostics
 
 - Completed `[FUZ]1056A4` by adding a curated malformed `name` custom-section fixture whose detailed decode error carries custom section id `0`, offset `8`, and section span length `16`, plus invalid-binary repro metadata coverage that roundtrips `binary:section=0:offset=8:length=16`.
