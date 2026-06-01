@@ -618,7 +618,7 @@ p1 next-up / active:
 p2 invalid/binary/text tiny slices:
 - [FUZ]1055C1 (p2, IN PROGRESS - BLOCKED ON LOCAL MOON CORE; resume after Moon core install is repaired) - Duplicate Module/Register WAST Fixture
   - Unit: add a deterministic multi-module WAST fixture for duplicate module name or register-name behavior and classify it separately from ordinary validation/unlinkable failures.
-  - Current run update: implementation and focused test are drafted in `src/fuzz/main.mbt` and `src/fuzz/main_wbtest.mbt`; docs are updated. Validation remains blocked on 2026-05-31/2026-06-01 because `moon test src/fuzz` and `moon info` fail before dependency graph resolution with `Cannot inject the standard library moonbitlang/core: Cannot load the core file`; `moon fmt` completed but attempted to migrate `moon.mod.json` to `moon.mod`, and that unintended migration was reverted. Next step: rerun `moon test src/fuzz`, then `moon info`, `moon fmt`, and `moon test` after the local Moon core install is repaired; if green, remove this task from `agent-todo.md` and commit/close it.
+  - Current run update: implementation and focused test are drafted in `src/fuzz/main.mbt` and `src/fuzz/main_wbtest.mbt`; docs are updated. Validation remains blocked on 2026-06-01 because `moon test src/fuzz` and `moon info` both fail before dependency graph resolution with `Cannot inject the standard library moonbitlang/core: Cannot load the core file`. Next step: rerun `moon test src/fuzz`, then `moon info`, `moon fmt`, and `moon test` after the local Moon core install is repaired; if green, remove this task from `agent-todo.md` and commit/close it.
   - Suggested tests: focused WAST runner/classifier fixture and repro metadata assertion.
 
 p2 oracle/reporting/infrastructure tiny slices:
