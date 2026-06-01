@@ -56,7 +56,13 @@ function counterIsRequired(path: string): boolean {
 }
 
 function counterIsAlwaysVisible(path: string): boolean {
-  return path.startsWith("artifact_counts.") || path.startsWith("failure_classes.") || path.startsWith("pass_statuses.") || path.startsWith("timings.");
+  return path.startsWith("artifact_counts.") ||
+    path.startsWith("failure_classes.") ||
+    path.startsWith("pass_statuses.") ||
+    path.startsWith("artifacts.") ||
+    path.startsWith("failures.") ||
+    path.startsWith("statuses.") ||
+    path.startsWith("timings.");
 }
 
 function collectCounters(value: unknown, prefix: string, out: Map<string, Counter>): void {

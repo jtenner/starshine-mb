@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1048C pass-fuzz summary bridge
+
+- Closed `[FUZ]1048C` by wiring compare-pass runs to emit `summary.json` using the compact `starshine.fuzz-summary-report.v1` shape.
+- The pass-fuzz bridge records required requested/compared case counters, optional generator/GenValid-transform/property/input-effect/runtime counters, run-status counters, failure-class counters, and failure-artifact counts so `bun fuzz coverage-delta` can compare pass-fuzz runs without reading the larger `result.json` contract.
+- Coverage-delta now treats compact-schema `artifacts`, `failures`, and `statuses` like the older artifact/failure/status group names for always-visible run-shape drift. Validation: focused Bun tests, a zero-case compare-pass smoke, `moon info`, `moon fmt`, and `moon test` passed; final validation is recorded in the commit message.
+
 ## [2026-05-31] fuzzing | FUZ1048B validate-valid summary writer
 
 - Closed `[FUZ]1048B` by wiring the ordinary Moon fuzz runner's representative `validate-valid` suite to emit `summary.json` in `--out-dir` runs using the compact `starshine.fuzz-summary-report.v1` shape.

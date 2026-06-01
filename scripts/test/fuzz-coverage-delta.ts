@@ -58,6 +58,36 @@ export function runFuzzCoverageDeltaTest(): void {
   assert(passed.status === 0, `optional diff should pass:\n${passed.stdout}`);
   assert(passed.stdout.includes("optional_strings: 1 -> 0 (-1)"), `optional diff should be visible with flag:\n${passed.stdout}`);
   assert(passed.stdout.includes("optional_new: 0 -> 7 (+7)"), `new optional counter should be visible:\n${passed.stdout}`);
+
+  const compactBefore = path.join(tmpdir, "compact-before.json");
+  const compactAfter = path.join(tmpdir, "compact-after.json");
+  fs.writeFileSync(compactBefore, JSON.stringify({
+    schema: "starshine.fuzz-summary-report.v1",
+    summary: {
+      features: { optional_gc: 1 },
+      artifacts: { failure_dirs: 0 },
+      failures: { mismatch: 0 },
+      statuses: { match: 2 },
+      timings: { wall_ms: 10 }
+    }
+  }));
+  fs.writeFileSync(compactAfter, JSON.stringify({
+    schema: "starshine.fuzz-summary-report.v1",
+    summary: {
+      features: { optional_gc: 0 },
+      artifacts: { failure_dirs: 1 },
+      failures: { mismatch: 1 },
+      statuses: { match: 1 },
+      timings: { wall_ms: 12 }
+    }
+  }));
+  const compact = run(["fuzz", "coverage-delta", compactBefore, compactAfter], repoRoot);
+  assert(compact.status === 0, `compact run-shape diff should not fail without required drops:\n${compact.stdout}`);
+  assert(!compact.stdout.includes("optional_gc"), `compact optional feature should remain hidden by default:\n${compact.stdout}`);
+  assert(compact.stdout.includes("failure_dirs: 0 -> 1 (+1)"), `compact artifact drift should be visible:\n${compact.stdout}`);
+  assert(compact.stdout.includes("mismatch: 0 -> 1 (+1)"), `compact failure drift should be visible:\n${compact.stdout}`);
+  assert(compact.stdout.includes("match: 2 -> 1 (-1)"), `compact status drift should be visible:\n${compact.stdout}`);
+  assert(compact.stdout.includes("wall_ms: 10 -> 12 (+2)"), `compact timing drift should be visible:\n${compact.stdout}`);
 }
 
 if (import.meta.main) runFuzzCoverageDeltaTest();

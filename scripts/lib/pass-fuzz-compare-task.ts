@@ -12,6 +12,7 @@ import {
   resolveWorkspaceRoot,
   runOrThrow,
 } from "./task-runtime";
+import { type FuzzSummaryReport, formatFuzzSummaryReport, normalizeFuzzSummaryReport } from "./fuzz-summary-counters";
 import { type EffectTrapFacts, scanEffectTrapFactsFromWasmBytes } from "./effect-trap-scanner";
 
 type GeneratorMode = "both" | "wasm-smith" | "gen-valid";
@@ -128,7 +129,7 @@ type ReplayCase = {
   inputPath: string;
 };
 
-type PassFuzzCompareSummary = {
+export type PassFuzzCompareSummary = {
   requestedCount: number;
   minCompared: number | null;
   comparedCount: number;
@@ -1401,6 +1402,97 @@ function runtimeExportInvocationMatrixPersistence(
   };
 }
 
+function addCounter(target: Record<string, number>, key: string, value: number): void {
+  if (Number.isFinite(value) && value !== 0) {
+    target[key] = value;
+  }
+}
+
+function sanitizeCounterKey(value: string): string {
+  return value.replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^_+|_+$/g, "") || "unknown";
+}
+
+function passFuzzProfileName(summary: PassFuzzCompareSummary): string {
+  const passName = summary.passFlags.map((flag) => flag.replace(/^--/, "")).join("+") || "no-pass";
+  return `${passName}+${summary.generator}`;
+}
+
+export function passFuzzSummaryCoverageReport(summary: PassFuzzCompareSummary): FuzzSummaryReport {
+  const features: Record<string, number> = {};
+  addCounter(features, "optional_input_has_call", summary.inputEffectTrapCounts.hasCall);
+  addCounter(features, "optional_input_mutates_memory", summary.inputEffectTrapCounts.mutatesMemory);
+  addCounter(features, "optional_input_mutates_table", summary.inputEffectTrapCounts.mutatesTable);
+  addCounter(features, "optional_input_mutates_global", summary.inputEffectTrapCounts.mutatesGlobal);
+  addCounter(features, "optional_input_has_exception", summary.inputEffectTrapCounts.hasException);
+  addCounter(features, "optional_input_has_atomics", summary.inputEffectTrapCounts.hasAtomics);
+  addCounter(features, "optional_input_has_unreachable", summary.inputEffectTrapCounts.hasUnreachable);
+  addCounter(features, "optional_input_may_trap", summary.inputEffectTrapCounts.mayTrap);
+  addCounter(features, "optional_runtime_checked", summary.runtimeExecutionCounts.checked);
+  addCounter(features, "optional_runtime_unsupported", summary.runtimeExecutionCounts.unsupported);
+  addCounter(features, "optional_runtime_failed", summary.runtimeExecutionCounts.failed);
+  for (const [kind, count] of Object.entries(summary.externalValidatorSkipped)) {
+    addCounter(features, `optional_external_validator_${sanitizeCounterKey(kind)}_skipped`, count ?? 0);
+  }
+
+  const strategies: Record<string, number> = {
+    required_requested_cases: summary.requestedCount,
+    required_compared_cases: summary.comparedCount,
+  };
+  addCounter(strategies, "optional_generator_wasm_smith", summary.generatorCounts.wasmSmith);
+  addCounter(strategies, "optional_generator_gen_valid", summary.generatorCounts.genValid);
+  for (const [transform, count] of Object.entries(summary.genValidTransformCounts)) {
+    addCounter(strategies, `optional_gen_valid_transform_${sanitizeCounterKey(transform)}`, count);
+  }
+  addCounter(strategies, "optional_property_idempotence_checked", summary.idempotenceCheckedCount);
+  addCounter(strategies, "optional_property_idempotence_matched", summary.idempotenceMatchCount);
+  addCounter(strategies, "optional_property_composition_checked", summary.compositionCheckedCount);
+  addCounter(strategies, "optional_property_composition_matched", summary.compositionMatchCount);
+
+  const matchCount = summary.normalizedMatchCount + summary.cleanupNormalizedMatchCount;
+  const statuses: Record<string, number> = {};
+  addCounter(statuses, "match", matchCount);
+  addCounter(statuses, "normalized-match", summary.normalizedMatchCount);
+  addCounter(statuses, "cleanup-normalized-match", summary.cleanupNormalizedMatchCount);
+  addCounter(statuses, "mismatch", summary.mismatchCount);
+  addCounter(statuses, "validation-failure", summary.validationFailureCount);
+  addCounter(statuses, "generator-failure", summary.generatorFailureCount);
+  addCounter(statuses, "command-failure", summary.commandFailureCount);
+  addCounter(statuses, "property-failure", summary.propertyFailureCount);
+  addCounter(statuses, "max-failures-hit", summary.maxFailuresHit ? 1 : 0);
+
+  const failures: Record<string, number> = {};
+  addCounter(failures, "mismatch", summary.mismatchCount);
+  addCounter(failures, "validation", summary.validationFailureCount);
+  addCounter(failures, "generator", summary.generatorFailureCount);
+  addCounter(failures, "command", summary.commandFailureCount);
+  addCounter(failures, "property", summary.propertyFailureCount);
+  for (const [failureClass, count] of Object.entries(summary.commandFailureClasses)) {
+    addCounter(failures, `command-class.${failureClass}`, count ?? 0);
+  }
+  addCounter(failures, "runtime.semantic-mismatch", summary.runtimeExecutionMatrix.summary.semanticMismatches);
+  addCounter(failures, "runtime.unsupported", summary.runtimeExecutionMatrix.summary.unsupportedRuntimes);
+  addCounter(failures, "runtime.nondeterministic-import", summary.runtimeExecutionMatrix.summary.nondeterministicImports);
+
+  const artifacts: Record<string, number> = {};
+  addCounter(artifacts, "failure_dirs", summary.failureDirs.length);
+  addCounter(artifacts, "gen_valid_manifest", summary.genValidManifestPath === null ? 0 : 1);
+
+  return normalizeFuzzSummaryReport({
+    suite: "compare-pass",
+    profile: passFuzzProfileName(summary),
+    seed: summary.seed,
+    summary: {
+      features,
+      opcodes: {},
+      strategies,
+      statuses,
+      failures,
+      timings: {},
+      artifacts,
+    },
+  });
+}
+
 function safeArtifactNameSegment(value: string): string {
   return value.replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^_+|_+$/g, "") || "unknown";
 }
@@ -1860,6 +1952,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   const genValidDir = path.join(inputsDir, "gen-valid");
   const smithDir = path.join(inputsDir, "wasm-smith");
   const resultPath = path.join(outDir, "result.json");
+  const summaryPath = path.join(outDir, "summary.json");
   const casesPath = path.join(outDir, "cases.jsonl");
   const binaryenPassFlags = options.passFlags.map(normalizeBinaryenPassFlag);
   const replayCases =
@@ -2580,6 +2673,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
       (caseRecords.length === 0 ? "" : "\n"),
   );
   fs.writeFileSync(resultPath, JSON.stringify(summary, null, 2) + "\n");
+  fs.writeFileSync(summaryPath, formatFuzzSummaryReport(passFuzzSummaryCoverageReport(summary)));
   if (options.minCompared !== null && summary.comparedCount < options.minCompared) {
     fail(
       `pass-fuzz-compare compared ${summary.comparedCount} cases, below required minimum ${options.minCompared}`,

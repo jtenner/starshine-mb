@@ -12,6 +12,7 @@ import {
   runNodeExportInvocationMatrix,
   smokeExecuteNodeRuntime,
   summarizeRuntimeExportInvocationMatrix,
+  passFuzzSummaryCoverageReport,
 } from "./pass-fuzz-compare-task";
 
 function wasmFromWat(wat: string): string {
@@ -25,6 +26,111 @@ function wasmFromWat(wat: string): string {
   }
   return wasmPath;
 }
+
+describe("pass fuzz summary coverage report", () => {
+  test("FUZ1048C maps pass-fuzz result counters into compact summary groups", () => {
+    const report = passFuzzSummaryCoverageReport({
+      requestedCount: 8,
+      minCompared: 4,
+      comparedCount: 6,
+      normalizedMatchCount: 3,
+      cleanupNormalizedMatchCount: 1,
+      mismatchCount: 2,
+      validationFailureCount: 1,
+      generatorFailureCount: 0,
+      commandFailureCount: 1,
+      commandFailureClasses: { "binaryen-rec-group-zero": 1 },
+      commandFailuresCountTowardMaxFailures: false,
+      maxFailuresHit: true,
+      jobs: 2,
+      seed: "0x1048c",
+      generator: "both",
+      genValidProfile: "smoke",
+      genValidRequiredFeatures: ["gc"],
+      genValidExcludedFeatures: ["simd"],
+      genValidMetamorphicTransforms: ["identity"],
+      genValidManifestPath: "inputs/gen-valid/manifest.json",
+      genValidTransformCounts: { identity: 2 },
+      externalValidators: ["wasm-tools"],
+      runtimeExecution: "node",
+      propertyMode: "idempotence",
+      propertyFailureCount: 1,
+      idempotenceCheckedCount: 5,
+      idempotenceMatchCount: 4,
+      compositionCheckedCount: 0,
+      compositionMatchCount: 0,
+      runtimeExecutionCounts: { checked: 2, unsupported: 1, failed: 1 },
+      runtimeExecutionMatrix: {
+        summary: {
+          total: 3,
+          equalResults: 1,
+          equalTraps: 0,
+          unsupportedRuntimes: 1,
+          nondeterministicImports: 0,
+          semanticMismatches: 1,
+        },
+        outcome: "semantic-mismatch",
+        semanticMismatchSamples: [],
+      },
+      externalValidatorSkipped: { "wasm-tools": 1 },
+      generatorCounts: { wasmSmith: 4, genValid: 2 },
+      inputEffectTrapCounts: {
+        hasCall: 2,
+        mutatesMemory: 1,
+        mutatesTable: 0,
+        mutatesGlobal: 0,
+        hasException: 0,
+        hasAtomics: 0,
+        hasUnreachable: 1,
+        mayTrap: 3,
+      },
+      passFlags: ["--dae-optimizing"],
+      binaryenPassFlags: ["--dae-optimizing"],
+      normalizers: ["drop-consts"],
+      failureDirs: ["failures/case-1", "failures/case-2"],
+    });
+
+    expect(report.schema).toBe("starshine.fuzz-summary-report.v1");
+    expect(report.suite).toBe("compare-pass");
+    expect(report.profile).toBe("dae-optimizing+both");
+    expect(report.seed).toBe("0x1048c");
+    expect(report.summary.features).toMatchObject({
+      optional_input_has_call: 2,
+      optional_input_mutates_memory: 1,
+      optional_input_has_unreachable: 1,
+      optional_input_may_trap: 3,
+      optional_runtime_checked: 2,
+      optional_runtime_unsupported: 1,
+      optional_runtime_failed: 1,
+    });
+    expect(report.summary.strategies).toMatchObject({
+      required_requested_cases: 8,
+      required_compared_cases: 6,
+      optional_generator_wasm_smith: 4,
+      optional_generator_gen_valid: 2,
+      optional_gen_valid_transform_identity: 2,
+      optional_property_idempotence_checked: 5,
+      optional_property_idempotence_matched: 4,
+    });
+    expect(report.summary.statuses).toMatchObject({
+      match: 4,
+      mismatch: 2,
+      "validation-failure": 1,
+      "command-failure": 1,
+      "property-failure": 1,
+      "max-failures-hit": 1,
+    });
+    expect(report.summary.failures).toMatchObject({
+      mismatch: 2,
+      validation: 1,
+      command: 1,
+      property: 1,
+      "command-class.binaryen-rec-group-zero": 1,
+      "runtime.semantic-mismatch": 1,
+    });
+    expect(report.summary.artifacts).toEqual({ failure_dirs: 2, gen_valid_manifest: 1 });
+  });
+});
 
 describe("runtime result classification", () => {
   test("classify equal results, equal traps, unsupported runtime, nondeterminism, and semantic mismatch", () => {

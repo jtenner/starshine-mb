@@ -617,7 +617,6 @@ p1 next-up / active:
 p2 invalid/binary/text tiny slices:
 
 p2 oracle/reporting/infrastructure tiny slices:
-- `[FUZ]1048C` - Pass-fuzz summary counters feed coverage-delta-compatible reports.
 - `[FUZ]1050A` - Corpus hash/interestingness metadata schema.
 - `[FUZ]1050B` - Case index roundtrip with duplicate raw/reduced hashes.
 - `[FUZ]1050C` - Dry-run dedup classifier that never deletes sole unreduced failures.
@@ -628,8 +627,6 @@ p2 oracle/reporting/infrastructure tiny slices:
 Use these slice ids when selecting or reporting future FUZ work. Parent tasks below keep the fuller goals, invariants, and historical evidence; this index names the remaining units so agents do not have to infer the next slice from long status paragraphs.
 
 p1/p2 oracle, reporting, and infrastructure slices:
-- [FUZ]1048C (p2) - Pass-Fuzz Summary Bridge
-  - Unit: convert pass-fuzz result data into the same coverage-delta-compatible summary counter families, with fixture tests and no CI policy change.
 - [FUZ]1050A (p2) - Corpus Hash Metadata Schema
   - Unit: compute/store raw bytes/text hash, reduced-artifact hash, failure-predicate hash, feature-facts hash, and an initial interestingness label in metadata fixtures.
 - [FUZ]1050B (p2) - Case Index Roundtrip
@@ -800,7 +797,7 @@ p2 invalid/binary/text slices:
 - [FUZ]1048 (p2) - Fuzz Result Trend Reports And Coverage Deltas
   - Goal: compare fuzz coverage and outcomes across commits, seeds, and profiles.
   - Why: broad generator work can accidentally remove surfaces while all tests still pass. Trend reports make coverage regressions visible.
-  - Deliverables: `[FUZ]1048A` closed on 2026-05-31 with the compact `starshine.fuzz-summary-report.v1` parse/format fixture for suite/profile/seed and feature/opcode/strategy/status/failure/timing/artifact counter groups; `[FUZ]1048B` closed on 2026-05-31 by writing `summary.json` for representative `validate-valid --out-dir` runs with required module/attempt counters, optional feature counters, and status/failure/timing/artifact groups; `[FUZ]1048C` bridges pass-fuzz result counters into the same shape. The coverage-delta diff tool is complete: `bun fuzz coverage-delta [--optional] <before> <after>` compares report counters, fails on required counter drops, tolerates optional counters by default, and always reports artifact/failure/status/timing drift.
+  - Deliverables: `[FUZ]1048A` closed on 2026-05-31 with the compact `starshine.fuzz-summary-report.v1` parse/format fixture for suite/profile/seed and feature/opcode/strategy/status/failure/timing/artifact counter groups; `[FUZ]1048B` closed on 2026-05-31 by writing `summary.json` for representative `validate-valid --out-dir` runs with required module/attempt counters, optional feature counters, and status/failure/timing/artifact groups; `[FUZ]1048C` closed on 2026-05-31 by writing pass-fuzz `summary.json` reports with required requested/compared case counters, optional generator/GenValid-transform/property/input-effect/runtime counters, status counters, failure-class counters, and failure-artifact counts. The coverage-delta diff tool is complete: `bun fuzz coverage-delta [--optional] <before> <after>` compares report counters, fails on required counter drops, tolerates optional counters by default, and always reports artifact/failure/status/timing drift, including compact-schema `artifacts` / `failures` / `statuses` groups.
   - Required APIs: fuzz JSON reports from [FUZ]1030, exact ledger from [FUZ]1013, pass-fuzz result schema, docs/wiki tooling.
   - Invariants: report comparison must tolerate newly added optional counters; required counter drops should fail only when a profile declares that floor.
   - Dependencies: [FUZ]1013 and [FUZ]1030.
