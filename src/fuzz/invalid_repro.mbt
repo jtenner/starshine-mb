@@ -316,9 +316,10 @@ pub fn fuzz_reduction_predicate_from_invalid_report(
   report : InvalidFuzzFailureReport,
 ) -> FuzzReductionPredicate {
   let kind = match report.actual_stage {
-    "parse-or-lower-rejected" | "decode-rejected" => ParseFailure
-    "valid-before-link" => PropertyFailure
-    _ => ValidationFailure
+    "parse-or-lower-rejected" | "decode-rejected" =>
+      FuzzReductionFailureKind::ParseFailure
+    "valid-before-link" => FuzzReductionFailureKind::PropertyFailure
+    _ => FuzzReductionFailureKind::ValidationFailure
   }
   FuzzReductionPredicate::new(
     kind,

@@ -1566,11 +1566,11 @@ pub type TcResult = Result[TcState, String]
 
 // Traits
 pub trait DeclMatch {
-  matches_decl(Self, Self, Env) -> Bool
+  fn matches_decl(Self, Self, Env) -> Bool
 }
 
 pub trait Match {
-  matches(Self, Self, Env) -> Bool
+  fn matches(Self, Self, Env) -> Bool
 }
 pub impl Match for @lib.AbsHeapType
 pub impl Match for @lib.CompType
@@ -1589,13 +1589,13 @@ pub impl Match for @lib.ValType
 pub impl[T : Match] Match for Array[T]
 
 pub trait Typecheck {
-  typecheck(Self, TcState) -> Result[TcState, String]
+  fn typecheck(Self, TcState) -> Result[TcState, String]
 }
 pub impl Typecheck for @lib.Expr
 pub impl Typecheck for @lib.Instruction
 
 pub trait Validate {
-  validate(Self, Env) -> Result[Unit, String]
+  fn validate(Self, Env) -> Result[Unit, String]
 }
 pub impl Validate for @lib.AbsHeapType
 pub impl Validate for @lib.BlockType
@@ -1634,7 +1634,7 @@ pub impl Validate for @lib.ValType
 pub impl[T : Validate] Validate for Array[T]
 
 pub trait ValidateMax {
-  validate_max(Self, Env, UInt64) -> Result[Unit, String]
+  fn validate_max(Self, Env, UInt64) -> Result[Unit, String]
 }
 pub impl ValidateMax for @lib.Limits
 

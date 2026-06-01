@@ -45,6 +45,8 @@ pub fn build_validate_invalid_binary_minimal_repro_by_stable_id(String) -> Resul
 
 pub fn classify_fuzz_corpus_dedup_dry_run(FuzzCorpusCaseIndex) -> FuzzCorpusDedupDryRunPlan
 
+pub fn classify_multi_module_wast_case(ValidMultiModuleWastCase) -> MultiModuleWastClassification
+
 pub fn emit_gen_valid_batch_artifacts(Int, UInt64) -> Result[Array[(String, Bytes)], String]
 
 pub fn emit_gen_valid_batch_artifacts_until_features(Int, UInt64, @validate.GenValidConfig, Array[@validate.ValidateValidFeatureFloor], Array[@validate.ValidateValidFeatureKey], Int, metamorphic_transform_ids? : Array[String]) -> Result[GenValidCoverageSelection, String]
@@ -111,7 +113,11 @@ pub fn fuzz_standard_recipe_text_by_name(String) -> String?
 
 pub fn fuzz_suite_inventory_lines() -> Array[String]
 
+pub fn fuzz_suite_result_with_total_run_budget(FuzzSuiteResult, UInt64) -> FuzzSuiteResult
+
 pub fn fuzz_usage_text() -> String
+
+pub fn gen_duplicate_multi_module_wast_case(UInt64) -> ValidMultiModuleWastCase
 
 pub fn gen_invalid_binary_coverage_seed_generator_config() -> @validate.GenValidConfig
 
@@ -376,11 +382,12 @@ pub struct FuzzCorpusPromotionMetadata {
   notes : String
   raw_artifact_hash : String
   reduced_artifact_hash : String
+  normalized_shape_hash : String
   predicate_hash : String
   feature_fact_hash : String
   interestingness_label : String
 } derive(Eq, @debug.Debug)
-pub fn FuzzCorpusPromotionMetadata::new(String, String, String, String, String, String, Array[String], String, String, String, Array[String], String, String, raw_artifact_hash? : String, reduced_artifact_hash? : String, predicate_hash? : String, feature_fact_hash? : String, interestingness_label? : String) -> Self
+pub fn FuzzCorpusPromotionMetadata::new(String, String, String, String, String, String, Array[String], String, String, String, Array[String], String, String, raw_artifact_hash? : String, reduced_artifact_hash? : String, normalized_shape_hash? : String, predicate_hash? : String, feature_fact_hash? : String, interestingness_label? : String) -> Self
 
 pub struct FuzzCorpusReplayAllPlan {
   planned_count : Int
@@ -521,6 +528,9 @@ pub struct FuzzSuiteResult {
   seed_count : Int
   shard_index : Int
   shard_count : Int
+  total_run_budget_ms : UInt64?
+  total_run_budget_exceeded : Bool
+  run_budget_classification : String
   details_json : String?
 } derive(Eq, @debug.Debug)
 
@@ -687,9 +697,10 @@ pub fn InvalidFuzzReductionStep::new(String, Int, Int, Int, Int) -> Self
 pub struct InvalidFuzzReplayResult {
   stage : String
   diagnostic_family : String?
+  diagnostic_location : String?
   message : String?
 } derive(Eq, @debug.Debug)
-pub fn InvalidFuzzReplayResult::new(String, diagnostic_family? : String?, message? : String?) -> Self
+pub fn InvalidFuzzReplayResult::new(String, diagnostic_family? : String?, diagnostic_location? : String?, message? : String?) -> Self
 
 pub enum InvalidFuzzSourceKind {
   AstInvalidSource
@@ -1186,6 +1197,17 @@ pub struct MetamorphicValidTransformResult {
   wasm_module : @lib.Module
 } derive(Eq, @debug.Debug)
 
+pub enum MultiModuleWastClassification {
+  ValidLinking
+  Unlinkable
+  DuplicateModuleName
+  DuplicateRegisterName
+  ParseFailure
+  SingleModuleValidationFailure
+  LinkFailure
+  LinkSkipped
+} derive(Eq, @debug.Debug)
+
 pub struct TextDifferentialFuzzStats {
   profile : String
   seed : UInt64
@@ -1621,6 +1643,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedSimdLoadZeroMemargOffsetUleb
   OverwideSimdLoadZeroMemargAlignUleb
   OverwideSimdLoadZeroMemargOffsetUleb
+  MalformedRelaxedSimdLaneselectMaskLocalIndexUleb
+  OverwideRelaxedSimdLaneselectMaskLocalIndexUleb
   MalformedDataIndexUleb
   OverwideDataIndexUleb
   MalformedDataSegmentByteCountUleb

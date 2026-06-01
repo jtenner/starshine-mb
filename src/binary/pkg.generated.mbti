@@ -144,7 +144,7 @@ pub struct ModuleDecodeErrorDetail {
 
 // Traits
 pub trait Decode {
-  decode(Bytes, Int) -> Result[(Self, Int), BinaryDecodeError]
+  fn decode(Bytes, Int) -> Result[(Self, Int), BinaryDecodeError]
 }
 pub impl Decode for Bool
 pub impl[T : Decode] Decode for T?
@@ -227,7 +227,7 @@ pub impl[T : Decode] Decode for Array[T]
 pub impl[T : Decode] Decode for @list.List[T]
 
 pub trait Encode {
-  encode(Self, @buffer.Buffer) -> Result[Unit, BinaryEncodeError]
+  fn encode(Self, @buffer.Buffer) -> Result[Unit, BinaryEncodeError]
 }
 pub impl Encode for Bool
 pub impl[T : Encode] Encode for T?

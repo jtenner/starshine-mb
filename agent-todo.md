@@ -616,10 +616,15 @@ p1 next-up / active:
 - None currently tracked. Prefer adding a new tiny GenValid/metamorphic slice before broad p2 infrastructure work if a release need appears.
 
 p2 invalid/binary/text tiny slices:
-- [FUZ]1055C1 (p2, IN PROGRESS - CURRENT 2026-06-01 05:42 EDT RETRY; BLOCKED ON LOCAL MOON CORE; resume after Moon core install is repaired) - Duplicate Module/Register WAST Fixture
+- [FUZ]1055C1 (p2, IN PROGRESS - NEXT SLICE 1055C1b) - Duplicate Module/Register WAST Fixture
   - Unit: add a deterministic multi-module WAST fixture for duplicate module name or register-name behavior and classify it separately from ordinary validation/unlinkable failures.
-  - Current run update: implementation and focused test are already present in `src/fuzz/main.mbt` and `src/fuzz/main_wbtest.mbt`; docs are updated and repeated 2026-06-01 cron retries from clean worktrees have all been blocked before package tests by local Moon standard-library injection failure. Latest evidence: this 2026-06-01 05:42 EDT cron run selected `[FUZ]1055C1`, confirmed the task is still the only available in-progress FUZ slice, refreshed the localized `IN PROGRESS` marker as the first file edit, reran `moon test src/fuzz`, reran `moon info`, ran `moon fmt`, ran full `moon test`, and checked `moon version`; `moon test src/fuzz`, `moon info`, and full `moon test` all failed while resolving the module dependency graph with `Cannot inject the standard library moonbitlang/core: Cannot load the core file` (exit 255), `moon fmt` completed but only produced incidental `rr_moon_mod` migration/formatting diffs that were reverted, and `moon version` still reports `moon 0.1.20260522 (4a0c52f 2026-05-22)`. No source, test, or docs implementation files were changed in this retry beyond this blocker evidence refresh. Previous 2026-06-01 05:39, 05:36, 05:33, 05:30, 05:27, 05:24, 05:21, 05:18, 05:15, 05:12, 05:09, 05:06, 05:03, 05:00, 04:57, 04:54, 04:51, 04:48, 04:45, 04:42, 04:39, 04:36, 04:27, 04:24, 04:15, 04:12, 04:09, 04:06, 04:03, 03:54, 03:42, 03:39, 03:36, 03:33, 03:30, 03:27, 03:24, 03:21, 03:18, 03:15, 03:09, 03:06, 03:03, 03:00, 02:57, 02:54, 02:51, 02:48, 02:45, 02:42, 02:39, and 02:36 EDT retries saw the same `moon test src/fuzz` core-injection failure; the 02:54, 03:06, 03:09, 03:15, 04:54, 04:57, 05:00, 05:03, 05:06, 05:09, 05:12, 05:15, 05:18, 05:21, 05:24, 05:27, 05:30, 05:33, 05:36, 05:39, and 05:42 runs also reran `moon info` and saw the same dependency-graph/core-injection error. Next step: repair the local Moon core install, rerun `moon test src/fuzz`, then `moon info`, `moon fmt`, and `moon test`; if green, review/remove any incidental `moon fmt` migration-only diff as appropriate, remove this task from `agent-todo.md`, and commit/close it.
-  - Suggested tests: focused WAST runner/classifier fixture and repro metadata assertion.
+  - Current state: implementation and focused tests are already present in `src/fuzz/main.mbt` and `src/fuzz/main_wbtest.mbt`; docs are already updated. The local Moon core blocker is repaired for this workspace/toolchain as of 2026-06-01 09:54 EDT by replacing the broken `lib/core` state with the matching `core-latest` bundle for `moon 0.1.20260522`, rebuilding the core bundles, and disambiguating `FuzzReductionFailureKind::{ParseFailure,PropertyFailure,ValidationFailure}` after the restored toolchain exposed the constructor-name collision with `MultiModuleWastClassification::ParseFailure`. Validation evidence: `moon info` now resolves `moonbitlang/core` and finishes with existing deprecation warnings only.
+  - Remaining work is sliced as:
+    - [x] [FUZ]1055C1a (p2) - Repair or replace the local Moon core/standard-library install so dependency graph resolution succeeds. Acceptance met: `moon info` no longer fails with `Cannot inject the standard library moonbitlang/core` and now completes successfully after the enum-constructor disambiguation.
+    - [FUZ]1055C1b (p2, IN PROGRESS NEXT) - Validate the already-landed duplicate module/register fixture implementation. Acceptance: `moon test src/fuzz` passes and covers the focused WAST runner/classifier fixture plus repro metadata assertion.
+    - [FUZ]1055C1c (p2, depends on 1055C1b) - Run commit-ready repository validation. Acceptance: `moon info`, `moon fmt`, and full `moon test` pass; review and revert any incidental `moon fmt` migration-only diff that is unrelated to the FUZ slice.
+    - [FUZ]1055C1d (p2, depends on 1055C1c) - Close the task. Acceptance: remove `[FUZ]1055C1` from the active backlog, review the diff, and commit the fixture/docs/validation evidence with a detailed message.
+  - Next runnable step: run `[FUZ]1055C1b` with `moon test src/fuzz`; do not start broader validation until the focused fuzz package test passes.
 
 p2 oracle/reporting/infrastructure tiny slices:
 
@@ -639,7 +644,11 @@ p1/p2 oracle, reporting, and infrastructure slices:
 
 p2 invalid/binary/text slices:
 - [FUZ]1055C1 (p2) - Duplicate Module/Register WAST Fixture
-  - Unit: add a deterministic multi-module WAST fixture for duplicate module name or register-name behavior and classify it separately from ordinary validation/unlinkable failures.
+  - Remaining concrete slices:
+    - [x] [FUZ]1055C1a (p2) - Repaired local Moon core injection so `moon info` resolves `moonbitlang/core` and completes.
+    - [FUZ]1055C1b (p2, IN PROGRESS NEXT) - Rerun focused duplicate module/register fixture validation with `moon test src/fuzz`.
+    - [FUZ]1055C1c (p2, depends on 1055C1b) - Run commit-ready validation: `moon info`, `moon fmt`, and full `moon test`; revert unrelated migration-only formatting diffs if they appear.
+    - [FUZ]1055C1d (p2, depends on 1055C1c) - Remove the active task and commit the completed fixture/docs/validation evidence.
   - Parent: [FUZ]1055.
 - [FUZ]1020A (p2) - Remaining AST Type/Subtyping Invalid Strategies
   - Remaining concrete slices: none for the current tracked 1020A board. Earlier `[FUZ]1020A1`/`A2` covered representative subtype variance and descriptor-cycle basics; `[FUZ]1020A3` covered focused function parameter/result variance; `[FUZ]1020A4` covered descriptor-edge missing heap-type refs; `[FUZ]1020A5` covered recursive-group supertype-cycle rejection.
