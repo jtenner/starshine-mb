@@ -18,7 +18,7 @@ related:
 
 ## Purpose
 
-This policy names the long-lived fuzz corpus states used by Starshine runners, compare lanes, reducers, and replay-all tooling. It closes the `[FUZ]1042A` documentation slice; code that persists or replays corpus entries should use these names instead of inventing ad hoc directories or statuses. `[FUZ]1042B` adds the first Moon schema/format/parse helper for single-entry metadata under `starshine.fuzz-corpus-entry.v1`.
+This policy names the long-lived fuzz corpus states used by Starshine runners, compare lanes, reducers, dedup/index tooling, and replay-all tooling. It closes the `[FUZ]1042A` documentation slice; code that persists or replays corpus entries should use these names instead of inventing ad hoc directories or statuses. `[FUZ]1042B` adds the first Moon schema/format/parse helper for single-entry metadata under `starshine.fuzz-corpus-entry.v1`, and `[FUZ]1050A` extends that entry with deterministic artifact, predicate, feature-fact, and interestingness-label metadata.
 
 The policy is intentionally metadata-first. Large generated corpora should not be committed by default. Promote small, durable repro artifacts only when they are useful for regression, oracle triage, or tool-gap tracking, and keep noisy or machine-local bulk output under `.tmp/` unless a maintainer explicitly chooses otherwise.
 
@@ -51,6 +51,11 @@ Every promoted or quarantined entry should carry these fields in a sidecar manif
 - `artifacts`: optional related raw/canonical/text outputs, reducer outputs, or logs.
 - `owner_or_task`: backlog id, pass id, or wiki page responsible for follow-up.
 - `notes`: short rationale, caveats, and supersession links.
+- `raw_artifact_hash`: deterministic hash for the original raw bytes or text payload before reduction.
+- `reduced_artifact_hash`: deterministic hash for the reduced artifact that still preserves the predicate, or the raw-artifact hash when no reduced artifact exists.
+- `predicate_hash`: deterministic hash for the replay predicate, failure class, pass/tool verdict, or other oracle condition used to decide that the case remains interesting.
+- `feature_fact_hash`: deterministic hash for sorted feature facts, such as GC, exception, memory64, SIMD, imports, exports, or proposal markers.
+- `interestingness_label`: compact human-readable initial label such as `semantic-mismatch`, `tool-failure`, `rare-feature`, `decode-rejected`, or `validate-rejected`.
 
 Use relative paths rooted at the repository when possible. Do not store absolute host paths, credentials, environment-specific cache paths, or private machine details in committed metadata.
 
@@ -60,9 +65,9 @@ Use relative paths rooted at the repository when possible. Do not store absolute
 
 - schema id: `starshine.fuzz-corpus-entry.v1`;
 - allowed `state` values: `promoted-valid`, `promoted-invalid`, `pass-mismatch`, `tool-failure`, `accepted-divergence`, and `quarantine`;
-- required fields: `id`, `state`, `source`, `input`, `created_at`, `generator`, `features`, `expectation`, `classification`, `replay`, `artifacts`, `owner_or_task`, and `notes`.
+- required fields: `id`, `state`, `source`, `input`, `created_at`, `generator`, `features`, `expectation`, `classification`, `replay`, `artifacts`, `owner_or_task`, `notes`, `raw_artifact_hash`, `reduced_artifact_hash`, `predicate_hash`, `feature_fact_hash`, and `interestingness_label`.
 
-The helper intentionally formats and parses a compact deterministic JSON subset for metadata produced by Starshine itself. It does not execute replays.
+`[FUZ]1050A` also adds `FuzzCorpusHashMetadata` and `build_fuzz_corpus_hash_metadata(...)`, which compute the four hash fields with the local `fnv1a64-*` corpus hash and sort feature facts before hashing. The helper intentionally formats and parses a compact deterministic JSON subset for metadata produced by Starshine itself. It does not execute replays.
 
 `[FUZ]1042C` adds replay-command metadata helpers for a single promoted or quarantined case. `build_fuzz_corpus_replay_command_metadata(...)` derives a deterministic `starshine.fuzz-replay-command.v1` entry from corpus metadata when `generator` includes `suite=...`, `profile=...`, `seed=...`, and optional `seed_index=...` / `strategy=...` tokens. If no strategy token is present, the helper records the first artifact path, or the input path when no artifact is listed. `format_fuzz_corpus_replay_command_metadata_json(...)` and `parse_fuzz_corpus_replay_command_metadata_json(...)` roundtrip the case id, suite, profile, seed, seed index, strategy-or-artifact, expected outcome, classification, and exact replay command.
 

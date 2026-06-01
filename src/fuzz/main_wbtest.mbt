@@ -29,6 +29,31 @@ test "fuzz interestingness case key keeps all schema hashes reversible" {
 }
 
 ///|
+test "build_fuzz_corpus_hash_metadata derives deterministic artifact predicate and feature hashes" {
+  let first = build_fuzz_corpus_hash_metadata(
+    fuzz_string_to_bytes("(module (func))"),
+    reduced_artifact=Some(fuzz_string_to_bytes("(module)")),
+    "pass=vacuum classification=semantic-mismatch",
+    ["simd", "gc", "memory64"],
+    "semantic-mismatch",
+  )
+  let second = build_fuzz_corpus_hash_metadata(
+    fuzz_string_to_bytes("(module (func))"),
+    reduced_artifact=Some(fuzz_string_to_bytes("(module)")),
+    "pass=vacuum classification=semantic-mismatch",
+    ["memory64", "simd", "gc"],
+    "semantic-mismatch",
+  )
+  @debug.assert_eq(first, second)
+  assert_true(first.raw_artifact_hash.contains("fnv1a64-"))
+  assert_true(first.reduced_artifact_hash.contains("fnv1a64-"))
+  assert_true(first.predicate_hash.contains("fnv1a64-"))
+  assert_true(first.feature_fact_hash.contains("fnv1a64-"))
+  @debug.assert_eq(first.interestingness_label, "semantic-mismatch")
+  assert_true(first.raw_artifact_hash != first.reduced_artifact_hash)
+}
+
+///|
 fn bytes_to_ascii(bytes : Bytes) -> String {
   let out = StringBuilder::new()
   for b in bytes {
@@ -421,10 +446,16 @@ test "format and parse fuzz corpus promotion metadata states" {
       ["corpus/\{state}/case.wasm", "corpus/\{state}/reduction.txt"],
       "[FUZ]1042B",
       "fixture metadata",
+      raw_artifact_hash="fnv1a64-raw-\{state}",
+      reduced_artifact_hash="fnv1a64-reduced-\{state}",
+      predicate_hash="fnv1a64-predicate-\{state}",
+      feature_fact_hash="fnv1a64-features-\{state}",
+      interestingness_label="state-\{state}",
     )
     let json = format_fuzz_corpus_promotion_metadata_json(entry)
     assert_true(json.contains("\"schema\":\"starshine.fuzz-corpus-entry.v1\""))
     assert_true(json.contains("\"state\":\"\{state}\""))
+    assert_true(json.contains("\"raw_artifact_hash\":\"fnv1a64-raw-\{state}\""))
     let parsed = match parse_fuzz_corpus_promotion_metadata_json(json) {
       Ok(v) => v
       Err(msg) => fail(msg)
@@ -434,6 +465,11 @@ test "format and parse fuzz corpus promotion metadata states" {
     @debug.assert_eq(parsed.features, ["gc", "simd"])
     @debug.assert_eq(parsed.artifacts.length(), 2)
     @debug.assert_eq(parsed.owner_or_task, "[FUZ]1042B")
+    @debug.assert_eq(parsed.raw_artifact_hash, "fnv1a64-raw-\{state}")
+    @debug.assert_eq(parsed.reduced_artifact_hash, "fnv1a64-reduced-\{state}")
+    @debug.assert_eq(parsed.predicate_hash, "fnv1a64-predicate-\{state}")
+    @debug.assert_eq(parsed.feature_fact_hash, "fnv1a64-features-\{state}")
+    @debug.assert_eq(parsed.interestingness_label, "state-\{state}")
   }
   let escaped = FuzzCorpusPromotionMetadata::new(
     "case-escaped",
@@ -630,6 +666,11 @@ test "fuzz_corpus_promotion_metadata_schema names required states" {
   assert_true(schema.contains("accepted-divergence"))
   assert_true(schema.contains("quarantine"))
   assert_true(schema.contains("owner_or_task"))
+  assert_true(schema.contains("raw_artifact_hash"))
+  assert_true(schema.contains("reduced_artifact_hash"))
+  assert_true(schema.contains("predicate_hash"))
+  assert_true(schema.contains("feature_fact_hash"))
+  assert_true(schema.contains("interestingness_label"))
 }
 
 ///|

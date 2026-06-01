@@ -53,6 +53,15 @@ pub struct FuzzInterestingnessCaseKey {
 } derive(Eq, Debug)
 
 ///|
+pub struct FuzzCorpusHashMetadata {
+  raw_artifact_hash : String
+  reduced_artifact_hash : String
+  predicate_hash : String
+  feature_fact_hash : String
+  interestingness_label : String
+} derive(Eq, Debug)
+
+///|
 pub struct FuzzCorpusPromotionMetadata {
   id : String
   state : String
@@ -67,6 +76,11 @@ pub struct FuzzCorpusPromotionMetadata {
   artifacts : Array[String]
   owner_or_task : String
   notes : String
+  raw_artifact_hash : String
+  reduced_artifact_hash : String
+  predicate_hash : String
+  feature_fact_hash : String
+  interestingness_label : String
 } derive(Eq, Debug)
 
 ///|
@@ -110,6 +124,82 @@ pub fn FuzzInterestingnessCaseKey::new(
 }
 
 ///|
+fn fuzz_fnv1a64_hex_digit(value : UInt64) -> Char {
+  let nibble = value.to_int()
+  if nibble < 10 {
+    (48 + nibble).unsafe_to_char()
+  } else {
+    (87 + nibble).unsafe_to_char()
+  }
+}
+
+///|
+fn fuzz_fnv1a64_hex(hash : UInt64) -> String {
+  let out = StringBuilder::new()
+  let mut shift = 60
+  while shift >= 0 {
+    out.write_char(fuzz_fnv1a64_hex_digit((hash >> shift) & 0xFUL))
+    shift -= 4
+  }
+  out.to_string()
+}
+
+///|
+pub fn fuzz_corpus_hash_bytes(bytes : Bytes) -> String {
+  let mut hash = 1469598103934665603UL
+  let prime = 1099511628211UL
+  let mut i = 0
+  while i < bytes.length() {
+    hash = (hash ^ bytes[i].to_uint64()) * prime
+    i += 1
+  }
+  "fnv1a64-\{fuzz_fnv1a64_hex(hash)}"
+}
+
+///|
+pub fn fuzz_corpus_hash_text(text : String) -> String {
+  fuzz_corpus_hash_bytes(fuzz_string_to_bytes(text))
+}
+
+///|
+fn fuzz_join_sorted_feature_facts(feature_facts : Array[String]) -> String {
+  let sorted : Array[String] = []
+  for fact in feature_facts {
+    sorted.push(fact)
+  }
+  sorted.sort()
+  let out = StringBuilder::new()
+  for i in 0..<sorted.length() {
+    if i > 0 {
+      out.write_char('\n')
+    }
+    out.write_string(sorted[i])
+  }
+  out.to_string()
+}
+
+///|
+pub fn build_fuzz_corpus_hash_metadata(
+  raw_artifact : Bytes,
+  reduced_artifact? : Bytes? = None,
+  predicate : String,
+  feature_facts : Array[String],
+  interestingness_label : String,
+) -> FuzzCorpusHashMetadata {
+  let reduced_bytes = match reduced_artifact {
+    Some(bytes) => bytes
+    None => raw_artifact
+  }
+  FuzzCorpusHashMetadata::new(
+    fuzz_corpus_hash_bytes(raw_artifact),
+    fuzz_corpus_hash_bytes(reduced_bytes),
+    fuzz_corpus_hash_text(predicate),
+    fuzz_corpus_hash_text(fuzz_join_sorted_feature_facts(feature_facts)),
+    interestingness_label,
+  )
+}
+
+///|
 pub fn FuzzCorpusPromotionMetadata::new(
   id : String,
   state : String,
@@ -124,6 +214,11 @@ pub fn FuzzCorpusPromotionMetadata::new(
   artifacts : Array[String],
   owner_or_task : String,
   notes : String,
+  raw_artifact_hash? : String = "",
+  reduced_artifact_hash? : String = "",
+  predicate_hash? : String = "",
+  feature_fact_hash? : String = "",
+  interestingness_label? : String = "unclassified",
 ) -> FuzzCorpusPromotionMetadata {
   {
     id,
@@ -139,6 +234,28 @@ pub fn FuzzCorpusPromotionMetadata::new(
     artifacts,
     owner_or_task,
     notes,
+    raw_artifact_hash,
+    reduced_artifact_hash,
+    predicate_hash,
+    feature_fact_hash,
+    interestingness_label,
+  }
+}
+
+///|
+pub fn FuzzCorpusHashMetadata::new(
+  raw_artifact_hash : String,
+  reduced_artifact_hash : String,
+  predicate_hash : String,
+  feature_fact_hash : String,
+  interestingness_label : String,
+) -> FuzzCorpusHashMetadata {
+  {
+    raw_artifact_hash,
+    reduced_artifact_hash,
+    predicate_hash,
+    feature_fact_hash,
+    interestingness_label,
   }
 }
 
@@ -3540,7 +3657,7 @@ fn fuzz_corpus_promotion_state_is_known(state : String) -> Bool {
 
 ///|
 pub fn fuzz_corpus_promotion_metadata_schema_json() -> String {
-  "{\"schema\":\"starshine.fuzz-corpus-entry.v1\",\"states\":[\"promoted-valid\",\"promoted-invalid\",\"pass-mismatch\",\"tool-failure\",\"accepted-divergence\",\"quarantine\"],\"required\":[\"id\",\"state\",\"source\",\"input\",\"created_at\",\"generator\",\"features\",\"expectation\",\"classification\",\"replay\",\"artifacts\",\"owner_or_task\",\"notes\"]}"
+  "{\"schema\":\"starshine.fuzz-corpus-entry.v1\",\"states\":[\"promoted-valid\",\"promoted-invalid\",\"pass-mismatch\",\"tool-failure\",\"accepted-divergence\",\"quarantine\"],\"required\":[\"id\",\"state\",\"source\",\"input\",\"created_at\",\"generator\",\"features\",\"expectation\",\"classification\",\"replay\",\"artifacts\",\"owner_or_task\",\"notes\",\"raw_artifact_hash\",\"reduced_artifact_hash\",\"predicate_hash\",\"feature_fact_hash\",\"interestingness_label\"]}"
 }
 
 ///|
@@ -3574,6 +3691,16 @@ pub fn format_fuzz_corpus_promotion_metadata_json(
   out.write_string(fuzz_json_escape(entry.owner_or_task))
   out.write_string("\",\"notes\":\"")
   out.write_string(fuzz_json_escape(entry.notes))
+  out.write_string("\",\"raw_artifact_hash\":\"")
+  out.write_string(fuzz_json_escape(entry.raw_artifact_hash))
+  out.write_string("\",\"reduced_artifact_hash\":\"")
+  out.write_string(fuzz_json_escape(entry.reduced_artifact_hash))
+  out.write_string("\",\"predicate_hash\":\"")
+  out.write_string(fuzz_json_escape(entry.predicate_hash))
+  out.write_string("\",\"feature_fact_hash\":\"")
+  out.write_string(fuzz_json_escape(entry.feature_fact_hash))
+  out.write_string("\",\"interestingness_label\":\"")
+  out.write_string(fuzz_json_escape(entry.interestingness_label))
   out.write_string("\"}")
   out.to_string()
 }
@@ -3736,10 +3863,51 @@ pub fn parse_fuzz_corpus_promotion_metadata_json(
     Ok(v) => v
     Err(e) => return Err(e)
   }
+  let raw_artifact_hash = match
+    fuzz_parse_corpus_metadata_string_field(json, "raw_artifact_hash") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let reduced_artifact_hash = match
+    fuzz_parse_corpus_metadata_string_field(json, "reduced_artifact_hash") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let predicate_hash = match
+    fuzz_parse_corpus_metadata_string_field(json, "predicate_hash") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let feature_fact_hash = match
+    fuzz_parse_corpus_metadata_string_field(json, "feature_fact_hash") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let interestingness_label = match
+    fuzz_parse_corpus_metadata_string_field(json, "interestingness_label") {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
   Ok(
     FuzzCorpusPromotionMetadata::new(
-      id, state, source, input, created_at, generator, features, expectation, classification,
-      replay, artifacts, owner_or_task, notes,
+      id,
+      state,
+      source,
+      input,
+      created_at,
+      generator,
+      features,
+      expectation,
+      classification,
+      replay,
+      artifacts,
+      owner_or_task,
+      notes,
+      raw_artifact_hash~,
+      reduced_artifact_hash~,
+      predicate_hash~,
+      feature_fact_hash~,
+      interestingness_label~,
     ),
   )
 }

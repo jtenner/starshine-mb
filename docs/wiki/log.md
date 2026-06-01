@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-05-31] fuzzing | FUZ1050A corpus hash metadata bridge
+
+- Closed `[FUZ]1050A` by extending `starshine.fuzz-corpus-entry.v1` promotion/quarantine metadata with raw-artifact, reduced-artifact, predicate, feature-fact, and initial interestingness-label fields.
+- Added `FuzzCorpusHashMetadata` plus `build_fuzz_corpus_hash_metadata(...)`, using deterministic local corpus hashes and sorting feature facts before hashing so future dedup/index work has stable metadata fixtures.
+- Synced the corpus policy and interestingness schema docs. Validation: `moon test src/fuzz` first failed on the missing metadata fields/helper, then passed after implementation; final validation is recorded in the commit message.
+
 ## [2026-05-31] fuzzing | FUZ1048C pass-fuzz summary bridge
 
 - Closed `[FUZ]1048C` by wiring compare-pass runs to emit `summary.json` using the compact `starshine.fuzz-summary-report.v1` shape.

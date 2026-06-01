@@ -17,6 +17,8 @@ pub fn build_fuz1026_two_fault_ast_stress_report(UInt64, Int) -> InvalidFuzzFail
 
 pub fn build_fuz1055b4_unlinkable_failure_report(UInt64, Int) -> InvalidFuzzFailureReport
 
+pub fn build_fuzz_corpus_hash_metadata(Bytes, reduced_artifact? : Bytes?, String, Array[String], String) -> FuzzCorpusHashMetadata
+
 pub fn build_fuzz_corpus_replay_command_metadata(FuzzCorpusPromotionMetadata) -> Result[FuzzCorpusReplayCommandMetadata, String]
 
 pub fn build_fuzz_resume_shard_queue(FuzzRecipe, String?, Array[String]) -> Result[Array[FuzzShardWorkItem], String]
@@ -62,6 +64,10 @@ pub fn format_golden_seed_catalog_entry_json(GoldenSeedCatalogEntry) -> String
 pub fn format_golden_seed_catalog_json(Array[GoldenSeedCatalogEntry]) -> String
 
 pub fn fuzz_active_suite_names() -> Array[String]
+
+pub fn fuzz_corpus_hash_bytes(Bytes) -> String
+
+pub fn fuzz_corpus_hash_text(String) -> String
 
 pub fn fuzz_corpus_promotion_metadata_schema_json() -> String
 
@@ -302,6 +308,15 @@ pub enum FuzzCliCommand {
   GoldenSeedSmoke
 } derive(Eq, @debug.Debug)
 
+pub struct FuzzCorpusHashMetadata {
+  raw_artifact_hash : String
+  reduced_artifact_hash : String
+  predicate_hash : String
+  feature_fact_hash : String
+  interestingness_label : String
+} derive(Eq, @debug.Debug)
+pub fn FuzzCorpusHashMetadata::new(String, String, String, String, String) -> Self
+
 pub struct FuzzCorpusPromotionMetadata {
   id : String
   state : String
@@ -316,8 +331,13 @@ pub struct FuzzCorpusPromotionMetadata {
   artifacts : Array[String]
   owner_or_task : String
   notes : String
+  raw_artifact_hash : String
+  reduced_artifact_hash : String
+  predicate_hash : String
+  feature_fact_hash : String
+  interestingness_label : String
 } derive(Eq, @debug.Debug)
-pub fn FuzzCorpusPromotionMetadata::new(String, String, String, String, String, String, Array[String], String, String, String, Array[String], String, String) -> Self
+pub fn FuzzCorpusPromotionMetadata::new(String, String, String, String, String, String, Array[String], String, String, String, Array[String], String, String, raw_artifact_hash? : String, reduced_artifact_hash? : String, predicate_hash? : String, feature_fact_hash? : String, interestingness_label? : String) -> Self
 
 pub struct FuzzCorpusReplayAllPlan {
   planned_count : Int

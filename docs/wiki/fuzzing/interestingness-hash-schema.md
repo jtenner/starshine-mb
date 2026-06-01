@@ -1,6 +1,6 @@
 # Fuzz Interestingness Hash Schema
 
-Starshine fuzz corpus and reduction tooling uses `starshine.fuzz-interestingness.v1` as the stable schema id for multi-layer interestingness keys. The runtime definition lives in [`src/fuzz/main.mbt`](../../../src/fuzz/main.mbt) as `fuzz_interestingness_hash_schema` and `FuzzInterestingnessCaseKey`; focused coverage lives in [`src/fuzz/main_wbtest.mbt`](../../../src/fuzz/main_wbtest.mbt).
+Starshine fuzz corpus and reduction tooling uses `starshine.fuzz-interestingness.v1` as the stable schema id for multi-layer interestingness keys. The runtime definition lives in [`src/fuzz/main.mbt`](../../../src/fuzz/main.mbt) as `fuzz_interestingness_hash_schema`, `FuzzInterestingnessCaseKey`, `FuzzCorpusHashMetadata`, and `build_fuzz_corpus_hash_metadata`; focused coverage lives in [`src/fuzz/main_wbtest.mbt`](../../../src/fuzz/main_wbtest.mbt).
 
 ## Hash Layers
 
@@ -28,6 +28,18 @@ All v1 layers use `fnv1a64-hex` for the local schema contract. The digest algori
 
 Keeping fields separate makes the upcoming corpus dedup index reversible: a runner can deduplicate by one layer, by a prefix of layers, or by the full six-tuple while still pointing back to the original seed/profile and reduced artifact.
 
+## Corpus Metadata Bridge
+
+`[FUZ]1050A` adds the first metadata bridge for promoted/quarantined corpus entries. `FuzzCorpusHashMetadata` stores:
+
+- `raw_artifact_hash`
+- `reduced_artifact_hash`
+- `predicate_hash`
+- `feature_fact_hash`
+- `interestingness_label`
+
+`build_fuzz_corpus_hash_metadata(...)` hashes raw bytes or text through the same local corpus hash, uses the reduced artifact when present, hashes the replay/failure predicate separately, and sorts feature facts before hashing so equivalent fact sets produce the same metadata. `starshine.fuzz-corpus-entry.v1` entries now persist these fields beside the existing state/source/replay metadata.
+
 ## Current Limits
 
-This slice defines the schema and public in-package data shape only. It does not yet compute these hashes for every fuzz runner, persist a corpus index, or choose per-suite decoded-shape normalizers; those are follow-up FUZ slices.
+This slice defines the schema, public in-package data shape, hash metadata helper, and corpus-entry persistence fields. It does not yet persist a corpus index, deduplicate cases, or choose per-suite decoded-shape normalizers; those are follow-up FUZ slices.
