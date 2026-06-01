@@ -1942,12 +1942,15 @@ test "invalid binary FZG030 decodes overwide memarg ULEBs as invalid" {
 
 ///|
 test "invalid binary FZG030 decodes overwide blocktype type-index ULEB as invalid" {
-  match
-    invalid_binary_expect_strategy_rejects(
-      "overwide-blocktype-type-index-uleb", 0x5f14UL, "decode",
-    ) {
-    Ok(_) => ()
-    Err(msg) => fail(msg)
+  for
+    strategy in [
+      "overwide-blocktype-type-index-uleb", "overwide-loop-blocktype-type-index-uleb",
+      "overwide-if-blocktype-type-index-uleb",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f14UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail("\{strategy}: \{msg}")
+    }
   }
 }
 
@@ -2577,7 +2580,8 @@ test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
       "malformed-load-memarg-offset-uleb", "malformed-store-memarg-offset-uleb",
       "overwide-load-memarg-align-uleb", "overwide-store-memarg-align-uleb", "overwide-load-memarg-offset-uleb",
       "overwide-store-memarg-offset-uleb", "malformed-blocktype-immediate", "invalid-blocktype-valtype-byte",
-      "overwide-blocktype-type-index-uleb", "malformed-memory-min-uleb", "malformed-table-min-uleb",
+      "overwide-blocktype-type-index-uleb", "overwide-loop-blocktype-type-index-uleb",
+      "overwide-if-blocktype-type-index-uleb", "malformed-memory-min-uleb", "malformed-table-min-uleb",
       "malformed-memory-max-uleb", "malformed-table-max-uleb", "overwide-memory-min-uleb",
       "overwide-table-min-uleb", "overwide-memory-max-uleb", "overwide-table-max-uleb",
       "invalid-export-name-utf8", "malformed-export-name-length-uleb", "overwide-export-name-length-uleb",

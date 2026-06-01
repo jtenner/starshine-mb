@@ -293,6 +293,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - The first three reuse the existing AST-invalid body-index mutations and the tag case adds `invalid-function-body-throw-tag-index`, so all four specimens encode and decode successfully before failing validation with the function-body diagnostic family.
 - Validation: `moon test src/fuzz` first failed on missing binary strategy stable ids, then passed after registry, mutation-dispatch, focused-test, and wiki wiring.
 
+## [2026-06-01] fuzzing | FUZ1021B8 loop/if blocktype overwide bytes
+
+- Closed `[FUZ]1021B8` by adding decode-rejected binary-invalid strategies for structured-control overwide blocktype type-index carriers beyond plain `block`: `overwide-loop-blocktype-type-index-uleb` and `overwide-if-blocktype-type-index-uleb`.
+- The new fixtures keep the `loop` (`0x03`) and `if` (`0x04`) opcodes intact, then corrupt only the immediate blocktype S33 payload with an overwide-but-terminating LEB so the decoder rejects at the blocktype carrier rather than at a later expression terminator.
+- Validation: `moon test src/fuzz` first failed on the missing `overwide-loop-blocktype-type-index-uleb` stable id, then passed after registry, mutation-dispatch, focused-test, and wiki wiring.
+
 ## [2026-05-31] fuzzing | FUZ1021B7 loop/if blocktype malformed bytes
 
 - Closed `[FUZ]1021B7` by adding decode-rejected binary-invalid strategies for structured-control blocktype carriers beyond plain `block`: `malformed-loop-blocktype-immediate` and `malformed-if-blocktype-immediate`.

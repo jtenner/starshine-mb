@@ -189,6 +189,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedIfBlocktypeImmediate
   InvalidBlocktypeValTypeByte
   OverwideBlocktypeTypeIndexUleb
+  OverwideLoopBlocktypeTypeIndexUleb
+  OverwideIfBlocktypeTypeIndexUleb
   MalformedMemoryMinUleb
   MalformedTableMinUleb
   MalformedMemoryMaxUleb
@@ -1069,6 +1071,9 @@ fn validate_invalid_binary_strategy_label(
     MalformedIfBlocktypeImmediate => "malformed-if-blocktype-immediate"
     InvalidBlocktypeValTypeByte => "invalid-blocktype-valtype-byte"
     OverwideBlocktypeTypeIndexUleb => "overwide-blocktype-type-index-uleb"
+    OverwideLoopBlocktypeTypeIndexUleb =>
+      "overwide-loop-blocktype-type-index-uleb"
+    OverwideIfBlocktypeTypeIndexUleb => "overwide-if-blocktype-type-index-uleb"
     MalformedMemoryMinUleb => "malformed-memory-min-uleb"
     MalformedTableMinUleb => "malformed-table-min-uleb"
     MalformedMemoryMaxUleb => "malformed-memory-max-uleb"
@@ -2664,6 +2669,20 @@ pub fn validate_invalid_binary_registry() -> Array[
       OverwideBlocktypeTypeIndexUleb,
       "overwide-blocktype-type-index-uleb",
       "block instruction with an overwide blocktype type-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideLoopBlocktypeTypeIndexUleb,
+      "overwide-loop-blocktype-type-index-uleb",
+      "loop instruction with an overwide blocktype type-index ULEB",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      OverwideIfBlocktypeTypeIndexUleb,
+      "overwide-if-blocktype-type-index-uleb",
+      "if instruction with an overwide blocktype type-index ULEB",
       DecodeRejected,
       required_in_smoke=false,
     ),
@@ -7766,20 +7785,55 @@ fn validate_invalid_binary_mutate_overwide_blocktype_type_index_uleb(
   _mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
   Ok(
-    validate_invalid_binary_mutation(
+    validate_invalid_binary_overwide_blocktype_type_index_mutation(
       OverwideBlocktypeTypeIndexUleb,
-      DecodeRejected,
-      true,
-      validate_invalid_binary_minimal_code_with_instr([
-        (0x02).to_byte(),
-        (0x80).to_byte(),
-        (0x80).to_byte(),
-        (0x80).to_byte(),
-        (0x80).to_byte(),
-        (0x80).to_byte(),
-        (0x00).to_byte(),
-      ]),
+      (0x02).to_byte(),
     ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_loop_blocktype_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_overwide_blocktype_type_index_mutation(
+      OverwideLoopBlocktypeTypeIndexUleb,
+      (0x03).to_byte(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_overwide_if_blocktype_type_index_uleb(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_overwide_blocktype_type_index_mutation(
+      OverwideIfBlocktypeTypeIndexUleb,
+      (0x04).to_byte(),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_overwide_blocktype_type_index_mutation(
+  id : ValidateInvalidBinaryStrategyId,
+  opcode : Byte,
+) -> ValidateInvalidBinaryMutation {
+  validate_invalid_binary_mutation(
+    id,
+    DecodeRejected,
+    true,
+    validate_invalid_binary_minimal_code_with_instr([
+      opcode,
+      (0x80).to_byte(),
+      (0x80).to_byte(),
+      (0x80).to_byte(),
+      (0x80).to_byte(),
+      (0x80).to_byte(),
+      (0x00).to_byte(),
+    ]),
   )
 }
 
@@ -17024,6 +17078,12 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_blocktype_valtype_byte(base)
     OverwideBlocktypeTypeIndexUleb =>
       validate_invalid_binary_mutate_overwide_blocktype_type_index_uleb(base)
+    OverwideLoopBlocktypeTypeIndexUleb =>
+      validate_invalid_binary_mutate_overwide_loop_blocktype_type_index_uleb(
+        base,
+      )
+    OverwideIfBlocktypeTypeIndexUleb =>
+      validate_invalid_binary_mutate_overwide_if_blocktype_type_index_uleb(base)
     MalformedMemoryMinUleb =>
       validate_invalid_binary_mutate_malformed_memory_min_uleb(base)
     MalformedTableMinUleb =>

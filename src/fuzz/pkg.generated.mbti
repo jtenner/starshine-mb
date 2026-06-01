@@ -1412,6 +1412,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   MalformedIfBlocktypeImmediate
   InvalidBlocktypeValTypeByte
   OverwideBlocktypeTypeIndexUleb
+  OverwideLoopBlocktypeTypeIndexUleb
+  OverwideIfBlocktypeTypeIndexUleb
   MalformedMemoryMinUleb
   MalformedTableMinUleb
   MalformedMemoryMaxUleb
