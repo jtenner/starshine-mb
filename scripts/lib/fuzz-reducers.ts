@@ -64,6 +64,31 @@ export function reduceBinaryByByteSlicesWithReport(
   };
 }
 
+export function reduceTextByLineDeletion(text: string, predicate: ReductionPredicate<string>): string {
+  return reduceTextByLineDeletionWithReport(text, predicate).result;
+}
+
+export function reduceTextByLineDeletionWithReport(
+  text: string,
+  predicate: ReductionPredicate<string>,
+): ReductionReport<string> {
+  const lines = splitReductionLines(text);
+  const reduced = reduceSequenceByChunkDeletion(
+    lines,
+    (candidate) => candidate.join("\n"),
+    predicate,
+    "delete-text-line-range",
+  );
+  const result = reduced.changed ? reduced.items.join("\n") : text;
+  return {
+    result,
+    originalSize: lines.length,
+    finalSize: reduced.changed ? reduced.items.length : lines.length,
+    predicateEvaluations: reduced.predicateEvaluations,
+    steps: reduced.steps,
+  };
+}
+
 export function reduceTextByTokenDeletion(text: string, predicate: ReductionPredicate<string>): string {
   return reduceTextByTokenDeletionWithReport(text, predicate).result;
 }
@@ -143,6 +168,10 @@ function largestPowerOfTwoAtMost(value: number): number {
     size *= 2;
   }
   return size;
+}
+
+function splitReductionLines(text: string): string[] {
+  return text.length === 0 ? [] : text.split(/\r?\n/);
 }
 
 function tokenizeReductionText(text: string): string[] {

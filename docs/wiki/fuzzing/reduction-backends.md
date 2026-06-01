@@ -1,7 +1,7 @@
 ---
 kind: tooling-note
 status: active
-last_reviewed: 2026-05-31
+last_reviewed: 2026-06-01
 sources:
   - ../../../scripts/lib/fuzz-reducers.ts
   - ../../../scripts/test/fuzz-reducers.ts
@@ -19,6 +19,7 @@ sources:
 - `reduceModuleFieldsByDeletion(...)` deletes contiguous module-field chunks while a caller-supplied predicate still reproduces the interesting condition.
 - `reduceBinaryByByteSlices(...)` applies the same chunk-deletion loop to raw wasm bytes and returns a `Uint8Array`.
 - `reduceTextByTokenDeletion(...)` tokenizes WAT/WAST-like text and deletes token chunks while preserving the predicate.
+- `reduceTextByLineDeletion(...)` deletes contiguous line chunks while preserving the predicate, useful for script-side logs, manifests, and WAST/text artifacts where line boundaries are more stable than lexical tokens.
 
 The reducers are deliberately predicate-only and format-light. They do not validate wasm, reparse text, or decide interestingness themselves; callers own those checks so the same backends can serve pass-fuzz mismatches, invalid-fuzz repros, and future corpus tooling.
 
@@ -45,3 +46,5 @@ The initial unit coverage in `scripts/test/fuzz-reducers.ts` proves each backend
 `[FUZ]1043L` extends that report-returning script-side contract to token deletion. `reduceTextByTokenDeletionWithReport(...)` returns the reduced text plus token-count original/final sizes, predicate-evaluation count, and `delete-text-token-range` steps, while `reduceTextByTokenDeletion(...)` remains the compatibility wrapper that returns only the reduced text. This gives future script-side WAT/WAST reducers the same shrink-log metadata shape already used for byte-slice GenValid reductions.
 
 `[FUZ]1043M` completes the same report-returning shape for script-side module-field deletion. `reduceModuleFieldsByDeletionWithReport(...)` now returns reduced field arrays plus original/final field counts, predicate-evaluation count, and `delete-module-field-range` steps, while `reduceModuleFieldsByDeletion(...)` stays a compatibility wrapper. Script-side WAST/module reducers can now emit shrink logs without bypassing the shared reducer contract.
+
+`[FUZ]1043N` adds a script-side line-deletion reducer for text-like artifacts whose line boundaries should remain meaningful. `reduceTextByLineDeletionWithReport(...)` returns reduced text plus original/final line counts, predicate-evaluation count, and `delete-text-line-range` steps; `reduceTextByLineDeletion(...)` remains the compatibility wrapper. This gives future pass-fuzz, text-differential, and corpus-manifest reducers a coarser option before falling back to token deletion.

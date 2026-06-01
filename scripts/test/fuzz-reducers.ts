@@ -5,6 +5,8 @@ import {
   reduceBinaryByByteSlicesWithReport,
   reduceModuleFieldsByDeletion,
   reduceModuleFieldsByDeletionWithReport,
+  reduceTextByLineDeletion,
+  reduceTextByLineDeletionWithReport,
   reduceTextByTokenDeletion,
   reduceTextByTokenDeletionWithReport,
 } from "../lib/fuzz-reducers";
@@ -64,8 +66,27 @@ export function runFuzzReducersTest(): void {
   assert.ok(reducedTextReport.steps.length > 0, "text reducer report should record deletion steps");
   assert.equal(reducedTextReport.steps[0].kind, "delete-text-token-range", "text reducer report should label token deletions");
 
+  const reducedLines = reduceTextByLineDeletion("header\nkeep func\nnoise\nkeep export\nfooter", (candidate) => {
+    return candidate.includes("keep func") && candidate.includes("keep export") && !candidate.includes("noise");
+  });
+  assert.equal(reducedLines, "keep func\nkeep export", "line reducer should delete lines while preserving predicate");
+
+  const reducedLinesReport = reduceTextByLineDeletionWithReport(
+    "header\nkeep func\nnoise\nkeep export\nfooter",
+    (candidate) => candidate.includes("keep func") && candidate.includes("keep export") && !candidate.includes("noise"),
+  );
+  assert.equal(reducedLinesReport.result, "keep func\nkeep export", "line reducer report should carry reduced text");
+  assert.equal(reducedLinesReport.originalSize, 5, "line reducer report should count original lines");
+  assert.equal(reducedLinesReport.finalSize, 2, "line reducer report should count final lines");
+  assert.ok(reducedLinesReport.predicateEvaluations > 0, "line reducer report should count predicate evaluations");
+  assert.ok(reducedLinesReport.steps.length > 0, "line reducer report should record deletion steps");
+  assert.equal(reducedLinesReport.steps[0].kind, "delete-text-line-range", "line reducer report should label line deletions");
+
   const unchanged = reduceTextByTokenDeletion("alpha beta", () => false);
   assert.equal(unchanged, "alpha beta", "reducers must preserve original when no deletion preserves predicate");
+
+  const unchangedLines = reduceTextByLineDeletion("alpha\nbeta", () => false);
+  assert.equal(unchangedLines, "alpha\nbeta", "line reducer must preserve original when no deletion preserves predicate");
 }
 
 if (import.meta.main) {

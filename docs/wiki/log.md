@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-06-01] fuzzing | FUZ1043N script line reducer reports
+
+- Added `reduceTextByLineDeletionWithReport(...)` to the script-side fuzz reducer library so text-like logs, manifests, and WAST artifacts can be reduced by line chunks while returning original/final line counts, predicate-evaluation count, and `delete-text-line-range` steps.
+- Kept `reduceTextByLineDeletion(...)` as a compatibility wrapper over the report-returning API, matching the byte-slice, token-deletion, and module-field reducer shapes.
+- Validation: `bun scripts/test/fuzz-reducers.ts` first failed on the missing export, then passed after implementation.
+
 ## [2026-06-01] fuzzing | FUZ1043M script module-field reducer reports
 
 - Added `reduceModuleFieldsByDeletionWithReport(...)` to the script-side fuzz reducer library so WAST/module-field deletion can return reduced fields plus original/final field counts, predicate-evaluation count, and `delete-module-field-range` steps.
