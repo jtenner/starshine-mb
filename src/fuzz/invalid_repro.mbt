@@ -1935,6 +1935,190 @@ fn invalid_fuzz_first_artifact_size(
 }
 
 ///|
+fn invalid_fuzz_text_is_space(c : Int) -> Bool {
+  c == 0x20 || c == 0x0a || c == 0x0d || c == 0x09
+}
+
+///|
+fn invalid_fuzz_text_slice(text : String, start : Int, end : Int) -> String {
+  let len = end - start
+  let chars : Array[Char] = Array::make(len, '\u{00}')
+  for i = 0; i < len; i = i + 1 {
+    chars[i] = text[start + i].to_int().unsafe_to_char()
+  }
+  String::from_array(chars)
+}
+
+///|
+fn invalid_fuzz_text_tokens(text : String) -> Array[String] {
+  let tokens : Array[String] = []
+  let mut start = 0
+  let mut in_token = false
+  for i = 0; i < text.length(); i = i + 1 {
+    if invalid_fuzz_text_is_space(text[i].to_int()) {
+      if in_token {
+        tokens.push(invalid_fuzz_text_slice(text, start, i))
+        in_token = false
+      }
+    } else if !in_token {
+      start = i
+      in_token = true
+    }
+  }
+  if in_token {
+    tokens.push(invalid_fuzz_text_slice(text, start, text.length()))
+  }
+  tokens
+}
+
+///|
+fn invalid_fuzz_text_join_tokens(tokens : Array[String]) -> String {
+  let out = StringBuilder::new()
+  for i = 0; i < tokens.length(); i = i + 1 {
+    if i > 0 {
+      out.write_string(" ")
+    }
+    out.write_string(tokens[i])
+  }
+  out.to_string()
+}
+
+///|
+fn invalid_fuzz_without_text_token_range(
+  tokens : Array[String],
+  start : Int,
+  len : Int,
+) -> Array[String] {
+  let out : Array[String] = []
+  let end = start + len
+  for i = 0; i < tokens.length(); i = i + 1 {
+    if i < start || i >= end {
+      out.push(tokens[i])
+    }
+  }
+  out
+}
+
+///|
+fn invalid_fuzz_clone_text_tokens(tokens : Array[String]) -> Array[String] {
+  invalid_fuzz_without_text_token_range(tokens, tokens.length(), 0)
+}
+
+///|
+fn reduce_fuzz_text_tokens_by_deletion(
+  text : String,
+  reproduces : (String) -> Bool,
+) -> (String, Int, Int, Int, Array[InvalidFuzzReductionStep]) {
+  let tokens = invalid_fuzz_text_tokens(text)
+  let mut predicate_evaluations = 1
+  let steps : Array[InvalidFuzzReductionStep] = []
+  if !reproduces(text) {
+    return (
+      text,
+      tokens.length(),
+      tokens.length(),
+      predicate_evaluations,
+      steps,
+    )
+  }
+  let mut current = invalid_fuzz_clone_text_tokens(tokens)
+  let mut chunk = current.length() / 2
+  while chunk > 0 {
+    let mut changed = false
+    let mut i = 0
+    while i + chunk <= current.length() {
+      let candidate = invalid_fuzz_without_text_token_range(current, i, chunk)
+      let candidate_text = invalid_fuzz_text_join_tokens(candidate)
+      predicate_evaluations = predicate_evaluations + 1
+      if reproduces(candidate_text) {
+        steps.push(
+          InvalidFuzzReductionStep::new(
+            "delete-text-token-range",
+            i,
+            chunk,
+            current.length(),
+            candidate.length(),
+          ),
+        )
+        current = candidate
+        changed = true
+      } else {
+        i += 1
+      }
+    }
+    if !changed {
+      chunk = chunk / 2
+    } else if chunk > current.length() {
+      chunk = current.length()
+    }
+  }
+  let result = invalid_fuzz_text_join_tokens(current)
+  (result, tokens.length(), current.length(), predicate_evaluations, steps)
+}
+
+///|
+fn invalid_fuzz_replay_matches_report(
+  replay : InvalidFuzzReplayResult,
+  report : InvalidFuzzFailureReport,
+) -> Bool {
+  replay.stage == report.actual_stage &&
+  replay.diagnostic_family == report.actual_diagnostic_family
+}
+
+///|
+fn invalid_fuzz_report_with_text_token_reduction(
+  report : InvalidFuzzFailureReport,
+  source_path : String,
+  assertion_kind : ValidateInvalidTextAssertionKind,
+) -> Result[InvalidFuzzFailureReport?, String] {
+  let artifact = match invalid_fuzz_choose_replay_artifact(report.artifacts) {
+    Some(v) => v
+    None => return Ok(None)
+  }
+  let source = match invalid_fuzz_bytes_string(artifact.bytes) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let (
+    reduced_text,
+    _original_token_size,
+    _final_token_size,
+    predicate_evaluations,
+    steps,
+  ) = reduce_fuzz_text_tokens_by_deletion(source, fn(candidate) {
+    match
+      invalid_fuzz_replay_text_like(
+        invalid_fuzz_string_bytes(candidate),
+        source_path,
+        assertion_kind,
+      ) {
+      Ok(replay) => invalid_fuzz_replay_matches_report(replay, report)
+      Err(_) => false
+    }
+  })
+  let reduced_bytes = invalid_fuzz_string_bytes(reduced_text)
+  if reduced_bytes.length() >= artifact.bytes.length() || steps.length() == 0 {
+    return Ok(None)
+  }
+  let reduced = InvalidFuzzArtifact::new(
+    "reduced", "reduced.wast", reduced_bytes,
+  )
+  Ok(
+    Some(
+      invalid_fuzz_failure_report_copy(
+        report,
+        source_path=Some(source_path),
+        reduced_artifacts=[reduced],
+        reduction_original_size=Some(artifact.bytes.length()),
+        reduction_final_size=Some(reduced_bytes.length()),
+        reduction_predicate_evaluations=Some(predicate_evaluations),
+        reduction_steps=steps,
+      ),
+    ),
+  )
+}
+
+///|
 fn invalid_fuzz_report_with_reduction(
   report : InvalidFuzzFailureReport,
   reduced : InvalidFuzzArtifact,
@@ -1992,32 +2176,70 @@ pub fn shrink_invalid_fuzz_failure_report(
       Ok(invalid_fuzz_report_with_reduction(report, reduced))
     }
     TextInvalidSource => {
-      let (reduced, path) = match
-        invalid_fuzz_text_strategy_reduce(report.strategy_id) {
+      let (path, _, assertion_kind) = match
+        validate_invalid_text_source_by_stable_id(report.strategy_id) {
         Ok(v) => v
         Err(msg) => return Err(msg)
       }
-      Ok(
-        invalid_fuzz_report_with_reduction(
-          report,
-          reduced,
-          source_path=Some(path),
-        ),
-      )
+      let replay_path = match report.source_path {
+        Some(v) => v
+        None => path
+      }
+      match
+        invalid_fuzz_report_with_text_token_reduction(
+          report, replay_path, assertion_kind,
+        ) {
+        Ok(Some(reduced_report)) => Ok(reduced_report)
+        Ok(None) => {
+          let (reduced, path) = match
+            invalid_fuzz_text_strategy_reduce(report.strategy_id) {
+            Ok(v) => v
+            Err(msg) => return Err(msg)
+          }
+          Ok(
+            invalid_fuzz_report_with_reduction(
+              report,
+              reduced,
+              source_path=Some(path),
+            ),
+          )
+        }
+        Err(msg) => return Err(msg)
+      }
     }
     SpecSeedInvalidSource => {
-      let (reduced, path) = match
-        invalid_fuzz_spec_seed_reduce(report.strategy_id) {
+      let (path, _, assertion_kind) = match
+        validate_invalid_spec_seed_assertion_source_by_stable_id(
+          report.strategy_id,
+        ) {
         Ok(v) => v
         Err(msg) => return Err(msg)
       }
-      Ok(
-        invalid_fuzz_report_with_reduction(
-          report,
-          reduced,
-          source_path=Some(path),
-        ),
-      )
+      let replay_path = match report.source_path {
+        Some(v) => v
+        None => path
+      }
+      match
+        invalid_fuzz_report_with_text_token_reduction(
+          report, replay_path, assertion_kind,
+        ) {
+        Ok(Some(reduced_report)) => Ok(reduced_report)
+        Ok(None) => {
+          let (reduced, path) = match
+            invalid_fuzz_spec_seed_reduce(report.strategy_id) {
+            Ok(v) => v
+            Err(msg) => return Err(msg)
+          }
+          Ok(
+            invalid_fuzz_report_with_reduction(
+              report,
+              reduced,
+              source_path=Some(path),
+            ),
+          )
+        }
+        Err(msg) => return Err(msg)
+      }
     }
   }
 }

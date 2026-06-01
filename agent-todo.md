@@ -617,7 +617,6 @@ p1 next-up / active:
 p2 invalid/binary/text tiny slices:
 
 p2 oracle/reporting/infrastructure tiny slices:
-- `[FUZ]1043H` - Concrete text/WAST shrink path using `reduce_fuzz_text_tokens_by_deletion(...)`.
 - `[FUZ]1043I` - Parser-aware module-field deletion adapter over the shared sequence reducer.
 - `[FUZ]1048A` - Fuzz summary report schema fixture.
 - `[FUZ]1048B` - Fuzz runner writes summary JSON for one representative suite.
@@ -632,8 +631,6 @@ p2 oracle/reporting/infrastructure tiny slices:
 Use these slice ids when selecting or reporting future FUZ work. Parent tasks below keep the fuller goals, invariants, and historical evidence; this index names the remaining units so agents do not have to infer the next slice from long status paragraphs.
 
 p1/p2 oracle, reporting, and infrastructure slices:
-- [FUZ]1043H (p2) - Concrete Text/WAST Token Shrink Path
-  - Unit: wire one invalid text or spec-seed shrink path through `reduce_fuzz_text_tokens_by_deletion(...)` with a replay predicate and record shrink metadata. Preserve original artifacts and fall back to the strategy-minimal reducer when token deletion cannot shrink.
 - [FUZ]1043I (p2) - Parser-Aware Module-Field Adapter
   - Unit: add a predicate-only module-field deletion adapter over the shared sequence reducer for parsed WAST/module fields, with fake predicate tests and no broad harness integration.
 - [FUZ]1048A (p2) - Fuzz Summary Report Schema

@@ -1205,6 +1205,57 @@ test "shrink_invalid_fuzz_failure_report produces replayable inline text reduced
 }
 
 ///|
+test "shrink_invalid_fuzz_failure_report token-reduces noisy inline text before fallback" {
+  let noisy_source = "(module) (module) (assert_invalid (module (func (result i32) nop)) \"type mismatch\")"
+  let report = InvalidFuzzFailureReport::new(
+    "validate-invalid-text",
+    "smoke",
+    0x1043UL,
+    8,
+    "invalid-result-stack",
+    TextInvalidSource,
+    "validate-rejected",
+    source_path=Some("inline-text-invalid/noisy-invalid-result-stack.wast"),
+    artifacts=[
+      InvalidFuzzArtifact::new(
+        "original",
+        "original.wast",
+        invalid_repro_test_string_bytes(noisy_source),
+      ),
+    ],
+  )
+  let shrunk = match shrink_invalid_fuzz_failure_report(report) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(shrunk.artifacts.length(), 1)
+  @debug.assert_eq(
+    invalid_repro_test_bytes_to_ascii(shrunk.artifacts[0].bytes),
+    noisy_source,
+  )
+  @debug.assert_eq(shrunk.reduced_artifacts.length(), 1)
+  let reduced_text = invalid_repro_test_bytes_to_ascii(
+    shrunk.reduced_artifacts[0].bytes,
+  )
+  assert_false(reduced_text.contains("(module) (module)"))
+  assert_true(reduced_text.contains("assert_invalid"))
+  @debug.assert_eq(shrunk.reduction_steps[0].kind, "delete-text-token-range")
+  @debug.assert_eq(
+    shrunk.reduction_original_size,
+    Some(shrunk.artifacts[0].bytes.length()),
+  )
+  @debug.assert_eq(
+    shrunk.reduction_final_size,
+    Some(shrunk.reduced_artifacts[0].bytes.length()),
+  )
+  let replay = match replay_invalid_fuzz_failure_report(shrunk) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  @debug.assert_eq(replay.stage, "validate-rejected")
+}
+
+///|
 test "shrink_invalid_fuzz_failure_report produces replayable spec-seed reduced artifact" {
   let report = match invalid_repro_test_original_spec_seed_report() {
     Ok(v) => v
