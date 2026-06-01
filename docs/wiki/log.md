@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-06-01] fuzzing | FUZ1020E4 try_table catch_ref payload invalid AST
+
+- Added `invalid-function-body-try-table-catch-ref-payload-mismatch` as the 261st checked-in AST-invalid strategy. The mutation keeps the tag index, thrown payload, enclosing catch label, and body shape valid while targeting a `catch_ref` label that accepts the tag payload but omits the required non-null `exnref`, isolating the catch-reference compatibility diagnostic from ordinary `catch`, `throw`, arity, and label-index failures.
+- Added focused rejection and repair coverage plus `gen_invalid` stable-id mapping, and updated the validator/fuzzing census to remove the try-table catch/reference payload gap from FUZ1020.
+- Validation: `moon test src/validate` first failed on use of a non-existent `ValidationDiagnostic.message` field in the new focused test, then passed after asserting through `validation_error_message(...)`; final validation passed `moon test src/validate`, `moon run --target native src/fuzz -- validate-invalid-ast smoke --seed 0x1020e4 --out-dir .tmp/fuz1020e4-invalid-ast-smoke` with `attempts=261`, `moon fmt`, `moon info`, and full `moon test`.
+
 ## [2026-06-01] fuzzing | FUZ1020E3 return_call_indirect table element invalid AST
 
 - Added `invalid-function-body-return-call-indirect-table-element-type` as the 260th checked-in AST-invalid strategy. The mutation keeps the function type index, table index, i32 table-index operand, and tail-call result context valid while targeting an `externref` table so validation isolates `return_call_indirect` table element-type compatibility.
