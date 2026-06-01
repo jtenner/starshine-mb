@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-06-01] fuzzing | FUZ1020G1 name-map ordering/count classification
+
+- Classified name-section indirect-map ordering/count invalidity as binary-invalid coverage rather than a new AST-invalid strategy: vector counts are byte-framing data, and out-of-order `NameMap` / `IndirectNameMap` arrays are rejected by the binary codec as `InvalidNameMapOrder` before they can become decode-accepted validation fixtures.
+- Updated the fuzz-hardening, generator-ledger, and binary custom/name-section pages so future FUZ1020 work does not reopen this as an AST registry gap.
+- Validation: `git diff --check`, `moon info`, `moon fmt`, and `moon test src/binary` passed; final validation is recorded in the commit message.
+
 ## [2026-06-01] fuzzing | FUZ1020F3 packed field accessor invalid AST
 
 - Added `invalid-function-body-struct-get-packed-field-plain-accessor` as the 265th checked-in AST-invalid strategy. The mutation builds a valid `i8` packed struct field and a valid nullable receiver, then selects plain `struct.get` so validation isolates the packed-field accessor-shape rule from field-index, receiver-type, immutable-field, and unpacked `struct.get_s` failures.

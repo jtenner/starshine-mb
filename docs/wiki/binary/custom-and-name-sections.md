@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-21
+last_reviewed: 2026-06-01
 sources:
   - ../raw/wasm/2026-05-20-name-section-label-subsection-correction.md
   - ../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md
@@ -113,7 +113,7 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 - **Only one `name` section is accepted.** Duplicate `name` custom sections are rejected during module decode.
 - **Raw name payload reuse is conditional.** Preserve it only when no pass or API call has structurally rewritten names or referenced index spaces.
 - **The official subsection set is smaller than Starshine's local map.** Current primary sources standardize `0`, `1`, `2`, `4`, `10`, and `11`; Starshine-local id `3` covers label names and ids `5` through `9` cover table, memory, global, element, and data names. Do not add new subsection ids or remove the local-extension caveat without refreshing primary sources and extending decode/encode/validation tests together.
-- **Name maps are not uniqueness maps for strings.** Indices must be unique and ordered; name strings themselves may repeat.
+- **Name maps are not uniqueness maps for strings.** Indices must be unique and ordered; name strings themselves may repeat. `[FUZ]1020G1` classifies ordering and count corruption as binary-invalid rather than AST-invalid work: serialized counts are byte framing, and out-of-order `NameMap` / `IndirectNameMap` arrays trip `InvalidNameMapOrder` in `src/binary/decode.mbt` / `src/binary/encode.mbt` before yielding a decode-accepted validation specimen. `[FUZ]1020G1` classifies ordering/count failures as binary/codec-invalid rather than AST-invalid: `NameMap` and `IndirectNameMap` arrays can be built in memory, but encode rejects non-increasing indices with `InvalidNameMapOrder`, decode rejects malformed ordered/count payloads before validation, and `validate_name_sec(...)` owns only structured index-space bounds once the codec has accepted the map shape.
 - **WAST identifiers are a separate authoring layer.** Starshine currently promotes WAST function/import identifiers into `NameSec.func_names`, but local/type/table/memory/global/tag/element/data identifiers remain source-resolution aids unless a dedicated lowering path creates the corresponding structured name map.
 - **Function annotations are not binary name sections.** `FuncAnnotationSec` is a Starshine WAST/in-memory metadata lane today; the binary codec does not encode or decode it. Route code-metadata, inline-hint, branch-hint, and no-inline-marker details through [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md).
 - **Function names depend on absolute function-index stability.** See [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md) for the imported-prefix `FuncIdx` model that function name maps describe.
