@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-01
 sources:
   - ../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md
+  - ../../../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md
   - ../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
@@ -52,6 +53,7 @@ related:
 - The 2026-05-06 current-main recheck confirms the same teaching contract on the reviewed surfaces, and the 2026-05-05 line-anchor refresh still keeps the SCC-shaped current-main implementation note explicit while tightening the exact local code-map anchors used by the living dossier.
 - The 2026-04-25 follow-up gives the cleanup sibling [`../discard-global-effects/index.md`](../discard-global-effects/index.md) its own canonical home, so this page can focus on producing summaries while the sibling page covers clearing stale summaries.
 - The 2026-04-27 port-readiness bridge adds the missing local implementation ladder: analyzer-only first slice, per-function summary storage, SCC/fixed-point propagation choice, consumer sequencing, and paired Binaryen validation lanes.
+- The repo-wide Binaryen release horizon now reaches `version_130`; this page keeps the detailed contract anchored to the reviewed `version_129` / current-main surfaces because the teaching-relevant behavior did not drift on the 2026-05-06 recheck.
 
 ## Why this pass matters
 

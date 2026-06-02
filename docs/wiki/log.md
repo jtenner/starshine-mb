@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-01] docs | global-effects release-horizon sync
+
+- Refreshed [`binaryen/passes/global-effects/index.md`](binaryen/passes/global-effects/index.md) and [`binaryen/passes/discard-global-effects/index.md`](binaryen/passes/discard-global-effects/index.md) so both dossiers now acknowledge the repo-wide `version_130` release horizon while keeping their detailed contracts anchored to the reviewed `version_129` / current-main surfaces.
+- Added the 2026-06-01 Binaryen release-horizon raw source note to both dossiers and kept the top-level catalog entries in [`index.md`](index.md) aligned with that refresh.
+- No code or tests changed; this was a wiki-health pass to keep the interprocedural global-effects pair consistent with the latest Binaryen release horizon.
+
 ## [2026-06-01] docs | inlining release-horizon refresh
 
 - Refreshed [`binaryen/passes/inlining/index.md`](binaryen/passes/inlining/index.md), [`binaryen/passes/inlining/binaryen-strategy.md`](binaryen/passes/inlining/binaryen-strategy.md), [`binaryen/passes/inlining-optimizing/index.md`](binaryen/passes/inlining-optimizing/index.md), [`binaryen/passes/inlining-optimizing/binaryen-strategy.md`](binaryen/passes/inlining-optimizing/binaryen-strategy.md), and the top-level catalog entry in [`index.md`](index.md) so the inlining family now acknowledges the public `version_130` release horizon while keeping the detailed contract anchored to the reviewed `version_129` bridge plus the existing current-main rechecks.
