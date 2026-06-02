@@ -1,11 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-07
+last_reviewed: 2026-06-02
 sources:
   - ../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md
   - ../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md
   - ../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md
+  - ../../release-horizon-and-oracles.md
   - ../../../raw/research/0240-2026-04-21-ssa-nomerge-starshine-strategy-followup.md
   - ../../../raw/binaryen/2026-04-21-ssa-nomerge-primary-sources.md
   - ../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md
@@ -38,6 +39,7 @@ related:
   - ./merge-shapes-and-canonical-slots.md
   - ./wat-shapes.md
   - ./parity.md
+  - ../../release-horizon-and-oracles.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
   - ../dead-code-elimination/index.md
@@ -156,7 +158,7 @@ So the durable rule is:
 
 - treat Binaryen `version_129` as the reviewed tagged oracle for this dossier's upstream file/test surfaces
 - keep the current-main note explicit only to say there is no visible source or dedicated-test semantic drift right now
-- do **not** silently upgrade that narrower claim into “latest global Binaryen release,” because the official releases index visible to this run showed a newer-by-date `version_125` page as well; keep that numbering uncertainty explicit instead
+- do **not** silently upgrade that narrower claim into “latest global Binaryen release”; the separate release-horizon page now records `version_130` as the public baseline, so keep that numbering separate from this dossier's reviewed `version_129` source surfaces instead
 
 ## Current maintenance rule
 

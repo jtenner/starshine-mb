@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | ssa-nomerge release-horizon note cleanup
+
+- Refreshed [`docs/wiki/binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md) so its freshness note now defers to the separate release-horizon page for the current public Binaryen baseline and no longer preserves the stale `version_125` uncertainty as if it were still the newest tag.
+- No code or tests changed; this was a wiki-health cleanup to keep a pass-local maintenance note aligned with the living release-oracle page.
+
 ## [2026-06-02] docs | binaryen release-oracle search-snippet guardrail
 
 - Refreshed [`docs/wiki/binaryen/release-horizon-and-oracles.md`](binaryen/release-horizon-and-oracles.md) and [`docs/wiki/binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md) so the release-oracle policy now explicitly says search snippets and mirrored summaries are discovery-only and direct official release pages/changelogs win when evidence disagrees.
