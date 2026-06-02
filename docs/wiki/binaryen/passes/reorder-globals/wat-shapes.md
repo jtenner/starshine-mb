@@ -360,6 +360,8 @@ If you see one of those behaviors, you are probably looking at a different pass 
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-06-01-reorder-globals-current-main-recheck.md`](../../../raw/binaryen/2026-06-01-reorder-globals-current-main-recheck.md)
+- [`../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md`](../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md)
 - [`../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md`](../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md)
 - [`../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md`](../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md)
