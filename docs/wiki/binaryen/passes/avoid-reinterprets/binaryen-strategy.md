@@ -51,7 +51,7 @@ That means the best mental model is:
 The local repo makes these scheduler facts explicit:
 
 - it is now an active Starshine module pass implemented in [`src/passes/avoid_reinterprets.mbt`](../../../../../src/passes/avoid_reinterprets.mbt) and registered in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L42-L43`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L42-L43) is now stale for this pass because it listed the name as removed-until-hot-implementation work
+- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md) now supersedes the old docs stub for this pass; the archived map shows `avoid-reinterprets` in Active module passes, so the removed-until-hot-implementation citation is stale
 - it is absent from `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
 - [`./starshine-strategy.md`](./starshine-strategy.md) records the active-partial local status and remaining indirect-analysis question
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) records the landed direct full-width `reinterpret(load)` slice and future indirect local-chain helper-local work

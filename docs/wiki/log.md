@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | avoid-reinterprets archive-link cleanup
+
+- Repointed the living `avoid-reinterprets` dossier cluster to the archived raw research copy of the old pass-port batch map (`docs/wiki/raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`) instead of the forwarding stub under `docs/`, and updated the stale binaryen-strategy note to call out the archived active-module-pass classification directly.
+- No code or tests changed; this was a wiki-health cleanup to keep the live `avoid-reinterprets` sources and strategy notes aligned with the archived source copy.
+
 ## [2026-06-02] docs | archive-link cleanup for flatten and related planning pages
 
 - Repointed the living `flatten`, `signature-pruning`, `reorder-types`, and `rereloop` pages to the archived raw research copies of the old IR2 batch-plan docs (`docs/wiki/raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md` and `docs/wiki/raw/research/0065-2026-03-24-ir2-execution-plan.md`) instead of the forwarding stubs under `docs/`, and refreshed the affected line anchors to match the archived notes.
