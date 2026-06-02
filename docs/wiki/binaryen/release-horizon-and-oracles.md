@@ -29,7 +29,7 @@ Use it when you need to answer a basic question like:
 
 The current answer is simple:
 
-- the newest public Binaryen release baseline is `version_130`;
+- the newest public Binaryen release baseline is `version_130`, and a 2026-06-02 revalidation against the direct release page, the `main` changelog, and the Chromium refs listing still points here;
 - the live `main` changelog is the drift watch for anything beyond that tag;
 - detailed pass pages may still stay anchored to `version_129` or a specific current-main recheck when that is the last source-backed contract that page has actually reviewed.
 
@@ -57,9 +57,9 @@ Do not flatten those layers together. A page can be correct about the public rel
 
 ## Current state
 
-The 2026-06-01 source bridge found that the public `v130` section is real, visible, and current on the official `main` changelog. That means the earlier "no newer release-horizon note" wording is stale anywhere it still appears. When a search snippet or mirrored summary disagrees with the direct official release page or changelog, trust the direct official URLs.
+The 2026-06-02 revalidation still finds the public `v130` section on the official release page, the `main` changelog, and the Chromium refs listing. That means the earlier "no newer release-horizon note" wording is stale anywhere it still appears. When a search snippet or mirrored summary disagrees with the direct official release page or changelog, trust the direct official URLs.
 
-The key wiki-maintenance consequence is that `version_130` is now the public release baseline, but it does **not** force every detailed pass dossier to retag itself. Many pass pages still stay on the reviewed `version_129` source oracle until they get a fresh current-main reread.
+The key wiki-maintenance consequence is that `version_130` is still the public release baseline, but it does **not** force every detailed pass dossier to retag itself. Many pass pages still stay on the reviewed `version_129` source oracle until they get a fresh current-main reread.
 
 ## Where this page points next
 

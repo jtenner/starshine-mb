@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | binaryen release-horizon revalidation
+
+- Rechecked the public Binaryen release horizon against the direct GitHub `version_130` release page, the official `main` changelog, and the Chromium refs listing after a contradictory scratch capture surfaced locally; the living wiki still treats `version_130` as the newest public release baseline.
+- Refreshed [`docs/wiki/binaryen/release-horizon-and-oracles.md`](binaryen/release-horizon-and-oracles.md), [`docs/wiki/binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md), and [`docs/wiki/binaryen/no-dwarf-default-optimize-path.md`](binaryen/no-dwarf-default-optimize-path.md) so their freshness notes now explicitly say the 2026-06-02 revalidation still points to `version_130`.
+- No code or tests changed; this was a release-horizon health check and source-hygiene update.
+
 ## [2026-06-02] docs | ssa-nomerge release-horizon note cleanup
 
 - Refreshed [`docs/wiki/binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md) so its freshness note now defers to the separate release-horizon page for the current public Binaryen baseline and no longer preserves the stale `version_125` uncertainty as if it were still the newest tag.

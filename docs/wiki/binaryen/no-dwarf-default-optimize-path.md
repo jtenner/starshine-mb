@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-01
+last_reviewed: 2026-06-02
 sources:
   - ../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md
   - ../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
@@ -49,7 +49,7 @@ related:
 ## Current Project Rule
 
 - Keep this pathway as the main orientation page for Binaryen optimize parity.
-- Use Binaryen `version_130` as the upstream release baseline for new pass research; keep the older `version_129` path-reading notes here as historical until a dedicated `version_130` reread says otherwise.
+- Use Binaryen `version_130` as the upstream release baseline for new pass research; the 2026-06-02 release-horizon revalidation still points here, and the older `version_129` path-reading notes remain historical until a dedicated `version_130` reread says otherwise.
 - Treat repeated cleanup slots as intentional, not accidental duplication.
 - Preserve the phase split, feature gates, and nested reruns before trying to tune performance or collapse preset shape.
 - The archived `0066` note remains the historical line-anchored source for older work, but new conclusions should be checked against the current `version_130` release baseline and the release-horizon note first.
