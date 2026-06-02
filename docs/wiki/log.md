@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | late-pipeline package-surface recheck
+
+- Added `docs/wiki/raw/binaryen/2026-06-02-late-pipeline-dispatch-package-surface-recheck.md` and `docs/wiki/raw/research/0699-2026-06-02-late-pipeline-dispatch-package-surface-recheck.md` from a fresh 2026-06-02 package-surface spot check, confirming that the Debian manpage still serves as a useful lower bound while the docs.rs enum remains incomplete, the docs.rs crate overview still overclaims completeness, and the mirrored README still misspells `RemoveUnusedBrs`.
+- Refreshed [`docs/wiki/binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md), [`docs/wiki/binaryen/passes/index.md`](binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](binaryen/passes/tracker.md), and the top-level catalog entry in [`docs/wiki/index.md`](index.md) so the living wiki now points at the fresh package-surface recheck alongside the existing release-horizon correction notes.
+- No code or tests changed; this is a wiki-health and source-hygiene update that keeps the late-tail dispatch note tied to a current external-surface recheck.
+
 ## [2026-06-02] docs | self-opt artifact gate and wasm-tools validation source note
 
 - Added `docs/wiki/raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md` from the official wasm-tools README, capturing that Stage 4+ proposals are enabled by default in validation and that per-feature flags remain explicit upstream inputs, so the self-opt artifact gate can document its stricter `--features all` policy against a primary source.
