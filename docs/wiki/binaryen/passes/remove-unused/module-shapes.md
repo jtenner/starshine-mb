@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-02
 sources:
+  - ../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md
@@ -29,7 +30,7 @@ Because this dossier is about a historical upstream pass lineage, the examples a
 
 When this page says “the pass rewrites,” it means the **historical** upstream `remove-unused-functions` behavior, not modern `remove-unused-module-elements`. For Starshine implementation choices and tests derived from these shapes, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
-The 2026-05-06 current-main recheck confirmed the same lineage story: current Binaryen still exposes the modern module-element cleanup names, not this short alias.
+The 2026-06-02 version_130 / current-main recheck confirmed the same lineage story: current Binaryen still exposes the modern module-element cleanup names, not this short alias.
 
 ## Positive shape 1: dead private helper with no roots and no callers
 
@@ -239,6 +240,7 @@ If someone remembers only one thing from this page, it should be this:
 ## Sources
 
 - [`../../../raw/binaryen/2026-05-06-remove-unused-current-main-recheck.md`](../../../raw/binaryen/2026-05-06-remove-unused-current-main-recheck.md)
+- [`../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md)
 - [`../../../raw/research/0494-2026-05-06-remove-unused-shape-catalog-and-current-main-recheck.md`](../../../raw/research/0494-2026-05-06-remove-unused-shape-catalog-and-current-main-recheck.md)

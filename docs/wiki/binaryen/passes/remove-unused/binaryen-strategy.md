@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-02
 sources:
+  - ../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md
@@ -30,8 +31,8 @@ Use two different upstream source horizons here:
   - commit `5881b541a4b276dcd5576aa065e4fb860531fc7b`
   - where Binaryen publicly registered `remove-unused-functions`
 - **modern oracle** for what Binaryen exposes now:
-  - `version_129`
-  - current `main` spot-checks on 2026-04-25 and 2026-04-27 for registration drift
+  - `version_130`
+  - current `main` spot-checks on 2026-04-25, 2026-04-27, 2026-05-06, and 2026-06-02 for registration drift
   - where Binaryen exposes `remove-unused-module-elements` but no `remove-unused` or `remove-unused-functions`
 
 That split is the whole point of this dossier.
@@ -119,7 +120,7 @@ It replaced the historical function-only public pass with a broader module-eleme
 
 ## What current Binaryen exposes instead
 
-Current `version_129` `pass.cpp`, with narrow current-`main` spot checks on 2026-04-25, 2026-04-27, and 2026-05-06, registers these relevant names:
+Current `version_130` `pass.cpp`, with narrow current-main spot checks on 2026-04-25, 2026-04-27, 2026-05-06, and 2026-06-02, registers these relevant names:
 
 - `remove-unused-brs`
 - `remove-unused-module-elements`
@@ -147,7 +148,7 @@ That would lose the historical distinction between:
 
 ### Mistake 2: treat `remove-unused` as a still-public upstream spelling
 
-Current `version_129` sources and help tests show that this is false.
+Current `version_130` sources and help tests show that this is false.
 
 ### Mistake 3: invent a new undefined catch-all pass contract
 
@@ -210,6 +211,7 @@ If someone remembers only one sentence, it should be this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md)
 - [`../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md`](../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md)
@@ -220,6 +222,6 @@ If someone remembers only one sentence, it should be this:
 - <https://github.com/WebAssembly/binaryen/blob/5881b541a4b276dcd5576aa065e4fb860531fc7b/src/passes/passes.h>
 - <https://github.com/WebAssembly/binaryen/commit/98e9e604c7e2e4f928abe8f05691df90cddf09e4>
 - <https://github.com/WebAssembly/binaryen/blob/98e9e604c7e2e4f928abe8f05691df90cddf09e4/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/passes.h>

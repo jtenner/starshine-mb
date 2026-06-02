@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-02
 sources:
+  - ../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md
@@ -34,7 +35,7 @@ related:
 
 `remove-unused` is a **boundary-only registry name** in Starshine, not an active pass implementation.
 
-The current local strategy is documentation and request hygiene, and the 2026-05-06 current-main recheck did not change that:
+The current local strategy is documentation and request hygiene, and the 2026-06-02 version_130 / current-main recheck did not change that:
 
 - keep the name known so old plans and user requests produce an intentional diagnostic;
 - reject active execution before dispatch;
@@ -147,7 +148,7 @@ If Starshine ever implements a literal historical pass, the minimum validation m
 - no deletion of globals, memories, tables, tags, data segments, or types except where another explicitly requested pass owns that cleanup;
 - no accidental aliasing to current RUME behavior.
 
-The easiest parity oracle for current Binaryen is **not** `version_129`, because the old pass no longer exists there. A compatibility port would need to compare against the historical `remove-unused-functions` source horizon captured in [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md) and the 2026-04-27 source recheck in [`../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md).
+The easiest parity oracle for current Binaryen is **not** `version_130`, because the old pass no longer exists there. A compatibility port would need to compare against the historical `remove-unused-functions` source horizon captured in [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md) and the 2026-04-27 source recheck in [`../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md).
 
 ## Main caveat
 
@@ -160,6 +161,7 @@ The local alias relation is an inference, not a proved rename record. No reviewe
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md)
 - [`../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md`](../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md)

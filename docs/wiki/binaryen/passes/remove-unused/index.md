@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-02
 sources:
+  - ../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md
@@ -31,11 +32,11 @@ related:
 
 ## Role
 
-- `remove-unused` is **not** a current public Binaryen `version_129` pass name.
+- `remove-unused` is **not** a current public Binaryen `version_130` pass name.
 - It is currently **unimplemented** in Starshine and still lives in the local boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - It is also still listed in the local Batch 4 map in [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md).
 - The best source-backed explanation is that this local short name is a **legacy historical alias** for upstream Binaryen's old `remove-unused-functions` pass, which Binaryen later replaced with `remove-unused-module-elements`.
-- The 2026-05-06 current-main recheck and the older port-readiness recheck found no current Binaryen resurrection of the short spelling and keep the first local action a registry-hygiene decision: keep rejecting, remove/rename, implement the historical function-only pass literally, or intentionally alias to modern RUME.
+- The 2026-06-02 version_130 / current-main recheck and the older port-readiness recheck found no current Binaryen resurrection of the short spelling and keep the first local action a registry-hygiene decision: keep rejecting, remove/rename, implement the historical function-only pass literally, or intentionally alias to modern RUME.
 
 ## Why this page exists
 
@@ -69,8 +70,8 @@ A safe beginner mental model is:
 
 ## Most important durable takeaways
 
-- Current Binaryen `version_129` does **not** register a pass named `remove-unused`.
-- Current Binaryen `version_129` does **not** register `remove-unused-functions` either.
+- Current Binaryen `version_130` does **not** register a pass named `remove-unused`.
+- Current Binaryen `version_130` does **not** register `remove-unused-functions` either.
 - Historical upstream Binaryen **did** register `remove-unused-functions`.
 - That old pass was a small function-only reachability pass.
 - Binaryen replaced it in 2016 with `remove-unused-module-elements`.
@@ -99,12 +100,13 @@ A safe beginner mental model is:
   - [`../remove-unused-module-elements/index.md`](../remove-unused-module-elements/index.md)
   - [`../remove-unused-non-function-elements/index.md`](../remove-unused-non-function-elements/index.md)
   - [`../remove-unused-types/index.md`](../remove-unused-types/index.md)
-- Cite the 2026-04-25 raw manifest, the 2026-04-27 port-readiness source recheck, the 2026-05-06 current-main recheck, and the source-bridge notes when explaining provenance.
+- Cite the 2026-04-25 raw manifest, the 2026-04-27 port-readiness source recheck, the 2026-05-06 current-main recheck, the 2026-06-02 version_130 release-horizon recheck, and the source-bridge notes when explaining provenance.
 - Treat the `remove-unused` implementation question as a naming and migration decision before treating it as code work.
 - Do not silently collapse the historical function-only pass into modern RUME.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md)
 - [`../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md`](../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md)
@@ -115,11 +117,16 @@ A safe beginner mental model is:
 - [`../tracker.md`](../tracker.md)
 - [`../index.md`](../index.md)
 - Current upstream surfaces:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/passes.h>
+  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/test/lit/help/wasm-opt.test>
+  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/pass.cpp>
+  - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp>
+- Historical upstream surfaces:
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/help/wasm-opt.test>
-- Historical upstream surfaces:
   - <https://github.com/WebAssembly/binaryen/blob/5881b541a4b276dcd5576aa065e4fb860531fc7b/src/passes/pass.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/5881b541a4b276dcd5576aa065e4fb860531fc7b/src/passes/RemoveUnusedFunctions.cpp>
   - <https://github.com/WebAssembly/binaryen/commit/98e9e604c7e2e4f928abe8f05691df90cddf09e4>

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-02
 sources:
+  - ../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md
@@ -66,7 +67,7 @@ Required validation:
 - CLI or pipeline tests should produce a clear boundary-only error if a user requests the name;
 - docs should point users to modern RUME when they meant current Binaryen cleanup.
 
-This option fits current sources because current Binaryen `main` and `version_129`, including the 2026-05-06 recheck, do not expose the short spelling.
+This option fits current sources because current Binaryen `main` and `version_130`, including the 2026-06-02 recheck, do not expose the short spelling.
 
 ### Option B: remove or rename the alias
 
@@ -153,6 +154,7 @@ Use these instead:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md)
 - [`../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md`](../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md)
