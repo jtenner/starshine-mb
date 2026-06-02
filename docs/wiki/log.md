@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-01] docs | binaryen v130 upstream-addition drift note
+
+- Refreshed [`binaryen/release-horizon-and-oracles.md`](binaryen/release-horizon-and-oracles.md) and [`binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md) so the release-horizon policy and late-tail dispatch note now call out that the official `v130` changelog adds `MarkJSCalled`, `RemoveExports`, Wide Arithmetic support, and two new fuzzer modes, not just a renumbered tag.
+- No code or tests changed; this was a wiki-health update to keep the newest public Binaryen release baseline tied to the actual changelog contents and avoid letting the old `version_129`-era pass-addition trail go stale.
+
 ## [2026-06-01] docs | binaryen release-horizon oracle policy
 
 - Added [`binaryen/release-horizon-and-oracles.md`](binaryen/release-horizon-and-oracles.md) as a compact policy page for the newest public Binaryen tag, the live `main` changelog drift watch, and the distinction between release-baseline pages and pass-specific source-oracle dossiers.

@@ -33,6 +33,8 @@ The current answer is simple:
 - the live `main` changelog is the drift watch for anything beyond that tag;
 - detailed pass pages may still stay anchored to `version_129` or a specific current-main recheck when that is the last source-backed contract that page has actually reviewed.
 
+That `v130` baseline is substantive, not just a renumbering: the current changelog section adds the `MarkJSCalled` pass, the `RemoveExports` pass, Wide Arithmetic support, and two new fuzzer modes. Keep this page as the release-horizon anchor, but still send pass-specific questions to the owning dossier.
+
 ## Source hierarchy
 
 | Layer | Preferred source | What it is good for |
