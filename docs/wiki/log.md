@@ -59,6 +59,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-06-01] fuzzing | FUZ1020Z1 invalid-AST census closeout
+
+- Closed the parent FUZ1020 invalid-AST census after the D/E/F/G follow-up slices were either implemented or redirected: the durable registry count remains 265 checked-in AST-invalid strategy specs across all 15 validation-family buckets, and no tracked `[FUZ]1020*` execution slice remains open in `agent-todo.md`.
+- Updated the fuzz-hardening and generator-ledger pages to point future invalid-lane widening at fresh focused FUZ slices for newly identified gaps rather than reopening the closed FUZ1020 parent.
+- Validation: `git diff --check` passed; no source or generated interface files changed.
+
 ## [2026-06-01] fuzzing | FUZ1020G1 name-map ordering/count classification
 
 - Classified name-section indirect-map ordering/count invalidity as binary-invalid coverage rather than a new AST-invalid strategy: vector counts are byte-framing data, and out-of-order `NameMap` / `IndirectNameMap` arrays are rejected by the binary codec as `InvalidNameMapOrder` before they can become decode-accepted validation fixtures.
