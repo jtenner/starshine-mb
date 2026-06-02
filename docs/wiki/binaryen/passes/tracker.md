@@ -309,6 +309,7 @@ related:
   - ./index.md
   - ./late-pipeline-dispatch.md
   - ../no-dwarf-default-optimize-path.md
+  - ../release-horizon-and-oracles.md
 ---
 
 # Binaryen Pass Wiki / Implementation Tracker

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-01] docs | binaryen release-horizon oracle policy
+
+- Added [`binaryen/release-horizon-and-oracles.md`](binaryen/release-horizon-and-oracles.md) as a compact policy page for the newest public Binaryen tag, the live `main` changelog drift watch, and the distinction between release-baseline pages and pass-specific source-oracle dossiers.
+- Linked the new page from [`index.md`](index.md), [`binaryen/no-dwarf-default-optimize-path.md`](binaryen/no-dwarf-default-optimize-path.md), [`binaryen/passes/index.md`](binaryen/passes/index.md), [`binaryen/passes/tracker.md`](binaryen/passes/tracker.md), and [`binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md) so the release-oracle policy is easy to discover from both the root catalog and the pass folders.
+- No code or tests changed; this was a wiki-health update to centralize the release-horizon guidance rather than repeat it piecemeal across unrelated pages.
+
 ## [2026-06-01] docs | binaryen passes catalog/tracker release-horizon sync
 
 - Refreshed [`binaryen/passes/index.md`](binaryen/passes/index.md) and [`binaryen/passes/tracker.md`](binaryen/passes/tracker.md) so the central pass inventory now cites the immutable `version_130` release-horizon bridge, links the live `late-pipeline-dispatch` handoff, and keeps `version_129` contract pages explicitly historical until a dedicated `version_130` reread exists.

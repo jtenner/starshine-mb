@@ -13,6 +13,7 @@ related:
   - ../../../src/passes/optimize_test.mbt
   - ../../../scripts/self-optimize-compare.ts
   - ../../../scripts/test/self-optimize-compare-command.ts
+  - ./release-horizon-and-oracles.md
 ---
 
 # Binaryen No-DWARF Default Optimize Path

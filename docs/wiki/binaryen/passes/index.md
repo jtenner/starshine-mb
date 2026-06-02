@@ -298,6 +298,7 @@ sources:
   - ../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md
 related:
   - ../no-dwarf-default-optimize-path.md
+  - ../release-horizon-and-oracles.md
   - ./late-pipeline-dispatch.md
 ---
 
