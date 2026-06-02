@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-01] docs | type-section source citation reinforcement
+
+- Added `../../../src/lib/types.mbt` to [`validate/type-section-and-subtyping.md`](validate/type-section-and-subtyping.md) so the function-section `FuncSec(Array[TypeIdx])` rule now cites the defining source file directly alongside the existing type-section refresh bridge and validator files.
+- This was a citation-tightening follow-up to the IR2 invariant clarification; no code or tests changed.
+
 ## [2026-06-01] docs | ir2 type-index invariant clarification
 
 - Added an explicit function-section `TypeIdx` vs temporary recursive-group `RecIdx` guidance layer to [`validate/type-section-and-subtyping.md`](validate/type-section-and-subtyping.md) and [`ir2/pass-porting-checklist.md`](ir2/pass-porting-checklist.md), with the checklist now pointing at the canonical validator contract and the raw WebAssembly type-section source bridge.

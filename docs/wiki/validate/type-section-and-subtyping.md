@@ -6,6 +6,7 @@ sources:
   - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
   - ../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md
   - ../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md
+  - ../../../src/lib/types.mbt
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/env.mbt
   - ../../../src/validate/match.mbt
