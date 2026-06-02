@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | cli startup-path map-trap cross-link
+
+- Refreshed [`tooling/cli-startup-path.md`](tooling/cli-startup-path.md) and the top-level catalog entry in [`index.md`](index.md) so the startup audit now points at the separate `o4z` debug-startup map-trap investigation in raw research note [`0693-2026-06-01-o4z-debug-startup-func3750.md`](raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md), keeping the fast-path/path-handling audit distinct from the runtime-correctness follow-up.
+- Added the raw research note to the page's sources; no code or tests changed.
+
 ## [2026-06-02] docs | inlining no-inline freshness refresh
 
 - Added `docs/wiki/raw/binaryen/2026-06-02-inlining-current-main-recheck.md` and `docs/wiki/raw/research/0695-2026-06-02-inlining-current-main-recheck.md`, then refreshed the `docs/wiki/binaryen/passes/inlining/` dossier cluster plus the root and pass-catalog inlining entries so they now carry a 2026-06-02 current-main recheck against the existing `version_129` no-inline / clone-survival contract.
