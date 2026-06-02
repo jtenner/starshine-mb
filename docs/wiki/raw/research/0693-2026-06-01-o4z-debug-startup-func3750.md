@@ -86,12 +86,7 @@ The blocker is corruption of the startup map's bucket-array object header after 
 
 June 2 follow-up narrowed the owner further: the trap is **latent before the current `-O4z` pass sequence**. A raw-input binary patch that only stubs the externally invalid huge-local `func535` validates and still traps on the same startup path (`func4686 -> func473 -> func3749 -> func3751 -> func28` in that unoptimized/stubbed numbering). Coalesce-locals is therefore the first pass that makes the committed input externally runnable, but it is not the pass that introduces the startup map trap.
 
-Remaining plausible owner families:
-
-1. the committed debug-WASI input already contains bad MoonBit runtime/refcount ownership traffic around the startup `HashMap.set` population;
-2. an earlier build-time pass or artifact-generation step produced the committed input with stale map ownership semantics;
-3. a lower-level ABI/runtime convention around `call 43` retain and `call 45` release is being misunderstood by the startup map code;
-4. less likely after the raw-stub evidence: a current `-O4z` local-like pass corrupts the map functions, because those functions are unchanged by coalesce-only and the full-pipeline trap survives omitting `ssa-nomerge`, `tuple-optimization`, `reorder-locals`, and `simplify-locals-nostructure`.
+The June 2 allocator-owner evidence below resolves these owner families more narrowly: the committed debug-WASI input contains a stale/bad `$moonbit.malloc`-equivalent body that passes `0` to TLSF `removeBlock`. Current freshly generated debug/release artifacts carry the TLSF root correctly, so the remaining owner is the committed artifact generation/regeneration path, not the current `-O4z` pass sequence or the current map/refcount source semantics.
 
 ## June 2 continuation evidence
 
@@ -131,7 +126,70 @@ third entry map header = 0
 third entry bucket header = 0
 ```
 
-This means the first caller-side retain does happen, but the map header is already zero by the time the first empty insert branch starts in `func27`, before the branch's final tracked `release`. That refines the earlier inference: the final release/free path is still where the stale object becomes visible, but the earliest observed map-header clobber in the reduced fixture is before the first empty-branch insertion body, between the caller retain and the insert branch. The exact write that zeroes the map header is still unknown.
+This means the first caller-side retain does happen, but the map header is already zero by the time the first empty insert branch starts in `func27`, before the branch's final tracked `release`. That refined the earlier inference: the final release/free path is still where the stale object becomes visible, but the earliest observed map-header clobber in the reduced fixture is before the first empty-branch insertion body, between the caller retain and the insert branch. The allocator-owner evidence below resolves the then-unknown exact write.
+
+## June 2 allocator-owner evidence
+
+Further reduced-fixture instrumentation identified the exact write that zeroes the startup map header. The clobber is not in the map insertion body itself; it is in the TLSF free-list unlink path reached while hashing the first startup-map key.
+
+Function mapping for this slice:
+
+- reduced `func6` = raw-stub/full `func22`, the `$moonbit.malloc`-equivalent allocator entry;
+- reduced `func2` = raw-stub/full `func18`, the `$tlsf/removeBlock`-equivalent free-list unlink helper;
+- reduced `func3` = raw-stub/full `func19`, the `$tlsf/insertBlock`-equivalent free-list insert helper;
+- reduced `func20`/`func25`/`func27` remain the startup map population/set/insert path already mapped to raw-stub/full `func473`/`func3749`/`func3751`.
+
+The bad sequence is:
+
+1. `func20` constructs the startup map at pointer `181248`; the object header is `1` immediately after construction and `2` after the caller retain.
+2. During the map-object allocation, `func6` calls `func2` with `0` as the allocator/control-root argument. Instrumentation showed the free-list unlink uses a zero-based head slot (`532`) instead of the real TLSF root-relative slot. The actual root-relative remainder slot (`177780`) still contains the allocated block header pointer `181244`.
+3. The map allocation then inserts remainder block `181276` through `func3` using the real TLSF root. That insertion records `old_head = 181244`, so `181276.next` becomes `181244` even though `181244` is now the allocated map object's block header.
+4. The first hash-object allocation later unlinks free block `181276`. `func2` sees `next = 181244` and executes its normal `next.prev = prev` store with `prev = 0`. The exact clobber is reduced `func2` / raw-stub `func18` at the `local.get 15; local.get 16; i32.store offset=4` unlink instruction, writing `0` to `181244 + 4 == 181248`, which is the startup map object's refcount/header word.
+5. `func25` therefore observes the map header change from `2` before hashing to `0` after hashing, before `func27` starts the empty-insert branch. The later bucket-array length trap is downstream use-after-free/free-list corruption fallout.
+
+Key scratch values from `.tmp/o4z-bench/instrument_reduced_fixture_allocator_owner.py`:
+
+```text
+__map_alloc_ptr 181248
+__map_alloc_after_call8_map_h 1
+__map_pre_call8_remainder_slot_value 181244
+__map_f2_block 181244
+__map_f2_head_slot 532
+__map_f2_head_before 0
+__map_f3_block 181276
+__map_f3_old_head 181244
+__map_f3_head_slot 177780
+__func20_after_ctor_map_h 1
+__func20_after_ctor_free_next 181244
+__first_hash_f2_entry_map_h 2
+__first_hash_f2_block_h 15325
+__first_hash_f2_prev 0
+__first_hash_f2_next 181244
+__first_hash_f2_before_nextprev_map_h 2
+__first_hash_f2_after_nextprev_map_h 0
+```
+
+A scratch one-instruction WAT patch on the reduced fixture replaced the suspicious `func6` prefix:
+
+```wat
+nop
+i32.const 0
+global.get 0
+local.tee 5
+```
+
+with:
+
+```wat
+nop
+global.get 0
+global.get 0
+local.tee 5
+```
+
+The patched reduced module validates and `wasi.start` exits `0`. This confirms the reduced startup trap is owned by the bad allocator-root value feeding `removeBlock`, not by map/set/hash semantics.
+
+Current freshly printed debug/release artifacts also narrow the owner to the committed debug-WASI artifact generation rather than the current MoonBit runtime source shape. `.tmp/o4z-bench/fresh-debug.wat` names the corresponding function `$moonbit.malloc` and carries `global.get $tlsf/ROOT` through to `call $tlsf/removeBlock`; the bad `i32.const 0; global.get 0; local.tee ...; ... call removeBlock` shape is absent in both `.tmp/o4z-bench/fresh-debug.wat` and `.tmp/o4z-bench/fresh-release.wat`, but present in `.tmp/o4z-bench/raw-stub-f535.wat` / the committed debug-WASI input. A direct print of the current local `_build/wasm/debug/build/cmd/cmd.wasm` also validates and has the named correct `$tlsf/ROOT`/`$tlsf/removeBlock` shape. `scripts/lib/self-optimized-artifacts.mjs` copies that `_build/wasm/debug/build/cmd/cmd.wasm` path into `tests/node/dist/starshine-debug-wasi.wasm`, so the remaining production task is to fix or regenerate the committed debug-WASI artifact and reduced fixture from the current correct allocator shape, then re-run the full self/debug `-O4z` path.
 
 ## Focused TDD slice
 
@@ -140,16 +198,18 @@ A reduced startup-root fixture was extracted from the raw-stub module and patche
 - fixture: `tests/repros/o4z-debug-startup-map-init-repro.wasm`
 - failing test: `scripts/lib/o4z-debug-startup-map.test.ts`
 - confirmation command: `bun test scripts/lib/o4z-debug-startup-map.test.ts`
-- current result: fails with `RuntimeError: Unreachable code should not be executed` in the same map startup family.
+- current result: two intentional failures until the artifact/fixture is repaired:
+  - a structural guard finds the reduced `malloc` prefix still carries `i32.const 0` into `removeBlock` instead of the TLSF root;
+  - the runtime guard still fails with `RuntimeError: Unreachable code should not be executed` in the same map startup family.
 
 This is the active TDD slice for the remaining startup trap. Production fixes should make this reduced fixture complete runtime initialization before retrying the full self/debug `-O4z --help` candidate.
 
 ## Recommended next slice
 
-1. Treat `scripts/lib/o4z-debug-startup-map.test.ts` as the failing TDD guard.
-2. Use the reduced `tests/repros/o4z-debug-startup-map-init-repro.wasm` fixture for instrumentation before returning to the full `tests/node/dist/starshine-debug-wasi.wasm` artifact.
-3. Identify why the startup map's caller-visible retain traffic does not keep the map alive across repeated inserts, now without conflating the issue with `func535` validation repair or current local-like optimizer passes.
-4. Once the runtime/source owner is known, add the smallest adjacent MoonBit pass/runtime/source regression if the Bun fixture remains too integration-shaped for the final fix.
+1. Treat `scripts/lib/o4z-debug-startup-map.test.ts` as the failing TDD guard; it now has both the startup runtime assertion and a smaller structural allocator-root assertion.
+2. Do not change production optimizer passes for this trap. The next repair should target the committed debug-WASI artifact generation/regeneration path or prove why the stale allocator-root shape entered the committed artifact.
+3. Regenerate or patch the committed debug-WASI input and reduced fixture only after preserving this owner evidence; the fixed shape should match current `$moonbit.malloc` by passing the TLSF root/control pointer to `removeBlock`.
+4. After the reduced guard is green, retry the full `tests/node/dist/starshine-debug-wasi.wasm` self/debug `-O4z --help` path, validate the candidate, and run the WAST smoke commands listed above.
 
 ## Evidence status
 

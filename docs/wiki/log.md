@@ -2,11 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
-## [2026-06-02] docs | o4z debug-startup TDD guard cross-link
+## [2026-06-02] docs | o4z debug-startup artifact-root evidence refresh
 
-- Refreshed [`docs/wiki/tooling/o4z-debug-startup-trap.md`](tooling/o4z-debug-startup-trap.md) so the living blocker page now links the active reduced-fixture guard (`scripts/lib/o4z-debug-startup-map.test.ts`) and repro (`tests/repros/o4z-debug-startup-map-init-repro.wasm`) alongside the archived owner evidence and WebAssembly trap semantics note.
-- Updated [`docs/wiki/index.md`](index.md) so the catalog summary reflects the active TDD slice and keeps the runtime blocker distinct from the CLI path audit.
-- No code or tests changed; this is a wiki-health and discoverability update.
+- Expanded [`docs/wiki/tooling/o4z-debug-startup-trap.md`](tooling/o4z-debug-startup-trap.md) so the living blocker page now summarizes the stale allocator-root evidence: the reduced guard still sees `i32.const 0` reach `tlsf/removeBlock`, while fresh debug/release artifacts and the local `_build/wasm/debug/build/cmd/cmd.wasm` carry `$tlsf/ROOT` and a scratch `global.get 0` patch makes the reduced fixture exit `0`.
+- Updated [`docs/wiki/index.md`](index.md) so the catalog summary now points future readers at the artifact-regeneration hypothesis instead of only the generic artifact-owner clue.
+- No code or tests changed; this is a wiki-health and source-reconciliation update that keeps the living blocker page aligned with the archived allocator-owner research note.
 
 ## [2026-06-02] docs | o4z runtime-trap semantics source note
 

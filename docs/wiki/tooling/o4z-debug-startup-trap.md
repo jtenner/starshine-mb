@@ -28,7 +28,7 @@ The current symptom is a WebAssembly runtime trap surfaced as `RuntimeError: unr
 ## Current understanding
 
 - The blocker is not a parser or globbing issue.
-- The best current evidence points at the committed debug-WASI artifact generation path, not at the live pass sequence itself.
+- The best current evidence points at the committed debug-WASI artifact generation path, not at the live pass sequence itself: the reduced allocator-owner trace shows the committed `starshine-debug-wasi.wasm` still feeds `i32.const 0` into `tlsf/removeBlock`, while fresh debug/release artifacts and the local `_build/wasm/debug/build/cmd/cmd.wasm` carry `$tlsf/ROOT` instead. A scratch patch that swaps the stale root for `global.get 0` makes the reduced fixture validate and exit `0`.
 - `scripts/lib/build-self-optimized.mjs` describes the end-to-end build/copy flow that produces the debug artifact used by later self-optimize runs.
 - `scripts/lib/self-optimized-artifacts.mjs` names the debug artifact path that the build pipeline copies into the node-dist layout.
 - The runtime-trap semantics are now source-backed in [`../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md`](../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md), so the message text should be treated as a trap wrapper rather than a special local exception class.
