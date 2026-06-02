@@ -774,101 +774,18 @@ fn optimize_instructions_try_canonicalize_commutative(
   rhs_id : Int,
   scratch : OptimizeInstructionsScratch,
 ) -> Bool {
-  if !optimize_instructions_is_commutative_instr(instr) {
-    return false
-  }
-  if optimize_instructions_is_constlike(func, dead, lhs_id) &&
-    !optimize_instructions_is_constlike(func, dead, rhs_id) {
-    optimize_instructions_rewrite_exact_with_children(
-      ctx,
-      func,
-      node_id,
-      instr,
-      [rhs_id, lhs_id],
-    )
-    return true
-  }
-  let lhs_canonicalized = match
-    optimize_instructions_local_get_id(func, dead, lhs_id) {
-    Some(local_id) => {
-      if optimize_instructions_is_constlike(func, dead, rhs_id) {
-        return false
-      }
-      let should_swap = match
-        optimize_instructions_local_get_id(func, dead, rhs_id) {
-        Some(rhs_local_id) => local_id > rhs_local_id
-        None => true
-      }
-      if !should_swap {
-        return false
-      }
-      let use_def = pass_require_use_def(ctx, func)
-      optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
-      let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
-      let can_cross = optimize_instructions_can_cross_local_get(
-        func,
-        dead,
-        use_def,
-        rhs_id,
-        local_id,
-        false,
-        scratch.loop_input_nodes,
-        scratch.cross_seen_stamps,
-        seen_stamp,
-      )
-      if !can_cross {
-        return false
-      }
-      optimize_instructions_rewrite_exact_with_children(
-        ctx,
-        func,
-        node_id,
-        instr,
-        [rhs_id, lhs_id],
-      )
-      true
-    }
-    None => false
-  }
-  if lhs_canonicalized {
-    return true
-  }
-  match optimize_instructions_local_get_id(func, dead, rhs_id) {
-    Some(local_id) => {
-      if optimize_instructions_is_constlike(func, dead, lhs_id) ||
-        !optimize_instructions_should_swap_commutative_node_kinds(
-          func, dead, lhs_id, rhs_id,
-        ) {
-        return false
-      }
-      let use_def = pass_require_use_def(ctx, func)
-      optimize_instructions_mark_loop_input_nodes(func, dead, scratch)
-      let seen_stamp = optimize_instructions_alloc_cross_seen_stamp(scratch)
-      let can_cross = optimize_instructions_can_cross_local_get(
-        func,
-        dead,
-        use_def,
-        lhs_id,
-        local_id,
-        false,
-        scratch.loop_input_nodes,
-        scratch.cross_seen_stamps,
-        seen_stamp,
-      )
-      if !can_cross {
-        return false
-      }
-      optimize_instructions_rewrite_exact_with_children(
-        ctx,
-        func,
-        node_id,
-        instr,
-        [rhs_id, lhs_id],
-      )
-      true
-    }
-    None => false
-  }
+  // Conservative O4z guard: the previous canonicalizer reordered address-like
+  // operands across locals/loads and corrupted StringBuilder/TLSF-style paths.
+  // Keep operand order until effect/use-def ordering can prove a swap safe.
+  ignore(ctx)
+  ignore(func)
+  ignore(dead)
+  ignore(node_id)
+  ignore(instr)
+  ignore(lhs_id)
+  ignore(rhs_id)
+  ignore(scratch)
+  false
 }
 
 ///|

@@ -2,14 +2,39 @@
 fn ssa_test_first_defined_func(
   mod_ : @lib.Module,
 ) -> (@lib.Locals, Array[@lib.Instruction]) raise {
+  ssa_test_defined_func(mod_, 0)
+}
+
+///|
+fn ssa_test_defined_func(
+  mod_ : @lib.Module,
+  defined_idx : Int,
+) -> (@lib.Locals, Array[@lib.Instruction]) raise {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
-      match funcs.get(0) {
+      match funcs.get(defined_idx) {
         Some(@lib.Func(locals, @lib.Expr(instrs))) => (locals, instrs)
-        None => fail("expected first defined function")
+        None => fail("expected defined function \{defined_idx}")
       }
     None => fail("expected code section")
   }
+}
+
+///|
+fn ssa_test_has_adjacent_call_drop(
+  instrs : Array[@lib.Instruction],
+  target : UInt,
+) -> Bool {
+  for idx = 0; idx + 1 < instrs.length(); idx = idx + 1 {
+    match (instrs[idx], instrs[idx + 1]) {
+      (@lib.Call(@lib.FuncIdx(func_idx)), @lib.Drop) =>
+        if func_idx == target {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
 }
 
 ///|
@@ -118,6 +143,94 @@ test "ssa-nomerge keeps straight-line local traffic on the canonical slot" {
     @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
   ])
+}
+
+///|
+test "ssa-nomerge keeps call result assigned when a later loop reads the local" {
+  let source =
+    #|(module
+    #|  (func $to_string (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func $add_string (param i32 i32) (result i32)
+    #|    local.get 1)
+    #|  (func $decref (param i32))
+    #|  (func $iter (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func $next (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func $write_char (param i32 i32))
+    #|  (func (param i32 i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+    #|    local.get 1
+    #|    call $to_string
+    #|    local.set 14
+    #|    local.get 14
+    #|    call $decref
+    #|    local.get 12
+    #|    call $decref
+    #|    i32.const 21800
+    #|    local.get 14
+    #|    call $add_string
+    #|    i32.const 21776
+    #|    call $add_string
+    #|    local.set 16
+    #|    local.get 2
+    #|    call $to_string
+    #|    local.set 17
+    #|    local.get 17
+    #|    call $decref
+    #|    local.get 16
+    #|    call $decref
+    #|    local.get 9
+    #|    call $decref
+    #|    local.get 16
+    #|    local.get 17
+    #|    call $add_string
+    #|    i32.const 12080
+    #|    call $add_string
+    #|    call $iter
+    #|    local.set 3
+    #|    loop
+    #|      block (result i32)
+    #|        block
+    #|          local.get 3
+    #|          call $next
+    #|          local.tee 5
+    #|          i32.const -1
+    #|          i32.eq
+    #|          if
+    #|            local.get 0
+    #|            call $decref
+    #|            local.get 3
+    #|            call $decref
+    #|          else
+    #|            local.get 5
+    #|            local.set 4
+    #|            br 1
+    #|          end
+    #|          i32.const 0
+    #|          br 1
+    #|        end
+    #|        local.get 0
+    #|        local.get 4
+    #|        call $write_char
+    #|        br 1
+    #|      end
+    #|      drop
+    #|    end
+    #|    i32.const 0))
+    #|)
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected call-result loop ssa-nomerge success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_defined_func(optimized, 6)
+  assert_false(
+    ssa_test_has_adjacent_call_drop(instrs, 3U),
+    msg=instrs.to_string(),
+  )
 }
 
 ///|

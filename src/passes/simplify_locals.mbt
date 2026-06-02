@@ -1943,9 +1943,13 @@ fn simplify_locals_value_can_clone_node(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
-  node_id < 0 ||
-  !@ir.hot_node_is_live(func, node_id) ||
-  !@ir.hot_node_kind_is_control(func, node_id)
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return true
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Load => false
+    _ => !@ir.hot_node_kind_is_control(func, node_id)
+  }
 }
 
 ///|
@@ -4928,10 +4932,29 @@ fn simplify_locals_run(
 }
 
 ///|
+fn simplify_locals_has_local_tee(func : @ir.HotFunc) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::LocalTee => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn simplify_locals_nostructure_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
+  // No-structure sinking currently lacks a precise barrier model for values
+  // loaded through locals defined by local.tee later in the same stack region.
+  if simplify_locals_has_local_tee(func) {
+    return HotPassResult::unchanged()
+  }
   simplify_locals_run_with_options(ctx, func, false, true)
 }
 

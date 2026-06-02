@@ -88,6 +88,92 @@ fn ssa_nomerge_has_dropped_local_increment(func : @ir.HotFunc) -> Bool {
 }
 
 ///|
+fn ssa_nomerge_is_control_region_slot(op : @ir.HotOp, slot : Int) -> Bool {
+  match op {
+    @ir.HotOp::Block | @ir.HotOp::Loop => true
+    @ir.HotOp::If => slot == 1 || slot == 2
+    @ir.HotOp::Try | @ir.HotOp::TryTable => slot == 0 || slot == 1
+    _ => false
+  }
+}
+
+///|
+fn ssa_nomerge_subtree_has_local_or_terminator(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  if @ir.hot_is_terminator_node(func, node_id) {
+    return true
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::LocalGet | @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+      return true
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if ssa_nomerge_subtree_has_local_or_terminator(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn ssa_nomerge_has_nested_cfg_control_node(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+  is_region_root : Bool,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  if !is_region_root &&
+    (
+      @ir.hot_is_control_node(func, node_id) ||
+      @ir.hot_is_terminator_node(func, node_id)
+    ) {
+    return ssa_nomerge_subtree_has_local_or_terminator(func, node_id)
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
+    if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+      continue
+    }
+    let child_is_region_root = @ir.hot_is_control_node(func, node_id) &&
+      ssa_nomerge_is_control_region_slot(node.op, slot)
+    if ssa_nomerge_has_nested_cfg_control_node(
+        func, child_id, child_is_region_root,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn ssa_nomerge_has_nested_cfg_sensitive_control(func : @ir.HotFunc) -> Bool {
+  // The current SSA/no-merge local model can miss reads inside nested control
+  // value regions. Keep those shapes unchanged until nested liveness is exact.
+  for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
+    if ssa_nomerge_has_nested_cfg_control_node(
+        func,
+        @ir.hot_root_get(func, root_idx),
+        true,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn ssa_nomerge_has_loop_param_control(func : @ir.HotFunc) -> Bool {
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
@@ -142,7 +228,8 @@ fn ssa_nomerge_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
     return HotPassResult::unchanged()
   }
   if ssa_nomerge_has_loop_param_control(func) ||
-    ssa_nomerge_has_dropped_local_increment(func) {
+    ssa_nomerge_has_dropped_local_increment(func) ||
+    ssa_nomerge_has_nested_cfg_sensitive_control(func) {
     return HotPassResult::unchanged()
   }
   let cfg = pass_require_cfg(ctx, func)

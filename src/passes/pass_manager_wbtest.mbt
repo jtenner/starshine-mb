@@ -191,6 +191,44 @@ test "raw vacuum preclean truncates dead tail after nonfallthrough" {
 }
 
 ///|
+test "raw vacuum preclean skips large structured functions with writes" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+  )
+  let then_body : Array[@lib.Instruction] = []
+  for _idx = 0; _idx < 2050; _idx = _idx + 1 {
+    then_body.push(@lib.Instruction::i32_const(0))
+    then_body.push(@lib.Instruction::drop())
+  }
+  then_body.push(@lib.Instruction::i32_const(1))
+  then_body.push(@lib.Instruction::local_set(@lib.LocalIdx::new(1U)))
+  then_body.push(@lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+  then_body.push(@lib.Instruction::br_if(@lib.LabelIdx::new(0U)))
+  let original_func = @lib.Func::new(
+    @lib.Locals::from_types([@lib.ValType::i32()]),
+    @lib.Expr::new([
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::if_(@lib.BlockType::void_(), then_body, None),
+    ]),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([original_func]))
+  let result = match
+    run_hot_pipeline_raw_vacuum_preclean(
+      input,
+      @lib.FuncIdx::new(0U),
+      @ir.HotPassDescriptor::new("vacuum"),
+    ) {
+    Some(result) => result
+    None => fail("expected raw vacuum structured-write skip result")
+  }
+  assert_true(result.unchanged_original)
+  @debug.assert_eq(result.func, original_func)
+}
+
+///|
 test "hot pipeline debug dump targets stay disabled without trace" {
   let options = HotPipelineOptions::new()
 

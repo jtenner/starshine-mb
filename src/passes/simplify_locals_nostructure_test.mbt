@@ -83,6 +83,38 @@ test "simplify-locals-nostructure folds exact-slot set-copy across cleanup nop" 
 }
 
 ///|
+test "simplify-locals-nostructure keeps tee before dependent loads" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func (param i32) (result i32) (local i32 i32 i32 i32 i32 i32) local.get 0 local.tee 5 i32.load offset=20 align=1 local.get 5 i32.load offset=12 align=1 local.get 5 i32.load offset=16 align=1 local.set 4 local.set 3 local.set 2 local.get 2 local.get 3 local.get 4 i32.add i32.add))",
+      ["simplify-locals-nostructure"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected simplify-locals-nostructure dependent-load success, got \{err}",
+      )
+  }
+
+  let instrs = match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs.get(0) {
+        Some(@lib.Func(_, @lib.Expr(instrs))) => instrs
+        None => fail("expected first function body")
+      }
+    None => fail("expected code section")
+  }
+  match instrs[0] {
+    @lib.LocalGet(@lib.LocalIdx(local_id)) => @debug.assert_eq(local_id, 0U)
+    _ => fail("expected source pointer local.get to remain first")
+  }
+  match instrs[1] {
+    @lib.LocalTee(@lib.LocalIdx(local_id)) => @debug.assert_eq(local_id, 5U)
+    _ => fail("expected dependent-load local.tee to remain before loads")
+  }
+}
+
+///|
 test "simplify-locals-nostructure preserves used condition load tee" {
   let optimized = match
     pass_test_run_pipeline(

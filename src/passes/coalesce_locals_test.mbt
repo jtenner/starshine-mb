@@ -265,6 +265,64 @@ test "coalesce-locals keeps preserved structured dead sets from clobbering live 
 }
 
 ///|
+test "coalesce-locals skips loop functions to preserve cross-iteration liveness" {
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32) (local i32 i32)
+    #|     i32.const 11
+    #|     local.set 1
+    #|     loop
+    #|       local.get 0
+    #|       br_if 0
+    #|     end
+    #|     i32.const 22
+    #|     local.set 2
+    #|     local.get 2))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+}
+
+///|
+test "coalesce-locals skips local-tee functions to preserve tee-carried values" {
+  let input =
+    #| (module
+    #|   (func (result i32) (local i32 i32 i32)
+    #|     i32.const 1
+    #|     local.tee 0
+    #|     if (result i32)
+    #|       i32.const 10
+    #|       local.set 1
+    #|       local.get 1
+    #|     else
+    #|       i32.const 20
+    #|       local.set 2
+    #|       local.get 2
+    #|     end))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["coalesce-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected coalesce-locals pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, _) = cl_test_first_defined_func(optimized)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+}
+
+///|
 test "coalesce-locals removes redundant copies after index sharing" {
   let input =
     #| (module

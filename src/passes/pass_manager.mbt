@@ -380,6 +380,40 @@ fn vacuum_build_i32_eqz(func : @ir.HotFunc, operand : @ir.NodeId) -> @ir.NodeId 
 }
 
 ///|
+fn hot_pass_vacuum_should_skip_branchy_structured_writes(
+  func : @ir.HotFunc,
+) -> Bool {
+  // Vacuum's broad nop/drop cleanup is safe for straight-line and simple value
+  // debris, but branchy structured functions with local writes exposed argument
+  // parsing traps under self-optimized O4z. Skip until cleanup is path-aware.
+  let mut has_writes = false
+  let mut has_structured_control = false
+  let mut has_branchy_control = false
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => has_writes = true
+      @ir.HotOp::Block
+      | @ir.HotOp::Loop
+      | @ir.HotOp::If
+      | @ir.HotOp::Try
+      | @ir.HotOp::TryTable => has_structured_control = true
+      @ir.HotOp::Br
+      | @ir.HotOp::BrIf
+      | @ir.HotOp::BrTable
+      | @ir.HotOp::Return
+      | @ir.HotOp::ReturnCall
+      | @ir.HotOp::ReturnCallIndirect
+      | @ir.HotOp::ReturnCallRef => has_branchy_control = true
+      _ => ()
+    }
+  }
+  has_writes && has_structured_control && has_branchy_control
+}
+
+///|
 fn vacuum_region_roots(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -8428,9 +8462,19 @@ fn run_hot_pipeline_raw_vacuum_preclean(
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(instrs)) = original
-  let (_, _, _, _, _, instr_count) = run_hot_pipeline_instr_scan(instrs)
+  let (has_writes, has_structured_control, has_branches, _, _, instr_count) = run_hot_pipeline_instr_scan(
+    instrs,
+  )
   if instr_count <= 2048 {
     return None
+  }
+  if has_writes && has_structured_control && has_branches {
+    return Some({
+      reason: "raw-vacuum-structured-writes",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
   }
   let (rewritten, changed) = run_hot_pipeline_raw_vacuum_preclean_instrs(instrs)
   if !changed {
@@ -11559,7 +11603,9 @@ pub fn hot_pass_run(
   let result = match descriptor.name {
     "ssa-nomerge" => ssa_nomerge_run(ctx, func)
     "vacuum" =>
-      if hot_pass_remove_region_nops(
+      if hot_pass_vacuum_should_skip_branchy_structured_writes(func) {
+        HotPassResult::unchanged()
+      } else if hot_pass_remove_region_nops(
           ctx,
           func,
           @ir.HotRegionRef::root(),

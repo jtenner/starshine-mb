@@ -230,6 +230,56 @@ fn cl_instrs_have_structured_control(instrs : Array[@lib.Instruction]) -> Bool {
 }
 
 ///|
+fn cl_instrs_have_loop_control(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Loop(_, _) => return true
+      @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if cl_instrs_have_loop_control(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if cl_instrs_have_loop_control(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) => if cl_instrs_have_loop_control(body) { return true }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn cl_instrs_have_local_tee(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.LocalTee(_) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if cl_instrs_have_local_tee(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if cl_instrs_have_local_tee(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) => if cl_instrs_have_local_tee(body) { return true }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn cl_rewrite_all_local_idxs_in_place(
   instrs : Array[@lib.Instruction],
   old_to_new : Array[Int],
@@ -1024,7 +1074,19 @@ fn cl_rewrite_func(
     return { func, changed: false }
   }
   let @lib.Expr(original_instrs) = body
-  if cl_instrs_have_structured_control(original_instrs) {
+  // The flattened conservative liveness model is not path/iteration-sensitive
+  // enough for loops, and structured local.tee values can be carried through
+  // paths that look non-overlapping in the action stream.
+  if cl_instrs_have_loop_control(original_instrs) {
+    return { func, changed: false }
+  }
+  let has_structured_control = cl_instrs_have_structured_control(
+    original_instrs,
+  )
+  if has_structured_control && cl_instrs_have_local_tee(original_instrs) {
+    return { func, changed: false }
+  }
+  if has_structured_control {
     return cl_rewrite_func_structured_conservative(func, params)
   }
   let types = cl_all_local_types(params, body_locals)

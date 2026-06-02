@@ -153,6 +153,34 @@ test "vacuum removes nested value-expression debris in large functions" {
 }
 
 ///|
+test "vacuum skips branchy structured writes" {
+  let input =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    local.get 0
+    #|    if
+    #|      i32.const 0
+    #|      drop
+    #|      i32.const 1
+    #|      local.set 1
+    #|      local.get 0
+    #|      br_if 0
+    #|    end))
+  let optimized = match pass_test_run_pipeline(input, ["vacuum"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected branchy structured vacuum fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected branchy structured vacuum output to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("drop"), msg=pretty)
+}
+
+///|
 test "vacuum flips empty then with live else" {
   let input =
     #|(module
