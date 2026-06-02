@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | binaryen pass catalog release-horizon alignment
+
+- Updated the root wiki catalog entry for [`docs/wiki/binaryen/passes/index.md`](docs/wiki/binaryen/passes/index.md) so the living index now describes the pass catalog against the current `version_130` release horizon instead of the older `version_129` wording.
+- No code or tests changed; this was a small wiki-health correction to keep the central Binaryen pass catalog summary aligned with the release-baseline pages and tracker.
+
 ## [2026-06-02] docs | loop-invariant-code-motion current-main recheck
 
 - Added `docs/wiki/raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md` and `docs/wiki/raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md`, then refreshed the `docs/wiki/binaryen/passes/loop-invariant-code-motion/` dossier plus `docs/wiki/binaryen/passes/index.md` and `docs/wiki/binaryen/passes/tracker.md` so they now carry a 2026-06-02 current-main recheck against the corrected none-typed statement-motion contract.
