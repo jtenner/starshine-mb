@@ -196,20 +196,100 @@ Current freshly printed debug/release artifacts also narrow the owner to the com
 A reduced startup-root fixture was extracted from the raw-stub module and patched to export memory plus the extracted start function as `_start`:
 
 - fixture: `tests/repros/o4z-debug-startup-map-init-repro.wasm`
-- failing test: `scripts/lib/o4z-debug-startup-map.test.ts`
+- guard: `scripts/lib/o4z-debug-startup-map.test.ts`
 - confirmation command: `bun test scripts/lib/o4z-debug-startup-map.test.ts`
-- current result: two intentional failures until the artifact/fixture is repaired:
-  - a structural guard finds the reduced `malloc` prefix still carries `i32.const 0` into `removeBlock` instead of the TLSF root;
-  - the runtime guard still fails with `RuntimeError: Unreachable code should not be executed` in the same map startup family.
+- current result: passing as of 2026-06-02 after regenerating the debug-WASI artifact and reduced fixture from the current `$moonbit.malloc` shape.
 
-This is the active TDD slice for the remaining startup trap. Production fixes should make this reduced fixture complete runtime initialization before retrying the full self/debug `-O4z --help` candidate.
+The guard still matters because it protects both the structural allocator-root assertion and a runtime startup assertion. It should remain active even though the stale-artifact owner is repaired.
+
+## June 2 full self/debug `-O4z` pass-owner follow-up
+
+After the stale debug-WASI artifact and reduced fixture were repaired, the full self/debug `-O4z` candidate became valid but exposed real optimizer runtime owners that had been hidden by the stale startup trap. Prefix probing used the explicit 39-pass shrink list and Node/WASI replays of both `--help` and `spec tests/spec/address.wast`.
+
+### `ssa-nomerge`
+
+The first fresh `--help` trap after artifact repair was `null function or function signature mismatch` in `append_help_line` / `Iter::next`. Prefix probing identified prefix `5` (`ssa-nomerge`) as the owner. The bad lowering dropped the iterator-producing call and left a later loop reading the old local:
+
+```text
+call $iter
+drop
+loop ... local.get 3 ...
+```
+
+The reduced regression is `ssa-nomerge keeps call result assigned when a later loop reads the local`. The production fix is a conservative nested-control/CFG-sensitive guard in `src/passes/ssa_nomerge.mbt` so the pass does not rewrite structured regions whose nested local reads are not modeled safely by the current local-liveness view.
+
+### `optimize-instructions`
+
+After the SSA guard, prefix `12` (`optimize-instructions`) trapped in `moonbit.check_range` through `StringBuilder`. Diffing prefix `11` vs `12` showed commutative canonicalization reordering address operands and shifted/local terms across dependent pure-looking expressions. Temporarily disabling commutative canonicalization made prefix `12` run.
+
+The production fix is conservative: `optimize_instructions_try_canonicalize_commutative` now declines the rewrite, and adjacent tests assert operand order is preserved for TLSF/address-like and trapping-load shapes.
+
+### `simplify-locals-nostructure`
+
+After the optimize-instructions fix, prefix `18` (`simplify-locals-nostructure`) trapped through `Buffer.to_bytes` / `Bytes.from_array`. A minimal scratch repro showed the pass moving `local.get 5; i32.load` above the defining `local.tee 5`. The adjacent regression is `simplify-locals-nostructure keeps tee before dependent loads`.
+
+The production fix has two layers:
+
+- one-use movement no longer treats `Load` as a freely cloneable value;
+- `simplify-locals-nostructure` skips functions containing `LocalTee` until the sinking model can prove local-write barriers precisely.
+
+### `coalesce-locals`
+
+With `simplify-locals-nostructure` guarded, prefix `25` (`coalesce-locals`) first trapped during startup in `pass_registry_entries`, then after loop guarding trapped on a table index in command startup. The root cause was the conservative structured-control coalescer flattening action streams through loops/local.tee-bearing structured regions and merging locals whose values were live across paths or carried by `local.tee`.
+
+The production fix keeps flat coalescing behavior but skips:
+
+- functions containing loops, covered by `coalesce-locals skips loop functions to preserve cross-iteration liveness`;
+- structured-control functions containing `local.tee`, covered by `coalesce-locals skips local-tee functions to preserve tee-carried values`.
+
+Flat local-tee cases remain available so existing DAE/local-cse integration still removes temporary locals where it is known safe.
+
+### `vacuum`
+
+The candidate passed `--help` after the coalesce guard, but `spec tests/spec/address.wast` still trapped in `String.sub` while trimming spec arguments. A spec-args prefix probe found prefix `10` (`vacuum`) as the first owner for that path. The unsafe family was branchy structured functions with local writes: raw vacuum preclean/HOT cleanup removed no-op debris inside shapes where the current cleanup path does not preserve the surrounding lowered control semantics reliably.
+
+The production fix skips vacuum cleanup for branchy structured functions with local writes in both the large raw preclean gate and the HOT vacuum runner. The raw gate is covered by `raw vacuum preclean skips large structured functions with writes`. Existing large non-branchy nested value-expression cleanup remains covered by `vacuum removes nested value-expression debris in large functions`.
+
+### Current signoff evidence
+
+The current repaired candidate path is:
+
+```sh
+moon fmt
+moon test src/passes
+moon build --target native --release src/cmd
+node .tmp/o4z-bench/run_o4z_prefix_probe.mjs 25 30 35 39
+node .tmp/o4z-bench/run_o4z_prefix_probe_spec.mjs 10 12 18 25 39
+_build/native/release/build/cmd/cmd.exe -O4z \
+  --out .tmp/o4z-bench/starshine-o4z-candidate.wasm \
+  tests/node/dist/starshine-debug-wasi.wasm
+wasm-tools validate --features all .tmp/o4z-bench/starshine-o4z-candidate.wasm
+node scripts/lib/run-self-optimized-spec-suite.mjs \
+  --wasm .tmp/o4z-bench/starshine-o4z-candidate.wasm --limit 1
+node scripts/lib/run-self-optimized-spec-suite.mjs \
+  --wasm .tmp/o4z-bench/starshine-o4z-candidate.wasm \
+  --file tests/spec/i32.wast --file tests/spec/call.wast --file tests/spec/ref.wast
+bun test scripts/lib/o4z-debug-startup-map.test.ts
+```
+
+Observed result: all commands above passed on 2026-06-02. The full self/debug `-O4z` candidate validates and runs the `--help`, first-spec, and selected `i32`/`call`/`ref` spec smoke paths under Node/WASI.
+
+The same repaired candidate then passed broader coverage:
+
+```sh
+node scripts/lib/run-self-optimized-spec-suite.mjs \
+  --wasm .tmp/o4z-bench/starshine-o4z-candidate.wasm --limit 20
+node scripts/lib/run-self-optimized-spec-suite.mjs \
+  --wasm .tmp/o4z-bench/starshine-o4z-candidate.wasm
+```
+
+Observed result: both commands passed; the full run executed all `284` `tests/spec/**/*.wast` files.
 
 ## Recommended next slice
 
-1. Treat `scripts/lib/o4z-debug-startup-map.test.ts` as the failing TDD guard; it now has both the startup runtime assertion and a smaller structural allocator-root assertion.
-2. Do not change production optimizer passes for this trap. The next repair should target the committed debug-WASI artifact generation/regeneration path or prove why the stale allocator-root shape entered the committed artifact.
-3. Regenerate or patch the committed debug-WASI input and reduced fixture only after preserving this owner evidence; the fixed shape should match current `$moonbit.malloc` by passing the TLSF root/control pointer to `removeBlock`.
-4. After the reduced guard is green, retry the full `tests/node/dist/starshine-debug-wasi.wasm` self/debug `-O4z --help` path, validate the candidate, and run the WAST smoke commands listed above.
+1. Keep `scripts/lib/o4z-debug-startup-map.test.ts` as a permanent artifact-staleness guard.
+2. Treat the SSA, optimize-instructions, simplify-locals-nostructure, coalesce-locals, and vacuum changes as conservative correctness gates. Future optimization recovery should replace them with precise local-liveness/effect/path models one pass at a time, preserving the focused regressions above.
+3. If size or speed regressions matter, profile the lost opportunities from disabled commutative canonicalization and skipped structured/tee/branchy cleanup before re-enabling any transform.
 
 ## Evidence status
 

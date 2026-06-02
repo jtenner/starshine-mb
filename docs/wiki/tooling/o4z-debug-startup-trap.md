@@ -1,6 +1,6 @@
 ---
 kind: concept
-status: working
+status: supported
 last_reviewed: 2026-06-02
 sources:
   - ../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md
@@ -21,32 +21,31 @@ related:
 
 ## Overview
 
-This page tracks the runtime blocker that remains after the CLI startup-path audit is done. The fast-path and path-normalization work belong in [`cli-startup-path.md`](./cli-startup-path.md); this page is only about the separate `o4z` debug-startup trap that appears once the self-debug artifact is runnable.
+This page records the repaired `o4z` debug-startup trap and the permanent guard that keeps the committed debug-WASI artifact honest. The fast-path and path-normalization work still belong in [`cli-startup-path.md`](./cli-startup-path.md); this page is only about the separate startup trap that used to come from a stale debug artifact and now serves as a regression sentinel.
 
-The current symptom is a WebAssembly runtime trap surfaced as `RuntimeError: unreachable` during startup. The active research note records the exact call chain, the bucket-array and map-header evidence, and the reduced fixture used to isolate the failure. The host-facing error shape is expected: WebAssembly uses `RuntimeError` for traps, and `unreachable` is the unconditional trap instruction.
+The host-visible symptom was `RuntimeError: unreachable` during startup. That message is still useful as a trap-classification hint, because WebAssembly uses `RuntimeError` for traps and `unreachable` is the unconditional trap instruction. The important current fact is that the stale allocator-root shape has been repaired: the committed debug-WASI path and the reduced fixture now pass the reduced guard and the startup replay.
 
 ## Current understanding
 
-- The blocker is not a parser or globbing issue.
-- The best current evidence points at the committed debug-WASI artifact generation path, not at the live pass sequence itself: the reduced allocator-owner trace shows the committed `starshine-debug-wasi.wasm` still feeds `i32.const 0` into `tlsf/removeBlock`, while fresh debug/release artifacts and the local `_build/wasm/debug/build/cmd/cmd.wasm` carry `$tlsf/ROOT` instead. A scratch patch that swaps the stale root for `global.get 0` makes the reduced fixture validate and exit `0`.
-- `scripts/lib/build-self-optimized.mjs` describes the end-to-end build/copy flow that produces the debug artifact used by later self-optimize runs.
+- The stale committed debug-WASI artifact path is repaired. The reduced `malloc` shape now carries the TLSF root/control pointer into `tlsf/removeBlock` instead of leaving a literal zero on the stack.
+- `scripts/lib/build-self-optimized.mjs` describes the build/copy flow that produces the debug artifact used by later self-optimize runs.
 - `scripts/lib/self-optimized-artifacts.mjs` names the debug artifact path that the build pipeline copies into the node-dist layout.
-- The runtime-trap semantics are now source-backed in [`../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md`](../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md), so the message text should be treated as a trap wrapper rather than a special local exception class.
-- The detailed owner evidence, reduced reproduction, and temporary instrumentation notes live in the archived research note [`../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md`](../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md).
+- The runtime-trap semantics remain source-backed in [`../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md`](../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md); use that note to remember that `RuntimeError: unreachable` is a wasm trap surface, not a Node-specific exception class.
+- The detailed owner evidence and the repaired pass-owner follow-up live in the archived research note [`../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md`](../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md).
 
 ## Current TDD guard
 
-- [`../../../scripts/lib/o4z-debug-startup-map.test.ts`](../../../scripts/lib/o4z-debug-startup-map.test.ts) is the active reduced-fixture guard.
+- [`../../../scripts/lib/o4z-debug-startup-map.test.ts`](../../../scripts/lib/o4z-debug-startup-map.test.ts) is the permanent reduced-fixture guard.
 - [`../../../tests/repros/o4z-debug-startup-map-init-repro.wasm`](../../../tests/repros/o4z-debug-startup-map-init-repro.wasm) is the current reproduction.
-- The first assertion prints the WAT and rejects the stale allocator-root shape if `malloc` still leaves `i32.const 0` immediately before `global.get 0` at the `removeBlock` call site.
+- The first assertion prints the WAT and rejects the stale allocator-root shape if `malloc` ever reintroduces `i32.const 0` immediately before `global.get 0` at the `removeBlock` call site.
 - The second assertion replays the fixture through `runWasmStart(..., args: ["--help"])` and expects a zero exit code.
 
 ## How to use this page
 
 1. Keep this investigation separate from the path-handling audit in [`cli-startup-path.md`](./cli-startup-path.md).
-2. Check the debug-artifact generation path before changing optimizer passes.
-3. Use the raw research note for the exact reduced-fixture guard, scratch instrumentation, and owner hypothesis.
-4. After the reduced guard is green, retry the full self/debug `-O4z` startup path.
+2. Check the debug-artifact generation path before changing optimizer passes if this guard ever regresses.
+3. Use the raw research note for the exact reduced-fixture guard, scratch instrumentation, and historical owner hypothesis.
+4. If the guard fails again, repair the artifact/fixture path first, then retry the full self/debug `-O4z` startup path and spec smoke.
 5. If the host message still says `RuntimeError: unreachable`, classify it as a wasm trap first and use the trap site plus surrounding execution path to distinguish artifact corruption from a live optimizer regression.
 
 ## Sources

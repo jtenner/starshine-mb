@@ -31,7 +31,7 @@ related:
 
 - Use the raw audit note for the older line-by-line hotspot list; this page only keeps the compact current summary.
 - Use [`cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md) for the current command/config/env/dispatcher contract; this page should stay focused on startup cost.
-- The `o4z` debug-startup runtime blocker now has a dedicated living page in [`o4z-debug-startup-trap.md`](./o4z-debug-startup-trap.md); use that runtime-correctness page and the archived research note [`../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md`](../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md) for the trap owner evidence, and keep both distinct from the path-handling audit.
+- The repaired `o4z` debug-startup trap now has a dedicated living page in [`o4z-debug-startup-trap.md`](./o4z-debug-startup-trap.md); use that runtime-correctness page and the archived research note [`../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md`](../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md) for the repaired-artifact guard and historical owner evidence, and keep both distinct from the path-handling audit.
 - If startup traces regress, check `normalize_cli_path`, `expand_globs`, and the `cmd_wbtest` fast-path coverage before widening the search.
 
 ## Sources

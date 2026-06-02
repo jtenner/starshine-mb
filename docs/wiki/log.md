@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | o4z startup-trap repair follow-up
+
+- Reframed the living [`docs/wiki/tooling/o4z-debug-startup-trap.md`](tooling/o4z-debug-startup-trap.md) page from active blocker language to repaired-trap plus permanent-guard language, updated the [`docs/wiki/tooling/cli-startup-path.md`](tooling/cli-startup-path.md) cross-link, and refreshed the top-level catalog entry in [`docs/wiki/index.md`](index.md) so the wiki now points readers at the repaired artifact guard instead of the stale allocator-root snapshot.
+- This is a wiki-health and source-reconciliation update that keeps the runtime-trap story aligned with the repaired guard and archived research note.
+
 ## [2026-06-02] docs | binaryen release-horizon bridge provenance cross-link
 
 - Added the superseded 2026-06-01 `version_130` release-horizon bridge to the living release-oracle page plus its two immediate dependents, [`binaryen/no-dwarf-default-optimize-path.md`](binaryen/no-dwarf-default-optimize-path.md) and [`binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md), so the current `version_125` correction remains auditable alongside the historical bridge it superseded.
