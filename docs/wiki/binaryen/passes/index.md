@@ -17,7 +17,7 @@ sources:
   - ../../../../src/passes/registry_test.mbt
   - ./late-pipeline-dispatch.md
   - ./tracker.md
-  - ../../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md
+  - ../../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md
   - ../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
   - ../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../../raw/research/0111-2026-04-20-merge-blocks-binaryen-research.md

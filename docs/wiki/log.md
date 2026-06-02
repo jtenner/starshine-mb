@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | binaryen release-horizon source-path cleanup follow-up
+
+- Repointed the remaining living Binaryen pages that still cited the superseded 2026-06-01 `version_130` raw capture to the 2026-06-02 `version_125` correction note, covering the inlining, inlining-optimizing, global-effects, discard-global-effects, optimize-added-constants, late-pipeline, no-DWARF, catalog, and tracker surfaces.
+- No code or tests changed; this was a follow-up source-path cleanup after the earlier release-horizon correction so the living wiki now cites the correction note consistently.
+
 ## [2026-06-02] docs | binaryen release-horizon correction to version_125
 
 - Rechecked the official Binaryen `version_125` release page, the `main` changelog, and the Chromium refs listing; the public release baseline is `version_125`, not `version_130`, so the living wiki pages anchored to the release oracle and pass dossiers were corrected to match.

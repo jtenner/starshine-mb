@@ -7,7 +7,7 @@ sources:
   - ../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
   - ../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
   - ../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
-  - ../../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md
+  - ../../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md
   - ../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md
   - ../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md
   - ../../raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md

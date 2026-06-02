@@ -4,7 +4,7 @@ status: supported
 last_reviewed: 2026-06-01
 sources:
   - ../../../raw/binaryen/2026-05-06-global-effects-current-main-recheck.md
-  - ../../../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md
+  - ../../../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md
   - ../../../raw/research/0502-2026-05-06-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
