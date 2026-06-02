@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-02
 sources:
   - ../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md
+  - ../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md
   - https://github.com/WebAssembly/binaryen/releases/tag/version_125
   - https://github.com/WebAssembly/binaryen/blob/main/CHANGELOG.md
   - https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+refs
@@ -40,6 +41,7 @@ That `v125` baseline is substantive, not just a renumbering. Keep this page as t
 | Layer | Preferred source | What it is good for |
 | --- | --- | --- |
 | Public release baseline | Official GitHub release page for `version_125` | The newest tagged public release horizon. |
+| Correction note | `docs/wiki/raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md` | The distilled correction that supersedes the earlier `version_130` bridge. |
 | Live trunk drift watch | Official GitHub `main` changelog | Whether trunk has moved past the newest tag in a way that matters to the docs. |
 | Corroboration | Chromium refs listing and Chromium-hosted `main` changelog | Secondary confirmation that the public tag and trunk story match. |
 | Discovery only | Search snippets, search-result summaries, and mirrored excerpts | Good for finding the official URL; not authoritative when they disagree with direct official pages. |
@@ -57,7 +59,7 @@ Do not flatten those layers together. A page can be correct about the public rel
 
 ## Current state
 
-The 2026-06-02 revalidation still finds the public `v125` section on the official release page, the `main` changelog, and the Chromium refs listing. That means the earlier "no newer release-horizon note" wording is stale anywhere it still appears. When a search snippet or mirrored summary disagrees with the direct official release page or changelog, trust the direct official URLs.
+The 2026-06-02 revalidation still finds the public `v125` section on the official release page, the `main` changelog, and the Chromium refs listing. The 2026-06-02 correction note 0698 explicitly supersedes the earlier `version_130` bridge, so the earlier "no newer release-horizon note" wording is stale anywhere it still appears. When a search snippet or mirrored summary disagrees with the direct official release page or changelog, trust the direct official URLs.
 
 The key wiki-maintenance consequence is that `version_125` is still the public release baseline, but it does **not** force every detailed pass dossier to retag itself. Many pass pages still stay on the reviewed `version_129` source oracle until they get a fresh current-main reread.
 
@@ -70,6 +72,7 @@ The key wiki-maintenance consequence is that `version_125` is still the public r
 
 ## Sources
 
+- Correction note: [`../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md`](../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md)
 - Immutable local release-horizon bridge: [`../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md`](../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md)
 - Official GitHub `version_125` release page: <https://github.com/WebAssembly/binaryen/releases/tag/version_125>
 - Official GitHub `main` changelog: <https://github.com/WebAssembly/binaryen/blob/main/CHANGELOG.md>

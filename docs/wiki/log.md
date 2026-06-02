@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | binaryen release-horizon correction-note cross-link
+
+- Linked the 2026-06-02 `version_125` release-horizon correction note [`docs/wiki/raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md`](raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md) into the living Binaryen release-oracle page plus its two immediate dependents, [`binaryen/no-dwarf-default-optimize-path.md`](binaryen/no-dwarf-default-optimize-path.md) and [`binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md), so the wiki now points future readers at the distilled correction that supersedes the earlier `version_130` bridge.
+- No code or tests changed; this is a wiki-health and source-reconciliation update that keeps the release-horizon story tied to the durable correction note rather than only the raw bridge capture.
+
 ## [2026-06-02] docs | o4z debug-startup artifact-root evidence refresh
 
 - Expanded [`docs/wiki/tooling/o4z-debug-startup-trap.md`](tooling/o4z-debug-startup-trap.md) so the living blocker page now summarizes the stale allocator-root evidence: the reduced guard still sees `i32.const 0` reach `tlsf/removeBlock`, while fresh debug/release artifacts and the local `_build/wasm/debug/build/cmd/cmd.wasm` carry `$tlsf/ROOT` and a scratch `global.get 0` patch makes the reduced fixture exit `0`.

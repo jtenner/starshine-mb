@@ -7,6 +7,7 @@ sources:
   - ../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
   - ../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md
+  - ../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md
 related:
   - ../../../agent-todo.md
   - ../../../src/passes/optimize.mbt
@@ -49,7 +50,7 @@ related:
 ## Current Project Rule
 
 - Keep this pathway as the main orientation page for Binaryen optimize parity.
-- Use Binaryen `version_125` as the upstream release baseline for new pass research; the 2026-06-02 release-horizon correction still points here, and the older `version_129` path-reading notes remain historical until a dedicated `version_125` reread says otherwise.
+- Use Binaryen `version_125` as the upstream release baseline for new pass research; the 2026-06-02 release-horizon correction note 0698 still points here and supersedes the earlier `version_130` bridge, and the older `version_129` path-reading notes remain historical until a dedicated `version_125` reread says otherwise.
 - Treat repeated cleanup slots as intentional, not accidental duplication.
 - Preserve the phase split, feature gates, and nested reruns before trying to tune performance or collapse preset shape.
 - The archived `0066` note remains the historical line-anchored source for older work, but new conclusions should be checked against the current `version_125` release baseline and the release-horizon note first.
@@ -61,6 +62,7 @@ related:
 ## Sources
 
 - Archived research doc: [`../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md`](../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md)
+- Binaryen `version_125` release-horizon correction: [`../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md`](../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md)
 - Binaryen `version_125` release-horizon refresh: [`../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md`](../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md)
 - Binaryen `version_125` release: <https://github.com/WebAssembly/binaryen/releases/tag/version_125>
 - Binaryen official GitHub `main` changelog: <https://github.com/WebAssembly/binaryen/blob/main/CHANGELOG.md>
