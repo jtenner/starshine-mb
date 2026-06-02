@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | self-opt validation terminology alignment
+
+- Aligned the self-opt validation wording in [`docs/wiki/tooling/validation-gates.md`](tooling/validation-gates.md) and the catalog summary in [`docs/wiki/index.md`](index.md) so the spec workload now consistently refers to the temporary runner copy rather than mixing runner-copy and wasm-copy terminology.
+- No code or tests changed; this is a small wiki-health cleanup to keep the gate description terminology uniform.
+
 ## [2026-06-02] docs | self-opt validation source-anchor reinforcement
 
 - Tightened [`docs/wiki/tooling/validation-gates.md`](tooling/validation-gates.md) so the self-optimized artifact gate now links the upstream `wasm-tools` README section that demonstrates explicit validation feature toggles and the default-on Stage 4+ policy, making the repo-local `--features all` policy auditable from the living gate page instead of only from the raw source note, and refreshed the catalog entry in [`docs/wiki/index.md`](index.md) to match.

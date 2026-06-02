@@ -140,10 +140,10 @@ The check order is deliberate:
 ```text
 wasm-tools validate --features all <artifact>
 Node/WASI run <artifact> --help
-Node/WASI run <temporary artifact copy> spec <selected tests/spec/**/*.wast>
+Node/WASI run <temporary runner copy> spec <selected tests/spec/**/*.wast>
 ```
 
-Use `--wasm <path>` to test a candidate artifact outside `tests/node/dist/`; relative paths resolve from the repo root. The spec workload runs against a temporary wasm copy so the checked artifact remains available for later validation or size inspection. Use `bun self-opt build` only when the artifact itself must be regenerated, and ask before running the full build pipeline or full-spec lane in an ordinary development thread.
+Use `--wasm <path>` to test a candidate artifact outside `tests/node/dist/`; relative paths resolve from the repo root. The spec workload runs against a temporary runner copy so the checked artifact remains available for later validation or size inspection. Use `bun self-opt build` only when the artifact itself must be regenerated, and ask before running the full build pipeline or full-spec lane in an ordinary development thread.
 
 ## Formal Proof Is A Separate Lane
 
