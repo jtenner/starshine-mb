@@ -158,7 +158,7 @@ So the durable rule is:
 
 - treat Binaryen `version_129` as the reviewed tagged oracle for this dossier's upstream file/test surfaces
 - keep the current-main note explicit only to say there is no visible source or dedicated-test semantic drift right now
-- do **not** silently upgrade that narrower claim into “latest global Binaryen release”; the separate release-horizon page now records `version_130` as the public baseline, so keep that numbering separate from this dossier's reviewed `version_129` source surfaces instead
+- do **not** silently upgrade that narrower claim into “latest global Binaryen release”; the separate release-horizon page now records `version_125` as the public baseline, so keep that numbering separate from this dossier's reviewed `version_129` source surfaces instead
 
 ## Current maintenance rule
 

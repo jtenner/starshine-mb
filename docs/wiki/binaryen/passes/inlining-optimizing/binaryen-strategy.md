@@ -23,7 +23,7 @@ related:
 
 ## Source rule
 
-Use Binaryen `version_129` as the tagged oracle; the public release horizon now reaches `version_130`, but the 2026-04-25 current-main implementation/test-map bridge still records no teaching-relevant drift for the optimizing suffix contract. The owner is the shared `src/passes/Inlining.cpp`; the unique optimizing suffix is in `src/passes/opt-utils.h`.
+Use Binaryen `version_129` as the tagged oracle; the public release horizon now reaches `version_125`, but the 2026-04-25 current-main implementation/test-map bridge still records no teaching-relevant drift for the optimizing suffix contract. The owner is the shared `src/passes/Inlining.cpp`; the unique optimizing suffix is in `src/passes/opt-utils.h`.
 
 Primary URLs:
 

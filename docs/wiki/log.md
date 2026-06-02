@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | binaryen release-horizon correction to version_125
+
+- Rechecked the official Binaryen `version_125` release page, the `main` changelog, and the Chromium refs listing; the public release baseline is `version_125`, not `version_130`, so the living wiki pages anchored to the release oracle and pass dossiers were corrected to match.
+- Refreshed `docs/wiki/binaryen/release-horizon-and-oracles.md`, `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`, the Binaryen pass catalog/tracker/index pages, and the inlining/optimize-added-constants/reorder-globals/ssa-nomerge/remove-unused dossier clusters so they now cite the corrected baseline.
+- No code or tests changed; this is a wiki/source-hygiene correction superseding the earlier `version_130` snapshot.
+
 ## [2026-06-02] docs | binaryen pass catalog/tracker release-horizon revalidation
 
 - Refreshed [`docs/wiki/binaryen/passes/index.md`](binaryen/passes/index.md) and [`docs/wiki/binaryen/passes/tracker.md`](binaryen/passes/tracker.md) so the central Binaryen catalog and tracker now explicitly say the 2026-06-02 release-horizon revalidation still leaves `version_130` as the latest public release baseline.
