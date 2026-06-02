@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-12
+last_reviewed: 2026-06-01
 sources:
   - ../../../raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md
+  - ../../../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md
   - ../../../raw/binaryen/2026-04-23-inlining-optimizing-primary-sources.md
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../raw/research/0361-2026-04-25-inlining-optimizing-current-main-and-test-map.md
@@ -22,7 +23,7 @@ related:
 
 ## Source rule
 
-Use Binaryen `version_129` as the tagged oracle, with the 2026-04-25 current-main implementation/test-map bridge recording no teaching-relevant drift. The owner is the shared `src/passes/Inlining.cpp`; the unique optimizing suffix is in `src/passes/opt-utils.h`.
+Use Binaryen `version_129` as the tagged oracle; the public release horizon now reaches `version_130`, but the 2026-04-25 current-main implementation/test-map bridge still records no teaching-relevant drift for the optimizing suffix contract. The owner is the shared `src/passes/Inlining.cpp`; the unique optimizing suffix is in `src/passes/opt-utils.h`.
 
 Primary URLs:
 

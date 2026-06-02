@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-01] docs | inlining release-horizon refresh
+
+- Refreshed [`binaryen/passes/inlining/index.md`](binaryen/passes/inlining/index.md), [`binaryen/passes/inlining/binaryen-strategy.md`](binaryen/passes/inlining/binaryen-strategy.md), [`binaryen/passes/inlining-optimizing/index.md`](binaryen/passes/inlining-optimizing/index.md), [`binaryen/passes/inlining-optimizing/binaryen-strategy.md`](binaryen/passes/inlining-optimizing/binaryen-strategy.md), and the top-level catalog entry in [`index.md`](index.md) so the inlining family now acknowledges the public `version_130` release horizon while keeping the detailed contract anchored to the reviewed `version_129` bridge plus the existing current-main rechecks.
+- Reused the existing `docs/wiki/raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md` capture rather than adding a duplicate raw note; no code or tests changed.
+
 ## [2026-06-01] docs | dae compare normalizer alignment
 
 - Refreshed [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md) so the DAE dossiers now point mixed-generator compare-pass lanes at both `--normalize drop-consts` and `--normalize unreachable-control-debris`, cite the 2026-05-26 control-debris source note, and link back to the pass-fuzz compare harness contract.
