@@ -407,10 +407,6 @@ p2 invalid/binary/text tiny slices:
 
 
 
-- [FUZ]1050D1 (p2) - Report-only normalized/canonical corpus shape hashes validation closeout
-  - Unit: rerun validation for the already-present implementation/test/docs in `src/fuzz/main.mbt`, `src/fuzz/main_wbtest.mbt`, and `docs/wiki/tooling/fuzz-corpus-policy.md` now that the local Moon core install is repaired.
-  - Acceptance: `moon test src/fuzz` passes; then run `moon info`, `moon fmt`, and full `moon test` if source/docs/generated files changed. If green, remove this slice from the active backlog and commit the closeout evidence.
-  - Suggested tests: `moon test src/fuzz`; repository validation if the test run produces generated/interface diffs.
 
 - [FUZ]1056A4 (p2) - Curated malformed custom/name-section location fixture validation closeout
   - Unit: rerun validation for the already-present malformed custom/name-section binary location fixture and docs now that the local Moon core install is repaired.
