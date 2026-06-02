@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-01] docs | binaryen passes catalog/tracker release-horizon sync
+
+- Refreshed [`binaryen/passes/index.md`](binaryen/passes/index.md) and [`binaryen/passes/tracker.md`](binaryen/passes/tracker.md) so the central pass inventory now cites the immutable `version_130` release-horizon bridge, links the live `late-pipeline-dispatch` handoff, and keeps `version_129` contract pages explicitly historical until a dedicated `version_130` reread exists.
+- No code or tests changed; this was a wiki-health update to keep the catalog and tracker aligned with the current Binaryen public release horizon and the repo-local release-horizon source note.
+
 ## [2026-06-01] docs | cli startup-path fast-path refresh
 
 - Refreshed [`tooling/cli-startup-path.md`](tooling/cli-startup-path.md) and the top-level catalog entry in [`index.md`](index.md) so the startup audit now records the current help/version and irrelevant env-overlay fast paths as test-backed, ties the live cost center to `normalize_cli_path` / `expand_globs`, and points readers at the glob and cmd wbtests that keep those invariants honest.

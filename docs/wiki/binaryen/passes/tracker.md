@@ -329,12 +329,18 @@ Use these files in this order:
   - source of truth for whether a pass is currently `HotPass`, `ModulePass`, `Removed`, or `BoundaryOnly`
 - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
   - source of truth for which passes matter for the canonical no-DWARF `-O` / `-Os` Binaryen parity path
+- `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`
+  - source of truth for the public Binaryen release baseline (`version_130`) and the live drift-watch handoff for anything beyond that tag
+- `docs/wiki/raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md`
+  - source of truth for the release-horizon fact behind that baseline
 - `docs/wiki/raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`
   - source of truth for which unimplemented passes were actually observed as skipped in the saved generated-artifact `-O4z` replay
 - `docs/wiki/binaryen/passes/`
   - source of truth for whether a pass has a dedicated living wiki surface yet
 - `agent-todo.md`
   - source of truth for current backlog slice ids and implementation intent
+
+The current public Binaryen release baseline is `version_130`; use it for new upstream-tag lookups, but keep pass-contract pages anchored to reviewed `version_129` / current-main surfaces until a dedicated `version_130` reread exists.
 
 If these ever disagree, update this tracker in the same change. The 2026-05-06 audit note above records one such known temporary disagreement.
 

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-01
 sources:
   - ../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md
   - ../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md
@@ -16,6 +16,8 @@ sources:
   - ../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md
   - ../../../../src/passes/registry_test.mbt
   - ./late-pipeline-dispatch.md
+  - ./tracker.md
+  - ../../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md
   - ../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
   - ../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../../raw/research/0111-2026-04-20-merge-blocks-binaryen-research.md
@@ -342,7 +344,7 @@ related:
 
 ## Tracking
 
-- [`tracker.md`](tracker.md) - Canonical progress tracker for which Binaryen passes are implemented, active, active-partial, boundary-only, removed, or upstream-only, which ones already have dedicated living wiki coverage, and which missing `-O4z` / no-DWARF parity passes still need both implementation and docs.
+- [`tracker.md`](tracker.md) - Canonical progress tracker for which Binaryen passes are implemented, active, active-partial, boundary-only, removed, or upstream-only, which ones already have dedicated living wiki coverage, and which missing `-O4z` / no-DWARF parity passes still need both implementation and docs; it now treats `version_130` as the public release baseline while keeping pass-contract pages anchored to reviewed `version_129` / current-main surfaces until a dedicated `version_130` reread exists.
 
 ## Tracked Passes Outside the Main no-DWARF / saved-`O4z` Queue
 
