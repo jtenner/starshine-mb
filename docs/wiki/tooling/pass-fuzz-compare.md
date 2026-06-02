@@ -1,9 +1,10 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-05-25
+last_reviewed: 2026-06-01
 sources:
   - ../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md
+  - ../raw/research/0673-2026-05-26-dae-control-debris-normalizer.md
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../scripts/lib/fuzz-task.ts
   - ../../../scripts/test/pass-fuzz-compare-command.ts
@@ -27,7 +28,7 @@ related:
 
 `bun fuzz compare-pass` is Starshine's pass-local Binaryen oracle lane. Use it when an optimizer pass changes semantics, scheduler placement, supported syntax, or pass registry wiring. It is deliberately separate from `bun fuzz run`: ordinary fuzz suites prove Starshine's generators and validators keep working, while compare-pass asks whether one or more Starshine pass flags produce the same normalized output as the corresponding Binaryen `wasm-opt` flags on the same input modules.
 
-The 2026-05-20 source bridge is [`../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md`](../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md). It rechecked the current Binaryen, `wasm-tools`, `wasm-smith`, WebAssembly validation, and local script/test sources behind this workflow.
+The 2026-05-20 source bridge is [`../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md`](../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md). It rechecked the current Binaryen, `wasm-tools`, `wasm-smith`, WebAssembly validation, and local script/test sources behind this workflow. The 2026-05-26 DAE control-debris research note extends that workflow with the opt-in `--normalize unreachable-control-debris` compare normalizer, which is intentionally separate from `--normalize drop-consts` so exact normalized matches and cleanup-normalized matches stay distinguishable.
 
 Beginner mental model:
 
@@ -101,7 +102,7 @@ For each case, [`runPassFuzzCompare(...)`](../../../scripts/lib/pass-fuzz-compar
 6. **Text normalization:** both canonical outputs are printed with `wasm-opt --all-features --strip-debug -S -o <wat>`.
 7. **Optional runtime execution:** `--runtime-execution node` tries a Node WebAssembly adapter with deterministic basic import stubs against both raw Starshine and Binaryen outputs, pairs same-named function exports, and invokes up to eight exported functions with a deterministic simple argument vector: each observed parameter slot receives numeric zero, capped at eight arguments. Equal results and equal traps count as checked runtime evidence; unsupported imports/instantiation are skipped evidence; observed result/trap disagreement increments the runtime failed count. Runtime execution remains opt-in; `result.json` always carries a `runtimeExecutionMatrix` block, with `outcome: "not-run"` when runtime execution is disabled, and runtime-enabled mismatch repro manifests also carry the per-case matrix summary, outcome, and semantic-mismatch samples.
 8. **Optional property checks:** `--property idempotence` reruns Starshine on `starshine.raw.wasm`, validates that second output, canonicalizes both Starshine outputs, and compares normalized WAT for `pass(pass(m)) == pass(m)`. `--property composition` requires at least two pass flags, runs those same flags one at a time through sequential Starshine invocations starting from the original input, validates each step, canonicalizes the final sequential output, and compares it with the combined Starshine invocation. Property failures increment `propertyFailureCount` and persist as `property-failure` cases, separate from Binaryen `mismatch` cases.
-9. **Compare:** matching WAT increments `normalizedMatchCount`; drift records a `mismatch` case unless an explicit compare normalizer also proves equality.
+9. **Compare:** matching WAT increments `normalizedMatchCount`; if one or more explicit compare normalizers are enabled and only the cleaned outputs match, the harness increments `cleanupNormalizedMatchCount` and records a `cleanup-normalized-match` case; otherwise drift records a `mismatch` case.
 
 That order matters. A pass can be locally safe but still differ in raw binary layout, custom-section order, name stripping, or textual representation. The harness intentionally removes those surfaces before comparing.
 
@@ -116,6 +117,7 @@ The compare result is only as strong as the normalization layer below. Treat eac
 | Binaryen oracle execution | `wasm-opt input.wasm --all-features <binaryen-pass-flags>`. | Uses Binaryen as the pass-local oracle for the requested canonical pass flags. | Binaryen command/parser failures are tool/oracle failures until replayed and classified. Alias mismatches or unsupported pass surfaces can invalidate the comparison setup. |
 | Binary canonicalization | `wasm-opt --all-features --strip-debug -o <canonical.wasm>` on both raw outputs. | Removes debug names/custom debug payloads and rewrites each output through the same Binaryen binary writer. | This intentionally ignores name/debug/custom-section placement and raw encoder layout. Do not use it to prove byte-for-byte, custom-section placement, or debug-info preservation parity. |
 | Text printing | `wasm-opt --all-features --strip-debug -S -o <wat>` on both canonical wasm files. | Compares a stable text projection after Binaryen's own canonical binary normalization. | Text equality is the harness green condition. Text drift can still be representation-only, size-only, unknown, or a true semantic mismatch; inspect before labeling it. |
+| Compare normalizers | `--normalize drop-consts` and `--normalize unreachable-control-debris` may be applied, in order, to the canonicalized outputs before comparison. | Covers documented DAE-style cleanup noise and other explicitly inspected debris families that should not count as raw mismatches. Equality reached only after these normalizers increments `cleanupNormalizedMatchCount` and records a `cleanup-normalized-match` status. | Keep the normalizers opt-in and pass-specific; do not use them to hide missing side effects, signature differences, trapping behavior, or other unexplained drift. |
 | Debug/name stripping | `--strip-debug` is applied during canonicalization and printing. | Function/local/label names, name-section payloads, and debug metadata do not affect compare-pass matches. | Passes that intentionally preserve, delete, or repair names need separate focused tests; compare-pass does not sign off that surface. |
 | Default-local and wrapper shape normalization | Binaryen's canonical printer may elide explicit default initializers, simplify harmless wrapper syntax, or choose a different printed expression shape. | Avoids failing on common canonical WAT presentation differences. | This is not a blanket semantic equivalence rule. Local declaration count, block result typing, and wrapper differences that affect validation, control flow, traps, exports, starts, tables, memories, or globals remain real risks. |
 | NaN and numeric text formatting | Numeric constants are compared after Binaryen's canonical binary-to-text projection. | Equalizes supported spelling/format choices for printed constants. | Payload-sensitive NaN behavior and trapping numeric operations still require pass-specific reasoning. Do not assume arbitrary floating-point rewrites are safe from normalized text alone. |
@@ -143,8 +145,8 @@ Use `--list-passes` before starting a long lane; it is the script-owned list, no
 
 Every run writes:
 
-- `result.json` - aggregate counts, pass flags, Binaryen flags, generator mode, requested GenValid profile, feature filters, requested metamorphic transform ids, compared GenValid transform counts, requested external validators plus skip counts, requested runtime execution mode plus checked/unsupported/failed counts and persisted `runtimeExecutionMatrix` summary/outcome/semantic-mismatch samples, requested property mode plus idempotence/composition checked/match counts and property failures, relative GenValid manifest path when present, generator counts, failure class counts, failure dirs, seed, requested count, and effective jobs.
-- `summary.json` - compact `starshine.fuzz-summary-report.v1` counters for `bun fuzz coverage-delta`, with suite `compare-pass`, profile `<pass>+<generator>`, required requested/compared case counters, optional generator/GenValid transform/property/input-effect/runtime counters, run-status counters, failure-class counters, and failure-artifact counts.
+- `result.json` - aggregate counts, pass flags, Binaryen flags, generator mode, compare normalizers, requested GenValid profile, feature filters, requested metamorphic transform ids, compared GenValid transform counts, exact `normalizedMatchCount` and `cleanupNormalizedMatchCount` totals, requested external validators plus skip counts, requested runtime execution mode plus checked/unsupported/failed counts and persisted `runtimeExecutionMatrix` summary/outcome/semantic-mismatch samples, requested property mode plus idempotence/composition checked/match counts and property failures, relative GenValid manifest path when present, generator counts, failure class counts, failure dirs, seed, requested count, and effective jobs.
+- `summary.json` - compact `starshine.fuzz-summary-report.v1` counters for `bun fuzz coverage-delta`, with suite `compare-pass`, profile `<pass>+<generator>`, required requested/compared case counters, optional generator/GenValid transform/property/input-effect/runtime counters, run-status counters including exact normalized-match versus cleanup-normalized-match separation, failure-class counters, and failure-artifact counts.
 - `cases.jsonl` - one case record per attempted case, sorted by case index after the run; GenValid metamorphic cases include `transformId` when their manifest entry has `transform_id` and `genValidFeatureFacts` when their manifest entry has `feature_facts`; records also include input effect/trap facts once the input has been scanned.
 - `inputs/` - saved generator inputs for generated lanes.
 - `failures/case-<index>-<generator>/` or `failures/case-<index>-gen-valid-transform-<id>/` - copied per-case workdir files for generator failures, validation failures, command failures, and normalized mismatches.
@@ -192,7 +194,8 @@ For a direct pass signoff:
 3. Run the repo-standard direct lane, usually `--count 10000 --seed 0x5eed`, with a stable `--out-dir`.
 4. If command failures dominate, rerun with `--keep-going-after-command-failures` and use `--min-compared` so the run still proves enough comparable cases.
 5. Classify any mismatch in the pass dossier with evidence. Do not call a mismatch semantically safe merely because both outputs validate.
-6. Preserve the run directory locally and cite durable aggregate facts in the affected pass page, tracker, or research note.
+6. For DAE / generator-debris lanes, include `--normalize drop-consts --normalize unreachable-control-debris` so cleanup-normalized matches are counted separately from exact normalized matches.
+7. Preserve the run directory locally and cite durable aggregate facts in the affected pass page, tracker, or research note.
 
 For preset or neighborhood work, direct pass green is necessary but not sufficient. Also replay the ordered neighborhood or preset artifacts described by [`../binaryen/no-dwarf-default-optimize-path.md`](../binaryen/no-dwarf-default-optimize-path.md) and the affected pass dossier.
 

@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-01
 sources:
   - ../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md
   - ../raw/moonbit/2026-05-20-workspace-package-surface.md
@@ -17,6 +17,7 @@ sources:
   - ../../../scripts/lib/task-runtime.ts
   - ../../../scripts/lib/fuzz-task.ts
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../raw/research/0673-2026-05-26-dae-control-debris-normalizer.md
   - ../../../scripts/test/task-family-commands.ts
 related:
   - ./cli-command-and-dispatcher.md
@@ -93,7 +94,7 @@ bun fuzz compare-pass --pass <canonical-pass>|--<pass-flag> --count 10000 --seed
 
 For script-level compatibility, `bun scripts/pass-fuzz-compare.ts` is the same underlying implementation and still valid when invoked directly.
 
-The pass-comparison harness has its own contract: generated inputs, `wasm-tools validate`, Starshine output validation, Binaryen/canonicalization comparison, normalized WAT matching, command-failure classification, optional replay by failure class/case, and `--jobs >1` requiring a prebuilt `--starshine-bin`. Keep pass evidence in the affected pass dossier; keep the detailed harness behavior in [`pass-fuzz-compare.md`](pass-fuzz-compare.md), and keep this page as the shared gate map.
+The pass-comparison harness has its own contract: generated inputs, `wasm-tools validate`, Starshine output validation, Binaryen/canonicalization comparison, normalized WAT matching, command-failure classification, optional replay by failure class/case, and `--jobs >1` requiring a prebuilt `--starshine-bin`. Keep pass evidence in the affected pass dossier; keep the detailed harness behavior in [`pass-fuzz-compare.md`](pass-fuzz-compare.md), and keep this page as the shared gate map. For DAE / generator-debris lanes, use the explicit `--normalize drop-consts --normalize unreachable-control-debris` pair so cleanup-normalized matches stay separate from exact normalized matches.
 
 ## Coverage Gate Semantics
 

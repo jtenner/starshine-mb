@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-01] docs | pass-fuzz compare normalizer clarity
+
+- Refreshed [`tooling/pass-fuzz-compare.md`](tooling/pass-fuzz-compare.md), [`tooling/validation-gates.md`](tooling/validation-gates.md), and the top-level catalog entry in [`index.md`](index.md) so the compare-pass workflow now documents the opt-in `--normalize unreachable-control-debris` cleaner, separate `cleanupNormalizedMatchCount` reporting, and the DAE lane guidance that keeps exact normalized matches distinct from cleanup-normalized matches.
+- Added the 2026-05-26 DAE control-debris research note to the shared compare-pass and validation-gate source lists; no code or tests changed.
+
 ## [2026-06-01] docs | global-effects release-horizon sync
 
 - Refreshed [`binaryen/passes/global-effects/index.md`](binaryen/passes/global-effects/index.md) and [`binaryen/passes/discard-global-effects/index.md`](binaryen/passes/discard-global-effects/index.md) so both dossiers now acknowledge the repo-wide `version_130` release horizon while keeping their detailed contracts anchored to the reviewed `version_129` / current-main surfaces.
