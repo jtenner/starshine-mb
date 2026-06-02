@@ -3,7 +3,8 @@ kind: raw-source-manifest
 status: supported
 last_reviewed: 2026-06-02
 sources:
-  - https://github.com/bytecodealliance/wasm-tools
+  - https://github.com/bytecodealliance/wasm-tools/blob/main/README.md#L269-L272
+  - https://github.com/bytecodealliance/wasm-tools/blob/main/README.md#L347-L350
   - ../../../../scripts/lib/self-opt-task.ts
   - ../../../../scripts/lib/self-optimized-artifacts.mjs
   - ../../../../scripts/lib/validate-task.ts
@@ -15,11 +16,11 @@ related:
 
 This manifest captures the upstream `wasm-tools validate` behavior that Starshine's self-optimized artifact gate now leans on.
 
-The official README shows:
+The official README section around lines 269-272 shows explicit validation feature toggles, and its proposals section around lines 347-350 states the default-on validation policy:
 
 - `wasm-tools validate foo.wasm --features=exception-handling` to enable an off-by-default proposal.
 - `wasm-tools validate foo.wasm --features=-simd` to disable a default-enabled feature.
-- A policy statement that Stage 4+ proposals are enabled by default in validation.
+- The same section states that Stage 4+ proposals are enabled by default in validation.
 
 Starshine's `bun validate self-opt-smoke` and `bun validate self-opt-full` intentionally use a stricter repo-local policy: they validate the artifact with `wasm-tools validate --features all`, then run the Node/WASI `--help` smoke and the selected spec workload.
 

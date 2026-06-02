@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | self-opt validation source-anchor reinforcement
+
+- Tightened [`docs/wiki/tooling/validation-gates.md`](tooling/validation-gates.md) so the self-optimized artifact gate now links the upstream `wasm-tools` README section that demonstrates explicit validation feature toggles and the default-on Stage 4+ policy, making the repo-local `--features all` policy auditable from the living gate page instead of only from the raw source note, and refreshed the catalog entry in [`docs/wiki/index.md`](index.md) to match.
+- Strengthened [`docs/wiki/raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md`](raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md) by pinning the exact upstream README lines for the validation examples and the Stage 4+ default-on statement.
+- This source-anchor portion is wiki/source-hygiene work that makes the self-opt safety lane easier to audit; implementation and test changes for the lane remain covered by their source diffs.
+
 ## [2026-06-02] docs | late-pipeline package-surface recheck
 
 - Added `docs/wiki/raw/binaryen/2026-06-02-late-pipeline-dispatch-package-surface-recheck.md` and `docs/wiki/raw/research/0699-2026-06-02-late-pipeline-dispatch-package-surface-recheck.md` from a fresh 2026-06-02 package-surface spot check, confirming that the Debian manpage still serves as a useful lower bound while the docs.rs enum remains incomplete, the docs.rs crate overview still overclaims completeness, and the mirrored README still misspells `RemoveUnusedBrs`.

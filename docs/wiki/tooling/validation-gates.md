@@ -133,17 +133,17 @@ Use [`validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baselin
 
 ## Self-Optimized Artifact Gate
 
-`bun self-opt check` is the underlying artifact-safety lane. `bun validate self-opt-smoke` keeps the fast default (`--limit 1`) and `bun validate self-opt-full` adds `--full-spec` for the complete checked-in spec corpus. Both lanes operate on an already-built artifact: they do not rebuild debug/release/native targets, and they fail instead of falling back to debug wasm. The upstream wasm-tools README already documents per-feature toggles such as `--features=exception-handling` and says Stage 4+ proposals are enabled by default in validation, so Starshine's `--features all` choice is a local stricter policy rather than an upstream requirement.
+`bun self-opt check` is the underlying artifact-safety lane. `bun validate self-opt-smoke` keeps the fast default (`--limit 1`) and `bun validate self-opt-full` adds `--full-spec` for the complete checked-in spec corpus. Both lanes operate on an already-built artifact: they do not rebuild debug/release/native targets, and they fail instead of falling back to debug wasm. The upstream [wasm-tools README](https://github.com/bytecodealliance/wasm-tools/blob/main/README.md#L269-L272) shows explicit validation feature toggles such as `--features=exception-handling` and `--features=-simd`, and its proposals section at [L347-L350](https://github.com/bytecodealliance/wasm-tools/blob/main/README.md#L347-L350) says Stage 4+ proposals are enabled by default in validation. Starshine's `--features all` choice is therefore an intentionally stricter repo-local policy rather than an upstream requirement.
 
 The check order is deliberate:
 
 ```text
 wasm-tools validate --features all <artifact>
 Node/WASI run <artifact> --help
-Node/WASI run <artifact> spec <selected tests/spec/**/*.wast>
+Node/WASI run <temporary artifact copy> spec <selected tests/spec/**/*.wast>
 ```
 
-Use `--wasm <path>` to test a candidate artifact outside `tests/node/dist/`; relative paths resolve from the repo root. Use `bun self-opt build` only when the artifact itself must be regenerated, and ask before running the full build pipeline or full-spec lane in an ordinary development thread.
+Use `--wasm <path>` to test a candidate artifact outside `tests/node/dist/`; relative paths resolve from the repo root. The spec workload runs against a temporary wasm copy so the checked artifact remains available for later validation or size inspection. Use `bun self-opt build` only when the artifact itself must be regenerated, and ask before running the full build pipeline or full-spec lane in an ordinary development thread.
 
 ## Formal Proof Is A Separate Lane
 
