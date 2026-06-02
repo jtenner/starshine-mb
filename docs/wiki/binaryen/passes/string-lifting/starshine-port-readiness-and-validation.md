@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-02
 sources:
+  - ../../../raw/binaryen/2026-06-02-string-lifting-current-main-recheck.md
+  - ../../../raw/research/0697-2026-06-02-string-lifting-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md
   - ../../../raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md
@@ -62,7 +64,7 @@ The port-relevant contract is:
 8. remove the consumed `string.consts` custom section;
 9. enable the Strings feature.
 
-The 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md) found no teaching-relevant drift from the `version_129` contract.
+The 2026-06-02 current-main recheck in [`../../../raw/binaryen/2026-06-02-string-lifting-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-string-lifting-current-main-recheck.md) found no teaching-relevant drift from the `version_129` contract.
 
 ## Exact Starshine status today
 

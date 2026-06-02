@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-02
 sources:
+  - ../../../raw/binaryen/2026-06-02-string-lifting-current-main-recheck.md
+  - ../../../raw/research/0697-2026-06-02-string-lifting-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md
   - ../../../raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md
@@ -294,6 +296,8 @@ The helper roster is not only name-based; recognized names must have exactly the
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-06-02-string-lifting-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-string-lifting-current-main-recheck.md)
+- [`../../../raw/research/0697-2026-06-02-string-lifting-current-main-recheck.md`](../../../raw/research/0697-2026-06-02-string-lifting-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md)
 - [`../../../raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md`](../../../raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md)

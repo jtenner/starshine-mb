@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | string-lifting current-main freshness refresh
+
+- Added `docs/wiki/raw/binaryen/2026-06-02-string-lifting-current-main-recheck.md` and `docs/wiki/raw/research/0697-2026-06-02-string-lifting-current-main-recheck.md`, then refreshed the `docs/wiki/binaryen/passes/string-lifting/` dossier cluster plus the root index, Binaryen pass catalog, and tracker entries so they now carry a 2026-06-02 current-main recheck against the existing `version_129` contract.
+- No code or tests changed; this was a wiki freshness and source-hygiene update for the reverse string-lifting dossier.
+
 ## [2026-06-02] docs | legacy forwarding stub compatibility wording cleanup
 
 - Reworded the legacy `docs/0063`, `docs/0064`, `docs/0065`, and `docs/0089` forwarding stubs so they now describe themselves as compatibility shims and point readers at the archived raw research notes plus the canonical living wiki pages, instead of implying the archive path is still settling.
