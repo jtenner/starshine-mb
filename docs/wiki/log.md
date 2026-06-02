@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-01] docs | cli startup-path fast-path refresh
+
+- Refreshed [`tooling/cli-startup-path.md`](tooling/cli-startup-path.md) and the top-level catalog entry in [`index.md`](index.md) so the startup audit now records the current help/version and irrelevant env-overlay fast paths as test-backed, ties the live cost center to `normalize_cli_path` / `expand_globs`, and points readers at the glob and cmd wbtests that keep those invariants honest.
+- No code or tests changed; this was a wiki-health update to keep the startup audit aligned with current code and test evidence.
+
 ## [2026-06-01] docs | pass-fuzz compare normalizer clarity
 
 - Refreshed [`tooling/pass-fuzz-compare.md`](tooling/pass-fuzz-compare.md), [`tooling/validation-gates.md`](tooling/validation-gates.md), and the top-level catalog entry in [`index.md`](index.md) so the compare-pass workflow now documents the opt-in `--normalize unreachable-control-debris` cleaner, separate `cleanupNormalizedMatchCount` reporting, and the DAE lane guidance that keeps exact normalized matches distinct from cleanup-normalized matches.
