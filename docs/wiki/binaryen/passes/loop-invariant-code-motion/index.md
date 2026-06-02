@@ -1,10 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-01
+last_reviewed: 2026-06-02
 sources:
   - ../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md
+  - ../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md
   - ../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md
+  - ../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md
   - ../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
   - ../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md
@@ -68,12 +70,12 @@ So this pass is best taught as:
 - It uses `LazyLocalGraph` plus local-set counting to reject statements that read locals changed by the loop or set locals that still have another in-loop set.
 - Flattening can expose more independent none-typed statements, but LICM itself is not `flatten`.
 - Current Starshine has no active LICM pass, owner file, or dedicated backlog slice.
-- A 2026-04-25 current-main / port-readiness bridge found no teaching-relevant upstream drift and narrows the first Starshine slice to alias-policy, loop-entry candidate discovery, effect/local-dependency proof, cleanup-safe placeholders, reduced tests, and only then Binaryen oracle comparison.
+- A 2026-06-02 current-main recheck, together with the earlier 2026-04-25 bridge, found no teaching-relevant upstream drift and narrows the first Starshine slice to alias-policy, loop-entry candidate discovery, effect/local-dependency proof, cleanup-safe placeholders, reduced tests, and only then Binaryen oracle comparison.
 
 ## Explicit correction to older material
 
 The archived 2026-04-21 research note remains useful history, but its temp-local phrasing is stale.
-Use the 2026-04-24 raw source capture and follow-up as the corrected interpretation, plus the 2026-04-25 bridge as the current-main freshness and Starshine port-readiness source:
+Use the 2026-04-24 raw source capture and follow-up as the corrected interpretation, plus the 2026-04-25 bridge and 2026-06-02 recheck as the current-main freshness and Starshine port-readiness sources:
 
 - [`../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md)
 - [`../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md`](../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md)
@@ -85,7 +87,7 @@ Do **not** teach Binaryen `version_129` LICM as creating fresh temps for arbitra
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  Source-backed Binaryen algorithm: loop discovery, entrance-statement scan, effect/local dependency guards, move emission, and 2026-04-25 current-main no-drift check.
+  Source-backed Binaryen algorithm: loop discovery, entrance-statement scan, effect/local dependency guards, move emission, and 2026-06-02 current-main recheck.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   File-by-file and test-by-test map of the upstream sources that define the pass contract.
 - [`./effects-loops-and-hoisting-rules.md`](./effects-loops-and-hoisting-rules.md)
@@ -102,12 +104,14 @@ Do **not** teach Binaryen `version_129` LICM as creating fresh temps for arbitra
 - Treat this folder as the canonical home for future `loop-invariant-code-motion` / `licm` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real active pass for it.
 - Keep the scheduler fact explicit too: this is a real public Binaryen pass, but it is outside the current no-DWARF default optimize path.
-- Keep the correction visible: reviewed Binaryen `version_129` LICM moves eligible none-typed entrance statements, not arbitrary value subtrees through newly synthesized temps.
+- Keep the correction visible: reviewed Binaryen `version_129` LICM moves eligible none-typed entrance statements, not arbitrary value subtrees through newly synthesized temps, and the 2026-06-02 recheck still matches that contract.
 
 ## Sources
 
 - [`../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md)
+- [`../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md)
 - [`../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md`](../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md)
+- [`../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md`](../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md)
 - [`../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)
 - [`../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md`](../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md)

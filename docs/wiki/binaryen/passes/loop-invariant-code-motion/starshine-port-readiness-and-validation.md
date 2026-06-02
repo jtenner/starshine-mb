@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-01
+last_reviewed: 2026-06-02
 sources:
   - ../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md
+  - ../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md
   - ../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md
+  - ../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md
   - ../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -28,6 +30,7 @@ related:
 # Starshine port-readiness and validation for `loop-invariant-code-motion`
 
 This page turns the corrected Binaryen `licm` dossier into a local implementation-readiness map.
+The 2026-06-02 current-main recheck kept the same local status and slice order described below.
 It should be read after:
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md) for the upstream algorithm;

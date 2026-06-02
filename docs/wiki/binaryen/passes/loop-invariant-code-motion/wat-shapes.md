@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-06-02
 sources:
   - ../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md
+  - ../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md
+  - ../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md
   - ../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
   - ../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LoopInvariantCodeMotion.cpp
@@ -22,7 +24,7 @@ related:
 
 This page catalogs the main shape families beginners should look for when reading Binaryen LICM output.
 The 2026-04-24 source recheck corrected the older page: reviewed Binaryen `version_129` LICM moves eligible **none-typed statements** before the loop and leaves `nop`s behind; it does not synthesize fresh temp locals for arbitrary value subtrees.
-The 2026-04-25 current-main / port-readiness bridge found no teaching-relevant drift and uses the same families as the first Starshine reduced-test ladder.
+The 2026-06-02 current-main recheck, together with the earlier 2026-04-25 bridge, found no teaching-relevant drift and uses the same families as the first Starshine reduced-test ladder.
 
 ## Positive family 1: simple dropped work at loop entry
 
@@ -255,6 +257,9 @@ If the answer to any of those becomes “no,” expect a bailout.
 ## Sources
 
 - [`../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md)
+- [`../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md)
+- [`../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md`](../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md)
+- [`../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md`](../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md)
 - [`../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)
 - [`../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md`](../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md)

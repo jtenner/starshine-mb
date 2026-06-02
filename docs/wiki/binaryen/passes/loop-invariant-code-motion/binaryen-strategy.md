@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-01
+last_reviewed: 2026-06-02
 sources:
   - ../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md
+  - ../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md
+  - ../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md
   - ../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
   - ../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LoopInvariantCodeMotion.cpp
@@ -48,7 +50,7 @@ That means the best mental model is:
 - not local CSE,
 - and not the inverse of `code-pushing`.
 
-## Important 2026-04-24 correction and 2026-04-25 recheck
+## Important 2026-04-24 correction, 2026-04-25 bridge, and 2026-06-02 recheck
 
 Earlier living wording described LICM as if it created fresh temp locals for arbitrary invariant value expressions and replaced in-loop uses with `local.get`s.
 That is not what reviewed Binaryen `version_129` does.
@@ -63,7 +65,7 @@ The source-backed correction is:
 
 This is a major porting constraint: a future Starshine implementation should start from none-result statement motion, not a generic value-preheader cache.
 
-The 2026-04-25 current-main / port-readiness bridge in [`../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md) found no teaching-relevant drift from this corrected contract.
+The 2026-06-02 current-main recheck in [`../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md), together with the earlier 2026-04-25 bridge in [`../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md), found no teaching-relevant drift from this corrected contract.
 
 ## Scheduler placement
 
@@ -282,6 +284,9 @@ If someone remembers only one sentence, it should be this:
 ## Sources
 
 - [`../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md)
+- [`../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md)
+- [`../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md`](../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md)
+- [`../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md`](../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md)
 - [`../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)
 - [`../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md`](../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md)

@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-06-02
 sources:
   - ../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md
+  - ../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md
+  - ../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md
   - ../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
   - ../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LoopInvariantCodeMotion.cpp
@@ -44,7 +46,7 @@ It owns:
 - and pre-loop block construction.
 
 The 2026-04-24 recheck found that this file invalidates the older temp-local teaching story.
-The 2026-04-25 current-main / port-readiness bridge found no teaching-relevant drift from that correction.
+The 2026-06-02 current-main recheck, together with the earlier 2026-04-25 bridge, found no teaching-relevant drift from that correction.
 The owner file moves eligible none-result statements as whole statements; it does not synthesize fresh helper locals for arbitrary value subtrees.
 
 Important reviewed regions:
@@ -126,9 +128,9 @@ The lit file should be treated as the canonical beginner-facing oracle for the c
 ## Current-main spot check
 
 A focused 2026-04-25 current-main / port-readiness comparison checked the main pass file, public registration surface, helper headers, builder helper, and dedicated lit file.
-It did not surface teaching-relevant drift from the refreshed `version_129` contract.
+The 2026-06-02 current-main recheck reviewed the same surfaces again and did not surface teaching-relevant drift from the refreshed `version_129` contract.
 
-So for the surfaces reviewed in this dossier, `version_129` remains the main oracle and the 2026-04-25 bridge is the freshness source for Starshine first-slice planning.
+So for the surfaces reviewed in this dossier, `version_129` remains the main oracle and the 2026-06-02 recheck, together with the earlier 2026-04-25 bridge, is the freshness source for Starshine first-slice planning.
 
 ## What is easy to misunderstand from the file list alone
 
@@ -165,6 +167,9 @@ That is the smallest review surface that still preserves the real contract.
 ## Sources
 
 - [`../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md)
+- [`../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-loop-invariant-code-motion-current-main-recheck.md)
+- [`../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md`](../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md)
+- [`../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md`](../../../raw/research/0696-2026-06-02-loop-invariant-code-motion-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md`](../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md)
 - [`../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)
 - [`../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md`](../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md)
