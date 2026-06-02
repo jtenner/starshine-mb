@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-01] docs | reorder-globals current-main freshness refresh
+
+- Added `docs/wiki/raw/binaryen/2026-06-01-reorder-globals-current-main-recheck.md` and `docs/wiki/raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md`, then refreshed the `docs/wiki/binaryen/passes/reorder-globals/` dossier cluster plus the top-level/pass catalog/tracker entries so they now carry a 2026-06-01 freshness layer against the `version_130` release horizon.
+- No repo code or tests changed; this was a wiki/source-hygiene correction backed by current-main Binaryen source rereads and the existing corrected `version_129` reorder-globals contract.
+
 ## [2026-06-01] docs | type-ssa current-main freshness refresh
 
 - Added `docs/wiki/raw/binaryen/2026-06-01-type-ssa-current-main-recheck.md` and `docs/wiki/raw/research/0688-2026-06-01-type-ssa-current-main-recheck.md`, then refreshed the `docs/wiki/binaryen/passes/type-ssa/` dossier cluster plus the tracker and catalog entries so they now carry a 2026-06-01 current-main recheck while keeping the stale created-type propagation interpretation retired.

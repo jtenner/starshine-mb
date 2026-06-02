@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-06-01
 sources:
+  - ../../../raw/binaryen/2026-06-01-reorder-globals-current-main-recheck.md
+  - ../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md
   - ../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md
@@ -20,7 +22,7 @@ related:
 
 This page is the beginner-friendly shape catalog for Binaryen’s `reorder-globals` pass.
 
-The shape families below were rechecked on 2026-04-25 against the official Binaryen `version_129` owner/test surface plus a focused current-`main` spot check; no teaching-relevant drift was found for these main positive, negative, or bailout examples. For proof ownership, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
+The shape families below were rechecked on 2026-06-01 against the official Binaryen `version_129` owner/test surface plus a focused current-`main` freshness recheck; no teaching-relevant drift was found for these main positive, negative, or bailout examples. For proof ownership, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## Read this page with one mental model
 

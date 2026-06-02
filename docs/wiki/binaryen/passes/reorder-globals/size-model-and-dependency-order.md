@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-06-01
 sources:
+  - ../../../raw/binaryen/2026-06-01-reorder-globals-current-main-recheck.md
+  - ../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md
   - ../../../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md
@@ -27,7 +29,7 @@ This page focuses on the part of `reorder-globals` that is easiest to misunderst
 - why the public pass often does nothing,
 - and why `reorder-globals-always` exists anyway.
 
-Reviewed on 2026-04-25 against the official Binaryen `version_129` owner/test surface plus a focused current-`main` spot check; no teaching-relevant drift was found for the specific cost-model, dependency-order, or `always`-variant rules summarized here. The owner/helper/test map now lives in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
+Reviewed on 2026-06-01 against the official Binaryen `version_129` owner/test surface plus a focused current-`main` freshness recheck; no teaching-relevant drift was found for the specific cost-model, dependency-order, or `always`-variant rules summarized here. The owner/helper/test map now lives in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## One mental model
 

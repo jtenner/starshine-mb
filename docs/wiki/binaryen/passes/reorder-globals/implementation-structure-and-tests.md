@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-08
+last_reviewed: 2026-06-01
 sources:
   - ../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md
+  - ../../../raw/binaryen/2026-06-01-reorder-globals-current-main-recheck.md
+  - ../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md
   - ../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md
@@ -40,10 +42,10 @@ Use it as the quick answer to:
 ## Current source anchor
 
 - Tagged oracle: Binaryen `version_129`.
-- Current-main bridge: the 2026-04-25 focused recheck in [`../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md).
+- Current-main bridge: the 2026-06-01 freshness recheck in [`../../../raw/binaryen/2026-06-01-reorder-globals-current-main-recheck.md`](../../../raw/binaryen/2026-06-01-reorder-globals-current-main-recheck.md).
 - Result: no teaching-relevant drift found in the owner/helper/test surfaces reviewed for this page.
 
-The older 2026-04-23 raw manifest remains useful for the original dossier provenance; the 2026-04-25 manifest is the source of truth for this implementation/test-map follow-up.
+The older 2026-04-23 raw manifest remains useful for the original dossier provenance; the 2026-06-01 manifest is the current freshness layer for this implementation/test-map follow-up.
 
 ## Upstream owner and helper map
 

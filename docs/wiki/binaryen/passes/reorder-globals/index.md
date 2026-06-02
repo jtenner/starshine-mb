@@ -1,11 +1,13 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-01
 sources:
   - ../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
   - ../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md
+  - ../../../raw/binaryen/2026-06-01-reorder-globals-current-main-recheck.md
+  - ../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md
   - ../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md
@@ -37,7 +39,7 @@ related:
 
 - `reorder-globals` is an upstream Binaryen late module / boundary-shaped global-layout pass.
 - It now has an active direct Starshine module-pass port; `reorder-globals-always` remains boundary-only.
-- On 2026-04-23, the reviewed official Binaryen `version_129` release page still showed publish date **2026-04-01**; a focused 2026-04-25 current-`main` owner/helper/test recheck did not surface teaching-relevant drift from this folder's `version_129` contract.
+- On 2026-04-23, the reviewed official Binaryen `version_129` release page still showed publish date **2026-04-01**; the refreshed 2026-06-01 current-`main` recheck still did not surface teaching-relevant drift from this folder's `version_129` contract, even though the upstream release horizon has now advanced to `version_130`.
 - In Binaryen `version_129`, it runs near the very end of the no-DWARF optimize pipeline.
 - Its job is to reorder global declarations so that more index-sensitive globals get smaller indices, while still preserving import ordering and global-initializer dependency order.
 

@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-01
 sources:
   - ../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
   - ../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../../../raw/research/0525-2026-05-06-reorder-globals-direct-revalidation.md
   - ../../../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
+  - ../../../raw/binaryen/2026-06-01-reorder-globals-current-main-recheck.md
+  - ../../../raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md
   - ../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md
@@ -36,7 +38,7 @@ related:
 
 # Starshine Strategy For `reorder-globals`
 
-Use this page together with the current-main source bridge in [`../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md) and the owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
+Use this page together with the current-main freshness bridge in [`../../../raw/binaryen/2026-06-01-reorder-globals-current-main-recheck.md`](../../../raw/binaryen/2026-06-01-reorder-globals-current-main-recheck.md) and the owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that now own the direct pass, and the concrete neighboring implementation areas around the accepted public late-tail suffix and any broader widening beyond it.
 
 ## The honest current status
