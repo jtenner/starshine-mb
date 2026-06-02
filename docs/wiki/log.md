@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | o4z debug-startup living page and cross-link
+
+- Added [`docs/wiki/tooling/o4z-debug-startup-trap.md`](tooling/o4z-debug-startup-trap.md) as a living summary for the current `o4z` debug-startup runtime blocker, separating the `RuntimeError: unreachable` startup trap from the unrelated path-handling audit.
+- Refreshed [`docs/wiki/tooling/cli-startup-path.md`](tooling/cli-startup-path.md) and [`docs/wiki/index.md`](index.md) so the startup-path audit now points at the dedicated blocker page instead of burying the runtime follow-up in raw research only.
+- No code or tests changed; this is a wiki-health and cross-linking update to keep the startup audit, blocker summary, and raw research note clearly separated.
+
 ## [2026-06-02] docs | remove-unused-module-elements artifact-citation cleanup
 
 - Repointed the `remove-unused-module-elements` living dossier and pass-catalog summary away from the local `.artifacts/o4z-wasm-opt-debug.log` source path and onto the durable 2026-05-06 direct revalidation note, so the pass story stays source-backed without depending on the ephemeral debug-log file.
