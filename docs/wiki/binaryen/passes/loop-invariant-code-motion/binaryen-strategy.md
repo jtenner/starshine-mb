@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-13
+last_reviewed: 2026-06-01
 sources:
   - ../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md
@@ -72,8 +72,8 @@ The 2026-04-25 current-main / port-readiness bridge in [`../../../raw/binaryen/2
 The local repo makes four scheduler facts explicit:
 
 - it remains removed in `src/passes/optimize.mbt`,
-- `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md` now lists `loop-invariant-code-motion` in the current removed-name migration gap,
-- `docs/0065-2026-03-24-ir2-execution-plan.md` treats the old batch labels as historical and keeps removed-pass revival behind explicit source reconciliation plus first-slice work,
+- `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md` now lists `loop-invariant-code-motion` in the current removed-name migration gap,
+- `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md` treats the old batch labels as historical and keeps removed-pass revival behind explicit source reconciliation plus first-slice work,
 - it is absent from `docs/wiki/binaryen/no-dwarf-default-optimize-path.md` and the saved generated-artifact `-O4z` skipped-slot queue.
 
 So the scheduler truth is:
