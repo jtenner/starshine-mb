@@ -220,6 +220,7 @@ test "raw vacuum preclean skips large structured functions with writes" {
       input,
       @lib.FuncIdx::new(0U),
       @ir.HotPassDescriptor::new("vacuum"),
+      HotPipelineOptions::new(),
     ) {
     Some(result) => result
     None => fail("expected raw vacuum structured-write skip result")

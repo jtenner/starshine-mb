@@ -4562,8 +4562,15 @@ fn trim_program_name(argv : Array[String]) -> Array[String] {
 
 ///|
 #cfg(target="wasm")
+fn cmd_wasm_proc_exit(code : UInt) -> Unit = "wasi_snapshot_preview1" "proc_exit"
+
+///|
+#cfg(target="wasm")
 fn main {
-  ignore(run_cmd_exit_code(@env.args()))
+  let exit_code = run_cmd_exit_code(@env.args())
+  if exit_code != 0 {
+    cmd_wasm_proc_exit(exit_code.reinterpret_as_uint())
+  }
 }
 
 ///|
@@ -4671,7 +4678,53 @@ fn cmd_wasm_list_candidates() -> Array[String] {
 
 ///|
 #cfg(target="wasm")
+fn cmd_wasm_file_exists(path : String) -> Bool {
+  match @sfs.list_files_recursive(path) {
+    Ok(files) => files.length() > 0
+    Err(_) => false
+  }
+}
+
+///|
+#cfg(target="wasm")
+fn cmd_wasm_read_file(path : String) -> Result[Bytes, String] {
+  @sfs.read_file_bytes(path)
+}
+
+///|
+#cfg(target="wasm")
+fn cmd_wasm_write_file(path : String, bytes : Bytes) -> Result[Unit, String] {
+  @sfs.write_file_bytes(path, bytes)
+}
+
+///|
+#cfg(target="wasm")
+fn cmd_wasm_write_stdout(bytes : Bytes) -> Result[Unit, String] {
+  if bytes.length() == 0 {
+    return Ok(())
+  }
+  @sfs.write_file_bytes("/dev/stdout", bytes)
+}
+
+///|
+#cfg(target="wasm")
+fn cmd_wasm_write_stderr(bytes : Bytes) -> Result[Unit, String] {
+  if bytes.length() == 0 {
+    return Ok(())
+  }
+  @sfs.write_file_bytes("/dev/stderr", bytes)
+}
+
+///|
+#cfg(target="wasm")
 fn default_cmd_io() -> CmdIO {
   let _ = @sfs.remove_file
-  CmdIO::new(list_candidates=cmd_wasm_list_candidates)
+  CmdIO::new(
+    file_exists=cmd_wasm_file_exists,
+    read_file=cmd_wasm_read_file,
+    write_file=cmd_wasm_write_file,
+    write_stdout=cmd_wasm_write_stdout,
+    write_stderr=cmd_wasm_write_stderr,
+    list_candidates=cmd_wasm_list_candidates,
+  )
 }

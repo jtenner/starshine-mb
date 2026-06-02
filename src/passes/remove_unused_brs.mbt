@@ -2803,20 +2803,10 @@ fn remove_unused_brs_try_merge_nested_if_conditions(
       idx = idx + 1 {
     child_then_roots.push(@ir.hot_region_get(func, child_then_ref, idx))
   }
-  let replacement = @ir.hot_build_if(
-    func,
-    @lib.BlockType::void_(),
-    combined,
-    child_then_roots,
-  )
-  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement))
+  @ir.hot_child_set(func, node_id, 0, combined)
+  @ir.hot_region_replace_body(func, then_ref, child_then_roots)
+  @ir.hot_region_replace_body(func, child_then_ref, [])
   remove_unused_brs_mark_mutated(ctx, func, "merge-nested-if-conditions")
-  remove_unused_brs_delete_unused_nodes(ctx, func, [
-    replacement,
-    then_ref.holder,
-    child_if,
-    child_then_ref.holder,
-  ])
   true
 }
 
@@ -4573,19 +4563,11 @@ fn remove_unused_brs_try_invert_empty_then_if(
     func,
     @ir.hot_child_get(func, node_id, 0),
   )
-  let replacement = @ir.hot_build_if(
-    func,
-    @lib.BlockType::void_(),
-    inverted,
-    else_roots,
-  )
-  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement))
+  @ir.hot_region_replace_body(func, then_ref, else_roots)
+  @ir.hot_region_replace_body(func, else_ref, [])
+  @ir.hot_child_set(func, node_id, 0, inverted)
+  @ir.hot_child_set(func, node_id, 2, -1)
   remove_unused_brs_mark_mutated(ctx, func, "invert-empty-then-if")
-  remove_unused_brs_delete_unused_nodes(ctx, func, [
-    replacement,
-    then_ref.holder,
-    else_ref.holder,
-  ])
   true
 }
 

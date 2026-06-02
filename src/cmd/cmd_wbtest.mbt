@@ -7857,6 +7857,40 @@ test "run_cmd_with_adapter print-func sees simplify-locals remove debug artifact
 
 ///|
 #cfg(target="wasm")
+test "run_cmd uses wasm default io to read and write wasm files" {
+  let dir = "tmp-starshine-cmd-wasm-default-io-\{@env.now()}"
+  let input_path = "\{dir}/in.wasm"
+  let output_path = "\{dir}/out.wasm"
+  ignore(@sfs.remove_file(input_path))
+  ignore(@sfs.remove_file(output_path))
+  ignore(@sfs.remove_dir(dir))
+  match @sfs.create_dir(dir) {
+    Ok(_) => ()
+    Err(e) => fail("expected wasm default io test dir creation, got \{e}")
+  }
+  let wasm = encode_module_bytes(fixture_i32_const_module(77))
+  match @sfs.write_file_bytes(input_path, wasm) {
+    Ok(_) => ()
+    Err(e) => fail("expected wasm default io input write, got \{e}")
+  }
+
+  let code = run_cmd_exit_code(["--out", output_path, input_path])
+  @debug.assert_eq(code, 0)
+  match @sfs.read_file_bytes(output_path) {
+    Ok(bytes) => {
+      let _decoded = decode_module_bytes(bytes)
+      assert_true(bytes.length() > 0)
+    }
+    Err(e) => fail("expected wasm default io output read, got \{e}")
+  }
+
+  ignore(@sfs.remove_file(input_path))
+  ignore(@sfs.remove_file(output_path))
+  ignore(@sfs.remove_dir(dir))
+}
+
+///|
+#cfg(target="wasm")
 test "run_cmd uses wasm default io for --help" {
   match run_cmd(["--help"]) {
     Ok(_) => ()

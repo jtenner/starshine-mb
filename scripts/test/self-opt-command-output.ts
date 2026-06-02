@@ -40,6 +40,16 @@ process.exit(0);
 `,
   );
 
+  const wasmToolsLog = path.join(tmpdir, "wasm-tools.log");
+  const fakeWasmTools = makeExecutable(
+    path.join(tmpdir, "bin", "wasm-tools"),
+    `
+const fs = require("node:fs");
+fs.appendFileSync(${JSON.stringify(wasmToolsLog)}, JSON.stringify(process.argv.slice(2)) + "\\n");
+process.exit(0);
+`,
+  );
+
   makeExecutable(
     path.join(tmpdir, "_build", "native", "release", "build", "cmd", "cmd.exe"),
     `
@@ -61,6 +71,7 @@ process.stderr.write("repro: starshine --dead-code-elimination --vacuum before.w
       env: {
         ...process.env,
         MOON_BIN: fakeMoon,
+        WASM_TOOLS_BIN: fakeWasmTools,
         SELF_OPT_OUTPUT_LOG: outputLog,
       },
       encoding: "utf8",
@@ -78,6 +89,22 @@ process.stderr.write("repro: starshine --dead-code-elimination --vacuum before.w
   assert(fs.existsSync(outputLog), "expected output log to be written");
   const logOutput = fs.readFileSync(outputLog, "utf8");
   assert(logOutput.includes("repro: starshine --dead-code-elimination --vacuum before.wasm"), `expected log output to include repro command, got:\n${logOutput}`);
+
+  const wasmToolsCalls = fs
+    .readFileSync(wasmToolsLog, "utf8")
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as string[]);
+  assert(
+    JSON.stringify(wasmToolsCalls) === JSON.stringify([[
+      "validate",
+      "--features",
+      "all",
+      path.join(tmpdir, "tests", "node", "dist", "starshine-self-optimized-wasi.wasm"),
+    ]]),
+    `unexpected wasm-tools calls:\n${JSON.stringify(wasmToolsCalls, null, 2)}`,
+  );
 }
 
 if (import.meta.main) {

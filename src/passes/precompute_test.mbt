@@ -1,4 +1,64 @@
 ///|
+test "precompute skips load-call-set ownership hazards" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (import "m" "decref" (func $decref (param i32)))
+        #|  (memory 1)
+        #|  (func (param $cell i32) (result i32)
+        #|    (local $out i32)
+        #|    local.get $cell
+        #|    i32.load offset=8
+        #|    local.get $cell
+        #|    call $decref
+        #|    local.set $out
+        #|    i32.const 0
+        #|    i32.eqz
+        #|    drop
+        #|    local.get $out))
+        #|,
+      ),
+      ["precompute"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected load-call-set precompute success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[precompute]:skip-raw reason=load-call-set-precompute-noop",
+      )
+    }),
+  )
+}
+
+///|
+test "precompute skips O4z raw pass until self-opt ownership hazards are safe" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      "(module (func (result i32) i32.const 1 i32.const 2 i32.add))",
+      ["precompute"],
+      options=HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=1,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected O4z precompute skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[precompute]:skip-raw reason=o4z-precompute-noop")
+    }),
+  )
+}
+
+///|
 test "precompute folds exact i32 constant arithmetic" {
   let optimized = match
     pass_test_run_pipeline(

@@ -1,4 +1,27 @@
 ///|
+test "code-pushing skips O4z raw pass until self-opt decoder hazards are safe" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (if (local.get 0) (then))))",
+      ["code-pushing"],
+      options=HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=1,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected O4z code-pushing skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[code-pushing]:skip-raw reason=o4z-code-pushing-noop")
+    }),
+  )
+}
+
+///|
 fn code_pushing_test_run_hot(text : String) -> @ir.HotFunc {
   let func = pass_test_lift_first_func(text)
   let ctx = HotPassContext::new(

@@ -33,6 +33,119 @@ test "optimize-instructions skips very large local-heavy functions" {
 }
 
 ///|
+test "optimize-instructions skips functions mixing loads and calls" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (import "m" "touch" (func $touch))
+        #|  (memory 1)
+        #|  (func (param $ptr i32)
+        #|    local.get $ptr
+        #|    i32.load
+        #|    drop
+        #|    call $touch
+        #|    i32.const 0
+        #|    i32.eqz
+        #|    drop))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected load-call optimize-instructions skip, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=load-call-optimize-instructions-noop",
+      )
+    }),
+  )
+}
+
+///|
+test "optimize-instructions skips call-local-write functions" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (import "m" "touch" (func $touch))
+        #|  (func
+        #|    (local i32)
+        #|    call $touch
+        #|    i32.const 0
+        #|    local.set 0
+        #|    i32.const 0
+        #|    i32.eqz
+        #|    drop))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected call-local-write optimize-instructions skip, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=call-local-write-optimize-instructions-noop",
+      )
+    }),
+  )
+}
+
+///|
+test "optimize-instructions skips stack-carried values across effect barriers" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (import "m" "decref" (func $decref (param i32)))
+        #|  (memory 1)
+        #|  (func (param $ptr i32) (result i32)
+        #|    (local $out i32)
+        #|    local.get $ptr
+        #|    i32.load
+        #|    local.get $ptr
+        #|    call $decref
+        #|    local.set $out
+        #|    i32.const 0
+        #|    i32.eqz
+        #|    drop
+        #|    local.get $out))
+        #|,
+      ),
+      ["optimize-instructions"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected stack-carried optimize-instructions skip success, got \{err}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[optimize-instructions]:skip-raw reason=stack-carried-effect-optimize-instructions-noop",
+      )
+    }),
+  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  optimize_instructions_assert_strings_in_order(pretty, [
+    "i32.load", "call (Func 0)", "local.set",
+  ])
+}
+
+///|
 test "optimize-instructions keeps i32.eqz on constant zero" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (result i32) i32.const 0 i32.eqz))",
@@ -87,6 +200,30 @@ fn optimize_instructions_test_count_substring(
     }
   }
   count
+}
+
+///|
+fn optimize_instructions_assert_strings_in_order(
+  text : String,
+  needles : Array[String],
+) -> Unit raise {
+  let mut start = 0
+  for needle in needles {
+    let mut found : Int? = None
+    let limit = text.length() - needle.length()
+    let mut i = start
+    while i <= limit {
+      if text.sub(start=i, end=i + needle.length()).to_owned() == needle {
+        found = Some(i)
+        break
+      }
+      i += 1
+    }
+    match found {
+      Some(idx) => start = idx + needle.length()
+      None => fail("expected `\{needle}` after offset \{start} in `\{text}`")
+    }
+  }
 }
 
 ///|
@@ -236,6 +373,23 @@ test "optimize-instructions folds constant true result ifs to the chosen arm" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("(if"), msg=pretty)
   assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
+test "optimize-instructions constant-if folding preserves hot label ownership" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 1 if (result i32) i32.const 7 else i32.const 9 end))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected constant result if to become a block, got \{other}")
+  }
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected constant-if fold label owners to verify, got \{err}")
+  }
 }
 
 ///|
@@ -1751,6 +1905,28 @@ test "optimize-instructions flips if i32.eqz conditions with live else arms" {
     @ir.hot_const_get(func, @ir.hot_node_get(func, then_root).imm0),
     @ir.HotConstPayload::i32_const(@lib.I32(7)),
   )
+}
+
+///|
+test "optimize-instructions keeps pure multi-root constant-if chosen regions" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (result i32) i32.const 1 if (result i32) i32.const 2 drop i32.const 3 else i32.const 4 end))",
+  )
+  let root = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::If => ()
+    other =>
+      fail(
+        "expected pure multi-root constant if to stay structured, got \{other}",
+      )
+  }
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected pure multi-root constant if to keep label owners valid, got \{err}",
+      )
+  }
 }
 
 ///|

@@ -207,45 +207,6 @@ fn optimize_instructions_node_is_i32_value(
 }
 
 ///|
-fn optimize_instructions_node_is_control_carrier(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Bool {
-  if !@ir.hot_node_is_live(func, node_id) {
-    return false
-  }
-  match @ir.hot_node_get(func, node_id).op {
-    @ir.HotOp::Block
-    | @ir.HotOp::Loop
-    | @ir.HotOp::If
-    | @ir.HotOp::Try
-    | @ir.HotOp::TryTable => true
-    _ => false
-  }
-}
-
-///|
-fn optimize_instructions_node_block_type(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> @lib.BlockType? {
-  match @ir.hot_type_get(func, @ir.hot_node_get(func, node_id).ty) {
-    @ir.HotTypeInfo::VoidType => Some(@lib.BlockType::void_())
-    @ir.HotTypeInfo::Value(val_type) => Some(@lib.BlockType::val_type(val_type))
-    @ir.HotTypeInfo::BlockResult(block_type)
-    | @ir.HotTypeInfo::BlockResultResolved(block_type, _, _) => Some(block_type)
-    @ir.HotTypeInfo::Results(values) =>
-      if values.is_empty() {
-        Some(@lib.BlockType::void_())
-      } else if values.length() == 1 {
-        Some(@lib.BlockType::val_type(values[0]))
-      } else {
-        None
-      }
-  }
-}
-
-///|
 fn optimize_instructions_rewrite_exact_with_children(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -282,8 +243,7 @@ fn optimize_instructions_try_fold_constant_if_condition(
     match @ir.hot_region_else_ref(func, node_id) {
       Some(region) => region
       None => {
-        let nop = @ir.hot_build_nop(func)
-        @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, nop))
+        @ir.hot_control_demote_if_to_block(func, node_id, [])
         pass_mark_mutated(ctx, func)
         return true
       }
@@ -293,36 +253,11 @@ fn optimize_instructions_try_fold_constant_if_condition(
     return false
   }
   let root_count = @ir.hot_region_root_count(func, chosen_region)
-  if root_count == 0 {
-    let nop = @ir.hot_build_nop(func)
-    @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, nop))
-    pass_mark_mutated(ctx, func)
-    return true
-  }
-  if root_count == 1 {
-    let replacement_id = @ir.hot_region_get(func, chosen_region, 0)
-    // Moving an existing structured control carrier by copying its raw node would
-    // also copy its label id while leaving the label owned by the old node. Later
-    // cleanup can delete that old owner and make the hot IR invalid. Keep the
-    // rewrite conservative for structured single-root arms; the surrounding pass
-    // will still optimize scalar single-root arms and multi-root arms safely.
-    if optimize_instructions_node_is_control_carrier(func, replacement_id) {
-      return false
-    }
-    @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement_id))
-    pass_mark_mutated(ctx, func)
-    return true
-  }
-  let block_type = match optimize_instructions_node_block_type(func, node_id) {
-    Some(block_type) => block_type
-    None => return false
-  }
   let body : Array[Int] = []
   for i = 0; i < root_count; i = i + 1 {
     body.push(@ir.hot_region_get(func, chosen_region, i))
   }
-  let block_id = @ir.hot_build_block(func, block_type, body)
-  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, block_id))
+  @ir.hot_control_demote_if_to_block(func, node_id, body)
   pass_mark_mutated(ctx, func)
   true
 }

@@ -1,4 +1,39 @@
 ///|
+test "tuple-optimization skips load-call-set ownership hazards" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (import "m" "decref" (func $decref (param i32)))
+        #|  (memory 1)
+        #|  (func (param $cell i32) (result i32)
+        #|    (local $out i32)
+        #|    local.get $cell
+        #|    i32.load offset=8
+        #|    local.get $cell
+        #|    call $decref
+        #|    local.set $out
+        #|    local.get $out))
+        #|,
+      ),
+      ["tuple-optimization"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected load-call-set tuple-optimization success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[tuple-optimization]:skip-raw reason=load-call-set-tuple-optimization-noop",
+      )
+    }),
+  )
+}
+
+///|
 fn tuple_optimization_test_analyze(
   text : String,
 ) -> HotTupleOptimizationAnalysis {

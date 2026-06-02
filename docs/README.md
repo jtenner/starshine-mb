@@ -99,7 +99,8 @@ Use this section for lower-frequency details that help humans and agents orient 
 - Run fuzzing via `moon run src/fuzz ...` or `bun fuzz run ...`; do not put heavy randomized loops inside `moon test`.
 - Use `bun fuzz compare-pass --list-passes` to discover supported canonical pass names (equivalently, `bun scripts/pass-fuzz-compare.ts --list-passes`).
 - The pass-comparison harness alternates `wasm-tools smith` and in-repo `gen_valid`, validates with `wasm-tools validate --features all`, and compares normalized `wasm-opt -S --strip-debug` output; use `--gen-valid-profile <profile>` for named GenValid batch profiles, `--runtime-execution node` for optional smoke instantiation/export execution with deterministic import stubs for feasible function/global/memory/table imports, and `--jobs auto` or `--jobs <n>` with `--starshine-bin` on long lanes to run independent cases concurrently without parallel `moon` lock contention.
-- Ask before running the full self-optimize pipeline.
+- Validate an already-built self-optimized CLI artifact with `bun validate self-opt-smoke [--wasm <path>]` (wasm-tools `--features all`, Node/WASI `--help`, and one WAST spec file via a temporary runner copy) or `bun validate self-opt-full [--wasm <path>]` for all checked-in spec files.
+- Ask before running the full self-optimize build pipeline (`bun self-opt build`) or the full spec artifact lane (`bun validate self-opt-full`).
 - Ask before running `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --optimize`.
 - Parity signoff requires Binaryen semantic parity, valid wasm output, and Starshine pass-local wall time `>= 50%` of Binaryen where possible; raw wasm/text drift is acceptable when canonical semantic comparison is green.
 

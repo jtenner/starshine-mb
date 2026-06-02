@@ -30,6 +30,105 @@ fn dead_code_elimination_test_count_occurrences(
 }
 
 ///|
+test "dead-code-elimination skips O4z raw pass until self-opt pipeline state is safe" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      "(module (func i32.const 1 drop))",
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=1,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected O4z dead-code-elimination skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dead-code-elimination]:skip-raw reason=o4z-dead-code-elimination-noop",
+      )
+    }),
+  )
+}
+
+///|
+test "dead-code-elimination skips load-call-set ownership hazards" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (import "m" "decref" (func $decref (param i32)))
+        #|  (memory 1)
+        #|  (func (param $cell i32) (result i32)
+        #|    (local $out i32)
+        #|    local.get $cell
+        #|    i32.load offset=8
+        #|    local.get $cell
+        #|    call $decref
+        #|    local.set $out
+        #|    local.get $out))
+        #|,
+      ),
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected load-call-set dead-code-elimination success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dead-code-elimination]:skip-raw reason=load-call-set-dce-noop",
+      )
+    }),
+  )
+}
+
+///|
+test "dead-code-elimination skips loop bodies that branch to an outer block" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (param i32) (result i32)
+        #|    block
+        #|      loop
+        #|        local.get 0
+        #|        if
+        #|          br 2
+        #|        end
+        #|        br 0
+        #|      end
+        #|    end
+        #|    i32.const 1))
+        #|,
+      ),
+      ["dead-code-elimination"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected loop outer branch dead-code-elimination success, got \{err}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[dead-code-elimination]:skip-raw reason=loop-outer-branch-dce-noop",
+      )
+    }),
+  )
+}
+
+///|
 test "dead-code-elimination preserves pure drop roots for oracle parity" {
   let optimized = match
     pass_test_run_pipeline(

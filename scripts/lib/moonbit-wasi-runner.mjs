@@ -16,7 +16,7 @@ function toCodePoints(value) {
   return out;
 }
 
-function createMoonbitFsHost({ args = [], cwd = process.cwd() } = {}) {
+function createMoonbitFsHost({ args = [], cwd = process.cwd(), stdoutFd = 1, stderrFd = 2 } = {}) {
   // The MoonBit runtime talks only through this host object and raw numeric
   // handles, so this function centralizes ownership and type checks for all
   // transient resources.
@@ -211,7 +211,16 @@ function createMoonbitFsHost({ args = [], cwd = process.cwd() } = {}) {
     },
     write_bytes_to_file_new(pathValue, bytesValue) {
       try {
-        fs.writeFileSync(readString(pathValue), readBytes(bytesValue));
+        const targetPath = readString(pathValue);
+        const bytes = Buffer.from(readBytes(bytesValue));
+        if (targetPath === "/dev/stdout") {
+          fs.writeSync(stdoutFd, bytes);
+        } else if (targetPath === "/dev/stderr") {
+          fs.writeSync(stderrFd, bytes);
+        } else {
+          fs.writeFileSync(targetPath, bytes);
+        }
+        lastError = "";
         return 0;
       } catch (error) {
         return setError(error);
@@ -327,7 +336,7 @@ export async function runWasmStart({
     stdout: stdoutFd,
     stderr: stderrFd,
   });
-  const moonbitFs = createMoonbitFsHost({ args, cwd });
+  const moonbitFs = createMoonbitFsHost({ args, cwd, stdoutFd, stderrFd });
 
   const importObject = {
     wasi_snapshot_preview1: wasi.wasiImport,

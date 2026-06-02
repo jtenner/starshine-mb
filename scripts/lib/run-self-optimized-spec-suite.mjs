@@ -102,17 +102,44 @@ export async function runSelfOptimizedSpecSuite({
   }
 
   const runnerArgs = ['spec', ...files.map((filePath) => toPosixRelativePath(repoRoot, filePath))];
-  const exitCode = await runWasmStart({
-    wasmPath: runnerWasm,
-    args: runnerArgs,
-    cwd: repoRoot,
-    preopens: { '.': repoRoot },
-  });
+  const tmpRoot = path.join(repoRoot, '.tmp');
+  fs.mkdirSync(tmpRoot, { recursive: true });
+  const logDir = fs.mkdtempSync(path.join(tmpRoot, 'self-opt-spec-suite-'));
+  const stdoutPath = path.join(logDir, 'stdout.log');
+  const stderrPath = path.join(logDir, 'stderr.log');
+  const stdoutFd = fs.openSync(stdoutPath, 'w');
+  const stderrFd = fs.openSync(stderrPath, 'w');
+  let exitCode = 0;
+  try {
+    exitCode = await runWasmStart({
+      wasmPath: runnerWasm,
+      args: runnerArgs,
+      cwd: repoRoot,
+      preopens: { '.': repoRoot },
+      stdoutFd,
+      stderrFd,
+    });
+  } finally {
+    fs.closeSync(stdoutFd);
+    fs.closeSync(stderrFd);
+  }
+  const stdout = fs.readFileSync(stdoutPath, 'utf8');
+  const stderr = fs.readFileSync(stderrPath, 'utf8');
+  if (stdout.length > 0) {
+    process.stdout.write(stdout);
+  }
+  if (stderr.length > 0) {
+    process.stderr.write(stderr);
+  }
 
   return {
     selectedFileCount: files.length,
     runnerWasm,
     exitCode,
+    stdout,
+    stderr,
+    stdoutPath,
+    stderrPath,
   };
 }
 

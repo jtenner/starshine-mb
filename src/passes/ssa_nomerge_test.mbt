@@ -73,6 +73,29 @@ fn ssa_test_run_hot_path_only(text : String) -> Result[@lib.Module, String] {
 }
 
 ///|
+test "ssa-nomerge skips O4z raw pass until self-opt cli flag parsing is safe" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      "(module (func (local i32) i32.const 1 local.set 0 local.get 0 drop))",
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=1,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected O4z ssa-nomerge skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=o4z-ssa-nomerge-noop")
+    }),
+  )
+}
+
+///|
 test "ssa-nomerge preserves dropped local increments for later repair" {
   let source =
     #|(module

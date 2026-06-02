@@ -3,7 +3,8 @@ import path from "node:path";
 import process from "node:process";
 
 import { parseReadmeApiSyncArgs, verifyReadmeApiSync } from "./readme-api-sync";
-import { FuzzOptions, runFuzz } from "./fuzz-task";
+import { FuzzOptions, parseFuzzRunArgs, runFuzz } from "./fuzz-task";
+import { runSelfOptCheck } from "./self-opt-task";
 import { assertTarget, fail, resolveMoonBin, resolveWorkspaceRoot, runOrThrow } from "./task-runtime";
 
 export type FullOptions = Pick<FuzzOptions, "profile" | "seed" | "target" | "moonBin">;
@@ -21,6 +22,10 @@ export type ValidateTraceBenchmarkOptions = {
   target: string;
   moonBin: string;
   listCorpora: boolean;
+};
+
+export type ValidateSelfOptDeps = {
+  runSelfOptCheck?: typeof runSelfOptCheck;
 };
 
 // Parse top-level validation defaults and enforce the requested MoonBit target.
@@ -190,16 +195,11 @@ export function runValidateFull(options: FullOptions): void {
   runOrThrow(options.moonBin, ["fmt"], { cwd: repoRoot });
   runOrThrow(options.moonBin, ["check", "--target", options.target], { cwd: repoRoot });
   runOrThrow(options.moonBin, ["test", "--target", options.target], { cwd: repoRoot });
-  runFuzz(
-    {
-      profile: options.profile,
-      suite: "all",
-      seed: options.seed,
-      target: options.target,
-      moonBin: options.moonBin,
-    },
-    repoRoot,
-  );
+  const fuzzArgs = ["--suite", "all", "--profile", options.profile, "--target", options.target, "--moon", options.moonBin];
+  if (options.seed !== null) {
+    fuzzArgs.push("--seed", options.seed);
+  }
+  runFuzz(parseFuzzRunArgs(fuzzArgs), repoRoot);
 }
 
 export function runValidateCoverage(options: CoverageOptions): void {
@@ -278,7 +278,15 @@ export function runValidateTraceBenchmark(options: ValidateTraceBenchmarkOptions
   runOrThrow(options.moonBin, args, { cwd: repoRoot });
 }
 
-export function main(argv: string[]): void {
+export async function runValidateSelfOptSmoke(argv: string[], deps: ValidateSelfOptDeps = {}): Promise<void> {
+  await (deps.runSelfOptCheck ?? runSelfOptCheck)(argv);
+}
+
+export async function runValidateSelfOptFull(argv: string[], deps: ValidateSelfOptDeps = {}): Promise<void> {
+  await (deps.runSelfOptCheck ?? runSelfOptCheck)(["--full-spec", ...argv]);
+}
+
+export async function main(argv: string[]): Promise<void> {
   const [subcommand, ...rest] = argv;
   switch (subcommand) {
     case "full":
@@ -293,7 +301,13 @@ export function main(argv: string[]): void {
     case "trace-benchmark":
       runValidateTraceBenchmark(parseValidateTraceBenchmarkArgs(rest));
       return;
+    case "self-opt-smoke":
+      await runValidateSelfOptSmoke(rest);
+      return;
+    case "self-opt-full":
+      await runValidateSelfOptFull(rest);
+      return;
     default:
-      fail("usage: bun validate <full|coverage|readme-api-sync|trace-benchmark> [...]");
+      fail("usage: bun validate <full|coverage|readme-api-sync|trace-benchmark|self-opt-smoke|self-opt-full> [...]");
   }
 }

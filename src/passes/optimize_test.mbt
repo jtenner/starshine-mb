@@ -19,6 +19,29 @@ test "run_hot_pipeline applies optimize preset through the hot pass manager" {
 }
 
 ///|
+test "vacuum skips O4z raw pass until self-opt CLI flag parsing is safe" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      "(module (func i32.const 1 drop))",
+      ["vacuum"],
+      options=HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=1,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected O4z vacuum skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[vacuum]:skip-raw reason=o4z-vacuum-noop")
+    }),
+  )
+}
+
+///|
 test "vacuum removes dropped pure scalar expressions" {
   let input = pass_test_module_from_wat(
     "(module (func (local i32) (drop (i32.add (i32.const 1) (i32.const 2))) (local.set 0 (i32.const 4))))",
@@ -41,6 +64,54 @@ test "vacuum removes dropped pure scalar expressions" {
     other =>
       fail(
         "expected single vacuumed function output, got \{@debug.to_string(other)}",
+      )
+  }
+}
+
+///|
+test "vacuum removing empty block preserves hot label ownership" {
+  let func = pass_test_lift_first_func("(module (func (block)))")
+  let ctx = HotPassContext::new(
+    @ir.HotPassDescriptor::new("vacuum"),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_msg) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected vacuum empty-block success, got \{err}")
+  }
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected vacuum empty-block label owners to verify, got \{err}")
+  }
+}
+
+///|
+test "vacuum empty-then inversion preserves hot label ownership" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32) (if (i32.eqz (local.get 0)) (then) (else (drop (i32.const 9))))))",
+  )
+  let ctx = HotPassContext::new(
+    @ir.HotPassDescriptor::new("vacuum"),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_msg) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected vacuum empty-then inversion success, got \{err}")
+  }
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected vacuum empty-then inversion label owners to verify, got \{err}",
       )
   }
 }

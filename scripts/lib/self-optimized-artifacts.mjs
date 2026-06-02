@@ -79,7 +79,7 @@ export function validateWasmArtifact({
   wasmToolsBin = resolveWasmToolsBin(),
 }) {
   try {
-    execFileSync(wasmToolsBin, ['validate', wasmPath], {
+    execFileSync(wasmToolsBin, ['validate', '--features', 'all', wasmPath], {
       cwd: repoRoot,
       stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',

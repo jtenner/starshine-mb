@@ -80,6 +80,8 @@ process.exit(0);
   assert(
     JSON.stringify(logLines[0]) === JSON.stringify([
       "validate",
+      "--features",
+      "all",
       path.join(tmpdir, "tests", "node", "dist", "starshine-debug-wasi.wasm"),
     ]),
     `unexpected debug validation args:\n${JSON.stringify(logLines[0], null, 2)}`,
@@ -87,6 +89,8 @@ process.exit(0);
   assert(
     JSON.stringify(logLines[1]) === JSON.stringify([
       "validate",
+      "--features",
+      "all",
       path.join(tmpdir, "tests", "node", "dist", "starshine-optimized-wasi.wasm"),
     ]),
     `unexpected optimized validation args:\n${JSON.stringify(logLines[1], null, 2)}`,

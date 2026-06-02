@@ -11,6 +11,32 @@ fn remove_unused_names_test_body(text : String) -> Array[@lib.Instruction] {
 }
 
 ///|
+test "remove-unused-names skips O4z raw pass until self-opt encoder stack is safe" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      "(module (func (block (block))))",
+      ["remove-unused-names"],
+      options=HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=1,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected O4z remove-unused-names skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[remove-unused-names]:skip-raw reason=o4z-remove-unused-names-noop",
+      )
+    }),
+  )
+}
+
+///|
 test "remove-unused-names merges single-child same-typed nested blocks" {
   match
     remove_unused_names_test_body("(module (func block block nop end end))") {

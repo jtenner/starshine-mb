@@ -17,6 +17,105 @@ test "remove-unused-brs prunes suffix after br-table then unreachable block" {
 }
 
 ///|
+test "remove-unused-brs skips load-call-set ownership hazards" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (import "m" "decref" (func $decref (param i32)))
+        #|  (memory 1)
+        #|  (func (param $cell i32) (result i32)
+        #|    (local $out i32)
+        #|    local.get $cell
+        #|    i32.load offset=8
+        #|    local.get $cell
+        #|    call $decref
+        #|    local.set $out
+        #|    block br 0 end
+        #|    local.get $out))
+        #|,
+      ),
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected load-call-set remove-unused-brs success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[remove-unused-brs]:skip-raw reason=load-call-set-remove-unused-brs-noop",
+      )
+    }),
+  )
+}
+
+///|
+test "remove-unused-brs skips O4z raw pass until branch rewrites are self-opt safe" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (block $exit (if (local.get 0) (then (br $exit))))))",
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(
+        optimize_level=4,
+        shrink_level=1,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected O4z remove-unused-brs skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[remove-unused-brs]:skip-raw reason=o4z-remove-unused-brs-noop",
+      )
+    }),
+  )
+}
+
+///|
+test "remove-unused-brs skips loop bodies that branch to an outer block" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (import "m" "touch" (func $touch))
+        #|  (func (param i32) (result i32)
+        #|    block
+        #|      loop
+        #|        call $touch
+        #|        local.get 0
+        #|        if
+        #|          br 2
+        #|        end
+        #|        br 0
+        #|      end
+        #|    end
+        #|    i32.const 1))
+        #|,
+      ),
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected loop outer branch remove-unused-brs success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[remove-unused-brs]:skip-raw reason=loop-outer-branch-remove-unused-brs-noop",
+      )
+    }),
+  )
+}
+
+///|
 test "remove-unused-brs voidifies tail value-if with block-exit arm" {
   let optimized = match
     pass_test_run_pipeline(
@@ -156,6 +255,56 @@ test "remove-unused-brs inverts empty-then ifs into one-arm payload ifs" {
   assert_true(pretty.contains("(if (Void)"), msg=pretty)
   assert_false(pretty.contains("else"), msg=pretty)
   assert_true(pretty.contains("i32.eqz"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs nested-if merge preserves hot label ownership" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32 i32) local.get 0 if local.get 1 if i32.const 0 drop end end))",
+  )
+  let ctx = HotPassContext::new(
+    remove_unused_brs_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected nested-if merge to keep label owners valid, got \{err}")
+  }
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected nested-if merge final hot IR to verify, got \{err}")
+  }
+}
+
+///|
+test "remove-unused-brs empty-then inversion preserves hot label ownership" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32) (if (i32.eqz (local.get 0)) (then) (else (drop (i32.const 9))))))",
+  )
+  let ctx = HotPassContext::new(
+    remove_unused_brs_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_msg) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected empty-then inversion to keep hot IR valid, got \{err}")
+  }
+
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected empty-then inversion label owners to verify, got \{err}")
+  }
 }
 
 ///|
@@ -404,6 +553,32 @@ test "remove-unused-brs merges nested one-armed if conditions before branching" 
   assert_false(pretty.contains("(if"), msg=pretty)
   assert_true(pretty.contains("br_if"), msg=pretty)
   assert_true(pretty.contains("select"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs nested-if condition merge preserves hot label ownership" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32 i32) block $exit local.get 0 if local.get 1 if br $exit end end end))",
+  )
+  let ctx = HotPassContext::new(
+    remove_unused_brs_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_msg) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected nested-if merge to keep hot IR valid, got \{err}")
+  }
+
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected nested-if merge label owners to verify, got \{err}")
+  }
 }
 
 ///|
