@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | binaryen release-horizon supersession timeline
+
+- Added a compact supersession timeline to [`docs/wiki/binaryen/release-horizon-and-oracles.md`](binaryen/release-horizon-and-oracles.md) and refreshed the top-level catalog entry in [`docs/wiki/index.md`](index.md) so the wiki now states the `version_130` bridge -> `version_125` correction sequence directly instead of requiring readers to infer it from the surrounding history.
+- No code or tests changed; this is a wiki-health and source-reconciliation update that keeps the release-horizon policy page explicit about the current baseline and the historical bridge.
+
 ## [2026-06-02] docs | o4z startup-trap repair follow-up
 
 - Reframed the living [`docs/wiki/tooling/o4z-debug-startup-trap.md`](tooling/o4z-debug-startup-trap.md) page from active blocker language to repaired-trap plus permanent-guard language, updated the [`docs/wiki/tooling/cli-startup-path.md`](tooling/cli-startup-path.md) cross-link, and refreshed the top-level catalog entry in [`docs/wiki/index.md`](index.md) so the wiki now points readers at the repaired artifact guard instead of the stale allocator-root snapshot.

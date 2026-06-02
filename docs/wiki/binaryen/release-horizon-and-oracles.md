@@ -36,6 +36,12 @@ The current answer is simple:
 
 That `v125` baseline is substantive, not just a renumbering. Keep this page as the release-horizon anchor, but still send pass-specific questions to the owning dossier.
 
+## Supersession timeline
+
+- 2026-06-01: an earlier bridge capture briefly treated the public release horizon as `version_130`.
+- 2026-06-02: revalidation against the direct official GitHub release page, the `main` changelog, and the Chromium refs listing showed `version_125` is still the newest public tag.
+- The 2026-06-02 correction note 0698 supersedes the older bridge; cite 0698 when you need the current baseline, and keep the bridge only as provenance.
+
 ## Source hierarchy
 
 | Layer | Preferred source | What it is good for |
@@ -60,7 +66,7 @@ Do not flatten those layers together. A page can be correct about the public rel
 
 ## Current state
 
-The 2026-06-02 revalidation still finds the public `v125` section on the official release page, the `main` changelog, and the Chromium refs listing. The 2026-06-02 correction note 0698 explicitly supersedes the earlier `version_130` bridge, so the earlier "no newer release-horizon note" wording is stale anywhere it still appears. When a search snippet or mirrored summary disagrees with the direct official release page or changelog, trust the direct official URLs.
+The 2026-06-02 correction note 0698 supersedes the earlier `version_130` bridge, and the direct official release page, `main` changelog, and Chromium refs listing still agree that `version_125` is the newest public tag. When a search snippet or mirrored summary disagrees with the direct official release page or changelog, trust the direct official URLs.
 
 The key wiki-maintenance consequence is that `version_125` is still the public release baseline, but it does **not** force every detailed pass dossier to retag itself. Many pass pages still stay on the reviewed `version_129` source oracle until they get a fresh current-main reread.
 
