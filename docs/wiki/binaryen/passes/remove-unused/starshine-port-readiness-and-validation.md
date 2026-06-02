@@ -76,7 +76,7 @@ Required validation:
 
 - remove the name from `pass_registry_boundary_only_names()`;
 - update any registry tests that enumerate known boundary-only names;
-- update `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md` if it still lists the old Batch 4 name;
+- update `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md` if it still lists the old Batch 4 name;
 - keep this dossier as the migration record, and route current behavior to `remove-unused-module-elements`.
 
 ### Option C: implement the historical function-only pass literally

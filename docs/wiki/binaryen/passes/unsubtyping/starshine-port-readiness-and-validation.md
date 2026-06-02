@@ -13,7 +13,7 @@ sources:
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/wast/module_wast_tests.mbt
   - ../../../../../src/wast/ref_null_exact_surface_test.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -47,7 +47,7 @@ The current code surfaces are still only:
 - type graph representation: [`src/lib/types.mbt#L29-L130`](../../../../../src/lib/types.mbt#L29-L130)
 - type-section and descriptor roundtrip fixtures: [`src/wast/module_wast_tests.mbt#L308-L407`](../../../../../src/wast/module_wast_tests.mbt#L308-L407)
 - exact / bottom descriptor refs: [`src/wast/ref_null_exact_surface_test.mbt#L1-L85`](../../../../../src/wast/ref_null_exact_surface_test.mbt#L1-L85)
-- pass-port batch breadcrumb: [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L59`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L59)
+- pass-port batch breadcrumb: [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L59`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L59)
 - active backlog gap: [`agent-todo.md`](../../../../../agent-todo.md)
 
 There is still no owner file or dedicated `unsubtyping` request test.

@@ -16,7 +16,7 @@ sources:
   - ../../../../../src/validate/typecheck.mbt
   - ../../../../../src/binary/encode.mbt
   - ../../../../../src/binary/decode.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -60,7 +60,7 @@ So this page is a **status and future-port map**, not an implementation guide fo
 | WAT parser/lowering | `src/wast/parser.mbt`, `src/wast/lower_to_lib.mbt`, `src/wast/module_wast_tests.mbt` | Existing surfaces for `sub`, `final`, recursive types, globals, locals, function heap types, and text-fixture coverage |
 | Validator | `src/validate/env.mbt`, `src/validate/typecheck.mbt` | Owns heap-type environments and post-rewrite type checking |
 | Binary roundtrip | `src/binary/encode.mbt`, `src/binary/decode.mbt` | Any future open/final bit rewrite must remain encodable and decodable |
-| Port-batch classification | `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md` | Records `type-un-finalizing` among boundary-only type/global/signature shaping names |
+| Port-batch classification | `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md` | Records `type-un-finalizing` among boundary-only type/global/signature shaping names |
 | Backlog status | `agent-todo.md` | No active dedicated slice currently exists |
 
 ## Mapping Binaryen strategy to a future Starshine port

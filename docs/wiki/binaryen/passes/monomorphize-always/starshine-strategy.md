@@ -12,7 +12,7 @@ sources:
   - ../../../../../src/cli/cli.mbt
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -56,7 +56,7 @@ It is a whole-module specialization pass that needs:
 - nested optimization of the new clone
 - a public policy split from ordinary `monomorphize`
 
-That puts it beside the other module/boundary passes in `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`, where `monomorphize` and `monomorphize-always` are both listed under whole-module or layout transforms.
+That puts it beside the other module/boundary passes in `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`, where `monomorphize` and `monomorphize-always` are both listed under whole-module or layout transforms.
 
 ## Current Starshine code map
 
@@ -87,7 +87,7 @@ That puts it beside the other module/boundary passes in `docs/0063-2026-03-24-pa
 
 ### Planning and backlog surfaces
 
-- [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
   - Places `monomorphize` and `monomorphize-always` in the whole-module / layout-transform family.
 - [`agent-todo.md`](../../../../../agent-todo.md)
   - No current dedicated `monomorphize-always` slice was found in this run.
@@ -155,5 +155,5 @@ A future implementation should validate in layers:
 - [`../../../../../src/cli/cli.mbt`](../../../../../src/cli/cli.mbt)
 - [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
 - [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
-- [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

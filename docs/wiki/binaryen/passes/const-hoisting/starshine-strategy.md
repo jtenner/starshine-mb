@@ -18,7 +18,7 @@ sources:
   - ../../../../../src/ir/hot_lift.mbt
   - ../../../../../src/ir/hot_lower.mbt
   - ../../../../../src/binary/encode.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
   - ../precompute/index.md
   - ../optimize-added-constants/index.md
@@ -67,7 +67,7 @@ The fastest read-along path through the current Starshine status is:
   - [`src/passes/optimize.mbt#L463-L465`](../../../../../src/passes/optimize.mbt#L463-L465)
     - `run_hot_pipeline_expand_passes(...)` returns `pass flag {name} is removed from the active hot pipeline registry`
 - removed-until-implemented planning roster
-  - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L42`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L42)
+  - [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L42`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L42)
     - `const-hoisting` still appears in the Batch 1 removed-pass roster
 - active backlog truth
   - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
@@ -129,7 +129,7 @@ For this pass family, that is currently the most important in-repo behavior afte
 
 ### 3. The repo has preserved planning context, but not yet an active execution slice
 
-`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md` still records `const-hoisting` among the removed-until-hot-implementation passes.
+`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md` still records `const-hoisting` among the removed-until-hot-implementation passes.
 But `agent-todo.md` still has no dedicated `const-hoisting` section with deliverables and exit criteria.
 
 That mismatch is worth keeping explicit.

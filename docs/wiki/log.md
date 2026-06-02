@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | archived registry-map link cleanup sweep
+
+- Repointed several living Binaryen pass dossiers that still cited the legacy `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md` forwarding stub to the archived raw research copy under `docs/wiki/raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`, including alignment-lowering, dealign, remove-unused, optimize-added-constants, type-finalizing, type-un-finalizing, unsubtyping, const-hoisting, and monomorphize-always.
+- No code or tests changed; this was a wiki-health cleanup to keep living pages pointing at the committed source archive instead of the deprecated docs stub.
+
 ## [2026-06-02] docs | o4z startup-trap research cross-link and trap-semantics source note
 
 - Tightened the raw `0693` startup-trap research note with an explicit primary-source pointer to the WebAssembly trap semantics behind `RuntimeError: unreachable`, and surfaced the reduced-fixture TDD slice in the live `cli-startup-path` page so the runtime-correctness follow-up stays separate from the path-handling audit.

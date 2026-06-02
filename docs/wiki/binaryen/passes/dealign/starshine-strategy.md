@@ -8,7 +8,7 @@ sources:
   - ../../../raw/research/0389-2026-04-26-dealign-port-readiness.md
   - ../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../alignment-lowering/index.md
@@ -54,7 +54,7 @@ The fastest read-along path is:
   - [`src/passes/optimize.mbt#L446-L466`](../../../../../src/passes/optimize.mbt#L446-L466)
     - `run_hot_pipeline_expand_passes(...)` returns `unknown pass flag {name}` when lookup fails
 - pass-port planning map
-  - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61)
+  - [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61)
     - the layout bucket includes `alignment-lowering`; it does not include `dealign`
 - canonical no-DWARF path context
   - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
@@ -146,7 +146,7 @@ Current Starshine `dealign` strategy is **do not pretend it exists locally**:
 - [`../../../raw/research/0389-2026-04-26-dealign-port-readiness.md`](../../../raw/research/0389-2026-04-26-dealign-port-readiness.md)
 - [`../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md`](../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../alignment-lowering/index.md`](../alignment-lowering/index.md)

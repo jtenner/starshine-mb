@@ -13,7 +13,7 @@ sources:
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/remove_unused_module_elements.mbt
   - ../../../../../src/passes/registry_test.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -78,7 +78,7 @@ Its summaries at `src/passes/remove_unused_module_elements.mbt:1`-`8` describe t
 ### Tests and planning docs
 
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) keeps registry and preset category behavior honest for active, boundary-only, removed, module, and preset names. Future tests should add a focused `remove-unused` boundary-only assertion if this alias becomes easy to regress.
-- [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md) still lists `remove-unused` in the Batch 4 boundary-cleanup grouping, which is why the alias remains a documentation concern.
+- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md) still lists `remove-unused` in the Batch 4 boundary-cleanup grouping, which is why the alias remains a documentation concern.
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md) currently has no dedicated `remove-unused` implementation slice. That absence supports the current non-implementation status.
 
 ## What Starshine should do for each user intent
@@ -168,5 +168,5 @@ The local alias relation is an inference, not a proved rename record. No reviewe
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt)
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
-- [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
