@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | legacy forwarding stub compatibility wording cleanup
+
+- Reworded the legacy `docs/0063`, `docs/0064`, `docs/0065`, and `docs/0089` forwarding stubs so they now describe themselves as compatibility shims and point readers at the archived raw research notes plus the canonical living wiki pages, instead of implying the archive path is still settling.
+- No code or tests changed; this is a source-hygiene cleanup to make the archive transition explicit.
+
 ## [2026-06-02] docs | remove-unused version_130 current-main recheck
 
 - Added `docs/wiki/raw/binaryen/2026-06-02-remove-unused-version-130-current-main-recheck.md` and refreshed the `docs/wiki/binaryen/passes/remove-unused/` dossier cluster, including the lineage, shape catalog, implementation/test map, Starshine strategy, and port-readiness pages, plus the catalog/tracker entries and raw-source citations so the folder now treats the `version_130` / current-main absence of the short spelling as the latest release-horizon fact.
