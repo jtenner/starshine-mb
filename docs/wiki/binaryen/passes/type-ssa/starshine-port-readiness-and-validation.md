@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-01
 sources:
   - ../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md
   - ../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-05-06-type-ssa-current-main-recheck.md
   - ../../../raw/research/0503-2026-05-06-type-ssa-current-main-recheck.md
+  - ../../../raw/binaryen/2026-06-01-type-ssa-current-main-recheck.md
+  - ../../../raw/research/0688-2026-06-01-type-ssa-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
@@ -29,7 +31,7 @@ Use this page after reading the corrected upstream strategy in [`./binaryen-stra
 
 ## Current decision point
 
-Starshine should not accidentally implement a stale `type-ssa` model. The 2026-05-06 freshness recheck did not change this. A future port must target Binaryen's corrected allocation-subtype pass:
+Starshine should not accidentally implement a stale `type-ssa` model. The 2026-06-01 freshness recheck did not change this. A future port must target Binaryen's corrected allocation-subtype pass:
 
 1. find selected GC allocation instructions,
 2. prove their original heap types are not exact-observed,

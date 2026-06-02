@@ -1,12 +1,14 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-01
 sources:
   - ../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md
   - ../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-05-06-type-ssa-current-main-recheck.md
   - ../../../raw/research/0503-2026-05-06-type-ssa-current-main-recheck.md
+  - ../../../raw/binaryen/2026-06-01-type-ssa-current-main-recheck.md
+  - ../../../raw/research/0688-2026-06-01-type-ssa-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md
   - ../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md
   - ../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md
@@ -41,7 +43,7 @@ related:
 
 This folder is therefore a source-backed dossier and port-planning note, not a hidden local implementation.
 
-## Important 2026-04-26 correction and 2026-05-06 freshness refresh
+## Important 2026-04-26 correction and 2026-06-01 freshness refresh
 
 The older 2026-04-23 dossier misdescribed `type-ssa` as a local/global/control-flow created-type propagation pass that retagged later gets, call operands, and returns. A fresh official-source read corrected that.
 
@@ -69,7 +71,7 @@ It is **not** ordinary SSA construction, and it is **not** a local-flow pass ove
 
 - `type-ssa` is implemented in upstream `src/passes/TypeSSA.cpp` and registered by `pass.cpp`.
 - It is GC-gated.
-- The 2026-05-06 current-main recheck found no teaching-relevant drift on the reviewed surfaces.
+- The 2026-06-01 current-main recheck found no teaching-relevant drift on the reviewed surfaces.
 - It analyzes module-visible exact-observation surfaces before rewriting allocation types.
 - The reviewed source also scans module code, globals, and element segments; table initializers remain an open TODO surface rather than a confirmed positive scan path.
 - Candidate allocation sites include:

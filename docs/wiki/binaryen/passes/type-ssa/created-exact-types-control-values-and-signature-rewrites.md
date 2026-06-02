@@ -1,13 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-01
 sources:
   - ../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md
   - ../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md
   - ../../../raw/binaryen/2026-05-06-type-ssa-current-main-recheck.md
   - ../../../raw/research/0503-2026-05-06-type-ssa-current-main-recheck.md
+  - ../../../raw/binaryen/2026-06-01-type-ssa-current-main-recheck.md
+  - ../../../raw/research/0688-2026-06-01-type-ssa-current-main-recheck.md
   - ../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md
   - ../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md
 related:
