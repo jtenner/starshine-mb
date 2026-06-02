@@ -48,6 +48,59 @@ fn ssa_test_run_hot_path_only(text : String) -> Result[@lib.Module, String] {
 }
 
 ///|
+test "ssa-nomerge preserves dropped local increments for later repair" {
+  let source =
+    #|(module
+    #|  (func (local i32)
+    #|    local.get 0
+    #|    i32.const 1
+    #|    i32.add
+    #|    drop))
+    #|)
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected dropped increment ssa-nomerge success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("i32.add"), msg=text)
+  assert_true(text.contains("drop"), msg=text)
+}
+
+///|
+test "ssa-nomerge preserves typed loop-carried induction values" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32) (result i32)))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    (local.get 0)
+    #|    (loop $grow (type $loop_t)
+    #|      local.tee 1
+    #|      local.get 0
+    #|      i32.lt_s
+    #|      if (result i32)
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.shl
+    #|        br $grow
+    #|      else
+    #|        local.get 1
+    #|      end)))
+    #|)
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected typed loop ssa-nomerge success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("local.tee"), msg=text)
+  assert_true(text.contains("i32.shl"), msg=text)
+}
+
+///|
 test "ssa-nomerge keeps straight-line local traffic on the canonical slot" {
   let optimized = match
     pass_test_run_pipeline(

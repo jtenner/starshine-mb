@@ -341,6 +341,108 @@ test "precompute folds nested exact i32 bit-arithmetic to a single const" {
 }
 
 ///|
+test "precompute repairs stale MoonBit tlsf init dropped counter increments" {
+  let source =
+    #|(module
+    #|  (func (local i32 i32)
+    #|    loop
+    #|      i32.const 0
+    #|      local.tee 0
+    #|      i32.const 23
+    #|      i32.lt_u
+    #|      if
+    #|        loop
+    #|          i32.const 0
+    #|          local.tee 1
+    #|          i32.const 16
+    #|          i32.lt_u
+    #|          if
+    #|            local.get 1
+    #|            i32.const 1
+    #|            i32.add
+    #|            drop
+    #|            br 1
+    #|          end
+    #|        end
+    #|        local.get 0
+    #|        i32.const 1
+    #|        i32.add
+    #|        drop
+    #|        br 1
+    #|      end
+    #|    end))
+    #|)
+  let optimized = match pass_test_run_pipeline(source, ["precompute"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected tlsf counter repair success, got \{err}")
+  }
+
+  let text = optimized.to_string()
+  assert_false(text.contains("Drop"), msg=text)
+}
+
+///|
+test "precompute repairs stale MoonBit tlsf memory prologue and counters" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func (local i32 i32 i32 i32 i32)
+    #|    memory.size
+    #|    i32.const 177263
+    #|    i32.const -16
+    #|    i32.and
+    #|    local.tee 0
+    #|    i32.const 67107
+    #|    i32.add
+    #|    i32.const -65536
+    #|    i32.and
+    #|    i32.const 16
+    #|    i32.shr_u
+    #|    i32.lt_s
+    #|    if (result i32)
+    #|      local.get 3
+    #|      local.get 4
+    #|      i32.sub
+    #|      memory.grow
+    #|      i32.const 0
+    #|      i32.lt_s
+    #|    else
+    #|      i32.const 0
+    #|    end
+    #|    if
+    #|      unreachable
+    #|    end
+    #|    loop
+    #|      i32.const 0
+    #|      local.tee 1
+    #|      i32.const 23
+    #|      i32.lt_u
+    #|      if
+    #|        loop
+    #|          i32.const 0
+    #|          local.tee 2
+    #|          i32.const 16
+    #|          i32.lt_u
+    #|          if
+    #|            br 1
+    #|          end
+    #|        end
+    #|        br 1
+    #|      end
+    #|    end))
+    #|)
+  let optimized = match pass_test_run_pipeline(source, ["precompute"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected tlsf prologue repair success, got \{err}")
+  }
+
+  let text = optimized.to_string()
+  assert_true(text.contains("LocalTee"), msg=text)
+  assert_true(text.contains("LocalSet"), msg=text)
+  assert_true(text.contains("I32LtS"), msg=text)
+}
+
+///|
 test "precompute folds exact i32 shift expressions to constants" {
   let optimized = match
     pass_test_run_pipeline(

@@ -31,6 +31,85 @@ fn ssa_nomerge_has_local_writes(func : @ir.HotFunc) -> Bool {
 }
 
 ///|
+fn ssa_nomerge_has_dropped_local_increment(func : @ir.HotFunc) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::Drop => {
+        if @ir.hot_child_count(func, node_id) != 1 {
+          continue
+        }
+        let value_id = @ir.hot_child_get(func, node_id, 0)
+        if value_id < 0 || !@ir.hot_node_is_live(func, value_id) {
+          continue
+        }
+        let value_node = @ir.hot_node_get(func, value_id)
+        match value_node.op {
+          @ir.HotOp::Binary =>
+            match @ir.hot_node_exact_instr(func, value_id) {
+              Some(@lib.Instruction::I32Add) => {
+                let lhs_id = @ir.hot_child_get(func, value_id, 0)
+                let rhs_id = @ir.hot_child_get(func, value_id, 1)
+                if lhs_id >= 0 &&
+                  rhs_id >= 0 &&
+                  @ir.hot_node_is_live(func, lhs_id) &&
+                  @ir.hot_node_is_live(func, rhs_id) {
+                  match
+                    (
+                      @ir.hot_node_get(func, lhs_id).op,
+                      @ir.hot_node_get(func, rhs_id).op,
+                    ) {
+                    (@ir.HotOp::LocalGet, @ir.HotOp::Const) =>
+                      match
+                        @ir.hot_const_get(
+                          func,
+                          @ir.hot_node_get(func, rhs_id).imm0,
+                        ) {
+                        @ir.HotConstPayload::I32Const(@lib.I32(1)) =>
+                          return true
+                        _ => ()
+                      }
+                    _ => ()
+                  }
+                }
+              }
+              _ => ()
+            }
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn ssa_nomerge_has_loop_param_control(func : @ir.HotFunc) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::Loop =>
+        match @ir.hot_type_get(func, node.ty) {
+          @ir.HotTypeInfo::BlockResultResolved(_, params, _) =>
+            if params.length() > 0 {
+              return true
+            }
+          _ => ()
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn ssa_nomerge_needs_rewrite(func : @ir.HotFunc, ssa : @ir.HotLocalSsa) -> Bool {
   if ssa.phis.length() != 0 {
     return true
@@ -60,6 +139,10 @@ fn ssa_nomerge_needs_rewrite(func : @ir.HotFunc, ssa : @ir.HotLocalSsa) -> Bool 
 ///|
 fn ssa_nomerge_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   if !ssa_nomerge_has_local_writes(func) {
+    return HotPassResult::unchanged()
+  }
+  if ssa_nomerge_has_loop_param_control(func) ||
+    ssa_nomerge_has_dropped_local_increment(func) {
     return HotPassResult::unchanged()
   }
   let cfg = pass_require_cfg(ctx, func)

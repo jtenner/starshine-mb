@@ -517,7 +517,13 @@ test "FUZ1053C1 total run budget timeout is distinct in result and summary metad
     line.contains("\"run_budget_classification\":\"run-budget-timeout\""),
   )
   let report = format_fuzz_run_report_json(
-    "cmd-harness", "smoke", 0x1053L, 1, 0, 1, [budgeted],
+    "cmd-harness",
+    "smoke",
+    0x1053L,
+    1,
+    0,
+    1,
+    [budgeted],
   )
   assert_true(report.contains("\"pass\":false"))
   assert_true(report.contains("\"run-budget-timeout\":1"))
@@ -656,7 +662,10 @@ test "format and parse fuzz corpus promotion metadata states" {
     @debug.assert_eq(parsed.owner_or_task, "[FUZ]1042B")
     @debug.assert_eq(parsed.raw_artifact_hash, "fnv1a64-raw-\{state}")
     @debug.assert_eq(parsed.reduced_artifact_hash, "fnv1a64-reduced-\{state}")
-    @debug.assert_eq(parsed.normalized_shape_hash, "fnv1a64-normalized-\{state}")
+    @debug.assert_eq(
+      parsed.normalized_shape_hash,
+      "fnv1a64-normalized-\{state}",
+    )
     @debug.assert_eq(parsed.predicate_hash, "fnv1a64-predicate-\{state}")
     @debug.assert_eq(parsed.feature_fact_hash, "fnv1a64-features-\{state}")
     @debug.assert_eq(parsed.interestingness_label, "state-\{state}")

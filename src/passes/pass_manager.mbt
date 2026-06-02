@@ -10074,6 +10074,51 @@ fn run_hot_pipeline_lowered_func_exceeds_local_limit(func : @lib.Func) -> Bool {
 }
 
 ///|
+fn run_hot_pipeline_instr_has_typeidx_loop(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Loop(@lib.TypeIdxBlockType(_), _) => true
+    @lib.Loop(_, @lib.Expr(body))
+    | @lib.Block(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_instrs_have_typeidx_loop(body)
+    @lib.If(_, then_body, else_body) => {
+      if run_hot_pipeline_instrs_have_typeidx_loop(then_body) {
+        return true
+      }
+      match else_body {
+        Some(body) => run_hot_pipeline_instrs_have_typeidx_loop(body)
+        None => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_instrs_have_typeidx_loop(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  instrs.any(fn(instr) { run_hot_pipeline_instr_has_typeidx_loop(instr) })
+}
+
+///|
+fn run_hot_pipeline_lowered_func_has_typeidx_loop(func : @lib.Func) -> Bool {
+  let @lib.Func(_, @lib.Expr(body)) = func
+  run_hot_pipeline_instrs_have_typeidx_loop(body)
+}
+
+///|
+fn run_hot_pipeline_pass_should_skip_typeidx_loop_func(name : String) -> Bool {
+  name == "coalesce-locals" ||
+  name == "local-cse" ||
+  name == "reorder-locals" ||
+  name == "simplify-locals" ||
+  name == "simplify-locals-nostructure" ||
+  name == "simplify-locals-no-structure" ||
+  name == "simplify-locals-notee-nostructure"
+}
+
+///|
 fn run_hot_pipeline_drop_label_names(mod_ : @lib.Module) -> @lib.Module {
   match mod_.name_sec {
     Some(name_sec) => {
@@ -10141,6 +10186,16 @@ fn run_hot_pipeline_apply_hot_pass(
         let func_idx = @lib.FuncIdx::new(
           (imported_func_count + code_idx).reinterpret_as_uint(),
         )
+        if run_hot_pipeline_pass_should_skip_typeidx_loop_func(descriptor.name) &&
+          run_hot_pipeline_lowered_func_has_typeidx_loop(defs[code_idx]) {
+          pipeline_trace_hook(
+            options.trace,
+            descriptor.name,
+            "skip-raw",
+            payload="reason=typed-loop-param-control func=\{func_idx}",
+          )
+          continue
+        }
         if descriptor.name == "dead-code-elimination" {
           if run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(
               defs[code_idx],
@@ -10471,6 +10526,16 @@ fn run_hot_pipeline_apply_hot_pass_to_touched(
         let func_idx = @lib.FuncIdx::new(
           (imported_func_count + code_idx).reinterpret_as_uint(),
         )
+        if run_hot_pipeline_pass_should_skip_typeidx_loop_func(descriptor.name) &&
+          run_hot_pipeline_lowered_func_has_typeidx_loop(defs[code_idx]) {
+          pipeline_trace_hook(
+            options.trace,
+            descriptor.name,
+            "skip-raw",
+            payload="reason=typed-loop-param-control func=\{func_idx}",
+          )
+          continue
+        }
         if descriptor.name == "dead-code-elimination" {
           if run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(
               defs[code_idx],

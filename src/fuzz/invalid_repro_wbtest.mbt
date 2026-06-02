@@ -794,9 +794,7 @@ test "FUZ1056A4 binary repro metadata roundtrips section-aware decode location" 
     actual_diagnostic_location=Some("binary:section=0:offset=8:length=16"),
     artifacts=[
       InvalidFuzzArtifact::new(
-        "original",
-        "malformed-name-section-order.wasm",
-        b"\x00\x61\x73\x6d\x01\x00\x00\x00\x00\x0e\x04name\x01\x07\x02\x01\x01b\x00\x01a",
+        "original", "malformed-name-section-order.wasm", b"\x00\x61\x73\x6d\x01\x00\x00\x00\x00\x0e\x04name\x01\x07\x02\x01\x01b\x00\x01a",
       ),
     ],
   )
@@ -806,7 +804,8 @@ test "FUZ1056A4 binary repro metadata roundtrips section-aware decode location" 
       "actual_diagnostic_location=binary:section=0:offset=8:length=16",
     ),
   )
-  let parsed = match parse_invalid_fuzz_failure_report(meta, fn(_) { Ok(b"") }) {
+  let parsed = match
+    parse_invalid_fuzz_failure_report(meta, fn(_) { Ok(b"") }) {
     Ok(v) => v
     Err(msg) => fail(msg)
   }

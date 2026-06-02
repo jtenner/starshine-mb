@@ -2521,7 +2521,9 @@ fn invalid_fuzz_replay_binary_like(bytes : Bytes) -> InvalidFuzzReplayResult {
     Ok((_decoded, next)) if next != bytes.length() =>
       InvalidFuzzReplayResult::new(
         "decode-rejected",
-        diagnostic_location=Some("binary:offset=\{next}:length=\{bytes.length() - next}"),
+        diagnostic_location=Some(
+          "binary:offset=\{next}:length=\{bytes.length() - next}",
+        ),
         message=Some("trailing bytes"),
       )
     Ok((decoded, _)) =>

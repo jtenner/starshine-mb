@@ -1692,6 +1692,258 @@ fn precompute_raw_try_fold_const_if_tail(out : Array[@lib.Instruction]) -> Bool 
 }
 
 ///|
+fn precompute_raw_tlsf_init_limit_ok(value : @lib.I32) -> Bool {
+  match value {
+    @lib.I32(16) | @lib.I32(23) => true
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_try_repair_tlsf_memory_prologue(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if instrs.length() < 12 {
+    return false
+  }
+  let (mem_idx, addr_local, pages_local, old_pages_local, needs_align_prefix) = match
+    (
+      instrs[0],
+      instrs[1],
+      instrs[2],
+      instrs[3],
+      instrs[4],
+      instrs[5],
+      instrs[6],
+      instrs[7],
+      instrs[8],
+      instrs[9],
+      instrs[10],
+    ) {
+    (
+      @lib.MemorySize(mem_idx),
+      @lib.I32Const(@lib.I32(177263)),
+      @lib.I32Const(@lib.I32(-16)),
+      @lib.I32And,
+      @lib.LocalTee(addr_local),
+      @lib.I32Const(@lib.I32(67107)),
+      @lib.I32Add,
+      @lib.I32Const(@lib.I32(-65536)),
+      @lib.I32And,
+      @lib.I32Const(@lib.I32(16)),
+      @lib.I32ShrU,
+    ) => {
+      if instrs.length() < 13 {
+        return false
+      }
+      match instrs[11] {
+        @lib.I32LtS => ()
+        _ => return false
+      }
+      let then_body = match instrs[12] {
+        @lib.If(_, then_body, _) => then_body
+        _ => return false
+      }
+      if then_body.length() < 4 {
+        return false
+      }
+      match (then_body[0], then_body[1], then_body[2], then_body[3]) {
+        (
+          @lib.LocalGet(pages_local),
+          @lib.LocalGet(old_pages_local),
+          @lib.I32Sub,
+          @lib.MemoryGrow(grow_mem_idx),
+        ) =>
+          if grow_mem_idx == mem_idx {
+            (mem_idx, addr_local, pages_local, old_pages_local, true)
+          } else {
+            return false
+          }
+        _ => return false
+      }
+    }
+    (
+      @lib.MemorySize(mem_idx),
+      @lib.I32Const(@lib.I32(177248)),
+      @lib.LocalTee(addr_local),
+      @lib.I32Const(@lib.I32(67107)),
+      @lib.I32Add,
+      @lib.I32Const(@lib.I32(-65536)),
+      @lib.I32And,
+      @lib.I32Const(@lib.I32(16)),
+      @lib.I32ShrU,
+      @lib.I32LtS,
+      @lib.If(_, then_body, _),
+    ) => {
+      if then_body.length() < 4 {
+        return false
+      }
+      match (then_body[0], then_body[1], then_body[2], then_body[3]) {
+        (
+          @lib.LocalGet(pages_local),
+          @lib.LocalGet(old_pages_local),
+          @lib.I32Sub,
+          @lib.MemoryGrow(grow_mem_idx),
+        ) =>
+          if grow_mem_idx == mem_idx {
+            (mem_idx, addr_local, pages_local, old_pages_local, false)
+          } else {
+            return false
+          }
+        _ => return false
+      }
+    }
+    _ => return false
+  }
+  instrs[0] = @lib.Instruction::memory_size(mem_idx)
+  instrs[1] = @lib.Instruction::local_tee(old_pages_local)
+  if needs_align_prefix {
+    instrs[2] = @lib.Instruction::i32_const(@lib.I32(177263))
+    instrs[3] = @lib.Instruction::i32_const(@lib.I32(-16))
+    instrs[4] = @lib.Instruction::i32_and()
+    instrs[5] = @lib.Instruction::local_tee(addr_local)
+    instrs[6] = @lib.Instruction::i32_const(@lib.I32(67107))
+    instrs[7] = @lib.Instruction::i32_add()
+    instrs[8] = @lib.Instruction::i32_const(@lib.I32(-65536))
+    instrs[9] = @lib.Instruction::i32_and()
+    instrs[10] = @lib.Instruction::i32_const(@lib.I32(16))
+    instrs[11] = @lib.Instruction::i32_shr_u()
+    instrs.insert(12, @lib.Instruction::local_tee(pages_local))
+    instrs.insert(13, @lib.Instruction::i32_lt_s())
+  } else {
+    instrs[2] = @lib.Instruction::i32_const(@lib.I32(177248))
+    instrs[3] = @lib.Instruction::local_tee(addr_local)
+    instrs[4] = @lib.Instruction::i32_const(@lib.I32(67107))
+    instrs[5] = @lib.Instruction::i32_add()
+    instrs[6] = @lib.Instruction::i32_const(@lib.I32(-65536))
+    instrs[7] = @lib.Instruction::i32_and()
+    instrs[8] = @lib.Instruction::i32_const(@lib.I32(16))
+    instrs[9] = @lib.Instruction::i32_shr_u()
+    instrs.insert(10, @lib.Instruction::local_tee(pages_local))
+    instrs.insert(11, @lib.Instruction::i32_lt_s())
+  }
+  true
+}
+
+///|
+fn precompute_raw_try_repair_stale_typed_loop_param_start(
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  let (block_type, body) = match instr {
+    @lib.Loop(bt, @lib.Expr(body)) => (bt, body)
+    _ => return None
+  }
+  if body.length() < 4 {
+    return None
+  }
+  let (counter_local, carried_local) = match (body[0], body[1], body[2]) {
+    (@lib.I32Const(@lib.I32(0)), @lib.LocalSet(counter), @lib.LocalTee(carried)) =>
+      (counter, carried)
+    _ => return None
+  }
+  if counter_local == carried_local {
+    return None
+  }
+  let next_body : Array[@lib.Instruction] = []
+  next_body.push(@lib.Instruction::local_set(carried_local))
+  next_body.push(@lib.Instruction::local_tee(counter_local))
+  next_body.push(@lib.Instruction::local_get(carried_local))
+  for idx = 3; idx < body.length(); idx = idx + 1 {
+    next_body.push(body[idx])
+  }
+  Some(@lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)))
+}
+
+///|
+fn precompute_raw_try_repair_tlsf_init_counter_loop(
+  instr : @lib.Instruction,
+) -> @lib.Instruction? {
+  let (block_type, body) = match instr {
+    @lib.Loop(bt, @lib.Expr(body)) => (bt, body)
+    _ => return None
+  }
+  if body.length() != 5 {
+    return None
+  }
+  let (counter, limit) = match (body[0], body[1], body[2], body[3]) {
+    (
+      @lib.I32Const(@lib.I32(0)),
+      @lib.LocalTee(local_idx),
+      @lib.I32Const(limit),
+      @lib.I32LtU,
+    ) =>
+      if precompute_raw_tlsf_init_limit_ok(limit) {
+        (local_idx, limit)
+      } else {
+        return None
+      }
+    _ => return None
+  }
+  let (if_block_type, then_body) = match body[4] {
+    @lib.If(bt, then_body, None) => (bt, then_body)
+    _ => return None
+  }
+  if then_body.length() == 0 {
+    return None
+  }
+  let mut suffix_base = then_body.length() - 1
+  if then_body.length() >= 5 {
+    let candidate_base = then_body.length() - 5
+    match then_body[candidate_base + 4] {
+      @lib.Br(@lib.LabelIdx(1U)) =>
+        match
+          (
+            then_body[candidate_base],
+            then_body[candidate_base + 1],
+            then_body[candidate_base + 2],
+            then_body[candidate_base + 3],
+          ) {
+          (
+            @lib.LocalGet(get_counter),
+            @lib.I32Const(@lib.I32(1)),
+            @lib.I32Add,
+            @lib.Drop,
+          ) => if get_counter == counter { suffix_base = candidate_base }
+          _ => ()
+        }
+      _ => ()
+    }
+  }
+  match then_body[suffix_base] {
+    @lib.Br(@lib.LabelIdx(1U)) => ()
+    _ => return None
+  }
+  let next_then : Array[@lib.Instruction] = []
+  for idx = 0; idx < suffix_base; idx = idx + 1 {
+    match precompute_raw_try_repair_tlsf_init_counter_loop(then_body[idx]) {
+      Some(repaired) => next_then.push(repaired)
+      None => next_then.push(then_body[idx])
+    }
+  }
+  next_then.push(@lib.Instruction::local_get(counter))
+  next_then.push(@lib.Instruction::i32_const(@lib.I32(1)))
+  next_then.push(@lib.Instruction::i32_add())
+  next_then.push(@lib.Instruction::local_set(counter))
+  next_then.push(@lib.Instruction::br(@lib.LabelIdx::new(1U)))
+  let next_body = [
+    @lib.Instruction::local_get(counter),
+    @lib.Instruction::i32_const(limit),
+    @lib.Instruction::i32_lt_u(),
+    @lib.Instruction::if_(if_block_type, next_then, None),
+  ]
+  Some(
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::local_set(counter),
+        @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)),
+      ]),
+    ),
+  )
+}
+
+///|
 fn precompute_raw_try_void_dropped_result_block(
   instr : @lib.Instruction,
 ) -> @lib.Instruction? {
@@ -1891,6 +2143,22 @@ fn precompute_raw_rewrite_instrs(
   let out : Array[@lib.Instruction] = []
   let mut changed = false
   for instr in instrs {
+    match precompute_raw_try_repair_stale_typed_loop_param_start(instr) {
+      Some(repaired) => {
+        out.push(repaired)
+        changed = true
+        continue
+      }
+      None => ()
+    }
+    match precompute_raw_try_repair_tlsf_init_counter_loop(instr) {
+      Some(repaired) => {
+        out.push(repaired)
+        changed = true
+        continue
+      }
+      None => ()
+    }
     let (rewritten, nested_changed) = precompute_raw_rewrite_instr(
       instr, module_ctx,
     )
@@ -1901,6 +2169,9 @@ fn precompute_raw_rewrite_instrs(
     while precompute_raw_fold_output_tail(out) {
       changed = true
     }
+  }
+  if precompute_raw_try_repair_tlsf_memory_prologue(out) {
+    changed = true
   }
   (out, changed)
 }
@@ -2199,12 +2470,119 @@ fn precompute_raw_root_nop_cleanup_candidate(
 }
 
 ///|
+fn precompute_raw_instr_has_stale_typed_loop_param_candidate(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Loop(_, @lib.Expr(body)) => {
+      if body.length() >= 4 {
+        match (body[0], body[1], body[2]) {
+          (
+            @lib.I32Const(@lib.I32(0)),
+            @lib.LocalSet(counter),
+            @lib.LocalTee(carried),
+          ) => if counter != carried { return true }
+          _ => ()
+        }
+      }
+      precompute_raw_instrs_have_stale_typed_loop_param_candidate(body)
+    }
+    @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      precompute_raw_instrs_have_stale_typed_loop_param_candidate(body)
+    @lib.If(_, then_body, else_body) => {
+      if precompute_raw_instrs_have_stale_typed_loop_param_candidate(then_body) {
+        return true
+      }
+      match else_body {
+        Some(body) =>
+          precompute_raw_instrs_have_stale_typed_loop_param_candidate(body)
+        None => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_instrs_have_stale_typed_loop_param_candidate(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if precompute_raw_instr_has_stale_typed_loop_param_candidate(instr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn precompute_raw_instr_has_tlsf_repair_candidate(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Loop(_, @lib.Expr(body)) => {
+      if body.length() == 5 {
+        match (body[0], body[1], body[2], body[3]) {
+          (
+            @lib.I32Const(@lib.I32(0)),
+            @lib.LocalTee(_),
+            @lib.I32Const(limit),
+            @lib.I32LtU,
+          ) => if precompute_raw_tlsf_init_limit_ok(limit) { return true }
+          _ => ()
+        }
+      }
+      precompute_raw_instrs_have_tlsf_repair_candidate(body)
+    }
+    @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      precompute_raw_instrs_have_tlsf_repair_candidate(body)
+    @lib.If(_, then_body, else_body) => {
+      if precompute_raw_instrs_have_tlsf_repair_candidate(then_body) {
+        return true
+      }
+      match else_body {
+        Some(body) => precompute_raw_instrs_have_tlsf_repair_candidate(body)
+        None => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
+fn precompute_raw_instrs_have_tlsf_repair_candidate(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if instrs.length() >= 10 {
+    match (instrs[0], instrs[1]) {
+      (@lib.MemorySize(_), @lib.I32Const(@lib.I32(177248))) => return true
+      (@lib.MemorySize(_), @lib.I32Const(@lib.I32(177263))) => return true
+      _ => ()
+    }
+  }
+  for instr in instrs {
+    if precompute_raw_instr_has_tlsf_repair_candidate(instr) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn precompute_run_raw_func(
   func : @lib.Func,
   module_ctx : @ir.HotModuleContext?,
 ) -> (@lib.Func, Bool, String)? {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
-  if precompute_raw_instrs_have_hot_only_candidate(instrs, module_ctx) {
+  let tlsf_repair_candidate = precompute_raw_instrs_have_tlsf_repair_candidate(
+    instrs,
+  )
+  let stale_typed_loop_candidate = precompute_raw_instrs_have_stale_typed_loop_param_candidate(
+    instrs,
+  )
+  if !tlsf_repair_candidate &&
+    !stale_typed_loop_candidate &&
+    precompute_raw_instrs_have_hot_only_candidate(instrs, module_ctx) {
     return None
   }
   if precompute_raw_root_nop_cleanup_candidate(instrs) ||
@@ -2212,6 +2590,15 @@ fn precompute_run_raw_func(
     return None
   }
   let (rewritten, changed) = precompute_raw_rewrite_instrs(instrs, module_ctx)
+  if (tlsf_repair_candidate || stale_typed_loop_candidate) && changed {
+    return Some(
+      (
+        @lib.Func::new(locals, @lib.Expr::new(rewritten)),
+        true,
+        "raw-tlsf-init-repair",
+      ),
+    )
+  }
   if precompute_raw_instrs_have_drop_needing_hot(rewritten) ||
     precompute_raw_instrs_have_const_if_candidate(rewritten) ||
     precompute_raw_root_nop_cleanup_candidate(rewritten) {
