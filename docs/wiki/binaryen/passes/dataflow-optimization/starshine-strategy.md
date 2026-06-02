@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-13
+last_reviewed: 2026-06-01
 sources:
   - ../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md
   - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
@@ -10,8 +10,8 @@ sources:
   - ../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md
   - ../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
-  - ../../../../../docs/0065-2026-03-24-ir2-execution-plan.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0065-2026-03-24-ir2-execution-plan.md
   - ../../../../../src/passes/precompute.mbt
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../agent-todo.md
@@ -65,10 +65,10 @@ The fastest read-along path through the current Starshine status is:
   - [`src/passes/optimize.mbt#L155-L279`](../../../../../src/passes/optimize.mbt#L155-L279)
     - `pass_registry_entries()` creates the active hot/module/preset registry entries, and there is no `dataflow-optimization` implementation entry there
 - removed-name planning roster
-  - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+  - [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
     - `dataflow-optimization` appears in the refreshed current removed-name list
 - refreshed migration guidance
-  - [`docs/0065-2026-03-24-ir2-execution-plan.md`](../../../../../docs/0065-2026-03-24-ir2-execution-plan.md)
+  - [`../../../raw/research/0065-2026-03-24-ir2-execution-plan.md`](../../../raw/research/0065-2026-03-24-ir2-execution-plan.md)
     - the execution plan treats the old batch labels as historical and lists removed names, including `dataflow-optimization`, as gaps that need explicit source reconciliation plus a smallest-pass slice before any preset scheduling
 - backlog truth
   - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
@@ -113,8 +113,8 @@ For this pass family, that is currently the most important in-repo behavior afte
 
 ### 3. The repo preserves planning context, but without an active owner
 
-The older batch map in `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md` still records `dataflow-optimization` in the Batch 1 removed roster.
-But the current preferred execution-order note in `docs/0065-2026-03-24-ir2-execution-plan.md` does not call it out among the next implementation steps, and `agent-todo.md` still has no dedicated slice.
+The older batch map in `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md` still records `dataflow-optimization` in the Batch 1 removed roster.
+But the current preferred execution-order note in `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md` does not call it out among the next implementation steps, and `agent-todo.md` still has no dedicated slice.
 
 That is a real planning state, not just a documentation accident.
 The durable current answer is:
@@ -223,7 +223,7 @@ A future implementation should validate in roughly this order:
 
 1. registry honesty
    - decide whether the pass first lands as a still-removed tracked name with extra scaffolding or as a real active hot pass
-   - update `src/passes/optimize.mbt`, `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`, and `docs/0065-2026-03-24-ir2-execution-plan.md` in the same change
+   - update `src/passes/optimize.mbt`, `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`, and `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md` in the same change
 2. reduced semantic coverage
    - same-constant branch merges
    - all-constant supported arithmetic and `select` positives
@@ -243,8 +243,8 @@ Current Starshine `dataflow-optimization` strategy is honest removed-registry tr
 - [`src/passes/optimize.mbt#L143-L146`](../../../../../src/passes/optimize.mbt#L143-L146) keeps the pass name alive in the removed registry
 - [`src/passes/optimize.mbt#L522-L524`](../../../../../src/passes/optimize.mbt#L522-L524) rejects active requests for that removed name honestly
 - [`src/passes/optimize.mbt#L155-L279`](../../../../../src/passes/optimize.mbt#L155-L279) shows there is still no active implementation entry
-- [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L42`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L42) preserves the older Batch 1 removed-planning intent
-- [`docs/0065-2026-03-24-ir2-execution-plan.md#L37-L40`](../../../../../docs/0065-2026-03-24-ir2-execution-plan.md#L37-L40) does not currently give it near-term preferred-order status
+- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md) preserves the older Batch 1 removed-planning intent
+- [`../../../raw/research/0065-2026-03-24-ir2-execution-plan.md`](../../../raw/research/0065-2026-03-24-ir2-execution-plan.md) does not currently give it near-term preferred-order status
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md) still has no dedicated slice for it
 - the nearest active implementation neighbors are [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt) and [`src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt), while the nearest conceptual dossier neighbors are [`../flatten/index.md`](../flatten/index.md), [`../simplify-locals-nonesting/index.md`](../simplify-locals-nonesting/index.md), and [`../souperify/index.md`](../souperify/index.md)
 

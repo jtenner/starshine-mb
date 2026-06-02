@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-01] docs | binaryen wiki archive-link cleanup
+
+- Repointed the living `loop-invariant-code-motion` and `dataflow-optimization` dossiers, plus the `merge-similar-functions` port-readiness page, to their archived research sources under `docs/wiki/raw/research/` instead of the old `docs/0063` / `docs/0065` forwarding stubs, and refreshed the affected page review dates to `2026-06-01`.
+- Updated the status, strategy, and port-readiness pages for those areas so the source lists, planning references, and validation notes now cite the archived research notes directly; no code or tests changed.
+
 ## [2026-06-01] docs | binaryen v130 upstream-addition drift note
 
 - Refreshed [`binaryen/release-horizon-and-oracles.md`](binaryen/release-horizon-and-oracles.md) and [`binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md) so the release-horizon policy and late-tail dispatch note now call out that the official `v130` changelog adds `MarkJSCalled`, `RemoveExports`, Wide Arithmetic support, and two new fuzzer modes, not just a renumbered tag.

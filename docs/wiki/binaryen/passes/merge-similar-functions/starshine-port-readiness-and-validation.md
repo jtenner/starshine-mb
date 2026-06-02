@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-01
 sources:
   - ../../../raw/binaryen/2026-05-05-merge-similar-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-merge-similar-functions-primary-sources.md
@@ -17,7 +17,7 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/cmd/cmd.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md

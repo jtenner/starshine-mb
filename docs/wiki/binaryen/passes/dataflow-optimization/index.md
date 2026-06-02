@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-01
 sources:
   - ../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md
   - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
@@ -11,8 +11,8 @@ sources:
   - ../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
-  - ../../../../../docs/0065-2026-03-24-ir2-execution-plan.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0065-2026-03-24-ir2-execution-plan.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -41,6 +41,7 @@ related:
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - `agent-todo.md` currently has **no dedicated `dataflow-optimization` / `dfo` slice**.
 - The reviewed official Binaryen `version_129` release page still showed publish date **2026-04-01** on 2026-04-23. The 2026-04-25, 2026-04-27, and 2026-05-05 current-`main` rechecks found no teaching-relevant drift: upstream still has the same flat-input DataFlow SSA IR pass, and Starshine still only tracks the local removed spelling `dataflow-optimization`.
+- The refreshed IR2 registry docs now list it in the current removed-name migration gap rather than beside active `local-subtyping`; see [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md) and [`../../../raw/research/0065-2026-03-24-ir2-execution-plan.md`](../../../raw/research/0065-2026-03-24-ir2-execution-plan.md).
 
 ## Why this pass matters
 
@@ -122,8 +123,8 @@ So this is best taught as:
 - [`../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md`](../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md`](../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
-- [`../../../../../docs/0065-2026-03-24-ir2-execution-plan.md`](../../../../../docs/0065-2026-03-24-ir2-execution-plan.md)
+- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [`../../../raw/research/0065-2026-03-24-ir2-execution-plan.md`](../../../raw/research/0065-2026-03-24-ir2-execution-plan.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
