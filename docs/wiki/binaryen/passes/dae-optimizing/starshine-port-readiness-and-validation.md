@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-27
+last_reviewed: 2026-06-01
 sources:
   - ../../../raw/research/0687-2026-05-27-dae004-closeout-evidence.md
+  - ../../../raw/research/0673-2026-05-26-dae-control-debris-normalizer.md
   - ../../../raw/research/0661-2026-05-26-dae003-closeout-evidence.md
   - ../../../raw/research/0603-2026-05-26-dae013-preset-boundary-closure.md
   - ../../../raw/research/0591-2026-05-26-dae-func509-lowering-boundary-closure.md
@@ -45,6 +46,7 @@ related:
   - ./signature-updates-and-nested-reruns.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ../../../tooling/pass-fuzz-compare.md
   - ../dead-argument-elimination/index.md
   - ../dae2/index.md
   - ../precompute-propagate/index.md
@@ -193,7 +195,7 @@ Use this ladder when extending the active partial port. The old pre-port registr
    - Export/import/reference negatives.
 3. **Binaryen oracle comparison**
    - Run focused `wasm-opt --dae-optimizing -S` comparisons for each supported slice.
-   - For mixed-generator `pass-fuzz-compare` / `bun fuzz compare-pass` lanes, use `--normalize drop-consts`; this classifies known generated dropped-constant debris as `cleanupNormalizedMatchCount` instead of ordinary mismatches.
+   - For mixed-generator `pass-fuzz-compare` / `bun fuzz compare-pass` lanes, use `--normalize drop-consts --normalize unreachable-control-debris`; this classifies known generated dropped-constant debris and the inspected unreachable/control debris cleanup as `cleanupNormalizedMatchCount` instead of ordinary mismatches. See the harness contract in [`../../../tooling/pass-fuzz-compare.md`](../../../tooling/pass-fuzz-compare.md).
    - Normalize only documented semantic-noop noise; do not normalize away missing side effects, signature differences, trapping behavior, or unclassified output drift.
 4. **GC/refinement tests**
    - Port the `dae-gc*` families only after local type-section and validator behavior are stable.

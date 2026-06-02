@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-01] docs | dae compare normalizer alignment
+
+- Refreshed [`binaryen/passes/dae-optimizing/starshine-strategy.md`](binaryen/passes/dae-optimizing/starshine-strategy.md) and [`binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md`](binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md) so the DAE dossiers now point mixed-generator compare-pass lanes at both `--normalize drop-consts` and `--normalize unreachable-control-debris`, cite the 2026-05-26 control-debris source note, and link back to the pass-fuzz compare harness contract.
+- No code or tests changed; this was a wiki consistency pass to align the DAE dossiers with the already documented compare normalizer workflow and `cleanupNormalizedMatchCount` reporting.
+
 ## [2026-06-01] docs | reorder-globals current-main freshness refresh
 
 - Added `docs/wiki/raw/binaryen/2026-06-01-reorder-globals-current-main-recheck.md` and `docs/wiki/raw/research/0689-2026-06-01-reorder-globals-current-main-recheck.md`, then refreshed the `docs/wiki/binaryen/passes/reorder-globals/` dossier cluster plus the top-level/pass catalog/tracker entries so they now carry a 2026-06-01 freshness layer against the `version_130` release horizon.
