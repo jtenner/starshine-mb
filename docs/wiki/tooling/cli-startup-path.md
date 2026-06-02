@@ -30,7 +30,7 @@ related:
 
 - Use the raw audit note for the older line-by-line hotspot list; this page only keeps the compact current summary.
 - Use [`cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md) for the current command/config/env/dispatcher contract; this page should stay focused on startup cost.
-- The `o4z` debug-startup map-trap investigation is tracked separately in [`../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md`](../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md); keep that runtime-correctness follow-up distinct from the path-handling audit.
+- The `o4z` debug-startup map-trap investigation is tracked separately in [`../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md`](../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md); that note now carries the reduced-fixture TDD slice for the remaining runtime trap, so keep that runtime-correctness follow-up distinct from the path-handling audit.
 - If startup traces regress, check `normalize_cli_path`, `expand_globs`, and the `cmd_wbtest` fast-path coverage before widening the search.
 
 ## Sources

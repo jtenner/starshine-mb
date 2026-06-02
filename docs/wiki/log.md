@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | o4z startup-trap research cross-link and trap-semantics source note
+
+- Tightened the raw `0693` startup-trap research note with an explicit primary-source pointer to the WebAssembly trap semantics behind `RuntimeError: unreachable`, and surfaced the reduced-fixture TDD slice in the live `cli-startup-path` page so the runtime-correctness follow-up stays separate from the path-handling audit.
+- No code or tests changed; this was a wiki-health update to keep the debug-startup investigation source-backed and easy to find.
+
 ## [2026-06-02] docs | avoid-reinterprets archive-link cleanup
 
 - Repointed the living `avoid-reinterprets` dossier cluster to the archived raw research copy of the old pass-port batch map (`docs/wiki/raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`) instead of the forwarding stub under `docs/`, and updated the stale binaryen-strategy note to call out the archived active-module-pass classification directly.

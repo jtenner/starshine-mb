@@ -82,20 +82,86 @@ The caller-side map retain pattern in `func473` is present before insertion call
 
 ## Current hypothesis
 
-The blocker is likely corruption of the bucket array object header after early insertions in `func3750`. Plausible owner families:
+The blocker is corruption of the startup map's bucket-array object header after early insertions in `func3750`. The June 1 evidence showed the corruption follows a map release/destruction path rather than bad initial capacity or hash masking.
 
-1. a local-like rewrite in or before `func3750` corrupts ownership/refcount flow for the map or bucket array;
-2. a loop-param/local rewrite in `func3750` still mishandles a carried value or live local despite the earlier TypeIdx-loop guards;
-3. a pass rewrites a `call 43`/`call 45` retain/release pair or its surrounding local traffic unsafely;
-4. less likely: allocator/data initialization is still corrupting nearby headers, but `func3752`'s immediate construction evidence makes this secondary.
+June 2 follow-up narrowed the owner further: the trap is **latent before the current `-O4z` pass sequence**. A raw-input binary patch that only stubs the externally invalid huge-local `func535` validates and still traps on the same startup path (`func4686 -> func473 -> func3749 -> func3751 -> func28` in that unoptimized/stubbed numbering). Coalesce-locals is therefore the first pass that makes the committed input externally runnable, but it is not the pass that introduces the startup map trap.
+
+Remaining plausible owner families:
+
+1. the committed debug-WASI input already contains bad MoonBit runtime/refcount ownership traffic around the startup `HashMap.set` population;
+2. an earlier build-time pass or artifact-generation step produced the committed input with stale map ownership semantics;
+3. a lower-level ABI/runtime convention around `call 43` retain and `call 45` release is being misunderstood by the startup map code;
+4. less likely after the raw-stub evidence: a current `-O4z` local-like pass corrupts the map functions, because those functions are unchanged by coalesce-only and the full-pipeline trap survives omitting `ssa-nomerge`, `tuple-optimization`, `reorder-locals`, and `simplify-locals-nostructure`.
+
+## June 2 continuation evidence
+
+Current direct `-O4z` was rebuilt with the backup MoonBit toolchain and matched an explicit 39-pass shrink-list run byte-for-byte (`.tmp/o4z-bench/current-direct-o4z.wasm` and `.tmp/o4z-bench/current-prefix-dumps/final.wasm`, both `3,172,802` bytes). The output validates and traps under Node/WASI on the same map startup path.
+
+Prefix dumps from the explicit pass list showed:
+
+- prefixes `00` through `24` remain externally invalid only because `func535` exceeds the local-count limit;
+- prefix `25` (`coalesce-locals`) is the first validating prefix;
+- prefix `25` and every later prefix trap in the startup map path;
+- `coalesce-locals` alone is enough to make the input validate and reproduce the startup trap.
+
+Function print snapshots before and after coalesce-only showed `func473`, `func3748`, `func3749`, `func3750`, `func3751`, `func3752`, and `func3753` are unchanged by coalesce-only. Full-pipeline snapshots showed the relevant map bodies only change textually under tuple/reorder-local reshaping, and ablation runs still trap when `tuple-optimization`, `reorder-locals`, both together, `simplify-locals-nostructure`, or `ssa-nomerge` are omitted.
+
+A scratch binary patch replaced only absolute `func535` (code index `518`, after `17` imported functions) with a tiny `unreachable` body. The resulting `.tmp/o4z-bench/raw-stub-f535.wasm` validates without applying any optimizer pass and still traps:
+
+```text
+RuntimeError: unreachable
+    at wasm-function[28]
+    at wasm-function[3751]
+    at wasm-function[3749]
+    at wasm-function[473]
+    at wasm-function[4686]
+```
+
+That proves the startup trap is not introduced by the current self/debug `-O4z` recovery passes. It is present as soon as the committed input's unrelated huge-local validation blocker is removed.
+
+Additional scratch instrumentation on the reduced fixture refined the June 1 release hypothesis. In the extracted numbering (`func20 -> func25 -> func27 -> func11`, with retain/release as `func15`/`func17`):
+
+```text
+tracked map pointer = 181248
+retain1 before/after = 1 -> 2
+func27 first empty-branch start map header = 0
+first empty-branch new entry pointer = 181328
+release2 before = 1
+third entry map header = 0
+third entry bucket header = 0
+```
+
+This means the first caller-side retain does happen, but the map header is already zero by the time the first empty insert branch starts in `func27`, before the branch's final tracked `release`. That refines the earlier inference: the final release/free path is still where the stale object becomes visible, but the earliest observed map-header clobber in the reduced fixture is before the first empty-branch insertion body, between the caller retain and the insert branch. The exact write that zeroes the map header is still unknown.
+
+## Focused TDD slice
+
+A reduced startup-root fixture was extracted from the raw-stub module and patched to export memory plus the extracted start function as `_start`:
+
+- fixture: `tests/repros/o4z-debug-startup-map-init-repro.wasm`
+- failing test: `scripts/lib/o4z-debug-startup-map.test.ts`
+- confirmation command: `bun test scripts/lib/o4z-debug-startup-map.test.ts`
+- current result: fails with `RuntimeError: Unreachable code should not be executed` in the same map startup family.
+
+This is the active TDD slice for the remaining startup trap. Production fixes should make this reduced fixture complete runtime initialization before retrying the full self/debug `-O4z --help` candidate.
 
 ## Recommended next slice
 
-1. Add cleaner temporary instrumentation to count `func3748`/`func3750` insert calls and snapshot the bucket-array header before and after each insertion.
-2. Identify the exact branch in `func3750` where the bucket array header changes from `512` to `0`.
-3. Compare that branch against the unoptimized printed input and a fresh debug source build where function mapping permits.
-4. Once the owner rewrite is known, add a focused regression in the owning pass before implementation.
+1. Treat `scripts/lib/o4z-debug-startup-map.test.ts` as the failing TDD guard.
+2. Use the reduced `tests/repros/o4z-debug-startup-map-init-repro.wasm` fixture for instrumentation before returning to the full `tests/node/dist/starshine-debug-wasi.wasm` artifact.
+3. Identify why the startup map's caller-visible retain traffic does not keep the map alive across repeated inserts, now without conflating the issue with `func535` validation repair or current local-like optimizer passes.
+4. Once the runtime/source owner is known, add the smallest adjacent MoonBit pass/runtime/source regression if the Bun fixture remains too integration-shaped for the final fix.
 
 ## Evidence status
 
-No production source changes were made during this investigation. The findings are observational and based on temporary `.tmp/o4z-bench/` WAT instrumentation plus Node/WASI replay.
+The June 1 findings were observational and based on temporary `.tmp/o4z-bench/` WAT instrumentation plus Node/WASI replay. The June 2 follow-up adds a focused failing repo test and reduced fixture. Scratch generation helpers and large temporary artifacts remain under `.tmp/o4z-bench/` and should not be committed.
+
+## Reference semantics
+
+The `RuntimeError: unreachable` surface is consistent with the WebAssembly JavaScript interface, not a separate Node-only trap mode: MDN documents `WebAssembly.RuntimeError` as the error type WebAssembly throws for traps, and documents `unreachable` as an unconditional trap instruction that raises that runtime error when executed.
+
+Primary references:
+
+- <https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/RuntimeError>
+- <https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/Control_flow/unreachable>
+
+This keeps the remaining failure classified as a real runtime trap while the reduced fixture stays the active TDD guard.
