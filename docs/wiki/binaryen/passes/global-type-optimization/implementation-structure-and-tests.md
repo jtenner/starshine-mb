@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-02
 sources:
+  - ../../../raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md
+  - ../../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md
   - ../../../raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md
@@ -21,7 +23,7 @@ related:
 
 This page exists because `GlobalTypeOptimization.cpp` is not a self-contained algorithm.
 If you read only that one file, you will miss where several of the real rules come from.
-A 2026-05-05 current-main recheck found the same owner/helper/lit split on the reviewed surfaces.
+A 2026-06-02 current-main recheck found the same owner/helper/lit split on the reviewed surfaces.
 
 ## File map
 

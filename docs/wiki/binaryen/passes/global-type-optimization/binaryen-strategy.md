@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-02
 sources:
+  - ../../../raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md
+  - ../../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md
   - ../../../raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md
@@ -22,7 +24,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass, anchored by the 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md) plus the 2026-04-24 raw manifest in [`../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md).
+Use Binaryen `version_129` as the primary source oracle for this pass, anchored by the 2026-06-02 current-main recheck in [`../../../raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md) plus the 2026-04-24 raw manifest in [`../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md).
 
 Primary files:
 
@@ -111,7 +113,7 @@ That means `gto` is part of the **early closed-world GC/type cluster**, not a la
 
 `gto_and_cfp_in_O.wast` makes the placement concrete.
 
-The 2026-05-05 current-main recheck found the same scheduler story on the reviewed surfaces.
+The 2026-06-02 current-main recheck found the same scheduler story on the reviewed surfaces.
 
 In closed world `-O`, Binaryen can:
 

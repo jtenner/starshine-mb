@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-02
 sources:
+  - ../../../raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md
+  - ../../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md
   - ../../../raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md
@@ -81,7 +83,7 @@ It is **closed-world private-struct mutability and layout cleanup**.
 - Field removal is hierarchy-aware and may reorder parent fields so children can still append compatible layouts.
 - Instruction rewrite happens before type rewrite.
 - Removed writes preserve value side effects and null-trap ordering, and removed trapping module-initializer operands become fresh globals.
-- A 2026-05-05 current-main recheck, captured in [`../../../raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md), plus the earlier 2026-04-24 primary-source manifest, found no teaching-relevant drift in the reviewed owner, registration, helper, or lit surfaces beyond the existing `version_129` contract.
+- A 2026-06-02 current-main recheck, captured in [`../../../raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md), plus the earlier 2026-04-24 primary-source manifest, found no teaching-relevant drift in the reviewed owner, registration, helper, or lit surfaces beyond the existing `version_129` contract.
 
 ## Beginner warning: what the name hides
 

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-02
 sources:
+  - ../../../raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md
+  - ../../../raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md
   - ../../../raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md

@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | global-type-optimization current-main freshness refresh
+
+- Added `docs/wiki/raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md` and `docs/wiki/raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md`, then refreshed the `docs/wiki/binaryen/passes/global-type-optimization/` dossier cluster plus the tracker entry so they now carry a 2026-06-02 current-main recheck against the existing `version_129` contract.
+- No code or tests changed; this was a wiki/source-hygiene refresh to keep the closed-world `gto` struct-layout dossier current without rewriting the upstream/local contract story.
+
 ## [2026-06-01] docs | type-section source citation reinforcement
 
 - Added `../../../src/lib/types.mbt` to [`validate/type-section-and-subtyping.md`](validate/type-section-and-subtyping.md) so the function-section `FuncSec(Array[TypeIdx])` rule now cites the defining source file directly alongside the existing type-section refresh bridge and validator files.
