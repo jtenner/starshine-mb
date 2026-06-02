@@ -1,15 +1,21 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-09
+last_reviewed: 2026-06-01
 sources:
   - ../raw/research/0062-2026-03-24-pass-porting-checklist.md
+  - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
+  - ../../../src/lib/types.mbt
+  - ../../../src/validate/env.mbt
+  - ../../../src/validate/validate.mbt
 related:
   - ./execution-plan.md
   - ./test-matrix.md
   - ../../../src/passes/pass_common.mbt
   - ../../../src/passes/pass_common_test.mbt
   - ../../../src/passes/pass_test_helpers.mbt
+  - ../validate/type-section-and-subtyping.md
+  - ../wast/gc-type-authoring.md
 ---
 
 # IR2 Pass Porting Checklist
@@ -30,6 +36,12 @@ related:
 - Call `pass_mark_mutated(...)` for mutation flows outside the shared wrappers.
 - Verify with `pass_verify_before_after(...)`.
 - Use [`../../../src/passes/pass_test_helpers.mbt`](../../../src/passes/pass_test_helpers.mbt) to build fixtures and run `pass_test_run_pipeline(...)`.
+
+## Function-Section Type Index Invariant
+
+- Module-level function declarations, `FuncSec`, and pass-local function-signature caches should use absolute `TypeIdx` values.
+- `RecIdx` is only valid inside the temporary recursive type context while validating a `RecType`; normalize it before writeback, binary emission, or cross-pass caching.
+- The canonical validator reference is [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md); the source bridge is [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md).
 
 ## Rewrite Patterns
 

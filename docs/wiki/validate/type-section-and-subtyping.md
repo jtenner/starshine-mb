@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-01
 sources:
   - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
   - ../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md
@@ -21,6 +21,7 @@ related:
   - ../custom-descriptors/exact-reference-equivalence.md
   - ../fuzzing/generator-coverage-ledger.md
   - ../validation/moonbit-prove-strategy.md
+  - ../ir2/pass-porting-checklist.md
 ---
 
 # Type-Section Validation And Subtyping
@@ -31,7 +32,7 @@ The type section is the root of Starshine's module type context. It defines ever
 
 Use this page for the **validator** contract: what `validate_typesec(...)` accepts, what it normalizes, and what later phases may rely on. Use [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md) for text syntax, `(rec ...)` authoring, type-use abbreviations, parser/lowerer behavior, and flat-index examples before validation. Use [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md) for binary section ids, `TypeSec(Array[RecType])`, and whole-module remap obligations.
 
-The current source bridge is [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md). It rechecks current WebAssembly Core 3.0 type syntax, binary type encoding, validation, matching, and module-validation sources plus Starshine validator/proof-helper evidence.
+The current source bridge is [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md). It rechecks current WebAssembly Core 3.0 type syntax, binary type encoding, validation, matching, and module-validation sources plus Starshine validator/proof-helper evidence. One extra consumer rule follows from the same bridge: module-level function signatures live in `FuncSec(Array[TypeIdx])`, so any `RecIdx` seen while validating a recursive group is temporary and must be normalized before later phases or module-level caches use it.
 
 ## Beginner Model
 
@@ -172,6 +173,8 @@ A lowered module can otherwise form a valid descriptor/describes pair while plac
 Descriptor metadata is asymmetric inside a recursive group: the described struct can point forward to its descriptor type, but the descriptor's `describes` clause must point to a previously defined struct. The `InvalidDescribesForwardTypeRef` invalid-AST strategy with stable id `invalid-describes-forward-type-ref` builds a two-member group where both type indices exist and agree structurally, but the descriptor appears first and points forward to the described struct, so validation rejects the descriptor boundary separately from missing heap-type references.
 
 ## Rewrite And Signoff Guidance
+
+Function-section consumers should treat absolute `TypeIdx` as the durable form. `FuncSec(Array[TypeIdx])` stores global module type indices, and any temporary `RecIdx` resolved during recursive validation must be normalized before later phases, module-level caches, or binary writeback can use it.
 
 When changing type-section validation, WAST type lowering, or a pass that rewrites types:
 

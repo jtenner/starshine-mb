@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-01] docs | ir2 type-index invariant clarification
+
+- Added an explicit function-section `TypeIdx` vs temporary recursive-group `RecIdx` guidance layer to [`validate/type-section-and-subtyping.md`](validate/type-section-and-subtyping.md) and [`ir2/pass-porting-checklist.md`](ir2/pass-porting-checklist.md), with the checklist now pointing at the canonical validator contract and the raw WebAssembly type-section source bridge.
+- Updated the root wiki index so the IR2 and validation catalog entries surface the new invariant for pass authors; no code or tests changed.
+
 ## [2026-06-01] docs | binaryen wiki archive-link cleanup
 
 - Repointed the living `loop-invariant-code-motion` and `dataflow-optimization` dossiers, plus the `merge-similar-functions` port-readiness page, to their archived research sources under `docs/wiki/raw/research/` instead of the old `docs/0063` / `docs/0065` forwarding stubs, and refreshed the affected page review dates to `2026-06-01`.
