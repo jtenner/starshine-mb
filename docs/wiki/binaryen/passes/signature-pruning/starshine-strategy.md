@@ -19,7 +19,7 @@ sources:
   - ../../../../../src/validate/typecheck.mbt
   - ../../../../../src/binary/encode.mbt
   - ../../../../../src/binary/decode.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../type-refining/index.md
@@ -81,7 +81,7 @@ The fastest read-along path through the current Starshine status is:
   - [`src/passes/registry_test.mbt#L129-L158`](../../../../../src/passes/registry_test.mbt#L129-L158)
     - the preset test asserts every expanded preset name is `HotPass` or `ModulePass`, which keeps boundary-only names out of the active default path.
 - boundary-only planning provenance
-  - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L60`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L60)
+  - [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L96-L98`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L96-L98)
     - the pass-port map groups `signature-pruning` with type, global, and signature shaping names rather than HOT cleanup names.
 - function type and call representation a future port would have to rewrite
   - [`src/lib/types.mbt#L98-L105`](../../../../../src/lib/types.mbt#L98-L105)

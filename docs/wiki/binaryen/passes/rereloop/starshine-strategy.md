@@ -11,7 +11,7 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../flatten/index.md
@@ -80,7 +80,7 @@ The fastest read-along path through the current Starshine status is:
   - [`src/cmd/cmd_wbtest.mbt#L4724-L4727`](../../../../../src/cmd/cmd_wbtest.mbt#L4724-L4727)
     - public help includes active entries such as `--ssa-nomerge`, `--vacuum`, and `--optimize`, but does not include `--re-reloop`.
 - older pass-port planning breadcrumb
-  - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L44-L47`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L44-L47)
+  - [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L107-L108`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L107-L108)
     - `re-reloop` is still listed under Batch 2 names removed until a hot implementation lands.
 - canonical scheduler context by omission
   - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
@@ -240,7 +240,7 @@ Current Starshine `rereloop` / `re-reloop` strategy is honest removed-name track
 - active requests are rejected at [`src/passes/optimize.mbt#L451-L466`](../../../../../src/passes/optimize.mbt#L451-L466),
 - CLI parsing and command rejection are covered at [`src/cli/cli_test.mbt#L213-L216`](../../../../../src/cli/cli_test.mbt#L213-L216) and [`src/cmd/cmd_wbtest.mbt#L3843-L3848`](../../../../../src/cmd/cmd_wbtest.mbt#L3843-L3848),
 - help hides the removed pass at [`src/cmd/cmd_wbtest.mbt#L4724-L4727`](../../../../../src/cmd/cmd_wbtest.mbt#L4724-L4727),
-- Batch 2 planning still mentions it at [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L44-L47`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L44-L47),
+- Batch 2 planning still mentions it at [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L107-L108`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L107-L108),
 - the active backlog still has no dedicated slice,
 - and there is no local owner file yet.
 

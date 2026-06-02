@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | archive-link cleanup for flatten and related planning pages
+
+- Repointed the living `flatten`, `signature-pruning`, `reorder-types`, and `rereloop` pages to the archived raw research copies of the old IR2 batch-plan docs (`docs/wiki/raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md` and `docs/wiki/raw/research/0065-2026-03-24-ir2-execution-plan.md`) instead of the forwarding stubs under `docs/`, and refreshed the affected line anchors to match the archived notes.
+- No code or tests changed; this was a wiki-health cleanup to keep living pages pointing directly at the committed source archives.
+
 ## [2026-06-02] docs | cli startup-path map-trap cross-link
 
 - Refreshed [`tooling/cli-startup-path.md`](tooling/cli-startup-path.md) and the top-level catalog entry in [`index.md`](index.md) so the startup audit now points at the separate `o4z` debug-startup map-trap investigation in raw research note [`0693-2026-06-01-o4z-debug-startup-func3750.md`](raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md), keeping the fast-path/path-handling audit distinct from the runtime-correctness follow-up.

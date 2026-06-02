@@ -12,7 +12,7 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -141,7 +141,7 @@ What it actually is in reviewed `version_129` sources:
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/cli/cli_test.mbt`](../../../../../src/cli/cli_test.mbt)
 - [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
-- [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)

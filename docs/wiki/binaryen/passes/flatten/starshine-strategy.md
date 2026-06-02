@@ -11,8 +11,8 @@ sources:
   - ../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli_test.mbt
-  - ../../../../../docs/0065-2026-03-24-ir2-execution-plan.md
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0065-2026-03-24-ir2-execution-plan.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
   - ../simplify-locals-notee-nostructure/index.md
   - ../local-cse/index.md
@@ -74,9 +74,9 @@ The fastest read-along path through the current Starshine status is:
   - `src/passes/pass_manager.mbt`
     - no active `flatten` match exists today
 - current batch intent
-  - `docs/0065-2026-03-24-ir2-execution-plan.md:39`
+  - `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md:69-70`
     - `flatten` still leads the preferred Batch 2 implementation order
-  - `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md:47`
+  - `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:107-108`
     - `flatten` still sits in Batch 2 removed-until-implemented planning
 - active backlog truth
   - `agent-todo.md`
@@ -118,8 +118,8 @@ That matters for two reasons:
 
 The repo still has real planning intent for `flatten`:
 
-- `docs/0065-2026-03-24-ir2-execution-plan.md` still puts it first in the next-wave Batch 2 order
-- `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md` still records it as a Batch 2 removed pass
+- `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md` still puts it first in the next-wave Batch 2 order
+- `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md` still records it as a Batch 2 removed pass
 
 But the active backlog surface is intentionally less mature:
 

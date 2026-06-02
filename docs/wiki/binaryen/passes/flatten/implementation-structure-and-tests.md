@@ -11,8 +11,8 @@ sources:
   - ../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli_test.mbt
-  - ../../../../../docs/0065-2026-03-24-ir2-execution-plan.md
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0065-2026-03-24-ir2-execution-plan.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -142,8 +142,8 @@ Starshine does not implement the transform today, but the status is represented 
 | CLI trap-mode filtering test | `src/cli/cli_test.mbt:280-285` | Explicit `--flatten` survives trap-mode flag filtering in pass-token resolution. |
 | CLI `-O` flag interaction test | `src/cli/cli_test.mbt:313-316` | Explicit `--flatten` survives alongside an optimization-level flag in pass-token resolution. |
 | Missing dispatcher owner | `src/passes/pass_manager.mbt` has no `flatten` match | There is no active HOT/module dispatch path today. |
-| Old IR2 batch intent | `docs/0065-2026-03-24-ir2-execution-plan.md:39` | `flatten` still leads the old preferred Batch 2 implementation order. |
-| Old registry-map batch status | `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md:47` | `flatten` remains documented as removed until implementation lands. |
+| Old IR2 batch intent | `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md:69-70` | `flatten` still leads the old preferred Batch 2 implementation order. |
+| Old registry-map batch status | `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:107-108` | `flatten` remains documented as removed until implementation lands. |
 | Active backlog gap | `agent-todo.md` has no dedicated `flatten` slice | The current backlog has shape mentions such as “flattened,” but no focused pass implementation plan. |
 
 ## What a faithful Starshine test ladder should start with
@@ -187,6 +187,6 @@ The source-backed contract is narrower and more structural: enforce Flat IR by s
 - Binaryen current `main` `flatten_all-features.wast`: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/flatten_all-features.wast>
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/cli/cli_test.mbt`](../../../../../src/cli/cli_test.mbt)
-- [`../../../../../docs/0065-2026-03-24-ir2-execution-plan.md`](../../../../../docs/0065-2026-03-24-ir2-execution-plan.md)
-- [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [`../../../raw/research/0065-2026-03-24-ir2-execution-plan.md`](../../../raw/research/0065-2026-03-24-ir2-execution-plan.md)
+- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

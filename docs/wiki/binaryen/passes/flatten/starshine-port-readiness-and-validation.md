@@ -9,8 +9,8 @@ sources:
   - ../../../raw/binaryen/2026-04-23-flatten-primary-sources.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli_test.mbt
-  - ../../../../../docs/0065-2026-03-24-ir2-execution-plan.md
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0065-2026-03-24-ir2-execution-plan.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -42,8 +42,8 @@ The exact current local surfaces are:
 | CLI pass-token preservation | `src/cli/cli_test.mbt:280-285` | `--flatten` survives trap-mode filtering. |
 | CLI plus `-O` preservation | `src/cli/cli_test.mbt:313-316` | explicit `--flatten` survives beside an optimization-level flag. |
 | Dispatcher absence | `src/passes/pass_manager.mbt` | no active `flatten` case exists. |
-| Old IR2 batch plan | `docs/0065-2026-03-24-ir2-execution-plan.md:39` | `flatten` remains first in an older Batch 2 order. |
-| Old registry-map plan | `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md:47` | `flatten` remains removed until implemented. |
+| Old IR2 batch plan | `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md:69-70` | `flatten` remains first in an older Batch 2 order. |
+| Old registry-map plan | `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:107-108` | `flatten` remains removed until implemented. |
 | Active backlog gap | `agent-todo.md` | no dedicated active `flatten` slice exists today. |
 
 Do not read that as partial implementation. It is compatibility and planning scaffolding only.

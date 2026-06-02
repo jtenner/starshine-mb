@@ -12,8 +12,8 @@ sources:
   - ../../../raw/research/0127-2026-04-20-flatten-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli_test.mbt
-  - ../../../../../docs/0065-2026-03-24-ir2-execution-plan.md
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0065-2026-03-24-ir2-execution-plan.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
   - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/skipped-unimplemented-slots.json
@@ -61,7 +61,7 @@ related:
   - `src/passes/optimize.mbt:144-151` still tracks `flatten` in the removed-name registry
   - `src/cli/cli_test.mbt:280-285` and `src/cli/cli_test.mbt:313-316` still preserve the public `--flatten` spelling
   - `src/passes/pass_manager.mbt` still has no active `flatten` dispatcher case
-  - `docs/0065-2026-03-24-ir2-execution-plan.md:39` and `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md:47` still place `flatten` at the front of the old removed-pass batch
+  - `../../../raw/research/0065-2026-03-24-ir2-execution-plan.md:69-70` and `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:107-108` still place `flatten` at the front of the old removed-pass batch
   - `agent-todo.md` still has **no dedicated `flatten` slice today**, which is a real local planning gap rather than something to smooth over
 
 ## Beginner summary
@@ -143,8 +143,8 @@ That is much closer to the real pass than “flatten removes nesting.”
 - [`../../../raw/research/0127-2026-04-20-flatten-binaryen-research.md`](../../../raw/research/0127-2026-04-20-flatten-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/cli/cli_test.mbt`](../../../../../src/cli/cli_test.mbt)
-- [`../../../../../docs/0065-2026-03-24-ir2-execution-plan.md`](../../../../../docs/0065-2026-03-24-ir2-execution-plan.md)
-- [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [`../../../raw/research/0065-2026-03-24-ir2-execution-plan.md`](../../../raw/research/0065-2026-03-24-ir2-execution-plan.md)
+- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - [`../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/skipped-unimplemented-slots.json`](../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/skipped-unimplemented-slots.json)

@@ -20,7 +20,7 @@ sources:
   - ../../../../../src/binary/decode.mbt
   - ../../../../../src/cli/cli.mbt
   - ../../../../../src/cmd/cmd.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -48,7 +48,7 @@ The exact local status is:
 - `src/passes/pass_manager.mbt:8641-8647` dispatches the currently implemented module passes and has no `reorder-types` case.
 - `src/passes/registry_test.mbt:1-90` covers category/preset expectations for the active registry, but does not hide a partial `reorder-types` transform.
 - `src/passes/` currently contains `reorder_locals.mbt` and `reorder_locals_test.mbt`, but no `reorder_types.mbt` owner file.
-- `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md:58-61` lists `reorder-types` in the older boundary cleanup / ordering bucket.
+- `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md:98-98` lists `reorder-types` in the older boundary cleanup / ordering bucket.
 - `agent-todo.md` has no dedicated active `reorder-types` implementation slice.
 
 So the current strategy is honest non-implementation:
@@ -154,5 +154,5 @@ A faithful port should preserve the Binaryen strategy documented in [`./binaryen
 - [`../../../../../src/binary/decode.mbt`](../../../../../src/binary/decode.mbt)
 - [`../../../../../src/cli/cli.mbt`](../../../../../src/cli/cli.mbt)
 - [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
-- [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
