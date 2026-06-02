@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-06-01] fuzzing | FUZ1056A4 malformed name-section validation closeout
+
+- Closed the validation-only follow-up for the already-landed curated malformed custom/name-section location fixture and section-aware binary diagnostics evidence.
+- Validation: `moon test src/binary` passed (`93/93`), confirming the exact location tests pass with the repaired local Moon core install; `git diff --check` passed after the backlog/log closeout edits.
+
 ## [2026-06-01] fuzzing | FUZ1050D1 normalized shape hash validation closeout
 
 - Closed the validation-only follow-up for the already-landed report-only normalized/canonical corpus shape hash metadata in `src/fuzz/main.mbt`, `src/fuzz/main_wbtest.mbt`, and [`tooling/fuzz-corpus-policy.md`](tooling/fuzz-corpus-policy.md).

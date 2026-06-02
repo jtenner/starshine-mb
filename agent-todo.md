@@ -408,10 +408,6 @@ p2 invalid/binary/text tiny slices:
 
 
 
-- [FUZ]1056A4 (p2) - Curated malformed custom/name-section location fixture validation closeout
-  - Unit: rerun validation for the already-present malformed custom/name-section binary location fixture and docs now that the local Moon core install is repaired.
-  - Acceptance: `moon test src/binary` passes and confirms exact location evidence; then run `moon info`, `moon fmt`, and full `moon test` if source/docs/generated files changed. If green, remove this slice from the active backlog and commit the closeout evidence.
-  - Suggested tests: `moon test src/binary`; repository validation if the test run produces generated/interface diffs.
 
 p2 oracle/reporting/infrastructure tiny slices:
 - None currently tracked. Add a new tiny slice before broad oracle/reporting/infrastructure work.
