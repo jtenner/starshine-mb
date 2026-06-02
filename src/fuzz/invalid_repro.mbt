@@ -2518,7 +2518,7 @@ fn invalid_fuzz_replay_binary_like(bytes : Bytes) -> InvalidFuzzReplayResult {
         diagnostic_location=invalid_fuzz_binary_decode_location(detail),
         message=Some("\{detail.err}"),
       )
-    Ok((decoded, next)) if next != bytes.length() =>
+    Ok((_decoded, next)) if next != bytes.length() =>
       InvalidFuzzReplayResult::new(
         "decode-rejected",
         diagnostic_location=Some("binary:offset=\{next}:length=\{bytes.length() - next}"),
