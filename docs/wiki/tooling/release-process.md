@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-02
 sources:
   - ../raw/release/2026-05-20-starshine-release-process-sources.md
   - ../../../AGENTS.md
@@ -13,6 +13,7 @@ sources:
   - ../../../scripts/lib/validate-task.ts
   - ../../../scripts/lib/build-node-package.mjs
   - ../../../scripts/lib/generate-node-package.mjs
+  - ../raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md
 related:
   - ./validation-gates.md
   - ./moonbit-workspace-package-map.md
@@ -39,6 +40,8 @@ A Starshine release is not just “run tests and publish npm.” The current rep
 5. **Durable release evidence** in wiki pages, [`docs/wiki/log.md`](../log.md), raw/research notes, release notes, validation artifacts, and git history.
 
 The primary-source snapshot for this page is [`../raw/release/2026-05-20-starshine-release-process-sources.md`](../raw/release/2026-05-20-starshine-release-process-sources.md). It checks current npm CLI docs for package metadata, pack/publish, and lifecycle hooks; local MoonBit package metadata; Node package build boundaries; and the repo's own release policy.
+
+For releases that include an already-built self-optimized CLI artifact, treat that artifact as a separate release surface. Use the dedicated `bun validate self-opt-smoke` / `bun validate self-opt-full` gate from [`validation-gates.md`](validation-gates.md) so artifact safety stays explicit instead of being inferred from the ordinary repo validation ladder.
 
 ## Release Invariants
 
@@ -72,6 +75,8 @@ Update:
 - [`node/package.json`](../../../node/package.json) `version`.
 
 Then run `moon info` so generated interfaces are current. Review any `src/*/pkg.generated.mbti` diffs as public API evidence, not formatting noise. Use [`moonbit-workspace-package-map.md`](moonbit-workspace-package-map.md) for the package topology and `.mbti` review rules.
+
+If the release includes a prebuilt self-optimized CLI artifact, add `bun validate self-opt-smoke [--wasm <artifact>]` before the rest of the release signoff and require `bun validate self-opt-full [--wasm <artifact>]` before publication. Those gates validate an already-built artifact; they are intentionally separate from the ordinary repo validation ladder.
 
 ### 3. Verify Node package boundary if npm publication is in scope
 

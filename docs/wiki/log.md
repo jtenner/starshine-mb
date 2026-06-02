@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | release-process self-opt artifact gate cross-link
+
+- Updated [`docs/wiki/tooling/release-process.md`](tooling/release-process.md) so the release-prep workflow now explicitly treats already-built self-optimized CLI artifacts as a separate release surface and points readers at the dedicated `bun validate self-opt-smoke` / `bun validate self-opt-full` gate in [`docs/wiki/tooling/validation-gates.md`](tooling/validation-gates.md).
+- Refreshed the top-level catalog summary in [`docs/wiki/index.md`](index.md) to reflect the dedicated self-opt artifact-safety gates in the release-prep workflow.
+- No code or tests changed; this is a wiki-health cross-linking update so release prep does not bury artifact-safety checks inside the ordinary validation ladder.
+
 ## [2026-06-02] docs | self-opt validation terminology alignment
 
 - Aligned the self-opt validation wording in [`docs/wiki/tooling/validation-gates.md`](tooling/validation-gates.md) and the catalog summary in [`docs/wiki/index.md`](index.md) so the spec workload now consistently refers to the temporary runner copy rather than mixing runner-copy and wasm-copy terminology.
