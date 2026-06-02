@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | o4z runtime-trap semantics source note
+
+- Added [`docs/wiki/raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md`](raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md) from MDN and WebAssembly core sources, then refreshed [`docs/wiki/tooling/o4z-debug-startup-trap.md`](tooling/o4z-debug-startup-trap.md) and [`docs/wiki/index.md`](index.md) so the living blocker page now explicitly treats `RuntimeError: unreachable` as the expected wasm trap surface rather than a host-specific exception shape.
+- No code or tests changed; this is a wiki/source-hygiene update to keep the debug-startup blocker tied to primary WebAssembly semantics.
+
 ## [2026-06-02] docs | o4z debug-startup living page and cross-link
 
 - Added [`docs/wiki/tooling/o4z-debug-startup-trap.md`](tooling/o4z-debug-startup-trap.md) as a living summary for the current `o4z` debug-startup runtime blocker, separating the `RuntimeError: unreachable` startup trap from the unrelated path-handling audit.
