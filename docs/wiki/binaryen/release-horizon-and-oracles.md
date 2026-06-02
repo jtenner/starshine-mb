@@ -41,6 +41,7 @@ That `v125` baseline is substantive, not just a renumbering. Keep this page as t
 | Layer | Preferred source | What it is good for |
 | --- | --- | --- |
 | Public release baseline | Official GitHub release page for `version_125` | The newest tagged public release horizon. |
+| Historical bridge | `docs/wiki/raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md` | The earlier bridge kept for provenance; superseded by the correction note below. |
 | Correction note | `docs/wiki/raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md` | The distilled correction that supersedes the earlier `version_130` bridge. |
 | Live trunk drift watch | Official GitHub `main` changelog | Whether trunk has moved past the newest tag in a way that matters to the docs. |
 | Corroboration | Chromium refs listing and Chromium-hosted `main` changelog | Secondary confirmation that the public tag and trunk story match. |
@@ -73,6 +74,7 @@ The key wiki-maintenance consequence is that `version_125` is still the public r
 ## Sources
 
 - Correction note: [`../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md`](../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md)
+- Superseded 2026-06-01 bridge: [`../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md`](../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md)
 - Immutable local release-horizon bridge: [`../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md`](../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md)
 - Official GitHub `version_125` release page: <https://github.com/WebAssembly/binaryen/releases/tag/version_125>
 - Official GitHub `main` changelog: <https://github.com/WebAssembly/binaryen/blob/main/CHANGELOG.md>
