@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-01
+last_reviewed: 2026-06-02
 sources:
   - ../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md
   - https://github.com/WebAssembly/binaryen/releases/tag/version_130
@@ -42,6 +42,7 @@ That `v130` baseline is substantive, not just a renumbering: the current changel
 | Public release baseline | Official GitHub release page for `version_130` | The newest tagged public release horizon. |
 | Live trunk drift watch | Official GitHub `main` changelog | Whether trunk has moved past the newest tag in a way that matters to the docs. |
 | Corroboration | Chromium refs listing and Chromium-hosted `main` changelog | Secondary confirmation that the public tag and trunk story match. |
+| Discovery only | Search snippets, search-result summaries, and mirrored excerpts | Good for finding the official URL; not authoritative when they disagree with direct official pages. |
 | Durable local evidence | `docs/wiki/raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md` | The repo-captured, immutable summary of the latest release-horizon read. |
 | Pass-specific contract pages | Individual `docs/wiki/binaryen/passes/*` dossiers | The exact algorithm, test map, and Starshine status for one pass. |
 
@@ -56,7 +57,7 @@ Do not flatten those layers together. A page can be correct about the public rel
 
 ## Current state
 
-The 2026-06-01 source bridge found that the public `v130` section is real, visible, and current on the official `main` changelog. That means the earlier "no newer release-horizon note" wording is stale anywhere it still appears.
+The 2026-06-01 source bridge found that the public `v130` section is real, visible, and current on the official `main` changelog. That means the earlier "no newer release-horizon note" wording is stale anywhere it still appears. When a search snippet or mirrored summary disagrees with the direct official release page or changelog, trust the direct official URLs.
 
 The key wiki-maintenance consequence is that `version_130` is now the public release baseline, but it does **not** force every detailed pass dossier to retag itself. Many pass pages still stay on the reviewed `version_129` source oracle until they get a fresh current-main reread.
 

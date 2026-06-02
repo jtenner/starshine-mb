@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | binaryen release-oracle search-snippet guardrail
+
+- Refreshed [`docs/wiki/binaryen/release-horizon-and-oracles.md`](binaryen/release-horizon-and-oracles.md) and [`docs/wiki/binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md) so the release-oracle policy now explicitly says search snippets and mirrored summaries are discovery-only and direct official release pages/changelogs win when evidence disagrees.
+- No code or tests changed; this was a wiki/source-hygiene improvement based on the existing official Binaryen release-horizon sources.
+
 ## [2026-06-02] docs | string-lifting current-main freshness refresh
 
 - Added `docs/wiki/raw/binaryen/2026-06-02-string-lifting-current-main-recheck.md` and `docs/wiki/raw/research/0697-2026-06-02-string-lifting-current-main-recheck.md`, then refreshed the `docs/wiki/binaryen/passes/string-lifting/` dossier cluster plus the root index, Binaryen pass catalog, and tracker entries so they now carry a 2026-06-02 current-main recheck against the existing `version_129` contract.
