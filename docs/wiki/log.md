@@ -59,6 +59,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Added a compatible-hot-pass stacking path in [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt) and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt), wired command options through [`../../src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), and documented that normal CLI runs can avoid full module materialization between stack-safe adjacent hot passes while `--debug-serial-passes` keeps the legacy safer schedule.
 - Guarded the per-function schedule with [`../../src/passes/trace_golden_test.mbt`](../../src/passes/trace_golden_test.mbt). Validation: `moon test src/passes` passed (`1420/1420`) and `moon test src/cmd` passed (`133/133`).
+## [2026-06-01] fuzzing | FUZ1021C1 relaxed-SIMD laneselect validation closeout
+
+- Closed the validation-only follow-up for the already-landed malformed and overwide `local.get` local-index ULEB corruptions in the `i8x16.relaxed_laneselect` mask-operand context.
+- Validation: `moon test src/fuzz` passed (`624/624`), confirming the focused invalid-binary tests reach the repaired Moon core path; `git diff --check` passed after the backlog/log closeout edits.
+
 ## [2026-06-01] fuzzing | FUZ1020Z1 invalid-AST census closeout
 
 - Closed the parent FUZ1020 invalid-AST census after the D/E/F/G follow-up slices were either implemented or redirected: the durable registry count remains 265 checked-in AST-invalid strategy specs across all 15 validation-family buckets, and no tracked `[FUZ]1020*` execution slice remains open in `agent-todo.md`.
