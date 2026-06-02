@@ -21,7 +21,7 @@ sources:
   - ../../../../../src/binary/decode.mbt
   - ../../../../../src/wast/parser.mbt
   - ../../../../../src/wast/lower_to_lib.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -82,7 +82,7 @@ That means a faithful Starshine port must be module-level analysis plus local re
 | `src/validate/typecheck.mbt` | Validator/typechecker surface a future port must keep green after replacing expressions or inserting/refining casts. |
 | `src/binary/encode.mbt` / `src/binary/decode.mbt` | Binary roundtrip surfaces for the GC/ref instructions that a future port would touch. |
 | `src/wast/parser.mbt` / `src/wast/lower_to_lib.mbt` | Text-fixture and lowering surfaces for reduced GUFA tests involving refs, globals, and casts. |
-| `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md` | Older pass-port map that classifies the GUFA family with whole-module or layout transforms. |
+| `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md` | Archived pass-port map that classifies the GUFA family with whole-module or layout transforms. |
 | `agent-todo.md` | No active implementation slice found, so there is no current owner for the port. |
 
 ## Future port shape

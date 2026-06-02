@@ -20,7 +20,7 @@ sources:
   - ../../../../../src/binary/decode.mbt
   - ../../../../../src/wast/parser.mbt
   - ../../../../../src/wast/lower_to_lib.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -79,7 +79,7 @@ That means a faithful Starshine port needs module-level value/type evidence befo
 | `src/validate/typecheck.mbt` | Enforces `ref.cast` / `ref.cast_desc_eq` target compatibility and stack effects; future tests must validate all inserted casts through this surface. |
 | `src/binary/encode.mbt` and `src/binary/decode.mbt` | Encode/decode ordinary and descriptor cast opcodes, including the `0xFB` GC opcode family. |
 | `src/wast/parser.mbt` and `src/wast/lower_to_lib.mbt` | Parse/lower descriptor cast text forms; ordinary cast text support flows through the existing reference-typed instruction model. |
-| `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md` | Older registry map that classifies `gufa-cast-all` with whole-module or layout transforms. |
+| `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md` | Archived registry map that classifies `gufa-cast-all` with whole-module or layout transforms. |
 | `agent-todo.md` | No active implementation slice found, so there is no current owner for the port. |
 
 ## Future port shape

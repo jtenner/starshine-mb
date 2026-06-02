@@ -22,7 +22,7 @@ sources:
   - ../../../../../src/binary/decode.mbt
   - ../../../../../src/wast/lower_to_lib.mbt
   - ../../../../../src/wast/parser.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md

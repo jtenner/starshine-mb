@@ -12,7 +12,7 @@ sources:
   - ../../../../../src/cli/cli.mbt
   - ../../../../../src/cli/cli_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
   - ../monomorphize-always/index.md
   - ../inlining/index.md
@@ -81,7 +81,7 @@ The fastest read-along path through the current Starshine status is:
   - [`src/cmd/cmd_wbtest.mbt#L4227-L4245`](../../../../../src/cmd/cmd_wbtest.mbt#L4227-L4245)
     - verifies command resolution carries `monomorphize_min_benefit` through config/CLI merging
 - boundary-only portfolio planning
-  - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L56-L61`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L56-L61)
+  - [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L56-L61`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L56-L61)
     - `monomorphize` and `monomorphize-always` live in the whole-module/layout-transform bucket
 - current backlog reality
   - [`agent-todo.md`](../../../../../agent-todo.md)
@@ -260,7 +260,7 @@ Current Starshine `monomorphize` strategy is honest boundary-only tracking plus 
 - the pass names are intentionally preserved in [`src/passes/optimize.mbt#L127-L138`](../../../../../src/passes/optimize.mbt#L127-L138)
 - explicit requests are rejected at [`src/passes/optimize.mbt#L456-L462`](../../../../../src/passes/optimize.mbt#L456-L462)
 - `--monomorphize-min-benefit` is real option surface in [`src/cli/cli.mbt#L994-L1021`](../../../../../src/cli/cli.mbt#L994-L1021) and [`src/cmd/cmd.mbt#L1666-L1678`](../../../../../src/cmd/cmd.mbt#L1666-L1678)
-- [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L56-L61`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L56-L61) places the pass in the whole-module/layout bucket
+- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L56-L61`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L56-L61) places the pass in the whole-module/layout bucket
 - the surrounding [`monomorphize-always`](../monomorphize-always/index.md), [`inlining`](../inlining/index.md), [`inline-main`](../inline-main/index.md), and [`duplicate-function-elimination`](../duplicate-function-elimination/index.md) dossiers define the practical landing zone for a future port
 
 So the right mental model today is not “nothing exists locally.”

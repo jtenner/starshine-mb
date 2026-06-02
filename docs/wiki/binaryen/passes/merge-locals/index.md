@@ -15,7 +15,7 @@ sources:
   - ../../../raw/research/0128-2026-04-20-merge-locals-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../tracker.md
 related:
   - ./binaryen-strategy.md

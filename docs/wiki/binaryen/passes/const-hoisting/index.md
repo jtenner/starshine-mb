@@ -14,7 +14,7 @@ sources:
   - ../../../raw/research/0276-2026-04-23-const-hoisting-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0354-2026-04-25-const-hoisting-current-main-code-map.md
   - ../../../../../src/passes/optimize.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -144,7 +144,7 @@ What it actually is in `version_129`:
 - [`../../../raw/research/0276-2026-04-23-const-hoisting-primary-sources-and-starshine-followup.md`](../../../raw/research/0276-2026-04-23-const-hoisting-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0354-2026-04-25-const-hoisting-current-main-code-map.md`](../../../raw/research/0354-2026-04-25-const-hoisting-current-main-code-map.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)

@@ -59,7 +59,7 @@ The local repo makes the scheduler facts explicit in [`./starshine-strategy.md`]
 
 - it remains boundary-only in `src/passes/optimize.mbt`
 - `src/passes/pass_manager.mbt` has no module-pass dispatcher case for it
-- `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md` still lists it among whole-module transforms
+- `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md` still lists it among whole-module transforms
 - it is absent from `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
 - the upstream implementation itself requires flat input through `Flat::verifyFlatness(func)`
 

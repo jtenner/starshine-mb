@@ -18,7 +18,7 @@ sources:
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/passes/precompute_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md

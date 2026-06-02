@@ -20,7 +20,7 @@ sources:
   - ../../../../../src/validate/typecheck.mbt
   - ../../../../../src/binary/encode.mbt
   - ../../../../../src/binary/decode.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../signature-pruning/index.md
@@ -85,7 +85,7 @@ The fastest read-along path through the current Starshine status is:
   - [`src/passes/registry_test.mbt#L2-L20`](../../../../../src/passes/registry_test.mbt#L2-L20)
     - the registry classification test keeps the active / boundary-only / removed split explicit, which is the local guard the preset-path relies on.
 - boundary-only planning provenance
-  - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L60`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L60)
+  - [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L60`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L60)
     - the pass-port map groups `signature-refining` with type, global, and signature shaping names rather than HOT cleanup names.
 - function type and nominal type representation a future port would have to rewrite
   - [`src/lib/types.mbt#L98-L105`](../../../../../src/lib/types.mbt#L98-L105)
@@ -281,5 +281,5 @@ Keep the scheduler relationship explicit instead of folding the passes together.
 - [`../../../../../src/validate/typecheck.mbt`](../../../../../src/validate/typecheck.mbt)
 - [`../../../../../src/binary/encode.mbt`](../../../../../src/binary/encode.mbt)
 - [`../../../../../src/binary/decode.mbt`](../../../../../src/binary/decode.mbt)
-- [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

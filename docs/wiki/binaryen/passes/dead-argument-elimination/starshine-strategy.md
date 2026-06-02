@@ -12,7 +12,7 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/cmd/fuzz_harness_wbtest.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../no-dwarf-default-optimize-path.md
   - ../dae-optimizing/starshine-strategy.md
   - ../../../../../agent-todo.md
@@ -71,7 +71,7 @@ There is no current Starshine owner file for the pass.
 
 ## Planning and backlog context
 
-- [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
   - Lists `dead-argument-elimination` and `dead-argument-elimination-optimizing` in the boundary-only name family.
   - This is the older registry-map proof that both descriptive local names are intentionally known.
 

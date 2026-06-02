@@ -12,7 +12,7 @@ sources:
   - ../../../../../src/cli/cli.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/lib/types.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -134,7 +134,7 @@ Those are representation prerequisites only. They do not implement:
 
 ## Planning and backlog surfaces
 
-### `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`
+### `../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`
 
 This older registry map lists `merge-similar-functions` in Batch 4 compatibility / boundary work. Treat that as a compatibility-tracking signal, not an active implementation plan.
 

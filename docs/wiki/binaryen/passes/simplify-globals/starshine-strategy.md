@@ -8,7 +8,7 @@ sources:
   - ../../../raw/binaryen/2026-05-05-simplify-globals-current-main-recheck.md
   - ../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md
   - ../../../../../src/passes/optimize.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
   - ../simplify-globals-optimizing/index.md
@@ -57,7 +57,7 @@ The fastest read-along path through the current Starshine status is:
   - [`src/passes/optimize.mbt#L458-L463`](../../../../../src/passes/optimize.mbt#L458-L463)
     - `run_hot_pipeline_expand_passes(...)` returns `pass flag {name} is boundary-only and is not implemented in the hot pipeline`
 - boundary-only portfolio planning
-  - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L56-L59`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L56-L59)
+  - [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L56-L59`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L56-L59)
     - `simplify-globals` is grouped with type/global/signature shaping and whole-module transforms, not HOT-local cleanup
 - scheduler context for the shared optimizing sibling
   - [`../../no-dwarf-default-optimize-path.md#L35-L41`](../../no-dwarf-default-optimize-path.md#L35-L41)
