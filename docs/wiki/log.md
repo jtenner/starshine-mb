@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | remove-unused-module-elements artifact-citation cleanup
+
+- Repointed the `remove-unused-module-elements` living dossier and pass-catalog summary away from the local `.artifacts/o4z-wasm-opt-debug.log` source path and onto the durable 2026-05-06 direct revalidation note, so the pass story stays source-backed without depending on the ephemeral debug-log file.
+- No code or tests changed; this is a wiki-health cleanup to keep the RUME dossier durable and easier to reproduce from committed sources.
+
 ## [2026-06-02] docs | binaryen release-horizon source-path cleanup follow-up
 
 - Repointed the remaining living Binaryen pages that still cited the superseded 2026-06-01 `version_130` raw capture to the 2026-06-02 `version_125` correction note, covering the inlining, inlining-optimizing, global-effects, discard-global-effects, optimize-added-constants, late-pipeline, no-DWARF, catalog, and tracker surfaces.

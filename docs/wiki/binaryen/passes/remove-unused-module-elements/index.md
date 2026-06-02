@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-02
 sources:
   - ../../../raw/research/0545-2026-05-06-rume-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-22-remove-unused-module-elements-primary-sources.md
@@ -14,7 +14,6 @@ sources:
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
-  - ../../../../../.artifacts/o4z-wasm-opt-debug.log
 related:
   - ./binaryen-strategy.md
   - ./wat-shapes.md
@@ -62,7 +61,7 @@ That is much closer to the official source than “remove dead functions.”
   - pre slot `2`
   - pre slot `6`
   - post slot `49`
-- The saved generated-artifact optimize log also shows real `remove-unused-module-elements` executions at lines `51`, `68`, and `994`, so this is not just a theoretical preset entry.
+- The 2026-05-06 direct revalidation note records that the generated-artifact `-O4z` trace contains real `remove-unused-module-elements` executions, so this is not just a theoretical preset entry.
 - The 2026-05-06 direct-pass revalidation fixed the active-segment global-offset and empty active-element pruning drift, then reached `9972 / 10000` compared cases with `0` semantic mismatches.
 - Ordered-neighborhood and artifact proof remain separate optimize-path work because the canonical no-DWARF path runs RUME repeatedly.
 
@@ -144,7 +143,6 @@ That difference matters a lot if Starshine ever wants fully honest parity here.
 - [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
-- [`../../../../../.artifacts/o4z-wasm-opt-debug.log`](../../../../../.artifacts/o4z-wasm-opt-debug.log)
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedModuleElements.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
