@@ -11,7 +11,7 @@ sources:
   - ../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../global-effects/index.md
@@ -69,8 +69,8 @@ The fastest read-along path through the current Starshine status is:
   - [`src/passes/registry_test.mbt#L237-L239`](../../../../../src/passes/registry_test.mbt#L237-L239)
     - the generic removed-name execution test currently uses `de-nan` as its representative removed pass
 - older pass-port planning breadcrumb
-  - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L43`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L43)
-    - `de-nan` is still listed under Batch 1 names removed until a hot implementation lands
+  - [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L110-L123`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L110-L123)
+    - the archived registry map still lists `de-nan` among removed names
 - canonical scheduler context by omission
   - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
     - the current canonical no-DWARF path page does not place `de-nan` / `denan` in the active default route
@@ -219,7 +219,7 @@ Current Starshine `de-nan` strategy is honest removed-name tracking plus an expl
 - the pass name is preserved at [`src/passes/optimize.mbt#L145-L149`](../../../../../src/passes/optimize.mbt#L145-L149)
 - active requests are rejected at [`src/passes/optimize.mbt#L522-L524`](../../../../../src/passes/optimize.mbt#L522-L524)
 - current tests already prove `de-nan` is removed and rejected at [`src/passes/registry_test.mbt#L136-L138`](../../../../../src/passes/registry_test.mbt#L136-L138) and [`src/passes/registry_test.mbt#L237-L239`](../../../../../src/passes/registry_test.mbt#L237-L239)
-- Batch 1 planning still mentions it at [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L43`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L43)
+- the archived registry map still lists it among removed names at [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L110-L123`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md#L110-L123)
 - the active backlog still has no dedicated slice
 - there is no local owner file yet
 
