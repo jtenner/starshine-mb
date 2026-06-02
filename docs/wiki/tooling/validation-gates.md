@@ -1,13 +1,14 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-06-01
+last_reviewed: 2026-06-02
 sources:
   - ../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md
   - ../raw/moonbit/2026-05-20-workspace-package-surface.md
   - ../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md
   - ../raw/moonbit/2026-05-13-moon-cli-validation-docs.md
   - ../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md
+  - ../raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md
   - ../../README.md
   - ../../../AGENTS.md
   - ../../../package.json
@@ -17,6 +18,10 @@ sources:
   - ../../../scripts/lib/task-runtime.ts
   - ../../../scripts/lib/fuzz-task.ts
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../scripts/lib/self-opt-task.ts
+  - ../../../scripts/lib/self-optimized-artifacts.mjs
+  - ../../../scripts/lib/run-self-optimized-spec-suite.mjs
+  - ../../../scripts/lib/moonbit-wasi-runner.mjs
   - ../raw/research/0673-2026-05-26-dae-control-debris-normalizer.md
   - ../../../scripts/test/task-family-commands.ts
 related:
@@ -58,6 +63,8 @@ The important maintenance rule is: **do not blur tool capability with repo polic
 | `bun validate coverage [--top n] [--baseline path] [--update-baseline]` | Parses `moon coverage analyze`, reports uncovered-line totals, and optionally fails CI on uncovered-line regression versus a simple baseline file. | Default top count is `10`; no baseline means report-only. | Coverage reviews and CI coverage-regression checks. |
 | `bun validate readme-api-sync ...` | Verifies README/API synchronization through [`scripts/lib/readme-api-sync`](../../../scripts/lib/readme-api-sync.ts). | Arguments are owned by the readme-sync parser. | Public API or README surface changes. |
 | `bun validate trace-benchmark [--repeat n] [--corpus name] [--target target] [--list-corpora]` | Runs `src/validate_trace` benchmark corpora and emits trace summaries; the wiki stores durable corpus totals separately from machine wall time. | Default target `wasm-gc`; repeated `--corpus` filters and `--list-corpora` lists available corpora. | Validator trace performance work. |
+| `bun validate self-opt-smoke [--wasm path] [--limit n|--file path]` | Validates an already-built self-optimized CLI artifact with `wasm-tools validate --features all`, executes the artifact under Node/WASI with `--help`, then runs a fast WAST spec workload. | Defaults to `tests/node/dist/starshine-self-optimized-wasi.wasm` and `--limit 1`; `--wasm` may point at a candidate artifact such as `.tmp/o4z-bench/starshine-o4z-candidate.wasm`. | Checking optimized-artifact safety without rebuilding the full self-opt pipeline. |
+| `bun validate self-opt-full [--wasm path]` | Runs the same wasm-validity and Node/WASI smoke checks as `self-opt-smoke`, then executes all checked-in `tests/spec/**/*.wast` files through the self-optimized CLI artifact. | Forwards to the self-opt check lane with `--full-spec`; ask before running because it is intentionally broader than the default smoke lane. | CI/full signoff that the optimized artifact remains runtime-safe and spec-workload-correct. |
 | `moon prove src/validate_proof` | Required formal-proof gate for the proof helper package, separate from ordinary validation. | Requires a configured MoonBit proof toolchain and solvers. | Changes to proved helper contracts or the validator proof kernel. |
 
 ## `bun validate full` Flow
@@ -124,6 +131,20 @@ moon run --target <target> src/validate_trace -- --repeat <n> --corpus <name> ..
 
 Use [`validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md) for durable corpus-specific `phase_totals`, `helper_totals`, and hotspot baselines, and use the 2026-05-20 source refresh in [`../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md`](../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md) for the current corpus/test/wrapper evidence. Do not put raw local wall-time claims into long-lived docs unless the machine/environment and corpus are recorded.
 
+## Self-Optimized Artifact Gate
+
+`bun self-opt check` is the underlying artifact-safety lane. `bun validate self-opt-smoke` keeps the fast default (`--limit 1`) and `bun validate self-opt-full` adds `--full-spec` for the complete checked-in spec corpus. Both lanes operate on an already-built artifact: they do not rebuild debug/release/native targets, and they fail instead of falling back to debug wasm. The upstream wasm-tools README already documents per-feature toggles such as `--features=exception-handling` and says Stage 4+ proposals are enabled by default in validation, so Starshine's `--features all` choice is a local stricter policy rather than an upstream requirement.
+
+The check order is deliberate:
+
+```text
+wasm-tools validate --features all <artifact>
+Node/WASI run <artifact> --help
+Node/WASI run <artifact> spec <selected tests/spec/**/*.wast>
+```
+
+Use `--wasm <path>` to test a candidate artifact outside `tests/node/dist/`; relative paths resolve from the repo root. Use `bun self-opt build` only when the artifact itself must be regenerated, and ask before running the full build pipeline or full-spec lane in an ordinary development thread.
+
 ## Formal Proof Is A Separate Lane
 
 Official MoonBit docs describe `moon prove` as a proof command, and Starshine keeps that lane separate from ordinary validation. The required local proof target is [`src/validate_proof`](../../../src/validate_proof/), whose package is imported by [`src/validate`](../../../src/validate/) and governed by [`validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md). The proof-specific 2026-05-20 refresh in [`../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md`](../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md) owns the current trust-surface caveat; this gate page owns only when the repo asks developers to run the proof lane.
@@ -142,6 +163,7 @@ Practical rules:
 | MoonBit implementation change | Focused package tests during TDD, then `moon info`, `moon fmt`, `moon test`. | `bun validate full --profile ci --target wasm-gc`. |
 | Public API or `.mbti` change | `moon info`, review `.mbti` diffs, focused tests. | `bun validate readme-api-sync` plus full gate if the API is user-visible. |
 | Optimizer pass behavior | Focused pass tests and active dispatcher/registry tests. | `moon info`, `moon fmt`, `moon test`, pass-fuzz compare at the repo-standard count, and artifact replay when the pass participates in presets. |
+| Self-optimized artifact safety | `bun validate self-opt-smoke [--wasm <candidate>]`. | `bun validate self-opt-full [--wasm <candidate>]` after asking, especially for O4z or preset-path changes. |
 | Fuzzer generator or invalid-strategy work | Focused validate/fuzz tests and suite smoke. | `bun validate full` or suite-specific fuzz profiles plus updates to [`validate/fuzz-hardening.md`](../validate/fuzz-hardening.md), [`validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md), and [`fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md). |
 | Validator proof helpers | Focused executable tests and `moon prove src/validate_proof`. | Ordinary test/full validation as needed for call-site behavior. |
 | Trace/performance work | `bun validate trace-benchmark --list-corpora` and focused corpus runs. | Update [`validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md) when the durable baseline changes. |
@@ -158,9 +180,11 @@ Practical rules:
 
 - MoonBit command-manual refresh: [`../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md`](../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md)
 - Validation trace benchmark source refresh: [`../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md`](../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md)
+- wasm-tools validate feature defaults: [`../raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md`](../raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md)
 - Earlier MoonBit command-doc source bridge: [`../raw/moonbit/2026-05-13-moon-cli-validation-docs.md`](../raw/moonbit/2026-05-13-moon-cli-validation-docs.md)
 - Repo validation rules: [`../../../AGENTS.md`](../../../AGENTS.md), [`../../README.md`](../../README.md)
 - Local validation orchestration: [`../../../scripts/validate.ts`](../../../scripts/validate.ts), [`../../../scripts/lib/validate-task.ts`](../../../scripts/lib/validate-task.ts), [`../../../scripts/lib/task-runtime.ts`](../../../scripts/lib/task-runtime.ts)
+- Self-optimized artifact lane: [`../../../scripts/self-opt.ts`](../../../scripts/self-opt.ts), [`../../../scripts/lib/self-opt-task.ts`](../../../scripts/lib/self-opt-task.ts), [`../../../scripts/lib/self-optimized-artifacts.mjs`](../../../scripts/lib/self-optimized-artifacts.mjs), [`../../../scripts/lib/run-self-optimized-spec-suite.mjs`](../../../scripts/lib/run-self-optimized-spec-suite.mjs), [`../../../scripts/lib/moonbit-wasi-runner.mjs`](../../../scripts/lib/moonbit-wasi-runner.mjs)
 - Command-shape tests: [`../../../scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts)
 - Package and workspace metadata: [`../../../package.json`](../../../package.json), [`../../../moon.mod.json`](../../../moon.mod.json), [`./moonbit-workspace-package-map.md`](moonbit-workspace-package-map.md), [`../raw/moonbit/2026-05-20-workspace-package-surface.md`](../raw/moonbit/2026-05-20-workspace-package-surface.md)
 - Related workflow pages: [`./cli-command-and-dispatcher.md`](./cli-command-and-dispatcher.md), [`./release-process.md`](release-process.md), [`./fuzz-runner.md`](./fuzz-runner.md), [`./pass-fuzz-compare.md`](./pass-fuzz-compare.md), [`./tracing-playbook.md`](./tracing-playbook.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md), [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md), [`../validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md)

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | self-opt artifact gate and wasm-tools validation source note
+
+- Added `docs/wiki/raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md` from the official wasm-tools README, capturing that Stage 4+ proposals are enabled by default in validation and that per-feature flags remain explicit upstream inputs, so the self-opt artifact gate can document its stricter `--features all` policy against a primary source.
+- Refreshed `docs/wiki/tooling/validation-gates.md` to describe the new `bun validate self-opt-smoke` / `bun validate self-opt-full` wrappers, the underlying `bun self-opt check` lane, and the repo-local all-features policy, then updated `docs/wiki/index.md` so the catalog points at the expanded gate map.
+- No code or tests changed; this is a wiki-health and source-hygiene update for the self-optimized artifact validation lane.
+
 ## [2026-06-02] docs | binaryen release-horizon supersession timeline
 
 - Added a compact supersession timeline to [`docs/wiki/binaryen/release-horizon-and-oracles.md`](binaryen/release-horizon-and-oracles.md) and refreshed the top-level catalog entry in [`docs/wiki/index.md`](index.md) so the wiki now states the `version_130` bridge -> `version_125` correction sequence directly instead of requiring readers to infer it from the surrounding history.
