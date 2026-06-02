@@ -1,10 +1,12 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-06-01
+last_reviewed: 2026-06-02
 sources:
   - ../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-05-23-inlining-current-main-recheck.md
+  - ../../../raw/binaryen/2026-06-02-inlining-current-main-recheck.md
+  - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
   - ../../../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md
   - ../../../raw/binaryen/2026-04-23-inlining-primary-sources.md
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
@@ -61,7 +63,7 @@ A safe mental model:
 
 ## Current durable takeaways
 
-- The public Binaryen release horizon now reaches `version_130`, but this page keeps the detailed inlining contract anchored to `version_129` plus the 2026-05-23 current-main recheck because that remains the last inlining-specific no-drift bridge. `ref.func`, `call_ref`, and `call_indirect` still matter for root survival and copied-body repair, but the living docs should not teach broad `call_ref` selection unless a later source ingest proves it.
+- The public Binaryen release horizon now reaches `version_130`, but this page keeps the detailed inlining contract anchored to `version_129` plus the 2026-06-02 current-main recheck because that remains the latest inlining-specific no-drift bridge. `ref.func`, `call_ref`, and `call_indirect` still matter for root survival and copied-body repair, but the living docs should not teach broad `call_ref` selection unless a later source ingest proves it.
 - `refs` is not just direct-call count. It includes `ref.func` uses, while exports and the start function mark global/root use.
 - Full-inline profitability is layered: `try_delegate` bailout, tiny threshold, one-use special case, shrinking trivial wrapper class, flexible max size, shrink/speed policy, direct-call and loop policy.
 - Partial inlining is real but narrow: two top-of-function conditional split families, enabled only by heavier speed settings and `partialInliningIfs`.

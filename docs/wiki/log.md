@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | inlining no-inline freshness refresh
+
+- Added `docs/wiki/raw/binaryen/2026-06-02-inlining-current-main-recheck.md` and `docs/wiki/raw/research/0695-2026-06-02-inlining-current-main-recheck.md`, then refreshed the `docs/wiki/binaryen/passes/inlining/` dossier cluster plus the root and pass-catalog inlining entries so they now carry a 2026-06-02 current-main recheck against the existing `version_129` no-inline / clone-survival contract.
+- No code or tests changed; this was a wiki/source-hygiene refresh to keep the inlining contract, heuristic, WAT-shape, and Starshine policy pages synchronized with the latest no-drift bridge.
+
 ## [2026-06-02] docs | global-type-optimization current-main freshness refresh
 
 - Added `docs/wiki/raw/binaryen/2026-06-02-global-type-optimization-current-main-recheck.md` and `docs/wiki/raw/research/0694-2026-06-02-global-type-optimization-current-main-recheck.md`, then refreshed the `docs/wiki/binaryen/passes/global-type-optimization/` dossier cluster plus the tracker entry so they now carry a 2026-06-02 current-main recheck against the existing `version_129` contract.

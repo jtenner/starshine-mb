@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-23
+last_reviewed: 2026-06-02
 sources:
   - ../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-05-23-inlining-current-main-recheck.md
+  - ../../../raw/binaryen/2026-06-02-inlining-current-main-recheck.md
+  - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-inlining-primary-sources.md
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md
@@ -21,7 +23,7 @@ related:
 
 # `inlining`: heuristics, splitting, and plain-vs-optimizing
 
-This page focuses on the parts of the inliner that future agents most often overcompress. A 2026-05-23 current-main recheck still leaves these heuristics and split boundaries unchanged.
+This page focuses on the parts of the inliner that future agents most often overcompress. A 2026-06-02 current-main recheck still leaves these heuristics and split boundaries unchanged.
 
 ## The wrong one-line summary
 

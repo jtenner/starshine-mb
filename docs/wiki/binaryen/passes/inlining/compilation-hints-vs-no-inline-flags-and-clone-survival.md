@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-13
+last_reviewed: 2026-06-02
 sources:
   - ../../../raw/research/0226-2026-04-21-inlining-inline-hints-and-no-inline-followup.md
+  - ../../../raw/binaryen/2026-06-02-inlining-current-main-recheck.md
+  - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Inlining.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/NoInline.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -141,7 +143,7 @@ That is exactly the split you would expect from the two booleans in `Function`.
 ## 5. Clone survival is source-confirmed, not just a pipeline accident
 
 The existing dossier already noted that `test/lit/passes/no-inline-monomorphize-inlining.wast` proves no-inline intent survives through monomorphization.
-This page closes the source-confirmation gap for why. A 2026-05-23 current-main recheck still shows the same flag-copy split in `Inlining.cpp`, `NoInline.cpp`, and `module-utils.cpp`.
+This page closes the source-confirmation gap for why. A 2026-06-02 current-main recheck still shows the same flag-copy split in `Inlining.cpp`, `NoInline.cpp`, and `module-utils.cpp`.
 
 `src/ir/module-utils.cpp` copies the inliner-facing flags when cloning a function:
 
@@ -199,7 +201,7 @@ That summary matches the reviewed `version_129` code much better than the simple
 
 ## Starshine implementation note
 
-As of 2026-05-13, Starshine has a first local policy surface for this split:
+As of 2026-06-02, Starshine has a first local policy surface for this split:
 
 - `no-inline=<pattern>` marks both full and partial suppression;
 - `no-full-inline=<pattern>` marks full suppression only;
