@@ -7,6 +7,8 @@ sources:
   - ../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md
   - ../../../scripts/lib/build-self-optimized.mjs
   - ../../../scripts/lib/self-optimized-artifacts.mjs
+  - ../../../scripts/lib/o4z-debug-startup-map.test.ts
+  - ../../../tests/repros/o4z-debug-startup-map-init-repro.wasm
   - ./cli-startup-path.md
 related:
   - ./cli-command-and-dispatcher.md
@@ -32,6 +34,13 @@ The current symptom is a WebAssembly runtime trap surfaced as `RuntimeError: unr
 - The runtime-trap semantics are now source-backed in [`../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md`](../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md), so the message text should be treated as a trap wrapper rather than a special local exception class.
 - The detailed owner evidence, reduced reproduction, and temporary instrumentation notes live in the archived research note [`../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md`](../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md).
 
+## Current TDD guard
+
+- [`../../../scripts/lib/o4z-debug-startup-map.test.ts`](../../../scripts/lib/o4z-debug-startup-map.test.ts) is the active reduced-fixture guard.
+- [`../../../tests/repros/o4z-debug-startup-map-init-repro.wasm`](../../../tests/repros/o4z-debug-startup-map-init-repro.wasm) is the current reproduction.
+- The first assertion prints the WAT and rejects the stale allocator-root shape if `malloc` still leaves `i32.const 0` immediately before `global.get 0` at the `removeBlock` call site.
+- The second assertion replays the fixture through `runWasmStart(..., args: ["--help"])` and expects a zero exit code.
+
 ## How to use this page
 
 1. Keep this investigation separate from the path-handling audit in [`cli-startup-path.md`](./cli-startup-path.md).
@@ -46,4 +55,6 @@ The current symptom is a WebAssembly runtime trap surfaced as `RuntimeError: unr
 - Runtime-trap semantics source note: [`../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md`](../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md)
 - Build pipeline: [`../../../scripts/lib/build-self-optimized.mjs`](../../../scripts/lib/build-self-optimized.mjs)
 - Artifact-path helper: [`../../../scripts/lib/self-optimized-artifacts.mjs`](../../../scripts/lib/self-optimized-artifacts.mjs)
+- Active reduced guard: [`../../../scripts/lib/o4z-debug-startup-map.test.ts`](../../../scripts/lib/o4z-debug-startup-map.test.ts)
+- Reduced repro: [`../../../tests/repros/o4z-debug-startup-map-init-repro.wasm`](../../../tests/repros/o4z-debug-startup-map-init-repro.wasm)
 - Related audit: [`./cli-startup-path.md`](./cli-startup-path.md)

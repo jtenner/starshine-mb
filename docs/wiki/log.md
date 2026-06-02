@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | o4z debug-startup TDD guard cross-link
+
+- Refreshed [`docs/wiki/tooling/o4z-debug-startup-trap.md`](tooling/o4z-debug-startup-trap.md) so the living blocker page now links the active reduced-fixture guard (`scripts/lib/o4z-debug-startup-map.test.ts`) and repro (`tests/repros/o4z-debug-startup-map-init-repro.wasm`) alongside the archived owner evidence and WebAssembly trap semantics note.
+- Updated [`docs/wiki/index.md`](index.md) so the catalog summary reflects the active TDD slice and keeps the runtime blocker distinct from the CLI path audit.
+- No code or tests changed; this is a wiki-health and discoverability update.
+
 ## [2026-06-02] docs | o4z runtime-trap semantics source note
 
 - Added [`docs/wiki/raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md`](raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md) from MDN and WebAssembly core sources, then refreshed [`docs/wiki/tooling/o4z-debug-startup-trap.md`](tooling/o4z-debug-startup-trap.md) and [`docs/wiki/index.md`](index.md) so the living blocker page now explicitly treats `RuntimeError: unreachable` as the expected wasm trap surface rather than a host-specific exception shape.
