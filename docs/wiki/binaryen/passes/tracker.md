@@ -345,7 +345,7 @@ Use these files in this order:
 - `agent-todo.md`
   - source of truth for current backlog slice ids and implementation intent
 
-The current public Binaryen release baseline is `version_130`; use it for new upstream-tag lookups, but keep pass-contract pages anchored to reviewed `version_129` / current-main surfaces until a dedicated `version_130` reread exists.
+The current public Binaryen release baseline is `version_130`; use it for new upstream-tag lookups, but keep pass-contract pages anchored to reviewed `version_129` / current-main surfaces until a dedicated `version_130` reread exists. The 2026-06-02 release-horizon revalidation still points here.
 
 If these ever disagree, update this tracker in the same change. The 2026-05-06 audit note above records one such known temporary disagreement.
 

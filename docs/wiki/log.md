@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-02] docs | binaryen pass catalog/tracker release-horizon revalidation
+
+- Refreshed [`docs/wiki/binaryen/passes/index.md`](binaryen/passes/index.md) and [`docs/wiki/binaryen/passes/tracker.md`](binaryen/passes/tracker.md) so the central Binaryen catalog and tracker now explicitly say the 2026-06-02 release-horizon revalidation still leaves `version_130` as the latest public release baseline.
+- No code or tests changed; this was a catalog-and-tracker freshness alignment after the release-horizon recheck.
+
 ## [2026-06-02] docs | binaryen release-horizon revalidation
 
 - Rechecked the public Binaryen release horizon against the direct GitHub `version_130` release page, the official `main` changelog, and the Chromium refs listing after a contradictory scratch capture surfaced locally; the living wiki still treats `version_130` as the newest public release baseline.
