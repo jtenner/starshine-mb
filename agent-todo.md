@@ -203,7 +203,7 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Why: Starshine now records immutable top-level global candidates plus direct allocation poison facts, but still does not rewrite local/param/supertype reads, group one/two values, or un-nest non-constant operands.
   - Deliverables:
     - [x] `[GSI001-A]` Add subtype propagation to the fact table: poisoned child types poison parents, and candidate child globals propagate upward to parent types. Completed 2026-06-03 with white-box propagation/order coverage and green direct compare.
-    - [ ] `[GSI001-B]` Add a narrow single-candidate local/param origin rewrite that preserves null traps and produces valid typed output; start with exact struct type, no subtype, no value-folding.
+    - [x] `[GSI001-B]` Add a narrow single-candidate local/param origin rewrite that preserves null traps and produces valid typed output; start with exact struct type, no subtype, no value-folding. Completed 2026-06-03 with public-pipeline param/local positives, open-world/multi-candidate/poisoned/unsafe/subtype-propagated negatives, 10k direct compare, and debug-artifact timing.
     - [ ] `[GSI001-C]` Add one-value multi-candidate folding only for materializable equal values; keep non-constant expression equivalence and un-nesting out of this slice.
     - [ ] `[GSI001-D]` Add two-value singleton-group `select(ref.eq(...))` synthesis with negative coverage for >2 unique values and two-equal-pair ambiguity.
     - [ ] `[GSI001-E]` Refresh direct compare at 1000 before each behavior step and 10000 before calling the rewrite slice signed off; record pass-local debug-artifact timing.
