@@ -180,6 +180,94 @@ fn ls_as_ref(vt : @lib.ValType) -> @lib.RefType? {
 }
 
 ///|
+fn ls_local_idx_raw(idx : @lib.LocalIdx) -> Int {
+  let @lib.LocalIdx(raw) = idx
+  raw.reinterpret_as_int()
+}
+
+///|
+fn ls_ref_body_local_mask(body_locals : @lib.Locals) -> Array[Bool]? {
+  let body_local_count = body_locals.length()
+  let mask : Array[Bool] = Array::new(capacity=body_local_count)
+  let mut has_ref = false
+  for body_idx = 0; body_idx < body_local_count; body_idx = body_idx + 1 {
+    match ls_as_ref(body_locals[body_idx]) {
+      Some(_) => {
+        mask.push(true)
+        has_ref = true
+      }
+      None => mask.push(false)
+    }
+  }
+  if has_ref {
+    Some(mask)
+  } else {
+    None
+  }
+}
+
+///|
+fn ls_write_targets_ref_body_local(
+  idx : @lib.LocalIdx,
+  param_count : Int,
+  ref_body_locals : Array[Bool],
+) -> Bool {
+  let raw = ls_local_idx_raw(idx)
+  let body_idx = raw - param_count
+  body_idx >= 0 &&
+  body_idx < ref_body_locals.length() &&
+  ref_body_locals[body_idx]
+}
+
+///|
+fn ls_instrs_write_ref_body_local(
+  instrs : Array[@lib.Instruction],
+  param_count : Int,
+  ref_body_locals : Array[Bool],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, body) | @lib.Loop(_, body) | @lib.TryTable(_, _, body) =>
+        if ls_expr_writes_ref_body_local(body, param_count, ref_body_locals) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if ls_instrs_write_ref_body_local(
+            then_body, param_count, ref_body_locals,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if ls_instrs_write_ref_body_local(
+                body, param_count, ref_body_locals,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.LocalSet(idx) | @lib.LocalTee(idx) =>
+        if ls_write_targets_ref_body_local(idx, param_count, ref_body_locals) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn ls_expr_writes_ref_body_local(
+  expr : @lib.Expr,
+  param_count : Int,
+  ref_body_locals : Array[Bool],
+) -> Bool {
+  let @lib.Expr(instrs) = expr
+  ls_instrs_write_ref_body_local(instrs, param_count, ref_body_locals)
+}
+
+///|
 fn ls_candidate_local_type(
   declared : @lib.ValType,
   assigned : Array[@lib.ValType],
@@ -279,10 +367,27 @@ fn ls_rewrite_func(
   mod_ : @lib.Module,
   module_ctx : @ir.HotModuleContext,
 ) -> (@lib.Func, Bool) {
+  let @lib.Func(body_locals, body) = func
+  let ref_body_locals = match ls_ref_body_local_mask(body_locals) {
+    Some(mask) => mask
+    None => return (func, false)
+  }
+  let raw_param_count = match
+    @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+    Some(@lib.FuncType(params, _)) => params.length()
+    None => -1
+  }
+  if raw_param_count >= 0 &&
+    !ls_expr_writes_ref_body_local(body, raw_param_count, ref_body_locals) {
+    return (func, false)
+  }
   let hot_func = @ir.hot_lift_func_with_context(mod_, func_idx, module_ctx)
   let assignments = ls_collect_assignments(hot_func)
-  let param_count = @ir.hot_local_param_count(hot_func)
-  let @lib.Func(body_locals, body) = func
+  let param_count = if raw_param_count >= 0 {
+    raw_param_count
+  } else {
+    @ir.hot_local_param_count(hot_func)
+  }
   let rewritten_locals = body_locals.copy()
   let mut changed = false
   for body_idx = 0; body_idx < body_locals.length(); body_idx = body_idx + 1 {
