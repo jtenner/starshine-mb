@@ -168,7 +168,7 @@ For docs-only updates, this page's evidence is source and test-map based. For fu
 
 1. `moon test src/passes`
 2. `moon test src/cmd`
-3. focused Binaryen parity with `bun scripts/pass-fuzz-compare.ts --pass merge-blocks ...` once the harness lane is being modified
+3. focused Binaryen parity with `moon build --target native --release src/cmd` followed by `bun scripts/pass-fuzz-compare.ts --pass merge-blocks ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` once the harness lane is being modified
 4. debug-artifact replay if pass placement or HOT lower/writeback behavior changes
 
 ## Sources

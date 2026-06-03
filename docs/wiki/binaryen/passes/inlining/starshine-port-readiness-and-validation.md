@@ -152,13 +152,14 @@ Once a Starshine module-pass lane can run `inlining`, compare against Binaryen i
 6. `inlining_splitting_basics.wast` and `inlining_splitting.wast` only after split support lands;
 7. neighborhood replay with `inline-main`, `monomorphize`, `duplicate-function-elimination`, and `inlining-optimizing`.
 
-Use the pass-targeted harness when available:
+Use the pass-targeted harness when available. Build the native CLI once and keep the parallel/binary flags explicit:
 
 ```text
-bun fuzz compare-pass --pass inlining ...
+moon build --target native --release src/cmd
+bun fuzz compare-pass --pass inlining ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
 ```
 
-`bun scripts/pass-fuzz-compare.ts --pass inlining ...` is an implementation-equivalent direct entrypoint if needed for local tooling compatibility.
+`bun scripts/pass-fuzz-compare.ts --pass inlining ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` is an implementation-equivalent direct entrypoint if needed for local tooling compatibility.
 
 Keep exact normalization expectations separate for plain `inlining` and `inlining-optimizing` because the latter intentionally runs additional cleanup.
 

@@ -124,9 +124,10 @@ Current direct-slice evidence should include:
 
 1. focused WAT-shape tests for all four full-width direct pairs plus non-load no-ops;
 2. `moon test src/cmd` for CLI/dispatcher routing;
-3. `bun scripts/pass-fuzz-compare.ts --pass avoid-reinterprets --generator gen-valid --count 10000 --min-compared 10000 --out-dir .tmp/pass-fuzz-ar-genvalid-10000`;
-4. a mixed-generator compare-pass run, classifying command failures separately from semantic mismatches;
-5. `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --avoid-reinterprets` using a native `cmd` binary when needed for runtime.
+3. `moon build --target native --release src/cmd` before long compare lanes;
+4. `bun scripts/pass-fuzz-compare.ts --pass avoid-reinterprets --generator gen-valid --count 10000 --min-compared 10000 --out-dir .tmp/pass-fuzz-ar-genvalid-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe`;
+5. a mixed-generator compare-pass run with explicit `--jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe`, classifying command failures separately from semantic mismatches;
+6. `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --avoid-reinterprets` using a native `cmd` binary when needed for runtime.
 
 Future indirect-slice validation must add positive and negative reduced fixtures for one indirect reinterpret user, multiple users sharing one helper local, mixed original/reinterpret users, copy chains, merge/param/no-fallthrough bailouts, and memory64 pointer-temp typing.
 

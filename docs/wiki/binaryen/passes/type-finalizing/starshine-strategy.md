@@ -115,7 +115,7 @@ Because Starshine has no implementation, the current validation is status valida
 If a future port lands, use the repo's standard signoff:
 
 - quick: `moon info`, `moon fmt`, `moon test`
-- pass parity: `bun fuzz compare-pass --pass type-finalizing ...` or the nearest harness spelling accepted by the local Binaryen toolchain
+- pass parity: `moon build --target native --release src/cmd` followed by `bun fuzz compare-pass --pass type-finalizing ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` or the nearest harness spelling accepted by the local Binaryen toolchain
 
 ## Relationship to neighboring Starshine code
 

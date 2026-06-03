@@ -105,10 +105,11 @@ Then add helper-inheritance tests that go beyond the tiny official lit file:
 - nondefaultable local cases once the local type surface can express them,
 - follow-up `remove-unused-module-elements` composition for deleting now-dead `__original_main` only when that separate pass is requested.
 
-Final parity should use the pass-targeted compare harness with the canonical upstream spelling:
+Final parity should use the pass-targeted compare harness with the canonical upstream spelling, explicit parallelism, and a prebuilt Starshine binary:
 
 ```text
-bun fuzz compare-pass --pass inline-main ...
+moon build --target native --release src/cmd
+bun fuzz compare-pass --pass inline-main ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
 ```
 
 Use the living pass implementation rules in [`../../../../../AGENTS.md`](../../../../../AGENTS.md) and keep any future active backlog slice in `agent-todo.md` until implemented.

@@ -3565,6 +3565,105 @@ process.exit(0);
   assert(validateCalls.length === 2, `expected baseline and final starshine validation only, got ${validateCalls.length}`);
 }
 
+export function runPassFuzzCompareStarshineBinDefaultsToAutoJobsTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-auto-jobs-"));
+  const outDir = path.join(tmpdir, "out");
+  const starshineLog = path.join(tmpdir, "starshine.log");
+  const wasmOptLog = path.join(tmpdir, "wasm-opt.log");
+  const wasmToolsLog = path.join(tmpdir, "wasm-tools.log");
+
+  const fakeStarshine = makeExecutable(
+    path.join(tmpdir, "fake-starshine"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_STARSHINE_LOG, JSON.stringify(args) + "\\n");
+const outIndex = args.indexOf("--out");
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+fs.writeFileSync(args[outIndex + 1], "starshine");
+process.exit(0);
+`,
+  );
+  const fakeWasmOpt = makeExecutable(
+    path.join(tmpdir, "fake-wasm-opt"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
+const outIndex = args.indexOf("-o");
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+fs.writeFileSync(args[outIndex + 1], args.includes("-S") ? "(module)\\n" : "binaryen");
+process.exit(0);
+`,
+  );
+  const fakeWasmTools = makeExecutable(
+    path.join(tmpdir, "fake-wasm-tools"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_WASM_TOOLS_LOG, JSON.stringify(args) + "\\n");
+if (args[0] === "smith") {
+  const outIndex = args.indexOf("-o");
+  fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+  fs.writeFileSync(args[outIndex + 1], "smith");
+}
+process.exit(0);
+`,
+  );
+
+  const result = spawnSync(
+    "bun",
+    [
+      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--count",
+      "2",
+      "--seed",
+      "0x5eed",
+      "--generator",
+      "wasm-smith",
+      "--out-dir",
+      outDir,
+      "--starshine-bin",
+      fakeStarshine,
+      "--wasm-opt-bin",
+      fakeWasmOpt,
+      "--wasm-tools-bin",
+      fakeWasmTools,
+      "--pass",
+      "remove-unused-brs",
+    ],
+    {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        FAKE_STARSHINE_LOG: starshineLog,
+        FAKE_WASM_OPT_LOG: wasmOptLog,
+        FAKE_WASM_TOOLS_LOG: wasmToolsLog,
+      },
+      encoding: "utf8",
+    },
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    fail(`pass-fuzz-compare default auto jobs failed:\n${result.stderr}`);
+  }
+
+  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
+    requestedCount: number;
+    jobs: number;
+  };
+  const available = (os as typeof os & { availableParallelism?: () => number }).availableParallelism;
+  const expectedJobs = Math.min(Math.max(1, available?.() ?? os.cpus().length ?? 1), summary.requestedCount);
+  assert(summary.jobs === expectedJobs, `expected default auto jobs=${expectedJobs}, got ${summary.jobs}`);
+}
+
 export function runPassFuzzCompareParallelJobsRequireStarshineBinTest(): void {
   const repoRoot = path.resolve(import.meta.dir, "..", "..");
   const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-jobs-guard-"));
@@ -3631,6 +3730,7 @@ if (import.meta.main) {
   runPassFuzzCompareReplayMismatchStatusTest();
   runPassFuzzCompareGenValidMismatchReductionArtifactsTest();
   runPassFuzzCompareMinComparedGateTest();
+  runPassFuzzCompareStarshineBinDefaultsToAutoJobsTest();
   runPassFuzzCompareParallelJobsRequireStarshineBinTest();
   runPassFuzzCompareDefaultStarshineInvocationTest();
   runPassFuzzCompareDefaultStarshineInvocationRetriesMissingOutputTest();

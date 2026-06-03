@@ -133,7 +133,7 @@ Once direct reduced tests are green, validate the cluster role that makes `flatt
 5. saved generated-artifact `-O4z` slot replay for slot `9` once the pass is runnable;
 6. nested aggressive rerun checks, because the saved Binaryen debug log showed many total `flatten` executions in a full `-O4z` run.
 
-Use `bun fuzz compare-pass ...` or `bun scripts/pass-fuzz-compare.ts ...` only after reduced shape tests make the supported-surface policy clear. The pass has hard unsupported upstream families, so a raw broad fuzz lane without feature filtering can produce misleading failures.
+Use `moon build --target native --release src/cmd` followed by `bun fuzz compare-pass ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` or `bun scripts/pass-fuzz-compare.ts ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` only after reduced shape tests make the supported-surface policy clear. The pass has hard unsupported upstream families, so a raw broad fuzz lane without feature filtering can produce misleading failures.
 
 ## What should block removing `flatten` from `pass_registry_removed_names()`
 

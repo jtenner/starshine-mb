@@ -153,7 +153,7 @@ When a pass changes locals or globals, check these invariants before accepting o
 5. **Type refinement:** if a pass tightens a local/global reference type, retag gets/tees/sets consistently and run validation.
 6. **Roundtrip expectations:** WAST source `$` ids may be lost during print; compare semantic indices and name-section metadata separately.
 
-Useful validation lanes are ordinary `moon test` for local parser/lowerer/typechecker coverage, focused package tests such as `moon test src/wast`, `moon test src/binary`, and `moon test src/validate`, and pass-specific `bun fuzz compare-pass --pass <name>` when a transform mutates variable instructions.
+Useful validation lanes are ordinary `moon test` for local parser/lowerer/typechecker coverage, focused package tests such as `moon test src/wast`, `moon test src/binary`, and `moon test src/validate`, and pass-specific `moon build --target native --release src/cmd` followed by `bun fuzz compare-pass --pass <name> --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` when a transform mutates variable instructions.
 
 ## Common Mistakes
 

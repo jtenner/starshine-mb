@@ -219,7 +219,7 @@ Use the existing pass signoff rules once implementation begins:
 - tests beside the owner file
 - active dispatcher / CLI coverage
 - final-module validation
-- Binaryen parity via `bun fuzz compare-pass ...` or `bun scripts/pass-fuzz-compare.ts ...`
+- Binaryen parity via `moon build --target native --release src/cmd` followed by `bun fuzz compare-pass ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` or `bun scripts/pass-fuzz-compare.ts ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe`
 - explicit documentation of any intentional divergence from Binaryen
 
 ## Non-goals for the current tree

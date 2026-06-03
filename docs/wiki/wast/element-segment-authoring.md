@@ -191,7 +191,7 @@ When a pass or lowering change touches elements, check every affected index and 
 3. **Function indices:** function-list payloads, nested `ref.func` expressions, calls, exports, starts, names, annotations, and declaration-source bitmaps.
 4. **Type indices and reference types:** typed element segment reference types, table element types, typed item expressions, casts/tests that rely on those types, and GC type-section rewrites.
 5. **Mode preservation:** passive versus declarative mode must be a deliberate choice; do not repair a failing `table.init` fixture by silently converting a declarative proof into a passive payload.
-6. **Validation:** rerun module validation after any element rewrite. For pass parity work, pair focused fixtures with `bun fuzz compare-pass --pass <name> ...` when the pass can touch tables, functions, types, or module elements.
+6. **Validation:** rerun module validation after any element rewrite. For pass parity work, pair focused fixtures with `moon build --target native --release src/cmd` and `bun fuzz compare-pass --pass <name> ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` when the pass can touch tables, functions, types, or module elements.
 
 ## WAST Declarative-Mode Fix Plan
 

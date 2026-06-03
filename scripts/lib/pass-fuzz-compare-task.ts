@@ -89,7 +89,7 @@ type PassFuzzCompareOptions = {
   genValidMetamorphicTransforms: string[];
   maxFailures: number;
   keepGoingAfterCommandFailures: boolean;
-  jobs: number;
+  jobs: number | null;
   passFlags: string[];
   replayFailuresFrom: string | null;
   failureStatus: CaseStatus | null;
@@ -297,7 +297,7 @@ const HELP_TEXT = [
   "  --keep-going-after-command-failures",
   "                       Record command failures without counting them toward --max-failures",
   "  --normalize <name>   Enable compare normalizer. Supported: drop-consts, unreachable-control-debris. May repeat",
-  "  --jobs <n|auto>       Concurrent case jobs. Default: 1; auto uses available parallelism; >1 requires --starshine-bin",
+  "  --jobs <n|auto>       Concurrent case jobs. Default: auto with --starshine-bin, otherwise 1; auto uses available parallelism; >1 requires --starshine-bin",
   "  --pass <name>         Canonical pass name without leading --. May repeat",
   "  --replay-failures-from <dir>",
   "                       Replay saved failure inputs from a prior out dir",
@@ -1823,7 +1823,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   const genValidMetamorphicTransforms: string[] = [];
   let maxFailures = 20;
   let keepGoingAfterCommandFailures = false;
-  let jobs = 1;
+  let jobs: number | null = null;
   const passFlags: string[] = [];
   let replayFailuresFrom: string | null = null;
   let failureStatus: CaseStatus | null = null;
@@ -2140,7 +2140,8 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
           options.replayCaseIndex,
         );
   const requestedCount = replayCases?.length ?? options.count;
-  const effectiveJobs = Math.min(options.jobs, Math.max(requestedCount, 1));
+  const defaultJobs = options.starshineBin === null ? 1 : availableParallelism();
+  const effectiveJobs = Math.min(options.jobs ?? defaultJobs, Math.max(requestedCount, 1));
   if (effectiveJobs > 1 && options.starshineBin === null) {
     fail(
       "--jobs >1 requires --starshine-bin so parallel cases do not run concurrent moon invocations; " +

@@ -224,11 +224,12 @@ bun fuzz run --suite=<suite> --profile=<profile> --seed=<seed> --target=<target>
 bun fuzz run --list-suites
 bun fuzz run --list-profiles
 bun fuzz run --help
-bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --out-dir tmp/pass-fuzz --pass remove-unused-brs
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --out-dir tmp/pass-fuzz --pass remove-unused-brs --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
 bun scripts/pass-fuzz-compare.ts --list-passes
-bun fuzz compare-pass --count 10000 --seed 0x5eed --pass remove-unused-brs --out-dir tmp/pass-fuzz
+bun fuzz compare-pass --count 10000 --seed 0x5eed --pass remove-unused-brs --out-dir tmp/pass-fuzz --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
 bun validate coverage
 bun validate readme-api-sync
 ```
 
-`pass-fuzz-compare.ts` alternates `wasm-tools smith` and in-repo `gen_valid` modules, runs the selected Starshine pass flags and the corresponding `wasm-opt` flags, validates Starshine's output with `wasm-tools validate`, and compares normalized `wasm-opt -S --strip-debug` text output for parity. Use `--pass <name>` for canonical pass selection, `--list-passes` to discover supported passes, or `bun fuzz compare-pass ...` as the standard wrapper entrypoint.
+`pass-fuzz-compare.ts` alternates `wasm-tools smith` and in-repo `gen_valid` modules, runs the selected Starshine pass flags and the corresponding `wasm-opt` flags, validates Starshine's output with `wasm-tools validate`, and compares normalized `wasm-opt -S --strip-debug` text output for parity. Use `--pass <name>` for canonical pass selection, `--list-passes` to discover supported passes, or `bun fuzz compare-pass ...` as the standard wrapper entrypoint. For long parity lanes, build `src/cmd` once and pass both `--jobs auto` and `--starshine-bin target/native/release/build/cmd/cmd.exe` explicitly.

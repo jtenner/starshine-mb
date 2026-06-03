@@ -118,7 +118,7 @@ For a future implementation's first-slice ordering, shape-to-validation checklis
 If a future port lands, use the repo's standard signoff:
 
 - quick: `moon info`, `moon fmt`, `moon test`
-- pass parity: `bun fuzz compare-pass --pass type-unfinalizing ...` or `--pass type-un-finalizing ...`, depending on which spelling the local harness accepts and how it maps to upstream Binaryen
+- pass parity: `moon build --target native --release src/cmd` followed by `bun fuzz compare-pass --pass type-unfinalizing ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` or `--pass type-un-finalizing ...`, depending on which spelling the local harness accepts and how it maps to upstream Binaryen
 
 ## Relationship to neighboring Starshine code
 

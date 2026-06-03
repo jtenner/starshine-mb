@@ -381,7 +381,7 @@ Do not call tuple-opt done until all of these are true:
 - the explicit pass remains green on reduced native Binaryen comparison
 - the remaining exact-shape white-box failures are resolved or intentionally rebaselined
 - the pass lands in the real Binaryen slot with feature-off coverage
-- `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --count 10000 ...` is acceptable on current head
+- `moon build --target native --release src/cmd` followed by `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --count 10000 ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` is acceptable on current head
 - the full debug-artifact compare stays canonically green enough to remain out of the active parity-blocker backlog
 
 ## Sources

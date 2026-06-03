@@ -8,6 +8,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added public-pipeline coverage in `src/passes/global_struct_inference_test.mbt` for exact param and body-local positives plus open-world, multi-candidate, subtype-propagated, poisoned, and unsafe-origin negatives; marked `[GSI001-B]` complete while keeping one-value grouping, select synthesis, and un-nesting active.
 - Recorded refreshed evidence: `moon test src/passes` passed `1512/1512`; `.tmp/pass-fuzz-global-struct-inference-gsi001b-final-10000` reached `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures (`22` empty-recursion-group plus one each bad-section-size, table-index-out-of-range, and invalid-tag-index); `.tmp/gsi-debug-artifact-timing-gsi001b-final` was canonical-equal with Starshine/Binaryen pass-local `0.371 ms / 5.017 ms`.
 
+## [2026-06-03] tooling | pass-fuzz compare explicit native parallel lanes
+
+- Updated `pass-fuzz-compare` so omitted `--jobs` defaults to host auto-parallelism when `--starshine-bin` is supplied, while retaining single-worker default for `moon run`-backed Starshine launches to avoid `_build/.moon-lock` contention.
+- Added command coverage for the `--starshine-bin` no-`--jobs` implementation default, but refreshed normative docs and command templates to keep `--jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` explicit after `moon build --target native --release src/cmd`.
+
 ## [2026-06-03] passes | global-struct-inference subtype facts follow-up
 
 - Added subtype propagation to the analysis-only `global-struct-inference` closed-world fact table: poisoned child types now poison parent types, child candidate globals propagate upward to parent types, duplicates are suppressed, and candidate lists are sorted by global index for deterministic later consumption.

@@ -112,7 +112,7 @@ Use this order for future work:
 
 1. Add or update a focused `src/passes/precompute_test.mbt` case for the exact before/after shape.
 2. Confirm registry, preset, and raw-skip trace tests still pass if the user-visible summary, pass placement, or pass-manager shortcut behavior changes.
-3. Compare the new family against Binaryen with pass-targeted fuzzing where possible: `bun fuzz compare-pass --pass precompute ...` or the repository's equivalent pass-fuzz command.
+3. Compare the new family against Binaryen with pass-targeted fuzzing where possible: `moon build --target native --release src/cmd` followed by `bun fuzz compare-pass --pass precompute ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` or the repository's equivalent pass-fuzz command with the same explicit parallel/binary flags.
 4. For control/root-shape rewrites, run full-module validation and keep the `skip-invalid-lower` trace negative unless the test intentionally proves a skip.
 5. For artifact-sensitive changes, replay the existing `src/cmd/cmd_wbtest.mbt` lanes before claiming parity improvement.
 

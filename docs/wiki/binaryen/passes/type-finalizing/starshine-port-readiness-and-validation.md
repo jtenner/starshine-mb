@@ -101,7 +101,7 @@ When implementation begins, compare against official Binaryen with at least:
 
 - `wasm-opt --type-finalizing -S` for direct positive/negative WAT fixtures;
 - `wasm-opt --type-finalizing --type-unfinalizing -S` and the reverse order for sibling interaction smoke tests;
-- `bun fuzz compare-pass --pass type-finalizing ...` once the local harness accepts the active pass name;
+- `moon build --target native --release src/cmd` followed by `bun fuzz compare-pass --pass type-finalizing ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` once the local harness accepts the active pass name;
 - a focused binary roundtrip lane for final/open bit persistence.
 
 Do not use no-DWARF `-O` / `-Os` preset parity as the primary acceptance test. This pass is outside Starshine's current open-world no-DWARF preset queue, so explicit-pass tests are the correct starting point.

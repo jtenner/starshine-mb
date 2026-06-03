@@ -237,7 +237,8 @@ For seed `0x1eed`, all `22` command failures are ignored Binaryen/tool `binaryen
 A future implementation slice should validate in this order:
 
 1. focused Moon tests in `src/passes/inlining_test.mbt` for each new shape;
-2. direct `bun scripts/pass-fuzz-compare.ts --pass inlining ...` for plain stop-point behavior;
-3. direct `bun scripts/pass-fuzz-compare.ts --pass inlining-optimizing ...` for optimizing behavior;
-4. saved mismatch replay from `.tmp/pass-fuzz-inlining-seed-0x1eed-after-four-func-frontier2` until retired or split;
-5. late-tail neighborhood replay only after direct pass semantics are green across the agreed seed lanes.
+2. `moon build --target native --release src/cmd` before long compare lanes;
+3. direct `bun scripts/pass-fuzz-compare.ts --pass inlining ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` for plain stop-point behavior;
+4. direct `bun scripts/pass-fuzz-compare.ts --pass inlining-optimizing ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` for optimizing behavior;
+5. saved mismatch replay from `.tmp/pass-fuzz-inlining-seed-0x1eed-after-four-func-frontier2` until retired or split;
+6. late-tail neighborhood replay only after direct pass semantics are green across the agreed seed lanes.

@@ -137,7 +137,7 @@ A future implementation should validate in layers:
 3. Unit fixtures: start from refined-type and weak-benefit call shapes from [`./wat-shapes.md`](./wat-shapes.md).
 4. Parent parity: share all safety and clone-construction tests with [`../monomorphize/index.md`](../monomorphize/index.md).
 5. Sibling parity: compare against Binaryen on `monomorphize-types.wast`, because that is the direct upstream lit file that runs `--monomorphize-always`.
-6. Fuzz signoff: add a pass-targeted `bun scripts/pass-fuzz-compare.ts --pass monomorphize-always ...` lane only after ordinary `monomorphize` has a green shared engine.
+6. Fuzz signoff: after `moon build --target native --release src/cmd`, add a pass-targeted `bun scripts/pass-fuzz-compare.ts --pass monomorphize-always ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` lane only after ordinary `monomorphize` has a green shared engine.
 
 ## Current non-goals
 

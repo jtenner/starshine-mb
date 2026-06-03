@@ -44,7 +44,7 @@ Release gate: complete these before the v0.1.0 release so `-O4z` pass coverage i
 
 Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 - Start from the pass wiki page and owner source/test files; update docs if findings become durable.
-- Run or refresh direct pass oracle evidence with `bun scripts/pass-fuzz-compare.ts --pass <name> --count 1000` first, then scale to 10000 only when changing behavior or closing the slice.
+- Run or refresh direct pass oracle evidence by building `src/cmd` once (`moon build --target native --release src/cmd`) and using `bun scripts/pass-fuzz-compare.ts --pass <name> --count 1000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` first, then scale to 10000 only when changing behavior or closing the slice.
 - Inspect tests for missing positive/negative shapes, add focused test-first fixtures for any bug or missed optimization, and keep validation failures separate from representation drift.
 - Capture pass-local timing where available; file whole-command issues under `[WALL]001` unless the pass is clearly the owner.
 - Replay the pass's `-O4z` slot/neighborhood when it has saved artifacts or documented generated-audit evidence.
@@ -207,7 +207,7 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
     - [ ] `[GSI001-C]` Add one-value multi-candidate folding only for materializable equal values; keep non-constant expression equivalence and un-nesting out of this slice.
     - [ ] `[GSI001-D]` Add two-value singleton-group `select(ref.eq(...))` synthesis with negative coverage for >2 unique values and two-equal-pair ambiguity.
     - [ ] `[GSI001-E]` Refresh direct compare at 1000 before each behavior step and 10000 before calling the rewrite slice signed off; record pass-local debug-artifact timing.
-  - Suggested tests: `src/passes/global_struct_inference_wbtest.mbt` for analysis invariants, `src/passes/global_struct_inference_test.mbt` for public-pipeline rewrites, `moon test src/passes`, direct `bun scripts/pass-fuzz-compare.ts --pass global-struct-inference`, and debug-artifact timing.
+  - Suggested tests: `src/passes/global_struct_inference_wbtest.mbt` for analysis invariants, `src/passes/global_struct_inference_test.mbt` for public-pipeline rewrites, `moon test src/passes`, direct `bun scripts/pass-fuzz-compare.ts --pass global-struct-inference --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe`, and debug-artifact timing.
   - Exit criteria: closed-world local/param rewrites are guarded by subtype-aware candidate facts, validate on focused fixtures, and show zero semantic mismatches in direct compare.
 
 - [AUDIT]001 - Hot Pass Descriptor Metadata Truthfulness
@@ -259,7 +259,7 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
     - [ ] `[AUDIT003-H]` Repeat `[AUDIT003-F]`/`[AUDIT003-G]` for the next smallest family; every repeat gets its own focused test-first commit-sized slice, not a broad DAE rewrite.
     - [ ] `[AUDIT003-I]` For families that remain selected-only, add comments in source and wiki explaining why they are intentionally artifact-local and what evidence would reopen them.
     - [ ] `[AUDIT003-J]` Refresh direct `--dae-optimizing` compare with DAE normalizers and classify any mismatch families by agent judgment, keeping accepted raw-cleanup drift separate from true semantic mismatches.
-  - Suggested tests: focused DAE fixtures first, `moon test src/passes`, direct `bun scripts/pass-fuzz-compare.ts --pass dae-optimizing --normalize drop-consts --normalize unreachable-control-debris`, and artifact timing when selected lanes move.
+  - Suggested tests: focused DAE fixtures first, `moon test src/passes`, direct `bun scripts/pass-fuzz-compare.ts --pass dae-optimizing --normalize drop-consts --normalize unreachable-control-debris --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe`, and artifact timing when selected lanes move.
   - Exit criteria: selected-function lanes are either replaced by generic recognizers or explicitly documented as intentionally artifact-local with current evidence.
 
 - [AUDIT]004 - Thin Module-Pass Shape Coverage Expansion

@@ -147,7 +147,7 @@ Focused tests should prove these bails:
 4. Add a no-memory no-op test.
 5. Run `moon test src/passes` and `moon test src/cmd` for registry / CLI behavior.
 6. Add a pass-fuzz compare entry only after focused fixtures match Binaryen with `--low-memory-unused`.
-7. Run `bun fuzz compare-pass --pass optimize-added-constants ...` with Binaryen configured for the low-memory assumption; do not compare ordinary no-DWARF preset output because the pass is not a default open-world blocker.
+7. Run `moon build --target native --release src/cmd` followed by `bun fuzz compare-pass --pass optimize-added-constants ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` with Binaryen configured for the low-memory assumption; do not compare ordinary no-DWARF preset output because the pass is not a default open-world blocker.
 
 ## Explicit non-goals for the plain pass
 

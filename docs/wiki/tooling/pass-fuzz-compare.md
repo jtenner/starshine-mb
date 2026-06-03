@@ -45,12 +45,14 @@ This is a **semantic-oracle workflow**, not a byte-for-byte wasm comparison. Raw
 
 ## Command Shape
 
-Common direct lane:
+Common direct lane. Build the native Starshine CLI once, then pass both the parallel worker flag and the prebuilt binary explicitly:
 
 ```text
+moon build --target native --release src/cmd
 bun fuzz compare-pass \
   --pass <canonical-pass>|--<pass-flag> [--pass ...] \
   --count 10000 --seed 0x5eed --out-dir .tmp/<run-name> \
+  --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe \
   [--generator both|wasm-smith|gen-valid] \
   [--gen-valid-profile <profile>] \
   [--require-feature <feature>] [--exclude-feature <feature>] \
@@ -60,9 +62,7 @@ bun fuzz compare-pass \
   [--property none|idempotence|composition] \
   [--min-compared <n>] \
   [--max-failures 20] \
-  [--keep-going-after-command-failures] \
-  [--jobs 1|auto] \
-  [--starshine-bin <native-cmd>]
+  [--keep-going-after-command-failures]
 ```
 
 Discovery and replay helpers:
@@ -181,9 +181,9 @@ Known command-failure classes are intentionally concrete and replayable: `starsh
 
 ## Concurrency Rules
 
-`--jobs auto` uses host parallelism; `--jobs <n>` fixes worker count. Any effective worker count above `1` requires `--starshine-bin`.
+`--jobs auto` uses host parallelism; `--jobs <n>` fixes worker count. Documentation and signoff commands should include `--jobs auto` and `--starshine-bin target/native/release/build/cmd/cmd.exe` together explicitly. Any effective worker count above `1` requires `--starshine-bin`.
 
-Reason: without a prebuilt Starshine binary, the harness invokes Starshine through `moon run --target native --release src/cmd -- ...`. Parallel `moon run` calls can contend on `_build/.moon-lock`, so the harness refuses that shape. Build `src/cmd` once and pass its native binary path for parallel lanes.
+Reason: without a prebuilt Starshine binary, the harness invokes Starshine through `moon run --target native --release src/cmd -- ...`. Parallel `moon run` calls can contend on `_build/.moon-lock`, so the harness refuses that shape. Build `src/cmd` once and pass its native binary path for parallel lanes. The implementation also treats omitted `--jobs` with `--starshine-bin` as auto, but documented commands should keep both flags visible so copied signoff lanes are unambiguous.
 
 ## Signoff Guidance
 
@@ -191,11 +191,12 @@ For a direct pass signoff:
 
 1. Run focused MoonBit tests for the pass and dispatcher/registry surface.
 2. Run a small `--generator gen-valid --count <small>` smoke lane while iterating.
-3. Run the repo-standard direct lane, usually `--count 10000 --seed 0x5eed`, with a stable `--out-dir`.
-4. If command failures dominate, rerun with `--keep-going-after-command-failures` and use `--min-compared` so the run still proves enough comparable cases.
-5. Classify any mismatch in the pass dossier with evidence. Do not call a mismatch semantically safe merely because both outputs validate.
-6. For DAE / generator-debris lanes, include `--normalize drop-consts --normalize unreachable-control-debris` so cleanup-normalized matches are counted separately from exact normalized matches.
-7. Preserve the run directory locally and cite durable aggregate facts in the affected pass page, tracker, or research note.
+3. Build `src/cmd` once with `moon build --target native --release src/cmd`.
+4. Run the repo-standard direct lane, usually `--count 10000 --seed 0x5eed`, with a stable `--out-dir`, explicit `--jobs auto`, and explicit `--starshine-bin target/native/release/build/cmd/cmd.exe`.
+5. If command failures dominate, rerun with `--keep-going-after-command-failures` and use `--min-compared` so the run still proves enough comparable cases.
+6. Classify any mismatch in the pass dossier with evidence. Do not call a mismatch semantically safe merely because both outputs validate.
+7. For DAE / generator-debris lanes, include `--normalize drop-consts --normalize unreachable-control-debris` so cleanup-normalized matches are counted separately from exact normalized matches.
+8. Preserve the run directory locally and cite durable aggregate facts in the affected pass page, tracker, or research note.
 
 For preset or neighborhood work, direct pass green is necessary but not sufficient. Also replay the ordered neighborhood or preset artifacts described by [`../binaryen/no-dwarf-default-optimize-path.md`](../binaryen/no-dwarf-default-optimize-path.md) and the affected pass dossier.
 

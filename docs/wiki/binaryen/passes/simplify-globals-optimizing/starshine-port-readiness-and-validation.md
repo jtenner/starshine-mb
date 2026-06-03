@@ -156,7 +156,8 @@ This is the main behavior that distinguishes `simplify-globals-optimizing` from 
 
 Run isolated oracle comparison before late-tail replay:
 
-- `bun scripts/pass-fuzz-compare.ts --pass simplify-globals-optimizing ...`
+- `moon build --target native --release src/cmd`
+- `bun scripts/pass-fuzz-compare.ts --pass simplify-globals-optimizing ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe`
 - reduced fixtures from Binaryen's `simplify-globals-*` lit family;
 - targeted debug-artifact runs once the module-boundary harness accepts the pass.
 
