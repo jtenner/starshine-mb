@@ -40,7 +40,7 @@ related:
   - subtype-propagated single-candidate parent/supertype origins now rewrite in closed world when the candidate global's declared reference heap type is a subtype of the read type; broad `eqref` declarations still bail to avoid invalid replacements
   - exact and subtype-propagated multi-candidate local/param reads now fold in closed world when all safe candidates expose one equal materializable value
   - exact and subtype-propagated multi-candidate local/param reads now synthesize typed `select(ref.eq(...))` rewrites in closed world when two materializable values have one singleton candidate group
-  - no sibling descriptor-cast implementation, no local atomic-get opcode surface, and un-nesting/`ref.get_desc` are guarded to small modules
+  - no sibling descriptor-cast implementation, no local atomic-get opcode surface, and arithmetic/bitwise un-nesting plus `ref.get_desc` are guarded to small modules
 - The saved generated-artifact `-O4z` slot is still exactly green, which strongly suggests the artifact does not exercise the missing official surfaces.
 
 ## Current in-tree status
@@ -91,9 +91,48 @@ Result:
 
 This is semantic smoke and performance evidence for validation-safe subtype-propagated one-candidate origin rewrites only. It is not evidence that the sibling descriptor-cast pass, atomic get opcodes, unbounded un-nesting, or a full refinalization layer are implemented.
 
+## 2026-06-03 small-module bitwise un-nesting follow-up
+
+The GSI001-J follow-up broadened the guarded small-module non-constant un-nesting vocabulary from arithmetic add/sub/mul to include pure integer bitwise `and` / `or` / `xor` field operands. The large-module gate and read-gated request filter are unchanged: Starshine only splits operands that are actually read by direct or closed-world local/param GSI sites, then repairs the struct initializer to use a fresh immutable global and forces `reorder-globals` repair. The focused public-pipeline test covers direct-global `i32.and` and `i64.xor` operands.
+
+The final direct compare ran with a prebuilt native Starshine binary and automatic parallel workers:
+
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass global-struct-inference --keep-going-after-command-failures --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --out-dir .tmp/pass-fuzz-global-struct-inference-unnest-bitwise-final-10000`
+
+Result:
+
+- compared cases: 9975 / 10000
+- normalized matches: 9975
+- mismatches: 0
+- validation failures: 0
+- generator failures: 0
+- command failures: 25
+
+Command-failure classes from `summary.json`:
+
+- `22` `binaryen-rec-group-zero`
+- `1` `binaryen-bad-section-size`
+- `1` `binaryen-table-index-out-of-range`
+- `1` `binaryen-invalid-tag-index`
+
+The debug artifact timing replay used:
+
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --global-struct-inference --timing-only --out-dir .tmp/gsi-debug-artifact-timing-unnest-bitwise-final`
+
+Result:
+
+- canonical wasm equal: yes
+- Starshine runtime: `316.220 ms`
+- Binaryen runtime: `457.262 ms`
+- Starshine pass runtime: `0.369 ms`
+- Binaryen pass runtime: `3.121 ms`
+- Starshine pass skipped raw: no
+
+This is semantic smoke and performance evidence for the small-module bitwise un-nesting extension only. It does not change the large-module gate, sibling descriptor-cast scope, atomic-get blocker, or explicit refinalization status.
+
 ## 2026-06-03 small-module un-nesting and `ref.get_desc` follow-up
 
-The GSI001-G/H follow-up added a guarded local version of Binaryen's non-constant operand un-nesting and the plain-GSI `ref.get_desc` read surface. For small modules, pure scalar non-constant field operands that are actually read by direct or closed-world local/param GSI sites are split into fresh immutable globals; the original struct initializer is repaired to `global.get` the fresh global, and a forced `reorder-globals` repair makes the fresh global precede dependent globals. The same trusted candidate machinery now folds direct `ref.get_desc` reads and closed-world local/param `ref.get_desc` reads when all candidate descriptor values match, with the two-value singleton-select helper available for differing descriptor globals. Large modules keep the previous materializable-only behavior to preserve pass-local runtime on the debug artifact. Atomic immutable-field gets remain an upstream-only documented surface because Starshine has no local struct atomic-get instruction form yet.
+The GSI001-G/H follow-up added a guarded local version of Binaryen's non-constant operand un-nesting and the plain-GSI `ref.get_desc` read surface. For small modules, pure arithmetic non-constant field operands that are actually read by direct or closed-world local/param GSI sites are split into fresh immutable globals; the original struct initializer is repaired to `global.get` the fresh global, and a forced `reorder-globals` repair makes the fresh global precede dependent globals. The later GSI001-J follow-up added pure integer bitwise operands to the same guarded vocabulary. The same trusted candidate machinery now folds direct `ref.get_desc` reads and closed-world local/param `ref.get_desc` reads when all candidate descriptor values match, with the two-value singleton-select helper available for differing descriptor globals. Large modules keep the previous materializable-only behavior to preserve pass-local runtime on the debug artifact. Atomic immutable-field gets remain an upstream-only documented surface because Starshine has no local struct atomic-get instruction form yet.
 
 The final direct compare ran with a prebuilt native Starshine binary and automatic parallel workers:
 
@@ -445,7 +484,7 @@ Official Binaryen `version_129` behavior:
 - but `optimize(module)` still runs afterwards in **all** modes
 - direct immutable-global reads can still optimize in open world
 
-This former conceptual gap is closed for the direct immutable-global fast path, and exact/subtype-propagated local/param one-global plus exact/subtype-propagated one-value and two-value singleton-group closed-world fact consumers now exist. `closed_world` still does not add arbitrary Binaryen operand reasoning or unbounded un-nesting; un-nesting exists only for small modules and selected pure scalar field operands.
+This former conceptual gap is closed for the direct immutable-global fast path, and exact/subtype-propagated local/param one-global plus exact/subtype-propagated one-value and two-value singleton-group closed-world fact consumers now exist. `closed_world` still does not add arbitrary Binaryen operand reasoning or unbounded un-nesting; un-nesting exists only for small modules and selected pure arithmetic/bitwise scalar field operands.
 
 ## 2. The local pass only matches immediate instruction pairs
 
@@ -487,7 +526,7 @@ Official Binaryen can split a nested non-constant field operand into a fresh imm
 
 Current local pass:
 
-- has a fresh-global emission path for small-module pure scalar field operands that are actually read by direct or closed-world local/param GSI sites
+- has a fresh-global emission path for small-module pure arithmetic/bitwise scalar field operands that are actually read by direct or closed-world local/param GSI sites
 - repairs original struct initializers to use the fresh immutable global and then invokes forced `reorder-globals` repair so dependencies precede uses
 - deliberately skips this extra surface on larger modules to keep pass-local artifact timing within budget
 
@@ -496,7 +535,7 @@ Current local pass:
 Official Binaryen treats immutable `global.get`s as constant materializable values and can combine that with un-nesting for non-constant operands.
 That matters for official positive shapes where field values are not literals but are still stable immutable globals.
 
-Current local pass does treat direct immutable `global.get` field payloads as materializable for exact and subtype-propagated local/param grouping, and now has a small-module fresh-global un-nesting path for pure scalar field operands that are actually read by direct or closed-world local/param GSI sites. It still has a smaller materialization surface than Binaryen and deliberately skips un-nesting on larger modules for pass-local runtime.
+Current local pass does treat direct immutable `global.get` field payloads as materializable for exact and subtype-propagated local/param grouping, and now has a small-module fresh-global un-nesting path for pure arithmetic/bitwise scalar field operands that are actually read by direct or closed-world local/param GSI sites. It still has a smaller materialization surface than Binaryen and deliberately skips un-nesting on larger modules for pass-local runtime.
 
 ## 7. Descriptor coverage exists locally; atomic gets remain unavailable
 

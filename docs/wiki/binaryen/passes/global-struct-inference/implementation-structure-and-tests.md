@@ -162,17 +162,17 @@ This line shows the dispatcher still passes `closed_world`. The current direct-g
   - summary string: folds immutable struct field reads from direct immutable global instances.
 - `src/passes/global_struct_inference.mbt:20-460`
   - `GsiClosedWorldFacts`, struct-allocation scanners, equality-comparable global declaration filter, subtype propagation helpers, exact direct candidate extraction, exact direct single-candidate extraction, and `gsi_build_closed_world_facts(...)`.
-- `src/passes/global_struct_inference.mbt:530-1088`
-  - guarded small-module un-nesting request collection, fresh-global synthesis, initializer repair, and forced reorder-globals repair.
+- `src/passes/global_struct_inference.mbt:577-1088`
+  - guarded small-module arithmetic/bitwise un-nesting request collection, fresh-global synthesis, initializer repair, and forced reorder-globals repair.
 - `src/passes/global_struct_inference.mbt:1091-1186`
   - default-value materialization, simple one-instruction result typing, accepted field-value materialization, candidate field-value harvesting from trusted global initializers, and accepted top-level global initializer constructors.
 - `src/passes/global_struct_inference.mbt:1189-2059`
   - exact and subtype-propagated local/param origin helpers, exact/subtype-aware one-value local fold helpers, exact/subtype-aware two-value singleton-group select helpers, candidate-created-type subtype checks, packed signed and unsigned value repair, then maps trusted globals plus one `struct.get*` into replacement expressions.
-- `src/passes/global_struct_inference.mbt:2063-2287`
+- `src/passes/global_struct_inference.mbt:2079-2303`
   - recursive body rewrite; immediate `global.get` + `struct.get*` pairs, closed-world exact and subtype-propagated single-candidate `local.get` + `struct.get*` origin pairs, closed-world exact/subtype-propagated one-value local folds, and closed-world exact/subtype-propagated two-value singleton-group selects are replaced.
-- `src/passes/global_struct_inference.mbt:2290-2504`
+- `src/passes/global_struct_inference.mbt:2306-2520`
   - cheap pre-scan to skip functions with no possible direct, exact/subtype-propagated local-origin, one-value, or two-value select pair rewrite.
-- `src/passes/global_struct_inference.mbt:2507-2606`
+- `src/passes/global_struct_inference.mbt:2523-2684`
   - public pass entrypoint; builds closed-world exact single-candidate and propagated candidate facts when requested, runs the direct-global candidate table, rewrites changed functions, and returns the original module when no change is found.
 
 ## Starshine test surface
@@ -188,6 +188,7 @@ Current focused public-pipeline tests prove the local rewrite subset:
 - mutable-field, mutable-global, and imported-global direct-global negatives
 - non-global ref producers remaining unchanged in open world
 - exact and subtype-propagated single-candidate param and body-local origins rewriting in closed world with null-trap preservation, with broad global-declaration negatives for invalid replacement types
+- read-gated small-module non-constant un-nesting for arithmetic and integer bitwise field operands
 - exact and subtype-propagated multi-candidate one-value local/param folds in closed world, including equal literals, immutable `global.get`s, body locals, packed-field repair, child-only parent reads, and mixed parent/child candidate order
 - exact and subtype-propagated multi-candidate two-value local/param selects in closed world, including two-global, three-global singleton-group, child-only parent, and mixed parent/child positives
 - open-world, more-than-two-value, two-equal-pair, non-materializable, poisoned child/exact type, mutable-field, mutable-global, and too-broad/`anyref` local-origin negatives
@@ -203,7 +204,7 @@ Current focused white-box tests prove the new closed-world fact builder:
 - poisoned child types poison parents, including modules with no global section
 - child candidate globals propagate upward to parent types in deterministic global-index order
 
-These tests now cover the direct-global O4z audit surfaces, the subtype-aware closed-world candidate-map foundation, exact and subtype-propagated single-candidate local/param origin consumers, exact/subtype-propagated one-value multi-candidate local/param folds, exact/subtype-propagated two-value singleton-group local/param selects, small-module un-nesting, and small-module `ref.get_desc` folds. They are still far narrower than Binaryen `gsi.wast` because descriptor-cast rewrites, atomic gets, full refinalization, and unbounded large-module un-nesting remain absent.
+These tests now cover the direct-global O4z audit surfaces, the subtype-aware closed-world candidate-map foundation, exact and subtype-propagated single-candidate local/param origin consumers, exact/subtype-propagated one-value multi-candidate local/param folds, exact/subtype-propagated two-value singleton-group local/param selects, small-module arithmetic/bitwise un-nesting, and small-module `ref.get_desc` folds. They are still far narrower than Binaryen `gsi.wast` because descriptor-cast rewrites, atomic gets, full refinalization, and unbounded large-module un-nesting remain absent.
 
 ## Current local-vs-Binaryen matrix
 
@@ -219,7 +220,7 @@ These tests now cover the direct-global O4z audit surfaces, the subtype-aware cl
 | One-value direct replacement | yes | exact direct-global field value plus exact/subtype-propagated local/param one-value folds |
 | Two-value `select(ref.eq(...))` | yes | yes for exact/subtype-propagated local/param candidate sets with two materializable values and one singleton group |
 | Immutable `global.get` as materializable value | yes | yes for direct field payloads, grouped local/param rewrites, and fresh globals produced by the small-module un-nesting path |
-| Non-constant un-nesting | yes | yes for small-module pure scalar field operands that are actually read, using fresh immutable globals plus forced `reorder-globals` repair; large modules keep the materializable-only path |
+| Non-constant un-nesting | yes | yes for small-module pure arithmetic and integer bitwise field operands that are actually read, using fresh immutable globals plus forced `reorder-globals` repair; large modules keep the materializable-only path |
 | Packed-field repair | yes | yes for `i32.const` direct payloads |
 | Atomic gets | yes | no local struct atomic-get opcode surface exists yet |
 | `ref.get_desc` | yes | yes for small-module direct and closed-world local/param folds/selects over descriptor-constructor globals |

@@ -237,6 +237,7 @@ Why this matters:
 
 - non-constant fields are not automatically disqualified
 - Binaryen can manufacture a fresh immutable global to make the origin proof usable
+- Starshine's guarded local subset currently handles small-module arithmetic operands and integer bitwise operands such as `i32.and` / `i64.xor`, but still avoids arbitrary expression equivalence and large-module unbounded un-nesting
 
 ## Positive family 8: immutable global-get field operands count as constant enough
 
@@ -530,4 +531,4 @@ Current Starshine implements only a subset of this catalog:
 - exact and subtype-propagated multi-candidate local/param one-value folds when all safe direct candidates expose the same materializable field value
 - exact and subtype-propagated multi-candidate local/param two-value `select(ref.eq(...))` rewrites when exactly two materializable values exist and one value group has a singleton candidate global
 
-It now implements subtype-propagated parent origin rewrites, one-value folds, singleton-tested two-value selects, small-module fresh-global un-nesting, and direct/closed-world `ref.get_desc` folds/selects. It still does **not** implement the sibling descriptor-cast pass or atomic-get coverage because Starshine has no in-tree struct atomic-get instruction form yet; large modules also keep the materializable-only GSI subset to preserve pass-local artifact budget. Keep that distinction visible when adding examples or parity claims.
+It now implements subtype-propagated parent origin rewrites, one-value folds, singleton-tested two-value selects, small-module arithmetic/bitwise fresh-global un-nesting, and direct/closed-world `ref.get_desc` folds/selects. It still does **not** implement the sibling descriptor-cast pass or atomic-get coverage because Starshine has no in-tree struct atomic-get instruction form yet; large modules also keep the materializable-only GSI subset to preserve pass-local artifact budget. Keep that distinction visible when adding examples or parity claims.

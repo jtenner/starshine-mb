@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | global-struct-inference bitwise un-nesting
+
+- Broadened guarded small-module non-constant operand un-nesting for `global-struct-inference` from arithmetic add/sub/mul operands to include pure integer bitwise `and` / `or` / `xor` operands, without changing the read-gated request filter or the large-module materializable-only guard.
+- Added public-pipeline coverage in `src/passes/global_struct_inference_test.mbt` for direct-global `i32.and` and `i64.xor` field operands splitting into fresh immutable globals and then folding the field read.
+- Recorded TDD failure evidence before implementation, a pre-change native compare smoke (`.tmp/pass-fuzz-global-struct-inference-pre-unnest-bitwise-1000`, `998 / 1000` compared, `0` mismatches, `2` command failures), and final signoff: `moon test src/passes` passed `1525/1525`, `moon test` passed `4702/4702`, `.tmp/pass-fuzz-global-struct-inference-unnest-bitwise-final-10000` reached `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures (`22` empty-recursion-group plus one each bad-section-size, table-index-out-of-range, and invalid-tag-index). `.tmp/gsi-debug-artifact-timing-unnest-bitwise-final` was canonical-equal with Starshine/Binaryen pass-local `0.369 ms / 3.121 ms`.
+
 ## [2026-06-03] passes | global-struct-inference subtype-propagated origins
 
 - Added validation-safe subtype-propagated parent/supertype origin rewrites for `global-struct-inference`: a one-candidate parent-typed local/param `struct.get*` now rewrites its reference operand to a trap-preserving block yielding the propagated candidate global, leaving the field read in place for later cleanup.
