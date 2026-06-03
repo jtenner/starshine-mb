@@ -30,6 +30,27 @@ fn gsi_test_closed_world_candidate_count(
 }
 
 ///|
+fn gsi_test_closed_world_candidate_indices(
+  facts : GsiClosedWorldFacts,
+  type_idx : @lib.TypeIdx,
+) -> Array[Int] {
+  let slot = gsi_type_slot(
+    type_idx,
+    facts.candidate_globals_by_type_slot.length(),
+  )
+  if slot < 0 {
+    []
+  } else {
+    let out : Array[Int] = []
+    for global_idx in facts.candidate_globals_by_type_slot[slot] {
+      let @lib.GlobalIdx(raw) = global_idx
+      out.push(raw.reinterpret_as_int())
+    }
+    out
+  }
+}
+
+///|
 test "global-struct-inference closed-world facts include immutable top-level global candidates" {
   let input =
     #| (module
@@ -122,5 +143,98 @@ test "global-struct-inference closed-world facts poison nested global allocation
   @debug.assert_eq(
     gsi_test_closed_world_candidate_count(facts, @lib.TypeIdx::new(1U)),
     1,
+  )
+}
+
+///|
+test "global-struct-inference closed-world facts propagate poisoned child types to parents" {
+  let input =
+    #| (module
+    #|   (type $parent (sub (struct (field i32))))
+    #|   (type $child (sub $parent (struct (field i32))))
+    #|   (global $parent_g (ref $parent) (struct.new $parent (i32.const 1)))
+    #|   (global $child_g (ref $child) (struct.new $child (i32.const 2)))
+    #|   (func
+    #|     i32.const 3
+    #|     struct.new $child
+    #|     drop))
+    #|
+  let facts = gsi_test_closed_world_facts(input)
+  assert_true(
+    gsi_test_closed_world_type_is_poisoned(facts, @lib.TypeIdx::new(0U)),
+  )
+  assert_true(
+    gsi_test_closed_world_type_is_poisoned(facts, @lib.TypeIdx::new(1U)),
+  )
+  @debug.assert_eq(
+    gsi_test_closed_world_candidate_count(facts, @lib.TypeIdx::new(0U)),
+    0,
+  )
+  @debug.assert_eq(
+    gsi_test_closed_world_candidate_count(facts, @lib.TypeIdx::new(1U)),
+    0,
+  )
+
+  let no_globals =
+    #| (module
+    #|   (type $parent (sub (struct (field i32))))
+    #|   (type $child (sub $parent (struct (field i32))))
+    #|   (func
+    #|     i32.const 3
+    #|     struct.new $child
+    #|     drop))
+    #|
+  let no_global_facts = gsi_test_closed_world_facts(no_globals)
+  assert_true(
+    gsi_test_closed_world_type_is_poisoned(
+      no_global_facts,
+      @lib.TypeIdx::new(0U),
+    ),
+  )
+  assert_true(
+    gsi_test_closed_world_type_is_poisoned(
+      no_global_facts,
+      @lib.TypeIdx::new(1U),
+    ),
+  )
+}
+
+///|
+test "global-struct-inference closed-world facts propagate child candidates to parents" {
+  let input =
+    #| (module
+    #|   (type $parent (sub (struct (field i32))))
+    #|   (type $child (sub $parent (struct (field i32))))
+    #|   (global $parent_g (ref $parent) (struct.new $parent (i32.const 1)))
+    #|   (global $child_g (ref $child) (struct.new $child (i32.const 2))))
+    #|
+  let facts = gsi_test_closed_world_facts(input)
+  @debug.assert_eq(
+    gsi_test_closed_world_candidate_indices(facts, @lib.TypeIdx::new(0U)),
+    [0, 1],
+  )
+  @debug.assert_eq(
+    gsi_test_closed_world_candidate_indices(facts, @lib.TypeIdx::new(1U)),
+    [1],
+  )
+}
+
+///|
+test "global-struct-inference closed-world facts keep propagated candidate order deterministic" {
+  let input =
+    #| (module
+    #|   (type $parent (sub (struct (field i32))))
+    #|   (type $child (sub $parent (struct (field i32))))
+    #|   (global $child_g (ref $child) (struct.new $child (i32.const 2)))
+    #|   (global $parent_g (ref $parent) (struct.new $parent (i32.const 1))))
+    #|
+  let facts = gsi_test_closed_world_facts(input)
+  @debug.assert_eq(
+    gsi_test_closed_world_candidate_indices(facts, @lib.TypeIdx::new(0U)),
+    [0, 1],
+  )
+  @debug.assert_eq(
+    gsi_test_closed_world_candidate_indices(facts, @lib.TypeIdx::new(1U)),
+    [0],
   )
 }

@@ -527,4 +527,4 @@ Current Starshine implements only a subset of this catalog:
 - simple materializable field values plus local packed-field repair
 - nullable-global trap preservation with `ref.as_non_null` + `drop`
 
-It does **not** currently implement the Binaryen local/param, subtype, two-value select, un-nesting, atomic-get, or `ref.get_desc` families. Keep that distinction visible when adding examples or parity claims.
+It does **not** currently implement the Binaryen local/param rewrite, two-value select, un-nesting, atomic-get, or `ref.get_desc` families. Subtype poison/candidate propagation now exists only in the analysis fact table and is not yet consumed by rewrites. Keep that distinction visible when adding examples or parity claims.

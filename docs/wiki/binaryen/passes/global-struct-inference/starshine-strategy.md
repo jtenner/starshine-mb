@@ -35,20 +35,20 @@ Use this page with the upstream contract in [`./binaryen-strategy.md`](./binarye
 
 ## Current Starshine status
 
-`global-struct-inference` is an **active module pass** in Starshine. After the 2026-06-03 O4z audit plus the follow-up closed-world facts slice, it implements the upstream **open-world direct immutable-global** subset and now builds an analysis-only closed-world candidate/poison fact table, but it is still much narrower than full Binaryen closed-world `gsi` origin rewriting.
+`global-struct-inference` is an **active module pass** in Starshine. After the 2026-06-03 O4z audit plus the follow-up closed-world facts slices, it implements the upstream **open-world direct immutable-global** subset and now builds an analysis-only closed-world candidate/poison fact table with subtype poison and candidate propagation, but it is still much narrower than full Binaryen closed-world `gsi` origin rewriting.
 
 The local pass does all of these today:
 
 - accepts the `closed_world` dispatcher flag but does not require it for the direct-global fast path
 - scans only defined immutable globals as direct-global candidate sources
-- in closed-world mode, builds an internal candidate-global/poison fact table that includes immutable top-level origins, excludes mutable and too-broad global declarations, poisons function-local allocations, and poisons nested global-initializer allocations
+- in closed-world mode, builds an internal candidate-global/poison fact table that includes immutable top-level origins, excludes mutable and too-broad global declarations, poisons function-local allocations, poisons nested global-initializer allocations, propagates poisoned child types to parents, and propagates child candidates upward to parent types
 - accepts top-level `struct.new*` initializer families
 - materializes a small value vocabulary (`i32`, `v128`, `ref.null`, `ref.func`, `global.get`, `string.const`, default values)
 - rewrites only immediate `global.get` + `struct.get*` instruction pairs, including open-world direct-global reads
 - preserves nullable-trap behavior with `ref.as_non_null` + `drop`
 - rebuilds changed functions only
 
-It does **not** yet use the closed-world facts for local/param rewrites, subtype propagation, value grouping, selects, or un-nesting, so it has not implemented the broader upstream origin-analysis contract.
+It does **not** yet use the closed-world facts for local/param rewrites, value grouping, selects, or un-nesting, so it has not implemented the broader upstream origin-analysis contract even though subtype propagation now exists inside the analysis table.
 
 The 2026-06-03 O4z audit revalidation kept the upgraded subset semantically green against Binaryen under the refreshed harness: 9975 / 10000 compared cases, 9975 normalized matches, and 0 mismatches, with 25 Binaryen/tool command failures. The audited debug artifact was canonical-equal and Starshine was faster pass-local (`0.349 ms` versus Binaryen `2.815 ms`).
 
@@ -57,15 +57,15 @@ The 2026-06-03 O4z audit revalidation kept the upgraded subset semantically gree
 | Surface | Why it matters |
 | --- | --- |
 | `src/passes/global_struct_inference.mbt:2` | summary string and local user-facing description |
-| `src/passes/global_struct_inference.mbt:20-190` | closed-world analysis-only fact table, allocation poisoning, and safe candidate-origin filters |
-| `src/passes/global_struct_inference.mbt:190-260` | candidate field-value harvesting from trusted global initializers |
-| `src/passes/global_struct_inference.mbt:260-290` | accepted top-level global initializer families |
-| `src/passes/global_struct_inference.mbt:330-410` | folded global-field expression builder and packed-field repair |
-| `src/passes/global_struct_inference.mbt:410-520` | recursive body walk that rewrites immediate `global.get` + `struct.get*` pairs |
-| `src/passes/global_struct_inference.mbt:520-600` | cheap pre-scan used to skip unchanged functions |
-| `src/passes/global_struct_inference.mbt:600-660` | public module-pass entrypoint; builds closed-world facts when requested, then runs the direct-global subset |
+| `src/passes/global_struct_inference.mbt:20-270` | closed-world analysis-only fact table, allocation poisoning, safe candidate-origin filters, and subtype poison/candidate propagation |
+| `src/passes/global_struct_inference.mbt:275-440` | candidate field-value harvesting from trusted global initializers |
+| `src/passes/global_struct_inference.mbt:405-440` | accepted top-level global initializer families |
+| `src/passes/global_struct_inference.mbt:503-560` | folded global-field expression builder and packed-field repair |
+| `src/passes/global_struct_inference.mbt:563-670` | recursive body walk that rewrites immediate `global.get` + `struct.get*` pairs |
+| `src/passes/global_struct_inference.mbt:672-748` | cheap pre-scan used to skip unchanged functions |
+| `src/passes/global_struct_inference.mbt:750-854` | public module-pass entrypoint; builds closed-world facts when requested, then runs the direct-global subset |
 | `src/passes/global_struct_inference_test.mbt:28-242` | open-world direct-global positives, nullable-trap preservation, packed/default/descriptor constructor coverage, unsafe-global negatives, and non-global producer negative test |
-| `src/passes/global_struct_inference_wbtest.mbt:1-94` | white-box closed-world fact-table coverage for top-level candidates, mutable/anyref exclusions, function-local poisoning, and nested-global poisoning |
+| `src/passes/global_struct_inference_wbtest.mbt:1-240` | white-box closed-world fact-table coverage for top-level candidates, mutable/anyref exclusions, function-local poisoning, nested-global poisoning, subtype poison propagation, no-global-section poison propagation, and upward candidate propagation/order |
 | `src/passes/pass_manager.mbt:12308-12309` | module-pass dispatch into `global_struct_inference_run_module_pass(mod_, options.closed_world)` |
 | `src/passes/optimize.mbt:279-280` | registry entry and summary wiring |
 | `src/passes/optimize.mbt:310` | `optimize` preset placement after `global-refining` |
@@ -81,7 +81,7 @@ This closes the largest old narrowing versus Binaryen for the direct-global fast
 ### 2. It only trusts a tiny origin family
 
 The local direct rewrite still accepts only defined immutable globals whose values are visibly constructed in the initializer.
-The closed-world analysis now builds the first local `typeGlobals`-shaped fact table: top-level immutable candidate globals are grouped by created struct type, mutable and equality-incomparable global declarations are excluded, function-local `struct.new*` allocations poison their type, and nested non-top-level global-initializer `struct.new*` allocations poison their type. It does not yet propagate candidate globals up a subtype graph or reason about locals and params as origins.
+The closed-world analysis now builds the first local `typeGlobals`-shaped fact table: top-level immutable candidate globals are grouped by created struct type, mutable and equality-incomparable global declarations are excluded, function-local `struct.new*` allocations poison their type, nested non-top-level global-initializer `struct.new*` allocations poison their type, poisoned child types poison parents, and child candidate globals propagate upward to parent types in deterministic global-index order. It does not yet reason about locals and params as origins.
 
 ### 3. It rewrites only the immediate read pair
 
@@ -108,8 +108,7 @@ The pass pre-scans for rewrite candidates, rebuilds only changed functions, and 
 Compared with upstream Binaryen `version_129`, Starshine currently does **not** implement:
 
 - closed-world `typeGlobals` candidate analysis
-- subtype poisoning and upward candidate propagation
-- local/param-origin rewrites
+- consuming subtype-propagated candidate facts for local/param-origin rewrites
 - one-vs-two-unique-value `select(ref.eq(...))` synthesis
 - non-constant operand un-nesting into fresh globals
 - `ref.get_desc`
@@ -130,12 +129,11 @@ The upstream contract is about trusted origin restriction plus value grouping, n
 
 If Starshine grows toward the full Binaryen contract, preserve the current subset while adding the missing layers in this order:
 
-1. closed-world candidate-global reasoning for local and param reads
-2. subtype poisoning and upward propagation
-3. one-vs-two unique value `select` synthesis
-4. non-constant operand un-nesting
-5. `ref.get_desc`, descriptor-cast, and atomic-get family coverage
-6. explicit typed-AST repair/refinalization
+1. consume subtype-aware closed-world candidate-global facts for local and param reads
+2. one-vs-two unique value `select` synthesis
+3. non-constant operand un-nesting
+4. `ref.get_desc`, descriptor-cast, and atomic-get family coverage
+5. explicit typed-AST repair/refinalization
 
 ## Related pages
 

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | global-struct-inference subtype facts follow-up
+
+- Added subtype propagation to the analysis-only `global-struct-inference` closed-world fact table: poisoned child types now poison parent types, child candidate globals propagate upward to parent types, duplicates are suppressed, and candidate lists are sorted by global index for deterministic later consumption.
+- Added `src/passes/global_struct_inference_wbtest.mbt` coverage for child-to-parent poison propagation, no-global-section poison propagation, child-to-parent candidate propagation, and deterministic propagated candidate order; marked `[GSI001-A]` complete while keeping local/param rewrite consumption deferred.
+- Recorded refreshed evidence: `moon test src/passes` passed `1507/1507`; `moon test` passed `4684/4684`; `.tmp/pass-fuzz-global-struct-inference-subtype-facts-final-10000` reached `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures (`22` empty-recursion-group plus one each bad-section-size, table-index-out-of-range, and invalid-tag-index); `.tmp/gsi-debug-artifact-timing-subtype-facts-final` was canonical-equal with Starshine/Binaryen pass-local `0.345 ms / 2.970 ms`.
+
 ## [2026-06-03] passes | global-struct-inference closed-world facts follow-up
 
 - Added an analysis-only closed-world fact builder for `global-struct-inference`: immutable top-level `struct.new*` globals become per-type candidates, mutable and too-broad/`anyref` declared globals are excluded, function-local allocations poison their allocated type, and nested non-top-level global-initializer allocations poison their allocated type.

@@ -35,8 +35,8 @@ related:
   - direct `global.get -> struct.get*` pairs now fold in open world, matching Binaryen's direct immutable-global fast path
   - top-level immutable `struct.new*`, `struct.new_default*`, `struct.new_desc`, and `struct.new_default_desc` globals are covered
   - packed i8/i16 signed and unsigned reads are repaired for direct literal payloads
-  - a closed-world analysis-only fact table now records immutable top-level candidate globals, mutable/too-broad global exclusions, function-local allocation poisoning, and nested global-initializer allocation poisoning
-  - no subtype propagation, no multi-origin local/param rewrites, no value grouping/selects, no un-nesting, no atomic/`ref.get_desc`/descriptor-cast surface
+  - a closed-world analysis-only fact table now records immutable top-level candidate globals, mutable/too-broad global exclusions, function-local allocation poisoning, nested global-initializer allocation poisoning, poisoned-child-to-parent propagation, and child-candidate-to-parent propagation
+  - no multi-origin local/param rewrites, no value grouping/selects, no un-nesting, no atomic/`ref.get_desc`/descriptor-cast surface
 - The saved generated-artifact `-O4z` slot is still exactly green, which strongly suggests the artifact does not exercise the missing official surfaces.
 
 ## Current in-tree status
@@ -48,11 +48,11 @@ related:
 - Registry and preset coverage live in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), with module-pass dispatch in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
 - The pass is active in-tree and is scheduled in the early module cluster after `global-refining`.
 
-## 2026-06-03 closed-world facts follow-up
+## 2026-06-03 subtype-propagated closed-world facts follow-up
 
-The closed-world facts follow-up added analysis-only candidate/poison coverage and ran:
+The subtype-propagated closed-world facts follow-up added analysis-only child-to-parent poison and candidate propagation, kept the fact table analysis-only, and ran:
 
-- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass global-struct-inference --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-global-struct-inference-closed-world-facts-10000`
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass global-struct-inference --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-global-struct-inference-subtype-facts-final-10000`
 
 Result:
 
@@ -72,18 +72,18 @@ Command-failure classes from `summary.json`:
 
 The debug artifact timing replay used:
 
-- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --global-struct-inference --timing-only --out-dir .tmp/gsi-debug-artifact-timing-closed-world-facts`
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --global-struct-inference --timing-only --out-dir .tmp/gsi-debug-artifact-timing-subtype-facts-final`
 
 Result:
 
 - canonical wasm equal: yes
-- Starshine runtime: `303.223 ms`
-- Binaryen runtime: `419.258 ms`
-- Starshine pass runtime: `0.328 ms`
-- Binaryen pass runtime: `2.866 ms`
+- Starshine runtime: `321.381 ms`
+- Binaryen runtime: `445.806 ms`
+- Starshine pass runtime: `0.345 ms`
+- Binaryen pass runtime: `2.970 ms`
 - Starshine pass skipped raw: no
 
-This is semantic smoke and performance evidence for preserving the already-active direct pass behavior while adding the analysis-only closed-world fact builder. It is not evidence that local/param, subtype, select, or un-nesting rewrites are implemented.
+This is semantic smoke and performance evidence for preserving the already-active direct pass behavior while adding subtype propagation to the analysis-only closed-world fact builder. It is not evidence that local/param, select, or un-nesting rewrites are implemented.
 
 ## 2026-06-03 O4z audit direct-pass revalidation
 
@@ -183,7 +183,7 @@ The focused local tests now cover the direct-global O4z audit subset plus closed
 - `struct.new_default`, `struct.new_desc`, and `struct.new_default_desc` field extraction, including nullable-ref defaults
 - mutable-field, mutable-global, and imported-global negatives
 - preserving ordinary non-global ref producers unchanged even in closed world
-- analysis-only closed-world facts for immutable top-level candidates, mutable-global exclusion, `anyref`/too-broad declaration exclusion, function-local allocation poisoning, and nested global-initializer allocation poisoning
+- analysis-only closed-world facts for immutable top-level candidates, mutable-global exclusion, `anyref`/too-broad declaration exclusion, function-local allocation poisoning, nested global-initializer allocation poisoning, poisoned-child-to-parent propagation including no-global-section poison propagation, and child-candidate-to-parent propagation
 
 That is a stronger local floor for the current subset.
 It is still far smaller than the official Binaryen lit surface.
@@ -203,7 +203,7 @@ Official Binaryen `version_129` behavior:
 - but `optimize(module)` still runs afterwards in **all** modes
 - direct immutable-global reads can still optimize in open world
 
-This former conceptual gap is closed for the direct immutable-global fast path, and the first local closed-world fact builder now exists. `closed_world` still does not add Binaryen's broader local/param candidate-origin rewrites, subtype propagation, value grouping, or un-nesting locally.
+This former conceptual gap is closed for the direct immutable-global fast path, and the first subtype-aware local closed-world fact builder now exists. `closed_world` still does not add Binaryen's broader local/param candidate-origin rewrites, value grouping, or un-nesting locally.
 
 ## 2. The local pass only matches immediate instruction pairs
 
@@ -221,14 +221,14 @@ So the local pass misses Binaryen shapes like:
 - `struct.get` of a parameter known to be one of two immutable globals
 - parent-typed reads whose only trusted origins are child globals
 
-## 3. No local subtype poisoning or upward candidate propagation
+## 3. Subtype propagation exists but is not consumed by rewrites
 
 Official Binaryen uses `SubTypes` to:
 
 - poison supertypes when child allocations happen in functions or nested global positions
 - propagate candidate child globals upward to parent reads
 
-Current local pass has no equivalent mechanism.
+Current local pass now mirrors that in the analysis-only fact table, including deterministic candidate ordering, but no local/param or parent-typed rewrite consumes those subtype-aware facts yet.
 
 ## 4. No local one-vs-two-unique-values grouping
 
@@ -289,11 +289,10 @@ Again, that is an inference from the green audit plus the visible local-vs-upstr
 - Keep the current local subset described honestly as a subset.
 - Do **not** describe it as “what Binaryen `gsi` does.”
 - If future parity work targets the full Binaryen contract, the next missing surfaces to implement are, in value order:
-  1. closed-world candidate-global reasoning for local/param reads
-  2. subtype poisoning and upward candidate propagation
-  3. one-vs-two-unique-values select synthesis
-  4. un-nesting of non-constant operands
-  5. atomic / `ref.get_desc` / descriptor-cast coverage
+  1. consume subtype-aware closed-world candidate-global facts for local/param reads
+  2. one-vs-two-unique-values select synthesis
+  3. un-nesting of non-constant operands
+  4. atomic / `ref.get_desc` / descriptor-cast coverage
 - If local code remains intentionally narrower, keep the green artifact evidence explicit so readers do not confuse “narrow but enough for this artifact” with “full upstream parity.”
 
 ## Sources

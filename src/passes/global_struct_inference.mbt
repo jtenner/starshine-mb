@@ -120,6 +120,86 @@ fn gsi_mark_nested_global_struct_allocs(
 }
 
 ///|
+fn gsi_global_idx_order(global_idx : @lib.GlobalIdx) -> Int {
+  let @lib.GlobalIdx(raw) = global_idx
+  raw.reinterpret_as_int()
+}
+
+///|
+fn gsi_candidate_list_contains(
+  candidates : Array[@lib.GlobalIdx],
+  candidate : @lib.GlobalIdx,
+) -> Bool {
+  for existing in candidates {
+    if existing == candidate {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn gsi_push_candidate_unique(
+  candidates : Array[@lib.GlobalIdx],
+  candidate : @lib.GlobalIdx,
+) -> Bool {
+  if gsi_candidate_list_contains(candidates, candidate) {
+    false
+  } else {
+    candidates.push(candidate)
+    true
+  }
+}
+
+///|
+fn gsi_sort_candidate_globals(candidates : Array[@lib.GlobalIdx]) -> Unit {
+  candidates.sort_by(fn(lhs, rhs) {
+    gsi_global_idx_order(lhs) - gsi_global_idx_order(rhs)
+  })
+}
+
+///|
+fn gsi_propagate_closed_world_subtype_facts(
+  env : @validate.Env,
+  poisoned_type_slots : Array[Bool],
+  candidate_globals_by_type_slot : Array[Array[@lib.GlobalIdx]],
+) -> Unit {
+  let type_count = poisoned_type_slots.length()
+  let mut changed = true
+  while changed {
+    changed = false
+    for child_slot = 0; child_slot < type_count; child_slot = child_slot + 1 {
+      let supers = env.global_types[child_slot].super_types()
+      for super_type in supers {
+        let parent_slot = gsi_type_slot(super_type, type_count)
+        if parent_slot < 0 {
+          continue
+        }
+        if poisoned_type_slots[child_slot] && !poisoned_type_slots[parent_slot] {
+          poisoned_type_slots[parent_slot] = true
+          changed = true
+        }
+        for candidate in candidate_globals_by_type_slot[child_slot] {
+          if gsi_push_candidate_unique(
+              candidate_globals_by_type_slot[parent_slot],
+              candidate,
+            ) {
+            changed = true
+          }
+        }
+      }
+    }
+  }
+  for slot = 0; slot < type_count; slot = slot + 1 {
+    if poisoned_type_slots[slot] {
+      candidate_globals_by_type_slot[slot] = []
+    } else {
+      gsi_sort_candidate_globals(candidate_globals_by_type_slot[slot])
+    }
+  }
+}
+
+///|
 fn gsi_global_decl_is_eq_comparable(
   env : @validate.Env,
   global_type : @lib.GlobalType,
@@ -154,7 +234,12 @@ fn gsi_build_closed_world_facts(
 
   let globals = match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) => globals
-    None => return { poisoned_type_slots, candidate_globals_by_type_slot }
+    None => {
+      gsi_propagate_closed_world_subtype_facts(
+        env, poisoned_type_slots, candidate_globals_by_type_slot,
+      )
+      return { poisoned_type_slots, candidate_globals_by_type_slot }
+    }
   }
   let total_globals = env.globals.length()
   let imported_global_count = total_globals - globals.length()
@@ -186,11 +271,9 @@ fn gsi_build_closed_world_facts(
       None => ()
     }
   }
-  for slot = 0; slot < poisoned_type_slots.length(); slot = slot + 1 {
-    if poisoned_type_slots[slot] {
-      candidate_globals_by_type_slot[slot] = []
-    }
-  }
+  gsi_propagate_closed_world_subtype_facts(
+    env, poisoned_type_slots, candidate_globals_by_type_slot,
+  )
   { poisoned_type_slots, candidate_globals_by_type_slot }
 }
 

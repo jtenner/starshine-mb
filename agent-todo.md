@@ -202,7 +202,7 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Goal: turn the new analysis-only candidate/poison fact table into safe Binaryen-style closed-world rewrites without regressing the open-world direct-global subset.
   - Why: Starshine now records immutable top-level global candidates plus direct allocation poison facts, but still does not rewrite local/param/supertype reads, group one/two values, or un-nest non-constant operands.
   - Deliverables:
-    - [ ] `[GSI001-A]` Add subtype propagation to the fact table: poisoned child types poison parents, and candidate child globals propagate upward to parent types.
+    - [x] `[GSI001-A]` Add subtype propagation to the fact table: poisoned child types poison parents, and candidate child globals propagate upward to parent types. Completed 2026-06-03 with white-box propagation/order coverage and green direct compare.
     - [ ] `[GSI001-B]` Add a narrow single-candidate local/param origin rewrite that preserves null traps and produces valid typed output; start with exact struct type, no subtype, no value-folding.
     - [ ] `[GSI001-C]` Add one-value multi-candidate folding only for materializable equal values; keep non-constant expression equivalence and un-nesting out of this slice.
     - [ ] `[GSI001-D]` Add two-value singleton-group `select(ref.eq(...))` synthesis with negative coverage for >2 unique values and two-equal-pair ambiguity.
