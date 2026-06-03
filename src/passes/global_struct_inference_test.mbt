@@ -466,6 +466,47 @@ test "global-struct-inference synthesizes two-value singleton selects in closed 
 }
 
 ///|
+test "global-struct-inference rewrites subtype-propagated single-candidate parent origins" {
+  let input =
+    #| (module
+    #|   (global $denom i32 (i32.const 1))
+    #|   (type $parent (sub (struct (field i32))))
+    #|   (type $child (sub $parent (struct (field i32))))
+    #|   (global $child_g (ref $child)
+    #|     (struct.new $child
+    #|       (i32.div_s (i32.const 7) (global.get $denom))))
+    #|   (func (export "read") (param (ref null $parent)) (result i32)
+    #|     local.get 0
+    #|     struct.get $parent 0))
+    #|
+  let pretty = gsi_test_pretty(input, true)
+  assert_true(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("global.get (Global 1)"), msg=pretty)
+  assert_true(pretty.contains("ref.as_non_null"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "global-struct-inference avoids invalid broad-global propagated origins" {
+  let input =
+    #| (module
+    #|   (global $denom i32 (i32.const 1))
+    #|   (type $parent (sub (struct (field i32))))
+    #|   (type $child (sub $parent (struct (field i32))))
+    #|   (global $child_g eqref
+    #|     (struct.new $child
+    #|       (i32.div_s (i32.const 7) (global.get $denom))))
+    #|   (func (export "read") (param (ref null $parent)) (result i32)
+    #|     local.get 0
+    #|     struct.get $parent 0))
+    #|
+  let pretty = gsi_test_pretty(input, true)
+  assert_true(pretty.contains("struct.get"), msg=pretty)
+  assert_false(pretty.contains("global.get (Global 1)"), msg=pretty)
+  assert_false(pretty.contains("ref.as_non_null"), msg=pretty)
+}
+
+///|
 test "global-struct-inference folds subtype-propagated one-value parent reads" {
   let child_only =
     #| (module

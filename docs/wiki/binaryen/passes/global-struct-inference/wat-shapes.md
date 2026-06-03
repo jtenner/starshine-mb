@@ -526,8 +526,8 @@ Current Starshine implements only a subset of this catalog:
 - top-level immutable `struct.new*`, default, and descriptor-constructor globals
 - simple materializable field values plus local packed-field repair
 - nullable-global and nullable-local trap preservation with `ref.as_non_null` + `drop`
-- narrow closed-world exact single-candidate local/param origin rewrites
-- exact multi-candidate local/param one-value folds when all safe direct candidates expose the same materializable field value
-- exact multi-candidate local/param two-value `select(ref.eq(...))` rewrites when exactly two materializable values exist and one value group has a singleton candidate global
+- narrow closed-world exact and subtype-propagated single-candidate local/param origin rewrites, guarded so broad `eqref` global declarations do not produce invalid replacements
+- exact and subtype-propagated multi-candidate local/param one-value folds when all safe direct candidates expose the same materializable field value
+- exact and subtype-propagated multi-candidate local/param two-value `select(ref.eq(...))` rewrites when exactly two materializable values exist and one value group has a singleton candidate global
 
-It now implements subtype-propagated parent one-value folds and singleton-tested two-value selects, plus small-module fresh-global un-nesting and direct/closed-world `ref.get_desc` folds/selects. It still does **not** implement Binaryen's origin-only supertype rewrites, the sibling descriptor-cast pass, or atomic-get coverage because Starshine has no in-tree struct atomic-get instruction form yet; large modules also keep the materializable-only GSI subset to preserve pass-local artifact budget. Keep that distinction visible when adding examples or parity claims.
+It now implements subtype-propagated parent origin rewrites, one-value folds, singleton-tested two-value selects, small-module fresh-global un-nesting, and direct/closed-world `ref.get_desc` folds/selects. It still does **not** implement the sibling descriptor-cast pass or atomic-get coverage because Starshine has no in-tree struct atomic-get instruction form yet; large modules also keep the materializable-only GSI subset to preserve pass-local artifact budget. Keep that distinction visible when adding examples or parity claims.

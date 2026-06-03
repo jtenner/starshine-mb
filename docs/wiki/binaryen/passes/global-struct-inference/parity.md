@@ -37,9 +37,10 @@ related:
   - packed i8/i16 signed and unsigned reads are repaired for direct literal payloads
   - a closed-world fact table now records immutable top-level candidate globals, mutable/too-broad global exclusions, function-local allocation poisoning, nested global-initializer allocation poisoning, poisoned-child-to-parent propagation, and child-candidate-to-parent propagation
   - exact single-candidate local/param origins now rewrite in closed world when the exact type has one safe direct candidate and no propagated subtype ambiguity
+  - subtype-propagated single-candidate parent/supertype origins now rewrite in closed world when the candidate global's declared reference heap type is a subtype of the read type; broad `eqref` declarations still bail to avoid invalid replacements
   - exact and subtype-propagated multi-candidate local/param reads now fold in closed world when all safe candidates expose one equal materializable value
   - exact and subtype-propagated multi-candidate local/param reads now synthesize typed `select(ref.eq(...))` rewrites in closed world when two materializable values have one singleton candidate group
-  - no origin-only supertype rewrite, no sibling descriptor-cast implementation, no local atomic-get opcode surface, and un-nesting/`ref.get_desc` are guarded to small modules
+  - no sibling descriptor-cast implementation, no local atomic-get opcode surface, and un-nesting/`ref.get_desc` are guarded to small modules
 - The saved generated-artifact `-O4z` slot is still exactly green, which strongly suggests the artifact does not exercise the missing official surfaces.
 
 ## Current in-tree status
@@ -50,6 +51,45 @@ related:
 - The focused public-pipeline suite lives in [`../../../../../src/passes/global_struct_inference_test.mbt`](../../../../../src/passes/global_struct_inference_test.mbt); the closed-world analysis fact coverage lives in [`../../../../../src/passes/global_struct_inference_wbtest.mbt`](../../../../../src/passes/global_struct_inference_wbtest.mbt).
 - Registry and preset coverage live in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), with module-pass dispatch in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
 - The pass is active in-tree and is scheduled in the early module cluster after `global-refining`.
+
+## 2026-06-03 subtype-propagated parent/supertype origin follow-up
+
+The GSI001-I follow-up consumes subtype-propagated one-candidate facts for parent/supertype local/param origins. When a parent-typed `local.get -> struct.get*` pair has exactly one safe propagated candidate, Starshine now rewrites the reference operand to a trap-preserving block that drops the original local and yields the candidate global, leaving the `struct.get*` in place. The rewrite additionally checks the candidate global's declared reference heap type against the read type, so too-broad declarations like `eqref` remain unchanged instead of creating invalid `struct.get*` operands. This closes the local origin-only supertype gap for the one-candidate, validation-safe shape while keeping arbitrary operands, descriptor-cast, atomic-get, and broader refinalization work out of scope.
+
+The final direct compare ran with a prebuilt native Starshine binary and automatic parallel workers:
+
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass global-struct-inference --keep-going-after-command-failures --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --out-dir .tmp/pass-fuzz-global-struct-inference-propagated-origin-final-10000`
+
+Result:
+
+- compared cases: 9975 / 10000
+- normalized matches: 9975
+- mismatches: 0
+- validation failures: 0
+- generator failures: 0
+- command failures: 25
+
+Command-failure classes from `summary.json`:
+
+- `22` `binaryen-rec-group-zero`
+- `1` `binaryen-bad-section-size`
+- `1` `binaryen-table-index-out-of-range`
+- `1` `binaryen-invalid-tag-index`
+
+The debug artifact timing replay used:
+
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --global-struct-inference --timing-only --out-dir .tmp/gsi-debug-artifact-timing-propagated-origin-final`
+
+Result:
+
+- canonical wasm equal: yes
+- Starshine runtime: `313.941 ms`
+- Binaryen runtime: `415.377 ms`
+- Starshine pass runtime: `0.356 ms`
+- Binaryen pass runtime: `2.827 ms`
+- Starshine pass skipped raw: no
+
+This is semantic smoke and performance evidence for validation-safe subtype-propagated one-candidate origin rewrites only. It is not evidence that the sibling descriptor-cast pass, atomic get opcodes, unbounded un-nesting, or a full refinalization layer are implemented.
 
 ## 2026-06-03 small-module un-nesting and `ref.get_desc` follow-up
 
@@ -88,11 +128,11 @@ Result:
 - Binaryen pass runtime: `3.017 ms`
 - Starshine pass skipped raw: no
 
-This is semantic smoke and performance evidence for the guarded un-nesting and `ref.get_desc` surfaces. It is not evidence that origin-only supertype rewrites, the sibling descriptor-cast pass, or atomic get opcodes are implemented.
+This is semantic smoke and performance evidence for the guarded un-nesting and `ref.get_desc` surfaces. It predates the subtype-propagated origin follow-up and is not evidence that the sibling descriptor-cast pass or atomic get opcodes are implemented.
 
 ## 2026-06-03 subtype-propagated parent one/two-value follow-up
 
-The subtype-propagated parent one/two-value follow-up consumes the child-to-parent candidate facts added earlier. Parent-typed local/param `struct.get*` reads now fold to one trap-preserving value when all propagated safe candidates expose the same materializable field value, or synthesize the same typed `select(ref.eq(...))` shape when exactly two materializable values exist and one value group has one candidate global. The rewrite verifies candidate-created types are subtypes of the read type, checks materialized values against the parent field result type, preserves nullable traps, and keeps origin-only supertype rewrites, un-nesting, atomic gets, and `ref.get_desc` out of scope.
+The subtype-propagated parent one/two-value follow-up consumes the child-to-parent candidate facts added earlier. Parent-typed local/param `struct.get*` reads now fold to one trap-preserving value when all propagated safe candidates expose the same materializable field value, or synthesize the same typed `select(ref.eq(...))` shape when exactly two materializable values exist and one value group has one candidate global. The rewrite verifies candidate-created types are subtypes of the read type, checks materialized values against the parent field result type, preserves nullable traps, and keeps origin-only supertype rewrites, un-nesting, atomic gets, and `ref.get_desc` out of scope; the later GSI001-I slice adds validation-safe one-candidate origin rewrites.
 
 The final direct compare ran with a prebuilt native Starshine binary and automatic parallel workers:
 
@@ -127,7 +167,7 @@ Result:
 - Binaryen pass runtime: `2.965 ms`
 - Starshine pass skipped raw: no
 
-This is semantic smoke and performance evidence for subtype-propagated parent one-value and singleton-tested two-value local/param rewrites only. It is not evidence that origin-only supertype rewrites, un-nesting, atomic gets, or `ref.get_desc` are implemented.
+This is semantic smoke and performance evidence for subtype-propagated parent one-value and singleton-tested two-value local/param rewrites only. It predates the subtype-propagated origin and guarded un-nesting/`ref.get_desc` follow-ups.
 
 ## 2026-06-03 two-value singleton-group local/param follow-up
 
@@ -381,7 +421,7 @@ The focused local tests now cover the direct-global O4z audit subset plus closed
 - `struct.new_default`, `struct.new_desc`, and `struct.new_default_desc` field extraction, including nullable-ref defaults
 - mutable-field, mutable-global, and imported-global negatives
 - preserving ordinary non-global ref producers unchanged in open world
-- exact single-candidate param and body-local origin rewrites in closed world, preserving null traps with `ref.as_non_null` plus `drop`
+- exact and subtype-propagated single-candidate param and body-local origin rewrites in closed world, preserving null traps with `ref.as_non_null` plus `drop`, with broad global-declaration negatives guarding invalid replacement types
 - exact and subtype-propagated multi-candidate one-value local/param folds in closed world, including equal literals, immutable `global.get`s, body locals, packed-field repair, child-only parent reads, and mixed parent/child candidate order
 - exact and subtype-propagated multi-candidate two-value local/param selects in closed world, including two-global, three-global singleton-group, child-only parent, and mixed parent/child positives
 - local-origin negatives for open world, more than two materializable values, two equal value pairs, non-materializable equal-looking expressions, poisoned exact/child types, mutable fields/globals, and `anyref`/too-broad global declarations
@@ -397,7 +437,7 @@ It is still far smaller than the official Binaryen lit surface.
 Current local behavior after the 2026-06-03 follow-ups:
 
 - `global_struct_inference_run_module_pass` no longer returns unchanged when `closed_world` is false; it scans immutable defined globals and applies the direct-global fold in open world
-- when `closed_world` is true, it builds a conservative candidate/poison fact table for top-level immutable global origins and allocation poison sources, then rewrites exact-type local/param origins for one safe direct candidate, or rewrites exact/subtype-propagated local/param reads for one materializable field value or exactly two materializable values where one value group has one candidate global
+- when `closed_world` is true, it builds a conservative candidate/poison fact table for top-level immutable global origins and allocation poison sources, then rewrites exact or subtype-propagated local/param origins for one safe validation-typed candidate, or rewrites exact/subtype-propagated local/param reads for one materializable field value or exactly two materializable values where one value group has one candidate global
 
 Official Binaryen `version_129` behavior:
 
@@ -405,7 +445,7 @@ Official Binaryen `version_129` behavior:
 - but `optimize(module)` still runs afterwards in **all** modes
 - direct immutable-global reads can still optimize in open world
 
-This former conceptual gap is closed for the direct immutable-global fast path, and exact local/param one-global plus exact/subtype-propagated one-value and two-value singleton-group closed-world fact consumers now exist. `closed_world` still does not add Binaryen's broader origin-only supertype rewrites; un-nesting exists only for small modules and selected pure scalar field operands.
+This former conceptual gap is closed for the direct immutable-global fast path, and exact/subtype-propagated local/param one-global plus exact/subtype-propagated one-value and two-value singleton-group closed-world fact consumers now exist. `closed_world` still does not add arbitrary Binaryen operand reasoning or unbounded un-nesting; un-nesting exists only for small modules and selected pure scalar field operands.
 
 ## 2. The local pass only matches immediate instruction pairs
 
@@ -420,18 +460,17 @@ Official Binaryen behavior:
 
 So the local pass still misses Binaryen shapes like:
 
-- origin-only parent-typed rewrites whose field value is not materializable by the local subset
 - non-adjacent or nested reference producers
-- non-constant field operands that would require fresh-global un-nesting
+- large-module or unsupported non-constant field operands that would require fresh-global un-nesting
 
-## 3. Subtype propagation is consumed only by value rewrites
+## 3. Subtype propagation is consumed only by local/param origin and value rewrites
 
 Official Binaryen uses `SubTypes` to:
 
 - poison supertypes when child allocations happen in functions or nested global positions
 - propagate candidate child globals upward to parent reads
 
-Current local pass now mirrors that in the fact table, including deterministic candidate ordering. Propagated child candidates now feed parent-typed one-value folds and singleton-tested two-value selects, while origin-only parent rewrites still remain out of scope.
+Current local pass now mirrors that in the fact table, including deterministic candidate ordering. Propagated child candidates now feed parent-typed one-candidate origin rewrites, one-value folds, and singleton-tested two-value selects. Origin rewrites additionally require the candidate global's declared reference heap type to be validation-safe for the read type, so broad declarations like `eqref` still bail out.
 
 ## 4. Local one-value grouping and two-value selects exist, but still stay one-compare only
 
@@ -482,7 +521,7 @@ That is likely fine for the current subset, but it is still a real architectural
 The most plausible explanation is:
 
 - the saved artifact either does not hit many direct-global shapes or those shapes now normalize the same after the 2026-06-03 upgrade
-- it still does not rely on the richer closed-world candidate-global, subtype, atomic, or un-nesting surfaces
+- it still does not rely on the richer descriptor-cast, atomic, full-refinalization, or unbounded un-nesting surfaces
 - the local subset is therefore enough for that particular slot
 
 Again, that is an inference from the green audit plus the visible local-vs-upstream source differences.
@@ -492,9 +531,10 @@ Again, that is an inference from the green audit plus the visible local-vs-upstr
 - Keep the current local subset described honestly as a subset.
 - Do **not** describe it as “what Binaryen `gsi` does.”
 - If future parity work targets the full Binaryen contract, the next missing surfaces to implement are, in value order:
-  1. origin-only supertype rewrites where useful and type-safe
-  2. unbounded or more Binaryen-complete un-nesting of non-constant operands
-  3. atomic get support once a local struct atomic-get opcode exists, plus the sibling descriptor-cast pass when explicitly scheduled
+  1. unbounded or more Binaryen-complete un-nesting of non-constant operands, only with pass-local runtime evidence
+  2. atomic get support once a local struct atomic-get opcode exists
+  3. the sibling descriptor-cast pass when explicitly scheduled
+  4. explicit type-repair/refinalization if a future rewrite needs more than validation-preserving replacement typing
 - If local code remains intentionally narrower, keep the green artifact evidence explicit so readers do not confuse “narrow but enough for this artifact” with “full upstream parity.”
 
 ## Sources

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | global-struct-inference subtype-propagated origins
+
+- Added validation-safe subtype-propagated parent/supertype origin rewrites for `global-struct-inference`: a one-candidate parent-typed local/param `struct.get*` now rewrites its reference operand to a trap-preserving block yielding the propagated candidate global, leaving the field read in place for later cleanup.
+- Added public-pipeline coverage in `src/passes/global_struct_inference_test.mbt` for a non-materializable child-candidate parent-origin positive plus a broad `eqref` global-declaration negative, proving the rewrite bails out when the candidate global's declared reference heap type would make the replacement invalid.
+- Recorded TDD failure evidence before implementation, then refreshed signoff: `moon test src/passes` passed `1524/1524`, `moon test` passed `4701/4701`, `.tmp/pass-fuzz-global-struct-inference-propagated-origin-final-10000` reached `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures (`22` empty-recursion-group plus one each bad-section-size, table-index-out-of-range, and invalid-tag-index). `.tmp/gsi-debug-artifact-timing-propagated-origin-final` was canonical-equal with Starshine/Binaryen pass-local `0.356 ms / 2.827 ms`.
+
 ## [2026-06-03] passes | global-struct-inference un-nesting and ref.get_desc
 
 - Added guarded small-module non-constant operand un-nesting for `global-struct-inference`: pure scalar field operands that are actually read by direct or closed-world local/param GSI sites split into fresh immutable globals, original struct initializers are repaired to `global.get` those fresh globals, and forced `reorder-globals` repair orders dependencies before uses.

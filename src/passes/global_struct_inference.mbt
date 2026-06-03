@@ -1302,6 +1302,97 @@ fn gsi_single_candidate_local_origin_block(
 }
 
 ///|
+fn gsi_single_propagated_candidate_for_type(
+  rewrite_candidates_by_type_slot : Array[Array[@lib.GlobalIdx]],
+  type_idx : @lib.TypeIdx,
+) -> @lib.GlobalIdx? {
+  let slot = gsi_type_slot(type_idx, rewrite_candidates_by_type_slot.length())
+  if slot < 0 {
+    return None
+  }
+  let candidates = rewrite_candidates_by_type_slot[slot]
+  if candidates.length() == 1 {
+    Some(candidates[0])
+  } else {
+    None
+  }
+}
+
+///|
+fn gsi_global_value_type_for_candidate_origin(
+  env : @validate.Env,
+  global_idx : @lib.GlobalIdx,
+  read_type_idx : @lib.TypeIdx,
+) -> @lib.ValType? {
+  match env.get_global_type(global_idx) {
+    Some(@lib.GlobalType(value_type, false)) =>
+      match value_type {
+        @lib.RefTypeValType(ref_type) =>
+          match ref_type.get_heap_type() {
+            @lib.HeapType(candidate_type_idx) =>
+              if gsi_candidate_type_matches_read_type(
+                  env, candidate_type_idx, read_type_idx,
+                ) {
+                Some(value_type)
+              } else {
+                None
+              }
+            _ => None
+          }
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn gsi_propagated_single_candidate_local_origin_block(
+  env : @validate.Env,
+  local_env : @validate.Env,
+  rewrite_candidates_by_type_slot : Array[Array[@lib.GlobalIdx]],
+  local_idx : @lib.LocalIdx,
+  type_idx : @lib.TypeIdx,
+  field_idx : @lib.U32,
+) -> @lib.Instruction? {
+  if !gsi_struct_field_is_immutable(env, type_idx, field_idx) {
+    return None
+  }
+  let local_ref_type = match
+    gsi_local_get_ref_type_for_exact_struct(local_env, local_idx, type_idx) {
+    Some(ref_type) => ref_type
+    None => return None
+  }
+  let candidate_global_idx = match
+    gsi_single_propagated_candidate_for_type(
+      rewrite_candidates_by_type_slot, type_idx,
+    ) {
+    Some(candidate) => candidate
+    None => return None
+  }
+  let candidate_value_type = match
+    gsi_global_value_type_for_candidate_origin(
+      env, candidate_global_idx, type_idx,
+    ) {
+    Some(value_type) => value_type
+    None => return None
+  }
+  let block_body : Array[@lib.Instruction] = [
+    @lib.Instruction::local_get(local_idx),
+  ]
+  if local_ref_type.is_nullable() {
+    block_body.push(@lib.Instruction::ref_as_non_null())
+  }
+  block_body.push(@lib.Instruction::drop())
+  block_body.push(@lib.Instruction::global_get(candidate_global_idx))
+  Some(
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(candidate_value_type),
+      @lib.Expr::new(block_body),
+    ),
+  )
+}
+
+///|
 fn gsi_single_instr_expr_result_type(
   env : @validate.Env,
   expr : @lib.Expr,
@@ -2095,11 +2186,20 @@ fn gsi_rewrite_instrs(
           let origin_rewrite = match next_instr {
             @lib.StructGet(type_idx, field_idx)
             | @lib.StructGetS(type_idx, field_idx)
-            | @lib.StructGetU(type_idx, field_idx) =>
-              gsi_single_candidate_local_origin_block(
+            | @lib.StructGetU(type_idx, field_idx) => {
+              let exact_origin = gsi_single_candidate_local_origin_block(
                 env, local_env, exact_single_candidate_by_type_slot, local_idx, type_idx,
                 field_idx,
               )
+              match exact_origin {
+                Some(_) => exact_origin
+                None =>
+                  gsi_propagated_single_candidate_local_origin_block(
+                    env, local_env, rewrite_candidates_by_type_slot, local_idx, type_idx,
+                    field_idx,
+                  )
+              }
+            }
             _ => None
           }
           match origin_rewrite {
@@ -2255,6 +2355,13 @@ fn gsi_instrs_may_rewrite(
                 is Some(_) {
                 return true
               }
+              if gsi_propagated_single_candidate_local_origin_block(
+                  env, local_env, rewrite_candidates_by_type_slot, local_idx, type_idx,
+                  field_idx,
+                )
+                is Some(_) {
+                return true
+              }
               if gsi_one_value_local_fold_block(
                   env, local_env, rewrite_candidates_by_type_slot, fields_by_type,
                   global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
@@ -2280,6 +2387,13 @@ fn gsi_instrs_may_rewrite(
                 is Some(_) {
                 return true
               }
+              if gsi_propagated_single_candidate_local_origin_block(
+                  env, local_env, rewrite_candidates_by_type_slot, local_idx, type_idx,
+                  field_idx,
+                )
+                is Some(_) {
+                return true
+              }
               if gsi_one_value_local_fold_block(
                   env, local_env, rewrite_candidates_by_type_slot, fields_by_type,
                   global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
@@ -2301,6 +2415,13 @@ fn gsi_instrs_may_rewrite(
               if gsi_single_candidate_local_origin_block(
                   env, local_env, exact_single_candidate_by_type_slot, local_idx,
                   type_idx, field_idx,
+                )
+                is Some(_) {
+                return true
+              }
+              if gsi_propagated_single_candidate_local_origin_block(
+                  env, local_env, rewrite_candidates_by_type_slot, local_idx, type_idx,
+                  field_idx,
                 )
                 is Some(_) {
                 return true
