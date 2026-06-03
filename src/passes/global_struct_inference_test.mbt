@@ -351,6 +351,55 @@ test "global-struct-inference un-nests pure bitwise direct-global fields" {
 }
 
 ///|
+test "global-struct-inference un-nests pure shift and rotate direct-global fields" {
+  let i32_input =
+    #| (module
+    #|   (type $box (sub (struct (field i32))))
+    #|   (global $g (ref $box)
+    #|     (struct.new $box
+    #|       (i32.shl (i32.const 1) (i32.const 5))))
+    #|   (func (export "read") (result i32)
+    #|     global.get $g
+    #|     struct.get $box 0))
+    #|
+  let i32_optimized = gsi_test_run(i32_input, false)
+  let i32_pretty = i32_optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(i32_pretty.contains("struct.get"), msg=i32_pretty)
+  assert_true(i32_pretty.contains("global.get"), msg=i32_pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(i32_optimized), 2)
+  assert_true(
+    try! gsi_test_global_init_contains(
+      i32_optimized,
+      0,
+      @lib.Instruction::i32_shl(),
+    ),
+  )
+
+  let i64_input =
+    #| (module
+    #|   (type $box (sub (struct (field i64))))
+    #|   (global $g (ref $box)
+    #|     (struct.new $box
+    #|       (i64.rotl (i64.const 255) (i64.const 8))))
+    #|   (func (export "read") (result i64)
+    #|     global.get $g
+    #|     struct.get $box 0))
+    #|
+  let i64_optimized = gsi_test_run(i64_input, false)
+  let i64_pretty = i64_optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(i64_pretty.contains("struct.get"), msg=i64_pretty)
+  assert_true(i64_pretty.contains("global.get"), msg=i64_pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(i64_optimized), 2)
+  assert_true(
+    try! gsi_test_global_init_contains(
+      i64_optimized,
+      0,
+      @lib.Instruction::i64_rotl(),
+    ),
+  )
+}
+
+///|
 test "global-struct-inference un-nests closed-world select values" {
   let input =
     #| (module

@@ -591,12 +591,22 @@ fn gsi_unnestable_stack_operand_count(instr : @lib.Instruction) -> Int? {
     | @lib.I32And
     | @lib.I32Or
     | @lib.I32Xor
+    | @lib.I32Shl
+    | @lib.I32ShrS
+    | @lib.I32ShrU
+    | @lib.I32Rotl
+    | @lib.I32Rotr
     | @lib.I64Add
     | @lib.I64Sub
     | @lib.I64Mul
     | @lib.I64And
     | @lib.I64Or
     | @lib.I64Xor
+    | @lib.I64Shl
+    | @lib.I64ShrS
+    | @lib.I64ShrU
+    | @lib.I64Rotl
+    | @lib.I64Rotr
     | @lib.F32Add
     | @lib.F32Sub
     | @lib.F32Mul
@@ -618,13 +628,23 @@ fn gsi_unnestable_instr_result_type(
     | @lib.I32Mul
     | @lib.I32And
     | @lib.I32Or
-    | @lib.I32Xor => Some(@lib.ValType::i32())
+    | @lib.I32Xor
+    | @lib.I32Shl
+    | @lib.I32ShrS
+    | @lib.I32ShrU
+    | @lib.I32Rotl
+    | @lib.I32Rotr => Some(@lib.ValType::i32())
     @lib.I64Add
     | @lib.I64Sub
     | @lib.I64Mul
     | @lib.I64And
     | @lib.I64Or
-    | @lib.I64Xor => Some(@lib.ValType::i64())
+    | @lib.I64Xor
+    | @lib.I64Shl
+    | @lib.I64ShrS
+    | @lib.I64ShrU
+    | @lib.I64Rotl
+    | @lib.I64Rotr => Some(@lib.ValType::i64())
     @lib.F32Add | @lib.F32Sub | @lib.F32Mul => Some(@lib.ValType::f32())
     @lib.F64Add | @lib.F64Sub | @lib.F64Mul => Some(@lib.ValType::f64())
     _ => gsi_simple_instr_result_type(env, instr)
