@@ -79,6 +79,14 @@ Result: `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, `0` 
 
 Agent classification: these are tool/Binaryen command failures, not Starshine semantic mismatches. No semantic mismatch family was observed.
 
+Follow-up after the incremental singleton-summary allocation-pressure change reran the same 10000-request lane:
+
+```sh
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass once-reduction --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-once-reduction-perf-final-10000
+```
+
+Result: `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, `0` validation failures, and `25` command failures. The agent classification remains tool/Binaryen command failures, not Starshine semantic mismatches.
+
 ## Pass-local performance evidence
 
 Benchmark fixtures were generated under `.tmp/or-audit-benches/fixtures/` and run with the release native Starshine CLI plus Binaryen `wasm-opt --debug`.
@@ -105,7 +113,21 @@ Median pass-local timings over 9 samples after the singleton-summary and empty-w
 
 Earlier samples before the empty-wrapper skip measured the many-independent fixture at `20766 us` Starshine median, so this slice reduced that stress by about `4.5x`, but it did not close the gap to Binaryen's CFG-backed implementation.
 
-Artifact paths:
+Follow-up in the allocation-pressure slice found that the remaining synthetic slowdown was not primarily `Env::new().with_module(mod_)`; it was the fixed-point loop rebuilding a fresh singleton-summary bitset and rescanning every function summary on every iteration plus once more before rewrite. On `many-independent-once`, that meant repeatedly checking about `801 * 800` singleton bits even though almost all summaries were unchanged empty once wrappers. The fix keeps the singleton-summary flags incrementally: initialize direct once roots as singleton summaries, and only recompute a function's singleton flag when that function's summary actually changes. The same slice also reuses precomputed initial function once sets for analysis and rewrite entry state instead of allocating a fresh entry bitset at every call site.
+
+After this follow-up, the same Starshine command shape measured these pass-local medians:
+
+| Fixture | Previous Starshine median | Follow-up Starshine median | Binaryen median from `results-final` | Result |
+| --- | ---: | ---: | ---: | --- |
+| many-repeated-calls | `192 us` | `207 us` over 21 samples | `107.192 us` | Still within the 2x local target; tiny-fixture jitter dominates the small delta. |
+| many-independent-once | `4646 us` | `230 us` over 21 samples | `156.905 us` | About `20.2x` faster than the prior Starshine median and about `1.47x` Binaryen's recorded median. |
+| block-root-repeated-calls | `113 us` | `116 us` over 21 samples | `58.159 us` | Effectively unchanged and still near the 2x local target; local reruns showed alternating `~105-165 us` samples on this tiny fixture. |
+
+Follow-up artifact path:
+
+- Starshine timing run after incremental singleton summaries and initial-set reuse: `.tmp/or-perf-after-initial-reuse/summary.json`
+
+Artifact paths from the original audit:
 
 - first post-idempotent timing run: `.tmp/or-audit-benches/results-after/summary.json`
 - final timing run after the empty-wrapper skip: `.tmp/or-audit-benches/results-final/summary.json`
