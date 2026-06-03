@@ -50,11 +50,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 - Replay the pass's `-O4z` slot/neighborhood when it has saved artifacts or documented generated-audit evidence.
 - Close with an agent-classified findings note: bugs found/fixed, missing shapes added, performance owners, deferred risks, exact commands, counts, and artifact paths.
 
-- [O4Z-AUDIT-GSI] - Deep audit `global-struct-inference`
-  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
-  - Scope: closed-world struct field constants, packed fields, default/descriptor constructors, mutable/exported/imported global negatives, nullable refs, and code-size/runtime impact.
-  - Deliverables: apply the common checklist; coordinate with `[AUDIT004-A]` through `[AUDIT004-C]`; refresh direct compare and `GSI` slot evidence; document supported and intentionally unsupported closed-world shapes.
-
 - [O4Z-AUDIT-SSA] - Deep audit `ssa-nomerge`
   - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
   - Scope: HOT SSA construction/lowering without merges, phi copy placement, large branchy function runtime, local-name/type preservation, and Func2977-style wall-time ownership.
@@ -259,9 +254,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Goal: add small, public-pipeline tests for module passes whose current direct coverage is thin relative to their implementation breadth.
   - Why: the all-pass fuzz smoke found no validation failures, but several module passes have only a small number of focused tests and are likely places for missing shapes to hide.
   - Deliverables:
-    - [ ] `[AUDIT004-A]` `global-struct-inference` packed fields: add separate signed 8-bit, unsigned 8-bit, signed 16-bit, and unsigned 16-bit field-read tests.
-    - [ ] `[AUDIT004-B]` `global-struct-inference` constructors: add separate `struct.new_default`, `struct.new_desc`, and `struct.new_default_desc` tests.
-    - [ ] `[AUDIT004-C]` `global-struct-inference` negatives: add separate mutable-field, imported global, exported global, non-global producer, and nullable-ref default guard tests.
     - [ ] `[AUDIT004-D]` `directize` table visibility negatives: add separate imported-table and exported-table tests proving indirect calls remain indirect.
     - [ ] `[AUDIT004-E]` `directize` element coverage: add passive element, declarative element, active nonconstant offset, active out-of-range hole, and type-mismatch-trap tests.
     - [ ] `[AUDIT004-F]` `directize` multi-table and tail-call coverage: add one multi-table partial optimization fixture, one `return_call_indirect` fixture, and one unsupported `call_ref`/reference-call non-interference fixture if WAT support exists.

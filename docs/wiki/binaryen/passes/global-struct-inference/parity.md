@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-03
 sources:
   - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
@@ -31,11 +31,11 @@ related:
   - it still has an open-world direct immutable-global optimization layer
 - The full official contract is much broader than the current local MoonBit implementation.
   - Binaryen handles open-world direct-global reads, closed-world candidate-global reasoning over locals and params, subtype propagation, one-vs-two-unique-value selection, non-constant un-nesting, packed fields, atomic gets, `ref.get_desc`, and the sibling `gsi-desc-cast` surface
-- The current local Starshine implementation is a deliberately small subset:
-  - closed-world only
-  - direct `global.get -> struct.get*` pairs only
-  - top-level immutable `struct.new*` globals only
-  - no subtype map, no multi-origin local/param rewrites, no un-nesting, no atomic/descriptor/cast surface
+- The current local Starshine implementation is still a deliberately small subset, but the 2026-06-03 O4z audit removed the old closed-world-only restriction for the direct-global layer:
+  - direct `global.get -> struct.get*` pairs now fold in open world, matching Binaryen's direct immutable-global fast path
+  - top-level immutable `struct.new*`, `struct.new_default*`, `struct.new_desc`, and `struct.new_default_desc` globals are covered
+  - packed i8/i16 signed and unsigned reads are repaired for direct literal payloads
+  - no subtype map, no multi-origin local/param rewrites, no un-nesting, no atomic/`ref.get_desc`/descriptor-cast surface
 - The saved generated-artifact `-O4z` slot is still exactly green, which strongly suggests the artifact does not exercise the missing official surfaces.
 
 ## Current in-tree status
@@ -46,6 +46,43 @@ related:
 - The focused suite lives in [`../../../../../src/passes/global_struct_inference_test.mbt`](../../../../../src/passes/global_struct_inference_test.mbt).
 - Registry and preset coverage live in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), with module-pass dispatch in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
 - The pass is active in-tree and is scheduled in the early module cluster after `global-refining`.
+
+## 2026-06-03 O4z audit direct-pass revalidation
+
+The O4z audit upgrade ran:
+
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass global-struct-inference --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-global-struct-inference-audit-open-world-10000`
+
+Result:
+
+- compared cases: 9975 / 10000
+- normalized matches: 9975
+- mismatches: 0
+- validation failures: 0
+- generator failures: 0
+- command failures: 25
+
+Command-failure classes from `summary.json`:
+
+- `22` `binaryen-rec-group-zero`
+- `1` `binaryen-bad-section-size`
+- `1` `binaryen-table-index-out-of-range`
+- `1` `binaryen-invalid-tag-index`
+
+The audit also measured the debug artifact with:
+
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --global-struct-inference --timing-only --out-dir .tmp/gsi-debug-artifact-timing-audit-open-world`
+
+Result:
+
+- canonical wasm equal: yes
+- Starshine runtime: `311.057 ms`
+- Binaryen runtime: `398.201 ms`
+- Starshine pass runtime: `0.349 ms`
+- Binaryen pass runtime: `2.815 ms`
+- Starshine pass skipped raw: no
+
+This is evidence that the upgraded direct-global subset is semantically green on the direct fuzz lane and materially faster than Binaryen pass-local on the audited debug artifact. It is not evidence that the still-missing closed-world candidate-map/select/un-nesting families are implemented.
 
 ## 2026-05-06 direct-pass revalidation
 
@@ -100,21 +137,25 @@ That is an inference from the official source plus the green runs, not a direct 
 
 ## Current local coverage
 
-The focused local tests currently cover only two basic families:
+The focused local tests now cover the direct-global O4z audit subset:
 
-- closed-world direct `global.get -> struct.get` constant folding on immutable globals
-- preserving ordinary non-global ref producers unchanged
+- open-world direct `global.get -> struct.get*` folding on immutable globals, including exported immutable globals
+- nullable direct-global trap preservation with `ref.as_non_null` and `drop`
+- packed i8/i16 signed and unsigned read repair
+- `struct.new_default`, `struct.new_desc`, and `struct.new_default_desc` field extraction, including nullable-ref defaults
+- mutable-field, mutable-global, and imported-global negatives
+- preserving ordinary non-global ref producers unchanged even in closed world
 
-That is a good local floor for the current subset.
-It is far smaller than the official Binaryen lit surface.
+That is a stronger local floor for the current subset.
+It is still far smaller than the official Binaryen lit surface.
 
 ## Main remaining divergences from official Binaryen
 
-## 1. The local pass is closed-world-only
+## 1. No local closed-world `typeGlobals` analysis
 
-Current local behavior:
+Current local behavior after the 2026-06-03 audit:
 
-- `global_struct_inference_run_module_pass` returns unchanged when `closed_world` is false
+- `global_struct_inference_run_module_pass` no longer returns unchanged when `closed_world` is false; it scans immutable defined globals and applies the direct-global fold in open world
 
 Official Binaryen `version_129` behavior:
 
@@ -122,7 +163,7 @@ Official Binaryen `version_129` behavior:
 - but `optimize(module)` still runs afterwards in **all** modes
 - direct immutable-global reads can still optimize in open world
 
-This is the biggest conceptual local-vs-upstream gap.
+This former conceptual gap is closed for the direct immutable-global fast path; `closed_world` still does not add Binaryen's broader `typeGlobals` candidate analysis locally.
 
 ## 2. The local pass only matches immediate instruction pairs
 
@@ -197,8 +238,8 @@ That is likely fine for the current subset, but it is still a real architectural
 
 The most plausible explanation is:
 
-- the saved artifact does not hit the missing open-world direct-global shapes
-- and it also does not rely on the richer closed-world candidate-global, subtype, atomic, or un-nesting surfaces
+- the saved artifact either does not hit many direct-global shapes or those shapes now normalize the same after the 2026-06-03 upgrade
+- it still does not rely on the richer closed-world candidate-global, subtype, atomic, or un-nesting surfaces
 - the local subset is therefore enough for that particular slot
 
 Again, that is an inference from the green audit plus the visible local-vs-upstream source differences.
@@ -208,12 +249,11 @@ Again, that is an inference from the green audit plus the visible local-vs-upstr
 - Keep the current local subset described honestly as a subset.
 - Do **not** describe it as “what Binaryen `gsi` does.”
 - If future parity work targets the full Binaryen contract, the next missing surfaces to implement are, in value order:
-  1. open-world direct immutable-global optimization
-  2. closed-world candidate-global reasoning for local/param reads
-  3. subtype poisoning and upward candidate propagation
-  4. one-vs-two-unique-values select synthesis
-  5. un-nesting of non-constant operands
-  6. atomic / descriptor-facing coverage
+  1. closed-world candidate-global reasoning for local/param reads
+  2. subtype poisoning and upward candidate propagation
+  3. one-vs-two-unique-values select synthesis
+  4. un-nesting of non-constant operands
+  5. atomic / `ref.get_desc` / descriptor-cast coverage
 - If local code remains intentionally narrower, keep the green artifact evidence explicit so readers do not confuse “narrow but enough for this artifact” with “full upstream parity.”
 
 ## Sources

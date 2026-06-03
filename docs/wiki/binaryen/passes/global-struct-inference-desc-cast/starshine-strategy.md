@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-03
 sources:
   - ../../../raw/binaryen/2026-04-24-global-struct-inference-desc-cast-primary-sources.md
   - ../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md
@@ -71,16 +71,16 @@ Use this map to follow the current implementation boundary in-tree.
   - active module-pass registry entry for plain `global-struct-inference`.
 - [`src/passes/optimize.mbt:250`](../../../../../src/passes/optimize.mbt#L250)
   - public preset expansion includes plain `global-struct-inference`, not `global-struct-inference-desc-cast`.
-- [`src/passes/pass_manager.mbt:8644`](../../../../../src/passes/pass_manager.mbt#L8644)
+- [`src/passes/pass_manager.mbt:12308`](../../../../../src/passes/pass_manager.mbt#L12308)
   - module-pass dispatcher routes only the active plain `global-struct-inference` case into `global_struct_inference_run_module_pass(...)`.
-- [`src/passes/global_struct_inference.mbt:496`](../../../../../src/passes/global_struct_inference.mbt#L496)
-  - local plain-GSI entrypoint. It hard-gates on `closed_world` and runs the current direct-global struct-field fold.
-- [`src/passes/global_struct_inference.mbt:151`](../../../../../src/passes/global_struct_inference.mbt#L151)
+- [`src/passes/global_struct_inference.mbt:497`](../../../../../src/passes/global_struct_inference.mbt#L497)
+  - local plain-GSI entrypoint. It runs the current open-world direct-global struct-field fold and does not implement descriptor-cast rewrites.
+- [`src/passes/global_struct_inference.mbt:152`](../../../../../src/passes/global_struct_inference.mbt#L152)
   - local candidate discovery accepts only visible top-level struct constructors in immutable global initializers.
-- [`src/passes/global_struct_inference.mbt:309`](../../../../../src/passes/global_struct_inference.mbt#L309)
+- [`src/passes/global_struct_inference.mbt:310`](../../../../../src/passes/global_struct_inference.mbt#L310)
   - local rewrite surface rewrites immediate `global.get` + `struct.get*` pairs. It does not synthesize `ref.cast_desc_eq`.
-- [`src/passes/global_struct_inference_test.mbt:1`](../../../../../src/passes/global_struct_inference_test.mbt#L1)
-  - focused local tests cover closed-world direct-global field folding and non-global producer bailouts.
+- [`src/passes/global_struct_inference_test.mbt:28`](../../../../../src/passes/global_struct_inference_test.mbt#L28)
+  - focused local tests cover open-world direct-global field folding, packed/default/descriptor-constructor fields, unsafe-global negatives, and non-global producer bailouts.
 
 ### Enabling instruction infrastructure already present
 

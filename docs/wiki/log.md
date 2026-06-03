@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | global-struct-inference O4z audit
+
+- Updated Starshine `global-struct-inference` so the direct immutable-global `global.get -> struct.get*` fold runs in open world, matching Binaryen's direct-global fast path, and fixed descriptor-constructor field harvesting to read field operands before the descriptor operand.
+- Added focused coverage for open-world and exported direct-global positives, nullable trap preservation, packed i8/i16 signed and unsigned reads, `struct.new_default`, `struct.new_desc`, `struct.new_default_desc`, nullable-ref defaults, mutable-field/global/imported-global negatives, and non-global producer bailouts.
+- Recorded refreshed evidence: `.tmp/pass-fuzz-global-struct-inference-audit-open-world-10000` reached `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures; `.tmp/gsi-debug-artifact-timing-audit-open-world` was canonical-equal with Starshine/Binaryen pass-local `0.349 ms / 2.815 ms`.
+
 ## [2026-06-03] passes | global-refining O4z audit
 
 - Updated Starshine `global-refining` to recognize more initializer facts (`ref.i31`, `string.const`, and exact GC constructor results), apply a local public-type guard for open-world immutable exports, thread `closed_world` into the pass, and run the direct pass slot under `-O4z` options instead of skipping it.

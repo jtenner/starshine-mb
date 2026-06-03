@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-03
 sources:
   - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
@@ -56,7 +56,7 @@ A better beginner summary is:
 - can un-nest non-constant field operands into fresh immutable globals when that preserves the proof,
 - and refinalizes when the rewrite makes types more precise.
 
-So this is **not** generic whole-program struct analysis and **not** just the repo's current closed-world direct-global constant folder.
+So this is **not** generic whole-program struct analysis and **not** just Starshine's current direct-global constant folder.
 
 ## Why this pass matters
 
@@ -67,16 +67,15 @@ So this is **not** generic whole-program struct analysis and **not** just the re
   - `global-refining` tightens global declarations first
   - the second `remove-unused-module-elements` can then discard newly dead baggage
   - `gsi` turns the surviving global-instance story into more precise field reads before the function-pass cluster starts
-- `agent-todo.md` still has **no dedicated `GSI` slice** today.
-  - The live repo intent is only indirect through the canonical ordered-path notes and the shared `DFE -> RUME -> MP -> OR -> GR -> GSI` replay context.
-- In the saved generated-artifact `-O4z` audit, slot `7` (`gsi`) was already green:
+- The 2026-06-03 `[O4Z-AUDIT-GSI]` slice upgraded and signed off the direct-global subset, then moved the remaining full-Binaryen surfaces to follow-up scope.
+- In the saved generated-artifact `-O4z` audit, slot `7` (`gsi`) was already green before the O4z audit upgrade, and the 2026-06-03 direct-pass audit refreshed that evidence after enabling the open-world direct-global layer:
   - exact wasm equal: `yes`
   - normalized WAT equal: `yes`
   - Starshine wall/runtime: `410.401 ms`
   - Binaryen wall/runtime: `197.827 ms`
-  - Starshine in-pass time: `0.002 ms`
-  - Binaryen in-pass time: `2.008 ms`
-- The 2026-05-06 post-fuzzer-change direct revalidation is also green: 6759 / 10000 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
+  - old saved-audit Starshine/Binaryen in-pass time: `0.002 ms` / `2.008 ms`
+  - 2026-06-03 debug-artifact timing after the upgrade: Starshine/Binaryen pass-local `0.349 ms` / `2.815 ms`
+- The 2026-06-03 O4z audit direct revalidation is also green after the open-world upgrade: 9975 / 10000 compared cases, 9975 normalized matches, 0 semantic mismatches, and 25 Binaryen/tool command failures (`22` empty-recursion-group, plus one each bad-section-size, table-index-out-of-range, and invalid-tag-index).
 
 ## Most important durable takeaways
 
@@ -141,7 +140,7 @@ What it actually is in `version_129`:
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering open-world direct-global positives, one-global and two-value closed-world positives, subtype and anyref bailouts, un-nesting, packed and atomic gets, null-refinement, and the main non-goals.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  - Current Starshine status and port map: the closed-world-only direct-global subset, the exact MoonBit code locations, and the concrete gaps from upstream Binaryen's broader origin-analysis pass.
+  - Current Starshine status and port map: the open-world direct-global subset, the exact MoonBit code locations, and the concrete gaps from upstream Binaryen's broader closed-world origin-analysis pass.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
   - Current Starshine module-pass implementation detail: the direct-global subset, rewrite shape, and the code-map-backed gap list.
 - [`./parity.md`](./parity.md)

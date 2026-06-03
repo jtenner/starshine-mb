@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-03
 sources:
   - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
@@ -293,4 +293,4 @@ A future parity-focused port must keep all of these rules explicit:
 - new globals created by un-nesting must be reordered before uses
 - nearby descriptor/cast surfaces reuse the same trusted-global infrastructure
 
-If local code intentionally keeps a smaller subset, the wiki should continue calling that out as a local limitation, not as the Binaryen contract. Today that local subset is still exactly the closed-world direct-global folder described in [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md), not the full `typeGlobals` plus un-nesting engine described here.
+If local code intentionally keeps a smaller subset, the wiki should continue calling that out as a local limitation, not as the Binaryen contract. After the 2026-06-03 O4z audit, that local subset is the open-world direct-global folder described in [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md), not the full `typeGlobals` plus un-nesting engine described here.

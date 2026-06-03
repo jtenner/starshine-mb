@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-03
 sources:
   - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
@@ -522,9 +522,9 @@ Those earlier module passes make the global-origin picture smaller and more prec
 
 Current Starshine implements only a subset of this catalog:
 
-- closed-world-only direct `global.get` + `struct.get*` pairs
-- top-level immutable `struct.new*` globals
+- open-world direct `global.get` + `struct.get*` pairs
+- top-level immutable `struct.new*`, default, and descriptor-constructor globals
 - simple materializable field values plus local packed-field repair
 - nullable-global trap preservation with `ref.as_non_null` + `drop`
 
-It does **not** currently implement the Binaryen local/param, subtype, two-value select, un-nesting, atomic-get, or descriptor-read families. Keep that distinction visible when adding examples or parity claims.
+It does **not** currently implement the Binaryen local/param, subtype, two-value select, un-nesting, atomic-get, or `ref.get_desc` families. Keep that distinction visible when adding examples or parity claims.

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-03
 sources:
   - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
@@ -136,30 +136,30 @@ For that sibling's source and test map, use:
 
 ## Starshine implementation map
 
-Current local implementation is intentionally smaller than Binaryen's full `gsi` contract.
+Current local implementation is intentionally smaller than Binaryen's full `gsi` contract, but the 2026-06-03 O4z audit upgraded it from closed-world-only to Binaryen-style open-world direct-global folding.
 
 ### `src/passes/optimize.mbt`
 
-- `src/passes/optimize.mbt:280-281`
+- `src/passes/optimize.mbt:279-280`
   - active module-pass registry entry for `global-struct-inference`.
-- `src/passes/optimize.mbt:294-295`
+- `src/passes/optimize.mbt:310`
   - local `optimize` preset placement after `global-refining`.
-- `src/passes/optimize.mbt:307-308`
+- `src/passes/optimize.mbt:326`
   - local `shrink` preset placement with the same early module cluster.
 - `src/passes/optimize.mbt:131`
   - keeps `global-struct-inference-desc-cast` boundary-only, which is the sibling pass, not the active plain local pass.
 
 ### `src/passes/pass_manager.mbt`
 
-- `src/passes/pass_manager.mbt:8935-8937`
+- `src/passes/pass_manager.mbt:12308-12309`
   - dispatches the active module pass through `global_struct_inference_run_module_pass(mod_, options.closed_world)`.
 
-This line is the best quick proof that the current local pass is closed-world-gated at the dispatcher/API boundary.
+This line shows the dispatcher still passes `closed_world`, but the current direct-global subset accepts and ignores that flag rather than gating open-world folds on it.
 
 ### `src/passes/global_struct_inference.mbt`
 
 - `src/passes/global_struct_inference.mbt:2`
-  - summary string: folds immutable struct field reads from closed-world global instances.
+  - summary string: folds immutable struct field reads from direct immutable global instances.
 - `src/passes/global_struct_inference.mbt:22`
   - default-value materialization for `struct.new_default*` candidates.
 - `src/passes/global_struct_inference.mbt:52`
@@ -168,20 +168,20 @@ This line is the best quick proof that the current local pass is closed-world-ga
   - accepted field-value materialization, including simple constants, `global.get`, `ref.func`, `ref.null`, `string.const`, and packed-field constraints.
 - `src/passes/global_struct_inference.mbt:110`
   - candidate field-value harvesting from trusted global initializers.
-- `src/passes/global_struct_inference.mbt:151`
+- `src/passes/global_struct_inference.mbt:152`
   - accepted top-level global initializer constructors.
 - `src/passes/global_struct_inference.mbt:189`
   - packed unsigned value repair.
 - `src/passes/global_struct_inference.mbt:195`
   - packed signed value repair.
-- `src/passes/global_struct_inference.mbt:249`
+- `src/passes/global_struct_inference.mbt:250`
   - maps one trusted global plus one `struct.get*` to a replacement expression.
-- `src/passes/global_struct_inference.mbt:309`
+- `src/passes/global_struct_inference.mbt:310`
   - recursive body rewrite; only immediate `global.get` + `struct.get`, `struct.get_s`, or `struct.get_u` pairs are replaced.
-- `src/passes/global_struct_inference.mbt:418`
+- `src/passes/global_struct_inference.mbt:419`
   - cheap pre-scan to skip functions with no possible direct pair rewrite.
-- `src/passes/global_struct_inference.mbt:496-498`
-  - public pass entrypoint; exits when `closed_world` is false, builds candidate tables, rewrites changed functions, and returns the original module when no change is found.
+- `src/passes/global_struct_inference.mbt:497`
+  - public pass entrypoint; accepts `closed_world` but no longer gates the direct-global subset on it, builds candidate tables, rewrites changed functions, and returns the original module when no change is found.
 
 ## Starshine test surface
 
@@ -189,22 +189,23 @@ This line is the best quick proof that the current local pass is closed-world-ga
 
 Current focused tests prove the local subset:
 
-- `global-struct-inference folds immutable struct fields only in closed world`
-  - the pass does not run without `closed_world`.
-  - in closed world it removes the direct `struct.get` while preserving the nullable-global trap side with `global.get`, `ref.as_non_null`, and `drop`.
-- `global-struct-inference leaves non-global ref producers unchanged`
-  - the pass does not rewrite local/param or non-global reference producers just because closed world is enabled.
+- open-world direct immutable-global field folding, including an exported immutable global positive
+- nullable direct-global trap preservation with `ref.as_non_null` and `drop`
+- packed i8/i16 signed and unsigned direct-read repair
+- `struct.new_default`, `struct.new_desc`, and `struct.new_default_desc` field extraction, including nullable-ref defaults
+- mutable-field, mutable-global, and imported-global negatives
+- non-global ref producers remaining unchanged even in closed world
 
-These tests are a good local floor, but they are far narrower than Binaryen `gsi.wast`.
+These tests now cover the direct-global O4z audit surfaces, but they are still far narrower than Binaryen `gsi.wast` because the closed-world candidate-map/select/un-nesting families remain absent.
 
 ## Current local-vs-Binaryen matrix
 
 | Surface | Binaryen `version_129` | Starshine today |
 | --- | --- | --- |
 | GC gate | yes | implicit via supported syntax and pass inputs; no full Binaryen feature gate mirror |
-| Open-world direct-global read | yes | no, pass exits when `closed_world=false` |
+| Open-world direct-global read | yes | yes for immediate `global.get` + `struct.get*` |
 | Closed-world candidate map by heap type | yes | no |
-| Direct immutable-global fold | yes | yes, but closed-world-only and immediate-pair-only |
+| Direct immutable-global fold | yes | yes, immediate-pair-only |
 | Local/param/supertype-origin rewrite | yes | no |
 | Subtype poisoning and propagation | yes | no |
 | One-value direct replacement | yes | only exact direct-global field value |
@@ -213,7 +214,7 @@ These tests are a good local floor, but they are far narrower than Binaryen `gsi
 | Non-constant un-nesting | yes | no |
 | Packed-field repair | yes | yes for `i32.const` direct payloads |
 | Atomic gets | yes | no dedicated local surface |
-| `ref.get_desc` | yes | no |
+| `ref.get_desc` | yes | no; descriptor constructors are covered only for ordinary field reads |
 | `gsi-desc-cast` | sibling pass | boundary-only sibling name, no implementation |
 | Refinalization | explicit Binaryen `ReFinalize` | represented differently; no equivalent full typed-AST repair layer in this pass |
 

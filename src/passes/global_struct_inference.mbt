@@ -1,6 +1,6 @@
 ///|
 pub fn global_struct_inference_summary() -> String {
-  "Fold immutable struct field reads from closed-world global instances when their values are globally fixed."
+  "Fold immutable struct field reads from direct immutable global instances when their values are globally fixed."
 }
 
 ///|
@@ -111,7 +111,8 @@ fn gsi_candidate_field_values(
   env : @validate.Env,
   instrs : Array[@lib.Instruction],
   type_idx : @lib.TypeIdx,
-  desc_operands : Int,
+  field_operand_start : Int,
+  expected_extra_operands : Int,
   defaults_only : Bool,
 ) -> Array[@lib.Expr?]? {
   let fields = match env.resolve_struct_fields(type_idx) {
@@ -120,7 +121,7 @@ fn gsi_candidate_field_values(
   }
   let values : Array[@lib.Expr?] = Array::make(fields.length(), None)
   if defaults_only {
-    if instrs.length() != desc_operands + 1 {
+    if instrs.length() != expected_extra_operands + 1 {
       return Some(values)
     }
     for idx = 0; idx < fields.length(); idx = idx + 1 {
@@ -131,7 +132,7 @@ fn gsi_candidate_field_values(
     }
     return Some(values)
   }
-  if instrs.length() != desc_operands + fields.length() + 1 {
+  if instrs.length() != expected_extra_operands + fields.length() + 1 {
     return Some(values)
   }
   for idx = 0; idx < fields.length(); idx = idx + 1 {
@@ -141,7 +142,7 @@ fn gsi_candidate_field_values(
     values[idx] = gsi_const_expr_for_field(
       env,
       fields[idx],
-      instrs[desc_operands + idx],
+      instrs[field_operand_start + idx],
     )
   }
   Some(values)
@@ -158,25 +159,25 @@ fn gsi_candidate_global_values(
   }
   match instrs[instrs.length() - 1] {
     @lib.StructNew(type_idx) =>
-      gsi_candidate_field_values(env, instrs, type_idx, 0, false).map(fn(
+      gsi_candidate_field_values(env, instrs, type_idx, 0, 0, false).map(fn(
         values,
       ) {
         (type_idx, values)
       })
     @lib.StructNewDefault(type_idx) =>
-      gsi_candidate_field_values(env, instrs, type_idx, 0, true).map(fn(
+      gsi_candidate_field_values(env, instrs, type_idx, 0, 0, true).map(fn(
         values,
       ) {
         (type_idx, values)
       })
     @lib.StructNewDesc(type_idx) =>
-      gsi_candidate_field_values(env, instrs, type_idx, 1, false).map(fn(
+      gsi_candidate_field_values(env, instrs, type_idx, 0, 1, false).map(fn(
         values,
       ) {
         (type_idx, values)
       })
     @lib.StructNewDefaultDesc(type_idx) =>
-      gsi_candidate_field_values(env, instrs, type_idx, 1, true).map(fn(
+      gsi_candidate_field_values(env, instrs, type_idx, 0, 1, true).map(fn(
         values,
       ) {
         (type_idx, values)
@@ -497,9 +498,7 @@ pub fn global_struct_inference_run_module_pass(
   mod_ : @lib.Module,
   closed_world : Bool,
 ) -> @lib.Module {
-  if !closed_world {
-    return mod_
-  }
+  ignore(closed_world)
   let env = @validate.Env::new().with_module(mod_)
   let type_count = env.global_types.length()
   let globals = match mod_.global_sec {
