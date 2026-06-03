@@ -41,9 +41,9 @@ Starshine exposes `global-struct-inference` as an active module pass with:
 
 The most important immediate local rule is:
 
-- **the pass is an open-world direct-global rewriting subset plus a narrow exact single-candidate closed-world local/param origin rewrite, not a full closed-world origin-analysis port**
+- **the pass is an open-world direct-global rewriting subset plus narrow exact-type closed-world local/param rewrites for one candidate or one materializable value, not a full closed-world origin-analysis port**
 
-`global_struct_inference_run_module_pass(...)` now scans immutable defined globals and rewrites direct `global.get` + `struct.get*` pairs even when `closed_world` is false. That matches Binaryen's direct immutable-global fast path. In closed-world mode it builds a `typeGlobals`-shaped fact table for safe candidate globals, poisoned allocation types, subtype poison propagation, and upward candidate propagation, then consumes only the exact-type single-candidate subset where no subtype-propagated candidate ambiguity exists.
+`global_struct_inference_run_module_pass(...)` now scans immutable defined globals and rewrites direct `global.get` + `struct.get*` pairs even when `closed_world` is false. That matches Binaryen's direct immutable-global fast path. In closed-world mode it builds a `typeGlobals`-shaped fact table for safe candidate globals, poisoned allocation types, subtype poison propagation, and upward candidate propagation, then consumes exact-type local/param reads only when the safe direct candidates are either a single global or multiple globals with one materializable equal field value and no subtype-propagated ambiguity.
 
 ## Current local code map
 
@@ -51,20 +51,20 @@ The easiest way to follow the in-tree implementation is this file map:
 
 - `src/passes/global_struct_inference.mbt:2`
   - summary string used by the registry and preset docs
-- `src/passes/global_struct_inference.mbt:20-339`
-  - `GsiClosedWorldFacts`, allocation scanners, equality-comparable global declaration filter, subtype propagation helpers, exact direct single-candidate extraction, and `gsi_build_closed_world_facts(...)`
-- `src/passes/global_struct_inference.mbt:340-571`
+- `src/passes/global_struct_inference.mbt:20-393`
+  - `GsiClosedWorldFacts`, allocation scanners, equality-comparable global declaration filter, subtype propagation helpers, exact direct candidate extraction, exact direct single-candidate extraction, and `gsi_build_closed_world_facts(...)`
+- `src/passes/global_struct_inference.mbt:444-609`
   - `gsi_candidate_field_values(...)` and `gsi_candidate_global_values(...)`: harvest immutable field payloads from trusted global initializers, with descriptor-constructor field operands read before the descriptor operand, and accept only top-level `struct.new`, `struct.new_default`, `struct.new_desc`, and `struct.new_default_desc` globals
-- `src/passes/global_struct_inference.mbt:626-784`
-  - exact local/param origin helpers plus `gsi_folded_global_field_expr(...)`: map one trusted global plus one `struct.get*` into a replacement expression, including packed-field repair
-- `src/passes/global_struct_inference.mbt:786-919`
-  - `gsi_rewrite_instrs(...)`: recurse through bodies and rewrite immediate `global.get` + `struct.get*` instruction pairs plus closed-world exact single-candidate `local.get` + `struct.get*` pairs
-- `src/passes/global_struct_inference.mbt:921-1017`
+- `src/passes/global_struct_inference.mbt:612-906`
+  - exact local/param origin helpers, one-value multi-candidate local fold helpers, and `gsi_folded_global_field_expr(...)`: map trusted globals plus one `struct.get*` into replacement expressions, including packed-field repair
+- `src/passes/global_struct_inference.mbt:909-1073`
+  - `gsi_rewrite_instrs(...)`: recurse through bodies and rewrite immediate `global.get` + `struct.get*` instruction pairs, closed-world exact single-candidate `local.get` + `struct.get*` origin pairs, and closed-world exact multi-candidate one-value local folds
+- `src/passes/global_struct_inference.mbt:1076-1214`
   - `gsi_instrs_may_rewrite(...)`: cheap pre-scan used to skip unchanged functions
-- `src/passes/global_struct_inference.mbt:1020-1127`
-  - `global_struct_inference_run_module_pass(...)`: builds closed-world exact single-candidate facts when requested, then runs the direct-global candidate table build, per-function rewrite loop, and final `with_code_sec(...)` replacement
-- `src/passes/global_struct_inference_test.mbt:28-358`
-  - focused positive/negative local coverage for the direct-global subset and exact single-candidate local/param origin subset
+- `src/passes/global_struct_inference.mbt:1217-1340`
+  - `global_struct_inference_run_module_pass(...)`: builds closed-world exact single-candidate and exact direct-candidate facts when requested, then runs the direct-global candidate table build, per-function rewrite loop, and final `with_code_sec(...)` replacement
+- `src/passes/global_struct_inference_test.mbt:28-527`
+  - focused positive/negative local coverage for the direct-global subset, exact single-candidate local/param origin subset, and exact one-value multi-candidate local/param fold subset
 - `src/passes/global_struct_inference_wbtest.mbt:1-240`
   - analysis-only closed-world fact coverage for candidate inclusion/exclusion, poisoning, subtype poison propagation including no-global-section poison propagation, upward candidate propagation, and deterministic candidate ordering
 - `src/passes/pass_manager.mbt:12308-12309`
@@ -80,7 +80,7 @@ The easiest way to follow the in-tree implementation is this file map:
 
 ## 1. Candidate discovery is still rewrite-limited, but closed-world facts now exist
 
-The local rewrite implementation still starts from the narrow direct-global table. In closed-world mode, the fact table records candidate global origins by struct type, poisoned allocation types, and subtype-propagated poison/candidate facts; a separate exact-direct single-candidate table consumes only slots where the propagated fact list still contains exactly that one direct candidate.
+The local rewrite implementation still starts from the narrow direct-global table. In closed-world mode, the fact table records candidate global origins by struct type, poisoned allocation types, and subtype-propagated poison/candidate facts; exact-direct candidate tables consume only slots where the propagated fact list still exactly matches the safe direct candidates, with a single-candidate path for origin rewrites and a multi-candidate one-value path for direct value folds.
 
 The direct rewrite scans defined globals and records candidate field values only when all of these are true:
 
@@ -99,10 +99,10 @@ This means the local pass trusts only a very small origin family:
 
 - top-level immutable globals whose values are visibly constructed in their own initializer expression
 
-The closed-world fact table now reasons about direct top-level candidates, function-local allocation poisoning, nested-global allocation poisoning, mutable-global exclusion, too-broad/`anyref` global declaration exclusion, poisoned-child-to-parent propagation, and child-candidate-to-parent propagation. It now reasons about locals and params only as exact-type single-candidate rewrite origins. It still does **not** yet reason about:
+The closed-world fact table now reasons about direct top-level candidates, function-local allocation poisoning, nested-global allocation poisoning, mutable-global exclusion, too-broad/`anyref` global declaration exclusion, poisoned-child-to-parent propagation, and child-candidate-to-parent propagation. It now reasons about locals and params as exact-type single-candidate rewrite origins and exact-type one-value multi-candidate folds. It still does **not** yet reason about:
 
 - parent/supertype candidate sets as rewrite origins
-- multi-candidate value grouping
+- two-value select grouping
 - nested-global candidate propagation beyond top-level origin propagation
 
 ## 2. Value materialization is intentionally small and syntax-driven
@@ -141,6 +141,8 @@ or, in closed world only:
 (struct.get* ...)
 ```
 
+The closed-world local/param pair either rewrites the reference operand to a single candidate global or consumes both instructions and returns a trap-preserving folded value when multiple exact direct candidates all materialize the same field value.
+
 `gsi_rewrite_instrs(...)` recursively descends into:
 
 - `block`
@@ -150,9 +152,9 @@ or, in closed world only:
 
 but at each level it still rewrites only those immediate adjacent pairs.
 
-So the pass can optimize through nested control bodies, but it does **not** optimize arbitrary operand producers. The exact local/param case emits a result-typed block that evaluates and drops the original local, using `ref.as_non_null` when needed, then yields the one safe global candidate. It will not rewrite cases where the reference comes from:
+So the pass can optimize through nested control bodies, but it does **not** optimize arbitrary operand producers. The exact one-global local/param case emits a result-typed block that evaluates and drops the original local, using `ref.as_non_null` when needed, then yields the one safe global candidate. The exact one-value local/param case emits a result-typed block that evaluates and drops the original local, then yields the shared materializable field value and consumes the following `struct.get*`. It will not rewrite cases where the reference comes from:
 
-- a multi-candidate local/param type
+- a multi-candidate local/param type with differing values
 - a poisoned type
 - a parent-typed candidate set with propagated subtype candidates
 - a `select`
@@ -198,9 +200,9 @@ So the local strategy is intentionally simple:
 
 Compared with upstream Binaryen `version_129`, Starshine currently does **not** do these `gsi` behaviors here:
 
-- using closed-world `typeGlobals`-style facts beyond exact single-candidate local/param reads
+- using closed-world `typeGlobals`-style facts beyond exact local/param one-global and one-value direct-candidate reads
 - consuming subtype-propagated facts for supertype-origin rewrites
-- one-vs-two-unique-value grouping and `select(ref.eq(...))` synthesis
+- two-unique-value grouping and `select(ref.eq(...))` synthesis
 - fresh-global un-nesting of non-constant operands
 - `ref.get_desc` handling
 - sibling `gsi-desc-cast` rewrites
@@ -214,7 +216,7 @@ Those are real capability gaps, not just documentation wording differences.
 The most important durable correction is:
 
 - upstream Binaryen `gsi` is a layered open-world-plus-closed-world origin optimizer
-- local Starshine `global-struct-inference` is currently an **open-world direct-global fold** plus a subtype-aware closed-world fact table and narrow exact single-candidate local/param origin rewrite
+- local Starshine `global-struct-inference` is currently an **open-world direct-global fold** plus a subtype-aware closed-world fact table and narrow exact local/param one-global and one-value rewrites
 
 That narrower local strategy is still useful, and it is already green on the saved generated-artifact slot documented in `parity.md`.
 But it should not be described as if it were the whole official Binaryen pass.
@@ -229,11 +231,14 @@ The focused tests in `src/passes/global_struct_inference_test.mbt` currently pro
 - default, descriptor, and default-descriptor constructors expose foldable fields
 - mutable fields, mutable globals, and imported globals stay unchanged
 - non-global reference producers stay unchanged even in closed world
+- exact single-candidate param and body-local origins rewrite in closed world with null-trap preservation
+- exact multi-candidate one-value local/param reads fold in closed world, including equal literals, immutable `global.get`s, body locals, and packed-field repair
+- open-world, differing-value, non-materializable, subtype-propagated ambiguity, poisoned type, mutable-field, mutable-global, and too-broad/`anyref` local-origin negatives stay unchanged
 
 That is a good local floor.
-It is much smaller than the official Binaryen `gsi.wast` proof surface, which is why the local parity page keeps the missing multi-candidate local/param, supertype, select, un-nesting, atomic, and descriptor families explicit.
+It is much smaller than the official Binaryen `gsi.wast` proof surface, which is why the local parity page keeps the missing supertype, two-value select, un-nesting, atomic, and descriptor families explicit.
 
-The 2026-06-03 O4z audit changed the local status by enabling the direct-global fast path in open world and adding packed/default/descriptor-constructor coverage. The page remains anchored to the 2026-05-06 current-main bridge and raw Binaryen manifest for the upstream contract.
+The 2026-06-03 O4z audit changed the local status by enabling the direct-global fast path in open world and adding packed/default/descriptor-constructor coverage. The follow-up GSI001-B and GSI001-C slices added exact single-candidate local/param origin rewrites and exact one-value multi-candidate local/param folds. The page remains anchored to the 2026-05-06 current-main bridge and raw Binaryen manifest for the upstream contract.
 
 ## Practical maintenance rule
 
@@ -242,7 +247,7 @@ Treat the current Starshine implementation as:
 - a real in-tree module pass
 - a deliberately narrow subset of upstream `gsi`
 - a direct-global folder whose correctness depends on immutable trusted global initializers plus explicit null-trap preservation
-- a conservative closed-world fact builder whose first rewrite consumer is limited to exact single-candidate local/param origins
+- a conservative closed-world fact builder whose current rewrite consumers are limited to exact local/param one-global origins and one-value direct-candidate folds
 
 Future work on this pass should answer one question explicitly:
 

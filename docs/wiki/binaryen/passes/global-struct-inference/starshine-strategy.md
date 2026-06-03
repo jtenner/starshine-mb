@@ -35,37 +35,38 @@ Use this page with the upstream contract in [`./binaryen-strategy.md`](./binarye
 
 ## Current Starshine status
 
-`global-struct-inference` is an **active module pass** in Starshine. After the 2026-06-03 O4z audit plus the follow-up closed-world fact and exact single-candidate slices, it implements the upstream **open-world direct immutable-global** subset, builds a subtype-aware closed-world candidate/poison fact table, and consumes a narrow exact-type single-candidate subset for local/param origin rewrites. It is still much narrower than full Binaryen closed-world `gsi` origin rewriting.
+`global-struct-inference` is an **active module pass** in Starshine. After the 2026-06-03 O4z audit plus the follow-up closed-world fact, exact single-candidate, and one-value multi-candidate slices, it implements the upstream **open-world direct immutable-global** subset, builds a subtype-aware closed-world candidate/poison fact table, consumes a narrow exact-type single-candidate subset for local/param origin rewrites, and folds exact-type multi-candidate local/param reads when every safe direct candidate yields the same materializable field value. It is still much narrower than full Binaryen closed-world `gsi` origin rewriting.
 
 The local pass does all of these today:
 
 - accepts the `closed_world` dispatcher flag but does not require it for the direct-global fast path
 - scans only defined immutable globals as direct-global candidate sources
 - in closed-world mode, builds an internal candidate-global/poison fact table that includes immutable top-level origins, excludes mutable and too-broad global declarations, poisons function-local allocations, poisons nested global-initializer allocations, propagates poisoned child types to parents, and propagates child candidates upward to parent types
-- in closed-world mode, rewrites exact-type local/param `struct.get*` origins only when the exact type has one safe direct candidate and no propagated subtype candidate ambiguity
+- in closed-world mode, rewrites exact-type local/param `struct.get*` origins when the exact type has one safe direct candidate and no propagated subtype candidate ambiguity
+- in closed-world mode, folds exact-type local/param `struct.get*` reads to a single materializable value when multiple safe direct candidates all expose the same field payload after packed-field repair
 - accepts top-level `struct.new*` initializer families
 - materializes a small value vocabulary (`i32`, `v128`, `ref.null`, `ref.func`, `global.get`, `string.const`, default values)
 - rewrites only immediate `global.get` + `struct.get*` instruction pairs, including open-world direct-global reads
 - preserves nullable-trap behavior with `ref.as_non_null` + `drop`
 - rebuilds changed functions only
 
-It does **not** yet use the closed-world facts for subtype/supertype-origin rewrites, value grouping, selects, or un-nesting, so it has not implemented the broader upstream origin-analysis contract even though the first exact local/param rewrite consumer now exists.
+It does **not** yet use the closed-world facts for subtype/supertype-origin rewrites, two-value selects, or un-nesting, so it has not implemented the broader upstream origin-analysis contract even though exact local/param one-global and one-value consumers now exist.
 
-The 2026-06-03 O4z audit revalidation kept the upgraded subset semantically green against Binaryen under the refreshed harness: 9975 / 10000 compared cases, 9975 normalized matches, and 0 mismatches, with 25 Binaryen/tool command failures. The audited debug artifact was canonical-equal and Starshine was faster pass-local (`0.349 ms` versus Binaryen `2.815 ms`). The exact single-candidate local/param follow-up also stayed green at 9975 / 10000 compared, 0 mismatches, and canonical-equal debug-artifact timing with Starshine/Binaryen pass-local `0.371 ms` / `5.017 ms`.
+The 2026-06-03 O4z audit revalidation kept the upgraded subset semantically green against Binaryen under the refreshed harness: 9975 / 10000 compared cases, 9975 normalized matches, and 0 mismatches, with 25 Binaryen/tool command failures. The audited debug artifact was canonical-equal and Starshine was faster pass-local (`0.349 ms` versus Binaryen `2.815 ms`). The exact single-candidate local/param follow-up also stayed green at 9975 / 10000 compared, 0 mismatches, and canonical-equal debug-artifact timing with Starshine/Binaryen pass-local `0.371 ms` / `5.017 ms`. The one-value multi-candidate follow-up used a prebuilt native Starshine binary plus `--jobs auto`, stayed green at 9975 / 10000 compared with 0 mismatches and 25 Binaryen/tool command failures, and kept the debug artifact canonical-equal with Starshine/Binaryen pass-local `0.440 ms` / `3.275 ms`.
 
 ## Exact local code map
 
 | Surface | Why it matters |
 | --- | --- |
 | `src/passes/global_struct_inference.mbt:2` | summary string and local user-facing description |
-| `src/passes/global_struct_inference.mbt:20-339` | closed-world fact table, allocation poisoning, safe candidate-origin filters, subtype poison/candidate propagation, and exact direct single-candidate extraction |
-| `src/passes/global_struct_inference.mbt:340-571` | candidate field-value harvesting from trusted global initializers |
-| `src/passes/global_struct_inference.mbt:535-571` | accepted top-level global initializer families |
-| `src/passes/global_struct_inference.mbt:626-784` | exact local/param origin helpers plus folded global-field expression builder and packed-field repair |
-| `src/passes/global_struct_inference.mbt:786-919` | recursive body walk that rewrites immediate `global.get` + `struct.get*` pairs and exact single-candidate `local.get` + `struct.get*` pairs |
-| `src/passes/global_struct_inference.mbt:921-1017` | cheap pre-scan used to skip unchanged functions |
-| `src/passes/global_struct_inference.mbt:1020-1127` | public module-pass entrypoint; builds closed-world exact single-candidate facts when requested, then runs direct-global and local-origin rewrites |
-| `src/passes/global_struct_inference_test.mbt:28-358` | open-world direct-global positives, nullable-trap preservation, packed/default/descriptor constructor coverage, unsafe-global negatives, exact single-candidate local/param positives, and open-world/multi-candidate/poisoned/unsafe/subtype-propagated local-origin negatives |
+| `src/passes/global_struct_inference.mbt:20-393` | closed-world fact table, allocation poisoning, safe candidate-origin filters, subtype poison/candidate propagation, exact direct candidate extraction, and exact single-candidate extraction |
+| `src/passes/global_struct_inference.mbt:444-609` | candidate field-value harvesting from trusted global initializers |
+| `src/passes/global_struct_inference.mbt:574-609` | accepted top-level global initializer families |
+| `src/passes/global_struct_inference.mbt:612-906` | exact local/param origin helpers, one-value multi-candidate local fold helpers, folded global-field expression builder, and packed-field repair |
+| `src/passes/global_struct_inference.mbt:909-1073` | recursive body walk that rewrites immediate `global.get` + `struct.get*` pairs, exact single-candidate `local.get` + `struct.get*` origin pairs, and exact one-value multi-candidate local folds |
+| `src/passes/global_struct_inference.mbt:1076-1214` | cheap pre-scan used to skip unchanged functions |
+| `src/passes/global_struct_inference.mbt:1217-1340` | public module-pass entrypoint; builds closed-world exact single-candidate and exact direct-candidate facts when requested, then runs direct-global and local-origin/value rewrites |
+| `src/passes/global_struct_inference_test.mbt:28-527` | open-world direct-global positives, nullable-trap preservation, packed/default/descriptor constructor coverage, unsafe-global negatives, exact single-candidate local/param positives, one-value multi-candidate local positives, and open-world/ambiguous/non-materializable/poisoned/unsafe/subtype-propagated local-origin negatives |
 | `src/passes/global_struct_inference_wbtest.mbt:1-240` | white-box closed-world fact-table coverage for top-level candidates, mutable/anyref exclusions, function-local poisoning, nested-global poisoning, subtype poison propagation, no-global-section poison propagation, and upward candidate propagation/order |
 | `src/passes/pass_manager.mbt:12308-12309` | module-pass dispatch into `global_struct_inference_run_module_pass(mod_, options.closed_world)` |
 | `src/passes/optimize.mbt:279-280` | registry entry and summary wiring |
@@ -82,7 +83,7 @@ This closes the largest old narrowing versus Binaryen for the direct-global fast
 ### 2. It only trusts a tiny origin family
 
 The local direct rewrite still accepts only defined immutable globals whose values are visibly constructed in the initializer.
-The closed-world analysis now builds the first local `typeGlobals`-shaped fact table: top-level immutable candidate globals are grouped by created struct type, mutable and equality-incomparable global declarations are excluded, function-local `struct.new*` allocations poison their type, nested non-top-level global-initializer `struct.new*` allocations poison their type, poisoned child types poison parents, and child candidate globals propagate upward to parent types in deterministic global-index order. It now reasons about locals and params only for the narrow exact-type single-candidate case. It still does not consume subtype-propagated parent facts as rewrite origins.
+The closed-world analysis now builds the first local `typeGlobals`-shaped fact table: top-level immutable candidate globals are grouped by created struct type, mutable and equality-incomparable global declarations are excluded, function-local `struct.new*` allocations poison their type, nested non-top-level global-initializer `struct.new*` allocations poison their type, poisoned child types poison parents, and child candidate globals propagate upward to parent types in deterministic global-index order. It now reasons about locals and params for exact-type single-candidate origin rewrites and exact-type multi-candidate one-value folds. It still does not consume subtype-propagated parent facts as rewrite origins.
 
 ### 3. It rewrites only the immediate read pair
 
@@ -93,14 +94,14 @@ The local rewrite surface is still adjacent-pair shaped. It handles the direct p
 (struct.get* ...)
 ```
 
-and, in closed world only, the exact single-candidate local/param pair:
+and, in closed world only, exact-type local/param pairs:
 
 ```wat
 (local.get $x)
 (struct.get* ...)
 ```
 
-by replacing the local reference operand with a trap-preserving block that yields the one safe global candidate. It does not currently rewrite arbitrary operands, select between two values, or un-nest nested operands into fresh globals.
+by either replacing the local reference operand with a trap-preserving block that yields one safe global candidate or, when multiple safe direct candidates expose one equal materializable value, consuming the pair and yielding that value after preserving the original null trap. It does not currently rewrite arbitrary operands, select between two values, or un-nest nested operands into fresh globals.
 
 ### 4. It preserves null traps explicitly
 
@@ -115,9 +116,9 @@ The pass pre-scans for rewrite candidates, rebuilds only changed functions, and 
 
 Compared with upstream Binaryen `version_129`, Starshine currently does **not** implement:
 
-- full closed-world `typeGlobals` candidate consumption beyond exact single-candidate local/param origins
+- full closed-world `typeGlobals` candidate consumption beyond exact local/param one-global and one-value direct-candidate folds
 - consuming subtype-propagated candidate facts for supertype-origin rewrites
-- one-vs-two-unique-value `select(ref.eq(...))` synthesis
+- two-unique-value `select(ref.eq(...))` synthesis
 - non-constant operand un-nesting into fresh globals
 - `ref.get_desc`
 - sibling `gsi-desc-cast` rewrites
@@ -137,7 +138,7 @@ The upstream contract is about trusted origin restriction plus value grouping, n
 
 If Starshine grows toward the full Binaryen contract, preserve the current subset while adding the missing layers in this order:
 
-1. broaden from exact single-candidate local/param reads to safe value grouping
+1. broaden from exact-type local/param reads to safe two-value grouping
 2. one-vs-two unique value `select` synthesis
 3. non-constant operand un-nesting
 4. `ref.get_desc`, descriptor-cast, and atomic-get family coverage

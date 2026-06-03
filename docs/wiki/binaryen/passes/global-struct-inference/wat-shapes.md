@@ -525,6 +525,8 @@ Current Starshine implements only a subset of this catalog:
 - open-world direct `global.get` + `struct.get*` pairs
 - top-level immutable `struct.new*`, default, and descriptor-constructor globals
 - simple materializable field values plus local packed-field repair
-- nullable-global trap preservation with `ref.as_non_null` + `drop`
+- nullable-global and nullable-local trap preservation with `ref.as_non_null` + `drop`
+- narrow closed-world exact single-candidate local/param origin rewrites
+- exact multi-candidate local/param one-value folds when all safe direct candidates expose the same materializable field value
 
-It now implements only the narrow closed-world exact single-candidate local/param origin rewrite in addition to the direct-global subset. It does **not** currently implement Binaryen's multi-candidate local/param value grouping, supertype/subtype-propagated origin rewrites, two-value select, un-nesting, atomic-get, or `ref.get_desc` families. Keep that distinction visible when adding examples or parity claims.
+It does **not** currently implement Binaryen's two-value local/param `select(ref.eq(...))` grouping, supertype/subtype-propagated origin rewrites, un-nesting, atomic-get, or `ref.get_desc` families. Keep that distinction visible when adding examples or parity claims.

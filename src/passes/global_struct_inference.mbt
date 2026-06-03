@@ -269,20 +269,36 @@ fn gsi_struct_field_is_immutable(
 }
 
 ///|
-fn gsi_exact_single_candidate_globals(
+fn gsi_candidate_lists_equal(
+  lhs : Array[@lib.GlobalIdx],
+  rhs : Array[@lib.GlobalIdx],
+) -> Bool {
+  if lhs.length() != rhs.length() {
+    return false
+  }
+  for idx = 0; idx < lhs.length(); idx = idx + 1 {
+    if lhs[idx] != rhs[idx] {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn gsi_exact_direct_candidate_globals(
   env : @validate.Env,
   mod_ : @lib.Module,
   facts : GsiClosedWorldFacts,
-) -> Array[@lib.GlobalIdx?] {
+) -> Array[Array[@lib.GlobalIdx]] {
   let type_count = facts.poisoned_type_slots.length()
-  let first_candidate_by_type_slot : Array[@lib.GlobalIdx?] = Array::make(
-    type_count,
-    None,
-  )
-  let candidate_count_by_type_slot : Array[Int] = Array::make(type_count, 0)
+  let candidates_by_type_slot : Array[Array[@lib.GlobalIdx]] = []
+  for slot = 0; slot < type_count; slot = slot + 1 {
+    ignore(slot)
+    candidates_by_type_slot.push([])
+  }
   let globals = match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) => globals
-    None => return first_candidate_by_type_slot
+    None => return candidates_by_type_slot
   }
   let total_globals = env.globals.length()
   let imported_global_count = total_globals - globals.length()
@@ -311,22 +327,46 @@ fn gsi_exact_single_candidate_globals(
           is None {
           continue
         }
-        if candidate_count_by_type_slot[slot] == 0 {
-          first_candidate_by_type_slot[slot] = Some(candidate)
-        }
-        candidate_count_by_type_slot[slot] += 1
+        candidates_by_type_slot[slot].push(candidate)
       }
       None => ()
     }
   }
   for slot = 0; slot < type_count; slot = slot + 1 {
-    if candidate_count_by_type_slot[slot] != 1 {
-      first_candidate_by_type_slot[slot] = None
-      continue
+    gsi_sort_candidate_globals(candidates_by_type_slot[slot])
+    if !gsi_candidate_lists_equal(
+        candidates_by_type_slot[slot],
+        facts.candidate_globals_by_type_slot[slot],
+      ) {
+      candidates_by_type_slot[slot] = []
     }
-    let propagated_candidates = facts.candidate_globals_by_type_slot[slot]
-    if propagated_candidates.length() != 1 ||
-      first_candidate_by_type_slot[slot] != Some(propagated_candidates[0]) {
+  }
+  candidates_by_type_slot
+}
+
+///|
+fn gsi_exact_single_candidate_globals(
+  env : @validate.Env,
+  mod_ : @lib.Module,
+  facts : GsiClosedWorldFacts,
+) -> Array[@lib.GlobalIdx?] {
+  let type_count = facts.poisoned_type_slots.length()
+  let first_candidate_by_type_slot : Array[@lib.GlobalIdx?] = Array::make(
+    type_count,
+    None,
+  )
+  let candidate_count_by_type_slot : Array[Int] = Array::make(type_count, 0)
+  let direct_candidates_by_type_slot = gsi_exact_direct_candidate_globals(
+    env, mod_, facts,
+  )
+  for slot = 0; slot < type_count; slot = slot + 1 {
+    for candidate in direct_candidates_by_type_slot[slot] {
+      if candidate_count_by_type_slot[slot] == 0 {
+        first_candidate_by_type_slot[slot] = Some(candidate)
+      }
+      candidate_count_by_type_slot[slot] += 1
+    }
+    if candidate_count_by_type_slot[slot] != 1 {
       first_candidate_by_type_slot[slot] = None
     }
   }
@@ -455,8 +495,8 @@ fn gsi_simple_instr_result_type(
       }
     @lib.GlobalGet(global_idx) =>
       match env.get_global_type(global_idx) {
-        Some(@lib.GlobalType(value_type, _)) => Some(value_type)
-        None => None
+        Some(@lib.GlobalType(value_type, false)) => Some(value_type)
+        _ => None
       }
     @lib.StringConst(_) => Some(@lib.ValType::stringref())
     _ => None
@@ -703,6 +743,89 @@ fn gsi_single_candidate_local_origin_block(
 }
 
 ///|
+fn gsi_single_instr_expr_result_type(
+  env : @validate.Env,
+  expr : @lib.Expr,
+) -> @lib.ValType? {
+  match expr {
+    @lib.Expr([instr]) => gsi_simple_instr_result_type(env, instr)
+    _ => None
+  }
+}
+
+///|
+fn gsi_one_value_local_fold_block(
+  env : @validate.Env,
+  local_env : @validate.Env,
+  exact_direct_candidates_by_type_slot : Array[Array[@lib.GlobalIdx]],
+  fields_by_type : Array[Array[@lib.FieldType]?],
+  global_values_by_abs_idx : Array[Array[@lib.Expr?]?],
+  global_type_slots : Array[Int],
+  local_idx : @lib.LocalIdx,
+  type_idx : @lib.TypeIdx,
+  field_idx : @lib.U32,
+  signed : Bool,
+  unsigned : Bool,
+) -> @lib.Instruction? {
+  if !gsi_struct_field_is_immutable(env, type_idx, field_idx) {
+    return None
+  }
+  let local_ref_type = match
+    gsi_local_get_ref_type_for_exact_struct(local_env, local_idx, type_idx) {
+    Some(ref_type) => ref_type
+    None => return None
+  }
+  let slot = gsi_type_slot(
+    type_idx,
+    exact_direct_candidates_by_type_slot.length(),
+  )
+  if slot < 0 {
+    return None
+  }
+  let candidates = exact_direct_candidates_by_type_slot[slot]
+  if candidates.length() <= 1 {
+    return None
+  }
+  let mut folded_value : @lib.Expr? = None
+  for candidate in candidates {
+    let value = match
+      gsi_folded_global_field_expr(
+        fields_by_type, global_values_by_abs_idx, global_type_slots, candidate, type_idx,
+        field_idx, signed, unsigned,
+      ) {
+      Some(value) => value
+      None => return None
+    }
+    match folded_value {
+      None => folded_value = Some(value)
+      Some(first_value) => if value != first_value { return None }
+    }
+  }
+  let value = match folded_value {
+    Some(value) => value
+    None => return None
+  }
+  let result_type = match gsi_single_instr_expr_result_type(env, value) {
+    Some(result_type) => result_type
+    None => return None
+  }
+  let block_body : Array[@lib.Instruction] = [
+    @lib.Instruction::local_get(local_idx),
+  ]
+  if local_ref_type.is_nullable() {
+    block_body.push(@lib.Instruction::ref_as_non_null())
+  }
+  block_body.push(@lib.Instruction::drop())
+  gsi_append_expr_instrs(block_body, value)
+  Some(
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(result_type),
+      @lib.Expr::new(block_body),
+    ),
+  )
+}
+
+///|
 fn gsi_function_local_env(
   env : @validate.Env,
   imported_func_count : Int,
@@ -791,6 +914,7 @@ fn gsi_rewrite_instrs(
   global_values_by_abs_idx : Array[Array[@lib.Expr?]?],
   global_type_slots : Array[Int],
   exact_single_candidate_by_type_slot : Array[@lib.GlobalIdx?],
+  exact_direct_candidates_by_type_slot : Array[Array[@lib.GlobalIdx]],
 ) -> Array[@lib.Instruction] {
   let out : Array[@lib.Instruction] = []
   let mut idx = 0
@@ -804,7 +928,7 @@ fn gsi_rewrite_instrs(
             @lib.Expr::new(
               gsi_rewrite_instrs(
                 body, env, local_env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-                exact_single_candidate_by_type_slot,
+                exact_single_candidate_by_type_slot, exact_direct_candidates_by_type_slot,
               ),
             ),
           ),
@@ -816,7 +940,7 @@ fn gsi_rewrite_instrs(
             @lib.Expr::new(
               gsi_rewrite_instrs(
                 body, env, local_env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-                exact_single_candidate_by_type_slot,
+                exact_single_candidate_by_type_slot, exact_direct_candidates_by_type_slot,
               ),
             ),
           ),
@@ -827,12 +951,12 @@ fn gsi_rewrite_instrs(
             block_type,
             gsi_rewrite_instrs(
               then_body, env, local_env, fields_by_type, global_values_by_abs_idx,
-              global_type_slots, exact_single_candidate_by_type_slot,
+              global_type_slots, exact_single_candidate_by_type_slot, exact_direct_candidates_by_type_slot,
             ),
             else_body.map(fn(body) {
               gsi_rewrite_instrs(
                 body, env, local_env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-                exact_single_candidate_by_type_slot,
+                exact_single_candidate_by_type_slot, exact_direct_candidates_by_type_slot,
               )
             }),
           ),
@@ -845,7 +969,7 @@ fn gsi_rewrite_instrs(
             @lib.Expr::new(
               gsi_rewrite_instrs(
                 body, env, local_env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-                exact_single_candidate_by_type_slot,
+                exact_single_candidate_by_type_slot, exact_direct_candidates_by_type_slot,
               ),
             ),
           ),
@@ -893,7 +1017,8 @@ fn gsi_rewrite_instrs(
         }
       @lib.LocalGet(local_idx) =>
         if idx + 1 < instrs.length() {
-          let rewritten = match instrs[idx + 1] {
+          let next_instr = instrs[idx + 1]
+          let origin_rewrite = match next_instr {
             @lib.StructGet(type_idx, field_idx)
             | @lib.StructGetS(type_idx, field_idx)
             | @lib.StructGetU(type_idx, field_idx) =>
@@ -903,9 +1028,39 @@ fn gsi_rewrite_instrs(
               )
             _ => None
           }
-          match rewritten {
+          match origin_rewrite {
             Some(block) => out.push(block)
-            None => out.push(instr)
+            None => {
+              let value_rewrite = match next_instr {
+                @lib.StructGet(type_idx, field_idx) =>
+                  gsi_one_value_local_fold_block(
+                    env, local_env, exact_direct_candidates_by_type_slot, fields_by_type,
+                    global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
+                    field_idx, false, false,
+                  )
+                @lib.StructGetS(type_idx, field_idx) =>
+                  gsi_one_value_local_fold_block(
+                    env, local_env, exact_direct_candidates_by_type_slot, fields_by_type,
+                    global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
+                    field_idx, true, false,
+                  )
+                @lib.StructGetU(type_idx, field_idx) =>
+                  gsi_one_value_local_fold_block(
+                    env, local_env, exact_direct_candidates_by_type_slot, fields_by_type,
+                    global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
+                    field_idx, false, true,
+                  )
+                _ => None
+              }
+              match value_rewrite {
+                Some(block) => {
+                  out.push(block)
+                  idx += 2
+                  continue
+                }
+                None => out.push(instr)
+              }
+            }
           }
         } else {
           out.push(instr)
@@ -926,6 +1081,7 @@ fn gsi_instrs_may_rewrite(
   global_values_by_abs_idx : Array[Array[@lib.Expr?]?],
   global_type_slots : Array[Int],
   exact_single_candidate_by_type_slot : Array[@lib.GlobalIdx?],
+  exact_direct_candidates_by_type_slot : Array[Array[@lib.GlobalIdx]],
 ) -> Bool {
   let mut idx = 0
   while idx < instrs.length() {
@@ -964,9 +1120,7 @@ fn gsi_instrs_may_rewrite(
       @lib.LocalGet(local_idx) =>
         if idx + 1 < instrs.length() {
           match instrs[idx + 1] {
-            @lib.StructGet(type_idx, field_idx)
-            | @lib.StructGetS(type_idx, field_idx)
-            | @lib.StructGetU(type_idx, field_idx) =>
+            @lib.StructGet(type_idx, field_idx) => {
               if gsi_single_candidate_local_origin_block(
                   env, local_env, exact_single_candidate_by_type_slot, local_idx,
                   type_idx, field_idx,
@@ -974,20 +1128,63 @@ fn gsi_instrs_may_rewrite(
                 is Some(_) {
                 return true
               }
+              if gsi_one_value_local_fold_block(
+                  env, local_env, exact_direct_candidates_by_type_slot, fields_by_type,
+                  global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
+                  field_idx, false, false,
+                )
+                is Some(_) {
+                return true
+              }
+            }
+            @lib.StructGetS(type_idx, field_idx) => {
+              if gsi_single_candidate_local_origin_block(
+                  env, local_env, exact_single_candidate_by_type_slot, local_idx,
+                  type_idx, field_idx,
+                )
+                is Some(_) {
+                return true
+              }
+              if gsi_one_value_local_fold_block(
+                  env, local_env, exact_direct_candidates_by_type_slot, fields_by_type,
+                  global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
+                  field_idx, true, false,
+                )
+                is Some(_) {
+                return true
+              }
+            }
+            @lib.StructGetU(type_idx, field_idx) => {
+              if gsi_single_candidate_local_origin_block(
+                  env, local_env, exact_single_candidate_by_type_slot, local_idx,
+                  type_idx, field_idx,
+                )
+                is Some(_) {
+                return true
+              }
+              if gsi_one_value_local_fold_block(
+                  env, local_env, exact_direct_candidates_by_type_slot, fields_by_type,
+                  global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
+                  field_idx, false, true,
+                )
+                is Some(_) {
+                return true
+              }
+            }
             _ => ()
           }
         }
       @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
         if gsi_instrs_may_rewrite(
             body, env, local_env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-            exact_single_candidate_by_type_slot,
+            exact_single_candidate_by_type_slot, exact_direct_candidates_by_type_slot,
           ) {
           return true
         }
       @lib.If(_, then_body, else_body) => {
         if gsi_instrs_may_rewrite(
             then_body, env, local_env, fields_by_type, global_values_by_abs_idx,
-            global_type_slots, exact_single_candidate_by_type_slot,
+            global_type_slots, exact_single_candidate_by_type_slot, exact_direct_candidates_by_type_slot,
           ) {
           return true
         }
@@ -995,7 +1192,7 @@ fn gsi_instrs_may_rewrite(
           Some(else_body) =>
             if gsi_instrs_may_rewrite(
                 else_body, env, local_env, fields_by_type, global_values_by_abs_idx,
-                global_type_slots, exact_single_candidate_by_type_slot,
+                global_type_slots, exact_single_candidate_by_type_slot, exact_direct_candidates_by_type_slot,
               ) {
               return true
             }
@@ -1005,7 +1202,7 @@ fn gsi_instrs_may_rewrite(
       @lib.TryTable(_, _, @lib.Expr(body)) =>
         if gsi_instrs_may_rewrite(
             body, env, local_env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-            exact_single_candidate_by_type_slot,
+            exact_single_candidate_by_type_slot, exact_direct_candidates_by_type_slot,
           ) {
           return true
         }
@@ -1023,12 +1220,24 @@ pub fn global_struct_inference_run_module_pass(
 ) -> @lib.Module {
   let env = @validate.Env::new().with_module(mod_)
   let type_count = env.global_types.length()
-  let exact_single_candidate_by_type_slot : Array[@lib.GlobalIdx?] = if closed_world {
+  let exact_single_candidate_by_type_slot : Array[@lib.GlobalIdx?] = Array::make(
+    type_count,
+    None,
+  )
+  let exact_direct_candidates_by_type_slot : Array[Array[@lib.GlobalIdx]] = []
+  for slot = 0; slot < type_count; slot = slot + 1 {
+    ignore(slot)
+    exact_direct_candidates_by_type_slot.push([])
+  }
+  if closed_world {
     let facts = gsi_build_closed_world_facts(env, mod_)
     ignore(gsi_closed_world_facts_has_candidates(facts))
-    gsi_exact_single_candidate_globals(env, mod_, facts)
-  } else {
-    Array::make(type_count, None)
+    let exact_single = gsi_exact_single_candidate_globals(env, mod_, facts)
+    let exact_direct = gsi_exact_direct_candidate_globals(env, mod_, facts)
+    for slot = 0; slot < type_count; slot = slot + 1 {
+      exact_single_candidate_by_type_slot[slot] = exact_single[slot]
+      exact_direct_candidates_by_type_slot[slot] = exact_direct[slot]
+    }
   }
   let globals = match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) => globals
@@ -1107,13 +1316,13 @@ pub fn global_struct_inference_run_module_pass(
     }
     if !gsi_instrs_may_rewrite(
         instrs, env, local_env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-        exact_single_candidate_by_type_slot,
+        exact_single_candidate_by_type_slot, exact_direct_candidates_by_type_slot,
       ) {
       continue
     }
     let next_instrs = gsi_rewrite_instrs(
       instrs, env, local_env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-      exact_single_candidate_by_type_slot,
+      exact_single_candidate_by_type_slot, exact_direct_candidates_by_type_slot,
     )
     if next_instrs == instrs {
       continue

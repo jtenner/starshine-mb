@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | global-struct-inference one-value multi-candidate folds
+
+- Added the next closed-world rewrite consumer for `global-struct-inference`: exact-type local/param `struct.get*` reads with multiple safe direct candidate globals now fold to one trap-preserving materialized value when every candidate exposes the same field payload after packed-field repair.
+- Added public-pipeline coverage in `src/passes/global_struct_inference_test.mbt` for equal literal and body-local positives, equal immutable-`global.get` and packed-field positives, plus open-world, differing-value, non-materializable expression, subtype-ambiguity, poisoned, and unsafe-origin negatives; marked `[GSI001-C]` complete while keeping two-value select synthesis and un-nesting active.
+- Recorded refreshed evidence with explicit parallel native fuzz lanes: pre-behavior `.tmp/pass-fuzz-global-struct-inference-gsi001c-pre-1000` and post-behavior `.tmp/pass-fuzz-global-struct-inference-gsi001c-post-1000` each reached `998 / 1000` compared, `998` normalized matches, `0` mismatches, and `2` command failures using `--jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe`; final `.tmp/pass-fuzz-global-struct-inference-gsi001c-final-10000` reached `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures (`22` empty-recursion-group plus one each bad-section-size, table-index-out-of-range, and invalid-tag-index). `.tmp/gsi-debug-artifact-timing-gsi001c-final` was canonical-equal with Starshine/Binaryen pass-local `0.440 ms / 3.275 ms`.
+
 ## [2026-06-03] passes | global-struct-inference exact local/param origins
 
 - Added the first closed-world rewrite consumer for `global-struct-inference`: exact-type single-candidate local/param `struct.get*` origins now rewrite to a trap-preserving block that yields the one safe direct global candidate; propagated subtype candidate ambiguity, multiple direct candidates, poisoned types, mutable fields/globals, and too-broad/`anyref` origins still bail.
