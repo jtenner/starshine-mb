@@ -25,6 +25,12 @@ priv struct GsiClosedWorldFacts {
 }
 
 ///|
+priv struct GsiValueGroup {
+  value : @lib.Expr
+  globals : Array[@lib.GlobalIdx]
+}
+
+///|
 fn gsi_closed_world_facts_has_candidates(facts : GsiClosedWorldFacts) -> Bool {
   for slot = 0
       slot < facts.candidate_globals_by_type_slot.length()
@@ -826,6 +832,158 @@ fn gsi_one_value_local_fold_block(
 }
 
 ///|
+fn gsi_field_read_result_type(
+  fields_by_type : Array[Array[@lib.FieldType]?],
+  type_idx : @lib.TypeIdx,
+  field_idx : @lib.U32,
+  signed : Bool,
+  unsigned : Bool,
+) -> @lib.ValType? {
+  let type_slot = gsi_type_slot(type_idx, fields_by_type.length())
+  if type_slot < 0 {
+    return None
+  }
+  let fields = match fields_by_type[type_slot] {
+    Some(fields) => fields
+    None => return None
+  }
+  let @lib.U32(raw_idx) = field_idx
+  let idx = raw_idx.reinterpret_as_int()
+  if idx < 0 || idx >= fields.length() {
+    return None
+  }
+  match fields[idx].get_storage_type() {
+    @lib.ValTypeStorageType(value_type) => Some(value_type)
+    @lib.PackTypeStorageType(_) =>
+      if signed || unsigned {
+        Some(@lib.ValType::i32())
+      } else {
+        None
+      }
+  }
+}
+
+///|
+fn gsi_expr_matches_result_type(
+  env : @validate.Env,
+  expr : @lib.Expr,
+  result_type : @lib.ValType,
+) -> Bool {
+  match gsi_single_instr_expr_result_type(env, expr) {
+    Some(actual_type) => @validate.Match::matches(actual_type, result_type, env)
+    None => false
+  }
+}
+
+///|
+fn gsi_find_value_group(
+  groups : Array[GsiValueGroup],
+  value : @lib.Expr,
+) -> Int {
+  for idx = 0; idx < groups.length(); idx = idx + 1 {
+    if groups[idx].value == value {
+      return idx
+    }
+  }
+  -1
+}
+
+///|
+fn gsi_two_value_singleton_select_block(
+  env : @validate.Env,
+  local_env : @validate.Env,
+  exact_direct_candidates_by_type_slot : Array[Array[@lib.GlobalIdx]],
+  fields_by_type : Array[Array[@lib.FieldType]?],
+  global_values_by_abs_idx : Array[Array[@lib.Expr?]?],
+  global_type_slots : Array[Int],
+  local_idx : @lib.LocalIdx,
+  type_idx : @lib.TypeIdx,
+  field_idx : @lib.U32,
+  signed : Bool,
+  unsigned : Bool,
+) -> @lib.Instruction? {
+  if !gsi_struct_field_is_immutable(env, type_idx, field_idx) {
+    return None
+  }
+  let local_ref_type = match
+    gsi_local_get_ref_type_for_exact_struct(local_env, local_idx, type_idx) {
+    Some(ref_type) => ref_type
+    None => return None
+  }
+  let slot = gsi_type_slot(
+    type_idx,
+    exact_direct_candidates_by_type_slot.length(),
+  )
+  if slot < 0 {
+    return None
+  }
+  let candidates = exact_direct_candidates_by_type_slot[slot]
+  if candidates.length() <= 1 {
+    return None
+  }
+  let result_type = match
+    gsi_field_read_result_type(
+      fields_by_type, type_idx, field_idx, signed, unsigned,
+    ) {
+    Some(result_type) => result_type
+    None => return None
+  }
+  let groups : Array[GsiValueGroup] = []
+  for candidate in candidates {
+    let value = match
+      gsi_folded_global_field_expr(
+        fields_by_type, global_values_by_abs_idx, global_type_slots, candidate, type_idx,
+        field_idx, signed, unsigned,
+      ) {
+      Some(value) => value
+      None => return None
+    }
+    if !gsi_expr_matches_result_type(env, value, result_type) {
+      return None
+    }
+    let group_idx = gsi_find_value_group(groups, value)
+    if group_idx >= 0 {
+      groups[group_idx].globals.push(candidate)
+    } else {
+      if groups.length() >= 2 {
+        return None
+      }
+      groups.push({ value, globals: [candidate] })
+    }
+  }
+  if groups.length() != 2 {
+    return None
+  }
+  let singleton_idx = if groups[0].globals.length() == 1 {
+    0
+  } else if groups[1].globals.length() == 1 {
+    1
+  } else {
+    return None
+  }
+  let other_idx = if singleton_idx == 0 { 1 } else { 0 }
+  let singleton = groups[singleton_idx]
+  let other = groups[other_idx]
+  let test_global = singleton.globals[0]
+  let block_body : Array[@lib.Instruction] = []
+  gsi_append_expr_instrs(block_body, singleton.value)
+  gsi_append_expr_instrs(block_body, other.value)
+  block_body.push(@lib.Instruction::local_get(local_idx))
+  if local_ref_type.is_nullable() {
+    block_body.push(@lib.Instruction::ref_as_non_null())
+  }
+  block_body.push(@lib.Instruction::global_get(test_global))
+  block_body.push(@lib.Instruction::ref_eq())
+  block_body.push(@lib.Instruction::select(types=Some([result_type])))
+  Some(
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(result_type),
+      @lib.Expr::new(block_body),
+    ),
+  )
+}
+
+///|
 fn gsi_function_local_env(
   env : @validate.Env,
   imported_func_count : Int,
@@ -1058,7 +1216,37 @@ fn gsi_rewrite_instrs(
                   idx += 2
                   continue
                 }
-                None => out.push(instr)
+                None => {
+                  let select_rewrite = match next_instr {
+                    @lib.StructGet(type_idx, field_idx) =>
+                      gsi_two_value_singleton_select_block(
+                        env, local_env, exact_direct_candidates_by_type_slot, fields_by_type,
+                        global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
+                        field_idx, false, false,
+                      )
+                    @lib.StructGetS(type_idx, field_idx) =>
+                      gsi_two_value_singleton_select_block(
+                        env, local_env, exact_direct_candidates_by_type_slot, fields_by_type,
+                        global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
+                        field_idx, true, false,
+                      )
+                    @lib.StructGetU(type_idx, field_idx) =>
+                      gsi_two_value_singleton_select_block(
+                        env, local_env, exact_direct_candidates_by_type_slot, fields_by_type,
+                        global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
+                        field_idx, false, true,
+                      )
+                    _ => None
+                  }
+                  match select_rewrite {
+                    Some(block) => {
+                      out.push(block)
+                      idx += 2
+                      continue
+                    }
+                    None => out.push(instr)
+                  }
+                }
               }
             }
           }
@@ -1136,6 +1324,14 @@ fn gsi_instrs_may_rewrite(
                 is Some(_) {
                 return true
               }
+              if gsi_two_value_singleton_select_block(
+                  env, local_env, exact_direct_candidates_by_type_slot, fields_by_type,
+                  global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
+                  field_idx, false, false,
+                )
+                is Some(_) {
+                return true
+              }
             }
             @lib.StructGetS(type_idx, field_idx) => {
               if gsi_single_candidate_local_origin_block(
@@ -1153,6 +1349,14 @@ fn gsi_instrs_may_rewrite(
                 is Some(_) {
                 return true
               }
+              if gsi_two_value_singleton_select_block(
+                  env, local_env, exact_direct_candidates_by_type_slot, fields_by_type,
+                  global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
+                  field_idx, true, false,
+                )
+                is Some(_) {
+                return true
+              }
             }
             @lib.StructGetU(type_idx, field_idx) => {
               if gsi_single_candidate_local_origin_block(
@@ -1163,6 +1367,14 @@ fn gsi_instrs_may_rewrite(
                 return true
               }
               if gsi_one_value_local_fold_block(
+                  env, local_env, exact_direct_candidates_by_type_slot, fields_by_type,
+                  global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
+                  field_idx, false, true,
+                )
+                is Some(_) {
+                return true
+              }
+              if gsi_two_value_singleton_select_block(
                   env, local_env, exact_direct_candidates_by_type_slot, fields_by_type,
                   global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
                   field_idx, false, true,

@@ -67,7 +67,7 @@ So this is **not** generic whole-program struct analysis and **not** just Starsh
   - `global-refining` tightens global declarations first
   - the second `remove-unused-module-elements` can then discard newly dead baggage
   - `gsi` turns the surviving global-instance story into more precise field reads before the function-pass cluster starts
-- The 2026-06-03 `[O4Z-AUDIT-GSI]` slice upgraded and signed off the direct-global subset, then moved the remaining full-Binaryen surfaces to follow-up scope; follow-ups added a subtype-aware closed-world candidate/poison fact table, consume a narrow exact-type single-candidate subset for local/param origin rewrites, and fold exact-type multi-candidate local/param reads when every safe direct candidate yields the same materializable value.
+- The 2026-06-03 `[O4Z-AUDIT-GSI]` slice upgraded and signed off the direct-global subset, then moved the remaining full-Binaryen surfaces to follow-up scope; follow-ups added a subtype-aware closed-world candidate/poison fact table, consume a narrow exact-type single-candidate subset for local/param origin rewrites, fold exact-type multi-candidate local/param reads when every safe direct candidate yields the same materializable value, and synthesize exact two-value singleton-group `select(ref.eq(...))` rewrites.
 - In the saved generated-artifact `-O4z` audit, slot `7` (`gsi`) was already green before the O4z audit upgrade, and the 2026-06-03 direct-pass audit refreshed that evidence after enabling the open-world direct-global layer:
   - exact wasm equal: `yes`
   - normalized WAT equal: `yes`
@@ -79,6 +79,7 @@ So this is **not** generic whole-program struct analysis and **not** just Starsh
 - The subtype-propagated closed-world facts follow-up direct compare stayed green at 9975 / 10000 compared, 9975 normalized matches, 0 mismatches, and 25 Binaryen/tool command failures; the debug-artifact timing replay was canonical-equal with Starshine/Binaryen pass-local `0.345 ms` / `2.970 ms`.
 - The exact single-candidate local/param follow-up direct compare stayed green at 9975 / 10000 compared, 9975 normalized matches, 0 mismatches, and 25 Binaryen/tool command failures; the debug-artifact timing replay was canonical-equal with Starshine/Binaryen pass-local `0.371 ms` / `5.017 ms`.
 - The one-value multi-candidate follow-up direct compare used `--jobs auto` and a prebuilt native Starshine binary, stayed green at 9975 / 10000 compared, 9975 normalized matches, 0 mismatches, and 25 Binaryen/tool command failures; the debug-artifact timing replay was canonical-equal with Starshine/Binaryen pass-local `0.440 ms` / `3.275 ms`.
+- The two-value singleton-group follow-up direct compare used `--jobs auto` and a prebuilt native Starshine binary, stayed green at 9975 / 10000 compared, 9975 normalized matches, 0 mismatches, and the same 25 Binaryen/tool command failures; the debug-artifact timing replay was canonical-equal with Starshine/Binaryen pass-local `0.695 ms` / `3.087 ms`.
 
 ## Most important durable takeaways
 

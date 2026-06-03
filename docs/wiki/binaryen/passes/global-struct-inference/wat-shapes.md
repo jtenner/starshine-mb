@@ -528,5 +528,6 @@ Current Starshine implements only a subset of this catalog:
 - nullable-global and nullable-local trap preservation with `ref.as_non_null` + `drop`
 - narrow closed-world exact single-candidate local/param origin rewrites
 - exact multi-candidate local/param one-value folds when all safe direct candidates expose the same materializable field value
+- exact multi-candidate local/param two-value `select(ref.eq(...))` rewrites when exactly two materializable values exist and one value group has a singleton candidate global
 
-It does **not** currently implement Binaryen's two-value local/param `select(ref.eq(...))` grouping, supertype/subtype-propagated origin rewrites, un-nesting, atomic-get, or `ref.get_desc` families. Keep that distinction visible when adding examples or parity claims.
+It does **not** currently implement Binaryen's supertype/subtype-propagated origin rewrites, un-nesting, atomic-get, or `ref.get_desc` families. Keep that distinction visible when adding examples or parity claims.

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | global-struct-inference two-value singleton selects
+
+- Added the next exact closed-world rewrite consumer for `global-struct-inference`: exact-type local/param `struct.get*` reads with two materializable field values now synthesize a typed `select(ref.eq(...))` when one value group has exactly one safe direct candidate global.
+- Added public-pipeline coverage in `src/passes/global_struct_inference_test.mbt` for two-global and three-global singleton-group positives, plus explicit more-than-two-value and two-equal-pair ambiguity negatives; marked `[GSI001-D]` and the associated `[GSI001-E]` signoff refresh complete while adding remaining full-GSI follow-ups for supertype candidate consumption, un-nesting, and atomic/descriptor surfaces.
+- Recorded refreshed evidence with explicit parallel native fuzz lanes: pre-behavior `.tmp/pass-fuzz-global-struct-inference-gsi001d-pre-1000` and post-behavior `.tmp/pass-fuzz-global-struct-inference-gsi001d-post-1000` each reached `998 / 1000` compared, `998` normalized matches, `0` mismatches, and `2` command failures using `--jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe`; final `.tmp/pass-fuzz-global-struct-inference-gsi001d-final-10000` reached `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures (`22` empty-recursion-group plus one each bad-section-size, table-index-out-of-range, and invalid-tag-index). `.tmp/gsi-debug-artifact-timing-gsi001d-final` was canonical-equal with Starshine/Binaryen pass-local `0.695 ms / 3.087 ms`.
+
 ## [2026-06-03] passes | global-struct-inference one-value multi-candidate folds
 
 - Added the next closed-world rewrite consumer for `global-struct-inference`: exact-type local/param `struct.get*` reads with multiple safe direct candidate globals now fold to one trap-preserving materialized value when every candidate exposes the same field payload after packed-field repair.

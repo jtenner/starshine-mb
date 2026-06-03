@@ -38,7 +38,8 @@ related:
   - a closed-world fact table now records immutable top-level candidate globals, mutable/too-broad global exclusions, function-local allocation poisoning, nested global-initializer allocation poisoning, poisoned-child-to-parent propagation, and child-candidate-to-parent propagation
   - exact single-candidate local/param origins now rewrite in closed world when the exact type has one safe direct candidate and no propagated subtype ambiguity
   - exact multi-candidate local/param reads now fold in closed world when all safe direct candidates expose one equal materializable value
-  - no two-value `select` grouping, no supertype/subtype-propagated rewrites, no un-nesting, no atomic/`ref.get_desc`/descriptor-cast surface
+  - exact multi-candidate local/param reads now synthesize typed `select(ref.eq(...))` rewrites in closed world when two materializable values have one singleton candidate group
+  - no supertype/subtype-propagated rewrites, no un-nesting, no atomic/`ref.get_desc`/descriptor-cast surface
 - The saved generated-artifact `-O4z` slot is still exactly green, which strongly suggests the artifact does not exercise the missing official surfaces.
 
 ## Current in-tree status
@@ -49,6 +50,45 @@ related:
 - The focused public-pipeline suite lives in [`../../../../../src/passes/global_struct_inference_test.mbt`](../../../../../src/passes/global_struct_inference_test.mbt); the closed-world analysis fact coverage lives in [`../../../../../src/passes/global_struct_inference_wbtest.mbt`](../../../../../src/passes/global_struct_inference_wbtest.mbt).
 - Registry and preset coverage live in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), with module-pass dispatch in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
 - The pass is active in-tree and is scheduled in the early module cluster after `global-refining`.
+
+## 2026-06-03 two-value singleton-group local/param follow-up
+
+The two-value singleton-group local/param follow-up added the next exact closed-world fact consumer. It rewrites only adjacent exact-type `local.get` / `struct.get*` pairs when the exact type has multiple safe direct candidate globals, the propagated fact list exactly matches those direct candidates, the requested immutable field materializes to exactly two values, and one value group has exactly one candidate global. The replacement is a result-typed block containing the two materialized values plus `ref.eq` between the original local reference and the singleton candidate global; nullable locals use `ref.as_non_null` on the condition path to preserve the original null trap. It deliberately keeps subtype/supertype rewrites, un-nesting, and larger decision trees out of scope.
+
+The final direct compare ran with a prebuilt native Starshine binary and automatic parallel workers:
+
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass global-struct-inference --keep-going-after-command-failures --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --out-dir .tmp/pass-fuzz-global-struct-inference-gsi001d-final-10000`
+
+Result:
+
+- compared cases: 9975 / 10000
+- normalized matches: 9975
+- mismatches: 0
+- validation failures: 0
+- generator failures: 0
+- command failures: 25
+
+Command-failure classes from `summary.json`:
+
+- `22` `binaryen-rec-group-zero`
+- `1` `binaryen-bad-section-size`
+- `1` `binaryen-table-index-out-of-range`
+- `1` `binaryen-invalid-tag-index`
+
+The debug artifact timing replay used:
+
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --global-struct-inference --timing-only --out-dir .tmp/gsi-debug-artifact-timing-gsi001d-final`
+
+Result:
+
+- canonical wasm equal: yes
+- Starshine runtime: `333.630 ms`
+- Binaryen runtime: `480.875 ms`
+- Starshine pass runtime: `0.695 ms`
+- Binaryen pass runtime: `3.087 ms`
+- Starshine pass skipped raw: no
+
+This is semantic smoke and performance evidence for the exact two-value singleton-group local/param slice only. It is not evidence that supertype-origin rewrites, un-nesting, atomic gets, or `ref.get_desc` are implemented.
 
 ## 2026-06-03 one-value multi-candidate local/param follow-up
 
@@ -87,7 +127,7 @@ Result:
 - Binaryen pass runtime: `3.275 ms`
 - Starshine pass skipped raw: no
 
-This is semantic smoke and performance evidence for the exact one-value multi-candidate local/param slice only. It is not evidence that two-value selects, supertype-origin rewrites, or un-nesting are implemented.
+This is semantic smoke and performance evidence for the exact one-value multi-candidate local/param slice only. It predates the exact two-value singleton-group follow-up and is not evidence that supertype-origin rewrites or un-nesting are implemented.
 
 ## 2026-06-03 exact single-candidate local/param follow-up
 
@@ -265,7 +305,8 @@ The focused local tests now cover the direct-global O4z audit subset plus closed
 - preserving ordinary non-global ref producers unchanged in open world
 - exact single-candidate param and body-local origin rewrites in closed world, preserving null traps with `ref.as_non_null` plus `drop`
 - exact multi-candidate one-value local/param folds in closed world, including equal literals, immutable `global.get`s, body locals, and packed-field repair
-- local-origin negatives for open world, differing values, non-materializable equal-looking expressions, subtype-propagated ambiguity, poisoned exact types, mutable fields/globals, and `anyref`/too-broad global declarations
+- exact multi-candidate two-value local/param selects in closed world, including two-global and three-global singleton-group positives
+- local-origin negatives for open world, more than two materializable values, two equal value pairs, non-materializable equal-looking expressions, subtype-propagated ambiguity, poisoned exact types, mutable fields/globals, and `anyref`/too-broad global declarations
 - closed-world facts for immutable top-level candidates, mutable-global exclusion, `anyref`/too-broad declaration exclusion, function-local allocation poisoning, nested global-initializer allocation poisoning, poisoned-child-to-parent propagation including no-global-section poison propagation, and child-candidate-to-parent propagation
 
 That is a stronger local floor for the current subset.
@@ -278,7 +319,7 @@ It is still far smaller than the official Binaryen lit surface.
 Current local behavior after the 2026-06-03 follow-ups:
 
 - `global_struct_inference_run_module_pass` no longer returns unchanged when `closed_world` is false; it scans immutable defined globals and applies the direct-global fold in open world
-- when `closed_world` is true, it builds a conservative candidate/poison fact table for top-level immutable global origins and allocation poison sources, then rewrites exact-type local/param reads only for one safe direct candidate or for multiple safe direct candidates that all expose one equal materializable field value and no propagated subtype ambiguity
+- when `closed_world` is true, it builds a conservative candidate/poison fact table for top-level immutable global origins and allocation poison sources, then rewrites exact-type local/param reads only for one safe direct candidate, for multiple safe direct candidates that all expose one equal materializable field value, or for exactly two materializable values where one value group has one candidate global and no propagated subtype ambiguity
 
 Official Binaryen `version_129` behavior:
 
@@ -286,7 +327,7 @@ Official Binaryen `version_129` behavior:
 - but `optimize(module)` still runs afterwards in **all** modes
 - direct immutable-global reads can still optimize in open world
 
-This former conceptual gap is closed for the direct immutable-global fast path, and exact local/param one-global plus one-value closed-world fact consumers now exist. `closed_world` still does not add Binaryen's broader two-value local/param select rewrites, supertype rewrites, or un-nesting locally.
+This former conceptual gap is closed for the direct immutable-global fast path, and exact local/param one-global, one-value, and two-value singleton-group closed-world fact consumers now exist. `closed_world` still does not add Binaryen's broader supertype rewrites or un-nesting locally.
 
 ## 2. The local pass only matches immediate instruction pairs
 
@@ -301,9 +342,9 @@ Official Binaryen behavior:
 
 So the local pass still misses Binaryen shapes like:
 
-- `struct.get` of a parameter known to be one of two immutable globals
 - parent-typed reads whose only trusted origins are child globals
 - non-adjacent or nested reference producers
+- non-constant field operands that would require fresh-global un-nesting
 
 ## 3. Subtype propagation exists but is not consumed by rewrites
 
@@ -314,14 +355,14 @@ Official Binaryen uses `SubTypes` to:
 
 Current local pass now mirrors that in the fact table, including deterministic candidate ordering. The exact single-candidate local/param slice deliberately treats propagated child candidates as ambiguity and bails; no parent-typed rewrite consumes subtype-aware candidate propagation yet.
 
-## 4. Local one-value grouping exists, but no two-value select exists yet
+## 4. Local one-value grouping and exact two-value selects exist, but only for exact direct candidates
 
 Official Binaryen can:
 
 - collapse many globals into one constant value
 - or emit a `select(ref.eq(...))` when there are two unique values and one singleton-tested group
 
-Current local pass now handles only the first exact local/param multi-candidate case when every safe direct candidate yields the same materializable field value. It still does not synthesize the two-value `select(ref.eq(...))` shape.
+Current local pass now handles those cases for adjacent exact-type local/param reads whose propagated fact list exactly matches safe direct candidates. It still does not consume subtype-propagated supertype candidate sets or synthesize larger decision trees.
 
 ## 5. No local un-nesting of non-constant operands
 
@@ -332,12 +373,12 @@ Current local pass:
 - has no fresh-global emission path
 - has no nested `reorder-globals-always` cleanup path
 
-## 6. No local `PossibleConstantValues` equivalent
+## 6. Local materialization is still narrower than `PossibleConstantValues`
 
-Official Binaryen treats immutable `global.get`s as constant materializable values.
+Official Binaryen treats immutable `global.get`s as constant materializable values and can combine that with un-nesting for non-constant operands.
 That matters for official positive shapes where field values are not literals but are still stable immutable globals.
 
-Current local pass has a smaller local materialization surface.
+Current local pass does treat direct immutable `global.get` field payloads as materializable for exact local/param grouping, but it still has a smaller materialization surface and no fresh-global un-nesting path.
 
 ## 7. No local atomic-get or descriptor-facing coverage
 
@@ -372,7 +413,7 @@ Again, that is an inference from the green audit plus the visible local-vs-upstr
 - Keep the current local subset described honestly as a subset.
 - Do **not** describe it as “what Binaryen `gsi` does.”
 - If future parity work targets the full Binaryen contract, the next missing surfaces to implement are, in value order:
-  1. one-vs-two-unique-values select synthesis
+  1. subtype-propagated supertype candidate consumption for one-value and two-value rewrites
   2. un-nesting of non-constant operands
   3. atomic / `ref.get_desc` / descriptor-cast coverage
 - If local code remains intentionally narrower, keep the green artifact evidence explicit so readers do not confuse “narrow but enough for this artifact” with “full upstream parity.”

@@ -286,8 +286,8 @@ test "global-struct-inference rewrites exact single-candidate body locals in clo
 }
 
 ///|
-test "global-struct-inference leaves ambiguous multi-candidate local origins unchanged" {
-  let input =
+test "global-struct-inference synthesizes two-value singleton selects in closed world" {
+  let two_globals =
     #| (module
     #|   (type $box (sub (struct (field i32))))
     #|   (global $a (ref $box) (struct.new $box (i32.const 7)))
@@ -296,10 +296,39 @@ test "global-struct-inference leaves ambiguous multi-candidate local origins unc
     #|     local.get 0
     #|     struct.get $box 0))
     #|
-  let pretty = gsi_test_pretty(input, true)
-  assert_true(pretty.contains("struct.get"), msg=pretty)
-  assert_false(pretty.contains("global.get"), msg=pretty)
+  let two_pretty = gsi_test_pretty(two_globals, true)
+  assert_false(two_pretty.contains("struct.get"), msg=two_pretty)
+  assert_true(two_pretty.contains("select"), msg=two_pretty)
+  assert_true(two_pretty.contains("ref.eq"), msg=two_pretty)
+  assert_true(two_pretty.contains("global.get (Global 0)"), msg=two_pretty)
+  assert_true(two_pretty.contains("ref.as_non_null"), msg=two_pretty)
+  assert_true(two_pretty.contains("I32(7)"), msg=two_pretty)
+  assert_true(two_pretty.contains("I32(8)"), msg=two_pretty)
 
+  let singleton_group =
+    #| (module
+    #|   (type $box (sub (struct (field i32))))
+    #|   (global $a (ref $box) (struct.new $box (i32.const 42)))
+    #|   (global $b (ref $box) (struct.new $box (i32.const 1337)))
+    #|   (global $c (ref $box) (struct.new $box (i32.const 1337)))
+    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|     local.get 0
+    #|     struct.get $box 0))
+    #|
+  let singleton_pretty = gsi_test_pretty(singleton_group, true)
+  assert_false(singleton_pretty.contains("struct.get"), msg=singleton_pretty)
+  assert_true(singleton_pretty.contains("select"), msg=singleton_pretty)
+  assert_true(singleton_pretty.contains("ref.eq"), msg=singleton_pretty)
+  assert_true(
+    singleton_pretty.contains("global.get (Global 0)"),
+    msg=singleton_pretty,
+  )
+  assert_true(singleton_pretty.contains("I32(42)"), msg=singleton_pretty)
+  assert_true(singleton_pretty.contains("I32(1337)"), msg=singleton_pretty)
+}
+
+///|
+test "global-struct-inference leaves subtype-propagated multi-candidate local origins unchanged" {
   let propagated_subtype =
     #| (module
     #|   (type $parent (sub (struct (field i32))))
@@ -387,6 +416,40 @@ test "global-struct-inference folds multi-candidate equal global-get and packed 
 }
 
 ///|
+test "global-struct-inference leaves multi-candidate select ambiguities unchanged" {
+  let more_than_two_values =
+    #| (module
+    #|   (type $box (sub (struct (field i32))))
+    #|   (global $a (ref $box) (struct.new $box (i32.const 7)))
+    #|   (global $b (ref $box) (struct.new $box (i32.const 8)))
+    #|   (global $c (ref $box) (struct.new $box (i32.const 9)))
+    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|     local.get 0
+    #|     struct.get $box 0))
+    #|
+  let more_pretty = gsi_test_pretty(more_than_two_values, true)
+  assert_true(more_pretty.contains("struct.get"), msg=more_pretty)
+  assert_false(more_pretty.contains("select"), msg=more_pretty)
+  assert_false(more_pretty.contains("ref.eq"), msg=more_pretty)
+
+  let two_equal_pairs =
+    #| (module
+    #|   (type $box (sub (struct (field i32))))
+    #|   (global $a (ref $box) (struct.new $box (i32.const 7)))
+    #|   (global $b (ref $box) (struct.new $box (i32.const 7)))
+    #|   (global $c (ref $box) (struct.new $box (i32.const 8)))
+    #|   (global $d (ref $box) (struct.new $box (i32.const 8)))
+    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|     local.get 0
+    #|     struct.get $box 0))
+    #|
+  let pairs_pretty = gsi_test_pretty(two_equal_pairs, true)
+  assert_true(pairs_pretty.contains("struct.get"), msg=pairs_pretty)
+  assert_false(pairs_pretty.contains("select"), msg=pairs_pretty)
+  assert_false(pairs_pretty.contains("ref.eq"), msg=pairs_pretty)
+}
+
+///|
 test "global-struct-inference leaves unsafe multi-candidate one-value locals unchanged" {
   let open_world =
     #| (module
@@ -400,20 +463,6 @@ test "global-struct-inference leaves unsafe multi-candidate one-value locals unc
   let open_pretty = gsi_test_pretty(open_world, false)
   assert_true(open_pretty.contains("struct.get"), msg=open_pretty)
   assert_false(open_pretty.contains("global.get"), msg=open_pretty)
-
-  let differing =
-    #| (module
-    #|   (type $box (sub (struct (field i32))))
-    #|   (global $a (ref $box) (struct.new $box (i32.const 7)))
-    #|   (global $b (ref $box) (struct.new $box (i32.const 8)))
-    #|   (func (export "read") (param (ref null $box)) (result i32)
-    #|     local.get 0
-    #|     struct.get $box 0))
-    #|
-  let differing_pretty = gsi_test_pretty(differing, true)
-  assert_true(differing_pretty.contains("struct.get"), msg=differing_pretty)
-  assert_false(differing_pretty.contains("I32(7)"), msg=differing_pretty)
-  assert_false(differing_pretty.contains("I32(8)"), msg=differing_pretty)
 
   let non_materializable =
     #| (module
