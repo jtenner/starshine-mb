@@ -125,6 +125,38 @@ test "pick-load-signs rewrites all matching candidates for one local" {
 }
 
 ///|
+test "pick-load-signs rewrites i64 load32 to signed from extend32 use" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func (result i64) (local $x i64) i32.const 0 i64.load32_u local.set $x local.get $x i64.extend32_s))",
+      ["pick-load-signs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected pick-load-signs success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i64.load32s"), msg=pretty)
+  assert_false(pretty.contains("i64.load32u"))
+}
+
+///|
+test "pick-load-signs detects i64 zero-extension by mask" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func (result i64) (local $x i64) i32.const 0 i64.load16_s local.set $x local.get $x i64.const 65535 i64.and))",
+      ["pick-load-signs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected pick-load-signs success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i64.load16u"), msg=pretty)
+  assert_false(pretty.contains("i64.load16s"))
+}
+
+///|
 test "pick-load-signs is idempotent" {
   let once = match
     pass_test_run_pipeline(
@@ -169,7 +201,7 @@ test "pick-load-signs skips when no memories exist" {
 test "pick-load-signs runs when imported memory is present" {
   let optimized = match
     pass_test_run_pipeline(
-      "(module (memory 1) (func (result i32) (local $x i32) i32.const 0 i32.load8_s local.set $x local.get $x i32.const 255 i32.and))",
+      "(module (import \"env\" \"mem\" (memory 1)) (func (result i32) (local $x i32) i32.const 0 i32.load8_s local.set $x local.get $x i32.const 255 i32.and))",
       ["pick-load-signs"],
     ) {
     Ok(mod_) => mod_
@@ -177,5 +209,5 @@ test "pick-load-signs runs when imported memory is present" {
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("i32.load8u"))
+  assert_true(pretty.contains("i32.load8u"), msg=pretty)
 }

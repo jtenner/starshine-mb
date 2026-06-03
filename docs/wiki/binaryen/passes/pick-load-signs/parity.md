@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-03
 sources:
+  - ../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md
   - ../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md
   - ../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md
@@ -44,8 +45,8 @@ related:
 - The current in-tree Starshine implementation is broader than upstream in one visible way:
   - it recognizes i64 extend / mask / shift-pair families too
 - Current local artifact and focused fuzz evidence are still green despite that broader local surface.
-- The 2026-05-06 refreshed direct signoff for `pick-load-signs` reached 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
-- The local documentation now also keeps one narrower honesty note explicit: focused local pass tests do not yet isolate dedicated i64 positive rewrite cases, so the i64 divergence is source-confirmed in code and only indirectly exercised by broader replay/fuzz evidence today.
+- The 2026-06-03 O4z audit refreshed direct signoff for `pick-load-signs` with `9975 / 10000` compared cases, `9975` normalized matches, 0 semantic mismatches, and 25 Binaryen/tool command failures.
+- Focused local tests now isolate the broader i64 positive rewrite surface and use a real imported-memory fixture, so the former i64-test caveat is closed while the local-vs-upstream scope divergence remains explicit.
 
 ## Current in-tree status
 
@@ -63,8 +64,8 @@ related:
 - The `2026-04-11` focused health rerun confirmed clean direct smoke behavior:
   - mixed: `199 / 199` compared, `199` normalized matches, `0` mismatches, `1` command failure (`binaryen-rec-group-zero`)
   - gen-valid: `200 / 200` compared, `200` normalized matches, `0` mismatches, `0` failures
-- The saved generated-artifact `-O4z` audit also records a successful ordered replay at Binaryen slot `18` / audit row `15`.
-- The `2026-05-06` refreshed direct revalidation recorded `6759 / 10000` compared cases, `6759` normalized matches, `0` semantic mismatches, and `20` Binaryen empty-recursion-group parser/canonicalization command failures in `.tmp/pass-fuzz-pick-load-signs`.
+- The saved generated-artifact `-O4z` audit also records a successful ordered replay at Binaryen slot `18` / audit row `15`: exact wasm equality, meaningful equality, valid Starshine/Binaryen outputs, `7.492 ms` Starshine pass-local time, and `24.574 ms` Binaryen pass-local time.
+- The `2026-06-03` O4z audit direct closeout recorded `9975 / 10000` compared cases, `9975` normalized matches, `0` semantic mismatches, and `25` Binaryen/tool command failures in `.tmp/pass-fuzz-pick-load-signs-audit-10000`.
 
 ## Important honesty note
 
@@ -77,6 +78,7 @@ A fresh `2026-04-20` official-source review corrected one part of the older loca
 Current practical reading:
 
 - the local implementation is still green on today's evidence,
+- focused tests now directly lock representative i64 signed and unsigned positives,
 - but the i64 surface should remain an explicit parity watchpoint if strict upstream equivalence becomes important.
 
 ## Freshness note
@@ -91,6 +93,7 @@ So there is no post-`version_129` trunk-drift caveat to maintain for this pass r
 
 ## Sources
 
+- [`../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md`](../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md)
 - [`../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md`](../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md)
 - [`../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md`](../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md)
 - [`../../../raw/research/0069-2026-03-26-pick-load-signs.md`](../../../raw/research/0069-2026-03-26-pick-load-signs.md)

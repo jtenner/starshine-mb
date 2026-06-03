@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-03
 sources:
+  - ../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md
   - ../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md
   - ../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md
@@ -45,7 +46,7 @@ The registry surface in [`../../../../../src/passes/optimize.mbt`](../../../../.
 
 The active descriptor in [`../../../../../src/passes/pick_load_signs.mbt`](../../../../../src/passes/pick_load_signs.mbt) requires `use_def` and invalidates the same broad hot analyses the pass rewrites can disturb.
 
-A 2026-05-05 current-main bridge recheck of upstream Binaryen found no teaching-relevant drift on the reviewed surfaces, and a 2026-05-06 refreshed direct signoff reached 6759 compared cases with 0 semantic mismatches. The only standing divergence to keep explicit here is the broader local i64 HOT surface.
+A 2026-05-05 current-main bridge recheck of upstream Binaryen found no teaching-relevant drift on the reviewed surfaces, and a 2026-06-03 O4z audit refreshed direct signoff to `9975 / 10000` compared cases with 0 semantic mismatches. The only standing divergence to keep explicit here is the broader local i64 HOT surface, now covered by focused representative i64 positive tests.
 
 That means the local pass is not a stub or removed-name alias.
 It is a real HOT pass with a dedicated MoonBit owner file, tests, and replay lanes.
@@ -76,8 +77,8 @@ It is a real HOT pass with a dedicated MoonBit owner file, tests, and replay lan
   - descriptor and summary
 - [`src/passes/pick_load_signs.mbt:732-763`](../../../../../src/passes/pick_load_signs.mbt)
   - scan / analyze / rewrite driver
-- [`src/passes/pick_load_signs_test.mbt:2-169`](../../../../../src/passes/pick_load_signs_test.mbt)
-  - focused pass tests for the real local behavior
+- [`src/passes/pick_load_signs_test.mbt`](../../../../../src/passes/pick_load_signs_test.mbt)
+  - focused pass tests for the real local behavior, including i32 positives/negatives, representative local i64 positives, idempotence, no-memory skip, and imported-memory coverage
 - [`src/passes/perf_test.mbt:6324-6409`](../../../../../src/passes/perf_test.mbt)
   - raw-skip and skip-aggregation coverage
 - [`src/passes/registry_test.mbt:32-33`](../../../../../src/passes/registry_test.mbt)

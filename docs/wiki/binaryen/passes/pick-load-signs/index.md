@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-03
 sources:
+  - ../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md
   - ../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md
   - ../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md
@@ -72,7 +73,7 @@ It is a tiny, shape-driven local rewrite.
   - earlier cleanup simplifies the obvious instruction and heap-store shapes first
   - `pick-load-signs` then picks a better narrow-load signedness in the remaining exact local cases
   - later `precompute` and rerun cleanup can benefit from the simpler opcode choice
-- The 2026-05-06 refreshed direct signoff reached 6759 compared cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
+- The 2026-06-03 O4z audit refreshed direct signoff with `9975 / 10000` compared cases, `9975` normalized matches, `0` semantic mismatches, and `25` Binaryen/tool command failures; it also added focused local i64 positive tests and corrected the imported-memory fixture.
 - The saved generated-artifact `-O4z` audit records a successful top-level slot here:
   - ordered audit row `15`
   - Binaryen slot `18`
@@ -133,7 +134,9 @@ What it actually is in `version_129`:
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   - Concise Starshine status and code-map page for the active hot pass, including the registry, scheduler, raw-skip, test, and replay surfaces.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Deeper HOT-IR implementation note: exact MoonBit registry / dispatcher / raw-skip / rewrite / test ownership, the broader local i64 recognition surface, and the honest split between coded i64 support and explicitly isolated local tests.
+  - Deeper HOT-IR implementation note: exact MoonBit registry / dispatcher / raw-skip / rewrite / test ownership, the broader local i64 recognition surface, and the now-focused i64/imported-memory test coverage.
+- [`../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md`](../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md)
+  - O4z release-gating audit: direct `10000` requested compare, focused i64/imported-memory test refresh, saved slot `18` timing, and `[O4Z-AUDIT-PLS]` closure.
 - [`../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md`](../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md)
   - Refreshed direct pass-fuzz signoff after the 2026-05-06 harness audit.
 - [`../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md)
@@ -171,6 +174,7 @@ Keep that difference explicit instead of silently smoothing it away.
 
 ## Sources
 
+- [`../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md`](../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md)
 - [`../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md)
 - [`../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md`](../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md)
 - [`../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md`](../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md)

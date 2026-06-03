@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-03
 sources:
+  - ../../../raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md
   - ../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md
   - ../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md
@@ -109,7 +110,7 @@ The cleanest read-along is:
 The local tests are intentionally split across multiple files:
 
 - `src/passes/pick_load_signs_test.mbt`
-  - focused pass behavior: direct signed positives, zero-mask positives, shift-pair positives, unknown-use bailouts, tee bailouts, same-local multi-candidate rewrites, idempotence, and the no-memory skip
+  - focused pass behavior: direct signed positives, zero-mask positives, shift-pair positives, representative i64 signed/unsigned positives, unknown-use bailouts, tee bailouts, same-local multi-candidate rewrites, idempotence, no-memory skip, and imported-memory coverage
 - `src/passes/perf_test.mbt`
   - raw-skip behavior: no-lift and aggregated `skip-raw reason=no-pick-load-signs-candidates` trace behavior
 - `src/passes/registry_test.mbt`
@@ -190,9 +191,8 @@ When a candidate should flip, the local pass:
 
 - rebuilds the exact load instruction with the chosen signedness via `pls_load_with_signedness(...)`
 - preserves the same memarg and address child
-- creates a replacement HOT node with `@ir.hot_build_heap(...)`
-- deletes the temporary built node
-- replaces the original load node via `pass_replace_node(...)`
+- updates the existing HOT load node's exact instruction with `@ir.hot_node_exact_instr_set(...)`
+- marks the pass mutated through the shared pass context
 
 This is a node-local opcode rewrite, not a structural control-flow rewrite.
 That part is close to the spirit of upstream Binaryen even though the surrounding analysis is different.
@@ -237,17 +237,12 @@ The in-tree local evidence includes:
 - registry / preset checks in `src/passes/registry_test.mbt`
 - CLI and debug-artifact replay in `src/cmd/cmd_wbtest.mbt`
 
-Important honesty note:
+Current focused tests now directly lock representative local i64 positives:
 
-- the code clearly supports broader i64 families
-- but the focused local tests do **not** yet isolate dedicated i64 positive rewrite cases
+- `i64.load32_u` flips to `i64.load32_s` when all uses prove signed 32-bit extension through `i64.extend32_s`
+- `i64.load16_s` flips to `i64.load16_u` when all uses prove zero-extension through an `i64.and` low-bit mask
 
-So the correct current wording is:
-
-- explicit local tests directly lock i32 and raw-skip behavior
-- broader i64 support is source-confirmed in code and still covered only indirectly by broader replay/fuzz evidence
-
-That narrower test statement replaces the older over-broad claim that dedicated local tests already covered i64 forms directly.
+The suite also keeps the `local.tee` producer bailout, same-local multi-candidate rewrite, idempotence, no-memory skip, and an actual imported-memory fixture visible.
 
 ## What future strict-parity work must preserve
 
@@ -268,7 +263,7 @@ Treat the current local implementation as:
 - broadly green on present artifact and focused fuzz evidence,
 - structurally different from upstream,
 - broader than upstream in its coded i64 recognition surface,
-- and narrower in explicitly isolated local i64 test coverage than the older page claimed.
+- and now directly covered by focused representative i64/imported-memory tests.
 
 That means future changes should answer two questions explicitly:
 

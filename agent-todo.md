@@ -100,11 +100,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Scope: struct.new/struct.set folding, local escape analysis, effect ordering, GC descriptor/refinalization shapes, and allocation-heavy performance.
   - Deliverables: apply the common checklist; add missing GC/effect/escape fixtures; refresh direct compare and `HSO` slot evidence; record unsafe fold blockers separately from missed profitable folds.
 
-- [O4Z-AUDIT-PLS] - Deep audit `pick-load-signs`
-  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
-  - Scope: signed/unsigned load choice, extension-use recognition, local.tee and multi-use negatives, imported/defined memory coverage, and idempotence.
-  - Deliverables: apply the common checklist; add missing extension and memory fixtures; refresh direct compare and `PLS` slot evidence; document tie-breaking and unsupported evidence shapes.
-
 - [O4Z-AUDIT-PC] - Deep audit `precompute`
   - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
   - Scope: constant folding, trap/effect preservation, raw precleaner/writeback guards, precompute-propagate prefix distinction, GC/array atomic exclusions, and O4z slot19/slot43 history.

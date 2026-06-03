@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | pick-load-signs O4z deep audit
+
+- Added [`docs/wiki/raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md`](raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md) with `[O4Z-AUDIT-PLS]` coverage, direct compare, O4z slot, and pass-local timing evidence.
+- Updated the `pick-load-signs` living strategy, parity, landing, and HOT-IR pages so they record the focused local i64 positive tests, actual imported-memory fixture, refreshed `10000`-requested keep-going compare result (`9975` compared, `0` mismatches, `25` Binaryen/tool command failures), and exact/meaningful saved O4z slot `18` replay.
+- Pruned the completed `pick-load-signs` O4z audit slice from `agent-todo.md`; the local i64 support remains documented as intentional Starshine breadth relative to upstream Binaryen `version_129`.
+
 ## [2026-06-03] passes | once-reduction O4z deep audit
 
 - Added [`docs/wiki/raw/research/0701-2026-06-03-once-reduction-o4z-audit.md`](raw/research/0701-2026-06-03-once-reduction-o4z-audit.md) with `[O4Z-AUDIT-OR]` implementation, shape-coverage, direct compare, and pass-local timing evidence.
