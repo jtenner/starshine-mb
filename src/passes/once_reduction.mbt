@@ -107,16 +107,12 @@ fn or_bool_array_is_singleton(values : @bitset.BitSet, slot : Int) -> Bool {
 }
 
 ///|
-fn or_func_summary_singletons(
-  func_once_sets : Array[@bitset.BitSet],
+fn or_initial_func_summary_singletons(
   once_func_slots : Array[Int],
 ) -> @bitset.BitSet {
-  let singletons = @bitset.BitSet::new(func_once_sets.length())
-  for func_idx = 0; func_idx < func_once_sets.length(); func_idx = func_idx + 1 {
-    if func_idx < once_func_slots.length() &&
-      or_bool_array_is_singleton(func_once_sets[func_idx], once_func_slots[func_idx]) {
-      singletons[func_idx] = true
-    }
+  let singletons = @bitset.BitSet::new(once_func_slots.length())
+  for func_idx = 0; func_idx < once_func_slots.length(); func_idx = func_idx + 1 {
+    singletons[func_idx] = once_func_slots[func_idx] >= 0
   }
   singletons
 }
@@ -722,18 +718,19 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     return mod_
   }
 
+  let func_initial_once_sets : Array[@bitset.BitSet] = []
   let func_once_sets : Array[@bitset.BitSet] = []
   for func_idx = 0; func_idx < total_funcs; func_idx = func_idx + 1 {
-    func_once_sets.push(
-      or_initial_func_set(total_once_slots, once_func_slots[func_idx]),
-    )
+    let initial = or_initial_func_set(total_once_slots, once_func_slots[func_idx])
+    func_initial_once_sets.push(initial)
+    func_once_sets.push(initial)
   }
+  let func_once_set_singletons = or_initial_func_summary_singletons(
+    once_func_slots,
+  )
   let mut changed_sets = true
   while changed_sets {
     changed_sets = false
-    let func_once_set_singletons = or_func_summary_singletons(
-      func_once_sets, once_func_slots,
-    )
     for defined_idx = 0
         defined_idx < funcs.length()
         defined_idx = defined_idx + 1 {
@@ -744,7 +741,7 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       let @lib.Func(_, @lib.Expr(instrs)) = funcs[defined_idx]
       let next = or_analyze_instrs(
         instrs,
-        or_initial_func_set(total_once_slots, once_func_slots[abs_idx]),
+        func_initial_once_sets[abs_idx],
         active_global_slots,
         once_func_slots,
         func_once_sets,
@@ -752,14 +749,14 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       )
       if !or_bool_array_equal(next, func_once_sets[abs_idx]) {
         func_once_sets[abs_idx] = next
+        func_once_set_singletons[abs_idx] = or_bool_array_is_singleton(
+          next, once_func_slots[abs_idx],
+        )
         changed_sets = true
       }
     }
   }
 
-  let final_func_once_set_singletons = or_func_summary_singletons(
-    func_once_sets, once_func_slots,
-  )
   let rewritten_funcs : Array[@lib.Func] = []
   let mut changed = false
   for defined_idx = 0
@@ -778,11 +775,11 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     ignore(
       or_rewrite_instrs(
         next_instrs,
-        or_initial_func_set(total_once_slots, once_func_slots[abs_idx]),
+        func_initial_once_sets[abs_idx],
         active_global_slots,
         once_func_slots,
         func_once_sets,
-        final_func_once_set_singletons,
+        func_once_set_singletons,
       ),
     )
     let next_func = @lib.Func::new(locals, @lib.Expr::new(next_instrs))
