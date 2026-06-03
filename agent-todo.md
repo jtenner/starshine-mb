@@ -44,6 +44,193 @@
     - Evaluate remaining non-pass candidates such as encoder size/backpatch and code-section buffering reduction.
   - Suggested tests: focused timing traces, `moon info`, `moon fmt`, `moon test`, and targeted self-compare commands for any changed pass/tool path.
 
+### O4z Per-Pass Deep Audits
+
+Release gate: complete these before the v0.1.0 release so `-O4z` pass coverage is more comprehensive and pass-local runtime owners are known before publishing.
+
+Use this checklist for every `[O4Z-AUDIT-*]` slice below:
+- Start from the pass wiki page and owner source/test files; update docs if findings become durable.
+- Run or refresh direct pass oracle evidence with `bun scripts/pass-fuzz-compare.ts --pass <name> --count 1000` first, then scale to 10000 only when changing behavior or closing the slice.
+- Inspect tests for missing positive/negative shapes, add focused test-first fixtures for any bug or missed optimization, and keep validation failures separate from representation drift.
+- Capture pass-local timing where available; file whole-command issues under `[WALL]001` unless the pass is clearly the owner.
+- Replay the pass's `-O4z` slot/neighborhood when it has saved artifacts or documented generated-audit evidence.
+- Close with an agent-classified findings note: bugs found/fixed, missing shapes added, performance owners, deferred risks, exact commands, counts, and artifact paths.
+
+- [O4Z-AUDIT-DFE] - Deep audit `duplicate-function-elimination`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: duplicate defined-function equivalence, ref.func/export/start/table/global remapping, local Starshine type-compaction extras, repeated-slot behavior, and pass-local runtime.
+  - Deliverables: apply the common checklist; add focused fixtures for any missing function identity/remap/type/name shape; refresh direct compare and ordered `DFE` slot evidence; record whether local extra cleanup should stay bundled or be split.
+
+- [O4Z-AUDIT-RUME] - Deep audit `remove-unused-module-elements`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: function/table/global/memory/tag/elem/data liveness, export/start/ref.func/type-use roots, nonfunction-only sibling behavior, and module rewrite cost.
+  - Deliverables: apply the common checklist; cover roots and remaps not already tested; refresh direct compare plus `DFE -> RUME` neighborhood evidence; classify any retained dead elements or over-removal risks.
+
+- [O4Z-AUDIT-MP] - Deep audit `memory-packing`
+  - Status: audited on 2026-06-03; keep only broader upstream-parity follow-ups here unless late `-O4z` evidence reopens the slice.
+  - Scope: active/passive data packing, offset arithmetic, overlap and trap preservation, data.drop/data.init remaps, imported/defined memory boundaries, and large-data performance.
+  - Completed evidence:
+    - [x] Added focused shape coverage for empty active trapping offsets, trailing trap preservation after a nonzero prefix, imported-memory bailout, passive `array.new_data` / `array.init_data` remaps, constant memory64 active offsets, and many out-of-order active segments.
+    - [x] Improved pass-local scalability with sorted active-span overlap checks, active-only data-usage scan elision, and a single-kept-range active fast path.
+    - [x] Refreshed direct compare: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass memory-packing --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-memory-packing-audit-current-10000-keepgoing` reported `9975` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures.
+    - [x] Captured pass-local synthetic timing in `docs/wiki/raw/research/0700-2026-06-03-memory-packing-o4z-audit.md`: after-change medians were `12 us` on active-only large-code and `825 us` on many-active-segment stress, faster than Binaryen's `4223.3 us` and `975.6 us` medians for those fixtures.
+  - Remaining follow-ups: full upstream passive segment splitting / `memory.fill` replacement planning, lazy drop-state globals, imported-memory `zeroFilledMemory`, and `MaxDataSegments` limiting remain intentionally outside the local v0.1.0 subset.
+
+- [O4Z-AUDIT-GR] - Deep audit `global-refining`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: global initializer/type LUB refinement, mutable/exported/imported guardrails, GC heap type precision, descriptor/stringref interactions, and validation/refinalization behavior.
+  - Deliverables: apply the common checklist; add subtype and visibility fixtures; refresh direct compare and `GR` slot evidence; record any under-refinement or unsafe-boundary risks.
+
+- [O4Z-AUDIT-GSI] - Deep audit `global-struct-inference`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: closed-world struct field constants, packed fields, default/descriptor constructors, mutable/exported/imported global negatives, nullable refs, and code-size/runtime impact.
+  - Deliverables: apply the common checklist; coordinate with `[AUDIT004-A]` through `[AUDIT004-C]`; refresh direct compare and `GSI` slot evidence; document supported and intentionally unsupported closed-world shapes.
+
+- [O4Z-AUDIT-SSA] - Deep audit `ssa-nomerge`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: HOT SSA construction/lowering without merges, phi copy placement, large branchy function runtime, local-name/type preservation, and Func2977-style wall-time ownership.
+  - Deliverables: apply the common checklist; add reduced large-branch stress fixtures if needed; refresh direct compare and early `SSA` slot evidence; file pass-local runtime fixes here and whole-command residuals under `[WALL]001`.
+
+- [O4Z-AUDIT-DCE] - Deep audit `dead-code-elimination`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: unreachable tails, dropped-value safety, structured-control result repair, EH/try_table behavior, writeback guards, raw-skip paths, and repeated cleanup interactions.
+  - Deliverables: apply the common checklist; add missing dead-tail/control/EH fixtures; refresh direct compare and `DCE` slot evidence; classify Binaryen-shape differences as semantic, representation, or size tradeoffs.
+
+- [O4Z-AUDIT-RUN] - Deep audit `remove-unused-names`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: label-use tracking, block merge/demotion, delegate/try behavior, repeated RUN slots, name-section expectations, and interaction with branch cleanup.
+  - Deliverables: apply the common checklist; add label/delegate/repeated-slot fixtures; refresh direct compare and all `RUN` slot evidence; record any missed same-type wrapper collapses.
+
+- [O4Z-AUDIT-RUB] - Deep audit `remove-unused-brs`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: tail branch/return removal, branch-to-trap rewrite, value-if/select lowering, br_table labels, raw gate thresholds, and retired slot14/slot40 corruption families.
+  - Deliverables: apply the common checklist; coordinate with `[AUDIT002-B]` through `[AUDIT002-E]`; refresh direct compare and all `RUB` slot evidence; measure pass-local impact of raw skip choices.
+
+- [O4Z-AUDIT-OI] - Deep audit `optimize-instructions`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: exact peepholes, shift/compare/boolean rewrites, effect-aware folds, use-def/effects metadata, raw O4z slot16/slot44 predecessors, and pass-local runtime.
+  - Deliverables: apply the common checklist; coordinate descriptor work with `[AUDIT001-A]`/`[AUDIT001-B]`; refresh direct compare and all `OI` slot evidence; classify any missed Binaryen folds by safety/effect reason.
+
+- [O4Z-AUDIT-HSO] - Deep audit `heap-store-optimization`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: struct.new/struct.set folding, local escape analysis, effect ordering, GC descriptor/refinalization shapes, and allocation-heavy performance.
+  - Deliverables: apply the common checklist; add missing GC/effect/escape fixtures; refresh direct compare and `HSO` slot evidence; record unsafe fold blockers separately from missed profitable folds.
+
+- [O4Z-AUDIT-PLS] - Deep audit `pick-load-signs`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: signed/unsigned load choice, extension-use recognition, local.tee and multi-use negatives, imported/defined memory coverage, and idempotence.
+  - Deliverables: apply the common checklist; add missing extension and memory fixtures; refresh direct compare and `PLS` slot evidence; document tie-breaking and unsupported evidence shapes.
+
+- [O4Z-AUDIT-PC] - Deep audit `precompute`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: constant folding, trap/effect preservation, raw precleaner/writeback guards, precompute-propagate prefix distinction, GC/array atomic exclusions, and O4z slot19/slot43 history.
+  - Deliverables: apply the common checklist; coordinate descriptor work with `[AUDIT001-E]`/`[AUDIT001-F]`; refresh direct compare and all `PC` slot evidence; record missed folds versus deliberate trap/effect bailouts.
+
+- [O4Z-AUDIT-CP] - Deep audit `code-pushing`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: safe local/global computation sinking, effect/trap boundaries, if/else arm use analysis, nested control, and tuple/local-cleanup neighborhood effects.
+  - Deliverables: apply the common checklist; add missing push/bailout fixtures; refresh direct compare and `CP` slot evidence; classify downstream code-size wins and regressions.
+
+- [O4Z-AUDIT-TO] - Deep audit `tuple-optimization`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: multivalue spill/copy splitting, passthrough chains, branch-exit carriers, local compaction, interaction with SLNS/RL/RUB, and candidate-heavy function runtime.
+  - Deliverables: apply the common checklist; add missing tuple carrier fixtures; refresh direct compare and `TO` exact-slot neighborhood evidence; record any host-lane/local-map invariants clearly.
+
+- [O4Z-AUDIT-SLNS] - Deep audit `simplify-locals-nostructure`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: no-structure local sinking, no-tee variant spelling, dead write cleanup, interaction with tuple/reorder/vacuum, and raw gate behavior.
+  - Deliverables: apply the common checklist; add missing no-structure/no-tee fixtures; refresh direct compare and `SLNS` slot evidence; keep structure-producing rewrites out unless intentionally scheduled.
+
+- [O4Z-AUDIT-VQ] - Deep audit `vacuum`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: nop/drop cleanup, explicit unreachable preservation, nested value-expression debris, empty if/block rewrites, repeated VQ slots, and retired slot23/slot33 histories.
+  - Deliverables: apply the common checklist; add missing pure/nontrapping and control cleanup fixtures; refresh direct compare and all `VQ` slot evidence; measure cleanup value versus HOT traversal cost.
+
+- [O4Z-AUDIT-RL] - Deep audit `reorder-locals`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: access-count sorting, zero-count truncation, parameter stability, local-name repair, multivalue scratch locals, TypeIdx invariant docs, and module-pass runtime.
+  - Deliverables: apply the common checklist; coordinate invariant docs with `[AUDIT006-E]`; add missing reorder/name/multivalue fixtures; refresh direct compare and `RL` slot evidence.
+
+- [O4Z-AUDIT-H2L] - Deep audit `heap2local`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: non-escaping struct locals, scalar field locals, null comparisons, GC type/refinalization, primary artifact fixtures, and heap-heavy function runtime.
+  - Deliverables: apply the common checklist; add missing escape/null/field fixtures; refresh direct compare and `H2L` slot evidence; record memory and code-size effects.
+
+- [O4Z-AUDIT-OC] - Deep audit `optimize-casts`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: ref.cast/ref.test/br_on_cast folding, descriptor casts, nullability trap preservation, local-subtyping neighborhood, and GC validation.
+  - Deliverables: apply the common checklist; add missing cast/descriptor/nullability fixtures; refresh direct compare and `OC` slot evidence; classify any trap-mode-sensitive decisions.
+
+- [O4Z-AUDIT-LS] - Deep audit `local-subtyping`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: local type refinement, write-site and join behavior, GC refs, call_ref and try_table shapes, interaction with optimize-casts/DAE, and validation refinalization.
+  - Deliverables: apply the common checklist; add missing local-refinement fixtures; refresh direct compare and `LS` slot evidence; document conservative join/bailout policy.
+
+- [O4Z-AUDIT-CL] - Deep audit `coalesce-locals`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: interference graph/coloring, local remap/name cleanup, TypeIdx invariant docs, copy-pair cleanup, and large-function coloring runtime.
+  - Deliverables: apply the common checklist; coordinate invariant docs with `[AUDIT006-D]`; add missing interference/ref/name fixtures; refresh direct compare and `CL` slot evidence.
+
+- [O4Z-AUDIT-LCSE] - Deep audit `local-cse`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: local expression reuse, effect barriers, memory/table/global/call/EH/GC/SIMD shapes, module adapter behavior, and pass-local runtime.
+  - Deliverables: apply the common checklist; coordinate shape tests with `[AUDIT004-J]`/`[AUDIT004-K]`; refresh direct compare and `LCSE` slot evidence; classify missed CSE opportunities by barrier type.
+
+- [O4Z-AUDIT-SL] - Deep audit `simplify-locals`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: local sinking, tee synthesis, structured result rewrites, dead writes, raw gate thresholds, value-carrier spills, and late cleanup interactions.
+  - Deliverables: apply the common checklist; coordinate raw gate coverage with `[AUDIT002-F]`/`[AUDIT002-G]`; refresh direct compare and `SL` slot evidence; record shrink candidates separately from semantic fixes.
+
+- [O4Z-AUDIT-CF] - Deep audit `code-folding`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: shared tails, terminating returns/unreachable, branch poison, label/helper generation, late cleanup neighborhood, and downstream code-size impact.
+  - Deliverables: apply the common checklist; add missing tail/branch/label fixtures; refresh direct compare and `CF` slot evidence; decide whether any remaining Binaryen tail-sharing is worth implementing.
+
+- [O4Z-AUDIT-MB] - Deep audit `merge-blocks`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: branch-free block flattening, loop-tail merging, drop(block) cleanup, O4z slot42 witness, label/branch safety, and interaction with RUB/RUN.
+  - Deliverables: apply the common checklist; add missing merge/bailout fixtures; refresh direct compare and all `MB` slot evidence; measure any large nested-control runtime cost.
+
+- [O4Z-AUDIT-RSE] - Deep audit `redundant-set-elimination`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: same-value set/tee removal, branch/default facts, loop invariants, refined local.get retargeting, GC wrapper/accessor facts, and late-tail preset role.
+  - Deliverables: apply the common checklist; add missing CFG/value-flow fixtures; refresh direct compare and `RSE` slot evidence; classify any full fixed-point loop convergence gap.
+
+- [O4Z-AUDIT-DAE] - Deep audit `dae-optimizing`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: dead argument/result removal, nested cleanup scheduler, selected-shape genericization, raw cleanup policy, type liveness, and pass-local runtime.
+  - Deliverables: apply the common checklist; coordinate with `[AUDIT003-*]`; refresh DAE-normalized direct compare and late `DAE` slot evidence; keep accepted raw-cleanup drift separate from semantic mismatches.
+
+- [O4Z-AUDIT-INL] - Deep audit `inlining-optimizing`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: direct inlining heuristics, optimizing cleanup scheduler, no-inline policy interaction, helper compaction, tail-call/multivalue surfaces, and local-declaration drift.
+  - Deliverables: apply the common checklist; refresh direct compare and `INL` slot evidence; classify residual local-declaration mismatches; file partial-inlining/name repair only if new evidence warrants reopening deferred slices.
+
+- [O4Z-AUDIT-DIE] - Deep audit `duplicate-import-elimination`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: duplicate import equivalence, import remapping, call/ref.func/table/export users, nonfunction and signature negatives, and metadata preservation.
+  - Deliverables: apply the common checklist; coordinate tests with `[AUDIT004-G]`/`[AUDIT004-H]`; refresh direct compare and `DIE` slot evidence; record any ABI-visible import-order constraints.
+
+- [O4Z-AUDIT-SGO] - Deep audit `simplify-globals-optimizing`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: global value propagation, nested cleanup runtime, late-tail scheduling, closed/open-world boundaries, string/GC/refinalization breadth, and accepted default-local drift.
+  - Deliverables: apply the common checklist; refresh direct compare and `SGO` tail evidence; coordinate with `[SGO]003` through `[SGO]005`; keep accepted v0.1.0 signoff separate from new improvement findings.
+
+- [O4Z-AUDIT-SG] - Deep audit `string-gathering`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: string.const gathering, canonical global reuse, data/name/export interactions, late-tail ordering, and string-heavy module code-size impact.
+  - Deliverables: apply the common checklist; add missing stringref/global fixtures; refresh direct compare and `SG` tail evidence; document any Binaryen canonical-string reuse gap.
+
+- [O4Z-AUDIT-RG] - Deep audit `reorder-globals`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: dependency-preserving global order, global.get/set remaps, exports/imports/start/elem/data interactions, string global late tail, and names/metadata.
+  - Deliverables: apply the common checklist; add missing dependency/remap fixtures; refresh direct compare and `RG` tail evidence; record any order-only representation drift separately from correctness.
+
+- [O4Z-AUDIT-DIR] - Deep audit `directize`
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Scope: immutable table facts, holes/traps, type matching/subtyping, select lowering, imported/exported/mutated table negatives, tail calls, and late-tail code-size impact.
+  - Deliverables: apply the common checklist; coordinate tests with `[AUDIT004-D]` through `[AUDIT004-F]`; refresh direct compare and final `DIR` tail evidence; document any broader directization opportunities or safety bailouts.
+
 ## Deferred Until MoonBit Threading Support
 
 - [HOT]002 - Native Parallel Hot-Batch Queue
@@ -179,191 +366,6 @@
     - [ ] `[AUDIT007-H]` Link the research note from the relevant pass wiki pages or the audit/log page so future agents do not rediscover the same smoke results.
   - Suggested tests: no implementation tests unless tooling changes; if tooling/docs recipe changes, run script tests and a small compare replay.
   - Exit criteria: the audit evidence is durable and indexed, with exact commands and agent-classified mismatch families.
-
-### O4z Per-Pass Deep Audits
-
-Use this checklist for every `[O4Z-AUDIT-*]` slice below:
-- Start from the pass wiki page and owner source/test files; update docs if findings become durable.
-- Run or refresh direct pass oracle evidence with `bun scripts/pass-fuzz-compare.ts --pass <name> --count 1000` first, then scale to 10000 only when changing behavior or closing the slice.
-- Inspect tests for missing positive/negative shapes, add focused test-first fixtures for any bug or missed optimization, and keep validation failures separate from representation drift.
-- Capture pass-local timing where available; file whole-command issues under `[WALL]001` unless the pass is clearly the owner.
-- Replay the pass's `-O4z` slot/neighborhood when it has saved artifacts or documented generated-audit evidence.
-- Close with an agent-classified findings note: bugs found/fixed, missing shapes added, performance owners, deferred risks, exact commands, counts, and artifact paths.
-
-- [O4Z-AUDIT-DFE] - Deep audit `duplicate-function-elimination`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: duplicate defined-function equivalence, ref.func/export/start/table/global remapping, local Starshine type-compaction extras, repeated-slot behavior, and pass-local runtime.
-  - Deliverables: apply the common checklist; add focused fixtures for any missing function identity/remap/type/name shape; refresh direct compare and ordered `DFE` slot evidence; record whether local extra cleanup should stay bundled or be split.
-
-- [O4Z-AUDIT-RUME] - Deep audit `remove-unused-module-elements`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: function/table/global/memory/tag/elem/data liveness, export/start/ref.func/type-use roots, nonfunction-only sibling behavior, and module rewrite cost.
-  - Deliverables: apply the common checklist; cover roots and remaps not already tested; refresh direct compare plus `DFE -> RUME` neighborhood evidence; classify any retained dead elements or over-removal risks.
-
-- [O4Z-AUDIT-MP] - Deep audit `memory-packing`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: active/passive data packing, offset arithmetic, overlap and trap preservation, data.drop/data.init remaps, imported/defined memory boundaries, and large-data performance.
-  - Deliverables: apply the common checklist; add missing data-segment shape tests; refresh direct compare and `MP` slot evidence; record any size-winning but Binaryen-divergent packing choices.
-
-- [O4Z-AUDIT-OR] - Deep audit `once-reduction`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: once-called/private function reduction, escape roots, table/ref.func/export/start/import boundaries, callsite rewriting, and type/name repair.
-  - Deliverables: apply the common checklist; add escape and multi-use tests; refresh direct compare and `OR` slot evidence; classify any missed once-only opportunities versus safety bailouts.
-
-- [O4Z-AUDIT-GR] - Deep audit `global-refining`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: global initializer/type LUB refinement, mutable/exported/imported guardrails, GC heap type precision, descriptor/stringref interactions, and validation/refinalization behavior.
-  - Deliverables: apply the common checklist; add subtype and visibility fixtures; refresh direct compare and `GR` slot evidence; record any under-refinement or unsafe-boundary risks.
-
-- [O4Z-AUDIT-GSI] - Deep audit `global-struct-inference`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: closed-world struct field constants, packed fields, default/descriptor constructors, mutable/exported/imported global negatives, nullable refs, and code-size/runtime impact.
-  - Deliverables: apply the common checklist; coordinate with `[AUDIT004-A]` through `[AUDIT004-C]`; refresh direct compare and `GSI` slot evidence; document supported and intentionally unsupported closed-world shapes.
-
-- [O4Z-AUDIT-SSA] - Deep audit `ssa-nomerge`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: HOT SSA construction/lowering without merges, phi copy placement, large branchy function runtime, local-name/type preservation, and Func2977-style wall-time ownership.
-  - Deliverables: apply the common checklist; add reduced large-branch stress fixtures if needed; refresh direct compare and early `SSA` slot evidence; file pass-local runtime fixes here and whole-command residuals under `[WALL]001`.
-
-- [O4Z-AUDIT-DCE] - Deep audit `dead-code-elimination`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: unreachable tails, dropped-value safety, structured-control result repair, EH/try_table behavior, writeback guards, raw-skip paths, and repeated cleanup interactions.
-  - Deliverables: apply the common checklist; add missing dead-tail/control/EH fixtures; refresh direct compare and `DCE` slot evidence; classify Binaryen-shape differences as semantic, representation, or size tradeoffs.
-
-- [O4Z-AUDIT-RUN] - Deep audit `remove-unused-names`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: label-use tracking, block merge/demotion, delegate/try behavior, repeated RUN slots, name-section expectations, and interaction with branch cleanup.
-  - Deliverables: apply the common checklist; add label/delegate/repeated-slot fixtures; refresh direct compare and all `RUN` slot evidence; record any missed same-type wrapper collapses.
-
-- [O4Z-AUDIT-RUB] - Deep audit `remove-unused-brs`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: tail branch/return removal, branch-to-trap rewrite, value-if/select lowering, br_table labels, raw gate thresholds, and retired slot14/slot40 corruption families.
-  - Deliverables: apply the common checklist; coordinate with `[AUDIT002-B]` through `[AUDIT002-E]`; refresh direct compare and all `RUB` slot evidence; measure pass-local impact of raw skip choices.
-
-- [O4Z-AUDIT-OI] - Deep audit `optimize-instructions`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: exact peepholes, shift/compare/boolean rewrites, effect-aware folds, use-def/effects metadata, raw O4z slot16/slot44 predecessors, and pass-local runtime.
-  - Deliverables: apply the common checklist; coordinate descriptor work with `[AUDIT001-A]`/`[AUDIT001-B]`; refresh direct compare and all `OI` slot evidence; classify any missed Binaryen folds by safety/effect reason.
-
-- [O4Z-AUDIT-HSO] - Deep audit `heap-store-optimization`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: struct.new/struct.set folding, local escape analysis, effect ordering, GC descriptor/refinalization shapes, and allocation-heavy performance.
-  - Deliverables: apply the common checklist; add missing GC/effect/escape fixtures; refresh direct compare and `HSO` slot evidence; record unsafe fold blockers separately from missed profitable folds.
-
-- [O4Z-AUDIT-PLS] - Deep audit `pick-load-signs`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: signed/unsigned load choice, extension-use recognition, local.tee and multi-use negatives, imported/defined memory coverage, and idempotence.
-  - Deliverables: apply the common checklist; add missing extension and memory fixtures; refresh direct compare and `PLS` slot evidence; document tie-breaking and unsupported evidence shapes.
-
-- [O4Z-AUDIT-PC] - Deep audit `precompute`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: constant folding, trap/effect preservation, raw precleaner/writeback guards, precompute-propagate prefix distinction, GC/array atomic exclusions, and O4z slot19/slot43 history.
-  - Deliverables: apply the common checklist; coordinate descriptor work with `[AUDIT001-E]`/`[AUDIT001-F]`; refresh direct compare and all `PC` slot evidence; record missed folds versus deliberate trap/effect bailouts.
-
-- [O4Z-AUDIT-CP] - Deep audit `code-pushing`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: safe local/global computation sinking, effect/trap boundaries, if/else arm use analysis, nested control, and tuple/local-cleanup neighborhood effects.
-  - Deliverables: apply the common checklist; add missing push/bailout fixtures; refresh direct compare and `CP` slot evidence; classify downstream code-size wins and regressions.
-
-- [O4Z-AUDIT-TO] - Deep audit `tuple-optimization`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: multivalue spill/copy splitting, passthrough chains, branch-exit carriers, local compaction, interaction with SLNS/RL/RUB, and candidate-heavy function runtime.
-  - Deliverables: apply the common checklist; add missing tuple carrier fixtures; refresh direct compare and `TO` exact-slot neighborhood evidence; record any host-lane/local-map invariants clearly.
-
-- [O4Z-AUDIT-SLNS] - Deep audit `simplify-locals-nostructure`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: no-structure local sinking, no-tee variant spelling, dead write cleanup, interaction with tuple/reorder/vacuum, and raw gate behavior.
-  - Deliverables: apply the common checklist; add missing no-structure/no-tee fixtures; refresh direct compare and `SLNS` slot evidence; keep structure-producing rewrites out unless intentionally scheduled.
-
-- [O4Z-AUDIT-VQ] - Deep audit `vacuum`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: nop/drop cleanup, explicit unreachable preservation, nested value-expression debris, empty if/block rewrites, repeated VQ slots, and retired slot23/slot33 histories.
-  - Deliverables: apply the common checklist; add missing pure/nontrapping and control cleanup fixtures; refresh direct compare and all `VQ` slot evidence; measure cleanup value versus HOT traversal cost.
-
-- [O4Z-AUDIT-RL] - Deep audit `reorder-locals`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: access-count sorting, zero-count truncation, parameter stability, local-name repair, multivalue scratch locals, TypeIdx invariant docs, and module-pass runtime.
-  - Deliverables: apply the common checklist; coordinate invariant docs with `[AUDIT006-E]`; add missing reorder/name/multivalue fixtures; refresh direct compare and `RL` slot evidence.
-
-- [O4Z-AUDIT-H2L] - Deep audit `heap2local`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: non-escaping struct locals, scalar field locals, null comparisons, GC type/refinalization, primary artifact fixtures, and heap-heavy function runtime.
-  - Deliverables: apply the common checklist; add missing escape/null/field fixtures; refresh direct compare and `H2L` slot evidence; record memory and code-size effects.
-
-- [O4Z-AUDIT-OC] - Deep audit `optimize-casts`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: ref.cast/ref.test/br_on_cast folding, descriptor casts, nullability trap preservation, local-subtyping neighborhood, and GC validation.
-  - Deliverables: apply the common checklist; add missing cast/descriptor/nullability fixtures; refresh direct compare and `OC` slot evidence; classify any trap-mode-sensitive decisions.
-
-- [O4Z-AUDIT-LS] - Deep audit `local-subtyping`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: local type refinement, write-site and join behavior, GC refs, call_ref and try_table shapes, interaction with optimize-casts/DAE, and validation refinalization.
-  - Deliverables: apply the common checklist; add missing local-refinement fixtures; refresh direct compare and `LS` slot evidence; document conservative join/bailout policy.
-
-- [O4Z-AUDIT-CL] - Deep audit `coalesce-locals`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: interference graph/coloring, local remap/name cleanup, TypeIdx invariant docs, copy-pair cleanup, and large-function coloring runtime.
-  - Deliverables: apply the common checklist; coordinate invariant docs with `[AUDIT006-D]`; add missing interference/ref/name fixtures; refresh direct compare and `CL` slot evidence.
-
-- [O4Z-AUDIT-LCSE] - Deep audit `local-cse`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: local expression reuse, effect barriers, memory/table/global/call/EH/GC/SIMD shapes, module adapter behavior, and pass-local runtime.
-  - Deliverables: apply the common checklist; coordinate shape tests with `[AUDIT004-J]`/`[AUDIT004-K]`; refresh direct compare and `LCSE` slot evidence; classify missed CSE opportunities by barrier type.
-
-- [O4Z-AUDIT-SL] - Deep audit `simplify-locals`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: local sinking, tee synthesis, structured result rewrites, dead writes, raw gate thresholds, value-carrier spills, and late cleanup interactions.
-  - Deliverables: apply the common checklist; coordinate raw gate coverage with `[AUDIT002-F]`/`[AUDIT002-G]`; refresh direct compare and `SL` slot evidence; record shrink candidates separately from semantic fixes.
-
-- [O4Z-AUDIT-CF] - Deep audit `code-folding`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: shared tails, terminating returns/unreachable, branch poison, label/helper generation, late cleanup neighborhood, and downstream code-size impact.
-  - Deliverables: apply the common checklist; add missing tail/branch/label fixtures; refresh direct compare and `CF` slot evidence; decide whether any remaining Binaryen tail-sharing is worth implementing.
-
-- [O4Z-AUDIT-MB] - Deep audit `merge-blocks`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: branch-free block flattening, loop-tail merging, drop(block) cleanup, O4z slot42 witness, label/branch safety, and interaction with RUB/RUN.
-  - Deliverables: apply the common checklist; add missing merge/bailout fixtures; refresh direct compare and all `MB` slot evidence; measure any large nested-control runtime cost.
-
-- [O4Z-AUDIT-RSE] - Deep audit `redundant-set-elimination`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: same-value set/tee removal, branch/default facts, loop invariants, refined local.get retargeting, GC wrapper/accessor facts, and late-tail preset role.
-  - Deliverables: apply the common checklist; add missing CFG/value-flow fixtures; refresh direct compare and `RSE` slot evidence; classify any full fixed-point loop convergence gap.
-
-- [O4Z-AUDIT-DAE] - Deep audit `dae-optimizing`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: dead argument/result removal, nested cleanup scheduler, selected-shape genericization, raw cleanup policy, type liveness, and pass-local runtime.
-  - Deliverables: apply the common checklist; coordinate with `[AUDIT003-*]`; refresh DAE-normalized direct compare and late `DAE` slot evidence; keep accepted raw-cleanup drift separate from semantic mismatches.
-
-- [O4Z-AUDIT-INL] - Deep audit `inlining-optimizing`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: direct inlining heuristics, optimizing cleanup scheduler, no-inline policy interaction, helper compaction, tail-call/multivalue surfaces, and local-declaration drift.
-  - Deliverables: apply the common checklist; refresh direct compare and `INL` slot evidence; classify residual local-declaration mismatches; file partial-inlining/name repair only if new evidence warrants reopening deferred slices.
-
-- [O4Z-AUDIT-DIE] - Deep audit `duplicate-import-elimination`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: duplicate import equivalence, import remapping, call/ref.func/table/export users, nonfunction and signature negatives, and metadata preservation.
-  - Deliverables: apply the common checklist; coordinate tests with `[AUDIT004-G]`/`[AUDIT004-H]`; refresh direct compare and `DIE` slot evidence; record any ABI-visible import-order constraints.
-
-- [O4Z-AUDIT-SGO] - Deep audit `simplify-globals-optimizing`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: global value propagation, nested cleanup runtime, late-tail scheduling, closed/open-world boundaries, string/GC/refinalization breadth, and accepted default-local drift.
-  - Deliverables: apply the common checklist; refresh direct compare and `SGO` tail evidence; coordinate with `[SGO]003` through `[SGO]005`; keep accepted v0.1.0 signoff separate from new improvement findings.
-
-- [O4Z-AUDIT-SG] - Deep audit `string-gathering`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: string.const gathering, canonical global reuse, data/name/export interactions, late-tail ordering, and string-heavy module code-size impact.
-  - Deliverables: apply the common checklist; add missing stringref/global fixtures; refresh direct compare and `SG` tail evidence; document any Binaryen canonical-string reuse gap.
-
-- [O4Z-AUDIT-RG] - Deep audit `reorder-globals`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: dependency-preserving global order, global.get/set remaps, exports/imports/start/elem/data interactions, string global late tail, and names/metadata.
-  - Deliverables: apply the common checklist; add missing dependency/remap fixtures; refresh direct compare and `RG` tail evidence; record any order-only representation drift separately from correctness.
-
-- [O4Z-AUDIT-DIR] - Deep audit `directize`
-  - Status: active `-O4z` per-pass audit.
-  - Scope: immutable table facts, holes/traps, type matching/subtyping, select lowering, imported/exported/mutated table negatives, tail calls, and late-tail code-size impact.
-  - Deliverables: apply the common checklist; coordinate tests with `[AUDIT004-D]` through `[AUDIT004-F]`; refresh direct compare and final `DIR` tail evidence; document any broader directization opportunities or safety bailouts.
 
 ### SGO - Follow-Up Improvements
 
