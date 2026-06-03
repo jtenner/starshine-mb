@@ -144,8 +144,52 @@ Audit classification:
 - code-size / precision risk: active, because actual O4z misses all same-type wrapper collapses and loop demotions from this pass
 - performance risk: low in current O4z mode, because the raw guard avoids lift/writeback work for every RUN slot
 
+## Rewrite-kernel performance follow-up
+
+A follow-up on 2026-06-03 targeted the candidate-heavy direct rewrite fixture from `.tmp/run-kernel-speed/` rather than the O4z no-op guard. The fixture shape is 50,000 repeated functions of `(func $block_N (block (block (nop))))`; the smaller corroborating fixture has 5,000 such functions.
+
+Implementation changes:
+
+- `src/passes/remove_unused_names.mbt` no longer does a global candidate scan plus global `pass_compute_label_used` scan before every rewrite. The HOT fallback now checks only the candidate subtree labels it may remove, preserving the `br`, `br_if`, `br_on_*`, `delegate`, `br_table`, and `try_table` catch safety rules.
+- `src/passes/pass_manager.mbt` now has a real raw lowered-instruction rewrite lane for branchless / label-use-free `remove-unused-names` functions. It performs same-type single-child block peeling, loop demotion, and harmless `nop` dropping, and falls back to the HOT path as soon as any branch-like label use or `try_table` label target is present. This is not the existing O4z no-op guard and not a no-candidate skip: it writes changed functions and reports `Starshine pass skipped raw: no` in the compare harness.
+
+Timing evidence after the fix:
+
+- 5k fixture:
+  - command: `bun scripts/self-optimize-compare.ts .tmp/run-kernel-speed/remove-unused-names-kernel-5000.wasm --starshine-bin target/native/release/build/cmd/cmd.exe --remove-unused-names --timing-only --out-dir .tmp/run-kernel-speed/final-exact-5000`
+  - Starshine pass-local: `0.441 ms`
+  - Binaryen pass-local: `0.381 ms`
+  - Starshine pass skipped raw: `no`
+  - whole command: Starshine `21.781 ms`, Binaryen `12.563 ms`
+- 50k fixture, three final timing-only trials:
+  - out dirs: `.tmp/run-kernel-speed/final-exact-50000`, `...-trial2`, `...-trial3`
+  - Starshine pass-local: `4.749 ms`, `4.773 ms`, `4.510 ms` (median `4.749 ms`)
+  - Binaryen pass-local: `2.493 ms`, `2.478 ms`, `2.465 ms` (median `2.478 ms`)
+  - pass-local ratio: about `1.92x` slower than Binaryen, within the repo target of Starshine being at least 50% as fast
+  - whole command median: Starshine `237.884 ms`, Binaryen `132.146 ms`
+  - Starshine pass skipped raw: `no` in all three trials
+
+Semantic evidence after the fix:
+
+```sh
+moon test src/passes
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass remove-unused-names \
+  --keep-going-after-command-failures \
+  --out-dir .tmp/pass-fuzz-remove-unused-names-perf-exact-final-10000
+```
+
+Results:
+
+- `moon test src/passes`: 1486 / 1486 passed
+- compare: 9975 / 10000 compared, 9975 normalized matches, 0 mismatches, 25 Binaryen/canonicalization command failures
+
+This closes the direct branchless rewrite-kernel performance gap for the audited fixture family. It does **not** change the O4z `o4z-remove-unused-names-noop` guard; O4z precision recovery remains separate.
+
 ## Conclusion
 
-Direct `remove-unused-names` remains a correct HOT structural subset with refreshed `10000`-requested oracle evidence and stronger label/name-section tests.
+Direct `remove-unused-names` remains a correct HOT structural subset with refreshed `10000`-requested oracle evidence and stronger label/name-section tests. The direct branchless rewrite-kernel fixture now runs via an actual raw rewrite lane rather than through no-op raw skipping, reducing the 50k pass-local median from about `148.047 ms` to `4.749 ms` while preserving normalized oracle parity.
 
 Do not treat the O4z RUN slots as fully optimized yet. They are currently guarded no-ops in O4z mode. The remaining active work, if v0.1.0 wants actual O4z `remove-unused-names` cleanup rather than safe no-op scheduling, is to narrow or remove `o4z-remove-unused-names-noop` test-first and replay the self-opt / O4z artifact lane that originally motivated the guard.

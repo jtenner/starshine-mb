@@ -81,8 +81,8 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Deliverables: apply the common checklist; add missing dead-tail/control/EH fixtures; refresh direct compare and `DCE` slot evidence; classify Binaryen-shape differences as semantic, representation, or size tradeoffs.
 
 - [O4Z-AUDIT-RUN] - Recover O4z `remove-unused-names` precision after audit
-  - Status: active v0.1.0 follow-up from the 2026-06-03 audit; direct-pass parity is refreshed, but actual O4z RUN slots remain guarded no-ops.
-  - Why: `docs/wiki/raw/research/0703-2026-06-03-remove-unused-names-o4z-audit.md` recorded 9975/10000 direct compared cases with 0 mismatches and added delegate/name-section coverage, but `src/passes/pass_manager.mbt` still returns `o4z-remove-unused-names-noop` for every `optimize_level >= 4 && shrink_level >= 1` function. That is correctness-safe but misses same-type wrapper collapse and dead-label loop demotion in real O4z mode.
+  - Status: active v0.1.0 follow-up from the 2026-06-03 audit; direct-pass parity and the branchless direct rewrite-kernel performance fixture are refreshed, but actual O4z RUN slots remain guarded no-ops.
+  - Why: `docs/wiki/raw/research/0703-2026-06-03-remove-unused-names-o4z-audit.md` recorded 9975/10000 direct compared cases with 0 mismatches, added delegate/name-section coverage, and later captured a direct branchless rewrite-kernel speedup from about 148 ms to 4.7 ms pass-local on the 50k fixture. However, `src/passes/pass_manager.mbt` still returns `o4z-remove-unused-names-noop` for every `optimize_level >= 4 && shrink_level >= 1` function. That is correctness-safe but misses same-type wrapper collapse and dead-label loop demotion in real O4z mode.
   - Remaining deliverables:
     - [ ] Identify or reconstruct the self-opt encoder-stack/artifact failure that originally required the O4z raw no-op guard.
     - [ ] Add a focused failing fixture or artifact replay before narrowing/removing the guard.

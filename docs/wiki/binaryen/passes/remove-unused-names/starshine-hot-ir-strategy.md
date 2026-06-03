@@ -243,9 +243,25 @@ The focused tests in `src/passes/remove_unused_names_test.mbt` currently prove t
 That is a strong local floor for the subset Starshine actually implements.
 It is narrower than upstream Binaryen's overall contract, but it is concrete and code-backed.
 
+## Direct rewrite-kernel fast path
+
+A 2026-06-03 performance follow-up added a real lowered-instruction rewrite lane for branchless / label-use-free direct `remove-unused-names` functions. This path lives in `src/passes/pass_manager.mbt` beside the existing raw candidate gate.
+
+It is intentionally narrow:
+
+- It runs only outside the O4z no-op guard.
+- It first scans for the two local candidate families: same-type single-child block wrappers and loops.
+- It falls back to the HOT path if any label-use instruction is present: `br`, `br_if`, `br_table`, `br_on_null`, `br_on_non_null`, `br_on_cast`, `br_on_cast_fail`, or `try_table` catch targets.
+- On the safe branchless subset, it peels exact same-type block chains, demotes loops to blocks, and drops harmless `nop`s so the lowered output stays aligned with the pre-existing Starshine representation.
+- The compare harness reports this as real rewrite work (`Starshine pass skipped raw: no`) because changed functions are written; it is not the `no-remove-unused-names-candidates` skip and not the O4z no-op guard.
+
+Measured on `.tmp/run-kernel-speed/remove-unused-names-kernel-50000.wasm`, three final timing-only trials after the change recorded Starshine pass-local `4.749 ms`, `4.773 ms`, and `4.510 ms` versus Binaryen `2.493 ms`, `2.478 ms`, and `2.465 ms`. The median pass-local ratio was about `1.92x` slower than Binaryen, within the repo target of Starshine being at least 50% as fast. The same change preserved direct oracle parity: `.tmp/pass-fuzz-remove-unused-names-perf-exact-final-10000` recorded 9975 compared cases, 9975 normalized matches, 0 mismatches, and 25 Binaryen/canonicalization command failures.
+
+The HOT fallback was also tightened: instead of always doing a global candidate scan plus global label-use bitset scan, it now checks whether the specific candidate subtree targets labels that would be removed. That preserves the delegate / `try_table` safety rules while reducing redundant scans for non-raw fallback cases. The final 10k replay for the code as committed is `.tmp/pass-fuzz-remove-unused-names-perf-exact-final-10000`.
+
 ## O4z guard status
 
-As of the 2026-06-03 O4z audit, direct `remove-unused-names` remains parity-clean, but actual O4z mode still guards the pass as a raw no-op. `src/passes/pass_manager.mbt` returns the original function for every `remove-unused-names` function pass when `optimize_level >= 4 && shrink_level >= 1`, with trace reason `o4z-remove-unused-names-noop`.
+As of the 2026-06-03 O4z audit and rewrite-kernel follow-up, direct `remove-unused-names` remains parity-clean and the branchless direct rewrite kernel is much faster, but actual O4z mode still guards the pass as a raw no-op. `src/passes/pass_manager.mbt` returns the original function for every `remove-unused-names` function pass when `optimize_level >= 4 && shrink_level >= 1`, with trace reason `o4z-remove-unused-names-noop`.
 
 That guard is correctness-safe and performance-cheap, but it means O4z currently misses every same-type wrapper collapse and loop demotion this pass would otherwise perform. Treat re-enabling or narrowing that guard as a separate test-first precision-recovery task that must replay the self-opt / O4z artifact lane that originally motivated the guard.
 

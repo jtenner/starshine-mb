@@ -9091,34 +9091,229 @@ fn run_hot_pipeline_raw_vacuum_no_candidates(
 }
 
 ///|
-fn run_hot_pipeline_instr_has_remove_unused_names_candidate(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  instrs.any(fn(instr) {
-    run_hot_pipeline_instr_is_remove_unused_names_candidate(instr)
-  })
+fn run_hot_pipeline_raw_remove_unused_names_scan_instr(
+  instr : @lib.Instruction,
+) -> (Bool, Bool) {
+  match instr {
+    @lib.Br(_)
+    | @lib.BrIf(_)
+    | @lib.BrTable(_, _)
+    | @lib.BrOnNull(_)
+    | @lib.BrOnNonNull(_)
+    | @lib.BrOnCast(_, _, _, _)
+    | @lib.BrOnCastFail(_, _, _, _) => (false, true)
+    @lib.Loop(_, @lib.Expr(body)) => {
+      let (_, has_label_use) = run_hot_pipeline_raw_remove_unused_names_scan_instrs(
+        body,
+      )
+      (true, has_label_use)
+    }
+    @lib.Block(block_type, @lib.Expr([@lib.Block(child_type, @lib.Expr(body))])) => {
+      if block_type != child_type {
+        return (true, true)
+      }
+      let (_, has_label_use) = run_hot_pipeline_raw_remove_unused_names_scan_instrs(
+        body,
+      )
+      (true, has_label_use)
+    }
+    @lib.Block(_, @lib.Expr(body)) =>
+      run_hot_pipeline_raw_remove_unused_names_scan_instrs(body)
+    @lib.If(_, then_body, Some(else_body)) => {
+      let (then_candidate, then_label_use) = run_hot_pipeline_raw_remove_unused_names_scan_instrs(
+        then_body,
+      )
+      let (else_candidate, else_label_use) = run_hot_pipeline_raw_remove_unused_names_scan_instrs(
+        else_body,
+      )
+      (then_candidate || else_candidate, then_label_use || else_label_use)
+    }
+    @lib.If(_, then_body, None) =>
+      run_hot_pipeline_raw_remove_unused_names_scan_instrs(then_body)
+    @lib.TryTable(_, _, _) => (true, true)
+    _ => (false, false)
+  }
 }
 
 ///|
-fn run_hot_pipeline_instr_is_remove_unused_names_candidate(
-  instr : @lib.Instruction,
-) -> Bool {
-  match instr {
-    @lib.Instruction::Loop(_, _) => true
-    @lib.Instruction::Block(
-      _,
-      @lib.Expr([@lib.Instruction::Block(_, @lib.Expr(_))])
-    ) => true
-    @lib.Instruction::Block(_, @lib.Expr(body))
-    | @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
-      run_hot_pipeline_instr_has_remove_unused_names_candidate(body)
-    @lib.Instruction::If(_, then_, Some(else_)) =>
-      run_hot_pipeline_instr_has_remove_unused_names_candidate(then_) ||
-      run_hot_pipeline_instr_has_remove_unused_names_candidate(else_)
-    @lib.Instruction::If(_, then_, None) =>
-      run_hot_pipeline_instr_has_remove_unused_names_candidate(then_)
-    _ => false
+fn run_hot_pipeline_raw_remove_unused_names_scan_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Bool, Bool) {
+  let mut has_candidate = false
+  let mut has_label_use = false
+  for instr in instrs {
+    let (instr_candidate, instr_label_use) = run_hot_pipeline_raw_remove_unused_names_scan_instr(
+      instr,
+    )
+    has_candidate = has_candidate || instr_candidate
+    has_label_use = has_label_use || instr_label_use
+    if has_candidate && has_label_use {
+      return (true, true)
+    }
   }
+  (has_candidate, has_label_use)
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_names_strip_nops(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let stripped : Array[@lib.Instruction] = []
+  let mut changed = false
+  for instr in instrs {
+    match instr {
+      @lib.Nop => changed = true
+      _ => stripped.push(instr)
+    }
+  }
+  (stripped, changed)
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_names_rewrite_single_root(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool)? {
+  match instrs {
+    [
+      @lib.Block(
+        block_type,
+        @lib.Expr([@lib.Block(child_type, @lib.Expr([@lib.Nop]))])
+      ),
+    ] =>
+      if block_type == child_type {
+        Some(([@lib.Instruction::block(block_type, @lib.Expr::new([]))], true))
+      } else {
+        None
+      }
+    [@lib.Block(block_type, @lib.Expr([@lib.Block(child_type, @lib.Expr([]))]))] =>
+      if block_type == child_type {
+        Some(([@lib.Instruction::block(block_type, @lib.Expr::new([]))], true))
+      } else {
+        None
+      }
+    [@lib.Block(block_type, @lib.Expr(body))] => {
+      let mut next_body = body
+      let mut changed = false
+      let mut peeling = true
+      while peeling {
+        match next_body {
+          [@lib.Block(child_type, @lib.Expr(child_body))] =>
+            if child_type == block_type {
+              next_body = child_body
+              changed = true
+            } else {
+              peeling = false
+            }
+          _ => peeling = false
+        }
+      }
+      let (stripped_body, stripped) = run_hot_pipeline_raw_remove_unused_names_strip_nops(
+        next_body,
+      )
+      if changed || stripped {
+        Some(
+          (
+            [@lib.Instruction::block(block_type, @lib.Expr::new(stripped_body))],
+            true,
+          ),
+        )
+      } else {
+        None
+      }
+    }
+    [@lib.Loop(block_type, @lib.Expr(body))] => {
+      let (stripped_body, _) = run_hot_pipeline_raw_remove_unused_names_strip_nops(
+        body,
+      )
+      Some(
+        (
+          [@lib.Instruction::block(block_type, @lib.Expr::new(stripped_body))],
+          true,
+        ),
+      )
+    }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_names_rewrite_instr(
+  instr : @lib.Instruction,
+) -> (@lib.Instruction, Bool) {
+  match instr {
+    @lib.Block(block_type, @lib.Expr(body)) => {
+      let (rewritten_body, body_changed) = run_hot_pipeline_raw_remove_unused_names_rewrite_instrs(
+        body,
+      )
+      let mut next_body = rewritten_body
+      let mut changed = body_changed
+      let mut peeling = true
+      while peeling {
+        match next_body {
+          [@lib.Block(child_type, @lib.Expr(child_body))] =>
+            if child_type == block_type {
+              next_body = child_body
+              changed = true
+            } else {
+              peeling = false
+            }
+          _ => peeling = false
+        }
+      }
+      (@lib.Instruction::block(block_type, @lib.Expr::new(next_body)), changed)
+    }
+    @lib.Loop(block_type, @lib.Expr(body)) => {
+      let (rewritten_body, _) = run_hot_pipeline_raw_remove_unused_names_rewrite_instrs(
+        body,
+      )
+      (
+        @lib.Instruction::block(block_type, @lib.Expr::new(rewritten_body)),
+        true,
+      )
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      let (rewritten_then, then_changed) = run_hot_pipeline_raw_remove_unused_names_rewrite_instrs(
+        then_body,
+      )
+      let (rewritten_else, else_changed) = match else_body {
+        Some(body) => {
+          let (rewritten, changed) = run_hot_pipeline_raw_remove_unused_names_rewrite_instrs(
+            body,
+          )
+          (Some(rewritten), changed)
+        }
+        None => (None, false)
+      }
+      (
+        @lib.Instruction::if_(block_type, rewritten_then, rewritten_else),
+        then_changed || else_changed,
+      )
+    }
+    _ => (instr, false)
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_names_rewrite_instrs(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut changed = false
+  for instr in instrs {
+    match instr {
+      @lib.Nop => {
+        changed = true
+        continue
+      }
+      _ => ()
+    }
+    let (rewritten_instr, instr_changed) = run_hot_pipeline_raw_remove_unused_names_rewrite_instr(
+      instr,
+    )
+    rewritten.push(rewritten_instr)
+    changed = changed || instr_changed
+  }
+  (rewritten, changed)
 }
 
 ///|
@@ -9140,17 +9335,44 @@ fn run_hot_pipeline_raw_remove_unused_names(
       trace_skip_raw: true,
     })
   }
-  let @lib.Func(_, @lib.Expr(instrs)) = original
-  if run_hot_pipeline_instr_has_remove_unused_names_candidate(instrs) {
-    None
-  } else {
-    Some({
+  let @lib.Func(locals, @lib.Expr(instrs)) = original
+  let (has_candidate, has_label_use) = run_hot_pipeline_raw_remove_unused_names_scan_instrs(
+    instrs,
+  )
+  if !has_candidate {
+    return Some({
       reason: "no-remove-unused-names-candidates",
       func: original,
       unchanged_original: true,
       trace_skip_raw: true,
     })
   }
+  if has_label_use {
+    return None
+  }
+  let pass_timer_start = perf_start_timer_opt(
+    options.perf,
+    "pass:remove-unused-names",
+  )
+  let (rewritten, changed) = match
+    run_hot_pipeline_raw_remove_unused_names_rewrite_single_root(instrs) {
+    Some(result) => result
+    None => run_hot_pipeline_raw_remove_unused_names_rewrite_instrs(instrs)
+  }
+  perf_stop_timer_opt(
+    options.perf,
+    "pass:remove-unused-names",
+    pass_timer_start,
+  )
+  if !changed {
+    return None
+  }
+  Some({
+    reason: "raw-remove-unused-names-no-label-uses",
+    func: @lib.Func::new(locals, @lib.Expr::new(rewritten)),
+    unchanged_original: false,
+    trace_skip_raw: false,
+  })
 }
 
 ///|

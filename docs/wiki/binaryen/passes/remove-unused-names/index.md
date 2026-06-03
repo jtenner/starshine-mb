@@ -45,6 +45,7 @@ related:
 
 - `remove-unused-names` is an active implemented **hot pass** in Starshine.
 - The 2026-06-03 O4z audit direct revalidation reached 9975 compared cases with 9975 normalized matches, 0 semantic mismatches, and 25 Binaryen/canonicalization command failures under `--count 10000 --seed 0x5eed --keep-going-after-command-failures`.
+- A 2026-06-03 direct rewrite-kernel follow-up added a real branchless raw rewrite lane for candidate-heavy functions; on the 50k repeated `(block (block (nop)))` fixture the pass-local median improved from about `148.047 ms` to `4.749 ms` while preserving the same 9975 / 10000 normalized-match direct compare result.
 - In upstream Binaryen `version_129`, `pass.cpp` describes it as:
   - removes names from locations that are never branched to
 
@@ -146,7 +147,7 @@ It does not claim that every nearby combo test is unchanged, only that the core 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `remove-unused-names` scheduler, shape, and parity notes.
-- Direct pass parity is currently clean, but O4z mode still returns an intentional raw no-op for this pass; do not claim O4z RUN slots perform same-type wrapper collapse or loop demotion until `o4z-remove-unused-names-noop` is narrowed or removed with artifact replay evidence.
+- Direct pass parity is currently clean, and the branchless direct rewrite kernel now has an actual fast rewrite lane, but O4z mode still returns an intentional raw no-op for this pass; do not claim O4z RUN slots perform same-type wrapper collapse or loop demotion until `o4z-remove-unused-names-noop` is narrowed or removed with artifact replay evidence.
 - Keep the central beginner correction explicit:
   - upstream `remove-unused-names` edits control labels rather than the wasm name section.
 - Keep the distinction explicit between:

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | remove-unused-names rewrite-kernel performance
+
+- Updated [`docs/wiki/raw/research/0703-2026-06-03-remove-unused-names-o4z-audit.md`](raw/research/0703-2026-06-03-remove-unused-names-o4z-audit.md) with the direct branchless rewrite-kernel follow-up: actual raw rewrite work now handles label-use-free same-type block peeling and loop demotion, reducing the 50k fixture pass-local median from about `148.047 ms` to `4.749 ms` while reporting `Starshine pass skipped raw: no`.
+- Refreshed the `remove-unused-names` landing and Starshine HOT-IR strategy pages to distinguish the new direct raw rewrite lane from the still-active O4z `o4z-remove-unused-names-noop` guard.
+- Recorded semantic signoff for the performance change: `moon test src/passes` passed 1486 / 1486, and `.tmp/pass-fuzz-remove-unused-names-perf-exact-final-10000` reached 9975 normalized matches, 0 mismatches, and 25 Binaryen/canonicalization command failures.
+
 ## [2026-06-03] passes | remove-unused-names O4z audit
 
 - Added [`docs/wiki/raw/research/0703-2026-06-03-remove-unused-names-o4z-audit.md`](raw/research/0703-2026-06-03-remove-unused-names-o4z-audit.md) with `[O4Z-AUDIT-RUN]` direct compare, label-use, name-section, repeated-slot, and O4z raw-guard evidence.

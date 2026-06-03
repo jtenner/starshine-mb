@@ -29,31 +29,64 @@ fn remove_unused_names_control_block_type_for_ty(
 }
 
 ///|
-fn remove_unused_names_same_control_block_type(
+fn remove_unused_names_label_in_controls(
   func : @ir.HotFunc,
-  lhs_ty : Int,
-  rhs_ty : Int,
+  label_id : Int,
+  control_ids : Array[Int],
 ) -> Bool {
-  lhs_ty == rhs_ty ||
-  remove_unused_names_control_block_type_for_ty(func, lhs_ty) ==
-  remove_unused_names_control_block_type_for_ty(func, rhs_ty)
-}
-
-///|
-fn remove_unused_names_any_removed_label_used(
-  func : @ir.HotFunc,
-  removed_ids : Array[Int],
-  label_used : @bitset.BitSet,
-) -> Bool {
-  for removed_id in removed_ids {
-    if pass_label_is_used(
-        @ir.hot_control_node_label(func, removed_id),
-        label_used,
-      ) {
+  for control_id in control_ids {
+    if @ir.hot_control_node_label(func, control_id) == label_id {
       return true
     }
   }
   false
+}
+
+///|
+fn remove_unused_names_node_targets_any_control(
+  func : @ir.HotFunc,
+  node : @ir.HotNode,
+  control_ids : Array[Int],
+) -> Bool {
+  let targets_label = fn(label_id : Int) {
+    remove_unused_names_label_in_controls(func, label_id, control_ids)
+  }
+  match node.op {
+    @ir.HotOp::Br
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail
+    | @ir.HotOp::Delegate => targets_label(node.imm0)
+    @ir.HotOp::BrTable => {
+      if targets_label(@ir.hot_branch_table_default_target(func, node.imm0)) {
+        return true
+      }
+      for label_id in @ir.hot_branch_table_targets(func, node.imm0) {
+        if targets_label(label_id) {
+          return true
+        }
+      }
+      false
+    }
+    @ir.HotOp::TryTable => {
+      let info = @ir.hot_catch_info_get(func, node.imm1)
+      for catch_ in info.catches {
+        let label_id = match catch_ {
+          @ir.HotCatchArm::CatchArm(_, label_id)
+          | @ir.HotCatchArm::CatchRefArm(_, label_id)
+          | @ir.HotCatchArm::CatchAllArm(label_id)
+          | @ir.HotCatchArm::CatchAllRefArm(label_id) => label_id
+        }
+        if targets_label(label_id) {
+          return true
+        }
+      }
+      false
+    }
+    _ => false
+  }
 }
 
 ///|
@@ -110,34 +143,80 @@ fn remove_unused_names_detach_peeled_blocks(
 }
 
 ///|
-fn remove_unused_names_has_candidate(func : @ir.HotFunc) -> Bool {
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
+fn remove_unused_names_region_targets_any_control(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  control_ids : Array[Int],
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  for idx = 0; idx < root_count; idx = idx + 1 {
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
       continue
     }
     let node = @ir.hot_node_get(func, node_id)
+    if remove_unused_names_node_targets_any_control(func, node, control_ids) {
+      return true
+    }
     match node.op {
-      @ir.HotOp::Loop => return true
-      @ir.HotOp::Block => {
-        let region_ref = @ir.hot_region_body_ref(func, node_id)
-        if @ir.hot_region_root_count(func, region_ref) != 1 {
-          continue
+      @ir.HotOp::Block | @ir.HotOp::Loop =>
+        if remove_unused_names_region_targets_any_control(
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+            control_ids,
+          ) {
+          return true
         }
-        let child_id = @ir.hot_region_get(func, region_ref, 0)
-        if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
-          continue
+      @ir.HotOp::If => {
+        if remove_unused_names_region_targets_any_control(
+            func,
+            @ir.hot_region_then_ref(func, node_id),
+            control_ids,
+          ) {
+          return true
         }
-        let child = @ir.hot_node_get(func, child_id)
-        match child.op {
-          @ir.HotOp::Block =>
-            if remove_unused_names_same_control_block_type(
-                func,
-                child.ty,
-                node.ty,
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(else_region) =>
+            if remove_unused_names_region_targets_any_control(
+                func, else_region, control_ids,
               ) {
               return true
             }
-          _ => ()
+          None => ()
+        }
+      }
+      @ir.HotOp::Try => {
+        if remove_unused_names_region_targets_any_control(
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+            control_ids,
+          ) {
+          return true
+        }
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(catch_region) =>
+            if remove_unused_names_region_targets_any_control(
+                func, catch_region, control_ids,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @ir.HotOp::TryTable => {
+        if remove_unused_names_region_targets_any_control(
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+            control_ids,
+          ) {
+          return true
+        }
+        if remove_unused_names_region_targets_any_control(
+            func,
+            @ir.hot_region_catch_list_ref(func, node_id),
+            control_ids,
+          ) {
+          return true
         }
       }
       _ => ()
@@ -150,7 +229,6 @@ fn remove_unused_names_has_candidate(func : @ir.HotFunc) -> Bool {
 fn remove_unused_names_visit_region(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  label_used : @bitset.BitSet,
   removed_ids : Array[Int],
   peeled_roots : Array[Int],
 ) -> Bool {
@@ -168,7 +246,7 @@ fn remove_unused_names_visit_region(
         | @ir.HotOp::Try
         | @ir.HotOp::TryTable =>
           changed = remove_unused_names_visit_control_node(
-              func, node_id, node, label_used, removed_ids, peeled_roots,
+              func, node_id, node, removed_ids, peeled_roots,
             ) ||
             changed
         _ => ()
@@ -189,26 +267,62 @@ fn remove_unused_names_visit_control_node(
   func : @ir.HotFunc,
   node_id : Int,
   node : @ir.HotNode,
-  label_used : @bitset.BitSet,
   removed_ids : Array[Int],
   peeled_roots : Array[Int],
 ) -> Bool {
   let mut changed = false
   match node.op {
-    @ir.HotOp::Block | @ir.HotOp::Loop =>
+    @ir.HotOp::Block => {
+      remove_unused_names_peel_same_typed_blocks(
+        func, node_id, removed_ids, peeled_roots,
+      )
+      if !removed_ids.is_empty() &&
+        !remove_unused_names_region_targets_any_control(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          removed_ids,
+        ) {
+        @ir.hot_region_replace_body(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          peeled_roots,
+        )
+        remove_unused_names_detach_peeled_blocks(func, removed_ids)
+        changed = true
+      }
+      removed_ids.clear()
       changed = remove_unused_names_visit_region(
           func,
           @ir.hot_region_body_ref(func, node_id),
-          label_used,
           removed_ids,
           peeled_roots,
         ) ||
         changed
+    }
+    @ir.HotOp::Loop => {
+      removed_ids.clear()
+      removed_ids.push(node_id)
+      if !remove_unused_names_region_targets_any_control(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          removed_ids,
+        ) {
+        remove_unused_names_demote_loop(func, node_id)
+        changed = true
+      }
+      removed_ids.clear()
+      changed = remove_unused_names_visit_region(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          removed_ids,
+          peeled_roots,
+        ) ||
+        changed
+    }
     @ir.HotOp::If => {
       changed = remove_unused_names_visit_region(
           func,
           @ir.hot_region_then_ref(func, node_id),
-          label_used,
           removed_ids,
           peeled_roots,
         ) ||
@@ -216,7 +330,7 @@ fn remove_unused_names_visit_control_node(
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
           changed = remove_unused_names_visit_region(
-              func, else_region, label_used, removed_ids, peeled_roots,
+              func, else_region, removed_ids, peeled_roots,
             ) ||
             changed
         None => ()
@@ -226,7 +340,6 @@ fn remove_unused_names_visit_control_node(
       changed = remove_unused_names_visit_region(
           func,
           @ir.hot_region_body_ref(func, node_id),
-          label_used,
           removed_ids,
           peeled_roots,
         ) ||
@@ -234,7 +347,7 @@ fn remove_unused_names_visit_control_node(
       match @ir.hot_region_catch_ref(func, node_id) {
         Some(catch_region) =>
           changed = remove_unused_names_visit_region(
-              func, catch_region, label_used, removed_ids, peeled_roots,
+              func, catch_region, removed_ids, peeled_roots,
             ) ||
             changed
         None => ()
@@ -244,7 +357,6 @@ fn remove_unused_names_visit_control_node(
       changed = remove_unused_names_visit_region(
           func,
           @ir.hot_region_body_ref(func, node_id),
-          label_used,
           removed_ids,
           peeled_roots,
         ) ||
@@ -252,7 +364,6 @@ fn remove_unused_names_visit_control_node(
       changed = remove_unused_names_visit_region(
           func,
           @ir.hot_region_catch_list_ref(func, node_id),
-          label_used,
           removed_ids,
           peeled_roots,
         ) ||
@@ -260,38 +371,7 @@ fn remove_unused_names_visit_control_node(
     }
     _ => return false
   }
-
-  match node.op {
-    @ir.HotOp::Block => {
-      remove_unused_names_peel_same_typed_blocks(
-        func, node_id, removed_ids, peeled_roots,
-      )
-      if removed_ids.is_empty() {
-        return changed
-      }
-      if remove_unused_names_any_removed_label_used(
-          func, removed_ids, label_used,
-        ) {
-        return changed
-      }
-      @ir.hot_region_replace_body(
-        func,
-        @ir.hot_region_body_ref(func, node_id),
-        peeled_roots,
-      )
-      remove_unused_names_detach_peeled_blocks(func, removed_ids)
-      true
-    }
-    @ir.HotOp::Loop => {
-      let label_id = @ir.hot_control_node_label(func, node_id)
-      if pass_label_is_used(label_id, label_used) {
-        return changed
-      }
-      remove_unused_names_demote_loop(func, node_id)
-      true
-    }
-    _ => changed
-  }
+  changed
 }
 
 ///|
@@ -299,16 +379,11 @@ fn remove_unused_names_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
-  if !remove_unused_names_has_candidate(func) {
-    return HotPassResult::unchanged()
-  }
-  let label_used = pass_compute_label_used(func)
   let removed_ids : Array[Int] = []
   let peeled_roots : Array[Int] = []
   if !remove_unused_names_visit_region(
       func,
       @ir.HotRegionRef::root(),
-      label_used,
       removed_ids,
       peeled_roots,
     ) {
