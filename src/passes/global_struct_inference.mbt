@@ -19,6 +19,182 @@ fn gsi_type_slot(type_idx : @lib.TypeIdx, type_count : Int) -> Int {
 }
 
 ///|
+priv struct GsiClosedWorldFacts {
+  poisoned_type_slots : Array[Bool]
+  candidate_globals_by_type_slot : Array[Array[@lib.GlobalIdx]]
+}
+
+///|
+fn gsi_closed_world_facts_has_candidates(facts : GsiClosedWorldFacts) -> Bool {
+  for slot = 0
+      slot < facts.candidate_globals_by_type_slot.length()
+      slot = slot + 1 {
+    if !facts.poisoned_type_slots[slot] &&
+      facts.candidate_globals_by_type_slot[slot].length() > 0 {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn gsi_struct_new_type(instr : @lib.Instruction) -> @lib.TypeIdx? {
+  match instr {
+    @lib.StructNew(type_idx)
+    | @lib.StructNewDefault(type_idx)
+    | @lib.StructNewDesc(type_idx)
+    | @lib.StructNewDefaultDesc(type_idx) => Some(type_idx)
+    _ => None
+  }
+}
+
+///|
+fn gsi_mark_poisoned_type(
+  poisoned_type_slots : Array[Bool],
+  type_idx : @lib.TypeIdx,
+) -> Unit {
+  let slot = gsi_type_slot(type_idx, poisoned_type_slots.length())
+  if slot >= 0 {
+    poisoned_type_slots[slot] = true
+  }
+}
+
+///|
+fn gsi_mark_all_struct_allocs(
+  instrs : Array[@lib.Instruction],
+  poisoned_type_slots : Array[Bool],
+) -> Unit {
+  for instr in instrs {
+    match gsi_struct_new_type(instr) {
+      Some(type_idx) => gsi_mark_poisoned_type(poisoned_type_slots, type_idx)
+      None => ()
+    }
+    match instr {
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        gsi_mark_all_struct_allocs(body, poisoned_type_slots)
+      @lib.If(_, then_body, else_body) => {
+        gsi_mark_all_struct_allocs(then_body, poisoned_type_slots)
+        match else_body {
+          Some(else_body) =>
+            gsi_mark_all_struct_allocs(else_body, poisoned_type_slots)
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        gsi_mark_all_struct_allocs(body, poisoned_type_slots)
+      _ => ()
+    }
+  }
+}
+
+///|
+fn gsi_mark_nested_global_struct_allocs(
+  instrs : Array[@lib.Instruction],
+  poisoned_type_slots : Array[Bool],
+) -> Unit {
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    let instr = instrs[idx]
+    match gsi_struct_new_type(instr) {
+      Some(type_idx) =>
+        if idx + 1 != instrs.length() {
+          gsi_mark_poisoned_type(poisoned_type_slots, type_idx)
+        }
+      None => ()
+    }
+    match instr {
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        gsi_mark_all_struct_allocs(body, poisoned_type_slots)
+      @lib.If(_, then_body, else_body) => {
+        gsi_mark_all_struct_allocs(then_body, poisoned_type_slots)
+        match else_body {
+          Some(else_body) =>
+            gsi_mark_all_struct_allocs(else_body, poisoned_type_slots)
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        gsi_mark_all_struct_allocs(body, poisoned_type_slots)
+      _ => ()
+    }
+  }
+}
+
+///|
+fn gsi_global_decl_is_eq_comparable(
+  env : @validate.Env,
+  global_type : @lib.GlobalType,
+) -> Bool {
+  match global_type {
+    @lib.GlobalType(value_type, _) =>
+      @validate.Match::matches(value_type, @lib.ValType::eqref_null(), env)
+  }
+}
+
+///|
+fn gsi_build_closed_world_facts(
+  env : @validate.Env,
+  mod_ : @lib.Module,
+) -> GsiClosedWorldFacts {
+  let type_count = env.global_types.length()
+  let poisoned_type_slots : Array[Bool] = Array::make(type_count, false)
+  let candidate_globals_by_type_slot : Array[Array[@lib.GlobalIdx]] = []
+  for slot = 0; slot < type_count; slot = slot + 1 {
+    ignore(slot)
+    candidate_globals_by_type_slot.push([])
+  }
+
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(instrs)) = func
+        gsi_mark_all_struct_allocs(instrs, poisoned_type_slots)
+      }
+    None => ()
+  }
+
+  let globals = match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) => globals
+    None => return { poisoned_type_slots, candidate_globals_by_type_slot }
+  }
+  let total_globals = env.globals.length()
+  let imported_global_count = total_globals - globals.length()
+  for defined_idx = 0
+      defined_idx < globals.length()
+      defined_idx = defined_idx + 1 {
+    let global_ = globals[defined_idx]
+    let @lib.Global(global_type, init) = global_
+    let @lib.Expr(init_instrs) = init
+    gsi_mark_nested_global_struct_allocs(init_instrs, poisoned_type_slots)
+    match global_type {
+      @lib.GlobalType(_, true) => continue
+      _ => ()
+    }
+    if !gsi_global_decl_is_eq_comparable(env, global_type) {
+      continue
+    }
+    match gsi_candidate_global_values(env, init) {
+      Some((type_idx, _)) => {
+        let slot = gsi_type_slot(type_idx, type_count)
+        if slot >= 0 && !poisoned_type_slots[slot] {
+          candidate_globals_by_type_slot[slot].push(
+            @lib.GlobalIdx::new(
+              (imported_global_count + defined_idx).reinterpret_as_uint(),
+            ),
+          )
+        }
+      }
+      None => ()
+    }
+  }
+  for slot = 0; slot < poisoned_type_slots.length(); slot = slot + 1 {
+    if poisoned_type_slots[slot] {
+      candidate_globals_by_type_slot[slot] = []
+    }
+  }
+  { poisoned_type_slots, candidate_globals_by_type_slot }
+}
+
+///|
 fn gsi_default_expr_for_valtype(vt : @lib.ValType) -> @lib.Expr? {
   match vt {
     @lib.NumTypeValType(@lib.I32NumType) =>
@@ -498,8 +674,14 @@ pub fn global_struct_inference_run_module_pass(
   mod_ : @lib.Module,
   closed_world : Bool,
 ) -> @lib.Module {
-  ignore(closed_world)
   let env = @validate.Env::new().with_module(mod_)
+  if closed_world {
+    ignore(
+      gsi_closed_world_facts_has_candidates(
+        gsi_build_closed_world_facts(env, mod_),
+      ),
+    )
+  }
   let type_count = env.global_types.length()
   let globals = match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) => globals

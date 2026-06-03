@@ -136,7 +136,7 @@ For that sibling's source and test map, use:
 
 ## Starshine implementation map
 
-Current local implementation is intentionally smaller than Binaryen's full `gsi` contract, but the 2026-06-03 O4z audit upgraded it from closed-world-only to Binaryen-style open-world direct-global folding.
+Current local implementation is intentionally smaller than Binaryen's full `gsi` contract. The 2026-06-03 O4z audit upgraded it from closed-world-only to Binaryen-style open-world direct-global folding; the follow-up closed-world facts slice added an analysis-only candidate/poison table without enabling local/param rewrites yet.
 
 ### `src/passes/optimize.mbt`
 
@@ -154,40 +154,34 @@ Current local implementation is intentionally smaller than Binaryen's full `gsi`
 - `src/passes/pass_manager.mbt:12308-12309`
   - dispatches the active module pass through `global_struct_inference_run_module_pass(mod_, options.closed_world)`.
 
-This line shows the dispatcher still passes `closed_world`, but the current direct-global subset accepts and ignores that flag rather than gating open-world folds on it.
+This line shows the dispatcher still passes `closed_world`. The current direct-global subset no longer gates open-world folds on that flag; when the flag is true, Starshine now builds conservative closed-world candidate/poison facts before running the same direct rewrite layer.
 
 ### `src/passes/global_struct_inference.mbt`
 
 - `src/passes/global_struct_inference.mbt:2`
   - summary string: folds immutable struct field reads from direct immutable global instances.
-- `src/passes/global_struct_inference.mbt:22`
-  - default-value materialization for `struct.new_default*` candidates.
-- `src/passes/global_struct_inference.mbt:52`
-  - simple one-instruction result typing for materializable values.
-- `src/passes/global_struct_inference.mbt:85`
-  - accepted field-value materialization, including simple constants, `global.get`, `ref.func`, `ref.null`, `string.const`, and packed-field constraints.
-- `src/passes/global_struct_inference.mbt:110`
-  - candidate field-value harvesting from trusted global initializers.
-- `src/passes/global_struct_inference.mbt:152`
+- `src/passes/global_struct_inference.mbt:20-190`
+  - `GsiClosedWorldFacts`, struct-allocation scanners, equality-comparable global declaration filter, and `gsi_build_closed_world_facts(...)` for analysis-only closed-world candidate and poison facts.
+- `src/passes/global_struct_inference.mbt:190-260`
+  - default-value materialization, simple one-instruction result typing, accepted field-value materialization, and candidate field-value harvesting from trusted global initializers.
+- `src/passes/global_struct_inference.mbt:260-290`
   - accepted top-level global initializer constructors.
-- `src/passes/global_struct_inference.mbt:189`
-  - packed unsigned value repair.
-- `src/passes/global_struct_inference.mbt:195`
-  - packed signed value repair.
-- `src/passes/global_struct_inference.mbt:250`
+- `src/passes/global_struct_inference.mbt:300-330`
+  - packed signed and unsigned value repair.
+- `src/passes/global_struct_inference.mbt:330-410`
   - maps one trusted global plus one `struct.get*` to a replacement expression.
-- `src/passes/global_struct_inference.mbt:310`
+- `src/passes/global_struct_inference.mbt:410-520`
   - recursive body rewrite; only immediate `global.get` + `struct.get`, `struct.get_s`, or `struct.get_u` pairs are replaced.
-- `src/passes/global_struct_inference.mbt:419`
+- `src/passes/global_struct_inference.mbt:520-600`
   - cheap pre-scan to skip functions with no possible direct pair rewrite.
-- `src/passes/global_struct_inference.mbt:497`
-  - public pass entrypoint; accepts `closed_world` but no longer gates the direct-global subset on it, builds candidate tables, rewrites changed functions, and returns the original module when no change is found.
+- `src/passes/global_struct_inference.mbt:600-660`
+  - public pass entrypoint; builds closed-world facts when requested, runs the direct-global candidate table, rewrites changed functions, and returns the original module when no change is found.
 
 ## Starshine test surface
 
 ### `src/passes/global_struct_inference_test.mbt`
 
-Current focused tests prove the local subset:
+Current focused public-pipeline tests prove the local rewrite subset:
 
 - open-world direct immutable-global field folding, including an exported immutable global positive
 - nullable direct-global trap preservation with `ref.as_non_null` and `drop`
@@ -196,7 +190,16 @@ Current focused tests prove the local subset:
 - mutable-field, mutable-global, and imported-global negatives
 - non-global ref producers remaining unchanged even in closed world
 
-These tests now cover the direct-global O4z audit surfaces, but they are still far narrower than Binaryen `gsi.wast` because the closed-world candidate-map/select/un-nesting families remain absent.
+### `src/passes/global_struct_inference_wbtest.mbt`
+
+Current focused white-box tests prove the new closed-world fact builder:
+
+- immutable top-level `struct.new*` globals become candidate origins by created struct type
+- mutable globals and too-broad/`anyref` declared globals are excluded
+- function-local `struct.new*` allocations poison the allocated type and clear its candidates
+- nested non-top-level global-initializer `struct.new*` allocations poison only the nested allocated type
+
+These tests now cover the direct-global O4z audit surfaces and the first closed-world candidate-map foundation, but they are still far narrower than Binaryen `gsi.wast` because subtype propagation, local/param rewrites, selects, and un-nesting remain absent.
 
 ## Current local-vs-Binaryen matrix
 
@@ -204,9 +207,10 @@ These tests now cover the direct-global O4z audit surfaces, but they are still f
 | --- | --- | --- |
 | GC gate | yes | implicit via supported syntax and pass inputs; no full Binaryen feature gate mirror |
 | Open-world direct-global read | yes | yes for immediate `global.get` + `struct.get*` |
-| Closed-world candidate map by heap type | yes | no |
+| Closed-world candidate map by heap type | yes | analysis-only direct-type candidates and poison facts; not consumed by rewrites |
 | Direct immutable-global fold | yes | yes, immediate-pair-only |
 | Local/param/supertype-origin rewrite | yes | no |
+| Function-local and nested-global poisoning | yes | yes for direct allocated type in the analysis-only facts |
 | Subtype poisoning and propagation | yes | no |
 | One-value direct replacement | yes | only exact direct-global field value |
 | Two-value `select(ref.eq(...))` | yes | no |
@@ -236,6 +240,6 @@ When future work touches this pass, update this page if any of these change:
 - active registry/preset/dispatcher status
 - local test coverage
 - whether Starshine still exits in open world
-- whether Starshine gains any of Binaryen's candidate-map, select, un-nesting, atomic, descriptor, or refinalization surfaces
+- whether Starshine consumes the analysis-only candidate map or gains any of Binaryen's subtype, select, un-nesting, atomic, descriptor, or refinalization surfaces
 
 Do not describe saved-artifact parity as full pass parity unless the missing official shape families are also implemented or explicitly proven irrelevant for the chosen artifact.

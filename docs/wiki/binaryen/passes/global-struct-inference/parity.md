@@ -35,7 +35,8 @@ related:
   - direct `global.get -> struct.get*` pairs now fold in open world, matching Binaryen's direct immutable-global fast path
   - top-level immutable `struct.new*`, `struct.new_default*`, `struct.new_desc`, and `struct.new_default_desc` globals are covered
   - packed i8/i16 signed and unsigned reads are repaired for direct literal payloads
-  - no subtype map, no multi-origin local/param rewrites, no un-nesting, no atomic/`ref.get_desc`/descriptor-cast surface
+  - a closed-world analysis-only fact table now records immutable top-level candidate globals, mutable/too-broad global exclusions, function-local allocation poisoning, and nested global-initializer allocation poisoning
+  - no subtype propagation, no multi-origin local/param rewrites, no value grouping/selects, no un-nesting, no atomic/`ref.get_desc`/descriptor-cast surface
 - The saved generated-artifact `-O4z` slot is still exactly green, which strongly suggests the artifact does not exercise the missing official surfaces.
 
 ## Current in-tree status
@@ -43,9 +44,46 @@ related:
 - The implementation lives in [`../../../../../src/passes/global_struct_inference.mbt`](../../../../../src/passes/global_struct_inference.mbt).
 - The dedicated source/test/code-map page lives at [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 - The dedicated local status page now lives at [`./starshine-strategy.md`](./starshine-strategy.md), with the implementation-detail page at [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md).
-- The focused suite lives in [`../../../../../src/passes/global_struct_inference_test.mbt`](../../../../../src/passes/global_struct_inference_test.mbt).
+- The focused public-pipeline suite lives in [`../../../../../src/passes/global_struct_inference_test.mbt`](../../../../../src/passes/global_struct_inference_test.mbt); the closed-world analysis fact coverage lives in [`../../../../../src/passes/global_struct_inference_wbtest.mbt`](../../../../../src/passes/global_struct_inference_wbtest.mbt).
 - Registry and preset coverage live in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), with module-pass dispatch in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
 - The pass is active in-tree and is scheduled in the early module cluster after `global-refining`.
+
+## 2026-06-03 closed-world facts follow-up
+
+The closed-world facts follow-up added analysis-only candidate/poison coverage and ran:
+
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass global-struct-inference --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-global-struct-inference-closed-world-facts-10000`
+
+Result:
+
+- compared cases: 9975 / 10000
+- normalized matches: 9975
+- mismatches: 0
+- validation failures: 0
+- generator failures: 0
+- command failures: 25
+
+Command-failure classes from `summary.json`:
+
+- `22` `binaryen-rec-group-zero`
+- `1` `binaryen-bad-section-size`
+- `1` `binaryen-table-index-out-of-range`
+- `1` `binaryen-invalid-tag-index`
+
+The debug artifact timing replay used:
+
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --global-struct-inference --timing-only --out-dir .tmp/gsi-debug-artifact-timing-closed-world-facts`
+
+Result:
+
+- canonical wasm equal: yes
+- Starshine runtime: `303.223 ms`
+- Binaryen runtime: `419.258 ms`
+- Starshine pass runtime: `0.328 ms`
+- Binaryen pass runtime: `2.866 ms`
+- Starshine pass skipped raw: no
+
+This is semantic smoke and performance evidence for preserving the already-active direct pass behavior while adding the analysis-only closed-world fact builder. It is not evidence that local/param, subtype, select, or un-nesting rewrites are implemented.
 
 ## 2026-06-03 O4z audit direct-pass revalidation
 
@@ -137,7 +175,7 @@ That is an inference from the official source plus the green runs, not a direct 
 
 ## Current local coverage
 
-The focused local tests now cover the direct-global O4z audit subset:
+The focused local tests now cover the direct-global O4z audit subset plus closed-world fact-table invariants:
 
 - open-world direct `global.get -> struct.get*` folding on immutable globals, including exported immutable globals
 - nullable direct-global trap preservation with `ref.as_non_null` and `drop`
@@ -145,17 +183,19 @@ The focused local tests now cover the direct-global O4z audit subset:
 - `struct.new_default`, `struct.new_desc`, and `struct.new_default_desc` field extraction, including nullable-ref defaults
 - mutable-field, mutable-global, and imported-global negatives
 - preserving ordinary non-global ref producers unchanged even in closed world
+- analysis-only closed-world facts for immutable top-level candidates, mutable-global exclusion, `anyref`/too-broad declaration exclusion, function-local allocation poisoning, and nested global-initializer allocation poisoning
 
 That is a stronger local floor for the current subset.
 It is still far smaller than the official Binaryen lit surface.
 
 ## Main remaining divergences from official Binaryen
 
-## 1. No local closed-world `typeGlobals` analysis
+## 1. Closed-world `typeGlobals` facts are analysis-only
 
-Current local behavior after the 2026-06-03 audit:
+Current local behavior after the 2026-06-03 follow-up:
 
 - `global_struct_inference_run_module_pass` no longer returns unchanged when `closed_world` is false; it scans immutable defined globals and applies the direct-global fold in open world
+- when `closed_world` is true, it builds a conservative candidate/poison fact table for top-level immutable global origins and allocation poison sources, then still leaves local/param rewrite behavior unchanged
 
 Official Binaryen `version_129` behavior:
 
@@ -163,7 +203,7 @@ Official Binaryen `version_129` behavior:
 - but `optimize(module)` still runs afterwards in **all** modes
 - direct immutable-global reads can still optimize in open world
 
-This former conceptual gap is closed for the direct immutable-global fast path; `closed_world` still does not add Binaryen's broader `typeGlobals` candidate analysis locally.
+This former conceptual gap is closed for the direct immutable-global fast path, and the first local closed-world fact builder now exists. `closed_world` still does not add Binaryen's broader local/param candidate-origin rewrites, subtype propagation, value grouping, or un-nesting locally.
 
 ## 2. The local pass only matches immediate instruction pairs
 

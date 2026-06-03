@@ -197,6 +197,19 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 
 ### Optimizer Audit Follow-Ups
 
+- [GSI]001 - Consume Closed-World Candidate Facts Safely
+  - Status: active follow-up after the 2026-06-03 `global-struct-inference` closed-world facts slice.
+  - Goal: turn the new analysis-only candidate/poison fact table into safe Binaryen-style closed-world rewrites without regressing the open-world direct-global subset.
+  - Why: Starshine now records immutable top-level global candidates plus direct allocation poison facts, but still does not rewrite local/param/supertype reads, group one/two values, or un-nest non-constant operands.
+  - Deliverables:
+    - [ ] `[GSI001-A]` Add subtype propagation to the fact table: poisoned child types poison parents, and candidate child globals propagate upward to parent types.
+    - [ ] `[GSI001-B]` Add a narrow single-candidate local/param origin rewrite that preserves null traps and produces valid typed output; start with exact struct type, no subtype, no value-folding.
+    - [ ] `[GSI001-C]` Add one-value multi-candidate folding only for materializable equal values; keep non-constant expression equivalence and un-nesting out of this slice.
+    - [ ] `[GSI001-D]` Add two-value singleton-group `select(ref.eq(...))` synthesis with negative coverage for >2 unique values and two-equal-pair ambiguity.
+    - [ ] `[GSI001-E]` Refresh direct compare at 1000 before each behavior step and 10000 before calling the rewrite slice signed off; record pass-local debug-artifact timing.
+  - Suggested tests: `src/passes/global_struct_inference_wbtest.mbt` for analysis invariants, `src/passes/global_struct_inference_test.mbt` for public-pipeline rewrites, `moon test src/passes`, direct `bun scripts/pass-fuzz-compare.ts --pass global-struct-inference`, and debug-artifact timing.
+  - Exit criteria: closed-world local/param rewrites are guarded by subtype-aware candidate facts, validate on focused fixtures, and show zero semantic mismatches in direct compare.
+
 - [AUDIT]001 - Hot Pass Descriptor Metadata Truthfulness
   - Status: active follow-up from the 2026-05-31 optimizer audit.
   - Goal: make hot pass `requires` metadata describe every analysis a pass may request through `pass_require_*`, so the registry remains a truthful pass-author contract and future scheduling/perf tooling can trust descriptors.

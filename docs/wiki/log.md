@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | global-struct-inference closed-world facts follow-up
+
+- Added an analysis-only closed-world fact builder for `global-struct-inference`: immutable top-level `struct.new*` globals become per-type candidates, mutable and too-broad/`anyref` declared globals are excluded, function-local allocations poison their allocated type, and nested non-top-level global-initializer allocations poison their allocated type.
+- Added `src/passes/global_struct_inference_wbtest.mbt` coverage for those candidate inclusion/exclusion and poisoning invariants while leaving local/param rewrites, subtype propagation, value grouping/selects, and un-nesting explicitly deferred.
+- Recorded refreshed evidence: `moon test src/passes` passed `1504/1504`; `.tmp/pass-fuzz-global-struct-inference-closed-world-facts-10000` reached `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures (`22` empty-recursion-group plus one each bad-section-size, table-index-out-of-range, and invalid-tag-index); `.tmp/gsi-debug-artifact-timing-closed-world-facts` was canonical-equal with Starshine/Binaryen pass-local `0.328 ms / 2.866 ms`.
+
 ## [2026-06-03] passes | global-struct-inference O4z audit
 
 - Updated Starshine `global-struct-inference` so the direct immutable-global `global.get -> struct.get*` fold runs in open world, matching Binaryen's direct-global fast path, and fixed descriptor-constructor field harvesting to read field operands before the descriptor operand.

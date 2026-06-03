@@ -293,4 +293,4 @@ A future parity-focused port must keep all of these rules explicit:
 - new globals created by un-nesting must be reordered before uses
 - nearby descriptor/cast surfaces reuse the same trusted-global infrastructure
 
-If local code intentionally keeps a smaller subset, the wiki should continue calling that out as a local limitation, not as the Binaryen contract. After the 2026-06-03 O4z audit, that local subset is the open-world direct-global folder described in [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md), not the full `typeGlobals` plus un-nesting engine described here.
+If local code intentionally keeps a smaller subset, the wiki should continue calling that out as a local limitation, not as the Binaryen contract. After the 2026-06-03 O4z audit and follow-up facts slice, that local subset is the open-world direct-global folder plus an analysis-only closed-world candidate/poison table described in [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md), not the full `typeGlobals` rewrite, subtype propagation, value grouping, select, or un-nesting engine described here.
