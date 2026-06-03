@@ -220,6 +220,75 @@ fn mp_should_preserve_trap(
 }
 
 ///|
+fn mp_active_rewrite_fast_single_range(
+  mem_idx : @lib.MemIdx,
+  base : MpBaseOffset,
+  bytes : Bytes,
+  preserve_trap : Bool,
+) -> Array[@lib.Data]? {
+  let mut first = -1
+  let mut last = -1
+  let mut idx = 0
+  while idx < bytes.length() {
+    if bytes[idx] != 0 {
+      if first < 0 {
+        first = idx
+      }
+      last = idx
+    }
+    idx += 1
+  }
+  if first < 0 {
+    if preserve_trap {
+      return Some([
+        @lib.Data::new(
+          @lib.DataMode::active(
+            mem_idx,
+            mp_shift_base_offset(base, bytes.length() - 1),
+          ),
+          b"\x00",
+        ),
+      ])
+    }
+    return Some([])
+  }
+
+  let threshold = 8
+  let mut zero_run = 0
+  idx = first
+  while idx <= last {
+    if bytes[idx] == 0 {
+      zero_run += 1
+      if zero_run > threshold {
+        return None
+      }
+    } else {
+      zero_run = 0
+    }
+    idx += 1
+  }
+
+  let rewritten : Array[@lib.Data] = [
+    @lib.Data::new(
+      @lib.DataMode::active(mem_idx, mp_shift_base_offset(base, first)),
+      mp_slice_bytes(bytes, first, last + 1),
+    ),
+  ]
+  if preserve_trap && last + 1 < bytes.length() {
+    rewritten.push(
+      @lib.Data::new(
+        @lib.DataMode::active(
+          mem_idx,
+          mp_shift_base_offset(base, bytes.length() - 1),
+        ),
+        b"\x00",
+      ),
+    )
+  }
+  Some(rewritten)
+}
+
+///|
 fn mp_active_rewrite(
   mod_ : @lib.Module,
   mem_idx : @lib.MemIdx,
@@ -233,12 +302,18 @@ fn mp_active_rewrite(
     Some(base) => base
     None => return [@lib.Data::new(@lib.DataMode::active(mem_idx, expr), bytes)]
   }
+  let preserve_trap = mp_should_preserve_trap(mod_, base, bytes.length())
+  match
+    mp_active_rewrite_fast_single_range(mem_idx, base, bytes, preserve_trap) {
+    Some(rewritten) => return rewritten
+    None => ()
+  }
   let ranges = mp_collect_ranges(bytes)
   if ranges.is_empty() {
     return [@lib.Data::new(@lib.DataMode::active(mem_idx, expr), bytes)]
   }
   let mut merged = mp_merge_small_zero_ranges(ranges, 8)
-  if mp_should_preserve_trap(mod_, base, bytes.length()) {
+  if preserve_trap {
     merged = mp_preserve_trapping_top_byte(merged, bytes.length())
   }
   let rewritten : Array[@lib.Data] = []
@@ -254,6 +329,39 @@ fn mp_active_rewrite(
     )
   }
   rewritten
+}
+
+///|
+fn mp_active_span_order(lhs : MpSpan, rhs : MpSpan) -> Int {
+  if lhs.start < rhs.start {
+    -1
+  } else if lhs.start > rhs.start {
+    1
+  } else if lhs.end_ < rhs.end_ {
+    -1
+  } else if lhs.end_ > rhs.end_ {
+    1
+  } else {
+    0
+  }
+}
+
+///|
+fn mp_active_spans_are_disjoint(spans : Array[MpSpan]) -> Bool {
+  if spans.length() <= 1 {
+    return true
+  }
+  spans.sort_by(mp_active_span_order)
+  let mut idx = 1
+  while idx < spans.length() {
+    let prev = spans[idx - 1]
+    let curr = spans[idx]
+    if curr.start < prev.end_ && prev.start < curr.end_ {
+      return false
+    }
+    idx += 1
+  }
+  true
 }
 
 ///|
@@ -284,17 +392,12 @@ fn mp_can_optimize(mod_ : @lib.Module, datas : Array[@lib.Data]) -> Bool {
         if end_ < start {
           return false
         }
-        for span in spans {
-          if start < span.end_ && span.start < end_ {
-            return false
-          }
-        }
         spans.push(MpSpan::new(start, end_))
       }
       @lib.Data(@lib.Passive, _) => ()
     }
   }
-  true
+  mp_active_spans_are_disjoint(spans)
 }
 
 ///|
@@ -487,6 +590,17 @@ fn mp_rewrite_code_sec(
 }
 
 ///|
+fn mp_needs_data_usage_scan(datas : Array[@lib.Data]) -> Bool {
+  for data in datas {
+    match data {
+      @lib.Data(@lib.Passive, _) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn mp_data_rewrite_needed(
   remap : Array[Int],
   usages : Array[MpDataUsage],
@@ -511,8 +625,17 @@ pub fn memory_packing_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   if !mp_can_optimize(mod_, datas) {
     return mod_
   }
-  let usages = mp_collect_data_usages(mod_, datas.length())
-  let data_remap = Array::make(datas.length(), -1)
+  let needs_data_usage_scan = mp_needs_data_usage_scan(datas)
+  let usages = if needs_data_usage_scan {
+    mp_collect_data_usages(mod_, datas.length())
+  } else {
+    []
+  }
+  let data_remap = if needs_data_usage_scan {
+    Array::make(datas.length(), -1)
+  } else {
+    []
+  }
   let rewritten : Array[@lib.Data] = []
   let mut changed = false
   let mut idx = 0
@@ -542,7 +665,8 @@ pub fn memory_packing_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     }
     idx += 1
   }
-  let needs_code_rewrite = mp_data_rewrite_needed(data_remap, usages)
+  let needs_code_rewrite = needs_data_usage_scan &&
+    mp_data_rewrite_needed(data_remap, usages)
   let next_code_sec = if needs_code_rewrite {
     changed = true
     mp_rewrite_code_sec(mod_.code_sec, data_remap)

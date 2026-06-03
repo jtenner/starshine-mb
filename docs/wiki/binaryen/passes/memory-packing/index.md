@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-06-03
 sources:
+  - ../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md
   - ../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
   - ../../../raw/research/0204-2026-04-21-memory-packing-source-confirmation-followup.md
@@ -69,6 +70,12 @@ It is a whole-module segment-layout plus segment-op rewrite pass. For the underl
   - Binaryen wall/runtime: `225.872 ms`
   - Starshine in-pass time: `12.684 ms`
   - Binaryen in-pass time: `31.292 ms`
+- The 2026-06-03 `[O4Z-AUDIT-MP]` pass-local audit tightened the local implementation without changing that narrow contract:
+  - active-only modules now skip code-section data-usage scanning when there are no passive segments
+  - active overlap legality is sorted-span based instead of pairwise O(n²)
+  - common single-kept-range active segments use a fast path that still preserves startup traps
+  - direct `10000`-requested compare with command-failure keep-going stayed semantically green on all `9975` successfully compared cases, with only Binaryen/tool command failures
+  - synthetic pass-local medians improved from `511 us` to `12 us` on an active-only large-code fixture and from `4421 us` to `825 us` on a many-active-segment fixture; the latter beat Binaryen's `975.6 us` median on the same fixture
 - The saved Binaryen debug log contains one top-level `running pass: memory-packing` line, which fits the real story: this is an early module pre-pass, not a nested function-rerun cleanup pass.
 
 ## Most important durable takeaways
@@ -164,6 +171,7 @@ So the durable rule is:
 
 - [`../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md`](../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md)
 - [`../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md`](../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md)
+- [`../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md`](../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md)
 - [`../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md`](../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md)
 - [`../../../../../src/passes/memory_packing.mbt`](../../../../../src/passes/memory_packing.mbt)
 - [`../../../../../src/passes/memory_packing_test.mbt`](../../../../../src/passes/memory_packing_test.mbt)

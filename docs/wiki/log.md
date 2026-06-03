@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | memory-packing O4z deep audit
+
+- Added [`docs/wiki/raw/research/0700-2026-06-03-memory-packing-o4z-audit.md`](raw/research/0700-2026-06-03-memory-packing-o4z-audit.md) with the `[O4Z-AUDIT-MP]` implementation, test, compare, and pass-local timing evidence.
+- Updated the `memory-packing` living dossier pages so they record the new sorted-span active-overlap legality check, active-only data-usage scan elision, single-kept-range active fast path, expanded shape coverage, and current `10000`-requested keep-going compare result (`9975` compared, `0` mismatches, `25` Binaryen/tool command failures).
+- The pass-local synthetic medians now show Starshine faster than Binaryen on the audited active-only large-code and many-active-segment stress fixtures; full upstream passive-segment rewrite parity remains explicitly deferred.
+
 ## [2026-06-02] docs | release-process self-opt artifact gate cross-link
 
 - Updated [`docs/wiki/tooling/release-process.md`](tooling/release-process.md) so the release-prep workflow now explicitly treats already-built self-optimized CLI artifacts as a separate release surface and points readers at the dedicated `bun validate self-opt-smoke` / `bun validate self-opt-full` gate in [`docs/wiki/tooling/validation-gates.md`](tooling/validation-gates.md).

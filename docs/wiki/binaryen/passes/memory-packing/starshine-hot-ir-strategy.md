@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-06-03
 sources:
+  - ../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md
   - ../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
   - ../../../raw/research/0204-2026-04-21-memory-packing-source-confirmation-followup.md
@@ -35,12 +36,15 @@ Starshine currently implements a deliberately narrow **module-pass** subset of `
 
 - one-memory-only legality gating
 - constant i32/i64 active data offsets
-- zero/nonzero range collection for active segments
+- sorted-span active overlap checking
+- a fast path for common active segments with one kept nonzero range or all-zero trap-preservation output
+- zero/nonzero range collection for active segments that need the general splitter
 - merging back across small zero runs with a fixed threshold of `8`
 - top-byte retention when startup trap behavior must survive
 - overlap bailout for active segments
 - conservative dead passive-segment cleanup when only `data.drop` remains
 - passive data-index remapping after active segment-count changes
+- skipping code-section data-usage scans when there are no passive data segments
 - `data_count` section repair after segment-count changes
 
 That is already useful and artifact-proven.
@@ -110,8 +114,10 @@ The second helper cluster in [`src/passes/memory_packing.mbt`](../../../../../sr
 
 - `mp_slice_bytes(...)`
   - extracts a surviving kept range
+- `mp_active_rewrite_fast_single_range(...)`
+  - handles the common one-kept-range and all-zero active-segment shapes without allocating the full alternating range list, while still emitting a top-byte write when trap preservation is required
 - `mp_collect_ranges(...)`
-  - scans one active segment into alternating zero and nonzero ranges
+  - scans one active segment into alternating zero and nonzero ranges for the general internal-gap splitter
 - `mp_merge_small_zero_ranges(...)`
   - merges back across zero runs whose width is `<= 8`
 - `mp_preserve_trapping_top_byte(...)`
@@ -171,7 +177,7 @@ It requires:
 - exactly one total memory when defined plus imported memories are counted together
 - memory index `0` for every active segment
 - exact constant active offsets when multiple active segments exist
-- no active-segment overlap
+- no active-segment overlap, checked with sorted-span adjacency rather than pairwise scans
 - no unsigned overflow while computing active segment end offsets
 
 That is narrower than upstream Binaryen in two important ways:
@@ -189,7 +195,8 @@ That driver owns:
 
 - reading the module `data_sec`
 - applying `mp_can_optimize(...)`
-- collecting conservative passive data users
+- skipping conservative passive data-user collection when no passive segments exist
+- collecting conservative passive data users only when passive data can require removal or data-index remapping
 - rewriting active segments through `mp_active_rewrite(...)`
 - dropping passive segments that have no non-`data.drop` referrers
 - remapping surviving passive users after segment-count changes
@@ -223,12 +230,26 @@ Important focused tests include:
   - proves the active leading-zero trim that keeps only the `ABC` suffix at offset `9`
 - `memory-packing preserves trapping active segments by keeping the top byte`
   - proves the out-of-bounds-startup-trap family by keeping the final byte at offset `65536`
+- `memory-packing preserves empty active segment with trapping offset`
+  - proves empty active segments remain unchanged rather than being converted into a synthetic top-byte write
+- `memory-packing preserves empty active segment with trapping offset`
+  - proves the existing empty-segment guard keeps zero-byte startup-trap shapes unchanged rather than manufacturing a top-byte write
+- `memory-packing preserves trailing trap after a nonzero prefix`
+  - proves the fast path still emits a nonzero prefix plus top-byte zero when the original segment must trap
 - `memory-packing bails out when active segments overlap`
   - proves the whole-module overlap bailout and leaves `data_sec` unchanged
 - `memory-packing drops passive segments referenced only by data.drop`
   - proves conservative dead-passive cleanup and `data.drop` -> `nop`
 - `memory-packing remaps passive data users after active segment count changes`
   - proves passive `memory.init` index repair after active splitting
+- `memory-packing leaves imported memory active segments unchanged`
+  - proves the imported-memory bailout stays conservative
+- `memory-packing remaps passive array data users after active segment count changes`
+  - proves `array.new_data` / `array.init_data` data-index repair for GC data users in the implemented conservative remap lane
+- `memory-packing rewrites constant memory64 active offsets`
+  - proves the i64 constant-offset active path remains live
+- `memory-packing handles many out-of-order non-overlapping active segments`
+  - proves the sorted-span legality check keeps unordered but disjoint active layouts optimizable
 
 Those tests are still small, but they now lock the real currently implemented subset more honestly.
 
@@ -262,13 +283,15 @@ Current Starshine `memory-packing` implements:
 
 - active constant-offset segment scanning
 - active zero/nonzero range splitting
+- common one-kept-range active fast path
 - small-zero-run merge-back with threshold `8`
 - startup-trap-preserving top-byte retention
-- one-memory-only and overlap legality gating
+- one-memory-only and sorted-span overlap legality gating
 - conservative dead passive-segment cleanup
 - passive data-index remapping after active segment-count changes
 - `data.drop` -> `nop` cleanup for removed passive segments
 - `data_count` repair after rewritten segment counts
+- active-only pass-local scan elision when no passive data exists
 - explicit module-pass scheduling in the public presets
 
 ## What Starshine still does **not** implement
@@ -287,7 +310,7 @@ Compared with upstream Binaryen `version_129`, the local pass still lacks:
 
 So the honest short description of current Starshine remains:
 
-- **active constant-offset module-level segment packing plus conservative dead-passive cleanup, with overlap and trap guards**
+- **active constant-offset module-level segment packing plus conservative dead-passive cleanup, with sorted overlap, fast active-shape, and trap guards**
 
 not:
 
@@ -298,13 +321,13 @@ not:
 If you want to read the local implementation in code order, use this path:
 
 1. [`src/passes/memory_packing.mbt`](../../../../../src/passes/memory_packing.mbt)
-   - summary, memory/offset helpers, range helpers, legality gate, and module-pass driver
+   - summary, memory/offset helpers, fast active rewrite/range helpers, sorted-span legality gate, and module-pass driver
 2. [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
    - module-pass dispatch inside the public pipeline
 3. [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
    - registry entry plus early preset placement
 4. [`src/passes/memory_packing_test.mbt`](../../../../../src/passes/memory_packing_test.mbt)
-   - focused active-split, trap-preservation, and overlap-bailout tests
+   - focused active-split, trap-preservation, imported-memory, memory64, passive-remap, and overlap-bailout tests
 5. [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
    - module-pass category and preset-expansion proof
 6. [`src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
