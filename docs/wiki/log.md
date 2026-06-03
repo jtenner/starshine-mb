@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | global-struct-inference un-nesting and ref.get_desc
+
+- Added guarded small-module non-constant operand un-nesting for `global-struct-inference`: pure scalar field operands that are actually read by direct or closed-world local/param GSI sites split into fresh immutable globals, original struct initializers are repaired to `global.get` those fresh globals, and forced `reorder-globals` repair orders dependencies before uses.
+- Added the plain-GSI `ref.get_desc` surface for small modules: direct descriptor reads and closed-world local/param descriptor reads now fold through trusted descriptor-constructor globals, including value grouping/select support; atomic immutable-field gets remain documented as upstream-only until Starshine has a local struct atomic-get opcode.
+- Recorded TDD failure evidence before implementation for the new public-pipeline un-nesting and `ref.get_desc` positives, then refreshed signoff: `moon test src/passes` passed `1522/1522`, `moon test` passed `4699/4699`, final `.tmp/pass-fuzz-global-struct-inference-gsi001gh-final3-10000` reached `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures (`22` empty-recursion-group plus one each bad-section-size, table-index-out-of-range, and invalid-tag-index). `.tmp/gsi-debug-artifact-timing-gsi001gh-final8` was canonical-equal with Starshine/Binaryen pass-local `0.377 ms / 3.017 ms`.
+
 ## [2026-06-03] passes | global-struct-inference subtype-propagated parent values
 
 - Added the next closed-world rewrite consumer for `global-struct-inference`: subtype-propagated parent/supertype local/param `struct.get*` reads now fold to one trap-preserving materialized value or synthesize a typed `select(ref.eq(...))` when one singleton candidate group distinguishes two materialized values.

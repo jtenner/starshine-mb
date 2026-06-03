@@ -39,7 +39,7 @@ related:
   - exact single-candidate local/param origins now rewrite in closed world when the exact type has one safe direct candidate and no propagated subtype ambiguity
   - exact and subtype-propagated multi-candidate local/param reads now fold in closed world when all safe candidates expose one equal materializable value
   - exact and subtype-propagated multi-candidate local/param reads now synthesize typed `select(ref.eq(...))` rewrites in closed world when two materializable values have one singleton candidate group
-  - no origin-only supertype rewrite and no un-nesting, no atomic/`ref.get_desc`/descriptor-cast surface
+  - no origin-only supertype rewrite, no sibling descriptor-cast implementation, no local atomic-get opcode surface, and un-nesting/`ref.get_desc` are guarded to small modules
 - The saved generated-artifact `-O4z` slot is still exactly green, which strongly suggests the artifact does not exercise the missing official surfaces.
 
 ## Current in-tree status
@@ -50,6 +50,45 @@ related:
 - The focused public-pipeline suite lives in [`../../../../../src/passes/global_struct_inference_test.mbt`](../../../../../src/passes/global_struct_inference_test.mbt); the closed-world analysis fact coverage lives in [`../../../../../src/passes/global_struct_inference_wbtest.mbt`](../../../../../src/passes/global_struct_inference_wbtest.mbt).
 - Registry and preset coverage live in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), with module-pass dispatch in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
 - The pass is active in-tree and is scheduled in the early module cluster after `global-refining`.
+
+## 2026-06-03 small-module un-nesting and `ref.get_desc` follow-up
+
+The GSI001-G/H follow-up added a guarded local version of Binaryen's non-constant operand un-nesting and the plain-GSI `ref.get_desc` read surface. For small modules, pure scalar non-constant field operands that are actually read by direct or closed-world local/param GSI sites are split into fresh immutable globals; the original struct initializer is repaired to `global.get` the fresh global, and a forced `reorder-globals` repair makes the fresh global precede dependent globals. The same trusted candidate machinery now folds direct `ref.get_desc` reads and closed-world local/param `ref.get_desc` reads when all candidate descriptor values match, with the two-value singleton-select helper available for differing descriptor globals. Large modules keep the previous materializable-only behavior to preserve pass-local runtime on the debug artifact. Atomic immutable-field gets remain an upstream-only documented surface because Starshine has no local struct atomic-get instruction form yet.
+
+The final direct compare ran with a prebuilt native Starshine binary and automatic parallel workers:
+
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass global-struct-inference --keep-going-after-command-failures --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --out-dir .tmp/pass-fuzz-global-struct-inference-gsi001gh-final3-10000`
+
+Result:
+
+- compared cases: 9975 / 10000
+- normalized matches: 9975
+- mismatches: 0
+- validation failures: 0
+- generator failures: 0
+- command failures: 25
+
+Command-failure classes from `summary.json`:
+
+- `22` `binaryen-rec-group-zero`
+- `1` `binaryen-bad-section-size`
+- `1` `binaryen-table-index-out-of-range`
+- `1` `binaryen-invalid-tag-index`
+
+The debug artifact timing replay used:
+
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --global-struct-inference --timing-only --out-dir .tmp/gsi-debug-artifact-timing-gsi001gh-final8`
+
+Result:
+
+- canonical wasm equal: yes
+- Starshine runtime: `319.303 ms`
+- Binaryen runtime: `419.881 ms`
+- Starshine pass runtime: `0.377 ms`
+- Binaryen pass runtime: `3.017 ms`
+- Starshine pass skipped raw: no
+
+This is semantic smoke and performance evidence for the guarded un-nesting and `ref.get_desc` surfaces. It is not evidence that origin-only supertype rewrites, the sibling descriptor-cast pass, or atomic get opcodes are implemented.
 
 ## 2026-06-03 subtype-propagated parent one/two-value follow-up
 
@@ -366,7 +405,7 @@ Official Binaryen `version_129` behavior:
 - but `optimize(module)` still runs afterwards in **all** modes
 - direct immutable-global reads can still optimize in open world
 
-This former conceptual gap is closed for the direct immutable-global fast path, and exact local/param one-global plus exact/subtype-propagated one-value and two-value singleton-group closed-world fact consumers now exist. `closed_world` still does not add Binaryen's broader origin-only supertype rewrites or un-nesting locally.
+This former conceptual gap is closed for the direct immutable-global fast path, and exact local/param one-global plus exact/subtype-propagated one-value and two-value singleton-group closed-world fact consumers now exist. `closed_world` still does not add Binaryen's broader origin-only supertype rewrites; un-nesting exists only for small modules and selected pure scalar field operands.
 
 ## 2. The local pass only matches immediate instruction pairs
 
@@ -403,23 +442,24 @@ Official Binaryen can:
 
 Current local pass now handles those cases for adjacent exact or subtype-propagated local/param reads whose safe candidates materialize values matching the read result type. It still does not synthesize larger decision trees.
 
-## 5. No local un-nesting of non-constant operands
+## 5. Local un-nesting is small-module guarded
 
 Official Binaryen can split a nested non-constant field operand into a fresh immutable global and continue the optimization.
 
 Current local pass:
 
-- has no fresh-global emission path
-- has no nested `reorder-globals-always` cleanup path
+- has a fresh-global emission path for small-module pure scalar field operands that are actually read by direct or closed-world local/param GSI sites
+- repairs original struct initializers to use the fresh immutable global and then invokes forced `reorder-globals` repair so dependencies precede uses
+- deliberately skips this extra surface on larger modules to keep pass-local artifact timing within budget
 
 ## 6. Local materialization is still narrower than `PossibleConstantValues`
 
 Official Binaryen treats immutable `global.get`s as constant materializable values and can combine that with un-nesting for non-constant operands.
 That matters for official positive shapes where field values are not literals but are still stable immutable globals.
 
-Current local pass does treat direct immutable `global.get` field payloads as materializable for exact and subtype-propagated local/param grouping, but it still has a smaller materialization surface and no fresh-global un-nesting path.
+Current local pass does treat direct immutable `global.get` field payloads as materializable for exact and subtype-propagated local/param grouping, and now has a small-module fresh-global un-nesting path for pure scalar field operands that are actually read by direct or closed-world local/param GSI sites. It still has a smaller materialization surface than Binaryen and deliberately skips un-nesting on larger modules for pass-local runtime.
 
-## 7. No local atomic-get or descriptor-facing coverage
+## 7. Descriptor coverage exists locally; atomic gets remain unavailable
 
 Official Binaryen source and lit tests cover:
 
@@ -428,7 +468,7 @@ Official Binaryen source and lit tests cover:
 - `ref.get_desc`
 - sibling `gsi-desc-cast`
 
-Current local pass handles only ordinary `struct.get*` forms.
+Current local pass now handles small-module direct and closed-world local/param `ref.get_desc` folds/selects over descriptor-constructor globals. It still handles no atomic gets because the local instruction set does not expose a struct atomic-get opcode, and the sibling descriptor-cast pass remains boundary-only.
 
 ## 8. Representation-specific type repair differs locally
 
@@ -452,9 +492,9 @@ Again, that is an inference from the green audit plus the visible local-vs-upstr
 - Keep the current local subset described honestly as a subset.
 - Do **not** describe it as “what Binaryen `gsi` does.”
 - If future parity work targets the full Binaryen contract, the next missing surfaces to implement are, in value order:
-  1. un-nesting of non-constant operands
-  2. atomic / `ref.get_desc` / descriptor-cast coverage
-  3. origin-only supertype rewrites where useful and type-safe
+  1. origin-only supertype rewrites where useful and type-safe
+  2. unbounded or more Binaryen-complete un-nesting of non-constant operands
+  3. atomic get support once a local struct atomic-get opcode exists, plus the sibling descriptor-cast pass when explicitly scheduled
 - If local code remains intentionally narrower, keep the green artifact evidence explicit so readers do not confuse “narrow but enough for this artifact” with “full upstream parity.”
 
 ## Sources

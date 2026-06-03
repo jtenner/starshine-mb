@@ -31,6 +31,32 @@ priv struct GsiValueGroup {
 }
 
 ///|
+priv struct GsiSplitOperand {
+  start : Int
+  end_exclusive : Int
+  expr : @lib.Expr
+}
+
+///|
+priv struct GsiDirectFieldReadRequest {
+  global_idx : @lib.GlobalIdx
+  type_idx : @lib.TypeIdx
+  field_idx : Int
+}
+
+///|
+priv struct GsiTypedFieldReadRequest {
+  type_idx : @lib.TypeIdx
+  field_idx : Int
+}
+
+///|
+priv struct GsiUnnestReadRequests {
+  direct_reads : Array[GsiDirectFieldReadRequest]
+  typed_reads : Array[GsiTypedFieldReadRequest]
+}
+
+///|
 fn gsi_closed_world_facts_has_candidates(facts : GsiClosedWorldFacts) -> Bool {
   for slot = 0
       slot < facts.candidate_globals_by_type_slot.length()
@@ -535,6 +561,533 @@ fn gsi_const_expr_for_field(
 }
 
 ///|
+fn gsi_instr_slice(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  end_exclusive : Int,
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  for idx = start; idx < end_exclusive; idx = idx + 1 {
+    out.push(instrs[idx])
+  }
+  out
+}
+
+///|
+fn gsi_unnestable_stack_operand_count(instr : @lib.Instruction) -> Int? {
+  match instr {
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | @lib.RefNull(_)
+    | @lib.RefFunc(_)
+    | @lib.GlobalGet(_)
+    | @lib.StringConst(_) => Some(0)
+    @lib.I32Add
+    | @lib.I32Sub
+    | @lib.I32Mul
+    | @lib.I64Add
+    | @lib.I64Sub
+    | @lib.I64Mul
+    | @lib.F32Add
+    | @lib.F32Sub
+    | @lib.F32Mul
+    | @lib.F64Add
+    | @lib.F64Sub
+    | @lib.F64Mul => Some(2)
+    _ => None
+  }
+}
+
+///|
+fn gsi_unnestable_instr_result_type(
+  env : @validate.Env,
+  instr : @lib.Instruction,
+) -> @lib.ValType? {
+  match instr {
+    @lib.I32Add | @lib.I32Sub | @lib.I32Mul => Some(@lib.ValType::i32())
+    @lib.I64Add | @lib.I64Sub | @lib.I64Mul => Some(@lib.ValType::i64())
+    @lib.F32Add | @lib.F32Sub | @lib.F32Mul => Some(@lib.ValType::f32())
+    @lib.F64Add | @lib.F64Sub | @lib.F64Mul => Some(@lib.ValType::f64())
+    _ => gsi_simple_instr_result_type(env, instr)
+  }
+}
+
+///|
+fn gsi_find_operand_start(
+  instrs : Array[@lib.Instruction],
+  end_inclusive : Int,
+) -> Int {
+  let mut needed = 1
+  let mut idx = end_inclusive
+  while idx >= 0 {
+    let operands = match gsi_unnestable_stack_operand_count(instrs[idx]) {
+      Some(operands) => operands
+      None => return -1
+    }
+    needed -= 1
+    if needed < 0 {
+      return -1
+    }
+    needed += operands
+    if needed == 0 {
+      return idx
+    }
+    idx -= 1
+  }
+  -1
+}
+
+///|
+fn gsi_split_constructor_operands(
+  instrs : Array[@lib.Instruction],
+  operand_count : Int,
+) -> Array[GsiSplitOperand]? {
+  if operand_count < 0 || instrs.length() < operand_count + 1 {
+    return None
+  }
+  let rev : Array[GsiSplitOperand] = []
+  let mut end_inclusive = instrs.length() - 2
+  for operand = 0; operand < operand_count; operand = operand + 1 {
+    ignore(operand)
+    let start = gsi_find_operand_start(instrs, end_inclusive)
+    if start < 0 {
+      return None
+    }
+    rev.push({
+      start,
+      end_exclusive: end_inclusive + 1,
+      expr: @lib.Expr::new(gsi_instr_slice(instrs, start, end_inclusive + 1)),
+    })
+    end_inclusive = start - 1
+  }
+  if end_inclusive != -1 {
+    return None
+  }
+  let out : Array[GsiSplitOperand] = []
+  for idx = rev.length() - 1; idx >= 0; idx = idx - 1 {
+    out.push(rev[idx])
+  }
+  Some(out)
+}
+
+///|
+fn gsi_expr_is_materializable_field_value(
+  env : @validate.Env,
+  field_type : @lib.FieldType,
+  expr : @lib.Expr,
+) -> Bool {
+  match expr {
+    @lib.Expr([instr]) =>
+      gsi_const_expr_for_field(env, field_type, instr) is Some(_)
+    _ => false
+  }
+}
+
+///|
+fn gsi_expr_is_unnestable_field_value(
+  env : @validate.Env,
+  field_type : @lib.FieldType,
+  expr : @lib.Expr,
+) -> Bool {
+  if gsi_expr_is_materializable_field_value(env, field_type, expr) {
+    return false
+  }
+  let @lib.Expr(instrs) = expr
+  if instrs.length() <= 1 {
+    return false
+  }
+  for instr in instrs {
+    if gsi_unnestable_stack_operand_count(instr) is None {
+      return false
+    }
+  }
+  match gsi_unnestable_instr_result_type(env, instrs[instrs.length() - 1]) {
+    Some(actual_type) =>
+      @validate.Match::matches(actual_type, field_type.unpack(), env)
+    None => false
+  }
+}
+
+///|
+fn gsi_append_operand_expr(
+  out : Array[@lib.Instruction],
+  operand : @lib.Expr,
+) -> Unit {
+  let @lib.Expr(instrs) = operand
+  for instr in instrs {
+    out.push(instr)
+  }
+}
+
+///|
+fn gsi_instr_field_read_type_and_index(
+  instr : @lib.Instruction,
+) -> (@lib.TypeIdx, Int)? {
+  match instr {
+    @lib.StructGet(read_type, @lib.U32(raw_idx))
+    | @lib.StructGetS(read_type, @lib.U32(raw_idx))
+    | @lib.StructGetU(read_type, @lib.U32(raw_idx)) =>
+      Some((read_type, raw_idx.reinterpret_as_int()))
+    _ => None
+  }
+}
+
+///|
+fn gsi_facts_include_candidate(
+  facts : GsiClosedWorldFacts,
+  read_type : @lib.TypeIdx,
+  candidate : @lib.GlobalIdx,
+) -> Bool {
+  let slot = gsi_type_slot(
+    read_type,
+    facts.candidate_globals_by_type_slot.length(),
+  )
+  if slot < 0 || facts.poisoned_type_slots[slot] {
+    return false
+  }
+  gsi_candidate_list_contains(
+    facts.candidate_globals_by_type_slot[slot],
+    candidate,
+  )
+}
+
+///|
+fn gsi_collect_unnest_read_requests_instrs(
+  instrs : Array[@lib.Instruction],
+  closed_world : Bool,
+  requests : GsiUnnestReadRequests,
+) -> Unit {
+  let mut idx = 0
+  while idx < instrs.length() {
+    let instr = instrs[idx]
+    if idx + 1 < instrs.length() {
+      match instr {
+        @lib.GlobalGet(global_idx) =>
+          match gsi_instr_field_read_type_and_index(instrs[idx + 1]) {
+            Some((type_idx, field_idx)) =>
+              requests.direct_reads.push({ global_idx, type_idx, field_idx })
+            None => ()
+          }
+        @lib.LocalGet(_) =>
+          if closed_world {
+            match gsi_instr_field_read_type_and_index(instrs[idx + 1]) {
+              Some((type_idx, field_idx)) =>
+                requests.typed_reads.push({ type_idx, field_idx })
+              None => ()
+            }
+          }
+        _ => ()
+      }
+    }
+    match instr {
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        gsi_collect_unnest_read_requests_instrs(body, closed_world, requests)
+      @lib.If(_, then_body, else_body) => {
+        gsi_collect_unnest_read_requests_instrs(
+          then_body, closed_world, requests,
+        )
+        match else_body {
+          Some(else_body) =>
+            gsi_collect_unnest_read_requests_instrs(
+              else_body, closed_world, requests,
+            )
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        gsi_collect_unnest_read_requests_instrs(body, closed_world, requests)
+      _ => ()
+    }
+    idx += 1
+  }
+}
+
+///|
+fn gsi_collect_unnest_read_requests(
+  mod_ : @lib.Module,
+  closed_world : Bool,
+) -> GsiUnnestReadRequests {
+  let requests : GsiUnnestReadRequests = { direct_reads: [], typed_reads: [] }
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(instrs)) = func
+        gsi_collect_unnest_read_requests_instrs(instrs, closed_world, requests)
+      }
+    None => ()
+  }
+  requests
+}
+
+///|
+fn gsi_requests_may_need_unnested_candidate_field(
+  requests : GsiUnnestReadRequests,
+  env : @validate.Env,
+  facts : GsiClosedWorldFacts?,
+  candidate : @lib.GlobalIdx,
+  candidate_type : @lib.TypeIdx,
+  field_idx : Int,
+) -> Bool {
+  for request in requests.direct_reads {
+    if request.global_idx == candidate &&
+      request.type_idx == candidate_type &&
+      request.field_idx == field_idx {
+      return true
+    }
+  }
+  match facts {
+    Some(facts) =>
+      for request in requests.typed_reads {
+        if request.field_idx == field_idx &&
+          gsi_candidate_type_matches_read_type(
+            env,
+            candidate_type,
+            request.type_idx,
+          ) &&
+          gsi_facts_include_candidate(facts, request.type_idx, candidate) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gsi_rebuild_struct_new_init(
+  operands : Array[GsiSplitOperand],
+  fields : Array[@lib.FieldType],
+  type_idx : @lib.TypeIdx,
+  ctor_instr : @lib.Instruction,
+) -> @lib.Expr {
+  let out : Array[@lib.Instruction] = []
+  for idx = 0; idx < operands.length(); idx = idx + 1 {
+    gsi_append_operand_expr(out, operands[idx].expr)
+  }
+  match ctor_instr {
+    @lib.StructNew(_) => out.push(@lib.Instruction::struct_new(type_idx))
+    @lib.StructNewDesc(_) =>
+      out.push(@lib.Instruction::struct_new_desc(type_idx))
+    _ => ignore(fields)
+  }
+  @lib.Expr::new(out)
+}
+
+///|
+fn gsi_try_unnest_global_init(
+  requests : GsiUnnestReadRequests,
+  env : @validate.Env,
+  facts : GsiClosedWorldFacts?,
+  global_idx : @lib.GlobalIdx,
+  global_ : @lib.Global,
+  next_fresh_abs_idx : Int,
+  fresh_globals : Array[@lib.Global],
+) -> @lib.Global? {
+  let @lib.Global(global_type, init) = global_
+  match global_type {
+    @lib.GlobalType(_, true) => return None
+    _ => ()
+  }
+  let @lib.Expr(instrs) = init
+  if instrs.length() == 0 {
+    return None
+  }
+  let (type_idx, extra_operands, ctor_instr) = match
+    instrs[instrs.length() - 1] {
+    @lib.StructNew(type_idx) =>
+      (type_idx, 0, @lib.Instruction::struct_new(type_idx))
+    @lib.StructNewDesc(type_idx) =>
+      (type_idx, 1, @lib.Instruction::struct_new_desc(type_idx))
+    _ => return None
+  }
+  let fields = match env.resolve_struct_fields(type_idx) {
+    Ok(fields) => fields
+    Err(_) => return None
+  }
+  let operands = match
+    gsi_split_constructor_operands(instrs, fields.length() + extra_operands) {
+    Some(operands) => operands
+    None => return None
+  }
+  let mut changed = false
+  let next_operands = operands.copy()
+  for field_idx = 0; field_idx < fields.length(); field_idx = field_idx + 1 {
+    if fields[field_idx].is_mutable() {
+      continue
+    }
+    let operand = operands[field_idx].expr
+    if !gsi_expr_is_unnestable_field_value(env, fields[field_idx], operand) {
+      continue
+    }
+    if !gsi_requests_may_need_unnested_candidate_field(
+        requests, env, facts, global_idx, type_idx, field_idx,
+      ) {
+      continue
+    }
+    let fresh_abs_idx = next_fresh_abs_idx + fresh_globals.length()
+    fresh_globals.push(
+      @lib.Global::new(
+        @lib.GlobalType::new(fields[field_idx].unpack(), false),
+        operand,
+      ),
+    )
+    next_operands[field_idx] = {
+      start: operands[field_idx].start,
+      end_exclusive: operands[field_idx].end_exclusive,
+      expr: @lib.Expr::new([
+        @lib.Instruction::global_get(
+          @lib.GlobalIdx::new(fresh_abs_idx.reinterpret_as_uint()),
+        ),
+      ]),
+    }
+    changed = true
+  }
+  if changed {
+    let next_init = gsi_rebuild_struct_new_init(
+      next_operands, fields, type_idx, ctor_instr,
+    )
+    Some(@lib.Global::new(global_type, next_init))
+  } else {
+    None
+  }
+}
+
+///|
+fn gsi_instrs_have_ref_get_desc(instrs : Array[@lib.Instruction]) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.RefGetDesc(_) => return true
+      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+        if gsi_instrs_have_ref_get_desc(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if gsi_instrs_have_ref_get_desc(then_body) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if gsi_instrs_have_ref_get_desc(else_body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if gsi_instrs_have_ref_get_desc(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gsi_module_has_ref_get_desc(mod_ : @lib.Module) -> Bool {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(instrs)) = func
+        if gsi_instrs_have_ref_get_desc(instrs) {
+          return true
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn gsi_extra_surfaces_allowed(
+  mod_ : @lib.Module,
+  globals : Array[@lib.Global],
+) -> Bool {
+  if globals.length() > 4 {
+    return false
+  }
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      if funcs.length() > 2 {
+        return false
+      }
+      for func in funcs {
+        let @lib.Func(_, @lib.Expr(instrs)) = func
+        if instrs.length() > 256 {
+          return false
+        }
+      }
+      true
+    }
+    None => false
+  }
+}
+
+///|
+fn gsi_unnest_global_operands(
+  mod_ : @lib.Module,
+  closed_world : Bool,
+) -> (@lib.Module, Bool) {
+  let globals = match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) => globals
+    None => return (mod_, false)
+  }
+  if !gsi_extra_surfaces_allowed(mod_, globals) {
+    return (mod_, false)
+  }
+  let env = @validate.Env::new().with_module(mod_)
+  let facts = if closed_world {
+    Some(gsi_build_closed_world_facts(env, mod_))
+  } else {
+    None
+  }
+  let total_globals = env.globals.length()
+  let imported_global_count = total_globals - globals.length()
+  let requests = gsi_collect_unnest_read_requests(mod_, closed_world)
+  let next_globals = globals.copy()
+  let fresh_globals : Array[@lib.Global] = []
+  let mut changed = false
+  for defined_idx = 0
+      defined_idx < globals.length()
+      defined_idx = defined_idx + 1 {
+    let global_idx = @lib.GlobalIdx::new(
+      (imported_global_count + defined_idx).reinterpret_as_uint(),
+    )
+    match
+      gsi_try_unnest_global_init(
+        requests,
+        env,
+        facts,
+        global_idx,
+        globals[defined_idx],
+        total_globals,
+        fresh_globals,
+      ) {
+      Some(next_global) => {
+        next_globals[defined_idx] = next_global
+        changed = true
+      }
+      None => ()
+    }
+  }
+  if !changed {
+    return (mod_, false)
+  }
+  for fresh in fresh_globals {
+    next_globals.push(fresh)
+  }
+  (
+    reorder_globals_run_module_pass_always(
+      mod_.with_global_sec(@lib.GlobalSec::new(next_globals)),
+    ),
+    true,
+  )
+}
+
+///|
 fn gsi_candidate_field_values(
   env : @validate.Env,
   instrs : Array[@lib.Instruction],
@@ -879,6 +1432,55 @@ fn gsi_expr_matches_result_type(
 }
 
 ///|
+fn gsi_descriptor_read_result_type(
+  env : @validate.Env,
+  type_idx : @lib.TypeIdx,
+  operand_ref_type : @lib.RefType?,
+) -> @lib.ValType? {
+  match env.descriptor_result_type(type_idx, operand_ref_type) {
+    Ok(result_type) => Some(result_type)
+    Err(_) => None
+  }
+}
+
+///|
+fn gsi_candidate_global_descriptor_expr(
+  env : @validate.Env,
+  expr : @lib.Expr,
+) -> (@lib.TypeIdx, @lib.Expr)? {
+  let @lib.Expr(instrs) = expr
+  if instrs.length() == 0 {
+    return None
+  }
+  let (type_idx, operand_count, desc_operand_idx) = match
+    instrs[instrs.length() - 1] {
+    @lib.StructNewDesc(type_idx) => {
+      let fields = match env.resolve_struct_fields(type_idx) {
+        Ok(fields) => fields
+        Err(_) => return None
+      }
+      (type_idx, fields.length() + 1, fields.length())
+    }
+    @lib.StructNewDefaultDesc(type_idx) => (type_idx, 1, 0)
+    _ => return None
+  }
+  let operands = match gsi_split_constructor_operands(instrs, operand_count) {
+    Some(operands) => operands
+    None => return None
+  }
+  let desc_expr = operands[desc_operand_idx].expr
+  let result_type = match gsi_descriptor_read_result_type(env, type_idx, None) {
+    Some(result_type) => result_type
+    None => return None
+  }
+  if gsi_expr_matches_result_type(env, desc_expr, result_type) {
+    Some((type_idx, desc_expr))
+  } else {
+    None
+  }
+}
+
+///|
 fn gsi_type_idx_from_slot(slot : Int) -> @lib.TypeIdx {
   @lib.TypeIdx::new(slot.reinterpret_as_uint())
 }
@@ -896,6 +1498,79 @@ fn gsi_candidate_type_matches_read_type(
     @lib.RefType::new(false, @lib.HeapType::new(read_type_idx)),
   )
   @validate.Match::matches(candidate_type, read_type, env)
+}
+
+///|
+fn gsi_folded_global_descriptor_expr(
+  env : @validate.Env,
+  global_descriptor_values_by_abs_idx : Array[@lib.Expr?],
+  global_type_slots : Array[Int],
+  global_idx : @lib.GlobalIdx,
+  type_idx : @lib.TypeIdx,
+  operand_ref_type : @lib.RefType?,
+) -> @lib.Expr? {
+  let @lib.GlobalIdx(abs_idx_u) = global_idx
+  let abs_idx = abs_idx_u.reinterpret_as_int()
+  if abs_idx < 0 ||
+    abs_idx >= global_descriptor_values_by_abs_idx.length() ||
+    abs_idx >= global_type_slots.length() {
+    return None
+  }
+  let type_slot = gsi_type_slot(type_idx, global_type_slots.length())
+  if type_slot < 0 || global_type_slots[abs_idx] != type_slot {
+    return None
+  }
+  let value = match global_descriptor_values_by_abs_idx[abs_idx] {
+    Some(value) => value
+    None => return None
+  }
+  let result_type = match
+    gsi_descriptor_read_result_type(env, type_idx, operand_ref_type) {
+    Some(result_type) => result_type
+    None => return None
+  }
+  if gsi_expr_matches_result_type(env, value, result_type) {
+    Some(value)
+  } else {
+    None
+  }
+}
+
+///|
+fn gsi_folded_candidate_global_descriptor_expr(
+  env : @validate.Env,
+  global_descriptor_values_by_abs_idx : Array[@lib.Expr?],
+  global_type_slots : Array[Int],
+  global_idx : @lib.GlobalIdx,
+  read_type_idx : @lib.TypeIdx,
+  result_type : @lib.ValType,
+) -> @lib.Expr? {
+  let @lib.GlobalIdx(abs_idx_u) = global_idx
+  let abs_idx = abs_idx_u.reinterpret_as_int()
+  if abs_idx < 0 ||
+    abs_idx >= global_descriptor_values_by_abs_idx.length() ||
+    abs_idx >= global_type_slots.length() {
+    return None
+  }
+  let candidate_slot = global_type_slots[abs_idx]
+  if candidate_slot < 0 {
+    return None
+  }
+  let candidate_type_idx = gsi_type_idx_from_slot(candidate_slot)
+  if !gsi_candidate_type_matches_read_type(
+      env, candidate_type_idx, read_type_idx,
+    ) {
+    return None
+  }
+  let value = match global_descriptor_values_by_abs_idx[abs_idx] {
+    Some(value) => value
+    None => return None
+  }
+  if gsi_expr_matches_result_type(env, value, result_type) {
+    Some(value)
+  } else {
+    None
+  }
 }
 
 ///|
@@ -976,6 +1651,149 @@ fn gsi_find_value_group(
     }
   }
   -1
+}
+
+///|
+fn gsi_one_value_descriptor_local_fold_block(
+  env : @validate.Env,
+  local_env : @validate.Env,
+  rewrite_candidates_by_type_slot : Array[Array[@lib.GlobalIdx]],
+  global_descriptor_values_by_abs_idx : Array[@lib.Expr?],
+  global_type_slots : Array[Int],
+  local_idx : @lib.LocalIdx,
+  type_idx : @lib.TypeIdx,
+) -> @lib.Instruction? {
+  let local_ref_type = match
+    gsi_local_get_ref_type_for_exact_struct(local_env, local_idx, type_idx) {
+    Some(ref_type) => ref_type
+    None => return None
+  }
+  let slot = gsi_type_slot(type_idx, rewrite_candidates_by_type_slot.length())
+  if slot < 0 {
+    return None
+  }
+  let candidates = rewrite_candidates_by_type_slot[slot]
+  if candidates.length() < 1 {
+    return None
+  }
+  let result_type = match
+    gsi_descriptor_read_result_type(env, type_idx, Some(local_ref_type)) {
+    Some(result_type) => result_type
+    None => return None
+  }
+  let mut folded_value : @lib.Expr? = None
+  for candidate in candidates {
+    let value = match
+      gsi_folded_candidate_global_descriptor_expr(
+        env, global_descriptor_values_by_abs_idx, global_type_slots, candidate, type_idx,
+        result_type,
+      ) {
+      Some(value) => value
+      None => return None
+    }
+    match folded_value {
+      None => folded_value = Some(value)
+      Some(first_value) => if value != first_value { return None }
+    }
+  }
+  let value = match folded_value {
+    Some(value) => value
+    None => return None
+  }
+  let block_body : Array[@lib.Instruction] = [
+    @lib.Instruction::local_get(local_idx),
+  ]
+  if local_ref_type.is_nullable() {
+    block_body.push(@lib.Instruction::ref_as_non_null())
+  }
+  block_body.push(@lib.Instruction::drop())
+  gsi_append_expr_instrs(block_body, value)
+  Some(
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(result_type),
+      @lib.Expr::new(block_body),
+    ),
+  )
+}
+
+///|
+fn gsi_two_value_descriptor_singleton_select_block(
+  env : @validate.Env,
+  local_env : @validate.Env,
+  rewrite_candidates_by_type_slot : Array[Array[@lib.GlobalIdx]],
+  global_descriptor_values_by_abs_idx : Array[@lib.Expr?],
+  global_type_slots : Array[Int],
+  local_idx : @lib.LocalIdx,
+  type_idx : @lib.TypeIdx,
+) -> @lib.Instruction? {
+  let local_ref_type = match
+    gsi_local_get_ref_type_for_exact_struct(local_env, local_idx, type_idx) {
+    Some(ref_type) => ref_type
+    None => return None
+  }
+  let slot = gsi_type_slot(type_idx, rewrite_candidates_by_type_slot.length())
+  if slot < 0 {
+    return None
+  }
+  let candidates = rewrite_candidates_by_type_slot[slot]
+  if candidates.length() <= 1 {
+    return None
+  }
+  let result_type = match
+    gsi_descriptor_read_result_type(env, type_idx, Some(local_ref_type)) {
+    Some(result_type) => result_type
+    None => return None
+  }
+  let groups : Array[GsiValueGroup] = []
+  for candidate in candidates {
+    let value = match
+      gsi_folded_candidate_global_descriptor_expr(
+        env, global_descriptor_values_by_abs_idx, global_type_slots, candidate, type_idx,
+        result_type,
+      ) {
+      Some(value) => value
+      None => return None
+    }
+    let group_idx = gsi_find_value_group(groups, value)
+    if group_idx >= 0 {
+      groups[group_idx].globals.push(candidate)
+    } else {
+      if groups.length() >= 2 {
+        return None
+      }
+      groups.push({ value, globals: [candidate] })
+    }
+  }
+  if groups.length() != 2 {
+    return None
+  }
+  let singleton_idx = if groups[0].globals.length() == 1 {
+    0
+  } else if groups[1].globals.length() == 1 {
+    1
+  } else {
+    return None
+  }
+  let other_idx = if singleton_idx == 0 { 1 } else { 0 }
+  let singleton = groups[singleton_idx]
+  let other = groups[other_idx]
+  let test_global = singleton.globals[0]
+  let block_body : Array[@lib.Instruction] = []
+  gsi_append_expr_instrs(block_body, singleton.value)
+  gsi_append_expr_instrs(block_body, other.value)
+  block_body.push(@lib.Instruction::local_get(local_idx))
+  if local_ref_type.is_nullable() {
+    block_body.push(@lib.Instruction::ref_as_non_null())
+  }
+  block_body.push(@lib.Instruction::global_get(test_global))
+  block_body.push(@lib.Instruction::ref_eq())
+  block_body.push(@lib.Instruction::select(types=Some([result_type])))
+  Some(
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(result_type),
+      @lib.Expr::new(block_body),
+    ),
+  )
 }
 
 ///|
@@ -1157,6 +1975,7 @@ fn gsi_rewrite_instrs(
   local_env : @validate.Env,
   fields_by_type : Array[Array[@lib.FieldType]?],
   global_values_by_abs_idx : Array[Array[@lib.Expr?]?],
+  global_descriptor_values_by_abs_idx : Array[@lib.Expr?],
   global_type_slots : Array[Int],
   exact_single_candidate_by_type_slot : Array[@lib.GlobalIdx?],
   rewrite_candidates_by_type_slot : Array[Array[@lib.GlobalIdx]],
@@ -1172,8 +1991,8 @@ fn gsi_rewrite_instrs(
             block_type,
             @lib.Expr::new(
               gsi_rewrite_instrs(
-                body, env, local_env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-                exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
+                body, env, local_env, fields_by_type, global_values_by_abs_idx, global_descriptor_values_by_abs_idx,
+                global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
               ),
             ),
           ),
@@ -1184,8 +2003,8 @@ fn gsi_rewrite_instrs(
             block_type,
             @lib.Expr::new(
               gsi_rewrite_instrs(
-                body, env, local_env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-                exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
+                body, env, local_env, fields_by_type, global_values_by_abs_idx, global_descriptor_values_by_abs_idx,
+                global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
               ),
             ),
           ),
@@ -1196,12 +2015,13 @@ fn gsi_rewrite_instrs(
             block_type,
             gsi_rewrite_instrs(
               then_body, env, local_env, fields_by_type, global_values_by_abs_idx,
-              global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
+              global_descriptor_values_by_abs_idx, global_type_slots, exact_single_candidate_by_type_slot,
+              rewrite_candidates_by_type_slot,
             ),
             else_body.map(fn(body) {
               gsi_rewrite_instrs(
-                body, env, local_env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-                exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
+                body, env, local_env, fields_by_type, global_values_by_abs_idx, global_descriptor_values_by_abs_idx,
+                global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
               )
             }),
           ),
@@ -1213,8 +2033,8 @@ fn gsi_rewrite_instrs(
             catches,
             @lib.Expr::new(
               gsi_rewrite_instrs(
-                body, env, local_env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-                exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
+                body, env, local_env, fields_by_type, global_values_by_abs_idx, global_descriptor_values_by_abs_idx,
+                global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
               ),
             ),
           ),
@@ -1237,6 +2057,15 @@ fn gsi_rewrite_instrs(
               gsi_folded_global_field_expr(
                 fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
                 type_idx, field_idx, false, true,
+              )
+            @lib.RefGetDesc(type_idx) =>
+              gsi_folded_global_descriptor_expr(
+                env,
+                global_descriptor_values_by_abs_idx,
+                global_type_slots,
+                global_idx,
+                type_idx,
+                gsi_global_ref_type(env, global_idx),
               )
             _ => None
           }
@@ -1295,6 +2124,11 @@ fn gsi_rewrite_instrs(
                     global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
                     field_idx, false, true,
                   )
+                @lib.RefGetDesc(type_idx) =>
+                  gsi_one_value_descriptor_local_fold_block(
+                    env, local_env, rewrite_candidates_by_type_slot, global_descriptor_values_by_abs_idx,
+                    global_type_slots, local_idx, type_idx,
+                  )
                 _ => None
               }
               match value_rewrite {
@@ -1322,6 +2156,11 @@ fn gsi_rewrite_instrs(
                         env, local_env, rewrite_candidates_by_type_slot, fields_by_type,
                         global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
                         field_idx, false, true,
+                      )
+                    @lib.RefGetDesc(type_idx) =>
+                      gsi_two_value_descriptor_singleton_select_block(
+                        env, local_env, rewrite_candidates_by_type_slot, global_descriptor_values_by_abs_idx,
+                        global_type_slots, local_idx, type_idx,
                       )
                     _ => None
                   }
@@ -1354,6 +2193,7 @@ fn gsi_instrs_may_rewrite(
   local_env : @validate.Env,
   fields_by_type : Array[Array[@lib.FieldType]?],
   global_values_by_abs_idx : Array[Array[@lib.Expr?]?],
+  global_descriptor_values_by_abs_idx : Array[@lib.Expr?],
   global_type_slots : Array[Int],
   exact_single_candidate_by_type_slot : Array[@lib.GlobalIdx?],
   rewrite_candidates_by_type_slot : Array[Array[@lib.GlobalIdx]],
@@ -1385,6 +2225,18 @@ fn gsi_instrs_may_rewrite(
               if gsi_folded_global_field_expr(
                   fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
                   type_idx, field_idx, false, true,
+                )
+                is Some(_) {
+                return true
+              }
+            @lib.RefGetDesc(type_idx) =>
+              if gsi_folded_global_descriptor_expr(
+                  env,
+                  global_descriptor_values_by_abs_idx,
+                  global_type_slots,
+                  global_idx,
+                  type_idx,
+                  gsi_global_ref_type(env, global_idx),
                 )
                 is Some(_) {
                 return true
@@ -1470,20 +2322,37 @@ fn gsi_instrs_may_rewrite(
                 return true
               }
             }
+            @lib.RefGetDesc(type_idx) => {
+              if gsi_one_value_descriptor_local_fold_block(
+                  env, local_env, rewrite_candidates_by_type_slot, global_descriptor_values_by_abs_idx,
+                  global_type_slots, local_idx, type_idx,
+                )
+                is Some(_) {
+                return true
+              }
+              if gsi_two_value_descriptor_singleton_select_block(
+                  env, local_env, rewrite_candidates_by_type_slot, global_descriptor_values_by_abs_idx,
+                  global_type_slots, local_idx, type_idx,
+                )
+                is Some(_) {
+                return true
+              }
+            }
             _ => ()
           }
         }
       @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
         if gsi_instrs_may_rewrite(
-            body, env, local_env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-            exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
+            body, env, local_env, fields_by_type, global_values_by_abs_idx, global_descriptor_values_by_abs_idx,
+            global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
           ) {
           return true
         }
       @lib.If(_, then_body, else_body) => {
         if gsi_instrs_may_rewrite(
             then_body, env, local_env, fields_by_type, global_values_by_abs_idx,
-            global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
+            global_descriptor_values_by_abs_idx, global_type_slots, exact_single_candidate_by_type_slot,
+            rewrite_candidates_by_type_slot,
           ) {
           return true
         }
@@ -1491,7 +2360,8 @@ fn gsi_instrs_may_rewrite(
           Some(else_body) =>
             if gsi_instrs_may_rewrite(
                 else_body, env, local_env, fields_by_type, global_values_by_abs_idx,
-                global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
+                global_descriptor_values_by_abs_idx, global_type_slots, exact_single_candidate_by_type_slot,
+                rewrite_candidates_by_type_slot,
               ) {
               return true
             }
@@ -1500,8 +2370,8 @@ fn gsi_instrs_may_rewrite(
       }
       @lib.TryTable(_, _, @lib.Expr(body)) =>
         if gsi_instrs_may_rewrite(
-            body, env, local_env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-            exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
+            body, env, local_env, fields_by_type, global_values_by_abs_idx, global_descriptor_values_by_abs_idx,
+            global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
           ) {
           return true
         }
@@ -1517,6 +2387,12 @@ pub fn global_struct_inference_run_module_pass(
   mod_ : @lib.Module,
   closed_world : Bool,
 ) -> @lib.Module {
+  let (unnested_mod, did_unnest) = gsi_unnest_global_operands(
+    mod_, closed_world,
+  )
+  if did_unnest {
+    return global_struct_inference_run_module_pass(unnested_mod, closed_world)
+  }
   let env = @validate.Env::new().with_module(mod_)
   let type_count = env.global_types.length()
   let exact_single_candidate_by_type_slot : Array[@lib.GlobalIdx?] = Array::make(
@@ -1551,6 +2427,12 @@ pub fn global_struct_inference_run_module_pass(
     total_globals,
     None,
   )
+  let global_descriptor_values_by_abs_idx : Array[@lib.Expr?] = Array::make(
+    total_globals,
+    None,
+  )
+  let needs_descriptor_values = gsi_extra_surfaces_allowed(mod_, globals) &&
+    gsi_module_has_ref_get_desc(mod_)
   let global_type_slots = Array::make(total_globals, -1)
 
   for slot = 0; slot < type_count; slot = slot + 1 {
@@ -1568,13 +2450,13 @@ pub fn global_struct_inference_run_module_pass(
     if mutable_ {
       continue
     }
+    let abs_idx = imported_global_count + defined_idx
     match gsi_candidate_global_values(env, init) {
       Some((type_idx, next_values)) => {
         let slot = gsi_type_slot(type_idx, type_count)
         if slot < 0 {
           continue
         }
-        let abs_idx = imported_global_count + defined_idx
         match fields_by_type[slot] {
           Some(_) => ()
           None =>
@@ -1590,6 +2472,18 @@ pub fn global_struct_inference_run_module_pass(
       }
       None => ()
     }
+    if needs_descriptor_values {
+      match gsi_candidate_global_descriptor_expr(env, init) {
+        Some((type_idx, desc_value)) => {
+          let slot = gsi_type_slot(type_idx, type_count)
+          if slot >= 0 && abs_idx >= 0 && abs_idx < total_globals {
+            global_descriptor_values_by_abs_idx[abs_idx] = Some(desc_value)
+            global_type_slots[abs_idx] = slot
+          }
+        }
+        None => ()
+      }
+    }
   }
 
   let mut any_candidate = false
@@ -1597,6 +2491,14 @@ pub fn global_struct_inference_run_module_pass(
     if values is Some(_) {
       any_candidate = true
       break
+    }
+  }
+  if !any_candidate {
+    for value in global_descriptor_values_by_abs_idx {
+      if value is Some(_) {
+        any_candidate = true
+        break
+      }
     }
   }
   if !any_candidate {
@@ -1620,14 +2522,14 @@ pub fn global_struct_inference_run_module_pass(
       None => continue
     }
     if !gsi_instrs_may_rewrite(
-        instrs, env, local_env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-        exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
+        instrs, env, local_env, fields_by_type, global_values_by_abs_idx, global_descriptor_values_by_abs_idx,
+        global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
       ) {
       continue
     }
     let next_instrs = gsi_rewrite_instrs(
-      instrs, env, local_env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-      exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
+      instrs, env, local_env, fields_by_type, global_values_by_abs_idx, global_descriptor_values_by_abs_idx,
+      global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
     )
     if next_instrs == instrs {
       continue

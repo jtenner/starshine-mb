@@ -51,7 +51,7 @@ The local pass does all of these today:
 - preserves nullable-trap behavior with `ref.as_non_null` plus either `drop` for value/origin folds or the `ref.eq` condition path for two-value selects
 - rebuilds changed functions only
 
-It now uses subtype-propagated facts for parent-typed one-value and singleton-tested two-value rewrites, but it still does **not** implement origin-only subtype/supertype rewrites or un-nesting, so it has not implemented the full upstream origin-analysis contract.
+It now uses subtype-propagated facts for parent-typed one-value and singleton-tested two-value rewrites, but it still does **not** implement origin-only subtype/supertype rewrites. Small modules now support un-nesting of selected pure non-constant field operands into fresh immutable globals plus reorder-globals repair, but large modules deliberately keep the materializable-only path to preserve pass-local runtime.
 
 The 2026-06-03 O4z audit revalidation kept the upgraded subset semantically green against Binaryen under the refreshed harness: 9975 / 10000 compared cases, 9975 normalized matches, and 0 mismatches, with 25 Binaryen/tool command failures. The audited debug artifact was canonical-equal and Starshine was faster pass-local (`0.349 ms` versus Binaryen `2.815 ms`). The exact single-candidate local/param follow-up also stayed green at 9975 / 10000 compared, 0 mismatches, and canonical-equal debug-artifact timing with Starshine/Binaryen pass-local `0.371 ms` / `5.017 ms`. The one-value multi-candidate follow-up used a prebuilt native Starshine binary plus `--jobs auto`, stayed green at 9975 / 10000 compared with 0 mismatches and 25 Binaryen/tool command failures, and kept the debug artifact canonical-equal with Starshine/Binaryen pass-local `0.440 ms` / `3.275 ms`. The two-value singleton-group follow-up used the same explicit native parallel lane, stayed green at 9975 / 10000 compared with 0 mismatches and 25 Binaryen/tool command failures, and kept the debug artifact canonical-equal with Starshine/Binaryen pass-local `0.695 ms` / `3.087 ms`. The subtype-propagated parent one/two-value follow-up also used `--jobs auto` plus the prebuilt native binary, stayed green at 9975 / 10000 compared with 0 mismatches and 25 Binaryen/tool command failures, and kept the debug artifact canonical-equal with Starshine/Binaryen pass-local `0.376 ms` / `3.106 ms`.
 
@@ -118,11 +118,10 @@ Compared with upstream Binaryen `version_129`, Starshine currently does **not** 
 
 - full closed-world `typeGlobals` candidate consumption beyond exact local/param one-global origins and exact or subtype-propagated one-value/two-value direct-candidate rewrites
 - origin-only supertype rewrites from subtype-propagated candidate facts
-- non-constant operand un-nesting into fresh globals
-- `ref.get_desc`
 - sibling `gsi-desc-cast` rewrites
-- explicit `ReFinalize`-style repair after type refinement
-- atomic-get-specific proof families
+- explicit `ReFinalize`-style repair after type refinement beyond validation-preserving replacement typing
+- atomic-get-specific proof families, because no local struct atomic-get opcode exists yet
+- unbounded large-module un-nesting; the local un-nesting/ref.get_desc surfaces are guarded to small modules to keep the debug artifact pass-local budget green
 
 Those are real capability gaps, not just documentation wording differences.
 

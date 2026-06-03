@@ -17,6 +17,30 @@ fn gsi_test_pretty(input : String, closed_world : Bool) -> String raise {
 }
 
 ///|
+fn gsi_test_defined_global_count(mod_ : @lib.Module) -> Int raise {
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) => globals.length()
+    None => fail("expected global section")
+  }
+}
+
+///|
+fn gsi_test_global_init_contains(
+  mod_ : @lib.Module,
+  defined_idx : Int,
+  needle : @lib.Instruction,
+) -> Bool raise {
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) =>
+      match globals.get(defined_idx) {
+        Some(@lib.Global(_, @lib.Expr(instrs))) => instrs.contains(needle)
+        None => fail("missing global \{defined_idx}")
+      }
+    None => fail("expected global section")
+  }
+}
+
+///|
 fn gsi_assert_folded_i32(input : String, expected : String) -> Unit raise {
   let pretty = gsi_test_pretty(input, false)
   assert_false(pretty.contains("struct.get"), msg=pretty)
@@ -242,6 +266,120 @@ test "global-struct-inference leaves non-global ref producers unchanged in open 
 
   assert_true(pretty.contains("struct.get"), msg=pretty)
   assert_false(pretty.contains("global.get"), msg=pretty)
+}
+
+///|
+test "global-struct-inference un-nests nonconstant direct-global fields" {
+  let input =
+    #| (module
+    #|   (type $box (sub (struct (field i32))))
+    #|   (global $g (ref $box)
+    #|     (struct.new $box
+    #|       (i32.add (i32.const 41) (i32.const 1))))
+    #|   (func (export "read") (result i32)
+    #|     global.get $g
+    #|     struct.get $box 0))
+    #|
+  let optimized = gsi_test_run(input, false)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(optimized), 2)
+  assert_true(
+    try! gsi_test_global_init_contains(
+      optimized,
+      0,
+      @lib.Instruction::i32_add(),
+    ),
+  )
+  assert_true(
+    try! gsi_test_global_init_contains(
+      optimized,
+      1,
+      @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    ),
+  )
+}
+
+///|
+test "global-struct-inference un-nests closed-world select values" {
+  let input =
+    #| (module
+    #|   (type $box (sub (struct (field i32))))
+    #|   (global $a (ref $box)
+    #|     (struct.new $box
+    #|       (i32.add (i32.const 40) (i32.const 2))))
+    #|   (global $b (ref $box) (struct.new $box (i32.const 1337)))
+    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|     local.get 0
+    #|     struct.get $box 0))
+    #|
+  let optimized = gsi_test_run(input, true)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("ref.eq"), msg=pretty)
+  assert_true(pretty.contains("I32(1337)"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(optimized), 3)
+}
+
+///|
+test "global-struct-inference folds direct ref.get_desc from descriptor globals" {
+  let input =
+    #| (module
+    #|   (rec
+    #|     (type $box
+    #|       (descriptor $box_desc)
+    #|       (struct (field i32)))
+    #|     (type $box_desc
+    #|       (describes $box)
+    #|       (struct)))
+    #|   (global $desc (ref (exact $box_desc)) (struct.new $box_desc))
+    #|   (global $g (ref null $box)
+    #|     (struct.new_desc $box
+    #|       (i32.const 9)
+    #|       (global.get $desc)))
+    #|   (func (export "read") (result (ref $box_desc))
+    #|     global.get $g
+    #|     ref.get_desc $box))
+    #|
+  let pretty = gsi_test_pretty(input, false)
+  assert_false(pretty.contains("ref.get_desc"), msg=pretty)
+  assert_true(pretty.contains("global.get (Global 0)"), msg=pretty)
+  assert_true(pretty.contains("ref.as_non_null"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "global-struct-inference folds closed-world ref.get_desc local reads" {
+  let input =
+    #| (module
+    #|   (rec
+    #|     (type $box
+    #|       (descriptor $box_desc)
+    #|       (struct (field i32)))
+    #|     (type $box_desc
+    #|       (describes $box)
+    #|       (struct)))
+    #|   (global $desc (ref (exact $box_desc)) (struct.new $box_desc))
+    #|   (global $a (ref $box)
+    #|     (struct.new_desc $box
+    #|       (i32.const 1)
+    #|       (global.get $desc)))
+    #|   (global $b (ref $box)
+    #|     (struct.new_desc $box
+    #|       (i32.const 2)
+    #|       (global.get $desc)))
+    #|   (func (export "read") (param (ref null $box)) (result (ref $box_desc))
+    #|     local.get 0
+    #|     ref.get_desc $box))
+    #|
+  let pretty = gsi_test_pretty(input, true)
+  assert_false(pretty.contains("ref.get_desc"), msg=pretty)
+  assert_true(pretty.contains("global.get (Global 0)"), msg=pretty)
+  assert_true(pretty.contains("ref.as_non_null"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
 }
 
 ///|
@@ -528,12 +666,13 @@ test "global-struct-inference leaves unsafe multi-candidate one-value locals unc
   let non_materializable =
     #| (module
     #|   (type $box (sub (struct (field i32))))
+    #|   (global $denom i32 (i32.const 1))
     #|   (global $a (ref $box)
     #|     (struct.new $box
-    #|       (i32.add (i32.const 6) (i32.const 1))))
+    #|       (i32.div_s (i32.const 7) (global.get $denom))))
     #|   (global $b (ref $box)
     #|     (struct.new $box
-    #|       (i32.add (i32.const 6) (i32.const 1))))
+    #|       (i32.div_s (i32.const 7) (global.get $denom))))
     #|   (func (export "read") (param (ref null $box)) (result i32)
     #|     local.get 0
     #|     struct.get $box 0))

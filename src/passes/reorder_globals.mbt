@@ -730,7 +730,10 @@ fn rg_rewrite_name_sec(
 }
 
 ///|
-pub fn reorder_globals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+fn reorder_globals_run_module_pass_with_threshold(
+  mod_ : @lib.Module,
+  enforce_public_threshold : Bool,
+) -> @lib.Module {
   let globals = match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) => globals
     None => return mod_
@@ -738,7 +741,7 @@ pub fn reorder_globals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   let defined_count = globals.length()
   let imported_globals = rg_imported_global_count(mod_)
   let total_globals = imported_globals + defined_count
-  if total_globals < 128 || defined_count <= 1 {
+  if defined_count <= 1 || (enforce_public_threshold && total_globals < 128) {
     return mod_
   }
   let counts = rg_count_global_traffic(mod_, total_globals)
@@ -780,4 +783,16 @@ pub fn reorder_globals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       }
   }
   out
+}
+
+///|
+pub fn reorder_globals_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+  reorder_globals_run_module_pass_with_threshold(mod_, true)
+}
+
+///|
+pub fn reorder_globals_run_module_pass_always(
+  mod_ : @lib.Module,
+) -> @lib.Module {
+  reorder_globals_run_module_pass_with_threshold(mod_, false)
 }

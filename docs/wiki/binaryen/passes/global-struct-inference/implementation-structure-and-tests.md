@@ -201,7 +201,7 @@ Current focused white-box tests prove the new closed-world fact builder:
 - poisoned child types poison parents, including modules with no global section
 - child candidate globals propagate upward to parent types in deterministic global-index order
 
-These tests now cover the direct-global O4z audit surfaces, the subtype-aware closed-world candidate-map foundation, the first exact single-candidate local/param origin consumer, exact/subtype-propagated one-value multi-candidate local/param folds, and exact/subtype-propagated two-value singleton-group local/param selects, but they are still far narrower than Binaryen `gsi.wast` because origin-only supertype rewrites and un-nesting remain absent.
+These tests now cover the direct-global O4z audit surfaces, the subtype-aware closed-world candidate-map foundation, the first exact single-candidate local/param origin consumer, exact/subtype-propagated one-value multi-candidate local/param folds, exact/subtype-propagated two-value singleton-group local/param selects, small-module un-nesting, and small-module `ref.get_desc` folds. They are still far narrower than Binaryen `gsi.wast` because origin-only supertype rewrites, descriptor-cast rewrites, atomic gets, and unbounded large-module un-nesting remain absent.
 
 ## Current local-vs-Binaryen matrix
 
@@ -216,11 +216,11 @@ These tests now cover the direct-global O4z audit surfaces, the subtype-aware cl
 | Subtype poisoning and propagation | yes | yes in facts; propagated candidates now feed parent one-value folds and singleton-tested two-value selects |
 | One-value direct replacement | yes | exact direct-global field value plus exact/subtype-propagated local/param one-value folds |
 | Two-value `select(ref.eq(...))` | yes | yes for exact/subtype-propagated local/param candidate sets with two materializable values and one singleton group |
-| Immutable `global.get` as materializable value | yes | yes for direct field payloads and grouped local/param rewrites, without un-nesting |
-| Non-constant un-nesting | yes | no |
+| Immutable `global.get` as materializable value | yes | yes for direct field payloads, grouped local/param rewrites, and fresh globals produced by the small-module un-nesting path |
+| Non-constant un-nesting | yes | yes for small-module pure scalar field operands that are actually read, using fresh immutable globals plus forced `reorder-globals` repair; large modules keep the materializable-only path |
 | Packed-field repair | yes | yes for `i32.const` direct payloads |
-| Atomic gets | yes | no dedicated local surface |
-| `ref.get_desc` | yes | no; descriptor constructors are covered only for ordinary field reads |
+| Atomic gets | yes | no local struct atomic-get opcode surface exists yet |
+| `ref.get_desc` | yes | yes for small-module direct and closed-world local/param folds/selects over descriptor-constructor globals |
 | `gsi-desc-cast` | sibling pass | boundary-only sibling name, no implementation |
 | Refinalization | explicit Binaryen `ReFinalize` | represented differently; no equivalent full typed-AST repair layer in this pass |
 
