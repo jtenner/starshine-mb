@@ -12304,11 +12304,7 @@ fn run_hot_pipeline_apply_module_pass(
     "memory-packing" => memory_packing_run_module_pass(mod_)
     "once-reduction" => once_reduction_run_module_pass(mod_)
     "global-refining" =>
-      if options.optimize_level >= 4 && options.shrink_level >= 1 {
-        mod_
-      } else {
-        global_refining_run_module_pass(mod_)
-      }
+      global_refining_run_module_pass(mod_, closed_world=options.closed_world)
     "global-struct-inference" =>
       global_struct_inference_run_module_pass(mod_, options.closed_world)
     "reorder-locals" => reorder_locals_run_module_pass(mod_)

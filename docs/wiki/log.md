@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | global-refining O4z audit
+
+- Updated Starshine `global-refining` to recognize more initializer facts (`ref.i31`, `string.const`, and exact GC constructor results), apply a local public-type guard for open-world immutable exports, thread `closed_world` into the pass, and run the direct pass slot under `-O4z` options instead of skipping it.
+- Added focused public-pipeline tests for `ref.func`, `ref.i31`, `struct.new_default`, exported exact/private public-boundary bailout, closed-world exported-global bailout, and the restored O4z direct slot; narrowed `[AUDIT004-M]` and pruned completed `[O4Z-AUDIT-GR]` from `agent-todo.md`.
+- Recorded refreshed evidence: `.tmp/pass-fuzz-global-refining-audit-upgrade-10000` reached `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures; `.tmp/gr-debug-artifact-timing-audit-upgrade-final` was canonical-equal with Starshine/Binaryen pass-local `0.328 ms / 2.877 ms`.
+
 ## [2026-06-03] passes | duplicate-function-elimination O4z audit
 
 - Updated the `duplicate-function-elimination` landing, Starshine strategy, and parity pages with the 2026-06-03 audit findings: whole-body function hashing now replaces sparse instruction sampling, preserving exact equality as the merge proof while avoiding large same-sample collision buckets.

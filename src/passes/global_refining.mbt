@@ -123,8 +123,175 @@ fn gr_expr_result_type(env : @validate.Env, expr : @lib.Expr) -> @lib.ValType? {
           )
         None => None
       }
+    @lib.Expr([_, @lib.RefI31]) =>
+      Some(
+        @lib.ValType::ref_type(
+          @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::i31())),
+        ),
+      )
+    @lib.Expr([@lib.StringConst(_)]) => Some(@lib.ValType::stringref())
+    @lib.Expr(instrs) if instrs.length() > 0 =>
+      match instrs[instrs.length() - 1] {
+        @lib.StructNew(type_idx)
+        | @lib.StructNewDefault(type_idx)
+        | @lib.StructNewDesc(type_idx)
+        | @lib.StructNewDefaultDesc(type_idx)
+        | @lib.ArrayNew(type_idx)
+        | @lib.ArrayNewDefault(type_idx)
+        | @lib.ArrayNewFixed(type_idx, _)
+        | @lib.ArrayNewData(type_idx, _)
+        | @lib.ArrayNewElem(type_idx, _) =>
+          Some(
+            @lib.ValType::ref_type(
+              @lib.RefType::new(false, @lib.HeapType::new(type_idx), exact=true),
+            ),
+          )
+        _ => None
+      }
     _ => None
   }
+}
+
+///|
+fn gr_valtype_is_public(
+  val_type : @lib.ValType,
+  env : @validate.Env,
+  type_states : Array[Int],
+) -> Bool {
+  match val_type {
+    @lib.RefTypeValType(ref_type) =>
+      gr_reftype_is_public(ref_type, env, type_states)
+    _ => true
+  }
+}
+
+///|
+fn gr_storage_type_is_public(
+  storage_type : @lib.StorageType,
+  env : @validate.Env,
+  type_states : Array[Int],
+) -> Bool {
+  match storage_type {
+    @lib.ValTypeStorageType(val_type) =>
+      gr_valtype_is_public(val_type, env, type_states)
+    @lib.PackTypeStorageType(_) => true
+  }
+}
+
+///|
+fn gr_field_type_is_public(
+  field_type : @lib.FieldType,
+  env : @validate.Env,
+  type_states : Array[Int],
+) -> Bool {
+  gr_storage_type_is_public(field_type.get_storage_type(), env, type_states)
+}
+
+///|
+fn gr_comptype_is_public(
+  comp_type : @lib.CompType,
+  env : @validate.Env,
+  type_states : Array[Int],
+) -> Bool {
+  match comp_type {
+    @lib.FuncCompType(params, results) => {
+      for param in params {
+        if !gr_valtype_is_public(param, env, type_states) {
+          return false
+        }
+      }
+      for result in results {
+        if !gr_valtype_is_public(result, env, type_states) {
+          return false
+        }
+      }
+      true
+    }
+    @lib.StructCompType(fields) => {
+      for field in fields {
+        if !gr_field_type_is_public(field, env, type_states) {
+          return false
+        }
+      }
+      true
+    }
+    @lib.ArrayCompType(field) =>
+      gr_field_type_is_public(field, env, type_states)
+  }
+}
+
+///|
+fn gr_typeidx_is_public(
+  type_idx : @lib.TypeIdx,
+  env : @validate.Env,
+  type_states : Array[Int],
+) -> Bool {
+  match type_idx {
+    @lib.TypeIdx(raw) => {
+      let idx = raw.reinterpret_as_int()
+      if idx < 0 || idx >= type_states.length() {
+        return true
+      }
+      match type_states[idx] {
+        2 => return true
+        3 => return false
+        1 => return true
+        _ => ()
+      }
+      type_states[idx] = 1
+      let public = match env.resolve_subtype(type_idx) {
+        Some(subtype) =>
+          gr_comptype_is_public(subtype.get_comptype(), env, type_states)
+        None => true
+      }
+      type_states[idx] = if public { 2 } else { 3 }
+      public
+    }
+    @lib.RecIdx(_) =>
+      match env.resolve_subtype(type_idx) {
+        Some(subtype) =>
+          gr_comptype_is_public(subtype.get_comptype(), env, type_states)
+        None => true
+      }
+  }
+}
+
+///|
+fn gr_heaptype_is_public(
+  heap_type : @lib.HeapType,
+  env : @validate.Env,
+  type_states : Array[Int],
+) -> Bool {
+  match heap_type {
+    @lib.AbsHeapTypeHeapType(_) => true
+    @lib.HeapType(type_idx) => gr_typeidx_is_public(type_idx, env, type_states)
+    @lib.DefTypeHeapType(def_type) =>
+      match def_type.project() {
+        Some(subtype) =>
+          gr_comptype_is_public(subtype.get_comptype(), env, type_states)
+        None => true
+      }
+  }
+}
+
+///|
+fn gr_reftype_is_public(
+  ref_type : @lib.RefType,
+  env : @validate.Env,
+  type_states : Array[Int],
+) -> Bool {
+  if ref_type.is_exact() {
+    return false
+  }
+  gr_heaptype_is_public(ref_type.get_heap_type(), env, type_states)
+}
+
+///|
+fn gr_refined_export_type_is_public(
+  ref_type : @lib.RefType,
+  env : @validate.Env,
+) -> Bool {
+  gr_reftype_is_public(ref_type, env, Array::make(env.global_types.length(), 0))
 }
 
 ///|
@@ -416,7 +583,10 @@ fn gr_collect_func_global_sets(
 }
 
 ///|
-pub fn global_refining_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
+pub fn global_refining_run_module_pass(
+  mod_ : @lib.Module,
+  closed_world? : Bool = false,
+) -> @lib.Module {
   let env = @validate.Env::new().with_module(mod_)
   let imported_global_count = gr_imported_global_count(mod_)
   let total_globals = env.globals.length()
@@ -454,7 +624,7 @@ pub fn global_refining_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     let is_mutable = match env.globals[abs_idx] {
       @lib.GlobalType(_, mutable_) => mutable_
     }
-    if exported_globals[abs_idx] && is_mutable {
+    if exported_globals[abs_idx] && (closed_world || is_mutable) {
       continue
     }
     match gr_global_ref_type(env.globals[abs_idx]) {
@@ -534,6 +704,10 @@ pub fn global_refining_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     }
     if refined_ref_type == old_ref_type ||
       !@validate.Match::matches(refined_ref_type, old_ref_type, env) {
+      continue
+    }
+    if exported_globals[abs_idx] &&
+      !gr_refined_export_type_is_public(refined_ref_type, env) {
       continue
     }
     let @lib.Global(@lib.GlobalType(_, mutable_), init) = next_globals[defined_idx]

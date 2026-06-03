@@ -146,6 +146,155 @@ test "global-refining treats abstract ref.null initializers as bottom references
 }
 
 ///|
+test "global-refining refines private ref.func initializers to concrete function heap types" {
+  let input =
+    #| (module
+    #|   (type $f_t (func))
+    #|   (func $f (type $f_t))
+    #|   (elem declare func $f)
+    #|   (global $g (mut funcref) (ref.func $f)))
+  let optimized = match pass_test_run_pipeline(input, ["global-refining"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected ref.func global-refining success, got \{err}")
+  }
+
+  @debug.assert_eq(
+    try! gr_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+      ),
+      true,
+    ),
+  )
+}
+
+///|
+test "global-refining refines private i31 const-expression initializers" {
+  let input =
+    #| (module
+    #|   (global $g (mut anyref) (ref.i31 (i32.const 7))))
+  let optimized = match pass_test_run_pipeline(input, ["global-refining"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected i31 initializer global-refining success, got \{err}")
+  }
+
+  @debug.assert_eq(
+    try! gr_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(false, @lib.HeapType::abs(@lib.AbsHeapType::i31())),
+      ),
+      true,
+    ),
+  )
+}
+
+///|
+test "global-refining refines private struct default initializers" {
+  let input =
+    #| (module
+    #|   (type $s (sub (struct)))
+    #|   (global $g (mut anyref) (struct.new_default $s)))
+  let optimized = match pass_test_run_pipeline(input, ["global-refining"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected struct initializer global-refining success, got \{err}")
+  }
+
+  @debug.assert_eq(
+    try! gr_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(
+          false,
+          @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+          exact=true,
+        ),
+      ),
+      true,
+    ),
+  )
+}
+
+///|
+test "global-refining keeps exported immutable exact private initializers public" {
+  let input =
+    #| (module
+    #|   (type $s (sub (struct)))
+    #|   (global $g (export "g") anyref (struct.new_default $s)))
+  let optimized = match pass_test_run_pipeline(input, ["global-refining"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected exported exact global-refining success, got \{err}")
+  }
+
+  @debug.assert_eq(
+    try! gr_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
+      ),
+      false,
+    ),
+  )
+}
+
+///|
+test "global-refining still runs in the O4z direct pass slot" {
+  let input =
+    #| (module
+    #|   (global $g (mut exnref) (ref.null exn)))
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["global-refining"],
+      options=HotPipelineOptions::new(optimize_level=4, shrink_level=1),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected O4z global-refining success, got \{err}")
+  }
+
+  @debug.assert_eq(
+    try! gr_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::no_exn())),
+      ),
+      true,
+    ),
+  )
+}
+
+///|
+test "global-refining preserves exported globals in closed world" {
+  let input =
+    #| (module
+    #|   (global $g (export "g") exnref (ref.null exn)))
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["global-refining"],
+      options=HotPipelineOptions::new(closed_world=true),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected closed-world exported global-refining success, got \{err}")
+  }
+
+  @debug.assert_eq(
+    try! gr_test_defined_global_type(optimized, 0),
+    @lib.GlobalType::new(
+      @lib.ValType::ref_type(
+        @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::exn())),
+      ),
+      false,
+    ),
+  )
+}
+
+///|
 test "global-refining joins sibling writes at the shared declared supertype" {
   let input =
     #| (module

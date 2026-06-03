@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-06-03
 sources:
   - ../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md
 related:
@@ -146,7 +146,30 @@ After, conceptually:
 This is the most important shape for understanding the algorithm.
 It shows that Binaryen is computing a meaningful least upper bound over all observed values, not just picking one example write.
 
-## Positive family 6: dependent global initializer needs retagging
+## Positive family 6: constant-expression i31 and GC constructor initializers
+
+Before:
+
+```wat
+(type $s (struct))
+(global $i (mut anyref) (ref.i31 (i32.const 7)))
+(global $sref (mut anyref) (struct.new_default $s))
+```
+
+After, conceptually:
+
+```wat
+(global $i (mut (ref i31)) (ref.i31 (i32.const 7)))
+(global $sref (mut (ref (exact $s))) (struct.new_default $s))
+```
+
+Why this matters:
+
+- initializer facts are not limited to `ref.null` and `ref.func`
+- GC constructors can prove exact non-null private heap types
+- exported immutable globals still need the public-type guard before exposing those exact/private types
+
+## Positive family 7: dependent global initializer needs retagging
 
 Before:
 
@@ -171,7 +194,7 @@ What this teaches:
 - but `global.get $a` in `$b`'s initializer must still become type-correct relative to the new declaration
 - this is why Binaryen runs the retagging pass on module code too
 
-## Positive family 7: open-world immutable exported public refinement
+## Positive family 8: open-world immutable exported public refinement
 
 Before:
 

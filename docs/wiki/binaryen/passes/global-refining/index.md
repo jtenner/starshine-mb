@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-07
+last_reviewed: 2026-06-03
 sources:
   - ../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md
   - ../../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md
@@ -66,8 +66,9 @@ It is a small whole-module **global declaration tightening** pass.
   - `once-reduction` can simplify run-once scaffolding first
   - `global-refining` then tightens defined global reference types based on surviving observed writes while preserving mutable export boundaries
   - the next `remove-unused-module-elements` and later `gsi` see a cleaner, more precise module
-- `agent-todo.md` still has **no dedicated `GR` slice** today.
-  - The live repo intent is only indirect through the canonical ordered-path notes and the shared `DFE -> RUME -> MP -> OR -> GR -> GSI` replay context.
+- The 2026-06-03 O4z audit closed the dedicated `[O4Z-AUDIT-GR]` slice.
+  - Starshine now runs the direct `global-refining` slot even under `-O4z` options instead of silently skipping it.
+  - The active backlog keeps only narrower v0.1.1 follow-ups for broader descriptor/stringref publicity fixtures.
 - In the saved generated-artifact `-O4z` audit, slot `5` (`global-refining`) was already green:
   - exact wasm equal: `yes`
   - normalized WAT equal: `yes`
@@ -91,9 +92,10 @@ It is a small whole-module **global declaration tightening** pass.
   - change the declared global type
   - update `global.get` result types
   - refinalize changed code
-- The current local Starshine pass is narrower:
-  - it refines defined reference globals, but still skips exported mutable ones
-  - it does not yet model Binaryen's explicit public-type validation or closed-world exported-global conservatism
+- The current local Starshine pass is still narrower than upstream Binaryen in representation, but now covers the important boundary matrix:
+  - it refines defined reference globals and still skips exported mutable ones
+  - it filters immutable exported refinements through a local public-type check and skips exported globals when `closed_world` is set
+  - it recognizes more constant-expression initializers, including `ref.func`, `ref.i31`, `string.const`, and GC constructors such as `struct.new_default`
   - it collects writes through HOT lifting only for functions that mention candidate globals
   - and it rewrites declarations without Binaryen-style post-pass `global.get` retagging because the local representation does not use the same cached expression-type model here
 - The pass does **not** remove `global.set`s, replace `global.get`s with constants, or run `gsi`-style field-value inference.
@@ -139,7 +141,7 @@ What it actually is in `version_129`:
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering init-only null and `ref.func` positives, exactness/nullability outcomes, heterogeneous `anyref`-to-`eqref` joins, exported/imported bailouts, and the main non-goals.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Current in-tree Starshine strategy: immutable-export-aware candidate selection, HOT-assisted `global.set` collection, Binaryen-style bottom-null tightening, declaration rewrite, and the remaining differences from upstream Binaryen's public-type / closed-world / retagging contract.
+  - Current in-tree Starshine strategy: immutable-export-aware and closed-world-aware candidate selection, local public-type filtering, expanded initializer facts, HOT-assisted `global.set` collection, Binaryen-style bottom-null tightening, declaration rewrite, and the remaining Binaryen retagging representation differences.
 - [`./parity.md`](./parity.md)
   - Current in-tree parity state, the green saved generated-artifact evidence, and the honest remaining gaps between the local MoonBit pass and the full official Binaryen boundary matrix.
 
@@ -161,7 +163,7 @@ So the durable rule is:
 - Treat `implementation-structure-and-tests.md` as the compact owner/test-map page for future follow-ups so the file/test surface stays source-confirmed instead of getting re-inferred from broad prose.
 - Keep the main beginner correction explicit:
   - upstream `global-refining` is a declaration-tightening plus retagging pass, not a broad control-flow-sensitive global optimizer
-- Keep the exported immutable open-world case, the closed-world exported-global conservatism, the `PublicTypeValidator` rule, the Starshine-local mutable-export-preserving subset page, and the `global.get` retagging contract explicit whenever future docs or code changes touch this pass.
+- Keep the exported immutable open-world case, the closed-world exported-global conservatism, the local public-type filter, the Starshine-local representation differences, and the `global.get` retagging contract explicit whenever future docs or code changes touch this pass.
 
 ## Sources
 

@@ -50,11 +50,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 - Replay the pass's `-O4z` slot/neighborhood when it has saved artifacts or documented generated-audit evidence.
 - Close with an agent-classified findings note: bugs found/fixed, missing shapes added, performance owners, deferred risks, exact commands, counts, and artifact paths.
 
-- [O4Z-AUDIT-GR] - Deep audit `global-refining`
-  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
-  - Scope: global initializer/type LUB refinement, mutable/exported/imported guardrails, GC heap type precision, descriptor/stringref interactions, and validation/refinalization behavior.
-  - Deliverables: apply the common checklist; add subtype and visibility fixtures; refresh direct compare and `GR` slot evidence; record any under-refinement or unsafe-boundary risks.
-
 - [O4Z-AUDIT-GSI] - Deep audit `global-struct-inference`
   - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
   - Scope: closed-world struct field constants, packed fields, default/descriptor constructors, mutable/exported/imported global negatives, nullable refs, and code-size/runtime impact.
@@ -276,7 +271,7 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
     - [ ] `[AUDIT004-J]` `local-cse` scalar/effect barriers: add separate tests for memory load/store barriers, global get/set barriers, table barriers, ordinary call barriers, and pure duplicate scalar positives.
     - [ ] `[AUDIT004-K]` `local-cse` advanced barriers: add separate tests for exceptions/`try_table`, GC heap operations, atomic operations, and SIMD operations where the current WAT authoring surface supports them; otherwise file the unsupported shape in the wiki.
     - [ ] `[AUDIT004-L]` `once-reduction`: add separate tests for table escape, global escape, `ref.func` escape, export escape, start-function behavior, imported function negative, exported function negative, and multi-use once-positive.
-    - [ ] `[AUDIT004-M]` `global-refining`: add separate tests for nullable-to-non-null refinement, non-null-to-null negative, external visibility guard, subtype-chain refinement, incompatible subtype negative, descriptor surface, and stringref surface where supported.
+    - [ ] `[AUDIT004-M]` `global-refining`: add separate tests for non-null-to-null negative, incompatible subtype negative, descriptor-bearing type body publicity, and broader stringref expression surfaces where supported; the O4z audit already covered nullable-to-non-null bottom refinements, exported mutability/closed-world guards, subtype-chain joins, `ref.func`, `ref.i31`, `struct.new_default`, and exported exact/private initializer bailouts.
     - [ ] `[AUDIT004-N]` After each pass-family test batch, run the pass-targeted compare smoke with `--count 1000` before moving to the next family; do not batch all behavior changes behind one signoff.
   - Suggested tests: adjacent `*_test.mbt` public-pipeline fixtures, `moon test src/passes`, and pass-targeted compare smoke for each touched pass.
   - Exit criteria: each listed module pass has positive and negative coverage for its most important module shapes, with no new validation failures or unexplained Binaryen mismatches.
