@@ -53,20 +53,20 @@ The easiest way to follow the in-tree implementation is this file map:
   - summary string used by the registry and preset docs
 - `src/passes/global_struct_inference.mbt:20-460`
   - `GsiClosedWorldFacts`, allocation scanners, equality-comparable global declaration filter, subtype propagation helpers, exact direct candidate extraction, exact direct single-candidate extraction, and `gsi_build_closed_world_facts(...)`
-- `src/passes/global_struct_inference.mbt:577-1124`
-  - guarded small-module arithmetic/bitwise/shift-rotate un-nesting request collection, fresh-global synthesis, initializer repair, and forced reorder-globals repair
-- `src/passes/global_struct_inference.mbt:1127-1210`
+- `src/passes/global_struct_inference.mbt:577-1146`
+  - guarded small-module arithmetic/bitwise/shift-rotate/unary-numeric un-nesting request collection, fresh-global synthesis, initializer repair, and forced reorder-globals repair
+- `src/passes/global_struct_inference.mbt:1149-1232`
   - `gsi_candidate_field_values(...)` and `gsi_candidate_global_values(...)`: harvest immutable field payloads from trusted global initializers, with descriptor-constructor field operands read before the descriptor operand, and accept only top-level `struct.new`, `struct.new_default`, `struct.new_desc`, and `struct.new_default_desc` globals
-- `src/passes/global_struct_inference.mbt:1213-2096`
+- `src/passes/global_struct_inference.mbt:1235-2118`
   - exact and subtype-propagated local/param origin helpers, one-value local fold helpers, two-value singleton-group select helpers, candidate-created-type subtype checks, and `gsi_folded_global_field_expr(...)` / `gsi_folded_candidate_global_field_expr(...)`: map trusted globals plus one `struct.get*` into replacement expressions, including packed-field repair
-- `src/passes/global_struct_inference.mbt:2099-2323`
+- `src/passes/global_struct_inference.mbt:2121-2345`
   - `gsi_rewrite_instrs(...)`: recurse through bodies and rewrite immediate `global.get` + `struct.get*` instruction pairs, closed-world exact and subtype-propagated single-candidate `local.get` + `struct.get*` origin pairs, closed-world exact/subtype-propagated one-value local folds, and closed-world exact/subtype-propagated two-value singleton-group selects
-- `src/passes/global_struct_inference.mbt:2326-2540`
+- `src/passes/global_struct_inference.mbt:2348-2562`
   - `gsi_instrs_may_rewrite(...)`: cheap pre-scan used to skip unchanged functions
-- `src/passes/global_struct_inference.mbt:2543-2704`
+- `src/passes/global_struct_inference.mbt:2565-2726`
   - `global_struct_inference_run_module_pass(...)`: builds closed-world exact single-candidate and propagated candidate facts when requested, then runs the direct-global candidate table build, per-function rewrite loop, and final `with_code_sec(...)` replacement
-- `src/passes/global_struct_inference_test.mbt:28-988`
-  - focused positive/negative local coverage for the direct-global subset, guarded arithmetic/bitwise/shift-rotate un-nesting, exact single-candidate local/param origin subset, exact/subtype-propagated one-value local/param fold subset, and exact/subtype-propagated two-value singleton-group select subset
+- `src/passes/global_struct_inference_test.mbt:28-1062`
+  - focused positive/negative local coverage for the direct-global subset, guarded arithmetic/bitwise/shift-rotate/unary-numeric un-nesting, exact single-candidate local/param origin subset, exact/subtype-propagated one-value local/param fold subset, and exact/subtype-propagated two-value singleton-group select subset
 - `src/passes/global_struct_inference_wbtest.mbt:1-240`
   - analysis-only closed-world fact coverage for candidate inclusion/exclusion, poisoning, subtype poison propagation including no-global-section poison propagation, upward candidate propagation, and deterministic candidate ordering
 - `src/passes/pass_manager.mbt:12308-12309`
@@ -101,7 +101,7 @@ This means the local pass trusts only a very small origin family:
 
 - top-level immutable globals whose values are visibly constructed in their own initializer expression
 
-The closed-world fact table now reasons about direct top-level candidates, function-local allocation poisoning, nested-global allocation poisoning, mutable-global exclusion, too-broad/`anyref` global declaration exclusion, poisoned-child-to-parent propagation, and child-candidate-to-parent propagation. It now reasons about locals and params as exact or subtype-propagated single-candidate rewrite origins, exact or subtype-propagated one-value folds, and exact or subtype-propagated two-value singleton-group selects. It still limits un-nesting to small modules and selected pure arithmetic/bitwise/shift-rotate scalar field operands.
+The closed-world fact table now reasons about direct top-level candidates, function-local allocation poisoning, nested-global allocation poisoning, mutable-global exclusion, too-broad/`anyref` global declaration exclusion, poisoned-child-to-parent propagation, and child-candidate-to-parent propagation. It now reasons about locals and params as exact or subtype-propagated single-candidate rewrite origins, exact or subtype-propagated one-value folds, and exact or subtype-propagated two-value singleton-group selects. It still limits un-nesting to small modules and selected pure arithmetic/bitwise/shift-rotate/unary-numeric scalar field operands.
 
 ## 2. Value materialization is intentionally small and syntax-driven
 
@@ -121,7 +121,7 @@ Packed fields are handled specially:
 - only `i32.const` payloads are packed locally
 - `gsi_pack_signed(...)`, `gsi_pack_unsigned(...)`, and `gsi_packed_expr(...)` rebuild the signed or unsigned packed read result
 
-This is narrower than upstream Binaryen's `PossibleConstantValues` plus un-nesting path; the guarded un-nesting vocabulary currently includes arithmetic add/sub/mul, integer bitwise and/or/xor, and integer shift/rotate operands.
+This is narrower than upstream Binaryen's `PossibleConstantValues` plus un-nesting path; the guarded un-nesting vocabulary currently includes arithmetic add/sub/mul, integer bitwise and/or/xor, integer shift/rotate, and pure unary numeric operands.
 
 ## 3. The rewrite surface is immediate `global.get` -> `struct.get*`
 
@@ -223,7 +223,7 @@ But it should not be described as if it were the whole official Binaryen pass.
 The focused tests in `src/passes/global_struct_inference_test.mbt` currently prove these local contracts:
 
 - the pass folds immutable direct-global `struct.get*` in open world
-- small-module non-constant un-nesting handles read-gated arithmetic, integer bitwise, and integer shift/rotate field operands
+- small-module non-constant un-nesting handles read-gated arithmetic, integer bitwise, integer shift/rotate, and unary numeric field operands
 - nullable direct-global reads preserve the null trap
 - packed i8/i16 signed and unsigned direct reads are repaired
 - default, descriptor, and default-descriptor constructors expose foldable fields

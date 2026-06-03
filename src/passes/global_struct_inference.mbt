@@ -585,6 +585,18 @@ fn gsi_unnestable_stack_operand_count(instr : @lib.Instruction) -> Int? {
     | @lib.RefFunc(_)
     | @lib.GlobalGet(_)
     | @lib.StringConst(_) => Some(0)
+    @lib.I32Eqz
+    | @lib.I64Eqz
+    | @lib.I32Clz
+    | @lib.I32Ctz
+    | @lib.I32Popcnt
+    | @lib.I64Clz
+    | @lib.I64Ctz
+    | @lib.I64Popcnt
+    | @lib.F32Abs
+    | @lib.F32Neg
+    | @lib.F64Abs
+    | @lib.F64Neg => Some(1)
     @lib.I32Add
     | @lib.I32Sub
     | @lib.I32Mul
@@ -623,7 +635,12 @@ fn gsi_unnestable_instr_result_type(
   instr : @lib.Instruction,
 ) -> @lib.ValType? {
   match instr {
-    @lib.I32Add
+    @lib.I32Eqz
+    | @lib.I64Eqz
+    | @lib.I32Clz
+    | @lib.I32Ctz
+    | @lib.I32Popcnt
+    | @lib.I32Add
     | @lib.I32Sub
     | @lib.I32Mul
     | @lib.I32And
@@ -634,7 +651,10 @@ fn gsi_unnestable_instr_result_type(
     | @lib.I32ShrU
     | @lib.I32Rotl
     | @lib.I32Rotr => Some(@lib.ValType::i32())
-    @lib.I64Add
+    @lib.I64Clz
+    | @lib.I64Ctz
+    | @lib.I64Popcnt
+    | @lib.I64Add
     | @lib.I64Sub
     | @lib.I64Mul
     | @lib.I64And
@@ -645,8 +665,10 @@ fn gsi_unnestable_instr_result_type(
     | @lib.I64ShrU
     | @lib.I64Rotl
     | @lib.I64Rotr => Some(@lib.ValType::i64())
-    @lib.F32Add | @lib.F32Sub | @lib.F32Mul => Some(@lib.ValType::f32())
-    @lib.F64Add | @lib.F64Sub | @lib.F64Mul => Some(@lib.ValType::f64())
+    @lib.F32Abs | @lib.F32Neg | @lib.F32Add | @lib.F32Sub | @lib.F32Mul =>
+      Some(@lib.ValType::f32())
+    @lib.F64Abs | @lib.F64Neg | @lib.F64Add | @lib.F64Sub | @lib.F64Mul =>
+      Some(@lib.ValType::f64())
     _ => gsi_simple_instr_result_type(env, instr)
   }
 }
