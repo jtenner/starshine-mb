@@ -328,20 +328,81 @@ test "global-struct-inference synthesizes two-value singleton selects in closed 
 }
 
 ///|
-test "global-struct-inference leaves subtype-propagated multi-candidate local origins unchanged" {
-  let propagated_subtype =
+test "global-struct-inference folds subtype-propagated one-value parent reads" {
+  let child_only =
     #| (module
     #|   (type $parent (sub (struct (field i32))))
     #|   (type $child (sub $parent (struct (field i32))))
-    #|   (global $parent_g (ref $parent) (struct.new $parent (i32.const 7)))
-    #|   (global $child_g (ref $child) (struct.new $child (i32.const 13)))
+    #|   (global $child_a (ref $child) (struct.new $child (i32.const 7)))
+    #|   (global $child_b (ref $child) (struct.new $child (i32.const 7)))
     #|   (func (export "read") (param (ref null $parent)) (result i32)
     #|     local.get 0
     #|     struct.get $parent 0))
     #|
-  let propagated_pretty = gsi_test_pretty(propagated_subtype, true)
-  assert_true(propagated_pretty.contains("struct.get"), msg=propagated_pretty)
-  assert_false(propagated_pretty.contains("global.get"), msg=propagated_pretty)
+  let child_pretty = gsi_test_pretty(child_only, true)
+  assert_false(child_pretty.contains("struct.get"), msg=child_pretty)
+  assert_true(child_pretty.contains("I32(7)"), msg=child_pretty)
+  assert_true(child_pretty.contains("ref.as_non_null"), msg=child_pretty)
+  assert_true(child_pretty.contains("drop"), msg=child_pretty)
+  assert_false(child_pretty.contains("global.get"), msg=child_pretty)
+
+  let mixed_parent_child =
+    #| (module
+    #|   (type $parent (sub (struct (field i32))))
+    #|   (type $child (sub $parent (struct (field i32))))
+    #|   (global $child_g (ref $child) (struct.new $child (i32.const 11)))
+    #|   (global $parent_g (ref $parent) (struct.new $parent (i32.const 11)))
+    #|   (func (export "read") (param (ref null $parent)) (result i32)
+    #|     local.get 0
+    #|     struct.get $parent 0))
+    #|
+  let mixed_pretty = gsi_test_pretty(mixed_parent_child, true)
+  assert_false(mixed_pretty.contains("struct.get"), msg=mixed_pretty)
+  assert_true(mixed_pretty.contains("I32(11)"), msg=mixed_pretty)
+  assert_true(mixed_pretty.contains("drop"), msg=mixed_pretty)
+}
+
+///|
+test "global-struct-inference synthesizes subtype-propagated two-value parent selects" {
+  let child_only =
+    #| (module
+    #|   (type $parent (sub (struct (field i32))))
+    #|   (type $child_a (sub $parent (struct (field i32))))
+    #|   (type $child_b (sub $parent (struct (field i32))))
+    #|   (global $a (ref $child_a) (struct.new $child_a (i32.const 42)))
+    #|   (global $b (ref $child_b) (struct.new $child_b (i32.const 1337)))
+    #|   (global $c (ref $child_b) (struct.new $child_b (i32.const 1337)))
+    #|   (func (export "read") (param (ref null $parent)) (result i32)
+    #|     local.get 0
+    #|     struct.get $parent 0))
+    #|
+  let child_pretty = gsi_test_pretty(child_only, true)
+  assert_false(child_pretty.contains("struct.get"), msg=child_pretty)
+  assert_true(child_pretty.contains("select"), msg=child_pretty)
+  assert_true(child_pretty.contains("ref.eq"), msg=child_pretty)
+  assert_true(child_pretty.contains("global.get (Global 0)"), msg=child_pretty)
+  assert_true(child_pretty.contains("I32(42)"), msg=child_pretty)
+  assert_true(child_pretty.contains("I32(1337)"), msg=child_pretty)
+  assert_true(child_pretty.contains("ref.as_non_null"), msg=child_pretty)
+
+  let mixed_order =
+    #| (module
+    #|   (type $parent (sub (struct (field i32))))
+    #|   (type $child (sub $parent (struct (field i32))))
+    #|   (global $child_g (ref $child) (struct.new $child (i32.const 5)))
+    #|   (global $parent_a (ref $parent) (struct.new $parent (i32.const 9)))
+    #|   (global $parent_b (ref $parent) (struct.new $parent (i32.const 9)))
+    #|   (func (export "read") (param (ref null $parent)) (result i32)
+    #|     local.get 0
+    #|     struct.get $parent 0))
+    #|
+  let mixed_pretty = gsi_test_pretty(mixed_order, true)
+  assert_false(mixed_pretty.contains("struct.get"), msg=mixed_pretty)
+  assert_true(mixed_pretty.contains("select"), msg=mixed_pretty)
+  assert_true(mixed_pretty.contains("ref.eq"), msg=mixed_pretty)
+  assert_true(mixed_pretty.contains("global.get (Global 0)"), msg=mixed_pretty)
+  assert_true(mixed_pretty.contains("I32(5)"), msg=mixed_pretty)
+  assert_true(mixed_pretty.contains("I32(9)"), msg=mixed_pretty)
 }
 
 ///|
@@ -483,24 +544,52 @@ test "global-struct-inference leaves unsafe multi-candidate one-value locals unc
     msg=non_materializable_pretty,
   )
 
-  let subtype_ambiguity =
+  let subtype_three_values =
     #| (module
     #|   (type $parent (sub (struct (field i32))))
     #|   (type $child (sub $parent (struct (field i32))))
     #|   (global $parent_a (ref $parent) (struct.new $parent (i32.const 7)))
-    #|   (global $parent_b (ref $parent) (struct.new $parent (i32.const 7)))
+    #|   (global $parent_b (ref $parent) (struct.new $parent (i32.const 8)))
     #|   (global $child_g (ref $child) (struct.new $child (i32.const 13)))
     #|   (func (export "read") (param (ref null $parent)) (result i32)
     #|     local.get 0
     #|     struct.get $parent 0))
     #|
-  let subtype_pretty = gsi_test_pretty(subtype_ambiguity, true)
-  assert_true(subtype_pretty.contains("struct.get"), msg=subtype_pretty)
-  assert_false(subtype_pretty.contains("I32(7)"), msg=subtype_pretty)
+  let subtype_three_pretty = gsi_test_pretty(subtype_three_values, true)
+  assert_true(
+    subtype_three_pretty.contains("struct.get"),
+    msg=subtype_three_pretty,
+  )
+  assert_false(
+    subtype_three_pretty.contains("select"),
+    msg=subtype_three_pretty,
+  )
+
+  let subtype_two_equal_pairs =
+    #| (module
+    #|   (type $parent (sub (struct (field i32))))
+    #|   (type $child (sub $parent (struct (field i32))))
+    #|   (global $parent_a (ref $parent) (struct.new $parent (i32.const 7)))
+    #|   (global $parent_b (ref $parent) (struct.new $parent (i32.const 7)))
+    #|   (global $child_a (ref $child) (struct.new $child (i32.const 13)))
+    #|   (global $child_b (ref $child) (struct.new $child (i32.const 13)))
+    #|   (func (export "read") (param (ref null $parent)) (result i32)
+    #|     local.get 0
+    #|     struct.get $parent 0))
+    #|
+  let subtype_pairs_pretty = gsi_test_pretty(subtype_two_equal_pairs, true)
+  assert_true(
+    subtype_pairs_pretty.contains("struct.get"),
+    msg=subtype_pairs_pretty,
+  )
+  assert_false(
+    subtype_pairs_pretty.contains("select"),
+    msg=subtype_pairs_pretty,
+  )
 }
 
 ///|
-test "global-struct-inference leaves poisoned exact local origins unchanged" {
+test "global-struct-inference leaves poisoned exact and parent local origins unchanged" {
   let input =
     #| (module
     #|   (type $box (sub (struct (field i32))))
@@ -516,6 +605,51 @@ test "global-struct-inference leaves poisoned exact local origins unchanged" {
   let pretty = gsi_test_pretty(input, true)
   assert_true(pretty.contains("struct.get"), msg=pretty)
   assert_false(pretty.contains("global.get"), msg=pretty)
+
+  let function_local_child =
+    #| (module
+    #|   (type $parent (sub (struct (field i32))))
+    #|   (type $child (sub $parent (struct (field i32))))
+    #|   (global $child_g (ref $child) (struct.new $child (i32.const 7)))
+    #|   (func (export "read") (param (ref null $parent)) (result i32)
+    #|     local.get 0
+    #|     struct.get $parent 0)
+    #|   (func
+    #|     i32.const 9
+    #|     struct.new $child
+    #|     drop))
+    #|
+  let function_local_pretty = gsi_test_pretty(function_local_child, true)
+  assert_true(
+    function_local_pretty.contains("struct.get"),
+    msg=function_local_pretty,
+  )
+  assert_false(
+    function_local_pretty.contains("select"),
+    msg=function_local_pretty,
+  )
+
+  let nested_global_child =
+    #| (module
+    #|   (type $parent (sub (struct (field i32))))
+    #|   (type $child (sub $parent (struct (field i32))))
+    #|   (type $outer (sub (struct (field (ref $child)))))
+    #|   (global $outer_g (ref $outer)
+    #|     (struct.new $outer
+    #|       (struct.new $child (i32.const 7))))
+    #|   (func (export "read") (param (ref null $parent)) (result i32)
+    #|     local.get 0
+    #|     struct.get $parent 0))
+    #|
+  let nested_global_pretty = gsi_test_pretty(nested_global_child, true)
+  assert_true(
+    nested_global_pretty.contains("struct.get"),
+    msg=nested_global_pretty,
+  )
+  assert_false(
+    nested_global_pretty.contains("select"),
+    msg=nested_global_pretty,
+  )
 }
 
 ///|

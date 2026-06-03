@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | global-struct-inference subtype-propagated parent values
+
+- Added the next closed-world rewrite consumer for `global-struct-inference`: subtype-propagated parent/supertype local/param `struct.get*` reads now fold to one trap-preserving materialized value or synthesize a typed `select(ref.eq(...))` when one singleton candidate group distinguishes two materialized values.
+- Added public-pipeline coverage in `src/passes/global_struct_inference_test.mbt` for child-only one-value parent folds, mixed parent/child one-value folds, child-only and mixed-order singleton-select positives, plus propagated >2-value, two-equal-pair, function-local poisoned-child, and nested-global poisoned-child negatives; marked `[GSI001-F]` complete while keeping un-nesting and atomic/descriptor surfaces active.
+- Recorded refreshed evidence with explicit parallel native fuzz lanes: post-behavior `.tmp/pass-fuzz-global-struct-inference-gsi001f-post-1000` reached `998 / 1000` compared, `998` normalized matches, `0` mismatches, and `2` command failures using `--jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe`; final `.tmp/pass-fuzz-global-struct-inference-gsi001f-final2-10000` reached `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures (`22` empty-recursion-group plus one each bad-section-size, table-index-out-of-range, and invalid-tag-index). `.tmp/gsi-debug-artifact-timing-gsi001f-final2` was canonical-equal with Starshine/Binaryen pass-local `0.384 ms / 2.965 ms`.
+
 ## [2026-06-03] passes | global-struct-inference two-value singleton selects
 
 - Added the next exact closed-world rewrite consumer for `global-struct-inference`: exact-type local/param `struct.get*` reads with two materializable field values now synthesize a typed `select(ref.eq(...))` when one value group has exactly one safe direct candidate global.

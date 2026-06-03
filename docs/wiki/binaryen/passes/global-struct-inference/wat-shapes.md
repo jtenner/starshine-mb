@@ -530,4 +530,4 @@ Current Starshine implements only a subset of this catalog:
 - exact multi-candidate local/param one-value folds when all safe direct candidates expose the same materializable field value
 - exact multi-candidate local/param two-value `select(ref.eq(...))` rewrites when exactly two materializable values exist and one value group has a singleton candidate global
 
-It does **not** currently implement Binaryen's supertype/subtype-propagated origin rewrites, un-nesting, atomic-get, or `ref.get_desc` families. Keep that distinction visible when adding examples or parity claims.
+It now implements subtype-propagated parent one-value folds and singleton-tested two-value selects, but still does **not** implement Binaryen's origin-only supertype rewrites, un-nesting, atomic-get, or `ref.get_desc` families. Keep that distinction visible when adding examples or parity claims.
