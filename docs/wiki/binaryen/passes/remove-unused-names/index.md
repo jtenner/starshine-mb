@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-03
 sources:
+  - ../../../raw/research/0703-2026-06-03-remove-unused-names-o4z-audit.md
   - ../../../raw/research/0517-2026-05-06-remove-unused-names-direct-revalidation.md
   - ../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
   - ../../../raw/research/0220-2026-04-21-remove-unused-names-source-confirmation-followup.md
@@ -43,7 +44,7 @@ related:
 ## Role
 
 - `remove-unused-names` is an active implemented **hot pass** in Starshine.
-- The 2026-05-06 post-fuzzer-change direct revalidation reached 6759 compared cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group command failures under `--seed 0x5eed`.
+- The 2026-06-03 O4z audit direct revalidation reached 9975 compared cases with 9975 normalized matches, 0 semantic mismatches, and 25 Binaryen/canonicalization command failures under `--count 10000 --seed 0x5eed --keep-going-after-command-failures`.
 - In upstream Binaryen `version_129`, `pass.cpp` describes it as:
   - removes names from locations that are never branched to
 
@@ -127,7 +128,7 @@ What it actually is in `version_129`:
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering unused-label stripping, same-type block merges, loop demotion, typed bailout families, and nearby pass interactions.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Current in-tree Starshine HOT-IR strategy with exact code locations for the label-use bitset, same-typed block-chain peel, loop demotion, raw fast-skip path, preset placement, and the major ways the local subset is still narrower than upstream Binaryen's generic control-label cleanup pass.
+  - Current in-tree Starshine HOT-IR strategy with exact code locations for the label-use bitset, same-typed block-chain peel, loop demotion, raw fast-skip path, preset placement, delegate/name-section test expectations, current direct compare evidence, the O4z raw no-op guard, and the major ways the local subset is still narrower than upstream Binaryen's generic control-label cleanup pass.
 - [`./invalid-tag-index-parser-gap.md`](./invalid-tag-index-parser-gap.md)
   - Existing parser-gap note for `invalid tag index` compare failures; keep treating that family as Binaryen parser noise unless Binaryen can parse the saved case and a semantic diff still remains.
 
@@ -145,6 +146,7 @@ It does not claim that every nearby combo test is unchanged, only that the core 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `remove-unused-names` scheduler, shape, and parity notes.
+- Direct pass parity is currently clean, but O4z mode still returns an intentional raw no-op for this pass; do not claim O4z RUN slots perform same-type wrapper collapse or loop demotion until `o4z-remove-unused-names-noop` is narrowed or removed with artifact replay evidence.
 - Keep the central beginner correction explicit:
   - upstream `remove-unused-names` edits control labels rather than the wasm name section.
 - Keep the distinction explicit between:

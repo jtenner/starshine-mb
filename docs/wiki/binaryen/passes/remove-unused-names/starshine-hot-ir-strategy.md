@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-03
 sources:
+  - ../../../raw/research/0703-2026-06-03-remove-unused-names-o4z-audit.md
   - ../../../raw/research/0517-2026-05-06-remove-unused-names-direct-revalidation.md
   - ../../../raw/research/0235-2026-04-21-remove-unused-names-starshine-strategy-followup.md
   - ../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
@@ -42,7 +43,7 @@ Starshine exposes `remove-unused-names` as an active hot pass with:
   - loop info
   - SSA
 
-The 2026-05-06 direct revalidation keeps this active surface current after the fuzzer/harness refresh: `.tmp/pass-fuzz-remove-unused-names` recorded 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group command failures.
+The 2026-06-03 O4z audit keeps this active direct-pass surface current: `.tmp/pass-fuzz-remove-unused-names-audit-10000` recorded 9975 compared cases, 9975 normalized matches, 0 semantic mismatches, and 25 Binaryen/canonicalization command failures under `--count 10000 --seed 0x5eed --keep-going-after-command-failures`. The command failures were parser/canonicalizer failures, not Starshine semantic mismatches.
 
 That already makes the local pass smaller and more structural than the upstream Binaryen story.
 The local contract is **not** “remove all dead control labels.”
@@ -98,9 +99,15 @@ The easiest way to follow the in-tree implementation is this file map:
   - nested-control bailout test
 - `src/passes/remove_unused_names_test.mbt:86`
   - `try_table` catch-target bailout test
-- `src/passes/remove_unused_names_test.mbt:120`
+- `src/passes/remove_unused_names_test.mbt:144`
+  - delegate target label-use helper coverage
+- `src/passes/remove_unused_names_test.mbt:164`
+  - non-label name-section preservation expectation
+- `src/passes/remove_unused_names_test.mbt:194`
+  - stale label-name metadata drop expectation after control rewrites
+- `src/passes/remove_unused_names_test.mbt:235`
   - loop-demotion test
-- `src/passes/remove_unused_names_test.mbt:128`
+- `src/passes/remove_unused_names_test.mbt:243`
   - live-continue-target loop bailout test
 
 ## How the local pass works today
@@ -229,22 +236,32 @@ The focused tests in `src/passes/remove_unused_names_test.mbt` currently prove t
 - branches targeting peeled parents are rebased to the surviving wrapper depth in the lowered WAT
 - peeling is blocked when nested control still targets one of the intermediate scopes
 - peeling is blocked when `try_table` catches still target an intermediate scope
+- the shared label-use helper marks `Delegate` targets; this is helper-level coverage because the current public `@lib.Instruction` model has `TryTable` but not the legacy `try ... delegate` instruction surface
+- non-label name-section metadata survives the pass, while label-name maps can be dropped after structural control rewrites because the old label map can become stale
 - loops demote only when no continue target survives
 
 That is a strong local floor for the subset Starshine actually implements.
 It is narrower than upstream Binaryen's overall contract, but it is concrete and code-backed.
 
+## O4z guard status
+
+As of the 2026-06-03 O4z audit, direct `remove-unused-names` remains parity-clean, but actual O4z mode still guards the pass as a raw no-op. `src/passes/pass_manager.mbt` returns the original function for every `remove-unused-names` function pass when `optimize_level >= 4 && shrink_level >= 1`, with trace reason `o4z-remove-unused-names-noop`.
+
+That guard is correctness-safe and performance-cheap, but it means O4z currently misses every same-type wrapper collapse and loop demotion this pass would otherwise perform. Treat re-enabling or narrowing that guard as a separate test-first precision-recovery task that must replay the self-opt / O4z artifact lane that originally motivated the guard.
+
 ## Practical maintenance rule
 
 Treat the current Starshine implementation as:
 
-- a real in-tree hot pass,
+- a real in-tree hot pass for direct execution,
 - a deliberate HOT-IR subset of upstream Binaryen,
-- and a pass whose current behavior is best summarized as **same-typed block peeling plus dead-label loop demotion**.
+- a currently guarded no-op in O4z mode,
+- and a pass whose direct behavior is best summarized as **same-typed block peeling plus dead-label loop demotion**.
 
 Future work on this pass should answer one question explicitly:
 
 - are we preserving the current local structural subset,
+- are we changing the O4z raw no-op guard,
 - or are we expanding toward Binaryen's fuller control-label cleanup contract?
 
 For `remove-unused-names`, those are materially different amounts of work, and the wiki should keep that difference explicit.

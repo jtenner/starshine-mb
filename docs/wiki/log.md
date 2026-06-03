@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | remove-unused-names O4z audit
+
+- Added [`docs/wiki/raw/research/0703-2026-06-03-remove-unused-names-o4z-audit.md`](raw/research/0703-2026-06-03-remove-unused-names-o4z-audit.md) with `[O4Z-AUDIT-RUN]` direct compare, label-use, name-section, repeated-slot, and O4z raw-guard evidence.
+- Updated the `remove-unused-names` HOT-IR strategy page and catalog entry so they record the refreshed `10000`-requested keep-going compare result (`9975` compared, `0` mismatches, `25` Binaryen/canonicalization command failures), delegate helper coverage, non-label name-section preservation, stale label-name metadata cleanup, and current `o4z-remove-unused-names-noop` guard.
+- Kept the backlog slice active but narrowed: direct-pass parity is clean, while actual O4z RUN slots remain guarded no-ops and therefore still miss same-type wrapper collapse / dead-label loop demotion until that guard is narrowed or removed with artifact replay.
+
 ## [2026-06-03] passes | pick-load-signs O4z deep audit
 
 - Added [`docs/wiki/raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md`](raw/research/0702-2026-06-03-pick-load-signs-o4z-audit.md) with `[O4Z-AUDIT-PLS]` coverage, direct compare, O4z slot, and pass-local timing evidence.

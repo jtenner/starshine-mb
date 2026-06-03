@@ -143,6 +143,94 @@ test "remove-unused-names keeps nested blocks when try_table catches still targe
 }
 
 ///|
+test "remove-unused-names label-use helper marks delegate targets" {
+  let func = @ir.HotFunc::new()
+  let inner = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  let target = @ir.hot_control_node_label(func, inner)
+  let delegate = @ir.hot_build_delegate(func, target)
+  @ir.hot_region_replace_body(func, @ir.hot_region_body_ref(func, inner), [
+    delegate,
+  ])
+  let outer = @ir.hot_build_block(func, @lib.BlockType::void_(), [inner])
+  @ir.hot_root_append(func, outer)
+  @ir.hot_verify_all_or_abort(func)
+  let label_used = pass_compute_label_used(func)
+  assert_true(pass_label_is_used(target, label_used))
+}
+
+///|
+test "remove-unused-names preserves non-label name-section metadata" {
+  let non_label_name_sec = @lib.NameSec::new(
+    func_names=Some(
+      @lib.NameMap::new([
+        @lib.NameAssoc::new(0U, @lib.Name::from_string("kept-func")),
+      ]),
+    ),
+    local_names=Some(
+      @lib.IndirectNameMap::new([
+        @lib.IndirectNameAssoc::new(
+          0U,
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("kept-local")),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let input = pass_test_module_from_wat(
+    "(module (func (local i32) block block nop end end))",
+  ).with_name_sec(non_label_name_sec)
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["remove-unused-names"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected name-section non-goal success, got \{err}")
+  }
+  @debug.assert_eq(optimized.name_sec, Some(non_label_name_sec))
+}
+
+///|
+test "remove-unused-names drops stale label-name metadata after control rewrites" {
+  let name_sec = @lib.NameSec::new(
+    func_names=Some(
+      @lib.NameMap::new([
+        @lib.NameAssoc::new(0U, @lib.Name::from_string("kept-func")),
+      ]),
+    ),
+    label_names=Some(
+      @lib.IndirectNameMap::new([
+        @lib.IndirectNameAssoc::new(
+          0U,
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("stale-label")),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  let input = pass_test_module_from_wat(
+    "(module (func block block nop end end))",
+  ).with_name_sec(name_sec)
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["remove-unused-names"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected label-name cleanup expectation success, got \{err}")
+  }
+  @debug.assert_eq(
+    optimized.name_sec,
+    Some(
+      @lib.NameSec::new(
+        func_names=Some(
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("kept-func")),
+          ]),
+        ),
+      ),
+    ),
+  )
+}
+
+///|
 test "remove-unused-names demotes loops without continue targets" {
   match remove_unused_names_test_body("(module (func loop nop end))") {
     [@lib.Block(@lib.VoidBlockType, @lib.Expr([]))] => ()
