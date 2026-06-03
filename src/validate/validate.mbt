@@ -64,12 +64,12 @@ pub fn validation_issue_message(issue : ValidationIssue) -> String {
 }
 
 ///|
-pub impl Show for ValidationIssue with output(self, logger) {
+pub impl Show for ValidationIssue with fn output(self, logger) {
   logger.write_string(validation_issue_message(self))
 }
 
 ///|
-pub impl Show for ValidationDiagnostic with output(self, logger) {
+pub impl Show for ValidationDiagnostic with fn output(self, logger) {
   match self.func_idx {
     Some(FuncIdx(i)) => {
       logger.write_string("func[")
@@ -87,7 +87,7 @@ pub suberror ValidationError {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for ValidationError with output(self, logger) {
+pub impl Show for ValidationError with fn output(self, logger) {
   match self {
     Validation(diag) => diag.output(logger)
   }
@@ -436,21 +436,21 @@ fn validate_func_trace_top_instrs(func : Func) -> Int {
 
 ///|
 pub trait Validate {
-  validate(Self, Env) -> Result[Unit, String]
+  fn validate(Self, Env) -> Result[Unit, String]
 }
 
 ///|
 pub trait ValidateMax {
-  validate_max(Self, Env, UInt64) -> Result[Unit, String]
+  fn validate_max(Self, Env, UInt64) -> Result[Unit, String]
 }
 
 ///|
-pub impl Validate for NumType with validate(_, _) {
+pub impl Validate for NumType with fn validate(_, _) {
   Ok(())
 }
 
 ///|
-pub impl Validate for TypeIdx with validate(self, env) {
+pub impl Validate for TypeIdx with fn validate(self, env) {
   if env.resolve_typeidx_subtype(self) is Some(_) {
     Ok(())
   } else {
@@ -459,7 +459,7 @@ pub impl Validate for TypeIdx with validate(self, env) {
 }
 
 ///|
-pub impl Validate for HeapType with validate(self, env) {
+pub impl Validate for HeapType with fn validate(self, env) {
   match self {
     AbsHeapTypeHeapType(abs) => Validate::validate(abs, env)
     HeapType(tidx) => Validate::validate(tidx, env)
@@ -468,7 +468,7 @@ pub impl Validate for HeapType with validate(self, env) {
 }
 
 ///|
-pub impl Validate for DefType with validate(self, env) {
+pub impl Validate for DefType with fn validate(self, env) {
   let DefType(rt, _) = self
   let env2 = env_with_rectype(env, rt)
   match self.project() {
@@ -478,12 +478,12 @@ pub impl Validate for DefType with validate(self, env) {
 }
 
 ///|
-pub impl Validate for AbsHeapType with validate(_, _) {
+pub impl Validate for AbsHeapType with fn validate(_, _) {
   Ok(())
 }
 
 ///|
-pub impl Validate for ValType with validate(self, env) {
+pub impl Validate for ValType with fn validate(self, env) {
   match self {
     RefTypeValType(rt) => Validate::validate(rt, env)
     VecTypeValType => Ok(())
@@ -493,7 +493,7 @@ pub impl Validate for ValType with validate(self, env) {
 }
 
 ///|
-pub impl[T : Validate] Validate for Array[T] with validate(self, env) {
+pub impl[T : Validate] Validate for Array[T] with fn validate(self, env) {
   for v in self {
     if Validate::validate(v, env) is Err(t) {
       return Err(t)
@@ -503,7 +503,7 @@ pub impl[T : Validate] Validate for Array[T] with validate(self, env) {
 }
 
 ///|
-pub impl Validate for BlockType with validate(self, env) {
+pub impl Validate for BlockType with fn validate(self, env) {
   match self {
     ValTypeBlockType(vt) => Validate::validate(vt, env)
     VoidBlockType => Ok(())
@@ -520,7 +520,7 @@ pub impl Validate for BlockType with validate(self, env) {
 }
 
 ///|
-pub impl Validate for FuncType with validate(self, env) {
+pub impl Validate for FuncType with fn validate(self, env) {
   let FuncType(t0, t1) = self
   match Validate::validate(t0, env) {
     Ok(_) => Validate::validate(t1, env)
@@ -529,7 +529,7 @@ pub impl Validate for FuncType with validate(self, env) {
 }
 
 ///|
-pub impl Validate for CompType with validate(self, env) {
+pub impl Validate for CompType with fn validate(self, env) {
   match self {
     StructCompType(fts) => Validate::validate(fts, env)
     ArrayCompType(ft) => Validate::validate(ft, env)
@@ -542,7 +542,7 @@ pub impl Validate for CompType with validate(self, env) {
 }
 
 ///|
-pub impl Validate for RefType with validate(self, env) {
+pub impl Validate for RefType with fn validate(self, env) {
   match self {
     HeapTypeRefType(_, exact, ht) =>
       if exact {
@@ -558,13 +558,13 @@ pub impl Validate for RefType with validate(self, env) {
 }
 
 ///|
-pub impl Validate for FieldType with validate(self, env) {
+pub impl Validate for FieldType with fn validate(self, env) {
   let FieldType(st, _) = self
   Validate::validate(st, env)
 }
 
 ///|
-pub impl Validate for StorageType with validate(self, env) {
+pub impl Validate for StorageType with fn validate(self, env) {
   match self {
     ValTypeStorageType(vt) => Validate::validate(vt, env)
     PackTypeStorageType(_) => Ok(())
@@ -572,7 +572,7 @@ pub impl Validate for StorageType with validate(self, env) {
 }
 
 ///|
-pub impl Validate for RecType with validate(self, env) {
+pub impl Validate for RecType with fn validate(self, env) {
   let sts = match self {
     SingleRecType(st) => [st]
     GroupRecType(sts) => sts
@@ -816,7 +816,7 @@ fn validate_descriptor_metadata_group(
 }
 
 ///|
-pub impl Validate for SubType with validate(self, env) {
+pub impl Validate for SubType with fn validate(self, env) {
   match self {
     SubType(_, matches, _, ct) => {
       for m in matches {
@@ -838,7 +838,7 @@ pub impl Validate for SubType with validate(self, env) {
 }
 
 ///|
-pub impl ValidateMax for Limits with validate_max(self, _, k) {
+pub impl ValidateMax for Limits with fn validate_max(self, _, k) {
   match self {
     I32Limits(n, m) => {
       let n = n.to_uint64()
@@ -862,7 +862,7 @@ pub impl ValidateMax for Limits with validate_max(self, _, k) {
 }
 
 ///|
-pub impl Validate for LabelIdx with validate(self, env) {
+pub impl Validate for LabelIdx with fn validate(self, env) {
   let LabelIdx(i) = self
   if i < env.labels.length().reinterpret_as_uint() {
     Ok(())
@@ -872,7 +872,7 @@ pub impl Validate for LabelIdx with validate(self, env) {
 }
 
 ///|
-pub impl Validate for TagIdx with validate(self, env) {
+pub impl Validate for TagIdx with fn validate(self, env) {
   let TagIdx(i) = self
   if i < env.tags.length().reinterpret_as_uint() {
     Ok(())
@@ -882,7 +882,7 @@ pub impl Validate for TagIdx with validate(self, env) {
 }
 
 ///|
-pub impl Validate for TagType with validate(self, env) {
+pub impl Validate for TagType with fn validate(self, env) {
   let TagType(tidx) = self
   if Validate::validate(tidx, env) is Err(t) {
     return Err(t)
@@ -899,13 +899,13 @@ pub impl Validate for TagType with validate(self, env) {
 }
 
 ///|
-pub impl Validate for TagSec with validate(self, env) {
+pub impl Validate for TagSec with fn validate(self, env) {
   let TagSec(t) = self
   Validate::validate(t, env)
 }
 
 ///|
-pub impl Validate for Catch with validate(self, env) {
+pub impl Validate for Catch with fn validate(self, env) {
   match self {
     Catch(t, l) =>
       match Validate::validate(t, env) {
@@ -939,13 +939,13 @@ pub impl Validate for Catch with validate(self, env) {
 }
 
 ///|
-pub impl Validate for GlobalType with validate(self, env) {
+pub impl Validate for GlobalType with fn validate(self, env) {
   let GlobalType(vt, _) = self
   Validate::validate(vt, env)
 }
 
 ///|
-pub impl Validate for MemType with validate(self, env) {
+pub impl Validate for MemType with fn validate(self, env) {
   let MemType(lim, shared) = self
   if shared {
     match lim {
@@ -961,7 +961,7 @@ pub impl Validate for MemType with validate(self, env) {
 }
 
 ///|
-pub impl Validate for TableType with validate(self, env) {
+pub impl Validate for TableType with fn validate(self, env) {
   let TableType(rt, lim) = self
   match Validate::validate(rt, env) {
     Ok(_) => ValidateMax::validate_max(lim, env, 4294967295)
@@ -970,7 +970,7 @@ pub impl Validate for TableType with validate(self, env) {
 }
 
 ///|
-pub impl Validate for ExternType with validate(self, env) {
+pub impl Validate for ExternType with fn validate(self, env) {
   match self {
     TagExternType(tt) => Validate::validate(tt, env)
     GlobalExternType(gt) => Validate::validate(gt, env)
@@ -1704,7 +1704,7 @@ pub fn validate_defined_func_against_module(
 }
 
 ///|
-pub impl Validate for DataMode with validate(self, env) {
+pub impl Validate for DataMode with fn validate(self, env) {
   match self {
     Passive => Ok(())
     Active(memidx, offset_expr) => {
@@ -1724,7 +1724,7 @@ pub impl Validate for DataMode with validate(self, env) {
 }
 
 ///|
-pub impl Validate for Data with validate(self, env) {
+pub impl Validate for Data with fn validate(self, env) {
   let Data(mode, _) = self
   Validate::validate(mode, env)
 }
@@ -1785,7 +1785,7 @@ fn validate_elem_mode(
 }
 
 ///|
-pub impl Validate for ElemKind with validate(self, env) {
+pub impl Validate for ElemKind with fn validate(self, env) {
   match self {
     // elemtype is funcref; initializers are function indices
     FuncsElemKind(fs) => {
@@ -1825,7 +1825,7 @@ pub impl Validate for ElemKind with validate(self, env) {
 }
 
 ///|
-pub impl Validate for Elem with validate(self, env) {
+pub impl Validate for Elem with fn validate(self, env) {
   let Elem(mode, kind) = self
 
   // kind validity (incl. elemtype and init exprs)
@@ -1863,7 +1863,7 @@ pub fn validate_elemsec(elemsec : ElemSec?, env0 : Env) -> Result[Env, String] {
 }
 
 ///|
-pub impl Validate for Import with validate(self, env) {
+pub impl Validate for Import with fn validate(self, env) {
   let Import(_, _, xt) = self
   Validate::validate(xt, env)
 }
@@ -1933,7 +1933,7 @@ pub fn validate_startsec(
 }
 
 ///|
-pub impl Validate for FuncIdx with validate(self, env) {
+pub impl Validate for FuncIdx with fn validate(self, env) {
   if env.has_func(self) {
     Ok(())
   } else {
@@ -1942,7 +1942,7 @@ pub impl Validate for FuncIdx with validate(self, env) {
 }
 
 ///|
-pub impl Validate for TableIdx with validate(self, env) {
+pub impl Validate for TableIdx with fn validate(self, env) {
   match env.get_table_type(self) {
     Some(_) => Ok(())
     None => Err("invalid table index")
@@ -1950,7 +1950,7 @@ pub impl Validate for TableIdx with validate(self, env) {
 }
 
 ///|
-pub impl Validate for MemIdx with validate(self, env) {
+pub impl Validate for MemIdx with fn validate(self, env) {
   let MemIdx(i) = self
   match env.get_memtype(MemIdx::new(i)) {
     Some(_) => Ok(())
@@ -1959,7 +1959,7 @@ pub impl Validate for MemIdx with validate(self, env) {
 }
 
 ///|
-pub impl Validate for GlobalIdx with validate(self, env) {
+pub impl Validate for GlobalIdx with fn validate(self, env) {
   let GlobalIdx(i) = self
   match env.get_global_type(GlobalIdx::new(i)) {
     Some(_) => Ok(())
@@ -1968,7 +1968,7 @@ pub impl Validate for GlobalIdx with validate(self, env) {
 }
 
 ///|
-pub impl Validate for ExternIdx with validate(self, env) {
+pub impl Validate for ExternIdx with fn validate(self, env) {
   match self {
     FuncExternIdx(i) => Validate::validate(i, env)
     TableExternIdx(i) => Validate::validate(i, env)
@@ -1979,7 +1979,7 @@ pub impl Validate for ExternIdx with validate(self, env) {
 }
 
 ///|
-pub impl Validate for Export with validate(self, env) {
+pub impl Validate for Export with fn validate(self, env) {
   let Export(_, exi) = self
   Validate::validate(exi, env)
 }
@@ -3445,7 +3445,7 @@ pub enum ValidateValidFeatureKey {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for ValidateValidFeatureKey with output(self, logger) {
+pub impl Show for ValidateValidFeatureKey with fn output(self, logger) {
   match self {
     Imports => logger.write_string("Imports")
     FuncExports => logger.write_string("FuncExports")
@@ -3513,7 +3513,7 @@ pub struct ValidateValidFeatureFloor {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for ValidateValidFeatureFloor with output(self, logger) {
+pub impl Show for ValidateValidFeatureFloor with fn output(self, logger) {
   logger.write_string("ValidateValidFeatureFloor { key: ")
   self.key.output(logger)
   logger.write_string(", min_count: ")
@@ -3536,7 +3536,7 @@ pub enum ValidateValidFeatureLedgerStatus {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for ValidateValidFeatureLedgerStatus with output(self, logger) {
+pub impl Show for ValidateValidFeatureLedgerStatus with fn output(self, logger) {
   match self {
     Covered => logger.write_string("Covered")
     MissingOptional => logger.write_string("MissingOptional")
@@ -3554,7 +3554,7 @@ pub struct ValidateValidFeatureLedgerEntry {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for ValidateValidFeatureFloorFailure with output(self, logger) {
+pub impl Show for ValidateValidFeatureFloorFailure with fn output(self, logger) {
   logger.write_string("ValidateValidFeatureFloorFailure { key: ")
   self.key.output(logger)
   logger.write_string(", min_count: ")
@@ -3576,7 +3576,7 @@ pub struct ValidateValidFuzzStats {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for ValidateValidFuzzStats with output(self, logger) {
+pub impl Show for ValidateValidFuzzStats with fn output(self, logger) {
   logger.write_string("ValidateValidFuzzStats {profile: ")
   self.profile.output(logger)
   logger.write_string(", seed: ")

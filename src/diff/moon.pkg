@@ -1,4 +1,4 @@
 import {
   "moonbitlang/core/debug",
-  "jtenner/starshine/bitset" @bitset,
+  "jtenner/starshine/bitset",
 }

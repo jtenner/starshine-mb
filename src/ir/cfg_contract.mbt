@@ -11,7 +11,7 @@ pub enum CfgEdgeKind {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for CfgEdgeKind with output(self, logger) {
+pub impl Show for CfgEdgeKind with fn output(self, logger) {
   match self {
     FallthroughEdge => logger.write_string("FallthroughEdge")
     BranchEdge => logger.write_string("BranchEdge")
@@ -35,7 +35,7 @@ pub enum CfgBlockBoundaryReason {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for CfgBlockBoundaryReason with output(self, logger) {
+pub impl Show for CfgBlockBoundaryReason with fn output(self, logger) {
   match self {
     RootEntry => logger.write_string("RootEntry")
     ControlHeader => logger.write_string("ControlHeader")
@@ -58,7 +58,7 @@ pub enum CfgControlSuccessorPolicy {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for CfgControlSuccessorPolicy with output(self, logger) {
+pub impl Show for CfgControlSuccessorPolicy with fn output(self, logger) {
   match self {
     InlineBodyRegion => logger.write_string("InlineBodyRegion")
     SplitThenElse => logger.write_string("SplitThenElse")
@@ -77,7 +77,7 @@ pub enum CfgExceptionTargetPolicy {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for CfgExceptionTargetPolicy with output(self, logger) {
+pub impl Show for CfgExceptionTargetPolicy with fn output(self, logger) {
   match self {
     NoExceptionEdge => logger.write_string("NoExceptionEdge")
     PropagateToCaller => logger.write_string("PropagateToCaller")

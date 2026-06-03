@@ -8,7 +8,7 @@ pub enum TcEscape {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for TcEscape with output(self, logger) {
+pub impl Show for TcEscape with fn output(self, logger) {
   match self {
     NoTcEscape => logger.write_string("NoTcEscape")
     BranchTcEscape(depth) => logger.write_string("BranchTcEscape(\{depth})")
@@ -26,7 +26,7 @@ pub struct TcState {
 }
 
 ///|
-pub impl Show for TcState with output(self, logger) {
+pub impl Show for TcState with fn output(self, logger) {
   logger.write_string("TcState {env: ")
   self.env.output(logger)
   logger.write_string(", stack: ")
@@ -45,7 +45,7 @@ pub type TcResult = Result[TcState, String]
 
 ///|
 pub trait Typecheck {
-  typecheck(Self, TcState) -> Result[TcState, String]
+  fn typecheck(Self, TcState) -> Result[TcState, String]
 }
 
 ///|
@@ -426,7 +426,7 @@ fn normalize_loop_exit(
 }
 
 ///|
-pub impl Typecheck for Expr with typecheck(self, st0) {
+pub impl Typecheck for Expr with fn typecheck(self, st0) {
   let Expr(instrs) = self
   let mut st = st0
   for ins in instrs {
@@ -3179,7 +3179,7 @@ fn typecheck_string_const(st : TcState) -> TcResult {
 }
 
 ///|
-pub impl Typecheck for Instruction with typecheck(self, st) {
+pub impl Typecheck for Instruction with fn typecheck(self, st) {
   match self {
     Unreachable => Ok(st.set_unreachable())
     Nop => Ok(st)

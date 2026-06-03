@@ -21,7 +21,7 @@ pub suberror BinaryEncodeError {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for BinaryEncodeError with output(self, logger) {
+pub impl Show for BinaryEncodeError with fn output(self, logger) {
   match self {
     CannotEncodeRecursiveIndexHeapType =>
       logger.write_string("CannotEncodeRecursiveIndexHeapType")
@@ -60,7 +60,7 @@ pub impl Show for BinaryEncodeError with output(self, logger) {
 
 ///|
 pub trait Encode {
-  encode(Self, @buffer.Buffer) -> Result[Unit, BinaryEncodeError]
+  fn encode(Self, @buffer.Buffer) -> Result[Unit, BinaryEncodeError]
 }
 
 ///|
@@ -103,7 +103,7 @@ fn encode_string_const_index(
 }
 
 ///|
-pub impl Encode for NumType with encode(val, buf) {
+pub impl Encode for NumType with fn encode(val, buf) {
   match val {
     F64NumType => buf.write_byte(0x7C)
     F32NumType => buf.write_byte(0x7D)
@@ -114,7 +114,7 @@ pub impl Encode for NumType with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for HeapType with encode(val, buf) {
+pub impl Encode for HeapType with fn encode(val, buf) {
   match val {
     AbsHeapTypeHeapType(ht) => Encode::encode(ht, buf)
     HeapType(TypeIdx(i)) => Encode::encode(@lib.S33(i), buf)
@@ -125,7 +125,7 @@ pub impl Encode for HeapType with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for AbsHeapType with encode(val, buf) {
+pub impl Encode for AbsHeapType with fn encode(val, buf) {
   match val {
     ExnAbsHeapType => buf.write_byte(0x69)
     StringAbsHeapType => buf.write_byte(0x64)
@@ -145,7 +145,7 @@ pub impl Encode for AbsHeapType with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for RefType with encode(val, buf) {
+pub impl Encode for RefType with fn encode(val, buf) {
   match val {
     HeapTypeRefType(true, exact, ht) => {
       buf.write_byte(0x63)
@@ -188,7 +188,7 @@ fn encode_ref_null_immediate(
 }
 
 ///|
-pub impl Encode for ValType with encode(val, buf) {
+pub impl Encode for ValType with fn encode(val, buf) {
   match val {
     VecTypeValType => {
       buf.write_byte(0x7B)
@@ -201,7 +201,7 @@ pub impl Encode for ValType with encode(val, buf) {
 }
 
 ///|
-pub impl[T : Encode] Encode for @list.List[T] with encode(val, buf) {
+pub impl[T : Encode] Encode for @list.List[T] with fn encode(val, buf) {
   if Encode::encode(@lib.U32(val.length().reinterpret_as_uint()), buf) is Err(t) {
     return Err(t)
   }
@@ -216,7 +216,7 @@ pub impl[T : Encode] Encode for @list.List[T] with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for CompType with encode(val, buf) {
+pub impl Encode for CompType with fn encode(val, buf) {
   match val {
     StructCompType(fts) => {
       buf.write_byte(0x5F)
@@ -237,7 +237,7 @@ pub impl Encode for CompType with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for FieldType with encode(val, buf) {
+pub impl Encode for FieldType with fn encode(val, buf) {
   let FieldType(st, m) = val
   if Encode::encode(st, buf) is Err(t) {
     return Err(t)
@@ -249,7 +249,7 @@ pub impl Encode for FieldType with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for Mut with encode(val, buf) {
+pub impl Encode for Mut with fn encode(val, buf) {
   match val {
     Const => buf.write_byte(0x00)
     Var => buf.write_byte(0x01)
@@ -258,7 +258,7 @@ pub impl Encode for Mut with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for StorageType with encode(val, buf) {
+pub impl Encode for StorageType with fn encode(val, buf) {
   match val {
     ValTypeStorageType(vt) => Encode::encode(vt, buf)
     PackTypeStorageType(pt) => Encode::encode(pt, buf)
@@ -266,7 +266,7 @@ pub impl Encode for StorageType with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for PackType with encode(val, buf) {
+pub impl Encode for PackType with fn encode(val, buf) {
   match val {
     I16PackType => {
       buf.write_byte(0x77)
@@ -280,7 +280,7 @@ pub impl Encode for PackType with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for RecType with encode(val, buf) {
+pub impl Encode for RecType with fn encode(val, buf) {
   match val {
     SingleRecType(st) => Encode::encode(st, buf)
     GroupRecType(sts) => {
@@ -291,7 +291,7 @@ pub impl Encode for RecType with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for SubType with encode(val, buf) {
+pub impl Encode for SubType with fn encode(val, buf) {
   match val {
     SubType(f, indexes, meta, ct) => {
       match f {
@@ -346,7 +346,7 @@ pub impl Encode for SubType with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for ExternIdx with encode(val, buf) {
+pub impl Encode for ExternIdx with fn encode(val, buf) {
   match val {
     FuncExternIdx(idx) => {
       buf.write_byte(0x00)
@@ -520,51 +520,51 @@ fn max_leb_bytes(nbits : Int) -> Int {
 }
 
 ///|
-pub impl Encode for S33 with encode(val, buf) {
+pub impl Encode for S33 with fn encode(val, buf) {
   let S33(val) = val
   encode_signed(val.to_int64(), buf, 33)
 }
 
 ///|
-pub impl Encode for I32 with encode(val, buf) {
+pub impl Encode for I32 with fn encode(val, buf) {
   let I32(val) = val
   encode_signed(val.to_int64(), buf, 32)
 }
 
 ///|
-pub impl Encode for U32 with encode(val, buf) {
+pub impl Encode for U32 with fn encode(val, buf) {
   let @lib.U32(val) = val
   encode_unsigned(val.to_uint64(), buf, 32)
 }
 
 ///|
-pub impl Encode for U64 with encode(val, buf) {
+pub impl Encode for U64 with fn encode(val, buf) {
   let @lib.U64(val) = val
   encode_unsigned(val, buf, 64)
 }
 
 ///|
-pub impl Encode for I64 with encode(val, buf) {
+pub impl Encode for I64 with fn encode(val, buf) {
   let I64(val) = val
   encode_signed(val, buf, 64)
 }
 
 ///|
-pub impl Encode for F32 with encode(val, buf) {
+pub impl Encode for F32 with fn encode(val, buf) {
   let F32(val) = val
   buf.write_float_le(val)
   Ok(())
 }
 
 ///|
-pub impl Encode for F64 with encode(val, buf) {
+pub impl Encode for F64 with fn encode(val, buf) {
   let F64(val) = val
   buf.write_double_le(val)
   Ok(())
 }
 
 ///|
-pub impl Encode for Bool with encode(val, buf) {
+pub impl Encode for Bool with fn encode(val, buf) {
   if val {
     buf.write_byte(0x01)
   } else {
@@ -574,7 +574,7 @@ pub impl Encode for Bool with encode(val, buf) {
 }
 
 ///|
-pub impl[T : Encode] Encode for T? with encode(val, buf) {
+pub impl[T : Encode] Encode for T? with fn encode(val, buf) {
   match val {
     None => Ok(())
     Some(val) => Encode::encode(val, buf)
@@ -582,7 +582,7 @@ pub impl[T : Encode] Encode for T? with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for TypeIdx with encode(val, buf) {
+pub impl Encode for TypeIdx with fn encode(val, buf) {
   match val {
     TypeIdx(id) => encode_unsigned(id.to_uint64(), buf, 32)
     _ => Err(BinaryEncodeError::CannotEncodeNonStandardTypeIndex)
@@ -590,67 +590,67 @@ pub impl Encode for TypeIdx with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for FuncIdx with encode(val, buf) {
+pub impl Encode for FuncIdx with fn encode(val, buf) {
   let FuncIdx(id) = val
   encode_unsigned(id.to_uint64(), buf, 32)
 }
 
 ///|
-pub impl Encode for TableIdx with encode(val, buf) {
+pub impl Encode for TableIdx with fn encode(val, buf) {
   let TableIdx(id) = val
   encode_unsigned(id.to_uint64(), buf, 32)
 }
 
 ///|
-pub impl Encode for MemIdx with encode(val, buf) {
+pub impl Encode for MemIdx with fn encode(val, buf) {
   let MemIdx(id) = val
   encode_unsigned(id.to_uint64(), buf, 32)
 }
 
 ///|
-pub impl Encode for GlobalIdx with encode(val, buf) {
+pub impl Encode for GlobalIdx with fn encode(val, buf) {
   let GlobalIdx(id) = val
   encode_unsigned(id.to_uint64(), buf, 32)
 }
 
 ///|
-pub impl Encode for TagIdx with encode(val, buf) {
+pub impl Encode for TagIdx with fn encode(val, buf) {
   let TagIdx(id) = val
   encode_unsigned(id.to_uint64(), buf, 32)
 }
 
 ///|
-pub impl Encode for ElemIdx with encode(val, buf) {
+pub impl Encode for ElemIdx with fn encode(val, buf) {
   let ElemIdx(id) = val
   encode_unsigned(id.to_uint64(), buf, 32)
 }
 
 ///|
-pub impl Encode for DataIdx with encode(val, buf) {
+pub impl Encode for DataIdx with fn encode(val, buf) {
   let DataIdx(id) = val
   encode_unsigned(id.to_uint64(), buf, 32)
 }
 
 ///|
-pub impl Encode for LocalIdx with encode(val, buf) {
+pub impl Encode for LocalIdx with fn encode(val, buf) {
   let LocalIdx(id) = val
   encode_unsigned(id.to_uint64(), buf, 32)
 }
 
 ///|
-pub impl Encode for LabelIdx with encode(val, buf) {
+pub impl Encode for LabelIdx with fn encode(val, buf) {
   let LabelIdx(id) = val
   encode_unsigned(id.to_uint64(), buf, 32)
 }
 
 ///|
-pub impl Encode for LaneIdx with encode(val, buf) {
+pub impl Encode for LaneIdx with fn encode(val, buf) {
   buf.write_byte(val.0)
   Ok(())
 }
 
 ///|
-pub impl Encode for Name with encode(val, buf) {
+pub impl Encode for Name with fn encode(val, buf) {
   let Name(name) = val
   let bytes = @utf8.encode(name)
   let len = bytes.length()
@@ -664,7 +664,7 @@ pub impl Encode for Name with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for NameAssoc with encode(val, buf) {
+pub impl Encode for NameAssoc with fn encode(val, buf) {
   let NameAssoc(idx, name) = val
   match Encode::encode(@lib.U32(idx), buf) {
     Err(err) => return Err(err)
@@ -674,7 +674,7 @@ pub impl Encode for NameAssoc with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for NameMap with encode(val, buf) {
+pub impl Encode for NameMap with fn encode(val, buf) {
   let NameMap(entries) = val
   match Encode::encode(@lib.U32(entries.length().reinterpret_as_uint()), buf) {
     Err(err) => return Err(err)
@@ -697,7 +697,7 @@ pub impl Encode for NameMap with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for IndirectNameAssoc with encode(val, buf) {
+pub impl Encode for IndirectNameAssoc with fn encode(val, buf) {
   let IndirectNameAssoc(idx, names) = val
   match Encode::encode(@lib.U32(idx), buf) {
     Err(err) => return Err(err)
@@ -707,7 +707,7 @@ pub impl Encode for IndirectNameAssoc with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for IndirectNameMap with encode(val, buf) {
+pub impl Encode for IndirectNameMap with fn encode(val, buf) {
   let IndirectNameMap(entries) = val
   match Encode::encode(@lib.U32(entries.length().reinterpret_as_uint()), buf) {
     Err(err) => return Err(err)
@@ -750,7 +750,7 @@ fn write_name_subsection(
 }
 
 ///|
-pub impl Encode for NameSec with encode(val, buf) {
+pub impl Encode for NameSec with fn encode(val, buf) {
   let {
     module_name,
     func_names,
@@ -1109,7 +1109,7 @@ fn binary_encode_rewrite_typed_expr_to_raw(
 }
 
 ///|
-pub impl Encode for CustomSec with encode(val, buf) {
+pub impl Encode for CustomSec with fn encode(val, buf) {
   let CustomSec(name, bytes) = val
   write_section(0, buf, fn(payload) {
     if Encode::encode(name, payload) is Err(t) {
@@ -1121,17 +1121,17 @@ pub impl Encode for CustomSec with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for TypeSec with encode(val, buf) {
+pub impl Encode for TypeSec with fn encode(val, buf) {
   write_section(1, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|
-pub impl Encode for ImportSec with encode(val, buf) {
+pub impl Encode for ImportSec with fn encode(val, buf) {
   write_section(2, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|
-pub impl Encode for Import with encode(val, buf) {
+pub impl Encode for Import with fn encode(val, buf) {
   let Import(ns, name, et) = val
   match Encode::encode(ns, buf) {
     Err(err) => return Err(err)
@@ -1145,7 +1145,7 @@ pub impl Encode for Import with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for ExternType with encode(val, buf) {
+pub impl Encode for ExternType with fn encode(val, buf) {
   match val {
     FuncExternType(idx) => {
       buf.write_byte(0x00)
@@ -1171,7 +1171,7 @@ pub impl Encode for ExternType with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for TableType with encode(val, buf) {
+pub impl Encode for TableType with fn encode(val, buf) {
   let TableType(rt, l) = val
   match Encode::encode(rt, buf) {
     Err(err) => return Err(err)
@@ -1181,7 +1181,7 @@ pub impl Encode for TableType with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for Limits with encode(val, buf) {
+pub impl Encode for Limits with fn encode(val, buf) {
   match val {
     I32Limits(min, None) => {
       buf.write_byte(0x00)
@@ -1211,7 +1211,7 @@ pub impl Encode for Limits with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for MemType with encode(val, buf) {
+pub impl Encode for MemType with fn encode(val, buf) {
   let MemType(limits, shared) = val
   match (limits, shared) {
     (I32Limits(min, None), false) => {
@@ -1266,7 +1266,7 @@ pub impl Encode for MemType with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for GlobalType with encode(val, buf) {
+pub impl Encode for GlobalType with fn encode(val, buf) {
   let GlobalType(vt, m) = val
   match Encode::encode(vt, buf) {
     Err(err) => return Err(err)
@@ -1276,23 +1276,23 @@ pub impl Encode for GlobalType with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for TagType with encode(val, buf) {
+pub impl Encode for TagType with fn encode(val, buf) {
   buf.write_byte(0x00)
   Encode::encode(val.0, buf)
 }
 
 ///|
-pub impl Encode for FuncSec with encode(val, buf) {
+pub impl Encode for FuncSec with fn encode(val, buf) {
   write_section(3, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|
-pub impl Encode for TableSec with encode(val, buf) {
+pub impl Encode for TableSec with fn encode(val, buf) {
   write_section(4, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|
-pub impl Encode for Table with encode(val, buf) {
+pub impl Encode for Table with fn encode(val, buf) {
   match val {
     Table(tt, None) => Encode::encode(tt, buf)
     Table(tt, Some(e)) => {
@@ -1306,17 +1306,17 @@ pub impl Encode for Table with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for MemSec with encode(val, buf) {
+pub impl Encode for MemSec with fn encode(val, buf) {
   write_section(5, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|
-pub impl Encode for GlobalSec with encode(val, buf) {
+pub impl Encode for GlobalSec with fn encode(val, buf) {
   write_section(6, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|
-pub impl Encode for Global with encode(val, buf) {
+pub impl Encode for Global with fn encode(val, buf) {
   let Global(gt, e) = val
   match Encode::encode(gt, buf) {
     Err(err) => return Err(err)
@@ -1326,12 +1326,12 @@ pub impl Encode for Global with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for ExportSec with encode(val, buf) {
+pub impl Encode for ExportSec with fn encode(val, buf) {
   write_section(7, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|
-pub impl Encode for Export with encode(val, buf) {
+pub impl Encode for Export with fn encode(val, buf) {
   let Export(n, eidx) = val
   match Encode::encode(n, buf) {
     Err(err) => return Err(err)
@@ -1341,18 +1341,18 @@ pub impl Encode for Export with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for StartSec with encode(val, buf) {
+pub impl Encode for StartSec with fn encode(val, buf) {
   // Canonical section framing: id + payload_len + payload.
   write_section(8, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|
-pub impl Encode for ElemSec with encode(val, buf) {
+pub impl Encode for ElemSec with fn encode(val, buf) {
   write_section(9, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|
-pub impl Encode for Elem with encode(val, buf) {
+pub impl Encode for Elem with fn encode(val, buf) {
   match val {
     Elem(Active(TableIdx(0), e), FuncsElemKind(y)) => {
       buf.write_byte(0x00)
@@ -1449,14 +1449,14 @@ pub impl Encode for Elem with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for CodeSec with encode(val, buf) {
+pub impl Encode for CodeSec with fn encode(val, buf) {
   let CodeSec(fns) = val
   // Canonical section framing: id + payload_len + payload.
   write_section(10, buf, fn(payload) { Encode::encode(fns, payload) })
 }
 
 ///|
-pub impl Encode for Func with encode(val, buf) {
+pub impl Encode for Func with fn encode(val, buf) {
   let fn_body = @buffer.new()
   let Func(locals, expr) = val
   if Encode::encode(locals, fn_body) is Err(t) {
@@ -1475,12 +1475,12 @@ pub impl Encode for Func with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for DataSec with encode(val, buf) {
+pub impl Encode for DataSec with fn encode(val, buf) {
   write_section(11, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|
-pub impl Encode for Data with encode(val, buf) {
+pub impl Encode for Data with fn encode(val, buf) {
   match val {
     Data(Active(MemIdx(0), e), bytes) => {
       buf.write_byte(0x00)
@@ -1507,12 +1507,12 @@ pub impl Encode for Data with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for Locals with encode(val, buf) {
+pub impl Encode for Locals with fn encode(val, buf) {
   Encode::encode(val.runs(), buf)
 }
 
 ///|
-pub impl Encode for LocalRun with encode(val, buf) {
+pub impl Encode for LocalRun with fn encode(val, buf) {
   match Encode::encode(@lib.U32(val.count), buf) {
     Err(err) => return Err(err)
     Ok(_) => ()
@@ -1521,19 +1521,19 @@ pub impl Encode for LocalRun with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for DataCntSec with encode(val, buf) {
+pub impl Encode for DataCntSec with fn encode(val, buf) {
   let DataCntSec(count) = val
   // Canonical section framing: id + payload_len + payload.
   write_section(12, buf, fn(payload) { Encode::encode(count, payload) })
 }
 
 ///|
-pub impl Encode for TagSec with encode(val, buf) {
+pub impl Encode for TagSec with fn encode(val, buf) {
   write_section(13, buf, fn(payload) { Encode::encode(val.0, payload) })
 }
 
 ///|
-pub impl Encode for StringRefsSec with encode(val, buf) {
+pub impl Encode for StringRefsSec with fn encode(val, buf) {
   let StringRefsSec(strings) = val
   write_section(14, buf, fn(payload) {
     payload.write_byte(0x00)
@@ -1542,7 +1542,7 @@ pub impl Encode for StringRefsSec with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for CastOp with encode(val, buf) {
+pub impl Encode for CastOp with fn encode(val, buf) {
   match val {
     CastOp(false, false) => buf.write_byte(0x00)
     CastOp(true, false) => buf.write_byte(0x01)
@@ -1626,7 +1626,7 @@ fn encode_module_stringrefs(mod_ : Module) -> Array[Bytes] {
 }
 
 ///|
-pub impl Encode for Module with encode(val, buf) {
+pub impl Encode for Module with fn encode(val, buf) {
   buf.write_bytes(b"\x00\x61\x73\x6D\x01\x00\x00\x00")
   // custom sections
   for sec in val.custom_secs {
@@ -1723,7 +1723,7 @@ pub impl Encode for Module with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for Bytes with encode(val, buf) {
+pub impl Encode for Bytes with fn encode(val, buf) {
   match Encode::encode(@lib.U32(val.length().reinterpret_as_uint()), buf) {
     Err(err) => return Err(err)
     Ok(_) => ()
@@ -1733,7 +1733,7 @@ pub impl Encode for Bytes with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for BlockType with encode(val, buf) {
+pub impl Encode for BlockType with fn encode(val, buf) {
   match val {
     VoidBlockType => {
       buf.write_byte(0x40)
@@ -1746,7 +1746,7 @@ pub impl Encode for BlockType with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for Expr with encode(val, buf) {
+pub impl Encode for Expr with fn encode(val, buf) {
   for i in val.0.iter() {
     if Encode::encode(i, buf) is Err(err) {
       return Err(err)
@@ -1757,7 +1757,7 @@ pub impl Encode for Expr with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for Catch with encode(val, buf) {
+pub impl Encode for Catch with fn encode(val, buf) {
   match val {
     Catch(t, l) => {
       buf.write_byte(0x00)
@@ -1794,7 +1794,7 @@ pub impl Encode for Catch with encode(val, buf) {
 }
 
 ///|
-pub impl Encode for MemArg with encode(val, buf) {
+pub impl Encode for MemArg with fn encode(val, buf) {
   match val {
     MemArg(U32(n), Some(i), m) if n < 64 => {
       if Encode::encode(@lib.U32(n + 64), buf) is Err(t) {
@@ -1906,7 +1906,7 @@ fn atomic_cmpxchg_op_id(op : AtomicCmpxchgOp) -> UInt {
 }
 
 ///|
-pub impl Encode for Instruction with encode(val, buf) {
+pub impl Encode for Instruction with fn encode(val, buf) {
   match val {
     Unreachable => buf.write_byte(0x00)
     Nop => buf.write_byte(0x01)
@@ -3792,7 +3792,7 @@ pub impl Encode for Instruction with encode(val, buf) {
 }
 
 ///|
-pub impl[T : Encode] Encode for Array[T] with encode(val, buf) {
+pub impl[T : Encode] Encode for Array[T] with fn encode(val, buf) {
   if Encode::encode(@lib.U32(val.length().reinterpret_as_uint()), buf) is Err(t) {
     return Err(t)
   }

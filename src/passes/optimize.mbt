@@ -8,7 +8,7 @@ pub enum HotPassRegistryCategory {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotPassRegistryCategory with output(self, logger) {
+pub impl Show for HotPassRegistryCategory with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -47,7 +47,7 @@ pub struct HotPassRegistryEntry {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotPassRegistryEntry with output(self, logger) {
+pub impl Show for HotPassRegistryEntry with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 

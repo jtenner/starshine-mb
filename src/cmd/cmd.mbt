@@ -17,7 +17,7 @@ pub enum CmdError {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for CmdError with output(self, logger) {
+pub impl Show for CmdError with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -28,7 +28,7 @@ pub suberror CmdEncodeError {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for CmdEncodeError with output(self, logger) {
+pub impl Show for CmdEncodeError with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -125,7 +125,7 @@ pub struct CmdRunSummary {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for CmdRunSummary with output(self, logger) {
+pub impl Show for CmdRunSummary with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -164,7 +164,7 @@ pub enum OptimizeTracingLevel {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for OptimizeTracingLevel with output(self, logger) {
+pub impl Show for OptimizeTracingLevel with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -211,7 +211,7 @@ pub enum OptimizeValidationPolicy {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for OptimizeValidationPolicy with output(self, logger) {
+pub impl Show for OptimizeValidationPolicy with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -231,7 +231,7 @@ pub struct InliningOptions {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for InliningOptions with output(self, logger) {
+pub impl Show for InliningOptions with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -256,7 +256,7 @@ pub struct OptimizeOptions {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for OptimizeOptions with output(self, logger) {
+pub impl Show for OptimizeOptions with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 

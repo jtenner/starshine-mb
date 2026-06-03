@@ -246,7 +246,8 @@ test "once-reduction ignores idempotent annotations on typed functions" {
     #|
   let optimized = match pass_test_run_pipeline(input, ["once-reduction"]) {
     Ok(mod_) => mod_
-    Err(err) => fail("expected typed-idempotent once-reduction success, got \{err}")
+    Err(err) =>
+      fail("expected typed-idempotent once-reduction success, got \{err}")
   }
 
   @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 1), [
@@ -269,7 +270,8 @@ test "once-reduction keeps unannotated imported calls" {
     #|
   let optimized = match pass_test_run_pipeline(input, ["once-reduction"]) {
     Ok(mod_) => mod_
-    Err(err) => fail("expected imported-call once-reduction success, got \{err}")
+    Err(err) =>
+      fail("expected imported-call once-reduction success, got \{err}")
   }
 
   @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 0), [
@@ -290,7 +292,8 @@ test "once-reduction keeps idempotent imported calls as boundary roots" {
     #|
   let optimized = match pass_test_run_pipeline(input, ["once-reduction"]) {
     Ok(mod_) => mod_
-    Err(err) => fail("expected idempotent-import once-reduction success, got \{err}")
+    Err(err) =>
+      fail("expected idempotent-import once-reduction success, got \{err}")
   }
 
   @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 0), [
@@ -317,7 +320,8 @@ test "once-reduction keeps imported once globals as boundary roots" {
     #|
   let optimized = match pass_test_run_pipeline(input, ["once-reduction"]) {
     Ok(mod_) => mod_
-    Err(err) => fail("expected imported-global once-reduction success, got \{err}")
+    Err(err) =>
+      fail("expected imported-global once-reduction success, got \{err}")
   }
 
   @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 1), [
@@ -381,7 +385,8 @@ test "once-reduction keeps direct repeats when the once target also escapes" {
     #|
   let optimized = match pass_test_run_pipeline(input, ["once-reduction"]) {
     Ok(mod_) => mod_
-    Err(err) => fail("expected escaped-target once-reduction success, got \{err}")
+    Err(err) =>
+      fail("expected escaped-target once-reduction success, got \{err}")
   }
 
   @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 1), [

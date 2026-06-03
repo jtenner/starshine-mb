@@ -1,8 +1,8 @@
 import {
   "moonbitlang/core/debug",
-  "jtenner/starshine/lib" @lib,
-  "jtenner/starshine/validate" @validate,
-  "moonbitlang/core/env" @env,
+  "jtenner/starshine/lib",
+  "jtenner/starshine/validate",
+  "moonbitlang/core/env",
 }
 
 options(

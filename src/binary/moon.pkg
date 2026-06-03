@@ -1,10 +1,10 @@
 import {
   "moonbitlang/core/debug",
-  "jtenner/starshine/lib" @lib,
-  "jtenner/starshine/validate" @validate,
-  "moonbitlang/core/buffer" @buffer,
-  "moonbitlang/core/encoding/utf8" @utf8,
-  "moonbitlang/core/list" @list,
-  "moonbitlang/core/quickcheck" @quickcheck,
-  "moonbitlang/core/quickcheck/splitmix" @splitmix,
+  "jtenner/starshine/lib",
+  "jtenner/starshine/validate",
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/list",
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix",
 }

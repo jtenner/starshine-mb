@@ -227,8 +227,8 @@ fn or_is_empty_once_wrapper(func : @lib.Func) -> Bool {
     return true
   }
   match instrs {
-    [@lib.Block(_, @lib.Expr(body))] => body.length() == 4 &&
-      or_instrs_once_global(body) >= 0
+    [@lib.Block(_, @lib.Expr(body))] =>
+      body.length() == 4 && or_instrs_once_global(body) >= 0
     _ => false
   }
 }
@@ -327,32 +327,19 @@ fn or_analyze_instrs(
     match instrs[idx] {
       @lib.Block(_, @lib.Expr(body)) => {
         let next = or_analyze_instrs(
-          body,
-          current,
-          once_global_slots,
-          once_func_slots,
-          func_once_sets,
-          func_once_set_singletons,
+          body, current, once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
         )
         or_bool_array_union_into(current, next)
       }
       @lib.If(_, then_body, else_body) => {
         let then_set = or_analyze_instrs(
-          then_body,
-          current,
-          once_global_slots,
-          once_func_slots,
-          func_once_sets,
+          then_body, current, once_global_slots, once_func_slots, func_once_sets,
           func_once_set_singletons,
         )
         let else_set = match else_body {
           Some(else_body) =>
             or_analyze_instrs(
-              else_body,
-              current,
-              once_global_slots,
-              once_func_slots,
-              func_once_sets,
+              else_body, current, once_global_slots, once_func_slots, func_once_sets,
               func_once_set_singletons,
             )
           None => current
@@ -403,33 +390,20 @@ fn or_rewrite_instrs(
     match instrs[idx] {
       @lib.Block(block_type, @lib.Expr(body)) => {
         let next = or_rewrite_instrs(
-          body,
-          current,
-          once_global_slots,
-          once_func_slots,
-          func_once_sets,
-          func_once_set_singletons,
+          body, current, once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
         )
         instrs[idx] = @lib.Instruction::block(block_type, @lib.Expr::new(body))
         or_bool_array_union_into(current, next)
       }
       @lib.If(block_type, then_body, else_body) => {
         let then_set = or_rewrite_instrs(
-          then_body,
-          current,
-          once_global_slots,
-          once_func_slots,
-          func_once_sets,
+          then_body, current, once_global_slots, once_func_slots, func_once_sets,
           func_once_set_singletons,
         )
         let else_set = match else_body {
           Some(else_body) =>
             or_rewrite_instrs(
-              else_body,
-              current,
-              once_global_slots,
-              once_func_slots,
-              func_once_sets,
+              else_body, current, once_global_slots, once_func_slots, func_once_sets,
               func_once_set_singletons,
             )
           None => current
@@ -440,12 +414,7 @@ fn or_rewrite_instrs(
       @lib.Loop(block_type, @lib.Expr(body)) => {
         ignore(
           or_rewrite_instrs(
-            body,
-            current,
-            once_global_slots,
-            once_func_slots,
-            func_once_sets,
-            func_once_set_singletons,
+            body, current, once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
           ),
         )
         instrs[idx] = @lib.Instruction::loop_(block_type, @lib.Expr::new(body))
@@ -453,12 +422,7 @@ fn or_rewrite_instrs(
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         ignore(
           or_rewrite_instrs(
-            body,
-            current,
-            once_global_slots,
-            once_func_slots,
-            func_once_sets,
-            func_once_set_singletons,
+            body, current, once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
           ),
         )
         instrs[idx] = @lib.Instruction::try_table(
@@ -705,7 +669,9 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     }
   }
   let mut total_once_slots = active_global_count
-  for func_idx = imported_func_count; func_idx < total_funcs; func_idx = func_idx + 1 {
+  for func_idx = imported_func_count
+      func_idx < total_funcs
+      func_idx = func_idx + 1 {
     if once_func_slots[func_idx] < 0 &&
       idempotent_funcs[func_idx] &&
       or_func_has_no_params_or_results(env, func_idx) {
@@ -721,7 +687,10 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   let func_initial_once_sets : Array[@bitset.BitSet] = []
   let func_once_sets : Array[@bitset.BitSet] = []
   for func_idx = 0; func_idx < total_funcs; func_idx = func_idx + 1 {
-    let initial = or_initial_func_set(total_once_slots, once_func_slots[func_idx])
+    let initial = or_initial_func_set(
+      total_once_slots,
+      once_func_slots[func_idx],
+    )
     func_initial_once_sets.push(initial)
     func_once_sets.push(initial)
   }
@@ -750,7 +719,8 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       if !or_bool_array_equal(next, func_once_sets[abs_idx]) {
         func_once_sets[abs_idx] = next
         func_once_set_singletons[abs_idx] = or_bool_array_is_singleton(
-          next, once_func_slots[abs_idx],
+          next,
+          once_func_slots[abs_idx],
         )
         changed_sets = true
       }

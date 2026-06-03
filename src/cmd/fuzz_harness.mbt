@@ -928,7 +928,7 @@ pub struct DifferentialValidationReport {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for DifferentialValidationReport with output(self, logger) {
+pub impl Show for DifferentialValidationReport with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -1352,7 +1352,7 @@ pub struct CmdFuzzStats {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for CmdFuzzStats with output(self, logger) {
+pub impl Show for CmdFuzzStats with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -1460,7 +1460,7 @@ pub fn FuzzCorpusDedupIndex::new() -> FuzzCorpusDedupIndex {
 }
 
 ///|
-pub impl Show for FuzzFailureReport with output(self, logger) {
+pub impl Show for FuzzFailureReport with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 

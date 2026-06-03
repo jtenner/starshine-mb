@@ -1,5 +1,5 @@
 ///|
-pub impl Show for S33 with output(self, logger) {
+pub impl Show for S33 with fn output(self, logger) {
   let S33(t) = self
   logger.write_string("S33(")
   Show::output(t, logger)
@@ -7,7 +7,7 @@ pub impl Show for S33 with output(self, logger) {
 }
 
 ///|
-pub impl Show for I32 with output(self, logger) {
+pub impl Show for I32 with fn output(self, logger) {
   let I32(t) = self
   logger.write_string("I32(")
   Show::output(t, logger)
@@ -15,7 +15,7 @@ pub impl Show for I32 with output(self, logger) {
 }
 
 ///|
-pub impl Show for I64 with output(self, logger) {
+pub impl Show for I64 with fn output(self, logger) {
   let I64(t) = self
   logger.write_string("I64(")
   Show::output(t, logger)
@@ -23,7 +23,7 @@ pub impl Show for I64 with output(self, logger) {
 }
 
 ///|
-pub impl Show for F32 with output(self, logger) {
+pub impl Show for F32 with fn output(self, logger) {
   let F32(t) = self
   logger.write_string("F32(")
   Show::output(t, logger)
@@ -31,7 +31,7 @@ pub impl Show for F32 with output(self, logger) {
 }
 
 ///|
-pub impl Show for F64 with output(self, logger) {
+pub impl Show for F64 with fn output(self, logger) {
   let F64(t) = self
   logger.write_string("F64(")
   Show::output(t, logger)
@@ -39,7 +39,7 @@ pub impl Show for F64 with output(self, logger) {
 }
 
 ///|
-pub impl Show for U32 with output(self, logger) {
+pub impl Show for U32 with fn output(self, logger) {
   let U32(t) = self
   logger.write_string("U32(")
   Show::output(t, logger)
@@ -47,7 +47,7 @@ pub impl Show for U32 with output(self, logger) {
 }
 
 ///|
-pub impl Show for U64 with output(self, logger) {
+pub impl Show for U64 with fn output(self, logger) {
   let U64(t) = self
   logger.write_string("U64(")
   Show::output(t, logger)
@@ -55,7 +55,7 @@ pub impl Show for U64 with output(self, logger) {
 }
 
 ///|
-pub impl Show for NumType with output(self, logger) {
+pub impl Show for NumType with fn output(self, logger) {
   match self {
     F32NumType => logger.write_string("F32")
     F64NumType => logger.write_string("F64")
@@ -65,7 +65,7 @@ pub impl Show for NumType with output(self, logger) {
 }
 
 ///|
-pub impl Show for AbsHeapType with output(self, logger) {
+pub impl Show for AbsHeapType with fn output(self, logger) {
   match self {
     ExnAbsHeapType => logger.write_string("(AbsHeapType Exn)")
     StringAbsHeapType => logger.write_string("(AbsHeapType String)")
@@ -84,7 +84,7 @@ pub impl Show for AbsHeapType with output(self, logger) {
 }
 
 ///|
-pub impl Show for HeapType with output(self, logger) {
+pub impl Show for HeapType with fn output(self, logger) {
   match self {
     AbsHeapTypeHeapType(ht) => {
       logger.write_string("(HeapType ")
@@ -110,7 +110,7 @@ pub impl Show for HeapType with output(self, logger) {
 }
 
 ///|
-pub impl Show for DefType with output(self, logger) {
+pub impl Show for DefType with fn output(self, logger) {
   logger.write_string("(DefType ")
   Show::output(self.0, logger)
   logger.write_char(' ')
@@ -119,7 +119,7 @@ pub impl Show for DefType with output(self, logger) {
 }
 
 ///|
-pub impl Show for RefType with output(self, logger) {
+pub impl Show for RefType with fn output(self, logger) {
   match self {
     HeapTypeRefType(n, exact, ht) => {
       logger.write_string("(RefType ")
@@ -142,7 +142,7 @@ pub impl Show for RefType with output(self, logger) {
 }
 
 ///|
-pub impl Show for ValType with output(self, logger) {
+pub impl Show for ValType with fn output(self, logger) {
   match self {
     VecTypeValType => logger.write_string("(V128)")
     NumTypeValType(nt) => Show::output(nt, logger)
@@ -152,7 +152,7 @@ pub impl Show for ValType with output(self, logger) {
 }
 
 ///|
-pub impl Show for PackType with output(self, logger) {
+pub impl Show for PackType with fn output(self, logger) {
   match self {
     I16PackType => logger.write_string("(I16)")
     I8PackType => logger.write_string("(I8)")
@@ -160,7 +160,7 @@ pub impl Show for PackType with output(self, logger) {
 }
 
 ///|
-pub impl Show for StorageType with output(self, logger) {
+pub impl Show for StorageType with fn output(self, logger) {
   match self {
     ValTypeStorageType(vt) => Show::output(vt, logger)
     PackTypeStorageType(pt) => Show::output(pt, logger)
@@ -168,7 +168,7 @@ pub impl Show for StorageType with output(self, logger) {
 }
 
 ///|
-pub impl Show for FieldType with output(self, logger) {
+pub impl Show for FieldType with fn output(self, logger) {
   let FieldType(st, m) = self
   logger.write_string("(Field ")
   Show::output(m, logger)
@@ -178,7 +178,7 @@ pub impl Show for FieldType with output(self, logger) {
 }
 
 ///|
-pub impl Show for Mut with output(self, logger) {
+pub impl Show for Mut with fn output(self, logger) {
   match self {
     Var => logger.write_string("Mut")
     Const => logger.write_string("Const")
@@ -186,7 +186,7 @@ pub impl Show for Mut with output(self, logger) {
 }
 
 ///|
-pub impl Show for TypeIdx with output(self, logger) {
+pub impl Show for TypeIdx with fn output(self, logger) {
   match self {
     TypeIdx(val) => {
       logger.write_string("(Type ")
@@ -202,7 +202,7 @@ pub impl Show for TypeIdx with output(self, logger) {
 }
 
 ///|
-pub impl Show for FuncIdx with output(self, logger) {
+pub impl Show for FuncIdx with fn output(self, logger) {
   let FuncIdx(val) = self
   logger.write_string("(Func ")
   Show::output(val, logger)
@@ -210,7 +210,7 @@ pub impl Show for FuncIdx with output(self, logger) {
 }
 
 ///|
-pub impl Show for TableIdx with output(self, logger) {
+pub impl Show for TableIdx with fn output(self, logger) {
   let TableIdx(val) = self
   logger.write_string("(Table ")
   Show::output(val, logger)
@@ -218,7 +218,7 @@ pub impl Show for TableIdx with output(self, logger) {
 }
 
 ///|
-pub impl Show for MemIdx with output(self, logger) {
+pub impl Show for MemIdx with fn output(self, logger) {
   let MemIdx(val) = self
   logger.write_string("(Mem ")
   Show::output(val, logger)
@@ -226,7 +226,7 @@ pub impl Show for MemIdx with output(self, logger) {
 }
 
 ///|
-pub impl Show for GlobalIdx with output(self, logger) {
+pub impl Show for GlobalIdx with fn output(self, logger) {
   let GlobalIdx(val) = self
   logger.write_string("(Global ")
   Show::output(val, logger)
@@ -234,7 +234,7 @@ pub impl Show for GlobalIdx with output(self, logger) {
 }
 
 ///|
-pub impl Show for TagIdx with output(self, logger) {
+pub impl Show for TagIdx with fn output(self, logger) {
   let TagIdx(val) = self
   logger.write_string("(Tag ")
   Show::output(val, logger)
@@ -242,7 +242,7 @@ pub impl Show for TagIdx with output(self, logger) {
 }
 
 ///|
-pub impl Show for ElemIdx with output(self, logger) {
+pub impl Show for ElemIdx with fn output(self, logger) {
   let ElemIdx(val) = self
   logger.write_string("(Elem ")
   Show::output(val, logger)
@@ -250,7 +250,7 @@ pub impl Show for ElemIdx with output(self, logger) {
 }
 
 ///|
-pub impl Show for DataIdx with output(self, logger) {
+pub impl Show for DataIdx with fn output(self, logger) {
   let DataIdx(val) = self
   logger.write_string("(Data ")
   Show::output(val, logger)
@@ -258,7 +258,7 @@ pub impl Show for DataIdx with output(self, logger) {
 }
 
 ///|
-pub impl Show for LocalIdx with output(self, logger) {
+pub impl Show for LocalIdx with fn output(self, logger) {
   let LocalIdx(val) = self
   logger.write_string("(Local ")
   Show::output(val, logger)
@@ -266,7 +266,7 @@ pub impl Show for LocalIdx with output(self, logger) {
 }
 
 ///|
-pub impl Show for LabelIdx with output(self, logger) {
+pub impl Show for LabelIdx with fn output(self, logger) {
   let LabelIdx(val) = self
   logger.write_string("(Label ")
   Show::output(val, logger)
@@ -274,7 +274,7 @@ pub impl Show for LabelIdx with output(self, logger) {
 }
 
 ///|
-pub impl Show for LaneIdx with output(self, logger) {
+pub impl Show for LaneIdx with fn output(self, logger) {
   let LaneIdx(val) = self
   logger.write_string("(Lane ")
   Show::output(val, logger)
@@ -282,7 +282,7 @@ pub impl Show for LaneIdx with output(self, logger) {
 }
 
 ///|
-pub impl Show for CompType with output(self, logger) {
+pub impl Show for CompType with fn output(self, logger) {
   match self {
     StructCompType(st) => {
       logger.write_string("(Struct ")
@@ -322,7 +322,7 @@ pub impl Show for CompType with output(self, logger) {
 }
 
 ///|
-pub impl Show for SubType with output(self, logger) {
+pub impl Show for SubType with fn output(self, logger) {
   match self {
     SubType(f, sts, meta, ct) => {
       logger.write_string("(Sub ")
@@ -377,7 +377,7 @@ pub impl Show for SubType with output(self, logger) {
 }
 
 ///|
-pub impl Show for RecType with output(self, logger) {
+pub impl Show for RecType with fn output(self, logger) {
   match self {
     SingleRecType(st) => {
       logger.write_string("(Rec ")
@@ -396,7 +396,7 @@ pub impl Show for RecType with output(self, logger) {
 }
 
 ///|
-pub impl Show for Limits with output(self, logger) {
+pub impl Show for Limits with fn output(self, logger) {
   match self {
     I32Limits(min, max) => {
       logger.write_string("(Lim I32 ")
@@ -420,13 +420,13 @@ pub impl Show for Limits with output(self, logger) {
 }
 
 ///|
-pub impl Show for TagType with output(self, logger) {
+pub impl Show for TagType with fn output(self, logger) {
   let TagType(t) = self
   Show::output(t, logger)
 }
 
 ///|
-pub impl Show for GlobalType with output(self, logger) {
+pub impl Show for GlobalType with fn output(self, logger) {
   let GlobalType(vt, m) = self
   logger.write_string("(GlobalType ")
   if m {
@@ -437,7 +437,7 @@ pub impl Show for GlobalType with output(self, logger) {
 }
 
 ///|
-pub impl Show for MemType with output(self, logger) {
+pub impl Show for MemType with fn output(self, logger) {
   let MemType(l, shared) = self
   if shared {
     logger.write_string("(MemType Shared ")
@@ -449,7 +449,7 @@ pub impl Show for MemType with output(self, logger) {
 }
 
 ///|
-pub impl Show for TableType with output(self, logger) {
+pub impl Show for TableType with fn output(self, logger) {
   let TableType(rt, l) = self
   logger.write_string("(TableType ")
   Show::output(rt, logger)
@@ -459,7 +459,7 @@ pub impl Show for TableType with output(self, logger) {
 }
 
 ///|
-pub impl Show for ExternType with output(self, logger) {
+pub impl Show for ExternType with fn output(self, logger) {
   match self {
     GlobalExternType(gt) => Show::output(gt, logger)
     MemExternType(mt) => Show::output(mt, logger)
@@ -470,7 +470,7 @@ pub impl Show for ExternType with output(self, logger) {
 }
 
 ///|
-pub impl Show for ExternIdx with output(self, logger) {
+pub impl Show for ExternIdx with fn output(self, logger) {
   match self {
     GlobalExternIdx(g) => Show::output(g, logger)
     MemExternIdx(m) => Show::output(m, logger)
@@ -481,7 +481,7 @@ pub impl Show for ExternIdx with output(self, logger) {
 }
 
 ///|
-pub impl Show for ElemMode with output(self, logger) {
+pub impl Show for ElemMode with fn output(self, logger) {
   match self {
     Active(t, e) => {
       logger.write_string("(Active ")
@@ -496,7 +496,7 @@ pub impl Show for ElemMode with output(self, logger) {
 }
 
 ///|
-pub impl Show for ElemKind with output(self, logger) {
+pub impl Show for ElemKind with fn output(self, logger) {
   match self {
     FuncExprsElemKind(exprs) => {
       logger.write_string("(Funcs ")
@@ -527,7 +527,7 @@ pub impl Show for ElemKind with output(self, logger) {
 }
 
 ///|
-pub impl Show for Elem with output(self, logger) {
+pub impl Show for Elem with fn output(self, logger) {
   let Elem(m, k) = self
   logger.write_string("(Elem ")
   Show::output(m, logger)
@@ -537,7 +537,7 @@ pub impl Show for Elem with output(self, logger) {
 }
 
 ///|
-pub impl Show for Expr with output(self, logger) {
+pub impl Show for Expr with fn output(self, logger) {
   let Expr(insts) = self
   for inst in insts {
     Show::output(inst, logger)
@@ -546,7 +546,7 @@ pub impl Show for Expr with output(self, logger) {
 }
 
 ///|
-pub impl Show for Import with output(self, logger) {
+pub impl Show for Import with fn output(self, logger) {
   let Import(ns, n, et) = self
   logger.write_char('(')
   Show::output(ns, logger)
@@ -558,7 +558,7 @@ pub impl Show for Import with output(self, logger) {
 }
 
 ///|
-pub impl Show for Table with output(self, logger) {
+pub impl Show for Table with fn output(self, logger) {
   let Table(tt, e) = self
   logger.write_string("(Table ")
   Show::output(tt, logger)
@@ -570,7 +570,7 @@ pub impl Show for Table with output(self, logger) {
 }
 
 ///|
-pub impl Show for Global with output(self, logger) {
+pub impl Show for Global with fn output(self, logger) {
   let Global(gt, e) = self
   logger.write_string("(Global ")
   Show::output(gt, logger)
@@ -580,7 +580,7 @@ pub impl Show for Global with output(self, logger) {
 }
 
 ///|
-pub impl Show for Export with output(self, logger) {
+pub impl Show for Export with fn output(self, logger) {
   let Export(n, idx) = self
   logger.write_string("(Export ")
   Show::output(n, logger)
@@ -590,7 +590,7 @@ pub impl Show for Export with output(self, logger) {
 }
 
 ///|
-pub impl Show for Locals with output(self, logger) {
+pub impl Show for Locals with fn output(self, logger) {
   for run in self.runs() {
     let mut remaining = run.count
     while remaining > 0 {
@@ -602,7 +602,7 @@ pub impl Show for Locals with output(self, logger) {
 }
 
 ///|
-pub impl Show for LocalRun with output(self, logger) {
+pub impl Show for LocalRun with fn output(self, logger) {
   logger.write_string("(LocalRun ")
   logger.write_string(self.count.to_string())
   logger.write_char(' ')
@@ -611,7 +611,7 @@ pub impl Show for LocalRun with output(self, logger) {
 }
 
 ///|
-pub impl Show for Func with output(self, logger) {
+pub impl Show for Func with fn output(self, logger) {
   match self {
     Func(ls, expr) => {
       logger.write_string("(Func ")
@@ -624,7 +624,7 @@ pub impl Show for Func with output(self, logger) {
 }
 
 ///|
-pub impl Show for DataMode with output(self, logger) {
+pub impl Show for DataMode with fn output(self, logger) {
   match self {
     Active(m, e) => {
       logger.write_string("(Active ")
@@ -638,7 +638,7 @@ pub impl Show for DataMode with output(self, logger) {
 }
 
 ///|
-pub impl Show for Data with output(self, logger) {
+pub impl Show for Data with fn output(self, logger) {
   let Data(dm, b) = self
   logger.write_string("(Data ")
   Show::output(dm, logger)
@@ -648,7 +648,7 @@ pub impl Show for Data with output(self, logger) {
 }
 
 ///|
-pub impl Show for Name with output(self, logger) {
+pub impl Show for Name with fn output(self, logger) {
   let Name(sv) = self
   logger.write_char('"')
   sv.to_owned().output(logger)
@@ -656,7 +656,7 @@ pub impl Show for Name with output(self, logger) {
 }
 
 ///|
-pub impl Show for NameAssoc with output(self, logger) {
+pub impl Show for NameAssoc with fn output(self, logger) {
   let NameAssoc(idx, name) = self
   logger.write_string("(NameAssoc ")
   Show::output(idx, logger)
@@ -666,7 +666,7 @@ pub impl Show for NameAssoc with output(self, logger) {
 }
 
 ///|
-pub impl Show for NameMap with output(self, logger) {
+pub impl Show for NameMap with fn output(self, logger) {
   let NameMap(entries) = self
   logger.write_string("[NameMap")
   if entries.length() == 0 {
@@ -679,7 +679,7 @@ pub impl Show for NameMap with output(self, logger) {
 }
 
 ///|
-pub impl Show for IndirectNameAssoc with output(self, logger) {
+pub impl Show for IndirectNameAssoc with fn output(self, logger) {
   let IndirectNameAssoc(idx, names) = self
   logger.write_string("(IndirectNameAssoc ")
   Show::output(idx, logger)
@@ -689,7 +689,7 @@ pub impl Show for IndirectNameAssoc with output(self, logger) {
 }
 
 ///|
-pub impl Show for IndirectNameMap with output(self, logger) {
+pub impl Show for IndirectNameMap with fn output(self, logger) {
   let IndirectNameMap(entries) = self
   logger.write_string("[IndirectNameMap")
   if entries.length() == 0 {
@@ -702,7 +702,7 @@ pub impl Show for IndirectNameMap with output(self, logger) {
 }
 
 ///|
-pub impl Show for NameSec with output(self, logger) {
+pub impl Show for NameSec with fn output(self, logger) {
   let {
     module_name,
     func_names,
@@ -745,7 +745,7 @@ pub impl Show for NameSec with output(self, logger) {
 }
 
 ///|
-pub impl Show for BlockType with output(self, logger) {
+pub impl Show for BlockType with fn output(self, logger) {
   match self {
     ValTypeBlockType(vt) => Show::output(vt, logger)
     VoidBlockType => logger.write_string("(Void)")
@@ -754,7 +754,7 @@ pub impl Show for BlockType with output(self, logger) {
 }
 
 ///|
-pub impl Show for Catch with output(self, logger) {
+pub impl Show for Catch with fn output(self, logger) {
   match self {
     CatchAll(l) => {
       logger.write_string("(catch_all ")
@@ -784,7 +784,7 @@ pub impl Show for Catch with output(self, logger) {
 }
 
 ///|
-pub impl Show for MemArg with output(self, logger) {
+pub impl Show for MemArg with fn output(self, logger) {
   let MemArg(a, m, o) = self
   logger.write_string("align=")
   Show::output(a, logger)
@@ -797,7 +797,7 @@ pub impl Show for MemArg with output(self, logger) {
 }
 
 ///|
-pub impl Show for Instruction with output(self, logger) {
+pub impl Show for Instruction with fn output(self, logger) {
   match self {
     Unreachable => logger.write_string("unreachable")
     Nop => logger.write_string("nop")
@@ -2114,7 +2114,7 @@ pub impl Show for Instruction with output(self, logger) {
 }
 
 ///|
-pub impl Show for CustomSec with output(self, logger) {
+pub impl Show for CustomSec with fn output(self, logger) {
   let CustomSec(name, _) = self
   logger.write_string("[Custom: ")
   Show::output(name, logger)
@@ -2122,7 +2122,7 @@ pub impl Show for CustomSec with output(self, logger) {
 }
 
 ///|
-pub impl Show for TypeSec with output(self, logger) {
+pub impl Show for TypeSec with fn output(self, logger) {
   let TypeSec(tys) = self
   logger.write_string("[Types")
   if tys.length() == 0 {
@@ -2139,7 +2139,7 @@ pub impl Show for TypeSec with output(self, logger) {
 }
 
 ///|
-pub impl Show for ImportSec with output(self, logger) {
+pub impl Show for ImportSec with fn output(self, logger) {
   let ImportSec(imports) = self
   logger.write_string("[Imports")
   if imports.length() == 0 {
@@ -2156,7 +2156,7 @@ pub impl Show for ImportSec with output(self, logger) {
 }
 
 ///|
-pub impl Show for FuncSec with output(self, logger) {
+pub impl Show for FuncSec with fn output(self, logger) {
   let FuncSec(fns) = self
   logger.write_string("[Funcs")
   if fns.length() == 0 {
@@ -2173,7 +2173,7 @@ pub impl Show for FuncSec with output(self, logger) {
 }
 
 ///|
-pub impl Show for TableSec with output(self, logger) {
+pub impl Show for TableSec with fn output(self, logger) {
   let TableSec(tbls) = self
   logger.write_string("[Tables")
   if tbls.length() == 0 {
@@ -2190,7 +2190,7 @@ pub impl Show for TableSec with output(self, logger) {
 }
 
 ///|
-pub impl Show for MemSec with output(self, logger) {
+pub impl Show for MemSec with fn output(self, logger) {
   let MemSec(mems) = self
   logger.write_string("[Memory")
   if mems.length() == 0 {
@@ -2207,7 +2207,7 @@ pub impl Show for MemSec with output(self, logger) {
 }
 
 ///|
-pub impl Show for TagSec with output(self, logger) {
+pub impl Show for TagSec with fn output(self, logger) {
   let TagSec(mems) = self
   logger.write_string("[Tags")
   if mems.length() == 0 {
@@ -2224,7 +2224,7 @@ pub impl Show for TagSec with output(self, logger) {
 }
 
 ///|
-pub impl Show for GlobalSec with output(self, logger) {
+pub impl Show for GlobalSec with fn output(self, logger) {
   let GlobalSec(globals) = self
   logger.write_string("[Globals")
   if globals.length() == 0 {
@@ -2241,7 +2241,7 @@ pub impl Show for GlobalSec with output(self, logger) {
 }
 
 ///|
-pub impl Show for ExportSec with output(self, logger) {
+pub impl Show for ExportSec with fn output(self, logger) {
   let ExportSec(exports) = self
   logger.write_string("[Globals")
   if exports.length() == 0 {
@@ -2258,7 +2258,7 @@ pub impl Show for ExportSec with output(self, logger) {
 }
 
 ///|
-pub impl Show for StartSec with output(self, logger) {
+pub impl Show for StartSec with fn output(self, logger) {
   let StartSec(start) = self
   logger.write_string("[Start ")
   Show::output(start, logger)
@@ -2266,7 +2266,7 @@ pub impl Show for StartSec with output(self, logger) {
 }
 
 ///|
-pub impl Show for ElemSec with output(self, logger) {
+pub impl Show for ElemSec with fn output(self, logger) {
   let ElemSec(elems) = self
   logger.write_string("[Elems")
   if elems.length() == 0 {
@@ -2283,7 +2283,7 @@ pub impl Show for ElemSec with output(self, logger) {
 }
 
 ///|
-pub impl Show for DataCntSec with output(self, logger) {
+pub impl Show for DataCntSec with fn output(self, logger) {
   let DataCntSec(start) = self
   logger.write_string("[DataCount ")
   Show::output(start, logger)
@@ -2291,7 +2291,7 @@ pub impl Show for DataCntSec with output(self, logger) {
 }
 
 ///|
-pub impl Show for CodeSec with output(self, logger) {
+pub impl Show for CodeSec with fn output(self, logger) {
   let CodeSec(codes) = self
   logger.write_string("[Code")
   if codes.length() == 0 {
@@ -2308,7 +2308,7 @@ pub impl Show for CodeSec with output(self, logger) {
 }
 
 ///|
-pub impl Show for DataSec with output(self, logger) {
+pub impl Show for DataSec with fn output(self, logger) {
   let DataSec(datas) = self
   logger.write_string("[Elems")
   if datas.length() == 0 {
@@ -2325,7 +2325,7 @@ pub impl Show for DataSec with output(self, logger) {
 }
 
 ///|
-pub impl Show for FuncAnnotation with output(self, logger) {
+pub impl Show for FuncAnnotation with fn output(self, logger) {
   logger.write_string("FuncAnnotation(name=")
   logger.write_string(self.name)
   logger.write_string(", args=")
@@ -2334,7 +2334,7 @@ pub impl Show for FuncAnnotation with output(self, logger) {
 }
 
 ///|
-pub impl Show for FuncAnnotationAssoc with output(self, logger) {
+pub impl Show for FuncAnnotationAssoc with fn output(self, logger) {
   let FuncAnnotationAssoc(idx, annotations) = self
   logger.write_string("FuncAnnotationAssoc(")
   Show::output(idx, logger)
@@ -2344,7 +2344,7 @@ pub impl Show for FuncAnnotationAssoc with output(self, logger) {
 }
 
 ///|
-pub impl Show for FuncAnnotationSec with output(self, logger) {
+pub impl Show for FuncAnnotationSec with fn output(self, logger) {
   let FuncAnnotationSec(entries) = self
   logger.write_string("[FuncAnnotationSec")
   if entries.length() == 0 {
@@ -2361,7 +2361,7 @@ pub impl Show for FuncAnnotationSec with output(self, logger) {
 }
 
 ///|
-pub impl Show for Module with output(self, logger) {
+pub impl Show for Module with fn output(self, logger) {
   let {
     custom_secs: customs,
     name_sec,
@@ -2440,7 +2440,7 @@ pub impl Show for Module with output(self, logger) {
 }
 
 ///|
-pub impl Show for FuncType with output(self, logger) {
+pub impl Show for FuncType with fn output(self, logger) {
   let FuncType(props, results) = self
   logger.write_string("FuncType {\n  props : ")
   Show::output(props, logger)

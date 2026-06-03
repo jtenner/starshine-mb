@@ -14,7 +14,7 @@ pub enum HotSsaValueOrigin {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotSsaValueOrigin with output(self, logger) {
+pub impl Show for HotSsaValueOrigin with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -25,7 +25,7 @@ pub enum HotSsaUseOrigin {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotSsaUseOrigin with output(self, logger) {
+pub impl Show for HotSsaUseOrigin with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -36,7 +36,7 @@ pub struct HotSsaPhi {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotSsaPhi with output(self, logger) {
+pub impl Show for HotSsaPhi with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -58,7 +58,7 @@ pub struct HotSsaPhiInput {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotSsaPhiInput with output(self, logger) {
+pub impl Show for HotSsaPhiInput with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -92,7 +92,7 @@ pub struct HotLocalSsa {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotLocalSsa with output(self, logger) {
+pub impl Show for HotLocalSsa with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -146,7 +146,7 @@ pub enum HotSsaRenamePolicy {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotSsaRenamePolicy with output(self, logger) {
+pub impl Show for HotSsaRenamePolicy with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -156,7 +156,7 @@ pub enum HotSsaDestructionPolicy {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotSsaDestructionPolicy with output(self, logger) {
+pub impl Show for HotSsaDestructionPolicy with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -169,7 +169,7 @@ pub enum HotSsaExcludedFeature {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotSsaExcludedFeature with output(self, logger) {
+pub impl Show for HotSsaExcludedFeature with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 

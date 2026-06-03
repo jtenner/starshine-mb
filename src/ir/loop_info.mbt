@@ -5,7 +5,7 @@ pub struct HotLoopExit {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotLoopExit with output(self, logger) {
+pub impl Show for HotLoopExit with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -20,7 +20,7 @@ pub struct HotLoopSummary {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotLoopSummary with output(self, logger) {
+pub impl Show for HotLoopSummary with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 

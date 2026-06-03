@@ -1,5 +1,5 @@
 ///|
-pub impl @quickcheck.Arbitrary for CompType with arbitrary(t, state) {
+pub impl @quickcheck.Arbitrary for CompType with fn arbitrary(t, state) {
   match state.next_uint() % 3 {
     1 => StructCompType(array_of_arbitrary(5, t, state))
     2 =>
@@ -12,7 +12,7 @@ pub impl @quickcheck.Arbitrary for CompType with arbitrary(t, state) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for RecType with arbitrary(t, state) {
+pub impl @quickcheck.Arbitrary for RecType with fn arbitrary(t, state) {
   if (state.next_uint() & 1) == 1 {
     SingleRecType(@quickcheck.Arbitrary::arbitrary(t, state))
   } else {
@@ -21,7 +21,7 @@ pub impl @quickcheck.Arbitrary for RecType with arbitrary(t, state) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for HeapType with arbitrary(size, st) {
+pub impl @quickcheck.Arbitrary for HeapType with fn arbitrary(size, st) {
   if (st.next_uint() & 1) == 1 {
     AbsHeapTypeHeapType(@quickcheck.Arbitrary::arbitrary(size, st))
   } else {
@@ -31,7 +31,7 @@ pub impl @quickcheck.Arbitrary for HeapType with arbitrary(size, st) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for RefType with arbitrary(size, st) {
+pub impl @quickcheck.Arbitrary for RefType with fn arbitrary(size, st) {
   let nullable = (st.next_uint() & 1) == 1
   let want_exact = (st.next_uint() & 1) == 1
   let ht : HeapType = @quickcheck.Arbitrary::arbitrary(size, st)
@@ -43,7 +43,7 @@ pub impl @quickcheck.Arbitrary for RefType with arbitrary(size, st) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for ValType with arbitrary(size, st) {
+pub impl @quickcheck.Arbitrary for ValType with fn arbitrary(size, st) {
   match st.next_uint() % 3 {
     0 => NumTypeValType(@quickcheck.Arbitrary::arbitrary(size, st))
     1 => VecTypeValType
@@ -53,19 +53,19 @@ pub impl @quickcheck.Arbitrary for ValType with arbitrary(size, st) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for TypeIdx with arbitrary(_, st) {
+pub impl @quickcheck.Arbitrary for TypeIdx with fn arbitrary(_, st) {
   TypeIdx(st.next_uint())
   // recursive indexes are not arbitrary
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for LaneIdx with arbitrary(_, state) {
+pub impl @quickcheck.Arbitrary for LaneIdx with fn arbitrary(_, state) {
   let b : Byte = (state.next_uint() % 16).to_byte()
   LaneIdx(b)
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for SubType with arbitrary(t, st) {
+pub impl @quickcheck.Arbitrary for SubType with fn arbitrary(t, st) {
   if st.next_uint() % 2 == 1 {
     SubType(
       st.next_uint() % 2 == 1,
@@ -82,7 +82,7 @@ pub impl @quickcheck.Arbitrary for SubType with arbitrary(t, st) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for DefType with arbitrary(t, state) {
+pub impl @quickcheck.Arbitrary for DefType with fn arbitrary(t, state) {
   let s = @quickcheck.Arbitrary::arbitrary(t, state)
   match s {
     SingleRecType(_) => DefType(s, 0)
@@ -94,7 +94,7 @@ pub impl @quickcheck.Arbitrary for DefType with arbitrary(t, state) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for Limits with arbitrary(_, state) {
+pub impl @quickcheck.Arbitrary for Limits with fn arbitrary(_, state) {
   if (state.next_uint() & 1) == 1 {
     if (state.next_uint() & 1) == 1 {
       I32Limits(state.next_uint(), None)
@@ -117,7 +117,7 @@ pub impl @quickcheck.Arbitrary for Limits with arbitrary(_, state) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for Elem with arbitrary(size, state) {
+pub impl @quickcheck.Arbitrary for Elem with fn arbitrary(size, state) {
   match state.next_uint() % 8 {
     // 0x00: Active(table 0) + FuncsElemKind
     0 => {
@@ -171,7 +171,7 @@ pub impl @quickcheck.Arbitrary for Elem with arbitrary(size, state) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for Expr with arbitrary(t, state) {
+pub impl @quickcheck.Arbitrary for Expr with fn arbitrary(t, state) {
   Expr([
     @quickcheck.Arbitrary::arbitrary(t, state),
     @quickcheck.Arbitrary::arbitrary(t, state),
@@ -180,7 +180,7 @@ pub impl @quickcheck.Arbitrary for Expr with arbitrary(t, state) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for LocalRun with arbitrary(t, state) {
+pub impl @quickcheck.Arbitrary for LocalRun with fn arbitrary(t, state) {
   let count = state.next_positive_int() % 3 + 1
   LocalRun::new(
     count.reinterpret_as_uint(),
@@ -189,7 +189,7 @@ pub impl @quickcheck.Arbitrary for LocalRun with arbitrary(t, state) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for Locals with arbitrary(t, state) {
+pub impl @quickcheck.Arbitrary for Locals with fn arbitrary(t, state) {
   let runs : Array[LocalRun] = []
   let count = state.next_positive_int() % 4 + 1
   let mut remaining = count
@@ -201,7 +201,7 @@ pub impl @quickcheck.Arbitrary for Locals with arbitrary(t, state) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for Func with arbitrary(t, state) {
+pub impl @quickcheck.Arbitrary for Func with fn arbitrary(t, state) {
   Func(
     @quickcheck.Arbitrary::arbitrary(t, state),
     @quickcheck.Arbitrary::arbitrary(t, state),
@@ -209,7 +209,7 @@ pub impl @quickcheck.Arbitrary for Func with arbitrary(t, state) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for Data with arbitrary(t, state) {
+pub impl @quickcheck.Arbitrary for Data with fn arbitrary(t, state) {
   let size = state.next_positive_int() % 10 + 1
   Data(
     @quickcheck.Arbitrary::arbitrary(t, state),
@@ -218,7 +218,7 @@ pub impl @quickcheck.Arbitrary for Data with arbitrary(t, state) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for Name with arbitrary(_, state) {
+pub impl @quickcheck.Arbitrary for Name with fn arbitrary(_, state) {
   let count = state.next_positive_int() % 5
   let sb = StringBuilder::new(size_hint=count)
   let mut remaining = count
@@ -973,7 +973,7 @@ pub impl @quickcheck.Arbitrary for Name with arbitrary(_, state) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for MemArg with arbitrary(t, state) {
+pub impl @quickcheck.Arbitrary for MemArg with fn arbitrary(t, state) {
   MemArg(
     U32(state.next_uint() % 64),
     @quickcheck.Arbitrary::arbitrary(t, state),
@@ -982,7 +982,7 @@ pub impl @quickcheck.Arbitrary for MemArg with arbitrary(t, state) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for Instruction with arbitrary(t, state) {
+pub impl @quickcheck.Arbitrary for Instruction with fn arbitrary(t, state) {
   match state.next_uint() % 494 {
     0 => Unreachable
     1 => Nop
@@ -1669,7 +1669,7 @@ pub impl @quickcheck.Arbitrary for Instruction with arbitrary(t, state) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for ElemSec with arbitrary(t, state) {
+pub impl @quickcheck.Arbitrary for ElemSec with fn arbitrary(t, state) {
   let elems = []
   let count = state.next_positive_int() % 4 + 1
   let mut remaining = count
@@ -1681,7 +1681,7 @@ pub impl @quickcheck.Arbitrary for ElemSec with arbitrary(t, state) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for CodeSec with arbitrary(t, state) {
+pub impl @quickcheck.Arbitrary for CodeSec with fn arbitrary(t, state) {
   let elems = []
   let count = state.next_positive_int() % 4 + 1
   let mut remaining = count
@@ -1693,7 +1693,7 @@ pub impl @quickcheck.Arbitrary for CodeSec with arbitrary(t, state) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for DataSec with arbitrary(t, state) {
+pub impl @quickcheck.Arbitrary for DataSec with fn arbitrary(t, state) {
   let elems = []
   let count = state.next_positive_int() % 4 + 1
   let mut remaining = count
@@ -1705,7 +1705,7 @@ pub impl @quickcheck.Arbitrary for DataSec with arbitrary(t, state) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for CustomSec with arbitrary(size, st) {
+pub impl @quickcheck.Arbitrary for CustomSec with fn arbitrary(size, st) {
   let name = @quickcheck.Arbitrary::arbitrary(size, st)
   let length = st.next_positive_int() % 19 + 1
   let buf = @buffer.new()
@@ -1722,7 +1722,7 @@ pub impl @quickcheck.Arbitrary for CustomSec with arbitrary(size, st) {
 }
 
 ///|
-pub impl @quickcheck.Arbitrary for Module with arbitrary(t, state) {
+pub impl @quickcheck.Arbitrary for Module with fn arbitrary(t, state) {
   Module::{
     custom_secs: array_of_arbitrary(5, t, state),
     name_sec: None,

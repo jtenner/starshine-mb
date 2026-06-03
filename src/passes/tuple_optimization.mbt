@@ -50,7 +50,7 @@ struct HotTupleOptimizationRootSlot {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotTupleOptimizationGroup with output(self, logger) {
+pub impl Show for HotTupleOptimizationGroup with fn output(self, logger) {
   logger.write_string("HotTupleOptimizationGroup(")
   logger.write_string("producer=")
   self.producer.output(logger)

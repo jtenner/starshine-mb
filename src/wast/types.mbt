@@ -8,7 +8,7 @@ pub enum LiteralType {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for LiteralType with output(self, logger) {
+pub impl Show for LiteralType with fn output(self, logger) {
   match self {
     Int => logger.write_string("Int")
     Float => logger.write_string("Float")
@@ -24,7 +24,7 @@ pub enum ErrorLevel {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for ErrorLevel with output(_self, logger) {
+pub impl Show for ErrorLevel with fn output(_self, logger) {
   logger.write_string("Error")
 }
 
@@ -41,7 +41,7 @@ pub struct Location {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for Location with output(self, logger) {
+pub impl Show for Location with fn output(self, logger) {
   logger.write_string("Location {filename: ")
   self.filename.output(logger)
   logger.write_string(", line: ")
@@ -60,7 +60,7 @@ pub struct Literal {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for Literal with output(self, logger) {
+pub impl Show for Literal with fn output(self, logger) {
   logger.write_string("Location {literal_type: ")
   self.literal_type.output(logger)
   logger.write_string(", text: ")
@@ -76,7 +76,7 @@ pub struct Token {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for Token with output(self, logger) {
+pub impl Show for Token with fn output(self, logger) {
   logger.write_string("Token {location: ")
   self.location.output(logger)
   logger.write_string(", token_type:")
@@ -94,7 +94,7 @@ pub struct LexerError {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for LexerError with output(self, logger) {
+pub impl Show for LexerError with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -124,7 +124,7 @@ pub enum HeapTypeRef {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HeapTypeRef with output(self, logger) {
+pub impl Show for HeapTypeRef with fn output(self, logger) {
   match self {
     TypeNum(val) => {
       logger.write_string("TypeNum(")
@@ -177,7 +177,7 @@ pub enum ValueType {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for ValueType with output(self, logger) {
+pub impl Show for ValueType with fn output(self, logger) {
   match self {
     I32 => logger.write_string("I32")
     I64 => logger.write_string("I64")
@@ -741,7 +741,7 @@ pub enum Opcode {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for Opcode with output(self, logger) {
+pub impl Show for Opcode with fn output(self, logger) {
   match self {
     Unreachable => logger.write_string("Unreachable")
     Nop => logger.write_string("Nop")
@@ -1312,7 +1312,7 @@ pub enum TokenType {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for TokenType with output(self, logger) {
+pub impl Show for TokenType with fn output(self, logger) {
   match self {
     Eof => logger.write_string("Eof")
     Lpar => logger.write_string("Lpar")
@@ -1404,7 +1404,7 @@ pub enum TokenValue {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for TokenValue with output(self, logger) {
+pub impl Show for TokenValue with fn output(self, logger) {
   match self {
     None => logger.write_string("None")
     Text(text) => {

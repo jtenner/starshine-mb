@@ -10,7 +10,7 @@ pub(all) struct LabelStack {
 } derive(Hash, Debug)
 
 ///|
-pub impl Show for LabelStack with output(self, logger) {
+pub impl Show for LabelStack with fn output(self, logger) {
   logger.write_string("LabelStack {values: ")
   Show::output(self.values, logger)
   logger.write_string(", parents: ")
@@ -100,7 +100,7 @@ pub(all) struct Env {
 } derive(Hash, Debug)
 
 ///|
-pub impl Show for Env with output(self, logger) {
+pub impl Show for Env with fn output(self, logger) {
   logger.write_string("Env {global_types: ")
   Show::output(self.global_types, logger)
   logger.write_string(", rec_stack: ")

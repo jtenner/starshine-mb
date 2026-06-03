@@ -5,7 +5,7 @@ pub enum HotUseSlotKind {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotUseSlotKind with output(self, logger) {
+pub impl Show for HotUseSlotKind with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -17,7 +17,7 @@ pub struct HotUseSite {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotUseSite with output(self, logger) {
+pub impl Show for HotUseSite with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 

@@ -6,7 +6,7 @@ pub suberror DecodeError {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for DecodeError with output(self, logger) {
+pub impl Show for DecodeError with fn output(self, logger) {
   match self {
     DecodeAt(err, a, b) => {
       logger.write_string("DecodeAt(")
@@ -38,7 +38,7 @@ pub suberror EncodeError {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for EncodeError with output(self, logger) {
+pub impl Show for EncodeError with fn output(self, logger) {
   match self {
     Encode(err) => {
       logger.write_string("Encode(")

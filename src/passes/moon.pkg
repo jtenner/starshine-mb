@@ -1,12 +1,12 @@
 import {
   "jtenner/starshine/binary",
-  "jtenner/starshine/bitset" @bitset,
+  "jtenner/starshine/bitset",
   "jtenner/starshine/fs" @sfs,
   "jtenner/starshine/ir",
   "jtenner/starshine/lib",
   "jtenner/starshine/validate",
   "jtenner/starshine/wast",
-  "moonbitlang/core/buffer" @buffer,
-  "moonbitlang/core/hashmap" @hashmap,
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/hashmap",
   "moonbitlang/core/debug",
 }

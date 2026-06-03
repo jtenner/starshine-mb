@@ -847,12 +847,12 @@ test "wast arbitrary module includes widened surface prelude" {
 }
 
 ///|
-pub impl Arbitrary for ValueType with arbitrary(_, st) {
+pub impl Arbitrary for ValueType with fn arbitrary(_, st) {
   pick_value_type(st)
 }
 
 ///|
-pub impl Arbitrary for Index with arbitrary(size, st) {
+pub impl Arbitrary for Index with fn arbitrary(size, st) {
   if (st.next_uint() & 1) == 1 {
     Num(rand_bounded((size + 1).reinterpret_as_uint(), st))
   } else {
@@ -862,7 +862,7 @@ pub impl Arbitrary for Index with arbitrary(size, st) {
 }
 
 ///|
-pub impl Arbitrary for Limits with arbitrary(_, st) {
+pub impl Arbitrary for Limits with fn arbitrary(_, st) {
   let min = st.next_uint() % 5
   let max : UInt? = if (st.next_uint() & 1) == 1 {
     Some(min + st.next_uint() % 3)
@@ -873,22 +873,22 @@ pub impl Arbitrary for Limits with arbitrary(_, st) {
 }
 
 ///|
-pub impl Arbitrary for FuncType with arbitrary(_, st) {
+pub impl Arbitrary for FuncType with fn arbitrary(_, st) {
   gen_func_type(st)
 }
 
 ///|
-pub impl Arbitrary for TypeUse with arbitrary(size, st) {
+pub impl Arbitrary for TypeUse with fn arbitrary(size, st) {
   gen_type_use(st, (size + 1).reinterpret_as_uint())
 }
 
 ///|
-pub impl Arbitrary for InlineExport with arbitrary(_, st) {
+pub impl Arbitrary for InlineExport with fn arbitrary(_, st) {
   Export("ex_\{st.next_uint() % 32}")
 }
 
 ///|
-pub impl Arbitrary for TableType with arbitrary(_, st) {
+pub impl Arbitrary for TableType with fn arbitrary(_, st) {
   {
     limits: Arbitrary::arbitrary(2, st),
     elem_type: if (st.next_uint() & 1) == 1 {
@@ -900,17 +900,17 @@ pub impl Arbitrary for TableType with arbitrary(_, st) {
 }
 
 ///|
-pub impl Arbitrary for MemoryType with arbitrary(_, st) {
+pub impl Arbitrary for MemoryType with fn arbitrary(_, st) {
   MemoryType(Arbitrary::arbitrary(2, st))
 }
 
 ///|
-pub impl Arbitrary for GlobalType with arbitrary(_, st) {
+pub impl Arbitrary for GlobalType with fn arbitrary(_, st) {
   { val_type: pick_numeric_value_type(st), mutable_: (st.next_uint() & 1) == 1 }
 }
 
 ///|
-pub impl Arbitrary for Local with arbitrary(_, st) {
+pub impl Arbitrary for Local with fn arbitrary(_, st) {
   {
     id: if (st.next_uint() & 1) == 1 {
       Some("$l\{st.next_uint() % 32}")
@@ -922,7 +922,7 @@ pub impl Arbitrary for Local with arbitrary(_, st) {
 }
 
 ///|
-pub impl Arbitrary for ImportDesc with arbitrary(size, st) {
+pub impl Arbitrary for ImportDesc with fn arbitrary(size, st) {
   match st.next_uint() % 4 {
     0 => Func(Arbitrary::arbitrary(size, st))
     1 => Table(Arbitrary::arbitrary(size, st))
@@ -932,7 +932,7 @@ pub impl Arbitrary for ImportDesc with arbitrary(size, st) {
 }
 
 ///|
-pub impl Arbitrary for Import with arbitrary(size, st) {
+pub impl Arbitrary for Import with fn arbitrary(size, st) {
   {
     module_name: "env",
     field_name: "f\{st.next_uint() % 64}",
@@ -947,7 +947,7 @@ pub impl Arbitrary for Import with arbitrary(size, st) {
 }
 
 ///|
-pub impl Arbitrary for ExportDesc with arbitrary(size, st) {
+pub impl Arbitrary for ExportDesc with fn arbitrary(size, st) {
   match st.next_uint() % 4 {
     0 => Func(rand_index(st, (size + 1).reinterpret_as_uint()))
     1 => Table(rand_index(st, 1))
@@ -957,22 +957,22 @@ pub impl Arbitrary for ExportDesc with arbitrary(size, st) {
 }
 
 ///|
-pub impl Arbitrary for Export with arbitrary(size, st) {
+pub impl Arbitrary for Export with fn arbitrary(size, st) {
   { name: "ex\{st.next_uint() % 64}", desc: Arbitrary::arbitrary(size, st) }
 }
 
 ///|
-pub impl Arbitrary for Start with arbitrary(size, st) {
+pub impl Arbitrary for Start with fn arbitrary(size, st) {
   { func_index: rand_index(st, (size + 1).reinterpret_as_uint()) }
 }
 
 ///|
-pub impl Arbitrary for MemArg with arbitrary(_, st) {
+pub impl Arbitrary for MemArg with fn arbitrary(_, st) {
   gen_memarg(st, 4)
 }
 
 ///|
-pub impl Arbitrary for BlockType with arbitrary(size, st) {
+pub impl Arbitrary for BlockType with fn arbitrary(size, st) {
   {
     label: if (st.next_uint() & 1) == 1 {
       Some("$b\{st.next_uint() % 32}")
@@ -988,7 +988,7 @@ pub impl Arbitrary for BlockType with arbitrary(size, st) {
 }
 
 ///|
-pub impl Arbitrary for SimdShape with arbitrary(_, st) {
+pub impl Arbitrary for SimdShape with fn arbitrary(_, st) {
   match st.next_uint() % 6 {
     0 => I8x16
     1 => I16x8
@@ -1000,7 +1000,7 @@ pub impl Arbitrary for SimdShape with arbitrary(_, st) {
 }
 
 ///|
-pub impl Arbitrary for V128Const with arbitrary(_, st) {
+pub impl Arbitrary for V128Const with fn arbitrary(_, st) {
   let shape : SimdShape = Arbitrary::arbitrary(0, st)
   let values : Array[String] = []
   let count = match shape {
@@ -1018,7 +1018,7 @@ pub impl Arbitrary for V128Const with arbitrary(_, st) {
 }
 
 ///|
-pub impl Arbitrary for ShuffleLanes with arbitrary(_, st) {
+pub impl Arbitrary for ShuffleLanes with fn arbitrary(_, st) {
   let lanes : FixedArray[UInt] = FixedArray::make(16, 0)
   for i = 0; i < 16; i = i + 1 {
     lanes[i] = st.next_uint() % 32
@@ -1027,7 +1027,7 @@ pub impl Arbitrary for ShuffleLanes with arbitrary(_, st) {
 }
 
 ///|
-pub impl Arbitrary for Opcode with arbitrary(_, st) {
+pub impl Arbitrary for Opcode with fn arbitrary(_, st) {
   match st.next_uint() % 8 {
     0 => pick_binary_opcode(st)
     1 => pick_unary_opcode(st)
@@ -1041,12 +1041,12 @@ pub impl Arbitrary for Opcode with arbitrary(_, st) {
 }
 
 ///|
-pub impl Arbitrary for Instruction with arbitrary(size, st) {
+pub impl Arbitrary for Instruction with fn arbitrary(size, st) {
   gen_instruction(size, st, (size + 2).reinterpret_as_uint())
 }
 
 ///|
-pub impl Arbitrary for Func with arbitrary(size, st) {
+pub impl Arbitrary for Func with fn arbitrary(size, st) {
   let locals : Array[Local] = []
   let local_n = rand_len(size, st, 3)
   for _ in 0..<local_n {
@@ -1072,7 +1072,7 @@ pub impl Arbitrary for Func with arbitrary(size, st) {
 }
 
 ///|
-pub impl Arbitrary for Global with arbitrary(size, st) {
+pub impl Arbitrary for Global with fn arbitrary(size, st) {
   {
     id: if (st.next_uint() & 1) == 1 {
       Some("$g\{st.next_uint() % 64}")
@@ -1086,7 +1086,7 @@ pub impl Arbitrary for Global with arbitrary(size, st) {
 }
 
 ///|
-pub impl Arbitrary for Table with arbitrary(size, st) {
+pub impl Arbitrary for Table with fn arbitrary(size, st) {
   {
     id: if (st.next_uint() & 1) == 1 {
       Some("$t\{st.next_uint() % 64}")
@@ -1103,7 +1103,7 @@ pub impl Arbitrary for Table with arbitrary(size, st) {
 }
 
 ///|
-pub impl Arbitrary for Memory with arbitrary(size, st) {
+pub impl Arbitrary for Memory with fn arbitrary(size, st) {
   {
     id: if (st.next_uint() & 1) == 1 {
       Some("$m\{st.next_uint() % 64}")
@@ -1116,7 +1116,7 @@ pub impl Arbitrary for Memory with arbitrary(size, st) {
 }
 
 ///|
-pub impl Arbitrary for TypeDef with arbitrary(size, st) {
+pub impl Arbitrary for TypeDef with fn arbitrary(size, st) {
   {
     id: if (st.next_uint() & 1) == 1 {
       Some("$t\{st.next_uint() % 64}")
@@ -1132,7 +1132,7 @@ pub impl Arbitrary for TypeDef with arbitrary(size, st) {
 }
 
 ///|
-pub impl Arbitrary for DataSegment with arbitrary(size, _) {
+pub impl Arbitrary for DataSegment with fn arbitrary(size, _) {
   {
     id: None,
     memory_index: Num(0),
@@ -1142,7 +1142,7 @@ pub impl Arbitrary for DataSegment with arbitrary(size, _) {
 }
 
 ///|
-pub impl Arbitrary for ElemSegment with arbitrary(size, st) {
+pub impl Arbitrary for ElemSegment with fn arbitrary(size, st) {
   let funcs : Array[Index] = []
   let n = rand_len(size, st, 3)
   for _ in 0..<n {
@@ -1159,7 +1159,7 @@ pub impl Arbitrary for ElemSegment with arbitrary(size, st) {
 }
 
 ///|
-pub impl Arbitrary for ModuleField with arbitrary(size, st) {
+pub impl Arbitrary for ModuleField with fn arbitrary(size, st) {
   match st.next_uint() % 11 {
     0 => TypeField(Arbitrary::arbitrary(size, st))
     1 => {
@@ -1183,12 +1183,12 @@ pub impl Arbitrary for ModuleField with arbitrary(size, st) {
 }
 
 ///|
-pub impl Arbitrary for Module with arbitrary(size, st) {
+pub impl Arbitrary for Module with fn arbitrary(size, st) {
   gen_module(size, st)
 }
 
 ///|
-pub impl Arbitrary for WastValue with arbitrary(_, st) {
+pub impl Arbitrary for WastValue with fn arbitrary(_, st) {
   match st.next_uint() % 6 {
     0 => I32("\{(st.next_uint() % 200).reinterpret_as_int() - 100}")
     1 => I64("\{(st.next_uint() % 200).reinterpret_as_int().to_int64() - 100L}")
@@ -1200,7 +1200,7 @@ pub impl Arbitrary for WastValue with arbitrary(_, st) {
 }
 
 ///|
-pub impl Arbitrary for WastResult with arbitrary(size, st) {
+pub impl Arbitrary for WastResult with fn arbitrary(size, st) {
   match st.next_uint() % 7 {
     0 => Value(Arbitrary::arbitrary(size, st))
     1 => F32NanCanonical
@@ -1213,7 +1213,7 @@ pub impl Arbitrary for WastResult with arbitrary(size, st) {
 }
 
 ///|
-pub impl Arbitrary for WastAction with arbitrary(size, st) {
+pub impl Arbitrary for WastAction with fn arbitrary(size, st) {
   let args : Array[WastValue] = []
   let n = rand_len(size, st, 4)
   for _ in 0..<n {
@@ -1231,7 +1231,7 @@ pub impl Arbitrary for WastAction with arbitrary(size, st) {
 }
 
 ///|
-pub impl Arbitrary for WastActionType with arbitrary(size, st) {
+pub impl Arbitrary for WastActionType with fn arbitrary(size, st) {
   if (st.next_uint() & 1) == 1 {
     Invoke(Arbitrary::arbitrary(size, st))
   } else {
@@ -1240,7 +1240,7 @@ pub impl Arbitrary for WastActionType with arbitrary(size, st) {
 }
 
 ///|
-pub impl Arbitrary for WastModuleDef with arbitrary(size, st) {
+pub impl Arbitrary for WastModuleDef with fn arbitrary(size, st) {
   match st.next_uint() % 3 {
     0 => Inline(Arbitrary::arbitrary(size, st))
     1 => Binary(b"\x00asm")
@@ -1249,7 +1249,7 @@ pub impl Arbitrary for WastModuleDef with arbitrary(size, st) {
 }
 
 ///|
-pub impl Arbitrary for WastCommand with arbitrary(size, st) {
+pub impl Arbitrary for WastCommand with fn arbitrary(size, st) {
   match st.next_uint() % 9 {
     0 => Module(Arbitrary::arbitrary(size, st))
     1 => Register("m\{st.next_uint() % 8}", None)
@@ -1267,7 +1267,7 @@ pub impl Arbitrary for WastCommand with arbitrary(size, st) {
 }
 
 ///|
-pub impl Arbitrary for WastScript with arbitrary(size, st) {
+pub impl Arbitrary for WastScript with fn arbitrary(size, st) {
   let commands : Array[WastCommand] = []
   let n = rand_len(size, st, 6)
   for _ in 0..<n {

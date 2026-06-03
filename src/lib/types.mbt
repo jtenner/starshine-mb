@@ -445,7 +445,7 @@ pub struct GlobalSec(Array[Global]) derive(Eq, Arbitrary, Hash, Debug)
 pub struct StringRefsSec(Array[Bytes]) derive(Eq, Hash, Debug)
 
 ///|
-pub impl Show for StringRefsSec with output(self, logger) {
+pub impl Show for StringRefsSec with fn output(self, logger) {
   logger.write_string("StringRefSec(")
   self.0.output(logger)
   logger.write_char(')')
@@ -503,7 +503,7 @@ pub struct DataSec(Array[Data]) derive(Eq, Hash, Debug)
 pub struct CastOp(Bool, Bool) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub impl Show for CastOp with output(self, logger) {
+pub impl Show for CastOp with fn output(self, logger) {
   logger.write_string("CastOp(")
   self.0.output(logger)
   logger.write_string(", ")
@@ -1558,7 +1558,7 @@ pub enum UnaryOp {
 } derive(Eq, Hash, Debug)
 
 ///|
-pub impl Show for UnaryOp with output(self, logger) {
+pub impl Show for UnaryOp with fn output(self, logger) {
   match self {
     I32EqzOp => logger.write_string("I32EqzOp")
     I64EqzOp => logger.write_string("I64EqzOp")
@@ -1932,7 +1932,7 @@ pub enum BinaryOp {
 } derive(Eq, Hash, Debug)
 
 ///|
-pub impl Show for BinaryOp with output(self, logger) {
+pub impl Show for BinaryOp with fn output(self, logger) {
   match self {
     I32EqOp => logger.write_string("I32EqOp")
     I32NeOp => logger.write_string("I32NeOp")
@@ -2181,7 +2181,7 @@ pub enum LoadOp {
 } derive(Eq, Hash, Debug)
 
 ///|
-pub impl Show for LoadOp with output(self, logger) {
+pub impl Show for LoadOp with fn output(self, logger) {
   match self {
     V128Load32ZeroOp => logger.write_string("V128Load32ZeroOp")
     V128Load64SplatOp => logger.write_string("V128Load64SplatOp")
@@ -2246,7 +2246,7 @@ pub enum StoreOp {
 } derive(Eq, Hash, Debug)
 
 ///|
-pub impl Show for StoreOp with output(self, logger) {
+pub impl Show for StoreOp with fn output(self, logger) {
   match self {
     I32StoreOp => logger.write_string("I32StoreOp")
     I64StoreOp => logger.write_string("I64StoreOp")
@@ -2315,7 +2315,7 @@ pub enum AtomicRmwOp {
 } derive(Eq, Hash, Debug)
 
 ///|
-pub impl Show for AtomicRmwOp with output(self, logger) {
+pub impl Show for AtomicRmwOp with fn output(self, logger) {
   match self {
     I32AtomicRmwAddOp => logger.write_string("I32AtomicRmwAddOp")
     I64AtomicRmwAddOp => logger.write_string("I64AtomicRmwAddOp")
@@ -2374,7 +2374,7 @@ pub enum AtomicCmpxchgOp {
 } derive(Eq, Hash, Debug)
 
 ///|
-pub impl Show for AtomicCmpxchgOp with output(self, logger) {
+pub impl Show for AtomicCmpxchgOp with fn output(self, logger) {
   match self {
     I32AtomicRmwCmpxchgOp => logger.write_string("I32AtomicRmwCmpxchgOp")
     I64AtomicRmwCmpxchgOp => logger.write_string("I64AtomicRmwCmpxchgOp")
@@ -2400,7 +2400,7 @@ pub enum ExtractLaneOp {
 } derive(Eq, Hash, Debug)
 
 ///|
-pub impl Show for ExtractLaneOp with output(self, logger) {
+pub impl Show for ExtractLaneOp with fn output(self, logger) {
   match self {
     I8x16ExtractLaneSOp => logger.write_string("I8x16ExtractLaneSOp")
     I8x16ExtractLaneUOp => logger.write_string("I8x16ExtractLaneUOp")
@@ -2425,7 +2425,7 @@ pub enum ReplaceLaneOp {
 } derive(Eq, Hash, Debug)
 
 ///|
-pub impl Show for ReplaceLaneOp with output(self, logger) {
+pub impl Show for ReplaceLaneOp with fn output(self, logger) {
   match self {
     I8x16ReplaceLaneOp => logger.write_string("I8x16ReplaceLaneOp")
     I16x8ReplaceLaneOp => logger.write_string("I16x8ReplaceLaneOp")
@@ -2454,7 +2454,7 @@ pub enum V128ShiftOp {
 } derive(Eq, Hash, Debug)
 
 ///|
-pub impl Show for V128ShiftOp with output(self, logger) {
+pub impl Show for V128ShiftOp with fn output(self, logger) {
   match self {
     I8x16ShlOp => logger.write_string("I8x16ShlOp")
     I8x16ShrSOp => logger.write_string("I8x16ShrSOp")
@@ -2487,7 +2487,7 @@ pub enum V128TernaryOp {
 } derive(Eq, Hash, Debug)
 
 ///|
-pub impl Show for V128TernaryOp with output(self, logger) {
+pub impl Show for V128TernaryOp with fn output(self, logger) {
   match self {
     F64x2RelaxedNmaddOp => logger.write_string("F64x2RelaxedNmaddOp")
     F64x2RelaxedMaddOp => logger.write_string("F64x2RelaxedMaddOp")
@@ -2513,7 +2513,7 @@ pub enum V128LoadLaneOp {
 } derive(Eq, Hash, Debug)
 
 ///|
-pub impl Show for V128LoadLaneOp with output(self, logger) {
+pub impl Show for V128LoadLaneOp with fn output(self, logger) {
   match self {
     V128Load8LaneOp => logger.write_string("V128Load8LaneOp")
     V128Load16LaneOp => logger.write_string("V128Load16LaneOp")
@@ -2532,7 +2532,7 @@ pub enum V128StoreLaneOp {
 } derive(Eq, Hash, Debug)
 
 ///|
-pub impl Show for V128StoreLaneOp with output(self, logger) {
+pub impl Show for V128StoreLaneOp with fn output(self, logger) {
   match self {
     V128Store8LaneOp => logger.write_string("V128Store8LaneOp")
     V128Store16LaneOp => logger.write_string("V128Store16LaneOp")
@@ -8124,17 +8124,17 @@ pub fn StartSec::new(fi : FuncIdx) -> StartSec {
 }
 
 ///|
-pub impl Eq for Locals with equal(l, r) {
+pub impl Eq for Locals with fn equal(l, r) {
   l.runs == r.runs
 }
 
 ///|
-pub impl Hash for Locals with hash(self) {
+pub impl Hash for Locals with fn hash(self) {
   self.runs.hash()
 }
 
 ///|
-pub impl Hash for Locals with hash_combine(self, hasher) {
+pub impl Hash for Locals with fn hash_combine(self, hasher) {
   hasher.combine_int(self.hash())
 }
 

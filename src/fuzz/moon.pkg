@@ -1,16 +1,16 @@
 import {
   "moonbitlang/core/debug",
-  "jtenner/starshine/binary" @binary,
-  "jtenner/starshine/passes" @passes,
-  "jtenner/starshine/lib" @lib,
-  "jtenner/starshine/fs" @fs,
-  "jtenner/starshine/validate" @validate,
-  "jtenner/starshine/wast" @wast,
-  "jtenner/starshine/wat" @wat,
-  "moonbitlang/core/env" @env,
-  "moonbitlang/core/buffer" @buffer,
-  "moonbitlang/core/quickcheck" @quickcheck,
-  "moonbitlang/core/quickcheck/splitmix" @splitmix,
+  "jtenner/starshine/binary",
+  "jtenner/starshine/passes",
+  "jtenner/starshine/lib",
+  "jtenner/starshine/fs",
+  "jtenner/starshine/validate",
+  "jtenner/starshine/wast",
+  "jtenner/starshine/wat",
+  "moonbitlang/core/env",
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/quickcheck/splitmix",
 }
 
 options(

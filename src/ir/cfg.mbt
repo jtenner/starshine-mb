@@ -5,7 +5,7 @@ pub struct CfgEdge {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for CfgEdge with output(self, logger) {
+pub impl Show for CfgEdge with fn output(self, logger) {
   let { kind, block } = self
   logger.write_string("{kind: ")
   kind.output(logger)
@@ -27,7 +27,7 @@ pub struct HotBlockInfo {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotBlockInfo with output(self, logger) {
+pub impl Show for HotBlockInfo with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -39,7 +39,7 @@ pub struct CfgRegionRootBlock {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for CfgRegionRootBlock with output(self, logger) {
+pub impl Show for CfgRegionRootBlock with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 

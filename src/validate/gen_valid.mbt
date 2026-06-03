@@ -5,7 +5,7 @@ pub enum GenValidMode {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for GenValidMode with output(self, logger) {
+pub impl Show for GenValidMode with fn output(self, logger) {
   match self {
     Natural => logger.write_string("Natural")
     CoverageForced => logger.write_string("CoverageForced")
@@ -25,7 +25,7 @@ pub struct GenValidSectionBias {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for GenValidSectionBias with output(self, logger) {
+pub impl Show for GenValidSectionBias with fn output(self, logger) {
   logger.write_string("GenValidSectionBias {imports_percent: ")
   self.imports_percent.output(logger)
   logger.write_string(", tables_percent: ")
@@ -102,7 +102,7 @@ pub struct GenValidFeatureToggles {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for GenValidFeatureToggles with output(self, logger) {
+pub impl Show for GenValidFeatureToggles with fn output(self, logger) {
   logger.write_string(", allow_imports:")
   self.allow_imports.output(logger)
   logger.write_string(", allow_tables:")
@@ -414,7 +414,7 @@ pub struct GenValidConfig {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for GenValidConfig with output(self, logger) {
+pub impl Show for GenValidConfig with fn output(self, logger) {
   logger.write_string("GenValidConfig {mode: ")
   self.mode.output(logger)
   logger.write_string(", max_type_defs: ")
@@ -1303,7 +1303,7 @@ pub struct GenValidFeatureStats {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for GenValidFeatureStats with output(self, logger) {
+pub impl Show for GenValidFeatureStats with fn output(self, logger) {
   logger.write_string("GenValidFeatureStats {mode: ")
   self.mode.output(logger)
   logger.write_string(", modules: ")
@@ -3099,7 +3099,7 @@ pub fn GenValidExactOpcodeCounts::add(
 }
 
 ///|
-pub impl Show for GenValidExactOpcodeCounts with output(self, logger) {
+pub impl Show for GenValidExactOpcodeCounts with fn output(self, logger) {
   logger.write_string("GenValidExactOpcodeCounts {i32_const: ")
   self.i32_const.output(logger)
   logger.write_string(", i64_const: ")

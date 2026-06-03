@@ -248,436 +248,436 @@ fn pretty_from_show(value : &Show, ctx : PrettyPrintContext) -> String {
 }
 
 ///|
-pub impl PrettyPrint for AbsHeapType with pretty_print(self, ctx) {
+pub impl PrettyPrint for AbsHeapType with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for BinaryOp with pretty_print(self, ctx) {
+pub impl PrettyPrint for BinaryOp with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for BlockType with pretty_print(self, ctx) {
+pub impl PrettyPrint for BlockType with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for CastOp with pretty_print(self, ctx) {
+pub impl PrettyPrint for CastOp with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for Catch with pretty_print(self, ctx) {
+pub impl PrettyPrint for Catch with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for CodeSec with pretty_print(self, ctx) {
+pub impl PrettyPrint for CodeSec with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for CompType with pretty_print(self, ctx) {
+pub impl PrettyPrint for CompType with fn pretty_print(self, ctx) {
   apply_pretty_context(pretty_comp_type(self), ctx)
 }
 
 ///|
-pub impl PrettyPrint for CustomSec with pretty_print(self, ctx) {
+pub impl PrettyPrint for CustomSec with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for NameAssoc with pretty_print(self, ctx) {
+pub impl PrettyPrint for NameAssoc with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for NameMap with pretty_print(self, ctx) {
+pub impl PrettyPrint for NameMap with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for IndirectNameAssoc with pretty_print(self, ctx) {
+pub impl PrettyPrint for IndirectNameAssoc with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for IndirectNameMap with pretty_print(self, ctx) {
+pub impl PrettyPrint for IndirectNameMap with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for NameSec with pretty_print(self, ctx) {
+pub impl PrettyPrint for NameSec with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for Data with pretty_print(self, ctx) {
+pub impl PrettyPrint for Data with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for DataCntSec with pretty_print(self, ctx) {
+pub impl PrettyPrint for DataCntSec with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for DataIdx with pretty_print(self, ctx) {
+pub impl PrettyPrint for DataIdx with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for DataMode with pretty_print(self, ctx) {
+pub impl PrettyPrint for DataMode with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for DataSec with pretty_print(self, ctx) {
+pub impl PrettyPrint for DataSec with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for DefType with pretty_print(self, ctx) {
+pub impl PrettyPrint for DefType with fn pretty_print(self, ctx) {
   apply_pretty_context(pretty_def_type(self), ctx)
 }
 
 ///|
-pub impl PrettyPrint for Elem with pretty_print(self, ctx) {
+pub impl PrettyPrint for Elem with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for ElemIdx with pretty_print(self, ctx) {
+pub impl PrettyPrint for ElemIdx with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for ElemKind with pretty_print(self, ctx) {
+pub impl PrettyPrint for ElemKind with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for ElemMode with pretty_print(self, ctx) {
+pub impl PrettyPrint for ElemMode with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for ElemSec with pretty_print(self, ctx) {
+pub impl PrettyPrint for ElemSec with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for Export with pretty_print(self, ctx) {
+pub impl PrettyPrint for Export with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for ExportSec with pretty_print(self, ctx) {
+pub impl PrettyPrint for ExportSec with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for Expr with pretty_print(self, ctx) {
+pub impl PrettyPrint for Expr with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for ExternIdx with pretty_print(self, ctx) {
+pub impl PrettyPrint for ExternIdx with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for ExternType with pretty_print(self, ctx) {
+pub impl PrettyPrint for ExternType with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for ExtractLaneOp with pretty_print(self, ctx) {
+pub impl PrettyPrint for ExtractLaneOp with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for F32 with pretty_print(self, ctx) {
+pub impl PrettyPrint for F32 with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for F64 with pretty_print(self, ctx) {
+pub impl PrettyPrint for F64 with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for FieldType with pretty_print(self, ctx) {
+pub impl PrettyPrint for FieldType with fn pretty_print(self, ctx) {
   apply_pretty_context(pretty_field_type(self), ctx)
 }
 
 ///|
-pub impl PrettyPrint for Func with pretty_print(self, ctx) {
+pub impl PrettyPrint for Func with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for FuncIdx with pretty_print(self, ctx) {
+pub impl PrettyPrint for FuncIdx with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for FuncSec with pretty_print(self, ctx) {
+pub impl PrettyPrint for FuncSec with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for FuncType with pretty_print(self, ctx) {
+pub impl PrettyPrint for FuncType with fn pretty_print(self, ctx) {
   apply_pretty_context(pretty_func_type(self), ctx)
 }
 
 ///|
-pub impl PrettyPrint for Global with pretty_print(self, ctx) {
+pub impl PrettyPrint for Global with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for GlobalIdx with pretty_print(self, ctx) {
+pub impl PrettyPrint for GlobalIdx with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for GlobalSec with pretty_print(self, ctx) {
+pub impl PrettyPrint for GlobalSec with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for GlobalType with pretty_print(self, ctx) {
+pub impl PrettyPrint for GlobalType with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for HeapType with pretty_print(self, ctx) {
+pub impl PrettyPrint for HeapType with fn pretty_print(self, ctx) {
   apply_pretty_context(pretty_heap_type(self), ctx)
 }
 
 ///|
-pub impl PrettyPrint for I32 with pretty_print(self, ctx) {
+pub impl PrettyPrint for I32 with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for I64 with pretty_print(self, ctx) {
+pub impl PrettyPrint for I64 with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for Import with pretty_print(self, ctx) {
+pub impl PrettyPrint for Import with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for ImportSec with pretty_print(self, ctx) {
+pub impl PrettyPrint for ImportSec with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for Instruction with pretty_print(self, ctx) {
+pub impl PrettyPrint for Instruction with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for LabelIdx with pretty_print(self, ctx) {
+pub impl PrettyPrint for LabelIdx with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for LaneIdx with pretty_print(self, ctx) {
+pub impl PrettyPrint for LaneIdx with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for Limits with pretty_print(self, ctx) {
+pub impl PrettyPrint for Limits with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for LoadOp with pretty_print(self, ctx) {
+pub impl PrettyPrint for LoadOp with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for LocalIdx with pretty_print(self, ctx) {
+pub impl PrettyPrint for LocalIdx with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for Locals with pretty_print(self, ctx) {
+pub impl PrettyPrint for Locals with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for MemArg with pretty_print(self, ctx) {
+pub impl PrettyPrint for MemArg with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for MemIdx with pretty_print(self, ctx) {
+pub impl PrettyPrint for MemIdx with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for MemSec with pretty_print(self, ctx) {
+pub impl PrettyPrint for MemSec with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for MemType with pretty_print(self, ctx) {
+pub impl PrettyPrint for MemType with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for Module with pretty_print(self, ctx) {
+pub impl PrettyPrint for Module with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for Mut with pretty_print(self, ctx) {
+pub impl PrettyPrint for Mut with fn pretty_print(self, ctx) {
   apply_pretty_context(self.to_string(), ctx)
 }
 
 ///|
-pub impl PrettyPrint for Name with pretty_print(self, ctx) {
+pub impl PrettyPrint for Name with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for NumType with pretty_print(self, ctx) {
+pub impl PrettyPrint for NumType with fn pretty_print(self, ctx) {
   apply_pretty_context(pretty_num_type(self), ctx)
 }
 
 ///|
-pub impl PrettyPrint for PackType with pretty_print(self, ctx) {
+pub impl PrettyPrint for PackType with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for RecType with pretty_print(self, ctx) {
+pub impl PrettyPrint for RecType with fn pretty_print(self, ctx) {
   apply_pretty_context(pretty_rec_type(self), ctx)
 }
 
 ///|
-pub impl PrettyPrint for RefType with pretty_print(self, ctx) {
+pub impl PrettyPrint for RefType with fn pretty_print(self, ctx) {
   apply_pretty_context(pretty_ref_type(self), ctx)
 }
 
 ///|
-pub impl PrettyPrint for ReplaceLaneOp with pretty_print(self, ctx) {
+pub impl PrettyPrint for ReplaceLaneOp with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for S33 with pretty_print(self, ctx) {
+pub impl PrettyPrint for S33 with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for StartSec with pretty_print(self, ctx) {
+pub impl PrettyPrint for StartSec with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for StorageType with pretty_print(self, ctx) {
+pub impl PrettyPrint for StorageType with fn pretty_print(self, ctx) {
   apply_pretty_context(pretty_storage_type(self), ctx)
 }
 
 ///|
-pub impl PrettyPrint for StoreOp with pretty_print(self, ctx) {
+pub impl PrettyPrint for StoreOp with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for SubType with pretty_print(self, ctx) {
+pub impl PrettyPrint for SubType with fn pretty_print(self, ctx) {
   apply_pretty_context(pretty_sub_type(self), ctx)
 }
 
 ///|
-pub impl PrettyPrint for Table with pretty_print(self, ctx) {
+pub impl PrettyPrint for Table with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for TableIdx with pretty_print(self, ctx) {
+pub impl PrettyPrint for TableIdx with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for TableSec with pretty_print(self, ctx) {
+pub impl PrettyPrint for TableSec with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for TableType with pretty_print(self, ctx) {
+pub impl PrettyPrint for TableType with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for TagIdx with pretty_print(self, ctx) {
+pub impl PrettyPrint for TagIdx with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for TagSec with pretty_print(self, ctx) {
+pub impl PrettyPrint for TagSec with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for TagType with pretty_print(self, ctx) {
+pub impl PrettyPrint for TagType with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for TypeIdx with pretty_print(self, ctx) {
+pub impl PrettyPrint for TypeIdx with fn pretty_print(self, ctx) {
   apply_pretty_context(pretty_type_idx(self), ctx)
 }
 
 ///|
-pub impl PrettyPrint for TypeSec with pretty_print(self, ctx) {
+pub impl PrettyPrint for TypeSec with fn pretty_print(self, ctx) {
   apply_pretty_context(pretty_type_sec(self), ctx)
 }
 
 ///|
-pub impl PrettyPrint for U32 with pretty_print(self, ctx) {
+pub impl PrettyPrint for U32 with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for U64 with pretty_print(self, ctx) {
+pub impl PrettyPrint for U64 with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for UnaryOp with pretty_print(self, ctx) {
+pub impl PrettyPrint for UnaryOp with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for V128LoadLaneOp with pretty_print(self, ctx) {
+pub impl PrettyPrint for V128LoadLaneOp with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for V128ShiftOp with pretty_print(self, ctx) {
+pub impl PrettyPrint for V128ShiftOp with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for V128StoreLaneOp with pretty_print(self, ctx) {
+pub impl PrettyPrint for V128StoreLaneOp with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for V128TernaryOp with pretty_print(self, ctx) {
+pub impl PrettyPrint for V128TernaryOp with fn pretty_print(self, ctx) {
   pretty_from_show(self, ctx)
 }
 
 ///|
-pub impl PrettyPrint for ValType with pretty_print(self, ctx) {
+pub impl PrettyPrint for ValType with fn pretty_print(self, ctx) {
   apply_pretty_context(pretty_val_type(self), ctx)
 }

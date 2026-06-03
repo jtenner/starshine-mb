@@ -1,5 +1,5 @@
 import {
   "moonbitlang/core/set",
-  "moonbitlang/core/hashmap" @hashmap,
+  "moonbitlang/core/hashmap",
   "moonbitlang/core/debug",
 }

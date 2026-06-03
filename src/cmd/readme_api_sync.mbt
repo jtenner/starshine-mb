@@ -5,7 +5,7 @@ struct ReadmeApiVerifyBlock {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for ReadmeApiVerifyBlock with output(self, logger) {
+pub impl Show for ReadmeApiVerifyBlock with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 

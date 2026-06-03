@@ -10,7 +10,7 @@ pub enum HotAnalysis {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotAnalysis with output(self, logger) {
+pub impl Show for HotAnalysis with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -57,7 +57,7 @@ pub struct HotPassDescriptor {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotPassDescriptor with output(self, logger) {
+pub impl Show for HotPassDescriptor with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 

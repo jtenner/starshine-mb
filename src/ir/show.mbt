@@ -1,5 +1,5 @@
 ///|
-pub impl Show for HotTypeInfo with output(self, logger) {
+pub impl Show for HotTypeInfo with fn output(self, logger) {
   match self {
     HotTypeInfo::VoidType => logger.write_string("VoidType")
     HotTypeInfo::BlockResult(block_type) => {
@@ -30,7 +30,7 @@ pub impl Show for HotTypeInfo with output(self, logger) {
 }
 
 ///|
-pub impl Show for HotLabelKind with output(self, logger) {
+pub impl Show for HotLabelKind with fn output(self, logger) {
   match self {
     HotLabelKind::BlockLabel => logger.write_string("BlockLabel")
     HotLabelKind::LoopLabel => logger.write_string("LoopLabel")
@@ -42,7 +42,7 @@ pub impl Show for HotLabelKind with output(self, logger) {
 }
 
 ///|
-pub impl Show for HotSideTableKind with output(self, logger) {
+pub impl Show for HotSideTableKind with fn output(self, logger) {
   match self {
     HotSideTableKind::ConstPayloadTable =>
       logger.write_string("ConstPayloadTable")
@@ -57,7 +57,7 @@ pub impl Show for HotSideTableKind with output(self, logger) {
 }
 
 ///|
-pub impl Show for HotLiftError with output(self, logger) {
+pub impl Show for HotLiftError with fn output(self, logger) {
   match self {
     HotLiftError::InvalidLabelDepth(raw) => {
       logger.write_string("InvalidLabelDepth(")
@@ -100,7 +100,7 @@ pub impl Show for HotLiftError with output(self, logger) {
 }
 
 ///|
-pub impl Show for HotVerifyError with output(self, logger) {
+pub impl Show for HotVerifyError with fn output(self, logger) {
   match self {
     HotVerifyError::InvalidBodyResultType(type_id) => {
       logger.write_string("InvalidBodyResultType(")
@@ -275,7 +275,7 @@ fn bitset_array_debug_dump(values : Array[Bitset]) -> String {
 }
 
 ///|
-pub impl Show for HotCfg with output(self, logger) {
+pub impl Show for HotCfg with fn output(self, logger) {
   logger.write_string("HotCfg(")
   logger.write_string("blocks=")
   self.blocks.length().output(logger)
@@ -301,7 +301,7 @@ pub impl Show for HotCfg with output(self, logger) {
 }
 
 ///|
-pub impl Show for HotCfgOrders with output(self, logger) {
+pub impl Show for HotCfgOrders with fn output(self, logger) {
   logger.write_string("HotCfgOrders(")
   logger.write_string("preorder=")
   self.preorder.output(logger)
@@ -327,7 +327,7 @@ pub impl Show for HotCfgOrders with output(self, logger) {
 }
 
 ///|
-pub impl Show for HotDominators with output(self, logger) {
+pub impl Show for HotDominators with fn output(self, logger) {
   logger.write_string("HotDominators(")
   logger.write_string("entry_block=")
   self.entry_block.output(logger)
@@ -353,7 +353,7 @@ pub impl Show for HotDominators with output(self, logger) {
 }
 
 ///|
-pub impl Show for HotPostDominators with output(self, logger) {
+pub impl Show for HotPostDominators with fn output(self, logger) {
   logger.write_string("HotPostDominators(")
   logger.write_string("roots=")
   self.roots.output(logger)
@@ -376,7 +376,7 @@ pub impl Show for HotPostDominators with output(self, logger) {
 }
 
 ///|
-pub impl Show for HotEffectsSummary with output(self, logger) {
+pub impl Show for HotEffectsSummary with fn output(self, logger) {
   logger.write_string("HotEffectsSummary(")
   logger.write_string("node_masks=")
   self.node_masks.output(logger)
@@ -390,7 +390,7 @@ pub impl Show for HotEffectsSummary with output(self, logger) {
 }
 
 ///|
-pub impl Show for HotLiveness with output(self, logger) {
+pub impl Show for HotLiveness with fn output(self, logger) {
   logger.write_string("HotLiveness(")
   logger.write_string("include_exceptional_edges=")
   self.include_exceptional_edges.output(logger)
@@ -404,7 +404,7 @@ pub impl Show for HotLiveness with output(self, logger) {
 }
 
 ///|
-pub impl Show for HotLoopInfo with output(self, logger) {
+pub impl Show for HotLoopInfo with fn output(self, logger) {
   logger.write_string("HotLoopInfo(")
   logger.write_string("loops=")
   self.loops.length().output(logger)
@@ -418,7 +418,7 @@ pub impl Show for HotLoopInfo with output(self, logger) {
 }
 
 ///|
-pub impl[T] Show for HotCacheEntry[T] with output(self, logger) {
+pub impl[T] Show for HotCacheEntry[T] with fn output(self, logger) {
   logger.write_string("HotCacheEntry(")
   self.built_at_revision.output(logger)
   logger.write_string(")")

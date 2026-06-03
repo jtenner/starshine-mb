@@ -90,7 +90,7 @@ pub enum HotOp {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotOp with output(self, logger) {
+pub impl Show for HotOp with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -141,7 +141,7 @@ pub struct HotNode {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotNode with output(self, logger) {
+pub impl Show for HotNode with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -153,7 +153,7 @@ pub struct HotLocals {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotLocals with output(self, logger) {
+pub impl Show for HotLocals with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -207,7 +207,7 @@ pub struct HotLabelInfo {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotLabelInfo with output(self, logger) {
+pub impl Show for HotLabelInfo with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -222,7 +222,7 @@ pub enum HotConstPayload {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotConstPayload with output(self, logger) {
+pub impl Show for HotConstPayload with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -232,7 +232,7 @@ pub struct HotMemArg {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotMemArg with output(self, logger) {
+pub impl Show for HotMemArg with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -243,7 +243,7 @@ pub struct HotBranchTable {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotBranchTable with output(self, logger) {
+pub impl Show for HotBranchTable with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -256,7 +256,7 @@ pub enum HotCatchArm {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotCatchArm with output(self, logger) {
+pub impl Show for HotCatchArm with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -266,7 +266,7 @@ pub struct HotCatchInfo {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotCatchInfo with output(self, logger) {
+pub impl Show for HotCatchInfo with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -277,7 +277,7 @@ pub struct HotCallSig {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotCallSig with output(self, logger) {
+pub impl Show for HotCallSig with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -287,7 +287,7 @@ pub struct HotInstrPayload {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotInstrPayload with output(self, logger) {
+pub impl Show for HotInstrPayload with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -297,7 +297,7 @@ pub enum HotStringBuiltin {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for HotStringBuiltin with output(self, logger) {
+pub impl Show for HotStringBuiltin with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 

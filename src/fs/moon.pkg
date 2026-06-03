@@ -1,7 +1,7 @@
 import {
   "moonbitlang/core/debug",
   "moonbitlang/core/buffer",
-  "moonbitlang/core/encoding/utf8" @utf8,
+  "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/env",
   "moonbitlang/x/fs" @xfs,
 }

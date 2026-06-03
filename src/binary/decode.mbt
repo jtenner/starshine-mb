@@ -56,7 +56,7 @@ pub suberror BinaryDecodeError {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for BinaryDecodeError with output(self, logger) {
+pub impl Show for BinaryDecodeError with fn output(self, logger) {
   match self {
     IndexOutOfBounds => logger.write_string("IndexOutOfBounds")
     InvalidNumTypeByte => logger.write_string("InvalidNumTypeByte")
@@ -139,7 +139,7 @@ pub struct ModuleDecodeErrorDetail {
 
 ///|
 pub trait Decode {
-  decode(Bytes, Int) -> Result[(Self, Int), BinaryDecodeError]
+  fn decode(Bytes, Int) -> Result[(Self, Int), BinaryDecodeError]
 }
 
 ///|
@@ -172,7 +172,7 @@ fn decode_string_const_literal(
 }
 
 ///|
-pub impl Decode for NumType with decode(buf, idx) {
+pub impl Decode for NumType with fn decode(buf, idx) {
   match buf.get(idx) {
     Some(0x7C) => Ok((NumType::f64(), idx + 1))
     Some(0x7D) => Ok((NumType::f32(), idx + 1))
@@ -184,7 +184,7 @@ pub impl Decode for NumType with decode(buf, idx) {
 }
 
 ///|
-pub impl Decode for HeapType with decode(bytes, i) {
+pub impl Decode for HeapType with fn decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Ok((abs, i)) => Ok((HeapType::abs(abs), i))
     Err(_) =>
@@ -196,7 +196,7 @@ pub impl Decode for HeapType with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for AbsHeapType with decode(bytes, i) {
+pub impl Decode for AbsHeapType with fn decode(bytes, i) {
   match bytes.get(i) {
     Some(0x64) => Ok((AbsHeapType::string_(), i + 1))
     Some(0x69) => Ok((AbsHeapType::exn(), i + 1))
@@ -237,7 +237,7 @@ fn decode_ref_heap_type(
 }
 
 ///|
-pub impl Decode for RefType with decode(bytes, i) {
+pub impl Decode for RefType with fn decode(bytes, i) {
   match bytes.get(i) {
     None => Err(BinaryDecodeError::IndexOutOfBounds)
     Some(0x63) =>
@@ -263,7 +263,7 @@ pub impl Decode for RefType with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for ValType with decode(bytes, i) {
+pub impl Decode for ValType with fn decode(bytes, i) {
   match bytes.get(i) {
     None => Err(BinaryDecodeError::IndexOutOfBounds)
     Some(0x7B) => Ok((ValType::v128(), i + 1))
@@ -286,7 +286,7 @@ pub impl Decode for ValType with decode(bytes, i) {
 }
 
 ///|
-pub impl[T : Decode] Decode for @list.List[T] with decode(bytes, i) {
+pub impl[T : Decode] Decode for @list.List[T] with fn decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Ok((@lib.U32(len), i)) => {
       let acc = []
@@ -309,7 +309,7 @@ pub impl[T : Decode] Decode for @list.List[T] with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for CompType with decode(bytes, i) {
+pub impl Decode for CompType with fn decode(bytes, i) {
   match bytes.get(i) {
     None => Err(BinaryDecodeError::IndexOutOfBounds)
     Some(0x5E) =>
@@ -336,7 +336,7 @@ pub impl Decode for CompType with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for Mut with decode(bytes, i) {
+pub impl Decode for Mut with fn decode(bytes, i) {
   if i >= bytes.length() {
     return Err(BinaryDecodeError::UnexpectedEofDecodingMut)
   }
@@ -349,7 +349,7 @@ pub impl Decode for Mut with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for StorageType with decode(bytes, i) {
+pub impl Decode for StorageType with fn decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Ok((vt, i)) => Ok((StorageType::val_type(vt), i))
     Err(_) =>
@@ -361,7 +361,7 @@ pub impl Decode for StorageType with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for PackType with decode(bytes, i) {
+pub impl Decode for PackType with fn decode(bytes, i) {
   match bytes.get(i) {
     Some(0x77) => Ok((PackType::i16(), i + 1))
     Some(0x78) => Ok((PackType::i8(), i + 1))
@@ -371,7 +371,7 @@ pub impl Decode for PackType with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for RecType with decode(buf, i) {
+pub impl Decode for RecType with fn decode(buf, i) {
   match buf.get(i) {
     None => Err(BinaryDecodeError::IndexOutOfBounds)
     Some(0x4E) =>
@@ -434,7 +434,7 @@ fn decode_descriptor_clauses(
 }
 
 ///|
-pub impl Decode for SubType with decode(buf, i) {
+pub impl Decode for SubType with fn decode(buf, i) {
   match buf.get(i) {
     // Final
     Some(0x4F) =>
@@ -613,7 +613,7 @@ fn decode_signed(
 }
 
 ///|
-pub impl Decode for S33 with decode(bytes, i) {
+pub impl Decode for S33 with fn decode(bytes, i) {
   match decode_signed(bytes, i, 33) {
     Err(err) => Err(err)
     Ok((val, i)) if val >= 0 && val <= 4294967295 =>
@@ -623,7 +623,7 @@ pub impl Decode for S33 with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for I32 with decode(bytes, i) {
+pub impl Decode for I32 with fn decode(bytes, i) {
   match decode_signed(bytes, i, 32) {
     Err(err) => Err(err)
     Ok((val, i)) => Ok((I32(val.to_int()), i))
@@ -631,7 +631,7 @@ pub impl Decode for I32 with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for @lib.U32 with decode(bytes, i) {
+pub impl Decode for @lib.U32 with fn decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(err) => Err(err)
     Ok((val, i)) => Ok((U32(val.to_uint()), i))
@@ -639,7 +639,7 @@ pub impl Decode for @lib.U32 with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for I64 with decode(bytes, i) {
+pub impl Decode for I64 with fn decode(bytes, i) {
   match decode_signed(bytes, i, 64) {
     Err(err) => Err(err)
     Ok((val, i)) => Ok((I64(val), i))
@@ -647,7 +647,7 @@ pub impl Decode for I64 with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for @lib.U64 with decode(bytes, i) {
+pub impl Decode for @lib.U64 with fn decode(bytes, i) {
   match decode_unsigned(bytes, i, 64) {
     Err(err) => Err(err)
     Ok((val, i)) => Ok((U64(val), i))
@@ -655,7 +655,7 @@ pub impl Decode for @lib.U64 with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for F32 with decode(bytes, i) {
+pub impl Decode for F32 with fn decode(bytes, i) {
   if bytes.length() >= i + 4 {
     let value : Int = (bytes.unsafe_get(i + 3).to_int() << 24) |
       (bytes.unsafe_get(i + 2).to_int() << 16) |
@@ -668,7 +668,7 @@ pub impl Decode for F32 with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for F64 with decode(bytes, i) {
+pub impl Decode for F64 with fn decode(bytes, i) {
   if bytes.length() >= i + 8 {
     let value : Int64 = (bytes.unsafe_get(i + 7).to_int64() << 56) |
       (bytes.unsafe_get(i + 6).to_int64() << 48) |
@@ -685,7 +685,7 @@ pub impl Decode for F64 with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for Bool with decode(bytes, i) {
+pub impl Decode for Bool with fn decode(bytes, i) {
   match bytes.get(i) {
     Some(0x00) => Ok((false, i + 1))
     Some(0x01) => Ok((true, i + 1))
@@ -695,7 +695,7 @@ pub impl Decode for Bool with decode(bytes, i) {
 }
 
 ///|
-pub impl[T : Decode] Decode for T? with decode(bytes, i) {
+pub impl[T : Decode] Decode for T? with fn decode(bytes, i) {
   match T::decode(bytes, i) {
     Err(_) => Ok((None, i))
     Ok((val, i)) => Ok((Some(val), i))
@@ -703,7 +703,7 @@ pub impl[T : Decode] Decode for T? with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for TypeIdx with decode(bytes, i) {
+pub impl Decode for TypeIdx with fn decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
     Ok((n, i)) => Ok((TypeIdx::new(n.to_uint()), i))
@@ -711,7 +711,7 @@ pub impl Decode for TypeIdx with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for FuncIdx with decode(bytes, i) {
+pub impl Decode for FuncIdx with fn decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
     Ok((n, i)) => Ok((FuncIdx::new(n.to_uint()), i))
@@ -719,7 +719,7 @@ pub impl Decode for FuncIdx with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for TableIdx with decode(bytes, i) {
+pub impl Decode for TableIdx with fn decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
     Ok((n, i)) => Ok((TableIdx::new(n.to_uint()), i))
@@ -727,7 +727,7 @@ pub impl Decode for TableIdx with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for MemIdx with decode(bytes, i) {
+pub impl Decode for MemIdx with fn decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
     Ok((n, i)) => Ok((MemIdx::new(n.to_uint()), i))
@@ -735,7 +735,7 @@ pub impl Decode for MemIdx with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for GlobalIdx with decode(bytes, i) {
+pub impl Decode for GlobalIdx with fn decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
     Ok((n, i)) => Ok((GlobalIdx::new(n.to_uint()), i))
@@ -743,7 +743,7 @@ pub impl Decode for GlobalIdx with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for TagIdx with decode(bytes, i) {
+pub impl Decode for TagIdx with fn decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
     Ok((n, i)) => Ok((TagIdx::new(n.to_uint()), i))
@@ -751,7 +751,7 @@ pub impl Decode for TagIdx with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for ElemIdx with decode(bytes, i) {
+pub impl Decode for ElemIdx with fn decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
     Ok((n, i)) => Ok((ElemIdx::new(n.to_uint()), i))
@@ -759,7 +759,7 @@ pub impl Decode for ElemIdx with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for DataIdx with decode(bytes, i) {
+pub impl Decode for DataIdx with fn decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
     Ok((n, i)) => Ok((DataIdx::new(n.to_uint()), i))
@@ -767,7 +767,7 @@ pub impl Decode for DataIdx with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for LocalIdx with decode(bytes, i) {
+pub impl Decode for LocalIdx with fn decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
     Ok((n, i)) => Ok((LocalIdx::new(n.to_uint()), i))
@@ -775,7 +775,7 @@ pub impl Decode for LocalIdx with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for LaneIdx with decode(bytes, i) {
+pub impl Decode for LaneIdx with fn decode(bytes, i) {
   if bytes.get(i) is Some(n) && n < 16 {
     Ok((LaneIdx::new(n), i + 1))
   } else {
@@ -784,7 +784,7 @@ pub impl Decode for LaneIdx with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for LabelIdx with decode(bytes, i) {
+pub impl Decode for LabelIdx with fn decode(bytes, i) {
   match decode_unsigned(bytes, i, 32) {
     Err(t) => Err(t)
     Ok((n, i)) => Ok((LabelIdx::new(n.to_uint()), i))
@@ -792,7 +792,7 @@ pub impl Decode for LabelIdx with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for Name with decode(bytes, i) {
+pub impl Decode for Name with fn decode(bytes, i) {
   let (@lib.U32(len_u), j) = match Decode::decode(bytes, i) {
     Err(err) => return Err(err)
     Ok(t) => t
@@ -812,7 +812,7 @@ pub impl Decode for Name with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for NameAssoc with decode(bytes, i) {
+pub impl Decode for NameAssoc with fn decode(bytes, i) {
   let (@lib.U32(idx), i) = match Decode::decode(bytes, i) {
     Ok(t) => t
     Err(err) => return Err(err)
@@ -825,7 +825,7 @@ pub impl Decode for NameAssoc with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for NameMap with decode(bytes, i) {
+pub impl Decode for NameMap with fn decode(bytes, i) {
   let (@lib.U32(len_u), i) = match Decode::decode(bytes, i) {
     Ok(t) => t
     Err(err) => return Err(err)
@@ -856,7 +856,7 @@ pub impl Decode for NameMap with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for IndirectNameAssoc with decode(bytes, i) {
+pub impl Decode for IndirectNameAssoc with fn decode(bytes, i) {
   let (@lib.U32(idx), i) = match Decode::decode(bytes, i) {
     Ok(t) => t
     Err(err) => return Err(err)
@@ -869,7 +869,7 @@ pub impl Decode for IndirectNameAssoc with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for IndirectNameMap with decode(bytes, i) {
+pub impl Decode for IndirectNameMap with fn decode(bytes, i) {
   let (@lib.U32(len_u), i) = match Decode::decode(bytes, i) {
     Ok(t) => t
     Err(err) => return Err(err)
@@ -918,7 +918,7 @@ fn[T : Decode] decode_name_subsection_payload(
 }
 
 ///|
-pub impl Decode for NameSec with decode(bytes, i) {
+pub impl Decode for NameSec with fn decode(bytes, i) {
   let mut next = i
   let mut prev_subsection_id : Byte? = None
   let mut module_name : Name? = None
@@ -1561,7 +1561,7 @@ pub fn decode_module_with_detail(
 }
 
 ///|
-pub impl Decode for Module with decode(bytes, i) {
+pub impl Decode for Module with fn decode(bytes, i) {
   match decode_module_with_detail(bytes, i) {
     Ok(t) => Ok(t)
     Err(detail) => Err(detail.err)
@@ -1569,7 +1569,7 @@ pub impl Decode for Module with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for Elem with decode(bytes, i) {
+pub impl Decode for Elem with fn decode(bytes, i) {
   let is_funcref = fn(rt : RefType) {
     rt == RefType::abs(AbsHeapType::func()) ||
     rt == RefType::new(true, HeapType::abs(AbsHeapType::func()))
@@ -1735,7 +1735,7 @@ pub impl Decode for Elem with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for ElemSec with decode(bytes, i) {
+pub impl Decode for ElemSec with fn decode(bytes, i) {
   match decode_section_vector_payload(bytes, i, 9) {
     Ok((content, next)) => Ok((ElemSec::new(content), next))
     Err(t) => Err(t)
@@ -1743,7 +1743,7 @@ pub impl Decode for ElemSec with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for DataCntSec with decode(bytes, i) {
+pub impl Decode for DataCntSec with fn decode(bytes, i) {
   match
     (
       decode_section_payload(bytes, i, 12) :
@@ -1754,7 +1754,7 @@ pub impl Decode for DataCntSec with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for LocalRun with decode(bytes, i) {
+pub impl Decode for LocalRun with fn decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Ok((@lib.U32(count), i)) =>
       match Decode::decode(bytes, i) {
@@ -1766,7 +1766,7 @@ pub impl Decode for LocalRun with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for Locals with decode(bytes, i) {
+pub impl Decode for Locals with fn decode(bytes, i) {
   match
     (
       Decode::decode(bytes, i) :
@@ -1777,7 +1777,7 @@ pub impl Decode for Locals with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for Func with decode(bytes, i) {
+pub impl Decode for Func with fn decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Ok((@lib.U32(_size), i)) => // Read the length prefix first
       match
@@ -1804,7 +1804,7 @@ pub impl Decode for Func with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for CodeSec with decode(bytes, i) {
+pub impl Decode for CodeSec with fn decode(bytes, i) {
   match decode_section_vector_payload(bytes, i, 10) {
     Ok((funcs, next)) => Ok((CodeSec::new(funcs), next))
     Err(t) => Err(t)
@@ -1812,7 +1812,7 @@ pub impl Decode for CodeSec with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for Data with decode(bytes, i) {
+pub impl Decode for Data with fn decode(bytes, i) {
   let (header, next) = match
     (Decode::decode(bytes, i) : Result[(@lib.U32, Int), BinaryDecodeError]) {
     Ok((@lib.U32(v), next)) => (v, next)
@@ -1853,7 +1853,7 @@ pub impl Decode for Data with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for DataSec with decode(bytes, i) {
+pub impl Decode for DataSec with fn decode(bytes, i) {
   match decode_section_vector_payload(bytes, i, 11) {
     Ok((content, next)) => Ok((DataSec::new(content), next))
     Err(t) => Err(t)
@@ -1861,7 +1861,7 @@ pub impl Decode for DataSec with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for StringRefsSec with decode(bytes, i) {
+pub impl Decode for StringRefsSec with fn decode(bytes, i) {
   if bytes.get(i) != Some(14) {
     return Err(BinaryDecodeError::InvalidSectionHeader)
   }
@@ -1892,7 +1892,7 @@ pub impl Decode for StringRefsSec with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for CustomSec with decode(bytes, i) {
+pub impl Decode for CustomSec with fn decode(bytes, i) {
   match decode_custom_section_header(bytes, i) {
     Ok((name, payload_start, end)) =>
       Ok((CustomSec::new(name, bytes[payload_start:end].to_owned()), end))
@@ -1901,7 +1901,7 @@ pub impl Decode for CustomSec with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for TypeSec with decode(bytes, i) {
+pub impl Decode for TypeSec with fn decode(bytes, i) {
   match decode_section_vector_payload(bytes, i, 1) {
     Ok((content, next)) => Ok((TypeSec::new(content), next))
     Err(t) => Err(t)
@@ -1909,7 +1909,7 @@ pub impl Decode for TypeSec with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for Import with decode(bytes, i) {
+pub impl Decode for Import with fn decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Ok((nm1, i)) =>
       match Decode::decode(bytes, i) {
@@ -1925,7 +1925,7 @@ pub impl Decode for Import with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for Limits with decode(bytes, i) {
+pub impl Decode for Limits with fn decode(bytes, i) {
   match bytes.get(i) {
     None => Err(BinaryDecodeError::IndexOutOfBounds)
     Some(0x00) =>
@@ -1962,7 +1962,7 @@ pub impl Decode for Limits with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for TableType with decode(bytes, i) {
+pub impl Decode for TableType with fn decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Ok((rt, i)) =>
       match Decode::decode(bytes, i) {
@@ -1974,7 +1974,7 @@ pub impl Decode for TableType with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for MemType with decode(bytes, i) {
+pub impl Decode for MemType with fn decode(bytes, i) {
   match bytes.get(i) {
     Some(0x00) =>
       match Decode::decode(bytes, i + 1) {
@@ -2061,7 +2061,7 @@ pub impl Decode for MemType with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for GlobalType with decode(bytes, i) {
+pub impl Decode for GlobalType with fn decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Ok((vt, i)) =>
       match Decode::decode(bytes, i) {
@@ -2073,7 +2073,7 @@ pub impl Decode for GlobalType with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for TagType with decode(bytes, i) {
+pub impl Decode for TagType with fn decode(bytes, i) {
   if bytes.get(i) != Some(0x00) {
     return Err(BinaryDecodeError::InvalidTagType)
   }
@@ -2084,7 +2084,7 @@ pub impl Decode for TagType with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for ExternType with decode(bytes, i) {
+pub impl Decode for ExternType with fn decode(bytes, i) {
   match bytes.get(i) {
     Some(0x00) =>
       match Decode::decode(bytes, i + 1) {
@@ -2119,7 +2119,7 @@ pub impl Decode for ExternType with decode(bytes, i) {
 // General pattern for section decoding
 
 ///|
-pub impl Decode for ImportSec with decode(bytes, i) {
+pub impl Decode for ImportSec with fn decode(bytes, i) {
   match decode_section_vector_payload(bytes, i, 2) {
     Ok((content, next)) => Ok((ImportSec::new(content), next))
     Err(t) => Err(t)
@@ -2127,7 +2127,7 @@ pub impl Decode for ImportSec with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for FuncSec with decode(bytes, i) {
+pub impl Decode for FuncSec with fn decode(bytes, i) {
   match decode_section_vector_payload(bytes, i, 3) {
     Ok((content, next)) => Ok((FuncSec::new(content), next))
     Err(t) => Err(t)
@@ -2135,7 +2135,7 @@ pub impl Decode for FuncSec with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for BlockType with decode(bytes, i) {
+pub impl Decode for BlockType with fn decode(bytes, i) {
   if bytes.get(i) is Some(0x40) {
     return Ok((BlockType::void_(), i + 1))
   }
@@ -2176,12 +2176,12 @@ fn decode_expr_with_depth(
 }
 
 ///|
-pub impl Decode for Expr with decode(bytes, i) {
+pub impl Decode for Expr with fn decode(bytes, i) {
   decode_expr_with_depth(bytes, i, 0)
 }
 
 ///|
-pub impl Decode for Table with decode(bytes, i) {
+pub impl Decode for Table with fn decode(bytes, i) {
   match (bytes.get(i), bytes.get(i + 1)) {
     (Some(0x40), Some(0x00)) =>
       match Decode::decode(bytes, i + 2) {
@@ -2201,7 +2201,7 @@ pub impl Decode for Table with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for Global with decode(bytes, i) {
+pub impl Decode for Global with fn decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Ok((gt, i)) =>
       match Decode::decode(bytes, i) {
@@ -2213,7 +2213,7 @@ pub impl Decode for Global with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for ExternIdx with decode(bytes, i) {
+pub impl Decode for ExternIdx with fn decode(bytes, i) {
   match bytes.get(i) {
     Some(0x00) =>
       match Decode::decode(bytes, i + 1) {
@@ -2246,7 +2246,7 @@ pub impl Decode for ExternIdx with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for Export with decode(bytes, i) {
+pub impl Decode for Export with fn decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Ok((n, i)) =>
       match Decode::decode(bytes, i) {
@@ -2258,7 +2258,7 @@ pub impl Decode for Export with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for TableSec with decode(bytes, i) {
+pub impl Decode for TableSec with fn decode(bytes, i) {
   match decode_section_vector_payload(bytes, i, 4) {
     Ok((content, next)) => Ok((TableSec::new(content), next))
     Err(t) => Err(t)
@@ -2266,7 +2266,7 @@ pub impl Decode for TableSec with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for MemSec with decode(bytes, i) {
+pub impl Decode for MemSec with fn decode(bytes, i) {
   match decode_section_vector_payload(bytes, i, 5) {
     Ok((content, next)) => Ok((MemSec::new(content), next))
     Err(t) => Err(t)
@@ -2274,7 +2274,7 @@ pub impl Decode for MemSec with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for TagSec with decode(bytes, i) {
+pub impl Decode for TagSec with fn decode(bytes, i) {
   match decode_section_vector_payload(bytes, i, 13) {
     Ok((content, next)) => Ok((TagSec::new(content), next))
     Err(t) => Err(t)
@@ -2282,7 +2282,7 @@ pub impl Decode for TagSec with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for GlobalSec with decode(bytes, i) {
+pub impl Decode for GlobalSec with fn decode(bytes, i) {
   match decode_section_vector_payload(bytes, i, 6) {
     Ok((content, next)) => Ok((GlobalSec::new(content), next))
     Err(t) => Err(t)
@@ -2290,7 +2290,7 @@ pub impl Decode for GlobalSec with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for ExportSec with decode(bytes, i) {
+pub impl Decode for ExportSec with fn decode(bytes, i) {
   match decode_section_vector_payload(bytes, i, 7) {
     Ok((content, next)) => Ok((ExportSec::new(content), next))
     Err(t) => Err(t)
@@ -2298,7 +2298,7 @@ pub impl Decode for ExportSec with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for StartSec with decode(bytes, i) {
+pub impl Decode for StartSec with fn decode(bytes, i) {
   match
     (
       decode_section_payload(bytes, i, 8) :
@@ -2309,7 +2309,7 @@ pub impl Decode for StartSec with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for Bytes with decode(bytes, i) {
+pub impl Decode for Bytes with fn decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Err(t) => Err(t)
     Ok((@lib.U32(len), i)) if len + i.reinterpret_as_uint() <=
@@ -2323,7 +2323,7 @@ pub impl Decode for Bytes with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for Catch with decode(bytes, i) {
+pub impl Decode for Catch with fn decode(bytes, i) {
   match bytes.get(i) {
     Some(0x00) =>
       match Decode::decode(bytes, i + 1) {
@@ -2358,7 +2358,7 @@ pub impl Decode for Catch with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for CastOp with decode(bytes, i) {
+pub impl Decode for CastOp with fn decode(bytes, i) {
   match bytes.get(i) {
     Some(0x00) => Ok((CastOp::new(false, false), i + 1))
     Some(0x01) => Ok((CastOp::new(true, false), i + 1))
@@ -2369,7 +2369,7 @@ pub impl Decode for CastOp with decode(bytes, i) {
 }
 
 ///|
-pub impl Decode for MemArg with decode(bytes, i) {
+pub impl Decode for MemArg with fn decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Ok((@lib.U32(n), i)) if n >= 64 && n < 128 =>
       match Decode::decode(bytes, i) {
@@ -4065,12 +4065,12 @@ fn decode_instruction_with_depth(
 }
 
 ///|
-pub impl Decode for Instruction with decode(bytes, i) {
+pub impl Decode for Instruction with fn decode(bytes, i) {
   decode_instruction_with_depth(bytes, i, 0)
 }
 
 ///|
-pub impl Decode for FieldType with decode(bytes, i) {
+pub impl Decode for FieldType with fn decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Err(err) => Err(err)
     Ok((st, i)) =>
@@ -4082,7 +4082,7 @@ pub impl Decode for FieldType with decode(bytes, i) {
 }
 
 ///|
-pub impl[T : Decode] Decode for Array[T] with decode(bytes, i) {
+pub impl[T : Decode] Decode for Array[T] with fn decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Err(t) => Err(t)
     Ok((@lib.U32(count), i)) => {

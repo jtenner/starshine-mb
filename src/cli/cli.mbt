@@ -124,7 +124,7 @@ pub enum CliParseError {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for CliParseError with output(self, logger) {
+pub impl Show for CliParseError with fn output(self, logger) {
   match self {
     InvalidTrapMode(arg) => {
       logger.write_string("InvalidTrapMode(")
@@ -1265,31 +1265,31 @@ pub fn resolve_closed_world(
 }
 
 ///|
-pub impl Show for CliInputFormat with output(self, logger) {
+pub impl Show for CliInputFormat with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
 ///|
-pub impl Show for CliOutputTarget with output(self, logger) {
+pub impl Show for CliOutputTarget with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
 ///|
-pub impl Show for CliOptimizationFlag with output(self, logger) {
+pub impl Show for CliOptimizationFlag with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
 ///|
-pub impl Show for TrapMode with output(self, logger) {
+pub impl Show for TrapMode with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
 ///|
-pub impl Show for CliTracingLevel with output(self, logger) {
+pub impl Show for CliTracingLevel with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
 ///|
-pub impl Show for CliParseResult with output(self, logger) {
+pub impl Show for CliParseResult with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }

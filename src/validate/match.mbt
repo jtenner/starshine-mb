@@ -1,11 +1,11 @@
 ///|
 pub trait Match {
-  matches(Self, Self, Env) -> Bool
+  fn matches(Self, Self, Env) -> Bool
 }
 
 ///|
 pub trait DeclMatch {
-  matches_decl(Self, Self, Env) -> Bool
+  fn matches_decl(Self, Self, Env) -> Bool
 }
 
 ///|
@@ -14,7 +14,7 @@ pub fn descriptor_compatible(r0 : RefType, r1 : RefType, env : Env) -> Bool {
 }
 
 ///|
-pub impl[T : Match] Match for Array[T] with matches(self, other, env) {
+pub impl[T : Match] Match for Array[T] with fn matches(self, other, env) {
   if self.length() != other.length() {
     return false
   }
@@ -27,7 +27,7 @@ pub impl[T : Match] Match for Array[T] with matches(self, other, env) {
 }
 
 ///|
-pub impl Match for CompType with matches(self, other, env) {
+pub impl Match for CompType with fn matches(self, other, env) {
   match (self, other) {
     // self <: other
     (FuncCompType(p_self, r_self), FuncCompType(p_other, r_other)) =>
@@ -53,7 +53,7 @@ pub impl Match for CompType with matches(self, other, env) {
 }
 
 ///|
-pub impl Match for ValType with matches(self, other, env) {
+pub impl Match for ValType with fn matches(self, other, env) {
   match (self, other) {
     (RefTypeValType(r0), RefTypeValType(r1)) => Match::matches(r0, r1, env)
     _ => self == other
@@ -61,7 +61,7 @@ pub impl Match for ValType with matches(self, other, env) {
 }
 
 ///|
-pub impl Match for RefType with matches(self, other, env) {
+pub impl Match for RefType with fn matches(self, other, env) {
   let ht0 = self.get_heap_type()
   let ht1 = other.get_heap_type()
   let exact0 = self.is_exact()
@@ -338,7 +338,7 @@ fn exact_reftype_matches_fuel(
 }
 
 ///|
-pub impl Match for FieldType with matches(self, other, env) {
+pub impl Match for FieldType with fn matches(self, other, env) {
   let FieldType(st0, m0) = self
   let FieldType(st1, m1) = other
   match (m0, m1) {
@@ -349,7 +349,7 @@ pub impl Match for FieldType with matches(self, other, env) {
 }
 
 ///|
-pub impl Match for StorageType with matches(self, other, env) {
+pub impl Match for StorageType with fn matches(self, other, env) {
   match (self, other) {
     (ValTypeStorageType(v1), ValTypeStorageType(v2)) =>
       Match::matches(v1, v2, env)
@@ -359,7 +359,7 @@ pub impl Match for StorageType with matches(self, other, env) {
 }
 
 ///|
-pub impl Match for AbsHeapType with matches(self, other, _) {
+pub impl Match for AbsHeapType with fn matches(self, other, _) {
   if self == other {
     return true
   }
@@ -398,7 +398,7 @@ pub impl Match for AbsHeapType with matches(self, other, _) {
 }
 
 ///|
-pub impl Match for HeapType with matches(self, other, env) {
+pub impl Match for HeapType with fn matches(self, other, env) {
   let fuel = env.global_types.length() + 16
   heaptype_matches_fuel(self, other, env, fuel)
 }
@@ -620,7 +620,7 @@ fn env_add_rec_group(env : Env, group : Array[SubType]) -> Env {
 }
 
 ///|
-pub impl Match for DefType with matches(self, other, env) {
+pub impl Match for DefType with fn matches(self, other, env) {
   let fuel = env.global_types.length() + 16 // Int
   deftype_matches_fuel(self, other, env, fuel)
 }
@@ -664,7 +664,7 @@ fn deftype_matches_fuel(
 }
 
 ///|
-pub impl Match for Limits with matches(self, other, _) {
+pub impl Match for Limits with fn matches(self, other, _) {
   match (self, other) {
     (I32Limits(n1, m1), I32Limits(n2, m2)) =>
       limits_range_matches_u64(
@@ -708,7 +708,7 @@ fn limits_range_matches_u64(
 }
 
 ///|
-pub impl Match for TagType with matches(self, other, env) {
+pub impl Match for TagType with fn matches(self, other, env) {
   let TagType(a) = self
   let TagType(b) = other
   typeidx_leq_typeidx(a, b, env) && typeidx_leq_typeidx(b, a, env)
@@ -773,14 +773,14 @@ fn typeidx_leq_typeidx_fuel(
 }
 
 ///|
-pub impl Match for MemType with matches(self, other, env) {
+pub impl Match for MemType with fn matches(self, other, env) {
   let MemType(l1, shared1) = self
   let MemType(l2, shared2) = other
   shared1 == shared2 && Match::matches(l1, l2, env)
 }
 
 ///|
-pub impl Match for GlobalType with matches(self, other, env) {
+pub impl Match for GlobalType with fn matches(self, other, env) {
   let GlobalType(v1, m1) = self
   let GlobalType(v2, m2) = other
 
@@ -801,7 +801,7 @@ pub impl Match for GlobalType with matches(self, other, env) {
 }
 
 ///|
-pub impl Match for TableType with matches(self, other, env) {
+pub impl Match for TableType with fn matches(self, other, env) {
   let TableType(rt1, lim1) = self
   let TableType(rt2, lim2) = other
   Match::matches(lim1, lim2, env) &&
@@ -810,7 +810,7 @@ pub impl Match for TableType with matches(self, other, env) {
 }
 
 ///|
-pub impl Match for ExternType with matches(self, other, env) {
+pub impl Match for ExternType with fn matches(self, other, env) {
   match (self, other) {
     (TagExternType(t1), TagExternType(t2)) => Match::matches(t1, t2, env)
     (GlobalExternType(g1), GlobalExternType(g2)) => Match::matches(g1, g2, env)

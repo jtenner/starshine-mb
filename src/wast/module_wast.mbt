@@ -1172,7 +1172,7 @@ pub fn script_to_wast_with_context(
 }
 
 ///|
-pub impl Show for Module with output(self, logger) {
+pub impl Show for Module with fn output(self, logger) {
   match module_to_wast(self) {
     Ok(text) => logger.write_string(text)
     Err(msg) => {
@@ -1184,7 +1184,7 @@ pub impl Show for Module with output(self, logger) {
 }
 
 ///|
-pub impl Show for WastScript with output(self, logger) {
+pub impl Show for WastScript with fn output(self, logger) {
   match script_to_wast(self) {
     Ok(text) => logger.write_string(text)
     Err(msg) => {

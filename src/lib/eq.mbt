@@ -1,5 +1,5 @@
 ///|
-pub impl Eq for Module with equal(l, r) {
+pub impl Eq for Module with fn equal(l, r) {
   let l_custom = l.custom_secs
   let r_custom = r.custom_secs
   if l_custom.length() != r_custom.length() {
@@ -34,7 +34,7 @@ pub impl Eq for Module with equal(l, r) {
 }
 
 ///|
-pub impl Eq for RecType with equal(l, r) {
+pub impl Eq for RecType with fn equal(l, r) {
   match (l, r) {
     (SingleRecType(stl), GroupRecType([str])) => stl == str
     (GroupRecType([stl]), SingleRecType(str)) => stl == str
@@ -45,7 +45,7 @@ pub impl Eq for RecType with equal(l, r) {
 }
 
 ///|
-pub impl Eq for RefType with equal(l, r) {
+pub impl Eq for RefType with fn equal(l, r) {
   match (l, r) {
     (HeapTypeRefType(l0, l1, l2), HeapTypeRefType(r0, r1, r2)) =>
       l0 == r0 && l1 == r1 && l2 == r2
@@ -63,7 +63,7 @@ pub impl Eq for RefType with equal(l, r) {
 }
 
 ///|
-pub impl Eq for MemArg with equal(l, r) {
+pub impl Eq for MemArg with fn equal(l, r) {
   l.0 == r.0 &&
   l.1.unwrap_or(MemIdx(0)) == r.1.unwrap_or(MemIdx(0)) &&
   l.2 == r.2

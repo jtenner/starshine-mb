@@ -172,7 +172,7 @@ pub fn apply_pretty_context(text : String, ctx : PrettyPrintContext) -> String {
 
 ///|
 pub(open) trait PrettyPrint {
-  pretty_print(Self, PrettyPrintContext) -> String
+  fn pretty_print(Self, PrettyPrintContext) -> String
 }
 
 ///|

@@ -1,8 +1,8 @@
 import {
   "moonbitlang/core/debug",
-  "jtenner/starshine/bitset" @bitset,
+  "jtenner/starshine/bitset",
   "jtenner/starshine/lib",
-  "jtenner/starshine/validate_proof" @validate_proof,
+  "jtenner/starshine/validate_proof",
   "moonbitlang/core/quickcheck/splitmix",
 }
 
