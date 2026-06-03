@@ -20,13 +20,7 @@
   - Status: smoke-green on 2026-06-02; keep only follow-up hardening here until a full-suite signoff or smaller artifact-generation fixture replaces the integration-shaped guard.
   - Goal: keep the repaired debug-WASI artifact/reduced fixture and conservative pass guards from regressing while broader self-optimized spec coverage is scheduled.
   - Why: the original stale artifact trap was repaired by regenerating the committed debug-WASI artifact and reduced fixture from the current correct `$moonbit.malloc` shape. Subsequent full self/debug `-O4z` prefix probes exposed optimizer owners that are now guarded conservatively: `ssa-nomerge` nested-control liveness, `optimize-instructions` commutative canonicalization, `simplify-locals-nostructure` local.tee/load sinking, `coalesce-locals` loop/structured-local.tee coalescing, and `vacuum` branchy structured write cleanup.
-  - Completed evidence:
-    - [x] `bun test scripts/lib/o4z-debug-startup-map.test.ts` passes with both structural allocator-root and runtime startup assertions intact.
-    - [x] `wasm-tools validate --features all tests/repros/o4z-debug-startup-map-init-repro.wasm` passes.
-    - [x] Full `_build/native/release/build/cmd/cmd.exe -O4z --out .tmp/o4z-bench/starshine-o4z-candidate.wasm tests/node/dist/starshine-debug-wasi.wasm` builds a candidate that validates.
-    - [x] Node/WASI smoke passes: `--help`, `run-self-optimized-spec-suite --limit 1`, and selected `tests/spec/i32.wast`, `tests/spec/call.wast`, `tests/spec/ref.wast`.
-    - [x] Node/WASI broader/full spec pass: `run-self-optimized-spec-suite --limit 20` and full `run-self-optimized-spec-suite` over all `284` `tests/spec/**/*.wast` files.
-    - [x] Durable findings recorded in `docs/wiki/raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md`.
+  - Durable evidence: `docs/wiki/raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md`.
   - Remaining follow-ups:
     - [ ] Keep `tests/repros/o4z-debug-startup-map-init-repro.wasm` as the focused repro until a smaller source/build-artifact fixture replaces it.
     - [ ] Recover optimization precision one pass at a time only with focused tests and semantic evidence: nested SSA liveness, safe commutative operand ordering, local.tee-aware simplify-locals sinking, path-sensitive coalesce-locals, and branchy structured vacuum cleanup.
@@ -65,16 +59,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
   - Scope: function/table/global/memory/tag/elem/data liveness, export/start/ref.func/type-use roots, nonfunction-only sibling behavior, and module rewrite cost.
   - Deliverables: apply the common checklist; cover roots and remaps not already tested; refresh direct compare plus `DFE -> RUME` neighborhood evidence; classify any retained dead elements or over-removal risks.
-
-- [O4Z-AUDIT-MP] - Deep audit `memory-packing`
-  - Status: audited on 2026-06-03; keep only broader upstream-parity follow-ups here unless late `-O4z` evidence reopens the slice.
-  - Scope: active/passive data packing, offset arithmetic, overlap and trap preservation, data.drop/data.init remaps, imported/defined memory boundaries, and large-data performance.
-  - Completed evidence:
-    - [x] Added focused shape coverage for empty active trapping offsets, trailing trap preservation after a nonzero prefix, imported-memory bailout, passive `array.new_data` / `array.init_data` remaps, constant memory64 active offsets, and many out-of-order active segments.
-    - [x] Improved pass-local scalability with sorted active-span overlap checks, active-only data-usage scan elision, and a single-kept-range active fast path.
-    - [x] Refreshed direct compare: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass memory-packing --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-memory-packing-audit-current-10000-keepgoing` reported `9975` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures.
-    - [x] Captured pass-local synthetic timing in `docs/wiki/raw/research/0700-2026-06-03-memory-packing-o4z-audit.md`: after-change medians were `12 us` on active-only large-code and `825 us` on many-active-segment stress, faster than Binaryen's `4223.3 us` and `975.6 us` medians for those fixtures.
-  - Remaining follow-ups: full upstream passive segment splitting / `memory.fill` replacement planning, lazy drop-state globals, imported-memory `zeroFilledMemory`, and `MaxDataSegments` limiting remain intentionally outside the local v0.1.0 subset.
 
 - [O4Z-AUDIT-GR] - Deep audit `global-refining`
   - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
