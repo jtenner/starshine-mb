@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-06-03
 sources:
   - ../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedModuleElements.cpp
@@ -135,6 +135,7 @@ Beginner takeaway:
 
 - a function can matter even when there is no direct textual `call $f`
 - RUME is one of the passes that teaches why `ref.func` and `call_ref` matter for whole-module liveness
+- the surviving module must still contain an elem declaration for any live `ref.func` target after function-index compaction
 
 ## 7. GC heap-type references are also part of the shape story
 
@@ -152,6 +153,26 @@ The pass is therefore not limited to obvious MVP-style index instructions.
 ```
 
 If the elem segment stays live, the function named inside it can stay relevant too.
+
+## Declaration-only active elems can become declarative
+
+A live `ref.func` can require an elem segment only as a declaration source. If that elem was active on a table that is otherwise dead, Binaryen can drop the table and keep the declaration by weakening the segment to declarative.
+
+```wat
+(module
+  (type $t (func (result i32)))
+  (table 1 funcref)
+  (func $target (type $t) i32.const 42)
+  (func $main (result (ref null $t)) ref.func $target)
+  (elem (i32.const 0) func $target)
+  (export "main" (func $main))
+)
+```
+
+Beginner takeaway:
+
+- a `ref.func` declaration edge is not the same as a strong table-initialization edge
+- keeping the function declaration should not force an otherwise-dead active parent table to survive
 
 ## Reference-only / weakening shapes: Binaryen often keeps the idea, not the original declaration
 

@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-06-03
 sources:
   - ../../../raw/research/0545-2026-05-06-rume-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-22-remove-unused-module-elements-primary-sources.md
@@ -75,6 +75,7 @@ That is much closer to the official source than “remove dead functions.”
   3. propagate liveness through a queue-driven fixed point
   4. remove unused function types before later non-function cleanup
   5. either delete, keep, or weaken declarations while rewriting all surviving users
+  6. preserve `ref.func` declaration validity after function compaction, including active-to-declarative elem weakening when the active parent table is otherwise dead
 - The helper surface matters a lot:
   - `ModuleUtils`
   - `ElementUtils`

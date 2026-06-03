@@ -11459,3 +11459,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added `docs/wiki/raw/research/0636-2026-05-26-dae003-current-frontier-classification.md` to close `[DAE003-B]` as a classification slice.
 - Recorded that the current leading DAE artifact/frontier misses are not missed safe constant-actual or unread-parameter materialization: raw/default diffs remain type-section/type-index diagnostic drift, both-canonical Func509 remains the closed lowerer/diagnostic boundary, selected fallback changes remain `[DAE]004` dropped-result scheduling gaps, and direct fuzz mismatches remain accepted raw-cleanup drift.
 - Refreshed `docs/wiki/binaryen/passes/dae-optimizing/starshine-strategy.md` and `agent-todo.md` so future DAE003 work starts from the remaining generalization subtasks instead of reopening the current artifact frontier.
+
+## [2026-06-03] audit | close `remove-unused-module-elements` O4z pass audit
+
+- Audited `remove-unused-module-elements` as the next active O4z per-pass slice after DFE, focusing on `ref.func` declaration validity, declaration-only elem weakening, direct Binaryen parity, the `DFE -> RUME` neighborhood, and pass-local timing.
+- Added focused tests in `src/passes/remove_unused_module_elements_test.mbt` for live `ref.func` targets retaining/remapping declarative elem declarations and for active declaration-only elems on otherwise-dead tables being rewritten to declarative elems instead of retaining the table.
+- Updated `src/passes/remove_unused_module_elements.mbt` to track function-to-declaring-elem edges, mark declaration-only elem liveness separately from strong elem use, and rewrite declaration-only active elems whose parent table is dropped to declarative mode.
+- Direct parity: `.tmp/pass-fuzz-rume-audit-declonly-10000` reached `9972 / 10000` compared, `9972` normalized matches, `0` mismatches, and `28` command failures (`22` Binaryen rec-group-zero, `1` Binaryen bad-section-size, `1` Binaryen table-index-out-of-range, `1` Binaryen invalid-tag-index, `3` Starshine command failures).
+- Neighborhood/perf: `.tmp/pass-fuzz-dfe-rume-audit-1000` reached `998 / 1000` normalized matches with `0` mismatches and `2` Binaryen rec-group-zero command failures; `.tmp/rume-debug-artifact-timing-declonly` reported canonical wasm equality with Starshine/Binaryen pass-local timings `25.198 ms / 38.936 ms`.
+- Refreshed the RUME living pages and removed `[O4Z-AUDIT-RUME]` from `agent-todo.md`; remaining O4z per-pass audits continue with `global-refining` and later active candidates.

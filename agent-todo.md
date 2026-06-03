@@ -50,11 +50,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 - Replay the pass's `-O4z` slot/neighborhood when it has saved artifacts or documented generated-audit evidence.
 - Close with an agent-classified findings note: bugs found/fixed, missing shapes added, performance owners, deferred risks, exact commands, counts, and artifact paths.
 
-- [O4Z-AUDIT-RUME] - Deep audit `remove-unused-module-elements`
-  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
-  - Scope: function/table/global/memory/tag/elem/data liveness, export/start/ref.func/type-use roots, nonfunction-only sibling behavior, and module rewrite cost.
-  - Deliverables: apply the common checklist; cover roots and remaps not already tested; refresh direct compare plus `DFE -> RUME` neighborhood evidence; classify any retained dead elements or over-removal risks.
-
 - [O4Z-AUDIT-GR] - Deep audit `global-refining`
   - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
   - Scope: global initializer/type LUB refinement, mutable/exported/imported guardrails, GC heap type precision, descriptor/stringref interactions, and validation/refinalization behavior.

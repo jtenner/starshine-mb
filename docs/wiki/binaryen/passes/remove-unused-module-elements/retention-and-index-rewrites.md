@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-06-03
 sources:
   - ../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/remove_unused_module_elements.mbt
@@ -25,6 +25,7 @@ related:
 - Active data segments can keep imported memories alive.
 - Zero-byte active data should not keep a memory alive by itself.
 - Effect-free null-only active elem initializers should not keep an imported table alive by themselves.
+- A live `ref.func` still needs a declaration source after function compaction; declaration-only active elem segments whose parent table is otherwise dead should be rewritten to declarative elems instead of retaining the dead table.
 
 ## Current In-Tree Rewrite Surface
 
@@ -40,6 +41,8 @@ related:
   `throw`, catch arms, exports, and name maps.
 - Elem and data indices:
   `array.new_elem`, `array.init_elem`, `elem.drop`, `array.new_data`, `array.init_data`, `data.drop`, `memory.init`, `table.init`, name maps, and count sections.
+- Function-declaration element modes:
+  declaration-only `ref.func` elem users may keep an elem segment solely as a declaration source; if such an elem was active on a dropped table, Starshine rewrites the mode to declarative while remapping the surviving function indices.
 
 ## Metadata Rewrites
 

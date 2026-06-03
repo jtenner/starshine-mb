@@ -202,6 +202,107 @@ fn rume_build_mem_to_data_map(
 }
 
 ///|
+fn rume_record_declaring_elem_func(
+  func_to_elems : Array[Array[@lib.ElemIdx]],
+  elem_idx : @lib.ElemIdx,
+  func_idx : @lib.FuncIdx,
+) -> Unit {
+  let @lib.FuncIdx(raw_idx) = func_idx
+  let slot = raw_idx.reinterpret_as_int()
+  if slot >= 0 && slot < func_to_elems.length() {
+    func_to_elems[slot].push(elem_idx)
+  }
+}
+
+///|
+fn rume_record_declaring_elem_instr(
+  instr : @lib.Instruction,
+  elem_idx : @lib.ElemIdx,
+  func_to_elems : Array[Array[@lib.ElemIdx]],
+) -> Unit {
+  match instr {
+    @lib.Block(_, body) | @lib.Loop(_, body) =>
+      rume_record_declaring_elem_expr(body, elem_idx, func_to_elems)
+    @lib.If(_, then_body, else_body) => {
+      for nested in then_body {
+        rume_record_declaring_elem_instr(nested, elem_idx, func_to_elems)
+      }
+      match else_body {
+        Some(body) =>
+          for nested in body {
+            rume_record_declaring_elem_instr(nested, elem_idx, func_to_elems)
+          }
+        None => ()
+      }
+    }
+    @lib.TryTable(_, _, body) =>
+      rume_record_declaring_elem_expr(body, elem_idx, func_to_elems)
+    @lib.RefFunc(func_idx) =>
+      rume_record_declaring_elem_func(func_to_elems, elem_idx, func_idx)
+    _ => ()
+  }
+}
+
+///|
+fn rume_record_declaring_elem_expr(
+  expr : @lib.Expr,
+  elem_idx : @lib.ElemIdx,
+  func_to_elems : Array[Array[@lib.ElemIdx]],
+) -> Unit {
+  let @lib.Expr(instrs) = expr
+  for instr in instrs {
+    rume_record_declaring_elem_instr(instr, elem_idx, func_to_elems)
+  }
+}
+
+///|
+fn rume_record_declaring_elem_kind(
+  kind : @lib.ElemKind,
+  elem_idx : @lib.ElemIdx,
+  func_to_elems : Array[Array[@lib.ElemIdx]],
+) -> Unit {
+  match kind {
+    @lib.FuncsElemKind(funcs) =>
+      for func_idx in funcs {
+        rume_record_declaring_elem_func(func_to_elems, elem_idx, func_idx)
+      }
+    @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
+      for expr in exprs {
+        rume_record_declaring_elem_expr(expr, elem_idx, func_to_elems)
+      }
+  }
+}
+
+///|
+fn rume_build_func_to_declaring_elem_map(
+  func_count : Int,
+  mod_ : @lib.Module,
+) -> Array[Array[@lib.ElemIdx]] {
+  let func_to_elems : Array[Array[@lib.ElemIdx]] = []
+  let mut func_idx = 0
+  while func_idx < func_count {
+    func_to_elems.push([])
+    func_idx += 1
+  }
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) => {
+      let mut elem_idx = 0
+      while elem_idx < elems.length() {
+        let @lib.Elem(_, kind) = elems[elem_idx]
+        rume_record_declaring_elem_kind(
+          kind,
+          @lib.ElemIdx::new(elem_idx.reinterpret_as_uint()),
+          func_to_elems,
+        )
+        elem_idx += 1
+      }
+    }
+    None => ()
+  }
+  func_to_elems
+}
+
+///|
 fn rume_defined_func_count(mod_ : @lib.Module) -> Int {
   match mod_.func_sec {
     Some(@lib.FuncSec(type_idxs)) => type_idxs.length()
@@ -290,6 +391,39 @@ fn rume_mark_func(
   }
   used_funcs[slot] = true
   queue.push(RumeItem::Func(raw))
+}
+
+///|
+fn rume_mark_declaring_elem(
+  used_elems : @bitset.BitSet,
+  decl_only_elems : @bitset.BitSet,
+  idx : @lib.ElemIdx,
+) -> Unit {
+  let @lib.ElemIdx(raw) = idx
+  let slot = raw.reinterpret_as_int()
+  if slot >= 0 && slot < used_elems.length() {
+    used_elems[slot] = true
+    decl_only_elems[slot] = true
+  }
+}
+
+///|
+fn rume_mark_ref_func(
+  queue : Array[RumeItem],
+  used_funcs : @bitset.BitSet,
+  used_elems : @bitset.BitSet,
+  decl_only_elems : @bitset.BitSet,
+  func_to_declaring_elems : Array[Array[@lib.ElemIdx]],
+  idx : @lib.FuncIdx,
+) -> Unit {
+  rume_mark_func(queue, used_funcs, idx)
+  let @lib.FuncIdx(raw) = idx
+  let slot = raw.reinterpret_as_int()
+  if slot >= 0 && slot < func_to_declaring_elems.length() {
+    for elem_idx in func_to_declaring_elems[slot] {
+      rume_mark_declaring_elem(used_elems, decl_only_elems, elem_idx)
+    }
+  }
 }
 
 ///|
@@ -438,12 +572,14 @@ fn rume_scan_expr(
   used_tags : @bitset.BitSet,
   used_elems : @bitset.BitSet,
   used_datas : @bitset.BitSet,
+  decl_only_elems : @bitset.BitSet,
+  func_to_declaring_elems : Array[Array[@lib.ElemIdx]],
 ) -> Unit {
   let @lib.Expr(instrs) = expr
   for instr in instrs {
     rume_scan_instruction(
       instr, queue, used_funcs, used_globals, used_tables, used_mems, used_tags,
-      used_elems, used_datas,
+      used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
     )
   }
 }
@@ -459,18 +595,20 @@ fn rume_scan_instruction(
   used_tags : @bitset.BitSet,
   used_elems : @bitset.BitSet,
   used_datas : @bitset.BitSet,
+  decl_only_elems : @bitset.BitSet,
+  func_to_declaring_elems : Array[Array[@lib.ElemIdx]],
 ) -> Unit {
   match instr {
     @lib.Block(_, body) | @lib.Loop(_, body) =>
       rume_scan_expr(
         body, queue, used_funcs, used_globals, used_tables, used_mems, used_tags,
-        used_elems, used_datas,
+        used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
       )
     @lib.If(_, then_body, else_body) => {
       for nested in then_body {
         rume_scan_instruction(
           nested, queue, used_funcs, used_globals, used_tables, used_mems, used_tags,
-          used_elems, used_datas,
+          used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
         )
       }
       match else_body {
@@ -478,14 +616,19 @@ fn rume_scan_instruction(
           for nested in body {
             rume_scan_instruction(
               nested, queue, used_funcs, used_globals, used_tables, used_mems, used_tags,
-              used_elems, used_datas,
+              used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
             )
           }
         None => ()
       }
     }
-    @lib.Call(func_idx) | @lib.ReturnCall(func_idx) | @lib.RefFunc(func_idx) =>
+    @lib.Call(func_idx) | @lib.ReturnCall(func_idx) =>
       rume_mark_func(queue, used_funcs, func_idx)
+    @lib.RefFunc(func_idx) =>
+      rume_mark_ref_func(
+        queue, used_funcs, used_elems, decl_only_elems, func_to_declaring_elems,
+        func_idx,
+      )
     @lib.CallIndirect(_, table_idx) | @lib.ReturnCallIndirect(_, table_idx) =>
       rume_mark_table(queue, used_tables, table_idx)
     @lib.Throw(tag_idx) => rume_mark_tag(queue, used_tags, tag_idx)
@@ -493,7 +636,7 @@ fn rume_scan_instruction(
       rume_scan_catches(catches, queue, used_tags)
       rume_scan_expr(
         body, queue, used_funcs, used_globals, used_tables, used_mems, used_tags,
-        used_elems, used_datas,
+        used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
       )
     }
     @lib.GlobalGet(global_idx) | @lib.GlobalSet(global_idx) =>
@@ -610,6 +753,8 @@ fn rume_process_func(
   used_tags : @bitset.BitSet,
   used_elems : @bitset.BitSet,
   used_datas : @bitset.BitSet,
+  decl_only_elems : @bitset.BitSet,
+  func_to_declaring_elems : Array[Array[@lib.ElemIdx]],
 ) -> Unit {
   let def_idx = abs_idx.reinterpret_as_int() - func_imports
   if def_idx < 0 {
@@ -621,7 +766,7 @@ fn rume_process_func(
         Some(@lib.Func(_, body)) =>
           rume_scan_expr(
             body, queue, used_funcs, used_globals, used_tables, used_mems, used_tags,
-            used_elems, used_datas,
+            used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
           )
         None => ()
       }
@@ -642,6 +787,8 @@ fn rume_process_global(
   used_tags : @bitset.BitSet,
   used_elems : @bitset.BitSet,
   used_datas : @bitset.BitSet,
+  decl_only_elems : @bitset.BitSet,
+  func_to_declaring_elems : Array[Array[@lib.ElemIdx]],
 ) -> Unit {
   let def_idx = abs_idx.reinterpret_as_int() - global_imports
   if def_idx < 0 {
@@ -653,7 +800,7 @@ fn rume_process_global(
         Some(@lib.Global(_, init)) =>
           rume_scan_expr(
             init, queue, used_funcs, used_globals, used_tables, used_mems, used_tags,
-            used_elems, used_datas,
+            used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
           )
         None => ()
       }
@@ -674,6 +821,8 @@ fn rume_process_table(
   used_tags : @bitset.BitSet,
   used_elems : @bitset.BitSet,
   used_datas : @bitset.BitSet,
+  decl_only_elems : @bitset.BitSet,
+  func_to_declaring_elems : Array[Array[@lib.ElemIdx]],
   table_to_elems : Array[Array[@lib.ElemIdx]],
 ) -> Unit {
   let def_idx = abs_idx.reinterpret_as_int() - table_imports
@@ -684,7 +833,7 @@ fn rume_process_table(
           Some(@lib.Table(_, Some(init))) =>
             rume_scan_expr(
               init, queue, used_funcs, used_globals, used_tables, used_mems, used_tags,
-              used_elems, used_datas,
+              used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
             )
           _ => ()
         }
@@ -722,6 +871,8 @@ fn rume_process_elem(
   used_tags : @bitset.BitSet,
   used_elems : @bitset.BitSet,
   used_datas : @bitset.BitSet,
+  decl_only_elems : @bitset.BitSet,
+  func_to_declaring_elems : Array[Array[@lib.ElemIdx]],
 ) -> Unit {
   match mod_.elem_sec {
     Some(@lib.ElemSec(elems)) =>
@@ -732,7 +883,7 @@ fn rume_process_elem(
               rume_mark_table(queue, used_tables, table_idx)
               rume_scan_expr(
                 offset, queue, used_funcs, used_globals, used_tables, used_mems,
-                used_tags, used_elems, used_datas,
+                used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
               )
             }
             _ => ()
@@ -746,7 +897,7 @@ fn rume_process_elem(
               for expr in exprs {
                 rume_scan_expr(
                   expr, queue, used_funcs, used_globals, used_tables, used_mems,
-                  used_tags, used_elems, used_datas,
+                  used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
                 )
               }
           }
@@ -769,6 +920,8 @@ fn rume_process_data(
   used_tags : @bitset.BitSet,
   used_elems : @bitset.BitSet,
   used_datas : @bitset.BitSet,
+  decl_only_elems : @bitset.BitSet,
+  func_to_declaring_elems : Array[Array[@lib.ElemIdx]],
 ) -> Unit {
   match mod_.data_sec {
     Some(@lib.DataSec(datas)) =>
@@ -777,7 +930,7 @@ fn rume_process_data(
           rume_mark_mem(queue, used_mems, mem_idx)
           rume_scan_expr(
             offset, queue, used_funcs, used_globals, used_tables, used_mems, used_tags,
-            used_elems, used_datas,
+            used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
           )
         }
         _ => ()
@@ -1062,6 +1215,7 @@ fn rume_collect_liveness_with_import_parent_policy(
   @bitset.BitSet,
   @bitset.BitSet,
   @bitset.BitSet,
+  @bitset.BitSet,
 ) {
   let (func_imports, table_imports, mem_imports, global_imports, tag_imports) = rume_imported_counts(
     mod_,
@@ -1093,8 +1247,13 @@ fn rume_collect_liveness_with_import_parent_policy(
       None => 0
     },
   )
+  let decl_only_elems = @bitset.BitSet::new(used_elems.length())
   let table_to_elems = rume_build_table_to_elem_map(used_tables.length(), mod_)
   let mem_to_datas = rume_build_mem_to_data_map(used_mems.length(), mod_)
+  let func_to_declaring_elems = rume_build_func_to_declaring_elem_map(
+    used_funcs.length(),
+    mod_,
+  )
   let queue : Array[RumeItem] = []
   let drop_noop_start_sec = rume_has_binaryen_noop_start_sec(mod_)
 
@@ -1140,17 +1299,18 @@ fn rume_collect_liveness_with_import_parent_policy(
       RumeItem::Func(abs_idx) =>
         rume_process_func(
           mod_, abs_idx, func_imports, queue, used_funcs, used_globals, used_tables,
-          used_mems, used_tags, used_elems, used_datas,
+          used_mems, used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
         )
       RumeItem::Global(abs_idx) =>
         rume_process_global(
           mod_, abs_idx, global_imports, queue, used_funcs, used_globals, used_tables,
-          used_mems, used_tags, used_elems, used_datas,
+          used_mems, used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
         )
       RumeItem::Table(abs_idx) =>
         rume_process_table(
           mod_, abs_idx, table_imports, queue, used_funcs, used_globals, used_tables,
-          used_mems, used_tags, used_elems, used_datas, table_to_elems,
+          used_mems, used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
+          table_to_elems,
         )
       RumeItem::Mem(abs_idx) =>
         rume_process_mem(abs_idx, queue, used_datas, mem_to_datas)
@@ -1158,12 +1318,12 @@ fn rume_collect_liveness_with_import_parent_policy(
       RumeItem::Elem(elem_idx) =>
         rume_process_elem(
           mod_, elem_idx, queue, used_funcs, used_globals, used_tables, used_mems,
-          used_tags, used_elems, used_datas,
+          used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
         )
       RumeItem::Data(data_idx) =>
         rume_process_data(
           mod_, data_idx, queue, used_funcs, used_globals, used_tables, used_mems,
-          used_tags, used_elems, used_datas,
+          used_tags, used_elems, used_datas, decl_only_elems, func_to_declaring_elems,
         )
     }
     cursor += 1
@@ -1171,6 +1331,7 @@ fn rume_collect_liveness_with_import_parent_policy(
 
   (
     used_funcs, used_globals, used_tables, used_mems, used_tags, used_elems, used_datas,
+    decl_only_elems,
   )
 }
 
@@ -1178,6 +1339,7 @@ fn rume_collect_liveness_with_import_parent_policy(
 fn rume_collect_liveness(
   mod_ : @lib.Module,
 ) -> (
+  @bitset.BitSet,
   @bitset.BitSet,
   @bitset.BitSet,
   @bitset.BitSet,
@@ -2513,6 +2675,20 @@ fn rume_compact_type_sec(mod_ : @lib.Module) -> @lib.Module {
 }
 
 ///|
+fn rume_decl_only_elem_parent_is_dropped(
+  mode : @lib.ElemMode,
+  table_remap : Array[Int],
+) -> Bool {
+  match mode {
+    @lib.Active(@lib.TableIdx(raw_idx), _) => {
+      let slot = raw_idx.reinterpret_as_int()
+      slot < 0 || slot >= table_remap.length() || table_remap[slot] < 0
+    }
+    _ => false
+  }
+}
+
+///|
 fn rume_apply_module_rewrite(
   mod_ : @lib.Module,
   used_funcs : @bitset.BitSet,
@@ -2522,6 +2698,7 @@ fn rume_apply_module_rewrite(
   used_tags : @bitset.BitSet,
   used_elems : @bitset.BitSet,
   used_datas : @bitset.BitSet,
+  decl_only_elems : @bitset.BitSet,
 ) -> @lib.Module {
   let func_imports = rume_imported_func_count(mod_)
   let global_imports = rume_imported_global_count(mod_)
@@ -2806,16 +2983,21 @@ fn rume_apply_module_rewrite(
           let @lib.Elem(mode, kind) = elems[idx]
           next.push(
             @lib.Elem::new(
-              match mode {
-                @lib.Active(table_idx, expr) =>
-                  @lib.ElemMode::active(
-                    rume_rewrite_table_idx(table_idx, table_remap),
-                    rume_rewrite_expr(
-                      expr, func_remap, global_remap, table_remap, mem_remap, tag_remap,
-                      elem_remap, data_remap,
-                    ),
-                  )
-                _ => mode
+              if decl_only_elems[idx] &&
+                rume_decl_only_elem_parent_is_dropped(mode, table_remap) {
+                @lib.ElemMode::declarative()
+              } else {
+                match mode {
+                  @lib.Active(table_idx, expr) =>
+                    @lib.ElemMode::active(
+                      rume_rewrite_table_idx(table_idx, table_remap),
+                      rume_rewrite_expr(
+                        expr, func_remap, global_remap, table_remap, mem_remap, tag_remap,
+                        elem_remap, data_remap,
+                      ),
+                    )
+                  _ => mode
+                }
               },
               rume_rewrite_elem_kind(
                 kind, func_remap, global_remap, table_remap, mem_remap, tag_remap,
@@ -3458,12 +3640,13 @@ pub fn rume_extract_functions(
     used_tags,
     used_elems,
     used_datas,
+    decl_only_elems,
   ) = rume_collect_liveness_with_import_parent_policy(rooted, false)
   let minimized = rume_apply_module_rewrite(
     rooted, used_funcs, used_globals, used_tables, used_mems, used_tags, used_elems,
-    used_datas,
+    used_datas, decl_only_elems,
   )
-  let (final_used_funcs, _, _, _, _, _, _) = rume_collect_liveness_with_import_parent_policy(
+  let (final_used_funcs, _, _, _, _, _, _, _) = rume_collect_liveness_with_import_parent_policy(
     minimized, false,
   )
   Ok(rume_rewrite_functions_only(minimized, final_used_funcs))
@@ -3479,11 +3662,12 @@ pub fn rume_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     used_tags,
     used_elems,
     used_datas,
+    decl_only_elems,
   ) = rume_collect_liveness(mod_)
   rume_prune_nonfunction_empty_const_active_elems(mod_, used_elems)
   rume_apply_module_rewrite(
     mod_, used_funcs, used_globals, used_tables, used_mems, used_tags, used_elems,
-    used_datas,
+    used_datas, decl_only_elems,
   )
 }
 
@@ -3523,6 +3707,7 @@ pub fn rume_run_nonfunction_module_pass(mod_ : @lib.Module) -> @lib.Module {
     used_tags,
     used_elems,
     used_datas,
+    decl_only_elems,
   ) = rume_collect_liveness_with_import_parent_policy(
     mod_,
     true,
@@ -3531,6 +3716,6 @@ pub fn rume_run_nonfunction_module_pass(mod_ : @lib.Module) -> @lib.Module {
   rume_prune_nonfunction_empty_const_active_elems(mod_, used_elems)
   rume_apply_module_rewrite(
     mod_, used_funcs, used_globals, used_tables, used_mems, used_tags, used_elems,
-    used_datas,
+    used_datas, decl_only_elems,
   )
 }

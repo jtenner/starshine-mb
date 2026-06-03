@@ -1707,6 +1707,154 @@ test "remove-unused-module-elements drops empty active data on live memories" {
 }
 
 ///|
+test "remove-unused-module-elements keeps declarative elems needed by live ref.func" {
+  let func_ref_type = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([], [func_ref_type])),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(1U),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("main"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(3U)),
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(2U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(7))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(42))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(1U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(2U))]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), [
+      "remove-unused-module-elements",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected ref.func declaration remove-unused-module-elements success, got \{err}",
+      )
+  }
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => @debug.assert_eq(type_idxs.length(), 3)
+    None =>
+      fail("expected unrelated function to drop and ref.func target to remain")
+  }
+  match optimized.elem_sec {
+    Some(@lib.ElemSec(elems)) => {
+      @debug.assert_eq(elems.length(), 1)
+      let @lib.Elem(mode, kind) = elems[0]
+      @debug.assert_eq(mode, @lib.ElemMode::declarative())
+      match kind {
+        @lib.FuncsElemKind([@lib.FuncIdx(declared_func_idx)]) =>
+          @debug.assert_eq(declared_func_idx, 1U)
+        _ =>
+          fail(
+            "expected declarative elem to declare the remapped ref.func target",
+          )
+      }
+    }
+    None =>
+      fail(
+        "expected declarative elem to keep the remapped ref.func target declared",
+      )
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected ref.func declaration remove-unused-module-elements module to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements nullifies declaration-only active elems on dead tables" {
+  let input =
+    #|(module
+    #|  (type $t (func (result i32)))
+    #|  (table 1 funcref)
+    #|  (func $target (type $t) i32.const 42)
+    #|  (func $main (result (ref null $t)) ref.func $target)
+    #|  (elem (i32.const 0) func $target)
+    #|  (export "main" (func $main)))
+  let optimized = match
+    pass_test_run_pipeline(input, ["remove-unused-module-elements"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected active ref.func declaration remove-unused-module-elements success, got \{err}",
+      )
+  }
+
+  @debug.assert_eq(optimized.table_sec, None)
+  match optimized.elem_sec {
+    Some(@lib.ElemSec(elems)) => {
+      @debug.assert_eq(elems.length(), 1)
+      let @lib.Elem(mode, kind) = elems[0]
+      @debug.assert_eq(mode, @lib.ElemMode::declarative())
+      match kind {
+        @lib.FuncsElemKind([@lib.FuncIdx(declared_func_idx)]) =>
+          @debug.assert_eq(declared_func_idx, 0U)
+        _ => fail("expected declaration-only active elem to become declarative")
+      }
+    }
+    None => fail("expected declarative elem to remain for ref.func target")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected declaration-only active elem RUME module to validate, got \{err}",
+      )
+  }
+}
+
+///|
 test "remove-unused-module-elements drops empty active data on imported memories" {
   let optimized = match
     run_hot_pipeline(

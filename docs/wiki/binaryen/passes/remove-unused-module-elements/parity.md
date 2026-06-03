@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-03
 sources:
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/remove_unused_module_elements.mbt
@@ -21,13 +21,14 @@ related:
 ## Durable Conclusions
 
 - `remove-unused-module-elements` is an active module pass, not a HOT-IR pass.
-- The current Starshine slice is directly re-proven under the refreshed 2026-05-06 pass-fuzz harness.
+- The current Starshine slice is directly re-proven under the refreshed 2026-06-03 pass-fuzz harness.
 - The major previously known semantic gaps are closed:
   - unused imported module elements are now dropped and survivors remapped
   - empty active data on both defined and imported memories is now dropped
   - no-op active nullref elem segments on imported tables are now dropped
   - non-constant active segment offsets are rooted in the full pass, not only the non-function variant
   - empty const-offset active element segments are pruned after liveness propagation
+  - `ref.func` declaration-only element segments are retained, and declaration-only active segments on otherwise-dead tables are nullified to declarative elems instead of retaining dead tables
 
 ## Current In-Tree Status
 
@@ -44,13 +45,17 @@ related:
 - no-op active nullref elem drop on imported tables
 - non-noop active `nullfuncref` elem retention on live defined tables
 - active element segments with global offsets in the full `remove-unused-module-elements` pass
+- declarative elems needed by live `ref.func`
+- declaration-only active elems on otherwise-dead tables rewritten to declarative elems
 
 ## Current Direct Signoff
 
-- Final 2026-05-06 command: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass remove-unused-module-elements --out-dir .tmp/pass-fuzz-remove-unused-module-elements-fix2 --keep-going-after-command-failures`.
+- Final 2026-06-03 direct command: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass remove-unused-module-elements --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-rume-audit-declonly-10000`.
 - Result: `9972 / 10000` compared cases, `9972` normalized matches, `0` semantic mismatches, `0` validation failures, `0` generator failures, and `28` command failures.
-- Command-failure classification: `22` Binaryen empty-recursion-group parser failures, `1` Binaryen bad-section-size parser failure, `2` Binaryen invalid-tag-index parser failures, and `3` Starshine missing-output command failures.
-- See [`../../../raw/research/0545-2026-05-06-rume-direct-revalidation.md`](../../../raw/research/0545-2026-05-06-rume-direct-revalidation.md).
+- Command-failure classification: `22` Binaryen empty-recursion-group parser failures, `1` Binaryen bad-section-size parser failure, `1` Binaryen table-index-out-of-range parser failure, `1` Binaryen invalid-tag-index parser failure, and `3` Starshine command failures in the same non-mismatch command-failure bucket as prior RUME signoff.
+- `DFE -> RUME` neighborhood smoke: `bun scripts/pass-fuzz-compare.ts --count 1000 --seed 0x5eed --pass duplicate-function-elimination --pass remove-unused-module-elements --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-dfe-rume-audit-1000` reached `998 / 1000` compared, `998` normalized matches, `0` mismatches, and `2` Binaryen empty-recursion-group command failures.
+- Debug-artifact pass-local timing: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --remove-unused-module-elements --timing-only --out-dir .tmp/rume-debug-artifact-timing-declonly` reported canonical wasm equality, Starshine pass runtime `25.198 ms`, Binaryen pass runtime `38.936 ms`, and no raw skip.
+- The prior 2026-05-06 revalidation remains useful historical evidence; see [`../../../raw/research/0545-2026-05-06-rume-direct-revalidation.md`](../../../raw/research/0545-2026-05-06-rume-direct-revalidation.md).
 
 ## Remaining Gap
 
@@ -75,7 +80,7 @@ related:
 
 ## Sources
 
-- Active backlog slice: [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
+- Backlog status source: [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - Supplemental health rerun: [`../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md`](../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md)
 - Implementation: [`../../../../../src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt)
 - Focused tests: [`../../../../../src/passes/remove_unused_module_elements_test.mbt`](../../../../../src/passes/remove_unused_module_elements_test.mbt)
