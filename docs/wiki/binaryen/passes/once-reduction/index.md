@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-03
 sources:
   - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
@@ -9,6 +9,7 @@ sources:
   - ../../../raw/research/0238-2026-04-21-once-reduction-starshine-strategy-followup.md
   - ../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md
+  - ../../../raw/research/0701-2026-06-03-once-reduction-o4z-audit.md
   - ../../../../../src/passes/once_reduction.mbt
   - ../../../../../src/passes/once_reduction_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -91,7 +92,7 @@ It is a narrow whole-module once-bit plus direct-call optimization pass.
 - The pass is dominance-driven and deliberately conservative at merges.
   - after-`if` and cycle-heavy shapes often stay untouched even when they look morally redundant
 - Upstream also supports a narrow `@binaryen.idempotent` path by giving such functions fake once-global names.
-  - the local Starshine implementation does not model that official source feature today
+  - Starshine now models that path for defined no-param/no-result functions; imported idempotent calls remain a conservative local boundary.
 - Final body cleanup is tiny on purpose.
   - Binaryen only strips empty once bodies and single-call once wrappers with cycle protection
 
@@ -135,9 +136,9 @@ What it actually is in `version_129`:
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering classic positive once patterns, call-chain propagation, wrapper positives, nonzero-init / nonzero-write nuances, and the main bailout families.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Current in-tree Starshine module-pass strategy: exact MoonBit code map, recursive once-bit analysis/rewrite flow, and the main ways the local implementation is narrower than upstream Binaryen's CFG/dominator engine.
+  - Current in-tree Starshine module-pass strategy: recursive once-bit analysis/rewrite flow, single-top-level-block wrapper support, defined-idempotent fake roots, singleton-summary performance shortcut, and the main ways the local implementation is narrower than upstream Binaryen's CFG/dominator engine.
 - [`./parity.md`](./parity.md)
-  - Current in-tree parity state, 2026-05-06 direct-pass revalidation evidence, saved generated-artifact evidence, and the honest remaining gap between the local implementation and the full official `OnceReduction.cpp` surface.
+  - Current in-tree parity state, 2026-06-03 direct-pass revalidation evidence, saved generated-artifact evidence, and the honest remaining gap between the local implementation and the full official `OnceReduction.cpp` surface.
 
 ## Freshness note
 
@@ -147,7 +148,7 @@ The dossier now has an immutable raw provenance capture at:
 
 That 2026-04-22 capture rechecked the official Binaryen GitHub release page for `version_129`, where GitHub showed publish date **2026-04-01**, and also rechecked the core pass/test surfaces on `version_129` and `main`.
 
-The narrow current-`main` spot check did **not** surface a new teaching-relevant contract drift beyond the dossier's existing claims.
+The narrow current-`main` spot check did **not** surface a new teaching-relevant contract drift beyond the dossier's existing claims. The 2026-06-03 O4z audit updated only the Starshine-local status and evidence; it did not re-open the upstream source freshness check.
 
 So the durable rule is:
 
@@ -168,6 +169,7 @@ So the durable rule is:
 - [`../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md`](../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md)
 - [`../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md`](../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md)
 - [`../../../raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md`](../../../raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md)
+- [`../../../raw/research/0701-2026-06-03-once-reduction-o4z-audit.md`](../../../raw/research/0701-2026-06-03-once-reduction-o4z-audit.md)
 - [`../../../../../src/passes/once_reduction.mbt`](../../../../../src/passes/once_reduction.mbt)
 - [`../../../../../src/passes/once_reduction_test.mbt`](../../../../../src/passes/once_reduction_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

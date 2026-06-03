@@ -1,12 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-06-03
 sources:
   - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
   - ../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
   - ../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
+  - ../../../raw/research/0701-2026-06-03-once-reduction-o4z-audit.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -289,7 +290,7 @@ Why this works:
 - the recursive call sees the same once-bit already set
 - so the recursive call itself is redundant
 
-## Positive family 10: upstream-only idempotent direct-call case
+## Positive family 10: defined idempotent direct-call case
 
 Conceptually, upstream Binaryen also treats this as once-like:
 
@@ -312,7 +313,8 @@ After, conceptually:
 Important note:
 
 - this is part of the official Binaryen source surface
-- the current Starshine implementation does not model that path today
+- as of the 2026-06-03 O4z audit, Starshine models this for defined no-param/no-result functions
+- imported idempotent calls remain a conservative local boundary
 
 ## Positive family 11: try/catch control containers do not block the CFG proof by themselves
 

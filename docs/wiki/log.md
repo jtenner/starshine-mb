@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | once-reduction O4z deep audit
+
+- Added [`docs/wiki/raw/research/0701-2026-06-03-once-reduction-o4z-audit.md`](raw/research/0701-2026-06-03-once-reduction-o4z-audit.md) with `[O4Z-AUDIT-OR]` implementation, shape-coverage, direct compare, and pass-local timing evidence.
+- Updated the `once-reduction` living strategy, parity, landing, and WAT-shape pages so they record the new single-top-level-block once-wrapper support, defined no-param/no-result `@binaryen.idempotent` fake-root handling, imported-idempotent boundary, singleton-summary performance shortcut, and current `10000`-requested keep-going compare result (`9975` compared, `0` mismatches, `25` Binaryen/tool command failures).
+- Refreshed the top-level catalog entries for `once-reduction` strategy and parity so future O4z audit readers can distinguish the now-covered defined-idempotent/block-root subset from the remaining imported-idempotent and CFG/dominator gaps.
+
 ## [2026-06-03] passes | memory-packing O4z deep audit
 
 - Added [`docs/wiki/raw/research/0700-2026-06-03-memory-packing-o4z-audit.md`](raw/research/0700-2026-06-03-memory-packing-o4z-audit.md) with the `[O4Z-AUDIT-MP]` implementation, test, compare, and pass-local timing evidence.

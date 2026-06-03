@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-03
 sources:
   - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
   - ../../../raw/research/0238-2026-04-21-once-reduction-starshine-strategy-followup.md
@@ -9,6 +9,7 @@ sources:
   - ../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
   - ../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md
+  - ../../../raw/research/0701-2026-06-03-once-reduction-o4z-audit.md
   - ../../../../../src/passes/once_reduction.mbt
   - ../../../../../src/passes/once_reduction_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -45,7 +46,7 @@ The most important current local rule is:
 
 That means the local pass should be taught as a useful implemented subset, not as a full source-parity port of the released Binaryen strategy.
 
-The 2026-05-06 refreshed direct-pass signoff ran `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass once-reduction --out-dir .tmp/pass-fuzz-once-reduction`; the compare lane reported 6759 / 10000 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 known Binaryen empty-recursion-group parser/canonicalization command failures.
+The 2026-06-03 O4z audit refreshed the direct-pass lane with `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass once-reduction --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-once-reduction-audit-current-10000-keepgoing`; the compare lane reported `9975 / 10000` compared cases, `9975` normalized matches, `0` semantic mismatches, and `25` Binaryen/tool command failures. The same audit added focused coverage for block-root once wrappers, defined idempotent fake roots, imported boundaries, extra global reads, and table / `ref.func` escape shapes.
 
 ## Current local code map
 
@@ -53,18 +54,18 @@ The easiest way to follow the in-tree implementation is this file map:
 
 - `src/passes/once_reduction.mbt:2`
   - summary string used by the registry and docs
-- `src/passes/once_reduction.mbt:153`
-  - `or_find_once_global(...)`: current exact once-wrapper matcher
-- `src/passes/once_reduction.mbt:183`
+- `src/passes/once_reduction.mbt:208`
+  - `or_find_once_global(...)`: current exact once-wrapper matcher, including the single-top-level-block form
+- `src/passes/once_reduction.mbt:265`
   - `or_scan_instrs(...)`: candidate-global read/write scan and dataflow-interest prefilter
-- `src/passes/once_reduction.mbt:239`
-  - `or_analyze_instrs(...)`: recursive summary propagation with `if`-intersection and loop / try-table conservatism
-- `src/passes/once_reduction.mbt:299`
+- `src/passes/once_reduction.mbt:321`
+  - `or_analyze_instrs(...)`: recursive summary propagation with `if`-intersection, singleton-summary elision, and loop / try-table conservatism
+- `src/passes/once_reduction.mbt:397`
   - `or_rewrite_instrs(...)`: recursive rewrite pass for redundant direct calls and redundant nonzero `global.set`s
-- `src/passes/once_reduction.mbt:398`
+- `src/passes/once_reduction.mbt:525`
   - `or_optimize_once_bodies(...)`: local empty-body and single-call-wrapper cleanup
-- `src/passes/once_reduction.mbt:452`
-  - `once_reduction_run_module_pass(...)`: end-to-end candidate discovery, fixed point, and module rewrite
+- `src/passes/once_reduction.mbt:619`
+  - `once_reduction_run_module_pass(...)`: end-to-end candidate discovery, defined-idempotent fake roots, fixed point, and module rewrite
 - `src/passes/once_reduction_test.mbt:17`
   - repeated once-call elimination coverage
 - `src/passes/once_reduction_test.mbt:44`
@@ -105,9 +106,9 @@ A global becomes a candidate only when all of these are true:
 
 That keeps the current local proof private and boolean-like, just as the parity page already says.
 
-## 2. The local once-function matcher is much stricter than upstream Binaryen
+## 2. The local once-function matcher is still strict, but now handles the main block-root form
 
-`or_find_once_global(...)` recognizes only a very tight boundary shape:
+`or_find_once_global(...)` recognizes a tight boundary shape:
 
 - `global.get $g`
 - `if ... return`
@@ -119,12 +120,7 @@ and it also requires:
 - the function to have no params
 - the function to have no results
 
-That is narrower than Binaryen `version_129`, which recognizes the once prologue as the first two items of a top-level block body.
-
-So the correct local teaching is:
-
-- the current MoonBit pass handles explicit linearized once wrappers,
-- not the full released Binaryen body matcher.
+As of the 2026-06-03 O4z audit, Starshine accepts that prologue either directly in the function instruction array or inside one top-level `block`. That closes the most important local body-root mismatch with Binaryen's top-level block representation, but it is still not the full released Binaryen body matcher.
 
 ## 3. The read/write scan both filters globals and decides whether deeper analysis is needed
 
@@ -146,6 +142,8 @@ It also marks functions as needing the later fixed-point pass when it sees:
 - `call`
 - `return_call`
 
+The 2026-06-03 audit added a small fast path: empty once wrappers are still scanned for legality, but they skip the later dataflow/rewrite loop and are handled by final body cleanup.
+
 That is a smaller local analogue of Binaryen's split scan-plus-optimize structure.
 
 ## 4. The local fixed point is recursive and `if`-aware, but not CFG / dominator based
@@ -165,7 +163,7 @@ This means Starshine really does have a fixed point over function summaries, but
 - no immediate-dominator entry-state propagation
 - no internal block-local relevant-expression lists
 
-So the local pass should be taught as “fixed-point once-summary propagation with recursive structural control handling,” not as “the Binaryen algorithm in MoonBit syntax.”
+So the local pass should be taught as “fixed-point once-summary propagation with recursive structural control handling,” not as “the Binaryen algorithm in MoonBit syntax.” Defined no-param/no-result `@binaryen.idempotent` functions now enter this same summary framework as fake once roots; imported idempotent annotations remain a conservative boundary in the local pass.
 
 ## 5. Rewrite is direct and local: redundant calls and redundant writes become `nop`
 
@@ -185,7 +183,7 @@ I am keeping that explicit as a local difference, not silently smoothing it away
 ## 6. Final once-body cleanup is intentionally tiny locally too
 
 `or_optimize_once_bodies(...)` is the local analogue of Binaryen's final wrapper cleanup step.
-It recognizes only two current families:
+It recognizes only two current families, in either flat or single-top-level-block form:
 
 - a four-instruction once body, which collapses fully to `nop`
 - a five-instruction once body whose payload is exactly one direct `call`, which loses the first four instructions and keeps only that call
@@ -211,8 +209,8 @@ That means this folder should be maintained as living implementation docs, not a
 
 Compared with the full upstream Binaryen `version_129` contract, Starshine currently does **not** do these behaviors here:
 
-- the official `@binaryen.idempotent` fake-global path
-- the broader top-level-block once-wrapper matcher from Binaryen
+- imported `@binaryen.idempotent` call removal; defined no-param/no-result idempotent functions are now supported as fake roots
+- broader top-level-block and expression-body once-wrapper forms beyond the single-block shape added in the O4z audit
 - CFG / immediate-dominator propagation
 - the richer after-merge and long-control-flow precision that Binaryen gets from that CFG model
 - the broader dedicated lit surface around difficult loop / cycle / EH cases
@@ -235,7 +233,7 @@ Treat the current Starshine implementation as:
 
 - a real active module pass
 - a source-backed local subset of Binaryen `once-reduction`
-- a recursive once-bit optimizer whose current limits are the exact wrapper matcher, the missing idempotent path, and the simpler control-flow proof model
+- a recursive once-bit optimizer whose current limits are the still-narrow wrapper matcher, imported-idempotent boundary, and simpler control-flow proof model
 
 Future work on this pass should answer one question explicitly:
 
@@ -246,4 +244,4 @@ For `once-reduction`, those are meaningfully different projects, and the docs sh
 
 ## Freshness note
 
-The 2026-04-22 raw primary-source capture re-anchored this page to the reviewed official `version_129` release/source/test surfaces and did not surface a new teaching-relevant drift between the documented Starshine subset and the upstream Binaryen contract. The local read-along code map above is still the correct starting point for the in-tree MoonBit implementation.
+The 2026-04-22 raw primary-source capture re-anchored this page to the reviewed official `version_129` release/source/test surfaces. The 2026-06-03 O4z audit refreshed the local implementation map and direct parity evidence after adding block-root, defined-idempotent, boundary, and escape-shape coverage.

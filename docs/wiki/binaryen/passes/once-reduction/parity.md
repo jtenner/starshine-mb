@@ -1,13 +1,14 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-03
 sources:
   - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
   - ../../../raw/research/0238-2026-04-21-once-reduction-starshine-strategy-followup.md
   - ../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md
+  - ../../../raw/research/0701-2026-06-03-once-reduction-o4z-audit.md
   - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md
   - ../../../../../.artifacts/o4z-wasm-opt-debug.log
   - ../../../../../src/passes/once_reduction.mbt
@@ -32,7 +33,7 @@ related:
 - Binaryen `version_129` `once-reduction` is a module-level once-bit plus direct-call optimization pass, not a generic repeated-call eliminator.
 - Current Starshine already matches the saved generated-artifact `-O4z` slot `4` on exact wasm and normalized WAT.
 - That green slot is **not** proof that Starshine already covers the full official `OnceReduction.cpp` surface.
-- The biggest direct source-visible upstream feature missing locally today is the `@binaryen.idempotent` path.
+- The 2026-06-03 audit added the source-visible defined-function `@binaryen.idempotent` fake-root path and the main top-level-block once-wrapper shape; imported idempotent calls and Binaryen's broader CFG/dominator precision remain outside the local subset.
 
 ## Current in-tree status
 
@@ -43,15 +44,16 @@ related:
 The current Starshine subset clearly covers:
 
 - explicit integer once-global discovery
-- no-param/no-result once-function recognition
+- no-param/no-result once-function recognition in flat and single-top-level-block forms
 - read and write disqualification for once-globals
+- defined no-param/no-result `@binaryen.idempotent` functions as fake once roots
 - fixed-point propagation of definitely-set once-bits across direct-call summaries
 - redundant direct-call and redundant `global.set` elimination
-- trivial once-body cleanup for empty bodies and single-call wrappers
+- trivial once-body cleanup for empty bodies and single-call wrappers, including the single-top-level-block form
 
 ## Remaining gap
 
-The main documented Binaryen gap is the official idempotent-annotation half of the pass.
+The former largest documented gap, the official idempotent-annotation path, is now partially closed for defined no-param/no-result functions.
 
 Upstream `OnceReduction.cpp` explicitly does this:
 
@@ -59,14 +61,13 @@ Upstream `OnceReduction.cpp` explicitly does this:
 - give the function a fake once-global name with `Names::getValidGlobalName(...)`
 - run the ordinary once-call elimination machinery on that fake-global identity
 
-Current Starshine does **not** do that.
+Current Starshine now models that fake-root behavior for defined no-param/no-result functions. It still deliberately keeps imported idempotent calls as a boundary until the exact upstream import semantics are source-confirmed and accepted locally.
 
 Repo-local source evidence:
 
-- `src/passes/once_reduction.mbt` contains no idempotent-annotation handling
-- the repo parser and lowering layers do support function annotations, including `@binaryen.idempotent`, as shown by `src/wast/parser.mbt`, `src/wast/lower_to_lib.mbt`, and `src/wast/module_wast_tests.mbt`
-
-So this is a real current parity gap, not just a hypothetical future surface.
+- `src/passes/once_reduction.mbt` contains idempotent-annotation handling through the function annotation section
+- the focused tests cover defined idempotent positives, typed idempotent negatives, and imported idempotent boundary behavior
+- the repo parser and lowering layers support function annotations, including `@binaryen.idempotent`, as shown by `src/wast/parser.mbt`, `src/wast/lower_to_lib.mbt`, and `src/wast/module_wast_tests.mbt`
 
 ## Other source-visible strategy differences
 
@@ -83,7 +84,8 @@ The local pass is also architecturally narrower than upstream in how it reasons 
 
 - recursive instruction-array scanning and rewriting
 - explicit `if`-intersection logic and conservative loop / try-table handling in local code
-- a much smaller focused test surface today
+- focused coverage for block-root wrappers, idempotent fake roots, imported/global boundary cases, extra reads, and table / `ref.func` escapes
+- still a much smaller control-flow test surface than the full upstream lit file
 
 That does not automatically mean the local pass is wrong.
 It does mean the saved green artifact slot should be read as:
@@ -111,16 +113,15 @@ So treat it as an explicit open follow-up question, not a silent assumption.
 
 ## Refreshed direct-pass signoff
 
-On 2026-05-06, the direct explicit-pass revalidation lane ran:
+On 2026-06-03, the O4z audit lane ran:
 
-- `moon info`
-- `moon fmt`
-- `moon test`
-- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass once-reduction --out-dir .tmp/pass-fuzz-once-reduction`
+- `moon test src/passes`
+- `moon build --target native --release src/cmd`
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass once-reduction --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-once-reduction-audit-current-10000-keepgoing`
 
-The compare run reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, 0 validation failures, 0 generator failures, and 20 Binaryen empty-recursion-group parser/canonicalization command failures. The command failures are tracked separately from semantic output mismatches.
+The compare run reported `9975` compared cases, `9975` normalized matches, `0` semantic mismatches, `0` validation failures, `0` generator failures, and `25` Binaryen/tool command failures. Failure classes were `22` zero-sized recursion group parser/canonicalization failures, `1` bad-section-size command failure, `1` table-index-out-of-range command failure, and `1` invalid-tag-index command failure. These are tracked separately from semantic output mismatches.
 
-So `once-reduction` is no longer stale under the 2026-05-06 AUD002 post-fuzzer-change revalidation queue, while the broader source-surface gaps below remain intentionally open.
+`moon info` still crashed in the local Moon tool with the known index-out-of-bounds panic, and `moon fmt --check` still reported unrelated repo-wide migration/format drift.
 
 ## Current evidence
 
@@ -156,21 +157,24 @@ It also shows `running nested passes`, which matches the documented implementati
 
 ## In-tree focused tests
 
-The current local test file covers four small families:
+The current local test file covers these core families:
 
 - repeated once calls becoming `nop`
-- exported-global boundary conservatism
-- trivial once-body collapse
+- exported-global, imported-global, imported-function, and imported-idempotent boundary conservatism
+- flat and single-top-level-block trivial once-body collapse
 - multiple independent once-globals
+- defined no-param/no-result idempotent fake roots and typed idempotent negatives
+- extra once-global read invalidation
+- table element plus `ref.func` escape preservation while still removing redundant direct calls
 
-Those tests are real, but they are much smaller than the upstream lit surface.
+Those tests are real, but they are still much smaller than the full upstream lit control-flow surface.
 
 ## Practical signoff rule
 
 For now, treat `once-reduction` as:
 
 - **green on the saved generated artifact**
-- **substantially implemented locally for explicit once-global shapes**
+- **substantially implemented locally for explicit once-global shapes plus defined idempotent fake roots**
 - **not yet a full source-surface parity port of Binaryen `OnceReduction.cpp`**
 
 That is the honest status this dossier should preserve.
@@ -179,6 +183,7 @@ That is the honest status this dossier should preserve.
 
 - [`../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md`](../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md)
 - [`../../../raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md`](../../../raw/research/0536-2026-05-06-once-reduction-direct-revalidation.md)
+- [`../../../raw/research/0701-2026-06-03-once-reduction-o4z-audit.md`](../../../raw/research/0701-2026-06-03-once-reduction-o4z-audit.md)
 - [`../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md`](../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md)
 - [`../../../../../.artifacts/o4z-wasm-opt-debug.log`](../../../../../.artifacts/o4z-wasm-opt-debug.log)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OnceReduction.cpp>
