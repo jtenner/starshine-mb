@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | duplicate-function-elimination O4z audit
+
+- Updated the `duplicate-function-elimination` landing, Starshine strategy, and parity pages with the 2026-06-03 audit findings: whole-body function hashing now replaces sparse instruction sampling, preserving exact equality as the merge proof while avoiding large same-sample collision buckets.
+- Added focused DFE tests for `return_call`, table initializer `ref.func`, global initializer `ref.func`, and a white-box sparse-sample hash regression.
+- Recorded refreshed evidence: `.tmp/pass-fuzz-dfe-audit-after-10000` reached `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures; `.tmp/dfe-collision-stress.wasm` improved from Starshine/Binaryen pass-local `20.315 ms / 0.717 ms` before the change to `0.812 ms / 0.957 ms` after, with no raw skip.
+
 ## [2026-06-03] passes | remove-unused-names rewrite-kernel performance
 
 - Updated [`docs/wiki/raw/research/0703-2026-06-03-remove-unused-names-o4z-audit.md`](raw/research/0703-2026-06-03-remove-unused-names-o4z-audit.md) with the direct branchless rewrite-kernel follow-up: actual raw rewrite work now handles label-use-free same-type block peeling and loop demotion, reducing the 50k fixture pass-local median from about `148.047 ms` to `4.749 ms` while reporting `Starshine pass skipped raw: no`.

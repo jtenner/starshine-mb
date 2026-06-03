@@ -2997,37 +2997,6 @@ fn dfe_locals_shape_hash(locals : @lib.Locals) -> Int {
 }
 
 ///|
-fn dfe_instruction_sample_hash(instr : @lib.Instruction) -> Int {
-  match instr {
-    @lib.Block(block_type, @lib.Expr(instrs)) =>
-      (1 * 31 + block_type.hash()) * 31 + instrs.length().hash()
-    @lib.Loop(block_type, @lib.Expr(instrs)) =>
-      (2 * 31 + block_type.hash()) * 31 + instrs.length().hash()
-    @lib.If(block_type, then_body, else_body) => {
-      let else_len = match else_body {
-        Some(body) => body.length().hash()
-        None => 0
-      }
-      ((3 * 31 + block_type.hash()) * 31 + then_body.length().hash()) * 31 +
-      else_len
-    }
-    @lib.TryTable(block_type, catches, @lib.Expr(instrs)) =>
-      ((4 * 31 + block_type.hash()) * 31 + catches.length().hash()) * 31 +
-      instrs.length().hash()
-    @lib.Call(func_idx) => 5 * 31 + func_idx.hash()
-    @lib.ReturnCall(func_idx) => 6 * 31 + func_idx.hash()
-    @lib.RefFunc(func_idx) => 7 * 31 + func_idx.hash()
-    @lib.CallIndirect(type_idx, table_idx) =>
-      (8 * 31 + type_idx.hash()) * 31 + table_idx.hash()
-    @lib.ReturnCallIndirect(type_idx, table_idx) =>
-      (9 * 31 + type_idx.hash()) * 31 + table_idx.hash()
-    @lib.CallRef(type_idx) => 10 * 31 + type_idx.hash()
-    @lib.ReturnCallRef(type_idx) => 11 * 31 + type_idx.hash()
-    _ => instr.hash()
-  }
-}
-
-///|
 fn dfe_functions_equivalent(
   left_canon_type : UInt,
   left_func : @lib.Func,
@@ -3070,37 +3039,12 @@ fn dfe_function_hash_key(
     ) *
     31 +
     annotations.hash()
-  let sample_count = if instrs.length() < 3 { instrs.length() } else { 3 }
+  // Match Binaryen's hash-prefilter spirit by considering the whole body, not
+  // just a few samples. Sparse same-sample collisions otherwise fall back to an
+  // O(n^2) exact-compare bucket on large unrelated function sets.
   let mut i = 0
-  while i < sample_count {
-    key = key * 31 + dfe_instruction_sample_hash(instrs[i])
-    i += 1
-  }
-  let sample_start = if instrs.length() > sample_count {
-    instrs.length() - sample_count
-  } else {
-    sample_count
-  }
-  if instrs.length() > sample_count + 1 {
-    let quarter = instrs.length() / 4
-    if quarter >= sample_count && quarter < sample_start {
-      key = key * 31 + dfe_instruction_sample_hash(instrs[quarter])
-    }
-    let mid = instrs.length() / 2
-    if mid >= sample_count && mid < sample_start && mid != quarter {
-      key = key * 31 + dfe_instruction_sample_hash(instrs[mid])
-    }
-    let three_quarter = instrs.length() * 3 / 4
-    if three_quarter >= sample_count &&
-      three_quarter < sample_start &&
-      three_quarter != mid &&
-      three_quarter != quarter {
-      key = key * 31 + dfe_instruction_sample_hash(instrs[three_quarter])
-    }
-  }
-  i = sample_start
   while i < instrs.length() {
-    key = key * 31 + dfe_instruction_sample_hash(instrs[i])
+    key = key * 31 + instrs[i].hash()
     i += 1
   }
   key
@@ -3118,37 +3062,10 @@ fn dfe_function_hash_key_no_annotations(
       instrs.length().hash()
     ) *
     31
-  let sample_count = if instrs.length() < 3 { instrs.length() } else { 3 }
+  // Keep the no-annotation fast path equally collision-resistant.
   let mut i = 0
-  while i < sample_count {
-    key = key * 31 + dfe_instruction_sample_hash(instrs[i])
-    i += 1
-  }
-  let sample_start = if instrs.length() > sample_count {
-    instrs.length() - sample_count
-  } else {
-    sample_count
-  }
-  if instrs.length() > sample_count + 1 {
-    let quarter = instrs.length() / 4
-    if quarter >= sample_count && quarter < sample_start {
-      key = key * 31 + dfe_instruction_sample_hash(instrs[quarter])
-    }
-    let mid = instrs.length() / 2
-    if mid >= sample_count && mid < sample_start && mid != quarter {
-      key = key * 31 + dfe_instruction_sample_hash(instrs[mid])
-    }
-    let three_quarter = instrs.length() * 3 / 4
-    if three_quarter >= sample_count &&
-      three_quarter < sample_start &&
-      three_quarter != mid &&
-      three_quarter != quarter {
-      key = key * 31 + dfe_instruction_sample_hash(instrs[three_quarter])
-    }
-  }
-  i = sample_start
   while i < instrs.length() {
-    key = key * 31 + dfe_instruction_sample_hash(instrs[i])
+    key = key * 31 + instrs[i].hash()
     i += 1
   }
   key

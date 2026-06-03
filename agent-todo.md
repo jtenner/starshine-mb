@@ -51,9 +51,10 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 - Close with an agent-classified findings note: bugs found/fixed, missing shapes added, performance owners, deferred risks, exact commands, counts, and artifact paths.
 
 - [O4Z-AUDIT-DFE] - Deep audit `duplicate-function-elimination`
-  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit; 2026-06-03 direct audit improved whole-body hash prefilter coverage and closed the sparse-sample collision runtime cliff, but ordered `DFE` slot evidence and the scheduler/iteration decision remain open.
   - Scope: duplicate defined-function equivalence, ref.func/export/start/table/global remapping, local Starshine type-compaction extras, repeated-slot behavior, and pass-local runtime.
-  - Deliverables: apply the common checklist; add focused fixtures for any missing function identity/remap/type/name shape; refresh direct compare and ordered `DFE` slot evidence; record whether local extra cleanup should stay bundled or be split.
+  - Recent evidence: `.tmp/pass-fuzz-dfe-audit-after-10000` reported `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures; `.tmp/dfe-collision-stress.wasm` improved from Starshine/Binaryen pass-local `20.315 ms / 0.717 ms` before the hash change to `0.812 ms / 0.957 ms` after; `.tmp/dfe-duplicate-pairs-stress.wasm` measured `3.022 ms / 1.672 ms` after the change.
+  - Deliverables: apply the common checklist; add focused fixtures for any remaining missing function identity/remap/type/name shape; refresh ordered `DFE` slot evidence; record whether local extra cleanup should stay bundled or be split.
 
 - [O4Z-AUDIT-RUME] - Deep audit `remove-unused-module-elements`
   - Status: active v0.1.0 release-gating `-O4z` per-pass audit.

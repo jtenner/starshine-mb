@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-13
+last_reviewed: 2026-06-03
 sources:
   - ../../../raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-13-duplicate-function-elimination-current-main-recheck.md
@@ -15,6 +15,7 @@ sources:
   - ../../../raw/research/0067-2026-03-24-duplicate-function-elimination.md
   - ../../../../../src/passes/duplicate_function_elimination.mbt
   - ../../../../../src/passes/duplicate_function_elimination_test.mbt
+  - ../../../../../src/passes/duplicate_function_elimination_wbtest.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DuplicateFunctionElimination.cpp
@@ -139,6 +140,7 @@ Narrow 2026-04-20, 2026-04-26, 2026-04-27, 2026-05-04, and 2026-05-13 checks fou
 
 - All five `duplicate-function-elimination*` lit files are identical on current `main` and `version_129`.
 - The 2026-05-13 current-main recheck kept that result unchanged.
+- The 2026-06-03 O4z audit changed only the local Starshine prefilter and coverage: full-body function hashing replaced sparse instruction sampling, `return_call` plus module initializer `ref.func` rewrite coverage was added, and the adversarial collision fixture moved from a `20.315 ms` Starshine pass-local outlier to `0.812 ms` against Binaryen's `0.957 ms`.
 - The core pass file differs only by a tiny non-semantic container change:
   - `std::set<Name>` -> `std::unordered_set<Name>` for the duplicate-name set.
 

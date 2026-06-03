@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-05-13
+last_reviewed: 2026-06-03
 sources:
   - ../../../raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-13-duplicate-function-elimination-current-main-recheck.md
@@ -13,6 +13,7 @@ sources:
   - ../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md
   - ../../../../../src/passes/duplicate_function_elimination.mbt
   - ../../../../../src/passes/duplicate_function_elimination_test.mbt
+  - ../../../../../src/passes/duplicate_function_elimination_wbtest.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../scripts/self-optimize-compare.ts
   - ../../../../../scripts/test/self-optimize-compare-command.ts
@@ -50,6 +51,7 @@ For the actionable validation ladder and scheduler decision points, see [`schedu
 - The 2026-04-27 validation bridge records this as the remaining preset/scheduler signoff gap rather than a hidden failure of the explicit pass surface.
 - The 2026-05-13 current-main recheck kept that framing unchanged.
 - The 2026-05-06 direct revalidation reran the refreshed 10000-case compare lane and found no semantic mismatches.
+- The 2026-06-03 O4z audit refreshed the direct lane after switching the Starshine hash prefilter from sparse instruction samples to whole-body instruction hashes; the final `10000`-requested keep-going lane compared `9975 / 10000` cases with `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures.
 
 ## Current in-tree status
 
@@ -100,9 +102,19 @@ After the 2026-05-13 current-main recheck, the docs should no longer claim that 
 
 Those may still matter for local output comparison, but they are not the official DFE algorithm.
 
+## 2026-06-03 O4z audit refresh
+
+The O4z audit improved the local explicit-pass surface without changing the remaining scheduler/iteration gap:
+
+- Starshine now hashes the full function body before exact comparison. This is a performance and shape-fidelity improvement relative to the older sparse sample, not a semantic relaxation: exact equality still decides merging.
+- New tests cover implemented but previously under-protected Binaryen rewrite surfaces: `return_call`, table initializer `ref.func`, and global initializer `ref.func`.
+- Direct compare after the change: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass duplicate-function-elimination --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-dfe-audit-after-10000` reported `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures (`22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`).
+- Performance after the change on `.tmp/dfe-collision-stress.wasm`: Starshine pass-local `0.812 ms`, Binaryen pass-local `0.957 ms`, canonical wasm equal, no raw skip. The same fixture before the change measured Starshine pass-local `20.315 ms` versus Binaryen `0.717 ms`.
+- Performance after the change on `.tmp/dfe-duplicate-pairs-stress.wasm`: Starshine pass-local `3.022 ms`, Binaryen pass-local `1.672 ms`; this is within the repo target (`3.022 <= 2 * 1.672`) while still performing real duplicate removal.
+
 ## 2026-05-06 direct revalidation
 
-The AUD002 refresh lane is now current for `duplicate-function-elimination`:
+The AUD002 refresh lane remains useful historical evidence for `duplicate-function-elimination`:
 
 - `moon info`, `moon fmt`, and `moon test` passed.
 - `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass duplicate-function-elimination --out-dir .tmp/pass-fuzz-duplicate-function-elimination`

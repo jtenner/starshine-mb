@@ -697,6 +697,93 @@ test "duplicate-function-elimination keeps annotated duplicates distinct" {
 }
 
 ///|
+test "duplicate-function-elimination rewrites return_call and module ref.func initializers" {
+  let func_ref_type = @lib.RefType::new(
+    true,
+    @lib.HeapType::abs(@lib.AbsHeapType::func()),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(dfe_test_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(1U),
+        @lib.TypeIdx::new(1U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::return_call(@lib.FuncIdx::new(2U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(func_ref_type, @lib.Limits::i32(1U, Some(1U))),
+          Some(
+            @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(2U))]),
+          ),
+        ),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(@lib.ValType::funcref(), false),
+          @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(2U))]),
+        ),
+      ]),
+    )
+
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), [
+      "duplicate-function-elimination",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected duplicate-function-elimination pipeline success, got \{err}",
+      )
+  }
+
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [@lib.Func(_, @lib.Expr([@lib.ReturnCall(@lib.FuncIdx(target))])), ..]
+      )
+    ) => @debug.assert_eq(target, 1U)
+    _ => fail("expected rewritten return_call target")
+  }
+  match optimized.table_sec {
+    Some(
+      @lib.TableSec(
+        [@lib.Table(_, Some(@lib.Expr([@lib.RefFunc(@lib.FuncIdx(target))])))]
+      )
+    ) => @debug.assert_eq(target, 1U)
+    _ => fail("expected rewritten table initializer ref.func")
+  }
+  match optimized.global_sec {
+    Some(
+      @lib.GlobalSec(
+        [@lib.Global(_, @lib.Expr([@lib.RefFunc(@lib.FuncIdx(target))]))]
+      )
+    ) => @debug.assert_eq(target, 1U)
+    _ => fail("expected rewritten global initializer ref.func")
+  }
+}
+
+///|
 test "duplicate-function-elimination canonicalizes compactable function element expressions even without duplicates" {
   let table_type = @lib.TableType::new(
     @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::func())),

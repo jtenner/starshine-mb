@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-13
+last_reviewed: 2026-06-03
 sources:
   - ../../../raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-13-duplicate-function-elimination-current-main-recheck.md
@@ -16,6 +16,7 @@ sources:
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/duplicate_function_elimination_test.mbt
+  - ../../../../../src/passes/duplicate_function_elimination_wbtest.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
 related:
   - ./index.md
@@ -74,19 +75,19 @@ That already tells readers two important local facts:
 
 ## 2. Core one-round duplicate-detection and rebuild loop
 
-The current local core lives in `src/passes/duplicate_function_elimination.mbt:3245-3534`.
+The current local core lives in `src/passes/duplicate_function_elimination.mbt`.
 
 The main entrypoints are:
 
-- `dfe_iteration(...)` at `:3245-3498`
-- `dfe_run_module_pass_with_perf(...)` at `:3500-3532`
-- `dfe_run_module_pass(...)` at `:3534-3536`
+- `dfe_iteration(...)`
+- `dfe_run_module_pass_with_perf(...)`
+- `dfe_run_module_pass(...)`
 
 What this local core does:
 
 1. computes a canonical-type map up front when simple duplicate function types exist
 2. normalizes function bodies against that map before equality comparison
-3. hashes candidate functions into local collision groups
+3. hashes candidate functions into local collision groups using whole-body instruction hashes, not sparse samples
 4. exact-compares only within those groups
 5. keeps the earliest equal function as the survivor
 6. rebuilds the function/type arrays for kept definitions
@@ -176,6 +177,7 @@ The local docs should keep saying that plainly.
 - whole-module function-reference rewriting is explicit and tested
 - the local extra-cleanup bundle is substantial and documented rather than hidden
 - perf hooks are already wired through the module-pass entrypoints
+- since the 2026-06-03 audit, the hash prefilter covers whole function bodies and avoids sparse same-sample collision buckets that previously made unrelated large function sets degrade to expensive O(n²) exact comparison
 
 ## Current deliberate differences from Binaryen
 
@@ -198,16 +200,18 @@ That two-way split is the main parity rule for this folder.
 
 Focused local pass tests live in `src/passes/duplicate_function_elimination_test.mbt`:
 
-- `:99-194`
-  - rewrites function references through call / `ref.func` / export / start / elem surfaces
-- `:196-252`
+- early focused tests
+  - rewrite function references through call / `ref.func` / export / start / elem surfaces, plus 2026-06-03 coverage for `return_call`, table initializers, and global initializer `ref.func`
+- white-box hash coverage
+  - locks whole-body hash prefilter behavior so sparse same-sample functions do not share one collision bucket
+- transitive-unlock coverage
   - locks the current **single-pass** transitive-unlock boundary
-- `:254-698`
-  - locks duplicate simple-type compaction and the resulting typed block / typed select / concrete-ref rewrite surfaces
-- `:700-764`
-  - locks compactable element-expression canonicalization even without function merges
-- `:766-848`
-  - locks name stripping and annotation-map rewrite bookkeeping
+- type-compaction tests
+  - lock duplicate simple-type compaction and the resulting typed block / typed select / concrete-ref rewrite surfaces
+- element-kind tests
+  - lock compactable element-expression canonicalization even without function merges
+- metadata tests
+  - lock name stripping and annotation-map rewrite bookkeeping
 
 CLI coverage lives in `src/cmd/cmd_wbtest.mbt:4010-4036`, which proves the explicit `--duplicate-function-elimination` command-line surface.
 
@@ -219,6 +223,15 @@ The refreshed direct explicit-pass lane is green after the fuzzer / compare harn
 - `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass duplicate-function-elimination --out-dir .tmp/pass-fuzz-duplicate-function-elimination` reported `6759 / 10000` compared cases, `6759` normalized matches, `0` mismatches, and `20` Binaryen empty-recursion-group parser/canonicalization command failures.
 
 This proves the current direct module-pass surface under the refreshed harness. It does not change the current one-iteration boundary or add DFE to public presets.
+
+## 2026-06-03 audit update
+
+The O4z audit refresh kept the explicit direct-pass semantics green while improving both shape coverage and pass-local runtime:
+
+- Added focused module-surface tests for Binaryen-relevant reference rewrites that were implemented but under-tested locally: `return_call`, table initializer `ref.func`, and global initializer `ref.func`.
+- Replaced the sparse function-body hash sample with a whole-body instruction hash. This keeps the hash phase closer to Binaryen's full body prefilter and prevents large unrelated functions with identical sampled instructions from falling into one quadratic exact-comparison bucket.
+- The adversarial `.tmp/dfe-collision-stress.wasm` fixture improved from `20.315 ms` Starshine pass-local versus `0.717 ms` Binaryen before the change to `0.812 ms` Starshine versus `0.957 ms` Binaryen after the change, with canonical wasm equality and no raw skip.
+- The duplicate-pair stress fixture `.tmp/dfe-duplicate-pairs-stress.wasm` measured `3.022 ms` Starshine pass-local versus `1.672 ms` Binaryen after the change, staying within the repo's `<= 2x Binaryen` pass-local target while still doing real deduplication work.
 
 ## Practical validation rule
 
