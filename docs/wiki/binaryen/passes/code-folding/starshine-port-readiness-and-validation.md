@@ -59,8 +59,8 @@ The local surfaces that already exist are active implementation and planning sur
 
 | Surface | Location | What it proves |
 | --- | --- | --- |
-| Active owner | `src/passes/code_folding.mbt` | `code-folding` has a real HOT descriptor and transform for the current narrow subset. |
-| Focused tests | `src/passes/code_folding_test.mbt` | current void-tail positives and bailouts are regression-protected. |
+| Active owner | `src/passes/code_folding.mbt` | `code-folding` has a real HOT descriptor and transform for the current narrow subset, now with explicit typed named-block exit-tail provenance and single-result multi-root suffix plans. |
+| Focused tests | `src/passes/code_folding_test.mbt` | current void-tail positives, typed named-block payload and multi-root suffix positives, terminal `if` subsets, and bailouts are regression-protected. |
 | Registry entry | `src/passes/optimize.mbt` | `code-folding` is an active hot pass, not a removed-name placeholder. |
 | Dispatcher arm | `src/passes/pass_manager.mbt` | active requests dispatch to `code_folding_run(ctx, func)`. |
 | CLI spelling preservation | `src/cli/cli_test.mbt` | `--code-folding` parses and explicit pass-token order is stable. |
@@ -81,28 +81,28 @@ The current owner file and tests cover a conservative subset of the expression-e
 - value-producing `if` bailout
 - full-`if` terminal suffix sharing for empty-payload `return` and `unreachable`
 - void block-exit/fallthrough tail sharing
-- single-result typed named-block plain-`br` payload sharing with a matching fallthrough value or other branch payloads
+- single-result typed named-block plain-`br` payload sharing with a matching fallthrough value or other branch payloads, including a safe multi-root suffix before the final value root
 - unsupported `br_on_null` label-poisoning coverage for block-exit folding
 - live-label structured `if` suffix bailout coverage
 - small exiting dead-value block flattening cleanup
 
-### Next slice: broader expression-exit fold positives with hard bailouts
+### Current next slice: broader `if` expression-exit positives with hard bailouts
 
-Continue with the broader expression-exit family from [`./binaryen-strategy.md`](./binaryen-strategy.md):
+The named-block expression-exit substrate now covers the first safe multi-root single-result branch-payload suffix shapes. Continue with the remaining broader expression-exit family from [`./binaryen-strategy.md`](./binaryen-strategy.md):
 
-- unnamed `if` arm duplicate suffixes
-- remaining named-block plain-`br` tails to the same exit beyond the covered void-tail and single-result payload-root shapes
-- broader branch-payload plus fallthrough suffixes where target scope is obviously preserved, including multi-value and deeper suffix slices
+- unnamed `if` arm duplicate suffixes and the one-block/one-non-block wrapping cases
+- named-arm negatives from the official lit matrix
+- any further named-block broadening only when it goes beyond the covered plain-`br`, single-result, multi-root safe subset, such as multi-value payloads with HOT/lower proof
 
 Keep these first-slice bailouts explicit:
 
 - any unsupported branch family beyond plain `br`
 - any `br_table`, `br_if`, `br_on_*`, `delegate`, `try`, `try_table`, `throw`, or `pop` shape until the movement proof is local and tested
 - any candidate whose branch target is not still in scope after the proposed move
-- any multi-result or refined-reference shape whose outer type cannot be reverified immediately
+- any multi-result, multi-value-payload, or refined-reference shape whose outer type cannot be reverified immediately
 - any case that needs a fresh helper label at the end of the function body
 
-This next slice should remain narrower than Binaryen until the local candidate, equality, movement-safety, mutation, and tests are proven for branch-bearing tails.
+This next slice should remain narrower than Binaryen until local candidate equality, movement-safety, mutation, and tests are proven for each new branch-bearing or arm-wrapping family.
 
 ### Slice 2: source-backed negative gates
 
@@ -160,18 +160,18 @@ The nearest reusable Starshine APIs today are these.
 
 ## Candidate model to keep concrete
 
-Before writing broad equality code, model a candidate tail as data with explicit provenance:
+For named-block expression exits, `src/passes/code_folding.mbt` now models branch-backed and fallthrough tails as explicit `CodeFoldingValueExitTail` data before rewriting:
 
-- owning region or root pointer
-- tail root sequence
-- whether the tail ends in branch, fallthrough, or terminator
-- target label, if any
-- branch payload roots, if any
-- type / arity expectation at the shared exit
+- owning region and tail end/root pointer
+- whether the tail is branch-backed or fallthrough
+- target label
+- branch payload root list
+- result arity expectation at the shared exit
 - movement-safety proof state
+- selected suffix length
 - profitability score
 
-This avoids the common over-broad implementation mistake: comparing two root arrays, finding them equal, and moving them without knowing why the move is legal.
+Keep that shape for future broadening. Terminating-tail candidates should get an equally explicit model before helper-label sharing lands: owning region or root pointer, tail root sequence, terminator kind, replacement site, movement-safety proof, suffix length, and profitability. This avoids the common over-broad implementation mistake: comparing two root arrays, finding them equal, and moving them without knowing why the move is legal.
 
 ## Validation ladder
 
@@ -184,8 +184,8 @@ Seed a future `src/passes/code_folding_test.mbt` from Binaryen's dedicated `code
 1. identical unnamed `if` arm blocks fold to a shared suffix
 2. partially shared `if` arm suffixes fold while preserving the unique prefix
 3. named arm blocks stay untouched
-4. plain branch-value tails to one named exit share only the payload suffix (single-result payload-root cases now have June 4 coverage; multi-value/deeper suffix cases remain future)
-5. branch-plus-fallthrough tails share the suffix (void tails and single-result payload-root cases now have coverage; broader branch payload suffixes remain future)
+4. plain branch-value tails to one named exit share the payload suffix while preserving the branch shell (single-result payload-root and multi-root pre-payload suffix cases now have June 4 coverage; multi-value cases remain future)
+5. branch-plus-fallthrough tails share the suffix (void tails and single-result payload-root plus multi-root payload-suffix cases now have coverage; broader helper/profitability cases remain future)
 6. `br_on_*` / unsupported branch forms poison label folding
 7. outside-target branches block movement
 8. refined-result and typed-block contexts still validate
@@ -226,7 +226,7 @@ The latest full 10000-case direct lane is from 2026-05-10 and predates the June 
 - direct artifact replay: `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1680352`, first diff `defined=220 abs=237`, classified representation drift, `334.711ms` Starshine pass time vs `176.295ms` Binaryen
 - late cleanup replay: `.tmp/cf002-late-cleanup-artifact`, first diff `defined=29 abs=46`, same focused diff files as the no-CF baseline `.tmp/cf002-late-cleanup-without-cf-artifact`
 
-The June 4 typed block-exit payload widening baseline is now green:
+The June 4 typed block-exit payload widening baseline is green:
 
 - `moon test src/passes`: `1590/1590`
 - `moon test`: `4775/4775`
@@ -234,7 +234,18 @@ The June 4 typed block-exit payload widening baseline is now green:
 - direct 1000-case smoke at `.tmp/pass-fuzz-code-folding-audit-1000`: `998/1000` compared cases, `998` normalized matches, `0` mismatches, `2` `binaryen-rec-group-zero` command failures
 - timing-only debug-WASI replay at `.tmp/code-folding-audit-self-compare`: `172.276ms` Starshine pass time vs `169.576ms` Binaryen, within the <=2x floor
 
-Direct `[CF]002` signoff is accepted as of 2026-05-10 for the earlier narrowed surface, and `[O4Z-AUDIT-CF-A]` baselines the June widening. The remaining direct debug-artifact diff is classified representation drift, and the focused `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names` cleanup replay produced the same first diff as the no-CF cleanup baseline. The 2026-06-04 O4z audit is tracked in [`../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md`](../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md); it now keeps the broader Binaryen behavior-parity slices open.
+The follow-up source-matrix / candidate-model / multi-root named-block widening lane is also green:
+
+- first test-first `moon test src/passes` failed the two new multi-root tests before implementation;
+- after implementation `moon test src/passes` passed `1592/1592`;
+- `moon fmt` completed;
+- full `moon test` passed `4777/4777`;
+- `moon info` completed with 6 tasks up to date;
+- `moon build --target native --release src/cmd` produced `_build/native/release/build/cmd/cmd.exe` with only the existing `pass_manager.mbt` unused-function warnings;
+- direct 1000-case smoke at `.tmp/pass-fuzz-code-folding-bd-1000`: `998/1000` compared cases, `998` normalized matches, `0` mismatches, `2` `binaryen-rec-group-zero` command failures;
+- timing-only debug-WASI replay at `.tmp/code-folding-bd-self-compare`: `196.213ms` Starshine pass time vs `187.281ms` Binaryen, within the <=2x floor.
+
+Direct `[CF]002` signoff is accepted as of 2026-05-10 for the earlier narrowed surface, `[O4Z-AUDIT-CF-A]` baselines the June widening, and `[O4Z-AUDIT-CF-B]` through `[O4Z-AUDIT-CF-D]` add the source-backed matrix, explicit named-block candidate model, and first multi-root named-block expression-exit widening. The remaining direct debug-artifact diff is classified representation drift, and the focused `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names` cleanup replay produced the same first diff as the no-CF cleanup baseline. The 2026-06-04 O4z audit is tracked in [`../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md`](../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md); it now keeps the broader Binaryen behavior-parity slices open.
 
 Future parity work should only proceed when one of these is true:
 
@@ -247,23 +258,23 @@ Follow the repo-level pass signoff rule from [`../../../../../AGENTS.md`](../../
 
 ## Current open design questions
 
-- Should the first implementation live as a pure HOT pass, or should some equality/profitability work be easier over lowered lib instruction arrays?
-- Should suffix equality begin with exact HOT-node structural equality, or reuse a normalized lowered-instruction comparison for the first slice?
-- How should Starshine represent Binaryen's `unoptimizables` label set when a label has both plain-`br` tails and unsupported branch-form users?
-- Which local size model should stand in for Binaryen's expression `Measurer` before Starshine has byte-level profitability for this pass?
-- Is it better to add EH support after function-ending tails, or should EH-sensitive shapes stay permanent bailouts until more local EH rewrite infrastructure exists?
-
-Record the answer to each question here when implementation begins.
+- Should the first implementation live as a pure HOT pass, or should some equality/profitability work be easier over lowered lib instruction arrays? Current answer for expression exits: keep it in HOT.
+- Should suffix equality begin with exact HOT-node structural equality, or reuse a normalized lowered-instruction comparison for the first slice? Current answer: exact HOT-node structural equality plus label-use-aware comparison for the covered named-block slices.
+- How should Starshine represent Binaryen's `unoptimizables` label set when a label has both plain-`br` tails and unsupported branch-form users? Current answer: the local collectors poison the whole target by returning false when `br_if`, `br_on_*`, `br_table`, or `delegate` traffic reaches the target label.
+- Which local size model should stand in for Binaryen's expression `Measurer` before Starshine has byte-level profitability for this pass? Current answer: `code_folding_node_measure` is the provisional node-count measure; it is good enough for the tested direct after-block suffix sharing but not a full Binaryen helper-block cost model.
+- Is it better to add EH support after function-ending tails, or should EH-sensitive shapes stay permanent bailouts until more local EH rewrite infrastructure exists? Still open; current code treats `try` / `try_table` as hard bailouts for this pass.
 
 ## Bottom line
 
 The source-backed implementation path is:
 
 1. keep `code-folding` active but narrow until tests drive each broader family
-2. extend expression-exit positives and source-backed negative gates before branchy movement
-3. add terminating-tail helper-label sharing as a separate slice
-4. treat EH movement as advanced follow-up, not first-slice scope
-5. keep direct compare-pass green before broad artifact replay
+2. use the completed source-backed shape matrix to select exact Binaryen families rather than generic duplicate-region rewrites
+3. keep the explicit candidate model for named-block expression exits and extend it only with focused proof
+4. add broader `if` arm wrapping and source-backed negative gates before risky branchy movement
+5. add terminating-tail helper-label sharing as a separate slice
+6. treat EH movement as advanced follow-up, not first-slice scope
+7. keep direct compare-pass green before broad artifact replay
 
 That keeps Starshine aligned with Binaryen's actual `code-folding` contract instead of drifting into a generic duplicate-region optimizer.
 

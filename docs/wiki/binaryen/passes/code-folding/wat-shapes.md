@@ -215,6 +215,8 @@ Why it folds:
 - the explicit `br $l` tails and the block's own fallthrough all reach the same semantic exit
 - the shared value tail is identical
 
+The shared suffix can be more than just the final value root. A safe single-result example is a repeated void/effectful root immediately before the final value, such as `local.get; call $sink; i32.const 7`, where the `call` is the void root to share and the `i32.const` supplies the named block's result.
+
 This is why the source keeps a special `fallthrough` tail representation.
 
 ## Shape 7: function-ending duplicated tails can be shared behind a helper label block

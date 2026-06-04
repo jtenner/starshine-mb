@@ -332,6 +332,83 @@ test "code-folding hoists typed block-exit branch payloads without fallthrough" 
 }
 
 ///|
+test "code-folding hoists typed block-exit multi-root payload suffix with fallthrough" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func $sink (param i32))
+      #|  (func (param i32 i32) (result i32)
+      #|    (block $out (result i32)
+      #|      (if (local.get 0)
+      #|        (then
+      #|          (local.get 1)
+      #|          (call $sink)
+      #|          (br $out (i32.const 7))))
+      #|      (local.get 1)
+      #|      (call $sink)
+      #|      (i32.const 7))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding hoists typed block-exit multi-root payload suffixes without fallthrough" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func $sink (param i32))
+      #|  (func (param i32 i32 i32) (result i32)
+      #|    (block $out (result i32)
+      #|      (if (local.get 0)
+      #|        (then
+      #|          (local.get 2)
+      #|          (call $sink)
+      #|          (br $out (i32.const 7))))
+      #|      (if (local.get 1)
+      #|        (then
+      #|          (local.get 2)
+      #|          (call $sink)
+      #|          (br $out (i32.const 7))))
+      #|      (i32.const 9)
+      #|      (return))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(9)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding hoists block-exit tail before outer branch fallthrough" {
   let optimized = code_folding_test_run(
     (
