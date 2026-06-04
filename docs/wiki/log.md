@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] tooling | Node package export-map and wrapper drift recheck
+
+- Added [`docs/wiki/raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md`](raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md) from current official Node package-export documentation, TypeScript package-resolution documentation, and local `node/package.json` / wrapper / generated-interface evidence.
+- Refreshed [`tooling/node-package-surface.md`](tooling/node-package-surface.md) so the package contract now records the extensionless export-map style, grouped `validate` drift slices, the older `runValidateInvalidFuzz` versus current `run_validate_invalid_ast_fuzz(...)` naming gap, existing WAST file/suite helpers versus the missing command-level static assertion wrapper, and the missing WAST arbitrary-feature stats wrapper.
+- Updated [`tooling/release-process.md`](tooling/release-process.md) and [`index.md`](index.md) so release prep and catalog routing treat new subpaths, wildcard/extensioned aliases, and one-specifier-style export-map changes as public API decisions rather than incidental packaging cleanup.
+
 ## [2026-06-04] docs | WAST struct atomic get source routing
 
 - Added [`docs/wiki/raw/wasm/2026-06-04-struct-atomic-get-sources.md`](raw/wasm/2026-06-04-struct-atomic-get-sources.md) from primary shared-everything threads proposal evidence plus Binaryen lit fixtures and current Starshine WAST/core/binary/validator source surfaces.

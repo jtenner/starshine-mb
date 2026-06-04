@@ -82,7 +82,7 @@ If the release includes a prebuilt self-optimized CLI artifact, add `bun validat
 
 From the `node/` package perspective, validate four things:
 
-1. **Exports:** `node/package.json#exports` lists every public subpath and pairs runtime `import` files with declaration `types` files.
+1. **Exports:** `node/package.json#exports` lists every public subpath, keeps one deliberate public specifier style per subpath, and pairs runtime `import` files with declaration `types` files.
 2. **Files:** `node/package.json#files` includes intended JS, `.d.ts`, `bin`, `examples`, `internal`, README, and package metadata.
 3. **Build boundary:** `npm run build` refreshes the WASI CLI artifact but does not regenerate wrappers; wrapper changes require explicit JS/TS diffs and tests.
 4. **Tarball contents:** use npm's package inspection path, e.g. `npm pack --dry-run` from `node/`, before a real publish. Treat dry-run output as packaging evidence, not as a replacement for tests.
@@ -173,6 +173,7 @@ Do not let an automated wiki or code-maintenance run publish by accident. Prepar
 - **Skipping `.mbti` review.** A source change can become a public API change even when tests pass.
 - **Conflating `bun validate full` with pass parity.** Full validation runs ordinary fuzz suites, not every Binaryen compare-pass lane.
 - **Publishing without tarball inspection.** `exports` and `files` define a smaller public surface than the repo tree; inspect package contents before publish.
+- **Accidentally broadening exported specifiers.** Adding extensioned aliases, wildcard patterns, or new subpaths under `node/package.json#exports` is an API decision, not a packaging cleanup.
 - **Writing release notes from memory.** Use wiki pages, raw/research notes, log entries, and git history so stale or superseded claims remain visible.
 
 ## Sources
@@ -180,6 +181,6 @@ Do not let an automated wiki or code-maintenance run publish by accident. Prepar
 - Release source snapshot: [`../raw/release/2026-05-20-starshine-release-process-sources.md`](../raw/release/2026-05-20-starshine-release-process-sources.md)
 - Repo policy: [`../../../AGENTS.md`](../../../AGENTS.md), [`../../README.md`](../../README.md)
 - Package metadata: [`../../../moon.mod.json`](../../../moon.mod.json), [`../../../node/package.json`](../../../node/package.json), [`../../../package.json`](../../../package.json)
-- Node package boundary: [`./node-package-surface.md`](node-package-surface.md), [`../../../node/README.md`](../../../node/README.md), [`../../../scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs), [`../../../scripts/lib/generate-node-package.mjs`](../../../scripts/lib/generate-node-package.mjs)
+- Node package boundary: [`./node-package-surface.md`](node-package-surface.md), [`../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md`](../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md), [`../../../node/README.md`](../../../node/README.md), [`../../../scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs), [`../../../scripts/lib/generate-node-package.mjs`](../../../scripts/lib/generate-node-package.mjs)
 - Validation gates: [`./validation-gates.md`](validation-gates.md), [`../../../scripts/lib/validate-task.ts`](../../../scripts/lib/validate-task.ts), [`./pass-fuzz-compare.md`](pass-fuzz-compare.md), [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md)
 - npm docs checked by the source snapshot: <https://docs.npmjs.com/cli/v11/configuring-npm/package-json>, <https://docs.npmjs.com/cli/v11/commands/npm-publish>, <https://docs.npmjs.com/cli/v11/commands/npm-pack>, <https://docs.npmjs.com/cli/v11/using-npm/scripts#life-cycle-scripts>
