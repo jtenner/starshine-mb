@@ -1,12 +1,13 @@
 ---
 kind: policy
 status: supported
-last_reviewed: 2026-05-28
+last_reviewed: 2026-06-04
 sources:
   - ./fuzz-runner.md
   - ./pass-fuzz-compare.md
   - ../validate/diagnostics-and-invalid-repro.md
   - ../../../agent-todo.md
+  - ../raw/research/0705-2026-06-04-transient-artifact-citation-hygiene.md
 related:
   - ./fuzz-runner.md
   - ./pass-fuzz-compare.md
@@ -21,6 +22,12 @@ related:
 This policy names the long-lived fuzz corpus states used by Starshine runners, compare lanes, reducers, dedup/index tooling, and replay-all tooling. It closes the `[FUZ]1042A` documentation slice; code that persists or replays corpus entries should use these names instead of inventing ad hoc directories or statuses. `[FUZ]1042B` adds the first Moon schema/format/parse helper for single-entry metadata under `starshine.fuzz-corpus-entry.v1`, and `[FUZ]1050A` extends that entry with deterministic artifact, predicate, feature-fact, and interestingness-label metadata.
 
 The policy is intentionally metadata-first. Large generated corpora should not be committed by default. Promote small, durable repro artifacts only when they are useful for regression, oracle triage, or tool-gap tracking, and keep noisy or machine-local bulk output under `.tmp/` unless a maintainer explicitly chooses otherwise.
+
+## Transient Artifact Citation Rule
+
+Pass-fuzz, self-opt, and generated-artifact runs often leave useful evidence under `.tmp/` or `.artifacts/`, but those paths are local run directories, not durable wiki sources by default. Living pages may mention such paths as replay identifiers when that helps a developer find a local run, but frontmatter `sources` lists and markdown source links should prefer committed raw notes, source files, tests, or official upstream URLs.
+
+When a local run should support a lasting claim, promote the small durable part of the evidence first: copy the command, aggregate counts, failure classes, classification, timings, and any essential reduced artifacts into `docs/wiki/raw/research/` or another committed raw-source location. Then cite that committed note from the living page. The 2026-06-04 citation-health note [`0705`](../raw/research/0705-2026-06-04-transient-artifact-citation-hygiene.md) records the rule and the first pass-dossier cleanup using the 2026-06-03 O4z audit notes as durable replacements for old `.artifacts` links.
 
 ## Corpus States
 

@@ -13,7 +13,6 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
-  - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedNames.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-utils.h
@@ -165,7 +164,7 @@ It does not claim that every nearby combo test is unchanged, only that the core 
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
 - [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
-- [`../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md`](../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md)
+- Saved generated-artifact slot facts are preserved in the committed audit note [`../../../raw/research/0703-2026-06-03-remove-unused-names-o4z-audit.md`](../../../raw/research/0703-2026-06-03-remove-unused-names-o4z-audit.md); old `.artifacts` paths are local replay identifiers rather than durable source links.
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedNames.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

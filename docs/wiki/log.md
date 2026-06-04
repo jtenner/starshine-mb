@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wiki-health | transient artifact citation policy
+
+- Added [`docs/wiki/raw/research/0705-2026-06-04-transient-artifact-citation-hygiene.md`](raw/research/0705-2026-06-04-transient-artifact-citation-hygiene.md) to record the durable rule for `.tmp` / `.artifacts` evidence: living pages may mention local run directories as replay identifiers, but durable source links should point at committed raw notes, source files, tests, or official upstream URLs.
+- Refreshed [`tooling/fuzz-corpus-policy.md`](tooling/fuzz-corpus-policy.md) and the top-level catalog entry so corpus and pass-fuzz docs explain when to promote local run facts into `docs/wiki/raw/research/` before citing them.
+- Health-check cleanup repointed the remaining `.artifacts` frontmatter/source-list citations in the audited [`memory-packing`](binaryen/passes/memory-packing/index.md), [`memory-packing` parity](binaryen/passes/memory-packing/parity.md), [`once-reduction`](binaryen/passes/once-reduction/index.md), [`once-reduction` parity](binaryen/passes/once-reduction/parity.md), [`pick-load-signs`](binaryen/passes/pick-load-signs/index.md), and [`remove-unused-names`](binaryen/passes/remove-unused-names/index.md) pages to their committed 2026-06-03 O4z audit notes.
+
 ## [2026-06-04] wiki-health | release-horizon catalog log link cleanup
 
 - Fixed an obvious broken historical log link that pointed from [`log.md`](log.md) to `docs/wiki/docs/wiki/binaryen/passes/index.md`; it now resolves to [`binaryen/passes/index.md`](binaryen/passes/index.md).
