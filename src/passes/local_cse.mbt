@@ -250,6 +250,7 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::I64Ne => Some(2)
     @lib.Instruction::I32Eqz | @lib.Instruction::I64Eqz => Some(1)
     @lib.Instruction::StructSet(_, _) => Some(2)
+    @lib.Instruction::ArraySet(_) => Some(3)
     _ =>
       if lcse_instr_is_store(instr) {
         Some(2)

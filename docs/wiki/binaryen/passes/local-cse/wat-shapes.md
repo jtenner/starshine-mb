@@ -313,13 +313,21 @@ Important honesty note:
 - this exact family is directly source-derived from the `LocalCSE.cpp` comments and the effect checker logic
 - I did not see a dedicated standalone `local-cse.wast` fixture for this exact store-between-loads case in this thread
 
-## Shape 8b: `struct.set` does not kill local-only reuse
+## Shape 8b: GC writes do not kill local-only reuse
 
-Before:
+Before, `struct.set` variant:
 
 ```wat
 (drop (i32.add (local.get $x) (local.get $y)))
 (struct.set $box 0 (local.get $box) (i32.const 7))
+(drop (i32.add (local.get $x) (local.get $y)))
+```
+
+Before, `array.set` variant:
+
+```wat
+(drop (i32.add (local.get $x) (local.get $y)))
+(array.set $arr (local.get $arr) (i32.const 0) (i32.const 7))
 (drop (i32.add (local.get $x) (local.get $y)))
 ```
 
@@ -327,17 +335,17 @@ After, conceptually:
 
 ```wat
 (drop (local.tee $tmp (i32.add (local.get $x) (local.get $y))))
-(struct.set $box 0 (local.get $box) (i32.const 7))
+(struct.set $box 0 (local.get $box) (i32.const 7)) ;; or array.set $arr ...
 (drop (local.get $tmp))
 ```
 
 Why this rewrites:
 
 - the repeated tree reads locals only
-- the intervening `struct.set` mutates a GC field, not those locals
+- the intervening `struct.set` or `array.set` mutates GC storage, not those locals
 - this is an effect-invalidation decision, not arbitrary heap CSE
 
-Starshine status: this Binaryen-positive shape is covered and implemented narrowly by modeling `struct.set` operands in the raw/module path. `struct.set` itself is still not a reusable root.
+Starshine status: these Binaryen-positive shapes are covered and implemented narrowly by modeling `struct.set` and `array.set` operands in the raw/module path. The write instructions themselves are still not reusable roots.
 
 ## Shape 9: repeated ordinary call roots do not fold
 
