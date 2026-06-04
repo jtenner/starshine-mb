@@ -652,6 +652,15 @@ Before, reference-control fallthrough variants:
   (ref.null extern))
 ```
 
+```wat
+(block (result (ref i31))
+  (drop (i32.add (local.get $x) (local.get $y)))
+  (br_on_cast $exit anyref (ref i31) (local.get $maybe_any))
+  (drop)
+  (drop (i32.add (local.get $x) (local.get $y)))
+  (ref.i31 (i32.const 0)))
+```
+
 After, conceptually:
 
 ```wat
@@ -663,10 +672,10 @@ After, conceptually:
 Why this matters:
 
 - this is not the same as treating ordinary repeated direct-call, `call_indirect`, branch-control roots, or throwing roots as reusable
-- Binaryen can keep the expression window alive across these operand-taking terminators into unreachable continuation code and across `br_on_null` / `br_on_non_null` into fallthrough continuation code
+- Binaryen can keep the expression window alive across these operand-taking terminators into unreachable continuation code and across `br_on_null` / `br_on_non_null` / `br_on_cast` into fallthrough continuation code
 - plain `return`, plain `throw`, plain branch boundaries, and ordinary call roots remain separate conservative cases
 
-Starshine status: these Binaryen-positive shapes are now covered and implemented narrowly by modeling `return_call`, `return_call_indirect`, `return_call_ref`, and `throw_ref` operands plus `br_on_null` fallthrough stack passthrough and `br_on_non_null` fallthrough consumption in the raw/module path, with direct compare remaining mismatch-free.
+Starshine status: these Binaryen-positive shapes are now covered and implemented narrowly by modeling `return_call`, `return_call_indirect`, `return_call_ref`, and `throw_ref` operands plus `br_on_null`, `br_on_non_null`, and `br_on_cast` reference-control continuation stack effects in the raw/module path, with direct compare remaining mismatch-free.
 
 ## Shape 20: flatten can turn a near-miss into a positive
 

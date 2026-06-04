@@ -892,3 +892,22 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the first focused run failed as intended (`37/38` passed) before the implementation change; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed after the fix (`38/38`); `moon test src/passes` passed (`1584/1584`); full `moon test` passed (`4769/4769`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; compare reached `6770` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up `br_on_cast` continuation positive fix on 2026-06-04
+
+A later focused LCSE hardening slice spot-checked a `br_on_cast` fallthrough-continuation shape. Binaryen materialized the repeated arithmetic expression before `br_on_cast` with `local.tee` and reused it after dropping the cast-fail fallthrough reference. Starshine first tried a WAT-form direct fixture, but the local test parser could not safely represent that syntax; the slice then added the failing core-built direct regression `local-cse reuses expression across br-on-cast continuation` and fixed the raw/module stack model by treating `br_on_cast` as a one-operand reference-control operation whose fallthrough stack value remains available. This does not make branch-control roots reusable and does not implement CFG-wide GVN.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-br-on-cast-continuation-only-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the initial WAT-form focused run failed in local fixture parsing; after switching to a core-built fixture, the first compileable focused run failed as intended (`38/39` passed) before the implementation change. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed after the fix (`39/39`); `moon test src/passes` passed (`1587/1587`); full `moon test` passed (`4772/4772`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; compare reached `6769` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
