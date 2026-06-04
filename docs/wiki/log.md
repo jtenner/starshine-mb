@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wiki-health | external-validator command wording
+
+- During the follow-up health check, refreshed [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the FUZ1044C summary now matches the current Binaryen classified adapter command shape, `wasm-opt --all-features --validate`, and routes the legacy `differential_validate_wasm(...)` / `binaryen_valid` naming caveat through [`tooling/external-validator-adapters.md`](tooling/external-validator-adapters.md).
+- Health-check scope included empty markdown links, stale `docs/0063`-style references in living pages, newly added raw-source backlinks, and cross-page uses of the external-validator report labels.
+
 ## [2026-06-04] tooling/wiki | external-validator surface split
 
 - Added [`raw/validation/2026-06-04-external-validator-surface-split.md`](raw/validation/2026-06-04-external-validator-surface-split.md) after rechecking current official `wasm-tools`, WABT, and Binaryen validator-command sources plus `src/cmd/fuzz_harness.mbt` / `src/cmd/fuzz_harness_wbtest.mbt` evidence.
