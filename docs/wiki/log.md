@@ -16,6 +16,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Refreshed [`tooling/moonbit-workspace-package-map.md`](tooling/moonbit-workspace-package-map.md) so the active package map now includes `src/spec_runner` as a native static-spec wrapper and records that it is the current legacy `imports.mbt` exception to the normal `moon.pkg` package-config rule.
 - Cross-linked the exception from [`tooling/node-package-surface.md`](tooling/node-package-surface.md), [`index.md`](index.md), [`../README.md`](../README.md), and [`../../AGENTS.md`](../../AGENTS.md) so package-topology, Node-public-surface, and repo-rule readers no longer infer that every active package currently has a `moon.pkg` file.
 
+## [2026-06-04] passes/local-cse | array.fill local-only reuse fix
+
+- Spot-checked an `array.fill` between two local-only arithmetic trees and confirmed Binaryen materializes the pre-fill expression with `local.tee` and reuses it after the GC array fill.
+- Added a failing core-built direct `local-cse` regression, then fixed the raw/module path to model `array.fill` as a four-operand, no-result instruction rather than an unknown hard boundary.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-array-fill-local-only-10000`: 6770 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
+- Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`wat-shapes.md`](binaryen/passes/local-cse/wat-shapes.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so this effect-invalidation case is tracked as a covered positive without broad heap CSE.
+
 ## [2026-06-04] passes/local-cse | array.set local-only reuse fix
 
 - Spot-checked an `array.set` between two local-only arithmetic trees and confirmed Binaryen materializes the pre-write expression with `local.tee` and reuses it after the GC array write.
