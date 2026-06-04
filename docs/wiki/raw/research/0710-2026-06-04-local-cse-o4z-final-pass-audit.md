@@ -740,3 +740,21 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`31/31`); `moon test src/passes` passed (`1577/1577`); full `moon test` passed (`4762/4762`); native build reported no work; compare reached `6767` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures.
+
+## Follow-up `array.new_elem` generative-root coverage on 2026-06-04
+
+A later focused LCSE hardening slice spot-checked repeated `array.new_elem` roots with Binaryen and confirmed the allocation roots remain separate: Binaryen keeps both `array.new_elem` instructions and does not introduce a `local.tee`. Starshine added a core-built direct regression, `local-cse does not reuse repeated array-new-elem roots`, with a passive funcref element segment and a funcref array type. The test passed without implementation changes, so this was missing coverage only rather than a functional gap.
+
+Validation evidence for this slice:
+
+```sh
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-array-new-elem-generative-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`32/32`); `moon test src/passes` passed (`1578/1578`); full `moon test` passed (`4763/4763`); native build reported no work; compare reached `6763` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures.

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] passes/local-cse | array.new_elem generative-root coverage
+
+- Spot-checked repeated `array.new_elem` roots and confirmed Binaryen keeps the fresh allocation roots separate without materializing a temp local.
+- Added the core-built `local-cse does not reuse repeated array-new-elem roots` direct regression with a passive funcref element segment and funcref array type; no implementation change was needed.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-array-new-elem-generative-10000`: 6763 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
+- Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so the elem-backed array allocation root is tracked as a covered negative.
+
 ## [2026-06-04] passes/local-cse | array.new_data generative-root coverage
 
 - Spot-checked repeated `array.new_data` roots and confirmed Binaryen keeps the fresh allocation roots separate without materializing a temp local.
