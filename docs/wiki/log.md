@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] validate/tooling | runtime trap semantics consolidation
+
+- Added [`docs/wiki/raw/wasm/2026-06-04-runtime-trap-current-refresh.md`](raw/wasm/2026-06-04-runtime-trap-current-refresh.md) after rechecking current WebAssembly Core 3.0 runtime/execution/validation pages, the WebAssembly JavaScript API, MDN host-surface references, and Starshine validator/HOT/effect/fuzz/compare code paths.
+- Added [`validate/runtime-trap-semantics.md`](validate/runtime-trap-semantics.md) as the reusable guide for trap versus validation/link/host errors, `unreachable` execution versus stack-polymorphic validation, `WebAssembly.RuntimeError`, `traps-never-happen`, `mayTrap`, equal-trap compare evidence, and static WAST `assert_trap` boundaries.
+- Cross-linked [`validate/stack-polymorphism-and-bottom.md`](validate/stack-polymorphism-and-bottom.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`tooling/pass-fuzz-compare.md`](tooling/pass-fuzz-compare.md), [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md), [`wast/static-assertion-harness.md`](wast/static-assertion-harness.md), [`tooling/o4z-debug-startup-trap.md`](tooling/o4z-debug-startup-trap.md), and [`index.md`](index.md) so future trap-shaped reports do not overclaim equal traps or conflate runtime traps with static validation failures.
+
 ## [2026-06-04] wast/binary/strings | stringref proposal current refresh
 
 - Added [`docs/wiki/raw/wasm/2026-06-04-stringref-proposal-current-refresh.md`](raw/wasm/2026-06-04-stringref-proposal-current-refresh.md) after checking the current WebAssembly proposals tracker, the active Reference-Typed Strings proposal, current Core 3.0 instruction/binary pages dated 2026-06-03, and Starshine WAST/core/binary/validator string surfaces.

@@ -6,6 +6,7 @@ sources:
   - ../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
   - ../raw/wasm/2026-05-20-wast-parametric-select-sources.md
+  - ../raw/wasm/2026-06-04-runtime-trap-current-refresh.md
   - ../../../src/lib/types.mbt
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/typecheck_negative_tests.mbt
@@ -13,6 +14,7 @@ sources:
 related:
   - ./module-validation-phases.md
   - ./constant-expressions.md
+  - ./runtime-trap-semantics.md
   - ../wast/control-flow-authoring.md
   - ../wast/parametric-instruction-authoring.md
   - ../wast/tail-call-authoring.md
@@ -27,7 +29,7 @@ related:
 
 WebAssembly validation treats code after a nonfallthrough instruction as **stack-polymorphic**. In plain terms: once local execution cannot reach the next instruction, the validator may synthesize missing operands of any type so it can keep checking the rest of the expression tree.
 
-Starshine models that rule with a `reachable` flag in [`TcState`](../../../src/validate/typecheck.mbt) and a local bottom value, [`ValType::bottom()` / `BotValType`](../../../src/lib/types.mbt). This page owns the focused validator contract. Use it when a pass, fixture, reducer, or wiki claim mentions `unreachable`, `return`, `br`, `br_table`, tail calls, throws, "bottom", stack underflow in unreachable code, or leftover stack values after a terminal instruction.
+Starshine models that rule with a `reachable` flag in [`TcState`](../../../src/validate/typecheck.mbt) and a local bottom value, [`ValType::bottom()` / `BotValType`](../../../src/lib/types.mbt). This page owns the focused validator contract. Use it when a pass, fixture, reducer, or wiki claim mentions `unreachable`, `return`, `br`, `br_table`, tail calls, throws, "bottom", stack underflow in unreachable code, or leftover stack values after a terminal instruction. Use [`runtime-trap-semantics.md`](runtime-trap-semantics.md) for the separate execution-time trap/`RuntimeError`/`mayTrap` vocabulary.
 
 The source bridge is [`../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md`](../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md). It rechecked the current WebAssembly validation-instruction and validation-algorithm sources plus Starshine's typechecker, validator diagnostics, and regression tests.
 
@@ -162,6 +164,7 @@ When an optimization or generator creates, removes, or moves a terminal instruct
 ## Sources
 
 - Source bridge: [`../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md`](../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md)
+- Runtime trap source refresh for the execution/host boundary: [`../raw/wasm/2026-06-04-runtime-trap-current-refresh.md`](../raw/wasm/2026-06-04-runtime-trap-current-refresh.md)
 - Earlier control-flow source manifest: [`../raw/wasm/2026-05-19-wast-control-flow-sources.md`](../raw/wasm/2026-05-19-wast-control-flow-sources.md)
 - Official WebAssembly sources checked: <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/appendix/algorithm.html>, <https://webassembly.github.io/spec/core/valid/modules.html>, <https://webassembly.github.io/spec/core/syntax/instructions.html>
 - Starshine implementation and tests: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)

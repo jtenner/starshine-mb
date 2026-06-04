@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-02
 sources:
   - ../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md
+  - ../raw/wasm/2026-06-04-runtime-trap-current-refresh.md
   - ../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md
   - ../../../scripts/lib/build-self-optimized.mjs
   - ../../../scripts/lib/self-optimized-artifacts.mjs
@@ -14,6 +15,7 @@ related:
   - ./cli-command-and-dispatcher.md
   - ./cli-startup-path.md
   - ./validation-gates.md
+  - ../validate/runtime-trap-semantics.md
   - ../binaryen/no-dwarf-default-optimize-path.md
 ---
 
@@ -23,14 +25,14 @@ related:
 
 This page records the repaired `o4z` debug-startup trap and the permanent guard that keeps the committed debug-WASI artifact honest. The fast-path and path-normalization work still belong in [`cli-startup-path.md`](./cli-startup-path.md); this page is only about the separate startup trap that used to come from a stale debug artifact and now serves as a regression sentinel.
 
-The host-visible symptom was `RuntimeError: unreachable` during startup. That message is still useful as a trap-classification hint, because WebAssembly uses `RuntimeError` for traps and `unreachable` is the unconditional trap instruction. The important current fact is that the stale allocator-root shape has been repaired: the committed debug-WASI path and the reduced fixture now pass the reduced guard and the startup replay.
+The host-visible symptom was `RuntimeError: unreachable` during startup. That message is still useful as a trap-classification hint; the reusable trap vocabulary now lives in [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md). The important current fact is that the stale allocator-root shape has been repaired: the committed debug-WASI path and the reduced fixture now pass the reduced guard and the startup replay.
 
 ## Current understanding
 
 - The stale committed debug-WASI artifact path is repaired. The reduced `malloc` shape now carries the TLSF root/control pointer into `tlsf/removeBlock` instead of leaving a literal zero on the stack.
 - `scripts/lib/build-self-optimized.mjs` describes the build/copy flow that produces the debug artifact used by later self-optimize runs.
 - `scripts/lib/self-optimized-artifacts.mjs` names the debug artifact path that the build pipeline copies into the node-dist layout.
-- The runtime-trap semantics remain source-backed in [`../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md`](../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md); use that note to remember that `RuntimeError: unreachable` is a wasm trap surface, not a Node-specific exception class.
+- The runtime-trap semantics remain source-backed in [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md) and [`../raw/wasm/2026-06-04-runtime-trap-current-refresh.md`](../raw/wasm/2026-06-04-runtime-trap-current-refresh.md); use that guide to remember that `RuntimeError: unreachable` is a wasm trap surface, not a Node-specific exception class.
 - The detailed owner evidence and the repaired pass-owner follow-up live in the archived research note [`../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md`](../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md).
 
 ## Current TDD guard
@@ -51,7 +53,9 @@ The host-visible symptom was `RuntimeError: unreachable` during startup. That me
 ## Sources
 
 - Archived research note: [`../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md`](../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md)
-- Runtime-trap semantics source note: [`../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md`](../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md)
+- Runtime-trap semantics guide: [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md)
+- Runtime-trap source refresh: [`../raw/wasm/2026-06-04-runtime-trap-current-refresh.md`](../raw/wasm/2026-06-04-runtime-trap-current-refresh.md)
+- Earlier focused source note: [`../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md`](../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md)
 - Build pipeline: [`../../../scripts/lib/build-self-optimized.mjs`](../../../scripts/lib/build-self-optimized.mjs)
 - Artifact-path helper: [`../../../scripts/lib/self-optimized-artifacts.mjs`](../../../scripts/lib/self-optimized-artifacts.mjs)
 - Active reduced guard: [`../../../scripts/lib/o4z-debug-startup-map.test.ts`](../../../scripts/lib/o4z-debug-startup-map.test.ts)
