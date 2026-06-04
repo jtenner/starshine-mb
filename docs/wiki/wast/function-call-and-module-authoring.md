@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md
   - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - ../raw/wasm/2026-05-19-wast-call-and-function-sources.md
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
@@ -54,7 +55,7 @@ Neighbor pages own the parts that are easy to conflate with this topic:
 - [`reference-instruction-authoring.md`](reference-instruction-authoring.md) and [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md) own `ref.func`, declaration sources, and the current start-section declaration divergence.
 - [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md) owns binary section ids, imported-prefix function index spaces, `FuncSec`/`CodeSec` parallelism, the parameter-local versus encoded-body-local split, and module-pass remap checklists.
 
-The current primary-source and local-code manifest for the ordinary reference-call split is [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md). The broader WAST function/import/export/start source snapshot remains [`../raw/wasm/2026-05-19-wast-call-and-function-sources.md`](../raw/wasm/2026-05-19-wast-call-and-function-sources.md), while binary code-entry/local-run details now route through [`../raw/wasm/2026-05-20-function-code-section-source-refresh.md`](../raw/wasm/2026-05-20-function-code-section-source-refresh.md).
+The current source-routing refresh for reference calls, casts, and reference branches is [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md). The detailed primary-source and local-code manifest for the ordinary reference-call split remains [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md). The broader WAST function/import/export/start source snapshot remains [`../raw/wasm/2026-05-19-wast-call-and-function-sources.md`](../raw/wasm/2026-05-19-wast-call-and-function-sources.md), while binary code-entry/local-run details now route through [`../raw/wasm/2026-05-20-function-code-section-source-refresh.md`](../raw/wasm/2026-05-20-function-code-section-source-refresh.md).
 
 ## Beginner Model: Names Become Absolute Function Indices
 
@@ -76,7 +77,7 @@ After lowering, Starshine does not keep `call $add1` as a symbolic call. [`src/w
 
 | Layer | Owner | What to remember |
 | --- | --- | --- |
-| WAST keywords/parser | [`src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) | Registers and parses `func`, `import`, `export`, `start`, `call`, `call_indirect`, and tail-call keywords. `call_indirect` accepts an optional table index that defaults to `0`. Ordinary `call_ref` is not currently a WAST keyword. |
+| WAST keywords/parser | [`src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) | Registers and parses `func`, `import`, `export`, `start`, `call`, `call_indirect`, and tail-call keywords. `call_indirect` accepts an optional table index that defaults to `0`. Ordinary `call_ref` is an official control instruction, but it is not currently a Starshine WAST keyword. |
 | WAST lowerer | [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) | Resolves `$` and numeric indices to imported-prefix `FuncIdx`, `TypeIdx`, and `TableIdx`; turns inline exports into ordinary export entries; turns inline function imports into ordinary import entries. Type-use details and rec-group flat-index caveats live in [`gc-type-authoring.md`](gc-type-authoring.md). |
 | WAST printer | [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | Prints resolved indices for call-family instructions, so shorthand/default-table input can roundtrip as a more explicit numeric form. |
 | Core model | [`src/lib/types.mbt`](../../../src/lib/types.mbt) | Stores `ImportSec`, `FuncSec`, `ExportSec`, `StartSec`, `CodeSec`, `FuncIdx`, and distinct `Call`, `CallIndirect`, `ReturnCall*`, `CallRef`, and `ReturnCallRef` instruction variants. |
@@ -150,7 +151,7 @@ A start function must exist and have no parameters and no results. The focused v
 | --- | --- | --- | --- | --- |
 | `call` | `funcidx` | callee params | callee results | The function index must exist; stack operands must match the target function type. |
 | `call_indirect` | optional `tableidx`, then `typeuse` | call params..., table element index | function type results | The type index must resolve to a function type, and the selected table must be function-reference-compatible. Table index defaults and table64 caveats live in [`table-instruction-authoring.md`](table-instruction-authoring.md). |
-| `call_ref` | `typeidx` / type use in official text; not Starshine WAST text today | call params..., function reference | function type results | Core/binary/validator/generator-visible ordinary reference call. Use non-WAST fixtures until Starshine adds parser/lowerer/printer support. |
+| `call_ref` | `typeidx` / type use in official text; not Starshine WAST text today | call params..., function reference | function type results | Core/binary/validator/generator-visible ordinary reference call. The 2026-06-04 refresh notes that the official text page routes it through the generic verbatim-control path rather than a standalone subsection; use non-WAST fixtures locally until Starshine adds parser/lowerer/printer support. |
 | `return_call` | `funcidx` | callee params | unreachable | Shares function-index resolution with `call`, but result validation and CFG behavior live in [`tail-call-authoring.md`](tail-call-authoring.md). |
 | `return_call_indirect` | optional `tableidx`, then `typeuse` | call params..., table element index | unreachable | Shares indirect-call resolution but is a tail call; see both [`table-instruction-authoring.md`](table-instruction-authoring.md) and [`tail-call-authoring.md`](tail-call-authoring.md). |
 | `return_call_ref` | `typeuse` | call params..., function reference | unreachable | WAST-supported reference tail-call form; ordinary non-tail `call_ref` is currently not exposed as WAST text. |
@@ -188,7 +189,7 @@ The direct call consumes the argument produced by `local.get` and pushes the `i3
 
 ### Ordinary `call_ref` core/binary route
 
-Official WebAssembly treats ordinary `call_ref` as a call-family instruction with a function type immediate. The caller places the callee parameters first, then the function reference. If the immediate type is `(func (param i32) (result i64))`, the stack intuition is:
+Official WebAssembly treats ordinary `call_ref` as a call-family instruction with a function type immediate. The current syntax page lists it in the control-instruction family, and the binary page gives opcode `0x14` with a `typeidx` immediate. The generated current text page does not give `call_ref` its own subsection; it relies on the generic rule that other control instructions are represented verbatim. The caller places the callee parameters first, then the function reference. If the immediate type is `(func (param i32) (result i64))`, the stack intuition is:
 
 ```text
 ... i32 (ref null $sig)  -- call_ref $sig -->  ... i64
@@ -217,6 +218,7 @@ Do not confuse the function reference with a declaration source. A `ref.func $f`
 
 ## Sources
 
+- Current reference call/cast/branch refresh: [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md)
 - Focused `call_ref` source refresh: [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md)
 - Focused function/import/export/start snapshot: [`../raw/wasm/2026-05-19-wast-call-and-function-sources.md`](../raw/wasm/2026-05-19-wast-call-and-function-sources.md)
 - Binary code-entry/local-run refresh: [`../raw/wasm/2026-05-20-function-code-section-source-refresh.md`](../raw/wasm/2026-05-20-function-code-section-source-refresh.md)

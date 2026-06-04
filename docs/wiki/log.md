@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] docs | reference call/cast/branch source routing refresh
+
+- Added [`docs/wiki/raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md) after checking the current official WebAssembly Core 3.0 syntax, text, binary, and validation pages dated 2026-06-03 plus the proposal-era function-reference / GC validation pages and local Starshine WAST/core/binary/validator/generator source surfaces.
+- Refreshed [`wast/function-call-and-module-authoring.md`](wast/function-call-and-module-authoring.md), [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so official `call_ref`, ordinary `ref.test` / `ref.cast`, and `br_on_*` carrier semantics stay separate from Starshine's current WAST keyword/parser/printer gaps.
+- Recorded the source-navigation caveat that current official text syntax routes `call_ref` through the generic verbatim-control path and current generated Core validation HTML is less direct than syntax/binary/proposal/local sources for teaching some reference-call and reference-branch stack details.
+
 ## [2026-06-04] docs | custom/name text-annotation source refresh
 
 - Added [`docs/wiki/raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md`](raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md) after rechecking the current official WebAssembly Core 3.0 custom/name/annotation appendix dated 2026-06-03 plus Starshine WAST parser/lowerer and binary metadata code paths.

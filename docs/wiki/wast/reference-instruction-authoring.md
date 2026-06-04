@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md
   - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - ../raw/wasm/2026-05-19-wast-reference-instruction-sources.md
   - ../raw/wasm/2026-05-20-reference-branch-validation-refresh.md
@@ -43,7 +44,7 @@ Use this page when writing, reducing, or widening fixtures that mention WebAssem
 - nullability-specialized branches represented by Starshine core and binary: `br_on_null` and `br_on_non_null`;
 - Starshine's descriptor-family local/custom-descriptor text forms: `ref.test_desc`, `ref.test_desc_null`, `ref.cast_desc_eq`, and `ref.cast_desc_eq_null`.
 
-The broad primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-reference-instruction-sources.md`](../raw/wasm/2026-05-19-wast-reference-instruction-sources.md). The targeted branch/cast refresh is [`../raw/wasm/2026-05-20-reference-branch-validation-refresh.md`](../raw/wasm/2026-05-20-reference-branch-validation-refresh.md), the focused ordinary reference-call refresh is [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md), and the current `ref.func` declaration-membership refresh is [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md). The key local lesson from these ingests is a layer split: **Starshine's core, binary, validator, and valid-generator surfaces are wider than its current WAST text surface.** Text fixtures can directly author the basic `ref.*` subset and descriptor-family forms today, while ordinary `ref.test` / `ref.cast`, `br_on_*`, and ordinary non-tail `call_ref` require core/binary fixtures or a WAST parser/printer widening first. For `ref.i31`, `i31.get_*`, `any.convert_extern`, and struct/array aggregate allocation or access, use [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md).
+The current source-routing refresh is [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md). The broad primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-reference-instruction-sources.md`](../raw/wasm/2026-05-19-wast-reference-instruction-sources.md). The targeted branch/cast refresh is [`../raw/wasm/2026-05-20-reference-branch-validation-refresh.md`](../raw/wasm/2026-05-20-reference-branch-validation-refresh.md), the focused ordinary reference-call refresh is [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md), and the current `ref.func` declaration-membership refresh is [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md). The key local lesson from these ingests is a layer split: **Starshine's core, binary, validator, and valid-generator surfaces are wider than its current WAST text surface.** Text fixtures can directly author the basic `ref.*` subset and descriptor-family forms today, while ordinary `ref.test` / `ref.cast`, `br_on_*`, and ordinary non-tail `call_ref` require core/binary fixtures or a WAST parser/printer widening first. For `ref.i31`, `i31.get_*`, `any.convert_extern`, and struct/array aggregate allocation or access, use [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md).
 
 ## Beginner Mental Model
 
@@ -60,7 +61,7 @@ The validator is where those meanings become precise. Binary decode only sees op
 
 | Layer | Owner | Reference-instruction facts to remember |
 | --- | --- | --- |
-| WAST keywords/parser | [`src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) | Registers `ref.null`, `ref.is_null`, `ref.func`, `ref.eq`, `ref.as_non_null`, and descriptor-family `ref.test_desc` / `ref.cast_desc_eq` forms. It does **not** currently register ordinary `ref.test`, `ref.cast`, or `br_on_*` text keywords. |
+| WAST keywords/parser | [`src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) | Registers `ref.null`, `ref.is_null`, `ref.func`, `ref.eq`, `ref.as_non_null`, and descriptor-family `ref.test_desc` / `ref.cast_desc_eq` forms. Ordinary `ref.test`, `ref.cast`, and `br_on_*` are official core families, but they are not currently Starshine WAST text keywords. |
 | WAST lowerer/printer | [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | Resolves `ref.func` function ids to absolute `FuncIdx`; resolves `ref.null` and descriptor type ids; prints the WAST-supported subset. |
 | Core instruction model | [`src/lib/types.mbt`](../../../src/lib/types.mbt) | Models the wider reference family: `RefNull`, `RefIsNull`, `RefFunc`, `RefEq`, `RefAsNonNull`, `BrOnNull`, `BrOnNonNull`, `RefTest`, `RefCast`, descriptor test/cast, `BrOnCast`, and `BrOnCastFail`. |
 | Binary bytes | [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) | Encodes one-byte reference operators such as `0xD0`-family forms, one-byte `br_on_null` / `br_on_non_null`, and `0xFB` GC-prefixed test/cast/branch forms. Byte success is not proof of type or declaration validity. |
@@ -73,8 +74,8 @@ The validator is where those meanings become precise. Binary decode only sees op
 | --- | --- | --- | --- |
 | `ref.null`, `ref.is_null`, `ref.func` | Yes | Yes | Prefer WAST fixtures when the purpose is parser/lowering/validation behavior. |
 | `ref.eq`, `ref.as_non_null` | Yes | Yes | WAST parser classifies these through the no-immediate compare/unary path. |
-| `ref.test`, `ref.cast` | No ordinary text keyword in this snapshot | Yes | Use core/binary fixtures or add WAST keyword/parser/lowerer/printer coverage first. |
-| `br_on_null`, `br_on_non_null` | No | Yes | Treat as reference-branch core instructions; do not cite WAST parser absence as semantic absence. |
+| `ref.test`, `ref.cast` | No ordinary Starshine text keyword in this snapshot | Yes | Official text/binary/validation sources recognize the ordinary cast/test family; use core/binary fixtures locally or add WAST keyword/parser/lowerer/printer coverage first. |
+| `br_on_null`, `br_on_non_null` | No | Yes | Treat as reference-branch core instructions; do not cite WAST parser absence as semantic absence. The current Core 3.0 syntax and binary pages are the portable anchors, while Starshine's typechecker and proposal-era pages are clearer teaching anchors for branch/fallthrough stack splits. |
 | `br_on_cast`, `br_on_cast_fail` | No | Yes | Same as above; also recheck branch label payloads and cast hierarchy rules. |
 | `ref.test_desc*`, `ref.cast_desc_eq*` | Yes, local/custom-descriptor surface | Yes | Use for custom-descriptor fixtures; do not conflate with ordinary official `ref.test` / `ref.cast`. |
 
@@ -160,7 +161,7 @@ These Starshine-supported text forms are useful for custom-descriptor fixtures a
 
 ## Core/Binary-Only Shapes To Treat Carefully
 
-The following families are real local core instructions and are exercised by valid generation, but the WAST text path cannot author them directly yet:
+The following families are real local core instructions and are exercised by valid generation, but the WAST text path cannot author them directly yet. The 2026-06-04 refresh confirmed this as a Starshine text-surface gap, not a portable WebAssembly absence: current official syntax/binary pages still list these families, but Starshine's keyword/parser/printer set is narrower.
 
 ```text
 RefTest(nullable, HeapType)
@@ -187,7 +188,7 @@ When a pass regression needs one of these forms today, prefer a programmatic `@l
 
 ## Source Map
 
-- Primary-source and local-code manifests: [`../raw/wasm/2026-05-19-wast-reference-instruction-sources.md`](../raw/wasm/2026-05-19-wast-reference-instruction-sources.md), [`../raw/wasm/2026-05-20-reference-branch-validation-refresh.md`](../raw/wasm/2026-05-20-reference-branch-validation-refresh.md), [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md), [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md)
+- Primary-source and local-code manifests: [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md), [`../raw/wasm/2026-05-19-wast-reference-instruction-sources.md`](../raw/wasm/2026-05-19-wast-reference-instruction-sources.md), [`../raw/wasm/2026-05-20-reference-branch-validation-refresh.md`](../raw/wasm/2026-05-20-reference-branch-validation-refresh.md), [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md), [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md)
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Core model and binary codec: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)
 - Validation and generation: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md)
