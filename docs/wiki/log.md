@@ -12351,3 +12351,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added a failing WAT-form direct `local-cse` regression, then fixed the raw/module path to model `memory.init` as a three-operand, no-result instruction rather than an unknown hard boundary.
 - Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-memory-init-local-only-10000`: 6769 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
 - Refreshed the LCSE wiki pages, the 0710 audit note, and [`../../agent-todo.md`](../../agent-todo.md) so this effect-invalidation case is tracked as a covered positive without broad memory/GVN claims.
+
+## [2026-06-04] passes/local-cse | table.copy local-only reuse fix
+
+- Spot-checked a `table.copy` between two local-only arithmetic trees and confirmed Binaryen materializes the pre-copy expression with `local.tee` and reuses it after the table bulk copy.
+- Added a failing WAT-form direct `local-cse` regression, then fixed the raw/module path to model `table.copy` as a three-operand, no-result instruction rather than an unknown hard boundary.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-table-copy-local-only-10000`: 6771 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
+- Refreshed the LCSE wiki pages, the 0710 audit note, and [`../../agent-todo.md`](../../agent-todo.md) so this effect-invalidation case is tracked as a covered positive without broad table/GVN claims.
