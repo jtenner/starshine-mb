@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wiki-health | archived research link repair
+
+- During the follow-up health check, repaired stale archived research links that still escaped back to old `docs/0063-*` and `docs/0065-*` numbered-note paths after the research migration; those same-directory references now resolve within `docs/wiki/raw/research/`.
+- Health-check scope included empty markdown links, newly added WAST text-surface backlinks, stale `docs/0063` / `docs/0065`-style references, obvious `bikeshed` URL mistakes in current raw bridges, and committed `.tmp` / `.artifacts` citations that are intentionally retained as replay identifiers rather than durable source links.
+
 ## [2026-06-04] wast/wiki | text-surface gap ledger
 
 - Added [`raw/wasm/2026-06-04-wast-text-surface-gap-ledger-source-bridge.md`](raw/wasm/2026-06-04-wast-text-surface-gap-ledger-source-bridge.md) after rechecking current WebAssembly Core 3.0 text/syntax/validation pages, the threads atomic draft, focused WAST pages, and current `src/wast` keyword/parser/lowerer/printer evidence.
@@ -42,6 +47,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added [`raw/wiki/2026-06-04-wiki-maintenance-source-bridge.md`](raw/wiki/2026-06-04-wiki-maintenance-source-bridge.md) after rechecking the LLM Wiki / LLM Wiki v2 methodology sources plus current [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), [`index.md`](index.md), and this log.
 - Added [`tooling/wiki-maintenance-playbook.md`](tooling/wiki-maintenance-playbook.md) as the operational checklist for autonomous wiki runs: target selection, evidence ladder, update flow, raw-source placement, transient-artifact citation discipline, whole-wiki health checks, common mistakes, and wiki-only signoff.
 - Refreshed [`raw/README.md`](raw/README.md) and [`index.md`](index.md) so the new `raw/wiki/` methodology-source directory and playbook are discoverable without duplicating the normative schema in [`../README.md`](../README.md).
+
+## [2026-06-04] passes/local-cse | array.init_data local-only reuse fix
+
+- Spot-checked an `array.init_data` between two local-only arithmetic trees and confirmed Binaryen materializes the pre-initialization expression with `local.tee` and reuses it after the GC array/data initialization.
+- Added a failing core-built direct `local-cse` regression, then fixed the raw/module path to model `array.init_data` as a four-operand, no-result instruction rather than an unknown hard boundary.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-array-init-data-local-only-10000`: 6769 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
+- Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`wat-shapes.md`](binaryen/passes/local-cse/wat-shapes.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so this effect-invalidation case is tracked as a covered positive without broad heap CSE.
 
 ## [2026-06-04] passes/local-cse | array.copy local-only reuse fix
 

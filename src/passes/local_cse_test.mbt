@@ -612,6 +612,69 @@ test "local-cse reuses local-only expression across array-copy" {
 }
 
 ///|
+test "local-cse reuses local-only expression across array-init-data" {
+  let array_type_idx = @lib.TypeIdx::new(0U)
+  let func_type_idx = @lib.TypeIdx::new(1U)
+  let data_idx = @lib.DataIdx::new(0U)
+  let array_ref = @lib.ValType::ref_null(@lib.HeapType::new(array_type_idx))
+  let array_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::pack_type(@lib.PackType::i8()),
+          @lib.Mut::var_(),
+        ),
+      ),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func(
+        [@lib.ValType::i32(), @lib.ValType::i32(), array_ref],
+        [],
+      ),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([array_type, func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32::new(1U)))
+    .with_data_sec(
+      @lib.DataSec::new([@lib.Data::new(@lib.DataMode::passive(), b"abcd")]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i32_add(),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::i32_const(0),
+            @lib.Instruction::i32_const(0),
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::array_init_data(array_type_idx, data_idx),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i32_add(),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  let temp = @lib.LocalIdx::new(3U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
 test "local-cse does not reuse repeated array-new-default roots" {
   let array_type_idx = @lib.TypeIdx::new(0U)
   let func_type_idx = @lib.TypeIdx::new(1U)
