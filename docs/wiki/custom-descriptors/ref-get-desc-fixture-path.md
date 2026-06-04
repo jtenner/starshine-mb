@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md
   - ../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md
   - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
   - ../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md
@@ -50,7 +51,7 @@ related:
 
 Use this page for `ref.get_desc` fixture, lowering, validator, generator, or pass work. Use [`exact-reference-equivalence.md`](exact-reference-equivalence.md) for the lower-level exact-ref structural equality rule, [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md) for authoring `describes` / `descriptor` metadata, and [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md) for the validator phase that proves descriptor metadata pairs are structurally valid before instructions can rely on them.
 
-The current source bridge is [`../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md`](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md). It rechecked the custom-descriptors proposal, the WebAssembly proposals tracker, the upstream bottom-input discussion, the V8 fix, and the current Starshine parser/lowerer/typechecker code.
+The current source bridge is [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md), which supersedes the source-freshness layer of the May [`ref.get_desc` / exactness refresh](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md). It rechecked the Phase-3 custom-descriptors proposal, the upstream bottom-input discussion, the V8 fix, and current Starshine parser/lowerer/typechecker/static-harness code. Durable conclusion: proposal descriptor metadata is still struct-oriented, while Starshine WAST can still parse/lower broader local array-metadata fixtures that validation rejects as non-struct descriptor metadata.
 
 ## Concrete Flow
 
@@ -96,7 +97,7 @@ The inspected type immediate is `$node`, not `$node_desc`. Starshine resolves th
     (ref.get_desc $node)))
 ```
 
-The custom-descriptors issue and V8 fix rechecked for this page both call out the bottom-input edge case: `none` / unreachable inputs should be treated as more specific than the exact target, so they produce an exact descriptor result. Starshine's current implementation has the same behavior through two paths:
+The custom-descriptors issue and V8 fix rechecked for this page both call out the bottom-input edge case: `none` / unreachable inputs are more specific than an exact target, so they produce an exact descriptor result. Starshine's current implementation has the same behavior through two paths:
 
 - `typecheck_ref_get_desc(...)` gets `None` from `pop_ref_or_bot()` for unreachable stack-polymorphic input, and `Env::descriptor_result_type(...)` treats the missing concrete operand as exact. The general bottom-value rule and concrete-stack-junk boundary live in [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md).
 - `Match::matches(...)` has an exact-target path where inexact abstract bottom refs such as `none` (for struct/array targets) and `nofunc` (for function targets) can match exact defined targets.
@@ -127,7 +128,7 @@ The validator starts by resolving the inspected type through `Env::resolve_struc
 ## Invariants And Edge Cases
 
 - **The immediate names the described type.** Do not rewrite `ref.get_desc $node` to point at `$node_desc`; the descriptor type is reached through `$node`'s metadata.
-- **The inspected type must be a descriptor-bearing struct.** Current upstream proposal text is struct-only, and Starshine's validator `resolve_struct_descriptor_type(...)` follows that rule even though some WAST metadata parsing/lowering tests still cover local array metadata as proposal-tracking evidence.
+- **The inspected type must be a descriptor-bearing struct.** Current upstream proposal text is struct-only, and Starshine's validator `resolve_struct_descriptor_type(...)` follows that rule even though some WAST metadata parsing/lowering tests still cover local array metadata as proposal-tracking evidence. If a fixture reaches validation with array descriptor metadata, it is negative validation evidence, not a successful `ref.get_desc` surface.
 - **Exactness is dataflow-sensitive.** Exact operands and bottom/unreachable operands produce exact descriptor refs. Inexact-compatible operands produce inexact descriptor refs.
 - **Bottom-null is not a generic cast escape hatch.** `none` and `nofunc` are accepted only where their abstract family is compatible with the expected exact defined type. Other incompatible refs still fail.
 - **Descriptor metadata is type identity.** Rewriting passes that reorder, deduplicate, remove, or remap types must update `describes`, `descriptor`, `ref.get_desc` immediates, exact reference types, constructor/cast descriptor operands, and any name/debug maps together.
@@ -156,7 +157,8 @@ After any rewrite, rerun validation. The common failure modes are `type without 
 
 ## Sources
 
-- Current primary-source bridge: [`../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md`](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md)
+- Current primary-source bridge: [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md)
+- Earlier exactness/source bridge: [`../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md`](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md)
 - GC/custom-descriptor source snapshot: [`../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md`](../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md)
 - Archived fixture-path research: [`../raw/research/0022-2026-03-22-ref-get-desc-type-immediate.md`](../raw/research/0022-2026-03-22-ref-get-desc-type-immediate.md), [`../raw/research/0023-2026-03-22-wast-legacy-gc-ref-aliases.md`](../raw/research/0023-2026-03-22-wast-legacy-gc-ref-aliases.md), [`../raw/research/0024-2026-03-22-wast-struct-get-surface.md`](../raw/research/0024-2026-03-22-wast-struct-get-surface.md), [`../raw/research/0025-2026-03-22-wast-global-import-exact-ref-types.md`](../raw/research/0025-2026-03-22-wast-global-import-exact-ref-types.md), [`../raw/research/0026-2026-03-22-wast-rec-group-flat-type-indices.md`](../raw/research/0026-2026-03-22-wast-rec-group-flat-type-indices.md), [`../raw/research/0027-2026-03-22-exact-ref-null-immediates.md`](../raw/research/0027-2026-03-22-exact-ref-null-immediates.md), [`../raw/research/0028-2026-03-22-ref-get-desc-bottom-null-operands.md`](../raw/research/0028-2026-03-22-ref-get-desc-bottom-null-operands.md)
 - Current implementation and tests: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt); shared bottom-value contract: [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md)

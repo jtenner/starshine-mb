@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md
   - ../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md
   - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
   - ../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md
@@ -37,7 +38,7 @@ Two rules are easy to confuse:
 
 This page owns the second rule. The `ref.get_desc` operand/result exactness flow lives in [`ref-get-desc-fixture-path.md`](ref-get-desc-fixture-path.md), the broader WAST type authoring surface lives in [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), and the validator-side type-section normalization/subtype-matching contract lives in [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md).
 
-The current primary-source bridge is [`../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md`](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md). It rechecked the custom-descriptors proposal, the WebAssembly proposals tracker, the `ref.get_desc` bottom-input discussion, the V8 fix, and the current Starshine validator sources.
+The current primary-source bridge is [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md). It rechecked the Phase-3 custom-descriptors proposal, the upstream `ref.get_desc` bottom-input discussion, the V8 fix, and current Starshine validator sources. The proposal still uses exact heap types for descriptor-allocation soundness, but Starshine's structural exact-reference equivalence is a local validator implementation rule: it can compare structs, functions, and arrays because the shared `Match::matches(...)` engine works over the whole type system, not because the descriptor proposal standardizes metadata on every composite family.
 
 ## Concrete Shapes
 
@@ -100,7 +101,7 @@ For recursive types, exact matching tracks visited `(TypeIdx, TypeIdx)` pairs. S
 - **Exact matching preserves declared-supertype metadata.** The structural comparison includes `final`, supertype lists, and type metadata, so descriptor-bearing types with different `describes` / `descriptor` relationships do not become accidentally equal.
 - **Exact refs are not subtype wildcards.** A subtype/supertype pair that is valid under ordinary inexact matching should still fail exact matching when the full shape differs.
 - **Bottom-null families are special at the reference-matching boundary.** The exact-ref matcher has explicit paths for inexact abstract bottom refs (`none` for struct/array targets, `nofunc` for function targets) when the expected type is exact. The `ref.get_desc` page explains why that matters for exact descriptor results.
-- **Proposal caveat:** the upstream custom-descriptors proposal is still Phase 3 and currently restricts descriptor metadata to struct type definitions. Starshine's exact matching engine can structurally compare functions and arrays too because exact refs and local tests use the shared type system; do not infer that every such local surface is standardized descriptor syntax.
+- **Proposal caveat:** the upstream custom-descriptors proposal is still Phase 3 and currently restricts descriptor metadata to struct type definitions. Starshine's exact matching engine can structurally compare functions and arrays too because exact refs and local tests use the shared type system; do not infer that every such local surface is standardized descriptor syntax. This is the same official-vs-local split recorded in [`../wasm-feature-status-and-proposal-boundaries.md`](../wasm-feature-status-and-proposal-boundaries.md).
 
 ## Signoff Guidance
 
@@ -113,7 +114,8 @@ When changing exact reference matching:
 
 ## Sources
 
-- Current primary-source bridge: [`../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md`](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md)
+- Current primary-source bridge: [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md)
+- Earlier exactness/source bridge: [`../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md`](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md)
 - Type-section/subtyping bridge: [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md), [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md)
 - GC/custom-descriptor source snapshot: [`../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md`](../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md)
 - Archived research docs: [`../raw/research/0029-2026-03-22-passive-typed-empty-elem-surface.md`](../raw/research/0029-2026-03-22-passive-typed-empty-elem-surface.md), [`../raw/research/0030-2026-03-22-exact-struct-ref-equivalence.md`](../raw/research/0030-2026-03-22-exact-struct-ref-equivalence.md), [`../raw/research/0031-2026-03-22-exact-func-ref-equivalence.md`](../raw/research/0031-2026-03-22-exact-func-ref-equivalence.md)

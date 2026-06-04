@@ -2,11 +2,23 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] custom-descriptors | current proposal and exactness recheck
+
+- Added [`raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](raw/wasm/2026-06-04-custom-descriptor-current-recheck.md) after rechecking the official WebAssembly proposals tracker, the custom-descriptors overview, issue #48 on `ref.get_desc` bottom inputs, the corresponding V8 fix, and current Starshine WAST/lowering/validator/static-harness sources.
+- Refreshed [`custom-descriptors/static-fixtures.md`](custom-descriptors/static-fixtures.md), [`custom-descriptors/ref-get-desc-fixture-path.md`](custom-descriptors/ref-get-desc-fixture-path.md), [`custom-descriptors/exact-reference-equivalence.md`](custom-descriptors/exact-reference-equivalence.md), and [`index.md`](index.md) so descriptor knowledge now routes through the current Phase-3, struct-only proposal status, the Starshine-local array-metadata parser/lowerer caveat, validator-owned non-struct rejection, exact/inexact `ref.get_desc` result typing, and bottom/null exactness evidence.
+- Current durable split: static custom-descriptor fixture success is text/lowering/validation evidence, not JS embedding/runtime descriptor interop; Starshine's exact-reference structural matcher covers the shared local type system, while descriptor metadata standardization remains proposal-scoped and struct-oriented.
+
 ## [2026-06-04] tooling/tracing | trace contract source refresh
 
 - Added [`raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md`](raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md) after rechecking the official Moon command manual/source for upstream `moon run` command-shape context plus current `src/cmd/cmd.mbt`, `src/passes/perf.mbt`, `src/validate_trace/main.mbt`, validator trace, Bun wrapper, and command-test evidence.
 - Expanded [`tooling/tracing-playbook.md`](tooling/tracing-playbook.md) from a compact March tracing summary into the current two-lane contract: runtime CLI/optimizer tracing versus validator trace-benchmark output, accepted `pass|phase|helper` levels, `STARSHINE_TRACING`, `STARSHINE_OPTIMIZE_MAX_PASSES`, `[trace]` command lines, optimizer `perf:*` lines, validator `phase_totals` / `helper_totals` / `hotspots`, timing caveats, and maintenance rules.
 - Refreshed [`validate/trace-benchmark-baseline.md`](validate/trace-benchmark-baseline.md), [`tooling/validation-gates.md`](tooling/validation-gates.md), and [`index.md`](index.md) so trace-benchmark routing now points to the 2026-06-04 source bridge while preserving the March baseline snapshot as the durable emitted evidence.
+
+## [2026-06-04] passes/local-cse | array.new_fixed generative-root coverage
+
+- Added core-built direct `local-cse` regression coverage proving repeated `array.new_fixed` roots remain separate; the Binaryen WAT spot check kept both roots with no `local.tee`.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-array-new-fixed-generative-10000`: 6771 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
+- Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`wat-shapes.md`](binaryen/passes/local-cse/wat-shapes.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so `array.new_fixed` is covered as another generative-root negative.
 
 ## [2026-06-04] passes/local-cse | try_table body unreachable-boundary coverage
 
