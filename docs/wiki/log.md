@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] binary/fuzzing | LEB128 current-source and canonicality refresh
+
+- Added [`docs/wiki/raw/wasm/2026-06-04-leb128-current-refresh.md`](raw/wasm/2026-06-04-leb128-current-refresh.md) after rechecking current WebAssembly Core binary values/conventions pages, the official `binary-leb128.wast` fixture, and current Starshine LEB decode/encode/size helpers, invalid-binary strategy inventory, and command-harness canonicality classifier.
+- Refreshed [`binary/leb128-and-integer-encoding.md`](binary/leb128-and-integer-encoding.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`binary/module-section-map.md`](binary/module-section-map.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`index.md`](index.md) so the durable LEB contract now distinguishes the official-compatible bounded-overlong decoder policy, compact encoder output, malformed-byte rejection before validation, the broad current malformed/overwide carrier matrix, and the source-of-truth role of `src/fuzz/invalid_binary.mbt` plus `src/fuzz/invalid_binary_wbtest.mbt` for exhaustive strategy coverage.
+- Current maintenance rule: external-tool rejection of a bounded-overlong input is a canonicality-policy disagreement, not automatically a Starshine decoder bug; canonical or malformed-input disagreements remain possible decoder-bug signals.
+
 ## [2026-06-04] passes/reorder-locals | preset scheduling reconciliation
 
 - Added [`docs/wiki/raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md`](raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md) after checking current local `src/passes/optimize.mbt`, `src/passes/optimize_test.mbt`, `src/passes/registry_test.mbt`, existing `0552` / `0063` research notes, and current official Binaryen `main` `ReorderLocals.cpp`, `pass.cpp`, and dedicated test surfaces.

@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md
+  - ../raw/wasm/2026-06-04-leb128-current-refresh.md
   - ../raw/wasm/2026-05-13-module-section-order-sources.md
   - ../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
@@ -137,7 +138,7 @@ The pass dossiers most sensitive to this checklist include [`remove-unused-modul
 
 - Current stringref proposal/core refresh: [`../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md`](../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md)
 - Primary-source snapshot: [`../raw/wasm/2026-05-13-module-section-order-sources.md`](../raw/wasm/2026-05-13-module-section-order-sources.md)
-- LEB128 binary integer refresh: [`../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md`](../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md), [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md)
+- LEB128 binary integer refresh: [`../raw/wasm/2026-06-04-leb128-current-refresh.md`](../raw/wasm/2026-06-04-leb128-current-refresh.md), [`../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md`](../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md), [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md)
 - Core module representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)
 - Binary decode/encode: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Validation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)

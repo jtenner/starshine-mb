@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-28
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-leb128-current-refresh.md
   - ../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md
   - ../raw/wasm/2026-05-13-instruction-expression-binary-sources.md
@@ -34,7 +35,7 @@ WebAssembly binary modules use **LEB128** for most integers that are not fixed-s
 - `f32`, `f64`, and `v128` payloads are fixed-width little-endian byte sequences and are not LEB-encoded;
 - a decoded LEB value can still be semantically invalid later, but malformed LEB bytes must be rejected before validation.
 
-The 2026-05-20 source refresh in [`../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md`](../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md) rechecked the current official WebAssembly binary values/conventions pages, the upstream `binary-leb128.wast` fixture, and Starshine's binary codec, tests, fuzzing, and static harness evidence.
+The 2026-06-04 current refresh in [`../raw/wasm/2026-06-04-leb128-current-refresh.md`](../raw/wasm/2026-06-04-leb128-current-refresh.md) rechecked the current official WebAssembly binary values/conventions pages, the upstream `binary-leb128.wast` fixture, Starshine's binary codec, the widened invalid-binary LEB carrier matrix, and the command-harness canonicality classifier. The older 2026-05-20 source snapshot remains useful history for the initial bounded-overlong policy decision.
 
 ## The Most Important Rule: Bounded Does Not Mean Shortest
 
@@ -93,6 +94,8 @@ The encoder should normally produce a compact form, but the decoder must remain 
 
 This split matters for pass docs that mention LEB size. For example, [`const-hoisting`](../binaryen/passes/const-hoisting/index.md) profitability depends on signed integer literal byte width, while [`reorder-globals`](../binaryen/passes/reorder-globals/index.md) depends on unsigned index byte width. Those passes should use or mirror the real binary helpers instead of approximating with rough value ranges.
 
+The 2026-06-04 refresh also updates the local evidence boundary: the invalid-binary lane is now a broad malformed/overwide carrier matrix rather than the original section-size-only slice, while the canonicality classifier in [`src/cmd/fuzz_harness.mbt`](../../../src/cmd/fuzz_harness.mbt) keeps official-compatible overlong inputs separate from true decoder-bug disagreements with external tools.
+
 ## Where LEB Shows Up
 
 | Binary field | Encoding family | Main Starshine owner | Notes |
@@ -108,7 +111,7 @@ This split matters for pass docs that mention LEB size. For example, [`const-hoi
 | Memory alignment immediates | unsigned LEB | [`MemArg`](../../../src/lib/types.mbt), binary memarg codec | The invalid-binary lane keeps the legacy `malformed-memarg-immediate` carrier and now also names load/store alignment carriers explicitly with `malformed-load-memarg-align-uleb`, `malformed-store-memarg-align-uleb`, `overwide-load-memarg-align-uleb`, and `overwide-store-memarg-align-uleb`; SIMD operand-context coverage includes `v128.load`, `v128.store`, lane load/store, `v128.load8_splat`, `v128.load8x8_s` load-extend, and `v128.load32_zero` load-zero alignment carriers; atomics coverage now includes the prefixed `i32.atomic.load`, `i32.atomic.store`, `memory.atomic.notify`, `i32.atomic.wait`, `i32.atomic.rmw.add`, and `i32.atomic.rmw.cmpxchg` alignment carriers `malformed-atomic-load-memarg-align-uleb`, `malformed-atomic-store-memarg-align-uleb`, `malformed-atomic-notify-memarg-align-uleb`, `malformed-atomic-wait-memarg-align-uleb`, `malformed-atomic-rmw-memarg-align-uleb`, `malformed-atomic-cmpxchg-memarg-align-uleb`, `overwide-atomic-load-memarg-align-uleb`, `overwide-atomic-store-memarg-align-uleb`, `overwide-atomic-notify-memarg-align-uleb`, `overwide-atomic-wait-memarg-align-uleb`, `overwide-atomic-rmw-memarg-align-uleb`, and `overwide-atomic-cmpxchg-memarg-align-uleb`. |
 | Memory offset immediates | unsigned LEB width through `U64` | [`MemArg`](../../../src/lib/types.mbt), binary memarg codec | Semantic legality still depends on selected memory width and lives in validation / WAST memory-argument docs. The invalid-binary lane covers malformed and overwide load/store offset ULEBs with `malformed-load-memarg-offset-uleb`, `malformed-store-memarg-offset-uleb`, `overwide-load-memarg-offset-uleb`, and `overwide-store-memarg-offset-uleb`, separate from memarg alignment carriers; SIMD operand-context coverage includes `v128.load`, `v128.store`, lane load/store, `v128.load8_splat`, `v128.load8x8_s` load-extend, and `v128.load32_zero` load-zero offset carriers; atomics operand-context coverage now also includes `malformed-atomic-load-memarg-offset-uleb`, `malformed-atomic-store-memarg-offset-uleb`, `malformed-atomic-notify-memarg-offset-uleb`, `malformed-atomic-wait-memarg-offset-uleb`, `malformed-atomic-rmw-memarg-offset-uleb`, `malformed-atomic-cmpxchg-memarg-offset-uleb`, `overwide-atomic-load-memarg-offset-uleb`, `overwide-atomic-store-memarg-offset-uleb`, `overwide-atomic-notify-memarg-offset-uleb`, `overwide-atomic-wait-memarg-offset-uleb`, `overwide-atomic-rmw-memarg-offset-uleb`, and `overwide-atomic-cmpxchg-memarg-offset-uleb` after valid atomics subopcodes and valid alignment ULEBs. |
 
-Section placement and index-space repair guidance lives in [`module-section-map.md`](module-section-map.md). Instruction opcode and stack-validation guidance lives in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md).
+Section placement and index-space repair guidance lives in [`module-section-map.md`](module-section-map.md). Instruction opcode and stack-validation guidance lives in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md). The prose list above is intentionally a maintainer map, not a second source of truth: when exact strategy coverage matters, check [`src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt) and the strategy inventory tests in [`src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt).
 
 ## Concrete Examples
 
@@ -166,7 +169,8 @@ When touching LEB or integer-immediate code:
 
 ## Sources
 
-- Source refresh: [`../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md`](../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md)
+- Current source refresh: [`../raw/wasm/2026-06-04-leb128-current-refresh.md`](../raw/wasm/2026-06-04-leb128-current-refresh.md)
+- Original source refresh: [`../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md`](../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md)
 - Earlier instruction-expression snapshots: [`../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md`](../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md), [`../raw/wasm/2026-05-13-instruction-expression-binary-sources.md`](../raw/wasm/2026-05-13-instruction-expression-binary-sources.md)
 - Binary codec and tests: [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt)
 - Invalid binary fuzzing: [`../../../src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt), [`../../../src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt), [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md)

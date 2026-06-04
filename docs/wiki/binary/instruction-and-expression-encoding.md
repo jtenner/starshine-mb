@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md
+  - ../raw/wasm/2026-06-04-leb128-current-refresh.md
   - ../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md
   - ../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
@@ -220,7 +221,7 @@ Before committing a pass, fuzzer change, or binary/WAST codec change that touche
 
 - Current SIMD lane-immediate validation refresh: [`../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md`](../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md), [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md)
 - Original SIMD lane-immediate validation refresh: [`../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md`](../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md)
-- LEB128 binary integer refresh: [`../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md`](../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md), [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md)
+- LEB128 binary integer refresh: [`../raw/wasm/2026-06-04-leb128-current-refresh.md`](../raw/wasm/2026-06-04-leb128-current-refresh.md), [`../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md`](../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md), [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md)
 - Official source snapshot: [`../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md`](../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md)
 - Local code source map: [`../raw/wasm/2026-05-13-instruction-expression-binary-sources.md`](../raw/wasm/2026-05-13-instruction-expression-binary-sources.md)
 - Core representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)

@@ -8,6 +8,7 @@ sources:
   - ../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md
   - ../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
+  - ../raw/wasm/2026-06-04-leb128-current-refresh.md
   - ../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../raw/wasm/2026-05-19-wast-data-segment-sources.md
   - ../raw/research/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md
@@ -144,5 +145,5 @@ The key invariant is that coverage means **the intended strategy ran and reached
 - Completed execution plan / historical slice ledger: [`../raw/research/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`](../raw/research/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md)
 - WAST static assertion model: [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md), [`../raw/wasm/2026-05-19-wast-static-assertion-sources.md`](../raw/wasm/2026-05-19-wast-static-assertion-sources.md), [`../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md)
 - Diagnostic-family and invalid-repro source manifest: [`../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md`](../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md), [`./diagnostics-and-invalid-repro.md`](./diagnostics-and-invalid-repro.md)
-- LEB128 binary-integer source refresh: [`../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md`](../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md), [`../binary/leb128-and-integer-encoding.md`](../binary/leb128-and-integer-encoding.md)
+- LEB128 binary-integer source refresh: [`../raw/wasm/2026-06-04-leb128-current-refresh.md`](../raw/wasm/2026-06-04-leb128-current-refresh.md), [`../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md`](../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md), [`../binary/leb128-and-integer-encoding.md`](../binary/leb128-and-integer-encoding.md)
 - Active follow-up backlog, if any: [`../../../agent-todo.md`](../../../agent-todo.md)
