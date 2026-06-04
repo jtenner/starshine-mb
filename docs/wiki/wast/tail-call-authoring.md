@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-tail-call-current-refresh.md
   - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - ../raw/wasm/2026-05-19-wast-tail-call-sources.md
   - ../raw/wasm/2026-05-19-tail-call-control-flow-sources.md
@@ -43,7 +44,7 @@ Use this page when writing, debugging, or widening WAST fixtures that contain We
 
 The beginner mental model is: **a tail call is still a call, but it is also a return from the current function.** The callee receives parameters like an ordinary call. If the callee finishes normally, control returns to the caller of the current function, not to the instruction after the tail call. That means Starshine must treat tail calls as call-family use sites for indices, types, traps, and effects, while treating them as return-family terminators for validation and CFG flow. The non-tail function/import/export/start and direct-`call` authoring contract lives in [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md); shared WAST type-use and rec-group flat-index rules live in [`gc-type-authoring.md`](gc-type-authoring.md).
 
-The focused `call_ref` / `return_call_ref` split is refreshed in [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md). The broader tail-call primary-source and local-code manifest remains [`../raw/wasm/2026-05-19-wast-tail-call-sources.md`](../raw/wasm/2026-05-19-wast-tail-call-sources.md), and the narrower CFG-only source snapshot remains [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md).
+The current-source refresh is [`../raw/wasm/2026-06-04-tail-call-current-refresh.md`](../raw/wasm/2026-06-04-tail-call-current-refresh.md), which rechecked the official WebAssembly Core 3.0 syntax, text, binary, validation, and execution pages dated 2026-06-03 against Starshine's WAST/core/binary/validator/CFG surfaces. The focused `call_ref` / `return_call_ref` split is still routed through [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md). The broader original tail-call source map remains [`../raw/wasm/2026-05-19-wast-tail-call-sources.md`](../raw/wasm/2026-05-19-wast-tail-call-sources.md), and the narrower CFG-only source snapshot remains [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md).
 
 ## Layer Model
 
@@ -53,7 +54,7 @@ The focused `call_ref` / `return_call_ref` split is refreshed in [`../raw/wasm/2
 | WAST lowerer/printer | [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | `$` ids and type uses resolve to numeric `FuncIdx`, `TableIdx`, and `TypeIdx`. Printer emits explicit resolved indices, so default-table input may roundtrip less tersely. Type-use details are centralized in [`gc-type-authoring.md`](gc-type-authoring.md). |
 | Core instruction model | [`src/lib/types.mbt`](../../../src/lib/types.mbt) | Distinct `Instruction::ReturnCall`, `ReturnCallIndirect`, and `ReturnCallRef` variants keep direct, table-mediated, and reference-call carriers visible to passes. |
 | Binary bytes | [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) | Direct, indirect, and reference tail calls encode as `0x12`, `0x13`, and `0x15`. `return_call_indirect` encodes type index before table index, matching the ordinary `call_indirect` binary order. |
-| Validation | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | The selected callee results must match the current function return type. On success, the state becomes unreachable/stack-polymorphic for local continuation; the general bottom-value model lives in [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md). Coverage-forced GenValid now exercises direct, indirect, and reference tail calls inside terminal blocks and direct tail calls inside terminal `if` branches. |
+| Validation | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | The selected callee results must match the current function return type. Starshine currently implements that check with exact `ValType` array equality in `require_return_results(...)`, then marks the state unreachable/stack-polymorphic for local continuation. The general bottom-value model lives in [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md). Coverage-forced GenValid now exercises direct, indirect, and reference tail calls inside terminal blocks and direct tail calls inside terminal `if` branches. |
 | IR2 CFG | [`src/ir/hot_flags.mbt`](../../../src/ir/hot_flags.mbt), [`src/ir/cfg.mbt`](../../../src/ir/cfg.mbt) | Tail-call HOT ops are calls, side-effecting/trapping, and terminators. The concrete CFG builder routes them to the synthetic normal exit with `ReturnEdge`; see [`../ir2/cfg-contract.md`](../ir2/cfg-contract.md) for the current helper-test gap. |
 
 ## Instruction Families And Stack Shapes
@@ -62,8 +63,8 @@ The official validation model is easiest to remember as “ordinary call inputs,
 
 | WAST instruction | Text immediates | Stack before | Local continuation | Starshine notes |
 | --- | --- | --- | --- | --- |
-| `return_call` | `funcidx` | callee params | unreachable | Resolves to `FuncIdx`; callee results must equal current function returns. |
-| `return_call_indirect` | optional `tableidx`, then `typeuse` | callee params..., table element index | unreachable | Resolves `typeuse` to `TypeIdx` and table to `TableIdx`; table must be function-reference-compatible; current table64 caveat is shared with [`table-instruction-authoring.md`](table-instruction-authoring.md). |
+| `return_call` | `funcidx` | callee params | unreachable | Resolves to `FuncIdx`; callee results must match current function returns, with exact matching in current Starshine. |
+| `return_call_indirect` | optional `tableidx`, then `typeuse` | callee params..., table element index | unreachable | Resolves `typeuse` to `TypeIdx` and table to `TableIdx`; table must be function-reference-compatible. The official selected-table address type matters for table64, but Starshine currently pops an `i32` index in `typecheck_return_call_indirect(...)`; keep table64 evidence routed through [`table-instruction-authoring.md`](table-instruction-authoring.md). |
 | `return_call_ref` | `typeuse` | callee params..., function reference | unreachable | Resolves `typeuse` to a function type; consumes a reference to that function type. It shares the target/reference shape with ordinary `call_ref`, but exits instead of pushing results. |
 
 ### Why “unreachable” is not “no validation”
@@ -76,6 +77,12 @@ After a tail call validates, following code is stack-polymorphic because it is u
 4. table-mediated forms must use a compatible function-reference table.
 
 This is why a malformed `return_call_indirect` fixture can fail before the unreachable continuation matters.
+
+### Current Starshine caveats to keep visible
+
+- **Return result matching is exact locally.** The current Starshine helper [`require_return_results(...)`](../../../src/validate/typecheck.mbt) compares the callee result list with the current function return list using exact `ValType` equality before marking the continuation unreachable. Do not use a tail-call fixture that relies on reference-result widening or other future subtyping-sensitive return matching as evidence until the validator has a focused widening change and tests.
+- **Indirect tail calls are still table32-shaped locally.** The official selected-table address type should drive the dynamic table element index. Starshine's [`typecheck_return_call_indirect(...)`](../../../src/validate/typecheck.mbt) currently expects an `i32` index, so table64 tail-call-indirect fixtures are validation-gap evidence, not ordinary pass or WAST authoring evidence. This is the same address-width family documented for ordinary `call_indirect` in [`table-instruction-authoring.md`](table-instruction-authoring.md).
+- **Proposal-era wording is rationale only.** The historical tail-call proposal explains why tail calls are return-position transfers, but the current Core 3.0 pages dated 2026-06-03 are the live source for syntax, binary opcodes, validation, and execution.
 
 ## Concrete WAST Shapes
 
@@ -177,8 +184,9 @@ When a pass, generator, or fixture change touches tail calls, use this checklist
 
 ## Source Map
 
+- Current official Core 3.0 and Starshine source refresh: [`../raw/wasm/2026-06-04-tail-call-current-refresh.md`](../raw/wasm/2026-06-04-tail-call-current-refresh.md)
 - Focused reference-call source refresh: [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md)
-- Primary-source and local-code manifest: [`../raw/wasm/2026-05-19-wast-tail-call-sources.md`](../raw/wasm/2026-05-19-wast-tail-call-sources.md)
+- Original primary-source and local-code manifest: [`../raw/wasm/2026-05-19-wast-tail-call-sources.md`](../raw/wasm/2026-05-19-wast-tail-call-sources.md)
 - CFG-only tail-call source manifest: [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md)
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Core model and binary codec: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)

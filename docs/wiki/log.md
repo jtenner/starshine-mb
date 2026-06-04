@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wast | tail-call current source refresh
+
+- Added [`docs/wiki/raw/wasm/2026-06-04-tail-call-current-refresh.md`](raw/wasm/2026-06-04-tail-call-current-refresh.md) after rechecking the current official WebAssembly Core 3.0 syntax, text, binary, validation, and execution pages dated 2026-06-03 plus Starshine WAST/core/binary/validator/CFG code surfaces.
+- Refreshed [`wast/tail-call-authoring.md`](wast/tail-call-authoring.md) and [`index.md`](index.md) so `return_call`, `return_call_indirect`, and `return_call_ref` guidance records the source-current tail-call surface, the local exact return-result matching helper, and the current `return_call_indirect` table64 address-width caveat.
+- No code changed; the update keeps proposal-era tail-call rationale subordinate to the current Core 3.0 pages and routes table64 tail-call-indirect fixtures to validation-gap work instead of ordinary pass/WAST evidence.
+
 ## [2026-06-04] validate | ref.func start refs current refresh
 
 - Added [`docs/wiki/raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md) after rechecking the current official WebAssembly Core 3.0 module/instruction validation, module syntax, and binary module pages dated 2026-06-03 plus Starshine validator evidence.
