@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wiki-health | address-width backlink cleanup
+
+- During the follow-up health check, repointed secondary address-width consumers to the new focused validator matrix: [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md), [`binaryen/passes/memory64-lowering/index.md`](binaryen/passes/memory64-lowering/index.md), [`binaryen/passes/memory64-lowering/starshine-port-readiness-and-validation.md`](binaryen/passes/memory64-lowering/starshine-port-readiness-and-validation.md), [`binaryen/passes/index.md`](binaryen/passes/index.md), and [`index.md`](index.md).
+- Health-check scope included empty markdown links, new matrix backlinks, stale address-width routing, memory64/table64 pass-dossier consumers, and index/log coverage; no unrelated files were changed.
+
 ## [2026-06-04] validate/address-width | memory/table validator matrix
 
 - Added [`validate/memory-table-address-widths.md`](validate/memory-table-address-widths.md) as the focused living validator guide for memory64/table64 address-width stack typing, using the existing [`raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md), official WebAssembly Core 3.0 syntax/validation pages, and current `src/lib/types.mbt`, `src/validate/typecheck.mbt`, and `src/validate/validate.mbt` evidence.

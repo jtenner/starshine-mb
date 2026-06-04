@@ -24,6 +24,7 @@ related:
   - ./static-offsets-dynamic-operands-and-grow-repair.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ../../../validate/memory-table-address-widths.md
 ---
 
 # Starshine port-readiness and validation plan for `memory64-lowering`
@@ -112,7 +113,7 @@ Exit criteria:
 - Lower `memory.init`, `memory.fill`, and `memory.copy` operands positionally.
 - Preserve the official `memory.init` split: destination follows the selected memory address type, while passive-data source offset and length stay `i32`.
 - Preserve the Binaryen rule that copy length becomes i64 only when both participating memories are 64-bit before lowering; mixed-width cases are positional.
-- Treat `memory.fill` as destination `at`, byte value `i32`, length `at`; fix the current local validator length caveat before using Starshine validation as positive evidence for memory64 `memory.fill`.
+- Treat `memory.fill` as destination `at`, byte value `i32`, length `at`; fix the current local validator length caveat before using Starshine validation as positive evidence for memory64 `memory.fill`, and keep the shared validator matrix in [`../../../validate/memory-table-address-widths.md`](../../../validate/memory-table-address-widths.md) in sync.
 - Add SIMD and atomic address operand wrapping after scalar memory tests are green.
 
 Exit criteria:
@@ -125,7 +126,7 @@ Exit criteria:
 ### Slice 5: table64 sibling after typechecker cleanup
 
 - First fix table typing so table operations use `TableType` limits consistently rather than hard-coded `i32`.
-- Include the targeted `table.fill` cleanup: destination/start and length must both follow the selected table address type, while the reference value stays at the table element type.
+- Include the targeted `table.fill` cleanup: destination/start and length must both follow the selected table address type, while the reference value stays at the table element type; route exact width claims through [`../../../validate/memory-table-address-widths.md`](../../../validate/memory-table-address-widths.md).
 - Then add declaration, active element offset, `table.get`, `table.set`, `table.size`, `table.grow`, and table bulk-operation lowering.
 
 Exit criteria:

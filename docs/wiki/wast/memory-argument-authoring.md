@@ -25,6 +25,7 @@ related:
   - ../binary/type-table-memory-global-tag-sections.md
   - ../validate/module-validation-phases.md
   - ../validate/resource-sections-and-limits.md
+  - ../validate/memory-table-address-widths.md
   - ../fuzzing/generator-coverage-ledger.md
   - ./simd-authoring.md
 ---
@@ -33,7 +34,7 @@ related:
 
 ## Overview
 
-Use this page when writing, reviewing, or widening WAST fixtures that need memory `offset=`, `align=`, selected-memory, or memory32/memory64 address-width guidance. For active/passive `(data ...)` fields, string payloads, and data-segment initialization offsets, use [`data-segment-authoring.md`](data-segment-authoring.md). For runtime stack shapes and side-effect/trap behavior of scalar loads/stores, `memory.size`, `memory.grow`, `memory.fill`, `memory.copy`, `memory.init`, and `data.drop`, use [`memory-instruction-authoring.md`](memory-instruction-authoring.md). For `(memory ...)` declarations, imports, exports, and the current WAST limit-syntax caveats, use [`resource-declaration-authoring.md`](resource-declaration-authoring.md). For validator-side memory limit ranges, memory64 declaration validity, and shared-memory maximum policy, use [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md).
+Use this page when writing, reviewing, or widening WAST fixtures that need memory `offset=`, `align=`, selected-memory, or memory32/memory64 address-width guidance. For active/passive `(data ...)` fields, string payloads, and data-segment initialization offsets, use [`data-segment-authoring.md`](data-segment-authoring.md). For runtime stack shapes and side-effect/trap behavior of scalar loads/stores, `memory.size`, `memory.grow`, `memory.fill`, `memory.copy`, `memory.init`, and `data.drop`, use [`memory-instruction-authoring.md`](memory-instruction-authoring.md). For `(memory ...)` declarations, imports, exports, and the current WAST limit-syntax caveats, use [`resource-declaration-authoring.md`](resource-declaration-authoring.md). For validator-side memory limit ranges, memory64 declaration validity, and shared-memory maximum policy, use [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md); for the cross-cutting instruction stack-width matrix shared with table64, use [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md).
 
 A WebAssembly memory instruction has two different address components:
 
@@ -42,7 +43,7 @@ A WebAssembly memory instruction has two different address components:
 
 It may also have an **alignment hint** and, in multi-memory contexts, a **selected memory index**. Starshine has all of those concepts in the core/binary/validator layers, but its current WAST text lowering only preserves `offset=` and `align=` for ordinary scalar/SIMD load/store memory arguments. Explicit nonzero memory indices in text memory instructions are a known fixture-readiness gap.
 
-The current source manifest is [`../raw/wasm/2026-05-19-wast-memory-argument-sources.md`](../raw/wasm/2026-05-19-wast-memory-argument-sources.md). It checks the official WebAssembly 3.0 text, binary, validation, and PDF sources plus the multi-memory and memory64 proposal surfaces and the Starshine parser, lowerer, printer, binary codec, typechecker, equality, and generator code. The 2026-06-04 address-width refresh in [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) is the current source for the positional memory/table instruction width split used by this page.
+The current source manifest is [`../raw/wasm/2026-05-19-wast-memory-argument-sources.md`](../raw/wasm/2026-05-19-wast-memory-argument-sources.md). It checks the official WebAssembly 3.0 text, binary, validation, and PDF sources plus the multi-memory and memory64 proposal surfaces and the Starshine parser, lowerer, printer, binary codec, typechecker, equality, and generator code. The 2026-06-04 address-width refresh in [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) is the current raw source for the positional memory/table instruction width split used by this page; the living validator matrix is [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md).
 
 ## Mental Model
 
@@ -176,7 +177,7 @@ When changing memory-argument text, binary, or validation behavior:
 ## Sources
 
 - Primary-source manifest: [`../raw/wasm/2026-05-19-wast-memory-argument-sources.md`](../raw/wasm/2026-05-19-wast-memory-argument-sources.md)
-- Current memory/table address-width refresh: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
+- Current memory/table address-width refresh: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md), [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md)
 - Memory64 bulk-memory validation refresh: [`../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md)
 - Resource-section validation refresh: [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md), [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md)
 - Official WebAssembly sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/_download/WebAssembly.pdf>
