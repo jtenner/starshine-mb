@@ -86,6 +86,7 @@ So this is **not** generic whole-program struct analysis and **not** just Starsh
 - The small-module shift/rotate un-nesting follow-up direct compare used `--jobs auto` and a prebuilt native Starshine binary, stayed green at 9975 / 10000 compared, 9975 normalized matches, 0 mismatches, and the same 25 Binaryen/tool command failures; the debug-artifact timing replay was canonical-equal with Starshine/Binaryen pass-local `0.359 ms` / `3.028 ms`.
 - The small-module unary numeric un-nesting follow-up direct compare used `--jobs auto` and a prebuilt native Starshine binary, stayed green at 9975 / 10000 compared, 9975 normalized matches, 0 mismatches, and the same 25 Binaryen/tool command failures; the debug-artifact timing replay was canonical-equal with Starshine/Binaryen pass-local `0.434 ms` / `3.674 ms`.
 - The packed direct-global un-nesting repair follow-up direct compare used the same explicit native parallel lane, stayed green at 9975 / 10000 compared, 9975 normalized matches, 0 mismatches, and the same 25 Binaryen/tool command failures; the debug-artifact timing replay was canonical-equal with Starshine/Binaryen pass-local `0.418 ms` / `3.199 ms`.
+- The closed-world packed un-nesting repair follow-up direct compare again stayed green at 9975 / 10000 compared, 9975 normalized matches, 0 mismatches, and the same 25 Binaryen/tool command failures; the debug-artifact timing replay was canonical-equal with Starshine/Binaryen pass-local `0.413 ms` / `3.211 ms`.
 
 ## Most important durable takeaways
 
@@ -102,7 +103,7 @@ So this is **not** generic whole-program struct analysis and **not** just Starsh
   - many globals with one shared value => fine
 - Non-constant nested operands can still optimize.
   - Binaryen can un-nest them into fresh immutable globals and then continue the rewrite
-  - Starshine's guarded direct-global subset now preserves packed signed/unsigned read repair when the split payload is a fresh immutable global
+  - Starshine's guarded direct-global and closed-world local/param value-grouping subsets now preserve packed signed/unsigned read repair when the split payload is a fresh immutable global
 - The pass is more than just `struct.get`.
   - the same source handles `ref.get_desc`
   - and the sibling `gsi-desc-cast` variant can rewrite some `ref.cast` checks to descriptor-equality casts

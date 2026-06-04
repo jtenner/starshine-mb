@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | global-struct-inference closed-world packed un-nesting
+
+- Extended the packed fresh-global repair from direct reads into closed-world local/param value grouping: repaired packed `global.get` payload expressions now type-check as `i32`, so one-value and singleton-select rewrites can consume them safely.
+- Added public-pipeline coverage in `src/passes/global_struct_inference_test.mbt` for closed-world packed `i8` signed and `i16` unsigned local reads where one candidate field payload is un-nested into a fresh global and the final rewrite is a `select(ref.eq(...))` with signed/unsigned repair.
+- Recorded TDD failure evidence before implementation and final signoff: `moon test src/passes` passed `1529/1529`, `moon test` passed `4706/4706`, `.tmp/pass-fuzz-global-struct-inference-packed-closed-world-unnest-final-10000` reached `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures (`22` empty-recursion-group plus one each bad-section-size, table-index-out-of-range, and invalid-tag-index). `.tmp/gsi-debug-artifact-timing-packed-closed-world-unnest-final` was canonical-equal with Starshine/Binaryen pass-local `0.413 ms / 3.211 ms`.
+
 ## [2026-06-03] passes | global-struct-inference packed un-nesting repair
 
 - Repaired guarded small-module direct-global `global-struct-inference` un-nesting for packed fields whose un-nested payload becomes an immutable `global.get`, preserving `struct.get_s` / `struct.get_u` behavior with dynamic packed repair instead of only folding literal `i32.const` payloads.

@@ -1593,6 +1593,29 @@ fn gsi_field_read_result_type(
 }
 
 ///|
+fn gsi_packed_repair_expr_matches_i32(
+  env : @validate.Env,
+  expr : @lib.Expr,
+) -> Bool {
+  match expr {
+    @lib.Expr([value, @lib.I32Extend8S])
+    | @lib.Expr([value, @lib.I32Extend16S]) =>
+      match gsi_simple_instr_result_type(env, value) {
+        Some(actual_type) =>
+          @validate.Match::matches(actual_type, @lib.ValType::i32(), env)
+        None => false
+      }
+    @lib.Expr([value, @lib.I32Const(_), @lib.I32And]) =>
+      match gsi_simple_instr_result_type(env, value) {
+        Some(actual_type) =>
+          @validate.Match::matches(actual_type, @lib.ValType::i32(), env)
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn gsi_expr_matches_result_type(
   env : @validate.Env,
   expr : @lib.Expr,
@@ -1600,7 +1623,9 @@ fn gsi_expr_matches_result_type(
 ) -> Bool {
   match gsi_single_instr_expr_result_type(env, expr) {
     Some(actual_type) => @validate.Match::matches(actual_type, result_type, env)
-    None => false
+    None =>
+      @validate.Match::matches(@lib.ValType::i32(), result_type, env) &&
+      gsi_packed_repair_expr_matches_i32(env, expr)
   }
 }
 

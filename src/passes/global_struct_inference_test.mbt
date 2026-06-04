@@ -560,6 +560,54 @@ test "global-struct-inference un-nests closed-world select values" {
 }
 
 ///|
+test "global-struct-inference un-nests packed closed-world select values" {
+  let signed8 =
+    #| (module
+    #|   (type $box (sub (struct (field i8))))
+    #|   (global $a (ref $box)
+    #|     (struct.new $box
+    #|       (i32.and (i32.const 255) (i32.const 255))))
+    #|   (global $b (ref $box) (struct.new $box (i32.const 1)))
+    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|     local.get 0
+    #|     struct.get_s $box 0))
+    #|
+  let signed8_optimized = gsi_test_run(signed8, true)
+  let signed8_pretty = signed8_optimized.pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
+  assert_false(signed8_pretty.contains("struct.get"), msg=signed8_pretty)
+  assert_true(signed8_pretty.contains("select"), msg=signed8_pretty)
+  assert_true(signed8_pretty.contains("ref.eq"), msg=signed8_pretty)
+  assert_true(signed8_pretty.contains("i32.extend8s"), msg=signed8_pretty)
+  assert_true(signed8_pretty.contains("I32(1)"), msg=signed8_pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(signed8_optimized), 3)
+
+  let unsigned16 =
+    #| (module
+    #|   (type $box (sub (struct (field i16))))
+    #|   (global $a (ref $box)
+    #|     (struct.new $box
+    #|       (i32.popcnt (i32.const 65535))))
+    #|   (global $b (ref $box) (struct.new $box (i32.const 65537)))
+    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|     local.get 0
+    #|     struct.get_u $box 0))
+    #|
+  let unsigned16_optimized = gsi_test_run(unsigned16, true)
+  let unsigned16_pretty = unsigned16_optimized.pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
+  assert_false(unsigned16_pretty.contains("struct.get"), msg=unsigned16_pretty)
+  assert_true(unsigned16_pretty.contains("select"), msg=unsigned16_pretty)
+  assert_true(unsigned16_pretty.contains("ref.eq"), msg=unsigned16_pretty)
+  assert_true(unsigned16_pretty.contains("i32.and"), msg=unsigned16_pretty)
+  assert_true(unsigned16_pretty.contains("I32(65535)"), msg=unsigned16_pretty)
+  assert_true(unsigned16_pretty.contains("I32(1)"), msg=unsigned16_pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(unsigned16_optimized), 3)
+}
+
+///|
 test "global-struct-inference folds direct ref.get_desc from descriptor globals" {
   let input =
     #| (module

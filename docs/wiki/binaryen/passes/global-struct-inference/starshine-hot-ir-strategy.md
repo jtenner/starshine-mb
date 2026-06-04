@@ -119,7 +119,7 @@ The helper surface accepts:
 Packed fields are handled specially:
 
 - literal `i32.const` payloads are folded to repaired constants
-- immutable `global.get` payloads produced by the guarded un-nesting path are repaired dynamically with `i32.extend8s` / `i32.extend16s` for signed reads and `i32.and` masks for unsigned reads
+- immutable `global.get` payloads produced by the guarded un-nesting path are repaired dynamically with `i32.extend8s` / `i32.extend16s` for signed reads and `i32.and` masks for unsigned reads, including closed-world one-value and singleton-select value grouping
 - `gsi_pack_signed(...)`, `gsi_pack_unsigned(...)`, and `gsi_packed_expr(...)` rebuild the signed or unsigned packed read result
 
 This is narrower than upstream Binaryen's `PossibleConstantValues` plus un-nesting path; the guarded un-nesting vocabulary currently includes arithmetic add/sub/mul, integer bitwise and/or/xor, integer shift/rotate, and pure unary numeric operands.
@@ -224,7 +224,7 @@ But it should not be described as if it were the whole official Binaryen pass.
 The focused tests in `src/passes/global_struct_inference_test.mbt` currently prove these local contracts:
 
 - the pass folds immutable direct-global `struct.get*` in open world
-- small-module non-constant un-nesting handles read-gated arithmetic, integer bitwise, integer shift/rotate, and unary numeric field operands, including direct-global packed signed/unsigned reads repaired after fresh-global splitting
+- small-module non-constant un-nesting handles read-gated arithmetic, integer bitwise, integer shift/rotate, and unary numeric field operands, including direct-global and closed-world local/param packed signed/unsigned reads repaired after fresh-global splitting
 - nullable direct-global reads preserve the null trap
 - packed i8/i16 signed and unsigned direct reads are repaired
 - default, descriptor, and default-descriptor constructors expose foldable fields
