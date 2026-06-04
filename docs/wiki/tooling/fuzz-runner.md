@@ -20,6 +20,7 @@ related:
   - ./validation-gates.md
   - ./pass-fuzz-compare.md
   - ./external-validator-adapters.md
+  - ../fuzzing/recipe-schema.md
   - ../validate/fuzz-hardening.md
   - ../validate/diagnostics-and-invalid-repro.md
   - ../fuzzing/generator-coverage-ledger.md
@@ -39,7 +40,7 @@ Starshine has two related fuzz entry surfaces:
 
 Use these for broad randomized exploration, artifact emission, and validator-rejection repro capture. Keep deterministic reductions, helper invariants, and focused regressions in normal package tests; heavy randomized loops should not move back into `moon test`. For the higher-level validation gate that calls this runner after `moon info`, `moon fmt`, `moon check`, and `moon test`, see [`validation-gates.md`](./validation-gates.md).
 
-The current runner is intentionally small at the command layer and broad at the suite layer: every run is identified by a suite, profile, seed, and optional output mode, and special artifact commands are explicit top-level commands rather than hidden suite names.
+The current runner is intentionally small at the command layer and broad at the suite layer: every run is identified by a suite, profile, seed, and optional output mode, and special artifact commands are explicit top-level commands rather than hidden suite names. Repeatable saved run shapes use the focused recipe schema in [`../fuzzing/recipe-schema.md`](../fuzzing/recipe-schema.md); this page owns what those parsed suite/profile/seed choices do once executed.
 
 ## Runnable Suites And Profiles
 
@@ -100,6 +101,7 @@ Important invariants:
 - Missing suite/profile defaults to `all smoke`.
 - Missing seed uses a time-derived signed `Int64` seed; logged output always includes the resolved signed seed.
 - Seeds accept decimal or `0x...` forms; `--seed` and positional seed are mutually exclusive.
+- `--recipe <name>` / `--recipe=<name>` loads a checked-in `starshine.fuzz.recipe.v1` default bundle before explicit suite/profile/seed/output overrides are applied; use [`../fuzzing/recipe-schema.md`](../fuzzing/recipe-schema.md) for the standard recipe catalog and precedence ladder.
 - `--seed-count <n>` performs a deterministic seed sweep from the resolved base seed through `base + n - 1` using wrapping `UInt64` arithmetic mapped back to signed `Int64` output.
 - `--shard-index <i> --shard-count <n>` runs only seed ordinals where `ordinal % shard_count == shard_index`; defaults are `0/1`, and `shard_index` must be less than `shard_count`.
 - `build_fuzz_shard_queue(...)` turns a `FuzzRecipe` into deterministic shard work items named `<recipe>-shard-NNN-of-MMM`. When given an output root, each work item receives a distinct `shard-NNN-of-MMM` subdirectory so parallel workers do not write the same artifact path. `build_fuzz_resume_shard_queue(...)` applies the same naming contract while skipping shards whose completed output manifests already name the required result and cases artifacts, and `merge_fuzz_shard_results(...)` merges shard result arrays in deterministic seed-index / suite / profile / shard order for stable resumed-run summaries.
