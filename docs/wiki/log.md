@@ -8,6 +8,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added [`tooling/wiki-maintenance-playbook.md`](tooling/wiki-maintenance-playbook.md) as the operational checklist for autonomous wiki runs: target selection, evidence ladder, update flow, raw-source placement, transient-artifact citation discipline, whole-wiki health checks, common mistakes, and wiki-only signoff.
 - Refreshed [`raw/README.md`](raw/README.md) and [`index.md`](index.md) so the new `raw/wiki/` methodology-source directory and playbook are discoverable without duplicating the normative schema in [`../README.md`](../README.md).
 
+## [2026-06-04] passes/local-cse | br_on_cast_fail continuation positive fix
+
+- Spot-checked a `br_on_cast_fail` fallthrough-continuation shape and confirmed Binaryen materializes the pre-branch expression with `local.tee` and reuses it after the fallthrough reference is dropped.
+- Added a failing core-built direct `local-cse` regression, then fixed the raw/module path to model `br_on_cast_fail` as a one-operand fallthrough stack operation rather than an unknown hard boundary or reusable branch root.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-br-on-cast-fail-continuation-10000`: 6766 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
+- Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`wat-shapes.md`](binaryen/passes/local-cse/wat-shapes.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so this reference-control continuation case is tracked as a covered positive.
+
 ## [2026-06-04] passes/local-cse | br_on_cast continuation positive fix
 
 - Spot-checked a `br_on_cast` fallthrough-continuation shape and confirmed Binaryen materializes the pre-branch expression with `local.tee` and reuses it after the fallthrough reference is dropped.
