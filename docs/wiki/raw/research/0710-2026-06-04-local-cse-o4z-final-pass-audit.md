@@ -469,6 +469,32 @@ bun scripts/pass-fuzz-compare.ts \
 
 Results: `moon info` still hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`); `moon fmt` passed; focused LCSE tests passed (`20/20`); `src/passes` passed (`1566/1566`); full `moon test` passed (`4751/4751`); native build was already up to date; and direct compare reached `6770` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
 
+## Follow-up `try_table` body positive fix on 2026-06-04
+
+A later focused LCSE hardening slice checked the proposed EH hard-boundary candidate and found the opposite shape in Binaryen: a repeated expression computed before a `try_table` can be materialized and reused inside the try body, even with a catch target. The new `local-cse reuses before-try-table expression in try body` fixture first failed (`20/21`) because Starshine left both trees in place. The raw/module path now treats `try_table` bodies like the already-supported straight-line block body for eligible outer whole-tree repeats, while clearing nested reuse across hard terminators inside nested bodies so the bridge does not become CFG-wide CSE.
+
+Validation for this `try_table` body slice:
+
+```sh
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-try-table-body-positive-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: `moon info` still hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`); `moon fmt` passed; focused LCSE tests passed (`21/21` after the implementation); `src/passes` passed (`1567/1567`); full `moon test` passed (`4752/4752`); native build was already up to date with existing unused-function warnings in `src/passes/pass_manager.mbt`; and direct compare reached `6767` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+Agent classification: Binaryen-positive missed optimization parity fix, not a hard-boundary negative; the fix is intentionally limited to nested straight-line body reuse.
+
 ## Recommendation
 
-The audited before-`if`/then-arm, simple before-block/straight-line-block, and annotated idempotent direct-call Binaryen-positive gaps are now covered and fixed, the tiny-root repeated-`global.get` no-op is explicitly covered, repeated `struct.new`, `struct.new_default`, and core `array.new` generative roots are covered, repeated `call_indirect` roots are covered, and before-loop into loop-body, `br_table`, `return`, and `unreachable` negatives are covered. Keep `[O4Z-AUDIT-LCSE]` active only for the remaining broader shape hardening that was not implemented here: hard control-boundary negatives beyond the added after-`if`, else-arm, loop-body, `br_table`, return, and `unreachable` tests; any additional GC/generative-root variants where local syntax supports them; and `call_ref` barrier negatives paired with the newly covered idempotent-call exception plus ordinary direct-call and `call_indirect` root negatives.
+The audited before-`if`/then-arm, simple before-block/straight-line-block, before-`try_table`/try-body, and annotated idempotent direct-call Binaryen-positive gaps are now covered and fixed, the tiny-root repeated-`global.get` no-op is explicitly covered, repeated `struct.new`, `struct.new_default`, and core `array.new` generative roots are covered, repeated `call_indirect` roots are covered, and before-loop into loop-body, `br_table`, `return`, and `unreachable` negatives are covered. Keep `[O4Z-AUDIT-LCSE]` active only for the remaining broader shape hardening that was not implemented here: hard control-boundary negatives beyond the added after-`if`, else-arm, loop-body, `br_table`, return, and `unreachable` tests; any additional GC/generative-root variants where local syntax supports them; and `call_ref` barrier negatives paired with the newly covered idempotent-call exception plus ordinary direct-call and `call_indirect` root negatives.

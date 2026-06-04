@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] passes/local-cse | try_table body positive fix
+
+- Spot-checked the proposed EH boundary shape and found a Binaryen-positive adjacent-window case: a repeated expression before `try_table` can be materialized and reused inside the try body.
+- Added a failing direct `local-cse` regression for that shape, then fixed the raw/module path to bridge eligible outer repeats into `try_table` bodies while clearing nested windows at hard terminators.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-try-table-body-positive-10000`: 6767 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
+- Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`wat-shapes.md`](binaryen/passes/local-cse/wat-shapes.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), [`index.md`](index.md), and [`../../agent-todo.md`](../../agent-todo.md) so `try_table` is recorded as a narrow covered positive rather than a hard-boundary negative.
+
 ## [2026-06-04] passes/local-cse | array.new generative-root coverage
 
 - Added core-built direct `local-cse` regression coverage proving repeated `array.new` roots remain separate; the fixture passed without implementation changes and matches the Binaryen spot check for the equivalent WAT shape without widening the local WAT parser path.

@@ -110,9 +110,8 @@ So `local-cse` is not a loop-aware global dataflow pass. Starshine has direct re
 - returns
 - throws / rethrows
 - unreachable
-- try regions
 
-Starshine now has focused coverage for switch-like `br_table`, `return`, and `unreachable` boundaries: expressions before those terminators are not materialized and reused in their unreachable continuations. A 2026-06-04 spot check showed that a simple straight-line named block is **not** one of these negatives in Binaryen: Binaryen can reuse a before-block expression inside such a block body. Starshine now implements and tests that narrow before-block into straight-line block positive while still treating loops and hard terminators as boundaries. That is why a faithful port needs the same window model, not just a vague “scan expressions in order” loop.
+Starshine now has focused coverage for switch-like `br_table`, `return`, and `unreachable` boundaries: expressions before those terminators are not materialized and reused in their unreachable continuations. A 2026-06-04 spot check showed that a simple straight-line named block is **not** one of these negatives in Binaryen: Binaryen can reuse a before-block expression inside such a block body. A later spot check showed the same for a straight-line `try_table` body with a catch target: the body can inherit the pre-`try_table` expression window. Starshine now implements and tests both narrow positives while still treating loops and hard terminators as boundaries. That is why a faithful port needs the same window model, not just a vague “scan expressions in order” loop.
 
 ## Whole-tree equality is a barrier too
 

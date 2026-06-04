@@ -529,7 +529,39 @@ Why this matters:
 - the pass must preserve the correct child ordering for `switch` / `br_table`
 - the shipped `switch-children` test exists because Binaryen previously got this wrong
 
-## Shape 18: flatten can turn a near-miss into a positive
+## Shape 18: before-`try_table` into try-body can be a connected window
+
+Before:
+
+```wat
+(block $exit
+  (drop (i32.add (local.get $x) (local.get $y)))
+  (try_table (catch_all $exit)
+    (drop (i32.add (local.get $x) (local.get $y)))
+  )
+)
+```
+
+After, conceptually:
+
+```wat
+(block $exit
+  (drop (local.tee $tmp (i32.add (local.get $x) (local.get $y))))
+  (try_table (catch_all $exit)
+    (drop (local.get $tmp))
+  )
+)
+```
+
+Why this matters:
+
+- a `try_table` body is not automatically a hard-boundary negative for this adjacent-window shape
+- hard terminators inside the nested body still clear the nested reuse window
+- the catch target does not turn the pass into CFG-wide CSE
+
+Starshine status: this Binaryen-positive shape is now covered and implemented narrowly in the raw/module path.
+
+## Shape 19: flatten can turn a near-miss into a positive
 
 Before, conceptual near-miss:
 

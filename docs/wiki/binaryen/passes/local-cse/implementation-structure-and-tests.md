@@ -125,8 +125,8 @@ Starshine now implements `local-cse`. The relevant local files are implementatio
 
 | Local file | Exact role today |
 | --- | --- |
-| `src/passes/local_cse.mbt` | Active Starshine owner file for direct `local-cse` execution, including the summary, descriptor, raw/module rewrite pipeline, callee annotation lookup for the narrow idempotent direct-call exception, module-pass entry, and main HotPass rewrite pipeline. |
-| `src/passes/local_cse_test.mbt` | Direct registry and behavior tests for repeated trees, parent-over-child cancellation, load barriers, tiny-root `global.get` no-ops, `struct.new`, `struct.new_default`, and core `array.new` generative-root no-ops, annotated idempotent direct-call reuse plus ordinary direct-call and `call_indirect` root no-ops, local-write window resets, Binaryen's before-`if` into `then` and before-block into straight-line block positives, paired after-`if` / else-arm negatives, and before-loop into loop-body plus `br_table` / `return` / `unreachable` boundary negatives. |
+| `src/passes/local_cse.mbt` | Active Starshine owner file for direct `local-cse` execution, including the summary, descriptor, raw/module rewrite pipeline, nested adjacent-window support for straight-line block / `try_table` bodies, callee annotation lookup for the narrow idempotent direct-call exception, module-pass entry, and main HotPass rewrite pipeline. |
+| `src/passes/local_cse_test.mbt` | Direct registry and behavior tests for repeated trees, parent-over-child cancellation, load barriers, tiny-root `global.get` no-ops, `struct.new`, `struct.new_default`, and core `array.new` generative-root no-ops, annotated idempotent direct-call reuse plus ordinary direct-call and `call_indirect` root no-ops, local-write window resets, Binaryen's before-`if` into `then`, before-block into straight-line block, and before-`try_table` into try-body positives, paired after-`if` / else-arm negatives, and before-loop into loop-body plus `br_table` / `return` / `unreachable` boundary negatives. |
 | `src/passes/optimize.mbt:253,437-449,456-472` | Registers `local-cse` as an active module pass and keeps the aggressive neighborhood gate closed. |
 | `src/passes/pass_manager.mbt:8939-8943` | Module-pass dispatch routes `local-cse` to `local_cse_run_module_pass(...)`. |
 | `src/passes/optimize_test.mbt:510-512,520-527,567-568` | Confirms `local-cse` stays in the active module-pass category on the regression surface, keeps the proven late preset order, and preserves the trace neighborhood proof. |
@@ -146,7 +146,7 @@ Starshine now implements `local-cse`. The relevant local files are implementatio
 A faithful local port still needs neighborhood parity signoff with:
 
 - focused WAT tests for each fixture family above,
-- continued regression coverage for the before-`if` into `then` and simple before-block into straight-line block reuse positives fixed after the 2026-06-04 audit,
+- continued regression coverage for the before-`if` into `then`, simple before-block into straight-line block, and before-`try_table` into try-body reuse positives fixed after the 2026-06-04 audit,
 - durable before-loop into loop-body, `br_table`, `return`, and `unreachable` boundary negative coverage,
 - durable tiny-root no-op coverage for repeated `global.get`,
 - continued source-derived tests for the remaining `call_ref` barrier and any additional GC-generative allocation variants beyond the covered `struct.new` / `struct.new_default` / `array.new` roots,

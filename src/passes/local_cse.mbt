@@ -382,6 +382,25 @@ fn lcse_raw_instr_slice_matches(
 }
 
 ///|
+fn lcse_raw_instr_clears_nested_window(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Instruction::LocalSet(_) | @lib.Instruction::LocalTee(_) => true
+    @lib.Instruction::Call(_) => false
+    @lib.Instruction::CallIndirect(_, _) | @lib.Instruction::CallRef(_) => true
+    @lib.Instruction::Br(_)
+    | @lib.Instruction::BrTable(_, _)
+    | @lib.Instruction::Return
+    | @lib.Instruction::ReturnCall(_)
+    | @lib.Instruction::ReturnCallIndirect(_, _)
+    | @lib.Instruction::ReturnCallRef(_)
+    | @lib.Instruction::Throw(_)
+    | @lib.Instruction::ThrowRef
+    | @lib.Instruction::Unreachable => true
+    _ => lcse_instr_is_store(instr)
+  }
+}
+
+///|
 fn lcse_raw_scan_nested_repeats(
   parent_idx : Int,
   outer_instrs : Array[@lib.Instruction],
@@ -427,15 +446,11 @@ fn lcse_raw_scan_nested_repeats(
       continue
     }
     match body[idx] {
-      @lib.Instruction::LocalSet(_) | @lib.Instruction::LocalTee(_) =>
-        active.clear()
       @lib.Instruction::Call(call_idx) =>
         if !lcse_raw_call_is_idempotent(call_infos, call_idx) {
           active.clear()
         }
-      @lib.Instruction::CallIndirect(_, _) | @lib.Instruction::CallRef(_) =>
-        active.clear()
-      _ => if lcse_instr_is_store(body[idx]) { active.clear() }
+      other => if lcse_raw_instr_clears_nested_window(other) { active.clear() }
     }
     idx += 1
   }
@@ -512,7 +527,8 @@ fn lcse_raw_rewrite_instrs(
       Some(count) => count
       None => {
         match instr {
-          @lib.Instruction::Block(_, @lib.Expr(body)) =>
+          @lib.Instruction::Block(_, @lib.Expr(body))
+          | @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
             lcse_raw_scan_nested_repeats(
               idx, instrs, body, exprs, active, nested_repeats, call_infos,
             )
@@ -711,6 +727,22 @@ fn lcse_raw_rewrite_instrs(
           changed = true
         }
         @lib.Instruction::if_(block_type, next_then, next_else)
+      }
+      @lib.Instruction::TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (outer_body, outer_body_changed) = lcse_raw_rewrite_nested_with_outer_repeats(
+          body, i, nested_repeats, exprs,
+        )
+        let (next_body, body_changed) = lcse_raw_rewrite_instrs(
+          outer_body, params, local_types, call_infos,
+        )
+        if outer_body_changed || body_changed {
+          changed = true
+        }
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(next_body),
+        )
       }
       other => other
     }
