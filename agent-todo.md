@@ -50,17 +50,7 @@ Use this checklist for every `[GSI-PARITY-*]` slice below:
 - Refresh direct `global-struct-inference` compare after behavior changes: start at 1000, scale to 10000 before signoff, and agent-classify every mismatch or command failure.
 - Record pass-local timing on the debug artifact and route whole-command residuals to `[WALL]001`.
 
-- [GSI-PARITY-001] - Refresh The Remaining GSI Gap Matrix
-  - Status: active v0.1.0 release-gating parity triage.
-  - Goal: turn the current prose gaps into an exact fixture/source matrix before further rewrites.
-  - Why: Starshine has closed the direct-global, closed-world local/param, descriptor-read, and immutable-field atomic-get subsets, but remaining Binaryen parity gaps are spread across un-nesting, non-adjacent operands, desc-cast, decision trees, and type repair.
-  - Deliverables:
-    - Inventory official Binaryen `global-struct-inference` and `global-struct-inference-desc-cast` lit/source shapes against Starshine tests and docs.
-    - For each missing shape, classify it as implementation-ready, blocked by runtime budget, blocked by typed-repair infrastructure, blocked by descriptor-cast scheduling, or intentionally out of scope.
-    - Update the GSI wiki with a table that maps each remaining gap to one of the slices below.
-    - Prune or rewrite any stale wording that implies the current local subset is full upstream parity.
-  - Suggested tests: documentation-only diff check plus `moon test src/passes` if fixture names or test docs change.
-  - Exit criteria: every known remaining GSI parity gap has a single owner slice and no completed GSI/atomic task history remains in `agent-todo.md`.
+The remaining-gap owner matrix now lives in `docs/wiki/binaryen/passes/global-struct-inference/parity.md`; execute the active slices below in dependency order and keep completed matrix history in the wiki/log/git history, not in this backlog.
 
 - [GSI-PARITY-002] - Budgeted Non-Constant Operand Un-Nesting Expansion
   - Status: active v0.1.0 release-gating parity implementation or explicit deferral.
@@ -122,7 +112,7 @@ Use this checklist for every `[GSI-PARITY-*]` slice below:
   - Exit criteria: typed repair is either implemented for a concrete failing surface or explicitly closed as not required for the v0.1.0 GSI subset.
 
 - [GSI-PARITY-007] - Final GSI v0.1.0 Signoff
-  - Status: active v0.1.0 release-gating signoff after `[GSI-PARITY-001]` through `[GSI-PARITY-006]`.
+  - Status: active v0.1.0 release-gating signoff after the remaining GSI parity implementation/deferral slices `[GSI-PARITY-002]` through `[GSI-PARITY-006]`.
   - Goal: make the final v0.1.0 GSI contract explicit and oracle-backed.
   - Why: GSI has accumulated several safe subsets; release notes need a clean distinction between implemented parity, deliberate conservative gaps, and out-of-scope atomic aggregate work.
   - Deliverables:

@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-06-03
+last_reviewed: 2026-06-04
 sources:
   - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
@@ -143,7 +143,7 @@ Result:
 - Binaryen pass runtime: `2.874 ms`
 - Starshine pass skipped raw: no
 
-This is semantic smoke and performance evidence for the small-module integer sign-extension un-nesting extension only. It does not change the large-module gate, sibling descriptor-cast scope, atomic-get blocker, or explicit refinalization status.
+This is semantic smoke and performance evidence for the small-module integer sign-extension un-nesting extension only. It does not change the large-module gate, sibling descriptor-cast scope, or explicit refinalization status.
 
 ## 2026-06-03 float rounding un-nesting follow-up
 
@@ -182,7 +182,7 @@ Result:
 - Binaryen pass runtime: `3.394 ms`
 - Starshine pass skipped raw: no
 
-This is semantic smoke and performance evidence for the small-module float rounding un-nesting extension only. It does not change the large-module gate, sibling descriptor-cast scope, atomic-get blocker, or explicit refinalization status.
+This is semantic smoke and performance evidence for the small-module float rounding un-nesting extension only. It does not change the large-module gate, sibling descriptor-cast scope, or explicit refinalization status.
 
 ## 2026-06-03 float sqrt un-nesting follow-up
 
@@ -221,7 +221,7 @@ Result:
 - Binaryen pass runtime: `3.019 ms`
 - Starshine pass skipped raw: no
 
-This is semantic smoke and performance evidence for the small-module float sqrt un-nesting extension only. It does not change the large-module gate, sibling descriptor-cast scope, atomic-get blocker, or explicit refinalization status.
+This is semantic smoke and performance evidence for the small-module float sqrt un-nesting extension only. It does not change the large-module gate, sibling descriptor-cast scope, or explicit refinalization status.
 
 ## 2026-06-03 closed-world packed un-nesting repair
 
@@ -260,7 +260,7 @@ Result:
 - Binaryen pass runtime: `3.211 ms`
 - Starshine pass skipped raw: no
 
-This is semantic smoke and performance evidence for closed-world packed fresh-global value grouping only. It does not change the large-module gate, sibling descriptor-cast scope, atomic-get blocker, or explicit refinalization status.
+This is semantic smoke and performance evidence for closed-world packed fresh-global value grouping only. It does not change the large-module gate, sibling descriptor-cast scope, or explicit refinalization status.
 
 ## 2026-06-03 packed direct-global un-nesting repair
 
@@ -299,7 +299,7 @@ Result:
 - Binaryen pass runtime: `3.199 ms`
 - Starshine pass skipped raw: no
 
-This is semantic smoke and performance evidence for packed direct-global fresh-global repair only. It does not change the large-module gate, sibling descriptor-cast scope, atomic-get blocker, or explicit refinalization status.
+This is semantic smoke and performance evidence for packed direct-global fresh-global repair only. It does not change the large-module gate, sibling descriptor-cast scope, or explicit refinalization status.
 
 ## 2026-06-03 subtype-propagated parent/supertype origin follow-up
 
@@ -377,7 +377,7 @@ Result:
 - Binaryen pass runtime: `3.028 ms`
 - Starshine pass skipped raw: no
 
-This is semantic smoke and performance evidence for the small-module shift/rotate un-nesting extension only. It does not change the large-module gate, sibling descriptor-cast scope, atomic-get blocker, or explicit refinalization status.
+This is semantic smoke and performance evidence for the small-module shift/rotate un-nesting extension only. It does not change the large-module gate, sibling descriptor-cast scope, or explicit refinalization status.
 
 ## 2026-06-03 small-module unary numeric un-nesting follow-up
 
@@ -416,7 +416,7 @@ Result:
 - Binaryen pass runtime: `3.674 ms`
 - Starshine pass skipped raw: no
 
-This is semantic smoke and performance evidence for the small-module unary numeric un-nesting extension only. It does not change the large-module gate, sibling descriptor-cast scope, atomic-get blocker, or explicit refinalization status.
+This is semantic smoke and performance evidence for the small-module unary numeric un-nesting extension only. It does not change the large-module gate, sibling descriptor-cast scope, or explicit refinalization status.
 
 ## 2026-06-03 small-module bitwise un-nesting follow-up
 
@@ -455,11 +455,11 @@ Result:
 - Binaryen pass runtime: `3.121 ms`
 - Starshine pass skipped raw: no
 
-This is semantic smoke and performance evidence for the small-module bitwise un-nesting extension only. It does not change the large-module gate, sibling descriptor-cast scope, atomic-get blocker, or explicit refinalization status.
+This is semantic smoke and performance evidence for the small-module bitwise un-nesting extension only. It does not change the large-module gate, sibling descriptor-cast scope, or explicit refinalization status.
 
 ## 2026-06-03 small-module un-nesting and `ref.get_desc` follow-up
 
-The GSI001-G/H follow-up added a guarded local version of Binaryen's non-constant operand un-nesting and the plain-GSI `ref.get_desc` read surface. For small modules, pure arithmetic/bitwise/shift-rotate/unary-numeric/float-rounding-sqrt/sign-extension non-constant field operands that are actually read by direct or closed-world local/param GSI sites are split into fresh immutable globals; the original struct initializer is repaired to `global.get` the fresh global, and a forced `reorder-globals` repair makes the fresh global precede dependent globals. The later GSI001-J/K/L follow-ups added pure integer bitwise, shift/rotate, and unary numeric operands to the same guarded vocabulary. The same trusted candidate machinery now folds direct `ref.get_desc` reads and closed-world local/param `ref.get_desc` reads when all candidate descriptor values match, with the two-value singleton-select helper available for differing descriptor globals. Large modules keep the previous materializable-only behavior to preserve pass-local runtime on the debug artifact. Atomic immutable-field gets remain an upstream-only documented surface because Starshine has no local struct atomic-get instruction form yet.
+The GSI001-G/H follow-up added a guarded local version of Binaryen's non-constant operand un-nesting and the plain-GSI `ref.get_desc` read surface. For small modules, pure arithmetic/bitwise/shift-rotate/unary-numeric/float-rounding-sqrt/sign-extension non-constant field operands that are actually read by direct or closed-world local/param GSI sites are split into fresh immutable globals; the original struct initializer is repaired to `global.get` the fresh global, and a forced `reorder-globals` repair makes the fresh global precede dependent globals. The later GSI001-J/K/L follow-ups added pure integer bitwise, shift/rotate, and unary numeric operands to the same guarded vocabulary. The same trusted candidate machinery now folds direct `ref.get_desc` reads and closed-world local/param `ref.get_desc` reads when all candidate descriptor values match, with the two-value singleton-select helper available for differing descriptor globals. Large modules keep the previous materializable-only behavior to preserve pass-local runtime on the debug artifact. Immutable-field atomic gets are now implemented for the current adjacent direct-global and closed-world local/param GSI subset; broader aggregate atomic forms remain out of scope.
 
 The final direct compare ran with a prebuilt native Starshine binary and automatic parallel workers:
 
@@ -798,6 +798,20 @@ It is still far smaller than the official Binaryen lit surface.
 
 ## Main remaining divergences from official Binaryen
 
+## 2026-06-04 remaining-gap owner matrix
+
+This matrix is the current release-gating triage for the remaining official `gsi.wast`, shared descriptor, and sibling `gsi-desc-cast` surfaces. It is a docs classification, not compare-harness output. The source inventory is the Binaryen primary-source manifest, the current-main recheck, the local implementation/test map, the sibling desc-cast dossier, and the focused Starshine GSI tests listed above.
+
+| Gap family | Official/source shape | Starshine coverage today | Classification | Owner slice | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Large-module or fuller non-constant operand un-nesting | Binaryen can split non-constant field or descriptor operands into fresh immutable globals, then run `reorder-globals-always` before consuming them as materializable `global.get`s. | Small-module, read-gated scalar un-nesting covers arithmetic, bitwise, shift/rotate, unary numeric, float sqrt/rounding, sign-extension, packed repair, and descriptor reads. Large modules and unsupported operand families stay materializable-only. | Blocked by runtime budget unless a focused operand family proves cheap enough. | `[GSI-PARITY-002]` | Any widening needs pass-local artifact timing before implementation. Unbounded Binaryen-style splitting remains deferred unless the budget is green. |
+| Non-adjacent or carrier-shaped read operands | Binaryen's function optimizer can reason about candidate operands beyond Starshine's immediate `global.get`/`local.get` plus field-read pair shape. | Direct globals and closed-world local/param origins/values/selects are adjacent-pair shaped. | Implementation-ready for one validation-neutral carrier at a time; cast/refinement carriers are blocked by typed-repair proof. | `[GSI-PARITY-003]`; typed-repair parts reopen `[GSI-PARITY-006]` | Preserve single evaluation, null-trap behavior, replacement typing, and conservative `StructAtomicGet*` effects. |
+| Cast-aware descriptor sibling | Upstream `gsi-desc-cast` can rewrite eligible `ref.cast` to `ref.cast_desc_eq` when the target descriptor type has exactly one trusted global and the exact/subtype gate passes. | Plain GSI handles `ref.get_desc` folds/selects; `global-struct-inference-desc-cast` remains boundary-only with no pass-manager dispatch. | Blocked by descriptor-cast scheduling and pass-surface activation. | `[GSI-PARITY-004]` | Keep this separate from plain-GSI descriptor reads; it needs a distinct pass or explicit deferral. |
+| Larger value-decision programs | Binaryen's documented profitable case is one unique value or two unique values with one singleton group, but future parity work may discover lit/source shapes that invite more than one `ref.eq` decision. | Starshine matches one-value and two-value singleton-group local/param rewrites for exact and subtype-propagated candidates. | Intentionally out of scope unless a bounded, size-winning fixture proves value; then implementation-ready only for that bound. | `[GSI-PARITY-005]` | Keep existing more-than-two-value and two-equal-pair negatives unless this slice deliberately changes the bound. |
+| Explicit refinalization / typed repair | Binaryen refinalizes changed functions after rewrites, including precision/nullability effects. | Current replacements are validation-preserving by construction and no failing fixture is known. | Blocked by typed-repair infrastructure only if a focused fixture proves the need; otherwise an audit/no-op conclusion is acceptable. | `[GSI-PARITY-006]` | Future cast-aware carriers or decision trees must reopen this if they narrow enclosing expression types. |
+| Broader atomic surface | Binaryen lit/source coverage includes immutable-field atomic gets; aggregate atomic set/RMW/cmpxchg and array atomics are separate proposal surfaces. | Ordinary and packed `struct.atomic.get*` folds use the current GSI direct-global and closed-world local/param machinery; generic passes remain conservative. | Current immutable-field adjacent subset is covered; aggregate atomics and generic-pass optimizations are intentionally out of scope. | No owner in the v0.1.0 GSI parity queue unless new plain-GSI immutable-get shapes exceed `[GSI-PARITY-003]` / `[GSI-PARITY-006]`. | Do not reopen aggregate atomic forms under GSI without a separate opcode/effect/pass-proof task. |
+| Final oracle and release contract | Direct `global-struct-inference` compare plus saved scheduler/artifact evidence must match the final documented subset. | Many 2026-06-03/04 direct 10k lanes are green for the implemented subsets. | Signoff-only after the owner slices settle. | `[GSI-PARITY-007]` | Refresh 10k compare with explicit native Starshine binary and classify command failures/mismatches as agent judgments. |
+
 ## 1. Closed-world `typeGlobals` consumption is still narrow
 
 Current local behavior after the 2026-06-03 follow-ups:
@@ -817,17 +831,18 @@ This former conceptual gap is closed for the direct immutable-global fast path, 
 
 Current local behavior:
 
-- look for immediate `GlobalGet` followed by immediate `StructGet` / `StructGetS` / `StructGetU`
+- open-world direct reads still require an immediate `GlobalGet` feeding `StructGet` / `StructGetS` / `StructGetU` / `StructAtomicGet*` or `RefGetDesc`
+- closed-world local/param origin, value, and singleton-select rewrites likewise consume immediate local/param read pairs
 
 Official Binaryen behavior:
 
 - optimize direct immutable-global reads
-- but also, in closed world, reason about arbitrary read operands such as params, locals, and supertypes using the type-to-global map
+- but also, in closed world, reason about read operands such as params, locals, supertypes, descriptors, and carrier expressions using the type-to-global map
 
 So the local pass still misses Binaryen shapes like:
 
-- non-adjacent or nested reference producers
-- large-module or unsupported non-constant field operands that would require fresh-global un-nesting
+- non-adjacent, nested, or cast/refinement-carried reference producers
+- large-module or unsupported non-constant field/descriptor operands that would require fresh-global un-nesting
 
 ## 3. Subtype propagation is consumed only by local/param origin and value rewrites
 

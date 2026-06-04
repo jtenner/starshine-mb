@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] passes/gsi | remaining parity gap matrix refresh
+
+- Refreshed [`binaryen/passes/global-struct-inference/parity.md`](binaryen/passes/global-struct-inference/parity.md) with a remaining-gap owner matrix for official `global-struct-inference`, shared descriptor, and sibling `gsi-desc-cast` surfaces.
+- Classified each remaining family against the active GSI parity slices: runtime-budgeted un-nesting, non-adjacent/cast-aware carriers, desc-cast scheduling, bounded decision trees, typed repair/refinalization, intentionally out-of-scope aggregate atomics, and final direct-pass signoff.
+- Pruned the completed matrix slice from [`agent-todo.md`](../../agent-todo.md) so the backlog keeps only active unreleased/deferred GSI work.
+
 ## [2026-06-04] fuzzing/wast | WAST arbitrary source-routing refresh
 
 - Refreshed [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md) from a stale working plan into a supported post-`[FZG]027` maintenance contract, adding current [`src/wast/fuzz_tests.mbt`](../../src/wast/fuzz_tests.mbt) ownership for generation-mode, validated-module, static-assertion, and mirror-counter regressions.
