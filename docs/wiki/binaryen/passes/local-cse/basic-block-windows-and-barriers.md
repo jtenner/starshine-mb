@@ -113,7 +113,7 @@ So `local-cse` is not a loop-aware global dataflow pass. Starshine has direct re
 - unreachable
 - try regions
 
-That is why a faithful port needs the same window model, not just a vague “scan expressions in order” loop.
+Starshine now has focused coverage for a return boundary too: an expression before `return` is not materialized and reused in the unreachable continuation. That is why a faithful port needs the same window model, not just a vague “scan expressions in order” loop.
 
 ## Whole-tree equality is a barrier too
 
