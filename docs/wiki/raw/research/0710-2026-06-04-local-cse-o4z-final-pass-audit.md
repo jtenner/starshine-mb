@@ -835,3 +835,22 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the first focused run failed as intended (`34/35` passed) before the implementation change; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed after the fix (`35/35`); `moon test src/passes` passed (`1581/1581`); full `moon test` passed (`4766/4766`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; compare reached `6769` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up `br_on_non_null` continuation positive fix on 2026-06-04
+
+A later focused LCSE hardening slice spot-checked a `br_on_non_null` fallthrough-continuation shape. Binaryen materialized the repeated arithmetic expression before `br_on_non_null` with `local.tee` and reused it in the null fallthrough continuation before the block's `ref.null` result. Starshine added the failing core-built direct regression `local-cse reuses expression across br-on-non-null continuation`, then fixed the raw/module stack model by treating `br_on_non_null` as a one-operand, no-result fallthrough operation. This mirrors the `br_on_null` continuation finding without making branch-control roots reusable.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-br-on-non-null-continuation-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the first compileable focused run failed as intended (`35/36` passed) before the implementation change; an earlier attempt failed to compile because the fixture used a nonexistent `HeapType::extern_()` helper and was corrected to `HeapType::abs(AbsHeapType::extern_())`; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed after the fix (`36/36`); `moon test src/passes` passed (`1582/1582`); full `moon test` passed (`4767/4767`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; compare reached `6766` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).

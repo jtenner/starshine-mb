@@ -211,6 +211,7 @@ fn lcse_raw_instr_operand_count(
     @lib.Instruction::Drop
     | @lib.Instruction::ThrowRef
     | @lib.Instruction::BrOnNull(_)
+    | @lib.Instruction::BrOnNonNull(_)
     | @lib.Instruction::LocalSet(_)
     | @lib.Instruction::LocalTee(_)
     | @lib.Instruction::GlobalSet(_)

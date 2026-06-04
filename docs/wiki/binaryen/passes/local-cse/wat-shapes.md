@@ -620,12 +620,20 @@ Before, EH reference variant:
 (drop (i32.add (local.get $x) (local.get $y)))
 ```
 
-Before, reference-control fallthrough variant:
+Before, reference-control fallthrough variants:
 
 ```wat
 (drop (i32.add (local.get $x) (local.get $y)))
 (br_on_null $exit (local.get $maybe_ref))
 (drop (i32.add (local.get $x) (local.get $y)))
+```
+
+```wat
+(block (result externref)
+  (drop (i32.add (local.get $x) (local.get $y)))
+  (br_on_non_null $exit (local.get $maybe_ref))
+  (drop (i32.add (local.get $x) (local.get $y)))
+  (ref.null extern))
 ```
 
 After, conceptually:
@@ -639,10 +647,10 @@ After, conceptually:
 Why this matters:
 
 - this is not the same as treating ordinary repeated direct-call, `call_indirect`, branch-control roots, or throwing roots as reusable
-- Binaryen can keep the expression window alive across these operand-taking terminators into unreachable continuation code and across `br_on_null` into fallthrough continuation code
+- Binaryen can keep the expression window alive across these operand-taking terminators into unreachable continuation code and across `br_on_null` / `br_on_non_null` into fallthrough continuation code
 - plain `return`, plain `throw`, plain branch boundaries, and ordinary call roots remain separate conservative cases
 
-Starshine status: these Binaryen-positive shapes are now covered and implemented narrowly by modeling `return_call`, `return_call_indirect`, `return_call_ref`, and `throw_ref` operands plus `br_on_null` fallthrough stack passthrough in the raw/module path, with direct compare remaining mismatch-free.
+Starshine status: these Binaryen-positive shapes are now covered and implemented narrowly by modeling `return_call`, `return_call_indirect`, `return_call_ref`, and `throw_ref` operands plus `br_on_null` fallthrough stack passthrough and `br_on_non_null` fallthrough consumption in the raw/module path, with direct compare remaining mismatch-free.
 
 ## Shape 20: flatten can turn a near-miss into a positive
 

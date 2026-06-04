@@ -918,6 +918,58 @@ test "local-cse reuses expression across br-on-null continuation" {
 }
 
 ///|
+test "local-cse reuses expression across br-on-non-null continuation" {
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func(
+        [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::externref()],
+        [],
+      ),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::externref()),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::i32_add(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::i32_add(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::ref_null(
+                  @lib.HeapType::abs(@lib.AbsHeapType::extern_()),
+                ),
+              ]),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  let temp = @lib.LocalIdx::new(3U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
 test "local-cse does not reuse call-ref roots" {
   let callee_type_idx = @lib.TypeIdx::new(0U)
   let caller_type_idx = @lib.TypeIdx::new(1U)
