@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wiki-health | release-horizon catalog log link cleanup
+
+- Fixed an obvious broken historical log link that pointed from [`log.md`](log.md) to `docs/wiki/docs/wiki/binaryen/passes/index.md`; it now resolves to [`binaryen/passes/index.md`](binaryen/passes/index.md).
+- Health check scope included redundant `docs/wiki/` links, release-horizon `version_125` / `version_130` wording, `.tmp` / `.artifacts` citations, and newly updated Node wrapper-gap terms; only this broken historical-log link was a high-confidence fix.
+
 ## [2026-06-04] tooling | Node package export-map and wrapper drift recheck
 
 - Added [`docs/wiki/raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md`](raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md) from current official Node package-export documentation, TypeScript package-resolution documentation, and local `node/package.json` / wrapper / generated-interface evidence.
@@ -300,7 +305,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-06-02] docs | binaryen pass catalog release-horizon alignment
 
-- Updated the root wiki catalog entry for [`docs/wiki/binaryen/passes/index.md`](docs/wiki/binaryen/passes/index.md) so the living index now describes the pass catalog against the current `version_130` release horizon instead of the older `version_129` wording.
+- Updated the root wiki catalog entry for [`binaryen/passes/index.md`](binaryen/passes/index.md) so the living index now describes the pass catalog against the current `version_130` release horizon instead of the older `version_129` wording.
 - No code or tests changed; this was a small wiki-health correction to keep the central Binaryen pass catalog summary aligned with the release-baseline pages and tracker.
 
 ## [2026-06-02] docs | loop-invariant-code-motion current-main recheck
