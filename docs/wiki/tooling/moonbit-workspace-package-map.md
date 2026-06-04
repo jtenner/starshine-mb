@@ -4,10 +4,11 @@ status: supported
 last_reviewed: 2026-06-04
 sources:
   - ../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md
+  - ../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md
   - ../raw/moonbit/2026-05-20-workspace-package-surface.md
   - ../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md
   - ../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md
-  - ../../../moon.mod.json
+  - ../../../moon.mod
   - ../../../src/*/moon.pkg
   - ../../../src/*/pkg.generated.mbti
 related:
@@ -23,12 +24,12 @@ related:
 
 ## Overview
 
-Starshine is a MoonBit module named `jtenner/starshine`. The repo-wide module metadata lives in [`moon.mod.json`](../../../moon.mod.json), and package-local build metadata lives under `src/<package>/moon.pkg`.
+Starshine is a MoonBit module named `jtenner/starshine`. The repo-wide module metadata lives in [`moon.mod`](../../../moon.mod), and package-local build metadata lives under `src/<package>/moon.pkg`. The legacy `moon.mod.json` filename remains upstream/historical context, but it is not the live Starshine module file.
 
 The beginner model is:
 
 ```text
-moon.mod.json
+moon.mod
   -> source = "src"
   -> src/<package>/moon.pkg declares imports and package options
   -> *.mbt files implement package code and tests beside it
@@ -36,19 +37,21 @@ moon.mod.json
   -> bun/moon validation gates check package, API, proof, and runtime entrypoints
 ```
 
-The official MoonBit package documentation distinguishes the module file from package files: module config describes the whole module, while package config owns `import { ... }`, aliases such as `@lib`, and `options(...)` such as `"is-main"` or `"proof-enabled"`. The current source capture is [`../raw/moonbit/2026-05-20-workspace-package-surface.md`](../raw/moonbit/2026-05-20-workspace-package-surface.md).
+The official MoonBit package documentation distinguishes the module file from package files: module config describes the whole module, while package config owns `import { ... }`, aliases such as `@lib`, and `options(...)` such as `"is-main"` or `"proof-enabled"`. The current filename correction is [`../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md`](../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md); the broader package-surface source capture remains [`../raw/moonbit/2026-05-20-workspace-package-surface.md`](../raw/moonbit/2026-05-20-workspace-package-surface.md).
 
 ## Module-Level Contract
 
-[`moon.mod.json`](../../../moon.mod.json) currently says:
+[`moon.mod`](../../../moon.mod) currently says:
 
 | Field | Current Starshine value | Maintenance meaning |
 | --- | --- | --- |
 | `name` | `jtenner/starshine` | Prefix used by intra-repo imports such as `jtenner/starshine/lib`. |
 | `source` | `src` | Packages are discovered under `src/`; do not add production packages outside that tree without a module-schema update. |
-| `deps` | `moonbitlang/x` `0.4.40` | External module dependency metadata. Core packages such as `moonbitlang/core/debug` still appear in package imports where needed. |
+| `import` | `moonbitlang/x` `0.4.40` | External module dependency metadata. Core packages such as `moonbitlang/core/debug` still appear in package imports where needed. |
 | `readme` | `README.mbt.md` | Public package readme metadata; keep API-sync docs pointed at this root. |
+| `repository` | empty string | Placeholder metadata; do not treat it as a published-source URL until release policy intentionally fills it. |
 | `license` | `Apache-2.0` | Module metadata, not per-package behavior. |
+| `keywords` / `description` | empty | Package-discovery metadata, not a substitute for the checked-in README or wiki release notes. |
 
 Starshine does not currently set module-level `preferred-target` or `supported-targets`. Target-specific validation policy instead lives in [`validation-gates.md`](validation-gates.md), where the local full gate uses `bun validate full --profile ci --target wasm-gc`. Release-prep version synchronization between this module metadata and the Node package metadata lives in [`release-process.md`](release-process.md).
 
@@ -146,9 +149,10 @@ When adding or reshaping a package:
 
 ## Sources
 
-- Source manifest: [`../raw/moonbit/2026-05-20-workspace-package-surface.md`](../raw/moonbit/2026-05-20-workspace-package-surface.md)
+- Current module-file refresh: [`../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md`](../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md)
+- Earlier source manifest: [`../raw/moonbit/2026-05-20-workspace-package-surface.md`](../raw/moonbit/2026-05-20-workspace-package-surface.md)
 - Moon CLI command-source refresh: [`../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md`](../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md)
 - Formal-verification v0.9.3 refresh: [`../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md`](../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md)
 - Proof command/trust refresh: [`../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md`](../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md)
-- Module config: [`../../../moon.mod.json`](../../../moon.mod.json)
+- Module config: [`../../../moon.mod`](../../../moon.mod)
 - Package configs: [`../../../src/binary/moon.pkg`](../../../src/binary/moon.pkg), [`../../../src/cli/moon.pkg`](../../../src/cli/moon.pkg), [`../../../src/cmd/moon.pkg`](../../../src/cmd/moon.pkg), [`../../../src/fuzz/moon.pkg`](../../../src/fuzz/moon.pkg), [`../../../src/ir/moon.pkg`](../../../src/ir/moon.pkg), [`../../../src/lib/moon.pkg`](../../../src/lib/moon.pkg), [`../../../src/passes/moon.pkg`](../../../src/passes/moon.pkg), [`../../../src/validate/moon.pkg`](../../../src/validate/moon.pkg), [`../../../src/validate_proof/moon.pkg`](../../../src/validate_proof/moon.pkg), [`../../../src/validate_trace/moon.pkg`](../../../src/validate_trace/moon.pkg), [`../../../src/wast/moon.pkg`](../../../src/wast/moon.pkg)

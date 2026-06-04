@@ -7,6 +7,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added direct `local-cse` regression coverage proving repeated tiny `global.get` roots remain unmaterialized: no temp local is appended, both `global.get` instructions remain, and no `local.tee` is emitted.
 - Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so tiny-root no-op coverage is no longer listed as an open LCSE hardening gap.
 
+## [2026-06-04] tooling/moonbit | module-file filename correction
+
+- Added [`raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md`](raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md) after rechecking current official MoonBit module/package docs and the live Starshine root module file.
+- Refreshed [`tooling/moonbit-workspace-package-map.md`](tooling/moonbit-workspace-package-map.md), [`tooling/release-process.md`](tooling/release-process.md), [`tooling/validation-gates.md`](tooling/validation-gates.md), [`index.md`](index.md), [`../README.md`](../README.md), and [`../../AGENTS.md`](../../AGENTS.md) so current Starshine module metadata routes through [`../../moon.mod`](../../moon.mod), while `moon.mod.json` remains only legacy/upstream or historical raw-note context.
+- Current caveat: older raw manifests and historical log entries still preserve their original `moon.mod.json` wording; do not cite those older paths as current Starshine package-schema truth.
+
 ## [2026-06-04] wiki-health | local-cse index consistency
 
 - During the follow-up health check, refreshed the local-cse catalog bullets in [`index.md`](index.md) so the concept-page entries no longer implied stale blocked-preset wording and now route readers to the current 2026-06-04 source refresh, O4z audit evidence, before-`if` / then-arm parity gap, and validation bridge.

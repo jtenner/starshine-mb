@@ -1,12 +1,13 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md
   - ../raw/release/2026-05-20-starshine-release-process-sources.md
   - ../../../AGENTS.md
   - ../../README.md
-  - ../../../moon.mod.json
+  - ../../../moon.mod
   - ../../../node/package.json
   - ../../../node/README.md
   - ../../../package.json
@@ -33,19 +34,19 @@ Use this page when preparing a Starshine release, reviewing a release-prep branc
 
 A Starshine release is not just “run tests and publish npm.” The current repo has several distinct surfaces:
 
-1. **MoonBit module metadata** in [`moon.mod.json`](../../../moon.mod.json), currently `jtenner/starshine` at version `0.1.0`.
+1. **MoonBit module metadata** in [`moon.mod`](../../../moon.mod), currently `jtenner/starshine` at version `0.1.0`.
 2. **Node/npm package metadata** in [`node/package.json`](../../../node/package.json), currently `@jtenner/starshine` at version `0.1.0`.
 3. **Checked-in public API snapshots** through `src/*/pkg.generated.mbti`, especially for packages exposed through the Node boundary.
 4. **The runnable CLI and Node package artifacts**, including `node/internal/starshine.wasm-wasi.wasm`, the checked-in wasm-gc adapter artifact, JS/TS wrappers, and `node/package.json#exports`.
 5. **Durable release evidence** in wiki pages, [`docs/wiki/log.md`](../log.md), raw/research notes, release notes, validation artifacts, and git history.
 
-The primary-source snapshot for this page is [`../raw/release/2026-05-20-starshine-release-process-sources.md`](../raw/release/2026-05-20-starshine-release-process-sources.md). It checks current npm CLI docs for package metadata, pack/publish, and lifecycle hooks; local MoonBit package metadata; Node package build boundaries; and the repo's own release policy.
+The release-source snapshot is [`../raw/release/2026-05-20-starshine-release-process-sources.md`](../raw/release/2026-05-20-starshine-release-process-sources.md), and the current MoonBit module-file correction is [`../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md`](../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md). The older release snapshot checked npm CLI docs for package metadata, pack/publish, and lifecycle hooks; this newer MoonBit refresh supersedes only the stale Starshine-local `moon.mod.json` path, not the npm packaging conclusions.
 
 For releases that include an already-built self-optimized CLI artifact, treat that artifact as a separate release surface. Use the dedicated `bun validate self-opt-smoke` / `bun validate self-opt-full` gate from [`validation-gates.md`](validation-gates.md) so artifact safety stays explicit instead of being inferred from the ordinary repo validation ladder.
 
 ## Release Invariants
 
-- **Explicit version bump required.** Publishing requires an intentional semver bump. Today that means synchronizing at least [`moon.mod.json`](../../../moon.mod.json) and [`node/package.json`](../../../node/package.json). The root [`package.json`](../../../package.json) is `private` script orchestration and is not a published package version surface.
+- **Explicit version bump required.** Publishing requires an intentional semver bump. Today that means synchronizing at least [`moon.mod`](../../../moon.mod) and [`node/package.json`](../../../node/package.json). The root [`package.json`](../../../package.json) is `private` script orchestration and is not a published package version surface.
 - **Validation before publication.** At minimum, use the quick repo signoff (`moon info`, `moon fmt`, `moon test`) for normal changes and prefer [`bun validate full --profile ci --target wasm-gc`](validation-gates.md) before publishing.
 - **Generated-interface review is part of API review.** `moon info` can update `pkg.generated.mbti`; review those diffs before release, especially for packages routed through [`node-package-surface.md`](node-package-surface.md).
 - **Node package contents are explicit.** npm publication is bounded by [`node/package.json`](../../../node/package.json): `exports`, `files`, `bin`, `engines`, and lifecycle scripts. Do not infer public package contents from every file under `node/` or every package under `src/`.
@@ -71,7 +72,7 @@ Record the reasoning in the release-prep commit or release notes. If in doubt, t
 
 Update:
 
-- [`moon.mod.json`](../../../moon.mod.json) `version`;
+- [`moon.mod`](../../../moon.mod) `version`;
 - [`node/package.json`](../../../node/package.json) `version`.
 
 Then run `moon info` so generated interfaces are current. Review any `src/*/pkg.generated.mbti` diffs as public API evidence, not formatting noise. Use [`moonbit-workspace-package-map.md`](moonbit-workspace-package-map.md) for the package topology and `.mbti` review rules.
@@ -167,7 +168,7 @@ Do not let an automated wiki or code-maintenance run publish by accident. Prepar
 
 ## Common Failure Modes
 
-- **Bumping only one version.** `moon.mod.json` and `node/package.json` currently describe the same product release and should not drift silently.
+- **Bumping only one version.** `moon.mod` and `node/package.json` currently describe the same product release and should not drift silently.
 - **Assuming root `package.json` is published.** It is private script orchestration; npm package publication is under `node/`.
 - **Trusting `npm run build` to refresh wrappers.** It refreshes the WASI CLI artifact. JS/TS wrappers and declarations are checked in and require explicit edits/tests.
 - **Skipping `.mbti` review.** A source change can become a public API change even when tests pass.
@@ -178,9 +179,10 @@ Do not let an automated wiki or code-maintenance run publish by accident. Prepar
 
 ## Sources
 
+- Current MoonBit module-file refresh: [`../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md`](../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md)
 - Release source snapshot: [`../raw/release/2026-05-20-starshine-release-process-sources.md`](../raw/release/2026-05-20-starshine-release-process-sources.md)
 - Repo policy: [`../../../AGENTS.md`](../../../AGENTS.md), [`../../README.md`](../../README.md)
-- Package metadata: [`../../../moon.mod.json`](../../../moon.mod.json), [`../../../node/package.json`](../../../node/package.json), [`../../../package.json`](../../../package.json)
+- Package metadata: [`../../../moon.mod`](../../../moon.mod), [`../../../node/package.json`](../../../node/package.json), [`../../../package.json`](../../../package.json)
 - Node package boundary: [`./node-package-surface.md`](node-package-surface.md), [`../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md`](../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md), [`../../../node/README.md`](../../../node/README.md), [`../../../scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs), [`../../../scripts/lib/generate-node-package.mjs`](../../../scripts/lib/generate-node-package.mjs)
 - Validation gates: [`./validation-gates.md`](validation-gates.md), [`../../../scripts/lib/validate-task.ts`](../../../scripts/lib/validate-task.ts), [`./pass-fuzz-compare.md`](pass-fuzz-compare.md), [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md)
 - npm docs checked by the source snapshot: <https://docs.npmjs.com/cli/v11/configuring-npm/package-json>, <https://docs.npmjs.com/cli/v11/commands/npm-publish>, <https://docs.npmjs.com/cli/v11/commands/npm-pack>, <https://docs.npmjs.com/cli/v11/using-npm/scripts#life-cycle-scripts>
