@@ -363,7 +363,7 @@ Before, `array.init_elem` variant:
 (drop (i32.add (local.get $x) (local.get $y)))
 ```
 
-Before, `memory.copy` / `memory.fill` / `memory.init` / `table.copy` variants:
+Before, `memory.copy` / `memory.fill` / `memory.init` / `table.copy` / `table.fill` variants:
 
 ```wat
 (drop (i32.add (local.get $x) (local.get $y)))
@@ -371,6 +371,7 @@ Before, `memory.copy` / `memory.fill` / `memory.init` / `table.copy` variants:
 ;; or: (memory.fill (i32.const 0) (i32.const 7) (i32.const 1))
 ;; or: (memory.init 0 (i32.const 0) (i32.const 0) (i32.const 1))
 ;; or: (table.copy 0 0 (i32.const 0) (i32.const 1) (i32.const 1))
+;; or: (table.fill 0 (i32.const 0) (ref.null func) (i32.const 1))
 (drop (i32.add (local.get $x) (local.get $y)))
 ```
 
@@ -378,17 +379,17 @@ After, conceptually:
 
 ```wat
 (drop (local.tee $tmp (i32.add (local.get $x) (local.get $y))))
-(struct.set $box 0 (local.get $box) (i32.const 7)) ;; or array.set/fill/copy/init_data/init_elem/memory.copy/fill/init/table.copy ...
+(struct.set $box 0 (local.get $box) (i32.const 7)) ;; or array.set/fill/copy/init_data/init_elem/memory.copy/fill/init/table.copy/fill ...
 (drop (local.get $tmp))
 ```
 
 Why this rewrites:
 
 - the repeated tree reads locals only
-- the intervening `struct.set`, `array.set`, `array.fill`, `array.copy`, `array.init_data`, or `array.init_elem` mutates GC storage, or `memory.copy` / `memory.fill` / `memory.init` mutates linear memory or `table.copy` mutates table elements, not those locals
+- the intervening `struct.set`, `array.set`, `array.fill`, `array.copy`, `array.init_data`, or `array.init_elem` mutates GC storage, or `memory.copy` / `memory.fill` / `memory.init` mutates linear memory or `table.copy` / `table.fill` mutates table elements, not those locals
 - this is an effect-invalidation decision, not arbitrary heap or memory CSE
 
-Starshine status: these Binaryen-positive shapes are covered and implemented narrowly by modeling `struct.set`, `array.set`, `array.fill`, `array.copy`, `array.init_data`, `array.init_elem`, `memory.copy`, `memory.fill`, `memory.init`, and `table.copy` operands in the raw/module path. The write instructions themselves are still not reusable roots.
+Starshine status: these Binaryen-positive shapes are covered and implemented narrowly by modeling `struct.set`, `array.set`, `array.fill`, `array.copy`, `array.init_data`, `array.init_elem`, `memory.copy`, `memory.fill`, `memory.init`, `table.copy`, and `table.fill` operands in the raw/module path. The write instructions themselves are still not reusable roots.
 
 ## Shape 9: repeated ordinary call roots do not fold
 
