@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wast/exception-tags | resultful-tag validation placement refresh
+
+- Rechecked current WebAssembly Core 3.0 tag-type and exception-instruction rules against the already-ingested [`raw/wasm/2026-06-04-exception-tag-current-refresh.md`](raw/wasm/2026-06-04-exception-tag-current-refresh.md) bridge and current Starshine validator/typechecker ownership.
+- Expanded [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md) with a fixture-placement matrix for the current local/spec split: declaration-only resultful tags are future `validate.mbt` widening evidence, while resultful-tag `throw` / `catch` / `catch_ref` use-site rejections belong in `typecheck.mbt` after declaration validation widens.
+- Cross-linked the matrix from [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), and [`wast/index.md`](wast/index.md) so tag-result caveats route through one focused WAST/validator page.
+
 ## [2026-06-04] fuzzing/recipes | schema source refresh
 
 - Added [`raw/fuzzing/2026-06-04-fuzz-recipe-schema-source-refresh.md`](raw/fuzzing/2026-06-04-fuzz-recipe-schema-source-refresh.md) after rechecking current `src/fuzz/main.mbt`, `src/fuzz/main_wbtest.mbt`, `scripts/lib/fuzz-task.ts`, `scripts/lib/fuzz-task.test.ts`, and task-command evidence for `starshine.fuzz.recipe.v1` parsing, standard catalog ids, CLI-over-recipe precedence, sharding, and wrapper forwarding.

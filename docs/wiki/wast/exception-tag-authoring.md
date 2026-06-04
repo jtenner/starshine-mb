@@ -145,6 +145,18 @@ Treat this as compatibility syntax, not as proof that Starshine has a preserved 
 
 ## Validation Invariants And Edge Cases
 
+### Tag result-shape split: declaration versus EH use site
+
+Current Core 3.0 and current Starshine agree that exception **use sites** need empty-result tag expansions, but they disagree about where a resultful tag is rejected:
+
+| Shape | Current Core 3.0 model | Current Starshine model | How to classify fixtures today |
+| --- | --- | --- | --- |
+| `(tag (type (func (param i32))))` | Valid tag declaration; `throw` / `catch` consume or branch with the `i32` payload. | Valid tag declaration; instruction validation uses the same payload. | Ordinary portable positive. |
+| `(tag (type (func (result i32))))` with no EH use | Tag type validation accepts a function type expansion with results. | `Validate for TagType` rejects the tag during `importsec` / `tagsec` validation. | Local validator-gap evidence, not an ordinary portable positive. |
+| `throw` / `catch` / `catch_ref` selecting a resultful tag | Rejected at the EH instruction rule because the selected tag must expand as `func params -> epsilon`. | Already rejected earlier by the strict tag declaration rule, so the use-site check is not reached. | If Starshine widens tag declarations later, keep this rejection in instruction validation. |
+
+This split is intentionally visible because it affects where tests should live. A declaration-only resultful tag belongs in a validator-widening test for [`src/validate/validate.mbt`](../../../src/validate/validate.mbt). A future resultful-tag `throw` / `try_table` test belongs in [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) after declaration validation is widened.
+
 - **Tag result lists are a local/spec split.** Current Core 3.0 validates a tag type use as any function-type expansion at declaration time, while the `throw`, `catch`, and `catch_ref` instruction rules still require the selected tag to expand as `func params -> epsilon`. Starshine keeps the older/stricter rule in [`Validate for TagType`](../../../src/validate/validate.mbt): a tag type index resolving to `(func (result i32))` is rejected in `importsec` / `tagsec` before any EH use site is checked. Treat resultful tag declarations as validator-gap evidence until a deliberate widening moves the empty-result check to exception-instruction validation.
 - **`throw` is stack-polymorphic after consuming payload.** It pops the tag's parameters and makes the remaining path unreachable; the general bottom-value and concrete-stack-junk boundary is [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md).
 - **`throw_ref` consumes nullable `exnref`.** [`typecheck_throw_ref`](../../../src/validate/typecheck.mbt) pops `ValType::ref_null_exn()` before marking the path unreachable. A non-null exception reference is accepted by subtyping, but validation does not require non-nullness; runtime execution must still preserve the null-trap versus non-null-throw distinction.
