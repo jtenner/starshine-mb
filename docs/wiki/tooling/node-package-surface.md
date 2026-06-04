@@ -64,7 +64,7 @@ The package currently uses one extensionless public specifier style (`@jtenner/s
 | `./wast` / `./wat` | Text parsing, printing, and spec helpers | File/suite spec helpers exist, but command-level static assertions and arbitrary-feature stats still lag MoonBit. |
 
 The MoonBit workspace/package topology is cataloged in [`moonbit-workspace-package-map.md`](moonbit-workspace-package-map.md). Active MoonBit package surfaces under [`src/`](../../../src/) include `binary`, `bitset`, `cli`, `cli-benchmarks`, `cmd`, `diff`, `fs`, `fuzz`, `ir`, `lib`, `passes`, `passes_perf_long`, `spec_runner`, `validate`, `validate_proof`, `validate_trace`, `wast`, and `wat`.
-Node deliberately omits several of those (`bitset`, `cli-benchmarks`, `diff`, `fs`, `fuzz`, `ir`, `passes`, `passes_perf_long`, `spec_runner`, `validate_proof`, and `validate_trace`), and the package map owns the `moon.pkg` / `is-main` / generated-interface distinction behind that statement.
+Node deliberately omits several of those (`bitset`, `cli-benchmarks`, `diff`, `fs`, `fuzz`, `ir`, `passes`, `passes_perf_long`, `spec_runner`, `validate_proof`, and `validate_trace`), and the package map owns the normal `moon.pkg` / `is-main` / generated-interface distinction plus the current `spec_runner` `imports.mbt` topology exception behind that statement.
 That omission is acceptable only while the README and tests keep the package framed as a partial host boundary, not as the whole Starshine implementation surface.
 
 ## What Changed Since The 2026-04-18 Audit

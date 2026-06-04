@@ -10,7 +10,7 @@ This section mirrors `AGENTS.md` and is intentionally compact enough to reuse in
 
 ### Repo Essentials
 
-- MoonBit workspace with directory-scoped packages via `moon.pkg` under `moon.mod`.
+- MoonBit workspace under `moon.mod`; active directory-scoped packages normally use `moon.pkg`, with `src/spec_runner` currently documented as the only legacy `imports.mbt` package exception.
 - Tests live beside implementation as `*_test.mbt` or `*_wbtest.mbt`; package imports live in `package*/imports.mbt`.
 - Review `.mbti` diffs for public API changes.
 - `docs/README.md` is the canonical docs and wiki schema; keep it in sync with `AGENTS.md`.
