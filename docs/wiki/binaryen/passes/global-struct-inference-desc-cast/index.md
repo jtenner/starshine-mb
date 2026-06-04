@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-04
 sources:
   - ../../../raw/binaryen/2026-04-24-global-struct-inference-desc-cast-primary-sources.md
   - ../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md
@@ -29,7 +29,7 @@ related:
 ## Role
 
 - `global-struct-inference-desc-cast` is the local Starshine registry name for the upstream Binaryen pass published as `gsi-desc-cast`.
-- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt); the 2026-06-04 `[GSI-PARITY-004]` activation audit explicitly deferred activation for v0.1.0 rather than aliasing it to plain GSI.
 - It is a real public upstream pass in Binaryen `version_129`, but it is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` default top-level path.
 - It is a **shared-engine sibling** of plain `gsi`, implemented by the same `GlobalStructInference.cpp` file with the desc-cast mode flag enabled.
 
@@ -103,7 +103,7 @@ So this pass is best taught as:
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `global-struct-inference-desc-cast` / `gsi-desc-cast` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real pass for it.
+- Keep it explicitly marked as **unimplemented** until Starshine grows a real pass for it; `[GSI-PARITY-004]` closed the v0.1.0 activation slice as a boundary-only deferral because the required descriptor singleton and subtype proof machinery is not present.
 - Keep the naming split explicit:
   - local registry: `global-struct-inference-desc-cast`
   - upstream public pass: `gsi-desc-cast`

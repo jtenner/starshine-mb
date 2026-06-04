@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-03
+last_reviewed: 2026-06-04
 sources:
   - ../../../raw/binaryen/2026-04-24-global-struct-inference-desc-cast-primary-sources.md
   - ../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md
@@ -33,7 +33,7 @@ This page describes the **current local Starshine status** for the local pass na
 
 ## Current local status
 
-Starshine does **not** implement this pass today.
+Starshine does **not** implement this pass today. The 2026-06-04 `[GSI-PARITY-004]` activation audit kept the pass boundary-only for v0.1.0 rather than wiring a partial sibling implementation.
 
 The local status is:
 
@@ -51,6 +51,17 @@ A 2026-05-05 current-main recheck did not change the local status; the page's ex
 The most important beginner-safe statement is:
 
 - Starshine has an active plain [`global-struct-inference`](../global-struct-inference/index.md) module pass, but it is **not** the descriptor-cast sibling.
+
+## 2026-06-04 activation audit conclusion
+
+`[GSI-PARITY-004]` is closed as an explicit v0.1.0 deferral, not an implementation slice. The decision is based on the current code map and the upstream contract documented in this folder:
+
+- the local registry still classifies `global-struct-inference-desc-cast` as `BoundaryOnly`, and the pass manager has no sibling dispatch entry;
+- the active plain-GSI implementation has descriptor-read folding for `ref.get_desc`, but it still does not build Binaryen's descriptor heap-type `typeGlobals` table;
+- a faithful `ref.cast` to `ref.cast_desc_eq` rewrite needs target descriptor-type discovery, exactly-one descriptor global proof, exact-or-no-strict-subtype legality, and typed repair/scheduling evidence;
+- wiring the sibling as an alias for plain `global-struct-inference` would be misleading because upstream `gsi-desc-cast` has a real dedicated `ref.cast` surface.
+
+Therefore the safe v0.1.0 behavior is to keep direct requests rejected as boundary-only and leave preset scheduling unchanged. Future work should only activate this pass as a distinct sibling once focused positives and negatives cover singleton descriptor globals, nullable targets, subtype mismatch, descriptor identity ambiguity, and validation repair.
 
 ## Exact local code map
 

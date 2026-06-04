@@ -52,18 +52,6 @@ Use this checklist for every `[GSI-PARITY-*]` slice below:
 
 The remaining-gap owner matrix now lives in `docs/wiki/binaryen/passes/global-struct-inference/parity.md`; execute the active slices below in dependency order and keep completed matrix history in the wiki/log/git history, not in this backlog.
 
-- [GSI-PARITY-004] - Sibling `global-struct-inference-desc-cast` Activation
-  - Status: active v0.1.0 release-gating parity implementation or explicit deferral.
-  - Goal: decide and execute the minimal safe activation path for the sibling descriptor-cast pass surface without merging it into plain GSI.
-  - Why: plain GSI now handles `ref.get_desc` over descriptor-constructor globals, but the sibling desc-cast pass remains boundary-only and is still an upstream parity gap.
-  - Deliverables:
-    - Read the desc-cast dossier and current pass registry to identify whether the pass should be implemented as a distinct active pass, alias, or deferred boundary note.
-    - Add focused tests for the smallest descriptor-cast rewrite, plus negatives for nullability, subtype mismatch, descriptor identity ambiguity, and validation repair.
-    - Implement and wire the pass only if the tests establish a validation-preserving subset and the `-O4z` scheduling neighborhood can represent it safely.
-    - Document any deferral separately from plain GSI so future agents do not reopen it as an ordinary `ref.get_desc` fold.
-  - Suggested tests: descriptor-cast pass tests, `moon test src/passes`, registry/preset tests if scheduled, direct pass compare for the sibling pass when available, and GSI compare to ensure no regression.
-  - Exit criteria: desc-cast is either an active tested pass slice with docs and scheduling evidence, or a documented v0.1.0 deferral with the missing infrastructure named.
-
 - [GSI-PARITY-005] - Bounded Multi-Value Decision Trees
   - Status: active v0.1.0 release-gating parity implementation or explicit deferral.
   - Goal: evaluate Binaryen-style value grouping beyond Starshine's current one-value and two-value singleton-select shapes.

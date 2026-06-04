@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] passes/gsi-desc-cast | boundary-only activation deferral
+
+- Closed `[GSI-PARITY-004]` as an explicit v0.1.0 deferral: [`global-struct-inference-desc-cast`](binaryen/passes/global-struct-inference-desc-cast/index.md) remains a boundary-only sibling rather than an alias for plain GSI.
+- Documented the missing activation prerequisites in [`starshine-strategy.md`](binaryen/passes/global-struct-inference-desc-cast/starshine-strategy.md): distinct dispatch, descriptor `typeGlobals`, exact-or-no-strict-subtype gating, descriptor identity ambiguity tests, nullable-target coverage, and validation-repair evidence.
+- Refreshed the GSI parity matrix and pruned `[GSI-PARITY-004]` from [`agent-todo.md`](../../agent-todo.md); future `gsi-desc-cast` work should reopen as a dedicated port, not as plain `ref.get_desc` coverage.
+
 ## [2026-06-04] passes/gsi | block-carried direct-global reads
 
 - Extended [`src/passes/global_struct_inference.mbt`](../../src/passes/global_struct_inference.mbt) so plain GSI folds one-instruction `block` carriers around immutable `global.get` producers before `struct.get*`, `struct.atomic.get*`, and `ref.get_desc` reads.
