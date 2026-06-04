@@ -758,3 +758,22 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`32/32`); `moon test src/passes` passed (`1578/1578`); full `moon test` passed (`4763/4763`); native build reported no work; compare reached `6763` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures.
+
+## Follow-up `return_call` unreachable-continuation fix on 2026-06-04
+
+A later focused LCSE hardening slice spot-checked the direct tail-call terminator and confirmed it behaves like the previously fixed indirect/reference variants: Binaryen materializes a repeated expression before `return_call` with `local.tee` and reuses it in the unreachable continuation. Starshine added the failing direct regression `local-cse reuses expression across return-call continuation`, then fixed the raw/module path by modeling direct `return_call` as consuming the callee's parameter operands. This stays narrower than arbitrary direct-call CSE: ordinary repeated direct-call roots remain non-reusable unless the callee has the existing explicit idempotent annotation.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-return-call-continuation-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the first focused run failed as intended (`32/33` passed) before the implementation change; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed after the fix (`33/33`); `moon test src/passes` passed (`1579/1579`); full `moon test` passed (`4764/4764`); native build succeeded with the existing unused-function warnings in `src/passes/pass_manager.mbt`; compare reached `6766` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures.

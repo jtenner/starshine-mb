@@ -562,6 +562,14 @@ Starshine status: this Binaryen-positive shape is now covered and implemented na
 
 ## Shape 19: operand-taking terminator continuation reuse can be positive
 
+Before, direct tail-call variant:
+
+```wat
+(drop (i32.add (local.get $x) (local.get $y)))
+(return_call $target (local.get $x))
+(drop (i32.add (local.get $x) (local.get $y)))
+```
+
 Before, indirect tail-call variant:
 
 ```wat
@@ -596,11 +604,11 @@ After, conceptually:
 
 Why this matters:
 
-- this is not the same as treating repeated `call_indirect` or throwing roots as reusable
+- this is not the same as treating ordinary repeated direct-call, `call_indirect`, or throwing roots as reusable
 - Binaryen can keep the expression window alive across these operand-taking terminators into unreachable continuation code
-- plain `return`, plain `throw`, and ordinary indirect-call roots remain separate conservative cases
+- plain `return`, plain `throw`, and ordinary call roots remain separate conservative cases
 
-Starshine status: these Binaryen-positive shapes are now covered and implemented narrowly by modeling `return_call_indirect`, `return_call_ref`, and `throw_ref` operands in the raw/module path, with direct compare remaining mismatch-free.
+Starshine status: these Binaryen-positive shapes are now covered and implemented narrowly by modeling `return_call`, `return_call_indirect`, `return_call_ref`, and `throw_ref` operands in the raw/module path, with direct compare remaining mismatch-free.
 
 ## Shape 20: flatten can turn a near-miss into a positive
 

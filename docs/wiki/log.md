@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] passes/local-cse | return_call continuation positive fix
+
+- Spot-checked direct `return_call` and confirmed Binaryen materializes the pre-tail-call expression with `local.tee` and reuses it in the unreachable continuation.
+- Added a failing direct `local-cse` regression, then fixed the raw/module path to model direct `return_call` operands from callee parameter counts without treating ordinary direct-call roots as reusable.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-return-call-continuation-10000`: 6766 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
+- Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`wat-shapes.md`](binaryen/passes/local-cse/wat-shapes.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so the direct tail-call continuation case is tracked as a covered positive.
+
 ## [2026-06-04] passes/local-cse | array.new_elem generative-root coverage
 
 - Spot-checked repeated `array.new_elem` roots and confirmed Binaryen keeps the fresh allocation roots separate without materializing a temp local.

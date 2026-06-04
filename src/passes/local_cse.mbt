@@ -221,6 +221,11 @@ fn lcse_raw_instr_operand_count(
         Some(info) => Some(info.params.length())
         None => None
       }
+    @lib.Instruction::ReturnCall(idx) =>
+      match lcse_raw_call_info(call_infos, idx) {
+        Some(info) => Some(info.params.length())
+        None => None
+      }
     @lib.Instruction::ReturnCallIndirect(type_idx, _) =>
       match lcse_raw_func_type_for_idx(subtypes, type_idx) {
         Some(@lib.FuncType(params, _)) => Some(params.length() + 1)
