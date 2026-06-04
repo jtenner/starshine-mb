@@ -108,7 +108,7 @@ So this pass is best taught as:
 
 - Treat this folder as the canonical home for future `reorder-functions` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real module pass and dispatcher case for it.
-- Keep the split from [`../reorder-functions-by-name`](./implementation-structure-and-tests.md#the-sibling-pass-matters) explicit: the sibling is lexical/debug ordering, while the main pass is static-use-count ordering.
+- Keep the split from [`../reorder-functions-by-name`](../reorder-functions-by-name/index.md) explicit: the sibling is lexical/debug ordering, while the main pass is static-use-count ordering. The local source-map reminder for that split lives in [`./implementation-structure-and-tests.md#the-sibling-pass-matters`](./implementation-structure-and-tests.md#the-sibling-pass-matters).
 - Keep the split from [`../reorder-globals/index.md`](../reorder-globals/index.md) and [`../reorder-types/index.md`](../reorder-types/index.md) explicit too: this pass has no dependency DAG or type-graph legality phase.
 
 ## Sources
