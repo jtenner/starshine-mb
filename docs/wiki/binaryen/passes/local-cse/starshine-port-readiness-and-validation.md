@@ -61,7 +61,7 @@ The owner file, direct tests, registry entry, dispatcher route, debug-artifact e
 
 The refreshed direct lane in `.tmp/pass-fuzz-local-cse` reached 6759/10000 compared cases with 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group command failures. A later 2026-06-04 O4z audit lane in `.tmp/pass-fuzz-local-cse-audit-1000` reached 998/1000 compared cases with 998 normalized matches, 0 mismatches, and 2 known Binaryen empty-recursion-group command failures. After fixing the before-`if` into `then` missed optimization, `.tmp/pass-fuzz-local-cse-then-arm-fix-10000` reached 6768/10000 compared cases with 6768 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures. After adding return-boundary coverage, `.tmp/pass-fuzz-local-cse-return-boundary-10000` reached 6771/10000 compared cases with 6771 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures. After adding `br_table` boundary coverage, `.tmp/pass-fuzz-local-cse-br-table-boundary-10000` reached 6771/10000 compared cases with 6771 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures. After adding `unreachable` boundary coverage, `.tmp/pass-fuzz-local-cse-unreachable-boundary-10000` reached 6765/10000 compared cases with 6765 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures. After adding `struct.new` generative-root coverage, `.tmp/pass-fuzz-local-cse-struct-new-generative-10000` reached 6769/10000 compared cases with 6769 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures.
 
-The honest remaining state is preset-slot restraint until the missing ordered neighborhoods are representable, plus broader shape-hardening follow-up for hard control-boundary negatives, additional GC/generative-root negatives, and idempotent-call positives where local syntax and annotation plumbing can model Binaryen safely. Tiny-root repeated `global.get` no-op, repeated `struct.new` generative-root no-op, and before-loop into loop-body, `br_table`, `return`, and `unreachable` boundary coverage are now durable in the direct test surface.
+The honest remaining state is preset-slot restraint until the missing ordered neighborhoods are representable, plus broader shape-hardening follow-up for the newly spotted simple named-block positive, hard control-boundary negatives, additional GC/generative-root negatives, and idempotent-call positives where local syntax and annotation plumbing can model Binaryen safely. Tiny-root repeated `global.get` no-op, repeated `struct.new` generative-root no-op, and before-loop into loop-body, `br_table`, `return`, and `unreachable` boundary coverage are now durable in the direct test surface.
 
 ## What already exists locally
 
@@ -117,6 +117,7 @@ The remaining shape-test gap from the 2026-06-04 audit is:
 
 - idempotent direct-call positive, if Starshine gains safe annotation plumbing for Binaryen's narrow exception
 - additional generative GC-root negatives beyond the covered `struct.new` fixture
+- the simple straight-line named-block positive spotted on 2026-06-04, where Binaryen reuses a before-block expression inside the block body
 - additional hard control-boundary negatives beyond after-`if`, else-arm, before-loop into loop-body, `br_table`, return, and `unreachable`
 
 ### 2. Registry and CLI proof stay green

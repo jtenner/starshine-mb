@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] passes/local-cse | named-block spot-check caveat
+
+- Recorded that a simple straight-line named block is a Binaryen-positive reuse shape, not a hard-boundary negative: Binaryen materializes the before-block expression and reuses it inside the block body, while current Starshine leaves both trees in place.
+- Refreshed [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so this shape is tracked as a missed-optimization candidate rather than as remaining negative-boundary coverage.
+
 ## [2026-06-04] passes/local-cse | struct.new generative-root coverage
 
 - Added direct `local-cse` regression coverage proving repeated `struct.new` roots remain separate; the fixture passed without implementation changes and matches the Binaryen spot check for the same WAT shape.

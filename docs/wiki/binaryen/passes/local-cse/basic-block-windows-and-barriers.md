@@ -102,18 +102,17 @@ Loops reset the linear window.
 
 So `local-cse` is not a loop-aware global dataflow pass. Starshine has direct regression coverage proving an expression computed before a loop is not reused inside the loop body.
 
-### Case 4: named blocks, switches, returns, throws, and other hard control boundaries
+### Case 4: switches, returns, throws, and other hard control boundaries
 
-`LinearExecutionWalker` also resets at boundaries like:
+`LinearExecutionWalker` also resets at hard boundaries like:
 
-- named blocks
 - switches / `br_table`
 - returns
 - throws / rethrows
 - unreachable
 - try regions
 
-Starshine now has focused coverage for switch-like `br_table`, `return`, and `unreachable` boundaries: expressions before those terminators are not materialized and reused in their unreachable continuations. That is why a faithful port needs the same window model, not just a vague “scan expressions in order” loop.
+Starshine now has focused coverage for switch-like `br_table`, `return`, and `unreachable` boundaries: expressions before those terminators are not materialized and reused in their unreachable continuations. A 2026-06-04 spot check showed that a simple straight-line named block is **not** one of these negatives in Binaryen: Binaryen can reuse a before-block expression inside such a block body, so that shape remains a separate Starshine missed-optimization candidate rather than a hard-boundary negative. That is why a faithful port needs the same window model, not just a vague “scan expressions in order” loop.
 
 ## Whole-tree equality is a barrier too
 

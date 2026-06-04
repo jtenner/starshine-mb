@@ -331,6 +331,20 @@ bun scripts/pass-fuzz-compare.ts \
 
 Results: `moon fmt` passed, focused LCSE tests passed (`14/14`), `src/passes` passed (`1560/1560`), full `moon test` passed (`4745/4745`), native build was already up to date, and direct compare reached `6769` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index). `moon info` was retried and still hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`).
 
+## Named-block spot-check caveat on 2026-06-04
+
+While probing the remaining hard-boundary candidates, a simple straight-line named block did **not** behave as a hard-boundary negative in Binaryen. For this shape, Binaryen materialized the expression before the block with `local.tee` and reused it inside the block body, while Starshine kept both trees:
+
+```wat
+(module
+  (func (param i32 i32)
+    (drop (i32.add (local.get 0) (local.get 1)))
+    (block $named
+      (drop (i32.add (local.get 0) (local.get 1))))))
+```
+
+Agent classification: semantic-safe missed optimization / follow-up candidate, not a semantic mismatch and not a hard-boundary negative. This should be triaged separately from branchy block exits and from the already covered `br_table`, `return`, and `unreachable` negatives.
+
 ## Recommendation
 
-The audited before-`if`/then-arm Binaryen-positive gap is now covered and fixed, the tiny-root repeated-`global.get` no-op is explicitly covered, repeated `struct.new` generative roots are covered, and before-loop into loop-body, `br_table`, `return`, and `unreachable` negatives are covered. Keep `[O4Z-AUDIT-LCSE]` active only for the remaining broader shape hardening that was not implemented here: hard control-boundary negatives beyond the added after-`if`, else-arm, loop-body, `br_table`, return, and `unreachable` tests; additional GC/generative-root negatives where local syntax supports them; and idempotent-call positives if the local annotation plumbing can model Binaryen safely.
+The audited before-`if`/then-arm Binaryen-positive gap is now covered and fixed, the tiny-root repeated-`global.get` no-op is explicitly covered, repeated `struct.new` generative roots are covered, and before-loop into loop-body, `br_table`, `return`, and `unreachable` negatives are covered. Keep `[O4Z-AUDIT-LCSE]` active only for the remaining broader shape hardening that was not implemented here: the simple named-block positive spotted above, hard control-boundary negatives beyond the added after-`if`, else-arm, loop-body, `br_table`, return, and `unreachable` tests; additional GC/generative-root negatives where local syntax supports them; and idempotent-call positives if the local annotation plumbing can model Binaryen safely.
