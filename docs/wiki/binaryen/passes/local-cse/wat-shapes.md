@@ -462,9 +462,27 @@ Why Binaryen can allow it:
 Starshine status:
 
 - local direct-pass coverage now uses `(@binaryen.idempotent)` WAT annotation lowering and proves repeated single-result direct calls to that callee are materialized and reused
-- ordinary non-annotated calls, indirect calls, and `call_ref` should still be treated as barriers rather than inferred idempotent calls
+- ordinary non-annotated calls and repeated `call_indirect` roots now have paired direct no-reuse coverage
+- `call_ref` should still be treated as a barrier rather than inferred idempotent call CSE; local coverage remains a fixture follow-up
 
-## Shape 15: fresh GC allocation roots do not fold
+## Shape 15: repeated indirect-call roots do not fold
+
+Before and after stay the same:
+
+```wat
+(drop (call_indirect (type $t) (local.get $x) (local.get $table_index)))
+(drop (call_indirect (type $t) (local.get $x) (local.get $table_index)))
+```
+
+Why Binaryen keeps both:
+
+- `call_indirect` is not the direct-call idempotence exception
+- the root may be effectful, trap differently, or dispatch to a non-idempotent target
+- replacing the second dynamic call with the first result would be arbitrary call CSE
+
+Starshine status: direct WAT coverage proves repeated `call_indirect` roots remain separate and introduce no temp local.
+
+## Shape 16: fresh GC allocation roots do not fold
 
 Before and after stay the same, conceptually:
 

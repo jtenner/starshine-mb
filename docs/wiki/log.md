@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] passes/local-cse | call_indirect root negative coverage
+
+- Added direct `local-cse` regression coverage proving repeated `call_indirect` roots remain separate; the fixture passed without implementation changes and matches the Binaryen spot check for the same WAT shape.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-call-indirect-root-10000`: 6768 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
+- Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`wat-shapes.md`](binaryen/passes/local-cse/wat-shapes.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so indirect-call root CSE is now a covered negative rather than open LCSE hardening work.
+
 ## [2026-06-04] wasm/source-status | proposal boundary vocabulary
 
 - Added [`raw/wasm/2026-06-04-webassembly-proposal-status-refresh.md`](raw/wasm/2026-06-04-webassembly-proposal-status-refresh.md) after checking the official WebAssembly Core 3.0 spec site, active proposals repository, finished-proposals table, CG process phase document, and local `src/validate/gen_valid.mbt` proposal-feature vocabulary.
