@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
+  - ../raw/wasm/2026-06-04-control-flow-current-refresh.md
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
   - ../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md
   - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
@@ -73,7 +74,7 @@ Do not treat success in one layer as proof for another. For example, core/binary
 
 ### Control and calls
 
-- [`control-flow-authoring.md`](control-flow-authoring.md) — `block`, `loop`, `if`, `br`, `br_if`, `br_table`, `return`, `unreachable`, label-depth lowering, and WAST shapes for stack-polymorphic unreachable code; validator bottom-value mechanics live in [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md).
+- [`control-flow-authoring.md`](control-flow-authoring.md) — `block`, `loop`, `if`, `br`, `br_if`, `br_table`, `return`, `unreachable`, label-depth lowering, `br_if` fallthrough payloads, `br_table` default/target equivalence, and WAST shapes for stack-polymorphic unreachable code; specialized tail-call, exception/`try_table`, and reference-branch semantics route to focused sibling pages, while validator bottom-value mechanics live in [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md).
 - [`parametric-instruction-authoring.md`](parametric-instruction-authoring.md) — `drop`, untyped `select`, typed `select (result ...)`, reference-select, and local multi-value typed-select portability caveats.
 - [`tail-call-authoring.md`](tail-call-authoring.md) — `return_call`, `return_call_indirect`, and `return_call_ref` across text, core, binary, validation, CFG, and generator layers, including the `return_call_ref` split from ordinary non-tail `call_ref`.
 
@@ -96,6 +97,7 @@ Do not treat success in one layer as proof for another. For example, core/binary
 
 The WAST pages deliberately keep text-surface gaps visible instead of smoothing them into generic support claims:
 
+- **Ordinary versus specialized control:** route `block` / `loop` / `if` / `br` / `br_if` / `br_table` / `return` / `unreachable` label mechanics through [`control-flow-authoring.md`](control-flow-authoring.md). Route `return_call*` through [`tail-call-authoring.md`](tail-call-authoring.md), `throw*` / `try_table` through [`exception-tag-authoring.md`](exception-tag-authoring.md), and `br_on_*` reference branches through [`reference-instruction-authoring.md`](reference-instruction-authoring.md) so branch/fallthrough refinements are not misread as ordinary `br_if` behavior.
 - **Reference branch, cast, and ordinary `call_ref` text:** ordinary `ref.test`, `ref.cast`, `br_on_*`, and non-tail `call_ref` forms are official WebAssembly/core/binary concepts and are Starshine core/binary/validator/generator-visible, but not all human-authored Starshine WAST text forms are available. Route reference/cast/branch forms through [`reference-instruction-authoring.md`](reference-instruction-authoring.md), which also owns the branch-label versus fallthrough type split, and route ordinary reference calls through [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md).
 - **Aggregate instruction text:** many official `array.*` and `struct.set` families currently need core/binary/generator fixtures, but focused shared-GC `struct.atomic.get*` WAST text now exists with `seq_cst` / `acq_rel` order spellings. A second initializer caveat now lives with that split: official WebAssembly allows `array.new*` as constant expressions, while Starshine's reviewed initializer gate does not yet; route through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) and [`../validate/constant-expressions.md`](../validate/constant-expressions.md).
 - **Linear-memory atomic text:** `0xFE` linear-memory atomic instructions are core/binary/validator/generator-visible, while WAST keywords/parser cases are still absent; route those through [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md). Do not confuse that gap with the narrower `struct.atomic.get*` aggregate WAST surface.
@@ -114,4 +116,4 @@ The WAST pages deliberately keep text-surface gaps visible instead of smoothing 
 
 ## Sources
 
-This catalog consolidates reviewed focused WAST pages and their committed manifests, including the 2026-06-04 element-segment and reference call/cast/branch source-routing refreshes plus the earlier 2026-05-20 reference-branch and `call_ref` refreshes. The broad current source families are the official WebAssembly text/syntax/validation pages captured through the focused manifests under [`../raw/wasm/`](../raw/wasm/), Starshine's WAST implementation under [`../../../src/wast/`](../../../src/wast/), core/binary definitions under [`../../../src/lib/`](../../../src/lib/) and [`../../../src/binary/`](../../../src/binary/), validator surfaces under [`../../../src/validate/`](../../../src/validate/), and fuzzing/generator surfaces under [`../../../src/fuzz/`](../../../src/fuzz/).
+This catalog consolidates reviewed focused WAST pages and their committed manifests, including the 2026-06-04 element-segment, ordinary control-flow, and reference call/cast/branch source-routing refreshes plus the earlier 2026-05-20 reference-branch and `call_ref` refreshes. The broad current source families are the official WebAssembly text/syntax/validation pages captured through the focused manifests under [`../raw/wasm/`](../raw/wasm/), Starshine's WAST implementation under [`../../../src/wast/`](../../../src/wast/), core/binary definitions under [`../../../src/lib/`](../../../src/lib/) and [`../../../src/binary/`](../../../src/binary/), validator surfaces under [`../../../src/validate/`](../../../src/validate/), and fuzzing/generator surfaces under [`../../../src/fuzz/`](../../../src/fuzz/).

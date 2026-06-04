@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-control-flow-current-refresh.md
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
   - ../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md
   - ../raw/wasm/2026-05-20-wast-parametric-select-sources.md
@@ -44,9 +45,9 @@ Use this page when writing, reducing, or widening WAST fixtures that use ordinar
 - terminators: `return` and `unreachable`;
 - nearby parametric control value selection: untyped and typed `select`.
 
-Tail-call control (`return_call*`) is documented separately in [`tail-call-authoring.md`](tail-call-authoring.md). Exception control (`throw`, `throw_ref`, and `try_table`) is documented separately in [`exception-tag-authoring.md`](exception-tag-authoring.md). Shared `(type $sig)` and inline function-signature type-use rules for block types live in [`gc-type-authoring.md`](gc-type-authoring.md). Detailed `drop`, untyped `select`, typed `select (result ...)`, reference-select, and local multi-value typed-select caveats live in [`parametric-instruction-authoring.md`](parametric-instruction-authoring.md). This page focuses on the label stack, branch payloads, fallthrough, and WAST shapes for unreachable continuations shared by the ordinary control family. The focused validator-side bottom-value model is [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md).
+The 2026-06-04 current-source refresh is [`../raw/wasm/2026-06-04-control-flow-current-refresh.md`](../raw/wasm/2026-06-04-control-flow-current-refresh.md). The broad original primary-source and local-code manifest remains [`../raw/wasm/2026-05-19-wast-control-flow-sources.md`](../raw/wasm/2026-05-19-wast-control-flow-sources.md). The main maintenance split is now explicit: this page owns **ordinary structured-control and label-payload mechanics**, while specialized families route elsewhere instead of duplicating their stack rules here.
 
-The primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-control-flow-sources.md`](../raw/wasm/2026-05-19-wast-control-flow-sources.md).
+Tail-call control (`return_call*`) is documented separately in [`tail-call-authoring.md`](tail-call-authoring.md). Exception control (`throw`, `throw_ref`, and `try_table`) is documented separately in [`exception-tag-authoring.md`](exception-tag-authoring.md). Reference-sensitive branches (`br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail`) are documented in [`reference-instruction-authoring.md`](reference-instruction-authoring.md). Shared `(type $sig)` and inline function-signature type-use rules for block types live in [`gc-type-authoring.md`](gc-type-authoring.md). Detailed `drop`, untyped `select`, typed `select (result ...)`, reference-select, and local multi-value typed-select caveats live in [`parametric-instruction-authoring.md`](parametric-instruction-authoring.md). This page focuses on the ordinary label stack, branch payloads, fallthrough, and WAST shapes for unreachable continuations. The focused validator-side bottom-value model is [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md).
 
 ## Beginner Mental Model
 
@@ -71,12 +72,12 @@ Starshine mirrors that split in [`typecheck_block(...)`](../../../src/validate/t
 
 | Layer | Owner | Control-flow facts to remember |
 | --- | --- | --- |
-| WAST keywords/parser | [`src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) | Recognizes ordinary control keywords, optional `$` labels, block-type syntax, `br_table` target lists, and folded `if` condition operands. |
+| WAST keywords/parser | [`src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) | Recognizes ordinary control keywords, optional `$` labels, block-type syntax, `br_table` target lists, and folded `if` condition operands. The same local keyword/parser files also expose `return_call*`, `throw*`, and `try_table`, but those stack contracts are owned by the focused pages linked above. |
 | WAST lowerer/printer | [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | Resolves `$` labels to numeric `LabelIdx` depths. Prints structured control with explicit `end`; prints `br_table` targets followed by default. |
-| Core instruction model | [`src/lib/types.mbt`](../../../src/lib/types.mbt) | Keeps `Block`, `Loop`, `If`, `Br`, `BrIf`, `BrTable`, `Return`, `Unreachable`, and `Select` as explicit variants. |
+| Core instruction model | [`src/lib/types.mbt`](../../../src/lib/types.mbt) | Keeps `Block`, `Loop`, `If`, `Br`, `BrIf`, `BrTable`, `Return`, `Unreachable`, and `Select` as explicit variants, plus the tail-call, exception, `try_table`, and reference-branch variants routed to sibling guides. |
 | Binary bytes | [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) | Structured frames own `end`/`else` nesting. Binary well-formedness is separate from stack typing. |
 | Validation | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | Expands block types, installs labels, checks branch payloads, treats `br_table`/`return`/`unreachable` as nonfallthrough, and applies unreachable-code stack polymorphism. |
-| CFG / passes | [`src/ir/cfg.mbt`](../../../src/ir/cfg.mbt), [`../ir2/cfg-contract.md`](../ir2/cfg-contract.md) | Uses structured-control and terminator policy to split blocks and edge kinds. Passes that move or rewrite control must revalidate. |
+| CFG / passes | [`src/ir/cfg.mbt`](../../../src/ir/cfg.mbt), [`src/ir/hot_flags.mbt`](../../../src/ir/hot_flags.mbt), [`../ir2/cfg-contract.md`](../ir2/cfg-contract.md) | Uses structured-control and terminator policy to split blocks and edge kinds. Passes that move or rewrite ordinary branches, specialized reference branches, tail calls, or exception edges must preserve the specific fallthrough/terminator contract and revalidate. |
 | Fuzz / WAST arbitrary | [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt) | `[FZG]003` valid-generator evidence covers typed control shapes. WAST arbitrary mirrors text syntax but is not a typed validity oracle. |
 
 ## Text Shapes And Stack Rules
@@ -179,7 +180,7 @@ However, values pushed after an unreachable point are still concrete values. End
 
 Starshine's core instruction model, binary codec, validator, and valid generator know about reference-branch instructions such as `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail`. The WAST keyword table and parser do not currently expose text keywords for those forms.
 
-Implication: if a test must prove reference-branch semantics today, use a core/binary fixture or first add WAST parser/lowerer/printer coverage. Do not treat WAST's inability to author `br_on_*` as evidence that Starshine lacks the core instruction or validation rule. The reference-specific stack refinements, cast hierarchy rules, branch-label versus fallthrough type split, and WAST text-surface matrix live in [`reference-instruction-authoring.md`](reference-instruction-authoring.md), refreshed by [`../raw/wasm/2026-05-20-reference-branch-validation-refresh.md`](../raw/wasm/2026-05-20-reference-branch-validation-refresh.md); this page remains canonical for ordinary label-depth and branch-payload mechanics. The valid-generator side of this surface is tracked under `[FZG]009` in [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md).
+Implication: if a test must prove reference-branch semantics today, use a core/binary fixture or first add WAST parser/lowerer/printer coverage. Do not treat WAST's inability to author `br_on_*` as evidence that Starshine lacks the core instruction or validation rule. The 2026-06-04 source-routing refresh keeps the split explicit: ordinary label depth and branch-payload mechanics stay here; reference-branch stack refinements, cast hierarchy rules, branch-label versus fallthrough type split, and WAST text-surface matrix live in [`reference-instruction-authoring.md`](reference-instruction-authoring.md), refreshed by [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md) and [`../raw/wasm/2026-05-20-reference-branch-validation-refresh.md`](../raw/wasm/2026-05-20-reference-branch-validation-refresh.md). The valid-generator side of this surface is tracked under `[FZG]009` in [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md).
 
 ## Rewrite And Validation Checklist
 
@@ -188,15 +189,16 @@ When a pass, generator, or fixture change touches ordinary control flow:
 1. **Preserve label meaning.** Moving a branch across `block`, `loop`, `if`, or `try_table` scopes can change `LabelIdx` depth even if the numeric immediate still exists.
 2. **Respect loop-vs-block payloads.** Loop branches target parameters; block/if branches target results.
 3. **Recheck `br_if` fallthrough.** Payload values stay on the not-taken path; movement or cleanup must not silently drop them.
-4. **Recheck every `br_table` target.** All table/default labels must accept equivalent payload types after any type or block-type rewrite.
-5. **Handle condition stack inputs.** `if` conditions are preceding stack values, not a child expression field in the core `If` node.
-6. **Keep binary and WAST layers separate.** Binary `end`/`else` frames are codec structure; passes should rewrite `Instruction` trees, not raw terminator tokens.
-7. **Validate after mutation.** Run the module validator after changing block types, branch payloads, function results, or structured-control nesting. For pass work, also follow [`../tooling/validation-gates.md`](../tooling/validation-gates.md) and the relevant Binaryen oracle lane.
-8. **Keep generators honest.** If WAST arbitrary mirrors a new control surface, update [`../fuzzing/wast-arbitrary-parity-plan.md`](../fuzzing/wast-arbitrary-parity-plan.md) and make clear whether the evidence is parser/printer-only or typed-valid generation.
+4. **Do not substitute specialized branches for ordinary branches.** `br_on_*` forms refine reference types and have different branch/fallthrough contracts; `return_call*`, `throw*`, and successful `br_table` / `return` are nonfallthrough only after their operands validate.
+5. **Recheck every `br_table` target.** All table/default labels must accept equivalent payload types after any type or block-type rewrite.
+6. **Handle condition stack inputs.** `if` conditions are preceding stack values, not a child expression field in the core `If` node.
+7. **Keep binary and WAST layers separate.** Binary `end`/`else` frames are codec structure; passes should rewrite `Instruction` trees, not raw terminator tokens.
+8. **Validate after mutation.** Run the module validator after changing block types, branch payloads, function results, or structured-control nesting. For pass work, also follow [`../tooling/validation-gates.md`](../tooling/validation-gates.md) and the relevant Binaryen oracle lane.
+9. **Keep generators honest.** If WAST arbitrary mirrors a new control surface, update [`../fuzzing/wast-arbitrary-parity-plan.md`](../fuzzing/wast-arbitrary-parity-plan.md) and make clear whether the evidence is parser/printer-only or typed-valid generation.
 
 ## Source Map
 
-- Primary-source and local-code manifests: [`../raw/wasm/2026-05-19-wast-control-flow-sources.md`](../raw/wasm/2026-05-19-wast-control-flow-sources.md), [`../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md`](../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md), [`../raw/wasm/2026-05-20-wast-parametric-select-sources.md`](../raw/wasm/2026-05-20-wast-parametric-select-sources.md), [`../raw/wasm/2026-05-20-reference-branch-validation-refresh.md`](../raw/wasm/2026-05-20-reference-branch-validation-refresh.md)
+- Primary-source and local-code manifests: [`../raw/wasm/2026-06-04-control-flow-current-refresh.md`](../raw/wasm/2026-06-04-control-flow-current-refresh.md), [`../raw/wasm/2026-05-19-wast-control-flow-sources.md`](../raw/wasm/2026-05-19-wast-control-flow-sources.md), [`../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md`](../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md), [`../raw/wasm/2026-05-20-wast-parametric-select-sources.md`](../raw/wasm/2026-05-20-wast-parametric-select-sources.md), [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md), [`../raw/wasm/2026-05-20-reference-branch-validation-refresh.md`](../raw/wasm/2026-05-20-reference-branch-validation-refresh.md)
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Core model and binary codec: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)
 - Validation and CFG: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md), [`../ir2/cfg-contract.md`](../ir2/cfg-contract.md)

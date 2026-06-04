@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wast | ordinary control-flow source-routing refresh
+
+- Added [`docs/wiki/raw/wasm/2026-06-04-control-flow-current-refresh.md`](raw/wasm/2026-06-04-control-flow-current-refresh.md) after rechecking current official WebAssembly Core 3.0 syntax, text, binary, validation, and execution instruction pages plus Starshine WAST/core/binary/validator/CFG/fuzz surfaces.
+- Refreshed [`wast/control-flow-authoring.md`](wast/control-flow-authoring.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so ordinary `block` / `loop` / `if` / `br` / `br_if` / `br_table` / `return` / `unreachable` label mechanics stay distinct from tail-call, exception/`try_table`, and `br_on_*` reference-branch semantics.
+- No code changed; the durable maintenance rule is that `br_if` fallthrough payloads, `br_table` default/target equivalence, and bottom-value stack polymorphism remain ordinary-control facts, while specialized branches and terminators need their own focused pages before pass or CFG rewrites cite them.
+
 ## [2026-06-04] validate/wast/binary | constant-expression global.get context refresh
 
 - Added [`docs/wiki/raw/wasm/2026-06-04-constant-expression-current-refresh.md`](raw/wasm/2026-06-04-constant-expression-current-refresh.md) after rechecking current official WebAssembly Core 3.0 module and instruction validation pages dated 2026-06-03 plus Starshine validator, GenValid, and invalid-AST surfaces.
