@@ -54,6 +54,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added [`tooling/wiki-maintenance-playbook.md`](tooling/wiki-maintenance-playbook.md) as the operational checklist for autonomous wiki runs: target selection, evidence ladder, update flow, raw-source placement, transient-artifact citation discipline, whole-wiki health checks, common mistakes, and wiki-only signoff.
 - Refreshed [`raw/README.md`](raw/README.md) and [`index.md`](index.md) so the new `raw/wiki/` methodology-source directory and playbook are discoverable without duplicating the normative schema in [`../README.md`](../README.md).
 
+## [2026-06-04] passes/local-cse | memory.copy local-only reuse fix
+
+- Spot-checked a `memory.copy` between two local-only arithmetic trees and confirmed Binaryen materializes the pre-copy expression with `local.tee` and reuses it after the linear bulk-memory copy.
+- Added a failing WAT-form direct `local-cse` regression, then fixed the raw/module path to model `memory.copy` as a three-operand, no-result instruction rather than an unknown hard boundary.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-memory-copy-local-only-10000`: 6762 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
+- Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`wat-shapes.md`](binaryen/passes/local-cse/wat-shapes.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so this effect-invalidation case is tracked as a covered positive without broad memory/GVN claims.
+
 ## [2026-06-04] passes/local-cse | array.init_elem local-only reuse fix
 
 - Spot-checked an `array.init_elem` between two local-only arithmetic trees and confirmed Binaryen materializes the pre-initialization expression with `local.tee` and reuses it after the GC array/element initialization.

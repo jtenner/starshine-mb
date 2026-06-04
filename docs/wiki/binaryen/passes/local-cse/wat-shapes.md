@@ -313,7 +313,7 @@ Important honesty note:
 - this exact family is directly source-derived from the `LocalCSE.cpp` comments and the effect checker logic
 - I did not see a dedicated standalone `local-cse.wast` fixture for this exact store-between-loads case in this thread
 
-## Shape 8b: GC writes do not kill local-only reuse
+## Shape 8b: GC and bulk-memory writes do not kill local-only reuse
 
 Before, `struct.set` variant:
 
@@ -363,21 +363,29 @@ Before, `array.init_elem` variant:
 (drop (i32.add (local.get $x) (local.get $y)))
 ```
 
+Before, `memory.copy` variant:
+
+```wat
+(drop (i32.add (local.get $x) (local.get $y)))
+(memory.copy (i32.const 0) (i32.const 4) (i32.const 1))
+(drop (i32.add (local.get $x) (local.get $y)))
+```
+
 After, conceptually:
 
 ```wat
 (drop (local.tee $tmp (i32.add (local.get $x) (local.get $y))))
-(struct.set $box 0 (local.get $box) (i32.const 7)) ;; or array.set/fill/copy/init_data/init_elem ...
+(struct.set $box 0 (local.get $box) (i32.const 7)) ;; or array.set/fill/copy/init_data/init_elem/memory.copy ...
 (drop (local.get $tmp))
 ```
 
 Why this rewrites:
 
 - the repeated tree reads locals only
-- the intervening `struct.set`, `array.set`, `array.fill`, `array.copy`, `array.init_data`, or `array.init_elem` mutates GC storage, not those locals
-- this is an effect-invalidation decision, not arbitrary heap CSE
+- the intervening `struct.set`, `array.set`, `array.fill`, `array.copy`, `array.init_data`, or `array.init_elem` mutates GC storage, or `memory.copy` mutates linear memory, not those locals
+- this is an effect-invalidation decision, not arbitrary heap or memory CSE
 
-Starshine status: these Binaryen-positive shapes are covered and implemented narrowly by modeling `struct.set`, `array.set`, `array.fill`, `array.copy`, `array.init_data`, and `array.init_elem` operands in the raw/module path. The write instructions themselves are still not reusable roots.
+Starshine status: these Binaryen-positive shapes are covered and implemented narrowly by modeling `struct.set`, `array.set`, `array.fill`, `array.copy`, `array.init_data`, `array.init_elem`, and `memory.copy` operands in the raw/module path. The write instructions themselves are still not reusable roots.
 
 ## Shape 9: repeated ordinary call roots do not fold
 
