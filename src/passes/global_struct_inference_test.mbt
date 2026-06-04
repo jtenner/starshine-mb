@@ -722,6 +722,103 @@ test "global-struct-inference un-nests pure float rounding direct-global fields"
 }
 
 ///|
+test "global-struct-inference un-nests pure float div min max copysign direct-global fields" {
+  let f32_input =
+    #| (module
+    #|   (type $box (sub (struct (field f32))))
+    #|   (global $g (ref $box)
+    #|     (struct.new $box
+    #|       (f32.div (f32.const 9) (f32.const 3))))
+    #|   (func (export "read") (result f32)
+    #|     global.get $g
+    #|     struct.get $box 0))
+    #|
+  let f32_optimized = gsi_test_run(f32_input, false)
+  let f32_pretty = f32_optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(f32_pretty.contains("struct.get"), msg=f32_pretty)
+  assert_true(f32_pretty.contains("global.get"), msg=f32_pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(f32_optimized), 2)
+  assert_true(
+    try! gsi_test_global_init_contains(
+      f32_optimized,
+      0,
+      @lib.Instruction::f32_div(),
+    ),
+  )
+
+  let f32_max_input =
+    #| (module
+    #|   (type $box (sub (struct (field f32))))
+    #|   (global $g (ref $box)
+    #|     (struct.new $box
+    #|       (f32.max (f32.const 1) (f32.const 2))))
+    #|   (func (export "read") (result f32)
+    #|     global.get $g
+    #|     struct.get $box 0))
+    #|
+  let f32_max_optimized = gsi_test_run(f32_max_input, false)
+  let f32_max_pretty = f32_max_optimized.pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
+  assert_false(f32_max_pretty.contains("struct.get"), msg=f32_max_pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(f32_max_optimized), 2)
+  assert_true(
+    try! gsi_test_global_init_contains(
+      f32_max_optimized,
+      0,
+      @lib.Instruction::f32_max(),
+    ),
+  )
+
+  let f64_min_input =
+    #| (module
+    #|   (type $box (sub (struct (field f64))))
+    #|   (global $g (ref $box)
+    #|     (struct.new $box
+    #|       (f64.min (f64.const 1) (f64.const 2))))
+    #|   (func (export "read") (result f64)
+    #|     global.get $g
+    #|     struct.get $box 0))
+    #|
+  let f64_min_optimized = gsi_test_run(f64_min_input, false)
+  let f64_min_pretty = f64_min_optimized.pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
+  assert_false(f64_min_pretty.contains("struct.get"), msg=f64_min_pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(f64_min_optimized), 2)
+  assert_true(
+    try! gsi_test_global_init_contains(
+      f64_min_optimized,
+      0,
+      @lib.Instruction::f64_min(),
+    ),
+  )
+
+  let f64_copysign_input =
+    #| (module
+    #|   (type $box (sub (struct (field f64))))
+    #|   (global $g (ref $box)
+    #|     (struct.new $box
+    #|       (f64.copysign (f64.const 2.5) (f64.const -1))))
+    #|   (func (export "read") (result f64)
+    #|     global.get $g
+    #|     struct.get $box 0))
+    #|
+  let f64_optimized = gsi_test_run(f64_copysign_input, false)
+  let f64_pretty = f64_optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(f64_pretty.contains("struct.get"), msg=f64_pretty)
+  assert_true(f64_pretty.contains("global.get"), msg=f64_pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(f64_optimized), 2)
+  assert_true(
+    try! gsi_test_global_init_contains(
+      f64_optimized,
+      0,
+      @lib.Instruction::f64_copysign(),
+    ),
+  )
+}
+
+///|
 test "global-struct-inference un-nests pure integer sign-extension direct-global fields" {
   let i32_input =
     #| (module

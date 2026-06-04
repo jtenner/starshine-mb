@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-03
+last_reviewed: 2026-06-04
 sources:
   - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
@@ -66,7 +66,7 @@ So this is **not** generic whole-program struct analysis and **not** just Starsh
   - `global-refining` tightens global declarations first
   - the second `remove-unused-module-elements` can then discard newly dead baggage
   - `gsi` turns the surviving global-instance story into more precise field reads before the function-pass cluster starts
-- The 2026-06-03 `[O4Z-AUDIT-GSI]` slice upgraded and signed off the direct-global subset, then moved the remaining full-Binaryen surfaces to follow-up scope; follow-ups added a subtype-aware closed-world candidate/poison fact table, consume exact and validation-safe subtype-propagated single-candidate local/param origin rewrites, fold exact and subtype-propagated local/param reads when every safe candidate yields the same materializable value, synthesize exact or subtype-propagated two-value singleton-group `select(ref.eq(...))` rewrites, and add guarded small-module arithmetic/bitwise/shift-rotate/unary-numeric/float-rounding-sqrt/sign-extension un-nesting plus `ref.get_desc` folds/selects.
+- The 2026-06-03 `[O4Z-AUDIT-GSI]` slice upgraded and signed off the direct-global subset, then moved the remaining full-Binaryen surfaces to follow-up scope; follow-ups added a subtype-aware closed-world candidate/poison fact table, consume exact and validation-safe subtype-propagated single-candidate local/param origin rewrites, fold exact and subtype-propagated local/param reads when every safe candidate yields the same materializable value, synthesize exact or subtype-propagated two-value singleton-group `select(ref.eq(...))` rewrites, and add guarded small-module arithmetic/bitwise/shift-rotate/unary-numeric/float-binary/float-rounding-sqrt/sign-extension un-nesting plus `ref.get_desc` folds/selects.
 - In the saved generated-artifact `-O4z` audit, slot `7` (`gsi`) was already green before the O4z audit upgrade, and the 2026-06-03 direct-pass audit refreshed that evidence after enabling the open-world direct-global layer:
   - exact wasm equal: `yes`
   - normalized WAT equal: `yes`

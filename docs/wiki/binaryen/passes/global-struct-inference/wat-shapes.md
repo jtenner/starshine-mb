@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-03
+last_reviewed: 2026-06-04
 sources:
   - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
@@ -237,7 +237,7 @@ Why this matters:
 
 - non-constant fields are not automatically disqualified
 - Binaryen can manufacture a fresh immutable global to make the origin proof usable
-- Starshine's guarded local subset currently handles small-module arithmetic operands, integer bitwise operands such as `i32.and` / `i64.xor`, integer shift/rotate operands such as `i32.shl` / `i64.rotl`, and unary numeric operands such as `i32.popcnt` / `i64.eqz` / `f64.neg`, and float square-root operands such as `f32.sqrt` / `f64.sqrt`, and float rounding operands such as `f32.ceil` / `f64.nearest`, and integer sign-extension operands such as `i32.extend8_s` / `i64.extend32_s`; direct and closed-world local/param packed-field reads are repaired when the split payload is a fresh immutable `global.get`, but the pass still avoids arbitrary expression equivalence and large-module unbounded un-nesting
+- Starshine's guarded local subset currently handles small-module arithmetic operands, integer bitwise operands such as `i32.and` / `i64.xor`, integer shift/rotate operands such as `i32.shl` / `i64.rotl`, unary numeric operands such as `i32.popcnt` / `i64.eqz` / `f64.neg`, float div/min/max/copysign operands such as `f32.div` / `f64.copysign`, and float square-root operands such as `f32.sqrt` / `f64.sqrt`, float rounding operands such as `f32.ceil` / `f64.nearest`, and integer sign-extension operands such as `i32.extend8_s` / `i64.extend32_s`; direct and closed-world local/param packed-field reads are repaired when the split payload is a fresh immutable `global.get`, but the pass still avoids arbitrary expression equivalence and large-module unbounded un-nesting
 
 ## Positive family 8: immutable global-get field operands count as constant enough
 
@@ -531,4 +531,4 @@ Current Starshine implements only a subset of this catalog:
 - exact and subtype-propagated multi-candidate local/param one-value folds when all safe direct candidates expose the same materializable field value
 - exact and subtype-propagated multi-candidate local/param two-value `select(ref.eq(...))` rewrites when exactly two materializable values exist and one value group has a singleton candidate global
 
-It now implements subtype-propagated parent origin rewrites, one-value folds, singleton-tested two-value selects, small-module arithmetic/bitwise/shift-rotate/unary-numeric/float-rounding-sqrt/sign-extension fresh-global un-nesting, packed signed/unsigned direct-global and closed-world local/param repair after fresh-global splitting, and direct/closed-world `ref.get_desc` folds/selects. Starshine now has an in-tree `struct.atomic.get*` instruction form, and GSI folds immutable-field direct-global and closed-world local/param atomic reads while preserving packed signedness and null traps; generic optimizer/effect surfaces still treat the opcodes conservatively. It still does **not** implement the sibling descriptor-cast pass; large modules also keep the materializable-only GSI subset to preserve pass-local artifact budget. Keep that distinction visible when adding examples or parity claims.
+It now implements subtype-propagated parent origin rewrites, one-value folds, singleton-tested two-value selects, small-module arithmetic/bitwise/shift-rotate/unary-numeric/float-binary/float-rounding-sqrt/sign-extension fresh-global un-nesting, packed signed/unsigned direct-global and closed-world local/param repair after fresh-global splitting, and direct/closed-world `ref.get_desc` folds/selects. Starshine now has an in-tree `struct.atomic.get*` instruction form, and GSI folds immutable-field direct-global and closed-world local/param atomic reads while preserving packed signedness and null traps; generic optimizer/effect surfaces still treat the opcodes conservatively. It still does **not** implement the sibling descriptor-cast pass; large modules also keep the materializable-only GSI subset to preserve pass-local artifact budget. Keep that distinction visible when adding examples or parity claims.

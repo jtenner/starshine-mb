@@ -52,18 +52,6 @@ Use this checklist for every `[GSI-PARITY-*]` slice below:
 
 The remaining-gap owner matrix now lives in `docs/wiki/binaryen/passes/global-struct-inference/parity.md`; execute the active slices below in dependency order and keep completed matrix history in the wiki/log/git history, not in this backlog.
 
-- [GSI-PARITY-002] - Budgeted Non-Constant Operand Un-Nesting Expansion
-  - Status: active v0.1.0 release-gating parity implementation or explicit deferral.
-  - Goal: decide whether Starshine can safely broaden Binaryen-style fresh-global un-nesting beyond the current small-module, read-gated scalar subset.
-  - Why: upstream Binaryen can split nested non-constant field operands into immutable globals and then fold reads; Starshine deliberately skips larger modules and unsupported operand families to protect pass-local runtime.
-  - Deliverables:
-    - Add focused failing-first fixtures for at least one upstream-supported un-nesting shape that Starshine currently skips only because of the small-module gate or an unsupported pure nontrapping operand family.
-    - Measure pass-local cost on the debug artifact and one large generated or saved fixture before widening the gate.
-    - Implement the smallest safe widening, such as an adaptive per-function/read-count gate or one additional pure operand family, only if timing stays within the pass budget.
-    - If widening is too expensive, document the runtime blocker and keep the existing gate explicit.
-  - Suggested tests: `moon test src/passes`, `moon build --target native --release src/cmd`, 1000 then 10000 direct GSI compare, and debug-artifact timing.
-  - Exit criteria: either a new un-nesting family/gate is green with timing evidence, or the v0.1.0 docs state why the large-module/unbounded Binaryen surface remains deferred.
-
 - [GSI-PARITY-003] - Non-Adjacent And Cast-Aware Read Operand Rewrites
   - Status: active v0.1.0 release-gating parity implementation or explicit deferral.
   - Goal: extend GSI beyond adjacent producer/read pairs only where the reference operand is evaluated once and the replacement preserves traps and validation.
@@ -112,7 +100,7 @@ The remaining-gap owner matrix now lives in `docs/wiki/binaryen/passes/global-st
   - Exit criteria: typed repair is either implemented for a concrete failing surface or explicitly closed as not required for the v0.1.0 GSI subset.
 
 - [GSI-PARITY-007] - Final GSI v0.1.0 Signoff
-  - Status: active v0.1.0 release-gating signoff after the remaining GSI parity implementation/deferral slices `[GSI-PARITY-002]` through `[GSI-PARITY-006]`.
+  - Status: active v0.1.0 release-gating signoff after the remaining GSI parity implementation/deferral slices `[GSI-PARITY-003]` through `[GSI-PARITY-006]`.
   - Goal: make the final v0.1.0 GSI contract explicit and oracle-backed.
   - Why: GSI has accumulated several safe subsets; release notes need a clean distinction between implemented parity, deliberate conservative gaps, and out-of-scope atomic aggregate work.
   - Deliverables:

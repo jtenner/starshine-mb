@@ -642,9 +642,17 @@ fn gsi_unnestable_stack_operand_count(instr : @lib.Instruction) -> Int? {
     | @lib.F32Add
     | @lib.F32Sub
     | @lib.F32Mul
+    | @lib.F32Div
+    | @lib.F32Min
+    | @lib.F32Max
+    | @lib.F32Copysign
     | @lib.F64Add
     | @lib.F64Sub
-    | @lib.F64Mul => Some(2)
+    | @lib.F64Mul
+    | @lib.F64Div
+    | @lib.F64Min
+    | @lib.F64Max
+    | @lib.F64Copysign => Some(2)
     _ => None
   }
 }
@@ -699,7 +707,11 @@ fn gsi_unnestable_instr_result_type(
     | @lib.F32Sqrt
     | @lib.F32Add
     | @lib.F32Sub
-    | @lib.F32Mul => Some(@lib.ValType::f32())
+    | @lib.F32Mul
+    | @lib.F32Div
+    | @lib.F32Min
+    | @lib.F32Max
+    | @lib.F32Copysign => Some(@lib.ValType::f32())
     @lib.F64Abs
     | @lib.F64Neg
     | @lib.F64Ceil
@@ -709,7 +721,11 @@ fn gsi_unnestable_instr_result_type(
     | @lib.F64Sqrt
     | @lib.F64Add
     | @lib.F64Sub
-    | @lib.F64Mul => Some(@lib.ValType::f64())
+    | @lib.F64Mul
+    | @lib.F64Div
+    | @lib.F64Min
+    | @lib.F64Max
+    | @lib.F64Copysign => Some(@lib.ValType::f64())
     _ => gsi_simple_instr_result_type(env, instr)
   }
 }

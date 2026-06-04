@@ -2,6 +2,18 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] passes/gsi | float binary un-nesting widening
+
+- Extended [`src/passes/global_struct_inference.mbt`](../../src/passes/global_struct_inference.mbt) so guarded small-module GSI un-nesting accepts pure non-trapping float binary operands: `f32.div`, `f32.min`, `f32.max`, `f32.copysign`, and matching `f64` forms.
+- Added focused direct-global fixtures in [`src/passes/global_struct_inference_test.mbt`](../../src/passes/global_struct_inference_test.mbt), preserving the existing read-gated small-module policy and leaving unbounded large-module un-nesting deferred.
+- Refreshed the GSI wiki and pruned `[GSI-PARITY-002]` from [`agent-todo.md`](../../agent-todo.md) after green `moon test src/passes`, direct 10k GSI compare, and debug/startup-repro timing evidence.
+
+## [2026-06-04] validate/wast/binary/fuzzing | linear-memory threads shared-memory refresh
+
+- Added [`docs/wiki/raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md) after rechecking current Core 3.0 memory type pages, the WebAssembly threads proposal overview/spec-change text, threads draft syntax/instruction/execution pages, and Starshine binary/validator/typechecker/generator/WAST resource source evidence.
+- Refreshed [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), and [`index.md`](index.md) so shared linear memory is documented as proposal/local rather than stable Core 3.0, shared memories require maxima, Starshine's shared-without-max binary flags are decode-accepted invalid-validation fixtures, and current Starshine atomics conservatively require shared memory even where the proposal distinguishes ordinary atomic accesses from wait-on-unshared traps.
+- No code changed; the durable maintenance rule is to cite the new raw bridge for shared-memory maxima, `[FZG]006` bounded shared memories, `[FZG]017` current Starshine-valid atomics, and binary fixtures using `0x02` / `0x06` shared-without-max flags.
+
 ## [2026-06-04] passes/gsi | remaining parity gap matrix refresh
 
 - Refreshed [`binaryen/passes/global-struct-inference/parity.md`](binaryen/passes/global-struct-inference/parity.md) with a remaining-gap owner matrix for official `global-struct-inference`, shared descriptor, and sibling `gsi-desc-cast` surfaces.
