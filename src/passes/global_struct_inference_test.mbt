@@ -351,6 +351,69 @@ test "global-struct-inference un-nests pure bitwise direct-global fields" {
 }
 
 ///|
+test "global-struct-inference un-nests packed direct-global fields with signedness repair" {
+  let signed8 =
+    #| (module
+    #|   (type $box (sub (struct (field i8))))
+    #|   (global $g (ref $box)
+    #|     (struct.new $box
+    #|       (i32.and (i32.const 255) (i32.const 255))))
+    #|   (func (export "read") (result i32)
+    #|     global.get $g
+    #|     struct.get_s $box 0))
+    #|
+  let signed8_optimized = gsi_test_run(signed8, false)
+  let signed8_pretty = signed8_optimized.pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
+  assert_false(signed8_pretty.contains("struct.get"), msg=signed8_pretty)
+  assert_true(signed8_pretty.contains("i32.extend8s"), msg=signed8_pretty)
+  assert_true(signed8_pretty.contains("global.get"), msg=signed8_pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(signed8_optimized), 2)
+  assert_true(
+    try! gsi_test_global_init_contains(
+      signed8_optimized,
+      0,
+      @lib.Instruction::i32_and(),
+    ),
+  )
+  assert_true(
+    try! gsi_test_global_init_contains(
+      signed8_optimized,
+      1,
+      @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    ),
+  )
+
+  let unsigned16 =
+    #| (module
+    #|   (type $box (sub (struct (field i16))))
+    #|   (global $g (ref $box)
+    #|     (struct.new $box
+    #|       (i32.popcnt (i32.const 65535))))
+    #|   (func (export "read") (result i32)
+    #|     global.get $g
+    #|     struct.get_u $box 0))
+    #|
+  let unsigned16_optimized = gsi_test_run(unsigned16, false)
+  let unsigned16_pretty = unsigned16_optimized.pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
+  assert_false(unsigned16_pretty.contains("struct.get"), msg=unsigned16_pretty)
+  assert_true(unsigned16_pretty.contains("i32.and"), msg=unsigned16_pretty)
+  assert_true(unsigned16_pretty.contains("I32(65535)"), msg=unsigned16_pretty)
+  assert_true(unsigned16_pretty.contains("global.get"), msg=unsigned16_pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(unsigned16_optimized), 2)
+  assert_true(
+    try! gsi_test_global_init_contains(
+      unsigned16_optimized,
+      0,
+      @lib.Instruction::i32_popcnt(),
+    ),
+  )
+}
+
+///|
 test "global-struct-inference un-nests pure unary numeric direct-global fields" {
   let i32_input =
     #| (module

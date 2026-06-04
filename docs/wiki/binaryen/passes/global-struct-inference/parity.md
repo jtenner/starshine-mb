@@ -52,6 +52,45 @@ related:
 - Registry and preset coverage live in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), with module-pass dispatch in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
 - The pass is active in-tree and is scheduled in the early module cluster after `global-refining`.
 
+## 2026-06-03 packed direct-global un-nesting repair
+
+The packed direct-global un-nesting repair lets fresh immutable globals produced by the guarded small-module un-nesting path participate in `struct.get_s` / `struct.get_u` folds. Starshine now records un-nested packed payloads as materializable `i32` `global.get` values, then rebuilds signed reads with `i32.extend8s` / `i32.extend16s` and unsigned reads with `i32.and` masks. The focused public-pipeline test covers direct-global packed `i8` signed and `i16` unsigned operands that split into fresh globals and then fold the field read.
+
+The final direct compare ran with a prebuilt native Starshine binary and automatic parallel workers:
+
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass global-struct-inference --keep-going-after-command-failures --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --out-dir .tmp/pass-fuzz-global-struct-inference-packed-direct-unnest-final-10000`
+
+Result:
+
+- compared cases: 9975 / 10000
+- normalized matches: 9975
+- mismatches: 0
+- validation failures: 0
+- generator failures: 0
+- command failures: 25
+
+Command-failure classes from `summary.json`:
+
+- `22` `binaryen-rec-group-zero`
+- `1` `binaryen-bad-section-size`
+- `1` `binaryen-table-index-out-of-range`
+- `1` `binaryen-invalid-tag-index`
+
+The debug artifact timing replay used:
+
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --global-struct-inference --timing-only --out-dir .tmp/gsi-debug-artifact-timing-packed-direct-unnest-final`
+
+Result:
+
+- canonical wasm equal: yes
+- Starshine runtime: `345.354 ms`
+- Binaryen runtime: `458.676 ms`
+- Starshine pass runtime: `0.418 ms`
+- Binaryen pass runtime: `3.199 ms`
+- Starshine pass skipped raw: no
+
+This is semantic smoke and performance evidence for packed direct-global fresh-global repair only. It does not change the large-module gate, sibling descriptor-cast scope, atomic-get blocker, or explicit refinalization status.
+
 ## 2026-06-03 subtype-propagated parent/supertype origin follow-up
 
 The GSI001-I follow-up consumes subtype-propagated one-candidate facts for parent/supertype local/param origins. When a parent-typed `local.get -> struct.get*` pair has exactly one safe propagated candidate, Starshine now rewrites the reference operand to a trap-preserving block that drops the original local and yields the candidate global, leaving the `struct.get*` in place. The rewrite additionally checks the candidate global's declared reference heap type against the read type, so too-broad declarations like `eqref` remain unchanged instead of creating invalid `struct.get*` operands. This closes the local origin-only supertype gap for the one-candidate, validation-safe shape while keeping arbitrary operands, descriptor-cast, atomic-get, and broader refinalization work out of scope.

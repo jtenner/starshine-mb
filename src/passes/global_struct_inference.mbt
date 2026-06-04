@@ -543,9 +543,14 @@ fn gsi_const_expr_for_field(
 ) -> @lib.Expr? {
   match field_type.get_storage_type() {
     @lib.PackTypeStorageType(_) =>
-      match instr {
-        @lib.I32Const(_) => Some(@lib.Expr::new([instr]))
-        _ => None
+      match gsi_simple_instr_result_type(env, instr) {
+        Some(instr_type) =>
+          if @validate.Match::matches(instr_type, @lib.ValType::i32(), env) {
+            Some(@lib.Expr::new([instr]))
+          } else {
+            None
+          }
+        None => None
       }
     @lib.ValTypeStorageType(value_type) =>
       match gsi_simple_instr_result_type(env, instr) {
@@ -1259,7 +1264,26 @@ fn gsi_packed_expr(expr : @lib.Expr, bits : Int, signed : Bool) -> @lib.Expr? {
           ),
         ]),
       )
-    _ => None
+    @lib.Expr(instrs) => {
+      let out = instrs.copy()
+      if signed {
+        out.push(
+          if bits == 8 {
+            @lib.Instruction::i32_extend8s()
+          } else {
+            @lib.Instruction::i32_extend16s()
+          },
+        )
+      } else {
+        out.push(
+          @lib.Instruction::i32_const(
+            @lib.I32::new(if bits == 8 { 0xFF } else { 0xFFFF }),
+          ),
+        )
+        out.push(@lib.Instruction::i32_and())
+      }
+      Some(@lib.Expr::new(out))
+    }
   }
 }
 

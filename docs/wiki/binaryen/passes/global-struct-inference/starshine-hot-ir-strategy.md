@@ -54,7 +54,7 @@ The easiest way to follow the in-tree implementation is this file map:
 - `src/passes/global_struct_inference.mbt:20-460`
   - `GsiClosedWorldFacts`, allocation scanners, equality-comparable global declaration filter, subtype propagation helpers, exact direct candidate extraction, exact direct single-candidate extraction, and `gsi_build_closed_world_facts(...)`
 - `src/passes/global_struct_inference.mbt:577-1146`
-  - guarded small-module arithmetic/bitwise/shift-rotate/unary-numeric un-nesting request collection, fresh-global synthesis, initializer repair, and forced reorder-globals repair
+  - guarded small-module arithmetic/bitwise/shift-rotate/unary-numeric un-nesting request collection, fresh-global synthesis, initializer repair, dynamic packed signed/unsigned repair for fresh-global payloads, and forced reorder-globals repair
 - `src/passes/global_struct_inference.mbt:1149-1232`
   - `gsi_candidate_field_values(...)` and `gsi_candidate_global_values(...)`: harvest immutable field payloads from trusted global initializers, with descriptor-constructor field operands read before the descriptor operand, and accept only top-level `struct.new`, `struct.new_default`, `struct.new_desc`, and `struct.new_default_desc` globals
 - `src/passes/global_struct_inference.mbt:1235-2118`
@@ -118,7 +118,8 @@ The helper surface accepts:
 
 Packed fields are handled specially:
 
-- only `i32.const` payloads are packed locally
+- literal `i32.const` payloads are folded to repaired constants
+- immutable `global.get` payloads produced by the guarded un-nesting path are repaired dynamically with `i32.extend8s` / `i32.extend16s` for signed reads and `i32.and` masks for unsigned reads
 - `gsi_pack_signed(...)`, `gsi_pack_unsigned(...)`, and `gsi_packed_expr(...)` rebuild the signed or unsigned packed read result
 
 This is narrower than upstream Binaryen's `PossibleConstantValues` plus un-nesting path; the guarded un-nesting vocabulary currently includes arithmetic add/sub/mul, integer bitwise and/or/xor, integer shift/rotate, and pure unary numeric operands.
@@ -223,7 +224,7 @@ But it should not be described as if it were the whole official Binaryen pass.
 The focused tests in `src/passes/global_struct_inference_test.mbt` currently prove these local contracts:
 
 - the pass folds immutable direct-global `struct.get*` in open world
-- small-module non-constant un-nesting handles read-gated arithmetic, integer bitwise, integer shift/rotate, and unary numeric field operands
+- small-module non-constant un-nesting handles read-gated arithmetic, integer bitwise, integer shift/rotate, and unary numeric field operands, including direct-global packed signed/unsigned reads repaired after fresh-global splitting
 - nullable direct-global reads preserve the null trap
 - packed i8/i16 signed and unsigned direct reads are repaired
 - default, descriptor, and default-descriptor constructors expose foldable fields

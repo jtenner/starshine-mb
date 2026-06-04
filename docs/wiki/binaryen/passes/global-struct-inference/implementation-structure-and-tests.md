@@ -163,7 +163,7 @@ This line shows the dispatcher still passes `closed_world`. The current direct-g
 - `src/passes/global_struct_inference.mbt:20-460`
   - `GsiClosedWorldFacts`, struct-allocation scanners, equality-comparable global declaration filter, subtype propagation helpers, exact direct candidate extraction, exact direct single-candidate extraction, and `gsi_build_closed_world_facts(...)`.
 - `src/passes/global_struct_inference.mbt:577-1146`
-  - guarded small-module arithmetic/bitwise/shift-rotate/unary-numeric un-nesting request collection, fresh-global synthesis, initializer repair, and forced reorder-globals repair.
+  - guarded small-module arithmetic/bitwise/shift-rotate/unary-numeric un-nesting request collection, fresh-global synthesis, initializer repair, dynamic packed signed/unsigned repair for fresh-global payloads, and forced reorder-globals repair.
 - `src/passes/global_struct_inference.mbt:1149-1232`
   - default-value materialization, simple one-instruction result typing, accepted field-value materialization, candidate field-value harvesting from trusted global initializers, and accepted top-level global initializer constructors.
 - `src/passes/global_struct_inference.mbt:1235-2118`
@@ -188,7 +188,7 @@ Current focused public-pipeline tests prove the local rewrite subset:
 - mutable-field, mutable-global, and imported-global direct-global negatives
 - non-global ref producers remaining unchanged in open world
 - exact and subtype-propagated single-candidate param and body-local origins rewriting in closed world with null-trap preservation, with broad global-declaration negatives for invalid replacement types
-- read-gated small-module non-constant un-nesting for arithmetic, integer bitwise, integer shift/rotate, and unary numeric field operands
+- read-gated small-module non-constant un-nesting for arithmetic, integer bitwise, integer shift/rotate, and unary numeric field operands, including packed signed/unsigned direct-global reads whose fresh-global payloads need dynamic repair
 - exact and subtype-propagated multi-candidate one-value local/param folds in closed world, including equal literals, immutable `global.get`s, body locals, packed-field repair, child-only parent reads, and mixed parent/child candidate order
 - exact and subtype-propagated multi-candidate two-value local/param selects in closed world, including two-global, three-global singleton-group, child-only parent, and mixed parent/child positives
 - open-world, more-than-two-value, two-equal-pair, non-materializable, poisoned child/exact type, mutable-field, mutable-global, and too-broad/`anyref` local-origin negatives
@@ -221,7 +221,7 @@ These tests now cover the direct-global O4z audit surfaces, the subtype-aware cl
 | Two-value `select(ref.eq(...))` | yes | yes for exact/subtype-propagated local/param candidate sets with two materializable values and one singleton group |
 | Immutable `global.get` as materializable value | yes | yes for direct field payloads, grouped local/param rewrites, and fresh globals produced by the small-module un-nesting path |
 | Non-constant un-nesting | yes | yes for small-module pure arithmetic, integer bitwise, integer shift/rotate, and unary numeric field operands that are actually read, using fresh immutable globals plus forced `reorder-globals` repair; large modules keep the materializable-only path |
-| Packed-field repair | yes | yes for `i32.const` direct payloads |
+| Packed-field repair | yes | yes for `i32.const` direct payloads and fresh-global `global.get` payloads produced by guarded direct-global un-nesting |
 | Atomic gets | yes | no local struct atomic-get opcode surface exists yet |
 | `ref.get_desc` | yes | yes for small-module direct and closed-world local/param folds/selects over descriptor-constructor globals |
 | `gsi-desc-cast` | sibling pass | boundary-only sibling name, no implementation |

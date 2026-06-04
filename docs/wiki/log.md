@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | global-struct-inference packed un-nesting repair
+
+- Repaired guarded small-module direct-global `global-struct-inference` un-nesting for packed fields whose un-nested payload becomes an immutable `global.get`, preserving `struct.get_s` / `struct.get_u` behavior with dynamic packed repair instead of only folding literal `i32.const` payloads.
+- Added public-pipeline coverage in `src/passes/global_struct_inference_test.mbt` for direct-global packed `i8` signed and `i16` unsigned non-constant operands splitting into fresh immutable globals, then folding the read through `i32.extend8s` or `i32.and` repair.
+- Recorded TDD failure evidence before implementation, a pre-change native compare smoke (`.tmp/pass-fuzz-global-struct-inference-pre-next-slices-1000`, `998 / 1000` compared, `0` mismatches, `2` command failures), and final signoff: `moon test src/passes` passed `1528/1528`, `moon test` passed `4705/4705`, `.tmp/pass-fuzz-global-struct-inference-packed-direct-unnest-final-10000` reached `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures (`22` empty-recursion-group plus one each bad-section-size, table-index-out-of-range, and invalid-tag-index). `.tmp/gsi-debug-artifact-timing-packed-direct-unnest-final` was canonical-equal with Starshine/Binaryen pass-local `0.418 ms / 3.199 ms`.
+
 ## [2026-06-03] passes | global-struct-inference shift/rotate un-nesting
 
 - Broadened guarded small-module non-constant operand un-nesting for `global-struct-inference` from arithmetic/bitwise operands to include pure integer shift and rotate operands, without changing the read-gated request filter or the large-module materializable-only guard.
