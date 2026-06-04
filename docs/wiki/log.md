@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] validate | ref.func start refs current refresh
+
+- Added [`docs/wiki/raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md) after rechecking the current official WebAssembly Core 3.0 module/instruction validation, module syntax, and binary module pages dated 2026-06-03 plus Starshine validator evidence.
+- Refreshed [`validate/ref-func-declarations.md`](validate/ref-func-declarations.md), [`validate/start-section.md`](validate/start-section.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/constant-expressions.md`](validate/constant-expressions.md), [`wast/function-call-and-module-authoring.md`](wast/function-call-and-module-authoring.md), [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md), [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md), and [`index.md`](index.md) so optional-start membership in official `refs` and Starshine's deliberate local `start_sec` exclusion remain source-current and easy to navigate.
+- Health cleanup in the touched area replaced stale validator line anchors for the start-only `ref.func` regression, start/phase helper references, and [`binary/module-section-map.md`](binary/module-section-map.md), while routing future policy-change guidance through `collect_declared_funcs_bitmap(...)`.
+
 ## [2026-06-04] wiki-health | reference text-surface wording cleanup
 
 - Clarified the stack-shape table in [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md) so `ref.test` / `ref.cast` text unavailability is explicitly a **Starshine WAST** limitation, not an official WebAssembly text-format claim.

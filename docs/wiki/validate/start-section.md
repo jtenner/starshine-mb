@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - ../raw/wasm/2026-05-20-ref-func-declaration-refresh.md
   - ../../../src/lib/types.mbt
@@ -82,7 +83,7 @@ That import can be the start function because its type is `[] -> []`. The same i
 
 ## Official Versus Starshine Contract
 
-The current official WebAssembly sources checked in [`../raw/wasm/2026-05-20-start-section-validation-sources.md`](../raw/wasm/2026-05-20-start-section-validation-sources.md), with the `refs` membership rule rechecked in [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md), establish these portable facts:
+The current official WebAssembly sources checked in [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md), with the focused start-section baseline still preserved in [`../raw/wasm/2026-05-20-start-section-validation-sources.md`](../raw/wasm/2026-05-20-start-section-validation-sources.md), establish these portable facts:
 
 - start is optional and stores a single function index;
 - binary section id `8` is the start section;
@@ -90,11 +91,11 @@ The current official WebAssembly sources checked in [`../raw/wasm/2026-05-20-sta
 - validation requires an existing empty-signature function; and
 - module validation includes the optional start function in the `refs` set used by `ref.func` declaration checking.
 
-Starshine matches the empty-signature validation rule and imported-prefix index model, but it intentionally does **not** match the last point today: `start_sec` alone is not treated as a declaration source for `ref.func`. The negative regression `validate_module does not treat start as a ref.func declaration source` in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt#L8034-L8060) keeps that divergence explicit. If Starshine changes this policy, update this page and [`ref-func-declarations.md`](ref-func-declarations.md) in the same change.
+Starshine matches the empty-signature validation rule and imported-prefix index model, but it intentionally does **not** match the last point today: `start_sec` alone is not treated as a declaration source for `ref.func`. The negative regression `validate_module does not treat start as a ref.func declaration source` in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt#L9227-L9255) keeps that divergence explicit. If Starshine changes this policy, update this page and [`ref-func-declarations.md`](ref-func-declarations.md) in the same change.
 
 ## Starshine Validation Flow
 
-[`validate_module_impl`](../../../src/validate/validate.mbt#L2895-L3266) validates starts only after function imports and definitions have extended the environment:
+[`validate_module_impl`](../../../src/validate/validate.mbt) validates starts only after function imports and definitions have extended the environment:
 
 ```text
 types
@@ -108,14 +109,14 @@ code bodies
 name section
 ```
 
-The start-specific helper is [`validate_startsec`](../../../src/validate/validate.mbt#L1857-L1875):
+The start-specific helper is [`validate_startsec`](../../../src/validate/validate.mbt):
 
 - `None` succeeds;
 - an unknown `FuncIdx` fails with `start: invalid function index`;
 - a target with parameters fails with `start function must have empty parameter list`; and
 - a target with results fails with `start function must have empty result list`.
 
-When `validate_module_impl` reports a start failure, it wraps the message as `ValidationIssue::StartSection` and attaches the target `FuncIdx` when one was present ([`src/validate/validate.mbt`](../../../src/validate/validate.mbt#L3171-L3194)). Use [`diagnostics-and-invalid-repro.md`](diagnostics-and-invalid-repro.md) for the generic family/stage/repro contract.
+When `validate_module_impl` reports a start failure, it wraps the message as `ValidationIssue::StartSection` and attaches the target `FuncIdx` when one was present. Use [`diagnostics-and-invalid-repro.md`](diagnostics-and-invalid-repro.md) for the generic family/stage/repro contract.
 
 ## Layer Map
 
@@ -124,7 +125,7 @@ When `validate_module_impl` reports a start failure, it wraps the message as `Va
 | Core model | [`Module.start_sec`](../../../src/lib/types.mbt), `StartSec(FuncIdx)` | One optional absolute function index; no body or signature stored in the start field itself. |
 | WAST parser/lowerer | [`src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | Parses `(start ...)`, resolves `$` or numeric function references through the imported-prefix function index map, and prints one start field from the core module. |
 | Binary codec | [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) | Decodes/encodes section id `8` as one function index. |
-| Validation | [`validate_startsec`](../../../src/validate/validate.mbt#L1857-L1875) | Rejects missing targets and non-empty signatures. |
+| Validation | [`validate_startsec`](../../../src/validate/validate.mbt) | Rejects missing targets and non-empty signatures. |
 | Invalid fuzzing | [`src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt), [`src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt), [`src/fuzz/invalid_text.mbt`](../../../src/fuzz/invalid_text.mbt) | Keeps AST, binary, and text invalid-start strategies under the `start` family. |
 
 ## Invalid Strategy Matrix
@@ -159,13 +160,14 @@ Pass dossiers that should link back here when they touch start metadata include 
 
 - **Mistake: “Start is just a call.”** It is not encoded in a function body and has no operand stack. It is a module field validated against function signatures.
 - **Mistake: “Imported functions cannot be starts.”** They can, if their imported function type is empty.
-- **Mistake: “Start declares `ref.func` in Starshine.”** Not today. Official WebAssembly includes start in the `refs` source set, but Starshine intentionally keeps start-only `ref.func` uses invalid.
+- **Mistake: “Start declares `ref.func` in Starshine.”** Not today. Current official WebAssembly includes start in the `refs` source set, but Starshine intentionally keeps start-only `ref.func` uses invalid.
 - **Mistake: “Deleting a no-op start is always equivalent to deleting the function.”** Start metadata and the target function body are separate module surfaces. A pass may remove one without the other only if its contract and validation evidence prove that behavior.
 
 ## Sources
 
-- Source bridge: [`../raw/wasm/2026-05-20-start-section-validation-sources.md`](../raw/wasm/2026-05-20-start-section-validation-sources.md)
-- `ref.func` declaration refresh: [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md)
+- Current `refs` / start cross-check: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
+- Start-section source bridge: [`../raw/wasm/2026-05-20-start-section-validation-sources.md`](../raw/wasm/2026-05-20-start-section-validation-sources.md)
+- Previous `ref.func` declaration refresh: [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md)
 - Core, WAST, and binary surfaces: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)
 - Validator implementation and tests: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)
 - Invalid-fuzz surfaces: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt), [`../../../src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt), [`../../../src/fuzz/invalid_text.mbt`](../../../src/fuzz/invalid_text.mbt)

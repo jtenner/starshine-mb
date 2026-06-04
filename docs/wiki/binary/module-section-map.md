@@ -85,7 +85,7 @@ That means ordinary round trips preserve custom-section payloads and structured 
 
 ### Validation
 
-[`validate_module_impl`](../../../src/validate/validate.mbt#L2895-L3266) builds the module environment in dependency order; the detailed validator-side phase contract now lives in [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md):
+[`validate_module_impl`](../../../src/validate/validate.mbt#L2951) builds the module environment in dependency order; the detailed validator-side phase contract now lives in [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md):
 
 ```text
 types
