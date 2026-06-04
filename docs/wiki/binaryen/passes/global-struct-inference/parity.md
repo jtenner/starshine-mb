@@ -704,6 +704,8 @@ Official Binaryen source and lit tests cover:
 
 Current local pass now handles small-module direct and closed-world local/param `ref.get_desc` folds/selects over descriptor-constructor globals. It still handles no atomic gets because the local instruction set does not expose a struct atomic-get opcode, and the sibling descriptor-cast pass remains boundary-only.
 
+A 2026-06-03 local opcode search refreshed that blocker. The `src/lib` instruction enum and constructors expose ordinary `StructGet`, `StructGetS`, `StructGetU`, array gets, and `RefGetDesc`, but no `StructGetAtomic` or `struct.atomic.get` spelling. Focused greps for `struct.atomic`, `atomic.get`, `StructGetAtomic`, and `Struct.*Atomic` found no matches in `src/wast` or `src/validate`. So atomic-get parity is blocked on adding or discovering a real local opcode surface, not on GSI rewrite logic alone.
+
 ## 8. Representation-specific type repair differs locally
 
 Official Binaryen explicitly refinalizes changed functions.

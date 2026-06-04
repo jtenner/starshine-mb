@@ -222,7 +222,7 @@ These tests now cover the direct-global O4z audit surfaces, the subtype-aware cl
 | Immutable `global.get` as materializable value | yes | yes for direct field payloads, grouped local/param rewrites, and fresh globals produced by the small-module un-nesting path |
 | Non-constant un-nesting | yes | yes for small-module pure arithmetic, integer bitwise, integer shift/rotate, and unary numeric field operands that are actually read, using fresh immutable globals plus forced `reorder-globals` repair; large modules keep the materializable-only path |
 | Packed-field repair | yes | yes for `i32.const` direct payloads and fresh-global `global.get` payloads produced by guarded direct-global or closed-world local/param un-nesting |
-| Atomic gets | yes | no local struct atomic-get opcode surface exists yet |
+| Atomic gets | yes | no local struct atomic-get opcode surface exists yet; 2026-06-03 greps found `StructGet`/`StructGetS`/`StructGetU` and `RefGetDesc` in `src/lib`, but no `StructGetAtomic` / `struct.atomic.get` in `src/lib`, `src/wast`, or `src/validate` |
 | `ref.get_desc` | yes | yes for small-module direct and closed-world local/param folds/selects over descriptor-constructor globals |
 | `gsi-desc-cast` | sibling pass | boundary-only sibling name, no implementation |
 | Refinalization | explicit Binaryen `ReFinalize` | represented differently; no equivalent full typed-AST repair layer in this pass |

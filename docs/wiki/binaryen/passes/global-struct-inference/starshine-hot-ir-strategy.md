@@ -204,7 +204,7 @@ Compared with upstream Binaryen `version_129`, Starshine currently does **not** 
 - using closed-world `typeGlobals`-style facts beyond exact/subtype-propagated local/param one-global origins and exact/subtype-propagated one-value or two-value singleton-group direct-candidate reads
 - sibling `gsi-desc-cast` rewrites
 - explicit refinalization machinery after type refinement beyond validation-preserving replacement typing
-- atomic-get-specific teaching surfaces, because no local struct atomic-get opcode exists yet
+- atomic-get-specific teaching surfaces, because no local struct atomic-get opcode exists yet; a 2026-06-03 grep across `src/lib`, `src/wast`, and `src/validate` found ordinary struct gets and `RefGetDesc`, but no `StructGetAtomic` / `struct.atomic.get` surface
 - unbounded large-module un-nesting; current un-nesting and `ref.get_desc` consumers are guarded to small modules
 
 Those are real capability gaps, not just documentation wording differences.

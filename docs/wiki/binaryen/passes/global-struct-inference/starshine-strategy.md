@@ -120,7 +120,7 @@ Compared with upstream Binaryen `version_129`, Starshine currently does **not** 
 - full closed-world `typeGlobals` candidate consumption beyond exact/subtype-propagated local/param one-global origins and exact or subtype-propagated one-value/two-value direct-candidate rewrites
 - sibling `gsi-desc-cast` rewrites
 - explicit `ReFinalize`-style repair after type refinement beyond validation-preserving replacement typing
-- atomic-get-specific proof families, because no local struct atomic-get opcode exists yet
+- atomic-get-specific proof families, because no local struct atomic-get opcode exists yet; a 2026-06-03 grep across `src/lib`, `src/wast`, and `src/validate` found ordinary struct gets and `RefGetDesc`, but no `StructGetAtomic` / `struct.atomic.get` surface
 - unbounded large-module un-nesting; the local un-nesting/ref.get_desc surfaces are guarded to small modules to keep the debug artifact pass-local budget green
 
 Those are real capability gaps, not just documentation wording differences.
@@ -138,7 +138,7 @@ If Starshine grows toward the full Binaryen contract, preserve the current subse
 
 1. broaden non-constant operand un-nesting beyond the current small-module arithmetic/bitwise/shift-rotate/unary-numeric read-gated subset only if pass-local runtime remains green
 2. implement the sibling `gsi-desc-cast` pass only as a separately scheduled boundary-to-active slice
-3. add atomic-get family coverage after Starshine has a local struct atomic-get opcode surface
+3. add atomic-get family coverage after Starshine has a local struct atomic-get opcode surface; do not fake coverage while `src/lib`, `src/wast`, and `src/validate` have no `StructGetAtomic` / `struct.atomic.get` spelling
 4. add explicit typed-AST repair/refinalization if future rewrites need more than validation-preserving replacement typing
 
 ## Related pages

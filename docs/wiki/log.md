@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | global-struct-inference atomic-get blocker refresh
+
+- Refreshed the plain-GSI atomic-get blocker with local source evidence instead of adding fake coverage: `src/lib` exposes ordinary `StructGet` / `StructGetS` / `StructGetU` and `RefGetDesc`, while focused greps for `struct.atomic`, `atomic.get`, `StructGetAtomic`, and `Struct.*Atomic` found no opcode surface in `src/lib`, `src/wast`, or `src/validate`.
+- Updated the GSI parity/implementation/strategy docs to keep atomic immutable-field gets as an upstream Binaryen surface blocked locally until Starshine grows or discovers a real struct atomic-get instruction form.
+
 ## [2026-06-03] passes | global-struct-inference closed-world packed un-nesting
 
 - Extended the packed fresh-global repair from direct reads into closed-world local/param value grouping: repaired packed `global.get` payload expressions now type-check as `i32`, so one-value and singleton-select rewrites can consume them safely.
