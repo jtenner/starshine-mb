@@ -1943,6 +1943,112 @@ fn code_folding_try_fold_one_block_if_at_region(
 }
 
 ///|
+fn code_folding_terminal_suffix_matches_following(
+  func : @ir.HotFunc,
+  if_id : Int,
+  then_ref : @ir.HotRegionRef,
+  then_start : Int,
+  region_ref : @ir.HotRegionRef,
+  following_start : Int,
+  suffix_len : Int,
+  label_used : @bitset.BitSet,
+) -> Bool {
+  if suffix_len <= 0 ||
+    then_start < 0 ||
+    code_folding_region_prefix_has_exit(func, then_ref, then_start) ||
+    !code_folding_suffix_has_if_terminal(func, then_ref, then_start, suffix_len) ||
+    !code_folding_suffix_has_if_terminal(
+      func, region_ref, following_start, suffix_len,
+    ) {
+    return false
+  }
+  for offset = 0; offset < suffix_len; offset = offset + 1 {
+    let then_root = @ir.hot_region_get(func, then_ref, then_start + offset)
+    let following_root = @ir.hot_region_get(
+      func,
+      region_ref,
+      following_start + offset,
+    )
+    if offset + 1 < suffix_len &&
+      (
+        code_folding_node_prevents_fallthrough(func, then_root) ||
+        code_folding_node_prevents_fallthrough(func, following_root)
+      ) {
+      return false
+    }
+    if @ir.hot_node_result_arity(func, then_root) != 0 ||
+      @ir.hot_node_result_arity(func, following_root) != 0 ||
+      !code_folding_node_is_if_hoistable_suffix(
+        func, then_root, if_id, label_used,
+      ) ||
+      !code_folding_node_is_if_hoistable_suffix(
+        func, following_root, if_id, label_used,
+      ) ||
+      !code_folding_nodes_equal(func, then_root, following_root, label_used) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn code_folding_try_fold_if_then_fallthrough_terminal_at_region(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  if_id : Int,
+  then_ref : @ir.HotRegionRef,
+  result_arity : Int,
+  label_used : @bitset.BitSet,
+) -> Bool {
+  if result_arity != 0 {
+    return false
+  }
+  let then_count = @ir.hot_region_root_count(func, then_ref)
+  let following_start = idx + 1
+  let region_count = @ir.hot_region_root_count(func, region_ref)
+  let suffix_len = region_count - following_start
+  if then_count == 0 || suffix_len <= 0 || then_count < suffix_len {
+    return false
+  }
+  let then_start = then_count - suffix_len
+  if !code_folding_terminal_suffix_matches_following(
+      func, if_id, then_ref, then_start, region_ref, following_start, suffix_len,
+      label_used,
+    ) {
+    return false
+  }
+
+  let hoisted = pass_splice_region(
+    ctx,
+    func,
+    then_ref,
+    then_start,
+    suffix_len,
+    [],
+  )
+  let wrapper = @ir.hot_build_block(func, @lib.BlockType::void_(), [if_id])
+  let wrapper_label = @ir.hot_control_node_label(func, wrapper)
+  let branch = @ir.hot_build_br(func, wrapper_label)
+  ignore(pass_splice_region(ctx, func, then_ref, then_start, 0, [branch]))
+  let replacement = [wrapper]
+  for node_id in hoisted {
+    replacement.push(node_id)
+  }
+  ignore(
+    pass_splice_region(ctx, func, region_ref, idx, suffix_len + 1, replacement),
+  )
+  pipeline_trace_hook(
+    ctx.trace,
+    ctx.descriptor.name,
+    "mutated",
+    payload="if-then-fallthrough-terminal-suffix",
+  )
+  true
+}
+
+///|
 fn code_folding_try_fold_if_at_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -1960,11 +2066,14 @@ fn code_folding_try_fold_if_at_region(
     _ => return false
   }
   let result_arity = @ir.hot_type_result_arity(func, if_node.ty)
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
   let else_ref = match @ir.hot_region_else_ref(func, if_id) {
     Some(ref_) => ref_
-    None => return false
+    None =>
+      return code_folding_try_fold_if_then_fallthrough_terminal_at_region(
+        ctx, func, region_ref, idx, if_id, then_ref, result_arity, label_used,
+      )
   }
-  let then_ref = @ir.hot_region_then_ref(func, if_id)
   let suffix_len = code_folding_common_suffix_len(
     func, if_id, then_ref, else_ref, label_used,
   )

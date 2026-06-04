@@ -119,21 +119,21 @@ These are correctness tests. They should fail before implementation, not be adde
 
 ### Slice 3: terminating-tail helper-label sharing
 
-Only after the expression-exit substrate is green, add the dedicated terminating-tail family from [`./terminating-tails.md`](./terminating-tails.md):
+The first terminating-tail step is now covered for a narrow adjacent shape: a no-else `if` then-tail and the immediately following fallthrough tail can share identical empty-payload `return` or `unreachable` suffixes by wrapping the old `if` in a fresh void helper block and replacing the old then-tail with `br` to that block label. Continue with the full dedicated terminating-tail family from [`./terminating-tails.md`](./terminating-tails.md):
 
-- `return`
+- general `return` subsets beyond the adjacent no-else `if` shape
 - `return_call`
 - `return_call_indirect`
 - `return_call_ref`
-- `unreachable`
+- general `unreachable` subsets beyond the adjacent no-else `if` shape
 
-This is a separate implementation slice because it needs:
+This remains a separate implementation slice because the full Binaryen algorithm still needs:
 
 - subset grouping instead of all-tails-or-nothing matching
 - deeper common-suffix search before shallower search
-- fresh helper-label creation
-- old-body fallthrough prevention
-- direct root replacement for root-level terminators, not just block-backed tail edits
+- fresh helper-label creation for arbitrary selected tails
+- old-body fallthrough prevention beyond the adjacent no-else `if` case
+- direct root replacement for root-level terminators, not just block-backed or adjacent tails
 
 ### Slice 4: EH and broad movement safety
 
@@ -257,7 +257,18 @@ The next `[O4Z-AUDIT-CF-E]` one-block/one-non-block `if` widening lane is green:
 - direct 1000-case smoke at `.tmp/pass-fuzz-code-folding-e-1000`: `998/1000` compared cases, `998` normalized matches, `0` mismatches, `2` `binaryen-rec-group-zero` command failures;
 - timing-only debug-WASI replay at `.tmp/code-folding-e-self-compare`: `208.362ms` Starshine pass time vs `185.945ms` Binaryen, within the <=2x floor.
 
-Direct `[CF]002` signoff is accepted as of 2026-05-10 for the earlier narrowed surface, `[O4Z-AUDIT-CF-A]` baselines the June widening, `[O4Z-AUDIT-CF-B]` through `[O4Z-AUDIT-CF-D]` add the source-backed matrix, explicit named-block candidate model, and first multi-root named-block expression-exit widening, and `[O4Z-AUDIT-CF-E]` has concrete one-block/one-non-block progress. The remaining direct debug-artifact diff is classified representation drift, and the focused `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names` cleanup replay produced the same first diff as the no-CF cleanup baseline. The 2026-06-04 O4z audit is tracked in [`../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md`](../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md); it now keeps the broader Binaryen behavior-parity slices open.
+The first `[O4Z-AUDIT-CF-F]` adjacent terminating-tail lane is green:
+
+- first test-first `moon test src/passes` failed the two new no-else `if` then-tail plus fallthrough terminal tests before implementation;
+- after implementation `moon test src/passes` passed `1596/1596`;
+- `moon fmt` completed;
+- full `moon test` passed `4781/4781`;
+- `moon info` completed with 6 tasks up to date;
+- `moon build --target native --release src/cmd` produced `_build/native/release/build/cmd/cmd.exe` with only the existing `pass_manager.mbt` unused-function warnings;
+- direct 1000-case smoke at `.tmp/pass-fuzz-code-folding-f-1000`: `998/1000` compared cases, `998` normalized matches, `0` mismatches, `2` `binaryen-rec-group-zero` command failures;
+- timing-only debug-WASI replay at `.tmp/code-folding-f-self-compare`: `187.189ms` Starshine pass time vs `198.305ms` Binaryen.
+
+Direct `[CF]002` signoff is accepted as of 2026-05-10 for the earlier narrowed surface, `[O4Z-AUDIT-CF-A]` baselines the June widening, `[O4Z-AUDIT-CF-B]` through `[O4Z-AUDIT-CF-D]` add the source-backed matrix, explicit named-block candidate model, and first multi-root named-block expression-exit widening, `[O4Z-AUDIT-CF-E]` has concrete one-block/one-non-block progress, and `[O4Z-AUDIT-CF-F]` has a first adjacent return/unreachable terminal-tail helper shape. The remaining direct debug-artifact diff is classified representation drift, and the focused `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names` cleanup replay produced the same first diff as the no-CF cleanup baseline. The 2026-06-04 O4z audit is tracked in [`../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md`](../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md); it now keeps the broader Binaryen behavior-parity slices open.
 
 Future parity work should only proceed when one of these is true:
 

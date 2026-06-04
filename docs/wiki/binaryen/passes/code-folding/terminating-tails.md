@@ -245,9 +245,13 @@ A terminating-tail merge can create:
 
 The next passes are exactly the passes you would want to clean that up.
 
+## Current Starshine progress
+
+The broader staged local plan is in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). As of the 2026-06-04 O4z audit continuation, Starshine has only the first adjacent terminating-tail shape: when a no-else `if` then-tail and the immediately following fallthrough tail share an identical empty-payload `return` or `unreachable` suffix, the pass wraps the old `if` in a fresh void helper block, rewrites the then-tail to `br` to that helper label, and leaves one shared terminal suffix after the wrapper. This is useful progress, but it is not the full Binaryen subset/deeper-suffix terminating-tail algorithm.
+
 ## What a future Starshine port must preserve
 
-The broader staged local plan is in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). For this subsystem specifically, preserve these facts first:
+For this subsystem specifically, preserve these facts first:
 
 1. subset search, not “all tails or nothing”
 2. deeper common suffixes are explored before shallower ones

@@ -588,6 +588,76 @@ test "code-folding shares full if arms ending in unreachable" {
 }
 
 ///|
+test "code-folding shares if-then and fallthrough return tails" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func $sink (param i32))
+      #|  (func (param i32 i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (local.get 1)
+      #|        (call $sink)
+      #|        (i32.const 7)
+      #|        (drop)
+      #|        (return)))
+      #|    (local.get 1)
+      #|    (call $sink)
+      #|    (i32.const 7)
+      #|    (drop)
+      #|    (return)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding shares if-then and fallthrough unreachable tails" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func $sink (param i32))
+      #|  (func (param i32 i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (local.get 1)
+      #|        (call $sink)
+      #|        (unreachable)))
+      #|    (local.get 1)
+      #|    (call $sink)
+      #|    (unreachable)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "unreachable"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding keeps br-on-null-poisoned block-exit suffixes" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::anyref()], [])),
