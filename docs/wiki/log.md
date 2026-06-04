@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wiki-health | name-section duplicate wording cleanup
+
+- During the follow-up health check, collapsed duplicated `[FUZ]1020G1` name-map ordering/count wording in [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md) into one binary/codec-invalid classification sentence.
+- Health-check scope included empty markdown links, transient artifact mentions, new raw/fuzzing backlinks, index/log coverage, and obvious duplicate wording; broad `.tmp` replay identifiers in older evidence sections were left unchanged as local-run identifiers rather than source links.
+
 ## [2026-06-04] fuzzing/reduction | reducer contract source refresh
 
 - Added [`raw/fuzzing/2026-06-04-reduction-backends-source-refresh.md`](raw/fuzzing/2026-06-04-reduction-backends-source-refresh.md) after checking delta-debugging, C-Reduce, Binaryen `wasm-reduce`, and current Starshine script/Moon reducer sources.
