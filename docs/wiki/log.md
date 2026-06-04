@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wiki-health | memory/table address-width source routing
+
+- Repointed follow-on memory64/table64 source routing in [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md) and the [`memory64-lowering`](binaryen/passes/memory64-lowering/index.md) dossier so they cite the current [`2026-06-04` memory/table address-width refresh](raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) instead of only the older 2026-05-20 source notes.
+- Replaced stale numeric `src/validate/typecheck.mbt:<line>` prose in the memory64-lowering Starshine strategy, port-readiness, and static-offset guides with direct function anchors for `memarg_check`, memory size/grow/init/copy/fill, table copy/init/fill, ordinary table ops, and indirect-call table typing.
+- Health-check scope also included common broken relative-link patterns, `.tmp` / `.artifacts` citations, memory/table address-width terminology, TODO/stale markers, and index coverage for the touched pages; no unrelated files changed.
+
 ## [2026-06-04] docs | memory/table address-width validation refresh
 
 - Added [`docs/wiki/raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) after checking the current official WebAssembly Core 3.0 syntax, instruction-validation, and module-validation pages dated 2026-06-03 plus Starshine validator code-map evidence.

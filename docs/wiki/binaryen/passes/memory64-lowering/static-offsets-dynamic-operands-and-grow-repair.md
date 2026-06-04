@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md
@@ -115,10 +116,10 @@ The current local code already has the key representational split a future port 
 
 - `src/lib/types.mbt:162-164` distinguishes `Limits::I32Limits` from `Limits::I64Limits`.
 - `src/lib/types.mbt:1263-1267` maps those limits to the stack address value type.
-- `src/validate/typecheck.mbt:1538-1577` validates static `MemArg.offset` separately from stack operand typing.
-- `src/validate/typecheck.mbt:2408-2426` derives `memory.size` / `memory.grow` operand and result types from memory limits.
-- `src/validate/typecheck.mbt:2468-2488` already models `memory.copy` positions independently.
-- `src/validate/typecheck.mbt` still hard-codes `table.get`, `table.set`, `table.size`, `table.grow`, `call_indirect`, and `return_call_indirect` table index/result positions to `i32`; `table.fill` is only destination-width-aware and still types length as `i32`. The targeted table64 correction is [`../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md), so table64 validation cleanup remains a prerequisite.
+- [`memarg_check(...)`](../../../../../src/validate/typecheck.mbt#L1532-L1576) validates static `MemArg.offset` separately from stack operand typing.
+- [`typecheck_memory_size(...)`](../../../../../src/validate/typecheck.mbt#L2552-L2558) / [`typecheck_memory_grow(...)`](../../../../../src/validate/typecheck.mbt#L2561-L2571) derive operand and result types from memory limits.
+- [`typecheck_memory_copy(...)`](../../../../../src/validate/typecheck.mbt#L2612-L2639) already models `memory.copy` positions independently.
+- [`typecheck_table_get(...)`](../../../../../src/validate/typecheck.mbt#L555-L565), [`typecheck_table_set(...)`](../../../../../src/validate/typecheck.mbt#L570-L586), [`typecheck_table_size(...)`](../../../../../src/validate/typecheck.mbt#L593-L598), [`typecheck_table_grow(...)`](../../../../../src/validate/typecheck.mbt#L603-L624), [`typecheck_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L899-L934), and [`typecheck_return_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L994-L1028) still hard-code table index/result positions to `i32`; [`typecheck_table_fill(...)`](../../../../../src/validate/typecheck.mbt#L1495-L1519) is only destination-width-aware and still types length as `i32`. The current table64 correction is [`../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md), so table64 validation cleanup remains a prerequisite.
 - `src/binary/encode.mbt:1208-1284` encodes the existing limit forms; a lowering pass must rewrite declarations before encoding.
 
 ## Minimum reduced tests for this corrected slice
@@ -142,6 +143,7 @@ A future Starshine port should add at least these tests before calling the out-o
 - [`../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md)
 - [`../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md`](../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md)
+- [`../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
 - [`../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md)
 - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Memory64Lowering.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/memory64-lowering.wast>

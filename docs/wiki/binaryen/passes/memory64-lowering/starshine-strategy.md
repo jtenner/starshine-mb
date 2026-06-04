@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md
@@ -76,16 +77,16 @@ Together these exact locations make current request behavior an unknown-pass cas
 
 ### Validation and typechecking
 
-- `src/validate/validate.mbt:895` validates `MemType`; lines `902`-`905` select `65536` pages for `I32Limits` and the much larger `UInt64` page cap for `I64Limits`.
-- `src/validate/typecheck.mbt:371` defines `TcState::mem_at_of(...)`, which derives memory address/result value type from each memory's `Limits`.
-- `src/validate/typecheck.mbt:1538` defines `memarg_check(...)`; lines `1570`-`1577` reject a static memarg offset at or above `2^32` for i32 memories.
-- `src/validate/typecheck.mbt:1591` / `1610` feed `memarg_check(...)` into scalar load/store address typing; the same pattern appears for atomics and SIMD memory helpers.
-- `src/validate/typecheck.mbt:2408` and `2417` derive `memory.size` and `memory.grow` types from `mem_at_of(...)`.
-- `src/validate/typecheck.mbt:2433` derives `memory.init` destination width from the selected memory while keeping passive-data source and length as `i32`.
-- `src/validate/typecheck.mbt:2468` derives `memory.copy` destination, source, and length widths from the participating memories.
-- `src/validate/typecheck.mbt:2502` derives the `memory.fill` destination width from the selected memory but still hard-codes the length operand to `i32`; [`../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md) records this local/spec divergence.
-- `src/validate/typecheck.mbt` uses table limits for `table.copy` and `table.init` destination; `table.fill` only uses the table limit for the destination/start operand and still types length as `i32`.
-- `src/validate/typecheck.mbt` still hard-codes `i32` for `table.get`, `table.set`, `table.size`, `table.grow`, `call_indirect`, and `return_call_indirect` table index/result positions, so table64 support is not coherent enough to advertise a faithful `table64-lowering` port yet. The targeted correction is [`../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md).
+- [`Validate for MemType`](../../../../../src/validate/validate.mbt#L948-L962) validates memory limits and selects the 65536-page cap for `I32Limits` versus the larger `UInt64` page cap for `I64Limits`.
+- [`TcState::mem_at_of(...)`](../../../../../src/validate/typecheck.mbt#L339-L347) derives memory address/result value type from each memory's `Limits`.
+- [`memarg_check(...)`](../../../../../src/validate/typecheck.mbt#L1532-L1576) validates static `MemArg.offset` separately from stack operand typing and rejects offsets at or above `2^32` for i32 memories.
+- [`typecheck_load(...)`](../../../../../src/validate/typecheck.mbt#L1579-L1595) and [`typecheck_store(...)`](../../../../../src/validate/typecheck.mbt#L1638-L1662) feed `memarg_check(...)` into scalar load/store address typing; the same pattern appears for atomics and SIMD memory helpers.
+- [`typecheck_memory_size(...)`](../../../../../src/validate/typecheck.mbt#L2552-L2558) and [`typecheck_memory_grow(...)`](../../../../../src/validate/typecheck.mbt#L2561-L2571) derive their types from `mem_at_of(...)`.
+- [`typecheck_memory_init(...)`](../../../../../src/validate/typecheck.mbt#L2574-L2609) derives `memory.init` destination width from the selected memory while keeping passive-data source and length as `i32`.
+- [`typecheck_memory_copy(...)`](../../../../../src/validate/typecheck.mbt#L2612-L2639) derives `memory.copy` destination, source, and length widths from the participating memories.
+- [`typecheck_memory_fill(...)`](../../../../../src/validate/typecheck.mbt#L2642-L2660) derives the `memory.fill` destination width from the selected memory but still hard-codes the length operand to `i32`; [`../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) records this local/spec divergence.
+- [`typecheck_table_copy(...)`](../../../../../src/validate/typecheck.mbt#L1431-L1461) and [`typecheck_table_init(...)`](../../../../../src/validate/typecheck.mbt#L1464-L1492) use table limits for address-width positions; [`typecheck_table_fill(...)`](../../../../../src/validate/typecheck.mbt#L1495-L1519) only uses the table limit for the destination/start operand and still types length as `i32`.
+- [`typecheck_table_get(...)`](../../../../../src/validate/typecheck.mbt#L555-L565), [`typecheck_table_set(...)`](../../../../../src/validate/typecheck.mbt#L570-L586), [`typecheck_table_size(...)`](../../../../../src/validate/typecheck.mbt#L593-L598), [`typecheck_table_grow(...)`](../../../../../src/validate/typecheck.mbt#L603-L624), [`typecheck_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L899-L934), and [`typecheck_return_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L994-L1028) still hard-code `i32` positions, so table64 support is not coherent enough to advertise a faithful `table64-lowering` port yet. The current focused correction is [`../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md).
 
 ## Future implementation shape
 
@@ -150,8 +151,8 @@ Use [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-
 ## Current uncertainty
 
 - The 2026-04-25 static-offset correction narrowed earlier wording: static high `offset=` immediates are the clear high-offset `unreachable` family, while dynamic operand constants wrap, active offsets lower as expressions, and grow deltas are handled through lowered-grow result repair. Impossible min-limit behavior is still a source-level assertion rather than a documented user-facing diagnostic contract.
-- The 2026-05-20 memory64 bulk-memory refresh narrows local-readiness wording: Starshine already has the representation and most validation helpers for memory64 bulk memory, but `memory.fill` length is still locally typed as `i32`; do not claim full memory64 `memory.fill` validation until that is fixed.
-- Starshine's table64 model exists at the `TableType` level, but table instruction typechecking is partly hard-coded to `i32`; the 2026-05-20 table64 refresh also narrowed `table.fill` readiness to destination-only widening. A table64-lowering port therefore has a prerequisite validation cleanup.
+- The 2026-06-04 memory/table address-width refresh narrows local-readiness wording: Starshine already has the representation and most validation helpers for memory64 bulk memory, but `memory.fill` length is still locally typed as `i32`; do not claim full memory64 `memory.fill` validation until that is fixed.
+- Starshine's table64 model exists at the `TableType` level, but table instruction typechecking is partly hard-coded to `i32`; the 2026-06-04 refresh also keeps `table.fill` readiness narrowed to destination-only widening. A table64-lowering port therefore has a prerequisite validation cleanup.
 
 ## Sources
 
@@ -163,6 +164,7 @@ Use [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-
 - [`../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md`](../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md)
 - [`../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md)
+- [`../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
 - [`../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md)
 - [`../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

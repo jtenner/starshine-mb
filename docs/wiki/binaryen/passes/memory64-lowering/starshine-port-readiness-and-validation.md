@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md
@@ -39,10 +40,10 @@ The local code has enough wasm64/table64 representation to plan a port, but not 
 - `src/passes/optimize.mbt:156` starts active registry entries; neither name appears there.
 - `src/lib/types.mbt:162` through `:177` define `Limits`, `MemType`, and `TableType`, including `I64Limits`.
 - `src/lib/types.mbt:1263` maps limits to address value types, and `src/lib/types.mbt:1366` models mixed-width copy length selection.
-- `src/validate/typecheck.mbt:1538` through `:1577` already rejects high static memory-operation `offset=` immediates for i32 memories.
-- `src/validate/typecheck.mbt:2408` through `:2498` derives memory `size`, `grow`, `init`, and `copy` stack types from memory limits.
-- `src/validate/typecheck.mbt:2502` derives `memory.fill` destination width from memory limits but still hard-codes the length operand to `i32`; the focused refresh in [`../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../../../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md) records this local/spec divergence.
-- `src/validate/typecheck.mbt` still hard-codes `i32` for `table.get`, `table.set`, `table.size`, `table.grow`, `call_indirect`, and `return_call_indirect` table index/result positions; `table.fill` is only partially widened locally because its destination/start operand uses the table limit width but its length operand remains `i32`. [`../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../../../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md) records this local/spec divergence.
+- [`memarg_check(...)`](../../../../../src/validate/typecheck.mbt#L1532-L1576) already rejects high static memory-operation `offset=` immediates for i32 memories.
+- [`typecheck_memory_size(...)`](../../../../../src/validate/typecheck.mbt#L2552-L2558), [`typecheck_memory_grow(...)`](../../../../../src/validate/typecheck.mbt#L2561-L2571), [`typecheck_memory_init(...)`](../../../../../src/validate/typecheck.mbt#L2574-L2609), and [`typecheck_memory_copy(...)`](../../../../../src/validate/typecheck.mbt#L2612-L2639) derive memory stack types from memory limits.
+- [`typecheck_memory_fill(...)`](../../../../../src/validate/typecheck.mbt#L2642-L2660) derives `memory.fill` destination width from memory limits but still hard-codes the length operand to `i32`; the current refresh in [`../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) records this local/spec divergence.
+- [`typecheck_table_get(...)`](../../../../../src/validate/typecheck.mbt#L555-L565), [`typecheck_table_set(...)`](../../../../../src/validate/typecheck.mbt#L570-L586), [`typecheck_table_size(...)`](../../../../../src/validate/typecheck.mbt#L593-L598), [`typecheck_table_grow(...)`](../../../../../src/validate/typecheck.mbt#L603-L624), [`typecheck_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L899-L934), and [`typecheck_return_call_indirect(...)`](../../../../../src/validate/typecheck.mbt#L994-L1028) still hard-code `i32` table index/result positions; [`typecheck_table_fill(...)`](../../../../../src/validate/typecheck.mbt#L1495-L1519) is only partially widened locally because its destination/start operand uses the table limit width but its length operand remains `i32`. [`../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../../../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) records this local/spec divergence.
 
 ## Port goal
 
@@ -86,7 +87,7 @@ Exit criteria:
 - For dynamic former-i64 address operands, insert `i32.wrap_i64` before the lowered load/store.
 - Preserve syntactic `i64.const` operands as dynamic stack expressions that still wrap.
 - For static `MemArg.offset >= 2^32`, replace the memory operation with `unreachable` while preserving child effects.
-- Reuse Starshine's existing `MemArg` validation intuition from `src/validate/typecheck.mbt:1538` through `:1577`.
+- Reuse Starshine's existing `MemArg` validation intuition from [`memarg_check(...)`](../../../../../src/validate/typecheck.mbt#L1532-L1576).
 
 Exit criteria:
 
