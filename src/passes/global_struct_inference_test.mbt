@@ -111,6 +111,44 @@ test "global-struct-inference repairs packed direct immutable global atomic fiel
 }
 
 ///|
+test "global-struct-inference folds direct atomic fields through subtype globals" {
+  let input =
+    #| (module
+    #|   (type $parent (sub (struct (field i32))))
+    #|   (type $child (sub $parent (struct (field i32))))
+    #|   (global $g (ref $parent)
+    #|     (struct.new $child
+    #|       (i32.const 13)))
+    #|   (func (export "read") (result i32)
+    #|     global.get $g
+    #|     struct.atomic.get acq_rel $parent 0))
+    #|
+  let pretty = gsi_test_pretty(input, false)
+  assert_false(pretty.contains("struct.atomic.get"), msg=pretty)
+  assert_true(pretty.contains("I32(13)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "global-struct-inference repairs packed direct atomic fields through subtype globals" {
+  let input =
+    #| (module
+    #|   (type $parent (sub (struct (field i8))))
+    #|   (type $child (sub $parent (struct (field i8))))
+    #|   (global $g (ref $parent)
+    #|     (struct.new $child
+    #|       (i32.const 255)))
+    #|   (func (export "read") (result i32)
+    #|     global.get $g
+    #|     struct.atomic.get_s acq_rel $parent 0))
+    #|
+  let pretty = gsi_test_pretty(input, false)
+  assert_false(pretty.contains("struct.atomic.get"), msg=pretty)
+  assert_true(pretty.contains("I32(-1)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+}
+
+///|
 test "global-struct-inference leaves mutable global atomic fields unchanged" {
   let input =
     #| (module

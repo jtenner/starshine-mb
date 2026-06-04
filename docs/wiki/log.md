@@ -8,6 +8,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Health-check scope included redundant `docs/wiki/` links, empty markdown links, transient `.tmp` / `.artifacts` mentions, stale subtype-source routing, TODO/stale wording, and current WAST/validator GC-type cross-links; local `.tmp` replay identifiers and archived raw research paths were left unchanged.
 - The worktree contained unrelated pre-existing modifications in `src/passes/global_struct_inference.mbt` and `src/passes/global_struct_inference_test.mbt`; this health cleanup changed only wiki docs and did not stage those files.
 
+## [2026-06-04] passes/gsi | struct atomic get direct subtype fold
+
+- Extended `global-struct-inference` direct-global field folding to use the subtype-aware candidate-value path for immutable globals whose declared type is a parent/supertype of their concrete `struct.new` initializer.
+- Added focused GSI fixtures for `struct.atomic.get` and packed `struct.atomic.get_s` parent-typed direct reads through subtype initializers, preserving null/drop and packed repair behavior while leaving descriptor-cast/refinalization-shaped atomic opportunities out of scope.
+- Refreshed the GSI parity/strategy pages and `[ATOMIC002-A]` / `[ATOMIC002-C]` backlog status with direct 10k compare evidence and debug-artifact timing; `[ATOMIC002-B]` pass-by-pass audit remains open.
+
 ## [2026-06-04] wast/validate/binary | GC type-use and subtyping current refresh
 
 - Added [`docs/wiki/raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md) after rechecking current WebAssembly Core 3.0 type/text/binary/validation pages dated 2026-06-03, the WebAssembly proposals tracker, the custom-descriptors overview, and Starshine WAST lowering plus validator source evidence.

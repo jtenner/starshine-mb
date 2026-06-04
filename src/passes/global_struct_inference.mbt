@@ -2147,6 +2147,7 @@ fn gsi_function_local_env(
 
 ///|
 fn gsi_folded_global_field_expr(
+  env : @validate.Env,
   fields_by_type : Array[Array[@lib.FieldType]?],
   global_values_by_abs_idx : Array[Array[@lib.Expr?]?],
   global_type_slots : Array[Int],
@@ -2156,52 +2157,25 @@ fn gsi_folded_global_field_expr(
   signed : Bool,
   unsigned : Bool,
 ) -> @lib.Expr? {
-  let @lib.GlobalIdx(abs_idx_u) = global_idx
-  let abs_idx = abs_idx_u.reinterpret_as_int()
-  if abs_idx < 0 ||
-    abs_idx >= global_values_by_abs_idx.length() ||
-    abs_idx >= global_type_slots.length() {
-    return None
-  }
-  let type_slot = gsi_type_slot(type_idx, fields_by_type.length())
-  if type_slot < 0 || global_type_slots[abs_idx] != type_slot {
-    return None
-  }
-  let fields = match fields_by_type[type_slot] {
-    Some(fields) => fields
+  let result_type = match
+    gsi_field_read_result_type(
+      fields_by_type, type_idx, field_idx, signed, unsigned,
+    ) {
+    Some(result_type) => result_type
     None => return None
   }
-  let values = match global_values_by_abs_idx[abs_idx] {
-    Some(values) => values
-    None => return None
-  }
-  let @lib.U32(raw_idx) = field_idx
-  let idx = raw_idx.reinterpret_as_int()
-  if idx < 0 || idx >= fields.length() || idx >= values.length() {
-    return None
-  }
-  let value = match values[idx] {
+  let value = match
+    gsi_folded_candidate_global_field_expr(
+      env, fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
+      type_idx, field_idx, signed, unsigned,
+    ) {
     Some(value) => value
     None => return None
   }
-  match fields[idx].get_storage_type() {
-    @lib.ValTypeStorageType(_) => Some(value)
-    @lib.PackTypeStorageType(@lib.I8PackType) =>
-      if signed {
-        gsi_packed_expr(value, 8, true)
-      } else if unsigned {
-        gsi_packed_expr(value, 8, false)
-      } else {
-        None
-      }
-    @lib.PackTypeStorageType(@lib.I16PackType) =>
-      if signed {
-        gsi_packed_expr(value, 16, true)
-      } else if unsigned {
-        gsi_packed_expr(value, 16, false)
-      } else {
-        None
-      }
+  if gsi_expr_matches_result_type(env, value, result_type) {
+    Some(value)
+  } else {
+    None
   }
 }
 
@@ -2282,33 +2256,33 @@ fn gsi_rewrite_instrs(
           let folded = match next_instr {
             @lib.StructGet(type_idx, field_idx) =>
               gsi_folded_global_field_expr(
-                fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
-                type_idx, field_idx, false, false,
+                env, fields_by_type, global_values_by_abs_idx, global_type_slots,
+                global_idx, type_idx, field_idx, false, false,
               )
             @lib.StructGetS(type_idx, field_idx) =>
               gsi_folded_global_field_expr(
-                fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
-                type_idx, field_idx, true, false,
+                env, fields_by_type, global_values_by_abs_idx, global_type_slots,
+                global_idx, type_idx, field_idx, true, false,
               )
             @lib.StructGetU(type_idx, field_idx) =>
               gsi_folded_global_field_expr(
-                fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
-                type_idx, field_idx, false, true,
+                env, fields_by_type, global_values_by_abs_idx, global_type_slots,
+                global_idx, type_idx, field_idx, false, true,
               )
             @lib.StructAtomicGet(_, type_idx, field_idx) =>
               gsi_folded_global_field_expr(
-                fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
-                type_idx, field_idx, false, false,
+                env, fields_by_type, global_values_by_abs_idx, global_type_slots,
+                global_idx, type_idx, field_idx, false, false,
               )
             @lib.StructAtomicGetS(_, type_idx, field_idx) =>
               gsi_folded_global_field_expr(
-                fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
-                type_idx, field_idx, true, false,
+                env, fields_by_type, global_values_by_abs_idx, global_type_slots,
+                global_idx, type_idx, field_idx, true, false,
               )
             @lib.StructAtomicGetU(_, type_idx, field_idx) =>
               gsi_folded_global_field_expr(
-                fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
-                type_idx, field_idx, false, true,
+                env, fields_by_type, global_values_by_abs_idx, global_type_slots,
+                global_idx, type_idx, field_idx, false, true,
               )
             @lib.RefGetDesc(type_idx) =>
               gsi_folded_global_descriptor_expr(
@@ -2507,48 +2481,48 @@ fn gsi_instrs_may_rewrite(
           match instrs[idx + 1] {
             @lib.StructGet(type_idx, field_idx) =>
               if gsi_folded_global_field_expr(
-                  fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
-                  type_idx, field_idx, false, false,
+                  env, fields_by_type, global_values_by_abs_idx, global_type_slots,
+                  global_idx, type_idx, field_idx, false, false,
                 )
                 is Some(_) {
                 return true
               }
             @lib.StructGetS(type_idx, field_idx) =>
               if gsi_folded_global_field_expr(
-                  fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
-                  type_idx, field_idx, true, false,
+                  env, fields_by_type, global_values_by_abs_idx, global_type_slots,
+                  global_idx, type_idx, field_idx, true, false,
                 )
                 is Some(_) {
                 return true
               }
             @lib.StructGetU(type_idx, field_idx) =>
               if gsi_folded_global_field_expr(
-                  fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
-                  type_idx, field_idx, false, true,
+                  env, fields_by_type, global_values_by_abs_idx, global_type_slots,
+                  global_idx, type_idx, field_idx, false, true,
                 )
                 is Some(_) {
                 return true
               }
             @lib.StructAtomicGet(_, type_idx, field_idx) =>
               if gsi_folded_global_field_expr(
-                  fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
-                  type_idx, field_idx, false, false,
+                  env, fields_by_type, global_values_by_abs_idx, global_type_slots,
+                  global_idx, type_idx, field_idx, false, false,
                 )
                 is Some(_) {
                 return true
               }
             @lib.StructAtomicGetS(_, type_idx, field_idx) =>
               if gsi_folded_global_field_expr(
-                  fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
-                  type_idx, field_idx, true, false,
+                  env, fields_by_type, global_values_by_abs_idx, global_type_slots,
+                  global_idx, type_idx, field_idx, true, false,
                 )
                 is Some(_) {
                 return true
               }
             @lib.StructAtomicGetU(_, type_idx, field_idx) =>
               if gsi_folded_global_field_expr(
-                  fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
-                  type_idx, field_idx, false, true,
+                  env, fields_by_type, global_values_by_abs_idx, global_type_slots,
+                  global_idx, type_idx, field_idx, false, true,
                 )
                 is Some(_) {
                 return true

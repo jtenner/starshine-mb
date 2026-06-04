@@ -32,7 +32,7 @@ related:
 - The full official contract is much broader than the current local MoonBit implementation.
   - Binaryen handles open-world direct-global reads, closed-world candidate-global reasoning over locals and params, subtype propagation, one-vs-two-unique-value selection, non-constant un-nesting, packed fields, atomic gets, `ref.get_desc`, and the sibling `gsi-desc-cast` surface
 - The current local Starshine implementation is still a deliberately small subset, but the 2026-06-03 O4z audit removed the old closed-world-only restriction for the direct-global layer:
-  - direct `global.get -> struct.get*` pairs now fold in open world, matching Binaryen's direct immutable-global fast path
+  - direct `global.get -> struct.get*` / `struct.atomic.get*` pairs now fold in open world, matching Binaryen's direct immutable-global fast path, including validation-safe reads through a supertype when the immutable global initializer constructs a subtype
   - top-level immutable `struct.new*`, `struct.new_default*`, `struct.new_desc`, and `struct.new_default_desc` globals are covered
   - packed i8/i16 signed and unsigned reads are repaired for direct literal payloads
   - a closed-world fact table now records immutable top-level candidate globals, mutable/too-broad global exclusions, function-local allocation poisoning, nested global-initializer allocation poisoning, poisoned-child-to-parent propagation, and child-candidate-to-parent propagation
@@ -56,9 +56,12 @@ related:
 
 The struct atomic get follow-up added the local opcode surface to GSI's read recognizers. Direct-global and closed-world local/param `struct.atomic.get`, `struct.atomic.get_s`, and `struct.atomic.get_u` sites now use the same immutable-field proof, packed signed/unsigned repair, null-trap preservation, one-value fold, and two-value singleton-select machinery as ordinary `struct.get*`. Generic pass/effect helpers still model these opcodes conservatively as atomic reads that may trap; this follow-up does not make broad atomic purity assumptions and does not implement the sibling descriptor-cast pass.
 
+The later ATOMIC002-A audit found one safe direct-global gap: an immutable global may be declared at a parent/supertype while its initializer constructs a subtype. Direct field folds now reuse the subtype-aware candidate-value path and validate the replacement against the read type, so open-world `global.get -> struct.atomic.get* $Parent` can fold when the actual immutable initializer is `struct.new $Child`, including packed signed/unsigned repair. The safety proof remains field immutability plus validation-safe result typing; mutable fields, non-adjacent casts, descriptor-cast rewrites, and generic pass purity are still out of scope.
+
 The final direct compare ran with a prebuilt native Starshine binary and automatic parallel workers:
 
-- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass global-struct-inference --keep-going-after-command-failures --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --out-dir .tmp/pass-fuzz-global-struct-inference-atomic-get-final-10000`
+- Original atomic-get lane: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass global-struct-inference --keep-going-after-command-failures --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --out-dir .tmp/pass-fuzz-global-struct-inference-atomic-get-final-10000`
+- ATOMIC002-A subtype-direct lane: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass global-struct-inference --keep-going-after-command-failures --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --out-dir .tmp/pass-fuzz-global-struct-inference-atomic-subtype-direct-10000`
 
 Result:
 
@@ -76,17 +79,29 @@ Command-failure classes from `summary.json`:
 - `1` `binaryen-table-index-out-of-range`
 - `1` `binaryen-invalid-tag-index`
 
-The debug artifact timing replay used:
+The ATOMIC002-A subtype-direct compare result matched the original atomic-get lane: 9975 / 10000 compared, 9975 normalized matches, 0 mismatches, 0 validation failures, and the same 25 known Binaryen/tool command failures (`22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, `1` `binaryen-invalid-tag-index`).
 
-- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --global-struct-inference --timing-only --out-dir .tmp/gsi-debug-artifact-timing-atomic-get-final`
+The debug artifact timing replays used:
 
-Result:
+- Original atomic-get lane: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --global-struct-inference --timing-only --out-dir .tmp/gsi-debug-artifact-timing-atomic-get-final`
+- ATOMIC002-A subtype-direct lane: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --global-struct-inference --timing-only --out-dir .tmp/gsi-debug-artifact-timing-atomic-subtype-direct`
+
+Original atomic-get result:
 
 - canonical wasm equal: yes
 - Starshine runtime: `305.608 ms`
 - Binaryen runtime: `404.248 ms`
 - Starshine pass runtime: `0.354 ms`
 - Binaryen pass runtime: `2.870 ms`
+- Starshine pass skipped raw: no
+
+ATOMIC002-A subtype-direct result:
+
+- canonical wasm equal: yes
+- Starshine runtime: `325.583 ms`
+- Binaryen runtime: `411.625 ms`
+- Starshine pass runtime: `0.482 ms`
+- Binaryen pass runtime: `3.038 ms`
 - Starshine pass skipped raw: no
 
 This is semantic smoke and performance evidence for the immutable-field atomic-get GSI subset only. It is not evidence that descriptor-cast, full refinalization, unbounded large-module un-nesting, or broader generic atomic optimizations are implemented.
