@@ -82,12 +82,26 @@ related:
 
 ### Canonical Lane
 
-- Current post-audit command:
-  - `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass simplify-locals --out-dir .tmp/pass-fuzz-simplify-locals`
-- Current 2026-05-06 result:
+- Current 2026-06-04 O4z closeout command:
+  - `bun scripts/pass-fuzz-compare.ts --pass simplify-locals --count 10000 --seed 0x5eed --out-dir .tmp/pass-fuzz-simplify-locals-audit-10000-keepgoing --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --keep-going-after-command-failures`
+- Current 2026-06-04 result:
+  - `9975/10000` compared cases, `9975` normalized matches, `0` cleanup-normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures (`22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`); see [`0712-2026-06-04-simplify-locals-o4z-pass-audit.md`](../../../raw/research/0712-2026-06-04-simplify-locals-o4z-pass-audit.md).
+- The same direct lane without `--keep-going-after-command-failures` stopped at `6764/10000` after `20` Binaryen/tool command failures hit the default max-failure threshold; the keep-going lane is the closeout result.
+- Historical 2026-05-06 result:
   - `6759/10000` compared cases, `6759` normalized matches, `0` mismatches, and `20` Binaryen empty-recursion-group parser/canonicalization command failures; see [`0541-2026-05-06-simplify-locals-direct-revalidation.md`](../../../raw/research/0541-2026-05-06-simplify-locals-direct-revalidation.md).
 - Historical gen-valid-only command family:
   - `bun scripts/pass-fuzz-compare.ts --pass simplify-locals --generator gen-valid --count 10000 --min-compared 10000`
+
+### Generated Late-Neighborhood Lane
+
+- Current 2026-06-04 command:
+  - `bun scripts/pass-fuzz-compare.ts --pass local-cse --pass simplify-locals --pass merge-blocks --count 10000 --seed 0x5eed --out-dir .tmp/pass-fuzz-sl-late-neighborhood-audit-10000-keepgoing --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe --keep-going-after-command-failures`
+- Current 2026-06-04 result:
+  - `9975/10000` compared cases, `9975` normalized matches, `0` cleanup-normalized matches, `0` mismatches, `0` validation failures, and `25` Binaryen/tool command failures with the same classes as the direct keep-going lane.
+- What it proves:
+  - Generated semantic parity for the current public late local cleanup neighborhood around `local-cse -> simplify-locals -> merge-blocks`.
+- What it does not prove:
+  - Direct large-artifact timing or exact printed-WAT parity for artifact-only value-carrier/local-spill representation drift.
 
 ### What It Proves
 
@@ -166,15 +180,21 @@ related:
 - if a change improves self-opt timing but leaves the first mismatch unchanged, record both facts together; that is a real performance win but not a parity retirement
 - if a reduced Binaryen probe proves the local transform but the artifact is still red, do not automatically promote the diagnosis to "writeback bug"; first prove that the large artifact actually hits the same reducer boundary
 
-## Current 2026-06-04 O4z Audit Checkpoint
+## Current 2026-06-04 O4z Audit Closeout
 
 - The focused O4z audit in [`0712-2026-06-04-simplify-locals-o4z-pass-audit.md`](../../../raw/research/0712-2026-06-04-simplify-locals-o4z-pass-audit.md) refreshed the direct quick lane after building `src/cmd` natively.
 - The checklist's `target/native/release/build/cmd/cmd.exe` path did not exist in this workspace after the native build; rerunning with `_build/native/release/build/cmd/cmd.exe` produced `998/1000` compared cases, `998` normalized matches, `0` mismatches, and `2` Binaryen/tool command failures classified as `binaryen-rec-group-zero`.
 - Added two focused `src/passes/simplify_locals_test.mbt` guards for `try_table` EH boundaries: nonthrowing values sink into `try_table` bodies; may-throw producers stay outside the catch boundary.
 - `moon fmt` completed.
 - `moon test src/passes` passed `1581/1581` after the coverage addition.
-- Final quick gate for this audit start also completed: `moon info`, `moon fmt`, and `moon test` (`4766/4766`).
-- This was a started audit, not a closing signoff: the standard `10000`-case lane and late `SL` slot/neighborhood replay remain required before closing `[O4Z-AUDIT-SL]`.
+- The audit-start quick gate also completed: `moon info`, `moon fmt`, and `moon test` (`4766/4766`).
+- Closeout native build: `moon build --target native --release src/cmd` completed with `moon: no work to do`; this workspace still exposes the native binary at `_build/native/release/build/cmd/cmd.exe`, not `target/native/release/build/cmd/cmd.exe`.
+- Closeout quick gate after docs/backlog refresh: `moon info` completed with `moon: no work to do`, `moon fmt` completed with `moon: no work to do`, and `moon test` passed `4766/4766`.
+- Direct closeout lane: `.tmp/pass-fuzz-simplify-locals-audit-10000-keepgoing` reached `9975/10000` compared cases, `9975` normalized matches, `0` cleanup-normalized matches, `0` mismatches, and `25` Binaryen/tool command failures. No compare normalizers were used, and the harness did not report pass-local timings.
+- Late-neighborhood closeout lane: `.tmp/pass-fuzz-sl-late-neighborhood-audit-10000-keepgoing` for `local-cse -> simplify-locals -> merge-blocks` reached `9975/10000` compared cases, `9975` normalized matches, `0` cleanup-normalized matches, `0` mismatches, and `25` Binaryen/tool command failures. No compare normalizers were used, and the harness did not report pass-local timings.
+- Agent classification for both closeout lanes: all command failures are Binaryen/tool parser/canonicalization failures; no semantic, representation-only, size-losing, validation, unknown/risky, or true semantic mismatch family appeared.
+- Artifact caveat: the local debug artifact was regenerated with `moon build --target wasm`, copied from `_build/wasm/debug/build/cmd/cmd.wasm` to `tests/node/dist/starshine-debug-wasi.wasm`, and validated with `wasm-tools validate --features all`. A direct `self-optimize-compare --simplify-locals` attempt did not produce compare results because current Starshine takes `skip-large-module reason=large-module-simplify-locals-noop funcs=6874` on that generated artifact and the compare helper currently fails to parse timing for `skip-large-module`. Treat this as a harness/artifact/raw-gate caveat, not a direct semantic mismatch.
+- `[O4Z-AUDIT-SL]` is closed. Raw-threshold coverage remains explicitly owned by `[AUDIT002-F]` / `[AUDIT002-G]`; large-artifact timing remains under `[WALL]001` unless new evidence pins a regression to `simplify-locals` itself.
 
 ## Current 2026-05-09 Checkpoint
 

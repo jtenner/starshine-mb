@@ -29,8 +29,8 @@ related:
 
 ## What Is Green Today
 
-- The 2026-06-04 O4z audit quick lane is green on the built native binary: `.tmp/pass-fuzz-simplify-locals-audit-1000-native` reached `998/1000` compared cases with `998` normalized matches, `0` mismatches, and `2` Binaryen/tool command failures classified as `binaryen-rec-group-zero`. The initial `target/native/...` harness attempt failed with `ENOENT` in this workspace because the native binary was built at `_build/native/release/build/cmd/cmd.exe`; that failed path run is a binary-path issue, not pass evidence.
-- The 2026-06-04 coverage audit added focused `try_table` EH boundary guards for nonthrowing value sinking and may-throw producer preservation in `src/passes/simplify_locals_test.mbt`; no implementation change was needed.
+- The 2026-06-04 O4z audit closeout is green on the built native binary. The direct keep-going `10000`-request lane `.tmp/pass-fuzz-simplify-locals-audit-10000-keepgoing` reached `9975/10000` compared cases with `9975` normalized matches, `0` cleanup-normalized matches, `0` mismatches, and `25` Binaryen/tool command failures. The generated late-neighborhood lane `.tmp/pass-fuzz-sl-late-neighborhood-audit-10000-keepgoing` for `local-cse -> simplify-locals -> merge-blocks` reached the same counts. The default direct lane without `--keep-going-after-command-failures` stopped at `6764/10000` after the same Binaryen/tool command-failure family hit the default max-failure threshold, so the keep-going result is the closeout evidence. The initial `target/native/...` harness attempt failed with `ENOENT` in this workspace because the native binary was built at `_build/native/release/build/cmd/cmd.exe`; that failed path run is a binary-path issue, not pass evidence.
+- The 2026-06-04 coverage audit added focused `try_table` EH boundary guards for nonthrowing value sinking and may-throw producer preservation in `src/passes/simplify_locals_test.mbt`; no implementation change was needed, and `[O4Z-AUDIT-SL]` is now closed.
 - The 2026-05-09 direct semantic lane is green on current head:
   - `.tmp/pass-fuzz-simplify-locals-genvalid-10000` reached `10000/10000` compared cases with `10000` normalized matches and `0` mismatches.
   - `.tmp/pass-fuzz-simplify-locals-both-10000-keepgoing` reached `9975/10000` compared cases with `9975` normalized matches, `0` mismatches, and `25` command failures classified as Binaryen/tool parser or canonicalization failures.
@@ -99,6 +99,7 @@ related:
 
 ## Current Frontier
 
+- The 2026-06-04 O4z closeout did not reopen the accepted value-carrier/local-spill artifact frontier. A local debug artifact rebuilt from `_build/wasm/debug/build/cmd/cmd.wasm` validated, but direct `self-optimize-compare --simplify-locals` did not produce a usable result because current Starshine skips that `6874`-function artifact with `skip-large-module reason=large-module-simplify-locals-noop` and the compare helper currently fails to parse pass timing for `skip-large-module`. Treat that as a harness/artifact/raw-gate caveat; large-artifact timing and raw thresholds stay under `[WALL]001` / `[AUDIT002-F]` / `[AUDIT002-G]` unless reduced semantic evidence appears.
 - The old `Func 71` first-diff frontier recorded below is historical context, not the current first failing comparison.
 - The 2026-05-09 direct debug-artifact replay after the compare-canonicalizer follow-up was exact-red but accepted as representation drift for v0.1.0:
   - command: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --simplify-locals --out-dir .tmp/sl-artifact-direct-after-setget-canon`

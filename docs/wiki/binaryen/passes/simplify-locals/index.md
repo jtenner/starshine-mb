@@ -48,7 +48,7 @@ related:
 ## Role
 
 - `simplify-locals` is an active implemented **hot pass** in Starshine.
-- Its 2026-06-04 O4z audit quick lane is green: `.tmp/pass-fuzz-simplify-locals-audit-1000-native` reached `998/1000` compared cases with `998` normalized matches, `0` mismatches, and `2` Binaryen empty-recursion-group parser/canonicalization command failures. The older 2026-05 direct explicit-pass parity lanes remain the latest recorded long direct evidence until `[O4Z-AUDIT-SL]` is closed with a fresh `10000`-case run.
+- Its 2026-06-04 O4z audit closeout is green: the direct keep-going `10000`-request lane `.tmp/pass-fuzz-simplify-locals-audit-10000-keepgoing` reached `9975/10000` compared cases with `9975` normalized matches, `0` cleanup-normalized matches, `0` mismatches, and `25` Binaryen/tool command failures; the generated late-neighborhood lane `.tmp/pass-fuzz-sl-late-neighborhood-audit-10000-keepgoing` for `local-cse -> simplify-locals -> merge-blocks` reached the same counts. Both lanes used `--jobs auto` and `_build/native/release/build/cmd/cmd.exe` because this workspace did not produce `target/native/release/build/cmd/cmd.exe`.
 - In upstream Binaryen `version_129`, `simplify-locals` is not one pass name with one behavior.
   It is a **family** of five public passes built from one templated implementation in `SimplifyLocals.cpp`.
 - The public `pass.cpp` summary is short:
@@ -96,7 +96,7 @@ So this pass is **not** just dead-local removal and **not** just adjacent set/ge
   - tee creation
   - structure creation
   - whether new nesting is allowed at all
-- The 2026-06-04 coverage audit added focused `try_table` EH boundary tests for nonthrowing value sinking and may-throw producer preservation in `src/passes/simplify_locals_test.mbt`; no implementation change was needed.
+- The 2026-06-04 O4z audit added focused `try_table` EH boundary tests for nonthrowing value sinking and may-throw producer preservation in `src/passes/simplify_locals_test.mbt`, refreshed the direct and late-neighborhood generated parity lanes, and closed `[O4Z-AUDIT-SL]`; no implementation change was needed.
 - Current `main` shows only a tiny checked drift beyond `version_129` here:
   - `std::map` / `std::set` -> `std::unordered_map` / `std::unordered_set` bookkeeping cleanup in `SimplifyLocals.cpp`
   - the major dedicated lit files checked for this dossier are unchanged

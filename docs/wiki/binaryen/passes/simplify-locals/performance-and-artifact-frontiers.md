@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-04-15
+last_reviewed: 2026-06-04
 sources:
+  - ../../../raw/research/0712-2026-06-04-simplify-locals-o4z-pass-audit.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/pass_manager_wbtest.mbt
@@ -55,6 +56,7 @@ related:
   - real skip distribution
   - real runtime concentration
   can all be seen together.
+- The 2026-06-04 O4z audit closeout did not refresh a successful large-artifact timing lane. In this worktree the checked-in debug artifact was absent; a locally rebuilt debug artifact validated, but direct `self-optimize-compare --simplify-locals` hit Starshine's `skip-large-module reason=large-module-simplify-locals-noop funcs=6874` path and then the compare helper failed to parse pass timing for `skip-large-module`. Treat that as a harness/artifact/raw-gate caveat, not a semantic mismatch. Keep renewed artifact timing under `[WALL]001` unless new evidence pins the cost to `simplify-locals` itself.
 
 ### Backlog Snapshot
 

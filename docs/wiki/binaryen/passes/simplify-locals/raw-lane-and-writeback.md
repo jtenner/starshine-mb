@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-10
+last_reviewed: 2026-06-04
 sources:
+  - ../../../raw/research/0712-2026-06-04-simplify-locals-o4z-pass-audit.md
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/pass_manager_wbtest.mbt
   - ../../../../../src/passes/perf_test.mbt
@@ -101,6 +102,10 @@ related:
   - reduced heavy regressions now prove the raw lane can sink that temp safely without lifting the whole function
 
 ## Raw Skip Families Currently Worth Keeping
+
+### 2026-06-04 Audit Boundary
+
+The `[O4Z-AUDIT-SL]` closeout refreshed direct and generated late-neighborhood semantic evidence, but intentionally did **not** claim that every raw threshold is boundary-tested. The remaining raw skip/gate boundary work stays under `[AUDIT002-F]` / `[AUDIT002-G]`, especially small structured call-mesh gates, giant validator / no-structure gates, practical `±1` thresholds, and public-pipeline fixtures that prove intended cleanup or intentional skip with a trace reason.
 
 ### `validator-structured-call-heavy`
 

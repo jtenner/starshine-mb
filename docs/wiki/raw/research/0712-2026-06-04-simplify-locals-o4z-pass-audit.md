@@ -83,6 +83,90 @@ Result:
 
 The two command failures are recorded in the summary as `command-class.binaryen-rec-group-zero`. Agent classification: Binaryen/tool parser/canonicalization failures, not Starshine semantic mismatches.
 
+Closeout reran the requested `10000`-case direct lane with the actual native binary path:
+
+```sh
+bun scripts/pass-fuzz-compare.ts \
+  --pass simplify-locals \
+  --count 10000 \
+  --seed 0x5eed \
+  --out-dir .tmp/pass-fuzz-simplify-locals-audit-10000 \
+  --jobs auto \
+  --starshine-bin _build/native/release/build/cmd/cmd.exe
+```
+
+Result: `6764/10000` compared, `6764` normalized matches, `0` cleanup-normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, and `20` command failures. The run stopped at the default max-failure threshold because command failures count toward that threshold by default. Command-failure classes were `17` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`. Agent classification: Binaryen/tool parser/canonicalization failures, not Starshine semantic mismatches.
+
+A keep-going rerun used the same direct pass, seed, jobs, and native binary, but kept command failures out of the max-failure budget so the full request could complete:
+
+```sh
+bun scripts/pass-fuzz-compare.ts \
+  --pass simplify-locals \
+  --count 10000 \
+  --seed 0x5eed \
+  --out-dir .tmp/pass-fuzz-simplify-locals-audit-10000-keepgoing \
+  --jobs auto \
+  --starshine-bin _build/native/release/build/cmd/cmd.exe \
+  --keep-going-after-command-failures
+```
+
+Result:
+
+- compared cases: `9975/10000`
+- normalized matches: `9975`
+- cleanup-normalized matches: `0`
+- compare-normalized matches: `0`
+- validation failures: `0`
+- property failures: `0`
+- generator failures: `0`
+- command failures: `25`
+- mismatches: `0`
+
+Command-failure classes were `22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`. Agent classification: Binaryen/tool parser/canonicalization failures, not Starshine semantic mismatches. The compare harness did not report pass-local timings for this lane.
+
+## Late `SL` neighborhood evidence
+
+The closeout also refreshed the generated late-neighborhood lane around the current public local cleanup cluster:
+
+```sh
+bun scripts/pass-fuzz-compare.ts \
+  --pass local-cse \
+  --pass simplify-locals \
+  --pass merge-blocks \
+  --count 10000 \
+  --seed 0x5eed \
+  --out-dir .tmp/pass-fuzz-sl-late-neighborhood-audit-10000-keepgoing \
+  --jobs auto \
+  --starshine-bin _build/native/release/build/cmd/cmd.exe \
+  --keep-going-after-command-failures
+```
+
+Result:
+
+- compared cases: `9975/10000`
+- normalized matches: `9975`
+- cleanup-normalized matches: `0`
+- compare-normalized matches: `0`
+- validation failures: `0`
+- property failures: `0`
+- generator failures: `0`
+- command failures: `25`
+- mismatches: `0`
+
+Command-failure classes matched the direct keep-going lane: `22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`. Agent classification: Binaryen/tool parser/canonicalization failures. No semantic, representation, size-losing, validation, or unknown/risky mismatch family was present in this generated late-neighborhood lane. The compare harness did not report pass-local timings.
+
+## Artifact replay note
+
+The checked-in debug artifact was absent in this worktree, so closeout rebuilt the local debug artifact with:
+
+```sh
+moon build --target wasm
+cp _build/wasm/debug/build/cmd/cmd.wasm tests/node/dist/starshine-debug-wasi.wasm
+wasm-tools validate --features all tests/node/dist/starshine-debug-wasi.wasm
+```
+
+The generated artifact validated and was about `6.7M`, but a direct `self-optimize-compare` attempt for `--simplify-locals` did not produce compare results. Current Starshine skips direct `simplify-locals` over that generated artifact via `pass[simplify-locals]:skip-large-module reason=large-module-simplify-locals-noop funcs=6874`, and the compare helper currently treats that `skip-large-module` trace as missing pass timing because it only recognizes pass timers or `skip-raw`. This is a harness/artifact/raw-gate caveat, not a direct-pass semantic mismatch. The older accepted value-carrier/local-spill artifact frontier remains the durable large-artifact context, and any renewed large-artifact timing or threshold work belongs under `[WALL]001` or `[AUDIT002-F]` / `[AUDIT002-G]` unless a new reduced semantic bug appears.
+
 ## Coverage audit findings
 
 The source/wiki review found that core simplify-locals coverage is broad for:
@@ -137,16 +221,27 @@ moon test
 
 Result: `moon info` completed, `moon fmt` completed, and `moon test` passed `4766/4766`.
 
-## Current classification
+Closeout repeated the standard quick gate after the final docs/backlog refresh:
 
-- Direct generated parity: green on the refreshed 1000-case native-binary audit lane, with `0` mismatches and `2` Binaryen/tool command failures.
+```sh
+moon info
+moon fmt
+moon test
+```
+
+Result: `moon info` completed with `moon: no work to do`, `moon fmt` completed with `moon: no work to do`, and `moon test` passed `4766/4766`.
+
+## Closeout classification
+
+- Direct generated parity: green on the refreshed direct keep-going `10000`-request native-binary audit lane, with `9975` normalized matches, `0` cleanup-normalized matches, `0` mismatches, and `25` Binaryen/tool command failures.
+- Late-neighborhood generated parity: green on `local-cse -> simplify-locals -> merge-blocks`, with `9975` normalized matches, `0` cleanup-normalized matches, `0` mismatches, and `25` Binaryen/tool command failures.
+- Mismatch classification: no semantic-safe/size-winning, representation-only, size-losing, unknown/risky, validation-failure, or true-semantic-mismatch families appeared. All saved failure dirs in the closeout lanes are agent-classified Binaryen/tool parser/canonicalization failures.
 - Test completeness: improved by adding the missing `try_table` nonthrowing-positive / may-throw-negative EH boundary pair.
-- Implementation completeness: no new semantic bug found in this audit pass.
-- Runtime completeness: this audit did not rerun a large artifact timing lane. Existing wiki evidence still classifies whole-command or artifact-frontier runtime under the existing simplify-locals performance pages and `[WALL]001` unless a future run proves the pass itself owns a regression.
+- Implementation completeness: no new semantic bug found in this audit pass; no implementation change was needed after the coverage addition.
+- Runtime completeness: this closeout did not refresh a successful large-artifact timing lane. The generated debug artifact currently hits the pass-manager large-module skip and a `self-optimize-compare` timing-parser caveat. Existing wiki evidence still classifies whole-command or artifact-frontier runtime under the simplify-locals performance pages and `[WALL]001` unless a future run proves the pass itself owns a regression.
 
-## Remaining work before closing `[O4Z-AUDIT-SL]`
+## Closure disposition
 
-- Scale direct compare back to the standard `10000`-case lane if this slice is being closed rather than merely started.
-- Refresh late `SL` slot / neighborhood evidence when the surrounding O4z queue is ready.
-- Recheck artifact timing only if the audit owner wants to update or retire the existing value-carrier / raw-lane performance frontier.
-- Continue coordinating raw gate boundary work with `[AUDIT002-F]` and `[AUDIT002-G]`; this audit added EH semantic coverage, not raw-threshold boundary tests.
+`[O4Z-AUDIT-SL]` is closed for the v0.1.0 per-pass audit gate.
+
+Raw-threshold boundary work was intentionally not folded into this slice. The remaining simplify-locals raw gate coverage belongs to `[AUDIT002-F]` / `[AUDIT002-G]` and should cover small structured call-mesh gates, giant validator / no-structure gates, practical `±1` thresholds, and public-pipeline fixtures with trace reasons. New shrink candidates or exact artifact carrier cleanups should be filed separately from semantic fixes unless they reduce to an observable correctness bug.
