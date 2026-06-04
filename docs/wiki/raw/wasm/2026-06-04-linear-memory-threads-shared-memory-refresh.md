@@ -13,14 +13,14 @@ sources:
   - https://webassembly.github.io/threads/core/valid/instructions.html
   - https://webassembly.github.io/threads/core/exec/instructions.html
   - https://github.com/WebAssembly/threads/blob/main/proposals/threads/Overview.md
-  - ../../../src/lib/types.mbt
-  - ../../../src/binary/decode.mbt
-  - ../../../src/binary/encode.mbt
-  - ../../../src/binary/tests.mbt
-  - ../../../src/validate/validate.mbt
-  - ../../../src/validate/typecheck.mbt
-  - ../../../src/validate/gen_valid.mbt
-  - ../../../src/wast/lower_to_lib.mbt
+  - ../../../../src/lib/types.mbt
+  - ../../../../src/binary/decode.mbt
+  - ../../../../src/binary/encode.mbt
+  - ../../../../src/binary/tests.mbt
+  - ../../../../src/validate/validate.mbt
+  - ../../../../src/validate/typecheck.mbt
+  - ../../../../src/validate/gen_valid.mbt
+  - ../../../../src/wast/lower_to_lib.mbt
 related:
   - ../../validate/resource-sections-and-limits.md
   - ../../wast/resource-declaration-authoring.md
@@ -34,6 +34,8 @@ related:
 ## Why this note exists
 
 Several Starshine pages need to talk about **linear shared memory**, **atomic memory instructions**, and **memory-type binary flags** without accidentally implying those rules are already part of stable Core WebAssembly 3.0. This note is the shared bridge for those claims.
+
+Supersession note: [`2026-06-04-linear-atomics-fence-unshared-reconciliation.md`](2026-06-04-linear-atomics-fence-unshared-reconciliation.md) corrects this note's shorthand around atomic validation. `AtomicFence` is standalone and has no selected-memory/sharedness check; the current local shared-memory gate applies to `MemArg`-based atomic loads/stores/RMW/cmpxchg/wait/notify.
 
 Use it when updating resource validation claims about shared-memory maxima, WAST declaration caveats for memory64/shared-memory authoring, binary memory-type flag fixtures, generator `[FZG]006` and `[FZG]017` claims, and linear-memory atomic validation claims.
 
@@ -54,7 +56,7 @@ Checked on 2026-06-04:
 - `src/binary/decode.mbt` accepts memory32 flags `0x00`, `0x01`, `0x02`, `0x03` and memory64 flags `0x04`, `0x05`, `0x06`, `0x07`. The `0x02` and `0x06` shapes represent shared memories without maxima.
 - `src/binary/encode.mbt` can emit the same flag matrix from the core `MemType` representation.
 - `src/validate/validate.mbt` rejects any shared memory whose limits have no maximum. Therefore shared-without-max byte shapes are decode-accepted invalid-module fixtures, not valid round trips.
-- `src/validate/typecheck.mbt` currently requires the selected memory to be shared for all linear-memory atomic families. This is stricter/conservative relative to the proposal distinction where wait-on-unshared is specifically trapping.
+- `src/validate/typecheck.mbt` currently requires the selected memory to be shared for `MemArg`-based linear-memory atomic families: loads, stores, RMW, cmpxchg, wait, and notify. [`2026-06-04-linear-atomics-fence-unshared-reconciliation.md`](2026-06-04-linear-atomics-fence-unshared-reconciliation.md) supersedes the older shorthand that accidentally included `AtomicFence`; it also records that the threads draft validates the memory-access forms by memory existence and exact alignment while execution distinguishes unshared/shared behavior.
 - `src/validate/gen_valid.mbt` emits atomics only when it can find a shared memory.
 - `src/wast/lower_to_lib.mbt` currently lowers WAST memory declarations through `Limits::i32(...)` and has no text spelling for shared memory or memory64 declarations.
 
@@ -65,7 +67,7 @@ Checked on 2026-06-04:
 3. Binary fixtures using flags `0x02` or `0x06` are valid decode coverage but must be described as invalid validation specimens because they encode shared memories without maxima.
 4. WAST resource declarations are narrower than core/binary resources today. They can prove ordinary memory32 declarations, but not memory64 or shared-memory declarations.
 5. `[FZG]006` shared-memory generation should keep shared memories bounded. `[FZG]017` atomics generation is Starshine-valid core/binary/validator evidence, not high-level WAST text evidence.
-6. Starshine's current all-atomics-require-shared validation is a conservative local rule. Avoid rewriting it as proposal-exact breadth unless the typechecker is deliberately widened and fixtures prove the new split.
+6. Starshine's current shared-memory gate is a conservative local rule for `MemArg`-based atomics, not for standalone `AtomicFence`. Avoid rewriting the memory-access subset as proposal-exact breadth unless the typechecker is deliberately widened and fixtures prove the new split.
 
 ## Links checked
 
