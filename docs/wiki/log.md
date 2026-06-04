@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] validate/tooling | trap-mode routing caveat
+
+- Added [`raw/validation/2026-06-04-trap-mode-routing-source-refresh.md`](raw/validation/2026-06-04-trap-mode-routing-source-refresh.md) after rechecking current WebAssembly trap semantics, Binaryen trap-assumption option sources, and current Starshine CLI/config/optimizer routing for `--trap-mode`, `--traps-never-happen`, and config `trapsNeverHappen`.
+- Refreshed [`validate/runtime-trap-semantics.md`](validate/runtime-trap-semantics.md) so `traps-never-happen` is taught as a real Binaryen optimization assumption but only command/config/report vocabulary plus future pass-option plumbing in current Starshine; local passes remain trap-preserving unless their own strategy page documents otherwise.
+- Refreshed [`tooling/cli-command-and-dispatcher.md`](tooling/cli-command-and-dispatcher.md) and [`index.md`](index.md) so trap-mode flags stay discoverable as options that are intentionally omitted from the scheduled pass list, with CLI/env/config precedence, summary/repro-hint behavior, and future pass-consumption maintenance rules explicit.
+
 ## [2026-06-04] wasm/wiki | relaxed-SIMD status routing
 
 - Added [`raw/wasm/2026-06-04-relaxed-simd-status-refresh.md`](raw/wasm/2026-06-04-relaxed-simd-status-refresh.md) after rechecking the official WebAssembly finished-proposals table, Core 3.0 text/binary/validation instruction pages, proposal/process sources, and current Starshine WAST/binary/typechecker/generator evidence for relaxed SIMD.
