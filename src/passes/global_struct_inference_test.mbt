@@ -41,6 +41,25 @@ fn gsi_test_global_init_contains(
 }
 
 ///|
+fn gsi_test_any_global_init_contains(
+  mod_ : @lib.Module,
+  needle : @lib.Instruction,
+) -> Bool raise {
+  match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) => {
+      for global_ in globals {
+        let @lib.Global(_, @lib.Expr(instrs)) = global_
+        if instrs.contains(needle) {
+          return true
+        }
+      }
+      false
+    }
+    None => fail("expected global section")
+  }
+}
+
+///|
 fn gsi_assert_folded_i32(input : String, expected : String) -> Unit raise {
   let pretty = gsi_test_pretty(input, false)
   assert_false(pretty.contains("struct.get"), msg=pretty)
@@ -704,6 +723,63 @@ test "global-struct-inference un-nests closed-world select values" {
   assert_true(pretty.contains("I32(1337)"), msg=pretty)
   assert_true(pretty.contains("global.get"), msg=pretty)
   @debug.assert_eq(try! gsi_test_defined_global_count(optimized), 3)
+}
+
+///|
+test "global-struct-inference un-nests float sqrt and rounding closed-world select values" {
+  let sqrt_input =
+    #| (module
+    #|   (type $box (sub (struct (field f32))))
+    #|   (global $a (ref $box)
+    #|     (struct.new $box
+    #|       (f32.sqrt (f32.const 9))))
+    #|   (global $b (ref $box) (struct.new $box (f32.const 1)))
+    #|   (func (export "read") (param (ref null $box)) (result f32)
+    #|     local.get 0
+    #|     struct.get $box 0))
+    #|
+  let sqrt_optimized = gsi_test_run(sqrt_input, true)
+  let sqrt_pretty = sqrt_optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(sqrt_pretty.contains("struct.get"), msg=sqrt_pretty)
+  assert_true(sqrt_pretty.contains("select"), msg=sqrt_pretty)
+  assert_true(sqrt_pretty.contains("ref.eq"), msg=sqrt_pretty)
+  assert_true(sqrt_pretty.contains("global.get"), msg=sqrt_pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(sqrt_optimized), 3)
+  assert_true(
+    try! gsi_test_any_global_init_contains(
+      sqrt_optimized,
+      @lib.Instruction::f32_sqrt(),
+    ),
+    msg=sqrt_pretty,
+  )
+
+  let rounding_input =
+    #| (module
+    #|   (type $box (sub (struct (field f64))))
+    #|   (global $a (ref $box)
+    #|     (struct.new $box
+    #|       (f64.nearest (f64.const 2.5))))
+    #|   (global $b (ref $box) (struct.new $box (f64.const 4)))
+    #|   (func (export "read") (param (ref null $box)) (result f64)
+    #|     local.get 0
+    #|     struct.get $box 0))
+    #|
+  let rounding_optimized = gsi_test_run(rounding_input, true)
+  let rounding_pretty = rounding_optimized.pretty_print_func(
+    @lib.FuncIdx::new(0U),
+  )
+  assert_false(rounding_pretty.contains("struct.get"), msg=rounding_pretty)
+  assert_true(rounding_pretty.contains("select"), msg=rounding_pretty)
+  assert_true(rounding_pretty.contains("ref.eq"), msg=rounding_pretty)
+  assert_true(rounding_pretty.contains("global.get"), msg=rounding_pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(rounding_optimized), 3)
+  assert_true(
+    try! gsi_test_any_global_init_contains(
+      rounding_optimized,
+      @lib.Instruction::f64_nearest(),
+    ),
+    msg=rounding_pretty,
+  )
 }
 
 ///|

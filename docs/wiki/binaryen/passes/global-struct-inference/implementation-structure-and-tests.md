@@ -188,7 +188,7 @@ Current focused public-pipeline tests prove the local rewrite subset:
 - mutable-field, mutable-global, and imported-global direct-global negatives
 - non-global ref producers remaining unchanged in open world
 - exact and subtype-propagated single-candidate param and body-local origins rewriting in closed world with null-trap preservation, with broad global-declaration negatives for invalid replacement types
-- read-gated small-module non-constant un-nesting for arithmetic, integer bitwise, integer shift/rotate, and unary numeric field operands, including packed signed/unsigned direct-global and closed-world local/param reads whose fresh-global payloads need dynamic repair
+- read-gated small-module non-constant un-nesting for arithmetic, integer bitwise, integer shift/rotate, unary numeric, float square-root, and float rounding field operands, including packed signed/unsigned direct-global and closed-world local/param reads whose fresh-global payloads need dynamic repair
 - exact and subtype-propagated multi-candidate one-value local/param folds in closed world, including equal literals, immutable `global.get`s, body locals, packed-field repair, child-only parent reads, and mixed parent/child candidate order
 - exact and subtype-propagated multi-candidate two-value local/param selects in closed world, including two-global, three-global singleton-group, child-only parent, and mixed parent/child positives
 - open-world, more-than-two-value, two-equal-pair, non-materializable, poisoned child/exact type, mutable-field, mutable-global, and too-broad/`anyref` local-origin negatives
@@ -204,7 +204,7 @@ Current focused white-box tests prove the new closed-world fact builder:
 - poisoned child types poison parents, including modules with no global section
 - child candidate globals propagate upward to parent types in deterministic global-index order
 
-These tests now cover the direct-global O4z audit surfaces, the subtype-aware closed-world candidate-map foundation, exact and subtype-propagated single-candidate local/param origin consumers, exact/subtype-propagated one-value multi-candidate local/param folds, exact/subtype-propagated two-value singleton-group local/param selects, small-module arithmetic/bitwise/shift-rotate/unary-numeric/float-rounding-sqrt/sign-extension un-nesting, and small-module `ref.get_desc` folds. They are still far narrower than Binaryen `gsi.wast` because descriptor-cast rewrites, atomic gets, full refinalization, and unbounded large-module un-nesting remain absent.
+These tests now cover the direct-global O4z audit surfaces, the subtype-aware closed-world candidate-map foundation, exact and subtype-propagated single-candidate local/param origin consumers, exact/subtype-propagated one-value multi-candidate local/param folds, exact/subtype-propagated two-value singleton-group local/param selects, small-module arithmetic/bitwise/shift-rotate/unary-numeric/float-rounding-sqrt/sign-extension un-nesting, closed-world singleton-select coverage for fresh `f32.sqrt` and `f64.nearest` operands, and small-module `ref.get_desc` folds. They are still far narrower than Binaryen `gsi.wast` because descriptor-cast rewrites, atomic gets, full refinalization, and unbounded large-module un-nesting remain absent.
 
 ## Current local-vs-Binaryen matrix
 
