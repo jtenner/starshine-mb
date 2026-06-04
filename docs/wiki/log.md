@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] validate/address-width | memory/table validator matrix
+
+- Added [`validate/memory-table-address-widths.md`](validate/memory-table-address-widths.md) as the focused living validator guide for memory64/table64 address-width stack typing, using the existing [`raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md), official WebAssembly Core 3.0 syntax/validation pages, and current `src/lib/types.mbt`, `src/validate/typecheck.mbt`, and `src/validate/validate.mbt` evidence.
+- Cross-linked the new matrix from [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`wast/memory-instruction-authoring.md`](wast/memory-instruction-authoring.md), [`wast/table-instruction-authoring.md`](wast/table-instruction-authoring.md), and [`index.md`](index.md) so memory64/table64 claims route through one page instead of staying split across resource and WAST pages.
+- Current durable split: resource declarations can carry `I64Limits`, while instruction validators remain only partly widened; Starshine aligns on memory `size`/`grow`/`init`/`copy` and table `copy`/`init`, but still has local `i32` assumptions for memory64 `memory.fill` length, table64 `table.fill` length, ordinary table operations, and indirect-call table indices.
+
 ## [2026-06-04] validate/data-count | code data-index requirement guide
 
 - Added [`raw/wasm/2026-06-04-data-count-code-data-index-recheck.md`](raw/wasm/2026-06-04-data-count-code-data-index-recheck.md) after rechecking current official WebAssembly Core 3.0 binary module and instruction-validation pages plus local `src/lib/types.mbt`, `src/validate/validate.mbt`, `src/validate/typecheck.mbt`, and `src/validate/invalid_fuzzer.mbt` evidence.

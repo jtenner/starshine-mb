@@ -29,6 +29,7 @@ related:
   - ../binary/data-element-and-datacount-sections.md
   - ../binary/type-table-memory-global-tag-sections.md
   - ../validate/module-validation-phases.md
+  - ../validate/memory-table-address-widths.md
   - ../validate/ref-func-declarations.md
   - ../fuzzing/generator-coverage-ledger.md
 ---
@@ -58,7 +59,7 @@ A single table instruction has different shapes at different layers:
 | Binary bytes | [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) | `table.get` / `table.set` are one-byte opcodes; bulk table ops are `0xFC` subcodes. Binary `call_indirect` stores type index before table index. |
 | Validation | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | The typechecker proves the table/element/type indices exist, stack operands match the selected table's element/address type, and indirect-call tables are function-reference compatible. |
 
-The main invariant for authors is: **do not infer core or binary immediate order from the WAST spelling.** Keep the source layer explicit when documenting a fixture or a pass rewrite.
+The main invariant for authors is: **do not infer core or binary immediate order from the WAST spelling.** Keep the source layer explicit when documenting a fixture or a pass rewrite. When the question is table32/table64 stack typing rather than WAST spelling, route through the focused validator matrix in [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md).
 
 ## Instruction Families And Stack Shapes
 
@@ -155,7 +156,7 @@ Do **not** use WAST `table64` instruction fixtures as complete validation eviden
 - [`typecheck_table_fill(...)`](../../../src/validate/typecheck.mbt#L1495-L1519) is only partially widened locally: the destination/start operand uses the table limit width, but the length operand still uses `i32` even though the official table64 rule uses `at`;
 - [`typecheck_table_get(...)`](../../../src/validate/typecheck.mbt#L555-L565), [`typecheck_table_set(...)`](../../../src/validate/typecheck.mbt#L570-L586), [`typecheck_table_size(...)`](../../../src/validate/typecheck.mbt#L593-L598), [`typecheck_table_grow(...)`](../../../src/validate/typecheck.mbt#L603-L624), [`typecheck_call_indirect(...)`](../../../src/validate/typecheck.mbt#L899-L934), and [`typecheck_return_call_indirect(...)`](../../../src/validate/typecheck.mbt#L994-L1028) still use `i32` index/result assumptions locally.
 
-Until that gap is fixed and tested, table64 table-instruction work belongs in a validation-widening task, not ordinary WAST authoring documentation. The Binaryen feature-lowering sibling is tracked from the pass side in [`../binaryen/passes/memory64-lowering/index.md`](../binaryen/passes/memory64-lowering/index.md), which also records table64-lowering context. Keep resource-section support (`TableType` can carry `I64Limits`) separate from these instruction-stack caveats.
+Until that gap is fixed and tested, table64 table-instruction work belongs in a validation-widening task, not ordinary WAST authoring documentation; use [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md) as the current authoritative matrix. The Binaryen feature-lowering sibling is tracked from the pass side in [`../binaryen/passes/memory64-lowering/index.md`](../binaryen/passes/memory64-lowering/index.md), which also records table64-lowering context. Keep resource-section support (`TableType` can carry `I64Limits`) separate from these instruction-stack caveats.
 
 ## Rewrite And Validation Guidance
 
@@ -171,7 +172,7 @@ When a pass or generator change touches table instructions, use this checklist:
 ## Source Map
 
 - Primary-source and local-code manifest: [`../raw/wasm/2026-05-19-wast-table-instruction-sources.md`](../raw/wasm/2026-05-19-wast-table-instruction-sources.md)
-- Current address-width refresh: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
+- Current address-width refresh: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md), [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md)
 - Targeted table64 / `table.fill` validation correction: [`../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md)
 - WAST opcode vocabulary and parser: [`../../../src/wast/types.mbt`](../../../src/wast/types.mbt), [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt)
 - WAST printer and lowerer: [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
