@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-01
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md
   - ../raw/wasm/2026-05-20-name-section-label-subsection-correction.md
   - ../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md
   - ../raw/wasm/2026-05-13-custom-and-name-section-sources.md
@@ -33,7 +34,7 @@ related:
 
 ## Overview
 
-For the whole-module placement and ordering map that ties custom metadata to the standard sections, start with [`module-section-map.md`](module-section-map.md). For the text-authoring side of `$` identifiers and function-name lowering, see [`../wast/identifier-name-and-annotation-authoring.md`](../wast/identifier-name-and-annotation-authoring.md); for Starshine's narrow function/import `(@...)` lane and the split from WebAssembly/Binaryen code metadata, see [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md). WebAssembly custom sections are section-id-`0` records that carry a UTF-8 name plus uninterpreted bytes. The core spec treats them as semantically ignored metadata that may appear at custom-section gaps in a binary module.
+For the whole-module placement and ordering map that ties custom metadata to the standard sections, start with [`module-section-map.md`](module-section-map.md). For the text-authoring side of `$` identifiers and function-name lowering, see [`../wast/identifier-name-and-annotation-authoring.md`](../wast/identifier-name-and-annotation-authoring.md); for Starshine's narrow function/import `(@...)` lane and the split from WebAssembly/Binaryen code metadata, see [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md). WebAssembly custom sections are section-id-`0` records that carry a UTF-8 name plus uninterpreted bytes. The core spec treats them as semantically ignored metadata that may appear at custom-section gaps in a binary module. The 2026-06-04 current-source refresh in [`../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md`](../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md) also rechecked the official text annotation surface: `(@name ...)` describes name-section-style names at supported binding sites, while `(@custom ...)` describes placement-aware custom sections. Starshine's WAST parser currently uses a different local function/import annotation lane for `(@...)`; do not infer official `@name` or `@custom` text support from that local parser shape.
 
 The standardized name section is a special custom section named `name`, but the official-versus-local boundary matters. The 2026-05-20 primary-source refresh in [`../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md`](../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md) corrected the earlier 2026-05-13 snapshot by removing table, memory, global, element, and data from the current official set. The later same-day correction in [`../raw/wasm/2026-05-20-name-section-label-subsection-correction.md`](../raw/wasm/2026-05-20-name-section-label-subsection-correction.md) narrows the official set one step further: the current WebAssembly 3.0 page checked during this run documents module, function, local, type, field, and tag name subsections, while Starshine additionally accepts, validates, and can emit label, table, memory, global, element, and data name maps as local richer metadata.
 
@@ -65,7 +66,13 @@ section name = "name"
 payload = name subsections in strictly increasing subsection-id order
 ```
 
-The corrected current-source read in [`../raw/wasm/2026-05-20-name-section-label-subsection-correction.md`](../raw/wasm/2026-05-20-name-section-label-subsection-correction.md) lists the current standardized subsection ids as `0` module, `1` function, `2` local, `4` type, `10` field, and `11` tag. Starshine's `NameSec` also carries local subsection ids `3` label, `5` table, `6` memory, `7` global, `8` element, and `9` data; treat those as Starshine-local compatibility/richer-metadata support until a newer primary source standardizes them.
+The corrected current-source read in [`../raw/wasm/2026-05-20-name-section-label-subsection-correction.md`](../raw/wasm/2026-05-20-name-section-label-subsection-correction.md) lists the current standardized subsection ids as `0` module, `1` function, `2` local, `4` type, `10` field, and `11` tag; the 2026-06-04 refresh confirms that set against the current official page. Starshine's `NameSec` also carries local subsection ids `3` label, `5` table, `6` memory, `7` global, `8` element, and `9` data; treat those as Starshine-local compatibility/richer-metadata support until a newer primary source standardizes them.
+
+### Official text annotations versus Starshine-local annotations
+
+The official text `(@name "...")` annotation is a name-section authoring shortcut, not a custom payload. It can name supported binding sites such as modules, functions/imports, params/locals, types, fields, and tags, and may override the printable name derived from a `$` identifier. Starshine does not currently lower official `@name` annotations into `NameSec`; WAST lowering instead promotes only function/import `$` identifiers through `wt_push_func_name(...)` in [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt).
+
+The official text `(@custom "name" ... "payload")` annotation is a placement-aware custom-section authoring form. Starshine preserves opaque non-`name` binary custom sections in `Module.custom_secs`, but the current WAST `(@...)` parser only attaches annotations to functions and func imports and lowers them to `FuncAnnotationSec`. A local fixture like `(@custom "x") (func ...)` therefore proves the function-annotation lane, not official custom-section placement.
 
 ## Decode / Encode Flow
 
@@ -112,7 +119,8 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 - **Placement is not preserved.** Decode accepts custom sections at every spec-allowed gap, but encode currently emits all non-`name` custom sections before standard sections. If exact placement matters, add a placement-bearing representation rather than relying on `custom_secs` order alone.
 - **Only one `name` section is accepted.** Duplicate `name` custom sections are rejected during module decode.
 - **Raw name payload reuse is conditional.** Preserve it only when no pass or API call has structurally rewritten names or referenced index spaces.
-- **The official subsection set is smaller than Starshine's local map.** Current primary sources standardize `0`, `1`, `2`, `4`, `10`, and `11`; Starshine-local id `3` covers label names and ids `5` through `9` cover table, memory, global, element, and data names. Do not add new subsection ids or remove the local-extension caveat without refreshing primary sources and extending decode/encode/validation tests together.
+- **The official subsection set is smaller than Starshine's local map.** Current primary sources standardize `0`, `1`, `2`, `4`, `10`, and `11`; Starshine-local id `3` covers label names and ids `5` through `9` cover table, memory, global, element, and data names. The 2026-06-04 refresh confirms that this is still the current official/local split. Do not add new subsection ids or remove the local-extension caveat without refreshing primary sources and extending decode/encode/validation tests together.
+- **Official `@name` and `@custom` text annotations are not the same as `FuncAnnotationSec`.** If a test needs portable name annotation or custom-section placement behavior, add explicit WAST parser/lowerer/printer coverage for those official forms instead of relying on Starshine's existing function/import annotation parser.
 - **Name maps are not uniqueness maps for strings.** Indices must be unique and ordered; name strings themselves may repeat. `[FUZ]1020G1` classifies ordering and count corruption as binary-invalid rather than AST-invalid work: serialized counts are byte framing, and out-of-order `NameMap` / `IndirectNameMap` arrays trip `InvalidNameMapOrder` in `src/binary/decode.mbt` / `src/binary/encode.mbt` before yielding a decode-accepted validation specimen. `[FUZ]1020G1` classifies ordering/count failures as binary/codec-invalid rather than AST-invalid: `NameMap` and `IndirectNameMap` arrays can be built in memory, but encode rejects non-increasing indices with `InvalidNameMapOrder`, decode rejects malformed ordered/count payloads before validation, and `validate_name_sec(...)` owns only structured index-space bounds once the codec has accepted the map shape.
 - **WAST identifiers are a separate authoring layer.** Starshine currently promotes WAST function/import identifiers into `NameSec.func_names`, but local/type/table/memory/global/tag/element/data identifiers remain source-resolution aids unless a dedicated lowering path creates the corresponding structured name map.
 - **Function annotations are not binary name sections.** `FuncAnnotationSec` is a Starshine WAST/in-memory metadata lane today; the binary codec does not encode or decode it. Route code-metadata, inline-hint, branch-hint, and no-inline-marker details through [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md).
@@ -122,6 +130,7 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 
 ## Sources
 
+- Current custom/name/text-annotation refresh: [`../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md`](../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md)
 - Label-subsection correction: [`../raw/wasm/2026-05-20-name-section-label-subsection-correction.md`](../raw/wasm/2026-05-20-name-section-label-subsection-correction.md)
 - Earlier table/memory/global/element/data correction, now superseded for the label-subsection detail: [`../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md`](../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md)
 - Earlier superseded source snapshot: [`../raw/wasm/2026-05-13-custom-and-name-section-sources.md`](../raw/wasm/2026-05-13-custom-and-name-section-sources.md)

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] docs | custom/name text-annotation source refresh
+
+- Added [`docs/wiki/raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md`](raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md) after rechecking the current official WebAssembly Core 3.0 custom/name/annotation appendix dated 2026-06-03 plus Starshine WAST parser/lowerer and binary metadata code paths.
+- Refreshed [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md), [`wast/identifier-name-and-annotation-authoring.md`](wast/identifier-name-and-annotation-authoring.md), [`wast/code-metadata-and-function-annotations.md`](wast/code-metadata-and-function-annotations.md), and [`index.md`](index.md) so official `@name` / `@custom` text annotations are no longer easy to confuse with Starshine's current function/import-only `FuncAnnotationSec` lane.
+- Confirmed the current official name-subsection set remains module/function/local/type/field/tag, leaving Starshine label/table/memory/global/element/data name maps documented as local richer metadata.
+
 ## [2026-06-04] wiki-health | memory/table address-width source routing
 
 - Repointed follow-on memory64/table64 source routing in [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md) and the [`memory64-lowering`](binaryen/passes/memory64-lowering/index.md) dossier so they cite the current [`2026-06-04` memory/table address-width refresh](raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) instead of only the older 2026-05-20 source notes.

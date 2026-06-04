@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md
   - ../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md
   - ../raw/wasm/2026-05-19-wast-identifier-name-sources.md
   - ../raw/binaryen/2026-04-23-inlining-primary-sources.md
@@ -38,13 +39,13 @@ Use this page when a fixture, pass, or CLI policy mentions `(@...)`, `@metadata.
 - **Binaryen code annotations** use that vocabulary for real optimizer metadata such as inline hints, branch hints, and toolchain-owned annotations.
 - **Starshine today supports only a narrow function/import annotation lane** in WAST and in memory. Its `(@...)` syntax looks similar to code metadata text, but it attaches to the following function/import field and lowers to `FuncAnnotationSec`. It does not yet model Binaryen's full expression-level code metadata or binary custom-section encoding for those annotations.
 
-The refreshed source manifest is [`../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md`](../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md). It ties the official custom-section/code-metadata proposal sources to the current Starshine parser, lowerer, core type, pass-remap, and Binaryen dossier evidence.
+The refreshed source manifest is [`../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md`](../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md). It ties the official custom-section/code-metadata proposal sources to the current Starshine parser, lowerer, core type, pass-remap, and Binaryen dossier evidence. The 2026-06-04 custom/name refresh adds one more practical warning: official text `(@name ...)` and `(@custom ...)` have name-section and placement-aware custom-section meanings upstream, but Starshine's current WAST `(@...)` lane does not implement those official semantics.
 
 ## Layer Map
 
 | Layer | Portable or local? | Starshine status | What not to infer |
 | --- | --- | --- | --- |
-| WebAssembly custom-section annotations | Official text/custom-section model | Starshine preserves opaque non-`name` custom sections at the binary layer but normalizes placement; see [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md). | Do not infer exact `@custom` placement support from Starshine's `(@...)` parser lane. |
+| WebAssembly name/custom annotations | Official text name-section/custom-section model | Starshine preserves opaque non-`name` custom sections at the binary layer and lowers function `$` ids into function names, but it does not implement official `@name` lowering or exact `@custom` placement. See [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md). | Do not infer official `@name` or exact `@custom` support from Starshine's `(@...)` parser lane. |
 | WebAssembly/Binaryen code metadata | Proposal/Binaryen optimizer metadata | Starshine documents `metadata.code.inline` and branch hints through Binaryen pass pages, but has no general expression annotation model. | Do not treat a pass WAT example containing `@metadata.code.branch_hint` as proof that Starshine can parse/lower that expression annotation or preserve byte-offset metadata sections. |
 | Starshine WAST function annotations | Local WAST and in-memory metadata | `(@...)` immediately before a defined function or func import becomes `FuncAnnotationSec` keyed by absolute `FuncIdx`. | Do not assume annotations on globals, memories, tables, expressions, modules, arbitrary custom sections, or instruction offsets are supported. |
 | Starshine no-inline policy | Local optimizer policy | `no-inline*` passes add internal `starshine.no-full-inline` / `starshine.no-partial-inline` function annotations. | Do not confuse those markers with Binaryen `@metadata.code.inline` bytes. |
@@ -65,6 +66,8 @@ Starshine's accepted WAST shape is one or more `(@...)` forms immediately before
 ```
 
 The parser stores each annotation as `{ name, args }`, where args are raw token/literal text. The lowerer writes them into `Module.func_annotation_sec` as `FuncAnnotationAssoc(FuncIdx, Array[FuncAnnotation])`. Function indices are absolute: imported functions come first, followed by defined functions. Pair this page with [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md) whenever a pass remaps functions.
+
+Because the parser does not interpret official annotation names, `(@name "debug") (func ...)` and `(@custom "x" "payload") (func ...)` are legal only as Starshine-local function annotations when attached to a function/import; they do not produce `NameSec` entries or `CustomSec` payloads. The official text forms belong to [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md) until Starshine grows dedicated support.
 
 The same spelling before an instruction is different: in WebAssembly code-metadata text, it annotates that instruction location; in Starshine today, `parse_annotated_module_field(...)` only consumes annotations before top-level module fields and `attach_annotations(...)` rejects every field except functions and func imports. That is why the following branch-hint shape is unsupported locally even though it is meaningful upstream:
 
@@ -132,6 +135,7 @@ For Starshine work, do not claim branch-hint parity unless the change adds a loc
 ## Edge Cases And Invariants
 
 - **Attachment is syntactic and narrow.** `(@...)` must appear immediately before a function definition or func import. Module-, resource-, data-, element-, local-, and expression-level annotations should be rejected today.
+- **Official `@name` and `@custom` are not interpreted.** In the current local lane they are just annotation names plus raw args, not requests to update `NameSec` or `custom_secs`.
 - **Arguments are not interpreted by the parser.** Starshine preserves argument token text in `FuncAnnotation.args`; pass policy must decide which names and args it understands.
 - **Function-import annotations use imported-prefix indices.** An annotation on the first imported function is keyed at `FuncIdx(0)`, not at a separate import ordinal.
 - **Binary roundtrip is absent for `FuncAnnotationSec`.** If a test needs annotation preservation after binary encode/decode, it must first implement and document the binary custom/code-metadata format or preserve an opaque custom section separately.
@@ -145,10 +149,12 @@ For Starshine work, do not claim branch-hint parity unless the change adds a loc
 - Lowering changes should add WAST-to-core tests in [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) and assert exact `FuncAnnotationSec` entries.
 - Function-remapping passes should add tests that annotations follow surviving functions, removed functions lose annotations, and repeated remaps do not duplicate markers.
 - No-inline policy changes should update [`src/passes/no_inline.mbt`](../../../src/passes/no_inline.mbt), [`src/passes/inlining.mbt`](../../../src/passes/inlining.mbt), the inlining dossier, and CLI/registry docs if command-facing behavior changes.
+- Official `@name` / `@custom` text work should start in the WAST parser/lowerer/printer and binary custom/name docs, with tests proving `NameSec` or `CustomSec` effects rather than `FuncAnnotationSec` effects.
 - Expression-level code-metadata or branch-hint work should start with a representation design and source-backed tests before updating pass pages that currently describe only Binaryen oracle behavior.
 
 ## Sources
 
+- Current custom/name/text-annotation refresh: [`../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md`](../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md)
 - Source refresh: [`../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md`](../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md)
 - WAST identifier/name baseline: [`../raw/wasm/2026-05-19-wast-identifier-name-sources.md`](../raw/wasm/2026-05-19-wast-identifier-name-sources.md), [`identifier-name-and-annotation-authoring.md`](identifier-name-and-annotation-authoring.md)
 - Binaryen inlining and strip-toolchain evidence: [`../raw/binaryen/2026-04-23-inlining-primary-sources.md`](../raw/binaryen/2026-04-23-inlining-primary-sources.md), [`../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md`](../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md)

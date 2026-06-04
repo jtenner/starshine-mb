@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md
   - ../raw/wasm/2026-05-19-wast-identifier-name-sources.md
   - ../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md
   - ../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md
@@ -38,7 +39,7 @@ Use this page when a text fixture depends on `$` identifiers, debug names, `--no
 - **The binary name section** is debug metadata. It can preserve human-readable names after lowering, but it is not how WebAssembly validation resolves operands.
 - **Starshine function annotations** are a local metadata lane for function and function-import annotations. They are not the same as the official text `@custom` placement model.
 
-The official WebAssembly text spec treats identifiers as text syntax, while the custom-section appendix defines the standardized custom section named `name`. Starshine sits between those layers: [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) keeps source identifiers in the WAST AST, [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) resolves them into core numeric indices, and only function/imported-function identifiers currently become structured `NameSec.func_names` entries. The focused primary-source snapshot is [`../raw/wasm/2026-05-19-wast-identifier-name-sources.md`](../raw/wasm/2026-05-19-wast-identifier-name-sources.md); the binary metadata contract is [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md). The later 2026-05-20 correction note splits the current official `name` subsections from Starshine-local label/table/memory/global/element/data maps, so those are treated here as local richer metadata rather than portable WebAssembly 3.0 syntax. Function/import annotations now have a dedicated focused page, [`code-metadata-and-function-annotations.md`](code-metadata-and-function-annotations.md), because they are WAST/in-memory policy metadata rather than source identifier or name-section metadata.
+The official WebAssembly text spec treats identifiers as text syntax, while the custom-section appendix defines the standardized custom section named `name`. Starshine sits between those layers: [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) keeps source identifiers in the WAST AST, [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) resolves them into core numeric indices, and only function/imported-function identifiers currently become structured `NameSec.func_names` entries. The focused primary-source snapshot is [`../raw/wasm/2026-05-19-wast-identifier-name-sources.md`](../raw/wasm/2026-05-19-wast-identifier-name-sources.md); the binary metadata contract is [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md). The later 2026-05-20 correction note splits the current official `name` subsections from Starshine-local label/table/memory/global/element/data maps, and the 2026-06-04 current-source refresh confirms the split while adding a sharper official-text caveat: `(@name ...)` is portable name-section authoring syntax upstream, but Starshine currently treats leading `(@...)` only as local function/import annotations. Function/import annotations now have a dedicated focused page, [`code-metadata-and-function-annotations.md`](code-metadata-and-function-annotations.md), because they are WAST/in-memory policy metadata rather than source identifier or name-section metadata.
 
 ## Layer Map
 
@@ -47,7 +48,7 @@ The official WebAssembly text spec treats identifiers as text syntax, while the 
 | WAST AST | Source ids such as `$f`, `$t`, `$x`, and `$e`; references are `Index::Id(...)` or `Index::Num(...)`. | [`Index`](../../../src/wast/parser.mbt), source structs with `id : String?`, and [`module_wast.mbt`](../../../src/wast/module_wast.mbt) printing ids back from the AST. | Good for authoring and text roundtrips inside `src/wast`; not a binary preservation promise by itself. |
 | Lowering context | Maps from source ids to numeric core indices. | `WTLowerCtx` maps in [`lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), plus resolver calls for type/function/table/memory/global/tag/elem/data references. | Validation and binary encoding see indices, not `$` strings. |
 | Structured name section | Debug-name maps in `Module.name_sec`. | `wt_push_func_name(...)` and the `wast_to_binary_module lowers function identifiers into function names` test in [`lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt). | Today only WAST function/imported-function ids are promoted here by the text lowerer; the current official subsection set stops at module/function/local/type/field/tag, while Starshine-local label/table/memory/global/element/data maps remain richer compatibility metadata. |
-| Function annotation section | Function-index-keyed annotations. | `parse_annotation(...)`, `attach_annotations(...)`, `wt_func_annotations(...)`, and the function-annotation lowering tests. | Used by Starshine/Binaryen-policy code such as inlining; not full custom-section placement support. |
+| Function annotation section | Function-index-keyed annotations. | `parse_annotation(...)`, `attach_annotations(...)`, `wt_func_annotations(...)`, and the function-annotation lowering tests. | Used by Starshine/Binaryen-policy code such as inlining; not official `@name` lowering and not full `@custom` placement support. |
 | Custom sections | Opaque non-`name` custom payloads plus the special structured `name` section. | [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md), [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt). | Binary roundtrips preserve payloads but normalize placement; exact WAST `@custom` placement is not currently modeled. |
 
 ## Concrete Shapes
@@ -63,6 +64,8 @@ The official WebAssembly text spec treats identifiers as text syntax, while the 
 ```
 
 Lowering resolves `$imp` and `$work` to absolute function indices. It also creates a structured function-name map with entries for those function indices. `wt_name_from_id(...)` strips the leading `$`, so the stored names are `imp` and `work`, not `$imp` and `$work`.
+
+Official WebAssembly text also has `(@name "...")` name annotations that can supply or override names at supported binding sites. That official form is not implemented by Starshine's name-lowering path today. If a fixture writes `(@name "debug")` before a Starshine-supported function, the current parser records a local function annotation named `name`; it does **not** write `debug` into `NameSec.func_names`. Use ordinary `$` function/import identifiers for current Starshine function-name lowering, or add explicit `@name` parser/lowerer tests before claiming portable `@name` support.
 
 This is why command-level inlining policy can match ordinary WAT function identifiers through the structured name surface: [`../binaryen/passes/inlining/compilation-hints-vs-no-inline-flags-and-clone-survival.md`](../binaryen/passes/inlining/compilation-hints-vs-no-inline-flags-and-clone-survival.md) describes the `--no-inline=<pattern>` split and its reliance on function names.
 
@@ -127,16 +130,18 @@ Do not infer official text `@custom` placement support from this. The official c
 - **Passes that delete or reorder functions must repair both policy metadata and names.** Inlining and module-element removal already document this because stale names can make later `--no-inline=<pattern>` policy or diagnostics point at the wrong function.
 - **Do not hide unsupported or local name maps behind tests that only parse WAST.** If a test needs type/tag debug names or Starshine-local label/table/memory/global/elem/data debug names after binary lowering, assert the corresponding `NameSec` map explicitly and link the binary metadata caveat.
 - **Function annotations have a narrow legal placement.** Current parser support is function/import-only; a module-, global-, or section-level annotation should be rejected unless the WAST front end is deliberately widened.
+- **Official `@name` / `@custom` text annotations need dedicated support.** Starshine's local `(@...)` parser can accept those names only where function annotations are legal, and then stores them as `FuncAnnotationSec`; it does not implement official name-section or custom-section text semantics.
 
 ## Validation And Signoff Guidance
 
 - Parser/printer-only id work belongs in [`src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), and [`src/wast/module_wast_tests.mbt`](../../../src/wast/module_wast_tests.mbt).
 - Lowering work should add focused `wast_to_binary_module(...)` coverage in [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) or a sibling `*_test.mbt`, then validate the lowered module when it is meant to be semantically valid.
-- Name-section widening must update [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md), name-section validation tests, and any pass that remaps the affected index space.
+- Name-section widening, including official `@name` text support, must update [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md), WAST parser/lowerer/printer tests, name-section validation tests, and any pass that remaps the affected index space.
 - Policy or annotation widening should update the inlining policy pages and command/dispatcher docs when CLI flags or user-facing matching behavior changes.
 
 ## Sources
 
+- Current custom/name/text-annotation refresh: [`../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md`](../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md)
 - Focused primary-source snapshot: [`../raw/wasm/2026-05-19-wast-identifier-name-sources.md`](../raw/wasm/2026-05-19-wast-identifier-name-sources.md)
 - Correcting binary name-section refresh: [`../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md`](../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md)
 - Label-subsection correction: [`../raw/wasm/2026-05-20-name-section-label-subsection-correction.md`](../raw/wasm/2026-05-20-name-section-label-subsection-correction.md)
