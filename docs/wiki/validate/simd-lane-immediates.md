@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-24
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md
   - ../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md
   - ../raw/wasm/2026-05-19-wast-simd-sources.md
   - ../../../src/wast/parser.mbt
@@ -30,7 +31,7 @@ SIMD lane immediates are the small integer fields that pick one lane out of a `v
 - lane extract/replace instructions such as `i16x8.extract_lane_s` and `f64x2.replace_lane`;
 - lane load/store instructions such as `v128.load32_lane` and `v128.store64_lane`.
 
-The important maintenance rule is that a lane immediate is **not just a byte**. The byte-level instruction may be syntactically present, but validation must prove that the lane number is legal for the selected instruction shape. The refreshed primary-source manifest is [`../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md`](../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md); the broader WAST SIMD authoring guide remains [`../wast/simd-authoring.md`](../wast/simd-authoring.md).
+The important maintenance rule is that a lane immediate is **not just a byte**. The byte-level instruction may be syntactically present, but validation must prove that the lane number is legal for the selected instruction shape. The current primary-source and Starshine-code refresh is [`../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md`](../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md); it supersedes the older 2026-05-20 local-gap manifest where that manifest says the typechecker did not re-check binary-origin lanes. The broader WAST SIMD authoring guide remains [`../wast/simd-authoring.md`](../wast/simd-authoring.md).
 
 ## Official Contract In Plain Terms
 
@@ -69,7 +70,7 @@ Binary lane byte
   -> typecheck stack and memory operands
 ```
 
-That split used to create a local caveat where WAST-origin SIMD lanes were stricter than binary-origin SIMD lanes. As of the 2026-05-24 FUZ1020 SIMD lane-index slice, typecheck now enforces shape-specific lane bounds for library/binary-origin instructions too.
+That split used to create a local caveat where WAST-origin SIMD lanes were stricter than binary-origin SIMD lanes. As of the 2026-05-24 FUZ1020 SIMD lane-index slice, typecheck now enforces shape-specific lane bounds for library/binary-origin instructions too. The 2026-06-04 current refresh rechecked the official WebAssembly Core 3.0 syntax/text/binary/validation pages and confirmed the same layer model: binary carries `laneidx` bytes, while validation imposes the selected shape's lane bound.
 
 | Layer | Current Starshine behavior | Evidence |
 | --- | --- | --- |
@@ -136,7 +137,8 @@ A binary payload can encode the same semantic mistake as a raw lane byte. Starsh
 
 ## Sources
 
-- SIMD lane refresh manifest: [`../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md`](../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md)
+- Current SIMD lane refresh manifest: [`../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md`](../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md)
+- Original SIMD lane refresh manifest: [`../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md`](../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md)
 - Broad WAST SIMD manifest: [`../raw/wasm/2026-05-19-wast-simd-sources.md`](../raw/wasm/2026-05-19-wast-simd-sources.md)
 - Official WebAssembly instruction sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>
 - Starshine WAST implementation: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] validate/wast/binary | SIMD lane validation current refresh
+
+- Added [`docs/wiki/raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md`](raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md) after rechecking the current official WebAssembly Core 3.0 syntax, text, binary, and validation instruction pages dated 2026-06-03 plus Starshine WAST, binary, typecheck, invalid-AST, and invalid-binary surfaces.
+- Refreshed [`validate/simd-lane-immediates.md`](validate/simd-lane-immediates.md), [`wast/simd-authoring.md`](wast/simd-authoring.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), and [`index.md`](index.md) so old wording about an open binary-origin shape-specific lane validation gap is superseded: binary decode remains byte-coarse for ordinary lane immediates, while `typecheck_lane_index` now rejects shape-invalid decoded/library-origin lanes.
+- Health-check cleanup in the touched area removed stale “future hardening” wording for `i64x2.extract_lane 2` / lane-load / lane-store bounds and kept malformed-byte decode fixtures distinct from validator-stage shape errors.
+
 ## [2026-06-04] validate/wast | exception tag result-shape current refresh
 
 - Added [`docs/wiki/raw/wasm/2026-06-04-exception-tag-current-refresh.md`](raw/wasm/2026-06-04-exception-tag-current-refresh.md) after rechecking the current official WebAssembly Core 3.0 tagtype, exception-instruction, binary tag, module-tag, text, and Starshine WAST/core/binary/validator surfaces.
