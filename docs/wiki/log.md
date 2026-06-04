@@ -16,7 +16,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-06-04] passes/local-cse | array.new_fixed generative-root coverage
 
-- Added core-built direct `local-cse` regression coverage proving repeated `array.new_fixed` roots remain separate; the Binaryen WAT spot check kept both roots with no `local.tee`.
+- Added core-built direct `local-cse` regression coverage proving repeated `array.new_fixed` roots remain separate; the Binaryen WAT spot check kept both roots with no `local.tee`, and the focused LCSE test lane reached `25/25`.
 - Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-array-new-fixed-generative-10000`: 6771 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
 - Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`wat-shapes.md`](binaryen/passes/local-cse/wat-shapes.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so `array.new_fixed` is covered as another generative-root negative.
 
