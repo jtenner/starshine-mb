@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../raw/wasm/2026-05-20-resource-section-validation-refresh.md
   - ../raw/wasm/2026-05-20-constant-expression-validation-sources.md
   - ../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md
@@ -43,7 +44,7 @@ This page deliberately sits between three neighboring guides:
 - [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md) and [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md) explain binary section ids, core representations, and rewrite carriers.
 - [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md), [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md), and [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md) explain text fixture shapes and current WAST gaps.
 
-The current source bridge is [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md). It rechecks current WebAssembly Core validation, binary, and syntax pages plus Starshine's validator and invalid-fuzzer evidence. Shared-memory wording is intentionally local/proposal-facing: Starshine has a `shared` flag and rejects shared memories without a maximum, but the core WebAssembly pages checked for this refresh do not by themselves make that flag a stable core field.
+The current resource-section source bridge is [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md). It rechecks WebAssembly Core validation, binary, and syntax pages plus Starshine's validator and invalid-fuzzer evidence. The 2026-06-04 address-width refresh in [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) confirms that accepting memory64/table64 limits at the resource layer is not enough to claim every memory/table instruction is address-width-complete. Shared-memory wording is intentionally local/proposal-facing: Starshine has a `shared` flag and rejects shared memories without a maximum, but the core WebAssembly pages checked for these refreshes do not by themselves make that flag a stable core field.
 
 ## Beginner Model
 
@@ -151,7 +152,7 @@ For an i32 memory, `Validate for DataMode` expects the active offset expression 
 
 - **WAST table/memory declarations are narrower than core/binary.** Current WAST lowering uses `Limits::i32(...)` for table and memory declarations. Use direct core, binary, or generator fixtures for memory64/table64 declaration validation until the text surface is widened.
 - **Shared memory is local/proposal-facing here.** Starshine rejects shared memories without maximum through `Validate for MemType`; do not describe this as stable core WebAssembly unless a future source refresh links the relevant proposal text.
-- **Table64 and memory64 instruction widths are not fully solved by resource validation.** A memory or table can have i64 limits while particular instruction validators still carry caveats. Keep [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md) and [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md) linked when changing address-width behavior.
+- **Table64 and memory64 instruction widths are not fully solved by resource validation.** A memory or table can have i64 limits while particular instruction validators still carry caveats. The current refreshed split is: memory `size`/`grow`, `memory.init`, `memory.copy`, `table.copy`, and `table.init` are aligned with the official address-width matrix; `memory.fill` length, `table.fill` length, ordinary table get/set/size/grow, and indirect-call table indices still have local `i32` assumptions. Keep [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md), [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md), and [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) linked when changing address-width behavior.
 - **Declarative elements are core/binary-visible, but WAST lowering is still narrower.** Starshine core, binary, generator, and validator paths can represent declarative elements. Current high-level WAST lowering has a declarative-mode preservation gap; the text-facing contract is [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md).
 - **Data-count equality is not the same as data-count requirement.** A bad `DataCntSec` length is a `DataCountSection` issue. A missing data-count section needed by `memory.init` / `data.drop` is reported against the body as `FunctionBody` with the relevant absolute `FuncIdx`.
 
@@ -170,6 +171,7 @@ Validation signoff should include the focused tests or fuzz lanes for the change
 
 ## Sources
 
+- Current memory/table address-width refresh: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
 - Source bridge: [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md)
 - Focused initializer contract: [`constant-expressions.md`](constant-expressions.md)
 - Import/export and host-matching split: [`import-export-and-external-type-matching.md`](import-export-and-external-type-matching.md)

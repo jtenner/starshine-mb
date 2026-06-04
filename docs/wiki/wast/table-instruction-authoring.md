@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../raw/wasm/2026-05-19-wast-table-instruction-sources.md
   - ../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md
   - ../raw/wasm/2026-05-19-wast-element-segment-sources.md
@@ -60,7 +61,7 @@ The main invariant for authors is: **do not infer core or binary immediate order
 
 ## Instruction Families And Stack Shapes
 
-The official validation model uses a selected table's reference type `rt` and address type `at`. For ordinary table32 fixtures, `at` is `i32`. For table64, `at` should be `i64`, but see the local caveat below. The targeted 2026-05-20 refresh in [`../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md) corrects the earlier shorthand that treated local `table.fill` as fully address-width-aware.
+The official validation model uses a selected table's reference type `rt` and address type `at`. For ordinary table32 fixtures, `at` is `i32`. For table64, `at` should be `i64`, but see the local caveat below. The targeted 2026-05-20 refresh in [`../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md) corrected the earlier shorthand that treated local `table.fill` as fully address-width-aware; the 2026-06-04 refresh in [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) confirms the official Core 3.0 pages dated 2026-06-03 still use the same table address-width matrix and records the current Starshine code-map anchors.
 
 | WAST instruction | Text immediates | Stack before | Stack after | Starshine notes |
 | --- | --- | --- | --- | --- |
@@ -149,11 +150,11 @@ Use a passive segment for `table.init` / `elem.drop` fixtures. The focused eleme
 
 Do **not** use WAST `table64` instruction fixtures as complete validation evidence yet. The official rules use a table address type, but Starshine's current typechecker is mixed:
 
-- `table.copy` uses destination/source table limit widths plus mixed-width length selection, and `table.init` uses the destination table limit width while source and length remain `i32`;
-- `table.fill` is only partially widened locally: the destination/start operand uses the table limit width, but the length operand still uses `i32` even though the official table64 rule uses `at`;
-- `table.get`, `table.set`, `table.size`, `table.grow`, `call_indirect`, and `return_call_indirect` still use `i32` index/result assumptions locally.
+- [`typecheck_table_copy(...)`](../../../src/validate/typecheck.mbt#L1431-L1461) uses destination/source table limit widths plus mixed-width length selection, and [`typecheck_table_init(...)`](../../../src/validate/typecheck.mbt#L1464-L1492) uses the destination table limit width while source and length remain `i32`;
+- [`typecheck_table_fill(...)`](../../../src/validate/typecheck.mbt#L1495-L1519) is only partially widened locally: the destination/start operand uses the table limit width, but the length operand still uses `i32` even though the official table64 rule uses `at`;
+- [`typecheck_table_get(...)`](../../../src/validate/typecheck.mbt#L555-L565), [`typecheck_table_set(...)`](../../../src/validate/typecheck.mbt#L570-L586), [`typecheck_table_size(...)`](../../../src/validate/typecheck.mbt#L593-L598), [`typecheck_table_grow(...)`](../../../src/validate/typecheck.mbt#L603-L624), [`typecheck_call_indirect(...)`](../../../src/validate/typecheck.mbt#L899-L934), and [`typecheck_return_call_indirect(...)`](../../../src/validate/typecheck.mbt#L994-L1028) still use `i32` index/result assumptions locally.
 
-Until that gap is fixed and tested, table64 table-instruction work belongs in a validation-widening task, not ordinary WAST authoring documentation. The Binaryen feature-lowering sibling is tracked from the pass side in [`../binaryen/passes/memory64-lowering/index.md`](../binaryen/passes/memory64-lowering/index.md), which also records table64-lowering context.
+Until that gap is fixed and tested, table64 table-instruction work belongs in a validation-widening task, not ordinary WAST authoring documentation. The Binaryen feature-lowering sibling is tracked from the pass side in [`../binaryen/passes/memory64-lowering/index.md`](../binaryen/passes/memory64-lowering/index.md), which also records table64-lowering context. Keep resource-section support (`TableType` can carry `I64Limits`) separate from these instruction-stack caveats.
 
 ## Rewrite And Validation Guidance
 
@@ -169,6 +170,7 @@ When a pass or generator change touches table instructions, use this checklist:
 ## Source Map
 
 - Primary-source and local-code manifest: [`../raw/wasm/2026-05-19-wast-table-instruction-sources.md`](../raw/wasm/2026-05-19-wast-table-instruction-sources.md)
+- Current address-width refresh: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
 - Targeted table64 / `table.fill` validation correction: [`../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md)
 - WAST opcode vocabulary and parser: [`../../../src/wast/types.mbt`](../../../src/wast/types.mbt), [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt)
 - WAST printer and lowerer: [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)

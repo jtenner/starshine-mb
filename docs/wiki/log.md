@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] docs | memory/table address-width validation refresh
+
+- Added [`docs/wiki/raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) after checking the current official WebAssembly Core 3.0 syntax, instruction-validation, and module-validation pages dated 2026-06-03 plus Starshine validator code-map evidence.
+- Refreshed [`wast/memory-instruction-authoring.md`](wast/memory-instruction-authoring.md), [`wast/table-instruction-authoring.md`](wast/table-instruction-authoring.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), and [`index.md`](index.md) so memory64/table64 coverage separates resource-section acceptance from instruction-stack typing.
+- Current durable split: Starshine aligns memory `size`/`grow`, `memory.init`, `memory.copy`, `table.copy`, and `table.init` with the official address-width matrix, while memory64 `memory.fill` length, table64 `table.fill` length, ordinary table get/set/size/grow, and indirect-call table indices remain local `i32` assumptions.
+
 ## [2026-06-04] docs | Binaryen v130 MarkJSCalled and RemoveExports tracker expansion
 
 - Added [`docs/wiki/raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md`](raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md) and [`docs/wiki/raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md`](raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md) after a pass-specific primary-source read of official Binaryen `version_130` owner, registration, release/changelog, PR, and lit-test surfaces for `MarkJSCalled` and `RemoveExports`.

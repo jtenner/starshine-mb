@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../raw/wasm/2026-05-19-wast-memory-instruction-sources.md
   - ../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
   - ../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md
@@ -45,7 +46,7 @@ Use this page when writing or reviewing WAST fixtures, validator tests, or optim
 
 Linear-memory atomic instructions are deliberately routed to [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md): Starshine core/binary/validator/generator supports them, but current WAST keywords and parser cases do not expose `i32.atomic.load`, `memory.atomic.wait32`, `atomic.fence`, and related text syntax. Shared-GC `struct.atomic.get*` is a separate aggregate-instruction surface owned by [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md). The companion page [`memory-argument-authoring.md`](memory-argument-authoring.md) owns `offset=`, `align=`, default memory `0`, memory32/memory64 address widths, and the current WAST gap around explicit nonzero memory indices. [`resource-declaration-authoring.md`](resource-declaration-authoring.md) owns `(memory ...)` declarations, imports, exports, and the current text-surface caveat that WAST memory declarations lower through the `i32` limits path. This page owns the **instruction stack shapes**, **resource-index relationships**, **data-count requirement**, **side-effect/trap behavior**, and **Starshine layer map**.
 
-The broad source manifest is [`../raw/wasm/2026-05-19-wast-memory-instruction-sources.md`](../raw/wasm/2026-05-19-wast-memory-instruction-sources.md). It checks current official WebAssembly text/syntax/binary/validation/module sources plus Starshine WAST parser/lowerer/printer, core instruction, binary codec, validator, generator, arbitrary WAST, and HOT-IR effect surfaces. The targeted 2026-05-20 refresh in [`../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md) rechecks the memory64 bulk-memory operand matrix and supersedes any broad wording that implied Starshine already threads the selected memory address type through every `memory.fill` operand.
+The broad source manifest is [`../raw/wasm/2026-05-19-wast-memory-instruction-sources.md`](../raw/wasm/2026-05-19-wast-memory-instruction-sources.md). It checks official WebAssembly text/syntax/binary/validation/module sources plus Starshine WAST parser/lowerer/printer, core instruction, binary codec, validator, generator, arbitrary WAST, and HOT-IR effect surfaces. The targeted 2026-05-20 refresh in [`../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md) rechecked the memory64 bulk-memory operand matrix; the 2026-06-04 refresh in [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) confirms the official Core 3.0 pages dated 2026-06-03 still use the same positional address-width rules and anchors the current Starshine code-map caveats.
 
 ## Beginner Model
 
@@ -74,7 +75,7 @@ The memory64 rule is positional. Do not summarize bulk-memory typing as "all `i6
 | `memory.copy dst, src` | destination address, source address, length | destination uses `dst` memory `at1`; source uses `src` memory `at2`; length uses the minimum address type for the two memories. | Matches locally through `min_addr_valtype(...)`. |
 | `memory.fill mem` | destination address, byte value, length | destination and length both use selected memory `at`; byte value is `i32`. | Destination matches locally, but length is still hard-coded to `i32`; see the caveat below. |
 
-This matrix is the main reason future memory64 validator or lowering work needs direct core/binary fixtures. Current WAST text lowering defaults the memory immediates to `MemIdx(0)`, and current WAST declarations do not directly author memory64 memories.
+This matrix is the main reason future memory64 validator or lowering work needs direct core/binary fixtures. Current WAST text lowering defaults the memory immediates to `MemIdx(0)`, and current WAST declarations do not directly author memory64 memories. The resource section can still contain `I64Limits`; the caveat here is instruction stack typing, not core memory-type representation.
 
 ## WAST Shapes And Stack Effects
 
@@ -108,7 +109,7 @@ Starshine recognizes scalar memory keywords in [`src/wast/keywords.mbt`](../../.
     memory.grow))
 ```
 
-`memory.size` pushes the current size in pages. `memory.grow` consumes a page delta and pushes the previous size, or a failure sentinel at runtime. For memory64, Starshine's validator uses the selected memory's address type for both the `memory.size` result and `memory.grow` operand/result via [`typecheck_memory_size(...)`](../../../src/validate/typecheck.mbt) and [`typecheck_memory_grow(...)`](../../../src/validate/typecheck.mbt).
+`memory.size` pushes the current size in pages. `memory.grow` consumes a page delta and pushes the previous size, or a failure sentinel at runtime. For memory64, Starshine's validator uses the selected memory's address type for both the `memory.size` result and `memory.grow` operand/result via [`typecheck_memory_size(...)`](../../../src/validate/typecheck.mbt#L2552-L2558) and [`typecheck_memory_grow(...)`](../../../src/validate/typecheck.mbt#L2561-L2571).
 
 Current WAST lowering emits `MemorySize(MemIdx(0))` and `MemoryGrow(MemIdx(0))`; direct core/binary fixtures are required for nonzero memory-index coverage until the WAST surface grows explicit memory-index syntax.
 
@@ -126,7 +127,7 @@ Current WAST lowering emits `MemorySize(MemIdx(0))` and `MemoryGrow(MemIdx(0))`;
 
 `memory.fill` writes `len` bytes of the low eight bits of the `i32` byte value starting at `dst`. It is side-effecting and trap-sensitive. The official validation rule uses the selected memory address type for the destination and length operands and `i32` for the byte value.
 
-**Current Starshine caveat:** [`typecheck_memory_fill(...)`](../../../src/validate/typecheck.mbt) currently pops `len:i32`, `val:i32`, and `dst:at`. That accepts the ordinary memory32 shape and still uses the selected memory address type for the destination, but it rejects the official memory64 positive shape where `len` is `i64`. Keep this visible as a validator follow-up and do not cite current Starshine behavior as the intended WebAssembly memory64 contract.
+**Current Starshine caveat:** [`typecheck_memory_fill(...)`](../../../src/validate/typecheck.mbt#L2642-L2660) currently pops `len:i32`, `val:i32`, and `dst:at`. That accepts the ordinary memory32 shape and still uses the selected memory address type for the destination, but it rejects the official memory64 positive shape where `len` is `i64`. Keep this visible as a validator follow-up and do not cite current Starshine behavior as the intended WebAssembly memory64 contract. The 2026-06-04 refresh keeps this classified as an instruction-validator gap, separate from resource-section acceptance of memory64 limits.
 
 ### `memory.copy`
 
@@ -142,7 +143,7 @@ Current WAST lowering emits `MemorySize(MemIdx(0))` and `MemoryGrow(MemIdx(0))`;
 
 `memory.copy` copies bytes between a destination memory and a source memory. The source and destination ranges may overlap. Starshine core represents this as [`Instruction::MemoryCopy(MemIdx, MemIdx)`](../../../src/lib/types.mbt), preserving the two memory indices separately in core and binary.
 
-Validation in [`typecheck_memory_copy(...)`](../../../src/validate/typecheck.mbt) checks both memory indices, consumes destination address using the destination memory address type, consumes source address using the source memory address type, and consumes length using the smaller address type when the two memories have different address widths. Current WAST lowering defaults both memory indices to `0`.
+Validation in [`typecheck_memory_copy(...)`](../../../src/validate/typecheck.mbt#L2612-L2639) checks both memory indices, consumes destination address using the destination memory address type, consumes source address using the source memory address type, and consumes length using the smaller address type when the two memories have different address widths. Current WAST lowering defaults both memory indices to `0`.
 
 ### `memory.init` and `data.drop`
 
@@ -188,13 +189,14 @@ The data-count rule is easy to miss: function bodies that use `memory.init` or `
 ## Current Gaps And Caveats
 
 - Current WAST text lowering defaults runtime memory instruction memory operands to memory `0`; nonzero memory-index behavior belongs in direct core/binary fixtures until WAST syntax and printer support are widened.
-- Current Starshine validation types `memory.fill` length as `i32` even for memory64; official validation uses the selected memory address type for that length operand. The 2026-05-20 refresh in [`../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md) is the focused source for this divergence.
+- Current Starshine validation types `memory.fill` length as `i32` even for memory64; official validation uses the selected memory address type for that length operand. The 2026-06-04 refresh in [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) is the current focused source for this divergence, while the 2026-05-20 memory64 note remains the earlier detailed source bridge.
 - Linear-memory atomic instructions are present in core/binary/typecheck/generator surfaces, but current WAST keyword/parser evidence does not expose them as WAST text syntax. Keep `[FZG]017` claims scoped to generator/core/binary evidence and route atomic stack/effect details through [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md); route shared-GC `struct.atomic.get*` through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md).
 - WAST arbitrary bulk-memory coverage is representative parser/printer coverage; typed-validity and memory64/multi-memory coverage belong to `gen_valid`, binary tests, or validator tests.
 
 ## Sources
 
 - Source manifest: [`../raw/wasm/2026-05-19-wast-memory-instruction-sources.md`](../raw/wasm/2026-05-19-wast-memory-instruction-sources.md)
+- Current address-width refresh: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
 - Memory64 bulk-memory refresh: [`../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md)
 - Atomic companion manifest: [`../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md`](../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md), [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md)
 - Official WebAssembly sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/valid/modules.html>
