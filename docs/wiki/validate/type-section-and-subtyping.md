@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-01
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
   - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
   - ../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md
   - ../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md
@@ -33,7 +34,7 @@ The type section is the root of Starshine's module type context. It defines ever
 
 Use this page for the **validator** contract: what `validate_typesec(...)` accepts, what it normalizes, and what later phases may rely on. Use [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md) for text syntax, `(rec ...)` authoring, type-use abbreviations, parser/lowerer behavior, and flat-index examples before validation. Use [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md) for binary section ids, `TypeSec(Array[RecType])`, and whole-module remap obligations.
 
-The current source bridge is [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md). It rechecks current WebAssembly Core 3.0 type syntax, binary type encoding, validation, matching, and module-validation sources plus Starshine validator/proof-helper evidence. One extra consumer rule follows from the same bridge: module-level function signatures live in `FuncSec(Array[TypeIdx])`, so any `RecIdx` seen while validating a recursive group is temporary and must be normalized before later phases or module-level caches use it.
+The current source bridge is [`../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md). It rechecks the current WebAssembly Core 3.0 type syntax, text type-use rules, binary type encoding, validation, matching, and module-validation sources dated 2026-06-03 plus Starshine validator/proof-helper evidence. The older bridge [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md) remains useful provenance for the original validator audit. One extra consumer rule follows from the same bridge: module-level function signatures live in `FuncSec(Array[TypeIdx])`, so any `RecIdx` seen while validating a recursive group is temporary and must be normalized before later phases or module-level caches use it.
 
 ## Beginner Model
 
@@ -89,7 +90,7 @@ Important matching rules future maintainers should keep in mind:
 - **Reference types** combine heap-type matching with nullability (`non-null <: nullable`) and exactness constraints.
 - **Abstract heap types** keep the usual families visible: `struct` / `array` / `i31` under `eq`, `eq` under `any`, `nofunc` under `func`, `noextern` under `extern`, and so on.
 
-The official Core 3.0 rules are stricter than mere Starshine parser acceptance. As of this review, the documented and fuzzed local TypeSection invalid families cover out-of-range supertypes, incompatible supertype shapes, focused function parameter/result variance mismatches, mutable struct-field variance mismatches, descriptor metadata on non-struct types, and descriptor-pair field references to missing heap types. Do **not** claim full coverage of every official side condition, such as single-supertype, earlier-supertype, or final-supertype restrictions, unless a focused validator test or implementation audit proves it.
+The official Core 3.0 rules are stricter than mere Starshine parser acceptance. As of the 2026-06-04 refresh, the documented and fuzzed local TypeSection invalid families cover out-of-range supertypes, incompatible supertype shapes, final-supertype extension, recursive-group supertype cycles, focused function parameter/result variance mismatches, mutable struct-field variance mismatches, descriptor metadata on non-struct types, descriptor-pair field references to missing heap types, and forward `describes` references. Do **not** claim full coverage of every official side condition: current `Validate for SubType` still iterates all declared supers, and the recursive validation context exposes the current group before normalization, so single-supertype and forward-supertype policy need focused tests or implementation changes before they are documented as fully aligned with current Core 3.0.
 
 ## Descriptor Metadata And Exact References
 
@@ -183,13 +184,14 @@ When changing type-section validation, WAST type lowering, or a pass that rewrit
 2. **Preserve flat type-index accounting.** Every member of every `RecType` contributes a `TypeIdx`; inline function types appended by WAST lowering must come after existing flattened members.
 3. **Normalize group-local references before later phases.** Later validation phases should resolve ordinary absolute `TypeIdx` values from `Env.global_types`; do not leak stale group-local `RecIdx` values into pass output or binary emission.
 4. **Audit every type carrier after rewrites.** Function signatures, block types, table element types, global types, tag types, casts, GC constructors/accessors, element segment types, imports/exports, and name maps can all carry type references.
-5. **Use focused invalid families.** Extend `InvalidSubtypeSuperIndex`, `InvalidSubtypeSuperShape`, or `DescriptorOnFuncType` when adding visible rejection behavior; add a new stable invalid strategy if the user-visible family or semantics differ.
+5. **Use focused invalid families.** Extend `InvalidSubtypeSuperIndex`, `InvalidSubtypeSuperShape`, `InvalidSubtypeFinalSuper`, `InvalidSubtypeSuperCycle`, or `DescriptorOnFuncType` when adding visible rejection behavior inside those families; add a new stable invalid strategy if the user-visible family or semantics differ.
 6. **Run the proof lane when touching index arithmetic.** `src/validate_proof/rectype_index.mbt` proves the suffix/group-relative helpers imported by the validator. Follow [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md) for `moon prove src/validate_proof` expectations.
 
 ## Sources
 
-- Source bridge: [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md)
-- WAST type-use and subtype source bridge: [`../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md`](../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md)
+- Current source bridge: [`../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md)
+- Older type-section source bridge: [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md)
+- Older WAST type-use and subtype source bridge: [`../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md`](../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md)
 - Custom-descriptor exactness bridge: [`../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md`](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md)
 - Validator implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt)
 - Invalid fuzzing: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt)

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wast/validate/binary | GC type-use and subtyping current refresh
+
+- Added [`docs/wiki/raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md) after rechecking current WebAssembly Core 3.0 type/text/binary/validation pages dated 2026-06-03, the WebAssembly proposals tracker, the custom-descriptors overview, and Starshine WAST lowering plus validator source evidence.
+- Refreshed [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md), [`validate/type-section-and-subtyping.md`](validate/type-section-and-subtyping.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), and [`index.md`](index.md) so explicit `(type ...)` plus inline signature clauses are documented as an official consistency boundary that current Starshine lowering does not itself check.
+- Current durable split: Starshine now has documented invalid-family evidence for final-supertype and recursive-group supertype-cycle rejection, while single-supertype and forward-supertype policy remain unclaimed until focused tests or implementation changes prove alignment; descriptor metadata remains proposal/local and still routes through custom-descriptor pages.
+
 ## [2026-06-04] passes/atomics | struct atomic get generic-pass guardrails
 
 - Added focused pass regressions in `src/passes/atomic_pass_support_test.mbt` proving `struct.atomic.get*` stays conservative outside GSI: local-cse does not merge repeated atomic reads, precompute preserves dropped atomic reads, optimize-instructions treats them as load-call barriers, and simplify-locals does not sink loads across them.
