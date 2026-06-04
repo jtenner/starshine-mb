@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] validate/wast | exception tag result-shape current refresh
+
+- Added [`docs/wiki/raw/wasm/2026-06-04-exception-tag-current-refresh.md`](raw/wasm/2026-06-04-exception-tag-current-refresh.md) after rechecking the current official WebAssembly Core 3.0 tagtype, exception-instruction, binary tag, module-tag, text, and Starshine WAST/core/binary/validator surfaces.
+- Refreshed [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`validate/import-export-and-external-type-matching.md`](validate/import-export-and-external-type-matching.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), and [`index.md`](index.md) so the wiki now records the current split: official Core 3.0 tagtype validity is broader at declaration time, official `throw` / `catch` / `catch_ref` validation still requires empty-result tag expansions, and Starshine still rejects resultful tag imports/definitions during import/tag-section validation.
+- No code changed; resultful tag fixtures are now routed as Starshine validator-gap evidence unless a deliberate validator widening lands and preserves the empty-result checks at EH instruction use sites.
+
 ## [2026-06-04] wast | tail-call current source refresh
 
 - Added [`docs/wiki/raw/wasm/2026-06-04-tail-call-current-refresh.md`](raw/wasm/2026-06-04-tail-call-current-refresh.md) after rechecking the current official WebAssembly Core 3.0 syntax, text, binary, validation, and execution pages dated 2026-06-03 plus Starshine WAST/core/binary/validator/CFG code surfaces.

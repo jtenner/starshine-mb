@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-exception-tag-current-refresh.md
   - ../raw/wasm/2026-05-19-wast-exception-tag-sources.md
   - ../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md
   - ../../../src/wast/parser.mbt
@@ -32,11 +33,11 @@ Exception handling in Starshine crosses three layers:
 
 1. **Text/WAST authoring**: fixtures use `(tag ...)`, `throw`, `throw_ref`, and `try_table` catch clauses.
 2. **Core module representation**: tags occupy the same imported-prefix `TagIdx` space whether they come from imports or from the tag section; instructions carry numeric `TagIdx` and `LabelIdx` values.
-3. **Validation**: tag types must point at function types with no results; `throw` consumes a tag payload and makes control unreachable; `throw_ref` consumes nullable `exnref` and makes control unreachable; `try_table` catches branch to labels outside the temporary try body.
+3. **Validation**: Starshine currently requires tag types to point at function types with no results; `throw` consumes a tag payload and makes control unreachable; `throw_ref` consumes nullable `exnref` and makes control unreachable; `try_table` catches branch to labels outside the temporary try body. Current Core 3.0 source is slightly broader at tag-declaration validation time, so keep the local-versus-official split below visible.
 
 Use this page when adding WAST fixtures, fuzz-prelude shapes, validation tests, or pass rewrite rules that touch exception tags. The broader binary section guide in [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md) explains section id `13` and imported-prefix index spaces; this page focuses on the text syntax and lowering/validation traps that are easiest to miss.
 
-The broad primary-source snapshot is [`../raw/wasm/2026-05-19-wast-exception-tag-sources.md`](../raw/wasm/2026-05-19-wast-exception-tag-sources.md). It checked the official WebAssembly 3.0 syntax, text, binary, and validation pages plus the local parser/lowering/printer/typechecker sources. The targeted 2026-05-20 refresh in [`../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md`](../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md) supersedes one stale wording detail: `throw_ref` validates with a nullable `exnref` operand, while `catch_ref` / `catch_all_ref` branch payloads carry a non-null captured `(ref exn)`.
+The current source refresh is [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md). It checked the official WebAssembly Core 3.0 pages dated 2026-06-03 plus local parser/lowering/printer/binary/typechecker sources. The older broad snapshot [`../raw/wasm/2026-05-19-wast-exception-tag-sources.md`](../raw/wasm/2026-05-19-wast-exception-tag-sources.md) remains useful for the original source map, and the targeted 2026-05-20 refresh [`../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md`](../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md) remains the historical correction that `throw_ref` validates with a nullable `exnref` operand while `catch_ref` / `catch_all_ref` branch payloads carry non-null captured `(ref exn)`.
 
 ## Concrete Text Shapes
 
@@ -144,13 +145,13 @@ Treat this as compatibility syntax, not as proof that Starshine has a preserved 
 
 ## Validation Invariants And Edge Cases
 
-- **Tag type result lists must be empty.** A tag type index resolving to `(func (result i32))` is invalid even though it is a function type.
+- **Tag result lists are a local/spec split.** Current Core 3.0 validates a tag type use as any function-type expansion at declaration time, while the `throw`, `catch`, and `catch_ref` instruction rules still require the selected tag to expand as `func params -> epsilon`. Starshine keeps the older/stricter rule in [`Validate for TagType`](../../../src/validate/validate.mbt): a tag type index resolving to `(func (result i32))` is rejected in `importsec` / `tagsec` before any EH use site is checked. Treat resultful tag declarations as validator-gap evidence until a deliberate widening moves the empty-result check to exception-instruction validation.
 - **`throw` is stack-polymorphic after consuming payload.** It pops the tag's parameters and makes the remaining path unreachable; the general bottom-value and concrete-stack-junk boundary is [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md).
 - **`throw_ref` consumes nullable `exnref`.** [`typecheck_throw_ref`](../../../src/validate/typecheck.mbt) pops `ValType::ref_null_exn()` before marking the path unreachable. A non-null exception reference is accepted by subtyping, but validation does not require non-nullness; runtime execution must still preserve the null-trap versus non-null-throw distinction.
 - **Catch payloads must match their target labels.** `catch` expects the tag payload at the branch target; `catch_ref` expects payload plus non-null `(ref exn)`; `catch_all` expects no values; `catch_all_ref` expects non-null `(ref exn)`.
 - **Catch labels are not the try body's temporary label.** The body uses an internal result label for stack typing, but catches branch to labels in the enclosing context.
 - **Inline tag export/import syntax is supported, with a local caveat.** Inline tag exports lower into ordinary export entries. Inline tag import shorthand rejects inline exports; use a separate `(export ...)` field for that combination.
-- **Binary tag attributes may grow later.** The official binary tag type shape includes an attributes byte. Starshine currently models `TagType` as only a `TypeIdx`, so future binary broadening should revisit decode/encode/types together if attributes become meaningful.
+- **Binary tag attributes may grow later.** The current official binary tag type still begins with `0x00` followed by a type index, with the byte documented as a future attribute slot. Starshine currently requires/emits that `0x00` and models `TagType` as only a `TypeIdx`, so future binary broadening should revisit decode/encode/types together if attributes become meaningful.
 
 ## Pass And Rewrite Checklist
 
@@ -175,6 +176,7 @@ When a pass rewrites control around `try_table`, rerun validation. The high-risk
 
 ## Sources
 
+- Current exception tag refresh: [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md)
 - Broad primary-source and local-code manifest: [`../raw/wasm/2026-05-19-wast-exception-tag-sources.md`](../raw/wasm/2026-05-19-wast-exception-tag-sources.md)
 - Targeted `throw_ref` nullability refresh: [`../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md`](../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md)
 - Binary tag/resource guide: [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md)

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-exception-tag-current-refresh.md
   - ../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md
   - ../raw/wasm/2026-05-13-module-validation-phase-sources.md
   - ../raw/wasm/2026-05-13-function-import-export-section-sources.md
@@ -39,7 +40,7 @@ Use this page when changing or debugging the boundary where a module names value
 - [`ExportSec`](../../../src/lib/types.mbt) entries declare a public name and an [`ExternIdx`](../../../src/lib/types.mbt) that points into one of Starshine's function, table, memory, global, or tag index spaces.
 - [`src/validate/match.mbt`](../../../src/validate/match.mbt) implements the reusable WebAssembly matching relation for external types and their component limits, globals, memories, tables, tags, and functions.
 
-The focused source manifest is [`../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md`](../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md). It reconciles current WebAssembly Core 3.0 module/type/instantiation sources with Starshine's validator, matching helper, invalid-fuzzer families, binary codec, core model, and WAST lowering.
+The focused source manifest is [`../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md`](../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md). It reconciles current WebAssembly Core 3.0 module/type/instantiation sources with Starshine's validator, matching helper, invalid-fuzzer families, binary codec, core model, and WAST lowering. The 2026-06-04 exception refresh [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md) updates the tag-import nuance: Starshine still rejects resultful tag imports locally, but current Core 3.0's tagtype validity is broader and leaves the empty-result requirement to exception instruction use sites.
 
 Keep one distinction visible: **module validation is not host instantiation**. Starshine validates that import declarations are well typed and that exports point at real module items. A future linker or embedding API still needs to match host-provided external values against those import declarations.
 
@@ -83,7 +84,7 @@ An imported external type must be internally valid before it can extend an index
 | table | Reference type must validate; limits must be in range. | Current WAST declarations lower natural limits to i32 limits, but core/binary paths can represent i64 table limits; the shared table-limit contract lives in [`resource-sections-and-limits.md`](resource-sections-and-limits.md). |
 | memory | Limits must be in range; shared memories require an explicit maximum. | Memory32 max is bounded to 65536 pages; memory64 uses the wider local core limit; the shared-memory maximum policy and limit-width caveats live in [`resource-sections-and-limits.md`](resource-sections-and-limits.md). |
 | global | Value type must validate; mutability is carried for matching and runtime `global.set` checks. | Immutable imported globals can be read from constant expressions when they are already in the environment; see [`constant-expressions.md`](constant-expressions.md). |
-| tag | Type index must resolve to a function type with empty results. | Tag imports extend the tag index space before local tags. |
+| tag | Starshine requires the type index to resolve to a function type with empty results. Current Core 3.0 tagtype validity only requires a function-type expansion, while `throw` / `catch` / `catch_ref` use sites require empty results. | Tag imports extend the tag index space before local tags; resultful tag imports are local validator-gap evidence until Starshine deliberately widens this rule. |
 
 Import module/name pairs are **not** de-duplicated by module validation. Multiple imports may use the same string pair if their section entries say so; whether a host environment can or should satisfy that shape is an embedding/linking concern.
 
@@ -128,7 +129,7 @@ The official WebAssembly model uses a matching relation to decide whether one ex
 | immutable `GlobalType` | Value type is covariant. | A `(global (ref eq))` can satisfy a `(global (ref any))`-style expectation when the reference type matches by subtype. |
 | mutable `GlobalType` | Value type is invariant and mutability must match. | Mutable globals can be read and written, so allowing only one direction would be unsound. |
 | `TableType` | Limits match and reference type matches both directions. | Starshine treats table element reference type as invariant even when heap types have subtyping. |
-| `TagType` | Function type index compatibility must hold in both directions. | Exception tags must agree on their parameter payload shape; results must already be empty by tag validation. |
+| `TagType` | Function type index compatibility must hold in both directions. | Exception tags must agree on their parameter payload shape. Results are already empty under current Starshine validation, but the current official tagtype rule is broader, so a future local widening would need to preserve empty-result checks at EH instruction validation. |
 | function `ExternType` | Both type indices must resolve to function types; then type-index subtyping decides compatibility. | Function parameters are contravariant and results covariant through the underlying function subtype relation. |
 | `ExternType` kind | Kinds must match. | A memory cannot satisfy a table import even if both have limits. |
 
@@ -161,6 +162,7 @@ When a pass, generator, or fixture changes import/export structure:
 
 ## Sources
 
+- Current exception/tag-result refresh: [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md)
 - Source manifest: [`../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md`](../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md)
 - Module-validation phase snapshot: [`../raw/wasm/2026-05-13-module-validation-phase-sources.md`](../raw/wasm/2026-05-13-module-validation-phase-sources.md)
 - Function/import/export snapshot: [`../raw/wasm/2026-05-13-function-import-export-section-sources.md`](../raw/wasm/2026-05-13-function-import-export-section-sources.md)
