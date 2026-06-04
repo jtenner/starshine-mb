@@ -14,8 +14,7 @@ sources:
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
   - ../../../../../agent-todo.md
-  - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/skipped-unimplemented-slots.json
-  - ../../../../../.artifacts/o4z-wasm-opt-debug.log
+  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -45,7 +44,7 @@ related:
 - The canonical Binaryen no-DWARF `-O` / `-Os` post-pass phase runs `simplify-globals-optimizing` after `duplicate-import-elimination` and before `remove-unused-module-elements`.
 - The saved generated-artifact `-O4z` audit records one real skipped top-level upstream slot:
   - top-level slot `52`
-- The saved debug log also shows that this pass is bigger than one top-level name suggests. Between top-level `simplify-globals-optimizing` and the next top-level `remove-unused-module-elements`, repo-local counting over [`../../../../../.artifacts/o4z-wasm-opt-debug.log`](../../../../../.artifacts/o4z-wasm-opt-debug.log) finds:
+- The saved debug log also shows that this pass is bigger than one top-level name suggests. The committed audit note [`0093`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the generated-artifact summary and debug-log replay facts; between top-level `simplify-globals-optimizing` and the next top-level `remove-unused-module-elements`, repo-local counting over the original log found:
   - `3` nested pass batches
 - The backlog already tracks this as slice `SGO` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
 - It is also the remaining late boundary/global cleanup dossier nearest the freshly documented late neighbors:
@@ -129,8 +128,7 @@ That is much closer to the real Binaryen pass than “replace constant `global.g
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- [`../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/skipped-unimplemented-slots.json`](../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/skipped-unimplemented-slots.json)
-- [`../../../../../.artifacts/o4z-wasm-opt-debug.log`](../../../../../.artifacts/o4z-wasm-opt-debug.log)
+- [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` skipped-slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
 - Binaryen `version_129` implementation and test sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyGlobals.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

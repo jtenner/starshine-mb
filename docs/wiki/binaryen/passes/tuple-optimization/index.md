@@ -17,7 +17,7 @@ sources:
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../src/cmd/cmd_native_wbtest.mbt
   - ../../../../../src/passes/optimize.mbt
-  - ../../../../../.artifacts/o4z-wasm-opt-debug.log
+  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TupleOptimization.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OptimizeInstructions.cpp
@@ -162,7 +162,7 @@ That means the tuple-opt dossier does **not** currently need a current-main drif
 - [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
 - [`../../../../../src/cmd/cmd_native_wbtest.mbt`](../../../../../src/cmd/cmd_native_wbtest.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`../../../../../.artifacts/o4z-wasm-opt-debug.log`](../../../../../.artifacts/o4z-wasm-opt-debug.log)
+- [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TupleOptimization.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

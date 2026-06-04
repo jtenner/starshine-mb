@@ -299,8 +299,8 @@ For a concrete future implementation sequence and validation ladder, use [`./sta
 - [`docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md`](../../../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md)
   - Records the original DAE backlog contract: remove provably dead call parameters, then rerun the nested post-inlining cleanup pipeline on touched functions.
 
-- [`.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/skipped-unimplemented-slots.json`](../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/skipped-unimplemented-slots.json)
-  - Records saved generated-artifact skipped slot `48` as `dae-optimizing`.
+- [`docs/wiki/raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md)
+  - Preserves the saved generated-artifact skipped-slot, summary, and Binaryen debug-log facts, including top-level slot `48` as `dae-optimizing`; older `.artifacts` paths are replay identifiers, not durable wiki source links.
 
 - [`agent-todo.md`](../../../../../agent-todo.md)
   - Keeps the active DAE backlog slice family.

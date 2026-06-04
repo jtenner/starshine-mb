@@ -81,8 +81,7 @@ sources:
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
   - ../../../../../agent-todo.md
-  - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/skipped-unimplemented-slots.json
-  - ../../../../../.artifacts/o4z-wasm-opt-debug.log
+  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -114,7 +113,7 @@ related:
 - The canonical Binaryen no-DWARF `-O` / `-Os` post-pass phase starts with `dae-optimizing`.
 - The saved generated-artifact `-O4z` audit records one real skipped top-level upstream slot:
   - top-level slot `48`
-- The saved debug log also shows that this pass is much bigger than one top-level name suggests. Inside the log interval between top-level `dae-optimizing` and top-level `inlining-optimizing`, repo-local counting over [`../../../../../.artifacts/o4z-wasm-opt-debug.log`](../../../../../.artifacts/o4z-wasm-opt-debug.log) finds:
+- The saved debug log also shows that this pass is much bigger than one top-level name suggests. The committed audit note [`0093`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the generated-artifact summary and debug-log replay facts; inside the original debug-log interval between top-level `dae-optimizing` and top-level `inlining-optimizing`, repo-local counting found:
   - `12` nested `ssa-nomerge` executions
   - `24` nested `local-cse` executions
   - `12` nested `code-folding` executions

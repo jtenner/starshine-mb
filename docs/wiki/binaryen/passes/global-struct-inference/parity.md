@@ -19,7 +19,7 @@ related:
   - ../../../../../src/passes/global_struct_inference_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
-  - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md
+  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
 ---
 
 # `global-struct-inference` Binaryen parity
@@ -909,4 +909,4 @@ Again, that is an inference from the green audit plus the visible local-vs-upstr
 - Focused tests: [`../../../../../src/passes/global_struct_inference_test.mbt`](../../../../../src/passes/global_struct_inference_test.mbt)
 - Dispatch/options surface: [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - Registry/preset surface: [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- Saved artifact audit: [`../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md`](../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md)
+- Saved artifact audit: [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the generated-artifact summary and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.

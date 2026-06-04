@@ -14,8 +14,7 @@ sources:
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/simplify_locals.mbt
-  - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/skipped-unimplemented-slots.json
-  - ../../../../../.artifacts/o4z-wasm-opt-debug.log
+  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
   - ../../../../../agent-todo.md
   - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
 related:
@@ -130,8 +129,7 @@ That is much closer to the real pass than â€œfull simplify-locals, but smaller.â
 - [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt)
-- [`../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/skipped-unimplemented-slots.json`](../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/skipped-unimplemented-slots.json)
-- [`../../../../../.artifacts/o4z-wasm-opt-debug.log`](../../../../../.artifacts/o4z-wasm-opt-debug.log)
+- [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` skipped-slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
 - Binaryen `version_129` sources:

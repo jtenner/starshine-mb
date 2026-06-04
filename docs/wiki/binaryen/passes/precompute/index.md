@@ -19,8 +19,7 @@ sources:
   - ../../../../../scripts/lib/self-optimize-compare-task.ts
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
-  - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.json
-  - ../../../../../.artifacts/o4z-wasm-opt-debug.log
+  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
   - ../../../raw/research/0096-2026-04-18-generated-o4z-precompute-slot19-missing-i32-result.md
   - ../../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md
   - https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/9de4aca15b3125d54aabaf2913a0988ff500bdba
@@ -206,8 +205,7 @@ Treat those as newer-trunk drift notes, not as silent edits to the `version_129`
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../tracker.md`](../tracker.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
-- [`../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.json`](../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.json)
-- [`../../../../../.artifacts/o4z-wasm-opt-debug.log`](../../../../../.artifacts/o4z-wasm-opt-debug.log)
+- [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
 - [`../../../raw/research/0096-2026-04-18-generated-o4z-precompute-slot19-missing-i32-result.md`](../../../raw/research/0096-2026-04-18-generated-o4z-precompute-slot19-missing-i32-result.md)
 - [`../../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md`](../../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md)
 - Newer upstream drift notes already recorded on the old landing page:

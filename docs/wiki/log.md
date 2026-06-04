@@ -8,6 +8,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Refreshed [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md), [`wast/identifier-name-and-annotation-authoring.md`](wast/identifier-name-and-annotation-authoring.md), [`wast/code-metadata-and-function-annotations.md`](wast/code-metadata-and-function-annotations.md), and [`index.md`](index.md) so official `@name` / `@custom` text annotations are no longer easy to confuse with Starshine's current function/import-only `FuncAnnotationSec` lane.
 - Confirmed the current official name-subsection set remains module/function/local/type/field/tag, leaving Starshine label/table/memory/global/element/data name maps documented as local richer metadata.
 
+## [2026-06-04] wiki-health | generated-artifact source-link cleanup
+
+- Repointed remaining living pass-page `.artifacts` source links found in the whole-wiki health check to the committed generated-artifact audit note [`0093`](raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md), covering `optimize-instructions`, `heap-store-optimization`, `ssa-nomerge`, `dae-optimizing`, `tuple-optimization`, `simplify-locals-notee-nostructure`, `flatten`, `simplify-globals-optimizing`, `heap2local`, `directize`, `global-refining`, `global-struct-inference`, `dead-code-elimination`, `string-gathering`, and `precompute` landing/parity/source sections.
+- Left historical `.tmp` / `.artifacts` strings inside raw research notes and old log entries as replay identifiers, matching the transient-artifact policy; the health pass target was durable source-link/frontmatter hygiene in living wiki pages.
+
 ## [2026-06-04] wiki-health | memory/table address-width source routing
 
 - Repointed follow-on memory64/table64 source routing in [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md) and the [`memory64-lowering`](binaryen/passes/memory64-lowering/index.md) dossier so they cite the current [`2026-06-04` memory/table address-width refresh](raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) instead of only the older 2026-05-20 source notes.

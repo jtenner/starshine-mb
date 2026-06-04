@@ -18,8 +18,7 @@ sources:
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
-  - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.json
-  - ../../../../../.artifacts/o4z-wasm-opt-debug.log
+  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Heap2Local.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h
@@ -192,8 +191,7 @@ Current durable rule:
 - [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- [`../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.json`](../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.json)
-- [`../../../../../.artifacts/o4z-wasm-opt-debug.log`](../../../../../.artifacts/o4z-wasm-opt-debug.log)
+- [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Heap2Local.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

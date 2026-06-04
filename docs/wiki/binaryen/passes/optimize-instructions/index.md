@@ -15,8 +15,7 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
-  - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.json
-  - ../../../../../.artifacts/o4z-wasm-opt-debug.log
+  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -154,5 +153,4 @@ That is still a spot check, not a full current-`main` drift audit.
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../tracker.md`](../tracker.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
-- [`../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.json`](../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.json)
-- [`../../../../../.artifacts/o4z-wasm-opt-debug.log`](../../../../../.artifacts/o4z-wasm-opt-debug.log)
+- [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) preserves the saved generated-artifact `-O4z` slot, summary, and Binaryen debug-log facts; older `.artifacts` paths are replay identifiers, not durable wiki source links.
