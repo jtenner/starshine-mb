@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-06-04
 sources:
+  - ../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md
+  - ../../../raw/research/0552-2026-05-08-simplify-locals-nostructure-ordered-slot-replay.md
   - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md
@@ -38,7 +40,7 @@ related:
 
 - [`src/passes/tuple_optimization.mbt`](../../../../../src/passes/tuple_optimization.mbt) owns the HOT pass itself.
 - [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) owns pass-manager dispatch plus one debug trace hook that dumps tuple groups and the rewrite mask for a targeted function.
-- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) owns registry exposure and the current preset exclusion rule.
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) owns registry exposure and the current public tuple/no-structure preset lane.
 - [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) proves the pass is still exposed as an active hot pass.
 - [`src/passes/tuple_optimization_wbtest.mbt`](../../../../../src/passes/tuple_optimization_wbtest.mbt) is the main focused analysis-and-rewrite test file.
 - [`src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt) proves the public CLI path and lowered-module validity on committed reduced repros.
@@ -61,8 +63,10 @@ related:
 - `src/passes/optimize.mbt:374-379`
   - `tuple_optimization_exact_slot_prereqs_ready()`
   - current exact-slot gate now resolves against the active `code-pushing` and `simplify-locals-nostructure` neighbors
-- `src/passes/optimize.mbt:380-392`
-  - explicit comment and code keeping `tuple-optimization` out of public presets for now, pending ordered-neighborhood replay proof
+- `src/passes/optimize.mbt`
+  - public preset lane: `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs`
+- `src/passes/optimize_test.mbt`
+  - exact-slot tests `tuple-optimization exact preset prereqs place code-pushing before the tuple slot` and `simplify-locals-nostructure exact slot helper exposes the ordered replay lane` keep the current lane honest
 - `src/passes/registry_test.mbt:172-185`
   - focused registry acceptance test
 

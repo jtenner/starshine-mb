@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-06-04
 sources:
+  - ../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md
+  - ../../../raw/research/0552-2026-05-08-simplify-locals-nostructure-ordered-slot-replay.md
   - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md
@@ -58,8 +60,10 @@ The most important exact locations are:
   - active hot-pass dispatch
 - [`src/passes/optimize.mbt:212`](../../../../../src/passes/optimize.mbt)
   - registry entry
-- [`src/passes/optimize.mbt:374-392`](../../../../../src/passes/optimize.mbt)
-  - exact-slot prerequisite check plus current preset exclusion
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+  - exact-slot prerequisite check plus the current public tuple/no-structure preset lane ending in `vacuum -> reorder-locals -> remove-unused-brs`
+- [`src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt)
+  - exact-slot tests for the tuple/no-structure neighborhood and the single public `reorder-locals` occurrence
 - [`src/passes/registry_test.mbt:172-185`](../../../../../src/passes/registry_test.mbt)
   - active-hot-pass acceptance test
 

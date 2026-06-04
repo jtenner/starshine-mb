@@ -8,6 +8,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Refreshed [`binaryen/passes/reorder-locals/index.md`](binaryen/passes/reorder-locals/index.md), [`starshine-hot-ir-strategy.md`](binaryen/passes/reorder-locals/starshine-hot-ir-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/reorder-locals/starshine-port-readiness-and-validation.md), [`parity.md`](binaryen/passes/reorder-locals/parity.md), [`binaryen/passes/tracker.md`](binaryen/passes/tracker.md), [`ir2/registry-map.md`](ir2/registry-map.md), [`ir2/execution-plan.md`](ir2/execution-plan.md), and [`index.md`](index.md) so they no longer say `reorder-locals` is entirely absent from public presets.
 - Current durable split: `reorder-locals` is an active module pass and appears exactly once in both `optimize` and `shrink` inside `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs`; extra upstream-style slots remain future scheduler work requiring ordered-neighborhood evidence and exact preset tests.
 
+## [2026-06-04] wiki-health | tuple/no-structure preset wording cleanup
+
+- During the follow-up health check for stale preset wording, refreshed [`binaryen/passes/tuple-optimization/implementation-map.md`](binaryen/passes/tuple-optimization/implementation-map.md) and [`starshine-hot-ir-strategy.md`](binaryen/passes/tuple-optimization/starshine-hot-ir-strategy.md) so they no longer describe `tuple-optimization` as excluded from public presets.
+- Current tuple/no-structure scheduling source route is the same tested lane recorded by [`0552`](raw/research/0552-2026-05-08-simplify-locals-nostructure-ordered-slot-replay.md) and [`0709`](raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md): `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs`.
+
 ## [2026-06-04] passes/gsi | final v0.1.0 signoff
 
 - Closed `[GSI-PARITY-007]` with final direct `global-struct-inference` evidence: `moon fmt`, `moon test` (4736 passed), native `src/cmd` build, `bun validate readme-api-sync`, and a 10k direct compare with 9975 normalized matches, 0 mismatches, and 25 known Binaryen/tool command failures.
