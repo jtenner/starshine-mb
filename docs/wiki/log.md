@@ -5,6 +5,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 ## [2026-06-04] passes/local-cse | br_table boundary negative coverage
 
 - Added direct `local-cse` regression coverage proving an expression computed before `br_table` is not reused in the unreachable continuation; the fixture passed without implementation changes and matches the Binaryen spot check for the same WAT shape.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-br-table-boundary-10000`: 6771 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
 - Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so this `br_table` boundary negative is no longer listed as open LCSE hardening work.
 
 ## [2026-06-04] ir2/architecture | current ownership refresh
