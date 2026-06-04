@@ -340,6 +340,156 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 
 ## v0.2.0 Backlog
 
+### SET - Shared-Everything Threads Proposal Surface
+
+Release stance: proposal-tracking backlog, not a v0.1.0 release gate. Starshine currently has the focused `struct.atomic.get`, `struct.atomic.get_s`, and `struct.atomic.get_u` surface plus conservative optimizer handling. The remaining shared-everything threads surface is intentionally sliced below so future agents can add core/type/binary/WAST/validation/fuzzer/pass support in dependency order instead of treating proposal examples as already-supported syntax.
+
+Common rules for every `[SET-*]` slice:
+- Start from `docs/wiki/raw/wasm/2026-06-04-struct-atomic-get-sources.md`, `docs/wiki/wast/gc-aggregate-instruction-authoring.md`, `docs/wiki/wast/atomic-memory-instruction-authoring.md`, and the current shared-everything threads proposal text. Refresh the source snapshot first if the proposal changed.
+- Add tests first for the exact surface being widened; do not add parser keywords, binary opcodes, or optimizer rewrites without validator/effect coverage.
+- Keep linear-memory atomics (`MemArg` instructions) separate from shared-GC aggregate atomics and proposal shared resource/thread-local features.
+- Treat `struct.atomic.get*` as the only already-supported shared-GC aggregate atomic family until a slice below lands.
+- Preserve generic optimizer conservatism for any atomic read/write/RMW/cmpxchg/wait operation unless a pass-specific proof documents why rewriting is safe.
+- Update `docs/wiki/wast/gc-aggregate-instruction-authoring.md`, `docs/wiki/wast/atomic-memory-instruction-authoring.md`, `docs/wiki/index.md`, `docs/wiki/log.md`, and pass-specific wiki pages when behavior changes.
+
+- [SET-SRC]001 - Refresh shared-everything source manifest and local gap matrix
+  - Status: active planning slice; run before implementing any remaining proposal family.
+  - Goal: replace the current struct-atomic-get-only source snapshot with a broader proposal tracking manifest and a local implementation matrix.
+  - Why: the proposal is moving and the current durable source capture intentionally scoped itself to `struct.atomic.get*`; future implementers need exact opcodes, text spellings, immediates, feature flags, validation rules, and local unsupported surfaces before coding.
+  - Deliverables:
+    - [ ] Capture the current proposal instruction/type/resource list with date, source URLs, and caveats in `docs/wiki/raw/wasm/` or a numbered research note.
+    - [ ] Build a matrix with rows for shared types/resources, thread-local globals, `pause`, `ref.i31_shared`, global atomics, table atomics, struct atomic set/RMW/cmpxchg, array atomic get/set/RMW/cmpxchg, waitqueue operations, aggregate waits, proposal memory waits, and release/acquire ordering.
+    - [ ] For each row, record local status across `src/lib`, `src/binary`, `src/wast`, `src/validate`, `src/ir`, `src/passes`, `src/validate/gen_valid`, and docs.
+    - [ ] Decide exact local spellings for order operands, including whether compact Binaryen spellings like `seqcst` should remain unsupported or become accepted aliases.
+    - [ ] Update the WAST aggregate/atomic pages so they link the new matrix and continue warning that only `struct.atomic.get*` is implemented today.
+  - Suggested tests: docs-only unless a source-refresh helper changes; run `bun validate readme-api-sync` if docs references affect README/API sync.
+  - Exit criteria: future agents can pick any `[SET-*]` slice without rediscovering proposal scope or conflating shared-GC atomics with linear-memory atomics.
+
+- [SET-TYPE]001 - Sharedness and thread-local resource type model
+  - Status: blocked on `[SET-SRC]001` exact rules.
+  - Goal: add the type/resource metadata needed by the rest of the proposal before instruction families depend on it.
+  - Why: aggregate atomics and shared resource validation require knowing whether heaps, arrays, structs, tables, globals, functions, elements, data, and memories are shared/thread-local where the proposal requires it.
+  - Deliverables:
+    - [ ] Add focused type/model tests for shared annotations, thread-local globals, and any proposal `bot-share` / shared-heap distinctions selected by `[SET-SRC]001`.
+    - [ ] Extend `src/lib/types.mbt` and related constructors only as far as the proposal-backed matrix requires.
+    - [ ] Extend binary encode/decode and pretty/show helpers for new type/resource metadata.
+    - [ ] Extend WAST parser/printer/lowering for shared/thread-local annotations with round-trip tests.
+    - [ ] Extend validation/typecheck with positive and negative sharedness/thread-local tests.
+    - [ ] Update arbitrary/module generators only after validation rejects unsupported combinations deterministically.
+  - Suggested tests: package-local type/binary/WAST/validate tests, `moon test src/lib`, `moon test src/binary`, `moon test src/wast`, `moon test src/validate`, then `moon test` when the model becomes public.
+  - Exit criteria: sharedness/thread-local metadata round-trips and validates independently of the later atomic instruction families.
+
+- [SET-CORE]001 - `pause` and `ref.i31_shared` scalar proposal instructions
+  - Status: blocked on `[SET-SRC]001`; independent from aggregate atomic families once exact encodings are confirmed.
+  - Goal: implement the smallest non-aggregate proposal instructions as a low-risk proving ground for proposal feature plumbing.
+  - Deliverables:
+    - [ ] Add core enum/constructor/show/equality/arbitrary coverage for `pause` and `ref.i31_shared` if `[SET-SRC]001` confirms they remain in scope.
+    - [ ] Add binary encode/decode tests for exact opcodes and immediates.
+    - [ ] Add WAST keyword/parser/printer/lowering tests for text spellings.
+    - [ ] Add validation stack/effect tests, including any sharedness restrictions for `ref.i31_shared`.
+    - [ ] Lift/lower HOT and model effects conservatively; ensure cleanup passes preserve the instructions unless proved pure/nontrapping by the spec.
+  - Suggested tests: `moon test src/lib src/binary src/wast src/validate src/ir src/passes`, then `moon test` after public surface changes.
+  - Exit criteria: scalar proposal instructions can parse, encode, validate, lift/lower, print, and survive optimizer passes.
+
+- [SET-GLOBAL]001 - Global atomic get/set/RMW/cmpxchg
+  - Status: blocked on `[SET-SRC]001` and any `[SET-TYPE]001` global sharedness model needed.
+  - Goal: implement proposal global atomic operations as effectful global/resource operations.
+  - Deliverables:
+    - [ ] Add instruction enum variants and helpers for `global.atomic.get`, `global.atomic.set`, and `global.atomic.rmw.{add,sub,and,or,xor,xchg,cmpxchg}` or the exact current proposal spellings.
+    - [ ] Add binary encode/decode, WAST parse/print/lower, and validation tests for index kind, value type, mutability/sharedness, order operands, stack behavior, and invalid cases.
+    - [ ] Model effects as global/resource reads/writes plus trap/order barriers as applicable; HOT lift/lower must not assume `MemArg`.
+    - [ ] Update module remapping/liveness passes so global indices and referenced types remain valid after reordering/removal/dedup passes.
+    - [ ] Add generic pass guard tests proving DCE/precompute/local-cse/simplify-locals/optimize-instructions do not delete, merge, or move global atomic operations unsafely.
+  - Suggested tests: focused core/binary/WAST/validate/IR/pass tests, `moon test src/passes`, and a small all-pass fuzz smoke once generation can emit the family.
+  - Exit criteria: global atomic operations are first-class, valid, remapped correctly, and optimizer-conservative.
+
+- [SET-TABLE]001 - Table atomic get/set/RMW/cmpxchg
+  - Status: blocked on `[SET-SRC]001` and any `[SET-TYPE]001` table sharedness model needed.
+  - Goal: implement proposal table atomic operations as effectful table/resource operations.
+  - Deliverables:
+    - [ ] Add instruction enum variants/helpers for `table.atomic.get`, `table.atomic.set`, and `table.atomic.rmw.{xchg,cmpxchg}` or exact current proposal spellings.
+    - [ ] Add binary/WAST/validation tests for table indices, element reference types, stack behavior, sharedness, order operands, and invalid type/index cases.
+    - [ ] Extend HOT/effects without reusing linear-memory `MemArg` assumptions.
+    - [ ] Update table-index remapping users in directize, duplicate-import/module-element removal, reorder-like paths, and any table-liveness helpers.
+    - [ ] Add pass guard tests proving table atomic operations are barriers for CSE, local sinking, DCE, and instruction folding.
+  - Suggested tests: `moon test src/lib src/binary src/wast src/validate src/ir src/passes`, then targeted directize/RUME/DIE tests if remapping changes.
+  - Exit criteria: table atomic operations preserve table indices/types through all module passes and remain effect barriers.
+
+- [SET-STRUCT]001 - Struct atomic set/RMW/cmpxchg aggregate families
+  - Status: blocked on `[SET-SRC]001`; likely depends on `[SET-TYPE]001` shared-struct metadata.
+  - Goal: extend the current `StructAtomicGet*` surface to proposal struct atomic writes and read-modify-write operations.
+  - Deliverables:
+    - [ ] Add core enum variants/helpers for `struct.atomic.set`, `struct.atomic.rmw.*`, and `struct.atomic.rmw.cmpxchg` or exact current proposal spellings.
+    - [ ] Add binary encode/decode tests for opcodes, order operands, type index, field index, and value immediates/operands.
+    - [ ] Add WAST parse/print/lower tests using canonical Starshine order spellings and explicit compatibility-alias decisions from `[SET-SRC]001`.
+    - [ ] Add validator tests for field mutability, packed-field signedness/width, sharedness, stack behavior, null traps, and invalid field/type indices.
+    - [ ] Extend HOT lift/lower/effects as aggregate atomic write/RMW/cmpxchg barriers, not linear-memory atomics.
+    - [ ] Update duplicate-function/module-element/dead-argument/type-liveness/remap passes for any referenced type indices.
+    - [ ] Add generic pass guard tests proving dropped writes/RMW/cmpxchg are preserved and loads/stores are not moved across them.
+    - [ ] Revisit GSI/heap2local/global-type-optimization docs after implementation: writes/RMW/cmpxchg keep fields live/mutable and should block immutable-field assumptions unless the proof explicitly excludes them.
+  - Suggested tests: focused core/binary/WAST/validate/IR/pass tests, `moon test src/passes`, direct `--pass global-struct-inference` compare after GSI liveness assumptions are touched.
+  - Exit criteria: struct aggregate atomic writes/RMW/cmpxchg are first-class and all optimizer passes treat them as effectful field traffic.
+
+- [SET-ARRAY]001 - Array atomic get/set/RMW/cmpxchg aggregate families
+  - Status: blocked on `[SET-SRC]001`; likely depends on broader array WAST/core surface and `[SET-TYPE]001` shared-array metadata.
+  - Goal: implement proposal array aggregate atomic operations without confusing them with linear-memory atomics.
+  - Deliverables:
+    - [ ] Audit current array instruction support and add any missing ordinary array core/WAST prerequisites needed for atomic fixtures.
+    - [ ] Add core enum variants/helpers for `array.atomic.get*`, `array.atomic.set`, `array.atomic.rmw.*`, and `array.atomic.rmw.cmpxchg` or exact current proposal spellings.
+    - [ ] Add binary/WAST/validation tests for array type index, element index operand, packed signedness, order operands, sharedness, null traps, bounds traps, and invalid element types.
+    - [ ] Extend HOT/effects as aggregate atomic operations that may trap and synchronize.
+    - [ ] Update type-index/remap/liveness passes for referenced array type indices.
+    - [ ] Add pass guard tests for DCE/precompute/local-cse/simplify-locals/optimize-instructions and any array-specific passes once they exist.
+  - Suggested tests: focused array package tests plus `moon test src/passes`; add generator coverage only after validation is stable.
+  - Exit criteria: array atomic families are implemented as shared-GC aggregate operations with correct traps, signedness, and optimizer barriers.
+
+- [SET-WAIT]001 - Waitqueue and aggregate wait operations
+  - Status: blocked on `[SET-SRC]001`, `[SET-TYPE]001`, and likely core shared resource decisions.
+  - Goal: implement proposal waitqueue operations and aggregate waits as a separate synchronization surface from existing linear-memory atomics.
+  - Deliverables:
+    - [ ] Add core resource/type representation for waitqueues if still present in the proposal.
+    - [ ] Add instructions such as `waitqueue.new`, `waitqueue.notify`, `struct.wait`, `array.wait`, `global.wait`, `table.wait`, and proposal `memory.wait32` / `memory.wait64` only after `[SET-SRC]001` confirms exact spelling and behavior.
+    - [ ] Add binary/WAST/validation tests for waitqueue indices/resources, waited locations, timeout/value operands, sharedness, trap/blocking semantics, and invalid cases.
+    - [ ] Model effects as synchronization/blocking barriers; HOT/pass logic must preserve exact order and never precompute/delete waits or notifies.
+    - [ ] Update generators cautiously: deterministic validation fixtures first, randomized emission later with clear feature gates.
+  - Suggested tests: focused core/binary/WAST/validate/IR/pass guard tests; avoid runtime execution assumptions unless the harness has deterministic wait behavior.
+  - Exit criteria: waitqueue/wait operations validate and round-trip, and optimizers treat them as hard synchronization barriers.
+
+- [SET-MEMORD]001 - Proposal release/acquire orderings for memory atomics and fence
+  - Status: blocked on `[SET-SRC]001`; separate from existing stable linear-memory atomic opcode support.
+  - Goal: widen existing `MemArg`-based atomic memory instructions and `atomic.fence` only where the proposal adds explicit order operands or altered validation.
+  - Deliverables:
+    - [ ] Compare current `AtomicOrder` modeling against proposal ordering requirements for linear-memory atomics, aggregate atomics, and fences.
+    - [ ] Add binary/WAST/validation tests for any new order immediates, default order behavior, aliases, and invalid encodings.
+    - [ ] Keep current linear-memory atomic authoring docs accurate: Starshine core/binary/validator/generator support does not imply WAST text support unless keywords/parser/lowering are added.
+    - [ ] Extend HOT/effects and pass guard tests only if order operands change instruction identity or barrier strength.
+  - Suggested tests: `moon test src/binary src/wast src/validate src/ir src/passes` plus existing atomic-memory fixture tests.
+  - Exit criteria: memory-order semantics are represented consistently across linear-memory and shared-GC atomics without regressing existing atomic tests.
+
+- [SET-GEN]001 - Generator, invalid-fuzzer, and compare harness coverage for shared-everything features
+  - Status: blocked until at least one `[SET-CORE]`, `[SET-GLOBAL]`, `[SET-TABLE]`, `[SET-STRUCT]`, `[SET-ARRAY]`, or `[SET-WAIT]` implementation slice lands.
+  - Goal: move implemented shared-everything features from hand-written fixtures into systematic valid/invalid generation and pass-compare coverage.
+  - Deliverables:
+    - [ ] Add GenValid feature-gated generation for each implemented family with a ledger row or update to the existing atomics/GC aggregate rows.
+    - [ ] Add invalid-AST strategies for sharedness mismatches, order operand mistakes, index-kind errors, packed signedness mistakes, mutability violations, and waitqueue/resource misuse.
+    - [ ] Add binary-invalid tests for malformed encodings that cannot be represented in the AST.
+    - [ ] Update compare-pass generation profiles only after Binaryen and Starshine agree on the same proposal surface or the harness can gate proposal features explicitly.
+    - [ ] File durable mismatch classifications for any Binaryen proposal-syntax drift or unsupported oracle behavior.
+  - Suggested tests: `moon test src/validate src/fuzz src/binary`, targeted `bun fuzz run` smokes, and small `bun scripts/pass-fuzz-compare.ts --count 1000 --jobs auto --starshine-bin ...` lanes once generation is enabled.
+  - Exit criteria: implemented proposal features are exercised by valid and invalid fuzzing without destabilizing existing pass parity lanes.
+
+- [SET-PASS]001 - Optimizer-wide shared-everything proposal audit after each new family
+  - Status: repeat after each `[SET-*]` instruction-family slice.
+  - Goal: prevent new shared-everything instructions from bypassing pass invariants, remapping, liveness, effect barriers, or Binaryen parity docs.
+  - Deliverables:
+    - [ ] For the newly implemented family, grep every active pass for adjacent ordinary/global/table/struct/array/memory handling and add explicit preserve/remap/barrier coverage where needed.
+    - [ ] Update `docs/wiki/raw/research/0708-2026-06-04-struct-atomic-get-pass-opportunity-audit.md` or create a successor numbered audit if the scope outgrows struct atomic gets.
+    - [ ] Add public-pipeline guard fixtures for DCE, precompute, local-cse, optimize-instructions, simplify-locals, and any module remapping pass touched by the family.
+    - [ ] Re-run direct pass compare smokes for any pass whose behavior changes; scale to 10000 only for behavior-changing optimizer rewrites.
+    - [ ] Keep GSI/heap2local/global-type-optimization claims conservative unless a family-specific semantic proof supports optimization.
+  - Suggested tests: family-specific pass tests, `moon test src/passes`, targeted compare-pass smokes, and docs/wiki log updates.
+  - Exit criteria: no newly implemented shared-everything instruction is treated as pure/deletable/remappable-by-accident, and all durable pass decisions are documented.
+
 ### INL - Deferred Inliner Breadth
 
 - [INL]005 - Partial Inlining Splitter
