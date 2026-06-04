@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wast/binary/validate | element-segment current refresh
+
+- Added [`docs/wiki/raw/wasm/2026-06-04-element-segment-current-refresh.md`](raw/wasm/2026-06-04-element-segment-current-refresh.md) after rechecking current official WebAssembly Core 3.0 syntax, text, binary, and module-validation pages dated 2026-06-03 plus Starshine WAST/core/binary/validator/generator surfaces.
+- Refreshed [`wast/element-segment-authoring.md`](wast/element-segment-authoring.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so element docs now distinguish official typed declarative text breadth from Starshine's current narrow `declare func` parser branch and WAST mode-loss lowering gap.
+- No code changed; the current durable split remains core/binary/validator/generator support for declarative elements versus high-level WAST text evidence that should stay syntax/declaration smoke only until parser, printer, and lowering tests preserve `ElemMode::declarative()`.
+
 ## [2026-06-04] wiki-health | DAE artifact-source routing
 
 - Repointed a living-page DAE nested-rerun sentence in [`binaryen/passes/dae-optimizing/signature-updates-and-nested-reruns.md`](binaryen/passes/dae-optimizing/signature-updates-and-nested-reruns.md) so the durable support is the committed research note [`0120`](raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md), while the old `.artifacts/o4z-wasm-opt-debug.log` path remains only a replay identifier preserved inside that raw note.
