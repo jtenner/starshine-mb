@@ -71,7 +71,7 @@ A module can have valid bytes and still fail resource validation. Examples:
 - an active data segment names a missing memory or has an offset expression with the wrong address type;
 - an active element segment's payload reference type does not match the target table's element type;
 - a data-count section is present but does not equal the number of data segments; or
-- a function body uses `memory.init` / `data.drop` while the module has no data-count section.
+- a function body uses a code-section data-index instruction such as `memory.init`, `data.drop`, `array.new_data`, or `array.init_data` while the module has no data-count section.
 
 ## Shared Limit Primitive
 

@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wiki-health | data-count wording cleanup
+
+- Tightened remaining broad-audience wording in [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md) and [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md) so their overview/example bullets name the broader current data-count requirement for all code-section data-index users, including GC array data forms, instead of teaching only the bulk-memory pair.
+- Health-check scope included redundant `docs/wiki/` link targets, empty markdown links, transient `.tmp` / `.artifacts` citations in living pages, internal line-anchor grep, data-count terminology, and TODO/stale wording. Historical log replay identifiers and unrelated pass-line anchors were left unchanged.
+
 ## [2026-06-04] validate/wast/binary | data-count current refresh
 
 - Added [`docs/wiki/raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md) after rechecking the current official WebAssembly Core 3.0 text, syntax, binary, module-validation, and instruction-validation pages dated 2026-06-03 plus Starshine WAST/core/binary/typecheck/validator surfaces.
