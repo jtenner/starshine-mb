@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../raw/wasm/2026-05-19-wast-variable-instruction-sources.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
@@ -36,7 +37,7 @@ Use this page when writing, reducing, or widening WAST fixtures that read or wri
 - global instructions: `global.get` and `global.set`;
 - nearby constant-expression use of immutable `global.get` in Starshine.
 
-These instructions look simple, but they connect several layers: WAST `$` identifiers, core numeric index spaces, binary opcode immediates, validator stack effects, name-section metadata, and mutating-pass repair. The primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-variable-instruction-sources.md`](../raw/wasm/2026-05-19-wast-variable-instruction-sources.md).
+These instructions look simple, but they connect several layers: WAST `$` identifiers, core numeric index spaces, binary opcode immediates, validator stack effects, constant-expression phase context, name-section metadata, and mutating-pass repair. The primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-variable-instruction-sources.md`](../raw/wasm/2026-05-19-wast-variable-instruction-sources.md); the current context-sensitive `global.get` initializer refresh is [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md).
 
 ## Beginner Mental Model
 
@@ -127,7 +128,8 @@ Starshine allows an extended immutable-`global.get` constant-expression subset i
 
 - immutable imported globals may be read in constant expressions;
 - coverage-forced GenValid modules deliberately use imported immutable `i32` globals in global initializers and active element/data offsets so that the imported-global constant-expression profile stays exercised;
-- immutable earlier defined globals may be read by later globals or segment/table initializers;
+- immutable earlier defined globals may be read by later global initializers and by later-validated data/element offset or element-payload expressions;
+- optional core table initializers are a narrower context: Starshine validates tables before local globals, and current Core 3.0 permits table-initializer `global.get` only for imported globals;
 - mutable `global.get` is rejected in constant expressions;
 - ordinary function-body `global.get` remains just a normal instruction.
 
@@ -162,10 +164,11 @@ Useful validation lanes are ordinary `moon test` for local parser/lowerer/typech
 - Rewriting `local.tee` as a bare `local.set` and accidentally dropping a result value.
 - Moving `global.get` across a `global.set` to the same mutable global without proving the read value is unchanged.
 - Assuming byte opcode validity proves semantic validity. The byte codec can decode `global.set 0`, but validation still rejects it if global `0` is immutable or missing.
-- Reusing constant-expression `global.get` examples in ordinary WAST without keeping the immutable/prior-global ordering rule visible.
+- Reusing constant-expression `global.get` examples in ordinary WAST without keeping the immutable/prior-global ordering rule and the table-initializer imported-only split visible.
 
 ## Sources
 
+- Current constant-expression refresh: [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md)
 - Source manifest: [`../raw/wasm/2026-05-19-wast-variable-instruction-sources.md`](../raw/wasm/2026-05-19-wast-variable-instruction-sources.md)
 - Official WebAssembly text instructions: <https://webassembly.github.io/spec/core/text/instructions.html>
 - Official WebAssembly syntax instructions: <https://webassembly.github.io/spec/core/syntax/instructions.html>

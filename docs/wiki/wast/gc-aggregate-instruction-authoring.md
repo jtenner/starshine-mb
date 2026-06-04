@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../raw/wasm/2026-06-04-struct-atomic-get-sources.md
   - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
   - ../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md
@@ -52,7 +53,7 @@ official Wasm GC instruction family
 
 Starshine can model, encode, decode, validate, and generate the broad GC aggregate family in core modules. The higher-level `src/wast` parser/printer/lowerer is narrower today: it exposes struct constructors, ordinary struct reads, shared-GC `struct.atomic.get*` reads, descriptor constructors, `ref.get_desc`, descriptor cast/test helpers, i31 operations, and `any`/`extern` conversions, but **does not expose official `struct.set`, aggregate atomic set/RMW/cmpxchg forms, or any `array.*` WAST text keyword yet**. That means pass regressions involving `struct.set`, `array.new`, `array.get`, `array.init_data`, `array.init_elem`, or aggregate atomic writes/RMW/cmpxchg should currently use core/binary/generated fixtures unless the task is explicitly to widen WAST text support first.
 
-The 2026-05-20 focused refresh in [`../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md) adds a second caveat for initializer contexts: current official WebAssembly 3.0 treats `array.new`, `array.new_default`, and `array.new_fixed` as constant-expression instructions, but Starshine's reviewed [`validate_const_instr(...)`](../../../src/validate/validate.mbt) still admits struct constructors and local descriptor constructors only. Ordinary core/binary `array.new*` tests are therefore not evidence that Starshine accepts array constructors in global/table/element/data initializer constant expressions; use [`../validate/constant-expressions.md`](../validate/constant-expressions.md) for that allow-list contract.
+The 2026-05-20 focused refresh in [`../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md) and the 2026-06-04 current refresh in [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md) add a second caveat for initializer contexts: current official WebAssembly 3.0 treats `array.new`, `array.new_default`, and `array.new_fixed` as constant-expression instructions, but Starshine's reviewed [`validate_const_instr(...)`](../../../src/validate/validate.mbt) still admits struct constructors and local descriptor constructors only. Ordinary core/binary `array.new*` tests are therefore not evidence that Starshine accepts array constructors in global/table/element/data initializer constant expressions; use [`../validate/constant-expressions.md`](../validate/constant-expressions.md) for that allow-list contract.
 
 ## Beginner Mental Model
 
@@ -190,7 +191,7 @@ When a pass needs these instructions today, construct them directly in core fixt
 
 Aggregate constructors can appear in module-level initializer contexts in current official WebAssembly, but Starshine's local allow-list is intentionally documented separately because it is not identical:
 
-| Aggregate family | Current official constant-expression status | Starshine constant-expression status reviewed 2026-05-20 | Fixture guidance |
+| Aggregate family | Current official constant-expression status | Starshine constant-expression status reviewed 2026-06-04 | Fixture guidance |
 | --- | --- | --- | --- |
 | `struct.new`, `struct.new_default` | Listed as constant instructions. | Accepted when the type resolves as a struct. | WAST or core fixtures can be used, then validate the initializer. |
 | `struct.new_desc`, `struct.new_default_desc` | Starshine/custom-descriptor extension, not plain official 3.0. | Accepted locally when the type resolves as a struct. | Keep proposal-versus-local wording explicit. |
@@ -211,6 +212,7 @@ Do not use `gen_valid` aggregate coverage or binary decode success as proof of i
 
 ## Source Map
 
+- Constant-expression current refresh: [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md)
 - Struct atomic get source snapshot: [`../raw/wasm/2026-06-04-struct-atomic-get-sources.md`](../raw/wasm/2026-06-04-struct-atomic-get-sources.md)
 - Current data/data-count refresh: [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md)
 - Constant-expression refresh: [`../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md)

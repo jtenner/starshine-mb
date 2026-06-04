@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] validate/wast/binary | constant-expression global.get context refresh
+
+- Added [`docs/wiki/raw/wasm/2026-06-04-constant-expression-current-refresh.md`](raw/wasm/2026-06-04-constant-expression-current-refresh.md) after rechecking current official WebAssembly Core 3.0 module and instruction validation pages dated 2026-06-03 plus Starshine validator, GenValid, and invalid-AST surfaces.
+- Refreshed [`validate/constant-expressions.md`](validate/constant-expressions.md), [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), [`wast/variable-instruction-authoring.md`](wast/variable-instruction-authoring.md), [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md), [`binaryen/passes/string-gathering/index.md`](binaryen/passes/string-gathering/index.md), [`binaryen/passes/string-gathering/starshine-port-readiness-and-validation.md`](binaryen/passes/string-gathering/starshine-port-readiness-and-validation.md), and [`index.md`](index.md) so optional core table initializers are no longer grouped with later-validated global/data/element constant-expression contexts.
+- Current durable split: global initializers can read imported plus earlier immutable globals; Starshine optional core table initializers validate before local globals and align with the official imported-only table `global.get` context; data/element offsets and element payloads are validated after globals locally; and the official array-constructor constant-expression allowance still outpaces Starshine's local `validate_const_instr(...)` allow-list.
+
 ## [2026-06-04] validate/tooling | runtime trap semantics consolidation
 
 - Added [`docs/wiki/raw/wasm/2026-06-04-runtime-trap-current-refresh.md`](raw/wasm/2026-06-04-runtime-trap-current-refresh.md) after rechecking current WebAssembly Core 3.0 runtime/execution/validation pages, the WebAssembly JavaScript API, MDN host-surface references, and Starshine validator/HOT/effect/fuzz/compare code paths.

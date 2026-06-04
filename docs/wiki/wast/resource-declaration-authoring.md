@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../raw/wasm/2026-05-20-resource-section-validation-refresh.md
   - ../raw/wasm/2026-05-19-wast-resource-declaration-sources.md
   - ../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md
@@ -142,7 +143,7 @@ The core and binary layers are broader than this text surface: [`src/lib/types.m
 
 A global definition has optional id, optional inline exports, a global type, and an initializer expression. Immutable globals omit `(mut ...)`; mutable globals wrap the value type in `(mut ...)`.
 
-Global initializers validate as constant expressions. Starshine also supports a local extended-const rule for immutable `global.get`: an initializer can read an imported immutable global or an earlier immutable defined global, but not a mutable global and not a later sibling.
+Global initializers validate as constant expressions. Starshine also supports a local extended-const rule for immutable `global.get`: a global initializer can read an imported immutable global or an earlier immutable defined global, but not a mutable global and not a later sibling. The 2026-06-04 constant-expression refresh keeps the nearby table-initializer split explicit: optional core table initializers are validated before local globals and, like current Core 3.0, should only use imported globals for `global.get`.
 
 ```wat
 (module
@@ -175,7 +176,7 @@ When a pass, generator, or fixture touches resource declarations, check these in
 2. **Definitions and imports live in different core sections.** Do not move an imported memory into `MemSec` or a local global into `ImportSec`; use the right representation for the resource's provenance.
 3. **Inline exports are real exports.** A table, memory, or global inline export lowers into `ExportSec` and participates in duplicate-export validation and rewrite checklists.
 4. **Table abbreviations are element-segment sugar.** If a pass deletes or remaps tables or functions, repair the generated active element segments too.
-5. **Global initializers see only imports and earlier globals.** Reordering globals can invalidate or change initializer `global.get` references unless all `GlobalIdx` carriers are rewritten and validation is rerun.
+5. **Global initializers see only imports and earlier globals.** Reordering globals can invalidate or change initializer `global.get` references unless all `GlobalIdx` carriers are rewritten and validation is rerun. Optional core table initializers are stricter: they are validated before local globals and should use only imported immutable globals for `global.get`.
 6. **Current WAST resource declarations are not memory64/shared evidence.** Use direct core, binary, or generator fixtures for `I64Limits`, table64/memory64 declaration behavior, and shared-memory validation until WAST text support exists.
 7. **Import/export declarations are module-boundary facts, not host-linking proof.** Explicit imports extend local index spaces; inline and explicit exports lower to `ExportSec` and duplicate-name checks. The external-type matching relation for future linker/embedding work lives in [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md).
 8. **Re-run full module validation after resource rewrites.** Section-level changes affect imports, exports, names, instructions, segments, constant expressions, and pass-local summaries.
@@ -197,12 +198,13 @@ Useful related signoff pages:
 - Using official inline memory-data abbreviation syntax as current Starshine WAST evidence. Use separate `(memory ...)` and `(data ...)` fields until [`data-segment-authoring.md`](data-segment-authoring.md) says otherwise.
 - Forgetting imported-prefix indices when updating `table.get`, `memory.init`, `global.get`, exports, names, or segment modes after resource reordering.
 - Treating a valid import declaration as proof that a host can satisfy it. Module validation and host external-type matching are separate contracts.
-- Reordering globals without preserving incremental constant-expression visibility.
+- Reordering globals without preserving incremental constant-expression visibility, or using local-defined globals in optional core table initializers.
 - Treating WAST arbitrary resource fields as semantic validation. WAST arbitrary is parser/printer coverage; `gen_valid`, binary tests, and validator tests are the typed-validity lanes.
 
 ## Sources
 
 - WAST source manifest: [`../raw/wasm/2026-05-19-wast-resource-declaration-sources.md`](../raw/wasm/2026-05-19-wast-resource-declaration-sources.md)
+- Current constant-expression refresh: [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md)
 - Validator resource-section refresh: [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md), [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md)
 - Import/export matching source bridge: [`../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md`](../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md)
 - Broader binary/core resource manifest: [`../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md`](../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md)

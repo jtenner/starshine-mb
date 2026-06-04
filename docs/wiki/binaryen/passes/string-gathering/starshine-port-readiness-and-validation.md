@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../../../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
   - ../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md
@@ -211,16 +212,18 @@ If an existing global is selected as the defining global, its own direct `string
 
 ### Acceptance criteria
 
-- every non-defining collected `string.const` site for a literal becomes `global.get` of that literal's canonical global;
+- every non-defining collected `string.const` site for a literal becomes `global.get` of that literal's canonical global, except where the surrounding constant-expression context cannot legally see a locally defined global;
 - selected defining initializers stay direct `string.const`;
 - preexisting `global.get` users are not rewritten or treated as defining literals;
 - result types remain valid without pretending this is full `string-lowering`.
+
+The 2026-06-04 constant-expression refresh adds one validation-sensitive boundary to the older direct-site wording: optional core table initializers are validated before local globals in Starshine and current Core 3.0 permits table-initializer `global.get` only for imported globals. Focused structural tests for table-initializer rewriting prove the walker/rewrite shape, but they should not be cited as complete validity evidence for rewriting a table initializer to a fresh locally defined string global until the pass has an explicit guard, an imported-global-only fixture, or a validator-backed change in table-initializer context.
 
 ## Slice 5: perform only validity-first global reorder
 
 ### Goal
 
-Move canonical defining string globals early enough that rewritten global initializers validate.
+Move canonical defining string globals early enough that rewritten global initializers validate. This repair is sufficient for later **global** initializers, but not by itself for optional core **table** initializers because table initializers are checked before the global section.
 
 ### Correct boundary
 

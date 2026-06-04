@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../raw/wasm/2026-05-20-constant-expression-validation-sources.md
   - ../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
@@ -39,7 +40,7 @@ A WebAssembly **constant expression** is a small expression that is evaluated du
 - active element-segment offsets;
 - function-reference and GC/reference element expressions.
 
-The focused source manifest is [`../raw/wasm/2026-05-20-constant-expression-validation-sources.md`](../raw/wasm/2026-05-20-constant-expression-validation-sources.md). The current official WebAssembly 3.0 validation docs define a conservative constant-instruction predicate and warn that the accepted list can grow in future versions. Starshine currently accepts a broader local set in `validate_const_instr(...)`; keep that local/spec split visible when writing portable fixtures, pass contracts, or generator claims.
+The current source refresh is [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md), with the first detailed local-code bridge still archived in [`../raw/wasm/2026-05-20-constant-expression-validation-sources.md`](../raw/wasm/2026-05-20-constant-expression-validation-sources.md). The current official WebAssembly 3.0 validation docs define a conservative constant-instruction predicate and warn that the accepted list can grow in future versions. Starshine currently accepts a broader local set in `validate_const_instr(...)` and omits some official GC-array constructors; keep that local/spec split visible when writing portable fixtures, pass contracts, or generator claims.
 
 ## Beginner Model
 
@@ -76,16 +77,16 @@ The helper is used by global validation, table initializer validation, active da
 | Context | Expected type | Visibility / ordering rule | Diagnostic family when it fails |
 | --- | --- | --- | --- |
 | Global initializer | The declared global value type. | Imports plus earlier defined globals are visible; later sibling globals are not. Mutable `global.get` is rejected. | `global` |
-| Optional core/binary table initializer | The table element reference type. | Uses the current validation environment. Starshine accepts imported immutable `global.get` table initializers; treat broader visibility as local behavior unless rechecked against the official spec version you target. | `table` |
-| Active data offset | The selected memory's address type: `i32` for memory32, `i64` for memory64. | The memory index must exist; the expression is startup/module initialization data, not a function-body `MemArg.offset`. | `data` |
-| Active element offset | The selected table's address type. | The table index must exist, the segment reference type must match the table element type, then the offset is checked. | `element` |
-| Element expression payload | The segment element reference type, or `funcref` for legacy expression segments. | `ref.func` expressions also participate in Starshine's declared-function bitmap; use [`ref-func-declarations.md`](ref-func-declarations.md) for the separate declaration-membership rule. | `element` or later `ref_func_declarations` |
+| Optional core/binary table initializer | The table element reference type. | Validated before local globals in Starshine, so imported immutable `global.get` is visible but local defined globals are not. This matches the current official imported-only table-initializer note. | `table` |
+| Active data offset | The selected memory's address type: `i32` for memory32, `i64` for memory64. | The memory index must exist; in Starshine this is validated after globals, so immutable local globals are visible if already accepted by the global section. The expression is startup/module initialization data, not a function-body `MemArg.offset`. | `data` |
+| Active element offset | The selected table's address type. | The table index must exist, the segment reference type must match the table element type, then the offset is checked. Starshine validates elements after globals, so immutable local globals are visible. | `element` |
+| Element expression payload | The segment element reference type, or `funcref` for legacy expression segments. | Starshine validates element payloads after globals. `ref.func` expressions also participate in Starshine's declared-function bitmap; use [`ref-func-declarations.md`](ref-func-declarations.md) for the separate declaration-membership rule. | `element` or later `ref_func_declarations` |
 
 For binary/data layout details, pair this page with [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md). For fixture-facing WAST text, use [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md), [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md), and [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md).
 
 ## Official List Versus Starshine Local List
 
-The current official WebAssembly 3.0 instruction-validation page accepts a bounded set for constant expressions: scalar/vector constants, `ref.null`, `ref.i31`, `ref.func`, `struct.new`, `struct.new_default`, `array.new`, `array.new_default`, `array.new_fixed`, `any.convert_extern`, `extern.convert_any`, immutable `global.get`, and integer `i32`/`i64` `add`/`sub`/`mul`. A `ref.func` initializer still has the independent `refs` membership obligation refreshed in [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md). The aggregate-specific source bridge in [`../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md) keeps the official array-constructor allowance separate from Starshine's ordinary body support for `array.*` instructions.
+The current official WebAssembly 3.0 instruction-validation page accepts a bounded set for constant expressions: scalar/vector constants, `ref.null`, `ref.i31`, `ref.func`, `struct.new`, `struct.new_default`, `array.new`, `array.new_default`, `array.new_fixed`, `any.convert_extern`, `extern.convert_any`, immutable `global.get`, and integer `i32`/`i64` `add`/`sub`/`mul`. The 2026-06-04 refresh confirms the context-sensitive `global.get` note is still easy to misread: global initializers can refer to imported or previous globals, while table initializers may refer only to imported globals. A `ref.func` initializer still has the independent `refs` membership obligation refreshed in [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md). The aggregate-specific source bridge in [`../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md) keeps the official array-constructor allowance separate from Starshine's ordinary body support for `array.*` instructions.
 
 Starshine's local [`validate_const_instr(...)`](../../../src/validate/validate.mbt) is **not identical** to that official list:
 
@@ -138,7 +139,7 @@ Starshine rejects this before ordinary type mismatch questions because `drop` is
 ## Pass And Generator Guidance
 
 - **Do not move arbitrary function-body code into initializers.** A body-valid expression can still be invalid in a constant-expression context because it uses locals, labels, memory, calls, drops, table ops, mutable globals, multiple results, or unreachable stack polymorphism.
-- **Preserve declaration order.** Reordering globals can invalidate `global.get` initializers unless references are rewritten and the new order still exposes only immutable imports or earlier globals.
+- **Preserve declaration order and validation phase context.** Reordering globals can invalidate `global.get` initializers unless references are rewritten and the new order still exposes only immutable imports or earlier globals. Do not use a local-defined global in an optional core table initializer today: Starshine validates tables before globals, and the current official table rule is imported-only.
 - **Keep active offsets distinct from memory/table immediates.** Memory/table lowering passes must repair active segment offsets separately from load/store `MemArg` fields and runtime table instructions.
 - **Treat trapping local extensions with care.** Some locally accepted Starshine constant-instruction forms, such as integer division or reference non-null checks, can have runtime failure modes. Moving them across startup/runtime boundaries needs an explicit semantic proof. Also remember the opposite direction: a currently official constant-expression family such as array construction still needs local allow-list and test evidence before a Starshine pass may emit it in an initializer.
 - **Use the generator ledger vocabulary.** `[FZG]008` records `ConstExprVariants` coverage in [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md). It proves Starshine can deliberately emit and measure widened valid constant-expression families; it does not prove every WAST text spelling or every official-portability claim. Use `gen_valid_const_expr_observed_op_matrix(...)` when a fuzzer report needs the finer context/op-family attribution for global initializers, active offsets, element payloads, or table initializers.
@@ -169,7 +170,8 @@ When changing constant-expression behavior:
 
 ## Sources
 
-- Source manifest: [`../raw/wasm/2026-05-20-constant-expression-validation-sources.md`](../raw/wasm/2026-05-20-constant-expression-validation-sources.md)
+- Current source refresh: [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md)
+- Earlier source manifest: [`../raw/wasm/2026-05-20-constant-expression-validation-sources.md`](../raw/wasm/2026-05-20-constant-expression-validation-sources.md)
 - Aggregate constant-expression refresh: [`../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md), [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md)
 - Current `ref.func` / start `refs` refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
 - Previous `ref.func` declaration refresh: [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md)

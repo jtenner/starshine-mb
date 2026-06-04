@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../../../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../../../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
   - ../../../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../../../raw/research/0526-2026-05-06-string-gathering-direct-revalidation.md
@@ -115,7 +116,7 @@ That is much closer to the real pass than either:
 - The direct pass is active in `src/passes/string_gathering.mbt`, registered in `src/passes/optimize.mbt`, dispatched from `src/passes/pass_manager.mbt`, and accepted by the compare harness.
 - On 2026-05-18, refreshed direct-pass signoff in `.tmp/pass-fuzz-string-gathering-order-20260518` reached 6759 / 10000 compared cases with 6759 normalized matches, 0 semantic mismatches, 0 validation failures, 0 generator failures, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 - The direct pass now sorts fresh literal globals deterministically, reuses eligible existing immutable non-null direct `string.const` globals in module order, preserves the selected defining initializer, aliases later matching globals, and still creates fresh canonical globals when no reusable definition exists.
-- Focused edge tests now also lock that imported string globals are never reused as defining globals, that a nested global initializer containing `string.const` is collected/replaced but not treated as the canonical definition, that table initializer / typed element expression constants are rewritten to the canonical string global, and that module-expression global references are remapped after inserted string globals shift existing defined globals.
+- Focused edge tests now also lock that imported string globals are never reused as defining globals, that a nested global initializer containing `string.const` is collected/replaced but not treated as the canonical definition, that table initializer / typed element expression constants are structurally rewritten to the canonical string global, and that module-expression global references are remapped after inserted string globals shift existing defined globals. Treat the table-initializer part as validation-sensitive after the 2026-06-04 constant-expression refresh: optional core table initializers cannot see newly defined local globals in Starshine's current validator.
 - Nullable string global non-reuse remains a local representation caveat: `ValType::stringref()` is currently represented as `AbsHeapTypeRefType(String)`, whose `RefType::is_nullable()` reports nullable, so Starshine cannot yet write a meaningful focused test that distinguishes Binaryen's nullable-vs-exact-non-null string global eligibility.
 - Binary wasm inputs with string proposal result types previously exposed decoder coverage gaps outside this pass (`DecodeAt(InvalidValType, ...)`). The first decoder-breadth fix now accepts bare `0x64` stringref value types when the explicit non-null-reference form cannot be completed, so standalone stringref result-type modules can reach later passes. Broader proposal encoding coverage may still need future tests as new fixtures appear.
 - Public `optimize` / `shrink` preset scheduling now appends `string-gathering -> reorder-globals -> directize`; the regenerated debug-artifact replay is semantically/canonically green, with a combined-tail performance follow-up candidate (`62.619ms` Starshine pass runtime vs `28.215ms` Binaryen).
@@ -133,7 +134,7 @@ That is much closer to the real pass than either:
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Exact current Starshine status and code-map page: the active direct module pass, public preset-tail scheduling, the existing `string.const` / `stringrefs` encode-decode plumbing, and the accepted public late-tail suffix before `reorder-globals`.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
-  Current validation ledger: landed registry/module-pass/direct-site collection work, focused reduced tests, direct Binaryen oracle evidence, public preset-order coverage, and the remaining decoder / artifact-replay caveat.
+  Current validation ledger: landed registry/module-pass/direct-site collection work, focused reduced tests, direct Binaryen oracle evidence, public preset-order coverage, the 2026-06-04 table-initializer constant-expression validation caveat, and the remaining decoder / artifact-replay caveat.
 
 ## Current maintenance rule
 
