@@ -8,6 +8,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Reframed [`fuzzing/recipe-schema.md`](fuzzing/recipe-schema.md) from a terse field list into the durable recipe guide: strict schema fields, beginner mental model, precedence ladder, exact standard recipe catalog with seeds/sweeps/shards, shard/resume output rules, golden-seed/corpus boundaries, maintenance checklist, and common mistakes.
 - Cross-linked recipe ownership from [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) and refreshed [`index.md`](index.md) so the raw `raw/fuzzing/` source family and recipe guide route through current evidence.
 
+## [2026-06-04] passes/local-cse | struct.set local-only reuse fix
+
+- Spot-checked a `struct.set` between two local-only arithmetic trees and confirmed Binaryen materializes the pre-write expression with `local.tee` and reuses it after the GC field write.
+- Added a failing core-built direct `local-cse` regression, then fixed the raw/module path to model `struct.set` as a two-operand, no-result instruction rather than an unknown hard boundary.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-struct-set-local-only-10000`: 6769 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
+- Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`wat-shapes.md`](binaryen/passes/local-cse/wat-shapes.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so this effect-invalidation case is tracked as a covered positive without broad heap CSE.
+
 ## [2026-06-04] passes/local-cse | br_on_null continuation positive fix
 
 - Spot-checked a `br_on_null` fallthrough-continuation shape and confirmed Binaryen materializes the pre-branch expression with `local.tee` and reuses it after dropping the fallthrough reference.

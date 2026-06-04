@@ -202,7 +202,7 @@ The key idea is:
 - if the root can produce a fresh or otherwise different value each time,
 - then replacing the second one with the first is wrong.
 
-This is the main GC-era “sounds pure, still not reusable” rule. Starshine now has direct regression coverage for the `call_indirect`, core-fixture `call_ref`, `struct.new`, `struct.new_default`, and core-fixture `array.new` / `array.new_default` / `array.new_fixed` members of this family: repeated indirect/reference-call roots and repeated allocations remain separate and no temp local is introduced. Other `array.new*` variants remain follow-up candidates if a future audit needs variant-by-variant coverage.
+This is the main GC-era “sounds pure, still not reusable” rule. Starshine now has direct regression coverage for the `call_indirect`, core-fixture `call_ref`, `struct.new`, `struct.new_default`, and core-fixture `array.new` / `array.new_default` / `array.new_fixed` / `array.new_data` / `array.new_elem` members of this family: repeated indirect/reference-call roots and repeated allocations remain separate and no temp local is introduced. Other GC-generative variants remain follow-up candidates if a future audit needs variant-by-variant coverage.
 
 ## Barrier family 3: intervening invalidation
 
@@ -214,7 +214,7 @@ Examples include:
 - a store between two loads from the same memory location
 - a write to the same mutable global between two candidate `global.get`s, if they were otherwise profitable enough to matter
 
-This later invalidation happens in the checker, not in the scanner.
+This later invalidation happens in the checker, not in the scanner. The invalidation is effect-sensitive, not a blanket "any write kills everything" rule: a 2026-06-04 Starshine slice confirmed Binaryen reuses a local-only arithmetic tree across an intervening `struct.set`, because the repeated tree reads locals rather than the mutated GC field. Starshine now models `struct.set` as an operand-taking no-result instruction for this narrow case without treating `struct.set` itself as a reusable root.
 
 ## Why loads are okay even though they may trap
 
