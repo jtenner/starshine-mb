@@ -6,6 +6,7 @@ sources:
   - ../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
   - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
   - ../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md
+  - ../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md
   - ../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md
   - ../../../src/lib/types.mbt
   - ../../../src/validate/validate.mbt
@@ -94,7 +95,7 @@ The official Core 3.0 rules are stricter than mere Starshine parser acceptance. 
 
 ## Descriptor Metadata And Exact References
 
-Custom descriptors add proposal-local metadata on top of the core type-section flow. Starshine validates that surface in the same `RecType` group pass, but the durable proposal explanation belongs in the custom-descriptor pages.
+Custom descriptors add proposal-local metadata on top of the core type-section flow. Starshine validates that surface in the same `RecType` group pass, but the durable proposal explanation belongs in the custom-descriptor pages and the current descriptor source bridge [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md). That bridge keeps the official proposal/local split explicit: descriptor metadata remains Phase-3 proposal material and currently struct-oriented, while Starshine WAST parsing/lowering can still carry broader array metadata shapes that this validator rejects.
 
 Current local descriptor checks in [`validate_descriptor_metadata_group(...)`](../../../src/validate/validate.mbt):
 
@@ -192,7 +193,8 @@ When changing type-section validation, WAST type lowering, or a pass that rewrit
 - Current source bridge: [`../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md)
 - Older type-section source bridge: [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md)
 - Older WAST type-use and subtype source bridge: [`../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md`](../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md)
-- Custom-descriptor exactness bridge: [`../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md`](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md)
+- Current custom-descriptor status bridge: [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md)
+- Earlier custom-descriptor exactness bridge: [`../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md`](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md)
 - Validator implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt)
 - Invalid fuzzing: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt)
 - Proof helpers: [`../../../src/validate_proof/rectype_index.mbt`](../../../src/validate_proof/rectype_index.mbt), [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md)

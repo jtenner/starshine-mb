@@ -8,6 +8,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Refreshed [`custom-descriptors/static-fixtures.md`](custom-descriptors/static-fixtures.md), [`custom-descriptors/ref-get-desc-fixture-path.md`](custom-descriptors/ref-get-desc-fixture-path.md), [`custom-descriptors/exact-reference-equivalence.md`](custom-descriptors/exact-reference-equivalence.md), and [`index.md`](index.md) so descriptor knowledge now routes through the current Phase-3, struct-only proposal status, the Starshine-local array-metadata parser/lowerer caveat, validator-owned non-struct rejection, exact/inexact `ref.get_desc` result typing, and bottom/null exactness evidence.
 - Current durable split: static custom-descriptor fixture success is text/lowering/validation evidence, not JS embedding/runtime descriptor interop; Starshine's exact-reference structural matcher covers the shared local type system, while descriptor metadata standardization remains proposal-scoped and struct-oriented.
 
+## [2026-06-04] wiki-health | descriptor source routing cleanup
+
+- During the follow-up health check, repointed secondary custom-descriptor status consumers to the new 2026-06-04 source bridge: [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md), [`validate/type-section-and-subtyping.md`](validate/type-section-and-subtyping.md), and [`index.md`](index.md).
+- Health-check scope included empty markdown links, stale custom-descriptor source routing, local/proposal wording around array descriptor metadata, index/log coverage, and obvious stale `docs/0063`-style references. Historical raw research and log entries were left unchanged as provenance rather than rewritten.
+
 ## [2026-06-04] tooling/tracing | trace contract source refresh
 
 - Added [`raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md`](raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md) after rechecking the official Moon command manual/source for upstream `moon run` command-shape context plus current `src/cmd/cmd.mbt`, `src/passes/perf.mbt`, `src/validate_trace/main.mbt`, validator trace, Bun wrapper, and command-test evidence.
