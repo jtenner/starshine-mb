@@ -66,7 +66,7 @@ Do not read the linear-memory WAST gap as lack of Starshine support. It only mea
 | Linear-memory atomics | memory address plus value operands as needed | `MemArg` with alignment, offset, and selected memory | Not exposed today | This page plus [`memory-argument-authoring.md`](memory-argument-authoring.md) |
 | `struct.atomic.get` / `_s` / `_u` | one struct reference | atomic order, type index, field index | Exposed with canonical `seq_cst` / `acq_rel` order spellings; `acqrel` is accepted as a compatibility alias | [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) |
 
-The 2026-06-04 snapshot records the source split and local caveats: Starshine currently documents `StructAtomicGet*` only, not aggregate atomic set/RMW/cmpxchg families; generic optimizer surfaces model the get variants conservatively as reads that may trap; and the focused local `global-struct-inference` slice covers immutable-field direct-global and closed-world local/param folds without turning generic atomic reads into freely movable pure operations.
+The 2026-06-04 snapshot records the source split and local caveats: Starshine currently documents `StructAtomicGet*` only, not aggregate atomic set/RMW/cmpxchg families; generic optimizer surfaces model the get variants conservatively as reads that may trap; focused regressions cover local-cse non-merging, precompute dropped-effect preservation, optimize-instructions load-call barriers, and simplify-locals no-sink ordering; and the focused local `global-struct-inference` slice covers immutable-field direct-global and closed-world local/param folds without turning generic atomic reads into freely movable pure operations.
 
 ## Beginner Model
 

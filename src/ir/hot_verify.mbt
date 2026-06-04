@@ -250,15 +250,31 @@ pub fn hot_verify_core(func : HotFunc) -> Result[Unit, HotVerifyError] {
     }
     match hot_side_table_kind_for_op(node.op) {
       Some(kind) => {
-        let side_table_id = if node.op == HotOp::TryTable {
-          node.imm1
-        } else {
-          node.imm0
+        let skip_side_table = match node.op {
+          HotOp::Atomic =>
+            if node.imm1 >= 0 && node.imm1 < func.instr_payloads.length() {
+              match hot_instr_payload_get(func, node.imm1).instr {
+                Instruction::StructAtomicGet(_, _, _)
+                | Instruction::StructAtomicGetS(_, _, _)
+                | Instruction::StructAtomicGetU(_, _, _) => true
+                _ => false
+              }
+            } else {
+              false
+            }
+          _ => false
         }
-        if !hot_verify_side_table_id_is_valid(func, kind, side_table_id) {
-          return Err(
-            HotVerifyError::InvalidSideTableRef(node_id, kind, side_table_id),
-          )
+        if !skip_side_table {
+          let side_table_id = if node.op == HotOp::TryTable {
+            node.imm1
+          } else {
+            node.imm0
+          }
+          if !hot_verify_side_table_id_is_valid(func, kind, side_table_id) {
+            return Err(
+              HotVerifyError::InvalidSideTableRef(node_id, kind, side_table_id),
+            )
+          }
         }
       }
       None => ()

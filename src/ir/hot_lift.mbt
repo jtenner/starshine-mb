@@ -1401,6 +1401,9 @@ fn hot_lift_impl_exact_node_shape(
       let memarg_id = hot_alloc_memarg(func, HotMemArg::new(memarg))
       (op, ty, memarg_id, payload_id)
     }
+    Instruction::StructAtomicGet(_, _, _)
+    | Instruction::StructAtomicGetS(_, _, _)
+    | Instruction::StructAtomicGetU(_, _, _) => (op, ty, 0, payload_id)
     Instruction::MemoryAtomicNotify(memarg)
     | Instruction::MemoryAtomicWait32(memarg)
     | Instruction::MemoryAtomicWait64(memarg)

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] passes/atomics | struct atomic get generic-pass guardrails
+
+- Added focused pass regressions in `src/passes/atomic_pass_support_test.mbt` proving `struct.atomic.get*` stays conservative outside GSI: local-cse does not merge repeated atomic reads, precompute preserves dropped atomic reads, optimize-instructions treats them as load-call barriers, and simplify-locals does not sink loads across them.
+- Repaired HOT lift/verify handling for non-`MemArg` struct atomic gets and kept the latent HOT local-cse candidate path from treating atomic reads as reusable expression trees.
+- Closed `[ATOMIC001-B]` in `agent-todo.md`; broader aggregate atomic set/RMW/cmpxchg and array atomic forms remain unimplemented and should not inherit these get-only claims.
+
 ## [2026-06-04] wast | ordinary control-flow source-routing refresh
 
 - Added [`docs/wiki/raw/wasm/2026-06-04-control-flow-current-refresh.md`](raw/wasm/2026-06-04-control-flow-current-refresh.md) after rechecking current official WebAssembly Core 3.0 syntax, text, binary, validation, and execution instruction pages plus Starshine WAST/core/binary/validator/CFG/fuzz surfaces.

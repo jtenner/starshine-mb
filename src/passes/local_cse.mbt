@@ -657,6 +657,7 @@ fn lcse_candidate_key(func : @ir.HotFunc, node_id : Int) -> String? {
     | @ir.HotOp::RefNull
     | @ir.HotOp::RefFunc => return None
     @ir.HotOp::LocalSet | @ir.HotOp::LocalTee | @ir.HotOp::Drop => return None
+    @ir.HotOp::Atomic => return None
     _ => ()
   }
   if lcse_tree_size(func, node_id) < 2 {
