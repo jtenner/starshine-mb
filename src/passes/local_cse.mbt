@@ -42,8 +42,8 @@ priv struct LcseRawExpr {
 }
 
 ///|
-priv struct LcseRawThenRepeat {
-  if_idx : Int
+priv struct LcseRawNestedRepeat {
+  parent_idx : Int
   start : Int
   end : Int
   original : Int
@@ -335,13 +335,13 @@ fn lcse_raw_instr_slice_matches(
 }
 
 ///|
-fn lcse_raw_scan_then_repeats(
-  if_idx : Int,
+fn lcse_raw_scan_nested_repeats(
+  parent_idx : Int,
   outer_instrs : Array[@lib.Instruction],
   body : Array[@lib.Instruction],
   exprs : Array[LcseRawExpr],
   outer_active : Array[Int],
-  repeats : Array[LcseRawThenRepeat],
+  repeats : Array[LcseRawNestedRepeat],
 ) -> Unit {
   if body.length() > 16 || outer_active.length() == 0 {
     return
@@ -370,7 +370,7 @@ fn lcse_raw_scan_then_repeats(
     }
     if best_original >= 0 {
       repeats.push({
-        if_idx,
+        parent_idx,
         start: idx,
         end: best_end,
         original: best_original,
@@ -391,13 +391,13 @@ fn lcse_raw_scan_then_repeats(
 }
 
 ///|
-fn lcse_raw_then_repeat_for_if(
-  repeats : Array[LcseRawThenRepeat],
-  if_idx : Int,
+fn lcse_raw_nested_repeat_for_parent(
+  repeats : Array[LcseRawNestedRepeat],
+  parent_idx : Int,
   start : Int,
-) -> LcseRawThenRepeat? {
+) -> LcseRawNestedRepeat? {
   for repeat in repeats {
-    if repeat.if_idx == if_idx && repeat.start == start {
+    if repeat.parent_idx == parent_idx && repeat.start == start {
       return Some(repeat)
     }
   }
@@ -405,17 +405,17 @@ fn lcse_raw_then_repeat_for_if(
 }
 
 ///|
-fn lcse_raw_rewrite_then_with_outer_repeats(
+fn lcse_raw_rewrite_nested_with_outer_repeats(
   body : Array[@lib.Instruction],
-  if_idx : Int,
-  repeats : Array[LcseRawThenRepeat],
+  parent_idx : Int,
+  repeats : Array[LcseRawNestedRepeat],
   exprs : Array[LcseRawExpr],
 ) -> (Array[@lib.Instruction], Bool) {
   let out : Array[@lib.Instruction] = []
   let mut changed = false
   let mut i = 0
   while i < body.length() {
-    match lcse_raw_then_repeat_for_if(repeats, if_idx, i) {
+    match lcse_raw_nested_repeat_for_parent(repeats, parent_idx, i) {
       Some(repeat) => {
         let local_id = exprs[repeat.original].local_id
         if local_id >= 0 {
@@ -453,12 +453,19 @@ fn lcse_raw_rewrite_instrs(
   let exprs : Array[LcseRawExpr] = []
   let stack : Array[Int] = []
   let active : Array[Int] = []
-  let then_repeats : Array[LcseRawThenRepeat] = []
+  let nested_repeats : Array[LcseRawNestedRepeat] = []
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     let instr = instrs[idx]
     let operand_count = match lcse_raw_instr_operand_count(instr) {
       Some(count) => count
       None => {
+        match instr {
+          @lib.Instruction::Block(_, @lib.Expr(body)) =>
+            lcse_raw_scan_nested_repeats(
+              idx, instrs, body, exprs, active, nested_repeats,
+            )
+          _ => ()
+        }
         stack.clear()
         active.clear()
         continue
@@ -563,8 +570,8 @@ fn lcse_raw_rewrite_instrs(
     }
     match instr {
       @lib.Instruction::If(_, then_body, _) => {
-        lcse_raw_scan_then_repeats(
-          idx, instrs, then_body, exprs, active, then_repeats,
+        lcse_raw_scan_nested_repeats(
+          idx, instrs, then_body, exprs, active, nested_repeats,
         )
         active.clear()
       }
@@ -581,7 +588,7 @@ fn lcse_raw_rewrite_instrs(
       original_end[original.end] = expr.repeat_of
     }
   }
-  for repeat in then_repeats {
+  for repeat in nested_repeats {
     let original = exprs[repeat.original]
     if original.end >= 0 && original.end < original_end.length() {
       original_end[original.end] = repeat.original
@@ -608,10 +615,13 @@ fn lcse_raw_rewrite_instrs(
     }
     let rewritten_instr = match instrs[i] {
       @lib.Instruction::Block(block_type, @lib.Expr(body)) => {
-        let (next_body, body_changed) = lcse_raw_rewrite_instrs(
-          body, params, local_types,
+        let (outer_body, outer_body_changed) = lcse_raw_rewrite_nested_with_outer_repeats(
+          body, i, nested_repeats, exprs,
         )
-        if body_changed {
+        let (next_body, body_changed) = lcse_raw_rewrite_instrs(
+          outer_body, params, local_types,
+        )
+        if outer_body_changed || body_changed {
           changed = true
         }
         @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
@@ -626,8 +636,8 @@ fn lcse_raw_rewrite_instrs(
         @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
       }
       @lib.Instruction::If(block_type, then_body, else_body) => {
-        let (outer_then, outer_then_changed) = lcse_raw_rewrite_then_with_outer_repeats(
-          then_body, i, then_repeats, exprs,
+        let (outer_then, outer_then_changed) = lcse_raw_rewrite_nested_with_outer_repeats(
+          then_body, i, nested_repeats, exprs,
         )
         let (next_then, then_changed) = lcse_raw_rewrite_instrs(
           outer_then, params, local_types,

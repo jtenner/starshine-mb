@@ -58,7 +58,7 @@ The goal here is not to re-explain upstream Binaryen, but to show the exact curr
 
 The 2026-05-06 refreshed direct-pass lane is green: `.tmp/pass-fuzz-local-cse` reported 6759/10000 compared cases, 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group command failures. The 2026-06-04 O4z audit lane stayed semantically green on generated inputs (`998` normalized matches, `0` mismatches, and `2` known Binaryen empty-recursion-group command failures) and sampled Starshine pass-local time on `tests/node/dist/starshine-debug-wasi.wasm` at about `63-67 ms` versus Binaryen's `109-110 ms` debug pass time.
 
-The 2026-06-04 audit found one direct parity gap: Binaryen can reuse a repeated tree computed before an `if` inside the `then` arm. Starshine now covers and implements that narrow raw/module positive while preserving after-`if`, else-arm, loop, `br_table`, return, and `unreachable` boundary negatives.
+The 2026-06-04 audit found direct adjacent-window parity gaps: Binaryen can reuse a repeated tree computed before an `if` inside the `then` arm, and can reuse a repeated tree computed before a straight-line block inside that block body. Starshine now covers and implements those narrow raw/module positives while preserving after-`if`, else-arm, loop, `br_table`, return, and `unreachable` boundary negatives.
 
 The active local strategy is still deliberately slot-honest:
 
@@ -66,7 +66,7 @@ The active local strategy is still deliberately slot-honest:
 - schedule the proven late `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` cleanup neighborhood in public `optimize` / `shrink`
 - keep the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gated until `flatten` lands
 - grow the implementation from same-window temp-localizing reuse without recasting it as a whole-function GVN pass
-- keep the before-`if` / then-arm Binaryen-positive coverage green while hardening the remaining control-boundary, GC/generative-root, and idempotent-call surfaces one focused slice at a time
+- keep the before-`if` / then-arm and before-block / straight-line block Binaryen-positive coverage green while hardening the remaining control-boundary, GC/generative-root, and idempotent-call surfaces one focused slice at a time
 
 ## Exact local code map today
 
@@ -75,7 +75,7 @@ The fastest read-along path through the current Starshine status is:
 - active pass implementation and tests
   - `src/passes/local_cse.mbt:1-18,543-559,809-816`
   - `src/passes/local_cse_test.mbt`
-    - covers registry, same-window arithmetic, parent-over-child, load/store and local-write barriers, before-`if` / then-arm reuse, after-`if` and else-arm negatives, before-loop into loop-body, `br_table`, return-boundary, unreachable-boundary, tiny-root `global.get` no-op, and repeated `struct.new` generative-root coverage
+    - covers registry, same-window arithmetic, parent-over-child, load/store and local-write barriers, before-`if` / then-arm reuse, before-block / straight-line block reuse, after-`if` and else-arm negatives, before-loop into loop-body, `br_table`, return-boundary, unreachable-boundary, tiny-root `global.get` no-op, and repeated `struct.new` generative-root coverage
 - active registry and dispatcher surface
   - `src/passes/optimize.mbt:253,437-449,456-472`
     - `local-cse` is registered as an active module pass and scheduled in the proven late local-cleanup preset neighborhood
@@ -124,7 +124,7 @@ That means:
 
 ### 2. The landed work is a direct parity slice
 
-The implementation covers same-window temp-localizing reuse for repeated local arithmetic trees, preserves barrier resets for local writes/calls in the raw path, and is protected by direct pass tests plus fuzz/self-optimize evidence. It does not yet implement Binaryen's adjacent before-`if` into `then` reuse window.
+The implementation covers same-window temp-localizing reuse for repeated local arithmetic trees, preserves barrier resets for local writes/calls in the raw path, and is protected by direct pass tests plus fuzz/self-optimize evidence. It also implements Binaryen's adjacent before-`if` into `then` and before-block into straight-line block reuse windows.
 The docs should keep that slice connected to the exact Binaryen contract:
 
 - repeated **whole-tree** reuse, not arbitrary subtree extraction

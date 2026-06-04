@@ -345,6 +345,32 @@ While probing the remaining hard-boundary candidates, a simple straight-line nam
 
 Agent classification: semantic-safe missed optimization / follow-up candidate, not a semantic mismatch and not a hard-boundary negative. This should be triaged separately from branchy block exits and from the already covered `br_table`, `return`, and `unreachable` negatives.
 
+## Follow-up named-block positive fix on 2026-06-04
+
+A later focused LCSE hardening slice converted the named-block caveat into a test-first implementation fix. The new `local-cse reuses before-block expression in straight-line block` fixture initially failed because Starshine left both `i32.add` trees in place. The raw/module path now records eligible outer whole-tree repeats for a plain block body and rewrites the nested repeat to `local.get` after materializing the outer original with `local.tee`. The fix is intentionally narrow: it shares into the block body, not into loops or through hard terminators.
+
+Validation for this named-block positive slice:
+
+```sh
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-named-block-positive-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the focused LCSE test first failed (`14/15` before the implementation), then passed after the implementation (`15/15`); `moon fmt` passed; `src/passes` passed (`1561/1561`); full `moon test` passed (`4746/4746`); native build succeeded; and direct compare reached `6771` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index). `moon info` was retried and still hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`).
+
+Agent classification: semantic-safe missed optimization parity fix, not a semantic mismatch.
+
 ## Recommendation
 
-The audited before-`if`/then-arm Binaryen-positive gap is now covered and fixed, the tiny-root repeated-`global.get` no-op is explicitly covered, repeated `struct.new` generative roots are covered, and before-loop into loop-body, `br_table`, `return`, and `unreachable` negatives are covered. Keep `[O4Z-AUDIT-LCSE]` active only for the remaining broader shape hardening that was not implemented here: the simple named-block positive spotted above, hard control-boundary negatives beyond the added after-`if`, else-arm, loop-body, `br_table`, return, and `unreachable` tests; additional GC/generative-root negatives where local syntax supports them; and idempotent-call positives if the local annotation plumbing can model Binaryen safely.
+The audited before-`if`/then-arm and simple before-block/straight-line-block Binaryen-positive gaps are now covered and fixed, the tiny-root repeated-`global.get` no-op is explicitly covered, repeated `struct.new` generative roots are covered, and before-loop into loop-body, `br_table`, `return`, and `unreachable` negatives are covered. Keep `[O4Z-AUDIT-LCSE]` active only for the remaining broader shape hardening that was not implemented here: hard control-boundary negatives beyond the added after-`if`, else-arm, loop-body, `br_table`, return, and `unreachable` tests; additional GC/generative-root negatives where local syntax supports them; and idempotent-call positives if the local annotation plumbing can model Binaryen safely.
