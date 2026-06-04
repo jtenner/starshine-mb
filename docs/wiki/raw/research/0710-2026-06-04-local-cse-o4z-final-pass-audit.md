@@ -722,3 +722,21 @@ bun scripts/pass-fuzz-compare.ts \
 Results: the initial WAT-form fixture failed in local parsing/modeling; the core-built fixture then failed (`29/30` before the implementation) and passed after the implementation (`30/30`). `moon info` still hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`); `moon fmt` passed; `moon test src/passes` passed (`1576/1576`); full `moon test` passed (`4761/4761`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; direct compare reached `6771` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index`).
 
 Agent classification: Binaryen-positive missed optimization parity fix, not arbitrary reference-call CSE; the paired repeated-`call_ref` root negative remains in place.
+
+## Follow-up `array.new_data` generative-root coverage on 2026-06-04
+
+A later focused LCSE hardening slice spot-checked repeated `array.new_data` roots with Binaryen and confirmed the allocation roots remain separate: Binaryen keeps both `array.new_data` instructions and does not introduce a `local.tee`. Starshine added a core-built direct regression, `local-cse does not reuse repeated array-new-data roots`, with a passive data segment and a packed `i8` array type. The test passed without implementation changes, so this was missing coverage only rather than a functional gap.
+
+Validation evidence for this slice:
+
+```sh
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-array-new-data-generative-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`31/31`); `moon test src/passes` passed (`1577/1577`); full `moon test` passed (`4762/4762`); native build reported no work; compare reached `6767` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures.
