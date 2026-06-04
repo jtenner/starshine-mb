@@ -19,6 +19,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Expanded [`tooling/tracing-playbook.md`](tooling/tracing-playbook.md) from a compact March tracing summary into the current two-lane contract: runtime CLI/optimizer tracing versus validator trace-benchmark output, accepted `pass|phase|helper` levels, `STARSHINE_TRACING`, `STARSHINE_OPTIMIZE_MAX_PASSES`, `[trace]` command lines, optimizer `perf:*` lines, validator `phase_totals` / `helper_totals` / `hotspots`, timing caveats, and maintenance rules.
 - Refreshed [`validate/trace-benchmark-baseline.md`](validate/trace-benchmark-baseline.md), [`tooling/validation-gates.md`](tooling/validation-gates.md), and [`index.md`](index.md) so trace-benchmark routing now points to the 2026-06-04 source bridge while preserving the March baseline snapshot as the durable emitted evidence.
 
+## [2026-06-04] passes/local-cse | throw-boundary coverage
+
+- Added direct `local-cse` regression coverage proving a `throw` clears reuse before the unreachable continuation; the Binaryen WAT spot check kept both repeated expressions with no `local.tee`.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-throw-boundary-10000`: 6769 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
+- Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so `throw` is covered as a hard-control boundary.
+
 ## [2026-06-04] passes/local-cse | array.new_fixed generative-root coverage
 
 - Added core-built direct `local-cse` regression coverage proving repeated `array.new_fixed` roots remain separate; the Binaryen WAT spot check kept both roots with no `local.tee`, and the focused LCSE test lane reached `25/25`.
