@@ -120,7 +120,7 @@ Starshine implements an active narrowed transform, and the current status is rep
 | Local surface | Exact location | Meaning |
 | --- | --- | --- |
 | Active owner | `src/passes/code_folding.mbt` | `code-folding` owns a real HOT descriptor and narrow direct transform, including explicit named-block value-exit candidate provenance and the June single-result typed block-exit payload/multi-root suffix-sharing slices. |
-| Focused tests | `src/passes/code_folding_test.mbt` | current void/value-tail positives, typed block-exit branch-payload and multi-root suffix positives, terminal `return`/`unreachable` full-`if` sharing, unsupported `br_on_null` poison negative, live-label suffix bailout, and cleanup regressions are covered. |
+| Focused tests | `src/passes/code_folding_test.mbt` | current void/value-tail positives, one-block/one-non-block `if` value-suffix positives, typed block-exit branch-payload and multi-root suffix positives, terminal `return`/`unreachable` full-`if` sharing, unsupported `br_on_null` poison negative, live-label suffix bailout, and cleanup regressions are covered. |
 | Registry entry | `src/passes/optimize.mbt` | `code-folding` is an active hot-pass registry entry. |
 | Dispatcher owner | `src/passes/pass_manager.mbt` | active requests dispatch through `code_folding_run(ctx, func)`. |
 | CLI pass-token parsing | `src/cli/cli_test.mbt` | `--code-folding` remains parseable as a kebab-case pass token. |
@@ -132,7 +132,7 @@ Starshine implements an active narrowed transform, and the current status is rep
 
 The detailed local slice order and HOT prerequisite map now live in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). In short, a future implementation should use the upstream lit families as the first local tests:
 
-1. unnamed `if` arm duplicate-tail positives
+1. unnamed `if` arm duplicate-tail positives, including the covered one-block/one-non-block value-suffix orientations
 2. named block branch-value positives, keeping the covered single-result plain-`br` payload-root and multi-root suffix cases green and adding multi-value cases only with new tests
 3. branch-plus-fallthrough positives, keeping covered void and single-result payload-root / multi-root suffix cases green
 4. terminating `return`, `return_call*`, and `unreachable` positives
@@ -140,7 +140,7 @@ The detailed local slice order and HOT prerequisite map now live in [`./starshin
 6. branch-target-scope and EH-motion negatives
 7. late-neighbor interaction with `merge-blocks`, `remove-unused-brs`, `remove-unused-names`, and `rse`
 
-As of the 2026-06-04 O4z audit continuation, focused tests cover the local terminal `return` and `unreachable` full-`if` subset, one `br_on_null` poison negative, a live-label structured suffix bailout, the widened single-result typed named-block plain-`br` payload sharing slice with and without fallthrough, and the first safe multi-root named-block payload suffix cases with branch-plus-fallthrough and branch-only tails. The latest widened slice is green at `moon test src/passes` (`1592/1592`), direct 1000-case compare (`998` normalized matches, `0` mismatches, `2` `binaryen-rec-group-zero` command failures), and debug-WASI pass-local timing (`196.213ms` Starshine vs `187.281ms` Binaryen, within <=2x). General function-ending helper-label sharing, multi-value branch-payload folding, broader `if` wrapping, EH motion, 10000-case compare closeout, and late-neighbor evidence remain open audit items.
+As of the 2026-06-04 O4z audit continuation, focused tests cover the local terminal `return` and `unreachable` full-`if` subset, one `br_on_null` poison negative, a live-label structured suffix bailout, the widened single-result typed named-block plain-`br` payload sharing slice with and without fallthrough, the first safe multi-root named-block payload suffix cases with branch-plus-fallthrough and branch-only tails, and the one-block/one-non-block `if` value-suffix positives in both orientations. The latest `if` widening slice is green at `moon test src/passes` (`1594/1594`), direct 1000-case compare (`998` normalized matches, `0` mismatches, `2` `binaryen-rec-group-zero` command failures), and debug-WASI pass-local timing (`208.362ms` Starshine vs `185.945ms` Binaryen, within <=2x). General function-ending helper-label sharing, multi-value branch-payload folding, exact named-unused/unreachable-condition caveats, EH motion, 10000-case compare closeout, and late-neighbor evidence remain open audit items.
 
 After reduced tests are green, use the pass parity workflow from `AGENTS.md`: compare `--pass code-folding` against Binaryen, then replay the canonical no-DWARF late slot and generated-artifact cases.
 

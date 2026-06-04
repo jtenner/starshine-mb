@@ -83,6 +83,7 @@ The current owner file and tests cover a conservative subset of the expression-e
 - void block-exit/fallthrough tail sharing
 - single-result typed named-block plain-`br` payload sharing with a matching fallthrough value or other branch payloads, including a safe multi-root suffix before the final value root
 - unsupported `br_on_null` label-poisoning coverage for block-exit folding
+- one-block/one-non-block `if` value-suffix folding in both then-block and else-block orientations
 - live-label structured `if` suffix bailout coverage
 - small exiting dead-value block flattening cleanup
 
@@ -90,8 +91,8 @@ The current owner file and tests cover a conservative subset of the expression-e
 
 The named-block expression-exit substrate now covers the first safe multi-root single-result branch-payload suffix shapes. Continue with the remaining broader expression-exit family from [`./binaryen-strategy.md`](./binaryen-strategy.md):
 
-- unnamed `if` arm duplicate suffixes and the one-block/one-non-block wrapping cases
-- named-arm negatives from the official lit matrix
+- remaining unnamed `if` arm duplicate suffix caveats beyond the covered direct suffix and one-block/one-non-block value-suffix cases
+- named-arm negatives from the official lit matrix where the local HOT/name surface can distinguish them
 - any further named-block broadening only when it goes beyond the covered plain-`br`, single-result, multi-root safe subset, such as multi-value payloads with HOT/lower proof
 
 Keep these first-slice bailouts explicit:
@@ -245,7 +246,18 @@ The follow-up source-matrix / candidate-model / multi-root named-block widening 
 - direct 1000-case smoke at `.tmp/pass-fuzz-code-folding-bd-1000`: `998/1000` compared cases, `998` normalized matches, `0` mismatches, `2` `binaryen-rec-group-zero` command failures;
 - timing-only debug-WASI replay at `.tmp/code-folding-bd-self-compare`: `196.213ms` Starshine pass time vs `187.281ms` Binaryen, within the <=2x floor.
 
-Direct `[CF]002` signoff is accepted as of 2026-05-10 for the earlier narrowed surface, `[O4Z-AUDIT-CF-A]` baselines the June widening, and `[O4Z-AUDIT-CF-B]` through `[O4Z-AUDIT-CF-D]` add the source-backed matrix, explicit named-block candidate model, and first multi-root named-block expression-exit widening. The remaining direct debug-artifact diff is classified representation drift, and the focused `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names` cleanup replay produced the same first diff as the no-CF cleanup baseline. The 2026-06-04 O4z audit is tracked in [`../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md`](../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md); it now keeps the broader Binaryen behavior-parity slices open.
+The next `[O4Z-AUDIT-CF-E]` one-block/one-non-block `if` widening lane is green:
+
+- first test-first `moon test src/passes` failed the two new one-block/one-non-block tests before implementation;
+- after implementation `moon test src/passes` passed `1594/1594`;
+- `moon fmt` completed;
+- full `moon test` passed `4779/4779`;
+- `moon info` completed with 6 tasks up to date;
+- `moon build --target native --release src/cmd` produced `_build/native/release/build/cmd/cmd.exe` with only the existing `pass_manager.mbt` unused-function warnings;
+- direct 1000-case smoke at `.tmp/pass-fuzz-code-folding-e-1000`: `998/1000` compared cases, `998` normalized matches, `0` mismatches, `2` `binaryen-rec-group-zero` command failures;
+- timing-only debug-WASI replay at `.tmp/code-folding-e-self-compare`: `208.362ms` Starshine pass time vs `185.945ms` Binaryen, within the <=2x floor.
+
+Direct `[CF]002` signoff is accepted as of 2026-05-10 for the earlier narrowed surface, `[O4Z-AUDIT-CF-A]` baselines the June widening, `[O4Z-AUDIT-CF-B]` through `[O4Z-AUDIT-CF-D]` add the source-backed matrix, explicit named-block candidate model, and first multi-root named-block expression-exit widening, and `[O4Z-AUDIT-CF-E]` has concrete one-block/one-non-block progress. The remaining direct debug-artifact diff is classified representation drift, and the focused `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names` cleanup replay produced the same first diff as the no-CF cleanup baseline. The 2026-06-04 O4z audit is tracked in [`../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md`](../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md); it now keeps the broader Binaryen behavior-parity slices open.
 
 Future parity work should only proceed when one of these is true:
 

@@ -180,6 +180,74 @@ test "code-folding hoists identical partial value if suffixes" {
 }
 
 ///|
+test "code-folding hoists one-block then-arm value suffix" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func $sink (param i32))
+      #|  (func (param i32) (result f32)
+      #|    (if (result f32)
+      #|      (local.get 0)
+      #|      (then
+      #|        (block (result f32)
+      #|          (local.get 0)
+      #|          (call $sink)
+      #|          (f32.const 0)))
+      #|      (else
+      #|        (f32.const 0)))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "f32.const"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding hoists one-block else-arm value suffix" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func $sink (param i32))
+      #|  (func (param i32) (result f32)
+      #|    (if (result f32)
+      #|      (local.get 0)
+      #|      (then
+      #|        (f32.const 0))
+      #|      (else
+      #|        (block (result f32)
+      #|          (local.get 0)
+      #|          (call $sink)
+      #|          (f32.const 0))))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "f32.const"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding hoists identical structured suffixes" {
   let optimized = code_folding_test_run(
     (
