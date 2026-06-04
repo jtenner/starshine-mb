@@ -120,6 +120,35 @@ fn lcse_test_count_array_new(
 }
 
 ///|
+fn lcse_test_count_array_new_default(
+  instrs : Array[@lib.Instruction],
+  type_idx : @lib.TypeIdx,
+) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Instruction::ArrayNewDefault(idx) =>
+        if idx == type_idx {
+          count += 1
+        }
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+        count += lcse_test_count_array_new_default(body, type_idx)
+      @lib.Instruction::If(_, then_body, Some(else_body)) => {
+        count += lcse_test_count_array_new_default(then_body, type_idx)
+        count += lcse_test_count_array_new_default(else_body, type_idx)
+      }
+      @lib.Instruction::If(_, then_body, None) =>
+        count += lcse_test_count_array_new_default(then_body, type_idx)
+      @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        count += lcse_test_count_array_new_default(body, type_idx)
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
 test "local-cse registers as an active module pass" {
   match pass_registry_lookup("local-cse") {
     Some(entry) => {
@@ -260,6 +289,50 @@ test "local-cse does not reuse repeated struct-new-default roots" {
     optimized,
   )
   @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(0U)), 0)
+}
+
+///|
+test "local-cse does not reuse repeated array-new-default roots" {
+  let array_type_idx = @lib.TypeIdx::new(0U)
+  let func_type_idx = @lib.TypeIdx::new(1U)
+  let array_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::const_(),
+        ),
+      ),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([array_type, func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(2),
+            @lib.Instruction::array_new_default(array_type_idx),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(2),
+            @lib.Instruction::array_new_default(array_type_idx),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_array_new_default(instrs, array_type_idx), 2)
   @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(0U)), 0)
 }
 

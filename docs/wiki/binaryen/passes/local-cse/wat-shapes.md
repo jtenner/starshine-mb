@@ -499,7 +499,7 @@ Why Binaryen keeps both:
 - `properties.cpp` marks roots like `struct.new`, `struct.new_default`, and `array.new*` as generative
 - reusing the first fresh result would be wrong
 
-Starshine status: direct coverage proves `struct.new`, `struct.new_default`, and a core-built `array.new` fixture remain separate. The core fixture covers `array.new` without widening the local WAT parser path for ordinary `array.*` text.
+Starshine status: direct coverage proves `struct.new`, `struct.new_default`, and core-built `array.new` / `array.new_default` fixtures remain separate. The core fixtures cover array allocations without widening the local WAT parser path for ordinary `array.*` text.
 
 ## Shape 17: repeated switch / `br_table` children can fold
 
