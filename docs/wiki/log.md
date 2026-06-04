@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] tooling | CLI dispatcher stdin gap audit
+
+- Added [`docs/wiki/raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md`](raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md) after checking current Binaryen `wasm-opt` orientation sources plus local `src/cli/cli.mbt`, `src/cmd/cmd.mbt`, `src/passes/optimize.mbt`, and command/parser tests.
+- Refreshed [`tooling/cli-command-and-dispatcher.md`](tooling/cli-command-and-dispatcher.md) and [`index.md`](index.md) so `--stdin` is documented as parsed/configured but not currently wired to a `CmdIO` stdin byte source or synthetic input path; no-glob `--stdin --format ...` therefore reaches `NoInputFiles` today rather than reading stdin.
+- Current durable split: Binaryen remains only a high-level `input + options + ordered pass queue + output/printing` orientation source; exact Starshine behavior comes from local parser, config/env merge, dispatcher, registry, and tests.
+
 ## [2026-06-04] validation/tooling | MoonBit proof v0.9.3 source refresh
 
 - Added [`docs/wiki/raw/moonbit/2026-06-04-formal-verification-v093-refresh.md`](raw/moonbit/2026-06-04-formal-verification-v093-refresh.md) after rechecking current official MoonBit formal-verification documentation, Moon command docs/source, and local `src/validate_proof` / `src/validate` proof surfaces.

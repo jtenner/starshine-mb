@@ -1,8 +1,9 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md
   - ../raw/binaryen/2026-05-19-wasm-opt-cli-contract.md
   - ../../../src/cli/cli.mbt
   - ../../../src/cli/cli_test.mbt
@@ -34,7 +35,7 @@ Starshine's CLI is a local command layer inspired by Binaryen's `wasm-opt` shape
 - [`src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt) merges CLI/config/environment settings, resolves input files, lowers text input to binary modules, dispatches ordered pipeline steps, validates, encodes, and writes outputs.
 - [`src/passes/optimize.mbt`](../../../src/passes/optimize.mbt) owns the pass registry categories, preset expansion, hot/module pass routing, and final optimizer validation.
 
-Do not infer behavior from Binaryen's full `wasm-opt --help` surface. Starshine intentionally implements a smaller but explicit command contract with its own diagnostics and debug steps.
+Do not infer behavior from Binaryen's full `wasm-opt --help` surface. Starshine intentionally implements a smaller but explicit command contract with its own diagnostics and debug steps. The 2026-06-04 source audit in [`../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md`](../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md) rechecked the current Binaryen CLI orientation sources and local dispatcher code; it also records the current local `--stdin` gap described below.
 
 ## Command Shape
 
@@ -47,8 +48,8 @@ Common module-run flags:
 
 | Surface | Contract | Owner |
 | --- | --- | --- |
-| Input paths | Positional arguments are input globs/paths; `--` stops option parsing; `STARSHINE_INPUT` can append more inputs after trivial help/version handling. | `src/cli/cli.mbt`, `src/cmd/cmd.mbt` |
-| Input formats | `.wasm` is default when no format can be inferred; `.wat` / `.wast` can be inferred or forced with `--format`; `--stdin` requires `--format`. | `src/cli/cli.mbt`, `src/cmd/cmd.mbt` |
+| Input paths | Positional arguments are input globs/paths; `--` stops option parsing; `STARSHINE_INPUT` can append more inputs after trivial help/version handling. Current `--stdin` is parsed and merged but does **not** create an input file or read bytes; without at least one glob/path the dispatcher returns `NoInputFiles`. | `src/cli/cli.mbt`, `src/cmd/cmd.mbt`, `../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md` |
+| Input formats | `.wasm` is default when no format can be inferred; `.wat` / `.wast` can be inferred or forced with `--format`; `--stdin` currently requires `--format` at parse time even though stdin bytes are not yet materialized by the dispatcher. | `src/cli/cli.mbt`, `src/cmd/cmd.mbt` |
 | Text lowering | Host adapter lowering is tried first; if unavailable, Starshine falls back to in-process WAT/WAST parse/lower/encode. | `src/cmd/cmd.mbt`, `src/cmd/cmd_wbtest.mbt` |
 | Outputs | No explicit output rewrites each input path in place, with `.wat` / `.wast` defaulting to `.wasm`; `--out` is single-file only; `--out-dir` preserves per-input basenames; `--stdout` writes bytes to stdout. | `src/cli/cli.mbt`, `src/cmd/cmd.mbt` |
 | Globbing | `--glob` separates literal inputs from wildcard patterns, expands via the host candidate list, de-duplicates, and keeps deterministic ordering. | `src/cli/glob.mbt`, `src/cmd/cmd.mbt` |
@@ -67,6 +68,7 @@ The precedence is not one global rule for every field. Keep these distinctions i
 | Field family | Effective precedence | Notes |
 | --- | --- | --- |
 | Inputs | Config inputs, then environment inputs, then CLI inputs are appended during merge; `STARSHINE_INPUT` can also append after base CLI parse. | This makes config/default inputs usable while still allowing CLI additions. |
+| Stdin flag | Boolean OR across config `inputs.stdin` and CLI `--stdin` after parse-time format checking; the parsed environment overlay currently contributes only its default `false`. | Current execution ignores the merged flag when building `input_files`; treat it as parsed-but-not-wired until a stdin byte source lands. |
 | Pass flags | CLI pass flags override config pass lists; config pass lists override environment pass overlays. | This prevents stale `STARSHINE_PASSES` from silently adding work when a config already chooses passes. |
 | Optimize flags | CLI optimize flags override environment optimize flags; environment optimize flags override config optimize flags. | `STARSHINE_OLEVEL` is intended as a temporary local override. |
 | Outputs | CLI outputs, then environment outputs, then config outputs. | Multiple inputs plus `--out <file>` is rejected as ambiguous. |
@@ -137,6 +139,7 @@ Use [`tracing-playbook.md`](./tracing-playbook.md) for trace-line shape and [`va
 
 - Help/version are fast-path early exits for a single `--help` / `-h` / `--version` / `-V`; they must not probe `STARSHINE_INPUT` or config.
 - `--stdin` without `--format` is invalid except when help/version exits first.
+- Current `--stdin` support is parser/config plumbing only: there is no `CmdIO` stdin byte source, no synthetic stdin input path, and no stdin output-name rule. A no-glob `--stdin --format wat` command therefore fails as `NoInputFiles` today, while `--stdin --format wat file.wat` processes `file.wat`.
 - `--out <file>` with multiple resolved inputs is ambiguous and must fail before processing inputs.
 - Candidate long pass flags must be kebab-case; non-kebab unknown long flags are parse errors before registry lookup.
 - Help output intentionally lists only runnable hot passes and presets. Module passes may still be runnable when known to the registry, but help is kept focused.
@@ -145,6 +148,7 @@ Use [`tracing-playbook.md`](./tracing-playbook.md) for trace-line shape and [`va
 
 ## Sources
 
+- 2026-06-04 dispatcher/stdin source audit: [`../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md`](../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md)
 - Upstream CLI shape: [`../raw/binaryen/2026-05-19-wasm-opt-cli-contract.md`](../raw/binaryen/2026-05-19-wasm-opt-cli-contract.md)
 - Parser/config/glob code: [`../../../src/cli/cli.mbt`](../../../src/cli/cli.mbt), [`../../../src/cli/glob.mbt`](../../../src/cli/glob.mbt), [`../../../src/cli/cli_test.mbt`](../../../src/cli/cli_test.mbt)
 - Dispatcher/codegen/validation code: [`../../../src/cmd/cmd.mbt`](../../../src/cmd/cmd.mbt), [`../../../src/cmd/cmd_wbtest.mbt`](../../../src/cmd/cmd_wbtest.mbt), [`../../../src/cmd/cmd_native_wbtest.mbt`](../../../src/cmd/cmd_native_wbtest.mbt)
