@@ -52,19 +52,8 @@ Use this checklist for every `[GSI-PARITY-*]` slice below:
 
 The remaining-gap owner matrix now lives in `docs/wiki/binaryen/passes/global-struct-inference/parity.md`; execute the active slices below in dependency order and keep completed matrix history in the wiki/log/git history, not in this backlog.
 
-- [GSI-PARITY-006] - Typed Repair And Refinalization Trigger Slice
-  - Status: active v0.1.0 release-gating parity audit with implementation only if a fixture proves the need.
-  - Goal: prove whether v0.1.0 GSI still needs an explicit typed-AST repair/refinalization mechanism after validation-preserving replacement typing.
-  - Why: Binaryen explicitly refinalizes after rewrites; Starshine currently avoids stale types by constructing replacements that already match the original read result, but future cast-aware or decision-tree rewrites may narrow enclosing types.
-  - Deliverables:
-    - Add or port focused fixtures for nullability/refinement/enclosing-result shapes that would fail without refinalization.
-    - If a fixture fails validation after an otherwise safe rewrite, implement the smallest typed repair mechanism and cover it with tests.
-    - If no failing fixture exists, document the no-op conclusion and list the future rewrite families that must reopen this slice.
-  - Suggested tests: `moon test src/validate`, `moon test src/passes`, direct GSI compare, and targeted validation of generated before/after WAT.
-  - Exit criteria: typed repair is either implemented for a concrete failing surface or explicitly closed as not required for the v0.1.0 GSI subset.
-
 - [GSI-PARITY-007] - Final GSI v0.1.0 Signoff
-  - Status: active v0.1.0 release-gating signoff after the remaining GSI parity implementation/deferral slices `[GSI-PARITY-004]` through `[GSI-PARITY-006]`.
+  - Status: active v0.1.0 release-gating signoff after the settled GSI parity implementation/deferral slices `[GSI-PARITY-004]` through `[GSI-PARITY-006]`.
   - Goal: make the final v0.1.0 GSI contract explicit and oracle-backed.
   - Why: GSI has accumulated several safe subsets; release notes need a clean distinction between implemented parity, deliberate conservative gaps, and out-of-scope atomic aggregate work.
   - Deliverables:

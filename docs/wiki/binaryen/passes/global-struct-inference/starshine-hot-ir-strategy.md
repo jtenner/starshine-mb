@@ -203,7 +203,7 @@ Compared with upstream Binaryen `version_129`, Starshine currently does **not** 
 
 - using closed-world `typeGlobals`-style facts beyond exact/subtype-propagated local/param one-global origins and exact/subtype-propagated one-value or two-value singleton-group direct-candidate reads
 - sibling `gsi-desc-cast` rewrites
-- explicit refinalization machinery after type refinement beyond validation-preserving replacement typing; a 2026-06-04 local audit found the current origin, field-value, singleton-select, and descriptor replacements choose validation-preserving block/select result types before rewriting, so the remaining gap is Binaryen-style precision/cleanup rather than a known validation bug
+- explicit refinalization machinery after type refinement beyond validation-preserving replacement typing; the 2026-06-04 `[GSI-PARITY-006]` trigger audit found current direct-global, block-carried, origin, field-value, singleton-select, packed, atomic-get, and descriptor replacements choose validation-preserving result types before rewriting, so the remaining gap is Binaryen-style precision/cleanup rather than a known validation bug
 - atomic-get-specific GSI teaching surfaces for immutable-field direct-global and closed-world local/param folds over `StructAtomicGet*`, with generic pass/effect modeling kept conservative
 - unbounded large-module un-nesting; current un-nesting and `ref.get_desc` consumers are guarded to small modules
 

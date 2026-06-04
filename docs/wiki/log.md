@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] passes/gsi | typed repair no-op audit
+
+- Closed `[GSI-PARITY-006]` as a v0.1.0 audit/no-op: the implemented plain-GSI rewrite surface still constructs validation-preserving replacement types and has no known fixture requiring a separate `ReFinalize`-style repair pass.
+- Refreshed [`binaryen/passes/global-struct-inference/parity.md`](binaryen/passes/global-struct-inference/parity.md), [`starshine-strategy.md`](binaryen/passes/global-struct-inference/starshine-strategy.md), and [`starshine-hot-ir-strategy.md`](binaryen/passes/global-struct-inference/starshine-hot-ir-strategy.md) with the reopen triggers: desc-cast activation, cast/refinement carriers, null-result refinement, larger decision programs, or any rewrite that narrows enclosing types.
+- Pruned `[GSI-PARITY-006]` from [`agent-todo.md`](../../agent-todo.md); `[GSI-PARITY-007]` remains the next active final signoff slice.
+
 ## [2026-06-04] passes/gsi | bounded decision-tree deferral
 
 - Closed `[GSI-PARITY-005]` as an explicit v0.1.0 deferral: GSI keeps the current one-materialized-value and two-value singleton-group policy rather than generating larger multi-`ref.eq` decision trees.

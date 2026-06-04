@@ -119,7 +119,7 @@ Compared with upstream Binaryen `version_129`, Starshine currently does **not** 
 
 - full closed-world `typeGlobals` candidate consumption beyond exact/subtype-propagated local/param one-global origins and exact or subtype-propagated one-value/two-value direct-candidate rewrites
 - sibling `gsi-desc-cast` rewrites
-- explicit `ReFinalize`-style repair after type refinement beyond validation-preserving replacement typing; a 2026-06-04 local audit found the current origin/value/select/descriptor replacements derive block/select result types from the original read or validator descriptor result and require materialized values to match before replacement, so no immediate validation bug is known
+- explicit `ReFinalize`-style repair after type refinement beyond validation-preserving replacement typing; the 2026-06-04 `[GSI-PARITY-006]` trigger audit found the current direct-global, block-carried, origin/value/select, packed, atomic-get, and descriptor replacements derive valid replacement types before rewriting, so this is closed as a v0.1.0 no-op until a future narrowing rewrite supplies a failing fixture
 - generic-pass atomic optimizations; `struct.atomic.get`, `struct.atomic.get_s`, and `struct.atomic.get_u` fold only inside GSI when the field is immutable, while generic passes still treat the opcodes as conservative atomic reads
 - non-adjacent cast-aware direct reads; descriptor-cast/ref.cast/refinalization-shaped atomic opportunities remain separate from the adjacent-pair direct-global and closed-world local/param fold machinery
 - unbounded large-module un-nesting; the local un-nesting/ref.get_desc surfaces are guarded to small modules to keep the debug artifact pass-local budget green
@@ -140,7 +140,7 @@ If Starshine grows toward the full Binaryen contract, preserve the current subse
 1. broaden non-constant operand un-nesting beyond the current small-module arithmetic/bitwise/shift-rotate/unary-numeric/float-binary/float-rounding-sqrt/sign-extension read-gated subset only if pass-local runtime remains green
 2. implement the sibling `gsi-desc-cast` pass only as a separately scheduled boundary-to-active slice
 3. broaden atomic-get coverage only from the current immutable-field adjacent direct-global/local-param GSI subset, keeping generic passes conservative and proving each new fold with focused null-trap, subtype, packed-field, and effect-ordering tests
-4. add explicit typed-AST repair/refinalization if future rewrites need more than validation-preserving replacement typing
+4. add explicit typed-AST repair/refinalization only if future rewrites need more than validation-preserving replacement typing; `[GSI-PARITY-006]` found no current plain-GSI trigger
 
 ## Related pages
 
