@@ -600,9 +600,17 @@ fn gsi_unnestable_stack_operand_count(instr : @lib.Instruction) -> Int? {
     | @lib.I64Popcnt
     | @lib.F32Abs
     | @lib.F32Neg
+    | @lib.F32Ceil
+    | @lib.F32Floor
+    | @lib.F32Trunc
+    | @lib.F32Nearest
     | @lib.F32Sqrt
     | @lib.F64Abs
     | @lib.F64Neg
+    | @lib.F64Ceil
+    | @lib.F64Floor
+    | @lib.F64Trunc
+    | @lib.F64Nearest
     | @lib.F64Sqrt => Some(1)
     @lib.I32Add
     | @lib.I32Sub
@@ -674,12 +682,20 @@ fn gsi_unnestable_instr_result_type(
     | @lib.I64Rotr => Some(@lib.ValType::i64())
     @lib.F32Abs
     | @lib.F32Neg
+    | @lib.F32Ceil
+    | @lib.F32Floor
+    | @lib.F32Trunc
+    | @lib.F32Nearest
     | @lib.F32Sqrt
     | @lib.F32Add
     | @lib.F32Sub
     | @lib.F32Mul => Some(@lib.ValType::f32())
     @lib.F64Abs
     | @lib.F64Neg
+    | @lib.F64Ceil
+    | @lib.F64Floor
+    | @lib.F64Trunc
+    | @lib.F64Nearest
     | @lib.F64Sqrt
     | @lib.F64Add
     | @lib.F64Sub

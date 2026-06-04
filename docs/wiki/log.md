@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | global-struct-inference float rounding un-nesting
+
+- Broadened guarded small-module non-constant operand un-nesting for `global-struct-inference` to include pure non-trapping float rounding operands (`ceil`, `floor`, `trunc`, and `nearest` for `f32`/`f64`), without changing the read-gated request filter or the large-module materializable-only guard.
+- Added public-pipeline coverage in `src/passes/global_struct_inference_test.mbt` for direct-global `f32.ceil` and `f64.nearest` field operands splitting into fresh immutable globals and then folding the field read.
+- Recorded TDD failure evidence before implementation and final signoff: `moon test src/passes` passed `1531/1531`, `moon test` passed `4708/4708`, `.tmp/pass-fuzz-global-struct-inference-unnest-float-rounding-final-10000` reached `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures (`22` empty-recursion-group plus one each bad-section-size, table-index-out-of-range, and invalid-tag-index). `.tmp/gsi-debug-artifact-timing-unnest-float-rounding-final` was canonical-equal with Starshine/Binaryen pass-local `0.364 ms / 3.394 ms`.
+
 ## [2026-06-03] passes | global-struct-inference float sqrt un-nesting
 
 - Broadened guarded small-module non-constant operand un-nesting for `global-struct-inference` to include pure non-trapping float square-root operands (`f32.sqrt` and `f64.sqrt`), without changing the read-gated request filter or the large-module materializable-only guard.
