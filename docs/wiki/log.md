@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] validate/wast | import/export matching current refresh
+
+- Added [`docs/wiki/raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md`](raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md) after rechecking current WebAssembly Core 3.0 matching, type-validation, module-validation, runtime-instantiation, and abstract module syntax pages plus local `src/validate/validate.mbt`, `src/validate/match.mbt`, `src/lib/types.mbt`, `src/validate/invalid_fuzzer.mbt`, and `src/wast/lower_to_lib.mbt` evidence.
+- Refreshed [`validate/import-export-and-external-type-matching.md`](validate/import-export-and-external-type-matching.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), and [`index.md`](index.md) so the wiki now distinguishes Core 3.0 memory external-type matching (`address type + limits`) from Starshine's local/proposal `shared`-flag equality extension.
+- Current durable split: module validation validates import declarations and export indices/names, runtime instantiation must still match host external values separately, and Starshine has no public linker/instantiation API documented beyond the reusable `Match::matches(actual, expected, env)` relation.
+
 ## [2026-06-04] passes/gsi | float binary un-nesting widening
 
 - Extended [`src/passes/global_struct_inference.mbt`](../../src/passes/global_struct_inference.mbt) so guarded small-module GSI un-nesting accepts pure non-trapping float binary operands: `f32.div`, `f32.min`, `f32.max`, `f32.copysign`, and matching `f64` forms.

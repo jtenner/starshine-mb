@@ -1,0 +1,32 @@
+# Import, Export, And External-Type Matching Current Refresh (2026-06-04)
+
+This manifest refreshes [`../../validate/import-export-and-external-type-matching.md`](../../validate/import-export-and-external-type-matching.md) against the current WebAssembly Core 3.0 pages and local Starshine source surfaces. It supersedes the source freshness of [`2026-05-20-external-type-matching-import-export-validation.md`](2026-05-20-external-type-matching-import-export-validation.md) for the focused import/export/matching page, while keeping that older manifest as useful provenance.
+
+## Primary external sources checked
+
+- WebAssembly Core Specification 3.0, validation matching, checked 2026-06-04: <https://webassembly.github.io/spec/core/valid/matching.html>. Anchors limits containment, immutable-global covariance, mutable-global invariance, memory/table address-type matching through same grammar form, table reference-type invariance, tag defined-type equivalence, and external-type kind dispatch.
+- WebAssembly Core Specification 3.0, validation of types, checked 2026-06-04: <https://webassembly.github.io/spec/core/valid/types.html>. Anchors external-type validity and the current Core 3.0 type-validity surface for function/table/memory/global/tag imports.
+- WebAssembly Core Specification 3.0, validation of modules, checked 2026-06-04: <https://webassembly.github.io/spec/core/valid/modules.html>. Anchors import classification by external type, export classification by external index, duplicate export-name rejection, and construction of imported-prefix context fields for tags, globals, memories, tables, and functions.
+- WebAssembly Core Specification 3.0, runtime module execution / instantiation, checked 2026-06-04: <https://webassembly.github.io/spec/core/exec/modules.html>. Anchors the distinction between validating a module and instantiating it with a sequence of runtime external addresses whose types must match the module's import external types.
+- WebAssembly Core Specification 3.0, abstract module syntax, checked 2026-06-04: <https://webassembly.github.io/spec/core/syntax/modules.html>. Anchors the imported-prefix rule: imported tags, globals, memories, tables, and functions precede same-kind local definitions in their index spaces.
+
+## Starshine repository evidence checked
+
+- [`src/validate/validate.mbt`](../../../../src/validate/validate.mbt) still validates imported `ExternType` declarations in `validate_importsec(...)`, extends same-kind imported-prefix index spaces, validates exports after index spaces are complete, rejects duplicate export names in `validate_exportsec_unique(...)`, and reports `ImportSection` / `ExportSection` diagnostics for the relevant families.
+- [`src/validate/match.mbt`](../../../../src/validate/match.mbt) still implements `Match` for `Limits`, `MemType`, `GlobalType`, `TableType`, `TagType`, function `ExternType`, and the outer `ExternType` kind switch. Its memory matching deliberately includes Starshine's local/proposal `shared` flag equality in addition to same-width limits matching.
+- [`src/lib/types.mbt`](../../../../src/lib/types.mbt) defines `ExternType`, `ExternIdx`, `Import`, `Export`, and Starshine's local `MemType(Limits, Bool)` shared-memory flag.
+- [`src/validate/invalid_fuzzer.mbt`](../../../../src/validate/invalid_fuzzer.mbt) keeps stable import/export invalid families including invalid imported function/tag types, resultful imported tags, invalid table/global reference types, invalid imported memory/table limits, imported shared memories without maxima, duplicate export names, wrong-kind/out-of-range function exports, and table/global/memory/tag export-index failures.
+- [`src/wast/lower_to_lib.mbt`](../../../../src/wast/lower_to_lib.mbt) remains the WAST lowering bridge for explicit imports, inline exports, explicit exports, and named resource/function references into core `ImportSec` and `ExportSec` entries.
+
+## Reconciled takeaways
+
+- The 2026-06-04 Core 3.0 matching page keeps the same high-level relation recorded on 2026-05-20: limits are matched by containment; immutable globals are covariant; mutable globals and table reference types require both directions; tags are matched through bidirectional defined-type compatibility; and external types dispatch by kind.
+- Core 3.0 memory matching is an address-type-plus-limits relation. Starshine's `MemType` adds a `shared` Boolean from local/proposal thread support, so `Match for MemType` intentionally requires shared-flag equality as a Starshine-local extension layered on top of the core limit/address-width relation. Keep shared-memory maximum and binary flag details on [`../../validate/resource-sections-and-limits.md`](../../validate/resource-sections-and-limits.md) and [`2026-06-04-linear-memory-threads-shared-memory-refresh.md`](2026-06-04-linear-memory-threads-shared-memory-refresh.md).
+- Module validation still does not perform host import resolution. The current execution page requires instantiation to receive the same number of runtime external addresses as import external types and validates each runtime address against the corresponding type. Starshine has the reusable `Match::matches(...)` relation but no active public linker/instantiation API documented in the wiki.
+- Export validation remains index/name validation, not external-value matching. The module-validation page classifies exports by external index, and module validation rejects duplicate public names across all export kinds.
+- Tag imports remain a known Starshine-local strictness point after the 2026-06-04 exception refresh: local `TagType` validation rejects resultful tag imports, while current Core 3.0 tagtype validity is broader and empty-result requirements appear at exception-instruction use sites.
+
+## Follow-up questions
+
+- If Starshine adds a public linker, runtime, Node, or CLI instantiation surface, document whether host import values are matched with `Match::matches(actual, expected, env)` exactly, whether diagnostics carry `(module, name)` pairs, and whether local shared-memory policy adds restrictions beyond the current Core 3.0 external type relation.
+- If the local `MemType` representation changes to separate stable Core 3.0 memory types from proposal shared-memory types, update this manifest, [`../../validate/import-export-and-external-type-matching.md`](../../validate/import-export-and-external-type-matching.md), and [`../../validate/resource-sections-and-limits.md`](../../validate/resource-sections-and-limits.md) together.

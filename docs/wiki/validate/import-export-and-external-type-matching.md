@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md
   - ../raw/wasm/2026-06-04-exception-tag-current-refresh.md
   - ../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md
   - ../raw/wasm/2026-05-13-module-validation-phase-sources.md
@@ -40,7 +41,7 @@ Use this page when changing or debugging the boundary where a module names value
 - [`ExportSec`](../../../src/lib/types.mbt) entries declare a public name and an [`ExternIdx`](../../../src/lib/types.mbt) that points into one of Starshine's function, table, memory, global, or tag index spaces.
 - [`src/validate/match.mbt`](../../../src/validate/match.mbt) implements the reusable WebAssembly matching relation for external types and their component limits, globals, memories, tables, tags, and functions.
 
-The focused source manifest is [`../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md`](../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md). It reconciles current WebAssembly Core 3.0 module/type/instantiation sources with Starshine's validator, matching helper, invalid-fuzzer families, binary codec, core model, and WAST lowering. The 2026-06-04 exception refresh [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md) updates the tag-import nuance: Starshine still rejects resultful tag imports locally, but current Core 3.0's tagtype validity is broader and leaves the empty-result requirement to exception instruction use sites.
+The current focused source manifest is [`../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md`](../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md). It rechecks the Core 3.0 matching, type-validity, module-validation, runtime-instantiation, and abstract module pages against Starshine's validator, matching helper, invalid-fuzzer families, binary codec, core model, and WAST lowering. The older 2026-05-20 manifest [`../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md`](../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md) remains useful provenance. The 2026-06-04 exception refresh [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md) updates the tag-import nuance: Starshine still rejects resultful tag imports locally, but current Core 3.0's tagtype validity is broader and leaves the empty-result requirement to exception instruction use sites.
 
 Keep one distinction visible: **module validation is not host instantiation**. Starshine validates that import declarations are well typed and that exports point at real module items. A future linker or embedding API still needs to match host-provided external values against those import declarations.
 
@@ -125,7 +126,7 @@ The official WebAssembly model uses a matching relation to decide whether one ex
 | Type surface | Starshine matching rule | Why it matters |
 | --- | --- | --- |
 | `Limits` | Same limit width (`i32` with `i32`, `i64` with `i64`); actual minimum must be at least expected minimum; actual maximum must be no larger than expected maximum when expected is bounded. | A host memory/table with enough initial capacity and no too-large maximum can satisfy an import; section-level range validation remains centralized in [`resource-sections-and-limits.md`](resource-sections-and-limits.md). |
-| `MemType` | Limits match and the `shared` flag is identical. | A shared-memory import cannot be satisfied by an unshared memory or the reverse; this matching rule sits on top of the local shared-memory-with-maximum validation policy. |
+| `MemType` | Limits match by the same i32/i64 address-width family and the local `shared` flag is identical. | Core 3.0 memory matching is address-type-plus-limits; Starshine's `shared` Boolean is a local/proposal extension, so a shared-memory import cannot be satisfied by an unshared memory or the reverse. Keep shared-memory maxima and shared-without-max invalid-byte fixtures on [`resource-sections-and-limits.md`](resource-sections-and-limits.md). |
 | immutable `GlobalType` | Value type is covariant. | A `(global (ref eq))` can satisfy a `(global (ref any))`-style expectation when the reference type matches by subtype. |
 | mutable `GlobalType` | Value type is invariant and mutability must match. | Mutable globals can be read and written, so allowing only one direction would be unsound. |
 | `TableType` | Limits match and reference type matches both directions. | Starshine treats table element reference type as invariant even when heap types have subtyping. |
@@ -133,16 +134,17 @@ The official WebAssembly model uses a matching relation to decide whether one ex
 | function `ExternType` | Both type indices must resolve to function types; then type-index subtyping decides compatibility. | Function parameters are contravariant and results covariant through the underlying function subtype relation. |
 | `ExternType` kind | Kinds must match. | A memory cannot satisfy a table import even if both have limits. |
 
-This is a semantic relation, not a binary-byte comparison. Two type indices can be compatible because their referenced types participate in the same subtype hierarchy, while different external kinds never match.
+This is a semantic relation, not a binary-byte comparison. Two type indices can be compatible because their referenced types participate in the same subtype hierarchy, while different external kinds never match. For memory/table limits, the relation is directional: read `Match::matches(actual, expected, env)` as the host or candidate value having at least the requested minimum and no maximum that exceeds a bounded expectation.
 
 ## Current Local Boundary
 
-Starshine currently has no active public runtime linker page or complete host-import matching API in the wiki. Therefore:
+Starshine currently has no active public runtime linker page or complete host-import matching API in the wiki. Current Core 3.0 instantiation is a separate runtime phase: the embedding supplies a sequence of external addresses, and each address type is matched against the corresponding import external type. Therefore:
 
 - do not cite `validate_module(...)` as proof that host imports were supplied;
 - do cite `validate_importsec(...)` as proof that import declarations are internally valid and extend the local context;
-- do cite `Match for ExternType` as the reusable compatibility relation for future linker/embedding work; and
-- if a new Node or CLI instantiation surface is added, document whether it uses `Match::matches` exactly or adds host-specific policy.
+- do cite `Match for ExternType` as the reusable compatibility relation for future linker/embedding work;
+- when discussing shared memories, say explicitly that Starshine's shared-flag equality is local/proposal policy layered on top of the stable Core 3.0 memory matching relation; and
+- if a new Node or CLI instantiation surface is added, document whether it uses `Match::matches(actual, expected, env)` exactly, how it reports the `(module, name)` import pair, and whether it adds host-specific policy.
 
 The inactive compatibility directories called out in [`../../AGENTS.md`](../../../AGENTS.md) (`src/node_api/`, `src/optimization/`, `src/transformer/`) should not be used as evidence for an active linker contract unless they are rebuilt and re-documented.
 
@@ -163,7 +165,8 @@ When a pass, generator, or fixture changes import/export structure:
 ## Sources
 
 - Current exception/tag-result refresh: [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md)
-- Source manifest: [`../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md`](../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md)
+- Current source manifest: [`../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md`](../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md)
+- Previous source manifest: [`../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md`](../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md)
 - Module-validation phase snapshot: [`../raw/wasm/2026-05-13-module-validation-phase-sources.md`](../raw/wasm/2026-05-13-module-validation-phase-sources.md)
 - Function/import/export snapshot: [`../raw/wasm/2026-05-13-function-import-export-section-sources.md`](../raw/wasm/2026-05-13-function-import-export-section-sources.md)
 - WAST resource declaration snapshot: [`../raw/wasm/2026-05-19-wast-resource-declaration-sources.md`](../raw/wasm/2026-05-19-wast-resource-declaration-sources.md)
