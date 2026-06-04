@@ -14,6 +14,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Refreshed [`validation/moonbit-prove-strategy.md`](validation/moonbit-prove-strategy.md), [`tooling/validation-gates.md`](tooling/validation-gates.md), [`tooling/moonbit-workspace-package-map.md`](tooling/moonbit-workspace-package-map.md), and [`index.md`](index.md) so the wiki distinguishes the required small-package `moon prove src/validate_proof` gate from file-targeted direct-validator proving, whose official dependency-assumption semantics make it investigative until a fresh audit graduates it.
 - Current durable split: the proof helper kernel still exports fifteen helpers and the live validator still imports nine; no trusted proof-control constructs such as `proof_axiomatized`, `#proof_pure`, `proof_assert`, `proof_invariant`, `proof_reasoning`, `proof_decrease`, or `proof_yield` were found under `src/` during the 2026-06-04 source recheck.
 
+## [2026-06-04] passes/atomics | struct atomic get optimizer opportunity audit
+
+- Added [`docs/wiki/raw/research/0708-2026-06-04-struct-atomic-get-pass-opportunity-audit.md`](raw/research/0708-2026-06-04-struct-atomic-get-pass-opportunity-audit.md), classifying every active optimizer pass, active alias, and `optimize` / `shrink` preset for `StructAtomicGet*` opportunities or conservative no-op/guard coverage.
+- Closed `[ATOMIC002-B]` and `[ATOMIC002-D]` in `agent-todo.md`: only GSI has a proved get-only optimization opportunity; generic passes remain conservative because struct atomic gets can trap and carry shared-GC atomic read semantics.
+- Kept future aggregate atomic set/RMW/cmpxchg and array atomic families out of scope until they receive exact opcode, WAT/binary/validation, effect-modeling, and pass-specific proof slices.
+
 ## [2026-06-04] wiki-health | GC type bridge cross-link cleanup
 
 - Repointed secondary consumers of the type-section/subtyping contract to the current [`2026-06-04` GC type bridge](raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md): [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`ir2/pass-porting-checklist.md`](ir2/pass-porting-checklist.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), and [`index.md`](index.md).
