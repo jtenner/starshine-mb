@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md
   - ../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
   - ../raw/wasm/2026-05-20-wast-parametric-select-sources.md
@@ -31,7 +32,7 @@ WebAssembly validation treats code after a nonfallthrough instruction as **stack
 
 Starshine models that rule with a `reachable` flag in [`TcState`](../../../src/validate/typecheck.mbt) and a local bottom value, [`ValType::bottom()` / `BotValType`](../../../src/lib/types.mbt). This page owns the focused validator contract. Use it when a pass, fixture, reducer, or wiki claim mentions `unreachable`, `return`, `br`, `br_table`, tail calls, throws, "bottom", stack underflow in unreachable code, or leftover stack values after a terminal instruction. Use [`runtime-trap-semantics.md`](runtime-trap-semantics.md) for the separate execution-time trap/`RuntimeError`/`mayTrap` vocabulary.
 
-The source bridge is [`../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md`](../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md). It rechecked the current WebAssembly validation-instruction and validation-algorithm sources plus Starshine's typechecker, validator diagnostics, and regression tests.
+The current source bridge is [`../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md`](../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md), with the original focused bridge preserved in [`../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md`](../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md). The 2026-06-04 refresh rechecked current WebAssembly Core 3.0 validation-algorithm, instruction-validation, module-validation, and syntax pages plus Starshine's typechecker, validator diagnostics, and regression tests. It found no drift in the core rule, but it sharpens the maintenance split between value-polymorphic instructions (`drop`, `select`), unconditional stack-polymorphic transfers (`unreachable`, `br`, `br_table`, `return`, tail calls, throws), conditional branch fallthrough (`br_if`, `br_on_*`), and Starshine's concrete-stack-junk diagnostics.
 
 ## Beginner Model
 
@@ -41,6 +42,11 @@ A reachable instruction must find its operands on the real stack:
 (func (result i32)
   i32.add) ;; invalid: reachable code has no two i32 operands
 ```
+
+There are two nearby ideas that beginners often conflate:
+
+- **Value-polymorphic instructions** such as `drop` and untyped `select` accept operands across a range of value types, but their reachable operands still have to exist.
+- **Stack-polymorphic continuations** happen after an unconditional nonfallthrough instruction. Missing operands below the current unreachable frame may be synthesized as bottom values.
 
 After `unreachable`, the continuation is not reachable. Missing operands can be supplied virtually:
 
@@ -84,7 +90,7 @@ These instruction families can make the local continuation nonfallthrough after 
 - `throw` and `throw_ref` consume exception operands and then exit through exception control; see [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md).
 - Reference branch instructions have branch-path and fallthrough-path type refinements; see [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md).
 
-By contrast, `br_if`, `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` are conditional. They can record a reachable branch escape, but their fallthrough path remains reachable and must account for the remaining stack values.
+By contrast, `br_if`, `br_on_null`, `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` are conditional. They can record a reachable branch escape and may refine branch/fallthrough reference types, but their fallthrough path remains reachable and must account for the remaining stack values. Do not document them as generic terminal-control or stack-polymorphic instructions unless the specific not-taken path is already unreachable for another reason.
 
 ## Concrete Shapes
 
@@ -163,7 +169,8 @@ When an optimization or generator creates, removes, or moves a terminal instruct
 
 ## Sources
 
-- Source bridge: [`../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md`](../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md)
+- Current source refresh: [`../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md`](../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md)
+- Original source bridge: [`../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md`](../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md)
 - Runtime trap source refresh for the execution/host boundary: [`../raw/wasm/2026-06-04-runtime-trap-current-refresh.md`](../raw/wasm/2026-06-04-runtime-trap-current-refresh.md)
 - Earlier control-flow source manifest: [`../raw/wasm/2026-05-19-wast-control-flow-sources.md`](../raw/wasm/2026-05-19-wast-control-flow-sources.md)
 - Official WebAssembly sources checked: <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/appendix/algorithm.html>, <https://webassembly.github.io/spec/core/valid/modules.html>, <https://webassembly.github.io/spec/core/syntax/instructions.html>

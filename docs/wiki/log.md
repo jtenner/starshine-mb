@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] validate | stack-polymorphism current-source refresh
+
+- Added [`raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md`](raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md) after rechecking current WebAssembly Core 3.0 validation-algorithm, instruction-validation, module-validation, and syntax pages plus local `src/lib/types.mbt`, `src/validate/typecheck.mbt`, `src/validate/typecheck_negative_tests.mbt`, and `src/validate/validate.mbt` evidence.
+- Refreshed [`validate/stack-polymorphism-and-bottom.md`](validate/stack-polymorphism-and-bottom.md) so the durable guide now separates value-polymorphic `drop`/`select`, unconditional stack-polymorphic transfers, conditional branch fallthrough, concrete stack-junk rejection, and constant-expression strictness.
+- Cross-linked the new source refresh from [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`wast/control-flow-authoring.md`](wast/control-flow-authoring.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), and [`index.md`](index.md) so validator, ordinary-control, and binary-instruction readers route bottom-value details through the focused page.
+
 ## [2026-06-04] passes/local-cse | named-block spot-check caveat
 
 - Recorded that a simple straight-line named block is a Binaryen-positive reuse shape, not a hard-boundary negative: Binaryen materializes the before-block expression and reuses it inside the block body, while current Starshine leaves both trees in place.
