@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-wast-parametric-select-current-refresh.md
   - ../raw/wasm/2026-05-20-wast-parametric-select-sources.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
@@ -42,7 +43,7 @@ These instructions are "parametric" because their core behavior is about stack v
 
 Ordinary control-flow labels, `br_if` fallthrough payloads, loop parameters, and `br_table` stay in [`control-flow-authoring.md`](control-flow-authoring.md). The validator-side bottom-value contract for unreachable-code stack polymorphism lives in [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md). This page focuses on the parametric stack shapes and the places where Starshine's current implementation is wider than the current official validation text.
 
-The primary-source and local-code manifest is [`../raw/wasm/2026-05-20-wast-parametric-select-sources.md`](../raw/wasm/2026-05-20-wast-parametric-select-sources.md).
+The latest primary-source and local-code refresh is [`../raw/wasm/2026-06-04-wast-parametric-select-current-refresh.md`](../raw/wasm/2026-06-04-wast-parametric-select-current-refresh.md), which rechecked the official WebAssembly 3.0 pages dated 2026-06-03. The earlier May 20 manifest remains useful provenance for the original page split: [`../raw/wasm/2026-05-20-wast-parametric-select-sources.md`](../raw/wasm/2026-05-20-wast-parametric-select-sources.md).
 
 ## Beginner Mental Model
 
@@ -84,12 +85,12 @@ That shape is easier for readers and validators than relying on an untyped selec
 
 ## Text Shapes And Stack Rules
 
-| WAST shape | Stack before | Stack after | Notes |
-| --- | --- | --- | --- |
-| `drop` | `t` | empty | Works for any concrete value type and for stack-polymorphic bottom in unreachable code. |
-| `select` | `t`, `t`, `i32` | `t` | Official untyped validation is narrower than Starshine's current local implementation; prefer typed select for reference fixtures. |
-| `select (result t)` | `t`, `t`, `i32` | `t` | The explicit result type is validated before stack popping. Actual operands may match the expected type by Starshine's `Match::matches(...)` relation. |
-| `select (result t1 t2 ...)` | `t1 t2 ...`, `t1 t2 ...`, `i32` | `t1 t2 ...` | Locally representable, encodable, and typechecked by Starshine, but the current official validation text still frames typed select as single-value with a note about possible future multi-value select. Treat this as a Starshine-local surface until the conformance target is clarified. |
+| WAST shape | Stack before | Stack after | Portability profile | Notes |
+| --- | --- | --- | --- | --- |
+| `drop` | `t` | empty | Portable core WebAssembly | Works for any concrete value type and for stack-polymorphic bottom in unreachable code. |
+| `select` | `t`, `t`, `i32` | `t` | Portable when `t` is numeric or vector | Official untyped validation is narrower than Starshine's current local implementation; prefer typed select for reference fixtures. |
+| `select (result t)` | `t`, `t`, `i32` | `t` | Portable typed-select form | The explicit result type is validated before stack popping. Actual operands may match the expected type by Starshine's `Match::matches(...)` relation. |
+| `select (result t1 t2 ...)` | `t1 t2 ...`, `t1 t2 ...`, `i32` | `t1 t2 ...` | Starshine-local regression surface | Locally representable, encodable, and typechecked by Starshine, but the current official validation text still frames typed select as single-value with a note about possible future multi-value select. Treat this as a Starshine-local surface until the conformance target is clarified. |
 
 ## Concrete Examples
 
@@ -145,7 +146,7 @@ Starshine's core model and binary codec store typed-select annotations as `Array
     select (result i32 i64)))
 ```
 
-This shape is useful as a local regression surface for Starshine's vector-valued `Select(Some(...))` plumbing, but it is not a safe portable WAST fixture today. The current official validation page still presents typed select as an optional single value type and notes that multi-value select may be allowed in the future, even though the binary/text representation carries a vector-like annotation. Keep that contradiction visible in docs and tests instead of silently treating local support as upstream-stable WebAssembly.
+This shape is useful as a local regression surface for Starshine's vector-valued `Select(Some(...))` plumbing, but it is not a safe portable WAST fixture today. The 2026-06-04 refresh confirms that the current official validation page still presents typed select as an optional single value type and notes that multi-value select may be allowed in the future, even though the binary/text representation carries a vector-like annotation. Keep that contradiction visible in docs and tests instead of silently treating local support as upstream-stable WebAssembly.
 
 ## Edge Cases And Rewrite Guidance
 
@@ -154,11 +155,13 @@ This shape is useful as a local regression surface for Starshine's vector-valued
 3. **Typed select is the reference-safe authoring form.** Prefer `select (result <ref-type>)` for `externref`, `funcref`, GC refs, exact refs, or descriptor-related refs. Route reference-type syntax and exactness questions through [`reference-instruction-authoring.md`](reference-instruction-authoring.md), [`gc-type-authoring.md`](gc-type-authoring.md), and the custom-descriptor pages.
 4. **Do not collapse typed and untyped select in passes.** Rewriting `select (result t)` to untyped `select` can change validity for reference operands and can erase an intentional local multi-value annotation.
 5. **Treat local multi-value typed select as a caveat.** It may be the right Starshine regression case, but portable WebAssembly signoff should use single-result typed select unless the validator/conformance target is updated.
-6. **Validate after mutation.** Any pass that changes select operands, result types, or surrounding stack shape must rerun module validation. For optimizer work, also follow [`../tooling/validation-gates.md`](../tooling/validation-gates.md) and the relevant Binaryen oracle lane.
+6. **Choose the right profile before adding fixtures.** Use untyped `select` for numeric/vector basics, single-result typed `select` for reference or exact-type portability, and multi-value typed select only when the test explicitly targets Starshine's local vector-valued plumbing.
+7. **Validate after mutation.** Any pass that changes select operands, result types, or surrounding stack shape must rerun module validation. For optimizer work, also follow [`../tooling/validation-gates.md`](../tooling/validation-gates.md) and the relevant Binaryen oracle lane.
 
 ## Source Map
 
-- Primary-source and local-code manifest: [`../raw/wasm/2026-05-20-wast-parametric-select-sources.md`](../raw/wasm/2026-05-20-wast-parametric-select-sources.md)
+- Current primary-source and local-code refresh: [`../raw/wasm/2026-06-04-wast-parametric-select-current-refresh.md`](../raw/wasm/2026-06-04-wast-parametric-select-current-refresh.md)
+- Original primary-source and local-code manifest: [`../raw/wasm/2026-05-20-wast-parametric-select-sources.md`](../raw/wasm/2026-05-20-wast-parametric-select-sources.md)
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Core model and binary codec: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)
 - Validation and matching: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../validate/stack-polymorphism-and-bottom.md`](../validate/stack-polymorphism-and-bottom.md), [`../validate/module-validation-phases.md`](../validate/module-validation-phases.md)

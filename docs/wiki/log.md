@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] docs | WAST parametric select source refresh
+
+- Added [`docs/wiki/raw/wasm/2026-06-04-wast-parametric-select-current-refresh.md`](raw/wasm/2026-06-04-wast-parametric-select-current-refresh.md) after rechecking current primary WebAssembly 3.0 syntax, text, binary, validation, and execution pages dated 2026-06-03 plus Starshine parser/lowerer/codec/typechecker surfaces.
+- Refreshed [`wast/parametric-instruction-authoring.md`](wast/parametric-instruction-authoring.md) and the top-level catalog so select fixture guidance now separates portable untyped numeric/vector select, portable single-result typed reference select, and Starshine-local vector-valued typed-select regression fixtures while preserving the untyped-reference caveat.
+- No code or tests changed; this is wiki/source-hygiene work to keep the select caveat current without pretending the official multi-value typed-select validation target is settled.
+
 ## [2026-06-04] wiki-health | transient artifact citation policy
 
 - Added [`docs/wiki/raw/research/0705-2026-06-04-transient-artifact-citation-hygiene.md`](raw/research/0705-2026-06-04-transient-artifact-citation-hygiene.md) to record the durable rule for `.tmp` / `.artifacts` evidence: living pages may mention local run directories as replay identifiers, but durable source links should point at committed raw notes, source files, tests, or official upstream URLs.
