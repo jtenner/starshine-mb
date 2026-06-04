@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-04-tail-call-current-refresh.md
+  - ../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md
   - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - ../raw/wasm/2026-05-19-wast-tail-call-sources.md
   - ../raw/wasm/2026-05-19-tail-call-control-flow-sources.md
@@ -44,7 +45,7 @@ Use this page when writing, debugging, or widening WAST fixtures that contain We
 
 The beginner mental model is: **a tail call is still a call, but it is also a return from the current function.** The callee receives parameters like an ordinary call. If the callee finishes normally, control returns to the caller of the current function, not to the instruction after the tail call. That means Starshine must treat tail calls as call-family use sites for indices, types, traps, and effects, while treating them as return-family terminators for validation and CFG flow. The non-tail function/import/export/start and direct-`call` authoring contract lives in [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md); shared WAST type-use and rec-group flat-index rules live in [`gc-type-authoring.md`](gc-type-authoring.md).
 
-The current-source refresh is [`../raw/wasm/2026-06-04-tail-call-current-refresh.md`](../raw/wasm/2026-06-04-tail-call-current-refresh.md), which rechecked the official WebAssembly Core 3.0 syntax, text, binary, validation, and execution pages dated 2026-06-03 against Starshine's WAST/core/binary/validator/CFG surfaces. The focused `call_ref` / `return_call_ref` split is still routed through [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md). The broader original tail-call source map remains [`../raw/wasm/2026-05-19-wast-tail-call-sources.md`](../raw/wasm/2026-05-19-wast-tail-call-sources.md), and the narrower CFG-only source snapshot remains [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md).
+The current-source refresh is [`../raw/wasm/2026-06-04-tail-call-current-refresh.md`](../raw/wasm/2026-06-04-tail-call-current-refresh.md), which rechecked the official WebAssembly Core 3.0 syntax, text, binary, validation, and execution pages dated 2026-06-03 against Starshine's WAST/core/binary/validator/CFG surfaces. The newest CFG-only bridge is [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md), which keeps the `return_call*` helper/test gap separate from actual HOT flag and concrete CFG behavior. The focused `call_ref` / `return_call_ref` split is still routed through [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md). The broader original tail-call source map remains [`../raw/wasm/2026-05-19-wast-tail-call-sources.md`](../raw/wasm/2026-05-19-wast-tail-call-sources.md), and the older CFG-only source snapshot remains [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md).
 
 ## Layer Model
 
@@ -187,7 +188,8 @@ When a pass, generator, or fixture change touches tail calls, use this checklist
 - Current official Core 3.0 and Starshine source refresh: [`../raw/wasm/2026-06-04-tail-call-current-refresh.md`](../raw/wasm/2026-06-04-tail-call-current-refresh.md)
 - Focused reference-call source refresh: [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md)
 - Original primary-source and local-code manifest: [`../raw/wasm/2026-05-19-wast-tail-call-sources.md`](../raw/wasm/2026-05-19-wast-tail-call-sources.md)
-- CFG-only tail-call source manifest: [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md)
+- Current CFG-only tail-call recheck: [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md)
+- Older CFG-only tail-call source manifest: [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md)
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Core model and binary codec: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt)
 - Validation and CFG: [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/ir/hot_flags.mbt`](../../../src/ir/hot_flags.mbt), [`../../../src/ir/cfg.mbt`](../../../src/ir/cfg.mbt), [`../ir2/cfg-contract.md`](../ir2/cfg-contract.md)

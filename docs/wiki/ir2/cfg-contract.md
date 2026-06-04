@@ -1,8 +1,9 @@
 ---
 kind: decision
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md
   - ../raw/research/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md
   - ../raw/wasm/2026-05-19-tail-call-control-flow-sources.md
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
@@ -90,7 +91,7 @@ Terminator edge policy in the concrete builder is:
 - `delegate` produces an `ExceptionalEdge` to the delegated label target.
 - `unreachable` produces an `UnreachableExitEdge` to the synthetic normal exit.
 
-The current WebAssembly core instruction list includes `return_call`, `return_call_indirect`, and `return_call_ref`, and the tail-call proposal records the intended return-position semantics. The local CFG source manifest is [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md), while WAST authoring details live in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md). Starshine's HOT flags agree with that semantic model: [`hot_default_flags_for_op(...)`](../../../src/ir/hot_flags.mbt) marks all three tail-call HOT ops as both calls and terminators.
+The 2026-06-04 recheck in [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md) is the current source bridge for this rule. WebAssembly Core 3.0 syntax includes `return_call`, `return_call_indirect`, and `return_call_ref`; validation treats them as stack-polymorphic tail-call forms whose callee result must match the enclosing function result; execution routes them through a tail-call path that unwinds the current function's frame/labels/handlers before entering the callee. Starshine's HOT flags agree with the no-fallthrough semantic model: [`hot_default_flags_for_op(...)`](../../../src/ir/hot_flags.mbt) marks all three tail-call HOT ops as both calls and terminators. WAST authoring details live in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md), and the older tail-call source manifest remains provenance at [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md).
 
 ## Exceptional-Flow Policy
 
@@ -104,16 +105,29 @@ The current WebAssembly core instruction list includes `return_call`, `return_ca
 
 The concrete builder materializes the exceptional exit lazily: [`cfg_builder_exceptional_exit_block(...)`](../../../src/ir/cfg.mbt) creates the synthetic exceptional exit only when a function actually needs one.
 
+## Tail Calls: Return Edge Plus Call Effects
+
+Tail calls are easy to misread because they combine two families of facts:
+
+| HOT op | Effect/signature family | CFG continuation family | Practical consequence |
+| --- | --- | --- | --- |
+| `ReturnCall` | Direct call: callee signature, import/export, side effect, trap, and performance reasoning. | `ReturnEdge` to the synthetic normal exit. | No ordinary successor after the node; later roots are unreachable from this block. |
+| `ReturnCallIndirect` | Indirect call: table/reference/signature checks plus ordinary call effects. | `ReturnEdge` to the synthetic normal exit. | Treat it as a call for validation/effects, but as a return for CFG shape. |
+| `ReturnCallRef` | Typed-function-reference call: reference nullability/type checks plus ordinary call effects. | `ReturnEdge` to the synthetic normal exit. | It is not the same as `call_ref`; it tail-exits the current function. |
+
+A concrete CFG tail-call test should therefore assert that the ending block has a single `ReturnEdge` and that a following root has no predecessor from the tail-call block. An effects or pass-safety test may still need to assert the call/trap side of the same op.
+
 ## Current Local Gap: Tail-Call Helper Coverage
 
-There is one important 2026-05-19 consistency gap to keep visible:
+There is one important 2026-06-04 consistency gap to keep visible:
 
 - [`src/ir/hot_flags.mbt`](../../../src/ir/hot_flags.mbt) correctly marks `ReturnCall`, `ReturnCallIndirect`, and `ReturnCallRef` as terminators.
 - [`src/ir/cfg.mbt`](../../../src/ir/cfg.mbt) correctly maps all three tail-call forms to `ReturnEdge` when they are the last node in a block segment.
 - [`src/ir/cfg_contract.mbt`](../../../src/ir/cfg_contract.mbt), however, currently omits the tail-call forms from `cfg_op_is_terminator(...)` and `cfg_terminator_edge_kinds(...)`.
 - [`src/ir/cfg_contract_test.mbt`](../../../src/ir/cfg_contract_test.mbt) has focused policy-helper tests for ordinary `Return`, `ThrowRef`, `Delegate`, and structured control, but no focused tail-call case yet.
+- [`src/ir/cfg_test.mbt`](../../../src/ir/cfg_test.mbt) has concrete graph tests for nested blocks, `try_table`, ordinary return, and synthetic continuations, but no focused concrete tail-call graph test yet.
 
-Until the helper and tests are fixed, treat the concrete builder plus HOT flags as the stronger evidence for actual CFG behavior, and treat the policy helper omission as a testable follow-up rather than as a deliberate semantic distinction. A code fix should add a failing `return_call*` CFG-contract test first, then update both helper functions and any affected order/CFG expectations.
+Until the helper and tests are fixed, treat the concrete builder plus HOT flags as the stronger evidence for actual CFG behavior, and treat the policy helper omission as a testable follow-up rather than as a deliberate semantic distinction. A code fix should add failing `return_call*` CFG-contract tests first, add or refresh a concrete no-fallthrough CFG test, then update both helper functions and any affected order/CFG expectations.
 
 ## Concrete Flow Examples
 
@@ -170,6 +184,7 @@ The `try` header has ordinary fallthrough into the body region and an exceptiona
 ## Sources
 
 - Archived original CFG contract note: [`../raw/research/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md`](../raw/research/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md)
+- Current CFG tail-call recheck: [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md)
 - Tail-call source manifest: [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md)
 - Policy layer: [`../../../src/ir/cfg_contract.mbt`](../../../src/ir/cfg_contract.mbt)
 - Concrete builder: [`../../../src/ir/cfg.mbt`](../../../src/ir/cfg.mbt)

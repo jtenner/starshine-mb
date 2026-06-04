@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md
   - ../raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md
   - ../raw/ir2/2026-05-20-local-ssa-source-bridge.md
   - ../raw/research/0064-2026-03-24-ir2-test-matrix.md
@@ -67,7 +68,7 @@ The matrix has four layers:
 3. **Shared fixture/golden helpers**: stable WAT-to-HOT fixtures and deterministic text dumps used across analyses.
 4. **Pass-facing helpers**: public optimizer execution and trace capture for pass tests.
 
-The 2026-05-20 repository refresh in [`../raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md`](../raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md) is the current audit of in-tree evidence. No new external source was needed for this refresh: the target is Starshine-local test ownership, so the repository tests are the primary source of truth. Existing algorithmic lineage for local SSA remains in [`../raw/ir2/2026-05-20-local-ssa-source-bridge.md`](../raw/ir2/2026-05-20-local-ssa-source-bridge.md).
+The 2026-05-20 repository refresh in [`../raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md`](../raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md) is the current broad audit of in-tree evidence. The 2026-06-04 CFG tail-call recheck in [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md) is the fresher focused bridge for the `return_call*` helper/test gap because it combines current WebAssembly Core 3.0 tail-call semantics with current `src/ir` CFG and HOT evidence. Existing algorithmic lineage for local SSA remains in [`../raw/ir2/2026-05-20-local-ssa-source-bridge.md`](../raw/ir2/2026-05-20-local-ssa-source-bridge.md).
 
 ## Core Invariants
 
@@ -131,7 +132,7 @@ That one fixture intentionally exercises lift, CFG block formation, dominance, l
 | Lift + verify | `src/ir/test_helpers.mbt`, `src/ir/test_helpers_test.mbt`, `src/ir/hot_lift_test.mbt`, `src/ir/hot_verify_test.mbt`, `src/ir/hot_verify_wbtest.mbt` | WAT fixtures validate before lift; lifted hot bodies pass core/control verification; invalid body and control cases report focused errors. |
 | Lower + validate | `src/ir/test_helpers.mbt`, `src/ir/test_helpers_test.mbt`, `src/ir/hot_lower_test.mbt`, `src/ir/hot_lower_live_repro_test.mbt` | Mutated/lifted HOT bodies verify, lower into the original module shell, validate, and preserve important lowered shapes including carrier, payload, compare, call-spill, wrapper, unreachable, and typed-loop families. |
 | Lift/lower performance and stress repros | `src/ir/hot_lift_perf_test.mbt`, `src/ir/hot_lower_live_repro_test.mbt` | Duplicated multivalue control-entry stacks and saved lower-live repro families stay covered without turning broad randomized loops into ordinary tests. |
-| CFG shape | `src/ir/test_helpers_test.mbt`, `src/ir/cfg_test.mbt`, `src/ir/cfg_contract_test.mbt` | Stable entry/exit/synthetic blocks, region roots, predecessors, successors, branch/return/unreachable/exceptional edges, and the policy documented in [`./cfg-contract.md`](./cfg-contract.md). As of 2026-05-19, add the missing focused `return_call*` policy-helper case before fixing the documented `cfg_contract.mbt` tail-call omission. |
+| CFG shape | `src/ir/test_helpers_test.mbt`, `src/ir/cfg_test.mbt`, `src/ir/cfg_contract_test.mbt` | Stable entry/exit/synthetic blocks, region roots, predecessors, successors, branch/return/unreachable/exceptional edges, and the policy documented in [`./cfg-contract.md`](./cfg-contract.md). As of the 2026-06-04 focused recheck, add missing `return_call*` policy-helper tests and a concrete no-fallthrough tail-call CFG test before fixing the documented `cfg_contract.mbt` helper omission. |
 | CFG traversal order | `src/ir/cfg_order_test.mbt` | Preorder, reverse postorder, exceptional-inclusive RPO, block-worklist seed order, and region-local block order are deterministic even for diamonds, exception edges, and unreachable tails. |
 | Dominance | `src/ir/test_helpers_test.mbt`, `src/ir/dominators_test.mbt` | Stable immediate dominators, tree children, dominance frontiers, and helper behavior over reachable control shapes. |
 | Post-dominance | `src/ir/postdominators_test.mbt` | Shared-exit joins, return-vs-exceptional exits, loop side-exits, frontiers, and separated ordinary/exceptional exit roots are covered. |
@@ -171,10 +172,11 @@ For behavior or public API changes, use the repo validation floor from [`../../R
 - Shared dumps currently cover CFG, dominance, liveness, and local SSA. Post-dominance, loop info, use-def, effects, and cache behavior have focused tests but no shared text-dump helper yet. Add a dump helper only when multiple tests need durable cross-analysis goldens.
 - The matrix is not a replacement for pass-specific semantic tests or Binaryen oracle comparison.
 - The old numbered doc remains the historical handoff source, but this living page plus the 2026-05-20 repository refresh are the fresher navigation surface for current in-tree test locations.
-- The known `cfg_contract.mbt` tail-call helper omission remains tracked in [`./cfg-contract.md`](./cfg-contract.md); do not cite this matrix as proof that helper gap is fixed.
+- The known `cfg_contract.mbt` tail-call helper omission remains tracked in [`./cfg-contract.md`](./cfg-contract.md) and [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md); do not cite this matrix as proof that helper gap is fixed.
 
 ## Sources
 
+- Current CFG tail-call helper/test bridge: [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md)
 - Current repository-evidence bridge: [`../raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md`](../raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md)
 - Numbered handoff doc: [`../raw/research/0064-2026-03-24-ir2-test-matrix.md`](../raw/research/0064-2026-03-24-ir2-test-matrix.md)
 - Shared IR helpers: [`../../../src/ir/test_helpers.mbt`](../../../src/ir/test_helpers.mbt), [`../../../src/ir/test_helpers_test.mbt`](../../../src/ir/test_helpers_test.mbt)

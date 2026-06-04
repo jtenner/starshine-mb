@@ -9,6 +9,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-return-call-ref-continuation-10000`: 6771 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
 - Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`wat-shapes.md`](binaryen/passes/local-cse/wat-shapes.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so the reference-tail-call continuation case is tracked as a covered positive.
 
+## [2026-06-04] ir2/cfg | tail-call helper gap source refresh
+
+- Added [`raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md) after rechecking current WebAssembly Core 3.0 syntax/validation/execution pages, the finished-proposals table, and current `src/ir/hot_flags.mbt`, `src/ir/cfg.mbt`, `src/ir/cfg_contract.mbt`, `src/ir/cfg_contract_test.mbt`, and `src/ir/cfg_test.mbt` evidence.
+- Refreshed [`ir2/cfg-contract.md`](ir2/cfg-contract.md) so `return_call`, `return_call_indirect`, and `return_call_ref` are taught as call-family operations for effects/traps/signatures but return-family operations for CFG continuation, with a focused table and a current no-code-change repair path.
+- Refreshed [`ir2/test-matrix.md`](ir2/test-matrix.md), [`wast/tail-call-authoring.md`](wast/tail-call-authoring.md), and [`index.md`](index.md) so the missing `return_call*` policy-helper tests and concrete no-fallthrough CFG test are visible from both the matrix and tail-call fixture routes.
+
 ## [2026-06-04] passes/local-cse | throw_ref continuation positive fix
 
 - Spot-checked the side-probed `throw_ref` shape and confirmed Binaryen materializes the pre-terminator expression with `local.tee` and reuses it in the unreachable continuation.
