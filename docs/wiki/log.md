@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] passes/local-cse | return_call_ref continuation positive fix
+
+- Spot-checked the reference-tail-call variant and confirmed Binaryen materializes the pre-`return_call_ref` expression with `local.tee` and reuses it in the unreachable continuation.
+- After an attempted WAT-form Starshine fixture failed in local parsing/modeling, added a failing core-built direct `local-cse` regression, then fixed the raw/module path to model `return_call_ref` operands from module subtypes and `ref.func` as `funcref`.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-return-call-ref-continuation-10000`: 6771 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
+- Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`wat-shapes.md`](binaryen/passes/local-cse/wat-shapes.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so the reference-tail-call continuation case is tracked as a covered positive.
+
 ## [2026-06-04] passes/local-cse | throw_ref continuation positive fix
 
 - Spot-checked the side-probed `throw_ref` shape and confirmed Binaryen materializes the pre-terminator expression with `local.tee` and reuses it in the unreachable continuation.

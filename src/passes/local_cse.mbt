@@ -226,6 +226,11 @@ fn lcse_raw_instr_operand_count(
         Some(@lib.FuncType(params, _)) => Some(params.length() + 1)
         None => None
       }
+    @lib.Instruction::ReturnCallRef(type_idx) =>
+      match lcse_raw_func_type_for_idx(subtypes, type_idx) {
+        Some(@lib.FuncType(params, _)) => Some(params.length() + 1)
+        None => None
+      }
     @lib.Instruction::I32Add
     | @lib.Instruction::I32Sub
     | @lib.Instruction::I32Mul
@@ -281,6 +286,7 @@ fn lcse_raw_result_type(
     @lib.Instruction::F64Const(_) | @lib.Instruction::F64Load(_) =>
       Some(@lib.ValType::f64())
     @lib.Instruction::RefNull(ty) => Some(@lib.ValType::ref_type(ty))
+    @lib.Instruction::RefFunc(_) => Some(@lib.ValType::funcref())
     @lib.Instruction::Select(_) =>
       match child_exprs.get(0) {
         Some(expr) => Some(expr.ty)

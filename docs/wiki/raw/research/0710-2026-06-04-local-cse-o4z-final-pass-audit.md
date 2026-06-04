@@ -696,3 +696,29 @@ bun scripts/pass-fuzz-compare.ts \
 Results: focused LCSE test first failed (`28/29` before the implementation), then passed after the implementation (`29/29`); `moon info` still hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`); `moon fmt` passed; `moon test src/passes` passed (`1575/1575`); full `moon test` passed (`4760/4760`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; direct compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index`).
 
 Agent classification: Binaryen-positive missed optimization parity fix, not arbitrary EH/throwing-root CSE; the paired plain-`throw` boundary negative remains in place.
+
+## Follow-up `return_call_ref` continuation positive fix on 2026-06-04
+
+A later focused LCSE hardening slice spot-checked `return_call_ref` as the paired reference-tail-call variant after the `return_call_indirect` and `throw_ref` positives. Binaryen's WAT spot check materialized the pre-`return_call_ref` `i32.add` with `local.tee` and reused it in the unreachable continuation after `return_call_ref`. An initial Starshine WAT-form fixture failed in the local WAT path, so the landed regression is a core-built module fixture using `ref.func` plus `Instruction::return_call_ref`. That fixture first failed (`29/30`) because Starshine treated `return_call_ref` as an unknown hard boundary and did not model `ref.func` as a stack value. The raw/module path now models `return_call_ref` operands from module subtypes and gives `ref.func` its `funcref` result type. This preserves Binaryen's unreachable-continuation reuse while keeping repeated `call_ref` roots unmaterialized.
+
+Validation for this `return_call_ref` continuation slice:
+
+```sh
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-return-call-ref-continuation-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the initial WAT-form fixture failed in local parsing/modeling; the core-built fixture then failed (`29/30` before the implementation) and passed after the implementation (`30/30`). `moon info` still hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`); `moon fmt` passed; `moon test src/passes` passed (`1576/1576`); full `moon test` passed (`4761/4761`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; direct compare reached `6771` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index`).
+
+Agent classification: Binaryen-positive missed optimization parity fix, not arbitrary reference-call CSE; the paired repeated-`call_ref` root negative remains in place.
