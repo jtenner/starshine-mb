@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] tooling/wiki | external-validator surface split
+
+- Added [`raw/validation/2026-06-04-external-validator-surface-split.md`](raw/validation/2026-06-04-external-validator-surface-split.md) after rechecking current official `wasm-tools`, WABT, and Binaryen validator-command sources plus `src/cmd/fuzz_harness.mbt` / `src/cmd/fuzz_harness_wbtest.mbt` evidence.
+- Refreshed [`tooling/external-validator-adapters.md`](tooling/external-validator-adapters.md) so readers can distinguish the classified FUZ1044 command-harness adapter surface, the older per-case `differential_validate_wasm(...)` agreement helper, and compare-pass validation/oracle gates.
+- Updated [`index.md`](index.md) to keep the legacy `DifferentialValidationReport.binaryen_valid` naming caveat discoverable: current native defaults route that field through WABT `wasm-validate`, while `run_binaryen_binary_validation_adapter(...)` is the Binaryen `wasm-opt --all-features --validate` evidence surface.
+
 ## [2026-06-04] validate/wiki | local-spec divergence ledger
 
 - Added [`raw/validation/2026-06-04-local-spec-divergence-ledger-source-bridge.md`](raw/validation/2026-06-04-local-spec-divergence-ledger-source-bridge.md) after rechecking current WebAssembly Core 3.0 validation pages plus existing Starshine raw-source manifests and validator code for known local/spec splits.

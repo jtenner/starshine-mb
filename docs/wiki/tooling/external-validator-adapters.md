@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-04
 sources:
   - ../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md
+  - ../raw/validation/2026-06-04-external-validator-surface-split.md
   - ../../../src/cmd/fuzz_harness.mbt
   - ../../../src/cmd/fuzz_harness_wbtest.mbt
 related:
@@ -22,14 +23,15 @@ related:
 
 Use this page when a fuzz, command-harness, or validation report compares Starshine with `wasm-tools`, WABT, or Binaryen and you need to decide whether the result is a Starshine bug, a malformed input, a proposal/tool gap, or simply skipped evidence.
 
-Starshine has two related but separate external-validator surfaces:
+Starshine has three related but separate external-validator surfaces:
 
-1. **The command-harness binary differential adapter surface** in [`src/cmd/fuzz_harness.mbt`](../../../src/cmd/fuzz_harness.mbt). It runs Starshine's own decode/validate path plus optional external adapters and classifies the aggregate result.
-2. **The compare-pass validation steps** in [`pass-fuzz-compare.md`](pass-fuzz-compare.md). Those validate pass-fuzz inputs and Starshine outputs with `wasm-tools validate --features all`, may run optional skip-clean external validators, and then compare against Binaryen's pass oracle.
+1. **The classified command-harness binary differential adapter surface** in [`src/cmd/fuzz_harness.mbt`](../../../src/cmd/fuzz_harness.mbt). It runs Starshine's own decode/validate path plus optional `wasm-tools`, WABT, or Binaryen adapters and classifies the aggregate result with decode-vs-validation stage buckets.
+2. **The legacy per-case agreement helper** in the same file, [`differential_validate_wasm(...)`](../../../src/cmd/fuzz_harness.mbt). It compares Starshine against two optional boolean adapters and reports `DifferentialValidationReport`; it does not produce the FUZ1044 classification buckets. Its native default `binaryen_validate` field currently invokes WABT `wasm-validate`, so that historical field/report label is not Binaryen `wasm-opt` evidence unless the code changes.
+3. **The compare-pass validation steps** in [`pass-fuzz-compare.md`](pass-fuzz-compare.md). Those validate pass-fuzz inputs and Starshine outputs with `wasm-tools validate --features all`, may run optional skip-clean external validators, and then compare against Binaryen's pass oracle.
 
-Do not merge those concepts. Command-harness adapters answer “how do validators classify these bytes?” Compare-pass answers “did a Starshine pass match the Binaryen pass oracle after the input and output were independently valid?”
+Do not merge those concepts. Classified command-harness adapters answer “how do validators classify these bytes by stage?” The legacy helper answers “did the selected boolean adapters agree with Starshine for this generated case?” Compare-pass answers “did a Starshine pass match the Binaryen pass oracle after the input and output were independently valid?”
 
-The current source bridge is [`../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md`](../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md). It rechecked the official `wasm-tools`, WABT, and Binaryen surfaces plus the local MoonBit adapter and test code.
+The current source bridges are [`../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md`](../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md) and [`../raw/validation/2026-06-04-external-validator-surface-split.md`](../raw/validation/2026-06-04-external-validator-surface-split.md). They rechecked the official `wasm-tools`, WABT, and Binaryen surfaces plus the local MoonBit adapter and test code.
 
 ## Beginner Model
 
@@ -52,7 +54,11 @@ Starshine's adapter schema keeps those separate so reports can point to the righ
 | WABT | `run_wabt_binary_validation_adapter(...)` | `wasm-validate <temp.wasm>` | WABT accepted the binary-format module. | Feature defaults depend on the installed WABT build; unsupported-feature results are proposal/tool evidence. |
 | Binaryen | `run_binaryen_binary_validation_adapter(...)` | `wasm-opt --all-features --validate <temp.wasm> -o <temp.out.wasm>` | Binaryen accepted the module while writing a temporary output. | This is not byte-preservation or pass-oracle equivalence; compare-pass owns Binaryen optimizer parity. |
 
-All three external command-harness adapters are native-only. Non-native builds and missing executables return `adapter-unavailable`, and checked-in tests allow that result.
+All three classified external command-harness adapters are native-only. Non-native builds and missing executables return `adapter-unavailable`, and checked-in tests allow that result.
+
+### Legacy per-case helper naming caveat
+
+[`DifferentialAdapters`](../../../src/cmd/fuzz_harness.mbt) is an older, narrower agreement surface used by [`differential_validate_wasm(...)`](../../../src/cmd/fuzz_harness.mbt) and `run_cmd_fuzz_harness(...)` sampling. It has slots named `wasm_tools_validate` and `binaryen_validate`, but the current native default wires that second slot to `wasm-validate`, not to `wasm-opt`. Treat a `DifferentialValidationReport.binaryen_valid` value as a historical field name until the implementation is renamed or rewired. If you need the Binaryen optimizer-backed validation probe, cite `run_binaryen_binary_validation_adapter(...)` from the classified adapter matrix above.
 
 ## Classification Ladder
 
@@ -70,7 +76,7 @@ The helper [`binary_differential_failed_validation_result(...)`](../../../src/cm
 
 ## Concrete Flow
 
-For one binary corpus case, [`run_binary_differential_smoke(...)`](../../../src/cmd/fuzz_harness.mbt) does this:
+For one binary corpus case, the classified FUZ1044 helper [`run_binary_differential_smoke(...)`](../../../src/cmd/fuzz_harness.mbt) does this:
 
 ```text
 input bytes
@@ -95,6 +101,18 @@ The report formatter [`format_binary_differential_smoke_report_json(...)`](../..
 - `external_adapters`
 
 Those counters are intentionally coarse. Persisted repro work should still keep the original bytes, selected adapter names, command diagnostics, Starshine decode/validation stage, and feature facts when available; use [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md) for durable invalid-repro metadata.
+
+The legacy per-case helper has a different flow:
+
+```text
+input bytes
+  -> Starshine decode_then_validate(...)
+  -> optional wasm_tools_validate boolean adapter
+  -> optional binaryen_validate boolean adapter (currently WABT wasm-validate in native defaults)
+  -> mismatch error or DifferentialValidationReport
+```
+
+That helper is useful for command-fuzz sampling and timeout bookkeeping, but it does not distinguish decode-invalid from validation-invalid external failures in the FUZ1044 result schema. Use the classified adapter surface for durable stage-disagreement reports.
 
 ## How To Interpret Outcomes
 
@@ -127,19 +145,20 @@ That means a command-harness `agree-valid` result is useful external evidence, b
 - **Decode-vs-validation stage matters.** A malformed LEB or section-size underflow is a binary codec issue; a decoded `call_indirect` type mismatch is validator semantics.
 - **Binaryen validation is optimizer-backed.** The current adapter uses `wasm-opt --all-features --validate` and writes a temporary output, so it can expose Binaryen parser/validator behavior but does not preserve original bytes.
 - **WABT command-harness evidence is not all-features evidence.** The local adapter invokes `wasm-validate` without additional feature flags today.
+- **Legacy `binaryen_valid` is not necessarily Binaryen evidence.** In `DifferentialValidationReport`, the current native default for `binaryen_validate` is WABT `wasm-validate`. Use the FUZ1044 `run_binaryen_binary_validation_adapter(...)` surface for Binaryen `wasm-opt --all-features --validate` evidence.
 - **Compare-pass `--features all` wording belongs to compare-pass and self-opt gates.** Do not retrofit it onto the command-harness adapter unless the code changes.
 - **Canonicality disagreements need local policy context.** For bounded-overlong LEB128 and other accepted-noncanonical inputs, pair reports with [`../binary/leb128-and-integer-encoding.md`](../binary/leb128-and-integer-encoding.md) before claiming either side is wrong.
 
 ## Maintenance Guidance
 
-- Update this page whenever `BinaryValidationOutcome`, `BinaryDifferentialClassification`, native adapter command lines, non-native fallback behavior, or binary-differential report fields change.
+- Update this page whenever `BinaryValidationOutcome`, `BinaryDifferentialClassification`, `DifferentialAdapters`, `DifferentialValidationReport`, native adapter command lines, non-native fallback behavior, or binary-differential report fields change.
 - Update [`validate/fuzz-hardening.md`](../validate/fuzz-hardening.md) for broad invalid-lane coverage claims; keep this page focused on external adapter semantics.
 - Update [`pass-fuzz-compare.md`](pass-fuzz-compare.md) when pass-fuzz input/output validation, optional external validators, or Binaryen oracle behavior changes.
 - If an external tool's feature defaults become important to a claim, capture a fresh raw source note and record whether the evidence came from command-harness adapters, compare-pass, self-opt validation, or a one-off manual repro; when the disagreement is feature-status-shaped, update the shared feature-boundary page as well as the adapter page.
 
 ## Sources
 
-- Current source bridge: [`../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md`](../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md)
+- Current source bridges: [`../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md`](../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md), [`../raw/validation/2026-06-04-external-validator-surface-split.md`](../raw/validation/2026-06-04-external-validator-surface-split.md)
 - Adapter implementation: [`../../../src/cmd/fuzz_harness.mbt`](../../../src/cmd/fuzz_harness.mbt)
 - Adapter and classifier tests: [`../../../src/cmd/fuzz_harness_wbtest.mbt`](../../../src/cmd/fuzz_harness_wbtest.mbt)
 - Related workflows: [`fuzz-runner.md`](fuzz-runner.md), [`pass-fuzz-compare.md`](pass-fuzz-compare.md), [`validation-gates.md`](validation-gates.md), [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md), [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md)
