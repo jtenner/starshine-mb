@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] fuzzing/wast | WAST arbitrary source-routing refresh
+
+- Refreshed [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md) from a stale working plan into a supported post-`[FZG]027` maintenance contract, adding current [`src/wast/fuzz_tests.mbt`](../../src/wast/fuzz_tests.mbt) ownership for generation-mode, validated-module, static-assertion, and mirror-counter regressions.
+- Repointed the plan's source routing to existing 2026-06-04 WAST/raw manifests for ordinary control, reference calls/casts/branches, tail calls, exception tags, scalar numeric, memory/table address widths, data/element segments, constant expressions, stringref, and SIMD lanes; no new raw capture was needed because those focused manifests already contain the current primary-source checks and the local code was sufficient for the arbitrary-generator claims.
+- Updated [`index.md`](index.md) so the top-level catalog describes the landed WAST-arbitrary contract, current source-routing split, and remaining arbitrary-text gaps without implying typed-valid or proposal-wide coverage.
+
 ## [2026-06-04] tooling | CLI dispatcher stdin gap audit
 
 - Added [`docs/wiki/raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md`](raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md) after checking current Binaryen `wasm-opt` orientation sources plus local `src/cli/cli.mbt`, `src/cmd/cmd.mbt`, `src/passes/optimize.mbt`, and command/parser tests.
