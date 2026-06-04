@@ -9,6 +9,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-return-call-indirect-continuation-10000`: 6765 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
 - Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`wat-shapes.md`](binaryen/passes/local-cse/wat-shapes.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so the operand-taking tail-call continuation case is tracked as a covered positive.
 
+## [2026-06-04] wiki-health | raw-source path normalization
+
+- During the follow-up health check, repaired root-relative source paths in [`raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md`](raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md) so the frontmatter matches the established four-level path from `docs/wiki/raw/validation/` back to repository source and script files.
+- Health-check scope included empty markdown links, stale atomics shared-memory wording after the fence correction, new raw-source backlinks, and obvious malformed raw frontmatter paths. Older archived research notes with historical path quirks were left unchanged unless they were active current-source manifests.
+
 ## [2026-06-04] wast/atomics | fence and shared-memory validation split
 
 - Added [`raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md`](raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md) after rechecking the WebAssembly threads draft validation/execution/binary instruction pages and current Starshine `src/lib/types.mbt`, `src/validate/typecheck.mbt`, `src/binary/decode.mbt`, and `src/binary/encode.mbt` evidence.

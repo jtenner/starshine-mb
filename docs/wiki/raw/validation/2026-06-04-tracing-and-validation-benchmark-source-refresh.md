@@ -5,13 +5,13 @@ last_reviewed: 2026-06-04
 sources:
   - https://moonbitlang.github.io/moon/commands.html
   - https://github.com/moonbitlang/moon/blob/main/docs/manual/src/commands.md
-  - ../../../src/cmd/cmd.mbt
-  - ../../../src/passes/perf.mbt
-  - ../../../src/validate_trace/main.mbt
-  - ../../../src/validate_trace/main_wbtest.mbt
-  - ../../../src/validate/validate.mbt
-  - ../../../scripts/lib/validate-task.ts
-  - ../../../scripts/test/task-family-commands.ts
+  - ../../../../src/cmd/cmd.mbt
+  - ../../../../src/passes/perf.mbt
+  - ../../../../src/validate_trace/main.mbt
+  - ../../../../src/validate_trace/main_wbtest.mbt
+  - ../../../../src/validate/validate.mbt
+  - ../../../../scripts/lib/validate-task.ts
+  - ../../../../scripts/test/task-family-commands.ts
 ---
 
 # Tracing And Validation Benchmark Source Refresh
