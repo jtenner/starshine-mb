@@ -210,6 +210,7 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::StringConst(_) => Some(0)
     @lib.Instruction::Drop
     | @lib.Instruction::ThrowRef
+    | @lib.Instruction::BrOnNull(_)
     | @lib.Instruction::LocalSet(_)
     | @lib.Instruction::LocalTee(_)
     | @lib.Instruction::GlobalSet(_)
@@ -584,6 +585,15 @@ fn lcse_raw_rewrite_instrs(
       @lib.Instruction::CallIndirect(_, _) | @lib.Instruction::CallRef(_) =>
         active.clear()
       _ => if lcse_instr_is_store(instr) { active.clear() }
+    }
+    match instr {
+      @lib.Instruction::BrOnNull(_) => {
+        if children.length() == 1 {
+          stack.push(children[0])
+        }
+        continue
+      }
+      _ => ()
     }
     match
       lcse_raw_result_type(

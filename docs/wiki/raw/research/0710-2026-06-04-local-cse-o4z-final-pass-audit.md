@@ -797,3 +797,22 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`33/33`); `moon test src/passes` passed (`1579/1579`); full `moon test` passed (`4764/4764`); native build reported no work; compare reached `6770` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up `br_on_null` continuation positive fix on 2026-06-04
+
+A later focused LCSE hardening slice spot-checked a `br_on_null` fallthrough-continuation shape. Binaryen materialized the repeated arithmetic expression before `br_on_null` with `local.tee` and reused it after the `br_on_null` fallthrough value was dropped. Starshine added the failing core-built direct regression `local-cse reuses expression across br-on-null continuation`, then fixed the raw/module stack model by treating `br_on_null` as a one-operand passthrough for fallthrough stack continuity rather than as a reusable root or hard boundary.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-br-on-null-continuation-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the first focused run failed as intended (`33/34` passed) before the implementation change; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed after the fix (`34/34`); `moon test src/passes` passed (`1580/1580`); full `moon test` passed (`4765/4765`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; compare reached `6764` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).

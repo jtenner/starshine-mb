@@ -2,6 +2,19 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] fuzzing/recipes | schema source refresh
+
+- Added [`raw/fuzzing/2026-06-04-fuzz-recipe-schema-source-refresh.md`](raw/fuzzing/2026-06-04-fuzz-recipe-schema-source-refresh.md) after rechecking current `src/fuzz/main.mbt`, `src/fuzz/main_wbtest.mbt`, `scripts/lib/fuzz-task.ts`, `scripts/lib/fuzz-task.test.ts`, and task-command evidence for `starshine.fuzz.recipe.v1` parsing, standard catalog ids, CLI-over-recipe precedence, sharding, and wrapper forwarding.
+- Reframed [`fuzzing/recipe-schema.md`](fuzzing/recipe-schema.md) from a terse field list into the durable recipe guide: strict schema fields, beginner mental model, precedence ladder, exact standard recipe catalog with seeds/sweeps/shards, shard/resume output rules, golden-seed/corpus boundaries, maintenance checklist, and common mistakes.
+- Cross-linked recipe ownership from [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) and refreshed [`index.md`](index.md) so the raw `raw/fuzzing/` source family and recipe guide route through current evidence.
+
+## [2026-06-04] passes/local-cse | br_on_null continuation positive fix
+
+- Spot-checked a `br_on_null` fallthrough-continuation shape and confirmed Binaryen materializes the pre-branch expression with `local.tee` and reuses it after dropping the fallthrough reference.
+- Added a failing core-built direct `local-cse` regression, then fixed the raw/module path to model `br_on_null` as a one-operand fallthrough passthrough rather than a hard boundary or reusable root.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-br-on-null-continuation-10000`: 6764 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
+- Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`wat-shapes.md`](binaryen/passes/local-cse/wat-shapes.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so the reference-control continuation case is tracked as a covered positive.
+
 ## [2026-06-04] passes/local-cse | rethrow hard-boundary deferral
 
 - Spot-checked a legacy catch-body `rethrow 0` shape and confirmed Binaryen treats it as a hard EH boundary: no `local.tee`, and repeated arithmetic across the unreachable continuation stays separate.
