@@ -88,8 +88,8 @@ The validator is where those meanings become precise. Binary decode only sees op
 | `ref.is_null` | Pops a nullable reference and pushes `i32`. | Current Starshine rejects non-null reference operands at typecheck time. |
 | `ref.eq` | Pops two nullable `eqref` values and pushes `i32`. | Not a pointer-identity proof for arbitrary non-`eqref` references. |
 | `ref.as_non_null` | Pops `(ref null ht)` and pushes `(ref ht)`. | Runtime semantics can trap on null; Starshine typechecking still only refines the static type. |
-| `ref.test rt` | Pops a reference and pushes `i32`. | Core/validator support exists; current WAST text does not expose ordinary `ref.test`. |
-| `ref.cast rt` | Pops a reference and pushes `rt`. | Core/validator support exists; current WAST text does not expose ordinary `ref.cast`. |
+| `ref.test rt` | Pops a reference and pushes `i32`. | Core/validator support exists; current Starshine WAST text does not expose ordinary `ref.test`. |
+| `ref.cast rt` | Pops a reference and pushes `rt`. | Core/validator support exists; current Starshine WAST text does not expose ordinary `ref.cast`. |
 | `br_on_null l` | Pops `(ref null ht)`; null path branches to `l`, fallthrough keeps non-null `(ref ht)`. | Label payloads besides the tested reference still obey ordinary branch rules. |
 | `br_on_non_null l` | Pops a nullable reference; non-null path branches with a non-null ref as the label's final payload, fallthrough consumes the operand. | The target label type must end in a compatible non-null reference. |
 | `br_on_cast l rt1 rt2` | Tests a cast from `rt1` to `rt2`; success branches with the target reference, fallthrough keeps the difference type. | The target type must be compatible with both the source and the label's final reference payload. |

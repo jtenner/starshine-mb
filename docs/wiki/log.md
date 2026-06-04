@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wiki-health | reference text-surface wording cleanup
+
+- Clarified the stack-shape table in [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md) so `ref.test` / `ref.cast` text unavailability is explicitly a **Starshine WAST** limitation, not an official WebAssembly text-format claim.
+- Health-check scope included redundant `docs/wiki/` link targets, transient `.tmp` / `.artifacts` citations, stale reference-call wording, and touched-page source routing; historical log mentions and replay identifiers were left unchanged.
+
 ## [2026-06-04] docs | reference call/cast/branch source routing refresh
 
 - Added [`docs/wiki/raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md) after checking the current official WebAssembly Core 3.0 syntax, text, binary, and validation pages dated 2026-06-03 plus the proposal-era function-reference / GC validation pages and local Starshine WAST/core/binary/validator/generator source surfaces.
