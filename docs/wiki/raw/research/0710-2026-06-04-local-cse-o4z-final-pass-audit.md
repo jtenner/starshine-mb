@@ -395,6 +395,32 @@ bun scripts/pass-fuzz-compare.ts \
 
 Results: `moon fmt` passed, focused LCSE tests passed (`16/16`), `src/passes` passed (`1562/1562`), full `moon test` passed (`4747/4747`), native build was already up to date, and direct compare reached `6764` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index). `moon info` was retried and still hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`).
 
+## Follow-up idempotent direct-call positive fix on 2026-06-04
+
+A later focused LCSE hardening slice inspected the local annotation plumbing before touching call CSE. Starshine already parses and lowers `(@binaryen.idempotent)` function annotations into `FuncAnnotationSec`, but `local-cse` was not consulting callee annotations or function signatures. A Binaryen text-input spot check showed the source-backed positive: Binaryen materialized a repeated single-result direct call to an annotated idempotent callee with `local.tee` and reused it with `local.get`. The same WAT fixture first failed in Starshine (`16/17`) because both calls remained separate. The raw/module path now builds a function-index call-info table from imports, `func_sec`, the type section, and `FuncAnnotationSec`; it only treats direct `call` roots as candidates when the target has an exact `binaryen.idempotent` annotation and exactly one result. Ordinary non-annotated calls, `call_indirect`, and `call_ref` still clear the reuse window.
+
+Validation for this idempotent-call slice:
+
+```sh
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-idempotent-call-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: focused LCSE test first failed (`16/17` before the implementation), then passed after the implementation and paired ordinary-call negative (`18/18`); `moon fmt` passed; `src/passes` passed (`1564/1564`); full `moon test` passed (`4749/4749`); native build succeeded; and direct compare reached `6770` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index). `moon info` was retried and still hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`).
+
+Agent classification: semantic-safe missed optimization parity fix, not arbitrary call CSE; the paired ordinary direct-call negative keeps non-annotated calls as barriers.
+
 ## Recommendation
 
-The audited before-`if`/then-arm and simple before-block/straight-line-block Binaryen-positive gaps are now covered and fixed, the tiny-root repeated-`global.get` no-op is explicitly covered, repeated `struct.new` and `struct.new_default` generative roots are covered, and before-loop into loop-body, `br_table`, `return`, and `unreachable` negatives are covered. Keep `[O4Z-AUDIT-LCSE]` active only for the remaining broader shape hardening that was not implemented here: hard control-boundary negatives beyond the added after-`if`, else-arm, loop-body, `br_table`, return, and `unreachable` tests; additional GC/generative-root negatives where local syntax supports them, especially `array.new*` via core/binary fixtures; and idempotent-call positives if the local annotation plumbing can model Binaryen safely.
+The audited before-`if`/then-arm, simple before-block/straight-line-block, and annotated idempotent direct-call Binaryen-positive gaps are now covered and fixed, the tiny-root repeated-`global.get` no-op is explicitly covered, repeated `struct.new` and `struct.new_default` generative roots are covered, and before-loop into loop-body, `br_table`, `return`, and `unreachable` negatives are covered. Keep `[O4Z-AUDIT-LCSE]` active only for the remaining broader shape hardening that was not implemented here: hard control-boundary negatives beyond the added after-`if`, else-arm, loop-body, `br_table`, return, and `unreachable` tests; additional GC/generative-root negatives where local syntax supports them, especially `array.new*` via core/binary fixtures; and broader indirect-call / `call_ref` barrier negatives paired with the newly covered idempotent-call exception and ordinary direct-call negative.

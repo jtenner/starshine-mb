@@ -246,14 +246,7 @@ So repeated call roots stay as separate calls.
 
 There is one source-level carveout.
 
-If the callee annotations say `idempotent`, Binaryen allows that direct call as a candidate and also avoids letting a later shallowly-equal idempotent call invalidate the earlier one.
-
-Important honesty note:
-
-- this is directly source-derived from `LocalCSE.cpp` plus `intrinsics.h`
-- the shipped `local-cse.wast` file I read does **not** isolate a dedicated idempotent-call lit case in this thread
-
-So it is a strong source-backed claim, but not one I am also illustrating from a dedicated current upstream fixture.
+If the callee annotations say `idempotent`, Binaryen allows that direct call as a candidate and also avoids letting a later shallowly-equal idempotent call invalidate the earlier one. Starshine now has a direct regression fixture for this narrow case: `@binaryen.idempotent` WAT annotations lower into `FuncAnnotationSec`, the raw/module `local-cse` path consults only that callee metadata, and repeated single-result direct calls can be materialized with a temp local. Ordinary non-annotated calls, indirect calls, and `call_ref` remain barriers.
 
 ## Barrier family 4: tiny roots are intentionally skipped
 

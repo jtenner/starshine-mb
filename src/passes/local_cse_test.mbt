@@ -1,13 +1,18 @@
 ///|
-fn lcse_test_first_defined_func(mod_ : @lib.Module) -> @lib.Func {
+fn lcse_test_defined_func(mod_ : @lib.Module, idx : Int) -> @lib.Func {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) =>
-      match funcs.get(0) {
+      match funcs.get(idx) {
         Some(func) => func
-        None => abort("expected first defined function")
+        None => abort("expected defined function")
       }
     None => abort("expected code section")
   }
+}
+
+///|
+fn lcse_test_first_defined_func(mod_ : @lib.Module) -> @lib.Func {
+  lcse_test_defined_func(mod_, 0)
 }
 
 ///|
@@ -230,6 +235,51 @@ test "local-cse does not reuse repeated struct-new-default roots" {
   )
   @debug.assert_eq(locals, @lib.Locals::from_types([]))
   @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(0U)), 0)
+}
+
+///|
+test "local-cse reuses annotated idempotent direct calls" {
+  let input =
+    #| (module
+    #|   (@binaryen.idempotent)
+    #|   (func $idempotent (param i32) (result i32)
+    #|     (local.get 0))
+    #|   (func (param i32)
+    #|     (drop (call $idempotent (local.get 0)))
+    #|     (drop (call $idempotent (local.get 0)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_defined_func(
+    optimized, 1,
+  )
+  let temp = @lib.LocalIdx::new(1U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
+test "local-cse does not reuse ordinary direct calls" {
+  let input =
+    #| (module
+    #|   (func $ordinary (param i32) (result i32)
+    #|     (local.get 0))
+    #|   (func (param i32)
+    #|     (drop (call $ordinary (local.get 0)))
+    #|     (drop (call $ordinary (local.get 0)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_defined_func(
+    optimized, 1,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(1U)), 0)
 }
 
 ///|

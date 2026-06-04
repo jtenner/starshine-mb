@@ -459,9 +459,10 @@ Why Binaryen can allow it:
 - idempotent direct calls are treated as possible roots
 - a later shallowly-equal idempotent call also does not invalidate the earlier one
 
-Important honesty note:
+Starshine status:
 
-- this claim is direct source reading from `LocalCSE.cpp` and the idempotent-annotation helpers, not a separate dedicated lit fixture identified in the 2026-04-25 source bridge
+- local direct-pass coverage now uses `(@binaryen.idempotent)` WAT annotation lowering and proves repeated single-result direct calls to that callee are materialized and reused
+- ordinary non-annotated calls, indirect calls, and `call_ref` should still be treated as barriers rather than inferred idempotent calls
 
 ## Shape 15: fresh GC allocation roots do not fold
 
@@ -475,7 +476,7 @@ Before and after stay the same, conceptually:
 Why Binaryen keeps both:
 
 - repeated fresh allocations are generative
-- `properties.cpp` marks roots like `struct.new` and `array.new*` as generative
+- `properties.cpp` marks roots like `struct.new`, `struct.new_default`, and `array.new*` as generative
 - reusing the first fresh result would be wrong
 
 This is another source-derived rule that matters for a future port even though the 2026-04-25 source bridge did not identify a dedicated standalone lit fixture that isolates it separately.

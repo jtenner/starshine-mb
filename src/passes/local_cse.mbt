@@ -50,6 +50,13 @@ priv struct LcseRawNestedRepeat {
 }
 
 ///|
+priv struct LcseRawCallInfo {
+  params : Array[@lib.ValType]
+  result : @lib.ValType?
+  idempotent : Bool
+}
+
+///|
 fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
   match instr {
     @lib.Instruction::I32Add => 1
@@ -69,6 +76,7 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::F32Load(_) => 15
     @lib.Instruction::F64Load(_) => 16
     @lib.Instruction::Select(_) => 17
+    @lib.Instruction::Call(_) => 18
     _ => -1
   }
 }
@@ -159,7 +167,35 @@ fn lcse_instr_is_store(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
-fn lcse_raw_instr_operand_count(instr : @lib.Instruction) -> Int? {
+fn lcse_raw_func_idx_raw(idx : @lib.FuncIdx) -> Int {
+  let @lib.FuncIdx(raw) = idx
+  raw.reinterpret_as_int()
+}
+
+///|
+fn lcse_raw_call_info(
+  call_infos : Array[LcseRawCallInfo],
+  idx : @lib.FuncIdx,
+) -> LcseRawCallInfo? {
+  call_infos.get(lcse_raw_func_idx_raw(idx))
+}
+
+///|
+fn lcse_raw_call_is_idempotent(
+  call_infos : Array[LcseRawCallInfo],
+  idx : @lib.FuncIdx,
+) -> Bool {
+  match lcse_raw_call_info(call_infos, idx) {
+    Some(info) => info.idempotent
+    None => false
+  }
+}
+
+///|
+fn lcse_raw_instr_operand_count(
+  instr : @lib.Instruction,
+  call_infos : Array[LcseRawCallInfo],
+) -> Int? {
   match instr {
     @lib.Instruction::LocalGet(_)
     | @lib.Instruction::GlobalGet(_)
@@ -178,6 +214,11 @@ fn lcse_raw_instr_operand_count(instr : @lib.Instruction) -> Int? {
     | @lib.Instruction::If(_, _, _)
     | @lib.Instruction::BrIf(_) => Some(1)
     @lib.Instruction::Select(_) => Some(3)
+    @lib.Instruction::Call(idx) =>
+      match lcse_raw_call_info(call_infos, idx) {
+        Some(info) => Some(info.params.length())
+        None => None
+      }
     @lib.Instruction::I32Add
     | @lib.Instruction::I32Sub
     | @lib.Instruction::I32Mul
@@ -205,6 +246,7 @@ fn lcse_raw_result_type(
   instr : @lib.Instruction,
   all_locals : Array[@lib.ValType],
   child_exprs : Array[LcseRawExpr],
+  call_infos : Array[LcseRawCallInfo],
 ) -> @lib.ValType? {
   match instr {
     @lib.Instruction::LocalGet(idx) | @lib.Instruction::LocalTee(idx) =>
@@ -236,6 +278,11 @@ fn lcse_raw_result_type(
       match child_exprs.get(0) {
         Some(expr) => Some(expr.ty)
         None => None
+      }
+    @lib.Instruction::Call(idx) =>
+      match lcse_raw_call_info(call_infos, idx) {
+        Some({ result: Some(ty), idempotent: true, .. }) => Some(ty)
+        _ => None
       }
     @lib.Instruction::I32Add
     | @lib.Instruction::I32Sub
@@ -342,6 +389,7 @@ fn lcse_raw_scan_nested_repeats(
   exprs : Array[LcseRawExpr],
   outer_active : Array[Int],
   repeats : Array[LcseRawNestedRepeat],
+  call_infos : Array[LcseRawCallInfo],
 ) -> Unit {
   if body.length() > 16 || outer_active.length() == 0 {
     return
@@ -381,9 +429,12 @@ fn lcse_raw_scan_nested_repeats(
     match body[idx] {
       @lib.Instruction::LocalSet(_) | @lib.Instruction::LocalTee(_) =>
         active.clear()
-      @lib.Instruction::Call(_)
-      | @lib.Instruction::CallIndirect(_, _)
-      | @lib.Instruction::CallRef(_) => active.clear()
+      @lib.Instruction::Call(call_idx) =>
+        if !lcse_raw_call_is_idempotent(call_infos, call_idx) {
+          active.clear()
+        }
+      @lib.Instruction::CallIndirect(_, _) | @lib.Instruction::CallRef(_) =>
+        active.clear()
       _ => if lcse_instr_is_store(body[idx]) { active.clear() }
     }
     idx += 1
@@ -442,6 +493,7 @@ fn lcse_raw_rewrite_instrs(
   instrs : Array[@lib.Instruction],
   params : Array[@lib.ValType],
   local_types : Array[@lib.ValType],
+  call_infos : Array[LcseRawCallInfo],
 ) -> (Array[@lib.Instruction], Bool) {
   if instrs.length() > 16 {
     return (instrs, false)
@@ -456,13 +508,13 @@ fn lcse_raw_rewrite_instrs(
   let nested_repeats : Array[LcseRawNestedRepeat] = []
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     let instr = instrs[idx]
-    let operand_count = match lcse_raw_instr_operand_count(instr) {
+    let operand_count = match lcse_raw_instr_operand_count(instr, call_infos) {
       Some(count) => count
       None => {
         match instr {
           @lib.Instruction::Block(_, @lib.Expr(body)) =>
             lcse_raw_scan_nested_repeats(
-              idx, instrs, body, exprs, active, nested_repeats,
+              idx, instrs, body, exprs, active, nested_repeats, call_infos,
             )
           _ => ()
         }
@@ -489,9 +541,12 @@ fn lcse_raw_rewrite_instrs(
     match instr {
       @lib.Instruction::LocalSet(_) | @lib.Instruction::LocalTee(_) =>
         active.clear()
-      @lib.Instruction::Call(_)
-      | @lib.Instruction::CallIndirect(_, _)
-      | @lib.Instruction::CallRef(_) => active.clear()
+      @lib.Instruction::Call(call_idx) =>
+        if !lcse_raw_call_is_idempotent(call_infos, call_idx) {
+          active.clear()
+        }
+      @lib.Instruction::CallIndirect(_, _) | @lib.Instruction::CallRef(_) =>
+        active.clear()
       _ => if lcse_instr_is_store(instr) { active.clear() }
     }
     match
@@ -499,6 +554,7 @@ fn lcse_raw_rewrite_instrs(
         instr,
         all_locals,
         children.map(fn(id) { exprs[id] }),
+        call_infos,
       ) {
       Some(ty) => {
         let mut start = idx
@@ -571,7 +627,7 @@ fn lcse_raw_rewrite_instrs(
     match instr {
       @lib.Instruction::If(_, then_body, _) => {
         lcse_raw_scan_nested_repeats(
-          idx, instrs, then_body, exprs, active, nested_repeats,
+          idx, instrs, then_body, exprs, active, nested_repeats, call_infos,
         )
         active.clear()
       }
@@ -619,7 +675,7 @@ fn lcse_raw_rewrite_instrs(
           body, i, nested_repeats, exprs,
         )
         let (next_body, body_changed) = lcse_raw_rewrite_instrs(
-          outer_body, params, local_types,
+          outer_body, params, local_types, call_infos,
         )
         if outer_body_changed || body_changed {
           changed = true
@@ -628,7 +684,7 @@ fn lcse_raw_rewrite_instrs(
       }
       @lib.Instruction::Loop(block_type, @lib.Expr(body)) => {
         let (next_body, body_changed) = lcse_raw_rewrite_instrs(
-          body, params, local_types,
+          body, params, local_types, call_infos,
         )
         if body_changed {
           changed = true
@@ -640,12 +696,12 @@ fn lcse_raw_rewrite_instrs(
           then_body, i, nested_repeats, exprs,
         )
         let (next_then, then_changed) = lcse_raw_rewrite_instrs(
-          outer_then, params, local_types,
+          outer_then, params, local_types, call_infos,
         )
         let (next_else, else_changed) = match else_body {
           Some(body) => {
             let (body2, changed2) = lcse_raw_rewrite_instrs(
-              body, params, local_types,
+              body, params, local_types, call_infos,
             )
             (Some(body2), changed2)
           }
@@ -680,6 +736,7 @@ fn lcse_raw_rewrite_instrs(
 fn lcse_raw_rewrite_func(
   func : @lib.Func,
   params : Array[@lib.ValType],
+  call_infos : Array[LcseRawCallInfo],
 ) -> LcseRawRewrite {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
   if !lcse_instrs_may_have_repeated_candidate(instrs) {
@@ -687,7 +744,7 @@ fn lcse_raw_rewrite_func(
   }
   let local_types = cl_flatten_locals(locals, locals.length())
   let (rewritten, changed) = lcse_raw_rewrite_instrs(
-    instrs, params, local_types,
+    instrs, params, local_types, call_infos,
   )
   if changed {
     {
@@ -707,8 +764,96 @@ fn local_cse_run_raw_func_with_params(
   func : @lib.Func,
   params : Array[@lib.ValType],
 ) -> (@lib.Func, Bool) {
-  let rewrite = lcse_raw_rewrite_func(func, params)
+  let rewrite = lcse_raw_rewrite_func(func, params, [])
   (rewrite.func, rewrite.changed)
+}
+
+///|
+fn lcse_raw_func_type_for_idx(
+  subtypes : Array[@lib.SubType],
+  type_idx : @lib.TypeIdx,
+) -> @lib.FuncType? {
+  let subtype = match type_idx {
+    @lib.TypeIdx(type_pos) =>
+      match subtypes.get(type_pos.reinterpret_as_int()) {
+        Some(subtype) => subtype
+        None => return None
+      }
+    @lib.RecIdx(_) => return None
+  }
+  match subtype.get_comptype() {
+    @lib.FuncCompType(params, results) =>
+      Some(@lib.FuncType::new(params, results))
+    _ => None
+  }
+}
+
+///|
+fn lcse_raw_func_has_idempotent_annotation(
+  sec : @lib.FuncAnnotationSec?,
+  func_idx : UInt,
+) -> Bool {
+  match sec {
+    Some(@lib.FuncAnnotationSec(entries)) =>
+      for entry in entries {
+        let @lib.FuncAnnotationAssoc(idx, annotations) = entry
+        if idx == func_idx {
+          for annotation in annotations {
+            if annotation.name == "binaryen.idempotent" &&
+              annotation.args.length() == 0 {
+              return true
+            }
+          }
+        }
+      }
+    None => ()
+  }
+  false
+}
+
+///|
+fn lcse_raw_module_call_infos(mod_ : @lib.Module) -> Array[LcseRawCallInfo] {
+  let subtypes = cl_module_subtypes(mod_)
+  let type_idxs : Array[@lib.TypeIdx] = []
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for im in imports {
+        match im {
+          @lib.Import(_, _, @lib.FuncExternType(type_idx)) =>
+            type_idxs.push(type_idx)
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod_.func_sec {
+    Some(@lib.FuncSec(func_type_idxs)) =>
+      for type_idx in func_type_idxs {
+        type_idxs.push(type_idx)
+      }
+    None => ()
+  }
+  let out : Array[LcseRawCallInfo] = []
+  for idx = 0; idx < type_idxs.length(); idx = idx + 1 {
+    match lcse_raw_func_type_for_idx(subtypes, type_idxs[idx]) {
+      Some(@lib.FuncType(params, results)) => {
+        let result = match results {
+          [ty] => Some(ty)
+          _ => None
+        }
+        out.push({
+          params,
+          result,
+          idempotent: lcse_raw_func_has_idempotent_annotation(
+            mod_.func_annotation_sec,
+            idx.reinterpret_as_uint(),
+          ),
+        })
+      }
+      None => out.push({ params: [], result: None, idempotent: false })
+    }
+  }
+  out
 }
 
 ///|
@@ -716,10 +861,11 @@ pub fn local_cse_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   match mod_.code_sec {
     Some(@lib.CodeSec(funcs)) => {
       let params = cl_defined_func_param_cache(mod_)
+      let call_infos = lcse_raw_module_call_infos(mod_)
       let rewritten : Array[@lib.Func] = []
       let mut changed = false
       for idx = 0; idx < funcs.length(); idx = idx + 1 {
-        let rewrite = lcse_raw_rewrite_func(funcs[idx], params[idx])
+        let rewrite = lcse_raw_rewrite_func(funcs[idx], params[idx], call_infos)
         rewritten.push(rewrite.func)
         if rewrite.changed {
           changed = true

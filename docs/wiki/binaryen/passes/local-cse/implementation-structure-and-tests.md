@@ -104,7 +104,7 @@ The important fixture families are:
 - **Switch-child ordering**: `br_table` / switch children must preserve operand order when one repeated child is replaced.
 - **Tiny-root no-ops**: small expressions such as `global.get` remain unchanged mostly for profitability reasons.
 
-Evidence caveat: idempotent-call positives and GC-generative allocation negatives are source-backed by `LocalCSE.cpp`, `intrinsics.h`, and `properties.cpp`, but this review did not identify a dedicated standalone lit fixture that isolates each of those two families. Keep that caveat visible when using [`./wat-shapes.md`](./wat-shapes.md) for test planning.
+Evidence caveat: the original source review did not identify dedicated standalone upstream lit fixtures that isolate idempotent-call positives or every GC-generative allocation negative. Starshine now carries local direct fixtures for the idempotent direct-call positive plus `struct.new` / `struct.new_default` generative negatives, but broader `array.new*` coverage still needs core/binary fixture work.
 
 ## Scheduler and rerun map
 
@@ -125,8 +125,8 @@ Starshine now implements `local-cse`. The relevant local files are implementatio
 
 | Local file | Exact role today |
 | --- | --- |
-| `src/passes/local_cse.mbt:1-18,543-559,809-816` | Active Starshine owner file for direct `local-cse` execution, including the summary, descriptor, module-pass entry, and main HotPass rewrite pipeline. |
-| `src/passes/local_cse_test.mbt` | Direct registry and behavior tests for repeated trees, parent-over-child cancellation, load barriers, tiny-root `global.get` no-ops, `struct.new` and `struct.new_default` generative-root no-ops, local-write window resets, Binaryen's before-`if` into `then` and before-block into straight-line block positives, paired after-`if` / else-arm negatives, and before-loop into loop-body plus `br_table` / `return` / `unreachable` boundary negatives. |
+| `src/passes/local_cse.mbt` | Active Starshine owner file for direct `local-cse` execution, including the summary, descriptor, raw/module rewrite pipeline, callee annotation lookup for the narrow idempotent direct-call exception, module-pass entry, and main HotPass rewrite pipeline. |
+| `src/passes/local_cse_test.mbt` | Direct registry and behavior tests for repeated trees, parent-over-child cancellation, load barriers, tiny-root `global.get` no-ops, `struct.new` and `struct.new_default` generative-root no-ops, annotated idempotent direct-call reuse plus ordinary direct-call no-op, local-write window resets, Binaryen's before-`if` into `then` and before-block into straight-line block positives, paired after-`if` / else-arm negatives, and before-loop into loop-body plus `br_table` / `return` / `unreachable` boundary negatives. |
 | `src/passes/optimize.mbt:253,437-449,456-472` | Registers `local-cse` as an active module pass and keeps the aggressive neighborhood gate closed. |
 | `src/passes/pass_manager.mbt:8939-8943` | Module-pass dispatch routes `local-cse` to `local_cse_run_module_pass(...)`. |
 | `src/passes/optimize_test.mbt:510-512,520-527,567-568` | Confirms `local-cse` stays in the active module-pass category on the regression surface, keeps the proven late preset order, and preserves the trace neighborhood proof. |
@@ -149,7 +149,7 @@ A faithful local port still needs neighborhood parity signoff with:
 - continued regression coverage for the before-`if` into `then` and simple before-block into straight-line block reuse positives fixed after the 2026-06-04 audit,
 - durable before-loop into loop-body, `br_table`, `return`, and `unreachable` boundary negative coverage,
 - durable tiny-root no-op coverage for repeated `global.get`,
-- continued source-derived tests for idempotent direct calls and additional GC-generative allocation rejection beyond the covered `struct.new` / `struct.new_default` roots,
+- continued source-derived tests for indirect-call / `call_ref` barriers and additional GC-generative allocation rejection beyond the covered `struct.new` / `struct.new_default` roots,
 - registry and explicit-pass CLI tests keeping `local-cse` active,
 - repeated-pass/idempotence tests because Binaryen can rerun local cleanup,
 - pass-targeted fuzz compare against `wasm-opt --local-cse`, and
