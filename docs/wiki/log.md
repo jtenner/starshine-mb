@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wasm/source-status | proposal boundary vocabulary
+
+- Added [`raw/wasm/2026-06-04-webassembly-proposal-status-refresh.md`](raw/wasm/2026-06-04-webassembly-proposal-status-refresh.md) after checking the official WebAssembly Core 3.0 spec site, active proposals repository, finished-proposals table, CG process phase document, and local `src/validate/gen_valid.mbt` proposal-feature vocabulary.
+- Added [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md) as the shared living guide for Core-3.0 versus finished-proposal versus active-proposal versus Binaryen-oracle versus Starshine-local claims, with routing for stringref, linear-memory threads atomics, shared-GC atomics, custom descriptors, external-validator proposal gaps, and GenValid feature gates.
+- Cross-linked the shared vocabulary from [`tooling/external-validator-adapters.md`](tooling/external-validator-adapters.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`wast/string-instruction-authoring.md`](wast/string-instruction-authoring.md), [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`custom-descriptors/static-fixtures.md`](custom-descriptors/static-fixtures.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`binary/module-section-map.md`](binary/module-section-map.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`strings/string-const-surface.md`](strings/string-const-surface.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), and [`index.md`](index.md) so future proposal/local wording has one durable route.
+
 ## [2026-06-04] wiki-health | address-width backlink cleanup
 
 - During the follow-up health check, repointed secondary address-width consumers to the new focused validator matrix: [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md), [`binaryen/passes/memory64-lowering/index.md`](binaryen/passes/memory64-lowering/index.md), [`binaryen/passes/memory64-lowering/starshine-port-readiness-and-validation.md`](binaryen/passes/memory64-lowering/starshine-port-readiness-and-validation.md), [`binaryen/passes/index.md`](binaryen/passes/index.md), and [`index.md`](index.md).

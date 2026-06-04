@@ -32,7 +32,7 @@ related:
 - Binary encoding emits Starshine's local `StringRefsSec` literal pool before globals and code and roundtrips `string.const` through that section.
 - Decoding resolves string-literal indices back to literal bytes before later module consumers see the instruction.
 - The binary value-type decoder accepts the bare `0x64` stringref shorthand when the explicit non-null-reference form cannot be completed, which lets standalone stringref result types decode instead of failing before string passes run. Tests also lock explicit nullable `0x63 0x64` and explicit non-null `0x64 0x64` stringref value-type decode/re-encode behavior.
-- Source-refresh caveat: the 2026-06-04 check found the active Phase-1 Reference-Typed Strings proposal defining a draft `stringrefs` section id `14`, but current Core WebAssembly 3.0 still has no stable `stringrefs` section. Treat Starshine's section id `14` as local/proposal-facing until the proposal advances into the core spec.
+- Source-refresh caveat: the 2026-06-04 check found the active Phase-1 Reference-Typed Strings proposal defining a draft `stringrefs` section id `14`, but current Core WebAssembly 3.0 still has no stable `stringrefs` section. Treat Starshine's section id `14` as local/proposal-facing until the proposal advances into the core spec; use [`../wasm-feature-status-and-proposal-boundaries.md`](../wasm-feature-status-and-proposal-boundaries.md) for the shared status vocabulary.
 - IR and SSA treat `string.const` as a pure nullary value producer with a typed payload.
 
 ## Practical Rule

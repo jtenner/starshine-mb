@@ -41,7 +41,7 @@ The official WebAssembly 3.0 binary format has two ordering rules that are easy 
 1. **Standard sections appear in a fixed family order.** The stream begins with magic/version bytes, then standard sections appear at most once in the spec order, with custom sections allowed in gaps.
 2. **Index spaces are semantic, not just section-local.** Imports and local definitions of the same kind share one index space; imported functions/tables/memories/globals/tags occupy the prefix before local definitions.
 
-Starshine follows those rules in its core module representation and validation environment, while making two local choices explicit: non-`name` custom-section placement is normalized on encode, and `StringRefsSec` section id `14` is proposal/local-facing rather than a stable Core WebAssembly 3.0 section.
+Starshine follows those rules in its core module representation and validation environment, while making two local choices explicit: non-`name` custom-section placement is normalized on encode, and `StringRefsSec` section id `14` is proposal/local-facing rather than a stable Core WebAssembly 3.0 section. Use [`../wasm-feature-status-and-proposal-boundaries.md`](../wasm-feature-status-and-proposal-boundaries.md) for the shared Core/finished-proposal/active-proposal/local wording rule.
 
 ## Whole-Module Section Order
 

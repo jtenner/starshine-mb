@@ -123,7 +123,7 @@ That means a command-harness `agree-valid` result is useful external evidence, b
 ## Edge Cases And Invariants
 
 - **Adapter unavailability is explicit.** Do not silently drop selected adapters from aggregate counts.
-- **Do not classify proposal gaps as Starshine bugs without source review.** External tools can lag or lead Starshine on GC, strings, exception handling, memory64, threads, SIMD, relaxed SIMD, custom descriptors, or other proposal surfaces.
+- **Do not classify proposal gaps as Starshine bugs without source review.** External tools can lag or lead Starshine on GC, strings, exception handling, memory64, threads, SIMD, relaxed SIMD, custom descriptors, or other proposal surfaces; use [`../wasm-feature-status-and-proposal-boundaries.md`](../wasm-feature-status-and-proposal-boundaries.md) for the shared Core-vs-proposal-vs-local vocabulary before assigning blame.
 - **Decode-vs-validation stage matters.** A malformed LEB or section-size underflow is a binary codec issue; a decoded `call_indirect` type mismatch is validator semantics.
 - **Binaryen validation is optimizer-backed.** The current adapter uses `wasm-opt --all-features --validate` and writes a temporary output, so it can expose Binaryen parser/validator behavior but does not preserve original bytes.
 - **WABT command-harness evidence is not all-features evidence.** The local adapter invokes `wasm-validate` without additional feature flags today.
@@ -135,7 +135,7 @@ That means a command-harness `agree-valid` result is useful external evidence, b
 - Update this page whenever `BinaryValidationOutcome`, `BinaryDifferentialClassification`, native adapter command lines, non-native fallback behavior, or binary-differential report fields change.
 - Update [`validate/fuzz-hardening.md`](../validate/fuzz-hardening.md) for broad invalid-lane coverage claims; keep this page focused on external adapter semantics.
 - Update [`pass-fuzz-compare.md`](pass-fuzz-compare.md) when pass-fuzz input/output validation, optional external validators, or Binaryen oracle behavior changes.
-- If an external tool's feature defaults become important to a claim, capture a fresh raw source note and record whether the evidence came from command-harness adapters, compare-pass, self-opt validation, or a one-off manual repro.
+- If an external tool's feature defaults become important to a claim, capture a fresh raw source note and record whether the evidence came from command-harness adapters, compare-pass, self-opt validation, or a one-off manual repro; when the disagreement is feature-status-shaped, update the shared feature-boundary page as well as the adapter page.
 
 ## Sources
 
