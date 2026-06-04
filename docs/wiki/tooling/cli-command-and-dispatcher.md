@@ -3,6 +3,7 @@ kind: workflow
 status: supported
 last_reviewed: 2026-06-04
 sources:
+  - ../raw/research/0711-2026-06-04-cli-print-utility-routing.md
   - ../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md
   - ../raw/binaryen/2026-05-19-wasm-opt-cli-contract.md
   - ../../../src/cli/cli.mbt
@@ -20,6 +21,8 @@ related:
   - ./tracing-playbook.md
   - ./validation-gates.md
   - ../wast/static-assertion-harness.md
+  - ../binary/custom-and-name-sections.md
+  - ../validate/import-export-and-external-type-matching.md
   - ../ir2/registry-map.md
   - ../binaryen/passes/index.md
   - ../binaryen/no-dwarf-default-optimize-path.md
@@ -106,14 +109,25 @@ Utility steps split the optimization queue into segments:
 starshine --dump before.wat --print-func 42 --vacuum --validate --dump after.wasm input.wasm
 ```
 
-The dispatcher flushes pending optimizer passes before each utility step. That means dumps, prints, validation checkpoints, and `extract-functions` observe the module at exactly that point in the queue, not only before or after the whole run.
+The dispatcher flushes pending optimizer passes before each utility step. That means dumps, prints, validation checkpoints, and `extract-functions` observe the module at exactly that point in the queue, not only before or after the whole run. The focused print-step source audit is [`../raw/research/0711-2026-06-04-cli-print-utility-routing.md`](../raw/research/0711-2026-06-04-cli-print-utility-routing.md); it checked the current parser, dispatcher, help, and command tests behind the details below.
 
 | Step | Behavior |
 | --- | --- |
-| `--dump <file.wasm|file.wat>` | Writes the current module state as binary wasm or printed WAT. |
-| `--print-{type,func,import,table,memory,global,export,tag,elem,data} <name|index>` | Logs one selected item to stderr; names come from the structured name section or import/export fields where applicable. |
+| `--dump <file.wasm|file.wat>` | Writes the current module state as binary wasm or printed WAT. Only `.wasm` and `.wat` paths are accepted. |
+| `--print-{type,func,import,table,memory,global,export,tag,elem,data} <name|index>` | Logs one selected item to stderr at that exact queue point. The CLI parser accepts the `print-` shape and a non-empty selector, but the dispatcher owns this ten-kind allowlist; unsupported `--print-foo` is rejected as an unknown pass flag. |
 | `--validate` | Validates the current module state and includes offending function text when available. |
 | `--extract-functions <index,index,...>` | Replaces the current module with a safe minimal module rooted at selected functions through RUME extraction. |
+
+Print selectors intentionally support both fast numeric debugging and name-based lookup:
+
+- `71` and `(71)` both select absolute index `71`.
+- Any other selector is a name.
+- Type, function, table, memory, global, tag, element, and data name lookups use the structured [`NameSec`](../binary/custom-and-name-sections.md) maps. Source `$` ids are only available if they survived lowering or binary decode into those maps. Index selectors remain reliable when name maps are absent.
+- Import name lookup uses the import payload, not the name section: `field` selects the first matching field name, while `module.field` selects an exact `(module, field)` pair.
+- Export name lookup uses the public export name string and shares the duplicate-name invariant documented in [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md).
+- Function indices are absolute imported-prefix `FuncIdx` values. `--print-func 0` may therefore select an imported function when function imports are present; local body ordinals are not a separate selector space.
+
+The stderr log shape is part of the debugging contract, not a wasm output stream. For each input, the first print emits `Log: <input>`, every print gets an increasing entry number, labels look like `Func[0 main]` when a name is available, and bodies are indented. A missing item or name/index mismatch fails the command as `OptimizeFailed("print <kind>: no item matched selector ...")`; a stderr write failure reports `OutputWriteFailed("stderr print log ...")`. Keep `src/cli/cli_test.mbt` and the command-level `run_cmd_with_adapter prints ordered log entries to stderr and sees post-pass state` test in sync with any selector or log-shape change.
 
 ## Validation And Encoding Invariants
 
@@ -145,9 +159,11 @@ Use [`tracing-playbook.md`](./tracing-playbook.md) for trace-line shape and [`va
 - Help output intentionally lists only runnable hot passes and presets. Module passes may still be runnable when known to the registry, but help is kept focused.
 - Boundary-only and removed pass names should stay visible in wiki dossiers and registry maps but not in CLI help.
 - Any new command flag needs parser coverage in `src/cli/cli_test.mbt` or command coverage in `src/cmd/cmd_wbtest.mbt`; any new pass category or preset change also needs `src/passes/optimize.mbt` and registry/preset docs refreshed.
+- Any new printable item kind needs coordinated changes to CLI help, `cmd_is_supported_print_kind(...)`, `cmd_resolve_pipeline_print_entry(...)`, the ordered stderr log test, this page, and whichever focused wiki page owns the selector's name source or index space.
 
 ## Sources
 
+- 2026-06-04 print-utility routing audit: [`../raw/research/0711-2026-06-04-cli-print-utility-routing.md`](../raw/research/0711-2026-06-04-cli-print-utility-routing.md)
 - 2026-06-04 dispatcher/stdin source audit: [`../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md`](../raw/research/0707-2026-06-04-cli-dispatcher-stdin-gap-and-source-audit.md)
 - Upstream CLI shape: [`../raw/binaryen/2026-05-19-wasm-opt-cli-contract.md`](../raw/binaryen/2026-05-19-wasm-opt-cli-contract.md)
 - Parser/config/glob code: [`../../../src/cli/cli.mbt`](../../../src/cli/cli.mbt), [`../../../src/cli/glob.mbt`](../../../src/cli/glob.mbt), [`../../../src/cli/cli_test.mbt`](../../../src/cli/cli_test.mbt)

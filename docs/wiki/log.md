@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] tooling/cli | print utility routing refresh
+
+- Added [`raw/research/0711-2026-06-04-cli-print-utility-routing.md`](raw/research/0711-2026-06-04-cli-print-utility-routing.md) after rechecking current Starshine parser, dispatcher, help, command-test, name-section, and import/export evidence, plus Binaryen `wasm-opt` orientation sources as non-normative upstream context.
+- Refreshed [`tooling/cli-command-and-dispatcher.md`](tooling/cli-command-and-dispatcher.md) so ordered utility-step coverage now teaches the supported `--print-{type,func,import,table,memory,global,export,tag,elem,data}` allowlist, `71` / `(71)` index selectors versus name selectors, structured-name-section versus import/export payload name sources, absolute imported-prefix function indices, stderr log shape, failure modes, and maintenance rules for adding a new printable item kind.
+- Updated [`index.md`](index.md) so the CLI dispatcher catalog entry routes readers to the print-utility refresh instead of leaving `print-*` as a single terse row.
+
 ## [2026-06-04] passes/local-cse | return_call continuation positive fix
 
 - Spot-checked direct `return_call` and confirmed Binaryen materializes the pre-tail-call expression with `local.tee` and reuses it in the unreachable continuation.
