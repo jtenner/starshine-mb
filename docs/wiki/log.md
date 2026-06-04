@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] tooling/validation | external validator adapter guide
+
+- Added [`raw/validation/2026-06-04-external-validator-adapters-source-refresh.md`](raw/validation/2026-06-04-external-validator-adapters-source-refresh.md) after checking current official `wasm-tools`, WABT, and Binaryen validation command surfaces plus local `src/cmd/fuzz_harness.mbt` and `src/cmd/fuzz_harness_wbtest.mbt` evidence.
+- Added [`tooling/external-validator-adapters.md`](tooling/external-validator-adapters.md) as the focused command-harness adapter contract: Starshine-local decode/validate ownership, optional native subprocess adapters for `wasm-tools`, WABT, and Binaryen, the exact aggregate classification ladder, adapter-unavailable/tool-failure/proposal-gap handling, and the boundary from compare-pass `--features all` validation.
+- Cross-linked the adapter guide from [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md), [`tooling/pass-fuzz-compare.md`](tooling/pass-fuzz-compare.md), [`tooling/validation-gates.md`](tooling/validation-gates.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), and [`index.md`](index.md) so external validation evidence no longer stays buried inside the broad invalid-fuzz hardening page.
+
 ## [2026-06-04] wiki-health | name-section duplicate wording cleanup
 
 - During the follow-up health check, collapsed duplicated `[FUZ]1020G1` name-map ordering/count wording in [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md) into one binary/codec-invalid classification sentence.

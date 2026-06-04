@@ -32,6 +32,7 @@ related:
   - ./moonbit-workspace-package-map.md
   - ./fuzz-runner.md
   - ./pass-fuzz-compare.md
+  - ./external-validator-adapters.md
   - ./tracing-playbook.md
   - ../validation/moonbit-prove-strategy.md
   - ../validate/module-validation-phases.md
@@ -104,7 +105,7 @@ bun fuzz compare-pass --pass <canonical-pass>|--<pass-flag> --count 10000 --seed
 
 For script-level compatibility, `bun scripts/pass-fuzz-compare.ts` is the same underlying implementation and still valid when invoked directly; use the same `--jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` pair there too.
 
-The pass-comparison harness has its own contract: generated inputs, `wasm-tools validate`, Starshine output validation, Binaryen/canonicalization comparison, normalized WAT matching, command-failure classification, optional replay by failure class/case, and parallel lanes requiring a prebuilt `--starshine-bin` next to `--jobs auto`. Keep pass evidence in the affected pass dossier; keep the detailed harness behavior in [`pass-fuzz-compare.md`](pass-fuzz-compare.md), and keep this page as the shared gate map. For DAE / generator-debris lanes, use the explicit `--normalize drop-consts --normalize unreachable-control-debris` pair so cleanup-normalized matches stay separate from exact normalized matches.
+The pass-comparison harness has its own contract: generated inputs, `wasm-tools validate`, Starshine output validation, Binaryen/canonicalization comparison, normalized WAT matching, command-failure classification, optional replay by failure class/case, and parallel lanes requiring a prebuilt `--starshine-bin` next to `--jobs auto`. Keep pass evidence in the affected pass dossier; keep the detailed harness behavior in [`pass-fuzz-compare.md`](pass-fuzz-compare.md), and keep this page as the shared gate map. Optional command-harness binary differential validators (`wasm-tools`, WABT, Binaryen) are a separate opt-in evidence surface; use [`external-validator-adapters.md`](external-validator-adapters.md) for their stage classification, command lines, and skipped-tool semantics. For DAE / generator-debris lanes, use the explicit `--normalize drop-consts --normalize unreachable-control-debris` pair so cleanup-normalized matches stay separate from exact normalized matches.
 
 ## Coverage Gate Semantics
 

@@ -16,6 +16,7 @@ sources:
 related:
   - ./fuzz-runner.md
   - ./validation-gates.md
+  - ./external-validator-adapters.md
   - ../fuzzing/generator-coverage-ledger.md
   - ../fuzzing/reduction-backends.md
   - ../validate/fuzz-hardening.md
@@ -98,7 +99,7 @@ For each case, [`runPassFuzzCompare(...)`](../../../scripts/lib/pass-fuzz-compar
 
 1. **Input validation:** `wasm-tools validate --features all input.wasm` must pass before the case can compare.
 2. **Starshine run:** Starshine receives the requested pass flags and `--out <starshine.raw.wasm> <input.wasm>`.
-3. **Starshine output validation:** `wasm-tools validate --features all starshine.raw.wasm` must pass. A failure here is a Starshine validation failure, not a Binaryen semantic mismatch. Optional `--external-validator` adapters can also run skip-clean output checks with `wasm-tools`, Binaryen `wasm-validate`, or WABT `wasm-validate`; missing external validator binaries are recorded as skipped in `result.json` instead of failing the run.
+3. **Starshine output validation:** `wasm-tools validate --features all starshine.raw.wasm` must pass. A failure here is a Starshine validation failure, not a Binaryen semantic mismatch. Optional `--external-validator` adapters can also run skip-clean output checks with `wasm-tools`, Binaryen, or WABT validators; missing external validator binaries are recorded as skipped in `result.json` instead of failing the run. Keep this pass-fuzz surface distinct from the command-harness binary differential adapter schema in [`external-validator-adapters.md`](external-validator-adapters.md).
 4. **Binaryen oracle run:** `wasm-opt input.wasm --all-features <binaryen-pass-flags> -o binaryen.raw.wasm` produces the oracle output.
 5. **Canonicalization:** both raw outputs are passed through `wasm-opt --all-features --strip-debug -o <canonical.wasm>`.
 6. **Text normalization:** both canonical outputs are printed with `wasm-opt --all-features --strip-debug -S -o <wat>`.

@@ -19,6 +19,7 @@ sources:
 related:
   - ./validation-gates.md
   - ./pass-fuzz-compare.md
+  - ./external-validator-adapters.md
   - ../validate/fuzz-hardening.md
   - ../validate/diagnostics-and-invalid-repro.md
   - ../fuzzing/generator-coverage-ledger.md
@@ -78,6 +79,8 @@ The lower-level [`run_cmd_fuzz_harness(...)`](../../../src/cmd/fuzz_harness.mbt)
 Cmd-harness corpus tools also expose `FuzzCorpusDedupIndex`, a deterministic FNV-1a keyed hash index that records every source seed, attempt, generator profile, pass profile, stage, and duplicate decision under the emitted wasm hash. Keep that text index next to generated corpus artifacts when deduplicating so a retained hash can be traced back to all source seeds/profiles and duplicate decisions without regenerating the corpus.
 
 The `[FUZ]1045A7` text differential runner is intentionally opt-in and is not part of the default `all` suite. `moon run src/fuzz -- text-differential smoke --seed 0x1045a7` and the `text-differential-smoke` recipe run a deterministic local WAT parse/print/reparse/lower matrix and report `adapter_unavailable` counts for WABT / wasm-tools text adapters when those external tools are not wired into the runner; unavailable tools are skipped evidence, not suite failures.
+
+The `[FUZ]1044*` binary differential helpers are intentionally opt-in command-harness support rather than ordinary suite success criteria. They classify Starshine decode/validate plus optional `wasm-tools`, WABT, and Binaryen validators into agree-valid, agree-invalid, proposal-gap, decoder-stage disagreement, validator-stage disagreement, tool-failure, unsupported-feature, and adapter-unavailable buckets; route exact adapter command lines and skip semantics through [`external-validator-adapters.md`](external-validator-adapters.md).
 
 The `[FUZ]1052B` export-invocation matrix helpers are intentionally opt-in. Runtime-adapter execution can classify equal results, equal traps, unsupported runtimes, nondeterministic imports, and semantic mismatches, but `[FUZ]1052B10` keeps the default failure policy informational. Pass-fuzz `--runtime-execution node` now builds same-named export invocation rows for raw Starshine and Binaryen outputs before summarizing checked/unsupported/failed runtime counts; per-row report persistence remains a follow-up slice. Equal traps are smoke evidence for the invoked export path, not a broad semantic proof; route wording and mismatch classification through [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md). `ExportInvocationFailurePolicy::fail_on_semantic_mismatch()` is the explicit gate for harnesses that want semantic mismatches to affect exit status; unsupported runtime and nondeterministic-import rows remain blocked/skipped classifications rather than hard failures under that policy.
 
