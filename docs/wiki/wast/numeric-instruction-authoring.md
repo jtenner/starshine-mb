@@ -1,10 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md
   - ../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md
+  - ../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -39,7 +40,7 @@ Use this page when writing or reviewing scalar numeric WAST fixtures for `i32`, 
 - float unary, binary, and comparison operations;
 - conversions, reinterprets, sign-extension operations, and saturating truncations.
 
-This page is scalar-only. Memory loads/stores use [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for stack/effect behavior and [`memory-argument-authoring.md`](memory-argument-authoring.md) for `align=` / `offset=`, local/global operands use [`variable-instruction-authoring.md`](variable-instruction-authoring.md), vector instructions use [`simd-authoring.md`](simd-authoring.md), and byte-level instruction encoding is summarized in [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md). The checked primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md`](../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md). The targeted 2026-05-20 refresh in [`../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md`](../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md) sharpens the official-literal versus Starshine lexer/parser/lowerer split and the optimizer rewrite hazards around traps, saturation, reinterprets, signedness, NaNs, and signed zero.
+This page is scalar-only. Memory loads/stores use [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for stack/effect behavior and [`memory-argument-authoring.md`](memory-argument-authoring.md) for `align=` / `offset=`, local/global operands use [`variable-instruction-authoring.md`](variable-instruction-authoring.md), vector instructions use [`simd-authoring.md`](simd-authoring.md), and byte-level instruction encoding is summarized in [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md). The checked primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md`](../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md). The targeted 2026-05-20 refresh in [`../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md`](../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md) sharpens the official-literal versus Starshine lexer/parser/lowerer split and the optimizer rewrite hazards around traps, saturation, reinterprets, signedness, NaNs, and signed zero. The 2026-06-04 current-source refresh in [`../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md`](../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md) rechecked the current WebAssembly Core 3.0 pages dated 2026-06-03 and found no new scalar numeric family or local-code drift that needs a separate page.
 
 ## Beginner Mental Model
 
@@ -71,7 +72,7 @@ After Starshine lowers this text, `$x` is already a numeric `LocalIdx`, constant
 | WAST lowerer/printer | [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | Parses literal text into core numeric wrappers, maps no-argument numeric opcodes through `wt_numeric_noarg`, and prints constants as keyword plus stored text. |
 | Core instruction model | [`src/lib/types.mbt`](../../../src/lib/types.mbt) | Keeps scalar numeric constants and operators as explicit `Instruction` variants and constructor helpers. |
 | Binary bytes | [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) | Uses `0x41`..`0x44` for scalar constants, one-byte opcodes for most scalar numeric ops, `0xC0`..`0xC4` for sign-extension, and `0xFC` subcodes `0`..`7` for saturating truncations. |
-| Validation | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) | Checks operand/result stack types. Constants push their type, comparisons and integer tests produce `i32`, conversions have fixed source/result pairs, and constant expressions still run ordinary typechecking after the const-instruction filter. |
+| Validation | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) | Checks operand/result stack types. Constants push their type, comparisons and integer tests produce `i32`, conversions have fixed source/result pairs, `trunc_sat` has the same stack types as ordinary truncation but different runtime behavior, and constant expressions still run ordinary typechecking after the const-instruction filter. |
 | Fuzz / generator evidence | [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt) | `[FZG]002` proves a widened valid-generator scalar numeric matrix; WAST arbitrary currently mirrors representative text shapes, not every scalar numeric opcode. |
 
 ## Text Shapes And Stack Rules
@@ -136,6 +137,15 @@ i32.const 5
 i32.add
 ```
 
+## Current Source Refresh
+
+The 2026-06-04 source refresh confirms the current official Core 3.0 scalar numeric surface still matches this guide's family split: constants, tests, comparisons, unary/binary integer and float operations, conversions, reinterprets, sign extension, and saturating truncation stay scalar; SIMD and relaxed-SIMD remain on [`simd-authoring.md`](simd-authoring.md), memory opcodes remain on [`memory-instruction-authoring.md`](memory-instruction-authoring.md), and reference/GC/string opcodes remain on their focused pages.
+
+Two source-current caveats are worth keeping visible:
+
+- **Official text literals are broader than every Starshine local path.** Current WebAssembly text permits decimal/hex integer forms with separators and several float special forms. Starshine recognizes many of these at the lexer/lowerer boundary, but scalar body constants, index parsing, SIMD lane parsing, and WAST assertion result rendering still use different helper paths. Keep large unsigned wraparound, separator-heavy scalar integers, hex floats, and NaN payload roundtrips focused and test-backed.
+- **Official and Starshine constant-expression lists differ.** The current official constant-expression predicate admits scalar numeric constants plus only integer `i32`/`i64` `add`/`sub`/`mul` among scalar numeric no-argument operators. Starshine's [`validate_const_instr(...)`](../../../src/validate/validate.mbt) deliberately admits many more scalar numeric operators locally, then relies on ordinary typechecking for arity and result type. Use [`../validate/constant-expressions.md`](../validate/constant-expressions.md) when a pass or fixture depends on initializer portability.
+
 ## Binary And Validation Contract
 
 The binary layer and validation layer deliberately answer different questions.
@@ -153,11 +163,11 @@ Important byte families:
 | `0xC0`..`0xC4` | integer sign-extension instructions |
 | `0xFC 0`..`0xFC 7` | saturating truncations before the same prefix space continues into bulk-memory/table operations |
 
-For WAST authors, the biggest mistake is confusing byte presence with semantic validity. `i32.add` has no immediate and can always decode, but validation still fails if the stack does not contain two `i32` values. Conversely, `i32.trunc_sat_f64_s` and `i32.trunc_f64_s` have related source/result types but different runtime failure behavior; a pass cannot swap them just because typechecking stays green.
+For WAST authors, the biggest mistake is confusing byte presence with semantic validity. `i32.add` has no immediate and can always decode, but validation still fails if the stack does not contain two `i32` values. Conversely, `i32.trunc_sat_f64_s` and `i32.trunc_f64_s` have related source/result types but different runtime failure behavior: ordinary truncation traps for NaN or out-of-range inputs, while saturating truncation returns zero or clamps to the target integer range. A pass cannot swap them just because typechecking stays green.
 
 ## Constant Expressions
 
-Starshine's constant-expression filter is intentionally broader than only literal constants. It admits scalar numeric constants and no-argument scalar numeric operators, then runs ordinary stack typechecking and enforces exactly one expected result.
+Starshine's constant-expression filter is intentionally broader than the current official scalar numeric constant-expression set. Official Core 3.0 admits scalar numeric constants plus integer `i32`/`i64` `add`/`sub`/`mul`; Starshine locally admits scalar numeric constants and many more no-argument scalar numeric operators, then runs ordinary stack typechecking and enforces exactly one expected result.
 
 That means this is locally meaningful as a constant initializer when the operands and result type line up:
 
@@ -202,6 +212,7 @@ Useful local signoff lanes for numeric authoring changes are `moon test src/wast
 
 - Primary-source manifest: [`../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md`](../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md)
 - Targeted literal/rewrite refresh: [`../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md`](../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md)
+- Current-source refresh: [`../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md`](../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md)
 - Official WebAssembly instruction sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>
-- Official text values source: <https://webassembly.github.io/spec/core/text/values.html>
+- Official numeric execution and text values sources: <https://webassembly.github.io/spec/core/exec/numerics.html>, <https://webassembly.github.io/spec/core/text/values.html>
 - Local parser/lowerer/printer sources listed in the frontmatter above.

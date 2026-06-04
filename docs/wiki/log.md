@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wast | scalar numeric current-source refresh
+
+- Added [`docs/wiki/raw/wasm/2026-06-04-scalar-numeric-current-refresh.md`](raw/wasm/2026-06-04-scalar-numeric-current-refresh.md) after rechecking current official WebAssembly Core 3.0 syntax, text, text-value, binary, instruction-validation, and numeric-execution pages dated 2026-06-03 plus Starshine WAST/parser/lowerer/binary/typecheck/constant-expression surfaces.
+- Refreshed [`wast/numeric-instruction-authoring.md`](wast/numeric-instruction-authoring.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so scalar numeric docs now distinguish official literal breadth, local Starshine scalar literal paths, official constant-expression scalar limits, Starshine's broader local `validate_const_instr(...)` allow-list, and the ordinary-truncation-versus-saturating-truncation rewrite boundary.
+- No code changed; the refresh found no new scalar numeric family and keeps SIMD, memory, reference, GC, and string instruction families routed to their focused pages.
+
 ## [2026-06-04] wiki-health | data-count wording cleanup
 
 - Tightened remaining broad-audience wording in [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md) and [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md) so their overview/example bullets name the broader current data-count requirement for all code-section data-index users, including GC array data forms, instead of teaching only the bulk-memory pair.

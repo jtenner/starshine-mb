@@ -11,6 +11,7 @@ sources:
   - ../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md
   - ../raw/wasm/2026-05-20-constant-expression-validation-sources.md
   - ../raw/wasm/2026-06-04-struct-atomic-get-sources.md
+  - ../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md
   - ../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
   - ../raw/wasm/2026-05-20-reference-branch-validation-refresh.md
   - ../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md
@@ -86,7 +87,7 @@ Do not treat success in one layer as proof for another. For example, core/binary
 
 ### Numeric, SIMD, and variables
 
-- [`numeric-instruction-authoring.md`](numeric-instruction-authoring.md) — scalar numeric constants, tests, comparisons, arithmetic, conversions, reinterprets, sign-extension, saturating truncations, official-vs-local literal paths, and trap/NaN/signed-zero rewrite hazards.
+- [`numeric-instruction-authoring.md`](numeric-instruction-authoring.md) — scalar numeric constants, tests, comparisons, arithmetic, conversions, reinterprets, sign-extension, saturating truncations, current official-vs-local literal and constant-expression paths, and trap/NaN/signed-zero rewrite hazards.
 - [`simd-authoring.md`](simd-authoring.md) — `v128.const`, lane bounds, shuffle, SIMD memory args, relaxed-SIMD arities/spellings, generator-versus-WAST coverage, and the cross-layer lane-validation split routed through [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md).
 - [`variable-instruction-authoring.md`](variable-instruction-authoring.md) — `local.get` / `set` / `tee`, `global.get` / `set`, local/global index spaces, and immutable-`global.get` constant-expression policy.
 
