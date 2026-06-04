@@ -1,54 +1,151 @@
 ---
 kind: tooling-note
-status: active
-last_reviewed: 2026-06-01
+status: supported
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/fuzzing/2026-06-04-reduction-backends-source-refresh.md
   - ../../../scripts/lib/fuzz-reducers.ts
   - ../../../scripts/test/fuzz-reducers.ts
+  - ../../../scripts/lib/pass-fuzz-compare-task.ts
+  - ../../../scripts/test/pass-fuzz-compare-command.ts
   - ../../../src/cmd/fuzz_harness.mbt
   - ../../../src/cmd/fuzz_harness_wbtest.mbt
   - ../../../src/fuzz/invalid_repro.mbt
   - ../../../src/fuzz/invalid_repro_wbtest.mbt
   - ../../../agent-todo.md
+related:
+  - ./interestingness-hash-schema.md
+  - ./recipe-schema.md
+  - ./generator-coverage-ledger.md
+  - ../tooling/pass-fuzz-compare.md
+  - ../validate/diagnostics-and-invalid-repro.md
+  - ../validate/fuzz-hardening.md
 ---
 
 # Fuzz Reduction Backends
 
-`[FUZ]1043B` added the first reusable script-side reduction backends in `scripts/lib/fuzz-reducers.ts`:
+## Overview
 
-- `reduceModuleFieldsByDeletion(...)` deletes contiguous module-field chunks while a caller-supplied predicate still reproduces the interesting condition.
-- `reduceBinaryByByteSlices(...)` applies the same chunk-deletion loop to raw wasm bytes and returns a `Uint8Array`.
-- `reduceTextByTokenDeletion(...)` tokenizes WAT/WAST-like text and deletes token chunks while preserving the predicate.
-- `reduceTextByLineDeletion(...)` deletes contiguous line chunks while preserving the predicate, useful for script-side logs, manifests, and WAST/text artifacts where line boundaries are more stable than lexical tokens.
+Reduction is the step that turns a large failing fuzz artifact into a smaller artifact that still reproduces the same interesting condition. In Starshine, the reducer is intentionally boring: it repeatedly deletes chunks and asks a caller-supplied predicate whether the candidate still reproduces. If the predicate says yes, the smaller candidate becomes the new baseline; if no deletion keeps the predicate, the original artifact is preserved.
 
-The reducers are deliberately predicate-only and format-light. They do not validate wasm, reparse text, or decide interestingness themselves; callers own those checks so the same backends can serve pass-fuzz mismatches, invalid-fuzz repros, and future corpus tooling.
+That split is the core invariant. Reducers do **not** validate wasm, decide whether a mismatch is semantic, classify diagnostics, or choose pass-oracle policy. The caller owns those checks. The 2026-06-04 source refresh in [`../raw/fuzzing/2026-06-04-reduction-backends-source-refresh.md`](../raw/fuzzing/2026-06-04-reduction-backends-source-refresh.md) ties this contract to delta debugging, C-Reduce-style interestingness tests, Binaryen `wasm-reduce` orientation, and the current Starshine implementation.
 
-The initial unit coverage in `scripts/test/fuzz-reducers.ts` proves each backend removes irrelevant material, preserves required predicate tokens/bytes/fields, and leaves input unchanged when no deletion preserves the predicate.
+Use this page when reading or changing:
 
-`[FUZ]1043C` adds the same predicate-only deletion loop to the Moon command fuzz harness through `reduce_fuzz_sequence_by_deletion(...)` and `reduce_fuzz_bytes_by_slice_deletion(...)`. The sequence reducer now backs `minimize_fuzz_passes(...)`, so pass-list minimization, future GenValid/module-field minimizers, byte repro reducers, and command-harness failure minimization can share one chunk-deletion contract with explicit reduction-step metadata and predicate-evaluation counts.
+- script-side reducers in [`scripts/lib/fuzz-reducers.ts`](../../../scripts/lib/fuzz-reducers.ts);
+- compare-pass mismatch artifacts in [`scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts);
+- Moon command-harness reducers in [`src/cmd/fuzz_harness.mbt`](../../../src/cmd/fuzz_harness.mbt);
+- invalid-fuzz repro shrink metadata in [`src/fuzz/invalid_repro.mbt`](../../../src/fuzz/invalid_repro.mbt).
 
-`[FUZ]1043D` connects those Moon reduction reports to command-harness repro persistence. `FuzzFailureReport` can now carry a reduced wasm artifact plus the original/final sizes, predicate-evaluation count, and applied deletion steps; `persist_fuzz_failure_report(...)` writes the original `.wasm`, reduced `.reduced.wasm`, and `.reduction.txt` shrink log side by side and records the reduced-artifact/log paths in the metadata. This keeps the original failure input immutable while making the minimized reproducer and shrink trace discoverable for later replay or corpus promotion.
+## Beginner Model
 
-`[FUZ]1043E` extends the same artifact contract to invalid-fuzz repro bundles. `InvalidFuzzFailureReport` now records optional reduction original/final sizes, predicate-evaluation count, and deletion-step metadata alongside existing reduced artifacts; `persist_invalid_fuzz_failure_report(...)` writes a `reduction.txt` shrink log in the deterministic suite/strategy/seed repro directory and records `reduction_log=reduction.txt` plus `reduction_step=kind|start|len|before|after` metadata. Parsing roundtrips the reduction fields without loading the log, so corpus tooling can discover shrink evidence while replay still chooses original versus reduced artifacts explicitly.
+A reducer needs three things:
 
-`[FUZ]1043F` makes the built-in invalid-fuzz shrink path produce that evidence itself. `shrink_invalid_fuzz_failure_report(...)` still returns strategy-minimal replayable artifacts for AST, binary, inline-text, and spec-seed invalid reports, but now annotates the report with original/final byte sizes, a two-replay predicate-evaluation count, and a `strategy-minimal-repro` reduction step. This keeps supplied reduction evidence and locally generated shrink evidence in the same metadata/log contract while preserving the original artifact.
+1. **An artifact** - bytes, text, lines, or parsed WAST module fields.
+2. **A predicate** - a deterministic yes/no check such as “this candidate still produces the same validation-family failure” or “Starshine and Binaryen still differ after normalization.”
+3. **A deletion unit** - the chunks the reducer is allowed to remove.
 
-`[FUZ]1043G` adds a Moon text-token adapter over the shared sequence reducer through `reduce_fuzz_text_tokens_by_deletion(...)`. It splits WAT/WAST-like text into non-whitespace token units, runs the same predicate-preserving chunk deletion loop, rejoins surviving tokens with single spaces, and relabels reduction steps as `delete-text-token-range`. This gives future text, WAST, and module-artifact shrink paths an in-process reducer before they need parser-aware module-field deletion.
+Example byte-level flow:
 
-`[FUZ]1043H` wires that token-deletion shape into one concrete invalid-fuzz shrink path. `shrink_invalid_fuzz_failure_report(...)` now tries replay-predicate-preserving text-token deletion for inline text and spec-seed WAST reports before falling back to the existing strategy-minimal reducer. Successful token reductions preserve the original artifact, write a reduced WAST artifact, and record `delete-text-token-range` steps plus predicate-evaluation counts in the normal invalid-fuzz reduction metadata.
+```text
+input bytes:        noise TRIGGER tail
+predicate:          candidate still contains TRIGGER and still mismatches
+first kept result:  TRIGGER tail
+next kept result:   TRIGGER
+final artifact:     TRIGGER
+```
 
-`[FUZ]1043I` adds the parser-aware Moon module-field adapter over the same sequence reducer through `reduce_fuzz_module_fields_by_deletion(...)`. Callers pass parsed WAST `ModuleField` arrays and a replay predicate; the adapter deletes contiguous field ranges while the predicate still reproduces, and relabels shrink steps as `delete-module-field-range`. This keeps parser-aware module reducers predicate-only and ready for future WAST/module shrink integrations without inventing a second reduction loop.
+The final artifact is only useful because the predicate was useful. A bad predicate can preserve the wrong condition, so reducers must keep predicate facts explicit in logs and metadata.
 
-`[FUZ]1043J` wires that module-field reducer shape into invalid-fuzz inline text and spec-seed shrink reports. The shrink path now parses inline `assert_malformed`, `assert_invalid`, or `assert_unlinkable` modules, tries predicate-preserving module-field deletion first, emits a reduced WAST assertion when successful, and falls back to token deletion or strategy-minimal reduction when no inline-module field deletion reproduces. This makes WAST/module reductions structurally aware before the broader token reducer removes arbitrary lexical chunks.
+## Backend Matrix
 
-`[FUZ]1043K` syncs the script-side GenValid pass-fuzz mismatch reducer with the shared reduction artifact contract. `reduceBinaryByByteSlicesWithReport(...)` now returns the reduced bytes together with original/final sizes, predicate-evaluation count, and `delete-byte-slice` steps. Fresh GenValid `pass-fuzz-compare` mismatches persist those steps in `reduction.txt` and `failure-metadata.json` beside `reduced-input.wasm`, while keeping the original `input.wasm` as the canonical replay artifact.
+| Backend | Owner | Deletion unit | Current users | Best fit | Main caveat |
+| --- | --- | --- | --- | --- | --- |
+| Module-field deletion | [`reduceModuleFieldsByDeletionWithReport(...)`](../../../scripts/lib/fuzz-reducers.ts), [`reduce_fuzz_module_fields_by_deletion(...)`](../../../src/cmd/fuzz_harness.mbt) | Contiguous WAST `ModuleField` ranges | Invalid-fuzz inline/spec-seed shrink paths; future WAST/module reducers | WAST modules where deleting whole declarations/functions is safer than token deletion | Needs parseable WAST and a predicate that can rebuild the assertion/module wrapper. |
+| Byte-slice deletion | [`reduceBinaryByByteSlicesWithReport(...)`](../../../scripts/lib/fuzz-reducers.ts), [`reduce_fuzz_bytes_by_slice_deletion(...)`](../../../src/cmd/fuzz_harness.mbt) | Contiguous byte ranges | Fresh `gen-valid` compare-pass mismatch reductions; command/invalid repro bytes | Opaque wasm or binary blobs where structural parsing is not required | Can produce invalid wasm; caller must decide whether invalid candidates are acceptable for that predicate. |
+| Text-token deletion | [`reduceTextByTokenDeletionWithReport(...)`](../../../scripts/lib/fuzz-reducers.ts), [`reduce_fuzz_text_tokens_by_deletion(...)`](../../../src/cmd/fuzz_harness.mbt) | Non-whitespace WAT/WAST-like tokens | Invalid-fuzz inline/spec-seed fallback after module-field reduction | Text artifacts where line boundaries are too coarse | Rejoins with single spaces and may destroy layout-sensitive diagnostics. |
+| Text-line deletion | [`reduceTextByLineDeletionWithReport(...)`](../../../scripts/lib/fuzz-reducers.ts) | Contiguous lines | Script-side log, manifest, and text-artifact reducers | Logs/manifests or large script-like artifacts | Too coarse for dense WAT where the interesting part is within one line. |
+| Pass-list deletion | [`minimize_fuzz_passes(...)`](../../../src/cmd/fuzz_harness.mbt) | Pass-name ranges | Command-harness pass-profile minimization | Finding a smaller ordered pass list that still reproduces | Does not prove individual pass blame; it only preserves the pass-list predicate. |
 
-`[FUZ]1043L` extends that report-returning script-side contract to token deletion. `reduceTextByTokenDeletionWithReport(...)` returns the reduced text plus token-count original/final sizes, predicate-evaluation count, and `delete-text-token-range` steps, while `reduceTextByTokenDeletion(...)` remains the compatibility wrapper that returns only the reduced text. This gives future script-side WAT/WAST reducers the same shrink-log metadata shape already used for byte-slice GenValid reductions.
+All backends are greedy chunk-deletion reducers. They are intentionally not a full Binaryen `wasm-reduce` replacement: Starshine does not yet interleave reducer passes, rewrite wasm instructions structurally, or guarantee every intermediate candidate remains valid wasm.
 
-`[FUZ]1043M` completes the same report-returning shape for script-side module-field deletion. `reduceModuleFieldsByDeletionWithReport(...)` now returns reduced field arrays plus original/final field counts, predicate-evaluation count, and `delete-module-field-range` steps, while `reduceModuleFieldsByDeletion(...)` stays a compatibility wrapper. Script-side WAST/module reducers can now emit shrink logs without bypassing the shared reducer contract.
+## Artifact And Log Contract
 
-`[FUZ]1043N` adds a script-side line-deletion reducer for text-like artifacts whose line boundaries should remain meaningful. `reduceTextByLineDeletionWithReport(...)` returns reduced text plus original/final line counts, predicate-evaluation count, and `delete-text-line-range` steps; `reduceTextByLineDeletion(...)` remains the compatibility wrapper. This gives future pass-fuzz, text-differential, and corpus-manifest reducers a coarser option before falling back to token deletion.
+Reduction evidence should travel with the failure, but the original input remains the canonical replay artifact.
 
-`[FUZ]1043O` adds `formatReductionReportLog(...)` as the common script-side shrink-log formatter. Callers provide optional status/context, optional reduced-artifact path/key, original/final sizes, predicate-evaluation counts, and reduction steps; the helper emits the deterministic `key=value` / `step=kind|start=...` text used by reduction artifacts. `pass-fuzz-compare` now uses the helper for mismatch `reduction.txt` files while preserving its existing `reduced_wasm_path=reduced-input.wasm` field for compatibility.
+Script-side report variants return:
 
-`[FUZ]1043P` adds `parseReductionReportLog(...)` as the matching script-side shrink-log parser. It roundtrips the shared formatter's status, original/final sizes, predicate-evaluation count, optional default or custom artifact path key, and deletion-step metadata so reduction artifacts can be audited by tooling without each caller reimplementing ad hoc log parsing.
+```text
+result
+originalSize
+finalSize
+predicateEvaluations
+steps[] = { kind, start, length, beforeSize, afterSize }
+```
+
+The shared script log formatter writes the same facts as stable text:
+
+```text
+status=mismatch
+original_size=16
+final_size=4
+predicate_evaluations=7
+reduced_wasm_path=reduced-input.wasm
+step=delete-byte-slice|start=4|len=8|before=16|after=8
+```
+
+[`parseReductionReportLog(...)`](../../../scripts/lib/fuzz-reducers.ts) roundtrips that schema, including custom artifact-path keys such as `reduced_wasm_path`. Tests in [`scripts/test/fuzz-reducers.ts`](../../../scripts/test/fuzz-reducers.ts) cover the formatter/parser pair and the byte/token/line/module report variants.
+
+Moon-side invalid-fuzz reports use the same conceptual fields with Moon names: `reduction_original_size`, `reduction_final_size`, `reduction_predicate_evaluations`, `reduction_step=kind|start|len|before|after`, and `reduction_log=reduction.txt`. [`persist_invalid_fuzz_failure_report(...)`](../../../src/fuzz/invalid_repro.mbt) writes `reduction.txt` beside the original and reduced artifacts.
+
+## Current Flows
+
+### Compare-pass mismatches
+
+For fresh `gen-valid` normalized mismatches, [`runPassFuzzCompare(...)`](../../../scripts/lib/pass-fuzz-compare-task.ts) first records the ordinary failure, then tries byte-slice reduction. If reduction succeeds, the failure directory gains:
+
+- `input.wasm` - original replay input;
+- `reduced-input.wasm` - minimized debugging aid;
+- `reduction.txt` - shrink log;
+- `failure-metadata.json.reduction` - machine-readable original/final sizes, predicate-evaluation count, deletion steps, reduced wasm path, and log path.
+
+The compare-pass workflow page explains the surrounding oracle ladder and replay contract: [`../tooling/pass-fuzz-compare.md`](../tooling/pass-fuzz-compare.md). The important reduction-specific rule is that `input.wasm` stays the replay default; `reduced-input.wasm` is opt-in triage evidence.
+
+### Invalid-fuzz repros
+
+`shrink_invalid_fuzz_failure_report(...)` in [`src/fuzz/invalid_repro.mbt`](../../../src/fuzz/invalid_repro.mbt) preserves the original invalid artifact and attaches smaller artifacts when the replay predicate still matches the original stage/family/property. For inline text and spec-seed WAST, it tries parser-aware module-field deletion before token deletion; if neither works, it falls back to strategy-minimal repro artifacts. This keeps structural WAST reductions ahead of arbitrary lexical shrinkage while preserving a single metadata/log shape.
+
+The diagnostics and invalid-repro page owns the surrounding stable-id and diagnostic-family contract: [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md).
+
+### Command-harness reductions
+
+[`src/cmd/fuzz_harness.mbt`](../../../src/cmd/fuzz_harness.mbt) exposes the shared Moon deletion loop and metadata structs so command-level fuzz reports can minimize pass lists, byte artifacts, text tokens, and parsed module fields without duplicating reducer logic. This is the path that lets pass-list minimization and future command-harness artifact reducers share deletion-step accounting.
+
+## Correctness Constraints
+
+- **Predicate determinism is required.** A flaky predicate can keep or reject candidates for the wrong reason. If the predicate depends on files or environment variables, make those inputs explicit and stable.
+- **Original artifacts stay immutable.** A reduced artifact is a debugging/corpus aid, not a replacement for the first observed failure.
+- **Validation belongs to the caller.** Byte reducers may generate malformed wasm; token reducers may generate malformed WAST; module-field reducers may break references. That is acceptable only when the predicate deliberately handles those outcomes.
+- **Do not confuse reduction with classification.** A smaller mismatch still needs pass-owner semantic classification; a smaller invalid input still needs the expected stage/family policy.
+- **Prefer structural units when available.** Use WAST module-field deletion before token deletion when the artifact is parseable and the predicate can rewrap it.
+- **Preserve shrink evidence.** Keep original/final sizes, predicate-evaluation counts, and ordered steps in both metadata and logs so later tooling can audit whether a reduction actually happened.
+
+## Maintenance Checklist
+
+When adding a reducer or wiring a new failure path:
+
+1. Reuse the existing deletion loop unless the new reducer needs a fundamentally different algorithm.
+2. Add a `...WithReport` variant before adding a log-writing caller.
+3. Choose a stable `step.kind` such as `delete-byte-slice`, `delete-text-token-range`, `delete-text-line-range`, or `delete-module-field-range`.
+4. Keep the compatibility wrapper if older callers need only the reduced artifact.
+5. Persist original and reduced artifacts side by side; do not mutate the original path.
+6. Update parser/formatter tests for any new log key or step shape.
+7. Cross-link the caller's workflow page, generator ledger row, or diagnostics page so future agents can find the reduction evidence.
+
+## Sources
+
+- Source refresh: [`../raw/fuzzing/2026-06-04-reduction-backends-source-refresh.md`](../raw/fuzzing/2026-06-04-reduction-backends-source-refresh.md)
+- Script reducers and tests: [`../../../scripts/lib/fuzz-reducers.ts`](../../../scripts/lib/fuzz-reducers.ts), [`../../../scripts/test/fuzz-reducers.ts`](../../../scripts/test/fuzz-reducers.ts)
+- Compare-pass reducer integration: [`../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts), [`../../../scripts/test/pass-fuzz-compare-command.ts`](../../../scripts/test/pass-fuzz-compare-command.ts), [`../tooling/pass-fuzz-compare.md`](../tooling/pass-fuzz-compare.md)
+- Moon reducers and invalid-fuzz repros: [`../../../src/cmd/fuzz_harness.mbt`](../../../src/cmd/fuzz_harness.mbt), [`../../../src/cmd/fuzz_harness_wbtest.mbt`](../../../src/cmd/fuzz_harness_wbtest.mbt), [`../../../src/fuzz/invalid_repro.mbt`](../../../src/fuzz/invalid_repro.mbt), [`../../../src/fuzz/invalid_repro_wbtest.mbt`](../../../src/fuzz/invalid_repro_wbtest.mbt)
+- Related workflow docs: [`interestingness-hash-schema.md`](interestingness-hash-schema.md), [`generator-coverage-ledger.md`](generator-coverage-ledger.md), [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md), [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md)

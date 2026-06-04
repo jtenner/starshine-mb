@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] fuzzing/reduction | reducer contract source refresh
+
+- Added [`raw/fuzzing/2026-06-04-reduction-backends-source-refresh.md`](raw/fuzzing/2026-06-04-reduction-backends-source-refresh.md) after checking delta-debugging, C-Reduce, Binaryen `wasm-reduce`, and current Starshine script/Moon reducer sources.
+- Reframed [`fuzzing/reduction-backends.md`](fuzzing/reduction-backends.md) from an appended `[FUZ]1043*` slice list into the durable reducer contract: predicate-preserving deletion, backend matrix, artifact/log schema, compare-pass mismatch flow, invalid-fuzz repro flow, command-harness flow, correctness constraints, and maintenance checklist.
+- Cross-linked the reducer contract from [`tooling/pass-fuzz-compare.md`](tooling/pass-fuzz-compare.md), refreshed the top-level catalog entry in [`index.md`](index.md), and added `raw/fuzzing/` to [`raw/README.md`](raw/README.md) as a topic raw-source directory.
+
 ## [2026-06-04] validate | stack-polymorphism current-source refresh
 
 - Added [`raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md`](raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md) after rechecking current WebAssembly Core 3.0 validation-algorithm, instruction-validation, module-validation, and syntax pages plus local `src/lib/types.mbt`, `src/validate/typecheck.mbt`, `src/validate/typecheck_negative_tests.mbt`, and `src/validate/validate.mbt` evidence.

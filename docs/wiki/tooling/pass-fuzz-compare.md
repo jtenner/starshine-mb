@@ -5,6 +5,7 @@ last_reviewed: 2026-06-01
 sources:
   - ../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md
   - ../raw/research/0673-2026-05-26-dae-control-debris-normalizer.md
+  - ../raw/fuzzing/2026-06-04-reduction-backends-source-refresh.md
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../scripts/lib/fuzz-task.ts
   - ../../../scripts/test/pass-fuzz-compare-command.ts
@@ -16,6 +17,7 @@ related:
   - ./fuzz-runner.md
   - ./validation-gates.md
   - ../fuzzing/generator-coverage-ledger.md
+  - ../fuzzing/reduction-backends.md
   - ../validate/fuzz-hardening.md
   - ../validate/diagnostics-and-invalid-repro.md
   - ../binaryen/passes/tracker.md
@@ -158,7 +160,7 @@ Each failure directory includes:
 - `input.print.wat` when `wasm-tools print` succeeds;
 - `failure-metadata.json` with `caseIndex`, `generator`, failure `status`, `detail`, copied artifact names, relative replay input plus pass flags, the per-input GenValid manifest entry when the failing case came from a manifest-backed `gen-valid` batch, and a `runtimeExecutionMatrix` block for runtime-enabled mismatches after the Node export matrix has run.
 
-For fresh `gen-valid` normalized mismatches, pass-fuzz also attempts a byte-slice reduction after the mismatch has already been classified by the ordinary oracle. Successful reductions add `reduced-input.wasm`, `reduction.txt`, and a `reduction` block in `failure-metadata.json`; the reduction metadata includes original/final sizes, predicate-evaluation count, and `delete-byte-slice` steps. `input.wasm` remains the original replay input, so this artifact path does not change mismatch counting or replay semantics.
+For fresh `gen-valid` normalized mismatches, pass-fuzz also attempts a byte-slice reduction after the mismatch has already been classified by the ordinary oracle. Successful reductions add `reduced-input.wasm`, `reduction.txt`, and a `reduction` block in `failure-metadata.json`; the reduction metadata includes original/final sizes, predicate-evaluation count, and `delete-byte-slice` steps. `input.wasm` remains the original replay input, so this artifact path does not change mismatch counting or replay semantics. The reducer contract, log schema, and predicate-preservation caveats are centralized in [`../fuzzing/reduction-backends.md`](../fuzzing/reduction-backends.md).
 
 The generator ledger records this as `[FZG]029`; see [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md).
 
