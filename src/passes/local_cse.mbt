@@ -209,6 +209,7 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::RefFunc(_)
     | @lib.Instruction::StringConst(_) => Some(0)
     @lib.Instruction::Drop
+    | @lib.Instruction::ThrowRef
     | @lib.Instruction::LocalSet(_)
     | @lib.Instruction::LocalTee(_)
     | @lib.Instruction::GlobalSet(_)

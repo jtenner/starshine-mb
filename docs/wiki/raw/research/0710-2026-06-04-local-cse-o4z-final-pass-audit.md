@@ -670,3 +670,29 @@ bun scripts/pass-fuzz-compare.ts \
 Results: focused LCSE test first failed (`27/28` before the implementation), then passed after the implementation (`28/28`); `moon info` still hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`); `moon fmt` passed; `moon test src/passes` passed (`1574/1574`); full `moon test` passed (`4759/4759`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; direct compare reached `6765` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index`).
 
 Agent classification: Binaryen-positive missed optimization parity fix, not arbitrary indirect-call CSE; the paired repeated-`call_indirect` root negative remains in place.
+
+## Follow-up `throw_ref` continuation positive fix on 2026-06-04
+
+A later focused LCSE hardening slice converted the side-probed `throw_ref` shape from an open risk into a test-first parity fix. Binaryen's spot check for the handoff WAT materialized the pre-`throw_ref` `i32.add` with `local.tee` and reused it in the unreachable continuation after `throw_ref`. The new `local-cse reuses expression across throw-ref continuation` fixture first failed (`28/29`) because Starshine treated `throw_ref` as an unknown hard boundary and left the repeated arithmetic trees separate. The raw/module path now models `throw_ref` as a one-operand terminator with no result. This preserves the active expression window for Binaryen's unreachable-continuation reuse while keeping plain `throw` and throwing/generative roots conservative.
+
+Validation for this `throw_ref` continuation slice:
+
+```sh
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-throw-ref-continuation-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: focused LCSE test first failed (`28/29` before the implementation), then passed after the implementation (`29/29`); `moon info` still hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`); `moon fmt` passed; `moon test src/passes` passed (`1575/1575`); full `moon test` passed (`4760/4760`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; direct compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index`).
+
+Agent classification: Binaryen-positive missed optimization parity fix, not arbitrary EH/throwing-root CSE; the paired plain-`throw` boundary negative remains in place.

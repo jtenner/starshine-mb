@@ -814,6 +814,28 @@ test "local-cse does not reuse expression across return boundary" {
 }
 
 ///|
+test "local-cse reuses expression across throw-ref continuation" {
+  let input =
+    #| (module
+    #|   (func (param i32 i32 exnref)
+    #|     (drop (i32.add (local.get 0) (local.get 1)))
+    #|     (throw_ref (local.get 2))
+    #|     (drop (i32.add (local.get 0) (local.get 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  let temp = @lib.LocalIdx::new(3U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
 test "local-cse does not reuse expression across throw boundary" {
   let input =
     #| (module

@@ -560,13 +560,21 @@ Why this matters:
 
 Starshine status: this Binaryen-positive shape is now covered and implemented narrowly in the raw/module path, and a paired `try_table` body fixture proves an inner `unreachable` clears the borrowed outer window before later body code.
 
-## Shape 19: `return_call_indirect` continuation reuse is an operand-taking positive
+## Shape 19: operand-taking terminator continuation reuse can be positive
 
-Before:
+Before, tail-call variant:
 
 ```wat
 (drop (i32.add (local.get $x) (local.get $y)))
 (return_call_indirect (type $t) (local.get $x) (local.get $table_index))
+(drop (i32.add (local.get $x) (local.get $y)))
+```
+
+Before, EH reference variant:
+
+```wat
+(drop (i32.add (local.get $x) (local.get $y)))
+(throw_ref (local.get $exn))
 (drop (i32.add (local.get $x) (local.get $y)))
 ```
 
@@ -580,11 +588,11 @@ After, conceptually:
 
 Why this matters:
 
-- this is not the same as treating repeated `call_indirect` roots as reusable
-- Binaryen can keep the expression window alive across the operand-taking tail call into unreachable continuation code
-- plain `return` and ordinary indirect-call roots remain separate conservative cases
+- this is not the same as treating repeated `call_indirect` or throwing roots as reusable
+- Binaryen can keep the expression window alive across these operand-taking terminators into unreachable continuation code
+- plain `return`, plain `throw`, and ordinary indirect-call roots remain separate conservative cases
 
-Starshine status: this Binaryen-positive shape is now covered and implemented narrowly by modeling the `return_call_indirect` operands in the raw/module path, with direct compare remaining mismatch-free.
+Starshine status: these Binaryen-positive shapes are now covered and implemented narrowly by modeling `return_call_indirect` and `throw_ref` operands in the raw/module path, with direct compare remaining mismatch-free.
 
 ## Shape 20: flatten can turn a near-miss into a positive
 
