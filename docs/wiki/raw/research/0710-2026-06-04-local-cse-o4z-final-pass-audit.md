@@ -618,3 +618,29 @@ bun scripts/pass-fuzz-compare.ts \
 ```
 
 Results: focused LCSE tests passed (`26/26`); `moon info` hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`); `moon fmt` passed; `moon test src/passes` passed (`1572/1572`); full `moon test` passed (`4757/4757`); native build was already up to date; direct compare reached `6769` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up br-boundary negative coverage on 2026-06-04
+
+A later focused LCSE hardening slice added durable direct coverage for a plain `br` hard-control boundary. Binaryen keeps a repeated expression before `br` separate from the same expression in the unreachable continuation, and introduces no `local.tee`. The Starshine fixture passed without implementation changes. Agent classification: missing coverage only, not a functional gap.
+
+During slice selection, side probes for `return_call_indirect` and `throw_ref` showed Binaryen-positive unreachable-continuation reuse shapes: Binaryen materialized the pre-terminator expression and reused it after those operand-taking terminators. Those are not classified as hard-boundary negatives and remain separate implementation follow-ups rather than being forced into this `br` coverage slice.
+
+Validation for this `br`-boundary slice:
+
+```sh
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-br-boundary-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: focused LCSE tests passed (`27/27`); `moon info` hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`); `moon fmt` passed; `moon test src/passes` passed (`1573/1573`); full `moon test` passed (`4758/4758`); native build was already up to date; direct compare reached `6770` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).

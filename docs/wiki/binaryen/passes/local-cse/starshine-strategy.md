@@ -58,7 +58,7 @@ The goal here is not to re-explain upstream Binaryen, but to show the exact curr
 
 The 2026-05-06 refreshed direct-pass lane is green: `.tmp/pass-fuzz-local-cse` reported 6759/10000 compared cases, 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group command failures. The 2026-06-04 O4z audit lane stayed semantically green on generated inputs (`998` normalized matches, `0` mismatches, and `2` known Binaryen empty-recursion-group command failures) and sampled Starshine pass-local time on `tests/node/dist/starshine-debug-wasi.wasm` at about `63-67 ms` versus Binaryen's `109-110 ms` debug pass time.
 
-The 2026-06-04 audit found direct adjacent-window parity gaps: Binaryen can reuse a repeated tree computed before an `if` inside the `then` arm, before a straight-line block inside that block body, and before a `try_table` inside the try body. Starshine now covers and implements those narrow raw/module positives while preserving after-`if`, else-arm, loop, `br_table`, return, throw, top-level `unreachable`, and `try_table` body hard-terminator boundary negatives.
+The 2026-06-04 audit found direct adjacent-window parity gaps: Binaryen can reuse a repeated tree computed before an `if` inside the `then` arm, before a straight-line block inside that block body, and before a `try_table` inside the try body. Starshine now covers and implements those narrow raw/module positives while preserving after-`if`, else-arm, loop, `br`, `br_table`, return, throw, top-level `unreachable`, and `try_table` body hard-terminator boundary negatives.
 
 The active local strategy is still deliberately slot-honest:
 
@@ -75,7 +75,7 @@ The fastest read-along path through the current Starshine status is:
 - active pass implementation and tests
   - `src/passes/local_cse.mbt:1-18,543-559,809-816`
   - `src/passes/local_cse_test.mbt`
-    - covers registry, same-window arithmetic, parent-over-child, load/store and local-write barriers, before-`if` / then-arm reuse, before-block / straight-line block reuse, before-`try_table` / try-body reuse, try-body hard-terminator clearing, annotated idempotent direct-call reuse, ordinary direct-call, `call_indirect`, and `call_ref` root no-ops, after-`if` and else-arm negatives, before-loop into loop-body, `br_table`, return-boundary, unreachable-boundary, tiny-root `global.get` no-op, and repeated `struct.new` / `struct.new_default` / core `array.new` / `array.new_default` / `array.new_fixed` generative-root coverage
+    - covers registry, same-window arithmetic, parent-over-child, load/store and local-write barriers, before-`if` / then-arm reuse, before-block / straight-line block reuse, before-`try_table` / try-body reuse, try-body hard-terminator clearing, annotated idempotent direct-call reuse, ordinary direct-call, `call_indirect`, and `call_ref` root no-ops, after-`if` and else-arm negatives, before-loop into loop-body, `br`/`br_table`, return-boundary, unreachable-boundary, tiny-root `global.get` no-op, and repeated `struct.new` / `struct.new_default` / core `array.new` / `array.new_default` / `array.new_fixed` generative-root coverage
 - active registry and dispatcher surface
   - `src/passes/optimize.mbt:253,437-449,456-472`
     - `local-cse` is registered as an active module pass and scheduled in the proven late local-cleanup preset neighborhood
@@ -254,7 +254,7 @@ The direct pass already exists, so the remaining validation ladder is about exac
    - repeated load positives
    - parent-over-child cancellation cases
    - before-`if` / then-arm reuse plus after-`if` and else-arm negatives
-   - before-loop into loop-body, `br_table`, return-boundary, throw-boundary, top-level unreachable-boundary, and try-body hard-terminator negatives
+   - before-loop into loop-body, `br`/`br_table`, return-boundary, throw-boundary, top-level unreachable-boundary, and try-body hard-terminator negatives
    - local-write invalidation
    - tiny-root profitability no-op cases
    - repeated `struct.new` generative-root negative
