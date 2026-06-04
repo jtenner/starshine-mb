@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
   - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
@@ -9,6 +9,7 @@ sources:
   - ../raw/wasm/2026-05-19-wast-resource-declaration-sources.md
   - ../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md
   - ../raw/wasm/2026-05-20-constant-expression-validation-sources.md
+  - ../raw/wasm/2026-06-04-struct-atomic-get-sources.md
   - ../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
   - ../raw/wasm/2026-05-20-reference-branch-validation-refresh.md
   - ../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md
@@ -64,7 +65,7 @@ Do not treat success in one layer as proof for another. For example, core/binary
 
 - [`gc-type-authoring.md`](gc-type-authoring.md) — function/struct/array/rec types, `sub` / `final`, type-use syntax, flat type indices, and descriptor metadata caveats.
 - [`reference-instruction-authoring.md`](reference-instruction-authoring.md) — `ref.null`, `ref.func`, null tests, equality, casts, reference branches, the branch-path versus fallthrough-path type split, `CastOp` nullability, `call_ref` declaration-source boundaries, and current text gaps for ordinary `ref.test` / `ref.cast` / `br_on_*` forms.
-- [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) — struct constructors/gets, local descriptor constructors, i31 operations, the current core/binary-only status of many `array.*` and `struct.set` forms, and the separate initializer caveat where official array constructor constant expressions outpace Starshine's local allow-list.
+- [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) — struct constructors/gets, focused `struct.atomic.get*` shared-GC reads, local descriptor constructors, i31 operations, the current core/binary-only status of many `array.*`, `struct.set`, and aggregate atomic write/RMW/cmpxchg forms, and the separate initializer caveat where official array constructor constant expressions outpace Starshine's local allow-list.
 - [`string-instruction-authoring.md`](string-instruction-authoring.md) — `string.const` plus Starshine's currently supported array-backed string helper operations.
 
 ### Control and calls
@@ -77,7 +78,7 @@ Do not treat success in one layer as proof for another. For example, core/binary
 
 - [`memory-argument-authoring.md`](memory-argument-authoring.md) — `offset=`, text-byte `align=`, selected memory index behavior, memory32/memory64 address widths, and the current text nonzero-memory-index gap.
 - [`memory-instruction-authoring.md`](memory-instruction-authoring.md) — scalar loads/stores, `memory.size`, `memory.grow`, `memory.fill`, `memory.copy`, `memory.init`, `data.drop`, and the positional memory64 bulk-memory operand matrix.
-- [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md) — threads-proposal atomic loads/stores/RMW/wait/notify/fence; core/binary/validator/generator support with a current WAST keyword/parser gap.
+- [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md) — linear-memory threads-proposal atomic loads/stores/RMW/wait/notify/fence; core/binary/validator/generator support with a current WAST keyword/parser gap, plus routing notes that keep shared-GC `struct.atomic.get*` on the aggregate page.
 - [`table-instruction-authoring.md`](table-instruction-authoring.md) — `call_indirect`, table get/set/size/grow/fill/copy/init, `elem.drop`, and table64 caveats.
 - [`data-segment-authoring.md`](data-segment-authoring.md) — active/passive `(data ...)`, offsets, string payloads, conservative emitted `DataCntSec`, and pass guidance for data-index users.
 - [`element-segment-authoring.md`](element-segment-authoring.md) — active/passive/declarative element segments, function-list versus typed-expression payloads, typed empty and non-`funcref` examples, table element abbreviation behavior, and current WAST gaps around declarative-mode preservation plus typed declarative text.
@@ -93,8 +94,8 @@ Do not treat success in one layer as proof for another. For example, core/binary
 The WAST pages deliberately keep text-surface gaps visible instead of smoothing them into generic support claims:
 
 - **Reference branch, cast, and ordinary `call_ref` text:** ordinary `ref.test`, `ref.cast`, `br_on_*`, and non-tail `call_ref` forms are core/binary/validator/generator-visible but not all human-authored WAST text forms are available; route reference/cast/branch forms through [`reference-instruction-authoring.md`](reference-instruction-authoring.md), which also owns the branch-label versus fallthrough type split, and route ordinary reference calls through [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md).
-- **Aggregate instruction text:** many official `array.*` and `struct.set` families currently need core/binary/generator fixtures. A second initializer caveat now lives with that split: official WebAssembly allows `array.new*` as constant expressions, while Starshine's reviewed initializer gate does not yet; route through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) and [`../validate/constant-expressions.md`](../validate/constant-expressions.md).
-- **Atomic text:** `0xFE` atomic instructions are core/binary/validator/generator-visible, while WAST keywords/parser cases are still absent; route through [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md).
+- **Aggregate instruction text:** many official `array.*` and `struct.set` families currently need core/binary/generator fixtures, but focused shared-GC `struct.atomic.get*` WAST text now exists with `seq_cst` / `acq_rel` order spellings. A second initializer caveat now lives with that split: official WebAssembly allows `array.new*` as constant expressions, while Starshine's reviewed initializer gate does not yet; route through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) and [`../validate/constant-expressions.md`](../validate/constant-expressions.md).
+- **Linear-memory atomic text:** `0xFE` linear-memory atomic instructions are core/binary/validator/generator-visible, while WAST keywords/parser cases are still absent; route those through [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md). Do not confuse that gap with the narrower `struct.atomic.get*` aggregate WAST surface.
 - **Memory and table widths:** memory64/table64 behavior is often best proved at the core/binary layer until declaration and validation widening lands; route `offset=` / selected-memory-index questions through [`memory-argument-authoring.md`](memory-argument-authoring.md), runtime bulk-memory stack widths through [`memory-instruction-authoring.md`](memory-instruction-authoring.md), and table address-width caveats through [`table-instruction-authoring.md`](table-instruction-authoring.md).
 - **Declarative elements:** direct core/binary/generator paths preserve declarative mode, but current text lowering has a declarative-mode preservation gap and typed declarative text is not a proven WAST surface; route through [`element-segment-authoring.md`](element-segment-authoring.md).
 - **Constant expressions:** official and Starshine-local initializer/offset allow-lists differ; route through [`../validate/constant-expressions.md`](../validate/constant-expressions.md) instead of duplicating the list here.

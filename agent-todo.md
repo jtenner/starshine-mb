@@ -228,12 +228,12 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 - [ATOMIC]001 - Struct Atomic Get Optimizer Support
   - Status: active follow-up after the 2026-06-04 opcode surface slice.
   - Goal: make optimizer passes recognize `StructAtomicGet`, `StructAtomicGetS`, and `StructAtomicGetU` safely, then add Binaryen-style `global-struct-inference` folds only for immutable-field atomic reads.
-  - Why: the local opcode/WAT/binary/validation model now accepts `struct.atomic.get*` with `seq_cst` / `acq_rel` ordering and conservative effect modeling, but GSI does not yet consume those opcodes for direct-global or closed-world rewrites.
+  - Why: the local opcode/WAT/binary/validation model now accepts `struct.atomic.get*` with `seq_cst` / `acq_rel` ordering and conservative effect modeling. GSI now consumes immutable-field direct-global and closed-world local/param atomic reads, but generic pass regression coverage and final compare/doc refresh must stay visible until fully signed off.
   - Deliverables:
     - [x] `[ATOMIC001-A]` Add local opcode, WAT parse/print/lower, binary encode/decode, validation typing, type-index preservation, and conservative effect/pass modeling for struct atomic gets.
     - [ ] `[ATOMIC001-B]` Add focused generic-pass regression tests proving struct atomic gets are not reordered, dropped, or precomputed unsafely across local-cse/precompute/optimize-instructions/simplify-locals surfaces.
-    - [ ] `[ATOMIC001-C]` Add GSI immutable-field direct-global and closed-world local/param atomic-get fixtures, then implement only the safe folds that preserve null traps, packed signedness, and ordering assumptions.
-    - [ ] `[ATOMIC001-D]` Refresh direct `--pass global-struct-inference` compare and update the GSI parity docs once atomic folds land.
+    - [x] `[ATOMIC001-C]` Add GSI immutable-field direct-global and closed-world local/param atomic-get fixtures, then implement only the safe folds that preserve null traps, packed signedness, and ordering assumptions. Completed 2026-06-04 with direct immutable fold, packed signed/unsigned repair, mutable-field negative, and closed-world two-value local select coverage.
+    - [x] `[ATOMIC001-D]` Refresh direct `--pass global-struct-inference` compare and update the GSI parity docs once atomic folds land. Completed 2026-06-04 with `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and the known 25 Binaryen/tool command failures; debug-artifact timing was canonical-equal with Starshine/Binaryen pass-local `0.354 ms / 2.870 ms`.
   - Suggested tests: `moon test src/binary`, `moon test src/wast`, `moon test src/validate`, `moon test src/passes`, focused pass-specific regression tests, then direct GSI compare with `--jobs auto` and a prebuilt native `src/cmd` binary after behavior changes.
   - Exit criteria: local opcode support is validated, generic passes treat atomic gets conservatively, GSI immutable-field atomic folds match Binaryen semantics on focused fixtures and direct compare, and remaining descriptor-cast/refinalization gaps stay documented.
 

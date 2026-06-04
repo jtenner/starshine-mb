@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-struct-atomic-get-sources.md
   - ../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md
   - ../raw/wasm/2026-05-19-wast-gc-aggregate-instruction-sources.md
   - ../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md
@@ -24,6 +25,7 @@ related:
   - element-segment-authoring.md
   - table-instruction-authoring.md
   - memory-instruction-authoring.md
+  - atomic-memory-instruction-authoring.md
   - ../binary/instruction-and-expression-encoding.md
   - ./data-segment-authoring.md
   - ../binary/data-element-and-datacount-sections.md
@@ -47,7 +49,7 @@ official Wasm GC instruction family
   -> still-narrower Starshine constant-expression allow-list for initializers
 ```
 
-Starshine can model, encode, decode, validate, and generate the broad GC aggregate family in core modules. The higher-level `src/wast` parser/printer/lowerer is narrower today: it exposes struct constructors, struct reads, descriptor constructors, `ref.get_desc`, descriptor cast/test helpers, i31 operations, and `any`/`extern` conversions, but **does not expose official `struct.set` or any `array.*` WAST text keyword yet**. That means pass regressions involving `struct.set`, `array.new`, `array.get`, `array.init_data`, or `array.init_elem` should currently use core/binary/generated fixtures unless the task is explicitly to widen WAST text support first.
+Starshine can model, encode, decode, validate, and generate the broad GC aggregate family in core modules. The higher-level `src/wast` parser/printer/lowerer is narrower today: it exposes struct constructors, ordinary struct reads, shared-GC `struct.atomic.get*` reads, descriptor constructors, `ref.get_desc`, descriptor cast/test helpers, i31 operations, and `any`/`extern` conversions, but **does not expose official `struct.set`, aggregate atomic set/RMW/cmpxchg forms, or any `array.*` WAST text keyword yet**. That means pass regressions involving `struct.set`, `array.new`, `array.get`, `array.init_data`, `array.init_elem`, or aggregate atomic writes/RMW/cmpxchg should currently use core/binary/generated fixtures unless the task is explicitly to widen WAST text support first.
 
 The 2026-05-20 focused refresh in [`../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md) adds a second caveat for initializer contexts: current official WebAssembly 3.0 treats `array.new`, `array.new_default`, and `array.new_fixed` as constant-expression instructions, but Starshine's reviewed [`validate_const_instr(...)`](../../../src/validate/validate.mbt) still admits struct constructors and local descriptor constructors only. Ordinary core/binary `array.new*` tests are therefore not evidence that Starshine accepts array constructors in global/table/element/data initializer constant expressions; use [`../validate/constant-expressions.md`](../validate/constant-expressions.md) for that allow-list contract.
 
@@ -68,6 +70,7 @@ Aggregate instructions either create a heap object, read storage, mutate storage
 | Struct constructors | `struct.new`, `struct.new_default` | Yes | Yes | Prefer WAST fixtures when constructor text/lowering is the point. |
 | Descriptor struct constructors | `struct.new_desc`, `struct.new_default_desc` | Yes, local/custom-descriptor surface | Yes | Use with [`../custom-descriptors/static-fixtures.md`](../custom-descriptors/static-fixtures.md); do not treat as official 3.0 syntax. |
 | Struct reads | `struct.get`, `struct.get_s`, `struct.get_u` | Yes | Yes | WAST fixtures are supported; signed/unsigned variants require packed fields. |
+| Struct atomic reads | `struct.atomic.get`, `struct.atomic.get_s`, `struct.atomic.get_u` | Yes, focused shared-GC surface using canonical `seq_cst` / `acq_rel` order spellings | Yes for get variants | Use WAST fixtures for get-only shared-GC atomic reads; keep linear-memory atomics routed to [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md). |
 | Struct writes | `struct.set` | No | Yes | Use core/binary/generated fixtures, or add WAST keyword/parser/lowerer/printer coverage first. |
 | Array constructors | `array.new`, `array.new_default`, `array.new_fixed`, `array.new_data`, `array.new_elem` | No | Yes | Use core/binary/generated fixtures; data/element-backed forms also touch segment index spaces. |
 | Array reads/writes | `array.get`, `array.get_s`, `array.get_u`, `array.set`, `array.len`, `array.fill`, `array.copy` | No | Yes | Use core/binary/generated fixtures; mutable operations require mutable array element storage. |
@@ -105,6 +108,24 @@ This exercises named type-index lowering through [`src/wast/lower_to_lib.mbt`](.
 ```
 
 Use `struct.get_s` and `struct.get_u` only for packed fields. Plain `struct.get` is the readable form for ordinary scalar/reference fields.
+
+### Struct atomic get surface
+
+```wat
+(module
+  (type $S (struct (field i32) (field (mut i8)) (field (mut i16))))
+  (func (param (ref $S)) (result i32)
+    (struct.atomic.get acq_rel $S 0
+      (local.get 0)))
+  (func (param (ref $S)) (result i32)
+    (struct.atomic.get_s seq_cst $S 1
+      (local.get 0)))
+  (func (param (ref $S)) (result i32)
+    (struct.atomic.get_u acq_rel $S 2
+      (local.get 0))))
+```
+
+The atomic get variants consume one struct reference like ordinary `struct.get*`, then push the field value. Plain `struct.atomic.get` is for non-packed fields; packed fields require signed or unsigned variants. Starshine currently prints `seq_cst` / `acq_rel`; it accepts `acqrel` as a compatibility alias, but the 2026-06-04 source snapshot does not document a local `seqcst` alias. Do not infer support for `struct.atomic.set`, aggregate RMW/cmpxchg, or array atomic aggregate instructions from this get-only surface.
 
 ### Descriptor constructor surface
 
@@ -160,6 +181,8 @@ ArrayInitData(TypeIdx, DataIdx)
 ArrayInitElem(TypeIdx, ElemIdx)
 ```
 
+Shared-GC aggregate atomic families beyond `StructAtomicGet*` are also not WAST-text-supported in the reviewed local surface. Treat `struct.atomic.set`, `struct.atomic.rmw*`, `struct.atomic.cmpxchg`, and array aggregate atomic examples from Binaryen or the shared-everything threads proposal as future widening work unless a task adds exact local instruction variants and tests first.
+
 When a pass needs these instructions today, construct them directly in core fixtures, decode them from binary, or rely on `gen_valid` coverage. If a human-readable WAST fixture is needed, the first implementation slice is WAST support, not a pass workaround: add keywords, parser coverage, lowerer resolution for named type/data/element indices, printer coverage, and validator tests.
 
 ## Constant-Expression Boundary
@@ -180,13 +203,14 @@ Do not use `gen_valid` aggregate coverage or binary decode success as proof of i
 1. **Keep type and instruction pages separate.** Add new struct/array declaration examples to [`gc-type-authoring.md`](gc-type-authoring.md); add allocation/access/mutation examples here.
 2. **Resolve and remap every index space.** Struct/array instructions carry `TypeIdx`; `array.new_data` and `array.init_data` also carry `DataIdx`; `array.new_elem` and `array.init_elem` carry `ElemIdx`; element payloads may carry function indices and `ref.func` declaration sources. If an aggregate constructor sits inside a module initializer, also re-check the constant-expression allow-list rather than relying on ordinary body typechecking.
 3. **Respect mutability.** `struct.set`, `array.set`, `array.fill`, `array.copy`, and `array.init_*` require mutable storage in the destination aggregate type. Do not infer mutability from the presence of a setter opcode alone.
-4. **Treat packed signedness as semantic.** Rewriting `*_get_s` to `*_get_u`, or to plain `get`, changes sign extension for packed fields/elements.
-5. **Preserve traps and bounds checks.** Array index, range, copy, fill, data, and element operations can trap at runtime. Reordering or deleting them needs an effect/bounds proof, not just matching validation.
+4. **Treat packed signedness as semantic.** Rewriting `*_get_s` to `*_get_u`, or to plain `get`, changes sign extension for packed fields/elements. The same rule applies to `struct.atomic.get_s` and `struct.atomic.get_u`.
+5. **Preserve traps, effects, and bounds checks.** Array index, range, copy, fill, data, element operations, and shared-GC atomic reads can trap or carry synchronization/effect meaning at runtime. Reordering or deleting them needs an effect/bounds/memory-model proof, not just matching validation.
 6. **Use the segment pages for data/element-backed arrays.** `array.init_data` and `array.new_data` depend on data segments and data-count-style resource validity; `array.init_elem` and `array.new_elem` depend on element segments and function-reference declaration surfaces. See [`data-segment-authoring.md`](data-segment-authoring.md), [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md), [`element-segment-authoring.md`](element-segment-authoring.md), and [`table-instruction-authoring.md`](table-instruction-authoring.md).
 7. **Widen WAST arbitrary only after text support exists.** The generator coverage ledger proves core valid generation for many aggregate operations, but `src/wast/arbitrary.mbt` should not emit unsupported `struct.set` or `array.*` text until the WAST path accepts and prints it.
 
 ## Source Map
 
+- Struct atomic get source snapshot: [`../raw/wasm/2026-06-04-struct-atomic-get-sources.md`](../raw/wasm/2026-06-04-struct-atomic-get-sources.md)
 - Constant-expression refresh: [`../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md)
 - Primary-source and local-code manifest: [`../raw/wasm/2026-05-19-wast-gc-aggregate-instruction-sources.md`](../raw/wasm/2026-05-19-wast-gc-aggregate-instruction-sources.md)
 - Type declaration companion: [`gc-type-authoring.md`](gc-type-authoring.md)

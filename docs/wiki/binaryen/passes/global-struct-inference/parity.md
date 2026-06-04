@@ -40,7 +40,7 @@ related:
   - subtype-propagated single-candidate parent/supertype origins now rewrite in closed world when the candidate global's declared reference heap type is a subtype of the read type; broad `eqref` declarations still bail to avoid invalid replacements
   - exact and subtype-propagated multi-candidate local/param reads now fold in closed world when all safe candidates expose one equal materializable value
   - exact and subtype-propagated multi-candidate local/param reads now synthesize typed `select(ref.eq(...))` rewrites in closed world when two materializable values have one singleton candidate group
-  - no sibling descriptor-cast implementation, no GSI atomic-get fold yet, and arithmetic/bitwise/shift-rotate/unary-numeric/float-rounding-sqrt/sign-extension un-nesting plus `ref.get_desc` are guarded to small modules; the local opcode surface now accepts `struct.atomic.get*` conservatively
+  - no sibling descriptor-cast implementation; arithmetic/bitwise/shift-rotate/unary-numeric/float-rounding-sqrt/sign-extension un-nesting plus `ref.get_desc` and immutable-field `struct.atomic.get*` folds are guarded to the current local subset, with generic atomic reads still modeled conservatively
 - The saved generated-artifact `-O4z` slot is still exactly green, which strongly suggests the artifact does not exercise the missing official surfaces.
 
 ## Current in-tree status
@@ -51,6 +51,45 @@ related:
 - The focused public-pipeline suite lives in [`../../../../../src/passes/global_struct_inference_test.mbt`](../../../../../src/passes/global_struct_inference_test.mbt); the closed-world analysis fact coverage lives in [`../../../../../src/passes/global_struct_inference_wbtest.mbt`](../../../../../src/passes/global_struct_inference_wbtest.mbt).
 - Registry and preset coverage live in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), with module-pass dispatch in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
 - The pass is active in-tree and is scheduled in the early module cluster after `global-refining`.
+
+## 2026-06-04 struct atomic get follow-up
+
+The struct atomic get follow-up added the local opcode surface to GSI's read recognizers. Direct-global and closed-world local/param `struct.atomic.get`, `struct.atomic.get_s`, and `struct.atomic.get_u` sites now use the same immutable-field proof, packed signed/unsigned repair, null-trap preservation, one-value fold, and two-value singleton-select machinery as ordinary `struct.get*`. Generic pass/effect helpers still model these opcodes conservatively as atomic reads that may trap; this follow-up does not make broad atomic purity assumptions and does not implement the sibling descriptor-cast pass.
+
+The final direct compare ran with a prebuilt native Starshine binary and automatic parallel workers:
+
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass global-struct-inference --keep-going-after-command-failures --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --out-dir .tmp/pass-fuzz-global-struct-inference-atomic-get-final-10000`
+
+Result:
+
+- compared cases: 9975 / 10000
+- normalized matches: 9975
+- mismatches: 0
+- validation failures: 0
+- generator failures: 0
+- command failures: 25
+
+Command-failure classes from `summary.json`:
+
+- `22` `binaryen-rec-group-zero`
+- `1` `binaryen-bad-section-size`
+- `1` `binaryen-table-index-out-of-range`
+- `1` `binaryen-invalid-tag-index`
+
+The debug artifact timing replay used:
+
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --global-struct-inference --timing-only --out-dir .tmp/gsi-debug-artifact-timing-atomic-get-final`
+
+Result:
+
+- canonical wasm equal: yes
+- Starshine runtime: `305.608 ms`
+- Binaryen runtime: `404.248 ms`
+- Starshine pass runtime: `0.354 ms`
+- Binaryen pass runtime: `2.870 ms`
+- Starshine pass skipped raw: no
+
+This is semantic smoke and performance evidence for the immutable-field atomic-get GSI subset only. It is not evidence that descriptor-cast, full refinalization, unbounded large-module un-nesting, or broader generic atomic optimizations are implemented.
 
 ## 2026-06-03 integer sign-extension un-nesting follow-up
 
@@ -810,7 +849,7 @@ That matters for official positive shapes where field values are not literals bu
 
 Current local pass does treat direct immutable `global.get` field payloads as materializable for exact and subtype-propagated local/param grouping, and now has a small-module fresh-global un-nesting path for pure arithmetic/bitwise/shift-rotate/unary-numeric/float-rounding-sqrt/sign-extension scalar field operands that are actually read by direct or closed-world local/param GSI sites. It still has a smaller materialization surface than Binaryen and deliberately skips un-nesting on larger modules for pass-local runtime.
 
-## 7. Descriptor coverage exists locally; atomic opcode support exists but GSI folds remain pending
+## 7. Descriptor and immutable-field atomic-get coverage exist locally
 
 Official Binaryen source and lit tests cover:
 
@@ -821,7 +860,7 @@ Official Binaryen source and lit tests cover:
 
 Current local pass now handles small-module direct and closed-world local/param `ref.get_desc` folds/selects over descriptor-constructor globals. As of 2026-06-04, Starshine also exposes local `StructAtomicGet`, `StructAtomicGetS`, and `StructAtomicGetU` instructions with WAT parsing/printing, binary encode/decode for `0xfe5c`..`0xfe5e`, and validation stack typing for plain and packed-field reads. Shared pass/effect surfaces model those opcodes conservatively as atomic reads that may trap and preserve referenced type indices.
 
-That removes the old opcode-surface blocker, but it does not by itself implement Binaryen-style GSI atomic folds. The next GSI parity slice should add focused immutable-field atomic-get fixtures and then route only those safe read sites through the existing value/origin/select machinery while preserving null traps, packed signedness, and conservative ordering assumptions in generic passes. The sibling descriptor-cast pass remains boundary-only.
+The first GSI atomic slice routes immutable-field atomic read sites through the existing direct-global and closed-world local/param value/origin/select machinery. Focused tests cover a direct immutable global fold, packed signed/unsigned direct-global repair, a mutable-field negative, and a closed-world two-value local `select(ref.eq(...))` fold. This matches the Binaryen safety argument for immutable fields while avoiding broad generic atomic assumptions. The sibling descriptor-cast pass remains boundary-only.
 
 ## 8. Representation-specific type repair differs locally
 
@@ -852,7 +891,7 @@ Again, that is an inference from the green audit plus the visible local-vs-upstr
 - Do **not** describe it as “what Binaryen `gsi` does.”
 - If future parity work targets the full Binaryen contract, the next missing surfaces to implement are, in value order:
   1. unbounded or more Binaryen-complete un-nesting of non-constant operands, only with pass-local runtime evidence
-  2. Binaryen-style GSI atomic-get folds now that a local struct atomic-get opcode exists
+  2. broader atomic-get parity only if new Binaryen lit shapes exceed the current immutable-field direct-global/local-param subset
   3. the sibling descriptor-cast pass when explicitly scheduled
   4. explicit type-repair/refinalization if a future rewrite needs more than validation-preserving replacement typing
 - If local code remains intentionally narrower, keep the green artifact evidence explicit so readers do not confuse “narrow but enough for this artifact” with “full upstream parity.”

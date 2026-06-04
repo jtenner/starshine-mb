@@ -828,7 +828,10 @@ fn gsi_instr_field_read_type_and_index(
   match instr {
     @lib.StructGet(read_type, @lib.U32(raw_idx))
     | @lib.StructGetS(read_type, @lib.U32(raw_idx))
-    | @lib.StructGetU(read_type, @lib.U32(raw_idx)) =>
+    | @lib.StructGetU(read_type, @lib.U32(raw_idx))
+    | @lib.StructAtomicGet(_, read_type, @lib.U32(raw_idx))
+    | @lib.StructAtomicGetS(_, read_type, @lib.U32(raw_idx))
+    | @lib.StructAtomicGetU(_, read_type, @lib.U32(raw_idx)) =>
       Some((read_type, raw_idx.reinterpret_as_int()))
     _ => None
   }
@@ -2292,6 +2295,21 @@ fn gsi_rewrite_instrs(
                 fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
                 type_idx, field_idx, false, true,
               )
+            @lib.StructAtomicGet(_, type_idx, field_idx) =>
+              gsi_folded_global_field_expr(
+                fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
+                type_idx, field_idx, false, false,
+              )
+            @lib.StructAtomicGetS(_, type_idx, field_idx) =>
+              gsi_folded_global_field_expr(
+                fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
+                type_idx, field_idx, true, false,
+              )
+            @lib.StructAtomicGetU(_, type_idx, field_idx) =>
+              gsi_folded_global_field_expr(
+                fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
+                type_idx, field_idx, false, true,
+              )
             @lib.RefGetDesc(type_idx) =>
               gsi_folded_global_descriptor_expr(
                 env,
@@ -2329,7 +2347,10 @@ fn gsi_rewrite_instrs(
           let origin_rewrite = match next_instr {
             @lib.StructGet(type_idx, field_idx)
             | @lib.StructGetS(type_idx, field_idx)
-            | @lib.StructGetU(type_idx, field_idx) => {
+            | @lib.StructGetU(type_idx, field_idx)
+            | @lib.StructAtomicGet(_, type_idx, field_idx)
+            | @lib.StructAtomicGetS(_, type_idx, field_idx)
+            | @lib.StructAtomicGetU(_, type_idx, field_idx) => {
               let exact_origin = gsi_single_candidate_local_origin_block(
                 env, local_env, exact_single_candidate_by_type_slot, local_idx, type_idx,
                 field_idx,
@@ -2367,6 +2388,24 @@ fn gsi_rewrite_instrs(
                     global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
                     field_idx, false, true,
                   )
+                @lib.StructAtomicGet(_, type_idx, field_idx) =>
+                  gsi_one_value_local_fold_block(
+                    env, local_env, rewrite_candidates_by_type_slot, fields_by_type,
+                    global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
+                    field_idx, false, false,
+                  )
+                @lib.StructAtomicGetS(_, type_idx, field_idx) =>
+                  gsi_one_value_local_fold_block(
+                    env, local_env, rewrite_candidates_by_type_slot, fields_by_type,
+                    global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
+                    field_idx, true, false,
+                  )
+                @lib.StructAtomicGetU(_, type_idx, field_idx) =>
+                  gsi_one_value_local_fold_block(
+                    env, local_env, rewrite_candidates_by_type_slot, fields_by_type,
+                    global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
+                    field_idx, false, true,
+                  )
                 @lib.RefGetDesc(type_idx) =>
                   gsi_one_value_descriptor_local_fold_block(
                     env, local_env, rewrite_candidates_by_type_slot, global_descriptor_values_by_abs_idx,
@@ -2395,6 +2434,24 @@ fn gsi_rewrite_instrs(
                         field_idx, true, false,
                       )
                     @lib.StructGetU(type_idx, field_idx) =>
+                      gsi_two_value_singleton_select_block(
+                        env, local_env, rewrite_candidates_by_type_slot, fields_by_type,
+                        global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
+                        field_idx, false, true,
+                      )
+                    @lib.StructAtomicGet(_, type_idx, field_idx) =>
+                      gsi_two_value_singleton_select_block(
+                        env, local_env, rewrite_candidates_by_type_slot, fields_by_type,
+                        global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
+                        field_idx, false, false,
+                      )
+                    @lib.StructAtomicGetS(_, type_idx, field_idx) =>
+                      gsi_two_value_singleton_select_block(
+                        env, local_env, rewrite_candidates_by_type_slot, fields_by_type,
+                        global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
+                        field_idx, true, false,
+                      )
+                    @lib.StructAtomicGetU(_, type_idx, field_idx) =>
                       gsi_two_value_singleton_select_block(
                         env, local_env, rewrite_candidates_by_type_slot, fields_by_type,
                         global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
@@ -2465,6 +2522,30 @@ fn gsi_instrs_may_rewrite(
                 return true
               }
             @lib.StructGetU(type_idx, field_idx) =>
+              if gsi_folded_global_field_expr(
+                  fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
+                  type_idx, field_idx, false, true,
+                )
+                is Some(_) {
+                return true
+              }
+            @lib.StructAtomicGet(_, type_idx, field_idx) =>
+              if gsi_folded_global_field_expr(
+                  fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
+                  type_idx, field_idx, false, false,
+                )
+                is Some(_) {
+                return true
+              }
+            @lib.StructAtomicGetS(_, type_idx, field_idx) =>
+              if gsi_folded_global_field_expr(
+                  fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
+                  type_idx, field_idx, true, false,
+                )
+                is Some(_) {
+                return true
+              }
+            @lib.StructAtomicGetU(_, type_idx, field_idx) =>
               if gsi_folded_global_field_expr(
                   fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
                   type_idx, field_idx, false, true,
@@ -2581,6 +2662,45 @@ fn gsi_instrs_may_rewrite(
                   env, local_env, rewrite_candidates_by_type_slot, fields_by_type,
                   global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
                   field_idx, false, true,
+                )
+                is Some(_) {
+                return true
+              }
+            }
+            @lib.StructAtomicGet(_, type_idx, field_idx)
+            | @lib.StructAtomicGetS(_, type_idx, field_idx)
+            | @lib.StructAtomicGetU(_, type_idx, field_idx) => {
+              let (signed, unsigned) = match instrs[idx + 1] {
+                @lib.StructAtomicGetS(_, _, _) => (true, false)
+                @lib.StructAtomicGetU(_, _, _) => (false, true)
+                _ => (false, false)
+              }
+              if gsi_single_candidate_local_origin_block(
+                  env, local_env, exact_single_candidate_by_type_slot, local_idx,
+                  type_idx, field_idx,
+                )
+                is Some(_) {
+                return true
+              }
+              if gsi_propagated_single_candidate_local_origin_block(
+                  env, local_env, rewrite_candidates_by_type_slot, local_idx, type_idx,
+                  field_idx,
+                )
+                is Some(_) {
+                return true
+              }
+              if gsi_one_value_local_fold_block(
+                  env, local_env, rewrite_candidates_by_type_slot, fields_by_type,
+                  global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
+                  field_idx, signed, unsigned,
+                )
+                is Some(_) {
+                return true
+              }
+              if gsi_two_value_singleton_select_block(
+                  env, local_env, rewrite_candidates_by_type_slot, fields_by_type,
+                  global_values_by_abs_idx, global_type_slots, local_idx, type_idx,
+                  field_idx, signed, unsigned,
                 )
                 is Some(_) {
                 return true

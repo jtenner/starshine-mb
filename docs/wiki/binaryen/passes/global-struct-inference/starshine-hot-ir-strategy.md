@@ -204,7 +204,7 @@ Compared with upstream Binaryen `version_129`, Starshine currently does **not** 
 - using closed-world `typeGlobals`-style facts beyond exact/subtype-propagated local/param one-global origins and exact/subtype-propagated one-value or two-value singleton-group direct-candidate reads
 - sibling `gsi-desc-cast` rewrites
 - explicit refinalization machinery after type refinement beyond validation-preserving replacement typing; a 2026-06-04 local audit found the current origin, field-value, singleton-select, and descriptor replacements choose validation-preserving block/select result types before rewriting, so the remaining gap is Binaryen-style precision/cleanup rather than a known validation bug
-- atomic-get-specific GSI teaching surfaces; `StructAtomicGet*` now exists in the local WAT/binary/validation opcode model, but the pass has not yet added Binaryen-style immutable-field atomic folds
+- atomic-get-specific GSI teaching surfaces for immutable-field direct-global and closed-world local/param folds over `StructAtomicGet*`, with generic pass/effect modeling kept conservative
 - unbounded large-module un-nesting; current un-nesting and `ref.get_desc` consumers are guarded to small modules
 
 Those are real capability gaps, not just documentation wording differences.
@@ -236,7 +236,7 @@ The focused tests in `src/passes/global_struct_inference_test.mbt` currently pro
 - open-world, more-than-two-value, two-equal-pair, non-materializable, poisoned child/exact type, mutable-field, mutable-global, and too-broad/`anyref` local-origin negatives stay unchanged
 
 That is a good local floor.
-It is much smaller than the official Binaryen `gsi.wast` proof surface, which is why the local parity page keeps the remaining unbounded un-nesting, atomic-fold, descriptor-cast, and refinalization families explicit.
+It is much smaller than the official Binaryen `gsi.wast` proof surface, which is why the local parity page keeps remaining unbounded un-nesting, broader atomic-fold, descriptor-cast, and refinalization families explicit.
 
 The 2026-06-03 O4z audit changed the local status by enabling the direct-global fast path in open world and adding packed/default/descriptor-constructor coverage. The follow-up GSI001-B, GSI001-C, GSI001-D, and GSI001-F slices added exact single-candidate local/param origin rewrites, exact and subtype-propagated one-value local/param folds, and exact and subtype-propagated two-value singleton-group local/param selects. GSI001-G/H added guarded un-nesting and `ref.get_desc`, GSI001-I added subtype-propagated origins, GSI001-J broadened the guarded un-nesting vocabulary to integer bitwise operands, and GSI001-K added integer shifts/rotates. The page remains anchored to the 2026-05-06 current-main bridge and raw Binaryen manifest for the upstream contract.
 

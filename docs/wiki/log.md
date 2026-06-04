@@ -2,6 +2,18 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] docs | WAST struct atomic get source routing
+
+- Added [`docs/wiki/raw/wasm/2026-06-04-struct-atomic-get-sources.md`](raw/wasm/2026-06-04-struct-atomic-get-sources.md) from primary shared-everything threads proposal evidence plus Binaryen lit fixtures and current Starshine WAST/core/binary/validator source surfaces.
+- Refreshed [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md), [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`wast/memory-instruction-authoring.md`](wast/memory-instruction-authoring.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so `struct.atomic.get*` is routed as a shared-GC aggregate surface while `i32.atomic.load`, `memory.atomic.wait32`, `atomic.fence`, and related linear-memory atomics remain documented as core/binary/generator-only WAST text gaps.
+- Recorded the local order-spelling caveat: Starshine prints `seq_cst` / `acq_rel`, accepts `acqrel` for acquire-release compatibility, and should not be assumed to parse Binaryen-style `seqcst` until source or tests prove it.
+
+## [2026-06-04] passes | global-struct-inference struct atomic get folds
+
+- Routed immutable-field `struct.atomic.get`, `struct.atomic.get_s`, and `struct.atomic.get_u` read sites through `global-struct-inference`'s existing direct-global and closed-world local/param origin/value/select machinery, preserving null traps, packed signedness, and conservative generic atomic effect modeling.
+- Added public-pipeline coverage for direct immutable atomic folds, packed signed/unsigned atomic repair, mutable-field bailout, and closed-world two-value local atomic selects.
+- Recorded final signoff: `moon test src/passes` passed `1538/1538`, `moon test` passed `4723/4723`, `.tmp/pass-fuzz-global-struct-inference-atomic-get-final-10000` reached `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures (`22` empty-recursion-group plus one each bad-section-size, table-index-out-of-range, and invalid-tag-index). `.tmp/gsi-debug-artifact-timing-atomic-get-final` was canonical-equal with Starshine/Binaryen pass-local `0.354 ms / 2.870 ms`.
+
 ## [2026-06-04] passes | struct atomic get opcode surface
 
 - Added Starshine's local `StructAtomicGet`, `StructAtomicGetS`, and `StructAtomicGetU` instruction surface, including WAT parse/print/lower coverage for `struct.atomic.get*` with `seq_cst` / `acq_rel`, binary encode/decode coverage for opcodes `0xfe5c`..`0xfe5e`, and validation stack typing for plain and packed fields.

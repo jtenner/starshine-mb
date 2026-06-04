@@ -120,7 +120,7 @@ Compared with upstream Binaryen `version_129`, Starshine currently does **not** 
 - full closed-world `typeGlobals` candidate consumption beyond exact/subtype-propagated local/param one-global origins and exact or subtype-propagated one-value/two-value direct-candidate rewrites
 - sibling `gsi-desc-cast` rewrites
 - explicit `ReFinalize`-style repair after type refinement beyond validation-preserving replacement typing; a 2026-06-04 local audit found the current origin/value/select/descriptor replacements derive block/select result types from the original read or validator descriptor result and require materialized values to match before replacement, so no immediate validation bug is known
-- atomic-get-specific GSI proof families; the local opcode/WAT/binary/validation surface now exists for `struct.atomic.get`, `struct.atomic.get_s`, and `struct.atomic.get_u` with `seq_cst` / `acq_rel` ordering, but GSI still has not consumed those opcodes for Binaryen-style immutable-field folds
+- atomic-get-specific GSI proof families for direct-global and closed-world local/param reads; `struct.atomic.get`, `struct.atomic.get_s`, and `struct.atomic.get_u` now fold when the field is immutable, while generic passes still treat the opcodes as conservative atomic reads
 - unbounded large-module un-nesting; the local un-nesting/ref.get_desc surfaces are guarded to small modules to keep the debug artifact pass-local budget green
 
 Those are real capability gaps, not just documentation wording differences.
@@ -138,7 +138,7 @@ If Starshine grows toward the full Binaryen contract, preserve the current subse
 
 1. broaden non-constant operand un-nesting beyond the current small-module arithmetic/bitwise/shift-rotate/unary-numeric/float-rounding-sqrt/sign-extension read-gated subset only if pass-local runtime remains green
 2. implement the sibling `gsi-desc-cast` pass only as a separately scheduled boundary-to-active slice
-3. add atomic-get family coverage now that Starshine has a local `StructAtomicGet*` opcode surface; keep generic passes conservative, and only let GSI fold immutable-field atomic reads after focused tests prove null-trap, packed-field, and effect-ordering safety
+3. broaden atomic-get coverage only from the current immutable-field direct-global/local-param GSI subset, keeping generic passes conservative and proving each new fold with focused null-trap, packed-field, and effect-ordering tests
 4. add explicit typed-AST repair/refinalization if future rewrites need more than validation-preserving replacement typing
 
 ## Related pages

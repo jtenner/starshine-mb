@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-31
+last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md
+  - ../raw/wasm/2026-06-04-struct-atomic-get-sources.md
   - ../../../src/lib/types.mbt
   - ../../../src/binary/decode.mbt
   - ../../../src/binary/encode.mbt
@@ -20,6 +21,7 @@ sources:
 related:
   - ./memory-instruction-authoring.md
   - ./memory-argument-authoring.md
+  - ./gc-aggregate-instruction-authoring.md
   - ./resource-declaration-authoring.md
   - ../validate/resource-sections-and-limits.md
   - ../binary/instruction-and-expression-encoding.md
@@ -31,15 +33,17 @@ related:
 
 ## Overview
 
-Atomic memory instructions are the threads/proposal-backed memory operations that synchronize through linear memory: `memory.atomic.notify`, `memory.atomic.wait32`, `memory.atomic.wait64`, `atomic.fence`, atomic loads/stores, atomic read-modify-write (RMW), and atomic compare-exchange. In Starshine they are **real core instructions** with binary, validation, generator, HOT-IR, and effect-model coverage, but they are **not yet high-level WAST parser syntax**.
+Atomic memory instructions are the threads/proposal-backed operations that synchronize through **linear memory**: `memory.atomic.notify`, `memory.atomic.wait32`, `memory.atomic.wait64`, `atomic.fence`, atomic loads/stores, atomic read-modify-write (RMW), and atomic compare-exchange. In Starshine they are **real core instructions** with binary, validation, generator, HOT-IR, and effect-model coverage, but they are **not yet high-level WAST parser syntax**.
 
-Use this page when a fixture, pass, fuzzer row, or wiki claim mentions atomics. Use [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for ordinary scalar and bulk memory instructions, [`memory-argument-authoring.md`](memory-argument-authoring.md) for `MemArg` alignment/offset/index rules, [`resource-declaration-authoring.md`](resource-declaration-authoring.md) for memory declarations/imports in WAST text, and [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md) for validator-side memory limits, memory64, and Starshine-local shared-memory maximum policy.
+Do not use this page as the owner for every instruction whose name contains `atomic`. The shared-everything threads proposal also has **shared-GC aggregate atomics** such as `struct.atomic.get*`. Starshine now has a focused WAST/core/binary/validator surface for `struct.atomic.get`, `struct.atomic.get_s`, and `struct.atomic.get_u`; route those through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) and the 2026-06-04 source snapshot instead of through `MemArg`-based memory rules.
 
-The source manifest is [`../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md`](../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md). It checks the official WebAssembly threads proposal pages plus Starshine core, binary, validator, generator, HOT, and WAST surfaces.
+Use this page when a fixture, pass, fuzzer row, or wiki claim mentions linear-memory atomics. Use [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for ordinary scalar and bulk memory instructions, [`memory-argument-authoring.md`](memory-argument-authoring.md) for `MemArg` alignment/offset/index rules, [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) for `struct.atomic.get*`, [`resource-declaration-authoring.md`](resource-declaration-authoring.md) for memory declarations/imports in WAST text, and [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md) for validator-side memory limits, memory64, and Starshine-local shared-memory maximum policy.
 
-## Layer Boundary: Core Yes, WAST Text No
+The linear-memory atomic source manifest is [`../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md`](../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md). The shared-GC struct-atomic-get snapshot is [`../raw/wasm/2026-06-04-struct-atomic-get-sources.md`](../raw/wasm/2026-06-04-struct-atomic-get-sources.md).
 
-Starshine currently has this split:
+## Layer Boundary: Linear-Memory Core Yes, WAST Text No
+
+Starshine currently has this split for linear-memory atomics:
 
 | Layer | Status | Evidence |
 | --- | --- | --- |
@@ -48,14 +52,25 @@ Starshine currently has this split:
 | Validation | Supported | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) requires atomic memory operations to target shared memories, then stack-types atomic loads/stores, notify, wait, RMW, cmpxchg, and fence; [`typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt) covers representative positives and negatives. |
 | Valid generator / FZG | Supported | [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt) emits coverage-forced atomics when a shared memory exists; [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) owns the `[FZG]017` `Atomics` ledger row. |
 | HOT IR / effects | Supported | [`src/ir/hot_lift.mbt`](../../../src/ir/hot_lift.mbt) classifies atomics as `HotOp::Atomic`; [`src/ir/hot_lower.mbt`](../../../src/ir/hot_lower.mbt) lowers exact instructions; [`src/ir/effects.mbt`](../../../src/ir/effects.mbt) assigns memory/trap effects. |
-| WAST keywords/parser | Not exposed | [`src/wast/keywords.mbt`](../../../src/wast/keywords.mbt) has no atomic keyword registrations and [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) has no atomic instruction parser cases. |
-| Core debug printing | Debug-only | [`src/lib/show.mbt`](../../../src/lib/show.mbt) can display core atomics, but that output is not accepted high-level WAST input today. |
+| WAST keywords/parser | Not exposed for linear-memory atomics | [`src/wast/keywords.mbt`](../../../src/wast/keywords.mbt) has no `i32.atomic.load`, `memory.atomic.wait32`, `atomic.fence`, or other linear-memory atomic keyword registrations, and [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) has no parser cases for those families. This does **not** describe `struct.atomic.get*`, which now has its own WAST surface. |
+| Core debug printing | Debug-only for linear-memory atomics | [`src/lib/show.mbt`](../../../src/lib/show.mbt) can display core linear-memory atomics, but that output is not accepted high-level WAST input today. |
 
-Do not read the WAST gap as lack of Starshine support. It only means human-authored text fixtures should use direct core builders, binary bytes, or `gen_valid` until a parser/lowerer/printer widening slice lands.
+Do not read the linear-memory WAST gap as lack of Starshine support. It only means human-authored text fixtures for `i32.atomic.load`, `memory.atomic.wait32`, `atomic.fence`, and friends should use direct core builders, binary bytes, or `gen_valid` until a parser/lowerer/printer widening slice lands.
+
+## Shared-GC Struct Atomic Get Boundary
+
+`struct.atomic.get*` looks related by name, but it is a GC aggregate instruction rather than a linear-memory instruction:
+
+| Family | Runtime operand | Immediates | Starshine WAST text | Owner page |
+| --- | --- | --- | --- | --- |
+| Linear-memory atomics | memory address plus value operands as needed | `MemArg` with alignment, offset, and selected memory | Not exposed today | This page plus [`memory-argument-authoring.md`](memory-argument-authoring.md) |
+| `struct.atomic.get` / `_s` / `_u` | one struct reference | atomic order, type index, field index | Exposed with canonical `seq_cst` / `acq_rel` order spellings; `acqrel` is accepted as a compatibility alias | [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) |
+
+The 2026-06-04 snapshot records the source split and local caveats: Starshine currently documents `StructAtomicGet*` only, not aggregate atomic set/RMW/cmpxchg families; generic optimizer surfaces model the get variants conservatively as reads that may trap; and the focused local `global-struct-inference` slice covers immutable-field direct-global and closed-world local/param folds without turning generic atomic reads into freely movable pure operations.
 
 ## Beginner Model
 
-Atomic instructions combine four ideas:
+Linear-memory atomic instructions combine four ideas:
 
 1. **A memory argument**: most forms carry `MemArg(align, mem?, offset)`, just like ordinary loads/stores.
 2. **An address operand**: the first runtime operand is the selected memory's address type (`i32` for memory32, `i64` for memory64).
@@ -131,19 +146,20 @@ When touching atomics:
 1. **Validate shared-memory context and stack effects, not just decode.** Add positive and negative coverage near [`src/validate/typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt) for the selected memory's `shared` bit, operand order, expected value type, invalid memory index, alignment, and offset-width failures.
 2. **Keep shared-memory/resource context explicit.** The valid generator emits atomics only when a shared memory is available. Direct fixtures should explain whether they are testing local stack typing, proposal-level shared-memory semantics, byte-codec coverage, or the resource-section rule that shared memories need a maximum; route that last rule through [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md).
 3. **Preserve memory ordering and trap behavior.** Treat atomic loads as reads, atomic stores/notify as writes, RMW/cmpxchg as read-write, and wait operations as read/trap-sensitive. `atomic.fence` has no stack effect, but it is still an ordering operation; do not delete or move it as if it were a `nop` without a memory-model proof.
-4. **Keep WAST claims scoped.** If a test uses `@lib.Instruction` or raw bytes, call it core/binary evidence. Do not call it WAST text coverage until `src/wast/keywords.mbt`, `src/wast/parser.mbt`, lowering, printing, and WAST tests are widened.
+4. **Keep WAST claims scoped.** If a linear-memory atomic test uses `@lib.Instruction` or raw bytes, call it core/binary evidence. Do not call it WAST text coverage until `src/wast/keywords.mbt`, `src/wast/parser.mbt`, lowering, printing, and WAST tests are widened. `struct.atomic.get*` is the exception with its own WAST surface and source snapshot.
 5. **After memory remaps, repair `MemArg`s.** Atomics carry the same `MemArg` memory-index/offset/alignment risks as ordinary loads and stores. Pair this page with [`memory-argument-authoring.md`](memory-argument-authoring.md).
 6. **For pass parity, classify mismatches carefully.** An output that validates can still be wrong if an atomic operation was reordered across another memory effect or if a fence vanished. Cite effect analysis, Binaryen oracle behavior, or an inspected semantic proof before calling a mismatch safe.
 
 ## Current Gaps And Caveats
 
-- Starshine WAST does not currently accept atomic text keywords such as `i32.atomic.load`, `memory.atomic.wait32`, or `atomic.fence`.
-- Core debug `Show` output for atomics is not a parser roundtrip contract.
+- Starshine WAST does not currently accept **linear-memory** atomic text keywords such as `i32.atomic.load`, `memory.atomic.wait32`, or `atomic.fence`.
+- Core debug `Show` output for linear-memory atomics is not a parser roundtrip contract.
 - WAST memory declarations still lower through the `i32` limits path and have no shared-memory spelling; use direct core/binary fixtures for shared-memory atomic cases today, and cite [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md) for the validator-side shared-memory maximum rule.
 - The generator's `[FZG]017` row is strong core/binary/validator evidence for atomics, not evidence that arbitrary WAST text can author those shapes.
 
 ## Sources
 
-- Source manifest: [`../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md`](../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md)
+- Linear-memory atomic source manifest: [`../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md`](../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md)
+- Shared-GC struct atomic-get source snapshot: [`../raw/wasm/2026-06-04-struct-atomic-get-sources.md`](../raw/wasm/2026-06-04-struct-atomic-get-sources.md)
 - WebAssembly threads proposal sources: <https://github.com/WebAssembly/proposals/blob/main/proposals/threads/Overview.md>, <https://webassembly.github.io/threads/core/syntax/instructions.html>, <https://webassembly.github.io/threads/core/text/instructions.html>, <https://webassembly.github.io/threads/core/binary/instructions.html>, <https://webassembly.github.io/threads/core/valid/instructions.html>, <https://webassembly.github.io/threads/core/valid/modules.html>
-- Starshine implementation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt), [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/ir/hot_lift.mbt`](../../../src/ir/hot_lift.mbt), [`../../../src/ir/hot_lower.mbt`](../../../src/ir/hot_lower.mbt), [`../../../src/ir/effects.mbt`](../../../src/ir/effects.mbt), [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt)
+- Starshine implementation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/binary/tests.mbt`](../../../src/binary/tests.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt), [`../../../src/validate/typecheck_negative_tests.mbt`](../../../src/validate/typecheck_negative_tests.mbt), [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/ir/hot_lift.mbt`](../../../src/ir/hot_lift.mbt), [`../../../src/ir/hot_lower.mbt`](../../../src/ir/hot_lower.mbt), [`../../../src/ir/effects.mbt`](../../../src/ir/effects.mbt), [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/struct_atomic_get_surface_test.mbt`](../../../src/wast/struct_atomic_get_surface_test.mbt)
