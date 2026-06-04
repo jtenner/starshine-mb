@@ -930,3 +930,22 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the first focused run failed as intended (`39/40` passed) before the implementation change; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed after the fix (`40/40`); `moon test src/passes` passed (`1588/1588`); full `moon test` passed (`4773/4773`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; compare reached `6766` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up `array.copy` local-only effect slice on 2026-06-04
+
+A later focused LCSE hardening slice spot-checked an `array.copy` between two local-only arithmetic trees. Binaryen materialized the pre-`array.copy` `i32.add` with `local.tee` and reused it after the copy, matching the earlier GC write effect-invalidation shapes for local-only repeated trees. Starshine added the failing core-built direct regression `local-cse reuses local-only expression across array-copy`, then fixed the raw/module operand model by treating `array.copy` as a five-operand, no-result instruction rather than an unknown hard boundary. This does not make `array.copy` roots reusable and does not implement arbitrary heap/GVN reasoning.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-array-copy-local-only-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the first focused run failed as intended (`40/41` passed) before the implementation change; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed after the fix (`41/41`); `moon test src/passes` passed (`1589/1589`); full `moon test` passed (`4774/4774`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; compare reached `6770` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
