@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | global-struct-inference integer sign-extension un-nesting
+
+- Broadened guarded small-module non-constant operand un-nesting for `global-struct-inference` to include pure non-trapping integer sign-extension operands (`i32.extend8_s`, `i32.extend16_s`, `i64.extend8_s`, `i64.extend16_s`, and `i64.extend32_s`), without changing the read-gated request filter or the large-module materializable-only guard.
+- Added public-pipeline coverage in `src/passes/global_struct_inference_test.mbt` for direct-global `i32.extend8_s` and `i64.extend32_s` field operands splitting into fresh immutable globals and then folding the field read.
+- Recorded TDD failure evidence before implementation and final signoff: `moon test src/passes` passed `1532/1532`, `moon test` passed `4709/4709`, `.tmp/pass-fuzz-global-struct-inference-unnest-integer-signext-final-10000` reached `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures (`22` empty-recursion-group plus one each bad-section-size, table-index-out-of-range, and invalid-tag-index). `.tmp/gsi-debug-artifact-timing-unnest-integer-signext-final` was canonical-equal with Starshine/Binaryen pass-local `0.361 ms / 2.874 ms`.
+
 ## [2026-06-03] passes | global-struct-inference float rounding un-nesting
 
 - Broadened guarded small-module non-constant operand un-nesting for `global-struct-inference` to include pure non-trapping float rounding operands (`ceil`, `floor`, `trunc`, and `nearest` for `f32`/`f64`), without changing the read-gated request filter or the large-module materializable-only guard.

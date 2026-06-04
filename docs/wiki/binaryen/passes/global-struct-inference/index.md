@@ -67,7 +67,7 @@ So this is **not** generic whole-program struct analysis and **not** just Starsh
   - `global-refining` tightens global declarations first
   - the second `remove-unused-module-elements` can then discard newly dead baggage
   - `gsi` turns the surviving global-instance story into more precise field reads before the function-pass cluster starts
-- The 2026-06-03 `[O4Z-AUDIT-GSI]` slice upgraded and signed off the direct-global subset, then moved the remaining full-Binaryen surfaces to follow-up scope; follow-ups added a subtype-aware closed-world candidate/poison fact table, consume exact and validation-safe subtype-propagated single-candidate local/param origin rewrites, fold exact and subtype-propagated local/param reads when every safe candidate yields the same materializable value, synthesize exact or subtype-propagated two-value singleton-group `select(ref.eq(...))` rewrites, and add guarded small-module arithmetic/bitwise/shift-rotate/unary-numeric/float-rounding-sqrt un-nesting plus `ref.get_desc` folds/selects.
+- The 2026-06-03 `[O4Z-AUDIT-GSI]` slice upgraded and signed off the direct-global subset, then moved the remaining full-Binaryen surfaces to follow-up scope; follow-ups added a subtype-aware closed-world candidate/poison fact table, consume exact and validation-safe subtype-propagated single-candidate local/param origin rewrites, fold exact and subtype-propagated local/param reads when every safe candidate yields the same materializable value, synthesize exact or subtype-propagated two-value singleton-group `select(ref.eq(...))` rewrites, and add guarded small-module arithmetic/bitwise/shift-rotate/unary-numeric/float-rounding-sqrt/sign-extension un-nesting plus `ref.get_desc` folds/selects.
 - In the saved generated-artifact `-O4z` audit, slot `7` (`gsi`) was already green before the O4z audit upgrade, and the 2026-06-03 direct-pass audit refreshed that evidence after enabling the open-world direct-global layer:
   - exact wasm equal: `yes`
   - normalized WAT equal: `yes`
@@ -89,6 +89,7 @@ So this is **not** generic whole-program struct analysis and **not** just Starsh
 - The closed-world packed un-nesting repair follow-up direct compare again stayed green at 9975 / 10000 compared, 9975 normalized matches, 0 mismatches, and the same 25 Binaryen/tool command failures; the debug-artifact timing replay was canonical-equal with Starshine/Binaryen pass-local `0.413 ms` / `3.211 ms`.
 - The float sqrt un-nesting follow-up direct compare stayed green at 9975 / 10000 compared, 9975 normalized matches, 0 mismatches, and the same 25 Binaryen/tool command failures; the debug-artifact timing replay was canonical-equal with Starshine/Binaryen pass-local `0.441 ms` / `3.019 ms`.
 - The float rounding un-nesting follow-up direct compare stayed green at 9975 / 10000 compared, 9975 normalized matches, 0 mismatches, and the same 25 Binaryen/tool command failures; the debug-artifact timing replay was canonical-equal with Starshine/Binaryen pass-local `0.364 ms` / `3.394 ms`.
+- The integer sign-extension un-nesting follow-up direct compare stayed green at 9975 / 10000 compared, 9975 normalized matches, 0 mismatches, and the same 25 Binaryen/tool command failures; the debug-artifact timing replay was canonical-equal with Starshine/Binaryen pass-local `0.361 ms` / `2.874 ms`.
 
 ## Most important durable takeaways
 

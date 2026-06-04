@@ -598,6 +598,11 @@ fn gsi_unnestable_stack_operand_count(instr : @lib.Instruction) -> Int? {
     | @lib.I64Clz
     | @lib.I64Ctz
     | @lib.I64Popcnt
+    | @lib.I32Extend8S
+    | @lib.I32Extend16S
+    | @lib.I64Extend8S
+    | @lib.I64Extend16S
+    | @lib.I64Extend32S
     | @lib.F32Abs
     | @lib.F32Neg
     | @lib.F32Ceil
@@ -655,6 +660,8 @@ fn gsi_unnestable_instr_result_type(
     | @lib.I32Clz
     | @lib.I32Ctz
     | @lib.I32Popcnt
+    | @lib.I32Extend8S
+    | @lib.I32Extend16S
     | @lib.I32Add
     | @lib.I32Sub
     | @lib.I32Mul
@@ -669,6 +676,9 @@ fn gsi_unnestable_instr_result_type(
     @lib.I64Clz
     | @lib.I64Ctz
     | @lib.I64Popcnt
+    | @lib.I64Extend8S
+    | @lib.I64Extend16S
+    | @lib.I64Extend32S
     | @lib.I64Add
     | @lib.I64Sub
     | @lib.I64Mul
