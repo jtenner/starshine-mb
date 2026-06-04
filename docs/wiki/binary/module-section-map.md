@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md
   - ../raw/wasm/2026-05-13-module-section-order-sources.md
   - ../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
@@ -39,7 +40,7 @@ The official WebAssembly 3.0 binary format has two ordering rules that are easy 
 1. **Standard sections appear in a fixed family order.** The stream begins with magic/version bytes, then standard sections appear at most once in the spec order, with custom sections allowed in gaps.
 2. **Index spaces are semantic, not just section-local.** Imports and local definitions of the same kind share one index space; imported functions/tables/memories/globals/tags occupy the prefix before local definitions.
 
-Starshine follows those rules in its core module representation and validation environment, while making two local choices explicit: non-`name` custom-section placement is normalized on encode, and `StringRefsSec` section id `14` is local/proposal-facing rather than a stable core WebAssembly section.
+Starshine follows those rules in its core module representation and validation environment, while making two local choices explicit: non-`name` custom-section placement is normalized on encode, and `StringRefsSec` section id `14` is proposal/local-facing rather than a stable Core WebAssembly 3.0 section.
 
 ## Whole-Module Section Order
 
@@ -53,7 +54,7 @@ Starshine follows those rules in its core module representation and validation e
 | 4 | Table | `4` | `table_sec` | [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) | Local table definitions after table imports; optional table initializer expressions are preserved. |
 | 5 | Memory | `5` | `mem_sec` | [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) | Local memory definitions after memory imports; shared memories need maxima in Starshine validation. |
 | 6 | Tag | `13` | `tag_sec` | [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) | Post-MVP section id, but Starshine decodes/encodes it before globals to match the current core spec order. |
-| 7 | Local stringrefs | local `14` | `stringrefs_sec` | [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md), [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md) | Local literal pool used by `string.const` binary round trips; not a stable core section in the checked official sources. |
+| 7 | Stringrefs | proposal/local `14` | `stringrefs_sec` | [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md), [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md) | Literal pool used by `string.const` binary round trips; matches the active stringref proposal draft but is not stable Core WebAssembly 3.0. |
 | 8 | Global | `6` | `global_sec` | [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) | Local globals validate incrementally, so earlier globals are visible to later initializers but not vice versa. |
 | 9 | Export | `7` | `export_sec` | [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md) | Export names must be unique and indices must resolve in their target spaces. |
 | 10 | Start | `8` | `start_sec` | [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md), [`../validate/start-section.md`](../validate/start-section.md) | Target function must exist and have no params/results; imported-empty-signature targets are valid. |
@@ -78,7 +79,7 @@ A decode-time `stringrefs` context is installed only around the sections that ca
 
 1. magic/version;
 2. all non-`name` `custom_secs` before standard sections;
-3. standard sections in Starshine's current order: type, import, function, table, memory, tag, local stringrefs, global, export, start, element, data-count, code, data;
+3. standard and proposal/local sections in Starshine's current order: type, import, function, table, memory, tag, stringrefs, global, export, start, element, data-count, code, data;
 4. the structured or raw-preserved `name` custom section at the tail.
 
 That means ordinary round trips preserve custom-section payloads and structured name data, but they do **not** preserve exact original custom-section placement. If a future consumer needs exact placement, the representation needs a placement-bearing custom-section model rather than a pass-local workaround.
@@ -117,7 +118,7 @@ Use this checklist before implementing or reviewing any pass that deletes, reord
 | Tags | `throw`, catch clauses, imports/exports, tag names, and exception validation assumptions. |
 | Elements or data segments | Segment indices, active parent table/memory indices, `table.init` / `elem.drop` / `memory.init` / `data.drop`, name maps, data-count equality, and startup-trap policy; pair element runtime uses with [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md). |
 | Custom/name metadata | Clear `raw_name_sec_payload` after structured rewrites, update affected name maps, preserve unrelated non-`name` custom payloads unless the pass explicitly owns a stripping policy. |
-| Local `stringrefs` pool | Keep `StringRefsSec`, `Instruction::StringConst`, supported string helper assumptions, and string pass assumptions consistent; use [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md) for text stack/storage rules and do not describe id `14` as stable core Wasm without refreshing upstream sources. |
+| `stringrefs` pool | Keep `StringRefsSec`, `Instruction::StringConst`, supported string helper assumptions, and string pass assumptions consistent; use [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md) for text stack/storage rules and do not describe id `14` as stable Core Wasm without noting the active-proposal-versus-Core-3.0 split. |
 
 The pass dossiers most sensitive to this checklist include [`remove-unused-module-elements`](../binaryen/passes/remove-unused-module-elements/index.md), [`duplicate-function-elimination`](../binaryen/passes/duplicate-function-elimination/index.md), [`duplicate-import-elimination`](../binaryen/passes/duplicate-import-elimination/index.md), [`reorder-functions`](../binaryen/passes/reorder-functions/index.md), [`reorder-globals`](../binaryen/passes/reorder-globals/index.md), [`remove-unused-types`](../binaryen/passes/remove-unused-types/index.md), [`reorder-types`](../binaryen/passes/reorder-types/index.md), and [`memory-packing`](../binaryen/passes/memory-packing/index.md).
 
@@ -134,6 +135,7 @@ The pass dossiers most sensitive to this checklist include [`remove-unused-modul
 
 ## Sources
 
+- Current stringref proposal/core refresh: [`../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md`](../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md)
 - Primary-source snapshot: [`../raw/wasm/2026-05-13-module-section-order-sources.md`](../raw/wasm/2026-05-13-module-section-order-sources.md)
 - LEB128 binary integer refresh: [`../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md`](../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md), [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md)
 - Core module representation: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt)

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wast/binary/strings | stringref proposal current refresh
+
+- Added [`docs/wiki/raw/wasm/2026-06-04-stringref-proposal-current-refresh.md`](raw/wasm/2026-06-04-stringref-proposal-current-refresh.md) after checking the current WebAssembly proposals tracker, the active Reference-Typed Strings proposal, current Core 3.0 instruction/binary pages dated 2026-06-03, and Starshine WAST/core/binary/validator string surfaces.
+- Refreshed [`wast/string-instruction-authoring.md`](wast/string-instruction-authoring.md), [`strings/string-const-surface.md`](strings/string-const-surface.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`binary/module-section-map.md`](binary/module-section-map.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so string docs distinguish active Phase-1 proposal support from stable Core WebAssembly 3.0.
+- Corrected the WAST string-helper teaching surface: Starshine's implemented `string.new_*_array` operands mirror the proposal's `array, start, exclusive end` shape, while `string.encode_*_array` remains `stringref, mutable array, start`; wider proposal families and stable-core `stringrefs` claims remain unsupported locally.
+
 ## [2026-06-04] wast/fuzzing | static harness link-boundary refresh
 
 - Added [`docs/wiki/raw/wasm/2026-06-04-wast-static-harness-current-refresh.md`](raw/wasm/2026-06-04-wast-static-harness-current-refresh.md) after rechecking the current official WebAssembly reference-interpreter WAST script contract, the Core embedding/instantiation boundary, and Starshine's static `spec_harness` plus `valid-multi-module-linking` fuzz surfaces.

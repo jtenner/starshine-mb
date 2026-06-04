@@ -69,7 +69,7 @@ Do not treat success in one layer as proof for another. For example, core/binary
 - [`gc-type-authoring.md`](gc-type-authoring.md) — function/struct/array/rec types, `sub` / `final`, type-use syntax, flat type indices, and descriptor metadata caveats.
 - [`reference-instruction-authoring.md`](reference-instruction-authoring.md) — `ref.null`, `ref.func`, null tests, equality, casts, reference branches, the branch-path versus fallthrough-path type split, `CastOp` nullability, `call_ref` declaration-source boundaries, and current Starshine text gaps for officially sourced ordinary `ref.test` / `ref.cast` / `br_on_*` forms.
 - [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) — struct constructors/gets, focused `struct.atomic.get*` shared-GC reads, local descriptor constructors, i31 operations, the current core/binary-only status of many `array.*`, `struct.set`, and aggregate atomic write/RMW/cmpxchg forms, and the separate initializer caveat where official array constructor constant expressions outpace Starshine's local allow-list.
-- [`string-instruction-authoring.md`](string-instruction-authoring.md) — `string.const` plus Starshine's currently supported array-backed string helper operations.
+- [`string-instruction-authoring.md`](string-instruction-authoring.md) — `string.const` plus Starshine's currently supported array-backed string helper operations, with the 2026-06-04 source-current split between active Phase-1 stringref proposal bytes/semantics and stable Core WebAssembly 3.0, plus the proposal-correct `start` / exclusive-`end` constructor operands.
 
 ### Control and calls
 

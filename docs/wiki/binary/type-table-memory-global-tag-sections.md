@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md
   - ../raw/wasm/2026-06-04-exception-tag-current-refresh.md
   - ../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md
   - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
@@ -52,7 +53,7 @@ This page is the shared Starshine guide for the core module-definition sections 
 
 For fixture-facing table, memory, and global declarations, explicit imports, inline exports, table element abbreviations, and current WAST declaration caveats, pair this binary resource guide with [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). For type-section validation, recursive-group normalization, subtype matching, descriptor metadata checks, and official-versus-local subtype caveats, pair it with [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md). For table/memory/global/tag/data/element limits, incremental resource environments, active segment offset checks, shared-memory maximum policy, and data-count validation, pair it with [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md). For import/export validation, duplicate export names, and external-type matching rules that consume these resource types, pair it with [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md). For the initializer and table-initializer constant-expression allow-list, local/spec caveats, and immutable-`global.get` visibility, pair it with [`../validate/constant-expressions.md`](../validate/constant-expressions.md). For text-level exception fixtures, catch label semantics, `throw_ref`, `try_table`, and the modern-versus-legacy WAST boundary, pair it with [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md). The current exception refresh [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md) records an important tag-result split: current Core 3.0 tagtype validation is broader than Starshine's local section/import validation, while exception instruction rules still require empty-result tag expansions. For `string.const`, array-backed string helpers, and string-helper validation stack/storage rules, pair it with [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md).
 
-The official WebAssembly 3.0 source snapshot in [`../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md`](../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md) is the primary external source for section ids and the core type/table/memory/global/tag validation model. The same snapshot records an important caveat: the reviewed core and js-string-builtins module sources do **not** define a stable core `stringrefs` section id, so Starshine's section-id-`14` `StringRefsSec` should be treated as a local/proposal-facing implementation surface until upstream standardization says otherwise.
+The official WebAssembly 3.0 source snapshot in [`../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md`](../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md) is the primary external source for section ids and the core type/table/memory/global/tag validation model. The current stringref refresh [`../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md`](../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md) sharpens the caveat: the active Phase-1 Reference-Typed Strings proposal defines draft section id `14` and Starshine mirrors it, but current Core WebAssembly 3.0 still does **not** define a stable core `stringrefs` section.
 
 ## Section Shapes
 
@@ -63,7 +64,7 @@ The official WebAssembly 3.0 source snapshot in [`../raw/wasm/2026-05-13-type-ta
 | Memory | `5` | [`MemSec(Array[MemType])`](../../../src/lib/types.mbt) | Memory imports precede definitions in the memory index space; shared memories require a maximum in Starshine validation. |
 | Global | `6` | [`GlobalSec(Array[Global])`](../../../src/lib/types.mbt) | Each global validates under the environment containing imports and earlier globals only; its initializer must be a constant expression of the declared type under [`../validate/constant-expressions.md`](../validate/constant-expressions.md). |
 | Tag | `13` | [`TagSec(Array[TagType])`](../../../src/lib/types.mbt) | Tag imports precede definitions in the tag index space; Starshine currently requires each tag type index to resolve to a function type with no results, although current Core 3.0 only enforces the empty-result shape at EH instruction use sites. |
-| Stringrefs | local `14` | [`StringRefsSec(Array[Bytes])`](../../../src/lib/types.mbt) | Local literal pool used by Starshine's binary encoder/decoder for `string.const`; not currently a core-spec section according to the reviewed sources. WAST-side string helper semantics live in [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md). |
+| Stringrefs | proposal/local `14` | [`StringRefsSec(Array[Bytes])`](../../../src/lib/types.mbt) | Literal pool used by Starshine's binary encoder/decoder for `string.const`; the active stringref proposal defines the same section id, but current Core WebAssembly 3.0 does not. WAST-side string helper semantics live in [`../wast/string-instruction-authoring.md`](../wast/string-instruction-authoring.md). |
 
 Imports are deliberately not duplicated in these definition sections. An imported memory, for example, appears in `ImportSec` as `MemExternType` and then occupies `MemIdx(0)` before the first locally defined memory. The same imported-prefix rule applies to table, global, and tag indices. If a host value later needs to satisfy that import, the type-compatibility relation is the external-type matching contract in [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md).
 
@@ -94,7 +95,7 @@ The consequence is subtle but important: changing one of these sections is rarel
 | Encode core sections | [`Encode for TypeSec`](../../../src/binary/encode.mbt), `TableSec`, `MemSec`, `GlobalSec`, and `TagSec` write ids `1`, `4`, `5`, `6`, and `13`. | `src/binary/encode.mbt` |
 | Encode explicit table initializers | [`Encode for Table`](../../../src/binary/encode.mbt) emits `0x40 0x00` before the table type and initializer expression when `Table(..., Some(expr))` is present. | `src/binary/encode.mbt` |
 | Encode stringrefs | [`encode_module_stringrefs(...)`](../../../src/binary/encode.mbt) collects unique `string.const` payloads from globals and code, merges any existing `StringRefsSec`, emits section id `14`, and encodes `string.const` through the active literal pool. | `src/binary/encode.mbt`, [`src/binary/tests.mbt`](../../../src/binary/tests.mbt) |
-| Whole-module order | [`Encode for Module`](../../../src/binary/encode.mbt) writes type, import, function, table, memory, tag, local stringrefs, global, export, start, element, data-count, code, data, and name metadata in canonical order. | `src/binary/encode.mbt` |
+| Whole-module order | [`Encode for Module`](../../../src/binary/encode.mbt) writes type, import, function, table, memory, tag, proposal/local stringrefs, global, export, start, element, data-count, code, data, and name metadata in canonical order. | `src/binary/encode.mbt` |
 
 ## Validation Contract
 
@@ -159,7 +160,7 @@ The second initializer validates because `$a` is already in the global environme
     (string.const "hello")))
 ```
 
-When Starshine encodes a module containing `Instruction::StringConst`, it collects literal bytes into `StringRefsSec`, emits the local section `14`, and writes instruction immediates through that pool. This is useful for Starshine's string pass work, but it should not be presented as a stable core WebAssembly section until upstream sources define it.
+When Starshine encodes a module containing `Instruction::StringConst`, it collects literal bytes into `StringRefsSec`, emits section `14`, and writes instruction immediates through that pool. This mirrors the active stringref proposal draft and is useful for Starshine's string pass work, but it should not be presented as a stable Core WebAssembly section until the proposal advances into the core spec.
 
 ## Pass Rewrite Checklist
 
@@ -181,11 +182,12 @@ Related pass dossiers that depend on this checklist include [`remove-unused-type
 - **Table initializers are uncommon but real.** Preserve the optional `Expr` on `Table`; dropping it changes initialization semantics.
 - **Shared memory needs a maximum locally.** Keep this validator rule visible when adding threads or memory-lowering tests.
 - **Tag types are function types, but Starshine still rejects resultful ones at declaration time.** Current Core 3.0's tagtype validity rule is broader; current Starshine intentionally or accidentally keeps the older empty-result declaration rule, so resultful tag sections are local validator-gap fixtures, not ordinary portable positives.
-- **`StringRefsSec` is local/proposal-facing.** It is implemented and round-tripped by Starshine, but the reviewed official sources do not make section id `14` a stable core section.
+- **`StringRefsSec` is proposal/local-facing.** It is implemented and round-tripped by Starshine and now matches the active Phase-1 stringref draft's section-id-`14` shape, but current Core WebAssembly 3.0 does not make it a stable core section.
 - **Name-section maps are coupled.** Type, table, memory, global, and tag name maps in [`custom-and-name-sections.md`](custom-and-name-sections.md) must be rewritten or cleared whenever those index spaces change.
 
 ## Sources
 
+- Current stringref proposal/core refresh: [`../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md`](../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md)
 - Current exception/tag-result refresh: [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md)
 - Primary-source snapshot: [`../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md`](../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md)
 - Type-section validation refresh: [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md)

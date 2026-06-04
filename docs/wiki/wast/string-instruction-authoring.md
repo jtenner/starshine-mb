@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md
   - ../raw/wasm/2026-05-19-wast-string-instruction-sources.md
   - ../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md
   - ../strings/string-const-surface.md
@@ -40,7 +41,7 @@ Use this page when writing, reducing, or widening fixtures that mention Starshin
 - array-backed construction: `string.new_utf8_array`, `string.new_wtf16_array`, `string.new_lossy_utf8_array`, and `string.new_wtf8_array`;
 - array-backed encoding: `string.encode_utf8_array`, `string.encode_wtf16_array`, `string.encode_lossy_utf8_array`, and `string.encode_wtf8_array`.
 
-The primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-string-instruction-sources.md`](../raw/wasm/2026-05-19-wast-string-instruction-sources.md). The key reconciliation is that **Starshine has a real WAST/core/binary/validator surface for a narrow stringref-proposal subset, but that surface is not the full stringref proposal and is not a stable core WebAssembly 3.0 section contract.** Keep binary literal-pool and section-id claims routed through [`../strings/string-const-surface.md`](../strings/string-const-surface.md) and [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md).
+The current primary-source and local-code refresh is [`../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md`](../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md), superseding only the source-status and array-operand wording in the older [`2026-05-19` manifest](../raw/wasm/2026-05-19-wast-string-instruction-sources.md). The key reconciliation is that **Starshine has a real WAST/core/binary/validator surface for a narrow stringref-proposal subset, but that surface is not the full active Phase-1 Reference-Typed Strings proposal and is not stable Core WebAssembly 3.0.** Keep binary literal-pool and section-id claims routed through [`../strings/string-const-surface.md`](../strings/string-const-surface.md) and [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md).
 
 ## Beginner Mental Model
 
@@ -50,7 +51,7 @@ That means string instructions sit at the intersection of three concepts:
 
 1. **literal identity**: `string.const` carries bytes that must survive parsing, lowering, binary encode/decode, and optimizer rewrites;
 2. **GC arrays**: the array helpers require concrete array heap types with matching packed element storage;
-3. **proposal/local binary support**: Starshine uses local `0xFB` subcodes and a local `StringRefsSec` literal pool, so do not describe these bytes as stable core WebAssembly unless the upstream sources are refreshed.
+3. **proposal/local binary support**: Starshine mirrors the active stringref proposal's `0xfb 0x82` / `0xfb 0xb0..0xb7` opcode assignments and section-id-`14` literal pool shape, but the WebAssembly proposals tracker still lists Reference-Typed Strings at Phase 1; do not describe these bytes as stable Core WebAssembly 3.0.
 
 ## Layer Model
 
@@ -67,9 +68,9 @@ That means string instructions sit at the intersection of three concepts:
 
 | Family | WAST text support today | Core/binary/validator support today | Fixture guidance |
 | --- | --- | --- | --- |
-| `string.const` | Yes | Yes | Prefer WAST fixtures for literal parsing/lowering and binary roundtrip fixtures for local `StringRefsSec` behavior. |
-| UTF-8 / WTF-8 array construction | `string.new_utf8_array`, `string.new_lossy_utf8_array`, `string.new_wtf8_array` | Yes | Requires an array reference whose element storage is packed `i8`, then `i32` start and `i32` length. |
-| WTF-16 array construction | `string.new_wtf16_array` | Yes | Requires an array reference whose element storage is packed `i16`, then `i32` start and `i32` length. |
+| `string.const` | Yes | Yes | Prefer WAST fixtures for literal parsing/lowering and binary roundtrip fixtures for local/proposal `StringRefsSec` behavior. |
+| UTF-8 / WTF-8 array construction | `string.new_utf8_array`, `string.new_lossy_utf8_array`, `string.new_wtf8_array` | Yes | Requires an array reference whose element storage is packed `i8`, then `i32` start and exclusive `i32` end. |
+| WTF-16 array construction | `string.new_wtf16_array` | Yes | Requires an array reference whose element storage is packed `i16`, then `i32` start and exclusive `i32` end. |
 | UTF-8 / WTF-8 array encoding | `string.encode_utf8_array`, `string.encode_lossy_utf8_array`, `string.encode_wtf8_array` | Yes | Requires `stringref`, a mutable packed-`i8` array reference, and an `i32` start; produces `i32`. |
 | WTF-16 array encoding | `string.encode_wtf16_array` | Yes | Requires `stringref`, a mutable packed-`i16` array reference, and an `i32` start; produces `i32`. |
 | Wider stringref proposal operations | No | No current Starshine AST/validator evidence | Measurement, comparison, hash, view/iterator, and memory-buffer forms need implementation evidence before docs or tests claim support. |
@@ -81,10 +82,10 @@ Starshine's typechecker sees stack operands right-to-left, as usual for nested W
 | Instruction | Source-shape intuition | Result | Important caveat |
 | --- | --- | --- | --- |
 | `string.const "x"` | no stack operands | `stringref` | Literal bytes must remain exact; binary encoding needs module string-pool context. |
-| `string.new_utf8_array` | array, start `i32`, length `i32` | `stringref` | Array element storage must be packed `i8`. |
-| `string.new_lossy_utf8_array` | array, start `i32`, length `i32` | `stringref` | Same storage rule as UTF-8; lossy behavior is runtime/proposal semantics, not a validator distinction. |
-| `string.new_wtf8_array` | array, start `i32`, length `i32` | `stringref` | Same storage rule as UTF-8/WTF-8. |
-| `string.new_wtf16_array` | array, start `i32`, length `i32` | `stringref` | Array element storage must be packed `i16`. |
+| `string.new_utf8_array` | array, start `i32`, exclusive end `i32` | `stringref` | Array element storage must be packed `i8`. |
+| `string.new_lossy_utf8_array` | array, start `i32`, exclusive end `i32` | `stringref` | Same storage rule as UTF-8; lossy behavior is runtime/proposal semantics, not a validator distinction. |
+| `string.new_wtf8_array` | array, start `i32`, exclusive end `i32` | `stringref` | Same storage rule as UTF-8/WTF-8. |
+| `string.new_wtf16_array` | array, start `i32`, exclusive end `i32` | `stringref` | Array element storage must be packed `i16`. |
 | `string.encode_utf8_array` | stringref, mutable array, start `i32` | `i32` | Destination array must be mutable packed `i8`. |
 | `string.encode_lossy_utf8_array` | stringref, mutable array, start `i32` | `i32` | Destination array must be mutable packed `i8`. |
 | `string.encode_wtf8_array` | stringref, mutable array, start `i32` | `i32` | Destination array must be mutable packed `i8`. |
@@ -116,7 +117,7 @@ Use this for parser/lowerer/typechecker tests that only need a string value. Use
       (i32.const 4))))
 ```
 
-This shape is useful for stack/typechecking tests. It proves the source array is a concrete array type with `i8` storage. It does not prove runtime contents, bounds, or encoding behavior.
+This shape is useful for stack/typechecking tests. It proves the source array is a concrete array type with `i8` storage and that the second integer is accepted as the proposal's exclusive `end` operand. It does not prove runtime contents, bounds, or encoding behavior.
 
 ### Constructing from a packed `i16` array
 
@@ -130,7 +131,7 @@ This shape is useful for stack/typechecking tests. It proves the source array is
       (i32.const 2))))
 ```
 
-Use this when a regression is specific to the `i16` storage lane. A fixture that accidentally uses an `i8` array should fail validation for `string.new_wtf16_array`.
+Use this when a regression is specific to the `i16` storage lane. Here the second integer is the exclusive `end`, not a separate length field; a fixture that accidentally uses an `i8` array should fail validation for `string.new_wtf16_array`.
 
 ### Encoding into a mutable packed array
 
@@ -153,7 +154,7 @@ The checked stringref proposal source is broader than Starshine's current model.
 - string measurement, comparison, hash, equality, or ordering helpers;
 - string views, iterators, or code-point walking helpers;
 - memory-buffer forms such as non-array UTF-8/WTF-16 new/encode helpers;
-- a stable core WebAssembly `stringrefs` binary section id.
+- a stable Core WebAssembly `stringrefs` binary section id, even though the active proposal draft currently defines section id `14`.
 
 When adding one of those families, the implementation needs at least a new core instruction shape, binary decode/encode evidence, typechecker coverage, WAST keyword/parser/lowerer/printer support if text is exposed, generator/arbitrary coverage if fuzzing claims are made, and a wiki/source-manifest refresh.
 
@@ -169,7 +170,8 @@ When adding one of those families, the implementation needs at least a new core 
 
 ## Source Map
 
-- Primary-source and local-code manifest: [`../raw/wasm/2026-05-19-wast-string-instruction-sources.md`](../raw/wasm/2026-05-19-wast-string-instruction-sources.md)
+- Current primary-source and local-code refresh: [`../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md`](../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md)
+- Original broad primary-source and local-code manifest: [`../raw/wasm/2026-05-19-wast-string-instruction-sources.md`](../raw/wasm/2026-05-19-wast-string-instruction-sources.md)
 - Literal-pool companion: [`../strings/string-const-surface.md`](../strings/string-const-surface.md)
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
 - Core model and binary codec: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md), [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md)
