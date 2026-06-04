@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] tooling/wiki | maintenance playbook
+
+- Added [`raw/wiki/2026-06-04-wiki-maintenance-source-bridge.md`](raw/wiki/2026-06-04-wiki-maintenance-source-bridge.md) after rechecking the LLM Wiki / LLM Wiki v2 methodology sources plus current [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), [`index.md`](index.md), and this log.
+- Added [`tooling/wiki-maintenance-playbook.md`](tooling/wiki-maintenance-playbook.md) as the operational checklist for autonomous wiki runs: target selection, evidence ladder, update flow, raw-source placement, transient-artifact citation discipline, whole-wiki health checks, common mistakes, and wiki-only signoff.
+- Refreshed [`raw/README.md`](raw/README.md) and [`index.md`](index.md) so the new `raw/wiki/` methodology-source directory and playbook are discoverable without duplicating the normative schema in [`../README.md`](../README.md).
+
 ## [2026-06-04] passes/simplify-locals | O4z audit closeout
 
 - Closed `[O4Z-AUDIT-SL]` with current native-binary direct evidence: `.tmp/pass-fuzz-simplify-locals-audit-10000-keepgoing` reached `9975/10000` compared cases, `9975` normalized matches, `0` cleanup-normalized matches, `0` mismatches, and `25` Binaryen/tool command failures (`22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, `1` `binaryen-invalid-tag-index`). The same direct lane without keep-going stopped at `6764/10000` after `20` command failures hit the default max-failure threshold; the failures are agent-classified as Binaryen/tool parser/canonicalization failures, not Starshine semantic mismatches.
