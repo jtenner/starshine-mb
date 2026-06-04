@@ -8,6 +8,7 @@ sources:
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
   - ../raw/wasm/2026-05-13-module-validation-phase-sources.md
+  - ../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
   - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
   - ../raw/wasm/2026-05-13-module-section-order-sources.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
@@ -117,7 +118,7 @@ Two practical consequences follow:
 
 | Phase | What it checks/builds | Env or diagnostic effect | Main evidence |
 | --- | --- | --- | --- |
-| `typesec` | Validates recursive type groups, subtype references, descriptor metadata, exact-ref constraints, then normalizes group-local `RecIdx` references into absolute `TypeIdx` entries. | Extends `Env.global_types`; uses `rec_stack` only while a current rec group is in scope. | Focused contract in [`type-section-and-subtyping.md`](type-section-and-subtyping.md), `validate_typesec`, `validate_rectype_and_extend`, descriptor tests in `validate.mbt`. |
+| `typesec` | Validates recursive type groups, subtype references, final-supertype and supertype-cycle rejection, descriptor metadata, exact-ref constraints, then normalizes group-local `RecIdx` references into absolute `TypeIdx` entries. | Extends `Env.global_types`; uses `rec_stack` only while a current rec group is in scope. | Focused contract in [`type-section-and-subtyping.md`](type-section-and-subtyping.md), current source refresh [`../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md), `validate_typesec`, `validate_rectype_and_extend`, descriptor tests in `validate.mbt`. |
 | `importsec` | Validates imported extern types and extends imported-prefix index spaces; it does not match host-provided values during ordinary module validation. | Extends `funcs`, `func_type_idxs`, `tables`, `mems`, `globals`, and `tags`. | `validate_importsec`; focused import/export and matching guide in [`import-export-and-external-type-matching.md`](import-export-and-external-type-matching.md); imported-prefix section guide in [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md), with WAST function import syntax in [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md) and table/memory/global import syntax in [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md). |
 | `funcsec` | Validates defined-function type indices. | Appends defined function signatures after imported functions. | `validate_funcsec`; code/function length tests. |
 | `tablesec` | Validates table types and optional table initializer constant expressions. | Extends `tables` incrementally. | `validate_tablesec`, `validate_table`; focused resource-section rules live in [`resource-sections-and-limits.md`](resource-sections-and-limits.md), the constant-expression contract is in [`constant-expressions.md`](constant-expressions.md), WAST table declarations and table element abbreviations are summarized in [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md), and instruction-side table use is in [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md). |
@@ -225,7 +226,8 @@ The shared validation gate map lives in [`../tooling/validation-gates.md`](../to
 - Resource-section validation refresh: [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md)
 - Stack-polymorphism source bridge: [`../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md`](../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md)
 - Import/export matching source bridge: [`../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md`](../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md)
-- Type-section and subtyping bridge: [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md)
+- Current GC type/subtyping bridge: [`../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md)
+- Older type-section and subtyping bridge: [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md)
 - Section-order snapshot: [`../raw/wasm/2026-05-13-module-section-order-sources.md`](../raw/wasm/2026-05-13-module-section-order-sources.md)
 - Current `ref.func` / start `refs` refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
 - Previous `ref.func` declaration refresh: [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md)

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-31
+last_reviewed: 2026-06-04
 sources:
   - ../../README.md
   - ../../../agent-todo.md
@@ -24,6 +24,7 @@ sources:
   - ../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md
   - ../raw/wasm/2026-05-19-wast-gc-aggregate-instruction-sources.md
   - ../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md
+  - ../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
   - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
   - ../raw/wasm/2026-05-20-resource-section-validation-refresh.md
   - ../../../scripts/lib/pass-fuzz-compare-task.ts
@@ -260,7 +261,7 @@ The coarse pre-existing counters still cover current smoke/CI/stress floors for 
 - `gen_valid coverage-forced emits element segment range surface` proves the `[FZG]021` module scan observes widened element-segment range and satisfies an explicit `ElementSegmentRange` floor; WAST mirrors should route active/passive/declarative, function-list, and typed-expression fixture choices through [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md).
 - `gen_valid coverage-forced emits data segment range surface` proves the `[FZG]022` module scan observes widened data-segment range and satisfies an explicit `DataSegmentRange` floor; WAST mirrors should route active/passive text details through [`../wast/data-segment-authoring.md`](../wast/data-segment-authoring.md).
 - `gen_valid coverage-forced emits name and custom section surface` proves the `[FZG]023` portable coverage-forced module validates, emits a structured name section plus a non-`name` custom section, and satisfies an explicit `NameCustomSections` floor. Interpret table/memory/global/element/data name-map coverage as Starshine-local metadata coverage, not current official WebAssembly 3.0 name-section coverage.
-- `shared memory64 without max strategy rejects with MemorySection family` proves the `[FZG]024` invalid-AST memory64/shared mutation starts from a valid base and is rejected by the memory-section validator family. The sibling subtype strategies (`invalid-subtype-super-index`, `invalid-subtype-super-shape`, `invalid-subtype-mutable-field-variance`, and `descriptor-on-func-type`) are routed through [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md).
+- `shared memory64 without max strategy rejects with MemorySection family` proves the `[FZG]024` invalid-AST memory64/shared mutation starts from a valid base and is rejected by the memory-section validator family. The sibling subtype strategies (`invalid-subtype-super-index`, `invalid-subtype-super-shape`, `invalid-subtype-final-super`, `invalid-subtype-super-cycle`, `invalid-subtype-mutable-field-variance`, and `descriptor-on-func-type`) are routed through [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md) and the current GC type bridge [`../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md).
 - `runPassFuzzCompareCommandFailureAccumulationTest` proves `[FZG]029` command-failure persistence writes `failure-metadata.json` with reproducible case metadata, artifact names, relative replay input, and pass flags.
 - `.tmp/pass-fuzz-genvalid-wide-smoke-rume` is the first post-FZG002 compare smoke: `remove-unused-module-elements` over 1000 `gen-valid` cases reached `1000/1000` normalized matches.
 - `.tmp/pass-fuzz-genvalid-fzg003-rume` is the post-FZG003 compare smoke: `remove-unused-module-elements` over 1000 widened `gen-valid` cases reached `1000/1000` normalized matches.
@@ -280,7 +281,7 @@ The coarse pre-existing counters still cover current smoke/CI/stress floors for 
 - Ledger implementation and validation-anchor tests: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)
 - Valid generator implementation: [`../../../src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt)
 - Invalid AST/binary/repro surfaces: [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt), [`../../../src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt), [`../../../src/fuzz/invalid_repro.mbt`](../../../src/fuzz/invalid_repro.mbt), [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md)
-- Type-section validation/subtyping contract: [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md), [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md)
+- Type-section validation/subtyping contract: [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md), current bridge [`../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md), and older bridge [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md)
 - Resource-section validation contract: [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md), [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md)
 - WAST text-generation boundary: [`../../../src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt), [`wast-arbitrary-parity-plan.md`](wast-arbitrary-parity-plan.md)
 - Compare-pass failure metadata and workflow: [`../tooling/pass-fuzz-compare.md`](../tooling/pass-fuzz-compare.md), [`../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md`](../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md), [`../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts), [`../../../scripts/test/pass-fuzz-compare-command.ts`](../../../scripts/test/pass-fuzz-compare-command.ts)

@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-01
+last_reviewed: 2026-06-04
 sources:
   - ../raw/research/0062-2026-03-24-pass-porting-checklist.md
+  - ../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
   - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
   - ../../../src/lib/types.mbt
   - ../../../src/validate/env.mbt
@@ -41,7 +42,7 @@ related:
 
 - Module-level function declarations, `FuncSec`, and pass-local function-signature caches should use absolute `TypeIdx` values.
 - `RecIdx` is only valid inside the temporary recursive type context while validating a `RecType`; normalize it before writeback, binary emission, or cross-pass caching.
-- The canonical validator reference is [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md); the source bridge is [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md).
+- The canonical validator reference is [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md); the current source bridge is [`../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md), with the older 2026-05-20 bridge retained as provenance for the original invariant audit.
 
 ## Rewrite Patterns
 
@@ -70,5 +71,6 @@ related:
 ## Sources
 
 - Archived original pass-porting note: [`../raw/research/0062-2026-03-24-pass-porting-checklist.md`](../raw/research/0062-2026-03-24-pass-porting-checklist.md)
+- Current GC type/subtyping bridge: [`../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md)
 - Shared helper layer: [`../../../src/passes/pass_common.mbt`](../../../src/passes/pass_common.mbt)
 - Shared helper tests: [`../../../src/passes/pass_common_test.mbt`](../../../src/passes/pass_common_test.mbt)

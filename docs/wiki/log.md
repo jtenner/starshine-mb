@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wiki-health | GC type bridge cross-link cleanup
+
+- Repointed secondary consumers of the type-section/subtyping contract to the current [`2026-06-04` GC type bridge](raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md): [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`ir2/pass-porting-checklist.md`](ir2/pass-porting-checklist.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), and [`index.md`](index.md).
+- Health-check scope included redundant `docs/wiki/` links, empty markdown links, transient `.tmp` / `.artifacts` mentions, stale subtype-source routing, TODO/stale wording, and current WAST/validator GC-type cross-links; local `.tmp` replay identifiers and archived raw research paths were left unchanged.
+- The worktree contained unrelated pre-existing modifications in `src/passes/global_struct_inference.mbt` and `src/passes/global_struct_inference_test.mbt`; this health cleanup changed only wiki docs and did not stage those files.
+
 ## [2026-06-04] wast/validate/binary | GC type-use and subtyping current refresh
 
 - Added [`docs/wiki/raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md) after rechecking current WebAssembly Core 3.0 type/text/binary/validation pages dated 2026-06-03, the WebAssembly proposals tracker, the custom-descriptors overview, and Starshine WAST lowering plus validator source evidence.
