@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] validate/wiki | local-spec divergence ledger
+
+- Added [`raw/validation/2026-06-04-local-spec-divergence-ledger-source-bridge.md`](raw/validation/2026-06-04-local-spec-divergence-ledger-source-bridge.md) after rechecking current WebAssembly Core 3.0 validation pages plus existing Starshine raw-source manifests and validator code for known local/spec splits.
+- Added [`validate/local-spec-divergence-ledger.md`](validate/local-spec-divergence-ledger.md) as the compact navigation layer for validator-facing divergences: start-only `ref.func` declarations, resultful exception tags, data-count precheck coverage for GC-array data users, memory64/table64 address-width gaps, constant-expression allow-list differences, structured-name metadata validation, import/shared-memory matching policy, and `StringRefsSec` proposal/local boundaries.
+- Cross-linked the ledger from [`validate/module-validation-phases.md`](validate/module-validation-phases.md) and refreshed [`index.md`](index.md) so future validator, fuzz, generator, and pass-output validity work can start from one triage table without duplicating the focused owner pages.
+
 ## [2026-06-04] tooling/wiki | maintenance playbook
 
 - Added [`raw/wiki/2026-06-04-wiki-maintenance-source-bridge.md`](raw/wiki/2026-06-04-wiki-maintenance-source-bridge.md) after rechecking the LLM Wiki / LLM Wiki v2 methodology sources plus current [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), [`index.md`](index.md), and this log.

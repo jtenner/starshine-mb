@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
+  - ../raw/validation/2026-06-04-local-spec-divergence-ledger-source-bridge.md
   - ../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md
   - ../raw/wasm/2026-06-04-exception-tag-current-refresh.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
@@ -44,6 +45,7 @@ sources:
   - ../../../src/validate/invalid_fuzzer.mbt
   - ../../../src/validate_trace/main.mbt
 related:
+  - ./local-spec-divergence-ledger.md
   - ./type-section-and-subtyping.md
   - ./resource-sections-and-limits.md
   - ./memory-table-address-widths.md
@@ -92,7 +94,7 @@ The local implementation is split deliberately:
 - [`src/validate/match.mbt`](../../../src/validate/match.mbt) owns subtype/import/export matching, exact reference equivalence, and limit matching.
 - [`src/validate_proof/`](../../../src/validate_proof/) owns the small proved helper kernel used by validation; proof policy is documented in [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md).
 
-Use this page as the validator-side companion to the binary layout map in [`../binary/module-section-map.md`](../binary/module-section-map.md). The binary page explains wire-order and section ids; this page explains why Starshine validates in semantic dependency order.
+Use this page as the validator-side companion to the binary layout map in [`../binary/module-section-map.md`](../binary/module-section-map.md). The binary page explains wire-order and section ids; this page explains why Starshine validates in semantic dependency order. For the compact navigation table of current local/spec splits—start-only `ref.func` declarations, resultful tags, data-count scanner coverage, memory64/table64 operand-width gaps, constant-expression allow-list differences, structured-name metadata, import matching, and stringref proposal boundaries—use [`local-spec-divergence-ledger.md`](local-spec-divergence-ledger.md).
 
 ## Beginner Model
 
