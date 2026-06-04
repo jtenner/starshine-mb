@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] passes/gsi | final v0.1.0 signoff
+
+- Closed `[GSI-PARITY-007]` with final direct `global-struct-inference` evidence: `moon fmt`, `moon test` (4736 passed), native `src/cmd` build, `bun validate readme-api-sync`, and a 10k direct compare with 9975 normalized matches, 0 mismatches, and 25 known Binaryen/tool command failures.
+- Recorded debug artifact timing in [`binaryen/passes/global-struct-inference/parity.md`](binaryen/passes/global-struct-inference/parity.md): canonical output equal, Starshine pass-local `0.447 ms`, Binaryen pass-local `3.083 ms`.
+- Removed the completed Global Struct Inference Parity queue from [`agent-todo.md`](../../agent-todo.md); remaining desc-cast, large-module un-nesting, larger decision-tree, refinalization, carrier, and aggregate/array atomic surfaces stay documented as deferred gaps rather than active v0.1.0 GSI slices.
+
 ## [2026-06-04] passes/gsi | typed repair no-op audit
 
 - Closed `[GSI-PARITY-006]` as a v0.1.0 audit/no-op: the implemented plain-GSI rewrite surface still constructs validation-preserving replacement types and has no known fixture requiring a separate `ReFinalize`-style repair pass.

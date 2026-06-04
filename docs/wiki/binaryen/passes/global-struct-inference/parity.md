@@ -185,6 +185,36 @@ No size-winning fixture in the current dossier proves that a larger multi-`ref.e
 
 This is not a claim that Binaryen's refinalization behavior is implemented. It only means no current Starshine GSI rewrite intentionally narrows an enclosing expression type or relies on stale type cleanup. Future desc-cast activation, cast/refinement carriers, null-result refinement, larger decision programs, or other rewrites that narrow enclosing types must reopen typed repair with failing-first validation fixtures before implementation.
 
+## 2026-06-04 final v0.1.0 GSI signoff
+
+`[GSI-PARITY-007]` closed the v0.1.0 direct-pass signoff after the implementation and deferral slices settled. The release contract is the local subset documented on this page: immutable direct-global reads, one-instruction direct-global block carriers, conservative closed-world local/param origin and value/select rewrites, small-module read-gated un-nesting, descriptor-read folds/selects, immutable-field `StructAtomicGet*` reads, packed signedness repair, subtype-aware poison facts, explicit null-trap preservation, and validation-preserving replacement typing. The deliberately deferred gaps remain sibling `gsi-desc-cast`, unbounded or large-module un-nesting, arbitrary/cast-aware carriers, larger decision trees, Binaryen-style refinalization, and aggregate/array atomic surfaces.
+
+Final command evidence:
+
+- `moon info`: known Moon tool panic reproduced (`index out of bounds: the len is 36 but the index is 8329485`); not treated as a new Starshine failure.
+- `moon fmt`: passed.
+- `moon test`: 4736 passed, 0 failed.
+- `moon build --target native --release src/cmd`: passed with no work to do.
+- `bun validate readme-api-sync`: passed.
+- Direct compare: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass global-struct-inference --keep-going-after-command-failures --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --out-dir .tmp/pass-fuzz-global-struct-inference-final-signoff-10000`
+  - compared cases: 9975 / 10000
+  - normalized matches: 9975
+  - mismatches: 0
+  - validation failures: 0
+  - property failures: 0
+  - generator failures: 0
+  - command failures: 25
+  - agent-classified command-failure families: known Binaryen/tool failures, `22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`; no semantic mismatches were observed.
+- Debug artifact timing: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --global-struct-inference --timing-only --out-dir .tmp/gsi-debug-artifact-timing-final-signoff`
+  - canonical wasm equal: yes
+  - Starshine runtime: `319.558 ms`
+  - Binaryen runtime: `428.202 ms`
+  - Starshine pass runtime: `0.447 ms`
+  - Binaryen pass runtime: `3.083 ms`
+  - Starshine pass skipped raw: no
+
+This signoff is direct-pass semantic evidence for the documented Starshine subset, not a claim that the deferred Binaryen surfaces are implemented.
+
 The debug artifact timing replays used:
 
 - Original atomic-get lane: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --global-struct-inference --timing-only --out-dir .tmp/gsi-debug-artifact-timing-atomic-get-final`
@@ -914,7 +944,7 @@ This matrix is the current release-gating triage for the remaining official `gsi
 | Larger value-decision programs | Binaryen's documented profitable case is one unique value or two unique values with one singleton group; no current lit/source shape requires more than one `ref.eq` decision for v0.1.0. | Starshine matches one-value and two-value singleton-group local/param rewrites for exact and subtype-propagated candidates, with negatives for more-than-two values and two equal pairs. | Explicit v0.1.0 deferral: larger trees stay out of scope unless a bounded, size-winning fixture proves value. | Future bounded decision-tree work, not active `[GSI-PARITY-005]`. | Preserve the one-compare policy and existing ambiguity negatives. |
 | Explicit refinalization / typed repair | Binaryen refinalizes changed functions after rewrites, including precision/nullability effects. | Current direct-global, block-carried, local/param origin/value/select, packed, atomic-get, and descriptor-read replacements are validation-preserving by construction. | Explicit v0.1.0 audit/no-op: no implemented plain-GSI fixture needs a separate typed repair layer today. | Future typed-repair work, not active `[GSI-PARITY-006]`. | Reopen for desc-cast, cast/refinement carriers, null-result refinement, larger decision programs, or any rewrite that narrows enclosing types. |
 | Broader atomic surface | Binaryen lit/source coverage includes immutable-field atomic gets; aggregate atomic set/RMW/cmpxchg and array atomics are separate proposal surfaces. | Ordinary and packed `struct.atomic.get*` folds use the current GSI direct-global and closed-world local/param machinery; generic passes remain conservative. | Current immutable-field adjacent subset is covered; aggregate atomics and generic-pass optimizations are intentionally out of scope. | No owner in the v0.1.0 GSI parity queue unless new plain-GSI immutable-get shapes exceed `[GSI-PARITY-003]` / `[GSI-PARITY-006]`. | Do not reopen aggregate atomic forms under GSI without a separate opcode/effect/pass-proof task. |
-| Final oracle and release contract | Direct `global-struct-inference` compare plus saved scheduler/artifact evidence must match the final documented subset. | Many 2026-06-03/04 direct 10k lanes are green for the implemented subsets. | Signoff-only after the owner slices settle. | `[GSI-PARITY-007]` | Refresh 10k compare with explicit native Starshine binary and classify command failures/mismatches as agent judgments. |
+| Final oracle and release contract | Direct `global-struct-inference` compare plus saved scheduler/artifact evidence must match the final documented subset. | Final 2026-06-04 signoff: 9975 / 10000 compared, 9975 normalized matches, 0 mismatches, 25 known Binaryen/tool command failures; debug artifact canonical output equal and Starshine pass-local runtime `0.447 ms` vs Binaryen `3.083 ms`. | Closed for v0.1.0 direct-pass subset. | Completed `[GSI-PARITY-007]`. | This is direct-pass semantic evidence for the documented subset, not implementation of deferred desc-cast, unbounded un-nesting, refinalization, larger decision trees, or aggregate/array atomic surfaces. |
 
 ## 1. Closed-world `typeGlobals` consumption is still narrow
 

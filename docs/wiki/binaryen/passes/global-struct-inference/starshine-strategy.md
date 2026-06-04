@@ -113,6 +113,10 @@ Nullable globals and one-value local folds still emit the original reference plu
 
 The pass pre-scans for rewrite candidates, rebuilds only changed functions, and returns the original module unchanged when nothing matches.
 
+## 2026-06-04 v0.1.0 signoff status
+
+The final `[GSI-PARITY-007]` signoff kept this page's subset as the v0.1.0 contract. Direct 10k compare for `global-struct-inference` produced 9975 compared cases, 9975 normalized matches, 0 mismatches, and 25 agent-classified known Binaryen/tool command failures. The debug artifact timing replay stayed canonical-equal, with Starshine pass-local runtime `0.447 ms` versus Binaryen `3.083 ms`. Deferred surfaces remain explicit below rather than hidden in the release contract.
+
 ## What the local pass does not do
 
 Compared with upstream Binaryen `version_129`, Starshine currently does **not** implement:

@@ -38,32 +38,6 @@
     - Evaluate remaining non-pass candidates such as encoder size/backpatch and code-section buffering reduction.
   - Suggested tests: focused timing traces, `moon info`, `moon fmt`, `moon test`, and targeted self-compare commands for any changed pass/tool path.
 
-### Global Struct Inference Parity
-
-Release gate: close these before v0.1.0 by either implementing the safe subset with oracle evidence or explicitly documenting a deferred blocker in the GSI wiki. Completed GSI/atomic implementation history lives in the pass docs, research notes, and git history; keep this list to active parity work only.
-
-Use this checklist for every `[GSI-PARITY-*]` slice below:
-- Start from `docs/wiki/binaryen/passes/global-struct-inference/parity.md`, `docs/wiki/binaryen/passes/global-struct-inference/starshine-strategy.md`, `docs/wiki/binaryen/passes/global-struct-inference/closed-world-analysis-and-unnesting.md`, and the sibling desc-cast dossier when relevant.
-- Add or update focused tests before behavior changes; confirm a failing fixture where the slice implements a new rewrite rather than only classifying a blocker.
-- Preserve current safety guards: immutable fields/globals only, subtype-aware poison facts, null-trap preservation, validation-safe replacement typing, packed signedness repair, and conservative generic-pass treatment for `StructAtomicGet*`.
-- Keep aggregate atomic set/RMW/cmpxchg and array atomics out of scope unless a separate opcode/effect/pass-proof task is opened.
-- Refresh direct `global-struct-inference` compare after behavior changes: start at 1000, scale to 10000 before signoff, and agent-classify every mismatch or command failure.
-- Record pass-local timing on the debug artifact and route whole-command residuals to `[WALL]001`.
-
-The remaining-gap owner matrix now lives in `docs/wiki/binaryen/passes/global-struct-inference/parity.md`; execute the active slices below in dependency order and keep completed matrix history in the wiki/log/git history, not in this backlog.
-
-- [GSI-PARITY-007] - Final GSI v0.1.0 Signoff
-  - Status: active v0.1.0 release-gating signoff after the settled GSI parity implementation/deferral slices `[GSI-PARITY-004]` through `[GSI-PARITY-006]`.
-  - Goal: make the final v0.1.0 GSI contract explicit and oracle-backed.
-  - Why: GSI has accumulated several safe subsets; release notes need a clean distinction between implemented parity, deliberate conservative gaps, and out-of-scope atomic aggregate work.
-  - Deliverables:
-    - Refresh `global-struct-inference` direct compare at 10000 with a prebuilt native Starshine binary and classify every non-match or command failure.
-    - Replay any saved `-O4z` slot/neighborhood evidence that includes GSI and record pass-local timing.
-    - Update GSI wiki pages, `docs/wiki/log.md`, and release-note source material with the final supported/unsupported surface.
-    - Ensure `agent-todo.md` contains only active follow-up work after the signoff, not completed slice history.
-  - Suggested tests: `moon info` if the toolchain crash is fixed, `moon fmt`, `moon test`, `moon build --target native --release src/cmd`, direct 10000 GSI compare, and `bun validate readme-api-sync`.
-  - Exit criteria: v0.1.0 has an honest, tested GSI contract and any remaining upstream gaps are deliberately deferred outside completed-task history.
-
 ### O4z Per-Pass Deep Audits
 
 Release gate: complete these before the v0.1.0 release so `-O4z` pass coverage is more comprehensive and pass-local runtime owners are known before publishing.
