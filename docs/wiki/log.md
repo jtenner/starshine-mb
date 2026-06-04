@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] validation/tooling | MoonBit proof v0.9.3 source refresh
+
+- Added [`docs/wiki/raw/moonbit/2026-06-04-formal-verification-v093-refresh.md`](raw/moonbit/2026-06-04-formal-verification-v093-refresh.md) after rechecking current official MoonBit formal-verification documentation, Moon command docs/source, and local `src/validate_proof` / `src/validate` proof surfaces.
+- Refreshed [`validation/moonbit-prove-strategy.md`](validation/moonbit-prove-strategy.md), [`tooling/validation-gates.md`](tooling/validation-gates.md), [`tooling/moonbit-workspace-package-map.md`](tooling/moonbit-workspace-package-map.md), and [`index.md`](index.md) so the wiki distinguishes the required small-package `moon prove src/validate_proof` gate from file-targeted direct-validator proving, whose official dependency-assumption semantics make it investigative until a fresh audit graduates it.
+- Current durable split: the proof helper kernel still exports fifteen helpers and the live validator still imports nine; no trusted proof-control constructs such as `proof_axiomatized`, `#proof_pure`, `proof_assert`, `proof_invariant`, `proof_reasoning`, `proof_decrease`, or `proof_yield` were found under `src/` during the 2026-06-04 source recheck.
+
 ## [2026-06-04] wiki-health | GC type bridge cross-link cleanup
 
 - Repointed secondary consumers of the type-section/subtyping contract to the current [`2026-06-04` GC type bridge](raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md): [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`ir2/pass-porting-checklist.md`](ir2/pass-porting-checklist.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), and [`index.md`](index.md).

@@ -1,8 +1,9 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md
   - ../raw/moonbit/2026-05-20-workspace-package-surface.md
   - ../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md
   - ../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md
@@ -117,12 +118,12 @@ When docs discuss how users run something, link to the main package and its comm
 
 ## Proof-Enabled Packages
 
-Proof support is package-local. Starshine currently has two proof-enabled packages:
+Proof support is package-local. The 2026-06-04 formal-verification refresh confirms that current MoonBit still gates verification through `proof-enabled` package configuration, with file-targeted proving assuming dependencies rather than replacing package-boundary policy. Starshine currently has two proof-enabled packages:
 
 - [`src/validate_proof/moon.pkg`](../../../src/validate_proof/moon.pkg), the small helper package used by the required `moon prove src/validate_proof` lane;
 - [`src/validate/moon.pkg`](../../../src/validate/moon.pkg), the broader validator package, where direct proving remains optional/policy-sensitive.
 
-Use [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md) for the trust model: exported proof helpers, live imports into the validator, and proof-command availability are separate facts.
+Use [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md) for the trust model: exported proof helpers, live imports into the validator, file-target assurance boundaries, and proof-command availability are separate facts.
 
 ## Maintenance Checklist
 
@@ -147,6 +148,7 @@ When adding or reshaping a package:
 
 - Source manifest: [`../raw/moonbit/2026-05-20-workspace-package-surface.md`](../raw/moonbit/2026-05-20-workspace-package-surface.md)
 - Moon CLI command-source refresh: [`../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md`](../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md)
+- Formal-verification v0.9.3 refresh: [`../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md`](../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md)
 - Proof command/trust refresh: [`../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md`](../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md)
 - Module config: [`../../../moon.mod.json`](../../../moon.mod.json)
 - Package configs: [`../../../src/binary/moon.pkg`](../../../src/binary/moon.pkg), [`../../../src/cli/moon.pkg`](../../../src/cli/moon.pkg), [`../../../src/cmd/moon.pkg`](../../../src/cmd/moon.pkg), [`../../../src/fuzz/moon.pkg`](../../../src/fuzz/moon.pkg), [`../../../src/ir/moon.pkg`](../../../src/ir/moon.pkg), [`../../../src/lib/moon.pkg`](../../../src/lib/moon.pkg), [`../../../src/passes/moon.pkg`](../../../src/passes/moon.pkg), [`../../../src/validate/moon.pkg`](../../../src/validate/moon.pkg), [`../../../src/validate_proof/moon.pkg`](../../../src/validate_proof/moon.pkg), [`../../../src/validate_trace/moon.pkg`](../../../src/validate_trace/moon.pkg), [`../../../src/wast/moon.pkg`](../../../src/wast/moon.pkg)

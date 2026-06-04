@@ -1,8 +1,9 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md
   - ../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md
   - ../raw/moonbit/2026-05-20-workspace-package-surface.md
   - ../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md
@@ -65,7 +66,7 @@ The important maintenance rule is: **do not blur tool capability with repo polic
 | `bun validate trace-benchmark [--repeat n] [--corpus name] [--target target] [--list-corpora]` | Runs `src/validate_trace` benchmark corpora and emits trace summaries; the wiki stores durable corpus totals separately from machine wall time. | Default target `wasm-gc`; repeated `--corpus` filters and `--list-corpora` lists available corpora. | Validator trace performance work. |
 | `bun validate self-opt-smoke [--wasm path] [--limit n|--file path]` | Validates an already-built self-optimized CLI artifact with `wasm-tools validate --features all`, executes the artifact under Node/WASI with `--help`, then runs a fast WAST spec workload. | Defaults to `tests/node/dist/starshine-self-optimized-wasi.wasm` and `--limit 1`; `--wasm` may point at a candidate artifact such as `.tmp/o4z-bench/starshine-o4z-candidate.wasm`. | Checking optimized-artifact safety without rebuilding the full self-opt pipeline. |
 | `bun validate self-opt-full [--wasm path]` | Runs the same wasm-validity and Node/WASI smoke checks as `self-opt-smoke`, then executes all checked-in `tests/spec/**/*.wast` files through the self-optimized CLI artifact. | Forwards to the self-opt check lane with `--full-spec`; ask before running because it is intentionally broader than the default smoke lane. | CI/full signoff that the optimized artifact remains runtime-safe and spec-workload-correct. |
-| `moon prove src/validate_proof` | Required formal-proof gate for the proof helper package, separate from ordinary validation. | Requires a configured MoonBit proof toolchain and solvers. | Changes to proved helper contracts or the validator proof kernel. |
+| `moon prove src/validate_proof` | Required formal-proof gate for the proof helper package, separate from ordinary validation. | Requires a configured MoonBit proof toolchain and solvers; solver/config flags are host-tooling controls, not semantic repo policy. | Changes to proved helper contracts or the validator proof kernel. |
 
 ## `bun validate full` Flow
 
@@ -148,12 +149,13 @@ Use `--wasm <path>` to test a candidate artifact outside `tests/node/dist/`; rel
 
 ## Formal Proof Is A Separate Lane
 
-Official MoonBit docs describe `moon prove` as a proof command, and Starshine keeps that lane separate from ordinary validation. The required local proof target is [`src/validate_proof`](../../../src/validate_proof/), whose package is imported by [`src/validate`](../../../src/validate/) and governed by [`validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md). The proof-specific 2026-05-20 refresh in [`../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md`](../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md) owns the current trust-surface caveat; this gate page owns only when the repo asks developers to run the proof lane.
+Official MoonBit docs describe `moon prove` as a proof command, and Starshine keeps that lane separate from ordinary validation. The required local proof target is [`src/validate_proof`](../../../src/validate_proof/), whose package is imported by [`src/validate`](../../../src/validate/) and governed by [`validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md). The proof-specific 2026-06-04 refresh in [`../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md`](../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md) is the current source bridge for proof-command and trust-surface caveats; this gate page owns only when the repo asks developers to run the proof lane.
 
 Practical rules:
 
 - Run `moon prove src/validate_proof` when proved helper contracts change.
 - If the host lacks Why3/solver setup, record the exact tooling limitation; do not convert missing solver infrastructure into semantic evidence.
+- Treat file-targeted direct-validator proving as investigative unless a fresh audit graduates it; the current MoonBit docs say file targets assume dependencies.
 - Do not silently widen `bun validate full` to include broad `moon prove` runs. Proving can generate much broader package/dependency output and needs its own audit trail.
 
 ## Choosing The Right Gate
@@ -179,6 +181,7 @@ Practical rules:
 
 ## Sources
 
+- MoonBit formal-verification v0.9.3 refresh: [`../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md`](../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md)
 - MoonBit command-manual refresh: [`../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md`](../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md)
 - Validation trace benchmark source refresh: [`../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md`](../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md)
 - wasm-tools validate feature defaults: [`../raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md`](../raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md)
