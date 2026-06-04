@@ -57,7 +57,7 @@ That is much closer to reality than “more aggressive inlining.”
 
 ## Current durable takeaways
 
-- The public Binaryen release horizon now reaches `version_125`, but this page keeps the optimizing contract anchored to the reviewed `version_129` source surfaces plus the existing current-main bridge because no inlining-specific drift has been recorded beyond that.
+- The public Binaryen release horizon now reaches `version_130`, but this page keeps the optimizing contract anchored to the reviewed `version_129` source surfaces plus the existing current-main bridge because no inlining-specific drift has been recorded beyond that.
 - The core inliner is module-level boundary work, not HOT-local peepholing.
 - Reviewed `version_129` chosen inline actions are direct `call` / `return_call` based; `ref.func` and ref/indirect calls remain relevant to survival and repair.
 - The optimizing suffix is part of the public contract, not optional polish.

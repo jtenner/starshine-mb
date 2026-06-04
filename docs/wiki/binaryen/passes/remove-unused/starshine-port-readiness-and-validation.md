@@ -67,7 +67,7 @@ Required validation:
 - CLI or pipeline tests should produce a clear boundary-only error if a user requests the name;
 - docs should point users to modern RUME when they meant current Binaryen cleanup.
 
-This option fits current sources because current Binaryen `main` and `version_125`, including the 2026-06-02 recheck, do not expose the short spelling.
+This option fits current sources because current Binaryen `main` and the 2026-06-02 `version_130` spelling recheck do not expose the short spelling.
 
 ### Option B: remove or rename the alias
 

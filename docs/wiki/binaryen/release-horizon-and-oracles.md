@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-06-04
 sources:
-  - ../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md
+  - ../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md
+  - ../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md
   - ../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md
-  - https://github.com/WebAssembly/binaryen/releases/tag/version_125
+  - ../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md
+  - https://github.com/WebAssembly/binaryen/releases/tag/version_130
   - https://github.com/WebAssembly/binaryen/blob/main/CHANGELOG.md
   - https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+refs
   - https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/refs/heads/main/CHANGELOG.md
@@ -28,47 +30,48 @@ Use it when you need to answer a basic question like:
 - Which source should we trust when the public tag and current trunk disagree?
 - When should a pass dossier stay anchored to an older tag on purpose?
 
-The current answer is simple:
+The current answer is:
 
-- the newest public Binaryen release baseline is `version_125`, and a 2026-06-02 revalidation against the direct release page, the `main` changelog, and the Chromium refs listing still points here;
-- the live `main` changelog is the drift watch for anything beyond that tag;
+- the newest public Binaryen release baseline is `version_130`, confirmed on 2026-06-04 by the official GitHub release page, the official `main` changelog, the Chromium refs listing, and the Chromium-hosted `main` changelog;
+- the live `main` changelog is the drift watch for anything beyond `version_130`;
 - detailed pass pages may still stay anchored to `version_129` or a specific current-main recheck when that is the last source-backed contract that page has actually reviewed.
 
-That `v125` baseline is substantive, not just a renumbering. Keep this page as the release-horizon anchor, but still send pass-specific questions to the owning dossier.
+That `v130` baseline is substantive, not just a renumbering. The changelog includes user-visible surface changes such as `MarkJSCalled`, `RemoveExports`, Wide Arithmetic support, relaxed-SIMD naming changes, and MemorySegment-to-DataSegment API renames. Keep this page as the release-horizon anchor, but still send pass-specific algorithm questions to the owning dossier.
 
 ## Supersession timeline
 
-- 2026-06-01: an earlier bridge capture briefly treated the public release horizon as `version_130`.
-- 2026-06-02: revalidation against the direct official GitHub release page, the `main` changelog, and the Chromium refs listing showed `version_125` is still the newest public tag.
-- The 2026-06-02 correction note 0698 supersedes the older bridge; cite 0698 when you need the current baseline, and keep the bridge only as provenance.
+- 2026-06-01: an earlier bridge capture treated the public release horizon as `version_130`, but later checks considered its evidence contradictory.
+- 2026-06-02: correction note 0698 temporarily moved the wiki baseline back to `version_125`; keep it as provenance, not as the current baseline.
+- 2026-06-04: the official GitHub `version_130` release page is reachable and marked latest, the official `main` changelog puts `v130` immediately below `Current Trunk`, and Chromium corroborates the tag/changelog ordering. This 0704 recheck supersedes both the 2026-06-01 bridge and the 2026-06-02 `version_125` correction for current release-horizon decisions.
 
 ## Source hierarchy
 
 | Layer | Preferred source | What it is good for |
 | --- | --- | --- |
-| Public release baseline | Official GitHub release page for `version_125` | The newest tagged public release horizon. |
-| Historical bridge | `docs/wiki/raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md` | The earlier bridge kept for provenance; superseded by the correction note below. |
-| Correction note | `docs/wiki/raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md` | The distilled correction that supersedes the earlier `version_130` bridge. |
+| Public release baseline | Official GitHub release page for `version_130` | The newest tagged public release horizon. |
+| Durable local evidence | `docs/wiki/raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md` plus research note 0704 | The repo-captured, immutable summary of the latest release-horizon read. |
 | Live trunk drift watch | Official GitHub `main` changelog | Whether trunk has moved past the newest tag in a way that matters to the docs. |
 | Corroboration | Chromium refs listing and Chromium-hosted `main` changelog | Secondary confirmation that the public tag and trunk story match. |
+| Superseded correction | `docs/wiki/raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md` | Provenance for the temporary `version_125` correction; not the current baseline after 0704. |
+| Historical bridge | `docs/wiki/raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md` | Earlier `version_130` bridge; superseded by the stronger 2026-06-04 recheck. |
 | Discovery only | Search snippets, search-result summaries, and mirrored excerpts | Good for finding the official URL; not authoritative when they disagree with direct official pages. |
-| Durable local evidence | `docs/wiki/raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md` | The repo-captured, immutable summary of the latest release-horizon read. |
 | Pass-specific contract pages | Individual `docs/wiki/binaryen/passes/*` dossiers | The exact algorithm, test map, and Starshine status for one pass. |
 
 Do not flatten those layers together. A page can be correct about the public release horizon without being the right place to teach the full pass algorithm, and a pass page can stay intentionally anchored to `version_129` while still acknowledging that the public release horizon has advanced.
 
 ## How to read Binaryen pages
 
-1. **If the question is "what is the latest public Binaryen release?"** use `version_125` and this page.
+1. **If the question is "what is the latest public Binaryen release?"** use `version_130` and this page.
 2. **If the question is "did trunk drift after the latest tag?"** use the official `main` changelog first, then the Chromium mirror as corroboration.
 3. **If the question is "what does this pass actually do?"** use the pass-specific dossier and its raw research notes, not the release-horizon page.
 4. **If the question is "what should I update in the wiki when a new release lands?"** update this page, the top-level catalog, the pass catalog/tracker pages, and any dossier that explicitly names the newest public tag.
+5. **If a release note names a pass not yet tracked locally,** record it first as an upstream release-horizon fact, then create a dedicated tracker/dossier only after a pass-specific source read.
 
 ## Current state
 
-The 2026-06-02 correction note 0698 supersedes the earlier `version_130` bridge, and the direct official release page, `main` changelog, and Chromium refs listing still agree that `version_125` is the newest public tag. When a search snippet or mirrored summary disagrees with the direct official release page or changelog, trust the direct official URLs.
+The 2026-06-04 recheck supersedes the earlier `version_125` correction. Direct official sources and Chromium corroboration now agree that `version_130` is the newest public tag. When a search snippet or mirrored summary disagrees with the direct official release page or changelog, trust the direct official URLs.
 
-The key wiki-maintenance consequence is that `version_125` is still the public release baseline, but it does **not** force every detailed pass dossier to retag itself. Many pass pages still stay on the reviewed `version_129` source oracle until they get a fresh current-main reread.
+The key wiki-maintenance consequence is that `version_130` is the public release baseline, but it does **not** force every detailed pass dossier to retag itself. Many pass pages still stay on the reviewed `version_129` source oracle until they get a fresh current-main or `version_130` reread.
 
 ## Where this page points next
 
@@ -79,10 +82,11 @@ The key wiki-maintenance consequence is that `version_125` is still the public r
 
 ## Sources
 
-- Correction note: [`../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md`](../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md)
-- Superseded 2026-06-01 bridge: [`../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md`](../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md)
-- Immutable local release-horizon bridge: [`../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md`](../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md)
-- Official GitHub `version_125` release page: <https://github.com/WebAssembly/binaryen/releases/tag/version_125>
+- Current release-horizon recheck: [`../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md`](../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md)
+- Immutable source capture for 0704: [`../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md`](../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md)
+- Superseded 2026-06-02 correction: [`../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md`](../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md)
+- Historical 2026-06-01 bridge: [`../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md`](../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md)
+- Official GitHub `version_130` release page: <https://github.com/WebAssembly/binaryen/releases/tag/version_130>
 - Official GitHub `main` changelog: <https://github.com/WebAssembly/binaryen/blob/main/CHANGELOG.md>
 - Chromium refs listing: <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+refs>
 - Chromium-hosted `main` changelog: <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/refs/heads/main/CHANGELOG.md>

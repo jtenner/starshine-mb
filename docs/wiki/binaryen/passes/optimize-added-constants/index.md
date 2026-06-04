@@ -10,7 +10,7 @@ sources:
   - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
   - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
-  - ../../../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md
+  - ../../../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md
   - ../../../raw/research/0232-2026-04-21-optimize-added-constants-safety-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
@@ -45,7 +45,7 @@ related:
 - `optimize-added-constants` and `optimize-added-constants-propagate` are both still real local removed-name registry entries.
 - `agent-todo.md` currently has **no dedicated slice** for plain `optimize-added-constants`.
 - The pass name is extremely easy to misread, so keeping the plain-vs-propagate split explicit is valuable for future port work.
-- The public Binaryen release horizon has since advanced to `version_125`, but this folder still anchors its detailed pass reading to the reviewed `version_129` implementation baseline until a later reread says otherwise.
+- The public Binaryen release horizon has since advanced to `version_130`, but this folder still anchors its detailed pass reading to the reviewed `version_129` implementation baseline until a later pass-specific reread says otherwise.
 - The local code already carries `low_memory_unused` / `low_memory_bound` options, and the 2026-05-05 source-anchor digest now makes the exact upstream owner / registration / threshold / test lines easy to trace, but there is still no owner file or active rewrite path for this pass.
 
 ## Correction note

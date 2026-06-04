@@ -30,7 +30,7 @@ Because this dossier is about a historical upstream pass lineage, the examples a
 
 When this page says “the pass rewrites,” it means the **historical** upstream `remove-unused-functions` behavior, not modern `remove-unused-module-elements`. For Starshine implementation choices and tests derived from these shapes, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
-The 2026-06-02 version_125 / current-main recheck confirmed the same lineage story: current Binaryen still exposes the modern module-element cleanup names, not this short alias.
+The 2026-06-02 `version_130` / current-main spelling recheck confirmed the same lineage story: current Binaryen still exposes the modern module-element cleanup names, not this short alias.
 
 ## Positive shape 1: dead private helper with no roots and no callers
 

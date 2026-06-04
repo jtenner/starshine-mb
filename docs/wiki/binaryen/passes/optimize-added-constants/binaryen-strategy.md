@@ -10,7 +10,7 @@ sources:
   - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
   - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
-  - ../../../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md
+  - ../../../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -25,7 +25,7 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_125` as the current release baseline for new research; this page's detailed implementation notes remain anchored to the `version_129` source set and current-main recheck until a dedicated `version_125` reread says otherwise.
+- Use Binaryen `version_130` as the current release baseline for new research; this page's detailed implementation notes remain anchored to the `version_129` source set and current-main recheck until a dedicated `version_130` reread says otherwise.
 - The immutable release-tag source manifest for the original refresh is [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md).
 - The 2026-04-27 current-main / local-readiness recheck is [`../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md).
 - The core implementation is `src/passes/OptimizeAddedConstants.cpp`.
@@ -50,7 +50,7 @@ Exact upstream source anchors worth keeping in mind:
 - `pass.h`: `PassOptions::LowMemoryBound`.
 - the `low-memory-unused`, `memory64`, and `nomemory` tests: the three visible safety and empty-module shapes.
 
-Narrow freshness note: the 2026-05-05 current-main source-anchor recheck and the earlier 2026-04-27 port-readiness spot check did not surface a teaching-relevant contract drift on the owner / registration / option / test surfaces. The public Binaryen release horizon has since advanced to `version_125`, but this page still treats the reviewed `version_129` sources as the implementation baseline until a later source ingest says otherwise.
+Narrow freshness note: the 2026-05-05 current-main source-anchor recheck and the earlier 2026-04-27 port-readiness spot check did not surface a teaching-relevant contract drift on the owner / registration / option / test surfaces. The public Binaryen release horizon has since advanced to `version_130`, but this page still treats the reviewed `version_129` sources as the implementation baseline until a later pass-specific source ingest says otherwise.
 
 ## The pass in one sentence
 

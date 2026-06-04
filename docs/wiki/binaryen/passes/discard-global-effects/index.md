@@ -74,7 +74,7 @@ Outputs:
 - The dedicated source set did not reveal a standalone `discard-global-effects.wast` lit file; the pass is source-confirmed through `GlobalEffects.cpp` / `pass.cpp` / `pass.h` and lifecycle-confirmed through `generate-global-effects` consumers.
 - Starshine does **not** currently expose a `discard-global-effects` registry name. Its local `global-effects` entry is boundary-only and covers the producer-side compatibility name, not this cleanup sibling.
 - The 2026-05-05 current-main recheck and line-anchor refresh left the cleanup contract unchanged.
-- The repo-wide Binaryen release horizon now reaches `version_125`; this page stays anchored to the reviewed `version_129` cleanup surfaces because the cleanup contract itself did not drift.
+- The repo-wide Binaryen release horizon now reaches `version_130`; this page stays anchored to the reviewed `version_129` cleanup surfaces because the cleanup contract itself did not drift.
 
 ## Validation guidance
 

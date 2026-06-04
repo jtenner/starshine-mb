@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] docs | Binaryen version_130 release-horizon recheck
+
+- Added [`docs/wiki/raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md`](raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md) and [`docs/wiki/raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md`](raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md) from a fresh primary-source check of the official GitHub `version_130` release page, the official `main` changelog, the Chromium refs listing, and the Chromium-hosted changelog.
+- Refreshed [`binaryen/release-horizon-and-oracles.md`](binaryen/release-horizon-and-oracles.md), [`binaryen/no-dwarf-default-optimize-path.md`](binaryen/no-dwarf-default-optimize-path.md), [`binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md), [`binaryen/passes/index.md`](binaryen/passes/index.md), [`binaryen/passes/tracker.md`](binaryen/passes/tracker.md), and the top-level catalog so the living wiki now treats `version_130` as the current public release baseline while preserving the 2026-06-02 `version_125` correction as superseded provenance.
+- Health-check follow-up: aligned nearby living pass dossiers that mentioned the repo-wide `version_125` release horizon (`inlining`, `inlining-optimizing`, `optimize-added-constants`, `reorder-globals`, `global-effects`, `discard-global-effects`, `ssa-nomerge`, and the `remove-unused` lineage pages) so pass-specific `version_129` / current-main contracts remain separate from the global `version_130` release baseline. No code or tests changed.
+
 ## [2026-06-03] passes | global-struct-inference integer sign-extension un-nesting
 
 - Broadened guarded small-module non-constant operand un-nesting for `global-struct-inference` to include pure non-trapping integer sign-extension operands (`i32.extend8_s`, `i32.extend16_s`, `i64.extend8_s`, `i64.extend16_s`, and `i64.extend32_s`), without changing the read-gated request filter or the large-module materializable-only guard.

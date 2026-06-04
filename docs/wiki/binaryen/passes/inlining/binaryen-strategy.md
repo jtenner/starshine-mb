@@ -7,7 +7,7 @@ sources:
   - ../../../raw/binaryen/2026-05-23-inlining-current-main-recheck.md
   - ../../../raw/binaryen/2026-06-02-inlining-current-main-recheck.md
   - ../../../raw/research/0695-2026-06-02-inlining-current-main-recheck.md
-  - ../../../raw/binaryen/2026-06-02-binaryen-v125-current-trunk-release-horizon.md
+  - ../../../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md
   - ../../../raw/binaryen/2026-04-23-inlining-primary-sources.md
   - ../../../raw/research/0557-2026-05-12-inlining-wiki-overhaul.md
   - ../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md
@@ -26,7 +26,7 @@ related:
 
 ## Source rule
 
-Use Binaryen `version_129` as the tagged oracle for this dossier; Binaryen's public release horizon now reaches `version_125`, but the 2026-06-02 current-main recheck still recorded no teaching-relevant drift in the inlining surfaces. The core implementation is `src/passes/Inlining.cpp`; public registration and the plain-vs-optimizing split come from `src/passes/pass.cpp` and `src/passes/opt-utils.h`; heuristic defaults come from `src/pass.h`; no-inline policy comes from `src/passes/NoInline.cpp`; clone-surviving no-inline flags come from `src/ir/module-utils.cpp`.
+Use Binaryen `version_129` as the tagged oracle for this dossier; Binaryen's public release horizon now reaches `version_130`, but the 2026-06-02 current-main recheck still recorded no teaching-relevant drift in the inlining surfaces. The core implementation is `src/passes/Inlining.cpp`; public registration and the plain-vs-optimizing split come from `src/passes/pass.cpp` and `src/passes/opt-utils.h`; heuristic defaults come from `src/pass.h`; no-inline policy comes from `src/passes/NoInline.cpp`; clone-surviving no-inline flags come from `src/ir/module-utils.cpp`.
 
 Primary upstream URLs:
 

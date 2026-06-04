@@ -25,7 +25,7 @@ related:
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
 - On 2026-04-23, the reviewed official Binaryen release page for `version_129` still showed publish date **2026-04-01**.
-- A focused 2026-06-01 current-`main` recheck on the same owner, helper, and dedicated test surfaces still did not reveal teaching-relevant contract drift beyond the rules summarized here; the upstream release horizon has now advanced to `version_125`, but the reviewed implementation/test surfaces still teach the same contract. See [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the source/test map.
+- A focused 2026-06-01 current-`main` recheck on the same owner, helper, and dedicated test surfaces still did not reveal teaching-relevant contract drift beyond the rules summarized here; the upstream release horizon has now advanced to `version_130`, but the reviewed implementation/test surfaces still teach the same contract. See [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the source/test map.
 - The core implementation lives in `src/passes/ReorderGlobals.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
 - Pass construction is declared in `src/passes/passes.h`.

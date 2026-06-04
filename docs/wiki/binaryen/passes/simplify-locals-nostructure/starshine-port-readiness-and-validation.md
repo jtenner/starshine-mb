@@ -129,7 +129,7 @@ What remains belongs to neighboring slices instead:
 - the earlier `code-pushing -> tuple-optimization` side of the neighborhood
 - broader local-cluster scheduling work around later `coalesce-locals` / `local-cse` consumers
 
-Keep those preset claims separate from direct-pass and exact-slot signoff so the tracker can say “implemented” without overstating full no-DWARF / saved-`O4z` preset parity.
+Keep those preset claims separate from direct-pass and exact-slot signoff so the tracker can say “implemented” without overstating full no-DWARF / saved-`-O4z` preset parity.
 
 ## Sources
 

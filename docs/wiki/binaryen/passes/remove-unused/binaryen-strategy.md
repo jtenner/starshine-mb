@@ -31,8 +31,8 @@ Use two different upstream source horizons here:
   - commit `5881b541a4b276dcd5576aa065e4fb860531fc7b`
   - where Binaryen publicly registered `remove-unused-functions`
 - **modern oracle** for what Binaryen exposes now:
-  - `version_125`
-  - current `main` spot-checks on 2026-04-25, 2026-04-27, 2026-05-06, and 2026-06-02 for registration drift
+  - the 2026-06-02 `version_130` / current-main spelling recheck
+  - earlier current `main` spot-checks on 2026-04-25, 2026-04-27, and 2026-05-06 for registration drift
   - where Binaryen exposes `remove-unused-module-elements` but no `remove-unused` or `remove-unused-functions`
 
 That split is the whole point of this dossier.
@@ -120,7 +120,7 @@ It replaced the historical function-only public pass with a broader module-eleme
 
 ## What current Binaryen exposes instead
 
-Current `version_125` `pass.cpp`, with narrow current-main spot checks on 2026-04-25, 2026-04-27, 2026-05-06, and 2026-06-02, registers these relevant names:
+The 2026-06-02 `version_130` / current-main spelling recheck, with earlier narrow spot checks on 2026-04-25, 2026-04-27, and 2026-05-06, registers these relevant names:
 
 - `remove-unused-brs`
 - `remove-unused-module-elements`
@@ -148,7 +148,7 @@ That would lose the historical distinction between:
 
 ### Mistake 2: treat `remove-unused` as a still-public upstream spelling
 
-Current `version_125` sources and help tests show that this is false.
+The 2026-06-02 `version_130` / current-main spelling recheck and earlier source/help tests show that this is false.
 
 ### Mistake 3: invent a new undefined catch-all pass contract
 

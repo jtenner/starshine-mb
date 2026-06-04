@@ -39,7 +39,7 @@ related:
 
 - `reorder-globals` is an upstream Binaryen late module / boundary-shaped global-layout pass.
 - It now has an active direct Starshine module-pass port; `reorder-globals-always` remains boundary-only.
-- On 2026-04-23, the reviewed official Binaryen `version_129` release page still showed publish date **2026-04-01**; the refreshed 2026-06-01 current-`main` recheck still did not surface teaching-relevant drift from this folder's `version_129` contract, even though the upstream release horizon has now advanced to `version_125`.
+- On 2026-04-23, the reviewed official Binaryen `version_129` release page still showed publish date **2026-04-01**; the refreshed 2026-06-01 current-`main` recheck still did not surface teaching-relevant drift from this folder's `version_129` contract, even though the upstream release horizon has now advanced to `version_130`.
 - In Binaryen `version_129`, it runs near the very end of the no-DWARF optimize pipeline.
 - Its job is to reorder global declarations so that more index-sensitive globals get smaller indices, while still preserving import ordering and global-initializer dependency order.
 
