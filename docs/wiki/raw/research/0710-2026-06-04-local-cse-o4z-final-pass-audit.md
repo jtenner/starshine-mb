@@ -445,6 +445,30 @@ bun scripts/pass-fuzz-compare.ts \
 
 Results: `moon info` still hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`); `moon fmt` passed; focused LCSE tests passed (`19/19`); `src/passes` passed (`1565/1565`); full `moon test` passed (`4750/4750`); native build was already up to date; and direct compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
 
+## Follow-up core `array.new` generative-root coverage on 2026-06-04
+
+A later focused LCSE hardening slice converted the earlier `array.new` deferral into a core-built fixture instead of widening WAT syntax. The Binaryen spot check for ordinary text kept both `array.new` roots and emitted no `local.tee`; the local test constructs the same shape through `@lib.Module`, `@lib.CompType::array`, and `@lib.Instruction::array_new(...)`, then runs `local_cse_run_module_pass(...)`. The new `local-cse does not reuse repeated array-new roots` fixture passes without implementation changes: Starshine keeps both `array.new` instructions and appends no temp local. Agent classification: missing coverage only, not a functional gap.
+
+Validation for this `array.new` generative-root slice:
+
+```sh
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-array-new-generative-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: `moon info` still hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`); `moon fmt` passed; focused LCSE tests passed (`20/20`); `src/passes` passed (`1566/1566`); full `moon test` passed (`4751/4751`); native build was already up to date; and direct compare reached `6770` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
 ## Recommendation
 
-The audited before-`if`/then-arm, simple before-block/straight-line-block, and annotated idempotent direct-call Binaryen-positive gaps are now covered and fixed, the tiny-root repeated-`global.get` no-op is explicitly covered, repeated `struct.new` and `struct.new_default` generative roots are covered, repeated `call_indirect` roots are covered, and before-loop into loop-body, `br_table`, `return`, and `unreachable` negatives are covered. Keep `[O4Z-AUDIT-LCSE]` active only for the remaining broader shape hardening that was not implemented here: hard control-boundary negatives beyond the added after-`if`, else-arm, loop-body, `br_table`, return, and `unreachable` tests; additional GC/generative-root negatives where local syntax supports them, especially `array.new*` via core/binary fixtures; and `call_ref` barrier negatives paired with the newly covered idempotent-call exception plus ordinary direct-call and `call_indirect` root negatives.
+The audited before-`if`/then-arm, simple before-block/straight-line-block, and annotated idempotent direct-call Binaryen-positive gaps are now covered and fixed, the tiny-root repeated-`global.get` no-op is explicitly covered, repeated `struct.new`, `struct.new_default`, and core `array.new` generative roots are covered, repeated `call_indirect` roots are covered, and before-loop into loop-body, `br_table`, `return`, and `unreachable` negatives are covered. Keep `[O4Z-AUDIT-LCSE]` active only for the remaining broader shape hardening that was not implemented here: hard control-boundary negatives beyond the added after-`if`, else-arm, loop-body, `br_table`, return, and `unreachable` tests; any additional GC/generative-root variants where local syntax supports them; and `call_ref` barrier negatives paired with the newly covered idempotent-call exception plus ordinary direct-call and `call_indirect` root negatives.

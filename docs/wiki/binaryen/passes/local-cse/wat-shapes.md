@@ -489,6 +489,9 @@ Before and after stay the same, conceptually:
 ```wat
 (drop (struct.new $T ...))
 (drop (struct.new $T ...))
+
+(drop (array.new $A (i32.const 1) (i32.const 2)))
+(drop (array.new $A (i32.const 1) (i32.const 2)))
 ```
 
 Why Binaryen keeps both:
@@ -497,9 +500,9 @@ Why Binaryen keeps both:
 - `properties.cpp` marks roots like `struct.new`, `struct.new_default`, and `array.new*` as generative
 - reusing the first fresh result would be wrong
 
-This is another source-derived rule that matters for a future port even though the 2026-04-25 source bridge did not identify a dedicated standalone lit fixture that isolates it separately.
+Starshine status: direct coverage proves `struct.new`, `struct.new_default`, and a core-built `array.new` fixture remain separate. The core fixture covers `array.new` without widening the local WAT parser path for ordinary `array.*` text.
 
-## Shape 16: repeated switch / `br_table` children can fold
+## Shape 17: repeated switch / `br_table` children can fold
 
 Before, conceptually:
 
@@ -526,7 +529,7 @@ Why this matters:
 - the pass must preserve the correct child ordering for `switch` / `br_table`
 - the shipped `switch-children` test exists because Binaryen previously got this wrong
 
-## Shape 17: flatten can turn a near-miss into a positive
+## Shape 18: flatten can turn a near-miss into a positive
 
 Before, conceptual near-miss:
 
