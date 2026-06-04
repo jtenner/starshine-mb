@@ -261,7 +261,8 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::MemoryFill(_)
     | @lib.Instruction::MemoryInit(_, _)
     | @lib.Instruction::TableCopy(_, _)
-    | @lib.Instruction::TableFill(_) => Some(3)
+    | @lib.Instruction::TableFill(_)
+    | @lib.Instruction::TableInit(_, _) => Some(3)
     _ =>
       if lcse_instr_is_store(instr) {
         Some(2)
