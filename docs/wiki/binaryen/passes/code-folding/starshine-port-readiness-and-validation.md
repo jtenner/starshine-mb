@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-04
 sources:
+  - ../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md
   - ../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md
   - ../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
@@ -63,8 +64,8 @@ The local surfaces that already exist are active implementation and planning sur
 | Registry entry | `src/passes/optimize.mbt` | `code-folding` is an active hot pass, not a removed-name placeholder. |
 | Dispatcher arm | `src/passes/pass_manager.mbt` | active requests dispatch to `code_folding_run(ctx, func)`. |
 | CLI spelling preservation | `src/cli/cli_test.mbt` | `--code-folding` parses and explicit pass-token order is stable. |
-| Direct revalidation | `.tmp/pass-fuzz-code-folding-cf002-terminal-if`, `docs/wiki/raw/research/0522-2026-05-06-code-folding-direct-revalidation.md` | refreshed harness lane had `6759` normalized matches and `0` semantic mismatches; direct debug-artifact timing stayed inside the <=2x Binaryen floor. |
-| Backlog slice | `agent-todo.md` | direct `[CF]002` is accepted; future work is limited to new semantic/validity blockers, proven downstream code-size blockers, or preset-scheduling evidence. |
+| Direct revalidation | `.tmp/pass-fuzz-code-folding-cf002-terminal-if`, `docs/wiki/raw/research/0522-2026-05-06-code-folding-direct-revalidation.md` | latest executed harness lane had `6759` normalized matches and `0` semantic mismatches; direct debug-artifact timing stayed inside the <=2x Binaryen floor, but this evidence predates the June typed block-exit payload widening. |
+| Backlog slice | `agent-todo.md` | `[O4Z-AUDIT-CF]` tracks fresh fixture validation, direct compare, pass-local timing, and late-slot replay before the audit closes. |
 | Canonical late slot | `docs/wiki/binaryen/no-dwarf-default-optimize-path.md` | the pass belongs immediately before the late `merge-blocks` cluster in the no-DWARF function phase. |
 
 ## Remaining Starshine slice order
@@ -78,6 +79,11 @@ The current owner file and tests cover a conservative subset of the expression-e
 - identical void `if`-arm suffix hoisting
 - identical full void-arm cleanup
 - value-producing `if` bailout
+- full-`if` terminal suffix sharing for empty-payload `return` and `unreachable`
+- void block-exit/fallthrough tail sharing
+- single-result typed named-block plain-`br` payload sharing with a matching fallthrough value or other branch payloads
+- unsupported `br_on_null` label-poisoning coverage for block-exit folding
+- live-label structured `if` suffix bailout coverage
 - small exiting dead-value block flattening cleanup
 
 ### Next slice: broader expression-exit fold positives with hard bailouts
@@ -85,8 +91,8 @@ The current owner file and tests cover a conservative subset of the expression-e
 Continue with the broader expression-exit family from [`./binaryen-strategy.md`](./binaryen-strategy.md):
 
 - unnamed `if` arm duplicate suffixes
-- named-block plain-`br` tails to the same exit
-- branch-payload plus fallthrough suffixes where target scope is obviously preserved
+- remaining named-block plain-`br` tails to the same exit beyond the covered void-tail and single-result payload-root shapes
+- broader branch-payload plus fallthrough suffixes where target scope is obviously preserved, including multi-value and deeper suffix slices
 
 Keep these first-slice bailouts explicit:
 
@@ -178,8 +184,8 @@ Seed a future `src/passes/code_folding_test.mbt` from Binaryen's dedicated `code
 1. identical unnamed `if` arm blocks fold to a shared suffix
 2. partially shared `if` arm suffixes fold while preserving the unique prefix
 3. named arm blocks stay untouched
-4. plain branch-value tails to one named exit share only the payload suffix
-5. branch-plus-fallthrough tails share the suffix
+4. plain branch-value tails to one named exit share only the payload suffix (single-result payload-root cases now have June 4 coverage; multi-value/deeper suffix cases remain future)
+5. branch-plus-fallthrough tails share the suffix (void tails and single-result payload-root cases now have coverage; broader branch payload suffixes remain future)
 6. `br_on_*` / unsupported branch forms poison label folding
 7. outside-target branches block movement
 8. refined-result and typed-block contexts still validate
@@ -212,15 +218,23 @@ The neighboring living dossiers are:
 
 ### Final parity signoff
 
-The refreshed direct lane is current as of 2026-05-10:
+The latest full 10000-case direct lane is from 2026-05-10 and predates the June 4 typed-payload widening:
 
 - implementation-thread signoff: `moon info`, `moon fmt`, `moon test`
-- latest direct fuzz: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-folding --max-failures 20 --out-dir .tmp/pass-fuzz-code-folding-cf002-terminal-if`
+- latest archived 10000-case direct fuzz: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-folding --max-failures 20 --out-dir .tmp/pass-fuzz-code-folding-cf002-terminal-if`
 - result: `6759/10000` compared cases, `6759` normalized matches, `0` semantic mismatches, `20` Binaryen empty-recursion-group command failures
 - direct artifact replay: `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1680352`, first diff `defined=220 abs=237`, classified representation drift, `334.711ms` Starshine pass time vs `176.295ms` Binaryen
 - late cleanup replay: `.tmp/cf002-late-cleanup-artifact`, first diff `defined=29 abs=46`, same focused diff files as the no-CF baseline `.tmp/cf002-late-cleanup-without-cf-artifact`
 
-Direct `[CF]002` signoff is accepted as of 2026-05-10. The remaining direct debug-artifact diff is classified representation drift, and the focused `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names` cleanup replay produced the same first diff as the no-CF cleanup baseline.
+The June 4 typed block-exit payload widening baseline is now green:
+
+- `moon test src/passes`: `1590/1590`
+- `moon test`: `4775/4775`
+- native binary path: `_build/native/release/build/cmd/cmd.exe`
+- direct 1000-case smoke at `.tmp/pass-fuzz-code-folding-audit-1000`: `998/1000` compared cases, `998` normalized matches, `0` mismatches, `2` `binaryen-rec-group-zero` command failures
+- timing-only debug-WASI replay at `.tmp/code-folding-audit-self-compare`: `172.276ms` Starshine pass time vs `169.576ms` Binaryen, within the <=2x floor
+
+Direct `[CF]002` signoff is accepted as of 2026-05-10 for the earlier narrowed surface, and `[O4Z-AUDIT-CF-A]` baselines the June widening. The remaining direct debug-artifact diff is classified representation drift, and the focused `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names` cleanup replay produced the same first diff as the no-CF cleanup baseline. The 2026-06-04 O4z audit is tracked in [`../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md`](../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md); it now keeps the broader Binaryen behavior-parity slices open.
 
 Future parity work should only proceed when one of these is true:
 

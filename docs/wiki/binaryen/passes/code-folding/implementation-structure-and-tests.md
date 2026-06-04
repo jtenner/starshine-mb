@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-04
 sources:
+  - ../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md
   - ../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md
   - ../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md
@@ -114,17 +115,17 @@ The behavior families to preserve are:
 
 ## Current Starshine code map
 
-Starshine does not implement the transform yet, but the status is still represented in code and docs.
+Starshine implements an active narrowed transform, and the current status is represented in code and docs.
 
 | Local surface | Exact location | Meaning |
 | --- | --- | --- |
-| Active owner | `src/passes/code_folding.mbt` | `code-folding` owns a real HOT descriptor and narrow direct transform. |
-| Focused tests | `src/passes/code_folding_test.mbt` | current void-tail positives, value-if bailout, and cleanup regression are covered. |
+| Active owner | `src/passes/code_folding.mbt` | `code-folding` owns a real HOT descriptor and narrow direct transform, including the June single-result typed block-exit payload-sharing slice. |
+| Focused tests | `src/passes/code_folding_test.mbt` | current void/value-tail positives, typed block-exit branch-payload positives, terminal `return`/`unreachable` full-`if` sharing, unsupported `br_on_null` poison negative, live-label suffix bailout, and cleanup regressions are covered. |
 | Registry entry | `src/passes/optimize.mbt` | `code-folding` is an active hot-pass registry entry. |
 | Dispatcher owner | `src/passes/pass_manager.mbt` | active requests dispatch through `code_folding_run(ctx, func)`. |
 | CLI pass-token parsing | `src/cli/cli_test.mbt` | `--code-folding` remains parseable as a kebab-case pass token. |
 | CLI ordering preservation | `src/cli/cli_test.mbt` | explicit pass order with `code-folding` is preserved. |
-| Backlog slice | `agent-todo.md:445-460` | The future work is tracked as `CF`, with motion-safety and artifact-compare deliverables. |
+| Backlog slice | `agent-todo.md` `[O4Z-AUDIT-CF]` | The active audit tracks new fixture validation, direct compare, pass-local timing, and late-slot replay deliverables. |
 | Canonical scheduler context | `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:33` | The intended late slot sits before the final `merge-blocks` cleanup cluster. |
 
 ## What a faithful Starshine test ladder should start with
@@ -132,12 +133,14 @@ Starshine does not implement the transform yet, but the status is still represen
 The detailed local slice order and HOT prerequisite map now live in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). In short, a future implementation should use the upstream lit families as the first local tests:
 
 1. unnamed `if` arm duplicate-tail positives
-2. named block branch-value positives
-3. branch-plus-fallthrough positives
+2. named block branch-value positives, keeping the covered single-result plain-`br` payload-root cases green and adding multi-value/deeper suffixes only with new tests
+3. branch-plus-fallthrough positives, keeping covered void and single-result payload-root cases green
 4. terminating `return`, `return_call*`, and `unreachable` positives
 5. `br_on_*` / unsupported branch poison negatives
 6. branch-target-scope and EH-motion negatives
 7. late-neighbor interaction with `merge-blocks`, `remove-unused-brs`, `remove-unused-names`, and `rse`
+
+As of the 2026-06-04 O4z audit continuation, focused tests cover the local terminal `return` and `unreachable` full-`if` subset, one `br_on_null` poison negative, a live-label structured suffix bailout, and the widened single-result typed named-block plain-`br` payload sharing slice with and without fallthrough. The widened slice is baseline-green at `moon test src/passes`, full `moon test`, direct 1000-case compare, and debug-WASI pass-local timing. General function-ending helper-label sharing, multi-value/deeper branch-payload folding, EH motion, 10000-case compare closeout, and late-neighbor evidence remain open audit items.
 
 After reduced tests are green, use the pass parity workflow from `AGENTS.md`: compare `--pass code-folding` against Binaryen, then replay the canonical no-DWARF late slot and generated-artifact cases.
 

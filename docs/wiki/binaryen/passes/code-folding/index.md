@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-04
 sources:
+  - ../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md
   - ../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md
   - ../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
@@ -78,11 +79,11 @@ That split is important. The pass is not one generic “merge any duplicate regi
 - The pass runs to a per-function **fixpoint** because one fold can expose another.
 - The folder now has a dedicated implementation/test-map page that points beginners and future porters to Binaryen's owner file, helper surfaces, lit proof families, scheduler location, and exact local Starshine status/code surfaces.
 - The folder also has a Starshine port-readiness page that turns the upstream contract into a staged local implementation and validation ladder: narrow expression-exit positives first, source-backed negative gates second, terminating-tail helper-label sharing later, and EH movement only after focused proof.
-- Current Starshine has an accepted direct implementation for a narrowed tail-sharing / cleanup subset. The 2026-05-10 refreshed direct lane recorded `6759/10000` compared cases, `6759` normalized matches, `0` semantic mismatches, and `20` Binaryen empty-recursion-group command failures; the direct debug-artifact timing stayed inside the <=2x Binaryen floor, and the focused late cleanup replay did not expose a `code-folding`-specific downstream blocker. Broader helper-label sharing and preset scheduling are future evidence-driven work, not active v0.1.0 direct blockers.
+- Current Starshine has an accepted direct implementation for a narrowed tail-sharing / cleanup subset. The 2026-05-10 refreshed direct lane recorded `6759/10000` compared cases, `6759` normalized matches, `0` semantic mismatches, and `20` Binaryen empty-recursion-group command failures; the direct debug-artifact timing stayed inside the <=2x Binaryen floor, and the focused late cleanup replay did not expose a `code-folding`-specific downstream blocker. The 2026-06-04 O4z audit start added focused terminal-`unreachable`, unsupported `br_on_null`, and live-label suffix fixtures; the continuation then widened the pass for single-result typed named-block exits by sharing matching plain-`br` payloads with a fallthrough value or other branch payloads. Baseline June validation for that widened slice is green at `moon test src/passes`, full `moon test`, a 1000-case direct compare smoke (`998` normalized matches, `0` mismatches), and debug-WASI pass-local timing (`172.276ms` Starshine vs `169.576ms` Binaryen). The June audit still needs 10000-case compare, late-slot evidence, and broader Binaryen behavior-parity slices before `[O4Z-AUDIT-CF]` can close.
 
 ## Freshness and provenance
 
-- The latest Starshine direct-pass evidence is the 2026-05-10 refresh: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-folding --max-failures 20 --out-dir .tmp/pass-fuzz-code-folding-cf002-terminal-if` with zero semantic mismatches, direct debug-artifact replay at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1680352`, and focused cleanup replay at `.tmp/cf002-late-cleanup-artifact`. The earlier 2026-05-06 baseline remains archived in [`../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md`](../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md).
+- The latest full 10000-case Starshine direct-pass evidence is the 2026-05-10 refresh: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-folding --max-failures 20 --out-dir .tmp/pass-fuzz-code-folding-cf002-terminal-if` with zero semantic mismatches, direct debug-artifact replay at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1680352`, and focused cleanup replay at `.tmp/cf002-late-cleanup-artifact`. The June 4 single-result typed block-exit payload widening has current baseline evidence in [`../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md`](../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md): direct 1000-case compare at `.tmp/pass-fuzz-code-folding-audit-1000` with `998` normalized matches, `0` mismatches, and `2` `binaryen-rec-group-zero` command failures, plus debug-WASI pass-local timing at `.tmp/code-folding-audit-self-compare`. The earlier 2026-05-06 baseline remains archived in [`../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md`](../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md).
 - The dossier has an immutable tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md).
 - On 2026-04-22 the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**.
 - A 2026-05-05 focused current-`main` recheck in [`../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md) did not surface teaching-relevant drift beyond the existing Binaryen pages. The current-main bridge specifically rechecked `CodeFolding.cpp`, `pass.cpp`, `opt-utils.h`, `passes.h`, and `code-folding.wast`.
@@ -99,7 +100,7 @@ That split is important. The pass is not one generic “merge any duplicate regi
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the positive, negative, bailout, and interaction families that matter most.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Exact current Starshine status and expansion-planning bridge: active HOT owner, focused tests, fresh direct parity evidence, backlog slice `CF`, canonical scheduler slot, and the implemented neighboring cleanup passes broader local work must compose with.
+  Exact current Starshine status and expansion-planning bridge: active HOT owner, focused tests, prior direct parity evidence plus required June refresh, backlog slice `CF`, canonical scheduler slot, and the implemented neighboring cleanup passes broader local work must compose with.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Practical expansion-readiness bridge: landed narrow slice, remaining HOT builder / region / label / branch-verification prerequisites, official-test-family-first validation ladder, neighborhood replay plan, and open design questions before broader `code-folding` parity claims.
 
@@ -111,6 +112,7 @@ That split is important. The pass is not one generic “merge any duplicate regi
 
 ## Sources
 
+- [`../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md`](../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md)
 - [`../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md`](../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md)
 - [`../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md`](../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md)

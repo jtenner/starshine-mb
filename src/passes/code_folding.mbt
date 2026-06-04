@@ -23,6 +23,40 @@ priv struct CodeFoldingExitTail {
 }
 
 ///|
+priv struct CodeFoldingValueExitTail {
+  branch_id : Int
+  payload_id : Int
+  fallthrough : Bool
+  fallthrough_region_ref : @ir.HotRegionRef
+}
+
+///|
+fn code_folding_value_exit_tail_branch(
+  branch_id : Int,
+  payload_id : Int,
+) -> CodeFoldingValueExitTail {
+  {
+    branch_id,
+    payload_id,
+    fallthrough: false,
+    fallthrough_region_ref: @ir.HotRegionRef::root(),
+  }
+}
+
+///|
+fn code_folding_value_exit_tail_fallthrough(
+  region_ref : @ir.HotRegionRef,
+  payload_id : Int,
+) -> CodeFoldingValueExitTail {
+  {
+    branch_id: -1,
+    payload_id,
+    fallthrough: true,
+    fallthrough_region_ref: region_ref,
+  }
+}
+
+///|
 fn code_folding_node_has_control_or_exit(
   func : @ir.HotFunc,
   node_id : Int,
@@ -906,6 +940,282 @@ fn code_folding_should_visit_drop_embedded_controls(
 }
 
 ///|
+fn code_folding_collect_value_block_exit_tails_in_node(
+  func : @ir.HotFunc,
+  node_id : Int,
+  target_label : Int,
+  tails : Array[CodeFoldingValueExitTail],
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Br => if node.imm0 == target_label { return false }
+    @ir.HotOp::BrIf
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail
+    | @ir.HotOp::Delegate => if node.imm0 == target_label { return false }
+    @ir.HotOp::BrTable =>
+      if code_folding_branch_table_has_target(func, node.imm0, target_label) {
+        return false
+      }
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      if !code_folding_collect_value_block_exit_tails(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          target_label,
+          tails,
+        ) {
+        return false
+      }
+    @ir.HotOp::If => {
+      if !code_folding_collect_value_block_exit_tails(
+          func,
+          @ir.hot_region_then_ref(func, node_id),
+          target_label,
+          tails,
+        ) {
+        return false
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) =>
+          if !code_folding_collect_value_block_exit_tails(
+              func, else_ref, target_label, tails,
+            ) {
+            return false
+          }
+        None => ()
+      }
+    }
+    @ir.HotOp::Try | @ir.HotOp::TryTable => return false
+    _ => ()
+  }
+  true
+}
+
+///|
+fn code_folding_collect_value_block_exit_tails(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  target_label : Int,
+  tails : Array[CodeFoldingValueExitTail],
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+      return false
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::Br =>
+        if node.imm0 == target_label {
+          if node.child_count != 1 {
+            return false
+          }
+          tails.push(
+            code_folding_value_exit_tail_branch(
+              node_id,
+              @ir.hot_child_get(func, node_id, 0),
+            ),
+          )
+        } else if idx == @ir.hot_region_root_count(func, region_ref) - 1 {
+          for slot = 0; slot < node.child_count; slot = slot + 1 {
+            let child_id = @ir.hot_child_get(func, node_id, slot)
+            if child_id >= 0 && @ir.hot_node_is_live(func, child_id) {
+              match @ir.hot_node_get(func, child_id).op {
+                @ir.HotOp::Block
+                | @ir.HotOp::Loop
+                | @ir.HotOp::If
+                | @ir.HotOp::Try
+                | @ir.HotOp::TryTable =>
+                  if !code_folding_collect_value_block_exit_tails_in_node(
+                      func, child_id, target_label, tails,
+                    ) {
+                    return false
+                  }
+                _ => ()
+              }
+            }
+          }
+        }
+      @ir.HotOp::BrIf
+      | @ir.HotOp::BrOnNull
+      | @ir.HotOp::BrOnNonNull
+      | @ir.HotOp::BrOnCast
+      | @ir.HotOp::BrOnCastFail
+      | @ir.HotOp::Delegate => if node.imm0 == target_label { return false }
+      @ir.HotOp::BrTable =>
+        if code_folding_branch_table_has_target(func, node.imm0, target_label) {
+          return false
+        }
+      @ir.HotOp::Block | @ir.HotOp::Loop =>
+        if !code_folding_collect_value_block_exit_tails(
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+            target_label,
+            tails,
+          ) {
+          return false
+        }
+      @ir.HotOp::If => {
+        if !code_folding_collect_value_block_exit_tails(
+            func,
+            @ir.hot_region_then_ref(func, node_id),
+            target_label,
+            tails,
+          ) {
+          return false
+        }
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(else_ref) =>
+            if !code_folding_collect_value_block_exit_tails(
+                func, else_ref, target_label, tails,
+              ) {
+              return false
+            }
+          None => ()
+        }
+      }
+      @ir.HotOp::Try | @ir.HotOp::TryTable => return false
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
+fn code_folding_value_block_exit_tails_match(
+  func : @ir.HotFunc,
+  block_id : Int,
+  result_arity : Int,
+  tails : Array[CodeFoldingValueExitTail],
+  label_used : @bitset.BitSet,
+) -> Bool {
+  if result_arity != 1 || tails.length() < 2 {
+    return false
+  }
+  let first = tails[0].payload_id
+  if @ir.hot_node_result_arity(func, first) != result_arity ||
+    !code_folding_node_is_hoistable_suffix(func, first, block_id, label_used) {
+    return false
+  }
+  for tail_idx = 1; tail_idx < tails.length(); tail_idx = tail_idx + 1 {
+    let other = tails[tail_idx].payload_id
+    if @ir.hot_node_result_arity(func, other) != result_arity ||
+      !code_folding_node_is_hoistable_suffix(func, other, block_id, label_used) ||
+      !code_folding_nodes_equal(func, first, other, label_used) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn code_folding_try_fold_value_block_exit_at_region(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  label_used : @bitset.BitSet,
+) -> Bool {
+  let block_id = @ir.hot_region_get(func, region_ref, idx)
+  if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
+    return false
+  }
+  let block_node = @ir.hot_node_get(func, block_id)
+  match block_node.op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  if idx != @ir.hot_region_root_count(func, region_ref) - 1 {
+    return false
+  }
+  let result_arity = @ir.hot_type_result_arity(func, block_node.ty)
+  if result_arity != 1 {
+    return false
+  }
+  let target_label = @ir.hot_control_node_label(func, block_id)
+  if target_label < 0 ||
+    @ir.hot_label_branch_arity(func, target_label) != result_arity ||
+    !pass_label_is_used(target_label, label_used) {
+    return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let body_count = @ir.hot_region_root_count(func, body_ref)
+  if body_count == 0 {
+    return false
+  }
+  let tails : Array[CodeFoldingValueExitTail] = []
+  if !code_folding_collect_value_block_exit_tails(
+      func, body_ref, target_label, tails,
+    ) {
+    return false
+  }
+  let last_root = @ir.hot_region_get(func, body_ref, body_count - 1)
+  if !code_folding_node_prevents_fallthrough(func, last_root) {
+    tails.push(code_folding_value_exit_tail_fallthrough(body_ref, last_root))
+  }
+  if !code_folding_value_block_exit_tails_match(
+      func, block_id, result_arity, tails, label_used,
+    ) {
+    return false
+  }
+
+  for tail in tails {
+    if tail.fallthrough {
+      let count = @ir.hot_region_root_count(func, tail.fallthrough_region_ref)
+      if count == 0 ||
+        @ir.hot_region_get(func, tail.fallthrough_region_ref, count - 1) !=
+        tail.payload_id {
+        return false
+      }
+    }
+  }
+
+  let hoisted_payload = tails[0].payload_id
+  let mut removed_branch_payload = false
+  for tail in tails {
+    if !tail.fallthrough {
+      ignore(@ir.hot_replace_child_span(func, tail.branch_id, []))
+      removed_branch_payload = true
+    }
+  }
+  if removed_branch_payload {
+    pass_mark_mutated(ctx, func)
+  }
+  for tail in tails {
+    if tail.fallthrough {
+      let count = @ir.hot_region_root_count(func, tail.fallthrough_region_ref)
+      ignore(
+        pass_splice_region(
+          ctx,
+          func,
+          tail.fallthrough_region_ref,
+          count - 1,
+          1,
+          [],
+        ),
+      )
+    }
+  }
+  @ir.hot_control_result_type_set(func, block_id, @ir.hot_type_void(func))
+  pass_mark_mutated(ctx, func)
+  ignore(
+    pass_splice_region(ctx, func, region_ref, idx + 1, 0, [hoisted_payload]),
+  )
+  pipeline_trace_hook(
+    ctx.trace,
+    ctx.descriptor.name,
+    "mutated",
+    payload="value-block-exit-common-payload",
+  )
+  true
+}
+
+///|
 fn code_folding_collect_block_exit_tails_in_node(
   func : @ir.HotFunc,
   node_id : Int,
@@ -1415,7 +1725,10 @@ fn code_folding_visit_region(
             ) {
             changed = true
           }
-          if code_folding_try_fold_block_exit_at_region(
+          if code_folding_try_fold_value_block_exit_at_region(
+              ctx, func, region_ref, idx, label_used,
+            ) ||
+            code_folding_try_fold_block_exit_at_region(
               ctx, func, region_ref, idx, label_used,
             ) {
             changed = true

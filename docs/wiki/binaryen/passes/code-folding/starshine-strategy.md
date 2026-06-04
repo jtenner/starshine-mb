@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-04
 sources:
+  - ../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md
   - ../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md
   - ../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
@@ -42,7 +43,7 @@ The goal here is not to re-explain upstream Binaryen, but to show the exact curr
 
 `code-folding` is now an active Starshine HOT pass with owner file `src/passes/code_folding.mbt`, focused tests in `src/passes/code_folding_test.mbt`, registry coverage, and a dispatcher arm.
 
-The active implementation is still a narrowed direct-pass subset, not the full Binaryen tail-sharing surface. It now covers void and typed/value `if`-arm suffix hoisting, branch-free structured suffix hoisting, branch-to-outer-label full-tail hoisting, unprofitable full-void `if` skips, conservative full-`if` terminal suffix sharing for empty-payload `return` / `unreachable` endings, conservative block-exit/fallthrough tail hoisting, branch-payload embedded block-exit hoisting, and a small exiting dead-value block cleanup family. It also guards against moving live-label blocks or deleting trailing `unreachable` sentinels that typed result regions still need. Broader Binaryen helper-block shaping, function-ending helper-label sharing, and EH movement remain future work only when a new semantic, validity, or proven downstream code-size blocker justifies them.
+The active implementation is still a narrowed direct-pass subset, not the full Binaryen tail-sharing surface. It now covers void and typed/value `if`-arm suffix hoisting, branch-free structured suffix hoisting, branch-to-outer-label full-tail hoisting, unprofitable full-void `if` skips, conservative full-`if` terminal suffix sharing for empty-payload `return` / `unreachable` endings, conservative void block-exit/fallthrough tail hoisting, single-result typed block-exit plain-`br` payload sharing with matching fallthrough or other branch payloads, branch-payload embedded block-exit hoisting, and a small exiting dead-value block cleanup family. It also guards against moving live-label blocks or deleting trailing `unreachable` sentinels that typed result regions still need. Broader Binaryen helper-block shaping, multi-value/deeper branch-payload suffix splitting, function-ending helper-label sharing, and EH movement remain future work only when a new semantic, validity, or proven downstream code-size blocker justifies them.
 
 On 2026-05-10, direct `code-folding` was accepted for v0.1.0 under the repo pass criteria. The refreshed direct lane for `--pass code-folding` at `.tmp/pass-fuzz-code-folding-cf002-terminal-if` reported `6759/10000` compared cases, `6759` normalized matches, `0` semantic mismatches, and `20` Binaryen empty-recursion-group command failures after adding conservative full-`if` terminal suffix sharing. The debug artifact `--code-folding` command still differs first at `defined=220 abs=237`, but Starshine now shares the repeated `call $28(local.get $6)` branch-exit tails inside the value-carrying branch payload. A reduced helper-wrapper fixture added in `src/passes/code_folding_test.mbt` shows Binaryen and Starshine both reduce six duplicated `$sink` calls to four calls while keeping different wrapper placement; in the artifact function both outputs have three `call $28(local.get $6)` sites and sixteen total `call $28` sites, and Starshine's focused WAT is smaller (`21687` bytes vs Binaryen's `22085`). The remaining inspected `defined=220 abs=237` diff is therefore classified as representation/helper-wrapper drift, not a current code-quality blocker. The latest direct replay at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1680352` reports `334.711ms` Starshine pass-local time vs `176.295ms` Binaryen, still inside the repo speed floor (`starshine_time <= 2 * binaryen_time`). The focused late cleanup replay `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names` at `.tmp/cf002-late-cleanup-artifact` remains red at `defined=29 abs=46`, but the no-CF cleanup baseline at `.tmp/cf002-late-cleanup-without-cf-artifact` has the same first diff and byte-identical focused diff files, so that replay did not expose a code-folding-specific downstream blocker.
 
@@ -52,10 +53,10 @@ The fastest read-along path through the current Starshine status is:
 
 - active pass owner
   - `src/passes/code_folding.mbt`
-    - descriptor, summary, structural equality, suffix movement guards, typed/value `if` suffix logic, conservative block-exit/fallthrough suffix logic, mutation helpers, and run function for the current narrowed HOT subset
+    - descriptor, summary, structural equality, suffix movement guards, typed/value `if` suffix logic, conservative block-exit/fallthrough suffix logic, single-result typed block-exit payload sharing, mutation helpers, and run function for the current narrowed HOT subset
 - focused direct tests
   - `src/passes/code_folding_test.mbt`
-    - identical void and typed/value if-arm suffix hoists, structured suffix hoists, outer-branch full-tail hoists, unprofitable full-void if skips, block-exit/fallthrough and branch-payload suffix hoists, live-label block safety, result-region `unreachable` safety, and exiting dead-value block flattening coverage
+    - identical void and typed/value if-arm suffix hoists, structured suffix hoists, outer-branch full-tail hoists, unprofitable full-void if skips, block-exit/fallthrough and branch-payload suffix hoists, typed block-exit branch-payload positives with and without fallthrough, full-`if` terminal suffix sharing for `return` and `unreachable`, unsupported `br_on_null` label-poisoning coverage, live-label block and `if`-suffix safety, result-region `unreachable` safety, and exiting dead-value block flattening coverage
 - active registry and dispatcher status
   - `src/passes/optimize.mbt`
     - `code-folding` is a hot-pass registry entry, not a removed-name placeholder
@@ -98,15 +99,18 @@ Today Starshine's behavior for `code-folding` is deliberately active but narrow.
 - typed/value `if` suffixes can be hoisted when the moved suffix provides the original result
 - branch-free structured suffixes can be hoisted through alpha-equivalent unused labels
 - full tails ending in a branch to an outer live label can be hoisted safely
+- full `if` arms ending in empty-payload `return` or `unreachable` share one terminal suffix
 - a conservative named block-exit tail shared by branch exits and fallthrough can be hoisted after the block
-- live-label exiting blocks are not flattened out from under their branch targets
+- single-result typed named-block exits can share a matching plain-`br` payload with the fallthrough value or with other matching branch payloads
+- unsupported `br_on_null` traffic to the same label poisons block-exit folding instead of being silently merged with plain `br` tails
+- live-label exiting blocks and structured `if` suffixes are not flattened or hoisted out from under their branch targets
 - result-region trailing `unreachable` sentinels are preserved when they still provide the required bottom-typed result
 - an exiting dead-value block shape is flattened without duplicating unreachable residue
 
-### 3. The direct oracle lane is fresh
+### 3. Direct oracle and timing evidence
 
 The 2026-05-10 revalidation lane ran `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass code-folding --max-failures 20 --out-dir .tmp/pass-fuzz-code-folding-cf002-terminal-if` after the standard Moon signoff from the implementation thread.
-It produced zero semantic mismatches across all compared cases and kept direct debug-artifact pass-local timing inside the <=2x Binaryen floor.
+It produced zero semantic mismatches across all compared cases and kept direct debug-artifact pass-local timing inside the <=2x Binaryen floor. The June 4 typed block-exit payload widening has a current baseline smoke at `.tmp/pass-fuzz-code-folding-audit-1000`: `998/1000` compared cases, `998` normalized matches, `0` mismatches, and `2` command failures, plus debug-WASI pass-local timing at `.tmp/code-folding-audit-self-compare` (`172.276ms` Starshine vs `169.576ms` Binaryen, within the <=2x floor). Full 10000-case compare and late-slot evidence remain open before audit closeout.
 
 ### 4. Direct signoff is accepted; broader parity is conditional future work
 
@@ -114,7 +118,7 @@ It produced zero semantic mismatches across all compared cases and kept direct d
 
 Future broadening should be demand-driven:
 
-- broader expression-exit helper-block sharing only when it proves a real shrink/correctness gap beyond the currently classified `defined=220 abs=237` helper-wrapper representation drift
+- broader expression-exit helper-block sharing or multi-value/deeper branch-payload suffix splitting only when it proves a real shrink/correctness gap beyond the currently classified `defined=220 abs=237` helper-wrapper representation drift and the June typed-payload widening
 - function-ending tail coverage only when a semantic, validity, or artifact-size blocker requires it
 - late-pipeline / preset scheduling only after the surrounding cleanup path is representable and oracle-proven
 
@@ -194,7 +198,7 @@ Why:
 A future contributor should be careful not to overread the current local surface.
 Starshine still does **not** have:
 
-- broad branch-tail candidate collection for duplicate block-exit traffic
+- full branch-tail candidate collection for duplicate block-exit traffic beyond the covered void tails and single-result plain-`br` payload roots
 - local branch-scope movement analysis broad enough for Binaryen's full expression-exit family
 - a function-ending helper-label tail-sharing rewriter
 - EH movement / nested-pop repair support for this pass
@@ -204,7 +208,7 @@ So the current repo status is best summarized as:
 
 - active narrow HOT transform
 - focused tests and dispatcher wiring
-- fresh direct fuzz parity evidence
+- prior 10000-case direct fuzz parity evidence plus a June 1000-case smoke after the typed-payload widening
 - scheduler slot documented
 - neighboring consumers implemented
 - broader late-slot and artifact proof still open
@@ -240,7 +244,7 @@ That is more useful locally than a generic “compare with Binaryen later” not
 Current Starshine `code-folding` strategy is an accepted direct HOT pass plus conditional future broadening:
 
 - the pass has `src/passes/code_folding.mbt` ownership, registry wiring, dispatcher routing, and focused tests
-- the 2026-05-10 direct compare lane is green with zero semantic mismatches and pass-local timing inside the <=2x Binaryen floor
+- the 2026-05-10 direct compare lane is green with zero semantic mismatches and pass-local timing inside the <=2x Binaryen floor; the June typed block-exit payload widening has a green 1000-case smoke and timing lane but still needs 10000-case closeout before final parity claims
 - the direct artifact `defined=220 abs=237` helper-wrapper diff is accepted representation drift
 - the focused cleanup replay did not expose a `code-folding`-specific downstream blocker because the same `defined=29 abs=46` diff appears without `code-folding`
 - the canonical slot is documented in the no-DWARF optimizer notes, but public preset scheduling still needs separate ordered-path proof
@@ -248,7 +252,7 @@ Current Starshine `code-folding` strategy is an accepted direct HOT pass plus co
 So the right mental model today is:
 
 - **accepted direct transform**
-- **fresh direct parity and timing evidence**
+- **accepted prior direct parity and timing evidence, plus green June smoke/timing for the widened slice**
 - **clear slot in the pipeline**
 - **broader expression-exit / function-ending work only if future evidence needs it**
 
