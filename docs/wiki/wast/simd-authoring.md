@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md
+  - ../raw/wasm/2026-06-04-relaxed-simd-status-refresh.md
   - ../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md
   - ../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md
   - ../raw/wasm/2026-05-19-wast-simd-sources.md
@@ -37,7 +38,7 @@ SIMD is WebAssembly's 128-bit vector instruction family. A value of type `v128` 
 
 Use this page when writing or reviewing WAST fixtures that mention `v128`, `v128.const`, `i8x16.shuffle`, lane extract/replace instructions, vector loads/stores, or relaxed SIMD. The byte-level `0xFD` encoding overview lives in [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md); this page focuses on text syntax, lowering, validation, and fuzzer coverage.
 
-The current broad source manifest is [`../raw/wasm/2026-05-19-wast-simd-sources.md`](../raw/wasm/2026-05-19-wast-simd-sources.md). The current lane-immediate validation refresh is [`../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md`](../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md), which supersedes the older local-gap wording in the 2026-05-19 and 2026-05-20 manifests; the durable validator guide is [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md). The relaxed-SIMD spelling and arity refresh is [`../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md`](../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md). Together they check the current official WebAssembly 3.0 syntax, text, binary, and validation instruction pages, the relaxed-SIMD proposal overview, and Starshine's parser, lowerer, printer, binary codec, typechecker, invalid/valid generators, and WAST arbitrary generator.
+The current broad source manifest is [`../raw/wasm/2026-05-19-wast-simd-sources.md`](../raw/wasm/2026-05-19-wast-simd-sources.md). The current lane-immediate validation refresh is [`../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md`](../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md), which supersedes the older local-gap wording in the 2026-05-19 and 2026-05-20 manifests; the durable validator guide is [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md). The relaxed-SIMD status refresh is [`../raw/wasm/2026-06-04-relaxed-simd-status-refresh.md`](../raw/wasm/2026-06-04-relaxed-simd-status-refresh.md), and the spelling/arity refresh is [`../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md`](../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md). Together they check the current official WebAssembly 3.0 syntax, text, binary, and validation instruction pages, the finished-proposals table, the relaxed-SIMD proposal overview, and Starshine's parser, lowerer, printer, binary codec, typechecker, invalid/valid generators, and WAST arbitrary generator.
 
 ## Mental Model
 
@@ -130,9 +131,9 @@ Vector load/store instructions are still memory instructions. They carry the sam
 
 The parser routes SIMD memory arguments through the shared memory-argument parser. The typechecker then uses `memarg_check` to choose the selected memory, address type, alignment legality, and offset-width rule. This matters for memory64 and multi-memory fixtures: a syntactically valid SIMD memory op can still be semantically invalid after memory declarations are rewritten. The ordinary WAST memarg contract and the current text-level nonzero-memory-index gap live in [`memory-argument-authoring.md`](memory-argument-authoring.md); `(memory ...)` declaration syntax and the current WAST memory64/shared limitation live in [`resource-declaration-authoring.md`](resource-declaration-authoring.md).
 
-### Relaxed SIMD is ordinary instruction syntax locally
+### Relaxed SIMD is ordinary Core 3.0 instruction syntax locally
 
-Starshine's WAST keyword table includes relaxed SIMD spellings such as `f32x4.relaxed_madd`, `f64x2.relaxed_madd`, relaxed min/max, relaxed lane select, relaxed truncation, and dot-product forms. They lower to ordinary `Instruction` variants and encode under the SIMD `0xFD` space. They do not require a custom section, feature declaration, or WAST wrapper.
+Starshine's WAST keyword table includes relaxed SIMD spellings such as `f32x4.relaxed_madd`, `f64x2.relaxed_madd`, relaxed min/max, relaxed lane select, relaxed truncation, and dot-product forms. They lower to ordinary `Instruction` variants and encode under the SIMD `0xFD` space. They do not require a custom section, feature declaration, or WAST wrapper. The feature-status page now records the standards-status nuance: relaxed SIMD is a Core 3.0 / finished-proposal instruction family, while default-portable generator profiles still keep it behind an explicit relaxed-SIMD gate because relaxed operations can choose implementation-dependent results within their allowed set.
 
 The current relaxed-SIMD source refresh is [`../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md`](../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md). It keeps three boundaries explicit:
 
@@ -194,7 +195,7 @@ When changing SIMD WAST support:
 
 ## Current Gaps And Caveats
 
-- WAST arbitrary currently emits a representative `v128.const` in the widened prelude, not the full SIMD text surface. The valid generator has broader `[FZG]014` through `[FZG]016` deterministic SIMD coverage; `SIMD-heavy` now also threads `v128` through generated function signatures, locals/local.set, typed `select`, and value-producing control results. Relaxed SIMD remains only in the explicit non-Binaryen-oracle `relaxed-simd` profile, not in default portable profiles.
+- WAST arbitrary currently emits a representative `v128.const` in the widened prelude, not the full SIMD text surface. The valid generator has broader `[FZG]014` through `[FZG]016` deterministic SIMD coverage; `SIMD-heavy` now also threads `v128` through generated function signatures, locals/local.set, typed `select`, and value-producing control results. Relaxed SIMD remains only in explicit relaxed profiles such as `relaxed-simd` and `binaryen-oracle-relaxed-simd`, not in default portable profiles.
 - Relaxed-SIMD dot-product spellings are intentionally called out because Starshine's WAST keywords currently use `relaxed_dot` while the proposal/Binaryen spelling does not. Treat this as a fixture-porting caveat, not a semantic difference in the lowered instruction.
 - Starshine's core `V128Const` stores bytes, so exact original text shape is not preserved through WAST-to-core lowering.
 - WAST lowering checks lane-index shape rules before typechecking, while binary decode keeps a coarse single-lane `<16` guard plus the shuffle-specific `<32` guard. Shape-specific byte-well-formed mistakes now reject during typecheck, so binary-origin evidence should target validator/invalid-AST coverage rather than WAST lowering alone; the focused validator/binary split lives in [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md).
@@ -205,6 +206,7 @@ When changing SIMD WAST support:
 - Current SIMD lane-immediate validation manifest: [`../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md`](../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md)
 - Original SIMD lane-immediate validation manifest: [`../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md`](../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md)
 - Focused lane-immediate validator guide: [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md)
+- Relaxed-SIMD status manifest: [`../raw/wasm/2026-06-04-relaxed-simd-status-refresh.md`](../raw/wasm/2026-06-04-relaxed-simd-status-refresh.md)
 - Relaxed-SIMD spelling/arity manifest: [`../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md`](../raw/wasm/2026-05-20-wast-relaxed-simd-spellings.md)
 - Primary-source manifest: [`../raw/wasm/2026-05-19-wast-simd-sources.md`](../raw/wasm/2026-05-19-wast-simd-sources.md)
 - Official WebAssembly instruction sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>

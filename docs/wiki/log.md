@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wasm/wiki | relaxed-SIMD status routing
+
+- Added [`raw/wasm/2026-06-04-relaxed-simd-status-refresh.md`](raw/wasm/2026-06-04-relaxed-simd-status-refresh.md) after rechecking the official WebAssembly finished-proposals table, Core 3.0 text/binary/validation instruction pages, proposal/process sources, and current Starshine WAST/binary/typechecker/generator evidence for relaxed SIMD.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md) so relaxed SIMD is routed as Core 3.0 / finished-proposal instruction syntax rather than an active proposal gap, while preserving the implementation-dependent result caveat and Starshine's default portable generator-profile gate.
+- Cross-linked the status split from [`wast/simd-authoring.md`](wast/simd-authoring.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), and [`index.md`](index.md) so WAST authoring, generator coverage, and Binaryen `remove-relaxed-simd` pass readers do not conflate local support, default portability, and pass-oracle removal semantics.
+
 ## [2026-06-04] wiki-health | external-validator command wording
 
 - During the follow-up health check, refreshed [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) so the FUZ1044C summary now matches the current Binaryen classified adapter command shape, `wasm-opt --all-features --validate`, and routes the legacy `differential_validate_wasm(...)` / `binaryen_valid` naming caveat through [`tooling/external-validator-adapters.md`](tooling/external-validator-adapters.md).

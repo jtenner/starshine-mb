@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-04
 sources:
   - raw/wasm/2026-06-04-webassembly-proposal-status-refresh.md
+  - raw/wasm/2026-06-04-relaxed-simd-status-refresh.md
   - raw/wasm/2026-06-04-stringref-proposal-current-refresh.md
   - raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md
   - raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
@@ -48,6 +49,7 @@ This table is intentionally small. It is a routing map, not a replacement for fo
 | Feature family | Current wiki status rule | Starshine routing |
 | --- | --- | --- |
 | Ordinary Core 3.0 instruction families such as `ref.test`, `ref.cast`, `call_ref`, `br_on_*`, tail calls, exception instructions, SIMD, and memory64/table64 resource types | Treat the official Core 3.0 pages as standards evidence. If Starshine lacks a WAST keyword, parser arm, or complete validator widening, call that a **local layer gap**, not a proposal gap. | See [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md), [`wast/function-call-and-module-authoring.md`](wast/function-call-and-module-authoring.md), [`wast/tail-call-authoring.md`](wast/tail-call-authoring.md), [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md), [`wast/simd-authoring.md`](wast/simd-authoring.md), and [`validate/memory-table-address-widths.md`](validate/memory-table-address-widths.md). |
+| Relaxed SIMD | Treat relaxed SIMD as Core 3.0 / finished-proposal instruction syntax, not an active proposal gap, when the claim is about official text, binary, validation, or local parser/typechecker support. Still keep the relaxed-semantics caveat visible: results may be implementation-dependent within the proposal's allowed set, so default-portable generator profiles and Binaryen-oracle lanes keep separate relaxed-SIMD gates. | See [`wast/simd-authoring.md`](wast/simd-authoring.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`binaryen/passes/remove-relaxed-simd/index.md`](binaryen/passes/remove-relaxed-simd/index.md), and [`raw/wasm/2026-06-04-relaxed-simd-status-refresh.md`](raw/wasm/2026-06-04-relaxed-simd-status-refresh.md). |
 | Reference-Typed Strings / stringref | Keep the active Phase-1 proposal caveat visible. Starshine supports a narrow proposal/local subset, not the full proposal and not stable Core 3.0. | See [`wast/string-instruction-authoring.md`](wast/string-instruction-authoring.md), [`strings/string-const-surface.md`](strings/string-const-surface.md), and [`raw/wasm/2026-06-04-stringref-proposal-current-refresh.md`](raw/wasm/2026-06-04-stringref-proposal-current-refresh.md). |
 | Linear-memory threads atomics and shared memories | Keep the threads/proposal source boundary visible. Starshine has core/binary/validator/generator support for the current local subset where `MemArg`-based atomics require a shared selected memory, while standalone `atomic.fence` has no memory operand or sharedness check. High-level WAST text for linear-memory atomics is still absent. | See [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md`](raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md), and [`raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md). |
 | Shared-GC aggregate atomics | Route through shared-everything / GC aggregate evidence, not through `MemArg`-based linear-memory atomics. Starshine currently documents only `struct.atomic.get*`, not the full aggregate atomic family. | See [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md), [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), and [`raw/wasm/2026-06-04-struct-atomic-get-sources.md`](raw/wasm/2026-06-04-struct-atomic-get-sources.md). |
@@ -62,6 +64,7 @@ Prefer precise layer claims:
 - “Core 3.0 lists this instruction family, but Starshine WAST text does not yet expose it.”
 - “Starshine binary decode/encode and validation support this proposal-facing subset.”
 - “This is active proposal evidence; do not describe it as stable Core WebAssembly 3.0.”
+- “Relaxed SIMD is Core 3.0 instruction syntax, but default-portable generator and Binaryen-oracle lanes intentionally keep it behind a relaxed-SIMD feature/profile gate.”
 - “This is Binaryen pass-oracle behavior; local CLI or preset behavior still needs Starshine registry/dispatcher evidence.”
 - “This fuzzer profile enables a proposal-shaped surface; it does not prove external tools accept the same module under their default feature flags.”
 
@@ -81,5 +84,6 @@ When changing a feature-status claim:
 ## Sources
 
 - Current status bridge: [`raw/wasm/2026-06-04-webassembly-proposal-status-refresh.md`](raw/wasm/2026-06-04-webassembly-proposal-status-refresh.md)
+- Relaxed SIMD status bridge: [`raw/wasm/2026-06-04-relaxed-simd-status-refresh.md`](raw/wasm/2026-06-04-relaxed-simd-status-refresh.md)
 - Local generator gate vocabulary: [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt)
 - Focused companion pages: [`tooling/external-validator-adapters.md`](tooling/external-validator-adapters.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`wast/string-instruction-authoring.md`](wast/string-instruction-authoring.md), [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`custom-descriptors/static-fixtures.md`](custom-descriptors/static-fixtures.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md)
