@@ -371,6 +371,16 @@ pub impl Decode for PackType with fn decode(bytes, i) {
 }
 
 ///|
+pub impl Decode for AtomicOrder with fn decode(bytes, i) {
+  match bytes.get(i) {
+    Some(0x00) => Ok((AtomicOrder::seq_cst(), i + 1))
+    Some(0x01) => Ok((AtomicOrder::acq_rel(), i + 1))
+    Some(_) => Err(BinaryDecodeError::InvalidAtomicInstruction)
+    None => Err(BinaryDecodeError::IndexOutOfBounds)
+  }
+}
+
+///|
 pub impl Decode for RecType with fn decode(buf, i) {
   match buf.get(i) {
     None => Err(BinaryDecodeError::IndexOutOfBounds)
@@ -3439,6 +3449,35 @@ fn decode_instruction_with_depth(
         Ok((@lib.U32(22), i)) =>
           match Decode::decode(bytes, i) {
             Ok((m, i)) => Ok((Instruction::i64_atomic_load32_u(m), i))
+            Err(t) => Err(t)
+          }
+        Ok((@lib.U32(id), i)) if id >= 0x5C && id <= 0x5E =>
+          match Decode::decode(bytes, i) {
+            Ok((order, i)) =>
+              match Decode::decode(bytes, i) {
+                Ok((type_idx, i)) =>
+                  match Decode::decode(bytes, i) {
+                    Ok((field_idx, i)) => {
+                      let instr = match id {
+                        0x5C =>
+                          Instruction::struct_atomic_get(
+                            order, type_idx, field_idx,
+                          )
+                        0x5D =>
+                          Instruction::struct_atomic_get_s(
+                            order, type_idx, field_idx,
+                          )
+                        _ =>
+                          Instruction::struct_atomic_get_u(
+                            order, type_idx, field_idx,
+                          )
+                      }
+                      Ok((instr, i))
+                    }
+                    Err(t) => Err(t)
+                  }
+                Err(t) => Err(t)
+              }
             Err(t) => Err(t)
           }
         Ok((@lib.U32(23), i)) =>

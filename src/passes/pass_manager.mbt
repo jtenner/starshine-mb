@@ -8411,6 +8411,9 @@ fn run_hot_pipeline_optimize_instructions_effect_barrier_results(
     | @lib.MemoryAtomicWait64(_)
     | @lib.AtomicRmw(_, _)
     | @lib.AtomicCmpxchg(_, _)
+    | @lib.StructAtomicGet(_, _, _)
+    | @lib.StructAtomicGetS(_, _, _)
+    | @lib.StructAtomicGetU(_, _, _)
     | @lib.StringEncodeUtf8Array
     | @lib.StringEncodeWtf16Array
     | @lib.StringEncodeLossyUtf8Array
@@ -8444,7 +8447,10 @@ fn run_hot_pipeline_optimize_instructions_instr_is_plain_load(
     | @lib.I32AtomicLoad16U(_)
     | @lib.I64AtomicLoad8U(_)
     | @lib.I64AtomicLoad16U(_)
-    | @lib.I64AtomicLoad32U(_) => true
+    | @lib.I64AtomicLoad32U(_)
+    | @lib.StructAtomicGet(_, _, _)
+    | @lib.StructAtomicGetS(_, _, _)
+    | @lib.StructAtomicGetU(_, _, _) => true
     _ => false
   }
 }

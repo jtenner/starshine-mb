@@ -40,7 +40,7 @@ related:
   - subtype-propagated single-candidate parent/supertype origins now rewrite in closed world when the candidate global's declared reference heap type is a subtype of the read type; broad `eqref` declarations still bail to avoid invalid replacements
   - exact and subtype-propagated multi-candidate local/param reads now fold in closed world when all safe candidates expose one equal materializable value
   - exact and subtype-propagated multi-candidate local/param reads now synthesize typed `select(ref.eq(...))` rewrites in closed world when two materializable values have one singleton candidate group
-  - no sibling descriptor-cast implementation, no local atomic-get opcode surface, and arithmetic/bitwise/shift-rotate/unary-numeric/float-rounding-sqrt/sign-extension un-nesting plus `ref.get_desc` are guarded to small modules
+  - no sibling descriptor-cast implementation, no GSI atomic-get fold yet, and arithmetic/bitwise/shift-rotate/unary-numeric/float-rounding-sqrt/sign-extension un-nesting plus `ref.get_desc` are guarded to small modules; the local opcode surface now accepts `struct.atomic.get*` conservatively
 - The saved generated-artifact `-O4z` slot is still exactly green, which strongly suggests the artifact does not exercise the missing official surfaces.
 
 ## Current in-tree status
@@ -810,7 +810,7 @@ That matters for official positive shapes where field values are not literals bu
 
 Current local pass does treat direct immutable `global.get` field payloads as materializable for exact and subtype-propagated local/param grouping, and now has a small-module fresh-global un-nesting path for pure arithmetic/bitwise/shift-rotate/unary-numeric/float-rounding-sqrt/sign-extension scalar field operands that are actually read by direct or closed-world local/param GSI sites. It still has a smaller materialization surface than Binaryen and deliberately skips un-nesting on larger modules for pass-local runtime.
 
-## 7. Descriptor coverage exists locally; atomic gets remain unavailable
+## 7. Descriptor coverage exists locally; atomic opcode support exists but GSI folds remain pending
 
 Official Binaryen source and lit tests cover:
 
@@ -819,9 +819,9 @@ Official Binaryen source and lit tests cover:
 - `ref.get_desc`
 - sibling `gsi-desc-cast`
 
-Current local pass now handles small-module direct and closed-world local/param `ref.get_desc` folds/selects over descriptor-constructor globals. It still handles no atomic gets because the local instruction set does not expose a struct atomic-get opcode, and the sibling descriptor-cast pass remains boundary-only.
+Current local pass now handles small-module direct and closed-world local/param `ref.get_desc` folds/selects over descriptor-constructor globals. As of 2026-06-04, Starshine also exposes local `StructAtomicGet`, `StructAtomicGetS`, and `StructAtomicGetU` instructions with WAT parsing/printing, binary encode/decode for `0xfe5c`..`0xfe5e`, and validation stack typing for plain and packed-field reads. Shared pass/effect surfaces model those opcodes conservatively as atomic reads that may trap and preserve referenced type indices.
 
-A 2026-06-03 local opcode search refreshed that blocker. The `src/lib` instruction enum and constructors expose ordinary `StructGet`, `StructGetS`, `StructGetU`, array gets, and `RefGetDesc`, but no `StructGetAtomic` or `struct.atomic.get` spelling. Focused greps for `struct.atomic`, `atomic.get`, `StructGetAtomic`, and `Struct.*Atomic` found no matches in `src/wast` or `src/validate`. So atomic-get parity is blocked on adding or discovering a real local opcode surface, not on GSI rewrite logic alone.
+That removes the old opcode-surface blocker, but it does not by itself implement Binaryen-style GSI atomic folds. The next GSI parity slice should add focused immutable-field atomic-get fixtures and then route only those safe read sites through the existing value/origin/select machinery while preserving null traps, packed signedness, and conservative ordering assumptions in generic passes. The sibling descriptor-cast pass remains boundary-only.
 
 ## 8. Representation-specific type repair differs locally
 
@@ -852,7 +852,7 @@ Again, that is an inference from the green audit plus the visible local-vs-upstr
 - Do **not** describe it as “what Binaryen `gsi` does.”
 - If future parity work targets the full Binaryen contract, the next missing surfaces to implement are, in value order:
   1. unbounded or more Binaryen-complete un-nesting of non-constant operands, only with pass-local runtime evidence
-  2. atomic get support once a local struct atomic-get opcode exists
+  2. Binaryen-style GSI atomic-get folds now that a local struct atomic-get opcode exists
   3. the sibling descriptor-cast pass when explicitly scheduled
   4. explicit type-repair/refinalization if a future rewrite needs more than validation-preserving replacement typing
 - If local code remains intentionally narrower, keep the green artifact evidence explicit so readers do not confuse “narrow but enough for this artifact” with “full upstream parity.”

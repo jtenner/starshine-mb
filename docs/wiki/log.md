@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] passes | struct atomic get opcode surface
+
+- Added Starshine's local `StructAtomicGet`, `StructAtomicGetS`, and `StructAtomicGetU` instruction surface, including WAT parse/print/lower coverage for `struct.atomic.get*` with `seq_cst` / `acq_rel`, binary encode/decode coverage for opcodes `0xfe5c`..`0xfe5e`, and validation stack typing for plain and packed fields.
+- Audited shared pass infrastructure so the new opcodes preserve type-index liveness and are modeled conservatively as atomic reads that may trap in effect/precompute/HOT/pipeline helper surfaces.
+- Refreshed the `global-struct-inference` dossier and `agent-todo.md`: the old missing-opcode blocker is closed, while Binaryen-style immutable-field GSI atomic folds remain a separate active follow-up.
+
 ## [2026-06-04] docs | Binaryen version_130 release-horizon recheck
 
 - Added [`docs/wiki/raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md`](raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md) and [`docs/wiki/raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md`](raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md) from a fresh primary-source check of the official GitHub `version_130` release page, the official `main` changelog, the Chromium refs listing, and the Chromium-hosted changelog.

@@ -118,6 +118,12 @@ pub struct Local {
 } derive(Eq, Debug)
 
 ///|
+pub enum AtomicOrder {
+  SeqCst
+  AcqRel
+} derive(Eq, Debug)
+
+///|
 pub struct Func {
   id : String?
   annotations : Array[Annotation]
@@ -436,6 +442,9 @@ pub enum Instruction {
   StructGet(Index, UInt)
   StructGetS(Index, UInt)
   StructGetU(Index, UInt)
+  StructAtomicGet(AtomicOrder, Index, UInt)
+  StructAtomicGetS(AtomicOrder, Index, UInt)
+  StructAtomicGetU(AtomicOrder, Index, UInt)
   StructNewDesc(Index)
   StructNewDefaultDesc(Index)
   RefGetDesc(Index)
@@ -957,6 +966,21 @@ fn WastParser::is_reserved_word(self : WastParser, word : String) -> Bool {
     Reserved => self.get_text(self.current) == word
     _ => false
   }
+}
+
+///|
+fn WastParser::parse_atomic_order(
+  self : WastParser,
+) -> AtomicOrder raise ParserError {
+  if self.is_reserved_word("seq_cst") {
+    let _ = self.advance()
+    return SeqCst
+  }
+  if self.is_reserved_word("acq_rel") || self.is_reserved_word("acqrel") {
+    let _ = self.advance()
+    return AcqRel
+  }
+  raise UnexpectedToken(self.current, "expected atomic ordering")
 }
 
 ///|
@@ -1909,6 +1933,24 @@ fn WastParser::parse_opcode_instruction(
       let type_idx = self.parse_index()
       let field_idx = self.parse_nat("expected struct field index")
       StructGetU(type_idx, field_idx)
+    }
+    StructAtomicGet => {
+      let order = self.parse_atomic_order()
+      let type_idx = self.parse_index()
+      let field_idx = self.parse_nat("expected struct field index")
+      StructAtomicGet(order, type_idx, field_idx)
+    }
+    StructAtomicGetS => {
+      let order = self.parse_atomic_order()
+      let type_idx = self.parse_index()
+      let field_idx = self.parse_nat("expected struct field index")
+      StructAtomicGetS(order, type_idx, field_idx)
+    }
+    StructAtomicGetU => {
+      let order = self.parse_atomic_order()
+      let type_idx = self.parse_index()
+      let field_idx = self.parse_nat("expected struct field index")
+      StructAtomicGetU(order, type_idx, field_idx)
     }
     StructNewDesc => StructNewDesc(self.parse_index())
     StructNewDefaultDesc => StructNewDefaultDesc(self.parse_index())

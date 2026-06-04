@@ -2226,6 +2226,36 @@ fn typecheck_struct_get_u(st : TcState, x : TypeIdx, i : U32) -> TcResult {
 }
 
 ///|
+fn typecheck_struct_atomic_get(
+  st : TcState,
+  _order : AtomicOrder,
+  x : TypeIdx,
+  i : U32,
+) -> TcResult {
+  typecheck_struct_get(st, x, i)
+}
+
+///|
+fn typecheck_struct_atomic_get_s(
+  st : TcState,
+  _order : AtomicOrder,
+  x : TypeIdx,
+  i : U32,
+) -> TcResult {
+  typecheck_struct_get_s(st, x, i)
+}
+
+///|
+fn typecheck_struct_atomic_get_u(
+  st : TcState,
+  _order : AtomicOrder,
+  x : TypeIdx,
+  i : U32,
+) -> TcResult {
+  typecheck_struct_get_u(st, x, i)
+}
+
+///|
 fn typecheck_struct_set(st : TcState, x : TypeIdx, i : U32) -> TcResult {
   let fields = match st.env.resolve_struct_fields(x) {
     Err(e) => return Err(e)
@@ -3432,6 +3462,11 @@ pub impl Typecheck for Instruction with fn typecheck(self, st) {
     StructGet(x, i) => typecheck_struct_get(st, x, i)
     StructGetS(x, i) => typecheck_struct_get_s(st, x, i)
     StructGetU(x, i) => typecheck_struct_get_u(st, x, i)
+    StructAtomicGet(order, x, i) => typecheck_struct_atomic_get(st, order, x, i)
+    StructAtomicGetS(order, x, i) =>
+      typecheck_struct_atomic_get_s(st, order, x, i)
+    StructAtomicGetU(order, x, i) =>
+      typecheck_struct_atomic_get_u(st, order, x, i)
     StructSet(x, i) => typecheck_struct_set(st, x, i)
     ArrayNew(x) => typecheck_array_new(st, x)
     ArrayNewDefault(x) => typecheck_array_new_default(st, x)
@@ -7211,6 +7246,104 @@ test "Typecheck StructGetU" {
   )
   let final_state = assert_ok(result)
   assert_stack(final_state, [ValType::i32()])
+}
+
+///|
+test "Typecheck StructAtomicGet" {
+  let struct_type = SubType::comp_type(
+    CompType::struct_([
+      FieldType::new(StorageType::val_type(ValType::i64()), Var),
+    ]),
+  )
+  let env = { ..empty_env(), global_types: [struct_type] }
+  let struct_ref = ValType::ref_type(
+    RefType::new(false, HeapType::new(TypeIdx::new(0))),
+  )
+  let state = make_state(env, [struct_ref])
+  let result = Typecheck::typecheck(
+    Instruction::struct_atomic_get(
+      AtomicOrder::acq_rel(),
+      TypeIdx::new(0),
+      U32(0),
+    ),
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [ValType::i64()])
+}
+
+///|
+test "Typecheck StructAtomicGetS" {
+  let struct_type = SubType::comp_type(
+    CompType::struct_([
+      FieldType::new(StorageType::pack_type(PackType::i8()), Const),
+    ]),
+  )
+  let env = { ..empty_env(), global_types: [struct_type] }
+  let struct_ref = ValType::ref_type(
+    RefType::new(false, HeapType::new(TypeIdx::new(0))),
+  )
+  let state = make_state(env, [struct_ref])
+  let result = Typecheck::typecheck(
+    Instruction::struct_atomic_get_s(
+      AtomicOrder::seq_cst(),
+      TypeIdx::new(0),
+      U32(0),
+    ),
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [ValType::i32()])
+}
+
+///|
+test "Typecheck StructAtomicGetU" {
+  let struct_type = SubType::comp_type(
+    CompType::struct_([
+      FieldType::new(StorageType::pack_type(PackType::i16()), Var),
+    ]),
+  )
+  let env = { ..empty_env(), global_types: [struct_type] }
+  let struct_ref = ValType::ref_type(
+    RefType::new(false, HeapType::new(TypeIdx::new(0))),
+  )
+  let state = make_state(env, [struct_ref])
+  let result = Typecheck::typecheck(
+    Instruction::struct_atomic_get_u(
+      AtomicOrder::acq_rel(),
+      TypeIdx::new(0),
+      U32(0),
+    ),
+    state,
+  )
+  let final_state = assert_ok(result)
+  assert_stack(final_state, [ValType::i32()])
+}
+
+///|
+test "Typecheck StructAtomicGet rejects packed field without signedness" {
+  let struct_type = SubType::comp_type(
+    CompType::struct_([
+      FieldType::new(StorageType::pack_type(PackType::i8()), Var),
+    ]),
+  )
+  let env = { ..empty_env(), global_types: [struct_type] }
+  let struct_ref = ValType::ref_type(
+    RefType::new(false, HeapType::new(TypeIdx::new(0))),
+  )
+  let state = make_state(env, [struct_ref])
+  match
+    Typecheck::typecheck(
+      Instruction::struct_atomic_get(
+        AtomicOrder::acq_rel(),
+        TypeIdx::new(0),
+        U32(0),
+      ),
+      state,
+    ) {
+    Ok(_) => fail("expected struct.atomic.get packed-field rejection")
+    Err(message) => assert_true(message.contains("packed field"))
+  }
 }
 
 ///|

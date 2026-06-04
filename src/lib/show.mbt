@@ -797,6 +797,14 @@ pub impl Show for MemArg with fn output(self, logger) {
 }
 
 ///|
+pub impl Show for AtomicOrder with fn output(self, logger) {
+  match self {
+    SeqCst => logger.write_string("seq_cst")
+    AcqRel => logger.write_string("acq_rel")
+  }
+}
+
+///|
 pub impl Show for Instruction with fn output(self, logger) {
   match self {
     Unreachable => logger.write_string("unreachable")
@@ -1378,6 +1386,33 @@ pub impl Show for Instruction with fn output(self, logger) {
     }
     StructGetU(t, i) => {
       logger.write_string("(struct.get_u ")
+      Show::output(t, logger)
+      logger.write_char(' ')
+      Show::output(i, logger)
+      logger.write_char(')')
+    }
+    StructAtomicGet(order, t, i) => {
+      logger.write_string("(struct.atomic.get ")
+      Show::output(order, logger)
+      logger.write_char(' ')
+      Show::output(t, logger)
+      logger.write_char(' ')
+      Show::output(i, logger)
+      logger.write_char(')')
+    }
+    StructAtomicGetS(order, t, i) => {
+      logger.write_string("(struct.atomic.get_s ")
+      Show::output(order, logger)
+      logger.write_char(' ')
+      Show::output(t, logger)
+      logger.write_char(' ')
+      Show::output(i, logger)
+      logger.write_char(')')
+    }
+    StructAtomicGetU(order, t, i) => {
+      logger.write_string("(struct.atomic.get_u ")
+      Show::output(order, logger)
+      logger.write_char(' ')
       Show::output(t, logger)
       logger.write_char(' ')
       Show::output(i, logger)

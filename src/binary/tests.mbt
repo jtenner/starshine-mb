@@ -1980,6 +1980,59 @@ test "relaxed SIMD instructions use exact 0xFD subopcode roundtrips" {
 }
 
 ///|
+test "struct atomic get instruction encode decode opcodes" {
+  let cases = [
+    (
+      "struct.atomic.get acq_rel",
+      Instruction::struct_atomic_get(
+        AtomicOrder::acq_rel(),
+        TypeIdx::new(0U),
+        U32(0U),
+      ),
+      b"\xFE\x5C\x01\x00\x00",
+    ),
+    (
+      "struct.atomic.get_s seq_cst",
+      Instruction::struct_atomic_get_s(
+        AtomicOrder::seq_cst(),
+        TypeIdx::new(1U),
+        U32(2U),
+      ),
+      b"\xFE\x5D\x00\x01\x02",
+    ),
+    (
+      "struct.atomic.get_u acq_rel",
+      Instruction::struct_atomic_get_u(
+        AtomicOrder::acq_rel(),
+        TypeIdx::new(2U),
+        U32(3U),
+      ),
+      b"\xFE\x5E\x01\x02\x03",
+    ),
+  ]
+  for case in cases {
+    let (name, expected_instr, expected_bytes) = case
+    let buf = @buffer.new()
+    match Encode::encode(expected_instr, buf) {
+      Ok(_) => @debug.assert_eq(buf.to_bytes(), expected_bytes)
+      Err(e) =>
+        fail("expected struct atomic get encode success for \{name}, got \{e}")
+    }
+    match
+      (
+        Decode::decode(expected_bytes, 0) :
+        Result[(Instruction, Int), BinaryDecodeError]) {
+      Ok((decoded, next)) => {
+        @debug.assert_eq(decoded, expected_instr)
+        @debug.assert_eq(next, expected_bytes.length())
+      }
+      Err(e) =>
+        fail("expected struct atomic get decode success for \{name}, got \{e}")
+    }
+  }
+}
+
+///|
 test "decode reports invalid atomic.fence immediate" {
   assert_decode_err_contains(
     (

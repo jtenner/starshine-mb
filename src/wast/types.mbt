@@ -250,6 +250,9 @@ pub enum Opcode {
   StructGet
   StructGetS
   StructGetU
+  StructAtomicGet
+  StructAtomicGetS
+  StructAtomicGetU
   StructNewDesc
   StructNewDefaultDesc
   RefGetDesc
@@ -782,6 +785,9 @@ pub impl Show for Opcode with fn output(self, logger) {
     StructGet => logger.write_string("StructGet")
     StructGetS => logger.write_string("StructGetS")
     StructGetU => logger.write_string("StructGetU")
+    StructAtomicGet => logger.write_string("StructAtomicGet")
+    StructAtomicGetS => logger.write_string("StructAtomicGetS")
+    StructAtomicGetU => logger.write_string("StructAtomicGetU")
     StructNewDesc => logger.write_string("StructNewDesc")
     StructNewDefaultDesc => logger.write_string("StructNewDefaultDesc")
     RefGetDesc => logger.write_string("RefGetDesc")

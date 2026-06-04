@@ -188,6 +188,14 @@ fn index_text(idx : Index) -> String {
 }
 
 ///|
+fn atomic_order_text(order : AtomicOrder) -> String {
+  match order {
+    SeqCst => "seq_cst"
+    AcqRel => "acq_rel"
+  }
+}
+
+///|
 fn render_type_use(type_use : TypeUse) -> String {
   let out = StringBuilder::new()
   match type_use.type_index {
@@ -428,6 +436,12 @@ fn render_instruction_head(instr : Instruction) -> String raise WastTextError {
     StructGet(idx, field_idx) => "struct.get \{index_text(idx)} \{field_idx}"
     StructGetS(idx, field_idx) => "struct.get_s \{index_text(idx)} \{field_idx}"
     StructGetU(idx, field_idx) => "struct.get_u \{index_text(idx)} \{field_idx}"
+    StructAtomicGet(order, idx, field_idx) =>
+      "struct.atomic.get \{atomic_order_text(order)} \{index_text(idx)} \{field_idx}"
+    StructAtomicGetS(order, idx, field_idx) =>
+      "struct.atomic.get_s \{atomic_order_text(order)} \{index_text(idx)} \{field_idx}"
+    StructAtomicGetU(order, idx, field_idx) =>
+      "struct.atomic.get_u \{atomic_order_text(order)} \{index_text(idx)} \{field_idx}"
     StructNewDesc(idx) => "struct.new_desc \{index_text(idx)}"
     StructNewDefaultDesc(idx) => "struct.new_default_desc \{index_text(idx)}"
     RefGetDesc(idx) => "ref.get_desc \{index_text(idx)}"

@@ -609,6 +609,9 @@ fn dfe_instruction_mentions_type_idxs(instr : @lib.Instruction) -> Bool {
     @lib.StructGet(_, _) => true
     @lib.StructGetS(_, _) => true
     @lib.StructGetU(_, _) => true
+    @lib.StructAtomicGet(_, _, _) => true
+    @lib.StructAtomicGetS(_, _, _) => true
+    @lib.StructAtomicGetU(_, _, _) => true
     @lib.StructSet(_, _) => true
     @lib.ArrayNew(_) => true
     @lib.ArrayNewDefault(_) => true
@@ -1308,6 +1311,24 @@ fn dfe_rewrite_instruction_type_idxs(
         dfe_rewrite_type_idx(type_idx, remap),
         field_idx,
       )
+    @lib.StructAtomicGet(order, type_idx, field_idx) =>
+      @lib.Instruction::struct_atomic_get(
+        order,
+        dfe_rewrite_type_idx(type_idx, remap),
+        field_idx,
+      )
+    @lib.StructAtomicGetS(order, type_idx, field_idx) =>
+      @lib.Instruction::struct_atomic_get_s(
+        order,
+        dfe_rewrite_type_idx(type_idx, remap),
+        field_idx,
+      )
+    @lib.StructAtomicGetU(order, type_idx, field_idx) =>
+      @lib.Instruction::struct_atomic_get_u(
+        order,
+        dfe_rewrite_type_idx(type_idx, remap),
+        field_idx,
+      )
     @lib.StructSet(type_idx, field_idx) =>
       @lib.Instruction::struct_set(
         dfe_rewrite_type_idx(type_idx, remap),
@@ -1628,6 +1649,33 @@ fn dfe_scan_rewrite_instruction_type_idxs(
       {
         rewritten: match dfe_try_rewrite_type_idx(type_idx, remap) {
           Some(next) => Some(@lib.Instruction::struct_get_u(next, field_idx))
+          None => None
+        },
+        mentions_type_idxs: true,
+      }
+    @lib.StructAtomicGet(order, type_idx, field_idx) =>
+      {
+        rewritten: match dfe_try_rewrite_type_idx(type_idx, remap) {
+          Some(next) =>
+            Some(@lib.Instruction::struct_atomic_get(order, next, field_idx))
+          None => None
+        },
+        mentions_type_idxs: true,
+      }
+    @lib.StructAtomicGetS(order, type_idx, field_idx) =>
+      {
+        rewritten: match dfe_try_rewrite_type_idx(type_idx, remap) {
+          Some(next) =>
+            Some(@lib.Instruction::struct_atomic_get_s(order, next, field_idx))
+          None => None
+        },
+        mentions_type_idxs: true,
+      }
+    @lib.StructAtomicGetU(order, type_idx, field_idx) =>
+      {
+        rewritten: match dfe_try_rewrite_type_idx(type_idx, remap) {
+          Some(next) =>
+            Some(@lib.Instruction::struct_atomic_get_u(order, next, field_idx))
           None => None
         },
         mentions_type_idxs: true,
@@ -2035,6 +2083,24 @@ fn dfe_try_rewrite_instruction_type_idxs(
     @lib.StructGetU(type_idx, field_idx) =>
       match dfe_try_rewrite_type_idx(type_idx, remap) {
         Some(next) => Some(@lib.Instruction::struct_get_u(next, field_idx))
+        None => None
+      }
+    @lib.StructAtomicGet(order, type_idx, field_idx) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap) {
+        Some(next) =>
+          Some(@lib.Instruction::struct_atomic_get(order, next, field_idx))
+        None => None
+      }
+    @lib.StructAtomicGetS(order, type_idx, field_idx) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap) {
+        Some(next) =>
+          Some(@lib.Instruction::struct_atomic_get_s(order, next, field_idx))
+        None => None
+      }
+    @lib.StructAtomicGetU(order, type_idx, field_idx) =>
+      match dfe_try_rewrite_type_idx(type_idx, remap) {
+        Some(next) =>
+          Some(@lib.Instruction::struct_atomic_get_u(order, next, field_idx))
         None => None
       }
     @lib.StructSet(type_idx, field_idx) =>

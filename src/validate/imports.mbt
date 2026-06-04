@@ -11,6 +11,7 @@ using @lib {
   trace_now_ms,
   trace_now_us,
   type AbsHeapType,
+  type AtomicOrder,
   type AtomicCmpxchgOp,
   type AtomicRmwOp,
   type BlockType,

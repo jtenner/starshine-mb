@@ -1103,6 +1103,54 @@ fn rse_raw_rewrite_expr_scoped(
         }
         rse_raw_push(state, rse_raw_fresh(state))
       }
+      @lib.Instruction::StructAtomicGet(order, type_idx, field_idx) => {
+        let receiver = rse_raw_pop(state)
+        match
+          rse_raw_refined_aggregate_receiver_type(state, type_idx, receiver) {
+          Some(refined_type) => {
+            out.push(
+              @lib.Instruction::struct_atomic_get(
+                order, refined_type, field_idx,
+              ),
+            )
+            state.changed = true
+          }
+          None => out.push(instr)
+        }
+        rse_raw_push(state, rse_raw_fresh(state))
+      }
+      @lib.Instruction::StructAtomicGetS(order, type_idx, field_idx) => {
+        let receiver = rse_raw_pop(state)
+        match
+          rse_raw_refined_aggregate_receiver_type(state, type_idx, receiver) {
+          Some(refined_type) => {
+            out.push(
+              @lib.Instruction::struct_atomic_get_s(
+                order, refined_type, field_idx,
+              ),
+            )
+            state.changed = true
+          }
+          None => out.push(instr)
+        }
+        rse_raw_push(state, rse_raw_fresh(state))
+      }
+      @lib.Instruction::StructAtomicGetU(order, type_idx, field_idx) => {
+        let receiver = rse_raw_pop(state)
+        match
+          rse_raw_refined_aggregate_receiver_type(state, type_idx, receiver) {
+          Some(refined_type) => {
+            out.push(
+              @lib.Instruction::struct_atomic_get_u(
+                order, refined_type, field_idx,
+              ),
+            )
+            state.changed = true
+          }
+          None => out.push(instr)
+        }
+        rse_raw_push(state, rse_raw_fresh(state))
+      }
       @lib.Instruction::ArrayGet(type_idx) => {
         ignore(rse_raw_pop(state))
         let receiver = rse_raw_pop(state)

@@ -77,6 +77,7 @@ using @lib {
   type BlockType,
   type Catch,
   type MemArg,
+  type AtomicOrder,
   type AtomicRmwOp,
   type AtomicCmpxchgOp,
   type NumType,

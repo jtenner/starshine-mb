@@ -475,6 +475,22 @@ pub struct TagSec(Array[TagType]) derive(Eq, Arbitrary, Hash, Debug)
 pub struct MemArg(U32, MemIdx?, U64) derive(Hash, Debug)
 
 ///|
+pub enum AtomicOrder {
+  SeqCst
+  AcqRel
+} derive(Eq, Hash, Debug)
+
+///|
+pub fn AtomicOrder::seq_cst() -> AtomicOrder {
+  SeqCst
+}
+
+///|
+pub fn AtomicOrder::acq_rel() -> AtomicOrder {
+  AcqRel
+}
+
+///|
 pub enum BlockType {
   VoidBlockType
   ValTypeBlockType(ValType)
@@ -740,6 +756,9 @@ pub enum Instruction {
   StructGet(TypeIdx, U32)
   StructGetS(TypeIdx, U32)
   StructGetU(TypeIdx, U32)
+  StructAtomicGet(AtomicOrder, TypeIdx, U32)
+  StructAtomicGetS(AtomicOrder, TypeIdx, U32)
+  StructAtomicGetU(AtomicOrder, TypeIdx, U32)
   StructSet(TypeIdx, U32)
   ArrayNew(TypeIdx)
   ArrayNewDefault(TypeIdx)
@@ -4069,6 +4088,33 @@ pub fn Instruction::struct_get_s(ty : TypeIdx, fi : U32) -> Instruction {
 ///|
 pub fn Instruction::struct_get_u(ty : TypeIdx, fi : U32) -> Instruction {
   StructGetU(ty, fi)
+}
+
+///|
+pub fn Instruction::struct_atomic_get(
+  order : AtomicOrder,
+  ty : TypeIdx,
+  fi : U32,
+) -> Instruction {
+  StructAtomicGet(order, ty, fi)
+}
+
+///|
+pub fn Instruction::struct_atomic_get_s(
+  order : AtomicOrder,
+  ty : TypeIdx,
+  fi : U32,
+) -> Instruction {
+  StructAtomicGetS(order, ty, fi)
+}
+
+///|
+pub fn Instruction::struct_atomic_get_u(
+  order : AtomicOrder,
+  ty : TypeIdx,
+  fi : U32,
+) -> Instruction {
+  StructAtomicGetU(order, ty, fi)
 }
 
 ///|

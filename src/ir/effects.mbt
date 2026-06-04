@@ -70,7 +70,10 @@ fn effects_mask_for_atomic_exact(instr : Instruction?) -> EffectMask {
     | Some(Instruction::I32AtomicLoad16U(_))
     | Some(Instruction::I64AtomicLoad8U(_))
     | Some(Instruction::I64AtomicLoad16U(_))
-    | Some(Instruction::I64AtomicLoad32U(_)) =>
+    | Some(Instruction::I64AtomicLoad32U(_))
+    | Some(Instruction::StructAtomicGet(_, _, _))
+    | Some(Instruction::StructAtomicGetS(_, _, _))
+    | Some(Instruction::StructAtomicGetU(_, _, _)) =>
       EFFECT_MASK_MEMORY_READ | EFFECT_MASK_TRAP
     Some(Instruction::I32AtomicStore(_))
     | Some(Instruction::I64AtomicStore(_))

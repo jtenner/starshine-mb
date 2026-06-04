@@ -280,6 +280,15 @@ pub impl Encode for PackType with fn encode(val, buf) {
 }
 
 ///|
+pub impl Encode for AtomicOrder with fn encode(val, buf) {
+  match val {
+    SeqCst => buf.write_byte(0x00)
+    AcqRel => buf.write_byte(0x01)
+  }
+  Ok(())
+}
+
+///|
 pub impl Encode for RecType with fn encode(val, buf) {
   match val {
     SingleRecType(st) => Encode::encode(st, buf)
@@ -2631,6 +2640,51 @@ pub impl Encode for Instruction with fn encode(val, buf) {
     StructGetU(i, idx) => {
       buf.write_byte(0xFB)
       if Encode::encode(@lib.U32(4), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(i, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(idx, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StructAtomicGet(order, i, idx) => {
+      buf.write_byte(0xFE)
+      if Encode::encode(@lib.U32(0x5C), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(order, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(i, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(idx, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StructAtomicGetS(order, i, idx) => {
+      buf.write_byte(0xFE)
+      if Encode::encode(@lib.U32(0x5D), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(order, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(i, buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(idx, buf) is Err(t) {
+        return Err(t)
+      }
+    }
+    StructAtomicGetU(order, i, idx) => {
+      buf.write_byte(0xFE)
+      if Encode::encode(@lib.U32(0x5E), buf) is Err(t) {
+        return Err(t)
+      }
+      if Encode::encode(order, buf) is Err(t) {
         return Err(t)
       }
       if Encode::encode(i, buf) is Err(t) {

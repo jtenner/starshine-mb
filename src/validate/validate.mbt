@@ -4841,7 +4841,12 @@ fn gen_valid_gc_surface_facts_instr(
     | StructNewDesc(_)
     | StructNewDefaultDesc(_) =>
       { ..gen_valid_gc_surface_facts_empty(), has_struct_new: true }
-    StructGet(_, _) | StructGetS(_, _) | StructGetU(_, _) =>
+    StructGet(_, _)
+    | StructGetS(_, _)
+    | StructGetU(_, _)
+    | StructAtomicGet(_, _, _)
+    | StructAtomicGetS(_, _, _)
+    | StructAtomicGetU(_, _, _) =>
       { ..gen_valid_gc_surface_facts_empty(), has_struct_get: true }
     StructSet(_, _) =>
       { ..gen_valid_gc_surface_facts_empty(), has_struct_set: true }

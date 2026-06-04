@@ -301,7 +301,7 @@ Before:
 (global $b (ref $S) (struct.new $S (i32.const 1337)))
 (func (param $x (ref $S))
   (drop
-    (struct.atomic.get acqrel $S 0
+    (struct.atomic.get acq_rel $S 0
       (local.get $x))))
 ```
 
@@ -531,4 +531,4 @@ Current Starshine implements only a subset of this catalog:
 - exact and subtype-propagated multi-candidate local/param one-value folds when all safe direct candidates expose the same materializable field value
 - exact and subtype-propagated multi-candidate local/param two-value `select(ref.eq(...))` rewrites when exactly two materializable values exist and one value group has a singleton candidate global
 
-It now implements subtype-propagated parent origin rewrites, one-value folds, singleton-tested two-value selects, small-module arithmetic/bitwise/shift-rotate/unary-numeric/float-rounding-sqrt/sign-extension fresh-global un-nesting, packed signed/unsigned direct-global and closed-world local/param repair after fresh-global splitting, and direct/closed-world `ref.get_desc` folds/selects. It still does **not** implement the sibling descriptor-cast pass or atomic-get coverage because Starshine has no in-tree struct atomic-get instruction form yet; large modules also keep the materializable-only GSI subset to preserve pass-local artifact budget. Keep that distinction visible when adding examples or parity claims.
+It now implements subtype-propagated parent origin rewrites, one-value folds, singleton-tested two-value selects, small-module arithmetic/bitwise/shift-rotate/unary-numeric/float-rounding-sqrt/sign-extension fresh-global un-nesting, packed signed/unsigned direct-global and closed-world local/param repair after fresh-global splitting, and direct/closed-world `ref.get_desc` folds/selects. Starshine now has an in-tree `struct.atomic.get*` instruction form, but GSI has not yet added Binaryen-style atomic-get folds; generic optimizer/effect surfaces treat the new opcodes conservatively. It still does **not** implement the sibling descriptor-cast pass; large modules also keep the materializable-only GSI subset to preserve pass-local artifact budget. Keep that distinction visible when adding examples or parity claims.

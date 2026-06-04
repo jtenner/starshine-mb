@@ -2469,6 +2469,47 @@ fn wt_instr_to_lib(
         _ => Err("internal error: unexpected struct access instruction")
       }
     }
+    StructAtomicGet(order, idx, field_idx)
+    | StructAtomicGetS(order, idx, field_idx)
+    | StructAtomicGetU(order, idx, field_idx) => {
+      let ti = match
+        wt_resolve_named_or_num_index(
+          idx,
+          ctx.type_ids,
+          ctx.type_recs.length().reinterpret_as_uint(),
+          "type",
+        ) {
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
+      let type_idx = @lib.TypeIdx::new(ti)
+      let lib_field_idx = @lib.U32(field_idx)
+      let lib_order = match order {
+        SeqCst => @lib.AtomicOrder::seq_cst()
+        AcqRel => @lib.AtomicOrder::acq_rel()
+      }
+      match instr {
+        StructAtomicGet(_, _, _) =>
+          Ok(
+            @lib.Instruction::struct_atomic_get(
+              lib_order, type_idx, lib_field_idx,
+            ),
+          )
+        StructAtomicGetS(_, _, _) =>
+          Ok(
+            @lib.Instruction::struct_atomic_get_s(
+              lib_order, type_idx, lib_field_idx,
+            ),
+          )
+        StructAtomicGetU(_, _, _) =>
+          Ok(
+            @lib.Instruction::struct_atomic_get_u(
+              lib_order, type_idx, lib_field_idx,
+            ),
+          )
+        _ => Err("internal error: unexpected struct atomic access instruction")
+      }
+    }
     RefGetDesc(idx) =>
       match
         wt_resolve_named_or_num_index(

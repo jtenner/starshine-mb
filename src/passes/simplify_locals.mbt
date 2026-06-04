@@ -652,7 +652,10 @@ fn simplify_locals_effects_mask_for_atomic_exact(
     | Some(@lib.Instruction::I32AtomicLoad16U(_))
     | Some(@lib.Instruction::I64AtomicLoad8U(_))
     | Some(@lib.Instruction::I64AtomicLoad16U(_))
-    | Some(@lib.Instruction::I64AtomicLoad32U(_)) =>
+    | Some(@lib.Instruction::I64AtomicLoad32U(_))
+    | Some(@lib.Instruction::StructAtomicGet(_, _, _))
+    | Some(@lib.Instruction::StructAtomicGetS(_, _, _))
+    | Some(@lib.Instruction::StructAtomicGetU(_, _, _)) =>
       @ir.EFFECT_MASK_MEMORY_READ | @ir.EFFECT_MASK_TRAP
     Some(@lib.Instruction::I32AtomicStore(_))
     | Some(@lib.Instruction::I64AtomicStore(_))

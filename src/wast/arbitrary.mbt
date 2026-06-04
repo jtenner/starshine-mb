@@ -161,6 +161,9 @@ fn wast_arbitrary_count_instructions(
       | StructGet(_, _)
       | StructGetS(_, _)
       | StructGetU(_, _)
+      | StructAtomicGet(_, _, _)
+      | StructAtomicGetS(_, _, _)
+      | StructAtomicGetU(_, _, _)
       | StructNewDesc(_)
       | StructNewDefaultDesc(_)
       | RefGetDesc(_) =>
