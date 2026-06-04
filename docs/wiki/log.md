@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wast/fuzzing | static harness link-boundary refresh
+
+- Added [`docs/wiki/raw/wasm/2026-06-04-wast-static-harness-current-refresh.md`](raw/wasm/2026-06-04-wast-static-harness-current-refresh.md) after rechecking the current official WebAssembly reference-interpreter WAST script contract, the Core embedding/instantiation boundary, and Starshine's static `spec_harness` plus `valid-multi-module-linking` fuzz surfaces.
+- Refreshed [`wast/static-assertion-harness.md`](wast/static-assertion-harness.md), [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md), [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md), [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md), and [`index.md`](index.md) so `assert_unlinkable`, `ValidBeforeLink`, and historical `valid-multi-module-linking` / `link_*` counters are not overclaimed as real host import resolution.
+- Current durable split: Starshine's WAST spec harness parses/registers script shapes and validates modules/static assertions, while `register`, actions, runtime assertions, and actual provider/consumer import matching remain future linker/runtime work; multi-module fuzz metadata preserves link-shaped facts for that future layer.
+
 ## [2026-06-04] wiki-health | element declarative cross-link cleanup
 
 - Rechecked whole-wiki element/declarative wording after the element-segment current refresh and aligned [`validate/ref-func-declarations.md`](validate/ref-func-declarations.md) plus [`wast/table-instruction-authoring.md`](wast/table-instruction-authoring.md) with the new source routing.

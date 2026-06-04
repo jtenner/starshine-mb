@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-24
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md
   - ../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - ../raw/wasm/2026-05-20-resource-section-validation-refresh.md
@@ -161,7 +162,7 @@ moon run src/fuzz -- --emit-invalid-repro \
   [--profile <name>]
 ```
 
-The `valid-multi-module-linking` selector currently accepts `--strategy unlinkable-multi-module` for the FUZ1055B4 valid-before-link/property repro metadata path.
+The `valid-multi-module-linking` selector currently accepts `--strategy unlinkable-multi-module` for the FUZ1055B4 valid-before-link/property repro metadata path. Despite the suite name, this is pre-link/static-harness metadata today: it preserves registered-provider/import facts for a future linker but does not currently prove host import matching.
 
 As of this review, `bun fuzz run` forwards ordinary fuzz runs and `--emit-gen-valid-batch`, but not `--emit-invalid-repro`.
 

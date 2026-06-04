@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md
   - ../raw/wasm/2026-05-19-wast-static-assertion-sources.md
   - ../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md
   - ../../../src/wast/spec_harness.mbt
@@ -25,13 +26,15 @@ related:
 
 ## Overview
 
-WAST is more than the text format for one module. The official WebAssembly test suite uses WAST as a **script language**: a file can define modules, register modules for imports, invoke exports, read globals, and state what should pass or fail. The source snapshots in [`../raw/wasm/2026-05-19-wast-static-assertion-sources.md`](../raw/wasm/2026-05-19-wast-static-assertion-sources.md) and [`../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md) record the current upstream reference-interpreter script model plus Starshine's local implementation and skip policy.
+WAST is more than the text format for one module. The official WebAssembly test suite uses WAST as a **script language**: a file can define modules, register modules for imports, invoke exports, read globals, and state what should pass or fail. The source snapshots in [`../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md`](../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md), [`../raw/wasm/2026-05-19-wast-static-assertion-sources.md`](../raw/wasm/2026-05-19-wast-static-assertion-sources.md), and [`../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md) record the current upstream reference-interpreter script model, the separate Core embedding/instantiation boundary, and Starshine's local static implementation and skip policy.
 
 Starshine currently implements a **static** spec-harness subset:
 
 - ordinary `module`, `module binary`, and `module quote` directives are parsed/lowered/decoded and validated;
 - `assert_malformed`, `assert_invalid`, and `assert_unlinkable` are evaluated by [`evaluate_wast_static_assertion(...)`](../../../src/wast/spec_harness.mbt);
 - runtime-only commands such as `assert_return`, `assert_trap`, `assert_exception`, `assert_exhaustion`, `invoke`, `get`, and `register` are parsed but skipped by the static harness.
+
+**Important terminology boundary:** current Starshine docs and counters may use link-shaped names such as `assert_unlinkable`, `ValidBeforeLink`, or `valid-multi-module-linking`, but the static harness does not perform provider/consumer import resolution. It only proves that a module reached the pre-link validation boundary. Reusable import/export compatibility rules for a future linker live in [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md).
 
 That distinction is intentional. Starshine can use official spec files and spec-seeded invalid-fuzz fixtures as **validation evidence** without claiming to execute WebAssembly or to link imports in the WAST harness.
 
@@ -44,8 +47,8 @@ That distinction is intentional. Starshine can use official spec files and spec-
 | `(module quote "...")` | Quoted text that may itself be malformed. | Joins quoted lines and reparses through `wast_to_binary_module(...)`. | [`ModuleQuote`](../../../src/wast/parser.mbt), [`spec_quote_lines_to_source(...)`](../../../src/wast/spec_harness.mbt) |
 | `assert_malformed` | The payload should not become an accepted module. | Passes if parse/lower/decode fails; also currently accepts validation rejection as harness-compatible malformed rejection. | [`evaluate_wast_static_assertion(...)`](../../../src/wast/spec_harness.mbt) |
 | `assert_invalid` | The module is syntactically well-formed but validation must reject it. | Requires compile/lower/decode success, then requires `validate_module(...)` failure. | [`evaluate_wast_static_assertion(...)`](../../../src/wast/spec_harness.mbt) |
-| `assert_unlinkable` | The module validates, but should fail when linked/instantiated. | Requires compile/lower/decode success and validation success; reports `ValidBeforeLink` because no linker is run. | [`evaluate_wast_static_assertion(...)`](../../../src/wast/spec_harness.mbt) |
-| Runtime assertions/actions | Execute exports, compare values, traps, or exhaustion. | Counted as skipped by the static harness, command by command. | [`spec_is_runtime_only_command(...)`](../../../src/wast/spec_harness.mbt) |
+| `assert_unlinkable` | The module validates, but should fail when linked/instantiated. | Requires compile/lower/decode success and validation success; reports `ValidBeforeLink` because no linker/import resolver is run. | [`evaluate_wast_static_assertion(...)`](../../../src/wast/spec_harness.mbt) |
+| Runtime assertions/actions | Execute exports, compare values, traps, exhaustion, or registration/import side effects. | Counted as skipped by the static harness, command by command; `register` is parser/printer evidence only in this path. | [`spec_is_runtime_only_command(...)`](../../../src/wast/spec_harness.mbt) |
 
 ## Static Assertion Stage Model
 
@@ -87,6 +90,8 @@ The current static evaluator does not instantiate modules or resolve imports. It
 
 A file with only runtime commands can be skipped. A mixed file should still validate its static commands: tests in [`src/wast/spec_harness.mbt`](../../../src/wast/spec_harness.mbt) cover command-scoped runtime skipping so `assert_exception` or `assert_return` does not hide later static validation checks.
 
+The fuzz suite named `valid-multi-module-linking` builds provider/consumer scripts with named modules, `register` commands, and import/export pairs, but current code still routes the final script check through `run_wast_spec_file(...)`. Its `link_passed` / `link_failed` / `link_skipped` counters therefore mean static script pass/fail/skip, not host import resolution. Use that suite as link-shaped WAST parser/printer and pre-link validation coverage until a real linker is added.
+
 ## Skip, Unsupported, And Known-Mismatch Policy
 
 The spec runner reports file-level `Passed`, `Skipped(reason)`, or `Failed(msg)`. Treat those states separately:
@@ -125,7 +130,7 @@ The practical rule for maintainers is: **do not fork assertion semantics between
 - **No diagnostic-text parity promise.** Upstream test assertions carry expected error strings. Starshine currently checks kind and stage, not exact upstream diagnostic text.
 - **Skips are visible debt, not hidden passes.** Runtime-only scripts, unsupported parser/lowerer gaps, and narrow `tests/spec` mismatches all report `Skipped(...)` with a reason. Preserve those counts in summaries.
 - **`assert_malformed` is broad locally.** The current static evaluator accepts either parse/lower/decode rejection or validation rejection for malformed assertions. If Starshine wants stricter upstream category fidelity, split that as a deliberate validator/spec-harness change.
-- **`assert_unlinkable` is pre-link only.** `ValidBeforeLink` means the module survived core validation. It does not prove a future link-time error until Starshine has a linker/runtime harness.
+- **`assert_unlinkable` is pre-link only.** `ValidBeforeLink` means the module survived core validation. It does not prove a future link-time error until Starshine has a linker/runtime harness. The same caveat applies to the historical `valid-multi-module-linking` fuzz suite name and its `link_*` counters.
 - **Node package gap.** The MoonBit `wast` package exports `evaluate_wast_static_assertion(...)`, but the checked-in Node package does not yet expose `evaluateWastStaticAssertion(...)`; see [`../tooling/node-package-surface.md`](../tooling/node-package-surface.md).
 
 ## Validation Guidance
@@ -136,10 +141,11 @@ When touching WAST script support or static assertions:
 2. If parser command coverage changes, update [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) and the lexer keywords in [`src/wast/keywords.mbt`](../../../src/wast/keywords.mbt) together.
 3. If stage semantics change, update [`src/fuzz/invalid_text.mbt`](../../../src/fuzz/invalid_text.mbt), [`src/fuzz/invalid_text_wbtest.mbt`](../../../src/fuzz/invalid_text_wbtest.mbt), [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md), [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md), and this page.
 4. For broad confidence, run the `spec_runner` on selected `tests/spec/*.wast` files and the `validate-invalid-text` / `validate-invalid-spec-seed` fuzz suites through the wrapper described in [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md).
+5. If the `valid-multi-module-linking` suite or `link_*` JSON counters change, update this page and [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md) so readers know whether the suite still means static link-shaped scripts or now performs real import resolution.
 
 ## Sources
 
-- Primary-source snapshots: [`../raw/wasm/2026-05-19-wast-static-assertion-sources.md`](../raw/wasm/2026-05-19-wast-static-assertion-sources.md), [`../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md)
+- Primary-source snapshots: [`../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md`](../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md), [`../raw/wasm/2026-05-19-wast-static-assertion-sources.md`](../raw/wasm/2026-05-19-wast-static-assertion-sources.md), [`../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md`](../raw/wasm/2026-05-20-wast-static-harness-skip-policy-refresh.md)
 - Parser and AST: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/types.mbt`](../../../src/wast/types.mbt), [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt)
 - Static evaluator and tests: [`../../../src/wast/spec_harness.mbt`](../../../src/wast/spec_harness.mbt)
 - CLI wrapper: [`../../../src/spec_runner/spec_runner.mbt`](../../../src/spec_runner/spec_runner.mbt)
