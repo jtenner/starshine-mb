@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-04-struct-atomic-get-sources.md
+  - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
   - ../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md
   - ../raw/wasm/2026-05-19-wast-gc-aggregate-instruction-sources.md
   - ../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md
@@ -205,12 +206,13 @@ Do not use `gen_valid` aggregate coverage or binary decode success as proof of i
 3. **Respect mutability.** `struct.set`, `array.set`, `array.fill`, `array.copy`, and `array.init_*` require mutable storage in the destination aggregate type. Do not infer mutability from the presence of a setter opcode alone.
 4. **Treat packed signedness as semantic.** Rewriting `*_get_s` to `*_get_u`, or to plain `get`, changes sign extension for packed fields/elements. The same rule applies to `struct.atomic.get_s` and `struct.atomic.get_u`.
 5. **Preserve traps, effects, and bounds checks.** Array index, range, copy, fill, data, element operations, and shared-GC atomic reads can trap or carry synchronization/effect meaning at runtime. Reordering or deleting them needs an effect/bounds/memory-model proof, not just matching validation.
-6. **Use the segment pages for data/element-backed arrays.** `array.init_data` and `array.new_data` depend on data segments and data-count-style resource validity; `array.init_elem` and `array.new_elem` depend on element segments and function-reference declaration surfaces. See [`data-segment-authoring.md`](data-segment-authoring.md), [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md), [`element-segment-authoring.md`](element-segment-authoring.md), and [`table-instruction-authoring.md`](table-instruction-authoring.md).
+6. **Use the segment pages for data/element-backed arrays.** `array.init_data` and `array.new_data` depend on data segments and the official data-count requirement for code-section data-index users; `array.init_elem` and `array.new_elem` depend on element segments and function-reference declaration surfaces. Starshine currently typechecks the GC-array data indices but its pre-code missing-data-count scan only covers `memory.init` / `data.drop`, so direct core/binary GC-array fixtures without `DataCntSec` are validator-gap evidence. See [`data-segment-authoring.md`](data-segment-authoring.md), [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md), [`element-segment-authoring.md`](element-segment-authoring.md), and [`table-instruction-authoring.md`](table-instruction-authoring.md).
 7. **Widen WAST arbitrary only after text support exists.** The generator coverage ledger proves core valid generation for many aggregate operations, but `src/wast/arbitrary.mbt` should not emit unsupported `struct.set` or `array.*` text until the WAST path accepts and prints it.
 
 ## Source Map
 
 - Struct atomic get source snapshot: [`../raw/wasm/2026-06-04-struct-atomic-get-sources.md`](../raw/wasm/2026-06-04-struct-atomic-get-sources.md)
+- Current data/data-count refresh: [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md)
 - Constant-expression refresh: [`../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md)
 - Primary-source and local-code manifest: [`../raw/wasm/2026-05-19-wast-gc-aggregate-instruction-sources.md`](../raw/wasm/2026-05-19-wast-gc-aggregate-instruction-sources.md)
 - Type declaration companion: [`gc-type-authoring.md`](gc-type-authoring.md)

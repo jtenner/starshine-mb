@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-19
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
   - ../raw/wasm/2026-05-19-wast-data-segment-sources.md
   - ../raw/wasm/2026-05-13-data-element-and-datacount-sources.md
   - ../../../src/wast/parser.mbt
@@ -36,7 +37,7 @@ Use this page when writing or reviewing WAST module fields that introduce **data
 
 This page owns the text shapes, Starshine WAST parser/lowerer behavior, data-count interactions, and rewrite checklist for `(data ...)` fields. Use [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for the runtime stack effects and traps of `memory.init` / `data.drop`, [`memory-argument-authoring.md`](memory-argument-authoring.md) for load/store `offset=` and `align=` immediates, and [`resource-declaration-authoring.md`](resource-declaration-authoring.md) for `(memory ...)` declarations. The binary section and on-wire header map remains [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md).
 
-The current source manifest is [`../raw/wasm/2026-05-19-wast-data-segment-sources.md`](../raw/wasm/2026-05-19-wast-data-segment-sources.md). It checks current official WebAssembly text/syntax/binary/validation sources plus Starshine WAST parser, lowerer, printer, core model, binary codec, validator, generator, and WAST arbitrary evidence.
+The current source refresh is [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md). It rechecks the official WebAssembly 3.0 pages dated 2026-06-03 plus Starshine WAST parser, lowerer, printer, core model, binary codec, validator, generator, and WAST arbitrary evidence. The older broad manifest [`../raw/wasm/2026-05-19-wast-data-segment-sources.md`](../raw/wasm/2026-05-19-wast-data-segment-sources.md) remains useful for the original source map.
 
 ## Beginner Model
 
@@ -130,17 +131,17 @@ If Starshine adds the abbreviation later, update this page and [`resource-declar
 
 ## Data Count And Instruction Users
 
-A data segment can be valid even when the module has no `memory.init` or `data.drop`. Data-count is a separate section whose count must match the number of data segments when present. It is also required before code when a function body contains `memory.init` or `data.drop`.
+A data segment can be valid even when the module has no code that consumes data indices. Data-count is a separate binary section whose count must match the number of data segments when present. Current official WebAssembly 3.0 also requires data-count before code when any data index occurs in the code section. `memory.init` and `data.drop` are the common bulk-memory examples; `array.new_data` and `array.init_data` are the GC aggregate data-index users that make the rule broader than the bulk-memory note.
 
-GC array instructions add a second kind of data-index user. Starshine core/binary/validator surfaces support `array.new_data` and `array.init_data`, but the current high-level WAST text path does not expose official `array.*` instruction keywords, and current Starshine constant expressions do not admit official array constructor forms. Route aggregate fixture-format decisions through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) and initializer eligibility through [`../validate/constant-expressions.md`](../validate/constant-expressions.md).
+Starshine core/binary/validator surfaces support all four data-index instruction families (`MemoryInit`, `DataDrop`, `ArrayNewData`, and `ArrayInitData`), but the current high-level WAST text path only exposes `memory.init` and `data.drop`. Official `array.*` WAST keywords are not local text syntax yet, and current Starshine constant expressions do not admit official array constructor forms. Route aggregate fixture-format decisions through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) and initializer eligibility through [`../validate/constant-expressions.md`](../validate/constant-expressions.md).
 
-Starshine keeps those checks separate in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt):
+Starshine keeps the current data-count checks separate in [`src/validate/validate.mbt`](../../../src/validate/validate.mbt):
 
 1. [`validate_datasec(...)`](../../../src/validate/validate.mbt) validates active data modes and pushes data entries into the validation environment.
 2. [`validate_datacnt(...)`](../../../src/validate/validate.mbt) accepts absent data count, rejects count/data mismatches, accepts `DataCntSec(0)` without a data section, and rejects nonzero data count with no data section.
 3. `validate_bulk_memory_data_count_requirement(...)` rejects code that uses `memory.init` or `data.drop` without a data-count section and reports the issue against the affected function body.
 
-[`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) currently emits `DataCntSec` whenever WAST lowering emits any data segments. That is conservative for passive-only or active-only text modules, but it makes the common text-to-binary path ready for bulk-memory users.
+That third local phase is intentionally called out as a current validator gap for core/binary GC-array fixtures: [`typecheck_array_new_data(...)`](../../../src/validate/typecheck.mbt) and [`typecheck_array_init_data(...)`](../../../src/validate/typecheck.mbt) validate the selected data segment, but the pre-code data-count requirement scanner does not yet scan `ArrayNewData` / `ArrayInitData`. Ordinary WAST data fixtures usually do not hit this gap because [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) currently emits `DataCntSec` whenever WAST lowering emits any data segments, which is conservative for passive-only or active-only text modules.
 
 ## Layer Map
 
@@ -152,7 +153,7 @@ Starshine keeps those checks separate in [`src/validate/validate.mbt`](../../../
 | WAST printing | [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | Prints `(data ...)` fields, explicit memory index text, optional `(offset ...)`, and quoted bytes. Current printer is accepted locally but is not the most concise official passive-data spelling. |
 | Core model | [`src/lib/types.mbt`](../../../src/lib/types.mbt) | Represents `DataMode::active(MemIdx, Expr)`, `DataMode::passive()`, `Data`, `DataSec`, `DataCntSec`, and `DataIdx`. |
 | Binary codec | [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) | Preserves data headers `0`, `1`, and `2`, data-section id `11`, and data-count section id `12`. |
-| Validation | [`src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | Validates active offsets and data-count rules; typechecks `memory.init`, `data.drop`, `array.new_data`, and `array.init_data` data-index users. |
+| Validation | [`src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | Validates active offsets, data-count equality, and the current bulk-memory-only missing-data-count precheck; typechecks `memory.init`, `data.drop`, `array.new_data`, and `array.init_data` data-index users. |
 | Generator/fuzz | [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt), [`src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt) | Covers data/data-count presence, data segment range coverage, non-constant data offset invalids, count mismatch invalids, and representative WAST data fields. |
 
 ## Rewrite And Signoff Guidance
@@ -163,7 +164,7 @@ When a pass, fixture generator, or printer changes data segments:
 2. **Keep active modes tied to memories.** Memory reordering must update active `DataMode::active(memidx, offset)` modes as well as runtime memory instructions; imported memories are part of the same index space.
 3. **Do not move active data offsets like load/store offsets.** Active data offsets are constant expressions evaluated during instantiation; function-body `MemArg.offset` is an instruction immediate documented in [`memory-argument-authoring.md`](memory-argument-authoring.md).
 4. **Preserve startup traps and side effects.** Active data can trap during instantiation if its range is out of bounds. A shrink pass that deletes, folds, or splits active data needs the same startup-effect care described for [`memory-packing`](../binaryen/passes/memory-packing/index.md) and [`remove-unused-module-elements`](../binaryen/passes/remove-unused-module-elements/index.md).
-5. **Keep data-count in sync.** If any data segment count changes, update `DataCntSec` when present. If a rewrite introduces or removes `memory.init` / `data.drop`, validate the data-count requirement again.
+5. **Keep data-count in sync.** If any data segment count changes, update `DataCntSec` when present. If a rewrite introduces or removes `memory.init`, `data.drop`, `array.new_data`, or `array.init_data`, validate the data-count requirement again; today the local pre-code requirement scanner only covers the bulk-memory pair, so GC-array data users need focused validator evidence before being used as conformance proof.
 6. **Use the right fixture layer.** WAST is good for ordinary active/passive memory32 data. Use direct core/binary/generator fixtures for memory64 offsets, nonzero memory-index binary header edge cases, and data-backed GC array instructions until the text surface covers those fully.
 
 ## Common Mistakes
@@ -177,7 +178,8 @@ When a pass, fixture generator, or printer changes data segments:
 
 ## Sources
 
-- Source manifest: [`../raw/wasm/2026-05-19-wast-data-segment-sources.md`](../raw/wasm/2026-05-19-wast-data-segment-sources.md)
+- Current data/data-count refresh: [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md)
+- Original source manifest: [`../raw/wasm/2026-05-19-wast-data-segment-sources.md`](../raw/wasm/2026-05-19-wast-data-segment-sources.md)
 - Aggregate/initializer boundary: [`../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md), [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md), [`../validate/constant-expressions.md`](../validate/constant-expressions.md)
 - Broader segment/data-count manifest: [`../raw/wasm/2026-05-13-data-element-and-datacount-sources.md`](../raw/wasm/2026-05-13-data-element-and-datacount-sources.md)
 - Official WebAssembly sources checked: <https://webassembly.github.io/spec/core/text/modules.html>, <https://webassembly.github.io/spec/core/syntax/modules.html>, <https://webassembly.github.io/spec/core/binary/modules.html>, <https://webassembly.github.io/spec/core/valid/modules.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] validate/wast/binary | data-count current refresh
+
+- Added [`docs/wiki/raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md) after rechecking the current official WebAssembly Core 3.0 text, syntax, binary, module-validation, and instruction-validation pages dated 2026-06-03 plus Starshine WAST/core/binary/typecheck/validator surfaces.
+- Refreshed [`wast/data-segment-authoring.md`](wast/data-segment-authoring.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`wast/memory-instruction-authoring.md`](wast/memory-instruction-authoring.md), [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so the wiki now distinguishes data-count equality from the broader official data-index-in-code requirement.
+- Current durable split: WAST lowering conservatively emits `DataCntSec` for data modules, Starshine's typechecker validates `memory.init`, `data.drop`, `array.new_data`, and `array.init_data` data-index existence, but the pre-code `datacnt_requirement` scanner still only covers `MemoryInit` / `DataDrop`; direct core/binary GC-array data-user fixtures without `DataCntSec` are validator-gap evidence until that scanner widens.
+
 ## [2026-06-04] validate/wast/binary | SIMD lane validation current refresh
 
 - Added [`docs/wiki/raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md`](raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md) after rechecking the current official WebAssembly Core 3.0 syntax, text, binary, and validation instruction pages dated 2026-06-03 plus Starshine WAST, binary, typecheck, invalid-AST, and invalid-binary surfaces.
