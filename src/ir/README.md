@@ -18,12 +18,13 @@ IR2 owns exactly one optimizer body representation: `HotFunc`.
 
 ## Canonical Docs
 
-- Architecture rules: [`docs/0059-2026-03-24-ir2-architecture-rules.md`](../../docs/0059-2026-03-24-ir2-architecture-rules.md)
-- CFG contract ADR: [`docs/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md`](../../docs/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md)
-- SSA policy ADR: [`docs/0061-2026-03-24-local-ssa-policy.md`](../../docs/0061-2026-03-24-local-ssa-policy.md)
-- Canonical IR2 handoff plan: [`docs/wiki/raw/research/0065-2026-03-24-ir2-execution-plan.md`](../../docs/wiki/raw/research/0065-2026-03-24-ir2-execution-plan.md)
-- Pass-port checklist and registry map: [`docs/0062-2026-03-24-pass-porting-checklist.md`](../../docs/0062-2026-03-24-pass-porting-checklist.md), [`docs/wiki/raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../docs/wiki/raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
-- Shared IR2 test matrix: [`docs/wiki/raw/research/0064-2026-03-24-ir2-test-matrix.md`](../../docs/wiki/raw/research/0064-2026-03-24-ir2-test-matrix.md)
+- Architecture rules: [`docs/wiki/ir2/architecture-rules.md`](../../docs/wiki/ir2/architecture-rules.md)
+- CFG contract: [`docs/wiki/ir2/cfg-contract.md`](../../docs/wiki/ir2/cfg-contract.md)
+- SSA policy: [`docs/wiki/ir2/local-ssa-policy.md`](../../docs/wiki/ir2/local-ssa-policy.md)
+- Canonical IR2 handoff plan: [`docs/wiki/ir2/execution-plan.md`](../../docs/wiki/ir2/execution-plan.md)
+- Pass-port checklist and registry map: [`docs/wiki/ir2/pass-porting-checklist.md`](../../docs/wiki/ir2/pass-porting-checklist.md), [`docs/wiki/ir2/registry-map.md`](../../docs/wiki/ir2/registry-map.md)
+- Shared IR2 test matrix: [`docs/wiki/ir2/test-matrix.md`](../../docs/wiki/ir2/test-matrix.md)
+- Archived March source notes remain under [`docs/wiki/raw/research/`](../../docs/wiki/raw/research/) and should be cited as provenance rather than as the freshest navigation surface.
 
 ## Module Map
 
@@ -60,8 +61,6 @@ IR2 owns exactly one optimizer body representation: `HotFunc`.
 - `hot.mbt`: compatibility-free hot-lift/lower façade helpers and glue used by active IR2 consumers.
 - `float_compat.mbt`: Wasm-compatible float helper surface used by hot lifting/lowering.
 
-## Planned Split
+## Split Rule
 
-Later slices should land in dedicated modules instead of growing `hot.mbt` further:
-- `hot_module_context.mbt`
-- `hot_region_edit.mbt`
+The split is now landed, not just planned. Later slices should keep adding focused modules or extending the current focused owners instead of growing `hot.mbt` back into a monolith. Treat `hot.mbt` as a compatibility-free facade/glue layer over the focused files above.
