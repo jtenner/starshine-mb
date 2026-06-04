@@ -256,6 +256,7 @@ fn lcse_raw_instr_operand_count(
     @lib.Instruction::ArrayFill(_) => Some(4)
     @lib.Instruction::ArrayCopy(_, _) => Some(5)
     @lib.Instruction::ArrayInitData(_, _) => Some(4)
+    @lib.Instruction::ArrayInitElem(_, _) => Some(4)
     _ =>
       if lcse_instr_is_store(instr) {
         Some(2)
