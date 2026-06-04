@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md
   - ../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md
   - ../raw/research/0010-2026-03-18-validate-trace-baseline.md
   - ../../../src/validate_trace/main.mbt
@@ -23,7 +24,7 @@ related:
 
 ## Overview
 
-The validation trace benchmark is Starshine's stable way to watch **where validator time goes** across a small checked-in corpus set. It is not a portable wall-clock benchmark. The durable facts are the emitted `phase_totals`, `helper_totals`, corpus names, and hotspot shapes captured in [`../raw/research/0010-2026-03-18-validate-trace-baseline.md`](../raw/research/0010-2026-03-18-validate-trace-baseline.md), refreshed against current source ownership in [`../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md`](../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md).
+The validation trace benchmark is Starshine's stable way to watch **where validator time goes** across a small checked-in corpus set. It is not a portable wall-clock benchmark. The durable facts are the emitted `phase_totals`, `helper_totals`, corpus names, and hotspot shapes captured in [`../raw/research/0010-2026-03-18-validate-trace-baseline.md`](../raw/research/0010-2026-03-18-validate-trace-baseline.md), refreshed against current trace, wrapper, and corpus source ownership in [`../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md`](../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md). The older [`2026-05-20` source refresh](../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md) remains useful provenance but is superseded for current command/trace ownership.
 
 Use this page when a validator change might move work between phases, add a new validation phase, change function-body scanning cost, or alter the `ref.func` declaration-source model. Use [`module-validation-phases.md`](module-validation-phases.md) for the canonical phase order and trace-line vocabulary, [`../tooling/validation-gates.md`](../tooling/validation-gates.md) for command syntax, and [`../tooling/tracing-playbook.md`](../tooling/tracing-playbook.md) for the shared tracing contract.
 
@@ -38,8 +39,8 @@ bun validate trace-benchmark [--repeat n] [--corpus name]... [--target target] [
 Current wrapper flow:
 
 1. [`scripts/lib/validate-task.ts`](../../../scripts/lib/validate-task.ts) parses the Bun command, defaults `--target` to `wasm-gc`, applies Starshine's local target whitelist, and forwards to Moon.
-2. The forwarded command is `moon run --target <target> src/validate_trace -- ...`.
-3. [`src/validate_trace/main.mbt`](../../../src/validate_trace/main.mbt) builds each requested corpus directly as an `@lib.Module`, runs `validate_module_with_trace(..., trace_all_funcs=true)`, and prints one block per corpus.
+2. The forwarded command is `moon run --target <target> src/validate_trace -- ...`; the official Moon command manual is only upstream command-shape context, while accepted wrapper targets remain Starshine-local policy.
+3. [`src/validate_trace/main.mbt`](../../../src/validate_trace/main.mbt) builds each requested corpus directly as an `@lib.Module`, deduplicates repeated corpus names, runs `validate_module_with_trace(..., trace_all_funcs=true)`, requires `phase_totals` plus `helper_totals`, and prints one block per corpus.
 4. [`src/validate_trace/main_wbtest.mbt`](../../../src/validate_trace/main_wbtest.mbt) pins the fixed corpus roster, summary-line capture contract, unknown-corpus rejection, repeated `--corpus` parsing, and `--list-corpora` behavior.
 5. [`scripts/test/task-family-commands.ts`](../../../scripts/test/task-family-commands.ts) pins the Bun-to-Moon command forwarding shape, including repeated corpus forwarding and nondefault target forwarding.
 
@@ -94,7 +95,7 @@ Current high-level signals from that snapshot:
 
 ## When To Refresh The Baseline
 
-Refresh the archived baseline, this page, and [`module-validation-phases.md`](module-validation-phases.md) together when any of these change:
+Refresh the archived baseline, this page, [`../tooling/tracing-playbook.md`](../tooling/tracing-playbook.md), and [`module-validation-phases.md`](module-validation-phases.md) together when any of these change:
 
 1. A validator phase is renamed, split, merged, added, or deleted.
 2. `phase_totals`, `helper_totals`, or `hotspots` line format changes.
@@ -118,7 +119,8 @@ When a trace run changes:
 
 ## Sources
 
-- Source refresh: [`../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md`](../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md)
+- Current tracing/benchmark source refresh: [`../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md`](../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md)
+- Previous source refresh: [`../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md`](../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md)
 - Archived benchmark snapshot: [`../raw/research/0010-2026-03-18-validate-trace-baseline.md`](../raw/research/0010-2026-03-18-validate-trace-baseline.md)
 - Trace benchmark entrypoint and tests: [`../../../src/validate_trace/main.mbt`](../../../src/validate_trace/main.mbt), [`../../../src/validate_trace/main_wbtest.mbt`](../../../src/validate_trace/main_wbtest.mbt)
 - Validator trace implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt)

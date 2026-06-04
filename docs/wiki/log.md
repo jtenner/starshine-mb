@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] tooling/tracing | trace contract source refresh
+
+- Added [`raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md`](raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md) after rechecking the official Moon command manual/source for upstream `moon run` command-shape context plus current `src/cmd/cmd.mbt`, `src/passes/perf.mbt`, `src/validate_trace/main.mbt`, validator trace, Bun wrapper, and command-test evidence.
+- Expanded [`tooling/tracing-playbook.md`](tooling/tracing-playbook.md) from a compact March tracing summary into the current two-lane contract: runtime CLI/optimizer tracing versus validator trace-benchmark output, accepted `pass|phase|helper` levels, `STARSHINE_TRACING`, `STARSHINE_OPTIMIZE_MAX_PASSES`, `[trace]` command lines, optimizer `perf:*` lines, validator `phase_totals` / `helper_totals` / `hotspots`, timing caveats, and maintenance rules.
+- Refreshed [`validate/trace-benchmark-baseline.md`](validate/trace-benchmark-baseline.md), [`tooling/validation-gates.md`](tooling/validation-gates.md), and [`index.md`](index.md) so trace-benchmark routing now points to the 2026-06-04 source bridge while preserving the March baseline snapshot as the durable emitted evidence.
+
 ## [2026-06-04] passes/local-cse | try_table body positive fix
 
 - Spot-checked the proposed EH boundary shape and found a Binaryen-positive adjacent-window case: a repeated expression before `try_table` can be materialized and reused inside the try body.

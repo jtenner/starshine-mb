@@ -9,6 +9,7 @@ sources:
   - ../raw/moonbit/2026-05-20-workspace-package-surface.md
   - ../raw/moonbit/2026-05-20-formal-verification-command-and-trust-refresh.md
   - ../raw/moonbit/2026-05-13-moon-cli-validation-docs.md
+  - ../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md
   - ../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md
   - ../raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md
   - ../../README.md
@@ -133,7 +134,7 @@ In CI (`CI=true`), an increased uncovered-line count versus the baseline is fata
 moon run --target <target> src/validate_trace -- --repeat <n> --corpus <name> ...
 ```
 
-Use [`validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md) for durable corpus-specific `phase_totals`, `helper_totals`, and hotspot baselines, and use the 2026-05-20 source refresh in [`../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md`](../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md) for the current corpus/test/wrapper evidence. Do not put raw local wall-time claims into long-lived docs unless the machine/environment and corpus are recorded.
+Use [`validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md) for durable corpus-specific `phase_totals`, `helper_totals`, and hotspot baselines, and use the 2026-06-04 source refresh in [`../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md`](../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md) for the current corpus/test/wrapper evidence plus the runtime tracing split. Do not put raw local wall-time claims into long-lived docs unless the machine/environment and corpus are recorded.
 
 ## Self-Optimized Artifact Gate
 
@@ -185,7 +186,8 @@ Practical rules:
 
 - MoonBit formal-verification v0.9.3 refresh: [`../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md`](../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md)
 - MoonBit command-manual refresh: [`../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md`](../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md)
-- Validation trace benchmark source refresh: [`../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md`](../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md)
+- Current tracing and validation trace benchmark source refresh: [`../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md`](../raw/validation/2026-06-04-tracing-and-validation-benchmark-source-refresh.md)
+- Previous validation trace benchmark source refresh: [`../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md`](../raw/validation/2026-05-20-validation-trace-benchmark-source-refresh.md)
 - wasm-tools validate feature defaults: [`../raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md`](../raw/validation/2026-06-02-wasm-tools-validation-feature-defaults.md)
 - Earlier MoonBit command-doc source bridge: [`../raw/moonbit/2026-05-13-moon-cli-validation-docs.md`](../raw/moonbit/2026-05-13-moon-cli-validation-docs.md)
 - Repo validation rules: [`../../../AGENTS.md`](../../../AGENTS.md), [`../../README.md`](../../README.md)
