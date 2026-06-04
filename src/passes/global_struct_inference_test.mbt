@@ -783,6 +783,63 @@ test "global-struct-inference un-nests float sqrt and rounding closed-world sele
 }
 
 ///|
+test "global-struct-inference un-nests integer sign-extension closed-world select values" {
+  let i32_input =
+    #| (module
+    #|   (type $box (sub (struct (field i32))))
+    #|   (global $a (ref $box)
+    #|     (struct.new $box
+    #|       (i32.extend16_s (i32.const 65535))))
+    #|   (global $b (ref $box) (struct.new $box (i32.const 7)))
+    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|     local.get 0
+    #|     struct.get $box 0))
+    #|
+  let i32_optimized = gsi_test_run(i32_input, true)
+  let i32_pretty = i32_optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(i32_pretty.contains("struct.get"), msg=i32_pretty)
+  assert_true(i32_pretty.contains("select"), msg=i32_pretty)
+  assert_true(i32_pretty.contains("ref.eq"), msg=i32_pretty)
+  assert_true(i32_pretty.contains("global.get"), msg=i32_pretty)
+  assert_true(i32_pretty.contains("I32(7)"), msg=i32_pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(i32_optimized), 3)
+  assert_true(
+    try! gsi_test_any_global_init_contains(
+      i32_optimized,
+      @lib.Instruction::i32_extend16s(),
+    ),
+    msg=i32_pretty,
+  )
+
+  let i64_input =
+    #| (module
+    #|   (type $box (sub (struct (field i64))))
+    #|   (global $a (ref $box)
+    #|     (struct.new $box
+    #|       (i64.extend32_s (i64.const 4294967295))))
+    #|   (global $b (ref $box) (struct.new $box (i64.const 9)))
+    #|   (func (export "read") (param (ref null $box)) (result i64)
+    #|     local.get 0
+    #|     struct.get $box 0))
+    #|
+  let i64_optimized = gsi_test_run(i64_input, true)
+  let i64_pretty = i64_optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(i64_pretty.contains("struct.get"), msg=i64_pretty)
+  assert_true(i64_pretty.contains("select"), msg=i64_pretty)
+  assert_true(i64_pretty.contains("ref.eq"), msg=i64_pretty)
+  assert_true(i64_pretty.contains("global.get"), msg=i64_pretty)
+  assert_true(i64_pretty.contains("I64(9)"), msg=i64_pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(i64_optimized), 3)
+  assert_true(
+    try! gsi_test_any_global_init_contains(
+      i64_optimized,
+      @lib.Instruction::i64_extend32s(),
+    ),
+    msg=i64_pretty,
+  )
+}
+
+///|
 test "global-struct-inference un-nests packed closed-world select values" {
   let signed8 =
     #| (module

@@ -54,7 +54,7 @@ related:
 
 ## 2026-06-03 integer sign-extension un-nesting follow-up
 
-The integer sign-extension follow-up broadened the guarded small-module non-constant un-nesting vocabulary to include pure non-trapping `i32.extend8_s`, `i32.extend16_s`, `i64.extend8_s`, `i64.extend16_s`, and `i64.extend32_s` operands. The large-module gate and read-gated request filter remain unchanged. The focused public-pipeline test covers direct-global `i32.extend8_s` and `i64.extend32_s` operands. A later 2026-06-04 coverage slice also proves the shared read-gated un-nesting request collector carries fresh `f32.sqrt` and `f64.nearest` operands through closed-world local/param two-value singleton-select rewrites.
+The integer sign-extension follow-up broadened the guarded small-module non-constant un-nesting vocabulary to include pure non-trapping `i32.extend8_s`, `i32.extend16_s`, `i64.extend8_s`, `i64.extend16_s`, and `i64.extend32_s` operands. The large-module gate and read-gated request filter remain unchanged. The focused public-pipeline test covers direct-global `i32.extend8_s` and `i64.extend32_s` operands. Later 2026-06-04 coverage slices also prove the shared read-gated un-nesting request collector carries fresh `f32.sqrt`, `f64.nearest`, `i32.extend16_s`, and `i64.extend32_s` operands through closed-world local/param two-value singleton-select rewrites.
 
 The final direct compare ran with a prebuilt native Starshine binary and automatic parallel workers:
 
