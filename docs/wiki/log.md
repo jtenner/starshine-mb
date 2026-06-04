@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] tooling/release | package surface refresh
+
+- Added [`raw/release/2026-06-04-release-package-surface-refresh.md`](raw/release/2026-06-04-release-package-surface-refresh.md) after rechecking current npm CLI v11 package metadata / pack / publish / lifecycle docs, current MoonBit `moon.mod` docs, and live Starshine `moon.mod`, `node/package.json`, root `package.json`, Node README, `node/internal/.gitignore`, `node/internal/.npmignore`, and build/generation scripts.
+- Refreshed [`tooling/release-process.md`](tooling/release-process.md) with a release-surface matrix that separates versioned product metadata, the root private script package, checked-in JS/TS wrappers, the rebuilt WASI CLI artifact, the ignored-but-publishable wasm-gc adapter artifact, and durable release evidence.
+- Refreshed [`tooling/node-package-surface.md`](tooling/node-package-surface.md) and [`index.md`](index.md) so release-prep readers start from the current package-surface source bridge and Git/npm artifact split instead of relying on the older manifest's stale `moon.mod.json` local path or older checked-in-artifact wording.
+
 ## [2026-06-04] tooling/node | export-map health contract
 
 - Refreshed [`tooling/node-package-surface.md`](tooling/node-package-surface.md) with an export-map-driven health contract for Node package audits: start from `node/package.json#exports`, require runtime/declaration parity per public subpath, keep one extensionless specifier style, classify missing MoonBit symbols as public-required / adapter-unsupported / intentionally omitted / compatibility alias, and route test ownership through `node/test/api-parity.test.mjs`, smoke tests, and examples.
