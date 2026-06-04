@@ -67,6 +67,33 @@ The MoonBit workspace/package topology is cataloged in [`moonbit-workspace-packa
 Node deliberately omits several of those (`bitset`, `cli-benchmarks`, `diff`, `fs`, `fuzz`, `ir`, `passes`, `passes_perf_long`, `spec_runner`, `validate_proof`, and `validate_trace`), and the package map owns the normal `moon.pkg` / `is-main` / generated-interface distinction plus the current `spec_runner` `imports.mbt` topology exception behind that statement.
 That omission is acceptable only while the README and tests keep the package framed as a partial host boundary, not as the whole Starshine implementation surface.
 
+## Export-Map Health Contract
+
+Start every Node package audit from [`node/package.json#exports`](../../../node/package.json), not from the full `node/` directory and not from every generated MoonBit interface. The current official Node package docs and TypeScript module-resolution docs, captured in [`../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md`](../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md), make the export map the consumer-facing boundary: unlisted package subpaths are private to package resolution, and TypeScript resolves declaration targets through Node-aware `exports` conditions.
+
+Use this audit shape:
+
+| Step | Question | Starshine rule |
+| --- | --- | --- |
+| 1. Public subpaths | Which subpaths are listed under `exports`? | Only `.`, `./binary`, `./cli`, `./cmd`, `./lib`, `./validate`, `./wast`, and `./wat` are public today. Do not file `src/ir`, `src/passes`, `src/spec_runner`, or `node/internal/*` omissions as Node API drift unless a design decision adds a public subpath. |
+| 2. Runtime/declaration parity | Does each public subpath have both `import` and `types` targets, and do those files agree? | Every current export has both targets. Wrapper work must update `.js`, `.d.ts`, README, and tests together; a declaration-only helper or runtime-only helper is an API bug. |
+| 3. Specifier style | Is there exactly one public spelling for each subpath? | Keep the current extensionless style. Adding `./validate.js` next to `./validate` broadens the public API and should be treated as a semver-relevant decision, not a convenience alias. |
+| 4. MoonBit parity classification | If a generated MoonBit symbol is missing from Node, why? | Classify it as `public-required-now`, `adapter-unsupported`, `intentionally-omitted`, or `compat-alias`. The `cmd` parity repair is the model; `validateModuleWithTrace(...args: never[])` is an adapter-unsupported placeholder, not a ready public callback API. |
+| 5. Test ownership | Which test proves the public boundary? | Extend [`node/test/api-parity.test.mjs`](../../../node/test/api-parity.test.mjs) for export/declaration/runtime shape. Use [`node/test/smoke.test.mjs`](../../../node/test/smoke.test.mjs) and [`node/test/examples.test.mjs`](../../../node/test/examples.test.mjs) for behavior and example coverage. |
+
+This keeps package health checks small and reviewable. A broad “mirror all `pkg.generated.mbti` symbols” test would be noisy and wrong because the package is intentionally partial. A useful stronger test is export-map-driven: enumerate public subpaths, read their `types` and `import` files, and then assert only the symbols that this page classifies as required for that subpath.
+
+## Current Gap-To-Action Ledger
+
+| Subpath | Current high-value gap | First useful slice | Required evidence before docs call it ready |
+| --- | --- | --- | --- |
+| `./cli` | The MoonBit parser surface has `resolve_closed_world(...)`, `CliParseError::invalid_dump_path(...)`, `CliParseError::invalid_function_index_list(...)`, and `CliParseResult.closed_world`, while `node/cli.*` still omits them. | Add `resolveClosedWorld(...)`, the two parse-error constructors, and the `closedWorld` constructor/result slot, or document a permanent split where only `cmd` exposes resolved closed-world state. | Runtime export, `.d.ts` declaration, `api-parity.test.mjs` assertion against [`src/cli/pkg.generated.mbti`](../../../src/cli/pkg.generated.mbti), and README note if the split remains intentional. |
+| `./wast` | File/suite spec helpers exist, but command-level static assertion classification does not. | Add `evaluateWastStaticAssertion(...)` plus result/stage/kind types only if the wasm-gc adapter can expose the shape ergonomically. | Wrapper tests for `assert_malformed`, `assert_invalid`, and `assert_unlinkable`; cross-link to [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md) because that page owns stage semantics. |
+| `./wast` | `wast_arbitrary_feature_stats(...)` is MoonBit-only. | Treat this as fuzz/reporting API, not as part of the static assertion slice. | Runtime/declaration parity plus a small fixture proving the returned feature facts match WAST arbitrary docs before advertising it to JS consumers. |
+| `./validate` | Diagnostics / invalid-AST repro helpers are MoonBit-only. | Expose `validationIssueFamily(...)`, the invalid-AST registry/lookup helpers, and stable-id minimal-repro builders before broad GenValid parity. | API parity tests plus examples or smoke coverage that avoid parsing human validation messages; link to [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md). |
+| `./validate` | Current invalid-fuzz naming differs (`runValidateInvalidFuzz` versus MoonBit `run_validate_invalid_ast_fuzz(...)`). | Add compatibility aliases or write a semver plan before removing the old name. | Parity tests must show which name is canonical and which aliases remain supported. |
+| `./validate` | Configured `gen_valid` profiles and feature-ledger helpers are absent. | Land after diagnostics/repro, because generator parity has a larger type surface. | Wrapper tests tied to [`src/validate/pkg.generated.mbti`](../../../src/validate/pkg.generated.mbti) plus docs that distinguish generator profiles from fuzz suite profiles. |
+
 ## What Changed Since The 2026-04-18 Audit
 
 The archived audit at [`../raw/research/0110-2026-04-18-node-package-api-audit.md`](../raw/research/0110-2026-04-18-node-package-api-audit.md) correctly identified `cmd` as the most urgent drift point at that time.

@@ -131,7 +131,7 @@ The practical rule for maintainers is: **do not fork assertion semantics between
 - **Skips are visible debt, not hidden passes.** Runtime-only scripts, unsupported parser/lowerer gaps, and narrow `tests/spec` mismatches all report `Skipped(...)` with a reason. Preserve those counts in summaries.
 - **`assert_malformed` is broad locally.** The current static evaluator accepts either parse/lower/decode rejection or validation rejection for malformed assertions. If Starshine wants stricter upstream category fidelity, split that as a deliberate validator/spec-harness change.
 - **`assert_unlinkable` is pre-link only.** `ValidBeforeLink` means the module survived core validation. It does not prove a future link-time error until Starshine has a linker/runtime harness. The same caveat applies to the historical `valid-multi-module-linking` fuzz suite name and its `link_*` counters.
-- **Node package gap.** The MoonBit `wast` package exports `evaluate_wast_static_assertion(...)`, but the checked-in Node package does not yet expose `evaluateWastStaticAssertion(...)`; see [`../tooling/node-package-surface.md`](../tooling/node-package-surface.md).
+- **Node package gap.** The MoonBit `wast` package exports `evaluate_wast_static_assertion(...)`, but the checked-in Node package does not yet expose `evaluateWastStaticAssertion(...)`; see the export-map health contract and `./wast` gap-to-action rows in [`../tooling/node-package-surface.md`](../tooling/node-package-surface.md). File/suite helpers (`runWastSpecFile`, `runWastSpecSuite`) are already public, so the remaining gap is command-level stage classification, not the whole spec-harness surface.
 
 ## Validation Guidance
 

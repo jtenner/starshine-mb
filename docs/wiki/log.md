@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] tooling/node | export-map health contract
+
+- Refreshed [`tooling/node-package-surface.md`](tooling/node-package-surface.md) with an export-map-driven health contract for Node package audits: start from `node/package.json#exports`, require runtime/declaration parity per public subpath, keep one extensionless specifier style, classify missing MoonBit symbols as public-required / adapter-unsupported / intentionally omitted / compatibility alias, and route test ownership through `node/test/api-parity.test.mjs`, smoke tests, and examples.
+- Added a gap-to-action ledger for the remaining `./cli`, `./validate`, and `./wast` public API slices so future wrapper work can land small reviewed pieces instead of attempting blanket `pkg.generated.mbti` mirroring.
+- Cross-linked the exact `evaluateWastStaticAssertion(...)` Node gap from [`wast/static-assertion-harness.md`](wast/static-assertion-harness.md) and refreshed [`index.md`](index.md). Existing Node/TypeScript export-map primary-source captures plus current repository evidence were sufficient; no new raw-source file was added to avoid duplicating [`raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md`](raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md).
+
 ## [2026-06-04] wiki-health | archived research link repair
 
 - During the follow-up health check, repaired stale archived research links that still escaped back to old `docs/0063-*` and `docs/0065-*` numbered-note paths after the research migration; those same-directory references now resolve within `docs/wiki/raw/research/`.
