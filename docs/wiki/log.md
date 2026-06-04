@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] validate/data-count | code data-index requirement guide
+
+- Added [`raw/wasm/2026-06-04-data-count-code-data-index-recheck.md`](raw/wasm/2026-06-04-data-count-code-data-index-recheck.md) after rechecking current official WebAssembly Core 3.0 binary module and instruction-validation pages plus local `src/lib/types.mbt`, `src/validate/validate.mbt`, `src/validate/typecheck.mbt`, and `src/validate/invalid_fuzzer.mbt` evidence.
+- Added [`validate/data-count-and-code-data-indices.md`](validate/data-count-and-code-data-indices.md) as the focused data-count contract: `DataCntSec` count equality versus body-level missing-count diagnostics, the official any-code-data-index requirement, Starshine's current `MemoryInit` / `DataDrop` pre-code scanner, the local `ArrayNewData` / `ArrayInitData` precheck gap, concrete WAST/core examples, and pass/printer rewrite guidance.
+- Cross-linked the guide from [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`validate/diagnostics-and-invalid-repro.md`](validate/diagnostics-and-invalid-repro.md), [`binary/data-element-and-datacount-sections.md`](binary/data-element-and-datacount-sections.md), [`wast/data-segment-authoring.md`](wast/data-segment-authoring.md), [`wast/memory-instruction-authoring.md`](wast/memory-instruction-authoring.md), [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so repeated caveats now route through one durable validator page.
+
 ## [2026-06-04] tooling/validation | external validator adapter guide
 
 - Added [`raw/validation/2026-06-04-external-validator-adapters-source-refresh.md`](raw/validation/2026-06-04-external-validator-adapters-source-refresh.md) after checking current official `wasm-tools`, WABT, and Binaryen validation command surfaces plus local `src/cmd/fuzz_harness.mbt` and `src/cmd/fuzz_harness_wbtest.mbt` evidence.

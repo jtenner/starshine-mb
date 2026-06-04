@@ -7,6 +7,7 @@ sources:
   - ../raw/wasm/2026-05-19-validation-diagnostics-and-invalid-repro-sources.md
   - ../raw/wasm/2026-05-20-start-section-validation-sources.md
   - ../raw/wasm/2026-05-20-resource-section-validation-refresh.md
+  - ../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md
   - ../raw/wasm/2026-05-13-module-validation-phase-sources.md
   - ../../../src/validate/validate.mbt
   - ../../../src/validate/invalid_fuzzer.mbt
@@ -22,6 +23,7 @@ sources:
 related:
   - ./module-validation-phases.md
   - ./resource-sections-and-limits.md
+  - ./data-count-and-code-data-indices.md
   - ./import-export-and-external-type-matching.md
   - ./start-section.md
   - ./fuzz-hardening.md
@@ -91,7 +93,7 @@ Do not classify failures by message substrings. The issue variant and family map
 | `GlobalSection` | `global` | `globalsec`, `ref_func_declarations` for global initializers | Global types and constant initializers; see [`resource-sections-and-limits.md`](resource-sections-and-limits.md) and [`constant-expressions.md`](constant-expressions.md). |
 | `ElementSection` | `element` | `elemsec`, `ref_func_declarations` for element expressions | Element modes, payload typing, table targets, offsets, and declaration expressions; see [`resource-sections-and-limits.md`](resource-sections-and-limits.md). |
 | `DataSection` | `data` | `datasec` | Data modes, memory targets, and offsets; see [`resource-sections-and-limits.md`](resource-sections-and-limits.md). |
-| `DataCountSection` | `datacount` | `datacnt` | Data-count equality and illegal standalone data-count surfaces; body-level data-count requirements remain `FunctionBody`, as explained in [`resource-sections-and-limits.md`](resource-sections-and-limits.md). |
+| `DataCountSection` | `datacount` | `datacnt` | Data-count equality and illegal standalone data-count surfaces; body-level data-count requirements remain `FunctionBody`, as explained in [`data-count-and-code-data-indices.md`](data-count-and-code-data-indices.md) and [`resource-sections-and-limits.md`](resource-sections-and-limits.md). |
 | `StartSection` | `start` | `startsec` | Start target resolution and empty parameter/result signature; see [`start-section.md`](start-section.md). May carry `func_idx`. |
 | `ExportSection` | `export` | `exportsec` | Export target bounds and duplicate export names; see [`import-export-and-external-type-matching.md`](import-export-and-external-type-matching.md) for the focused export-index and duplicate-name contract. |
 | `CodeSection` | `code` | `codesec` structural gate | Missing or mismatched `FuncSec` / `CodeSec`, missing function type for a body ordinal, or other section-level code problems. |
@@ -102,7 +104,7 @@ The table intentionally mirrors [`module-validation-phases.md`](module-validatio
 
 ## Body Diagnostics Use Absolute Function Indices
 
-When imports precede defined functions, code-body ordinal `0` is not necessarily `FuncIdx(0)`. Starshine reports body diagnostics in the absolute function index space used by calls, exports, elements, and `ref.func`. The code-section validator maps body ordinals through the imported-prefix helpers before wrapping body errors as [`ValidationIssue::FunctionBody`](../../../src/validate/validate.mbt#L1532-L1536). The same rule appears in the data-count requirement scan, which reports `FunctionBody("data count section required")` with the computed function index when a body uses `memory.init` or `data.drop` without `DataCntSec` ([`validate.mbt`](../../../src/validate/validate.mbt#L2138-L2157)).
+When imports precede defined functions, code-body ordinal `0` is not necessarily `FuncIdx(0)`. Starshine reports body diagnostics in the absolute function index space used by calls, exports, elements, and `ref.func`. The code-section validator maps body ordinals through the imported-prefix helpers before wrapping body errors as [`ValidationIssue::FunctionBody`](../../../src/validate/validate.mbt#L1532-L1536). The same rule appears in the data-count requirement scan, which reports `FunctionBody("data count section required")` with the computed function index when a covered body data-index user appears without `DataCntSec`; current scanner coverage and the `array.new_data` / `array.init_data` gap live in [`data-count-and-code-data-indices.md`](data-count-and-code-data-indices.md).
 
 This is why invalid-fuzz expectations are family-based, not message-only: the same semantic rule can be discovered in a section-level phase or a body-level phase depending on where the offending use lives.
 

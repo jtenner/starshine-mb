@@ -5,6 +5,7 @@ last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
+  - ../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md
   - ../raw/wasm/2026-05-19-wast-memory-instruction-sources.md
   - ../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
   - ../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md
@@ -31,6 +32,7 @@ related:
   - ../binary/data-element-and-datacount-sections.md
   - ../binary/type-table-memory-global-tag-sections.md
   - ../validate/module-validation-phases.md
+  - ../validate/data-count-and-code-data-indices.md
   - ../fuzzing/generator-coverage-ledger.md
   - ../fuzzing/wast-arbitrary-parity-plan.md
 ---
@@ -162,7 +164,7 @@ Validation in [`typecheck_memory_copy(...)`](../../../src/validate/typecheck.mbt
 
 `memory.init` copies from a passive data segment into a memory. It carries a data index plus a memory index. Validation checks the data segment exists, the memory exists, the destination uses the selected memory address type, and the source offset plus length are `i32`. `data.drop` carries only a data index and consumes no stack values.
 
-The data-count rule is easy to miss: function bodies that use `memory.init` or `data.drop` require a data-count section. Starshine makes that user-visible with a separate [`datacnt_requirement`](../../../src/validate/validate.mbt) phase before code body typechecking. The current official rule is actually broader—any code-section data index requires data-count—so data-backed GC array forms (`array.new_data`, `array.init_data`) share the same binary/module requirement even though they are not current WAST text. Starshine's pre-code requirement scanner currently covers only `memory.init` / `data.drop`; direct core/binary GC-array fixtures without `DataCntSec` are tracked as a validator gap in [`data-segment-authoring.md`](data-segment-authoring.md) and [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md). WAST data authoring, active/passive mode selection, string payloads, and current printer/abbreviation caveats are covered in [`data-segment-authoring.md`](data-segment-authoring.md); segment headers and data-count binary layout are covered in [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md). Fixture-format guidance for data-backed GC array core/binary instructions lives in [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md).
+The data-count rule is easy to miss: function bodies that use `memory.init` or `data.drop` require a data-count section. Starshine makes that user-visible with a separate [`datacnt_requirement`](../../../src/validate/validate.mbt) phase before code body typechecking. The current official rule is actually broader—any code-section data index requires data-count—so data-backed GC array forms (`array.new_data`, `array.init_data`) share the same binary/module requirement even though they are not current WAST text. Starshine's pre-code requirement scanner currently covers only `memory.init` / `data.drop`; direct core/binary GC-array fixtures without `DataCntSec` are tracked as a validator gap in [`../validate/data-count-and-code-data-indices.md`](../validate/data-count-and-code-data-indices.md), [`data-segment-authoring.md`](data-segment-authoring.md), and [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md). WAST data authoring, active/passive mode selection, string payloads, and current printer/abbreviation caveats are covered in [`data-segment-authoring.md`](data-segment-authoring.md); segment headers and data-count binary layout are covered in [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md). Fixture-format guidance for data-backed GC array core/binary instructions lives in [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md).
 
 ## Layer Map
 
@@ -198,6 +200,7 @@ The data-count rule is easy to miss: function bodies that use `memory.init` or `
 
 - Source manifest: [`../raw/wasm/2026-05-19-wast-memory-instruction-sources.md`](../raw/wasm/2026-05-19-wast-memory-instruction-sources.md)
 - Current data/data-count refresh: [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md)
+- Focused data-count/data-index guide: [`../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md`](../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md), [`../validate/data-count-and-code-data-indices.md`](../validate/data-count-and-code-data-indices.md)
 - Current address-width refresh: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
 - Memory64 bulk-memory refresh: [`../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md)
 - Atomic companion manifest: [`../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md`](../raw/wasm/2026-05-20-atomic-memory-instruction-sources.md), [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md)
