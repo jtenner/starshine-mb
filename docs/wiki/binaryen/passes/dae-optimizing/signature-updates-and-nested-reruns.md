@@ -274,8 +274,8 @@ The nested replay is how Binaryen cashes in on those opportunities immediately.
 
 The repo’s saved generated-artifact log proves this is not just source-comment theory.
 
-Inside the DAE section of `.artifacts/o4z-wasm-opt-debug.log`, the nested pipeline replay shows up repeatedly.
-That visible replay is why the pass belongs in the tracker as a boundary-only pass with nested-rerun support, not just as “yet another missing module pass.”
+The committed DAE research note [`0120`](../../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md) records the local `.artifacts/o4z-wasm-opt-debug.log` replay identifier plus the counted nested rerun family between the top-level `dae-optimizing` and `inlining-optimizing` log intervals.
+That recorded replay is why the pass belongs in the tracker as a boundary-only pass with nested-rerun support, not just as “yet another missing module pass.”
 
 ## 10. The pass intentionally avoids some low-value work
 

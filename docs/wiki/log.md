@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wiki-health | DAE artifact-source routing
+
+- Repointed a living-page DAE nested-rerun sentence in [`binaryen/passes/dae-optimizing/signature-updates-and-nested-reruns.md`](binaryen/passes/dae-optimizing/signature-updates-and-nested-reruns.md) so the durable support is the committed research note [`0120`](raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md), while the old `.artifacts/o4z-wasm-opt-debug.log` path remains only a replay identifier preserved inside that raw note.
+- Health-check scope included redundant `docs/wiki/` links, empty markdown links, TODO/stale wording, transient `.tmp` / `.artifacts` mentions, current scalar numeric source routing, and line-anchor citations; historical log entries and archived raw research replay paths were left unchanged.
+
 ## [2026-06-04] wast | scalar numeric current-source refresh
 
 - Added [`docs/wiki/raw/wasm/2026-06-04-scalar-numeric-current-refresh.md`](raw/wasm/2026-06-04-scalar-numeric-current-refresh.md) after rechecking current official WebAssembly Core 3.0 syntax, text, text-value, binary, instruction-validation, and numeric-execution pages dated 2026-06-03 plus Starshine WAST/parser/lowerer/binary/typecheck/constant-expression surfaces.
