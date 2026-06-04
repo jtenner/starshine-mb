@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-03] passes | global-struct-inference float sqrt un-nesting
+
+- Broadened guarded small-module non-constant operand un-nesting for `global-struct-inference` to include pure non-trapping float square-root operands (`f32.sqrt` and `f64.sqrt`), without changing the read-gated request filter or the large-module materializable-only guard.
+- Added public-pipeline coverage in `src/passes/global_struct_inference_test.mbt` for direct-global `f32.sqrt` and `f64.sqrt` field operands splitting into fresh immutable globals and then folding the field read.
+- Recorded TDD failure evidence before implementation and final signoff: `moon test src/passes` passed `1530/1530`, `moon test` passed `4707/4707`, `.tmp/pass-fuzz-global-struct-inference-unnest-float-sqrt-final-10000` reached `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures (`22` empty-recursion-group plus one each bad-section-size, table-index-out-of-range, and invalid-tag-index). `.tmp/gsi-debug-artifact-timing-unnest-float-sqrt-final` was canonical-equal with Starshine/Binaryen pass-local `0.441 ms / 3.019 ms`.
+
 ## [2026-06-03] passes | global-struct-inference atomic-get blocker refresh
 
 - Refreshed the plain-GSI atomic-get blocker with local source evidence instead of adding fake coverage: `src/lib` exposes ordinary `StructGet` / `StructGetS` / `StructGetU` and `RefGetDesc`, while focused greps for `struct.atomic`, `atomic.get`, `StructGetAtomic`, and `Struct.*Atomic` found no opcode surface in `src/lib`, `src/wast`, or `src/validate`.

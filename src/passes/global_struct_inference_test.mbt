@@ -488,6 +488,55 @@ test "global-struct-inference un-nests pure unary numeric direct-global fields" 
 }
 
 ///|
+test "global-struct-inference un-nests pure float sqrt direct-global fields" {
+  let f32_input =
+    #| (module
+    #|   (type $box (sub (struct (field f32))))
+    #|   (global $g (ref $box)
+    #|     (struct.new $box
+    #|       (f32.sqrt (f32.const 9))))
+    #|   (func (export "read") (result f32)
+    #|     global.get $g
+    #|     struct.get $box 0))
+    #|
+  let f32_optimized = gsi_test_run(f32_input, false)
+  let f32_pretty = f32_optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(f32_pretty.contains("struct.get"), msg=f32_pretty)
+  assert_true(f32_pretty.contains("global.get"), msg=f32_pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(f32_optimized), 2)
+  assert_true(
+    try! gsi_test_global_init_contains(
+      f32_optimized,
+      0,
+      @lib.Instruction::f32_sqrt(),
+    ),
+  )
+
+  let f64_input =
+    #| (module
+    #|   (type $box (sub (struct (field f64))))
+    #|   (global $g (ref $box)
+    #|     (struct.new $box
+    #|       (f64.sqrt (f64.const 16))))
+    #|   (func (export "read") (result f64)
+    #|     global.get $g
+    #|     struct.get $box 0))
+    #|
+  let f64_optimized = gsi_test_run(f64_input, false)
+  let f64_pretty = f64_optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(f64_pretty.contains("struct.get"), msg=f64_pretty)
+  assert_true(f64_pretty.contains("global.get"), msg=f64_pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(f64_optimized), 2)
+  assert_true(
+    try! gsi_test_global_init_contains(
+      f64_optimized,
+      0,
+      @lib.Instruction::f64_sqrt(),
+    ),
+  )
+}
+
+///|
 test "global-struct-inference un-nests pure shift and rotate direct-global fields" {
   let i32_input =
     #| (module

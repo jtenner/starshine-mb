@@ -163,7 +163,7 @@ This line shows the dispatcher still passes `closed_world`. The current direct-g
 - `src/passes/global_struct_inference.mbt:20-460`
   - `GsiClosedWorldFacts`, struct-allocation scanners, equality-comparable global declaration filter, subtype propagation helpers, exact direct candidate extraction, exact direct single-candidate extraction, and `gsi_build_closed_world_facts(...)`.
 - `src/passes/global_struct_inference.mbt:577-1146`
-  - guarded small-module arithmetic/bitwise/shift-rotate/unary-numeric un-nesting request collection, fresh-global synthesis, initializer repair, dynamic packed signed/unsigned repair for fresh-global payloads, and forced reorder-globals repair.
+  - guarded small-module arithmetic/bitwise/shift-rotate/unary-numeric/float-sqrt un-nesting request collection, fresh-global synthesis, initializer repair, dynamic packed signed/unsigned repair for fresh-global payloads, and forced reorder-globals repair.
 - `src/passes/global_struct_inference.mbt:1149-1232`
   - default-value materialization, simple one-instruction result typing, accepted field-value materialization, candidate field-value harvesting from trusted global initializers, and accepted top-level global initializer constructors.
 - `src/passes/global_struct_inference.mbt:1235-2118`
@@ -204,7 +204,7 @@ Current focused white-box tests prove the new closed-world fact builder:
 - poisoned child types poison parents, including modules with no global section
 - child candidate globals propagate upward to parent types in deterministic global-index order
 
-These tests now cover the direct-global O4z audit surfaces, the subtype-aware closed-world candidate-map foundation, exact and subtype-propagated single-candidate local/param origin consumers, exact/subtype-propagated one-value multi-candidate local/param folds, exact/subtype-propagated two-value singleton-group local/param selects, small-module arithmetic/bitwise/shift-rotate/unary-numeric un-nesting, and small-module `ref.get_desc` folds. They are still far narrower than Binaryen `gsi.wast` because descriptor-cast rewrites, atomic gets, full refinalization, and unbounded large-module un-nesting remain absent.
+These tests now cover the direct-global O4z audit surfaces, the subtype-aware closed-world candidate-map foundation, exact and subtype-propagated single-candidate local/param origin consumers, exact/subtype-propagated one-value multi-candidate local/param folds, exact/subtype-propagated two-value singleton-group local/param selects, small-module arithmetic/bitwise/shift-rotate/unary-numeric/float-sqrt un-nesting, and small-module `ref.get_desc` folds. They are still far narrower than Binaryen `gsi.wast` because descriptor-cast rewrites, atomic gets, full refinalization, and unbounded large-module un-nesting remain absent.
 
 ## Current local-vs-Binaryen matrix
 
