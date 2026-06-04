@@ -126,9 +126,10 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Deliverables: apply the common checklist; coordinate invariant docs with `[AUDIT006-D]`; add missing interference/ref/name fixtures; refresh direct compare and `CL` slot evidence.
 
 - [O4Z-AUDIT-LCSE] - Deep audit `local-cse`
-  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit; 2026-06-04 focused audit evidence lives in `docs/wiki/raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`.
   - Scope: local expression reuse, effect barriers, memory/table/global/call/EH/GC/SIMD shapes, module adapter behavior, and pass-local runtime.
-  - Deliverables: apply the common checklist; coordinate shape tests with `[AUDIT004-J]`/`[AUDIT004-K]`; refresh direct compare and `LCSE` slot evidence; classify missed CSE opportunities by barrier type.
+  - Current finding: direct 1000-case compare was semantically green (`998` normalized matches, `2` Binaryen empty-recursion-group command failures, `0` mismatches) and debug-WASI pass-local timing cleared the 2x Binaryen budget, but Starshine misses Binaryen's before-`if` into `then` reuse window positive.
+  - Deliverables: apply the common checklist; add test-first coverage for before-`if`/then positive plus after-`if`, else-arm, loop/control-boundary negatives; coordinate shape tests with `[AUDIT004-J]`/`[AUDIT004-K]`; refresh direct compare and `LCSE` slot evidence; classify missed CSE opportunities by barrier type.
 
 - [O4Z-AUDIT-SL] - Deep audit `simplify-locals`
   - Status: active v0.1.0 release-gating `-O4z` per-pass audit.

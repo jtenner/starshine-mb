@@ -1,13 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-04
 sources:
   - ../../../raw/research/0464-2026-05-05-local-cse-port-readiness-and-validation.md
   - ../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md
   - ../../../raw/research/0533-2026-05-06-local-cse-direct-revalidation.md
+  - ../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md
   - ../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md
   - ../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md
+  - ../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md
   - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
@@ -41,7 +43,7 @@ related:
 
 # Starshine Port Readiness And Validation For `local-cse`
 
-This page is the bridge between the upstream source-backed `local-cse` contract and the remaining Starshine ordered-neighborhood claim, now refreshed by the 2026-05-06 line-anchor note.
+This page is the bridge between the upstream source-backed `local-cse` contract and the remaining Starshine ordered-neighborhood claim, now refreshed by the 2026-05-06 line-anchor note and the 2026-06-04 `version_130` / current-main audit refresh.
 It does **not** claim exact public preset parity.
 It says what is already in-tree, what the nearest landing zone is, and what still needs to be proven before the exact ordered slots are claimed.
 
@@ -57,9 +59,9 @@ For the exact upstream algorithm and source/test map, read:
 Starshine now treats `local-cse` as an active direct pass.
 The owner file, direct tests, registry entry, dispatcher route, debug-artifact evidence, and 2026-05-06 refreshed direct-pass fuzz evidence have landed.
 
-The refreshed direct lane in `.tmp/pass-fuzz-local-cse` reached 6759/10000 compared cases with 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group command failures.
+The refreshed direct lane in `.tmp/pass-fuzz-local-cse` reached 6759/10000 compared cases with 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group command failures. A later 2026-06-04 O4z audit lane in `.tmp/pass-fuzz-local-cse-audit-1000` reached 998/1000 compared cases with 998 normalized matches, 0 mismatches, and 2 known Binaryen empty-recursion-group command failures.
 
-The honest remaining state is preset-slot restraint until the missing ordered neighborhoods are representable.
+The honest remaining state is preset-slot restraint until the missing ordered neighborhoods are representable, plus a direct Starshine missed-optimization follow-up: Binaryen can reuse a before-`if` expression in the `then` arm, while the current Starshine raw/module implementation keeps that repeated tree unoptimized.
 
 ## What already exists locally
 
@@ -68,7 +70,7 @@ The nearest local surfaces are:
 | Surface | Why it matters |
 | --- | --- |
 | `src/passes/local_cse.mbt:1-18,543-559,809-816` | Active owner file for the direct `local-cse` transform. |
-| `src/passes/local_cse_test.mbt:14-94` | Direct repeated-tree, parent-cancellation, barrier, and local-write tests. |
+| `src/passes/local_cse_test.mbt:14-94` | Direct repeated-tree, parent-cancellation, barrier, and local-write tests; still missing the before-`if` / then-arm positive and paired boundary negatives. |
 | `src/passes/optimize.mbt:253,437-449,456-472` | Registers `local-cse` as an active module pass while keeping the exact preset neighborhood gated. |
 | `src/passes/pass_manager.mbt:8939-8943` | Dispatches the active `local-cse` module pass. |
 | `src/passes/optimize_test.mbt:510-512,520-527,567-568` | Keeps `local-cse` classified as an active module pass in the regression surface. |
@@ -104,15 +106,19 @@ Start small and stay honest about the remaining ordered neighborhoods.
 
 ### 1. Shape tests stay green
 
-The landed direct pass already covers the source-backed families in [`./wat-shapes.md`](./wat-shapes.md):
+The landed direct pass already covers part of the source-backed family map in [`./wat-shapes.md`](./wat-shapes.md):
 
 - repeated arithmetic roots
 - repeated loads
-- before-`if` / then-arm positives
 - parent-over-child cancellation
-- after-`if` window resets
 - local-write invalidation
-- idempotent direct-call positives
+
+The remaining shape-test gap from the 2026-06-04 audit is:
+
+- before-`if` / then-arm positive
+- after-`if` window reset negative
+- else-arm negative
+- idempotent direct-call positive, if Starshine gains safe annotation plumbing for Binaryen's narrow exception
 - generative GC-root negatives
 - tiny-root profitability no-ops
 
@@ -129,7 +135,13 @@ Keep proving that:
 
 Keep signoff with pass-targeted fuzz compare against Binaryen on the canonical pass spelling.
 
-### 4. Neighborhood replay remains gated
+The 2026-06-04 audit also measured pass-local timing on `tests/node/dist/starshine-debug-wasi.wasm`: Starshine traced `pass:local-cse` at about `63-67 ms`, while Binaryen `wasm-opt --debug --local-cse` reported about `109-110 ms`, so the sampled direct-pass runtime cleared the repository 2x Binaryen budget.
+
+### 4. Before-`if` / then-arm parity remains open
+
+Add a focused test for the source-backed Binaryen positive where a repeated tree before an `if` is reused inside the `then` arm. Pair it with after-`if` and else-arm negatives so the fix does not widen the reuse window past Binaryen's `LinearExecutionWalker` boundaries. The current raw/module implementation is region-local, so the safe fix needs cross-region binding materialization rather than a broad CFG-wide CSE rewrite.
+
+### 5. Neighborhood replay remains gated
 
 Only after the adjacent local cleanup neighbors are represented locally should the no-DWARF neighborhood replay claim be made.
 That means the validation story should stay conservative until the `flatten -> simplify-locals-notee-nostructure -> local-cse` and `coalesce-locals -> local-cse -> simplify-locals` slots are actually testable end to end.

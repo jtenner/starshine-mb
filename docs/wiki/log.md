@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] passes/local-cse | O4z final-pass audit
+
+- Added [`docs/wiki/raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md) after auditing active `[O4Z-AUDIT-LCSE]` against Binaryen for functional and performance gaps.
+- Added [`docs/wiki/raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md`](raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md) after rechecking official Binaryen `version_130` and current `main` `LocalCSE.cpp`, `linear-execution.h`, and `local-cse.wast` source surfaces.
+- Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`wat-shapes.md`](binaryen/passes/local-cse/wat-shapes.md), and [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md) with the current evidence: 998 normalized matches, 0 mismatches, 2 known Binaryen empty-recursion-group command failures in the 1000-case direct lane; sampled Starshine pass-local timing cleared the 2x Binaryen budget on the debug-WASI artifact.
+- Current durable gap: Starshine's raw/module `local-cse` misses Binaryen's before-`if` into `then` reuse positive, so `[O4Z-AUDIT-LCSE]` remains active until that shape is covered test-first and either implemented safely or explicitly deferred.
+
 ## [2026-06-04] binary/fuzzing | LEB128 current-source and canonicality refresh
 
 - Added [`docs/wiki/raw/wasm/2026-06-04-leb128-current-refresh.md`](raw/wasm/2026-06-04-leb128-current-refresh.md) after rechecking current WebAssembly Core binary values/conventions pages, the official `binary-leb128.wast` fixture, and current Starshine LEB decode/encode/size helpers, invalid-binary strategy inventory, and command-harness canonicality classifier.

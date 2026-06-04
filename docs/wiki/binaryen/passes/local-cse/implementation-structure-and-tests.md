@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-04
 sources:
   - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md
+  - ../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md
   - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md
+  - ../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md
   - ../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
@@ -124,7 +126,7 @@ Starshine now implements `local-cse`. The relevant local files are implementatio
 | Local file | Exact role today |
 | --- | --- |
 | `src/passes/local_cse.mbt:1-18,543-559,809-816` | Active Starshine owner file for direct `local-cse` execution, including the summary, descriptor, module-pass entry, and main HotPass rewrite pipeline. |
-| `src/passes/local_cse_test.mbt:14-94` | Direct registry and behavior tests for repeated trees, parent-over-child cancellation, load barriers, and local-write window resets. |
+| `src/passes/local_cse_test.mbt:14-94` | Direct registry and behavior tests for repeated trees, parent-over-child cancellation, load barriers, and local-write window resets. A 2026-06-04 audit found missing coverage for Binaryen's before-`if` into `then` positive plus after-`if` and else-arm negatives. |
 | `src/passes/optimize.mbt:253,437-449,456-472` | Registers `local-cse` as an active module pass and keeps the aggressive neighborhood gate closed. |
 | `src/passes/pass_manager.mbt:8939-8943` | Module-pass dispatch routes `local-cse` to `local_cse_run_module_pass(...)`. |
 | `src/passes/optimize_test.mbt:510-512,520-527,567-568` | Confirms `local-cse` stays in the active module-pass category on the regression surface, keeps the proven late preset order, and preserves the trace neighborhood proof. |
@@ -144,6 +146,7 @@ Starshine now implements `local-cse`. The relevant local files are implementatio
 A faithful local port still needs neighborhood parity signoff with:
 
 - focused WAT tests for each fixture family above,
+- test-first coverage and implementation for the before-`if` into `then` reuse positive found missing in the 2026-06-04 audit,
 - source-derived tests for idempotent direct calls and GC-generative allocation rejection,
 - registry and explicit-pass CLI tests keeping `local-cse` active,
 - repeated-pass/idempotence tests because Binaryen can rerun local cleanup,

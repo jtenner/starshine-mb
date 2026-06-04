@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-04
 sources:
   - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md
+  - ../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md
+  - ../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md
   - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
@@ -25,7 +27,7 @@ related:
 # `local-cse` WAT Shapes
 
 This page is the beginner-friendly shape catalog for Binaryen’s `local-cse` pass.
-It was rechecked against the 2026-04-22 raw primary-source capture at [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md), which records the reviewed official Binaryen `version_129` release-page date (**2026-04-01**), and the 2026-05-05 current-main recheck at [`../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md), which found no teaching-relevant drift.
+It was rechecked against the 2026-04-22 raw primary-source capture at [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md), which records the reviewed official Binaryen `version_129` release-page date (**2026-04-01**), the 2026-05-05 current-main recheck at [`../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md), and the 2026-06-04 `version_130` / current-main audit refresh at [`../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md`](../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md). Those source checks found no teaching-relevant Binaryen drift, but the 2026-06-04 Starshine audit at [`../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md) found one local missed Binaryen-positive shape: before-`if` into `then` reuse.
 
 ## Read this page with one mental model
 
@@ -258,6 +260,8 @@ Why this split happens:
 - the `else` arm is not
 
 So `local-cse` is not just “same AST block only,” but it is also not arbitrary dominance-based CSE.
+
+Starshine status note, current as of the 2026-06-04 audit: this is an upstream Binaryen positive but a local missed optimization. Current `src/passes/local_cse.mbt` visits `then` and `else` regions with fresh region states, so direct `--local-cse` leaves this repeated tree in place. Future fixes should add this positive together with after-`if` and else-arm negatives before widening the local window model.
 
 ## Shape 7: repeated loads are allowed
 
@@ -552,4 +556,4 @@ A good beginner summary is:
 
 > `local-cse` keeps one repeated whole tree, stores it in a temp local, and reuses it later—but only within one small execution window and only when effects, determinism, and profitability all agree.
 
-That is the real shape story Binaryen `version_129` implements.
+That is the real shape story Binaryen `version_129` through `version_130` implements, with no teaching-relevant current-main drift found in the 2026-06-04 source refresh.

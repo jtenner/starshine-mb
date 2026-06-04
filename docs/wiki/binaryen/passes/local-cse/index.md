@@ -1,13 +1,15 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-04
 sources:
   - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md
+  - ../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md
   - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md
   - ../../../raw/research/0533-2026-05-06-local-cse-direct-revalidation.md
+  - ../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md
   - ../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md
@@ -85,6 +87,8 @@ That is smaller and more local than “Binaryen does generic CSE here.”
 - A 2026-05-06 line-anchor refresh at [`../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md) pinned the exact current local code anchors now used in the Starshine pages and confirmed the same source-backed contract.
 - A repo-authored 2026-05-05 correction note at [`../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md`](../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md) records that older Starshine-status wording in the raw upstream bridge is stale now that the direct Starshine pass has landed.
 - A 2026-05-06 direct revalidation at [`../../../raw/research/0533-2026-05-06-local-cse-direct-revalidation.md`](../../../raw/research/0533-2026-05-06-local-cse-direct-revalidation.md) reran the refreshed harness with `--count 10000 --seed 0x5eed --pass local-cse`, reached 6759 compared cases, and found 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group command failures.
+- A 2026-06-04 `version_130` / current-main refresh at [`../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md`](../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md) found no teaching-relevant Binaryen drift from the 2026-05-06 source bridge.
+- A 2026-06-04 O4z audit at [`../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md) refreshed a 1000-case direct lane with 998 normalized matches, 2 known Binaryen empty-recursion-group command failures, and 0 mismatches; it also found a Starshine missed optimization for Binaryen's before-`if` into `then` reuse window while pass-local timing on `tests/node/dist/starshine-debug-wasi.wasm` cleared the 2x Binaryen budget.
 - The pass really is a three-stage algorithm:
   - `scan`
   - `check`
@@ -118,6 +122,7 @@ That is smaller and more local than “Binaryen does generic CSE here.”
 - Treat this folder as the canonical home for `local-cse` behavior, parity, and slot-planning notes.
 - Keep the active Starshine implementation status in sync with `src/passes/local_cse.mbt`, `src/passes/local_cse_test.mbt`, `src/passes/optimize.mbt`, `src/passes/pass_manager.mbt`, `src/cmd/cmd_wbtest.mbt`, and `agent-todo.md`.
 - New `local-cse` findings should update the strategy page, implementation/test-map page, and windows/barriers page together so the algorithm explanation, proof-surface map, and control-flow safety story stay aligned.
+- Do not mark the O4z LCSE audit complete until the before-`if` into `then` missed optimization is covered test-first and either implemented safely or explicitly deferred with accepted parity rationale.
 
 ## Sources
 

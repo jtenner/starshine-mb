@@ -1,10 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-04
 sources:
   - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md
+  - ../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md
   - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
@@ -12,6 +13,7 @@ sources:
   - ../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md
   - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
+  - ../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -66,7 +68,7 @@ If Binaryen sees:
 - a repeated original before the `if`
 - and the repeated copy inside the `then` arm
 
-then that is still considered one valid reuse window.
+then that is still considered one valid reuse window. A 2026-06-04 Starshine audit confirmed this as an open missed optimization in the current raw/module `local-cse` implementation: Binaryen inserts a temp local for this shape, while Starshine currently leaves the repeated tree in place.
 
 ### Case 2: across a normal direct call boundary
 

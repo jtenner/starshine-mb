@@ -1,13 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-04
 sources:
   - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md
+  - ../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md
   - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md
   - ../../../raw/research/0533-2026-05-06-local-cse-direct-revalidation.md
+  - ../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md
   - ../../../raw/research/0464-2026-05-05-local-cse-port-readiness-and-validation.md
   - ../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md
   - ../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
@@ -47,14 +49,16 @@ related:
 
 # Starshine Strategy For `local-cse`
 
-Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md), the 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md), the 2026-05-06 line-anchor refresh in [`../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md), the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), and the implementation-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md), the 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md), the 2026-05-06 line-anchor refresh in [`../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md), the 2026-06-04 `version_130` / current-main refresh in [`../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md`](../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md), the 2026-06-04 audit note in [`../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), and the implementation-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, and the concrete neighboring implementation areas future preset-slot work will need.
 
 ## The honest current status
 
 `local-cse` is now implemented in Starshine with a dedicated owner file, tests, registry entry, dispatcher route, fuzz-harness support, and direct debug-artifact self-optimize evidence.
 
-The 2026-05-06 refreshed direct-pass lane is green: `.tmp/pass-fuzz-local-cse` reported 6759/10000 compared cases, 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group command failures.
+The 2026-05-06 refreshed direct-pass lane is green: `.tmp/pass-fuzz-local-cse` reported 6759/10000 compared cases, 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group command failures. The 2026-06-04 O4z audit lane stayed semantically green on generated inputs (`998` normalized matches, `0` mismatches, and `2` known Binaryen empty-recursion-group command failures) and sampled Starshine pass-local time on `tests/node/dist/starshine-debug-wasi.wasm` at about `63-67 ms` versus Binaryen's `109-110 ms` debug pass time.
+
+One direct parity gap remains open: Binaryen can reuse a repeated tree computed before an `if` inside the `then` arm, but current Starshine starts fresh local-CSE state when visiting `then` and `else` regions (`src/passes/local_cse.mbt:761-805`). This is a semantic-safe missed optimization, not a semantic mismatch.
 
 The active local strategy is still deliberately slot-honest:
 
@@ -62,6 +66,7 @@ The active local strategy is still deliberately slot-honest:
 - schedule the proven late `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` cleanup neighborhood in public `optimize` / `shrink`
 - keep the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gated until `flatten` lands
 - grow the implementation from same-window temp-localizing reuse without recasting it as a whole-function GVN pass
+- keep the before-`if` / then-arm Binaryen-positive gap visible until it is covered test-first and either implemented safely or explicitly deferred
 
 ## Exact local code map today
 
@@ -70,6 +75,7 @@ The fastest read-along path through the current Starshine status is:
 - active pass implementation and tests
   - `src/passes/local_cse.mbt:1-18,543-559,809-816`
   - `src/passes/local_cse_test.mbt:14-94`
+    - covers registry, same-window arithmetic, parent-over-child, load/store, and local-write barriers; still missing the before-`if` / then-arm positive plus paired after-`if` and else-arm negatives
 - active registry and dispatcher surface
   - `src/passes/optimize.mbt:253,437-449,456-472`
     - `local-cse` is registered as an active module pass and scheduled in the proven late local-cleanup preset neighborhood
@@ -118,7 +124,7 @@ That means:
 
 ### 2. The landed work is a direct parity slice
 
-The implementation covers same-window temp-localizing reuse for repeated local arithmetic trees, preserves barrier resets for local writes/calls in the raw path, and is protected by direct pass tests plus fuzz/self-optimize evidence.
+The implementation covers same-window temp-localizing reuse for repeated local arithmetic trees, preserves barrier resets for local writes/calls in the raw path, and is protected by direct pass tests plus fuzz/self-optimize evidence. It does not yet implement Binaryen's adjacent before-`if` into `then` reuse window.
 The docs should keep that slice connected to the exact Binaryen contract:
 
 - repeated **whole-tree** reuse, not arbitrary subtree extraction
@@ -246,12 +252,12 @@ The direct pass already exists, so the remaining validation ladder is about exac
 1. Keep the landed direct tests green
    - same-block repeated arithmetic trees
    - repeated load positives
-   - before-`if` / `then` positives
    - parent-over-child cancellation cases
    - after-`if` window resets
    - local-write invalidation
    - nested call and generative GC negative roots
    - tiny-root profitability no-op cases
+   - add missing before-`if` / then-arm positive, paired with after-`if` and else-arm negatives, before claiming Binaryen window-model parity
 2. Keep the registry and CLI proof honest
    - `local-cse` stays an active module pass
    - explicit `--local-cse` execution keeps working
@@ -274,7 +280,7 @@ Current Starshine `local-cse` strategy is an active direct pass plus a guarded n
 - the backlog already treats the remaining ordered-neighborhood work as the real parity slice under `LCSE`
 - the canonical early and late slots are already documented in the no-DWARF optimizer notes
 - the surrounding implementation files already exist and define the practical landing zone for future neighborhood work, especially `simplify_locals.mbt`, `reorder_locals.mbt`, `pass_manager_wbtest.mbt`, and `cmd_wbtest.mbt`
-- the docs now keep one important honesty rule explicit: no exact preset-slot claim should be made before the missing upstream-neighbor equivalents land locally
+- the docs now keep two important honesty rules explicit: no exact preset-slot claim should be made before the missing upstream-neighbor equivalents land locally, and no direct window-model parity claim should be made until the before-`if` / then-arm gap is covered test-first
 
 So the right mental model today is not “nothing exists locally.”
 It is:
