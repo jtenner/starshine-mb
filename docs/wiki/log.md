@@ -8,6 +8,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Expanded [`tooling/tracing-playbook.md`](tooling/tracing-playbook.md) from a compact March tracing summary into the current two-lane contract: runtime CLI/optimizer tracing versus validator trace-benchmark output, accepted `pass|phase|helper` levels, `STARSHINE_TRACING`, `STARSHINE_OPTIMIZE_MAX_PASSES`, `[trace]` command lines, optimizer `perf:*` lines, validator `phase_totals` / `helper_totals` / `hotspots`, timing caveats, and maintenance rules.
 - Refreshed [`validate/trace-benchmark-baseline.md`](validate/trace-benchmark-baseline.md), [`tooling/validation-gates.md`](tooling/validation-gates.md), and [`index.md`](index.md) so trace-benchmark routing now points to the 2026-06-04 source bridge while preserving the March baseline snapshot as the durable emitted evidence.
 
+## [2026-06-04] passes/local-cse | call_ref root negative coverage
+
+- Added core-built direct `local-cse` regression coverage proving repeated `call_ref` roots remain separate; an attempted WAT-path fixture failed in local parser/modeling, while the Binaryen WAT spot check kept both roots with no `local.tee`.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-call-ref-root-10000`: 6768 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
+- Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`wat-shapes.md`](binaryen/passes/local-cse/wat-shapes.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so `call_ref` is a covered call-barrier negative rather than open LCSE hardening work.
+
 ## [2026-06-04] passes/local-cse | try_table body positive fix
 
 - Spot-checked the proposed EH boundary shape and found a Binaryen-positive adjacent-window case: a repeated expression before `try_table` can be materialized and reused inside the try body.

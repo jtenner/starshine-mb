@@ -202,7 +202,7 @@ The key idea is:
 - if the root can produce a fresh or otherwise different value each time,
 - then replacing the second one with the first is wrong.
 
-This is the main GC-era “sounds pure, still not reusable” rule. Starshine now has direct regression coverage for the `call_indirect`, `struct.new`, `struct.new_default`, and core-fixture `array.new` members of this family: repeated indirect-call roots and repeated allocations remain separate and no temp local is introduced. Other `array.new*` variants remain follow-up candidates if a future audit needs variant-by-variant coverage.
+This is the main GC-era “sounds pure, still not reusable” rule. Starshine now has direct regression coverage for the `call_indirect`, core-fixture `call_ref`, `struct.new`, `struct.new_default`, and core-fixture `array.new` members of this family: repeated indirect/reference-call roots and repeated allocations remain separate and no temp local is introduced. Other `array.new*` variants remain follow-up candidates if a future audit needs variant-by-variant coverage.
 
 ## Barrier family 3: intervening invalidation
 
@@ -245,7 +245,7 @@ So repeated call roots stay as separate calls.
 
 There is one source-level carveout.
 
-If the callee annotations say `idempotent`, Binaryen allows that direct call as a candidate and also avoids letting a later shallowly-equal idempotent call invalidate the earlier one. Starshine now has a direct regression fixture for this narrow case: `@binaryen.idempotent` WAT annotations lower into `FuncAnnotationSec`, the raw/module `local-cse` path consults only that callee metadata, and repeated single-result direct calls can be materialized with a temp local. Ordinary non-annotated calls, indirect calls, and `call_ref` remain barriers.
+If the callee annotations say `idempotent`, Binaryen allows that direct call as a candidate and also avoids letting a later shallowly-equal idempotent call invalidate the earlier one. Starshine now has a direct regression fixture for this narrow case: `@binaryen.idempotent` WAT annotations lower into `FuncAnnotationSec`, the raw/module `local-cse` path consults only that callee metadata, and repeated single-result direct calls can be materialized with a temp local. Ordinary non-annotated calls, indirect calls, and reference calls remain barriers; `call_ref` now has a core-built no-reuse fixture paired with the `call_indirect` WAT fixture.
 
 ## Barrier family 4: tiny roots are intentionally skipped
 

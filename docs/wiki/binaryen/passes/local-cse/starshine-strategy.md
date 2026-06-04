@@ -66,7 +66,7 @@ The active local strategy is still deliberately slot-honest:
 - schedule the proven late `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` cleanup neighborhood in public `optimize` / `shrink`
 - keep the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gated until `flatten` lands
 - grow the implementation from same-window temp-localizing reuse without recasting it as a whole-function GVN pass
-- keep the before-`if` / then-arm, before-block / straight-line block, before-`try_table` / try-body, annotated idempotent direct-call positive, and ordinary direct-call plus `call_indirect` root negative coverage green while hardening the remaining control-boundary, `call_ref`-barrier, and GC/generative-root surfaces one focused slice at a time
+- keep the before-`if` / then-arm, before-block / straight-line block, before-`try_table` / try-body, annotated idempotent direct-call positive, and ordinary direct-call plus `call_indirect` and `call_ref` root negative coverage green while hardening the remaining control-boundary and GC/generative-root surfaces one focused slice at a time
 
 ## Exact local code map today
 
@@ -75,7 +75,7 @@ The fastest read-along path through the current Starshine status is:
 - active pass implementation and tests
   - `src/passes/local_cse.mbt:1-18,543-559,809-816`
   - `src/passes/local_cse_test.mbt`
-    - covers registry, same-window arithmetic, parent-over-child, load/store and local-write barriers, before-`if` / then-arm reuse, before-block / straight-line block reuse, before-`try_table` / try-body reuse, annotated idempotent direct-call reuse, ordinary direct-call and `call_indirect` root no-ops, after-`if` and else-arm negatives, before-loop into loop-body, `br_table`, return-boundary, unreachable-boundary, tiny-root `global.get` no-op, and repeated `struct.new` / `struct.new_default` / core `array.new` generative-root coverage
+    - covers registry, same-window arithmetic, parent-over-child, load/store and local-write barriers, before-`if` / then-arm reuse, before-block / straight-line block reuse, before-`try_table` / try-body reuse, annotated idempotent direct-call reuse, ordinary direct-call, `call_indirect`, and `call_ref` root no-ops, after-`if` and else-arm negatives, before-loop into loop-body, `br_table`, return-boundary, unreachable-boundary, tiny-root `global.get` no-op, and repeated `struct.new` / `struct.new_default` / core `array.new` generative-root coverage
 - active registry and dispatcher surface
   - `src/passes/optimize.mbt:253,437-449,456-472`
     - `local-cse` is registered as an active module pass and scheduled in the proven late local-cleanup preset neighborhood
@@ -124,7 +124,7 @@ That means:
 
 ### 2. The landed work is a direct parity slice
 
-The implementation covers same-window temp-localizing reuse for repeated local arithmetic trees, preserves barrier resets for local writes and non-idempotent calls in the raw path, and is protected by direct pass tests plus fuzz/self-optimize evidence. It also implements Binaryen's adjacent before-`if` into `then`, before-block into straight-line block, before-`try_table` into try-body, and annotated idempotent direct-call reuse windows while keeping ordinary direct-call and `call_indirect` roots unmaterialized.
+The implementation covers same-window temp-localizing reuse for repeated local arithmetic trees, preserves barrier resets for local writes and non-idempotent calls in the raw path, and is protected by direct pass tests plus fuzz/self-optimize evidence. It also implements Binaryen's adjacent before-`if` into `then`, before-block into straight-line block, before-`try_table` into try-body, and annotated idempotent direct-call reuse windows while keeping ordinary direct-call, `call_indirect`, and `call_ref` roots unmaterialized.
 The docs should keep that slice connected to the exact Binaryen contract:
 
 - repeated **whole-tree** reuse, not arbitrary subtree extraction
@@ -258,7 +258,7 @@ The direct pass already exists, so the remaining validation ladder is about exac
    - local-write invalidation
    - tiny-root profitability no-op cases
    - repeated `struct.new` generative-root negative
-   - add remaining hard control-boundary negatives, `call_ref` negatives, and additional GC/generative-root negatives only as focused source-backed slices; repeated `call_indirect` roots already have direct no-reuse coverage
+   - add remaining hard control-boundary negatives and additional GC/generative-root negatives only as focused source-backed slices; repeated `call_indirect` and `call_ref` roots already have direct no-reuse coverage
 2. Keep the registry and CLI proof honest
    - `local-cse` stays an active module pass
    - explicit `--local-cse` execution keeps working

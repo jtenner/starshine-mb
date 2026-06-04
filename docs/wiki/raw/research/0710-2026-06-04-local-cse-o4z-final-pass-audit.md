@@ -498,3 +498,27 @@ Agent classification: Binaryen-positive missed optimization parity fix, not a ha
 ## Recommendation
 
 The audited before-`if`/then-arm, simple before-block/straight-line-block, before-`try_table`/try-body, and annotated idempotent direct-call Binaryen-positive gaps are now covered and fixed, the tiny-root repeated-`global.get` no-op is explicitly covered, repeated `struct.new`, `struct.new_default`, and core `array.new` generative roots are covered, repeated `call_indirect` roots are covered, and before-loop into loop-body, `br_table`, `return`, and `unreachable` negatives are covered. Keep `[O4Z-AUDIT-LCSE]` active only for the remaining broader shape hardening that was not implemented here: hard control-boundary negatives beyond the added after-`if`, else-arm, loop-body, `br_table`, return, and `unreachable` tests; any additional GC/generative-root variants where local syntax supports them; and `call_ref` barrier negatives paired with the newly covered idempotent-call exception plus ordinary direct-call and `call_indirect` root negatives.
+
+## Follow-up call_ref root negative coverage on 2026-06-04
+
+A later focused LCSE hardening slice added durable direct coverage for repeated `call_ref` roots. Binaryen kept both `call_ref` roots in the WAT spot check and introduced no `local.tee`; the first attempted Starshine WAT fixture exposed local WAT-path awkwardness, so the landed regression is a core-built module fixture using `ref.func` plus `Instruction::call_ref`. The fixture passed without implementation changes. Agent classification: missing coverage only, not a functional gap.
+
+Validation for this `call_ref` slice:
+
+```sh
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-call-ref-root-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the initial WAT-form test failed in local parsing/modeling, then the core-built fixture passed. `moon info` hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`); `moon fmt` passed; focused LCSE tests passed (`22/22`); `moon test src/passes` passed (`1568/1568`); full `moon test` passed (`4753/4753`); native build was already up to date; direct compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
