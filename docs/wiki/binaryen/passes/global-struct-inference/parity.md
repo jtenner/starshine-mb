@@ -825,10 +825,16 @@ A 2026-06-03 local opcode search refreshed that blocker. The `src/lib` instructi
 
 ## 8. Representation-specific type repair differs locally
 
-Official Binaryen explicitly refinalizes changed functions.
-Current local boundary IR pass does not mirror that exact mechanism because it works in a different representation.
+Official Binaryen explicitly refinalizes changed functions. Current local boundary IR pass does not mirror that exact mechanism because it works in a different representation.
 
-That is likely fine for the current subset, but it is still a real architectural divergence from the source oracle.
+A 2026-06-04 local audit did not find a safe plain-GSI implementation target that requires adding Binaryen-style `ReFinalize` today. The current replacement surfaces avoid producing invalid stale result types by construction:
+
+- single-candidate origin rewrites keep the following `struct.get*` in place and build the inserted block from a candidate global type that is either exact for the read type or validated as a subtype of the read type;
+- one-value and singleton-select field folds derive the block/select result from `gsi_field_read_result_type(...)`, then require every materialized value to pass `gsi_expr_matches_result_type(...)`; packed repair is accepted only as an `i32`-typed repair expression;
+- descriptor folds/selects derive the replacement type from `gsi_descriptor_read_result_type(...)`, which delegates to validator `Env::descriptor_result_type(...)`, and require candidate descriptor values to match that result type before replacement;
+- direct/global and local trap-preserving blocks emit the original reference plus `ref.as_non_null`/`drop` where needed, then yield a value whose type matches the original read result rather than relying on outer AST refinalization.
+
+This is evidence that the current Starshine subset is validation-preserving without a local refinalization pass. It is not evidence that Binaryen's refinalization surface is implemented. In particular, Binaryen-style null-result refinement and any future rewrite that intentionally narrows an enclosing expression's type should remain deferred until Starshine has either an explicit typed repair/refinalization mechanism or a focused failing fixture that proves the current validation-preserving approach is too narrow.
 
 ## Why the saved audit can still be exactly green
 
