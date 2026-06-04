@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wiki-health | generated-artifact citation cleanup follow-up
+
+- Repointed additional living pass landing-page `.artifacts` source links in [`vacuum`](binaryen/passes/vacuum/index.md), [`reorder-globals`](binaryen/passes/reorder-globals/index.md), and [`duplicate-import-elimination`](binaryen/passes/duplicate-import-elimination/index.md) to the committed generated-artifact audit note [`0093`](raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md).
+- The pages may still mention local `.artifacts` paths as replay identifiers in prose, but their frontmatter/source lists now use committed raw notes for durable citation.
+
 ## [2026-06-04] docs | WAST parametric select source refresh
 
 - Added [`docs/wiki/raw/wasm/2026-06-04-wast-parametric-select-current-refresh.md`](raw/wasm/2026-06-04-wast-parametric-select-current-refresh.md) after rechecking current primary WebAssembly 3.0 syntax, text, binary, validation, and execution pages dated 2026-06-03 plus Starshine parser/lowerer/codec/typechecker surfaces.
