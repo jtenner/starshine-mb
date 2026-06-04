@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] passes/gsi | bounded decision-tree deferral
+
+- Closed `[GSI-PARITY-005]` as an explicit v0.1.0 deferral: GSI keeps the current one-materialized-value and two-value singleton-group policy rather than generating larger multi-`ref.eq` decision trees.
+- Refreshed [`binaryen/passes/global-struct-inference/parity.md`](binaryen/passes/global-struct-inference/parity.md) and [`wat-shapes.md`](binaryen/passes/global-struct-inference/wat-shapes.md) to cite the existing ambiguity negatives for more-than-two values and two equal pairs.
+- Pruned `[GSI-PARITY-005]` from [`agent-todo.md`](../../agent-todo.md); future work must bring a bounded, validation-preserving, size-neutral-or-better fixture before widening this surface.
+
 ## [2026-06-04] passes/gsi-desc-cast | boundary-only activation deferral
 
 - Closed `[GSI-PARITY-004]` as an explicit v0.1.0 deferral: [`global-struct-inference-desc-cast`](binaryen/passes/global-struct-inference-desc-cast/index.md) remains a boundary-only sibling rather than an alias for plain GSI.

@@ -397,6 +397,7 @@ Why this blocks optimization:
 
 - Binaryen refuses to synthesize larger decision trees here
 - one compare is the practical limit
+- Starshine preserves this as the v0.1.0 `[GSI-PARITY-005]` decision unless future evidence proves a bounded, size-winning larger tree
 
 ## Negative family 5: two equal pairs still bail
 

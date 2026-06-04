@@ -52,18 +52,6 @@ Use this checklist for every `[GSI-PARITY-*]` slice below:
 
 The remaining-gap owner matrix now lives in `docs/wiki/binaryen/passes/global-struct-inference/parity.md`; execute the active slices below in dependency order and keep completed matrix history in the wiki/log/git history, not in this backlog.
 
-- [GSI-PARITY-005] - Bounded Multi-Value Decision Trees
-  - Status: active v0.1.0 release-gating parity implementation or explicit deferral.
-  - Goal: evaluate Binaryen-style value grouping beyond Starshine's current one-value and two-value singleton-select shapes.
-  - Why: current closed-world local/param rewrites stop at one materialized value or exactly two values with one singleton-tested group; broader candidate sets still miss upstream opportunities.
-  - Deliverables:
-    - Add failing-first fixtures for the smallest profitable candidate group that requires more than one `ref.eq` decision, with explicit size and validation expectations.
-    - Implement a bounded decision-tree generator only if the generated code is size-neutral or size-winning under Starshine's `-O4z` goals and preserves candidate evaluation/trap behavior.
-    - Keep existing >2-value and two-equal-pair negatives unless the new bounded policy intentionally covers them.
-    - Document the selected bound and why larger trees stay deferred.
-  - Suggested tests: `moon test src/passes`, 1000 then 10000 direct GSI compare, and code-size/timing checks on representative closed-world fixtures.
-  - Exit criteria: multi-value grouping is either expanded to a documented bounded subset or explicitly deferred as a size/runtime tradeoff.
-
 - [GSI-PARITY-006] - Typed Repair And Refinalization Trigger Slice
   - Status: active v0.1.0 release-gating parity audit with implementation only if a fixture proves the need.
   - Goal: prove whether v0.1.0 GSI still needs an explicit typed-AST repair/refinalization mechanism after validation-preserving replacement typing.
