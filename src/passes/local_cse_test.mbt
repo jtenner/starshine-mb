@@ -193,6 +193,26 @@ test "local-cse leaves repeated tiny global.get roots unmaterialized" {
 }
 
 ///|
+test "local-cse does not reuse repeated struct-new roots" {
+  let input =
+    #| (module
+    #|   (type $box (struct (field i32)))
+    #|   (func
+    #|     (drop (struct.new $box (i32.const 1)))
+    #|     (drop (struct.new $box (i32.const 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(0U)), 0)
+}
+
+///|
 test "local-cse clears the reuse window across writes to read locals" {
   let input =
     #| (module

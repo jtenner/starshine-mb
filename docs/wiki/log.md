@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] passes/local-cse | struct.new generative-root coverage
+
+- Added direct `local-cse` regression coverage proving repeated `struct.new` roots remain separate; the fixture passed without implementation changes and matches the Binaryen spot check for the same WAT shape.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-struct-new-generative-10000`: 6769 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
+- Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so this `struct.new` generative-root negative is no longer listed as open LCSE hardening work.
+
 ## [2026-06-04] passes/local-cse | unreachable boundary negative coverage
 
 - Added direct `local-cse` regression coverage proving an expression computed before `unreachable` is not reused in the unreachable continuation; the fixture passed without implementation changes and matches the Binaryen spot check for the same WAT shape.

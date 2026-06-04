@@ -204,7 +204,7 @@ The key idea is:
 - if the root can produce a fresh or otherwise different value each time,
 - then replacing the second one with the first is wrong.
 
-This is the main GC-era “sounds pure, still not reusable” rule.
+This is the main GC-era “sounds pure, still not reusable” rule. Starshine now has direct regression coverage for the `struct.new` member of this family: repeated allocations remain separate and no temp local is introduced.
 
 ## Barrier family 3: intervening invalidation
 

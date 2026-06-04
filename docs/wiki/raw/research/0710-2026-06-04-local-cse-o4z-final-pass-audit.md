@@ -308,6 +308,29 @@ bun scripts/pass-fuzz-compare.ts \
 
 Results: `moon fmt` passed, focused LCSE tests passed (`13/13`), `src/passes` passed (`1559/1559`), full `moon test` passed (`4744/4744`), native build was already up to date, and direct compare reached `6765` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index). `moon info` was retried and still hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`).
 
+## Follow-up `struct.new` generative-root negative coverage on 2026-06-04
+
+A later focused LCSE hardening slice added a durable direct test for the source-backed GC generativity rule. The new `local-cse does not reuse repeated struct-new roots` fixture proves two identical-looking `struct.new` allocations remain separate and are not replaced by a temp-local reuse. The test passed without implementation changes, matching the Binaryen spot check for the same WAT shape. Agent classification: missing coverage only, not a functional gap.
+
+Validation for this `struct.new` generative-root slice:
+
+```sh
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-struct-new-generative-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: `moon fmt` passed, focused LCSE tests passed (`14/14`), `src/passes` passed (`1560/1560`), full `moon test` passed (`4745/4745`), native build was already up to date, and direct compare reached `6769` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index). `moon info` was retried and still hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`).
+
 ## Recommendation
 
-The audited before-`if`/then-arm Binaryen-positive gap is now covered and fixed, the tiny-root repeated-`global.get` no-op is explicitly covered, and before-loop into loop-body, `br_table`, `return`, and `unreachable` negatives are covered. Keep `[O4Z-AUDIT-LCSE]` active only for the remaining broader shape hardening that was not implemented here: hard control-boundary negatives beyond the added after-`if`, else-arm, loop-body, `br_table`, return, and `unreachable` tests, GC/generative-root negatives, and idempotent-call positives if the local annotation plumbing can model Binaryen safely.
+The audited before-`if`/then-arm Binaryen-positive gap is now covered and fixed, the tiny-root repeated-`global.get` no-op is explicitly covered, repeated `struct.new` generative roots are covered, and before-loop into loop-body, `br_table`, `return`, and `unreachable` negatives are covered. Keep `[O4Z-AUDIT-LCSE]` active only for the remaining broader shape hardening that was not implemented here: hard control-boundary negatives beyond the added after-`if`, else-arm, loop-body, `br_table`, return, and `unreachable` tests; additional GC/generative-root negatives where local syntax supports them; and idempotent-call positives if the local annotation plumbing can model Binaryen safely.
