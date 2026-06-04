@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] passes/local-cse | rethrow hard-boundary deferral
+
+- Spot-checked a legacy catch-body `rethrow 0` shape and confirmed Binaryen treats it as a hard EH boundary: no `local.tee`, and repeated arithmetic across the unreachable continuation stays separate.
+- Recorded a focused deferral because Starshine's WAST lowering maps valid legacy `rethrow` to `unreachable` and the raw `@lib.Instruction` surface has no distinct `Rethrow` variant for `local-cse` to model.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-rethrow-deferral-10000`: 6770 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
+- Refreshed [`binaryen/passes/local-cse/basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so the EH boundary is tracked as a narrow documented deferral.
+
 ## [2026-06-04] tooling/cli | print utility routing refresh
 
 - Added [`raw/research/0711-2026-06-04-cli-print-utility-routing.md`](raw/research/0711-2026-06-04-cli-print-utility-routing.md) after rechecking current Starshine parser, dispatcher, help, command-test, name-section, and import/export evidence, plus Binaryen `wasm-opt` orientation sources as non-normative upstream context.

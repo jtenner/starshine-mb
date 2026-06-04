@@ -777,3 +777,23 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the first focused run failed as intended (`32/33` passed) before the implementation change; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed after the fix (`33/33`); `moon test src/passes` passed (`1579/1579`); full `moon test` passed (`4764/4764`); native build succeeded with the existing unused-function warnings in `src/passes/pass_manager.mbt`; compare reached `6766` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures.
+
+## Follow-up `rethrow` hard-boundary deferral on 2026-06-04
+
+A later focused LCSE hardening slice spot-checked Binaryen's legacy `rethrow` continuation behavior. In a reduced catch-body shape, Binaryen treats `rethrow 0` as a hard EH boundary: it keeps the pre-`rethrow` and unreachable-continuation `i32.add` trees separate and emits no `local.tee`.
+
+Starshine cannot add an equivalent direct raw/module LCSE fixture today without broadening scope: the WAST layer parses legacy `rethrow`, but `src/wast/lower_to_lib.mbt` lowers valid legacy `rethrow` to `@lib.Instruction::unreachable_()`, while `src/lib/types.mbt` has no `@lib.Instruction::Rethrow` variant for the raw module pass to model. The existing top-level `unreachable` LCSE boundary test covers the current lowered local behavior, but not Binaryen's distinct legacy EH opcode. Agent classification: documented deferral, not an implementation gap in the available raw/module LCSE surface.
+
+Validation evidence for this documentation-only slice:
+
+```sh
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-rethrow-deferral-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`33/33`); `moon test src/passes` passed (`1579/1579`); full `moon test` passed (`4764/4764`); native build reported no work; compare reached `6770` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
