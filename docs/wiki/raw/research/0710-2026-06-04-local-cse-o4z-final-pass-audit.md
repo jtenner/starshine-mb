@@ -546,3 +546,27 @@ bun scripts/pass-fuzz-compare.ts \
 ```
 
 Results: the initial WAT-form test failed in local parsing/modeling, then the core-built fixture passed. `moon info` hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`); `moon fmt` passed; focused LCSE tests passed (`23/23`); `moon test src/passes` passed (`1569/1569`); full `moon test` passed (`4754/4754`); native build was already up to date; direct compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up try_table body unreachable-boundary coverage on 2026-06-04
+
+A later focused LCSE hardening slice added durable direct coverage for the paired hard-terminator side of the `try_table` body bridge. Binaryen keeps a repeated expression before `try_table` separate from the same expression after an `unreachable` inside the try body, and introduces no `local.tee`. The Starshine fixture passed without implementation changes because the nested repeat scan already clears the borrowed outer window at hard terminators. Agent classification: missing coverage only, not a functional gap.
+
+Validation for this `try_table` body unreachable-boundary slice:
+
+```sh
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-try-table-unreachable-boundary-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: focused LCSE tests passed (`24/24`); `moon info` hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`); `moon fmt` passed; `moon test src/passes` passed (`1570/1570`); full `moon test` passed (`4755/4755`); native build was already up to date; direct compare reached `6769` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).

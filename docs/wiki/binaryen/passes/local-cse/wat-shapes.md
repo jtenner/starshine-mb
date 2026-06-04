@@ -558,7 +558,7 @@ Why this matters:
 - hard terminators inside the nested body still clear the nested reuse window
 - the catch target does not turn the pass into CFG-wide CSE
 
-Starshine status: this Binaryen-positive shape is now covered and implemented narrowly in the raw/module path.
+Starshine status: this Binaryen-positive shape is now covered and implemented narrowly in the raw/module path, and a paired `try_table` body fixture proves an inner `unreachable` clears the borrowed outer window before later body code.
 
 ## Shape 19: flatten can turn a near-miss into a positive
 

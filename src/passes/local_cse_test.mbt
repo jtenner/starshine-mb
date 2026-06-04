@@ -586,6 +586,28 @@ test "local-cse reuses before-try-table expression in try body" {
 }
 
 ///|
+test "local-cse clears try-table body reuse at unreachable" {
+  let input =
+    #| (module
+    #|   (func (param i32 i32)
+    #|     (block $exit
+    #|       (drop (i32.add (local.get 0) (local.get 1)))
+    #|       (try_table (catch_all $exit)
+    #|         (unreachable)
+    #|         (drop (i32.add (local.get 0) (local.get 1)))))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(2U)), 0)
+}
+
+///|
 test "local-cse does not reuse before-loop expression in loop body" {
   let input =
     #| (module
