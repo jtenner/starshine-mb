@@ -68,7 +68,7 @@ If Binaryen sees:
 - a repeated original before the `if`
 - and the repeated copy inside the `then` arm
 
-then that is still considered one valid reuse window. A 2026-06-04 Starshine audit confirmed this as an open missed optimization in the current raw/module `local-cse` implementation: Binaryen inserts a temp local for this shape, while Starshine currently leaves the repeated tree in place.
+then that is still considered one valid reuse window. A 2026-06-04 Starshine audit initially found this as a missed optimization, and the follow-up fix now covers it in the raw/module `local-cse` implementation while preserving after-`if` and else-arm boundary negatives.
 
 ### Case 2: across a normal direct call boundary
 

@@ -159,6 +159,63 @@ Current adjacent tests cover repeated arithmetic roots, parent-over-child prefer
 6. GC/generative-root negatives such as `struct.new` / `array.new*` where supported by the local fixture stack
 7. idempotent direct-call positive only if Starshine has enough annotation plumbing to model the Binaryen exception safely
 
+## Follow-up implementation on 2026-06-04
+
+The before-`if` / then-arm gap was fixed in `src/passes/local_cse.mbt` with focused tests in `src/passes/local_cse_test.mbt`.
+
+Added tests:
+
+- `local-cse reuses before-if expression in then arm`
+- `local-cse does not reuse before-if expression after if`
+- `local-cse does not reuse before-if expression in else arm`
+
+The implementation keeps the fix narrow: the raw/module path now lets eligible active outer whole-tree bindings feed the `then` body only, while clearing the active window after the `if` so after-`if` code does not reuse the pre-`if` expression. It does not share into the `else` arm and does not turn LCSE into CFG-wide CSE.
+
+Focused test evidence:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+```
+
+Results: local LCSE tests passed (`8/8`), and `src/passes` passed (`1554/1554`).
+
+Refreshed direct compare after the fix:
+
+```sh
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-then-arm-fix-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Result:
+
+- compared cases: `6768/10000`
+- normalized matches: `6768`
+- compare-normalized matches: `0`
+- validation failures: `0`
+- property failures: `0`
+- generator failures: `0`
+- command failures: `20`
+- mismatches: `0`
+
+Agent classification for the remaining command failures: Binaryen/tool command failures, not Starshine semantic failures. The harness classified them as `17` Binaryen empty-recursion-group failures, `1` Binaryen bad-section-size failure, `1` Binaryen table-index-out-of-range failure, and `1` Binaryen invalid-tag-index failure.
+
+Refreshed pass-local timing after the fix on `tests/node/dist/starshine-debug-wasi.wasm`:
+
+- Starshine `pass:local-cse`: `70,041-71,766 us`
+- Binaryen `wasm-opt --debug --local-cse`: `0.106804-0.108003 seconds`
+
+Agent classification: pass-local runtime remains within the repository 2x Binaryen budget.
+
+## Follow-up tiny-root no-op coverage on 2026-06-04
+
+A later focused LCSE hardening slice added a durable direct test for the source-backed profitability rule that repeated tiny roots such as `global.get` should remain unmaterialized. The new `local-cse leaves repeated tiny global.get roots unmaterialized` fixture in `src/passes/local_cse_test.mbt` passes without implementation changes: Starshine keeps both `global.get` instructions, adds no temp locals, and emits no `local.tee`. Agent classification: missing coverage only, not a functional gap.
+
 ## Recommendation
 
-Do not mark `[O4Z-AUDIT-LCSE]` complete yet. The direct generated compare lane is green, and pass-local timing is acceptable, but the before-`if`/then-arm Binaryen-positive shape is a real missed optimization with adjacent missing tests. Treat the next implementation slice as a small LCSE window-model parity task rather than a broad rewrite.
+The audited before-`if`/then-arm Binaryen-positive gap is now covered and fixed, and the tiny-root repeated-`global.get` no-op is now explicitly covered. Keep `[O4Z-AUDIT-LCSE]` active only for the remaining broader shape hardening that was not implemented here: loop/control-boundary negatives beyond the added after-`if` and else-arm tests, GC/generative-root negatives, and idempotent-call positives if the local annotation plumbing can model Binaryen safely.

@@ -11,6 +11,84 @@ fn lcse_test_first_defined_func(mod_ : @lib.Module) -> @lib.Func {
 }
 
 ///|
+fn lcse_test_count_local_tee(
+  instrs : Array[@lib.Instruction],
+  local_idx : @lib.LocalIdx,
+) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Instruction::LocalTee(idx) => if idx == local_idx { count += 1 }
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+        count += lcse_test_count_local_tee(body, local_idx)
+      @lib.Instruction::If(_, then_body, Some(else_body)) => {
+        count += lcse_test_count_local_tee(then_body, local_idx)
+        count += lcse_test_count_local_tee(else_body, local_idx)
+      }
+      @lib.Instruction::If(_, then_body, None) =>
+        count += lcse_test_count_local_tee(then_body, local_idx)
+      @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        count += lcse_test_count_local_tee(body, local_idx)
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn lcse_test_count_local_get(
+  instrs : Array[@lib.Instruction],
+  local_idx : @lib.LocalIdx,
+) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Instruction::LocalGet(idx) => if idx == local_idx { count += 1 }
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+        count += lcse_test_count_local_get(body, local_idx)
+      @lib.Instruction::If(_, then_body, Some(else_body)) => {
+        count += lcse_test_count_local_get(then_body, local_idx)
+        count += lcse_test_count_local_get(else_body, local_idx)
+      }
+      @lib.Instruction::If(_, then_body, None) =>
+        count += lcse_test_count_local_get(then_body, local_idx)
+      @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        count += lcse_test_count_local_get(body, local_idx)
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn lcse_test_count_global_get(
+  instrs : Array[@lib.Instruction],
+  global_idx : @lib.GlobalIdx,
+) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Instruction::GlobalGet(idx) => if idx == global_idx { count += 1 }
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+        count += lcse_test_count_global_get(body, global_idx)
+      @lib.Instruction::If(_, then_body, Some(else_body)) => {
+        count += lcse_test_count_global_get(then_body, global_idx)
+        count += lcse_test_count_global_get(else_body, global_idx)
+      }
+      @lib.Instruction::If(_, then_body, None) =>
+        count += lcse_test_count_global_get(then_body, global_idx)
+      @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        count += lcse_test_count_global_get(body, global_idx)
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
 test "local-cse registers as an active module pass" {
   match pass_registry_lookup("local-cse") {
     Some(entry) => {
@@ -91,6 +169,30 @@ test "local-cse reuses repeated load trees until a store barrier" {
 }
 
 ///|
+test "local-cse leaves repeated tiny global.get roots unmaterialized" {
+  let input =
+    #| (module
+    #|   (global $g i32 (i32.const 7))
+    #|   (func
+    #|     (drop (global.get $g))
+    #|     (drop (global.get $g))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(
+    lcse_test_count_global_get(instrs, @lib.GlobalIdx::new(0U)),
+    2,
+  )
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(0U)), 0)
+}
+
+///|
 test "local-cse clears the reuse window across writes to read locals" {
   let input =
     #| (module
@@ -110,4 +212,70 @@ test "local-cse clears the reuse window across writes to read locals" {
   assert_false(
     instrs.contains(@lib.Instruction::local_tee(@lib.LocalIdx::new(2U))),
   )
+}
+
+///|
+test "local-cse reuses before-if expression in then arm" {
+  let input =
+    #| (module
+    #|   (func (param i32 i32 i32)
+    #|     (drop (i32.add (local.get 0) (local.get 1)))
+    #|     (if (local.get 2)
+    #|       (then
+    #|         (drop (i32.add (local.get 0) (local.get 1)))))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  let temp = @lib.LocalIdx::new(3U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
+test "local-cse does not reuse before-if expression after if" {
+  let input =
+    #| (module
+    #|   (func (param i32 i32 i32)
+    #|     (drop (i32.add (local.get 0) (local.get 1)))
+    #|     (if (local.get 2)
+    #|       (then (drop (i32.const 1))))
+    #|     (drop (i32.add (local.get 0) (local.get 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(3U)), 0)
+}
+
+///|
+test "local-cse does not reuse before-if expression in else arm" {
+  let input =
+    #| (module
+    #|   (func (param i32 i32 i32)
+    #|     (drop (i32.add (local.get 0) (local.get 1)))
+    #|     (if (local.get 2)
+    #|       (then (drop (i32.const 1)))
+    #|       (else
+    #|         (drop (i32.add (local.get 0) (local.get 1)))))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(3U)), 0)
 }

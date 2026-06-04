@@ -88,7 +88,7 @@ That is smaller and more local than “Binaryen does generic CSE here.”
 - A repo-authored 2026-05-05 correction note at [`../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md`](../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md) records that older Starshine-status wording in the raw upstream bridge is stale now that the direct Starshine pass has landed.
 - A 2026-05-06 direct revalidation at [`../../../raw/research/0533-2026-05-06-local-cse-direct-revalidation.md`](../../../raw/research/0533-2026-05-06-local-cse-direct-revalidation.md) reran the refreshed harness with `--count 10000 --seed 0x5eed --pass local-cse`, reached 6759 compared cases, and found 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group command failures.
 - A 2026-06-04 `version_130` / current-main refresh at [`../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md`](../../../raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md) found no teaching-relevant Binaryen drift from the 2026-05-06 source bridge.
-- A 2026-06-04 O4z audit at [`../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md) refreshed a 1000-case direct lane with 998 normalized matches, 2 known Binaryen empty-recursion-group command failures, and 0 mismatches; it also found a Starshine missed optimization for Binaryen's before-`if` into `then` reuse window while pass-local timing on `tests/node/dist/starshine-debug-wasi.wasm` cleared the 2x Binaryen budget.
+- A 2026-06-04 O4z audit at [`../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](../../../raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md) refreshed a 1000-case direct lane with 998 normalized matches, 2 known Binaryen empty-recursion-group command failures, and 0 mismatches; it found and then fixed a Starshine missed optimization for Binaryen's before-`if` into `then` reuse window. Post-fix 10000-case direct compare reached 6768 normalized matches, 20 Binaryen/tool command failures, and 0 mismatches, while pass-local timing on `tests/node/dist/starshine-debug-wasi.wasm` stayed within the 2x Binaryen budget.
 - The pass really is a three-stage algorithm:
   - `scan`
   - `check`
@@ -98,7 +98,7 @@ That is smaller and more local than “Binaryen does generic CSE here.”
 - It is mostly window-local, but the `LinearExecutionWalker` helper lets some cheap adjacent dominated cases count too, such as before-`if` into the `then` arm.
 - Repeated loads may optimize even though loads can trap; ordinary repeated calls do not.
 - Calls to functions annotated idempotent are a narrow source-level exception.
-- Constants and tiny size-1 roots like `global.get` are intentionally left alone.
+- Constants and tiny size-1 roots like `global.get` are intentionally left alone; Starshine now has direct regression coverage for the repeated-`global.get` no-op.
 - The early `-O4` slot depends on `flatten` plus a little simplify-locals cleanup to expose more identical whole trees.
 - The pass adds locals, so Binaryen marks it as DWARF-invalidating.
 
@@ -122,7 +122,7 @@ That is smaller and more local than “Binaryen does generic CSE here.”
 - Treat this folder as the canonical home for `local-cse` behavior, parity, and slot-planning notes.
 - Keep the active Starshine implementation status in sync with `src/passes/local_cse.mbt`, `src/passes/local_cse_test.mbt`, `src/passes/optimize.mbt`, `src/passes/pass_manager.mbt`, `src/cmd/cmd_wbtest.mbt`, and `agent-todo.md`.
 - New `local-cse` findings should update the strategy page, implementation/test-map page, and windows/barriers page together so the algorithm explanation, proof-surface map, and control-flow safety story stay aligned.
-- Do not mark the O4z LCSE audit complete until the before-`if` into `then` missed optimization is covered test-first and either implemented safely or explicitly deferred with accepted parity rationale.
+- The before-`if` into `then` missed optimization is now covered test-first and implemented in the raw/module path, and the tiny-root repeated-`global.get` no-op is now covered as a durable direct test; keep future O4z LCSE closure criteria focused on the remaining loop/control-boundary, GC/generative, and idempotent-call shapes rather than reopening those fixed/covered families.
 
 ## Sources
 

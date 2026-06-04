@@ -42,6 +42,14 @@ priv struct LcseRawExpr {
 }
 
 ///|
+priv struct LcseRawThenRepeat {
+  if_idx : Int
+  start : Int
+  end : Int
+  original : Int
+}
+
+///|
 fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
   match instr {
     @lib.Instruction::I32Add => 1
@@ -66,10 +74,10 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
 }
 
 ///|
-fn lcse_instrs_may_have_repeated_candidate(
+fn lcse_instrs_may_have_repeated_candidate_with_seen(
   instrs : Array[@lib.Instruction],
+  seen : @bitset.BitSet,
 ) -> Bool {
-  let seen = @bitset.BitSet::new(64)
   for instr in instrs {
     let id = lcse_candidate_op_id(instr)
     if id >= 0 {
@@ -81,26 +89,36 @@ fn lcse_instrs_may_have_repeated_candidate(
     match instr {
       @lib.Instruction::Block(_, @lib.Expr(body))
       | @lib.Instruction::Loop(_, @lib.Expr(body)) =>
-        if lcse_instrs_may_have_repeated_candidate(body) {
+        if lcse_instrs_may_have_repeated_candidate_with_seen(body, seen) {
           return true
         }
       @lib.Instruction::If(_, then_body, Some(else_body)) =>
-        if lcse_instrs_may_have_repeated_candidate(then_body) ||
-          lcse_instrs_may_have_repeated_candidate(else_body) {
+        if lcse_instrs_may_have_repeated_candidate_with_seen(then_body, seen) ||
+          lcse_instrs_may_have_repeated_candidate_with_seen(else_body, seen) {
           return true
         }
       @lib.Instruction::If(_, then_body, None) =>
-        if lcse_instrs_may_have_repeated_candidate(then_body) {
+        if lcse_instrs_may_have_repeated_candidate_with_seen(then_body, seen) {
           return true
         }
       @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
-        if lcse_instrs_may_have_repeated_candidate(body) {
+        if lcse_instrs_may_have_repeated_candidate_with_seen(body, seen) {
           return true
         }
       _ => ()
     }
   }
   false
+}
+
+///|
+fn lcse_instrs_may_have_repeated_candidate(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  lcse_instrs_may_have_repeated_candidate_with_seen(
+    instrs,
+    @bitset.BitSet::new(64),
+  )
 }
 
 ///|
@@ -297,6 +315,129 @@ fn lcse_raw_find_active_match(
 }
 
 ///|
+fn lcse_raw_instr_slice_matches(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+  end : Int,
+  body : Array[@lib.Instruction],
+  body_start : Int,
+) -> Bool {
+  let len = end - start + 1
+  if len <= 0 || body_start + len > body.length() {
+    return false
+  }
+  for offset = 0; offset < len; offset = offset + 1 {
+    if instrs[start + offset] != body[body_start + offset] {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn lcse_raw_scan_then_repeats(
+  if_idx : Int,
+  outer_instrs : Array[@lib.Instruction],
+  body : Array[@lib.Instruction],
+  exprs : Array[LcseRawExpr],
+  outer_active : Array[Int],
+  repeats : Array[LcseRawThenRepeat],
+) -> Unit {
+  if body.length() > 16 || outer_active.length() == 0 {
+    return
+  }
+  let active = outer_active.copy()
+  let mut idx = 0
+  while idx < body.length() {
+    let mut best_original = -1
+    let mut best_end = -1
+    let mut best_size = -1
+    for original_id in active {
+      let original = exprs[original_id]
+      if lcse_raw_expr_profitable(original) &&
+        original.size > best_size &&
+        lcse_raw_instr_slice_matches(
+          outer_instrs,
+          original.start,
+          original.end,
+          body,
+          idx,
+        ) {
+        best_original = original_id
+        best_end = idx + original.end - original.start
+        best_size = original.size
+      }
+    }
+    if best_original >= 0 {
+      repeats.push({
+        if_idx,
+        start: idx,
+        end: best_end,
+        original: best_original,
+      })
+      idx = best_end + 1
+      continue
+    }
+    match body[idx] {
+      @lib.Instruction::LocalSet(_) | @lib.Instruction::LocalTee(_) =>
+        active.clear()
+      @lib.Instruction::Call(_)
+      | @lib.Instruction::CallIndirect(_, _)
+      | @lib.Instruction::CallRef(_) => active.clear()
+      _ => if lcse_instr_is_store(body[idx]) { active.clear() }
+    }
+    idx += 1
+  }
+}
+
+///|
+fn lcse_raw_then_repeat_for_if(
+  repeats : Array[LcseRawThenRepeat],
+  if_idx : Int,
+  start : Int,
+) -> LcseRawThenRepeat? {
+  for repeat in repeats {
+    if repeat.if_idx == if_idx && repeat.start == start {
+      return Some(repeat)
+    }
+  }
+  None
+}
+
+///|
+fn lcse_raw_rewrite_then_with_outer_repeats(
+  body : Array[@lib.Instruction],
+  if_idx : Int,
+  repeats : Array[LcseRawThenRepeat],
+  exprs : Array[LcseRawExpr],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut i = 0
+  while i < body.length() {
+    match lcse_raw_then_repeat_for_if(repeats, if_idx, i) {
+      Some(repeat) => {
+        let local_id = exprs[repeat.original].local_id
+        if local_id >= 0 {
+          out.push(
+            @lib.Instruction::local_get(
+              @lib.LocalIdx::new(local_id.reinterpret_as_uint()),
+            ),
+          )
+          changed = true
+          i = repeat.end + 1
+          continue
+        }
+      }
+      None => ()
+    }
+    out.push(body[i])
+    i += 1
+  }
+  (out, changed)
+}
+
+///|
 fn lcse_raw_rewrite_instrs(
   instrs : Array[@lib.Instruction],
   params : Array[@lib.ValType],
@@ -312,6 +453,7 @@ fn lcse_raw_rewrite_instrs(
   let exprs : Array[LcseRawExpr] = []
   let stack : Array[Int] = []
   let active : Array[Int] = []
+  let then_repeats : Array[LcseRawThenRepeat] = []
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     let instr = instrs[idx]
     let operand_count = match lcse_raw_instr_operand_count(instr) {
@@ -419,6 +561,15 @@ fn lcse_raw_rewrite_instrs(
       }
       None => ()
     }
+    match instr {
+      @lib.Instruction::If(_, then_body, _) => {
+        lcse_raw_scan_then_repeats(
+          idx, instrs, then_body, exprs, active, then_repeats,
+        )
+        active.clear()
+      }
+      _ => ()
+    }
   }
   let repeat_start = Array::make(instrs.length(), -1)
   let original_end = Array::make(instrs.length(), -1)
@@ -428,6 +579,12 @@ fn lcse_raw_rewrite_instrs(
       repeat_start[expr.start] = expr_id
       let original = exprs[expr.repeat_of]
       original_end[original.end] = expr.repeat_of
+    }
+  }
+  for repeat in then_repeats {
+    let original = exprs[repeat.original]
+    if original.end >= 0 && original.end < original_end.length() {
+      original_end[original.end] = repeat.original
     }
   }
   let out : Array[@lib.Instruction] = []
@@ -469,8 +626,11 @@ fn lcse_raw_rewrite_instrs(
         @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
       }
       @lib.Instruction::If(block_type, then_body, else_body) => {
+        let (outer_then, outer_then_changed) = lcse_raw_rewrite_then_with_outer_repeats(
+          then_body, i, then_repeats, exprs,
+        )
         let (next_then, then_changed) = lcse_raw_rewrite_instrs(
-          then_body, params, local_types,
+          outer_then, params, local_types,
         )
         let (next_else, else_changed) = match else_body {
           Some(body) => {
@@ -481,7 +641,7 @@ fn lcse_raw_rewrite_instrs(
           }
           None => (None, false)
         }
-        if then_changed || else_changed {
+        if outer_then_changed || then_changed || else_changed {
           changed = true
         }
         @lib.Instruction::if_(block_type, next_then, next_else)

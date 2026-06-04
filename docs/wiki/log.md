@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] passes/local-cse | tiny-root no-op coverage
+
+- Added direct `local-cse` regression coverage proving repeated tiny `global.get` roots remain unmaterialized: no temp local is appended, both `global.get` instructions remain, and no `local.tee` is emitted.
+- Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so tiny-root no-op coverage is no longer listed as an open LCSE hardening gap.
+
 ## [2026-06-04] wiki-health | local-cse index consistency
 
 - During the follow-up health check, refreshed the local-cse catalog bullets in [`index.md`](index.md) so the concept-page entries no longer implied stale blocked-preset wording and now route readers to the current 2026-06-04 source refresh, O4z audit evidence, before-`if` / then-arm parity gap, and validation bridge.
@@ -12,7 +17,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added [`docs/wiki/raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md) after auditing active `[O4Z-AUDIT-LCSE]` against Binaryen for functional and performance gaps.
 - Added [`docs/wiki/raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md`](raw/binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md) after rechecking official Binaryen `version_130` and current `main` `LocalCSE.cpp`, `linear-execution.h`, and `local-cse.wast` source surfaces.
 - Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`wat-shapes.md`](binaryen/passes/local-cse/wat-shapes.md), and [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md) with the current evidence: 998 normalized matches, 0 mismatches, 2 known Binaryen empty-recursion-group command failures in the 1000-case direct lane; sampled Starshine pass-local timing cleared the 2x Binaryen budget on the debug-WASI artifact.
-- Current durable gap: Starshine's raw/module `local-cse` misses Binaryen's before-`if` into `then` reuse positive, so `[O4Z-AUDIT-LCSE]` remains active until that shape is covered test-first and either implemented safely or explicitly deferred.
+- Follow-up implementation in the same audit slice added focused tests and a narrow raw/module fix for Binaryen's before-`if` into `then` reuse positive, with after-`if` and else-arm negatives. Post-fix direct 10000-case compare reached 6768 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures; pass-local debug-WASI timing remained within the 2x Binaryen budget.
 
 ## [2026-06-04] binary/fuzzing | LEB128 current-source and canonicality refresh
 

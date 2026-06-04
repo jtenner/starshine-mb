@@ -59,9 +59,9 @@ For the exact upstream algorithm and source/test map, read:
 Starshine now treats `local-cse` as an active direct pass.
 The owner file, direct tests, registry entry, dispatcher route, debug-artifact evidence, and 2026-05-06 refreshed direct-pass fuzz evidence have landed.
 
-The refreshed direct lane in `.tmp/pass-fuzz-local-cse` reached 6759/10000 compared cases with 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group command failures. A later 2026-06-04 O4z audit lane in `.tmp/pass-fuzz-local-cse-audit-1000` reached 998/1000 compared cases with 998 normalized matches, 0 mismatches, and 2 known Binaryen empty-recursion-group command failures.
+The refreshed direct lane in `.tmp/pass-fuzz-local-cse` reached 6759/10000 compared cases with 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group command failures. A later 2026-06-04 O4z audit lane in `.tmp/pass-fuzz-local-cse-audit-1000` reached 998/1000 compared cases with 998 normalized matches, 0 mismatches, and 2 known Binaryen empty-recursion-group command failures. After fixing the before-`if` into `then` missed optimization, `.tmp/pass-fuzz-local-cse-then-arm-fix-10000` reached 6768/10000 compared cases with 6768 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures.
 
-The honest remaining state is preset-slot restraint until the missing ordered neighborhoods are representable, plus a direct Starshine missed-optimization follow-up: Binaryen can reuse a before-`if` expression in the `then` arm, while the current Starshine raw/module implementation keeps that repeated tree unoptimized.
+The honest remaining state is preset-slot restraint until the missing ordered neighborhoods are representable, plus broader shape-hardening follow-up for loop/control-boundary negatives, GC/generative-root negatives, and idempotent-call positives where local annotation plumbing can model Binaryen safely. Tiny-root repeated `global.get` no-op coverage is now durable in the direct test surface.
 
 ## What already exists locally
 
@@ -115,12 +115,9 @@ The landed direct pass already covers part of the source-backed family map in [`
 
 The remaining shape-test gap from the 2026-06-04 audit is:
 
-- before-`if` / then-arm positive
-- after-`if` window reset negative
-- else-arm negative
 - idempotent direct-call positive, if Starshine gains safe annotation plumbing for Binaryen's narrow exception
 - generative GC-root negatives
-- tiny-root profitability no-ops
+- additional loop/control-boundary negatives beyond after-`if` and else-arm
 
 ### 2. Registry and CLI proof stay green
 
@@ -135,11 +132,11 @@ Keep proving that:
 
 Keep signoff with pass-targeted fuzz compare against Binaryen on the canonical pass spelling.
 
-The 2026-06-04 audit also measured pass-local timing on `tests/node/dist/starshine-debug-wasi.wasm`: Starshine traced `pass:local-cse` at about `63-67 ms`, while Binaryen `wasm-opt --debug --local-cse` reported about `109-110 ms`, so the sampled direct-pass runtime cleared the repository 2x Binaryen budget.
+The 2026-06-04 audit also measured pass-local timing on `tests/node/dist/starshine-debug-wasi.wasm`: Starshine traced `pass:local-cse` at about `63-67 ms` before the fix and `70-72 ms` after the fix, while Binaryen `wasm-opt --debug --local-cse` reported about `107-110 ms`, so the sampled direct-pass runtime cleared the repository 2x Binaryen budget.
 
-### 4. Before-`if` / then-arm parity remains open
+### 4. Before-`if` / then-arm parity is covered
 
-Add a focused test for the source-backed Binaryen positive where a repeated tree before an `if` is reused inside the `then` arm. Pair it with after-`if` and else-arm negatives so the fix does not widen the reuse window past Binaryen's `LinearExecutionWalker` boundaries. The current raw/module implementation is region-local, so the safe fix needs cross-region binding materialization rather than a broad CFG-wide CSE rewrite.
+The source-backed Binaryen positive where a repeated tree before an `if` is reused inside the `then` arm is now covered in `src/passes/local_cse_test.mbt`. Paired after-`if` and else-arm negatives keep the fix from widening the reuse window past Binaryen's `LinearExecutionWalker` boundaries. The implementation stays narrow: it shares eligible outer whole-tree bindings with the `then` body only and does not turn LCSE into CFG-wide CSE. The same direct test file now also protects the tiny-root profitability rule by proving repeated `global.get` roots remain unmaterialized.
 
 ### 5. Neighborhood replay remains gated
 
