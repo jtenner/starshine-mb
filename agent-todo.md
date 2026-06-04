@@ -237,6 +237,18 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Suggested tests: `moon test src/binary`, `moon test src/wast`, `moon test src/validate`, `moon test src/passes`, focused pass-specific regression tests, then direct GSI compare with `--jobs auto` and a prebuilt native `src/cmd` binary after behavior changes.
   - Exit criteria: local opcode support is validated, generic passes treat atomic gets conservatively, GSI immutable-field atomic folds match Binaryen semantics on focused fixtures and direct compare, and remaining descriptor-cast/refinalization gaps stay documented.
 
+- [ATOMIC]002 - Struct Atomic Instruction Optimization Opportunity Audit
+  - Status: active follow-up after `[ATOMIC]001`; start with `global-struct-inference`, then check each optimizer pass for safe opportunities related to the new `StructAtomicGet`, `StructAtomicGetS`, and `StructAtomicGetU` instructions.
+  - Goal: identify and, where safe, implement pass-local optimization opportunities that understand struct atomic gets without weakening synchronization, trap, packed-signedness, type-index, or mutability constraints.
+  - Why: `[ATOMIC]001` intentionally made generic passes conservative and added GSI immutable-field folds. There may now be safe missed opportunities in individual passes, but each pass needs its own proof rather than treating struct atomic gets as pure ordinary loads globally.
+  - Deliverables:
+    - [ ] `[ATOMIC002-A]` Continue GSI audit for struct atomic get opportunities beyond the current immutable direct-global and closed-world local/param folds, including descriptor-cast/refinalization interactions only if they can be proved safe in focused fixtures.
+    - [ ] `[ATOMIC002-B]` Check every active optimizer pass for struct atomic get optimization opportunities or required explicit no-op/guard coverage; classify each finding as implemented, deliberately conservative, blocked by semantics, or out of scope for non-get aggregate atomics.
+    - [ ] `[ATOMIC002-C]` For any implemented pass opportunity, add focused TDD fixtures first, run the pass-specific compare lane, and update the relevant pass docs/wiki notes.
+    - [ ] `[ATOMIC002-D]` Keep future aggregate atomic set/RMW/cmpxchg and array atomic forms separate; do not generalize from get-only evidence.
+  - Suggested tests: pass-specific `src/passes/*_test.mbt` fixtures, `moon test src/passes`, `moon test`, prebuilt native `src/cmd`, and `bun scripts/pass-fuzz-compare.ts --pass <name> --count 1000` before scaling behavior changes to `10000` where warranted.
+  - Exit criteria: every active pass has a documented struct-atomic-get opportunity/guard decision, implemented opportunities have focused tests and compare evidence, and remaining risks are routed to pass-specific audit slices or a future aggregate-atomics backlog item.
+
 - [AUDIT]001 - Hot Pass Descriptor Metadata Truthfulness
   - Status: active follow-up from the 2026-05-31 optimizer audit.
   - Goal: make hot pass `requires` metadata describe every analysis a pass may request through `pass_require_*`, so the registry remains a truthful pass-author contract and future scheduling/perf tooling can trust descriptors.
