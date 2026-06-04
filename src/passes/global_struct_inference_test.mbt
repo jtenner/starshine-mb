@@ -212,6 +212,86 @@ test "global-struct-inference folds direct immutable global fields in open world
 }
 
 ///|
+test "global-struct-inference folds block-carried direct immutable global fields" {
+  let input =
+    #| (module
+    #|   (type $box (sub (struct (field i32))))
+    #|   (global $g (ref $box)
+    #|     (struct.new $box
+    #|       (i32.const 7)))
+    #|   (func (export "read") (result i32)
+    #|     (block (result (ref $box))
+    #|       global.get $g)
+    #|     struct.get $box 0))
+    #|
+  let pretty = gsi_test_pretty(input, false)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("block"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
+test "global-struct-inference preserves nullable block-carried direct traps" {
+  let input =
+    #| (module
+    #|   (type $box (sub (struct (field i32))))
+    #|   (global $g (ref null $box)
+    #|     (struct.new $box
+    #|       (i32.const 8)))
+    #|   (func (export "read") (result i32)
+    #|     (block (result (ref null $box))
+    #|       global.get $g)
+    #|     struct.get $box 0))
+    #|
+  let pretty = gsi_test_pretty(input, false)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("ref.as_non_null"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("I32(8)"), msg=pretty)
+}
+
+///|
+test "global-struct-inference folds block-carried direct atomic fields" {
+  let input =
+    #| (module
+    #|   (type $box (sub (struct (field i32))))
+    #|   (global $g (ref $box)
+    #|     (struct.new $box
+    #|       (i32.const 9)))
+    #|   (func (export "read") (result i32)
+    #|     (block (result (ref $box))
+    #|       global.get $g)
+    #|     struct.atomic.get acq_rel $box 0))
+    #|
+  let pretty = gsi_test_pretty(input, false)
+  assert_false(pretty.contains("struct.atomic.get"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("I32(9)"), msg=pretty)
+}
+
+///|
+test "global-struct-inference leaves effectful block carriers unchanged" {
+  let input =
+    #| (module
+    #|   (type $box (sub (struct (field i32))))
+    #|   (global $g (ref $box)
+    #|     (struct.new $box
+    #|       (i32.const 10)))
+    #|   (func $make (result (ref $box))
+    #|     global.get $g)
+    #|   (func (export "read") (result i32)
+    #|     (block (result (ref $box))
+    #|       call $make)
+    #|     struct.get $box 0))
+    #|
+  let mod_ = gsi_test_run(input, false)
+  let pretty = mod_.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+}
+
+///|
 test "global-struct-inference preserves nullable direct-global traps" {
   let input =
     #| (module
@@ -1119,6 +1199,34 @@ test "global-struct-inference folds direct ref.get_desc from descriptor globals"
     #|       (global.get $desc)))
     #|   (func (export "read") (result (ref $box_desc))
     #|     global.get $g
+    #|     ref.get_desc $box))
+    #|
+  let pretty = gsi_test_pretty(input, false)
+  assert_false(pretty.contains("ref.get_desc"), msg=pretty)
+  assert_true(pretty.contains("global.get (Global 0)"), msg=pretty)
+  assert_true(pretty.contains("ref.as_non_null"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "global-struct-inference folds block-carried direct ref.get_desc reads" {
+  let input =
+    #| (module
+    #|   (rec
+    #|     (type $box
+    #|       (descriptor $box_desc)
+    #|       (struct (field i32)))
+    #|     (type $box_desc
+    #|       (describes $box)
+    #|       (struct)))
+    #|   (global $desc (ref (exact $box_desc)) (struct.new $box_desc))
+    #|   (global $g (ref null $box)
+    #|     (struct.new_desc $box
+    #|       (i32.const 9)
+    #|       (global.get $desc)))
+    #|   (func (export "read") (result (ref $box_desc))
+    #|     (block (result (ref null $box))
+    #|       global.get $g)
     #|     ref.get_desc $box))
     #|
   let pretty = gsi_test_pretty(input, false)

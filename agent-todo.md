@@ -52,18 +52,6 @@ Use this checklist for every `[GSI-PARITY-*]` slice below:
 
 The remaining-gap owner matrix now lives in `docs/wiki/binaryen/passes/global-struct-inference/parity.md`; execute the active slices below in dependency order and keep completed matrix history in the wiki/log/git history, not in this backlog.
 
-- [GSI-PARITY-003] - Non-Adjacent And Cast-Aware Read Operand Rewrites
-  - Status: active v0.1.0 release-gating parity implementation or explicit deferral.
-  - Goal: extend GSI beyond adjacent producer/read pairs only where the reference operand is evaluated once and the replacement preserves traps and validation.
-  - Why: current direct folds are still adjacent-pair shaped, while remaining upstream shapes include nested or non-adjacent reference producers and cast/refinement carriers.
-  - Deliverables:
-    - Pick one narrow read-operand carrier from the gap matrix, such as a validation-neutral block/local carrier or a non-null/cast carrier whose null-trap behavior can be preserved exactly.
-    - Add positives and negatives proving no duplicated side effects, no lost null trap, no invalid subtype replacement, and no unsafe interaction with `StructAtomicGet*`.
-    - Implement only that carrier; do not add a generic arbitrary-expression walker unless tests and effects analysis prove it safe.
-    - Update parity docs with the supported carrier list and the remaining non-adjacent blockers.
-  - Suggested tests: `src/passes/global_struct_inference_test.mbt`, `moon test src/passes`, direct GSI compare, and validation of saved mismatch repros if any.
-  - Exit criteria: at least one non-adjacent/cast-aware carrier is either implemented with compare evidence or explicitly deferred with the exact semantic blocker.
-
 - [GSI-PARITY-004] - Sibling `global-struct-inference-desc-cast` Activation
   - Status: active v0.1.0 release-gating parity implementation or explicit deferral.
   - Goal: decide and execute the minimal safe activation path for the sibling descriptor-cast pass surface without merging it into plain GSI.
@@ -100,7 +88,7 @@ The remaining-gap owner matrix now lives in `docs/wiki/binaryen/passes/global-st
   - Exit criteria: typed repair is either implemented for a concrete failing surface or explicitly closed as not required for the v0.1.0 GSI subset.
 
 - [GSI-PARITY-007] - Final GSI v0.1.0 Signoff
-  - Status: active v0.1.0 release-gating signoff after the remaining GSI parity implementation/deferral slices `[GSI-PARITY-003]` through `[GSI-PARITY-006]`.
+  - Status: active v0.1.0 release-gating signoff after the remaining GSI parity implementation/deferral slices `[GSI-PARITY-004]` through `[GSI-PARITY-006]`.
   - Goal: make the final v0.1.0 GSI contract explicit and oracle-backed.
   - Why: GSI has accumulated several safe subsets; release notes need a clean distinction between implemented parity, deliberate conservative gaps, and out-of-scope atomic aggregate work.
   - Deliverables:

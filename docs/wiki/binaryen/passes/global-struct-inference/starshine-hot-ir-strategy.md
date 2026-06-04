@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-03
+last_reviewed: 2026-06-04
 sources:
   - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md

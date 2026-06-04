@@ -32,7 +32,7 @@ related:
 - The full official contract is much broader than the current local MoonBit implementation.
   - Binaryen handles open-world direct-global reads, closed-world candidate-global reasoning over locals and params, subtype propagation, one-vs-two-unique-value selection, non-constant un-nesting, packed fields, atomic gets, `ref.get_desc`, and the sibling `gsi-desc-cast` surface
 - The current local Starshine implementation is still a deliberately small subset, but the 2026-06-03 O4z audit removed the old closed-world-only restriction for the direct-global layer:
-  - direct `global.get -> struct.get*` / `struct.atomic.get*` pairs now fold in open world, matching Binaryen's direct immutable-global fast path, including validation-safe reads through a supertype when the immutable global initializer constructs a subtype
+  - direct `global.get -> struct.get*` / `struct.atomic.get*` pairs now fold in open world, matching Binaryen's direct immutable-global fast path, including validation-safe reads through a supertype when the immutable global initializer constructs a subtype; one-instruction `block` carriers around direct immutable `global.get` producers also fold
   - top-level immutable `struct.new*`, `struct.new_default*`, `struct.new_desc`, and `struct.new_default_desc` globals are covered
   - packed i8/i16 signed and unsigned reads are repaired for direct literal payloads
   - a closed-world fact table now records immutable top-level candidate globals, mutable/too-broad global exclusions, function-local allocation poisoning, nested global-initializer allocation poisoning, poisoned-child-to-parent propagation, and child-candidate-to-parent propagation
@@ -129,6 +129,45 @@ Saved startup repro result:
 - Starshine pass skipped raw: no
 
 This is semantic smoke and performance evidence for the small-module float binary un-nesting extension only. It does not change the large-module gate, sibling descriptor-cast scope, non-adjacent carrier scope, or explicit refinalization status.
+
+## 2026-06-04 block-carried direct-global read follow-up
+
+The block-carrier follow-up adds the first non-adjacent read-operand carrier under `[GSI-PARITY-003]`. Starshine now folds validation-neutral `block (result (ref ...))` carriers whose entire body is one immutable `global.get`, followed by `struct.get*`, `struct.atomic.get*`, or `ref.get_desc`. The rewrite preserves the carrier evaluation exactly once, keeps nullable traps by applying `ref.as_non_null` before `drop` when the source global is nullable, and still refuses effectful or arbitrary carrier bodies such as `call`-producing blocks. It does not implement cast/refinement carriers, local/param block carriers, or a generic expression walker.
+
+The final direct compare ran with a prebuilt native Starshine binary and automatic parallel workers:
+
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass global-struct-inference --keep-going-after-command-failures --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --out-dir .tmp/pass-fuzz-global-struct-inference-block-carrier-10000`
+
+Result:
+
+- compared cases: 9975 / 10000
+- normalized matches: 9975
+- mismatches: 0
+- validation failures: 0
+- generator failures: 0
+- command failures: 25
+
+Command-failure classes from `summary.json`:
+
+- `22` `binaryen-rec-group-zero`
+- `1` `binaryen-bad-section-size`
+- `1` `binaryen-table-index-out-of-range`
+- `1` `binaryen-invalid-tag-index`
+
+The debug artifact timing replay used:
+
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --global-struct-inference --timing-only --out-dir .tmp/gsi-debug-artifact-timing-block-carrier`
+
+Result:
+
+- canonical wasm equal: yes
+- Starshine runtime: `305.883 ms`
+- Binaryen runtime: `409.422 ms`
+- Starshine pass runtime: `0.358 ms`
+- Binaryen pass runtime: `3.153 ms`
+- Starshine pass skipped raw: no
+
+This is semantic smoke and performance evidence for the exact one-instruction block-carried direct-global subset only. It does not change sibling descriptor-cast scheduling, cast/refinement carrier support, local/param carrier support, large-module un-nesting, or explicit refinalization status.
 
 The debug artifact timing replays used:
 
@@ -854,7 +893,7 @@ This matrix is the current release-gating triage for the remaining official `gsi
 | Gap family | Official/source shape | Starshine coverage today | Classification | Owner slice | Notes |
 | --- | --- | --- | --- | --- | --- |
 | Large-module or fuller non-constant operand un-nesting | Binaryen can split non-constant field or descriptor operands into fresh immutable globals, then run `reorder-globals-always` before consuming them as materializable `global.get`s. | Small-module, read-gated scalar un-nesting covers arithmetic, bitwise, shift/rotate, unary numeric, float div/min/max/copysign, float sqrt/rounding, sign-extension, packed repair, and descriptor reads. Large modules and unsupported operand families stay materializable-only. | Blocked by runtime budget unless a focused operand family proves cheap enough. | `[GSI-PARITY-002]` | Any widening needs pass-local artifact timing before implementation. Unbounded Binaryen-style splitting remains deferred unless the budget is green. |
-| Non-adjacent or carrier-shaped read operands | Binaryen's function optimizer can reason about candidate operands beyond Starshine's immediate `global.get`/`local.get` plus field-read pair shape. | Direct globals and closed-world local/param origins/values/selects are adjacent-pair shaped. | Implementation-ready for one validation-neutral carrier at a time; cast/refinement carriers are blocked by typed-repair proof. | `[GSI-PARITY-003]`; typed-repair parts reopen `[GSI-PARITY-006]` | Preserve single evaluation, null-trap behavior, replacement typing, and conservative `StructAtomicGet*` effects. |
+| Non-adjacent or carrier-shaped read operands | Binaryen's function optimizer can reason about candidate operands beyond Starshine's immediate `global.get`/`local.get` plus field-read pair shape. | Direct globals now include one-instruction `block` carriers around immutable `global.get`; closed-world local/param origins/values/selects remain adjacent-pair shaped. | One validation-neutral direct-global block carrier is covered; cast/refinement and local/param carriers remain blocked by typed-repair or operand-carrier proof. | Future work should reopen `[GSI-PARITY-006]` for typed-repair parts; no active v0.1.0 slice remains for arbitrary carriers. | Preserve single evaluation, null-trap behavior, replacement typing, and conservative `StructAtomicGet*` effects. |
 | Cast-aware descriptor sibling | Upstream `gsi-desc-cast` can rewrite eligible `ref.cast` to `ref.cast_desc_eq` when the target descriptor type has exactly one trusted global and the exact/subtype gate passes. | Plain GSI handles `ref.get_desc` folds/selects; `global-struct-inference-desc-cast` remains boundary-only with no pass-manager dispatch. | Blocked by descriptor-cast scheduling and pass-surface activation. | `[GSI-PARITY-004]` | Keep this separate from plain-GSI descriptor reads; it needs a distinct pass or explicit deferral. |
 | Larger value-decision programs | Binaryen's documented profitable case is one unique value or two unique values with one singleton group, but future parity work may discover lit/source shapes that invite more than one `ref.eq` decision. | Starshine matches one-value and two-value singleton-group local/param rewrites for exact and subtype-propagated candidates. | Intentionally out of scope unless a bounded, size-winning fixture proves value; then implementation-ready only for that bound. | `[GSI-PARITY-005]` | Keep existing more-than-two-value and two-equal-pair negatives unless this slice deliberately changes the bound. |
 | Explicit refinalization / typed repair | Binaryen refinalizes changed functions after rewrites, including precision/nullability effects. | Current replacements are validation-preserving by construction and no failing fixture is known. | Blocked by typed-repair infrastructure only if a focused fixture proves the need; otherwise an audit/no-op conclusion is acceptable. | `[GSI-PARITY-006]` | Future cast-aware carriers or decision trees must reopen this if they narrow enclosing expression types. |
@@ -880,7 +919,7 @@ This former conceptual gap is closed for the direct immutable-global fast path, 
 
 Current local behavior:
 
-- open-world direct reads still require an immediate `GlobalGet` feeding `StructGet` / `StructGetS` / `StructGetU` / `StructAtomicGet*` or `RefGetDesc`
+- open-world direct reads accept either an immediate `GlobalGet` or a one-instruction `block` carrier around `GlobalGet`, feeding `StructGet` / `StructGetS` / `StructGetU` / `StructAtomicGet*` or `RefGetDesc`
 - closed-world local/param origin, value, and singleton-select rewrites likewise consume immediate local/param read pairs
 
 Official Binaryen behavior:
@@ -890,7 +929,7 @@ Official Binaryen behavior:
 
 So the local pass still misses Binaryen shapes like:
 
-- non-adjacent, nested, or cast/refinement-carried reference producers
+- non-adjacent local/param carriers, nested multi-instruction carriers, or cast/refinement-carried reference producers
 - large-module or unsupported non-constant field/descriptor operands that would require fresh-global un-nesting
 
 ## 3. Subtype propagation is consumed only by local/param origin and value rewrites

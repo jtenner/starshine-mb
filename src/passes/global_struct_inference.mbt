@@ -2196,6 +2196,91 @@ fn gsi_folded_global_field_expr(
 }
 
 ///|
+fn gsi_folded_direct_global_read_expr(
+  env : @validate.Env,
+  fields_by_type : Array[Array[@lib.FieldType]?],
+  global_values_by_abs_idx : Array[Array[@lib.Expr?]?],
+  global_descriptor_values_by_abs_idx : Array[@lib.Expr?],
+  global_type_slots : Array[Int],
+  global_idx : @lib.GlobalIdx,
+  read_instr : @lib.Instruction,
+) -> @lib.Expr? {
+  match read_instr {
+    @lib.StructGet(type_idx, field_idx) =>
+      gsi_folded_global_field_expr(
+        env, fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
+        type_idx, field_idx, false, false,
+      )
+    @lib.StructGetS(type_idx, field_idx) =>
+      gsi_folded_global_field_expr(
+        env, fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
+        type_idx, field_idx, true, false,
+      )
+    @lib.StructGetU(type_idx, field_idx) =>
+      gsi_folded_global_field_expr(
+        env, fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
+        type_idx, field_idx, false, true,
+      )
+    @lib.StructAtomicGet(_, type_idx, field_idx) =>
+      gsi_folded_global_field_expr(
+        env, fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
+        type_idx, field_idx, false, false,
+      )
+    @lib.StructAtomicGetS(_, type_idx, field_idx) =>
+      gsi_folded_global_field_expr(
+        env, fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
+        type_idx, field_idx, true, false,
+      )
+    @lib.StructAtomicGetU(_, type_idx, field_idx) =>
+      gsi_folded_global_field_expr(
+        env, fields_by_type, global_values_by_abs_idx, global_type_slots, global_idx,
+        type_idx, field_idx, false, true,
+      )
+    @lib.RefGetDesc(type_idx) =>
+      gsi_folded_global_descriptor_expr(
+        env,
+        global_descriptor_values_by_abs_idx,
+        global_type_slots,
+        global_idx,
+        type_idx,
+        gsi_global_ref_type(env, global_idx),
+      )
+    _ => None
+  }
+}
+
+///|
+fn gsi_block_carrier_global_idx(instr : @lib.Instruction) -> @lib.GlobalIdx? {
+  match instr {
+    @lib.Block(
+      @lib.ValTypeBlockType(@lib.RefTypeValType(_)),
+      @lib.Expr([@lib.GlobalGet(global_idx)])
+    ) => Some(global_idx)
+    _ => None
+  }
+}
+
+///|
+fn gsi_append_direct_global_replacement(
+  out : Array[@lib.Instruction],
+  carrier : @lib.Instruction,
+  env : @validate.Env,
+  global_idx : @lib.GlobalIdx,
+  value : @lib.Expr,
+) -> Unit {
+  out.push(carrier)
+  match gsi_global_ref_type(env, global_idx) {
+    Some(ref_type) =>
+      if ref_type.is_nullable() {
+        out.push(@lib.Instruction::ref_as_non_null())
+      }
+    None => ()
+  }
+  out.push(@lib.Instruction::drop())
+  gsi_append_expr_instrs(out, value)
+}
+
+///|
 fn gsi_rewrite_instrs(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
@@ -2213,17 +2298,53 @@ fn gsi_rewrite_instrs(
     let instr = instrs[idx]
     match instr {
       @lib.Block(block_type, @lib.Expr(body)) =>
-        out.push(
-          @lib.Instruction::block(
-            block_type,
-            @lib.Expr::new(
-              gsi_rewrite_instrs(
-                body, env, local_env, fields_by_type, global_values_by_abs_idx, global_descriptor_values_by_abs_idx,
-                global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
+        if idx + 1 < instrs.length() {
+          match gsi_block_carrier_global_idx(instr) {
+            Some(global_idx) => {
+              let next_instr = instrs[idx + 1]
+              match
+                gsi_folded_direct_global_read_expr(
+                  env, fields_by_type, global_values_by_abs_idx, global_descriptor_values_by_abs_idx,
+                  global_type_slots, global_idx, next_instr,
+                ) {
+                Some(value) => {
+                  gsi_append_direct_global_replacement(
+                    out, instr, env, global_idx, value,
+                  )
+                  idx += 2
+                  continue
+                }
+                None => ()
+              }
+            }
+            None => ()
+          }
+          out.push(
+            @lib.Instruction::block(
+              block_type,
+              @lib.Expr::new(
+                gsi_rewrite_instrs(
+                  body, env, local_env, fields_by_type, global_values_by_abs_idx,
+                  global_descriptor_values_by_abs_idx, global_type_slots, exact_single_candidate_by_type_slot,
+                  rewrite_candidates_by_type_slot,
+                ),
               ),
             ),
-          ),
-        )
+          )
+        } else {
+          out.push(
+            @lib.Instruction::block(
+              block_type,
+              @lib.Expr::new(
+                gsi_rewrite_instrs(
+                  body, env, local_env, fields_by_type, global_values_by_abs_idx,
+                  global_descriptor_values_by_abs_idx, global_type_slots, exact_single_candidate_by_type_slot,
+                  rewrite_candidates_by_type_slot,
+                ),
+              ),
+            ),
+          )
+        }
       @lib.Loop(block_type, @lib.Expr(body)) =>
         out.push(
           @lib.Instruction::loop_(
@@ -2269,60 +2390,15 @@ fn gsi_rewrite_instrs(
       @lib.GlobalGet(global_idx) =>
         if idx + 1 < instrs.length() {
           let next_instr = instrs[idx + 1]
-          let folded = match next_instr {
-            @lib.StructGet(type_idx, field_idx) =>
-              gsi_folded_global_field_expr(
-                env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-                global_idx, type_idx, field_idx, false, false,
-              )
-            @lib.StructGetS(type_idx, field_idx) =>
-              gsi_folded_global_field_expr(
-                env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-                global_idx, type_idx, field_idx, true, false,
-              )
-            @lib.StructGetU(type_idx, field_idx) =>
-              gsi_folded_global_field_expr(
-                env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-                global_idx, type_idx, field_idx, false, true,
-              )
-            @lib.StructAtomicGet(_, type_idx, field_idx) =>
-              gsi_folded_global_field_expr(
-                env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-                global_idx, type_idx, field_idx, false, false,
-              )
-            @lib.StructAtomicGetS(_, type_idx, field_idx) =>
-              gsi_folded_global_field_expr(
-                env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-                global_idx, type_idx, field_idx, true, false,
-              )
-            @lib.StructAtomicGetU(_, type_idx, field_idx) =>
-              gsi_folded_global_field_expr(
-                env, fields_by_type, global_values_by_abs_idx, global_type_slots,
-                global_idx, type_idx, field_idx, false, true,
-              )
-            @lib.RefGetDesc(type_idx) =>
-              gsi_folded_global_descriptor_expr(
-                env,
-                global_descriptor_values_by_abs_idx,
-                global_type_slots,
-                global_idx,
-                type_idx,
-                gsi_global_ref_type(env, global_idx),
-              )
-            _ => None
-          }
-          match folded {
+          match
+            gsi_folded_direct_global_read_expr(
+              env, fields_by_type, global_values_by_abs_idx, global_descriptor_values_by_abs_idx,
+              global_type_slots, global_idx, next_instr,
+            ) {
             Some(value) => {
-              out.push(instr)
-              match gsi_global_ref_type(env, global_idx) {
-                Some(ref_type) =>
-                  if ref_type.is_nullable() {
-                    out.push(@lib.Instruction::ref_as_non_null())
-                  }
-                None => ()
-              }
-              out.push(@lib.Instruction::drop())
-              gsi_append_expr_instrs(out, value)
+              gsi_append_direct_global_replacement(
+                out, instr, env, global_idx, value,
+              )
               idx += 2
               continue
             }
@@ -2715,7 +2791,33 @@ fn gsi_instrs_may_rewrite(
             _ => ()
           }
         }
-      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+      @lib.Block(_, @lib.Expr(body)) => {
+        if idx + 1 < instrs.length() {
+          match gsi_block_carrier_global_idx(instr) {
+            Some(global_idx) =>
+              if gsi_folded_direct_global_read_expr(
+                  env,
+                  fields_by_type,
+                  global_values_by_abs_idx,
+                  global_descriptor_values_by_abs_idx,
+                  global_type_slots,
+                  global_idx,
+                  instrs[idx + 1],
+                )
+                is Some(_) {
+                return true
+              }
+            None => ()
+          }
+        }
+        if gsi_instrs_may_rewrite(
+            body, env, local_env, fields_by_type, global_values_by_abs_idx, global_descriptor_values_by_abs_idx,
+            global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,
+          ) {
+          return true
+        }
+      }
+      @lib.Loop(_, @lib.Expr(body)) =>
         if gsi_instrs_may_rewrite(
             body, env, local_env, fields_by_type, global_values_by_abs_idx, global_descriptor_values_by_abs_idx,
             global_type_slots, exact_single_candidate_by_type_slot, rewrite_candidates_by_type_slot,

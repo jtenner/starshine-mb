@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] passes/gsi | block-carried direct-global reads
+
+- Extended [`src/passes/global_struct_inference.mbt`](../../src/passes/global_struct_inference.mbt) so plain GSI folds one-instruction `block` carriers around immutable `global.get` producers before `struct.get*`, `struct.atomic.get*`, and `ref.get_desc` reads.
+- Added focused fixtures in [`src/passes/global_struct_inference_test.mbt`](../../src/passes/global_struct_inference_test.mbt) for ordinary, nullable, and atomic block-carried direct reads plus an effectful `call` carrier negative.
+- Refreshed the GSI wiki and pruned `[GSI-PARITY-003]` from [`agent-todo.md`](../../agent-todo.md); cast/refinement and local/param carrier work remains deferred to typed-repair or future carrier-proof slices.
+
 ## [2026-06-04] validate/wast | import/export matching current refresh
 
 - Added [`docs/wiki/raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md`](raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md) after rechecking current WebAssembly Core 3.0 matching, type-validation, module-validation, runtime-instantiation, and abstract module syntax pages plus local `src/validate/validate.mbt`, `src/validate/match.mbt`, `src/lib/types.mbt`, `src/validate/invalid_fuzzer.mbt`, and `src/wast/lower_to_lib.mbt` evidence.
