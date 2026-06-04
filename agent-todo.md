@@ -38,6 +38,101 @@
     - Evaluate remaining non-pass candidates such as encoder size/backpatch and code-section buffering reduction.
   - Suggested tests: focused timing traces, `moon info`, `moon fmt`, `moon test`, and targeted self-compare commands for any changed pass/tool path.
 
+### Global Struct Inference Parity
+
+Release gate: close these before v0.1.0 by either implementing the safe subset with oracle evidence or explicitly documenting a deferred blocker in the GSI wiki. Completed GSI/atomic implementation history lives in the pass docs, research notes, and git history; keep this list to active parity work only.
+
+Use this checklist for every `[GSI-PARITY-*]` slice below:
+- Start from `docs/wiki/binaryen/passes/global-struct-inference/parity.md`, `docs/wiki/binaryen/passes/global-struct-inference/starshine-strategy.md`, `docs/wiki/binaryen/passes/global-struct-inference/closed-world-analysis-and-unnesting.md`, and the sibling desc-cast dossier when relevant.
+- Add or update focused tests before behavior changes; confirm a failing fixture where the slice implements a new rewrite rather than only classifying a blocker.
+- Preserve current safety guards: immutable fields/globals only, subtype-aware poison facts, null-trap preservation, validation-safe replacement typing, packed signedness repair, and conservative generic-pass treatment for `StructAtomicGet*`.
+- Keep aggregate atomic set/RMW/cmpxchg and array atomics out of scope unless a separate opcode/effect/pass-proof task is opened.
+- Refresh direct `global-struct-inference` compare after behavior changes: start at 1000, scale to 10000 before signoff, and agent-classify every mismatch or command failure.
+- Record pass-local timing on the debug artifact and route whole-command residuals to `[WALL]001`.
+
+- [GSI-PARITY-001] - Refresh The Remaining GSI Gap Matrix
+  - Status: active v0.1.0 release-gating parity triage.
+  - Goal: turn the current prose gaps into an exact fixture/source matrix before further rewrites.
+  - Why: Starshine has closed the direct-global, closed-world local/param, descriptor-read, and immutable-field atomic-get subsets, but remaining Binaryen parity gaps are spread across un-nesting, non-adjacent operands, desc-cast, decision trees, and type repair.
+  - Deliverables:
+    - Inventory official Binaryen `global-struct-inference` and `global-struct-inference-desc-cast` lit/source shapes against Starshine tests and docs.
+    - For each missing shape, classify it as implementation-ready, blocked by runtime budget, blocked by typed-repair infrastructure, blocked by descriptor-cast scheduling, or intentionally out of scope.
+    - Update the GSI wiki with a table that maps each remaining gap to one of the slices below.
+    - Prune or rewrite any stale wording that implies the current local subset is full upstream parity.
+  - Suggested tests: documentation-only diff check plus `moon test src/passes` if fixture names or test docs change.
+  - Exit criteria: every known remaining GSI parity gap has a single owner slice and no completed GSI/atomic task history remains in `agent-todo.md`.
+
+- [GSI-PARITY-002] - Budgeted Non-Constant Operand Un-Nesting Expansion
+  - Status: active v0.1.0 release-gating parity implementation or explicit deferral.
+  - Goal: decide whether Starshine can safely broaden Binaryen-style fresh-global un-nesting beyond the current small-module, read-gated scalar subset.
+  - Why: upstream Binaryen can split nested non-constant field operands into immutable globals and then fold reads; Starshine deliberately skips larger modules and unsupported operand families to protect pass-local runtime.
+  - Deliverables:
+    - Add focused failing-first fixtures for at least one upstream-supported un-nesting shape that Starshine currently skips only because of the small-module gate or an unsupported pure nontrapping operand family.
+    - Measure pass-local cost on the debug artifact and one large generated or saved fixture before widening the gate.
+    - Implement the smallest safe widening, such as an adaptive per-function/read-count gate or one additional pure operand family, only if timing stays within the pass budget.
+    - If widening is too expensive, document the runtime blocker and keep the existing gate explicit.
+  - Suggested tests: `moon test src/passes`, `moon build --target native --release src/cmd`, 1000 then 10000 direct GSI compare, and debug-artifact timing.
+  - Exit criteria: either a new un-nesting family/gate is green with timing evidence, or the v0.1.0 docs state why the large-module/unbounded Binaryen surface remains deferred.
+
+- [GSI-PARITY-003] - Non-Adjacent And Cast-Aware Read Operand Rewrites
+  - Status: active v0.1.0 release-gating parity implementation or explicit deferral.
+  - Goal: extend GSI beyond adjacent producer/read pairs only where the reference operand is evaluated once and the replacement preserves traps and validation.
+  - Why: current direct folds are still adjacent-pair shaped, while remaining upstream shapes include nested or non-adjacent reference producers and cast/refinement carriers.
+  - Deliverables:
+    - Pick one narrow read-operand carrier from the gap matrix, such as a validation-neutral block/local carrier or a non-null/cast carrier whose null-trap behavior can be preserved exactly.
+    - Add positives and negatives proving no duplicated side effects, no lost null trap, no invalid subtype replacement, and no unsafe interaction with `StructAtomicGet*`.
+    - Implement only that carrier; do not add a generic arbitrary-expression walker unless tests and effects analysis prove it safe.
+    - Update parity docs with the supported carrier list and the remaining non-adjacent blockers.
+  - Suggested tests: `src/passes/global_struct_inference_test.mbt`, `moon test src/passes`, direct GSI compare, and validation of saved mismatch repros if any.
+  - Exit criteria: at least one non-adjacent/cast-aware carrier is either implemented with compare evidence or explicitly deferred with the exact semantic blocker.
+
+- [GSI-PARITY-004] - Sibling `global-struct-inference-desc-cast` Activation
+  - Status: active v0.1.0 release-gating parity implementation or explicit deferral.
+  - Goal: decide and execute the minimal safe activation path for the sibling descriptor-cast pass surface without merging it into plain GSI.
+  - Why: plain GSI now handles `ref.get_desc` over descriptor-constructor globals, but the sibling desc-cast pass remains boundary-only and is still an upstream parity gap.
+  - Deliverables:
+    - Read the desc-cast dossier and current pass registry to identify whether the pass should be implemented as a distinct active pass, alias, or deferred boundary note.
+    - Add focused tests for the smallest descriptor-cast rewrite, plus negatives for nullability, subtype mismatch, descriptor identity ambiguity, and validation repair.
+    - Implement and wire the pass only if the tests establish a validation-preserving subset and the `-O4z` scheduling neighborhood can represent it safely.
+    - Document any deferral separately from plain GSI so future agents do not reopen it as an ordinary `ref.get_desc` fold.
+  - Suggested tests: descriptor-cast pass tests, `moon test src/passes`, registry/preset tests if scheduled, direct pass compare for the sibling pass when available, and GSI compare to ensure no regression.
+  - Exit criteria: desc-cast is either an active tested pass slice with docs and scheduling evidence, or a documented v0.1.0 deferral with the missing infrastructure named.
+
+- [GSI-PARITY-005] - Bounded Multi-Value Decision Trees
+  - Status: active v0.1.0 release-gating parity implementation or explicit deferral.
+  - Goal: evaluate Binaryen-style value grouping beyond Starshine's current one-value and two-value singleton-select shapes.
+  - Why: current closed-world local/param rewrites stop at one materialized value or exactly two values with one singleton-tested group; broader candidate sets still miss upstream opportunities.
+  - Deliverables:
+    - Add failing-first fixtures for the smallest profitable candidate group that requires more than one `ref.eq` decision, with explicit size and validation expectations.
+    - Implement a bounded decision-tree generator only if the generated code is size-neutral or size-winning under Starshine's `-O4z` goals and preserves candidate evaluation/trap behavior.
+    - Keep existing >2-value and two-equal-pair negatives unless the new bounded policy intentionally covers them.
+    - Document the selected bound and why larger trees stay deferred.
+  - Suggested tests: `moon test src/passes`, 1000 then 10000 direct GSI compare, and code-size/timing checks on representative closed-world fixtures.
+  - Exit criteria: multi-value grouping is either expanded to a documented bounded subset or explicitly deferred as a size/runtime tradeoff.
+
+- [GSI-PARITY-006] - Typed Repair And Refinalization Trigger Slice
+  - Status: active v0.1.0 release-gating parity audit with implementation only if a fixture proves the need.
+  - Goal: prove whether v0.1.0 GSI still needs an explicit typed-AST repair/refinalization mechanism after validation-preserving replacement typing.
+  - Why: Binaryen explicitly refinalizes after rewrites; Starshine currently avoids stale types by constructing replacements that already match the original read result, but future cast-aware or decision-tree rewrites may narrow enclosing types.
+  - Deliverables:
+    - Add or port focused fixtures for nullability/refinement/enclosing-result shapes that would fail without refinalization.
+    - If a fixture fails validation after an otherwise safe rewrite, implement the smallest typed repair mechanism and cover it with tests.
+    - If no failing fixture exists, document the no-op conclusion and list the future rewrite families that must reopen this slice.
+  - Suggested tests: `moon test src/validate`, `moon test src/passes`, direct GSI compare, and targeted validation of generated before/after WAT.
+  - Exit criteria: typed repair is either implemented for a concrete failing surface or explicitly closed as not required for the v0.1.0 GSI subset.
+
+- [GSI-PARITY-007] - Final GSI v0.1.0 Signoff
+  - Status: active v0.1.0 release-gating signoff after `[GSI-PARITY-001]` through `[GSI-PARITY-006]`.
+  - Goal: make the final v0.1.0 GSI contract explicit and oracle-backed.
+  - Why: GSI has accumulated several safe subsets; release notes need a clean distinction between implemented parity, deliberate conservative gaps, and out-of-scope atomic aggregate work.
+  - Deliverables:
+    - Refresh `global-struct-inference` direct compare at 10000 with a prebuilt native Starshine binary and classify every non-match or command failure.
+    - Replay any saved `-O4z` slot/neighborhood evidence that includes GSI and record pass-local timing.
+    - Update GSI wiki pages, `docs/wiki/log.md`, and release-note source material with the final supported/unsupported surface.
+    - Ensure `agent-todo.md` contains only active follow-up work after the signoff, not completed slice history.
+  - Suggested tests: `moon info` if the toolchain crash is fixed, `moon fmt`, `moon test`, `moon build --target native --release src/cmd`, direct 10000 GSI compare, and `bun validate readme-api-sync`.
+  - Exit criteria: v0.1.0 has an honest, tested GSI contract and any remaining upstream gaps are deliberately deferred outside completed-task history.
+
 ### O4z Per-Pass Deep Audits
 
 Release gate: complete these before the v0.1.0 release so `-O4z` pass coverage is more comprehensive and pass-local runtime owners are known before publishing.
@@ -196,58 +291,6 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
 ## v0.1.1 Backlog
 
 ### Optimizer Audit Follow-Ups
-
-- [GSI]001 - Consume Closed-World Candidate Facts Safely
-  - Status: active follow-up after the 2026-06-03 `global-struct-inference` closed-world facts slice.
-  - Goal: turn the new analysis-only candidate/poison fact table into safe Binaryen-style closed-world rewrites without regressing the open-world direct-global subset.
-  - Why: Starshine now records immutable top-level global candidates plus direct allocation poison facts and consumes them for exact and subtype-propagated local/param origin, one-value, and two-value rewrites, and can un-nest small-module arithmetic/bitwise/shift-rotate/unary-numeric scalar operands, but full Binaryen-style unbounded large-module un-nesting, descriptor-cast sibling behavior, and atomic-get coverage remain deferred or blocked.
-  - Deliverables:
-    - [x] `[GSI001-A]` Add subtype propagation to the fact table: poisoned child types poison parents, and candidate child globals propagate upward to parent types. Completed 2026-06-03 with white-box propagation/order coverage and green direct compare.
-    - [x] `[GSI001-B]` Add a narrow single-candidate local/param origin rewrite that preserves null traps and produces valid typed output; start with exact struct type, no subtype, no value-folding. Completed 2026-06-03 with public-pipeline param/local positives, open-world/multi-candidate/poisoned/unsafe/subtype-propagated negatives, 10k direct compare, and debug-artifact timing.
-    - [x] `[GSI001-C]` Add one-value multi-candidate folding only for materializable equal values; keep non-constant expression equivalence and un-nesting out of this slice. Completed 2026-06-03 with public-pipeline exact local/param one-value positives, global-get and packed repair coverage, open-world/differing/non-materializable/subtype/poison/unsafe negatives, `--jobs auto` direct compare, and debug-artifact timing.
-    - [x] `[GSI001-D]` Add two-value singleton-group `select(ref.eq(...))` synthesis with negative coverage for >2 unique values and two-equal-pair ambiguity. Completed 2026-06-03 with public-pipeline exact local/param two-value positives, three-global singleton-group coverage, explicit >2-value and two-equal-pair negatives, `--jobs auto` direct compare, and debug-artifact timing.
-    - [x] `[GSI001-E]` Refresh direct compare at 1000 before each behavior step and 10000 before calling the rewrite slice signed off; record pass-local debug-artifact timing. Completed for the GSI001-D rewrite slice on 2026-06-03.
-    - [x] `[GSI001-F]` Consume subtype-propagated candidate facts for safe supertype local/param one-value and two-value rewrites, including poisoned-child negatives and mixed parent/child candidate ordering coverage. Completed 2026-06-03 with parent-typed one-value and singleton-select positives, propagated ambiguity/poison negatives, `--jobs auto` direct compare, and debug-artifact timing.
-    - [x] `[GSI001-G]` Add Binaryen-style non-constant operand un-nesting into fresh immutable globals plus reorder-globals repair; keep arbitrary expression equivalence out unless un-nesting proves the value materializable. Completed 2026-06-03 for small-module direct and closed-world local/param reads with fresh immutable globals, original-initializer repair, and forced reorder-globals repair; large modules keep the previous materializable-only behavior to preserve pass-local artifact budget.
-    - [x] `[GSI001-H]` Add remaining plain-GSI official surfaces: `ref.get_desc`, atomic immutable-field gets, and any required typed repair/refinalization coverage; keep sibling `global-struct-inference-desc-cast` separate unless explicitly scheduled. Completed 2026-06-03 for direct and closed-world local/param `ref.get_desc` folds/selects over descriptor-constructor globals. A later 2026-06-04 infrastructure slice added the local `StructAtomicGet*` opcode/WAT/binary/validation surface, so Binaryen-style immutable-field GSI atomic folds are now tracked separately under `[ATOMIC]001` rather than blocked on missing opcodes.
-    - [x] `[GSI001-I]` Add subtype-propagated single-candidate parent/supertype origin rewrites when the candidate global's declared reference heap type is a subtype of the read type, preserving nullable traps and bailing out on too-broad `eqref` declarations that would make the replacement invalid. Completed 2026-06-03 with public-pipeline positive and broad-global negative coverage, `--jobs auto` direct compare, and debug-artifact timing.
-    - [x] `[GSI001-J]` Broaden guarded small-module non-constant un-nesting from arithmetic scalar expressions to pure integer bitwise operands without changing the large-module gate. Completed 2026-06-03 with direct-global `i32.and`/`i64.xor` coverage, pre/post native compare lanes, and debug-artifact timing.
-    - [x] `[GSI001-K]` Broaden guarded small-module non-constant un-nesting from arithmetic/bitwise scalar expressions to pure integer shift/rotate operands without changing the large-module gate. Completed 2026-06-03 with direct-global `i32.shl`/`i64.rotl` coverage, pre-change native compare smoke, and final signoff.
-    - [x] `[GSI001-L]` Broaden guarded small-module non-constant un-nesting to pure unary numeric operands without changing the large-module gate. Completed 2026-06-03 with direct-global `i32.popcnt`/`i64.eqz`/`f64.neg` coverage, pre-change native compare smoke, final `--jobs auto` direct compare, and debug-artifact timing.
-    - [x] `[GSI001-M]` Repair packed signed/unsigned reads after guarded fresh-global un-nesting in direct-global reads. Completed 2026-06-03 with direct-global packed `i8` signed and `i16` unsigned un-nesting coverage, dynamic packed repair via `i32.extend8s`/`i32.and`, pre-change native compare smoke, final `--jobs auto` direct compare, and debug-artifact timing.
-    - [x] `[GSI001-N]` Allow repaired packed fresh-global values to participate in closed-world one/two-value local/param rewrites. Completed 2026-06-03 with closed-world packed `i8` signed and `i16` unsigned singleton-select coverage, focused packed-repair result typing, final `--jobs auto` direct compare, and debug-artifact timing.
-    - [x] `[GSI001-O]` Broaden guarded small-module non-constant un-nesting to pure non-trapping float square-root operands. Completed 2026-06-03 with direct-global `f32.sqrt`/`f64.sqrt` coverage, final `--jobs auto` direct compare, and debug-artifact timing.
-    - [x] `[GSI001-P]` Broaden guarded small-module non-constant un-nesting to pure non-trapping float rounding operands. Completed 2026-06-03 with direct-global `f32.ceil`/`f64.nearest` coverage, final `--jobs auto` direct compare, and debug-artifact timing.
-    - [x] `[GSI001-Q]` Broaden guarded small-module non-constant un-nesting to pure integer sign-extension operands. Completed 2026-06-03 with direct-global `i32.extend8_s`/`i64.extend32_s` coverage, final `--jobs auto` direct compare, and debug-artifact timing.
-    - [x] `[GSI001-R]` Add closed-world coverage proving the new float sqrt/rounding fresh-global operands participate in two-value singleton-select local/param rewrites. Completed 2026-06-04 as a coverage slice after the shared un-nesting collector already handled `f32.sqrt` and `f64.nearest` through closed-world typed read requests.
-    - [x] `[GSI001-S]` Add closed-world coverage proving integer sign-extension fresh-global operands participate in two-value singleton-select local/param rewrites. Completed 2026-06-04 as a coverage slice after the shared un-nesting collector already handled `i32.extend16_s` and `i64.extend32_s` through closed-world typed read requests.
-    - [x] `[GSI001-T]` Audit plain-GSI typed repair/refinalization surfaces. Completed 2026-06-04 as a docs/investigation slice: current origin/value/select/descriptor replacements derive validation-preserving block/select result types before rewriting, so no immediate ReFinalize-shaped implementation target is known; Binaryen-style precision/refinement remains deferred.
-  - Suggested tests: `src/passes/global_struct_inference_wbtest.mbt` for analysis invariants, `src/passes/global_struct_inference_test.mbt` for public-pipeline rewrites, `moon test src/passes`, direct `bun scripts/pass-fuzz-compare.ts --pass global-struct-inference --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe`, and debug-artifact timing.
-  - Exit criteria: closed-world local/param rewrites are guarded by subtype-aware candidate facts, validate on focused fixtures, show zero semantic mismatches in direct compare, and keep any future unbounded un-nesting, descriptor-cast, atomic, or refinalization work from weakening current poison, origin-typing, and value-grouping guards.
-
-- [ATOMIC]001 - Struct Atomic Get Optimizer Support
-  - Status: signed off for current struct atomic get optimizer support; remaining aggregate atomic families stay out of scope until implemented.
-  - Goal: make optimizer passes recognize `StructAtomicGet`, `StructAtomicGetS`, and `StructAtomicGetU` safely, then add Binaryen-style `global-struct-inference` folds only for immutable-field atomic reads.
-  - Why: the local opcode/WAT/binary/validation model now accepts `struct.atomic.get*` with `seq_cst` / `acq_rel` ordering and conservative effect modeling. GSI consumes immutable-field direct-global and closed-world local/param atomic reads, while generic pass regression coverage now keeps local-cse, precompute, optimize-instructions, and simplify-locals conservative.
-  - Deliverables:
-    - [x] `[ATOMIC001-A]` Add local opcode, WAT parse/print/lower, binary encode/decode, validation typing, type-index preservation, and conservative effect/pass modeling for struct atomic gets.
-    - [x] `[ATOMIC001-B]` Add focused generic-pass regression tests proving struct atomic gets are not reordered, dropped, or precomputed unsafely across local-cse/precompute/optimize-instructions/simplify-locals surfaces. Completed 2026-06-04 with public/raw and latent HOT local-cse no-merge coverage, precompute dropped-effect preservation, optimize-instructions load-call barrier coverage, simplify-locals no-sink ordering coverage, plus HOT lift/verify repair for non-`MemArg` struct atomic gets.
-    - [x] `[ATOMIC001-C]` Add GSI immutable-field direct-global and closed-world local/param atomic-get fixtures, then implement only the safe folds that preserve null traps, packed signedness, and ordering assumptions. Completed 2026-06-04 with direct immutable fold, packed signed/unsigned repair, mutable-field negative, and closed-world two-value local select coverage.
-    - [x] `[ATOMIC001-D]` Refresh direct `--pass global-struct-inference` compare and update the GSI parity docs once atomic folds land. Completed 2026-06-04 with `9975 / 10000` compared, `9975` normalized matches, `0` mismatches, and the known 25 Binaryen/tool command failures; debug-artifact timing was canonical-equal with Starshine/Binaryen pass-local `0.354 ms / 2.870 ms`.
-  - Suggested tests: `moon test src/binary`, `moon test src/wast`, `moon test src/validate`, `moon test src/passes`, focused pass-specific regression tests, then direct GSI compare with `--jobs auto` and a prebuilt native `src/cmd` binary after behavior changes.
-  - Exit criteria: local opcode support is validated, generic passes treat atomic gets conservatively, GSI immutable-field atomic folds match Binaryen semantics on focused fixtures and direct compare, and remaining descriptor-cast/refinalization gaps stay documented.
-
-- [ATOMIC]002 - Struct Atomic Instruction Optimization Opportunity Audit
-  - Status: completed 2026-06-04 for the current `StructAtomicGet`, `StructAtomicGetS`, and `StructAtomicGetU` surface; future aggregate atomic set/RMW/cmpxchg and array atomic forms remain separate out-of-scope work.
-  - Goal: identify and, where safe, implement pass-local optimization opportunities that understand struct atomic gets without weakening synchronization, trap, packed-signedness, type-index, or mutability constraints.
-  - Why: `[ATOMIC]001` intentionally made generic passes conservative and added GSI immutable-field folds. There may now be safe missed opportunities in individual passes, but each pass needs its own proof rather than treating struct atomic gets as pure ordinary loads globally.
-  - Deliverables:
-    - [x] `[ATOMIC002-A]` Continue GSI audit for struct atomic get opportunities beyond the current immutable direct-global and closed-world local/param folds, including descriptor-cast/refinalization interactions only if they can be proved safe in focused fixtures. Completed 2026-06-04 for the safe adjacent direct-global subtype case: immutable globals declared at a parent/supertype now fold `struct.atomic.get*` reads when their initializer constructs a validation-subtype child, including packed signed repair. Descriptor-cast/refinalization-shaped, non-adjacent cast, and generic atomic purity opportunities remain out of scope until separately proved.
-    - [x] `[ATOMIC002-B]` Check every active optimizer pass for struct atomic get optimization opportunities or required explicit no-op/guard coverage; classify each finding as implemented, deliberately conservative, blocked by semantics, or out of scope for non-get aggregate atomics. Completed 2026-06-04 in [`docs/wiki/raw/research/0708-2026-06-04-struct-atomic-get-pass-opportunity-audit.md`](docs/wiki/raw/research/0708-2026-06-04-struct-atomic-get-pass-opportunity-audit.md): only GSI has a proved optimization opportunity, generic passes stay conservative, and active pass aliases/presets inherit their owning pass decisions.
-    - [x] `[ATOMIC002-C]` For any implemented pass opportunity, add focused TDD fixtures first, run the pass-specific compare lane, and update the relevant pass docs/wiki notes. Completed for `[ATOMIC002-A]` with failing-first GSI fixtures, `moon test`, native build, direct 10k `global-struct-inference` compare, debug-artifact timing, and GSI wiki updates; future implemented opportunities should open their own follow-up slice.
-    - [x] `[ATOMIC002-D]` Keep future aggregate atomic set/RMW/cmpxchg and array atomic forms separate; do not generalize from get-only evidence. Completed as an audit boundary: the 2026-06-04 pass table explicitly routes non-get aggregate atomic and array atomic forms out of scope until they gain exact opcode, WAT/binary/validation, effect-modeling, and pass-specific proof slices.
-  - Suggested tests: pass-specific `src/passes/*_test.mbt` fixtures, `moon test src/passes`, `moon test`, prebuilt native `src/cmd`, and `bun scripts/pass-fuzz-compare.ts --pass <name> --count 1000` before scaling behavior changes to `10000` where warranted.
-  - Exit criteria: every active pass has a documented struct-atomic-get opportunity/guard decision, implemented opportunities have focused tests and compare evidence, and remaining risks are routed to pass-specific audit slices or a future aggregate-atomics backlog item.
 
 - [AUDIT]001 - Hot Pass Descriptor Metadata Truthfulness
   - Status: active follow-up from the 2026-05-31 optimizer audit.
