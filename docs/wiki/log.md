@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] docs | Binaryen v130 MarkJSCalled and RemoveExports tracker expansion
+
+- Added [`docs/wiki/raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md`](raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md) and [`docs/wiki/raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md`](raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md) after a pass-specific primary-source read of official Binaryen `version_130` owner, registration, release/changelog, PR, and lit-test surfaces for `MarkJSCalled` and `RemoveExports`.
+- Added upstream-only landing pages for [`mark-js-called`](binaryen/passes/mark-js-called/index.md) and [`remove-exports`](binaryen/passes/remove-exports/index.md), recording their local unknown-pass status plus Starshine's existing function-annotation and export-section prerequisites.
+- Refreshed [`binaryen/release-horizon-and-oracles.md`](binaryen/release-horizon-and-oracles.md), [`binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md), [`binaryen/passes/index.md`](binaryen/passes/index.md), [`binaryen/passes/tracker.md`](binaryen/passes/tracker.md), and the top-level catalog so those names move from unresolved `v130` release facts into source-backed upstream-only wiki routing.
+
 ## [2026-06-04] wiki-health | generated-artifact citation cleanup follow-up
 
 - Repointed additional living pass landing-page `.artifacts` source links in [`vacuum`](binaryen/passes/vacuum/index.md), [`reorder-globals`](binaryen/passes/reorder-globals/index.md), and [`duplicate-import-elimination`](binaryen/passes/duplicate-import-elimination/index.md) to the committed generated-artifact audit note [`0093`](raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md).

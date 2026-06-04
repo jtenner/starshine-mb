@@ -5,6 +5,8 @@ last_reviewed: 2026-06-04
 sources:
   - ../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md
   - ../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md
+  - ../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md
+  - ../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md
   - ../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md
   - ../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md
   - https://github.com/WebAssembly/binaryen/releases/tag/version_130
@@ -36,7 +38,7 @@ The current answer is:
 - the live `main` changelog is the drift watch for anything beyond `version_130`;
 - detailed pass pages may still stay anchored to `version_129` or a specific current-main recheck when that is the last source-backed contract that page has actually reviewed.
 
-That `v130` baseline is substantive, not just a renumbering. The changelog includes user-visible surface changes such as `MarkJSCalled`, `RemoveExports`, Wide Arithmetic support, relaxed-SIMD naming changes, and MemorySegment-to-DataSegment API renames. Keep this page as the release-horizon anchor, but still send pass-specific algorithm questions to the owning dossier.
+That `v130` baseline is substantive, not just a renumbering. The changelog includes user-visible surface changes such as [`mark-js-called`](passes/mark-js-called/index.md), [`remove-exports`](passes/remove-exports/index.md), Wide Arithmetic support, relaxed-SIMD naming changes, and MemorySegment-to-DataSegment API renames. Keep this page as the release-horizon anchor, but still send pass-specific algorithm questions to the owning dossier.
 
 ## Supersession timeline
 
@@ -65,7 +67,7 @@ Do not flatten those layers together. A page can be correct about the public rel
 2. **If the question is "did trunk drift after the latest tag?"** use the official `main` changelog first, then the Chromium mirror as corroboration.
 3. **If the question is "what does this pass actually do?"** use the pass-specific dossier and its raw research notes, not the release-horizon page.
 4. **If the question is "what should I update in the wiki when a new release lands?"** update this page, the top-level catalog, the pass catalog/tracker pages, and any dossier that explicitly names the newest public tag.
-5. **If a release note names a pass not yet tracked locally,** record it first as an upstream release-horizon fact, then create a dedicated tracker/dossier only after a pass-specific source read.
+5. **If a release note names a pass not yet tracked locally,** record it first as an upstream release-horizon fact, then create a dedicated tracker/dossier only after a pass-specific source read. The 2026-06-04 `mark-js-called` / `remove-exports` update is the current example of that handoff.
 
 ## Current state
 
@@ -84,6 +86,7 @@ The key wiki-maintenance consequence is that `version_130` is the public release
 
 - Current release-horizon recheck: [`../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md`](../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md)
 - Immutable source capture for 0704: [`../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md`](../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md)
+- Pass-specific v130 source read for `mark-js-called` / `remove-exports`: [`../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md`](../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md), [`../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md`](../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md)
 - Superseded 2026-06-02 correction: [`../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md`](../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md)
 - Historical 2026-06-01 bridge: [`../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md`](../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md)
 - Official GitHub `version_130` release page: <https://github.com/WebAssembly/binaryen/releases/tag/version_130>
