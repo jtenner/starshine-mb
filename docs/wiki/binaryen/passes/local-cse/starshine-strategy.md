@@ -75,7 +75,7 @@ The fastest read-along path through the current Starshine status is:
 - active pass implementation and tests
   - `src/passes/local_cse.mbt:1-18,543-559,809-816`
   - `src/passes/local_cse_test.mbt`
-    - covers registry, same-window arithmetic, parent-over-child, load/store and local-write barriers, before-`if` / then-arm reuse, before-block / straight-line block reuse, after-`if` and else-arm negatives, before-loop into loop-body, `br_table`, return-boundary, unreachable-boundary, tiny-root `global.get` no-op, and repeated `struct.new` generative-root coverage
+    - covers registry, same-window arithmetic, parent-over-child, load/store and local-write barriers, before-`if` / then-arm reuse, before-block / straight-line block reuse, after-`if` and else-arm negatives, before-loop into loop-body, `br_table`, return-boundary, unreachable-boundary, tiny-root `global.get` no-op, and repeated `struct.new` / `struct.new_default` generative-root coverage
 - active registry and dispatcher surface
   - `src/passes/optimize.mbt:253,437-449,456-472`
     - `local-cse` is registered as an active module pass and scheduled in the proven late local-cleanup preset neighborhood

@@ -13,6 +13,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Recorded that a simple straight-line named block is a Binaryen-positive reuse shape, not a hard-boundary negative: Binaryen materializes the before-block expression and reuses it inside the block body, while current Starshine leaves both trees in place.
 - Refreshed [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so this shape is tracked as a missed-optimization candidate rather than as remaining negative-boundary coverage.
 
+## [2026-06-04] passes/local-cse | struct.new_default generative-root coverage
+
+- Added direct `local-cse` regression coverage proving repeated `struct.new_default` roots remain separate; the fixture passed without implementation changes and matches the Binaryen spot check for the same WAT shape.
+- Noted that a plain `array.new` spot check matched Binaryen's no-reuse behavior, but the local direct-pass WAT test path does not expose ordinary `array.*` text, so broader array generativity remains a core/binary fixture follow-up.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-struct-new-default-generative-10000`: 6764 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
+- Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`starshine-strategy.md`](binaryen/passes/local-cse/starshine-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so this default-constructor generative-root negative is no longer listed as open LCSE hardening work.
+
 ## [2026-06-04] passes/local-cse | named-block positive fix
 
 - Added a failing direct `local-cse` regression proving Binaryen's straight-line before-block reuse shape, then fixed the raw/module path so the outer expression is materialized with `local.tee` and the block-body repeat becomes `local.get`.

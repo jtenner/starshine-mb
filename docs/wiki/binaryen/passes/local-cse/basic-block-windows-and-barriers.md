@@ -203,7 +203,7 @@ The key idea is:
 - if the root can produce a fresh or otherwise different value each time,
 - then replacing the second one with the first is wrong.
 
-This is the main GC-era “sounds pure, still not reusable” rule. Starshine now has direct regression coverage for the `struct.new` member of this family: repeated allocations remain separate and no temp local is introduced.
+This is the main GC-era “sounds pure, still not reusable” rule. Starshine now has direct regression coverage for the `struct.new` and `struct.new_default` members of this family: repeated allocations remain separate and no temp local is introduced. The broader `array.new*` family remains a core/binary fixture follow-up because the local direct-pass WAT test path does not currently expose ordinary `array.*` text.
 
 ## Barrier family 3: intervening invalidation
 
