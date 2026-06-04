@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../raw/wasm/2026-05-19-wast-table-instruction-sources.md
   - ../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md
@@ -144,7 +145,7 @@ This is the safe shape for multi-table fixtures because it makes destination/sou
     (elem.drop $e)))
 ```
 
-Use a passive segment for `table.init` / `elem.drop` fixtures. The focused element segment guide explains the passive-versus-declarative split, typed-expression payloads, and why current Starshine WAST lowering still has a declarative-mode preservation gap plus no proven typed-declarative text surface: [`element-segment-authoring.md`](element-segment-authoring.md).
+Use a passive segment for `table.init` / `elem.drop` fixtures. The focused element segment guide explains the passive-versus-declarative split, typed-expression payloads, why current official text has broader typed declarative forms than Starshine's narrow `declare func` branch, and why current Starshine WAST lowering still has a declarative-mode preservation gap plus no proven typed-declarative text surface: [`element-segment-authoring.md`](element-segment-authoring.md).
 
 ### Table64 caution fixture
 

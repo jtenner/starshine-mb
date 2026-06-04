@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wiki-health | element declarative cross-link cleanup
+
+- Rechecked whole-wiki element/declarative wording after the element-segment current refresh and aligned [`validate/ref-func-declarations.md`](validate/ref-func-declarations.md) plus [`wast/table-instruction-authoring.md`](wast/table-instruction-authoring.md) with the new source routing.
+- The cleanup keeps `ref.func` declaration guidance and table-runtime payload guidance explicit that official typed declarative element text is broader than Starshine's narrow `declare func` parser branch, and that current WAST lowering still loses declarative mode.
+
 ## [2026-06-04] wast/binary/validate | element-segment current refresh
 
 - Added [`docs/wiki/raw/wasm/2026-06-04-element-segment-current-refresh.md`](raw/wasm/2026-06-04-element-segment-current-refresh.md) after rechecking current official WebAssembly Core 3.0 syntax, text, binary, and module-validation pages dated 2026-06-03 plus Starshine WAST/core/binary/validator/generator surfaces.

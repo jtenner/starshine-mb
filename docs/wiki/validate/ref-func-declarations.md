@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - ../raw/wasm/2026-05-20-ref-func-declaration-refresh.md
   - ../raw/wasm/2026-05-19-wast-element-segment-sources.md
@@ -78,7 +79,7 @@ That split matters because [`typecheck_ref_func`](../../../src/validate/typechec
 | Function export | Yes | `collect_declared_funcs_bitmap` marks `Export(_, FuncExternIdx(f))`; test `validate_module accepts ref.func body when function is exported`. | This matches the official module `refs` source set. |
 | Global initializer `ref.func` | Yes | `collect_declared_funcs_bitmap` scans `GlobalSec`; test `validate_module treats global initializer ref.func as declaration source`. | The initializer must also be a valid constant expression and typecheck. |
 | Table initializer `ref.func` | Yes | `collect_declared_funcs_bitmap` scans table initializer expressions; test `validate_module treats table initializer ref.func as declaration source`. | This is separate from active element payloads that later initialize tables. |
-| Element segment function-index payload | Yes | `FuncsElemKind(funcs)` entries are marked directly. | Declarative elements are the canonical text-level way to forward-declare function references. Current Starshine WAST parsing accepts `(elem declare func ...)`, but text lowering loses declarative mode; see [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md). |
+| Element segment function-index payload | Yes | `FuncsElemKind(funcs)` entries are marked directly. | Declarative elements are the canonical text-level way to forward-declare function references. Current Starshine WAST parsing accepts only the narrow `(elem declare func ...)` branch and text lowering loses declarative mode; official typed declarative element text is broader, so route text evidence through [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md). |
 | Element expression `ref.func` | Yes | `FuncExprsElemKind` and `TypedExprsElemKind` expressions are scanned; tests cover typed expression sources and mixed element declarations. | See [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md) for element-mode shapes. |
 | Function body `ref.func` | Use site, not declaration source | `validate_ref_func_declarations_in_module` scans bodies after computing the bitmap. | A body `ref.func` fails unless some module-level source declared the same index. |
 | Start section | **No, current local divergence** | [`collect_declared_funcs_bitmap`](../../../src/validate/validate.mbt#L2608-L2657) intentionally excludes `start_sec`; test `validate_module does not treat start as a ref.func declaration source`; empty-signature start validation itself is documented in [`start-section.md`](start-section.md). | The current official module-validation rule still includes optional start in `refs`; Starshine currently does not. Treat start as a function-index carrier to remap, not as a local declaration source. |
@@ -119,7 +120,7 @@ The export marks `$f` in the declaration bitmap before the body scan, so the bod
   (elem declare func $f))
 ```
 
-The element function-index payload declares `$f` even though the segment is not an active table initializer. This is the beginner-friendly purpose of declarative elements: they can make function references valid without exporting the function. In current Starshine, direct core/binary declarative segments preserve that distinction, while WAST text lowering parses this syntax but currently lowers it through the passive empty-offset path; use [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md) before treating text roundtrips as declarative-mode evidence.
+The element function-index payload declares `$f` even though the segment is not an active table initializer. This is the beginner-friendly purpose of declarative elements: they can make function references valid without exporting the function. In current Starshine, direct core/binary declarative segments preserve that distinction, while WAST text lowering parses this narrow syntax but currently lowers it through the passive empty-offset path. Official typed declarative element text is broader than this local branch; use [`../wast/element-segment-authoring.md`](../wast/element-segment-authoring.md) before treating text roundtrips as declarative-mode evidence.
 
 ### Start-only declaration is currently rejected locally
 
@@ -150,6 +151,7 @@ The current official module-validation source set includes start, but current St
 
 ## Sources
 
+- Current element-segment refresh: [`../raw/wasm/2026-06-04-element-segment-current-refresh.md`](../raw/wasm/2026-06-04-element-segment-current-refresh.md)
 - Current primary-source refresh: [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md)
 - Previous source refresh: [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md)
 - Earlier source snapshot: [`../raw/wasm/2026-05-13-ref-func-declaration-sources.md`](../raw/wasm/2026-05-13-ref-func-declaration-sources.md)
