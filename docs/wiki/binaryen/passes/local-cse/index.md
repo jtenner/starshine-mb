@@ -122,7 +122,7 @@ That is smaller and more local than “Binaryen does generic CSE here.”
 - Treat this folder as the canonical home for `local-cse` behavior, parity, and slot-planning notes.
 - Keep the active Starshine implementation status in sync with `src/passes/local_cse.mbt`, `src/passes/local_cse_test.mbt`, `src/passes/optimize.mbt`, `src/passes/pass_manager.mbt`, `src/cmd/cmd_wbtest.mbt`, and `agent-todo.md`.
 - New `local-cse` findings should update the strategy page, implementation/test-map page, and windows/barriers page together so the algorithm explanation, proof-surface map, and control-flow safety story stay aligned.
-- The before-`if` into `then` missed optimization is now covered test-first and implemented in the raw/module path, and the tiny-root repeated-`global.get` no-op is now covered as a durable direct test; keep future O4z LCSE closure criteria focused on the remaining loop/control-boundary, GC/generative, and idempotent-call shapes rather than reopening those fixed/covered families.
+- The before-`if` into `then` missed optimization is now covered test-first and implemented in the raw/module path, the before-loop into loop-body boundary negative is covered, and the tiny-root repeated-`global.get` no-op is covered as a durable direct test; keep future O4z LCSE closure criteria focused on the remaining hard control-boundary, GC/generative, and idempotent-call shapes rather than reopening those fixed/covered families.
 
 ## Sources
 

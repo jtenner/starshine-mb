@@ -100,7 +100,7 @@ This is why the shipped `dominance` test optimizes the `then` copy and leaves th
 
 Loops reset the linear window.
 
-So `local-cse` is not a loop-aware global dataflow pass.
+So `local-cse` is not a loop-aware global dataflow pass. Starshine has direct regression coverage proving an expression computed before a loop is not reused inside the loop body.
 
 ### Case 4: named blocks, switches, returns, throws, and other hard control boundaries
 

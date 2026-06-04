@@ -216,6 +216,29 @@ Agent classification: pass-local runtime remains within the repository 2x Binary
 
 A later focused LCSE hardening slice added a durable direct test for the source-backed profitability rule that repeated tiny roots such as `global.get` should remain unmaterialized. The new `local-cse leaves repeated tiny global.get roots unmaterialized` fixture in `src/passes/local_cse_test.mbt` passes without implementation changes: Starshine keeps both `global.get` instructions, adds no temp locals, and emits no `local.tee`. Agent classification: missing coverage only, not a functional gap.
 
+## Follow-up loop-boundary negative coverage on 2026-06-04
+
+A later focused LCSE hardening slice added a durable direct test for the source-backed loop-window rule. The new `local-cse does not reuse before-loop expression in loop body` fixture proves an arithmetic expression computed before a `loop` is not materialized and reused inside that loop body. The test passed without implementation changes, matching the Binaryen spot check for the same WAT shape. Agent classification: missing coverage only, not a functional gap.
+
+Validation for this loop-boundary slice:
+
+```sh
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-loop-boundary-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: focused LCSE tests passed (`10/10`), `src/passes` passed (`1556/1556`), full `moon test` passed (`4741/4741`), native build was already up to date, and direct compare reached `6767` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index). `moon info` was retried and still hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`).
+
 ## Recommendation
 
-The audited before-`if`/then-arm Binaryen-positive gap is now covered and fixed, and the tiny-root repeated-`global.get` no-op is now explicitly covered. Keep `[O4Z-AUDIT-LCSE]` active only for the remaining broader shape hardening that was not implemented here: loop/control-boundary negatives beyond the added after-`if` and else-arm tests, GC/generative-root negatives, and idempotent-call positives if the local annotation plumbing can model Binaryen safely.
+The audited before-`if`/then-arm Binaryen-positive gap is now covered and fixed, the tiny-root repeated-`global.get` no-op is explicitly covered, and one before-loop into loop-body boundary negative is covered. Keep `[O4Z-AUDIT-LCSE]` active only for the remaining broader shape hardening that was not implemented here: hard control-boundary negatives beyond the added after-`if`, else-arm, and loop-body tests, GC/generative-root negatives, and idempotent-call positives if the local annotation plumbing can model Binaryen safely.

@@ -61,7 +61,7 @@ The owner file, direct tests, registry entry, dispatcher route, debug-artifact e
 
 The refreshed direct lane in `.tmp/pass-fuzz-local-cse` reached 6759/10000 compared cases with 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group command failures. A later 2026-06-04 O4z audit lane in `.tmp/pass-fuzz-local-cse-audit-1000` reached 998/1000 compared cases with 998 normalized matches, 0 mismatches, and 2 known Binaryen empty-recursion-group command failures. After fixing the before-`if` into `then` missed optimization, `.tmp/pass-fuzz-local-cse-then-arm-fix-10000` reached 6768/10000 compared cases with 6768 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures.
 
-The honest remaining state is preset-slot restraint until the missing ordered neighborhoods are representable, plus broader shape-hardening follow-up for loop/control-boundary negatives, GC/generative-root negatives, and idempotent-call positives where local annotation plumbing can model Binaryen safely. Tiny-root repeated `global.get` no-op coverage is now durable in the direct test surface.
+The honest remaining state is preset-slot restraint until the missing ordered neighborhoods are representable, plus broader shape-hardening follow-up for hard control-boundary negatives, GC/generative-root negatives, and idempotent-call positives where local annotation plumbing can model Binaryen safely. Tiny-root repeated `global.get` no-op and before-loop into loop-body boundary coverage are now durable in the direct test surface.
 
 ## What already exists locally
 
@@ -117,7 +117,7 @@ The remaining shape-test gap from the 2026-06-04 audit is:
 
 - idempotent direct-call positive, if Starshine gains safe annotation plumbing for Binaryen's narrow exception
 - generative GC-root negatives
-- additional loop/control-boundary negatives beyond after-`if` and else-arm
+- additional hard control-boundary negatives beyond after-`if`, else-arm, and before-loop into loop-body
 
 ### 2. Registry and CLI proof stay green
 
@@ -136,7 +136,7 @@ The 2026-06-04 audit also measured pass-local timing on `tests/node/dist/starshi
 
 ### 4. Before-`if` / then-arm parity is covered
 
-The source-backed Binaryen positive where a repeated tree before an `if` is reused inside the `then` arm is now covered in `src/passes/local_cse_test.mbt`. Paired after-`if` and else-arm negatives keep the fix from widening the reuse window past Binaryen's `LinearExecutionWalker` boundaries. The implementation stays narrow: it shares eligible outer whole-tree bindings with the `then` body only and does not turn LCSE into CFG-wide CSE. The same direct test file now also protects the tiny-root profitability rule by proving repeated `global.get` roots remain unmaterialized.
+The source-backed Binaryen positive where a repeated tree before an `if` is reused inside the `then` arm is now covered in `src/passes/local_cse_test.mbt`. Paired after-`if` and else-arm negatives keep the fix from widening the reuse window past Binaryen's `LinearExecutionWalker` boundaries. The implementation stays narrow: it shares eligible outer whole-tree bindings with the `then` body only and does not turn LCSE into CFG-wide CSE. The same direct test file now also protects the loop-boundary rule by proving an expression before a loop is not reused inside the loop body, and protects the tiny-root profitability rule by proving repeated `global.get` roots remain unmaterialized.
 
 ### 5. Neighborhood replay remains gated
 

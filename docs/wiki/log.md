@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] passes/local-cse | loop-boundary negative coverage
+
+- Added direct `local-cse` regression coverage proving an expression computed before a `loop` is not reused inside the loop body; the fixture passed without implementation changes and matches the Binaryen spot check for the same WAT shape.
+- Refreshed [`binaryen/passes/local-cse/index.md`](binaryen/passes/local-cse/index.md), [`basic-block-windows-and-barriers.md`](binaryen/passes/local-cse/basic-block-windows-and-barriers.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`implementation-structure-and-tests.md`](binaryen/passes/local-cse/implementation-structure-and-tests.md), [`raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md), and [`../../agent-todo.md`](../../agent-todo.md) so this loop-boundary negative is no longer listed as open LCSE hardening work.
+
 ## [2026-06-04] passes/local-cse | tiny-root no-op coverage
 
 - Added direct `local-cse` regression coverage proving repeated tiny `global.get` roots remain unmaterialized: no temp local is appended, both `global.get` instructions remain, and no `local.tee` is emitted.
