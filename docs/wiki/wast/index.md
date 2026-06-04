@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-04-wast-text-surface-gap-ledger-source-bridge.md
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
   - ../raw/wasm/2026-06-04-control-flow-current-refresh.md
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
@@ -19,6 +20,7 @@ sources:
   - ../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md
   - ../../README.md
 related:
+  - text-surface-gap-ledger.md
   - function-call-and-module-authoring.md
   - resource-declaration-authoring.md
   - gc-type-authoring.md
@@ -37,7 +39,7 @@ related:
 
 This directory is the living guide for writing, reducing, and widening Starshine WAST fixtures. WAST is WebAssembly's text format as it appears in `.wat` / `.wast` files; Starshine's WAST layer parses human-readable text into the core `src/lib` module model, prints modules back to text, feeds the validator, and supplies fixture surfaces for passes and fuzzing.
 
-Use this page when you know the kind of fixture you want but not the right focused page. Each child page owns one durable authoring contract and links onward to the exact parser, lowerer, core instruction, binary codec, validator, generator, arbitrary-WAST, pass, and raw-source evidence for that family.
+Use this page when you know the kind of fixture you want but not the right focused page. Each child page owns one durable authoring contract and links onward to the exact parser, lowerer, core instruction, binary codec, validator, generator, arbitrary-WAST, pass, and raw-source evidence for that family. If the shape exists in official WebAssembly, Starshine core/binary, or `gen_valid` but may not be authorable as high-level Starshine WAST text yet, start with the focused [`text-surface-gap-ledger.md`](text-surface-gap-ledger.md) before assuming support or absence.
 
 ## Layer Model
 
@@ -55,6 +57,10 @@ A WAST change usually crosses several layers. Keep the owner of each fact clear:
 Do not treat success in one layer as proof for another. For example, core/binary support for an instruction does not imply human-authored WAST text support; parse success does not imply validator acceptance; and generator coverage does not imply WAST arbitrary can print the same family.
 
 ## Where To Start
+
+### Cross-cutting WAST support boundaries
+
+- [`text-surface-gap-ledger.md`](text-surface-gap-ledger.md) — navigation ledger for current WAST text gaps where official WebAssembly or Starshine core/binary/validator/generator support outpaces high-level `src/wast` keywords, parser, lowerer, or printer support; use it to choose WAST fixtures versus core builders, binary bytes, `gen_valid`, or parser-widening work.
 
 ### Module structure and declarations
 
@@ -95,7 +101,7 @@ Do not treat success in one layer as proof for another. For example, core/binary
 
 ## Current Caveat Map
 
-The WAST pages deliberately keep text-surface gaps visible instead of smoothing them into generic support claims:
+The WAST pages deliberately keep text-surface gaps visible instead of smoothing them into generic support claims. The compact cross-family routing table is [`text-surface-gap-ledger.md`](text-surface-gap-ledger.md); the bullets below preserve the main caveats in this namespace index:
 
 - **Ordinary versus specialized control:** route `block` / `loop` / `if` / `br` / `br_if` / `br_table` / `return` / `unreachable` label mechanics through [`control-flow-authoring.md`](control-flow-authoring.md). Route `return_call*` through [`tail-call-authoring.md`](tail-call-authoring.md), `throw*` / `try_table` through [`exception-tag-authoring.md`](exception-tag-authoring.md), and `br_on_*` reference branches through [`reference-instruction-authoring.md`](reference-instruction-authoring.md) so branch/fallthrough refinements are not misread as ordinary `br_if` behavior. For exception tags, keep the result-shape split visible: current Starshine rejects resultful tag declarations earlier than current Core 3.0, while EH use sites still require empty-result tag expansions.
 - **Reference branch, cast, and ordinary `call_ref` text:** ordinary `ref.test`, `ref.cast`, `br_on_*`, and non-tail `call_ref` forms are official WebAssembly/core/binary concepts and are Starshine core/binary/validator/generator-visible, but not all human-authored Starshine WAST text forms are available. Route reference/cast/branch forms through [`reference-instruction-authoring.md`](reference-instruction-authoring.md), which also owns the branch-label versus fallthrough type split, and route ordinary reference calls through [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md).

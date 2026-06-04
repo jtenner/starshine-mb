@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wast/wiki | text-surface gap ledger
+
+- Added [`raw/wasm/2026-06-04-wast-text-surface-gap-ledger-source-bridge.md`](raw/wasm/2026-06-04-wast-text-surface-gap-ledger-source-bridge.md) after rechecking current WebAssembly Core 3.0 text/syntax/validation pages, the threads atomic draft, focused WAST pages, and current `src/wast` keyword/parser/lowerer/printer evidence.
+- Added [`wast/text-surface-gap-ledger.md`](wast/text-surface-gap-ledger.md) as the cross-family routing layer for shapes where official WebAssembly or Starshine core/binary/validator/generator support currently outpaces high-level WAST text support, including ordinary reference casts/branches, ordinary `call_ref`, GC aggregate arrays/mutation, linear-memory atomics, memory64/table64/resource shorthands, typed declarative elements, official name/custom/code metadata, and stringref breadth.
+- Refreshed [`wast/index.md`](wast/index.md), [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md), and [`index.md`](index.md) so fixture authors start from the ledger before treating a WAST parser gap as semantic absence or before adding unsupported syntax to WAST arbitrary generation.
+
 ## [2026-06-04] validate/tooling | trap-mode routing caveat
 
 - Added [`raw/validation/2026-06-04-trap-mode-routing-source-refresh.md`](raw/validation/2026-06-04-trap-mode-routing-source-refresh.md) after rechecking current WebAssembly trap semantics, Binaryen trap-assumption option sources, and current Starshine CLI/config/optimizer routing for `--trap-mode`, `--traps-never-happen`, and config `trapsNeverHappen`.
