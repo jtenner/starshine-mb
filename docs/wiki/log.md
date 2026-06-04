@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] passes/reorder-locals | preset scheduling reconciliation
+
+- Added [`docs/wiki/raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md`](raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md) after checking current local `src/passes/optimize.mbt`, `src/passes/optimize_test.mbt`, `src/passes/registry_test.mbt`, existing `0552` / `0063` research notes, and current official Binaryen `main` `ReorderLocals.cpp`, `pass.cpp`, and dedicated test surfaces.
+- Refreshed [`binaryen/passes/reorder-locals/index.md`](binaryen/passes/reorder-locals/index.md), [`starshine-hot-ir-strategy.md`](binaryen/passes/reorder-locals/starshine-hot-ir-strategy.md), [`starshine-port-readiness-and-validation.md`](binaryen/passes/reorder-locals/starshine-port-readiness-and-validation.md), [`parity.md`](binaryen/passes/reorder-locals/parity.md), [`binaryen/passes/tracker.md`](binaryen/passes/tracker.md), [`ir2/registry-map.md`](ir2/registry-map.md), [`ir2/execution-plan.md`](ir2/execution-plan.md), and [`index.md`](index.md) so they no longer say `reorder-locals` is entirely absent from public presets.
+- Current durable split: `reorder-locals` is an active module pass and appears exactly once in both `optimize` and `shrink` inside `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs`; extra upstream-style slots remain future scheduler work requiring ordered-neighborhood evidence and exact preset tests.
+
 ## [2026-06-04] passes/gsi | final v0.1.0 signoff
 
 - Closed `[GSI-PARITY-007]` with final direct `global-struct-inference` evidence: `moon fmt`, `moon test` (4736 passed), native `src/cmd` build, `bun validate readme-api-sync`, and a 10k direct compare with 9975 normalized matches, 0 mismatches, and 25 known Binaryen/tool command failures.

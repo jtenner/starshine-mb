@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-04
 sources:
+  - ../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md
   - ../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md
   - ../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md
@@ -36,8 +37,8 @@ related:
 
 This page describes the **current local MoonBit implementation**, not the full upstream Binaryen `ReorderLocals.cpp` contract. For signoff sequencing and the distinction between explicit-pass correctness and preset-readiness, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
-The 2026-05-05 current-main recheck keeps the current policy explicit: the standalone module pass is active, while public `optimize` / `shrink` scheduling remains guarded by `src/passes/optimize_test.mbt:390` until neighboring local-pass coverage and ordered no-DWARF replay evidence are ready.
-The 2026-05-06 refreshed direct signoff then re-proved the explicit pass with 6759/10000 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group command failures; see [`../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md`](../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md).
+The 2026-06-04 preset-scheduling reconciliation keeps the current policy explicit: the standalone module pass is active, and public `optimize` / `shrink` now schedule it exactly once in the early tuple/no-structure cleanup lane. Extra upstream-style `reorder-locals` slots remain future scheduler work until they bring ordered no-DWARF replay evidence; see [`../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md`](../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md).
+The 2026-05-06 refreshed direct signoff re-proved the explicit pass with 6759/10000 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group command failures; see [`../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md`](../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md).
 For the immutable manifests of the reviewed official Binaryen release, source, and dedicated test URLs behind the comparison on this page, see [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md) and [`../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md).
 
 ## Current local surface
@@ -57,7 +58,7 @@ Starshine exposes `reorder-locals` as an active **module pass** with:
 - registry category: `module_pass`
 - explicit module-pass dispatch through `pass_manager.mbt`
 - CLI support through `--reorder-locals`
-- an intentional policy of keeping the pass out of the public `optimize` and `shrink` presets until the missing neighboring Binaryen locals passes land
+- public `optimize` / `shrink` scheduling for exactly one proven lane: `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs`
 
 The most important local rule is:
 
@@ -97,15 +98,15 @@ The easiest way to follow the in-tree implementation is this file map:
   - local-name rewrite plus raw-name-payload clearing coverage
 - `src/passes/reorder_locals_test.mbt:500`
   - Binaryen-materialized carrier-shape ordering coverage
-- `src/passes/pass_manager.mbt:8684`
-  - active module-pass dispatch site
-- `src/passes/optimize.mbt:257`
-  - registry entry
-- `src/passes/optimize_test.mbt:390`
-  - preset exclusion policy test
-- `src/passes/registry_test.mbt:56`
-  - module-pass-category assertion
-- `src/cmd/cmd_wbtest.mbt:4296`
+- `src/passes/pass_manager.mbt`
+  - active `reorder-locals` module-pass dispatch site
+- `src/passes/optimize.mbt`
+  - `pass_registry_entries()` registry entry and preset-slot arrays
+- `src/passes/optimize_test.mbt`
+  - exact single-slot preset tests: `tuple-optimization exact preset prereqs place code-pushing before the tuple slot` and `optimize and shrink presets schedule reorder-locals only inside the tuple no-structure slot`
+- `src/passes/registry_test.mbt`
+  - module-pass-category assertion in `pass registry classifies active, boundary-only, and removed names`
+- `src/cmd/cmd_wbtest.mbt`
   - explicit CLI pass execution coverage
 
 ## How the local pass works today
@@ -218,28 +219,31 @@ That behavior lives in:
 
 This is the strongest reason the pass should be taught as module-scoped in Starshine even though the optimizer logic itself is per-function.
 
-## 7. Preset policy is intentionally conservative
+## 7. Preset policy is intentionally narrow
 
-The registry exposes `reorder-locals` as implemented, but the public presets still refuse to schedule it.
-That policy is locked by:
+The registry exposes `reorder-locals` as implemented, and public presets now schedule it exactly once. The scheduled lane is:
 
-- `src/passes/optimize_test.mbt:390`
+```text
+code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs
+```
 
-The reason is not that the local pass is unstable.
-It is that upstream Binaryen runs `reorder-locals` in a cluster with neighboring locals passes that Starshine still lacks, so replaying those preset slots today would overstate parity.
+That policy is locked by current preset tests in `src/passes/optimize_test.mbt`: one test checks the tuple/no-structure neighborhood order, and another asserts both presets contain exactly one `reorder-locals` occurrence at that lane.
+
+The reason to keep the policy narrow is not that the local pass is unstable. It is that upstream Binaryen runs `reorder-locals` in multiple local-cleanup clusters, and Starshine should not claim those extra slots until their ordered neighborhoods have evidence.
 
 The honest current policy is:
 
 - explicit pass: yes
 - module-pass implementation: yes
-- preset slot parity claim: not yet
+- one public preset slot: yes
+- full Binaryen repeated-slot preset parity: not yet
 
 ## What the local pass does not do
 
 Compared with the full upstream Binaryen story around repeated scheduler placement and print-roundtrip behavior, Starshine currently does **not** claim these stronger things in the public presets:
 
-- no-DWARF slot-for-slot scheduling parity
-- broader neighboring locals-pass interactions from missing passes like `simplify-locals-nostructure`, `local-subtyping`, and `coalesce-locals`
+- no-DWARF slot-for-slot scheduling parity for every upstream `reorder-locals` occurrence
+- broader neighboring locals-pass interactions beyond the proven single tuple/no-structure lane
 - HOT-IR ownership of the pass
 
 And compared with heavier nearby locals passes, the local implementation still does **not** do:

@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-05-07
+last_reviewed: 2026-06-04
 sources:
+  - ../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md
   - ../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md
   - ../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md
@@ -49,8 +50,9 @@ related:
 ## Preset And Signoff Rule
 
 - In this repo, `reorder-locals` is intentionally available as an explicit module pass.
-- It stays out of the `optimize` and `shrink` presets until `simplify-locals-nostructure`, `local-subtyping`, and `coalesce-locals` land and the neighboring Binaryen slots can be modeled honestly.
-- Representation-stable comparison, local-name rewrite correctness, and explicit module-pass coverage are the current honest signoff targets.
+- Public `optimize` and `shrink` schedule it exactly once in the proven early tuple/no-structure cleanup lane: `code-pushing -> tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals -> remove-unused-brs`.
+- Extra upstream-style `reorder-locals` slots are not yet claimed; any future widening still needs neighboring-slot evidence and exact preset tests.
+- Representation-stable comparison, local-name rewrite correctness, explicit module-pass coverage, and the current single public slot are the honest signoff targets.
 
 ## Refreshed Debug-Artifact Boundary Replay
 
@@ -91,6 +93,7 @@ Use the Binaryen boundary controls when comparing this pass:
 
 ## Sources
 
+- Current preset-scheduling reconciliation: [`../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md`](../../../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md)
 - Current closure note: [`../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md`](../../../raw/research/0547-2026-05-07-reorder-locals-boundary-policy-and-artifact-rerun.md)
 - Archived research doc: [`../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md`](../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md)
 - Supplemental health rerun: [`../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md`](../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md)

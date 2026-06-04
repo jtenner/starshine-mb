@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md
   - ../raw/research/0065-2026-03-24-ir2-execution-plan.md
   - ../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../src/ir/README.md
@@ -59,7 +60,7 @@ remove-unused-module-elements -> string-gathering -> reorder-globals -> directiz
 Slot caveats:
 
 - `simplify-locals-notee-nostructure` is runnable explicitly but kept out of presets until the exact `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood is ready.
-- `reorder-locals` is scheduled once inside the tuple/no-structure cleanup lane.
+- `reorder-locals` is scheduled once inside the tuple/no-structure cleanup lane; [`../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md`](../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md) is the current reconciliation source for that one-slot public policy versus Binaryen's extra upstream placements.
 - `optimize` and `shrink` should stay identical until a tested size-specific divergence lands.
 - The current shared late tail is `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`; this is registry- and slot-tested and should not be shortened in docs when summarizing the live preset.
 
@@ -99,6 +100,7 @@ Boundary-only families, such as closed-world type/signature passes, ABI/lowering
 
 ## Sources
 
+- Reorder-locals preset-scheduling reconciliation: [`../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md`](../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md)
 - Numbered handoff doc: [`../raw/research/0065-2026-03-24-ir2-execution-plan.md`](../raw/research/0065-2026-03-24-ir2-execution-plan.md)
 - Registry map: [`../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
 - Package-local ownership summary: [`../../../src/ir/README.md`](../../../src/ir/README.md)

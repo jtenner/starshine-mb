@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md
   - ../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../src/passes/optimize.mbt
   - ../../../src/passes/registry_test.mbt
@@ -59,7 +60,7 @@ optimize-instructions -> heap-store-optimization -> simplify-globals-optimizing 
 remove-unused-module-elements -> string-gathering -> reorder-globals -> directize
 ```
 
-The same list is locked by [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt). Slot-specific expectations, such as `code-pushing -> tuple-optimization -> simplify-locals-nostructure`, the single `reorder-locals` preset slot, repeated `remove-unused-brs`, repeated `merge-blocks`, repeated `precompute`, and the accepted late tail `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`, are covered in [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt).
+The same list is locked by [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt). Slot-specific expectations, such as `code-pushing -> tuple-optimization -> simplify-locals-nostructure`, the single `reorder-locals` preset slot, repeated `remove-unused-brs`, repeated `merge-blocks`, repeated `precompute`, and the accepted late tail `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`, are covered in [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt). The 2026-06-04 reconciliation note [`0709`](../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md) is the current source for why one `reorder-locals` slot is public even though extra Binaryen-style slots remain future scheduler work.
 
 ## Boundary-Only And Removed Behavior
 
@@ -77,6 +78,7 @@ The same list is locked by [`../../../src/passes/registry_test.mbt`](../../../sr
 ## Sources
 
 - Refreshed registry map: [`../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- Reorder-locals preset-scheduling reconciliation: [`../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md`](../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md)
 - Live registry and preset expansion: [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt)
 - Registry coverage: [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt)
 - Preset slot coverage: [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt)
