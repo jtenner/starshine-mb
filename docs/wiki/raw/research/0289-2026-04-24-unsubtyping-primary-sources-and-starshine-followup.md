@@ -9,7 +9,7 @@ sources:
   - ../../binaryen/passes/unsubtyping/wat-shapes.md
   - ../../../../src/passes/optimize.mbt
   - ../../../../src/cmd/fuzz_harness_wbtest.mbt
-  - ../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - 0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../src/lib/types.mbt
   - ../../../../src/wast/module_wast_tests.mbt
   - ../../../../src/wast/ref_null_exact_surface_test.mbt

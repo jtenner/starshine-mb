@@ -13,8 +13,8 @@ sources:
   - ../../binaryen/passes/flatten/starshine-strategy.md
   - ../../../../src/passes/optimize.mbt
   - ../../../../src/cli/cli_test.mbt
-  - ../../../../docs/0065-2026-03-24-ir2-execution-plan.md
-  - ../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - 0065-2026-03-24-ir2-execution-plan.md
+  - 0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../agent-todo.md
 ---
 

@@ -13,7 +13,7 @@ sources:
   - ../../binaryen/passes/simplify-globals-optimizing/index.md
   - ../../binaryen/passes/propagate-globals-globally/index.md
   - ../../../../src/passes/optimize.mbt
-  - ../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - 0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../agent-todo.md
   - ../../binaryen/passes/tracker.md
 ---

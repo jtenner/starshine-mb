@@ -12,7 +12,7 @@ sources:
   - ../../binaryen/passes/merge-locals/starshine-strategy.md
   - ../../../../src/passes/optimize.mbt
   - ../../../../src/passes/registry_test.mbt
-  - ../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - 0063-2026-03-24-pass-port-batches-and-registry-map.md
 supersedes:
   - 0128-2026-04-20-merge-locals-binaryen-research.md
   - 0272-2026-04-23-merge-locals-primary-sources-and-source-correction-followup.md

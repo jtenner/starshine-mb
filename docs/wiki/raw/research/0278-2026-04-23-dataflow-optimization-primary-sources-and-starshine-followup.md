@@ -14,8 +14,8 @@ sources:
   - ../../binaryen/passes/simplify-locals-nonesting/index.md
   - ../../binaryen/passes/souperify/index.md
   - ../../../../src/passes/optimize.mbt
-  - ../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
-  - ../../../../docs/0065-2026-03-24-ir2-execution-plan.md
+  - 0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - 0065-2026-03-24-ir2-execution-plan.md
   - ../../../../src/passes/precompute.mbt
   - ../../../../src/passes/simplify_locals.mbt
   - ../../../../agent-todo.md

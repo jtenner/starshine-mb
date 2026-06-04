@@ -12,7 +12,7 @@ sources:
   - ../../binaryen/passes/dealign/starshine-strategy.md
   - ../../binaryen/passes/alignment-lowering/index.md
   - ../../../../src/passes/optimize.mbt
-  - ../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - 0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../agent-todo.md
   - ../../binaryen/no-dwarf-default-optimize-path.md
 supersedes:

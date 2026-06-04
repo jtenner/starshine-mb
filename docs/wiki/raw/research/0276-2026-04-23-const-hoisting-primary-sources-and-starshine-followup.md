@@ -12,7 +12,7 @@ sources:
   - ../../binaryen/passes/const-hoisting/wat-shapes.md
   - ../../binaryen/passes/const-hoisting/starshine-strategy.md
   - ../../../../src/passes/optimize.mbt
-  - ../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - 0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../agent-todo.md
   - ../../binaryen/passes/tracker.md
 ---

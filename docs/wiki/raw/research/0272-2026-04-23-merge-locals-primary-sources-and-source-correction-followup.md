@@ -12,7 +12,7 @@ sources:
   - ../../binaryen/passes/merge-locals/wat-shapes.md
   - ../../binaryen/passes/merge-locals/starshine-strategy.md
   - ../../../../src/passes/optimize.mbt
-  - ../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - 0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../binaryen/passes/optimize-casts/index.md
   - ../../binaryen/passes/local-subtyping/index.md
   - ../../binaryen/passes/coalesce-locals/index.md

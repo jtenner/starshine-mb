@@ -17,7 +17,7 @@ sources:
   - ../../../../src/cli/cli.mbt
   - ../../../../src/cli/cli_test.mbt
   - ../../../../src/cmd/cmd_wbtest.mbt
-  - ../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - 0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../agent-todo.md
   - ../../binaryen/passes/tracker.md
 ---

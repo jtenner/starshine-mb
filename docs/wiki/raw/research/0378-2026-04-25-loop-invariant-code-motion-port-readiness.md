@@ -11,8 +11,8 @@ sources:
   - ../../binaryen/passes/loop-invariant-code-motion/starshine-port-readiness-and-validation.md
   - ../../../../src/passes/optimize.mbt
   - ../../../../src/passes/registry_test.mbt
-  - ../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
-  - ../../../../docs/0065-2026-03-24-ir2-execution-plan.md
+  - 0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - 0065-2026-03-24-ir2-execution-plan.md
 ---
 
 # `loop-invariant-code-motion` port-readiness bridge

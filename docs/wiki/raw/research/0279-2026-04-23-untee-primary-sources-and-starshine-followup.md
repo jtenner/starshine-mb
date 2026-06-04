@@ -14,7 +14,7 @@ sources:
   - ../../binaryen/passes/simplify-locals/index.md
   - ../../binaryen/passes/simplify-locals-notee/index.md
   - ../../../../src/passes/optimize.mbt
-  - ../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - 0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../src/passes/simplify_locals.mbt
   - ../../../../src/passes/pass_manager_wbtest.mbt
   - ../../../../agent-todo.md
