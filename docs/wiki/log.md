@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wiki-health | local-cse index consistency
+
+- During the follow-up health check, refreshed the local-cse catalog bullets in [`index.md`](index.md) so the concept-page entries no longer implied stale blocked-preset wording and now route readers to the current 2026-06-04 source refresh, O4z audit evidence, before-`if` / then-arm parity gap, and validation bridge.
+- Health-check scope included empty markdown links, TODO/stale wording, transient `.tmp` mentions, new local-cse raw-source backlinks, index/log coverage, and local-cse duplicate/stale status wording; no broader high-confidence fixes were needed.
+
 ## [2026-06-04] passes/local-cse | O4z final-pass audit
 
 - Added [`docs/wiki/raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`](raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md) after auditing active `[O4Z-AUDIT-LCSE]` against Binaryen for functional and performance gaps.
