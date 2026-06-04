@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
+  - ../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md
   - ../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md
   - ../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md
   - ../raw/wasm/2026-05-19-wast-identifier-name-sources.md
@@ -23,6 +24,7 @@ related:
   - ../binary/custom-and-name-sections.md
   - ../binary/function-import-export-and-code-sections.md
   - ../binaryen/passes/inlining/compilation-hints-vs-no-inline-flags-and-clone-survival.md
+  - ../binaryen/passes/mark-js-called/index.md
   - ../binaryen/passes/strip-toolchain-annotations/index.md
   - ../binaryen/passes/duplicate-function-elimination/type-compaction-and-metadata.md
   - ../binaryen/passes/vacuum/wat-shapes.md
@@ -96,6 +98,10 @@ Binaryen uses branch-hint examples in pass tests, and pass dossiers may describe
 
 ## Optimizer Policy And Rewrite Rules
 
+### Binaryen `js.called` markers
+
+Starshine can parse, print, and lower existing `(@binaryen.js.called)` function/import annotations through the same `FuncAnnotationSec` lane as other function annotations. That is metadata support, not implementation of Binaryen's [`mark-js-called`](../binaryen/passes/mark-js-called/index.md) pass. The current Binaryen pass scans configureAll intrinsic calls and synthesizes `js.called` annotations for referred functions; it does not merely preserve annotations that already appear in WAST. Keep this distinction visible when using `(@binaryen.js.called)` fixtures: a parser/lowerer fixture proves annotation carriage, while a future pass fixture must prove configureAll-driven marking.
+
 ### No-inline markers
 
 Starshine's no-inline passes deliberately avoid overloading `metadata.code.inline`. Instead, [`src/passes/no_inline.mbt`](../../../src/passes/no_inline.mbt) creates internal annotations:
@@ -138,6 +144,7 @@ For Starshine work, do not claim branch-hint parity unless the change adds a loc
 - **Official `@name` and `@custom` are not interpreted.** In the current local lane they are just annotation names plus raw args, not requests to update `NameSec` or `custom_secs`.
 - **Arguments are not interpreted by the parser.** Starshine preserves argument token text in `FuncAnnotation.args`; pass policy must decide which names and args it understands.
 - **Function-import annotations use imported-prefix indices.** An annotation on the first imported function is keyed at `FuncIdx(0)`, not at a separate import ordinal.
+- **Existing `js.called` syntax is not `mark-js-called` parity.** Use [`../binaryen/passes/mark-js-called/index.md`](../binaryen/passes/mark-js-called/index.md) for the upstream configureAll-driven pass contract.
 - **Binary roundtrip is absent for `FuncAnnotationSec`.** If a test needs annotation preservation after binary encode/decode, it must first implement and document the binary custom/code-metadata format or preserve an opaque custom section separately.
 - **Name-section and annotation-section repairs are separate.** A function can have a debug name, annotations, both, or neither. Rewriting one map does not repair the other automatically.
 - **Toolchain-stripping is not generic metadata stripping.** [`strip-toolchain-annotations`](../binaryen/passes/strip-toolchain-annotations/index.md) removes selected Binaryen-owned annotations and preserves `metadata.code.inline`; future local support should make the same subset boundary explicit.
@@ -154,6 +161,7 @@ For Starshine work, do not claim branch-hint parity unless the change adds a loc
 
 ## Sources
 
+- Binaryen `mark-js-called` behavior refresh: [`../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md)
 - Current custom/name/text-annotation refresh: [`../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md`](../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md)
 - Source refresh: [`../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md`](../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md)
 - WAST identifier/name baseline: [`../raw/wasm/2026-05-19-wast-identifier-name-sources.md`](../raw/wasm/2026-05-19-wast-identifier-name-sources.md), [`identifier-name-and-annotation-authoring.md`](identifier-name-and-annotation-authoring.md)

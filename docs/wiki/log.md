@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] binaryen/v130 | mark-js-called and remove-exports behavior refresh
+
+- Added [`raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md) after rechecking official Binaryen `version_130` and current `main` owner/test sources for `MarkJSCalled` and `RemoveExports`.
+- Deepened [`binaryen/passes/mark-js-called/index.md`](binaryen/passes/mark-js-called/index.md) so it now teaches the configureAll-driven `@binaryen.js.called` synthesis contract rather than only owner/test existence, and deepened [`binaryen/passes/remove-exports/index.md`](binaryen/passes/remove-exports/index.md) so it now teaches parameterized wildcard export-name filtering without definition deletion.
+- Cross-linked the behavior refresh from [`wast/code-metadata-and-function-annotations.md`](wast/code-metadata-and-function-annotations.md), [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md), [`binaryen/release-horizon-and-oracles.md`](binaryen/release-horizon-and-oracles.md), [`binaryen/passes/index.md`](binaryen/passes/index.md), [`binaryen/passes/tracker.md`](binaryen/passes/tracker.md), [`binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md), and [`index.md`](index.md) so annotation-carriage, export-section, and v130 pass-routing readers no longer over-infer pass parity from local metadata prerequisites.
+
 ## [2026-06-04] custom-descriptors | current proposal and exactness recheck
 
 - Added [`raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](raw/wasm/2026-06-04-custom-descriptor-current-recheck.md) after rechecking the official WebAssembly proposals tracker, the custom-descriptors overview, issue #48 on `ref.get_desc` bottom inputs, the corresponding V8 fix, and current Starshine WAST/lowering/validator/static-harness sources.
