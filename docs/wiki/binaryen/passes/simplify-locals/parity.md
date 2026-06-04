@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-04
 sources:
+  - ../../../raw/research/0712-2026-06-04-simplify-locals-o4z-pass-audit.md
   - ../../../raw/research/0541-2026-05-06-simplify-locals-direct-revalidation.md
   - ../../../../../agent-todo.md
   - ../../../../../CHANGELOG.md
@@ -28,6 +29,8 @@ related:
 
 ## What Is Green Today
 
+- The 2026-06-04 O4z audit quick lane is green on the built native binary: `.tmp/pass-fuzz-simplify-locals-audit-1000-native` reached `998/1000` compared cases with `998` normalized matches, `0` mismatches, and `2` Binaryen/tool command failures classified as `binaryen-rec-group-zero`. The initial `target/native/...` harness attempt failed with `ENOENT` in this workspace because the native binary was built at `_build/native/release/build/cmd/cmd.exe`; that failed path run is a binary-path issue, not pass evidence.
+- The 2026-06-04 coverage audit added focused `try_table` EH boundary guards for nonthrowing value sinking and may-throw producer preservation in `src/passes/simplify_locals_test.mbt`; no implementation change was needed.
 - The 2026-05-09 direct semantic lane is green on current head:
   - `.tmp/pass-fuzz-simplify-locals-genvalid-10000` reached `10000/10000` compared cases with `10000` normalized matches and `0` mismatches.
   - `.tmp/pass-fuzz-simplify-locals-both-10000-keepgoing` reached `9975/10000` compared cases with `9975` normalized matches, `0` mismatches, and `25` command failures classified as Binaryen/tool parser or canonicalization failures.

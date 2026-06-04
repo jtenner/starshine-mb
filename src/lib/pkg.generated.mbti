@@ -140,6 +140,14 @@ pub fn AtomicCmpxchgOp::i64_32_u() -> Self
 pub fn AtomicCmpxchgOp::i64_8_u() -> Self
 pub impl Show for AtomicCmpxchgOp
 
+pub enum AtomicOrder {
+  SeqCst
+  AcqRel
+} derive(Eq, Hash, @debug.Debug)
+pub fn AtomicOrder::acq_rel() -> Self
+pub fn AtomicOrder::seq_cst() -> Self
+pub impl Show for AtomicOrder
+
 pub enum AtomicRmwOp {
   I32AtomicRmwAddOp
   I64AtomicRmwAddOp
@@ -1200,6 +1208,9 @@ pub enum Instruction {
   StructGet(TypeIdx, U32)
   StructGetS(TypeIdx, U32)
   StructGetU(TypeIdx, U32)
+  StructAtomicGet(AtomicOrder, TypeIdx, U32)
+  StructAtomicGetS(AtomicOrder, TypeIdx, U32)
+  StructAtomicGetU(AtomicOrder, TypeIdx, U32)
   StructSet(TypeIdx, U32)
   ArrayNew(TypeIdx)
   ArrayNewDefault(TypeIdx)
@@ -1982,6 +1993,9 @@ pub fn Instruction::string_new_lossy_utf8_array() -> Self
 pub fn Instruction::string_new_utf8_array() -> Self
 pub fn Instruction::string_new_wtf16_array() -> Self
 pub fn Instruction::string_new_wtf8_array() -> Self
+pub fn Instruction::struct_atomic_get(AtomicOrder, TypeIdx, U32) -> Self
+pub fn Instruction::struct_atomic_get_s(AtomicOrder, TypeIdx, U32) -> Self
+pub fn Instruction::struct_atomic_get_u(AtomicOrder, TypeIdx, U32) -> Self
 pub fn Instruction::struct_get(TypeIdx, U32) -> Self
 pub fn Instruction::struct_get_s(TypeIdx, U32) -> Self
 pub fn Instruction::struct_get_u(TypeIdx, U32) -> Self

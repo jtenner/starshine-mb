@@ -18,6 +18,31 @@ fn simplify_locals_test_count_substring(text : String, needle : String) -> Int {
 }
 
 ///|
+fn simplify_locals_test_assert_strings_in_order(
+  text : String,
+  needles : Array[String],
+) -> Unit raise {
+  let mut start = 0
+  for needle in needles {
+    let mut found : Int? = None
+    let limit = text.length() - needle.length()
+    let mut i = start
+    while i <= limit {
+      if text.sub(start=i, end=i + needle.length()).to_owned() == needle {
+        found = Some(i)
+        break
+      }
+      i += 1
+    }
+    match found {
+      Some(pos) => start = pos + needle.length()
+      None =>
+        fail("expected to find `\{needle}` after byte \{start} in:\n\{text}")
+    }
+  }
+}
+
+///|
 fn simplify_locals_test_low_local_structured_call_heavy_fixture() -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -2142,6 +2167,64 @@ test "simplify-locals sinks trapping reads across read-only traps with a tee" {
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("local.tee (Local 1)"), msg=pretty)
+}
+
+///|
+test "simplify-locals sinks nonthrowing values into try_table bodies" {
+  let input =
+    #|(module
+    #|  (tag $e)
+    #|  (func (result i32) (local i32)
+    #|    i32.const 3
+    #|    local.set 0
+    #|    (block $exit
+    #|      try_table (catch_all $exit)
+    #|        local.get 0
+    #|        drop
+    #|      end
+    #|    )
+    #|    i32.const 0))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nonthrowing try_table simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("I32(3)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 0)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 0)"), msg=pretty)
+}
+
+///|
+test "simplify-locals keeps may-throw producers outside try_table bodies" {
+  let input =
+    #|(module
+    #|  (import "m" "side" (func $side (result i32)))
+    #|  (tag $e)
+    #|  (func (result i32) (local i32)
+    #|    call $side
+    #|    local.set 0
+    #|    (block $exit
+    #|      try_table (catch_all $exit)
+    #|        local.get 0
+    #|        drop
+    #|      end
+    #|    )
+    #|    i32.const 0))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected throwing try_table simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  simplify_locals_test_assert_strings_in_order(pretty, [
+    "call (Func 0)", "local.set (Local 0)", "try_table", "local.get (Local 0)",
+  ])
 }
 
 ///|

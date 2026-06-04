@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-04
 sources:
+  - ../../../raw/research/0712-2026-06-04-simplify-locals-o4z-pass-audit.md
   - ../../../raw/research/0541-2026-05-06-simplify-locals-direct-revalidation.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/simplify_locals_test.mbt
@@ -40,7 +41,7 @@ related:
   - [`src/passes/simplify_locals_test.mbt`](../../../../../src/passes/simplify_locals_test.mbt)
 - What it proves:
   - reduced semantic families
-  - negative boundaries
+  - negative boundaries, including the 2026-06-04 `try_table` EH pair: nonthrowing values may sink into the body, while may-throw producers stay outside the catch boundary
   - structure rewrites
   - exact writeback cleanup reducers
   - selected traced raw-lane reducers
@@ -164,6 +165,16 @@ related:
 - if the direct native `--print-func` path is cleaner than the self-opt compare output, record that explicitly; it means the remaining gap is on encoded-output or Binaryen-reparse shape, not on the in-memory raw reducer
 - if a change improves self-opt timing but leaves the first mismatch unchanged, record both facts together; that is a real performance win but not a parity retirement
 - if a reduced Binaryen probe proves the local transform but the artifact is still red, do not automatically promote the diagnosis to "writeback bug"; first prove that the large artifact actually hits the same reducer boundary
+
+## Current 2026-06-04 O4z Audit Checkpoint
+
+- The focused O4z audit in [`0712-2026-06-04-simplify-locals-o4z-pass-audit.md`](../../../raw/research/0712-2026-06-04-simplify-locals-o4z-pass-audit.md) refreshed the direct quick lane after building `src/cmd` natively.
+- The checklist's `target/native/release/build/cmd/cmd.exe` path did not exist in this workspace after the native build; rerunning with `_build/native/release/build/cmd/cmd.exe` produced `998/1000` compared cases, `998` normalized matches, `0` mismatches, and `2` Binaryen/tool command failures classified as `binaryen-rec-group-zero`.
+- Added two focused `src/passes/simplify_locals_test.mbt` guards for `try_table` EH boundaries: nonthrowing values sink into `try_table` bodies; may-throw producers stay outside the catch boundary.
+- `moon fmt` completed.
+- `moon test src/passes` passed `1581/1581` after the coverage addition.
+- Final quick gate for this audit start also completed: `moon info`, `moon fmt`, and `moon test` (`4766/4766`).
+- This was a started audit, not a closing signoff: the standard `10000`-case lane and late `SL` slot/neighborhood replay remain required before closing `[O4Z-AUDIT-SL]`.
 
 ## Current 2026-05-09 Checkpoint
 

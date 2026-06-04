@@ -60,6 +60,11 @@ pub struct Annotation {
 } derive(Eq, @debug.Debug)
 pub impl Show for Annotation
 
+pub enum AtomicOrder {
+  SeqCst
+  AcqRel
+} derive(Eq, @debug.Debug)
+
 pub struct BlockType {
   label : String?
   type_use : TypeUse?
@@ -295,6 +300,9 @@ pub enum Instruction {
   StructGet(Index, UInt)
   StructGetS(Index, UInt)
   StructGetU(Index, UInt)
+  StructAtomicGet(AtomicOrder, Index, UInt)
+  StructAtomicGetS(AtomicOrder, Index, UInt)
+  StructAtomicGetU(AtomicOrder, Index, UInt)
   StructNewDesc(Index)
   StructNewDefaultDesc(Index)
   RefGetDesc(Index)
@@ -513,6 +521,9 @@ pub enum Opcode {
   StructGet
   StructGetS
   StructGetU
+  StructAtomicGet
+  StructAtomicGetS
+  StructAtomicGetU
   StructNewDesc
   StructNewDefaultDesc
   RefGetDesc

@@ -150,6 +150,7 @@ pub impl Decode for Bool
 pub impl[T : Decode] Decode for T?
 pub impl Decode for Bytes
 pub impl Decode for @lib.AbsHeapType
+pub impl Decode for @lib.AtomicOrder
 pub impl Decode for @lib.BlockType
 pub impl Decode for @lib.CastOp
 pub impl Decode for @lib.Catch
@@ -233,6 +234,7 @@ pub impl Encode for Bool
 pub impl[T : Encode] Encode for T?
 pub impl Encode for Bytes
 pub impl Encode for @lib.AbsHeapType
+pub impl Encode for @lib.AtomicOrder
 pub impl Encode for @lib.BlockType
 pub impl Encode for @lib.CastOp
 pub impl Encode for @lib.Catch

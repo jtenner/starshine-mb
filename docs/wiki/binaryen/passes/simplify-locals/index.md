@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-04
 sources:
+  - ../../../raw/research/0712-2026-06-04-simplify-locals-o4z-pass-audit.md
   - ../../../raw/research/0541-2026-05-06-simplify-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-21-simplify-locals-primary-sources.md
   - ../../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md
@@ -47,7 +48,7 @@ related:
 ## Role
 
 - `simplify-locals` is an active implemented **hot pass** in Starshine.
-- Its refreshed 2026-05-06 direct explicit-pass parity lane is green: `.tmp/pass-fuzz-simplify-locals` reached `6759/10000` compared cases with `6759` normalized matches, `0` mismatches, and `20` Binaryen empty-recursion-group parser/canonicalization command failures.
+- Its 2026-06-04 O4z audit quick lane is green: `.tmp/pass-fuzz-simplify-locals-audit-1000-native` reached `998/1000` compared cases with `998` normalized matches, `0` mismatches, and `2` Binaryen empty-recursion-group parser/canonicalization command failures. The older 2026-05 direct explicit-pass parity lanes remain the latest recorded long direct evidence until `[O4Z-AUDIT-SL]` is closed with a fresh `10000`-case run.
 - In upstream Binaryen `version_129`, `simplify-locals` is not one pass name with one behavior.
   It is a **family** of five public passes built from one templated implementation in `SimplifyLocals.cpp`.
 - The public `pass.cpp` summary is short:
@@ -95,6 +96,7 @@ So this pass is **not** just dead-local removal and **not** just adjacent set/ge
   - tee creation
   - structure creation
   - whether new nesting is allowed at all
+- The 2026-06-04 coverage audit added focused `try_table` EH boundary tests for nonthrowing value sinking and may-throw producer preservation in `src/passes/simplify_locals_test.mbt`; no implementation change was needed.
 - Current `main` shows only a tiny checked drift beyond `version_129` here:
   - `std::map` / `std::set` -> `std::unordered_map` / `std::unordered_set` bookkeeping cleanup in `SimplifyLocals.cpp`
   - the major dedicated lit files checked for this dossier are unchanged
