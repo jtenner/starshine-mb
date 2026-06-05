@@ -67,40 +67,40 @@ The fastest read-along path through the current local status is:
 - module boundary representation that a future prune pass would mutate
   - [`src/lib/types.mbt#L139-L153`](../../../../../src/lib/types.mbt#L139-L153)
     - `FuncCompType` / `FuncType` model params and results, including the multivalue-result surface Binaryen prunes
-  - [`src/lib/types.mbt#L155-L176`](../../../../../src/lib/types.mbt#L155-L176)
+  - [`src/lib/types.mbt#L168-L185`](../../../../../src/lib/types.mbt#L168-L185)
     - `TagType`, `GlobalType`, and `ExternType` include the tag/global/function boundary kinds relevant to JS-hostility checks
-  - [`src/lib/types.mbt#L188-L205`](../../../../../src/lib/types.mbt#L188-L205)
+  - [`src/lib/types.mbt#L218-L227`](../../../../../src/lib/types.mbt#L218-L227)
     - `Import`, `Global`, and `Export` are the exact module records the prune pass would convert or delete from visibility
-  - [`src/lib/types.mbt#L320-L350`](../../../../../src/lib/types.mbt#L320-L350)
+  - [`src/lib/types.mbt#L351-L369`](../../../../../src/lib/types.mbt#L351-L369)
     - `Module` owns `type_sec`, `import_sec`, `tag_sec`, `global_sec`, `export_sec`, and `code_sec`, so a future module pass can edit all prune surfaces together
-  - [`src/lib/types.mbt#L358-L377`](../../../../../src/lib/types.mbt#L358-L377)
+  - [`src/lib/types.mbt#L416-L463`](../../../../../src/lib/types.mbt#L416-L463)
     - `FuncType`, `TypeSec`, `ImportSec`, `FuncSec`, and `ExportSec` are the section-level pieces needed for wrapper/stub generation
 - unsupported-boundary feature vocabulary already represented elsewhere in the repo
   - [`src/wast/types.mbt#L167-L168`](../../../../../src/wast/types.mbt#L167-L168)
     - textual WAST type support includes `V128`
   - [`src/wast/types.mbt#L223-L226`](../../../../../src/wast/types.mbt#L223-L226)
     - WAST instruction tags include EH-ish `Throw`, `ThrowRef`, and `TryTable` terms
-  - [`src/lib/types.mbt#L470-L719`](../../../../../src/lib/types.mbt#L470-L719)
+  - [`src/lib/types.mbt#L531-L1045`](../../../../../src/lib/types.mbt#L531-L1045)
     - the library IR contains broad SIMD instruction tags, but no JS-boundary pruning pass consumes them today
 - binary encode/decode support for the module sections a future pass would repair
-  - [`src/binary/encode.mbt#L1151-L1178`](../../../../../src/binary/encode.mbt#L1151-L1178)
+  - [`src/binary/encode.mbt#L1138-L1178`](../../../../../src/binary/encode.mbt#L1138-L1178)
     - encodes import sections and function extern types
-  - [`src/binary/encode.mbt#L1351-L1352`](../../../../../src/binary/encode.mbt#L1351-L1352)
+  - [`src/binary/encode.mbt#L1338-L1340`](../../../../../src/binary/encode.mbt#L1338-L1340)
     - encodes export sections
-  - [`src/binary/decode.mbt#L2109-L2113`](../../../../../src/binary/decode.mbt#L2109-L2113)
+  - [`src/binary/decode.mbt#L2132-L2137`](../../../../../src/binary/decode.mbt#L2132-L2137)
     - decodes import sections
-  - [`src/binary/decode.mbt#L2280-L2284`](../../../../../src/binary/decode.mbt#L2280-L2284)
+  - [`src/binary/decode.mbt#L2303-L2308`](../../../../../src/binary/decode.mbt#L2303-L2308)
     - decodes export sections
-  - [`src/binary/tests.mbt#L181-L205`](../../../../../src/binary/tests.mbt#L181-L205)
+  - [`src/binary/tests.mbt#L586-L608`](../../../../../src/binary/tests.mbt#L586-L608)
     - fuzz-roundtrips import and export sections
 - WAT import/export and `ref.func` surfaces inherited from the plain sibling's future-port map
   - [`src/wast/keywords.mbt#L30-L31`](../../../../../src/wast/keywords.mbt#L30-L31)
     - recognizes textual `import` and `export`
   - [`src/wast/keywords.mbt#L98`](../../../../../src/wast/keywords.mbt#L98)
     - recognizes textual `ref.func`
-  - [`src/wast/module_wast.mbt#L416`](../../../../../src/wast/module_wast.mbt#L416)
+  - [`src/wast/module_wast.mbt#L424`](../../../../../src/wast/module_wast.mbt#L424)
     - prints `ref.func` with the current function index/name
-  - [`src/wast/module_wast.mbt#L843-L912`](../../../../../src/wast/module_wast.mbt#L843-L912)
+  - [`src/wast/module_wast.mbt#L857-L934`](../../../../../src/wast/module_wast.mbt#L857-L934)
     - prints import and export fields
   - [`src/wast/lower_to_lib.mbt#L172-L176`](../../../../../src/wast/lower_to_lib.mbt#L172-L176)
     - recognizes element items that are `ref.func`, one of the reference-repair surfaces the inherited plain pass would update

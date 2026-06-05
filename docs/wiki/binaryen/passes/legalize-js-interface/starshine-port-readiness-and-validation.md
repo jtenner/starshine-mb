@@ -66,7 +66,7 @@ Starshine already represents the section-level pieces:
 - `FuncExternType(TypeIdx)` in [`src/lib/types.mbt#L171-L177`](../../../../../src/lib/types.mbt#L171-L177) points imported functions at function types.
 - `Import(Name, Name, ExternType)` and `Export(Name, ExternIdx)` in [`src/lib/types.mbt#L199-L211`](../../../../../src/lib/types.mbt#L199-L211) model the boundary records that Binaryen retargets.
 - `Module` owns `type_sec`, `import_sec`, `func_sec`, `export_sec`, `elem_sec`, and `code_sec` in [`src/lib/types.mbt#L301-L326`](../../../../../src/lib/types.mbt#L301-L326).
-- `FuncType`, `TypeSec`, `ImportSec`, `FuncSec`, and `ExportSec` live in [`src/lib/types.mbt#L358-L377`](../../../../../src/lib/types.mbt#L358-L377), which is the first place a wrapper-creating pass must keep counts and references coherent.
+- `FuncType`, `TypeSec`, `ImportSec`, `FuncSec`, and `ExportSec` live in [`src/lib/types.mbt#L416-L463`](../../../../../src/lib/types.mbt#L416-L463), which is the first place a wrapper-creating pass must keep counts and references coherent.
 
 A port cannot only rewrite `ExportSec` names.
 It must add or reuse function types, add imports/definitions, and preserve index consistency across later sections.
@@ -135,7 +135,7 @@ Binaryen repairs `ref.func` in both ordinary function bodies and module code.
 Starshine already has these local surfaces:
 
 - WAT keyword recognition in [`src/wast/keywords.mbt#L98`](../../../../../src/wast/keywords.mbt#L98).
-- Text printing in [`src/wast/module_wast.mbt#L416`](../../../../../src/wast/module_wast.mbt#L416).
+- Text printing in [`src/wast/module_wast.mbt#L424`](../../../../../src/wast/module_wast.mbt#L424).
 - WAT lowering of `ref.func` to `Instruction::ref_func(...)` in [`src/wast/lower_to_lib.mbt#L2386-L2388`](../../../../../src/wast/lower_to_lib.mbt#L2386-L2388).
 - Element-item detection and lowering in [`src/wast/lower_to_lib.mbt#L172-L176`](../../../../../src/wast/lower_to_lib.mbt#L172-L176) and [`src/wast/lower_to_lib.mbt#L3373-L3438`](../../../../../src/wast/lower_to_lib.mbt#L3373-L3438).
 - Binary decode support in [`src/binary/decode.mbt#L2773-L2774`](../../../../../src/binary/decode.mbt#L2773-L2774).

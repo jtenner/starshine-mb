@@ -4,7 +4,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 ## [2026-06-05] wiki-health | JS-interface source-anchor repair
 
-- During the follow-up health check, repaired stale repository line anchors in [`binaryen/passes/legalize-js-interface/starshine-strategy.md`](binaryen/passes/legalize-js-interface/starshine-strategy.md) and [`binaryen/passes/legalize-and-prune-js-interface/starshine-strategy.md`](binaryen/passes/legalize-and-prune-js-interface/starshine-strategy.md) after the binary-section scan found old import/export encode/decode anchors that no longer pointed at current helpers.
+- During the follow-up health check, repaired stale repository line anchors in [`binaryen/passes/legalize-js-interface/starshine-strategy.md`](binaryen/passes/legalize-js-interface/starshine-strategy.md), [`binaryen/passes/legalize-js-interface/starshine-port-readiness-and-validation.md`](binaryen/passes/legalize-js-interface/starshine-port-readiness-and-validation.md), and [`binaryen/passes/legalize-and-prune-js-interface/starshine-strategy.md`](binaryen/passes/legalize-and-prune-js-interface/starshine-strategy.md) after the binary-section scan found old import/export encode/decode anchors that no longer pointed at current helpers.
 - Refreshed [`index.md`](index.md) so both JS-interface dossiers advertise current local module/import/export/ref.func source anchors. No raw source was needed; this was a repository-anchor health repair, not a change to the upstream Binaryen strategy evidence.
 
 ## [2026-06-05] binary/wiki | function-section code-anchor refresh

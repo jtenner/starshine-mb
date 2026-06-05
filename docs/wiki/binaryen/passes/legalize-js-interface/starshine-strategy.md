@@ -71,29 +71,29 @@ The fastest read-along path through the current Starshine status is:
     - `FuncExternType(TypeIdx)` models imported function signatures through type indices
   - [`src/lib/types.mbt#L174-L189`](../../../../../src/lib/types.mbt#L174-L189)
     - `Import`, `Export`, and their `ExternIdx` / `ExternType` references model the boundary items Binaryen rewrites
-  - [`src/lib/types.mbt#L320-L350`](../../../../../src/lib/types.mbt#L320-L350)
+  - [`src/lib/types.mbt#L351-L369`](../../../../../src/lib/types.mbt#L351-L369)
     - `Module` owns the optional `type_sec`, `import_sec`, `func_sec`, `export_sec`, and `code_sec` surfaces that a faithful port would need to keep consistent
-  - [`src/lib/types.mbt#L358-L377`](../../../../../src/lib/types.mbt#L358-L377)
+  - [`src/lib/types.mbt#L416-L463`](../../../../../src/lib/types.mbt#L416-L463)
     - `FuncType`, `TypeSec`, `ImportSec`, `FuncSec`, and `ExportSec` are the local section-level pieces a wrapper-creating module pass would update
 - binary section encode/decode support for those ABI surfaces
-  - [`src/binary/encode.mbt#L1151-L1178`](../../../../../src/binary/encode.mbt#L1151-L1178)
+  - [`src/binary/encode.mbt#L1138-L1178`](../../../../../src/binary/encode.mbt#L1138-L1178)
     - encodes import sections and function extern types
-  - [`src/binary/encode.mbt#L1351-L1352`](../../../../../src/binary/encode.mbt#L1351-L1352)
+  - [`src/binary/encode.mbt#L1338-L1340`](../../../../../src/binary/encode.mbt#L1338-L1340)
     - encodes export sections
-  - [`src/binary/decode.mbt#L2109-L2113`](../../../../../src/binary/decode.mbt#L2109-L2113)
+  - [`src/binary/decode.mbt#L2132-L2137`](../../../../../src/binary/decode.mbt#L2132-L2137)
     - decodes import sections
-  - [`src/binary/decode.mbt#L2280-L2284`](../../../../../src/binary/decode.mbt#L2280-L2284)
+  - [`src/binary/decode.mbt#L2303-L2308`](../../../../../src/binary/decode.mbt#L2303-L2308)
     - decodes export sections
-  - [`src/binary/tests.mbt#L181-L205`](../../../../../src/binary/tests.mbt#L181-L205)
+  - [`src/binary/tests.mbt#L586-L608`](../../../../../src/binary/tests.mbt#L586-L608)
     - fuzz-roundtrips import and export sections
 - WAT import/export and `ref.func` surfaces
   - [`src/wast/keywords.mbt#L30-L31`](../../../../../src/wast/keywords.mbt#L30-L31)
     - recognizes textual `import` and `export`
   - [`src/wast/keywords.mbt#L98`](../../../../../src/wast/keywords.mbt#L98)
     - recognizes textual `ref.func`
-  - [`src/wast/module_wast.mbt#L416`](../../../../../src/wast/module_wast.mbt#L416)
+  - [`src/wast/module_wast.mbt#L424`](../../../../../src/wast/module_wast.mbt#L424)
     - prints `ref.func` with the current function index/name
-  - [`src/wast/module_wast.mbt#L843-L912`](../../../../../src/wast/module_wast.mbt#L843-L912)
+  - [`src/wast/module_wast.mbt#L857-L934`](../../../../../src/wast/module_wast.mbt#L857-L934)
     - prints import and export fields
   - [`src/wast/lower_to_lib.mbt#L172-L176`](../../../../../src/wast/lower_to_lib.mbt#L172-L176)
     - recognizes element items that are `ref.func`, one of the imported-use repair surfaces Binaryen updates
