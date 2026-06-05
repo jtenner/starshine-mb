@@ -2092,3 +2092,16 @@ moon test --package jtenner/starshine/passes --file local_cse_test.mbt
 ```
 
 Results: Binaryen rejected the representative external text fixture (`unrecognized instruction`); focused LCSE tests passed (`129/129`). Full signoff for this slice is recorded in the commit/report for the string new-array boundary slice.
+
+## Follow-up string encode-array root boundary on 2026-06-05
+
+A later focused LCSE hardening slice added core-built coverage for repeated `string.encode_utf8_array`, `string.encode_wtf16_array`, `string.encode_lossy_utf8_array`, and `string.encode_wtf8_array` roots. The installed Binaryen text oracle rejected the attempted representative string-encode-array fixture as an unrecognized instruction, so this slice does not claim Binaryen materialization for the family. Starshine intentionally leaves these integer-producing but string/array-effect proposal roots unmaterialized rather than adding string/reference temp-local or string-array write reasoning. Agent classification: fixture-safety deferral / missing-test-only local boundary coverage, not a semantic mismatch.
+
+Validation evidence for this slice:
+
+```sh
+wasm-opt .tmp/lcse-next-spots/string-encode-array/input.wat --all-features --local-cse -S -o .tmp/lcse-next-spots/string-encode-array/binaryen.wat
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+```
+
+Results: Binaryen rejected the representative external text fixture (`unrecognized instruction`); focused LCSE tests passed (`130/130`). Full signoff for this slice is recorded in the commit/report for the string encode-array boundary slice.
