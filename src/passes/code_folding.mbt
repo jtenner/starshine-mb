@@ -53,6 +53,17 @@ priv struct CodeFoldingTerminatingTail {
 }
 
 ///|
+priv struct CodeFoldingLabelMap {
+  left_labels : Array[Int]
+  right_labels : Array[Int]
+}
+
+///|
+fn code_folding_label_map_new() -> CodeFoldingLabelMap {
+  { left_labels: [], right_labels: [] }
+}
+
+///|
 fn code_folding_value_exit_tail_branch(
   region_ref : @ir.HotRegionRef,
   branch_idx : Int,
@@ -479,18 +490,61 @@ fn code_folding_node_is_if_hoistable_suffix(
 }
 
 ///|
+fn code_folding_label_map_lookup_left(
+  label_map : CodeFoldingLabelMap,
+  left_label : Int,
+) -> Int {
+  for idx = 0; idx < label_map.left_labels.length(); idx = idx + 1 {
+    if label_map.left_labels[idx] == left_label {
+      return idx
+    }
+  }
+  -1
+}
+
+///|
+fn code_folding_label_map_lookup_right(
+  label_map : CodeFoldingLabelMap,
+  right_label : Int,
+) -> Int {
+  for idx = 0; idx < label_map.right_labels.length(); idx = idx + 1 {
+    if label_map.right_labels[idx] == right_label {
+      return idx
+    }
+  }
+  -1
+}
+
+///|
+fn code_folding_label_map_add(
+  label_map : CodeFoldingLabelMap,
+  left_label : Int,
+  right_label : Int,
+) -> Bool {
+  if left_label == right_label {
+    return true
+  }
+  let left_idx = code_folding_label_map_lookup_left(label_map, left_label)
+  let right_idx = code_folding_label_map_lookup_right(label_map, right_label)
+  if left_idx >= 0 || right_idx >= 0 {
+    return left_idx == right_idx && left_idx >= 0
+  }
+  label_map.left_labels.push(left_label)
+  label_map.right_labels.push(right_label)
+  true
+}
+
+///|
 fn code_folding_labels_equal_with_map(
   left_label : Int,
   right_label : Int,
-  mapped_left_label : Int,
-  mapped_right_label : Int,
+  label_map : CodeFoldingLabelMap,
 ) -> Bool {
-  left_label == right_label ||
-  (
-    mapped_left_label >= 0 &&
-    left_label == mapped_left_label &&
-    right_label == mapped_right_label
-  )
+  if left_label == right_label {
+    return true
+  }
+  let left_idx = code_folding_label_map_lookup_left(label_map, left_label)
+  left_idx >= 0 && label_map.right_labels[left_idx] == right_label
 }
 
 ///|
@@ -499,8 +553,7 @@ fn code_folding_nodes_equal_with_label_map(
   left_id : Int,
   right_id : Int,
   label_used : @bitset.BitSet,
-  mapped_left_label : Int,
-  mapped_right_label : Int,
+  label_map : CodeFoldingLabelMap,
 ) -> Bool {
   if left_id == right_id {
     return true
@@ -520,8 +573,6 @@ fn code_folding_nodes_equal_with_label_map(
     left.child_count != right.child_count {
     return false
   }
-  let mut next_mapped_left_label = mapped_left_label
-  let mut next_mapped_right_label = mapped_right_label
   match left.op {
     @ir.HotOp::Const | @ir.HotOp::RefNull =>
       if @ir.hot_const_get(func, left.imm0) !=
@@ -529,15 +580,12 @@ fn code_folding_nodes_equal_with_label_map(
         return false
       }
     @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::If =>
-      if pass_label_is_used(left.imm0, label_used) ||
-        pass_label_is_used(right.imm0, label_used) {
-        if left.imm0 != right.imm0 {
-          if mapped_left_label >= 0 {
-            return false
-          }
-          next_mapped_left_label = left.imm0
-          next_mapped_right_label = right.imm0
-        }
+      if (
+          pass_label_is_used(left.imm0, label_used) ||
+          pass_label_is_used(right.imm0, label_used)
+        ) &&
+        !code_folding_label_map_add(label_map, left.imm0, right.imm0) {
+        return false
       }
     @ir.HotOp::Br
     | @ir.HotOp::BrIf
@@ -546,12 +594,7 @@ fn code_folding_nodes_equal_with_label_map(
     | @ir.HotOp::BrOnCast
     | @ir.HotOp::BrOnCastFail
     | @ir.HotOp::Delegate =>
-      if !code_folding_labels_equal_with_map(
-          left.imm0,
-          right.imm0,
-          mapped_left_label,
-          mapped_right_label,
-        ) {
+      if !code_folding_labels_equal_with_map(left.imm0, right.imm0, label_map) {
         return false
       }
     @ir.HotOp::CallIndirect
@@ -570,8 +613,7 @@ fn code_folding_nodes_equal_with_label_map(
         @ir.hot_child_get(func, left_id, slot),
         @ir.hot_child_get(func, right_id, slot),
         label_used,
-        next_mapped_left_label,
-        next_mapped_right_label,
+        label_map,
       ) {
       return false
     }
@@ -587,7 +629,11 @@ fn code_folding_nodes_equal(
   label_used : @bitset.BitSet,
 ) -> Bool {
   code_folding_nodes_equal_with_label_map(
-    func, left_id, right_id, label_used, -1, -1,
+    func,
+    left_id,
+    right_id,
+    label_used,
+    code_folding_label_map_new(),
   )
 }
 
