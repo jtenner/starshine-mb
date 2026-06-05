@@ -3241,6 +3241,93 @@ test "local-cse defers local-only reuse across atomic cmpxchg" {
 }
 
 ///|
+test "local-cse defers local-only reuse across atomic cmpxchg width variants" {
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let memarg8 = @lib.MemArg::new(@lib.U32(0U), None, @lib.U64(0UL))
+  let memarg16 = @lib.MemArg::new(@lib.U32(1U), None, @lib.U64(2UL))
+  let memarg32 = @lib.MemArg::new(@lib.U32(2U), None, @lib.U64(4UL))
+  let memarg64 = @lib.MemArg::new(@lib.U32(3U), None, @lib.U64(8UL))
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], []),
+    ),
+  )
+  let i32_body_for = fn(op : @lib.AtomicCmpxchgOp, memarg : @lib.MemArg) {
+    @lib.Func::new(
+      @lib.Locals::from_types([]),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::i32_add(),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(0),
+        @lib.Instruction::i32_const(1),
+        @lib.Instruction::i32_const(2),
+        @lib.Instruction::atomic_cmpxchg(op, memarg),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::i32_add(),
+        @lib.Instruction::drop(),
+      ]),
+    )
+  }
+  let i64_body_for = fn(op : @lib.AtomicCmpxchgOp, memarg : @lib.MemArg) {
+    @lib.Func::new(
+      @lib.Locals::from_types([]),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::i32_add(),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(0),
+        @lib.Instruction::i64_const(1L),
+        @lib.Instruction::i64_const(2L),
+        @lib.Instruction::atomic_cmpxchg(op, memarg),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::i32_add(),
+        @lib.Instruction::drop(),
+      ]),
+    )
+  }
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([
+        func_type_idx, func_type_idx, func_type_idx, func_type_idx, func_type_idx,
+        func_type_idx,
+      ]),
+    )
+    .with_mem_sec(
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i32(1U, Some(1U)), shared=true),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        i64_body_for(@lib.AtomicCmpxchgOp::i64(), memarg64),
+        i32_body_for(@lib.AtomicCmpxchgOp::i32_8_u(), memarg8),
+        i32_body_for(@lib.AtomicCmpxchgOp::i32_16_u(), memarg16),
+        i64_body_for(@lib.AtomicCmpxchgOp::i64_8_u(), memarg8),
+        i64_body_for(@lib.AtomicCmpxchgOp::i64_16_u(), memarg16),
+        i64_body_for(@lib.AtomicCmpxchgOp::i64_32_u(), memarg32),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(locals, @lib.Expr(instrs)) = func
+        @debug.assert_eq(locals, @lib.Locals::from_types([]))
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
 test "local-cse defers local-only reuse across atomic wait notify and fence" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let memarg32 = @lib.MemArg::new(@lib.U32(2U), None, @lib.U64(0UL))

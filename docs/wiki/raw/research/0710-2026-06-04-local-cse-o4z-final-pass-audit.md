@@ -2385,3 +2385,16 @@ moon test --package jtenner/starshine/passes --file local_cse_test.mbt
 ```
 
 Results: Binaryen materialized representative repeated relaxed SIMD roots; the added conservative core-built coverage passed immediately (`146/146`), so this was missing-test-only coverage. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`146/146`); `moon test src/passes` passed (`1704/1704`); full `moon test` passed (`4889/4889`); native build reported no work; compare reached `6770` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up atomic cmpxchg width-variant boundary on 2026-06-05
+
+A later focused LCSE hardening slice added core-built coverage for local-only scalar reuse across additional linear atomic cmpxchg width variants: `i64.atomic.rmw.cmpxchg`, `i32.atomic.rmw8.cmpxchg_u`, `i32.atomic.rmw16.cmpxchg_u`, `i64.atomic.rmw8.cmpxchg_u`, `i64.atomic.rmw16.cmpxchg_u`, and `i64.atomic.rmw32.cmpxchg_u`. Binaryen spot-checking the representative WAT at `.tmp/lcse-next-spots/atomic-cmpxchg-widths/input.wat` materialized the repeated local-only scalar with `local.tee` / `local.get` across representative cmpxchg variants; Starshine intentionally leaves the scalar unmaterialized and keeps the family grouped with atomic/memory conservative boundaries rather than adding atomic or memory GVN. Agent classification: documented conservative deferral / missing-test-only coverage, not a semantic mismatch.
+
+Validation evidence for this slice:
+
+```sh
+wasm-opt .tmp/lcse-next-spots/atomic-cmpxchg-widths/input.wat --all-features --local-cse -S -o .tmp/lcse-next-spots/atomic-cmpxchg-widths/binaryen.wat
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+```
+
+Results: Binaryen materialized the representative local-only scalar across cmpxchg width variants; the added conservative core-built coverage passed immediately (`147/147`), so this was missing-test-only coverage. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`147/147`); `moon test src/passes` passed (`1705/1705`); full `moon test` passed (`4890/4890`); native build reported no work; compare reached `6772` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
