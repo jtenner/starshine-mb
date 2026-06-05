@@ -2424,3 +2424,16 @@ moon test --package jtenner/starshine/passes --file local_cse_test.mbt
 ```
 
 Results: Binaryen materialized the representative local-only scalar across atomic RMW op/width variants; the added conservative core-built coverage passed immediately (`149/149`), so this was missing-test-only coverage. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`149/149`); `moon test src/passes` passed (`1707/1707`); full `moon test` passed (`4892/4892`); native build reported no work; compare reached `6766` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up atomic store width-variant boundary on 2026-06-05
+
+A later focused LCSE hardening slice added core-built coverage for local-only scalar reuse across additional linear atomic store width variants: `i64.atomic.store`, `i32.atomic.store8`, `i32.atomic.store16`, `i64.atomic.store8`, and `i64.atomic.store16`. Binaryen spot-checking the representative WAT at `.tmp/lcse-next-spots/atomic-store-widths/input.wat` materialized the repeated local-only scalar with `local.tee` / `local.get` across representative store variants; Starshine intentionally leaves the scalar unmaterialized and keeps the family grouped with atomic/memory conservative boundaries rather than adding atomic or memory GVN. Agent classification: documented conservative deferral / missing-test-only coverage, not a semantic mismatch.
+
+Validation evidence for this slice:
+
+```sh
+wasm-opt .tmp/lcse-next-spots/atomic-store-widths/input.wat --all-features --local-cse -S -o .tmp/lcse-next-spots/atomic-store-widths/binaryen.wat
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+```
+
+Results: Binaryen materialized the representative local-only scalar across atomic store width variants; the added conservative core-built coverage passed immediately (`150/150`), so this was missing-test-only coverage. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`150/150`); `moon test src/passes` passed (`1708/1708`); full `moon test` passed (`4893/4893`); native build reported no work; compare reached `6772` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
