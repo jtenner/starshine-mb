@@ -1689,3 +1689,24 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the initial focused run with the added deferral coverage passed (`108/108`) because this was documented conservative coverage; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`108/108`); `moon test src/passes` passed (`1656/1656`); full `moon test` passed (`4841/4841`); native build succeeded with no work to do; compare reached `6770` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up descriptor test/cast deferral slice on 2026-06-05
+
+A later focused LCSE hardening slice attempted to spot-check descriptor `ref.test_desc` / `ref.cast_desc_eq` roots with a WAT fixture under `.tmp/local-cse-desc/`. Both `wasm-tools parse` and the installed Binaryen `wasm-opt --all-features --local-cse` rejected the descriptor opcodes in that text fixture, so no safe Binaryen materialization claim was made for descriptor roots in this slice.
+
+The slice added the core-built direct boundary test `local-cse defers repeated descriptor test and cast roots`, documenting Starshine's conservative no-CSE behavior for descriptor test/cast roots that the local core can represent. This is a fixture-safety deferral rather than an implementation broadening: descriptor tests/casts, descriptor heap reasoning, and cast/trap reasoning remain out of LCSE scope unless separately evaluated with a reliable oracle fixture.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-descriptor-deferral-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the initial focused run with the added deferral coverage passed (`109/109`) because this was documented conservative coverage; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`109/109`); `moon test src/passes` passed (`1657/1657`); full `moon test` passed (`4842/4842`); native build succeeded with no work to do; compare reached `6769` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).

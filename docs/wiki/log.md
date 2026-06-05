@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | descriptor test-cast deferral
+
+- Added core-built LCSE boundary coverage for repeated `ref.test_desc` / `ref.cast_desc_eq` roots while documenting that the installed external WAT/Binaryen oracle rejected the descriptor text fixture.
+- Refreshed the LCSE implementation/test guide and final-pass audit note so descriptor test/cast reasoning remains an explicit conservative deferral, not broad heap/cast reasoning.
+
 ## [2026-06-05] local-cse/wiki | standard ref.cast deferral
 
 - Added core-built LCSE boundary coverage for repeated nullable `ref.cast` roots, documenting Starshine's conservative no-CSE behavior even though Binaryen materializes the representative standard cast repeat.
