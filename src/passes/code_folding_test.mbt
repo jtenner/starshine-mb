@@ -704,6 +704,49 @@ test "code-folding hoists multi-value block-exit payload suffix with fallthrough
 }
 
 ///|
+test "code-folding hoists multi-value block-exit payload suffixes without fallthrough" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func $sink (param i32))
+      #|  (func (param i32 i32 i32) (result i32 f32)
+      #|    (block $out (result i32 f32)
+      #|      (if (local.get 0)
+      #|        (then
+      #|          (local.get 2)
+      #|          (call $sink)
+      #|          (br $out (i32.const 7) (f32.const 0))))
+      #|      (if (local.get 1)
+      #|        (then
+      #|          (local.get 2)
+      #|          (call $sink)
+      #|          (br $out (i32.const 7) (f32.const 0))))
+      #|      (unreachable))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "f32.const"),
+    1,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
 test "code-folding hoists block-exit tail before outer branch fallthrough" {
   let optimized = code_folding_test_run(
     (
