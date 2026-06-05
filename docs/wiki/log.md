@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasm/wiki | stack switching boundary routing
+
+- Added [`raw/wasm/2026-06-05-stack-switching-boundary-refresh.md`](raw/wasm/2026-06-05-stack-switching-boundary-refresh.md) after checking the current WebAssembly proposals tracker, Stack Switching proposal repository/explainer, WasmFX typed-continuations mirror pages, and current Starshine core AST, tag validation, binary decode/encode, WAST keyword/opcode, generator gate, and nearby wiki evidence.
+- Added [`wasm-stack-switching-boundary.md`](wasm-stack-switching-boundary.md) as the focused active Phase-3 typed-continuations guide for `(cont ...)`, `cont.new`, `cont.bind`, `suspend`, `resume`, `resume_throw`, `resume_throw_ref`, `switch`, continuation types, and resumable control tags; current Starshine exception tags / `try_table`, tail calls, JSPI, stack-polymorphic validation, and Binaryen stack-switching fixtures are explicitly documented as not local Stack Switching support.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wasm-jspi-host-async-boundary.md`](wasm-jspi-host-async-boundary.md), and [`index.md`](index.md) so Stack Switching no longer sits in the generic active-proposal bucket and future continuation/support claims route through the focused no-support boundary.
+
 ## [2026-06-05] wasm/wiki | relaxed atomics boundary routing
 
 - Added [`raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md`](raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md) after checking the current WebAssembly proposals tracker, Relaxed Atomics proposal repository/overview, and current Starshine ordinary linear-memory atomic, shared-GC atomic-get, binary, validator, WAST, and generator evidence.

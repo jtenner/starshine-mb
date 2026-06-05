@@ -11,6 +11,7 @@ sources:
   - ../../node/package.json
 related:
   - wasm-feature-status-and-proposal-boundaries.md
+  - wasm-stack-switching-boundary.md
   - wasm-js-string-builtins-boundary.md
   - wasm-component-model-boundary.md
   - tooling/node-package-surface.md
@@ -82,7 +83,7 @@ The key wording rule is: **Starshine's Node package is async, but not JSPI-enabl
 | Reference-Typed Strings / `stringref` | Active proposal/local string instruction and literal-pool surfaces. | [`wast/string-instruction-authoring.md`](wast/string-instruction-authoring.md), [`strings/string-const-surface.md`](strings/string-const-surface.md) |
 | Component Model / Canonical ABI | Higher-level components, WIT worlds, and lift/lower adapters. It may eventually have async interface questions, but it is not the same as JSPI. | [`wasm-component-model-boundary.md`](wasm-component-model-boundary.md) |
 | WASI Preview 2 | Host capability/interface model often discussed with components. Current Starshine's WASI runner is a package execution helper, not component/JSPI support. | [`tooling/node-package-surface.md`](tooling/node-package-surface.md), [`tooling/release-process.md`](tooling/release-process.md) |
-| Stack Switching | Separate active proposal mechanics for stackful control transfer. JSPI may be discussed near suspension/resumption, but Starshine support claims need their own focused source and local implementation evidence. | [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md) |
+| Stack Switching | Separate active Phase-3 typed-continuations proposal mechanics for stackful Core-module control transfer. JSPI may be discussed near suspension/resumption, but Starshine support claims need continuation-type / `cont.*` / `resume*` source and local implementation evidence. | [`wasm-stack-switching-boundary.md`](wasm-stack-switching-boundary.md), [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md) |
 | External validator support | `wasm-tools`, WABT, and Binaryen command adapters validate/print/optimize modules; they do not prove JavaScript host wrapper behavior. | [`tooling/external-validator-adapters.md`](tooling/external-validator-adapters.md) |
 
 ## Future Implementation Checklist
@@ -103,6 +104,7 @@ Do **not** start by adding a Starshine WAST keyword, binary opcode, validation r
 
 - Current source bridge: [`raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md`](raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md)
 - Shared feature-status router: [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md)
+- Stack Switching boundary: [`wasm-stack-switching-boundary.md`](wasm-stack-switching-boundary.md)
 - JS String Builtins boundary: [`wasm-js-string-builtins-boundary.md`](wasm-js-string-builtins-boundary.md)
 - Component Model boundary: [`wasm-component-model-boundary.md`](wasm-component-model-boundary.md)
 - Node package surface: [`tooling/node-package-surface.md`](tooling/node-package-surface.md)
