@@ -192,6 +192,7 @@ Important lesson:
 
 - branch hints do not block the merge
 - the survivor's metadata remains simply because the survivor remains
+- for Starshine-local fixture planning, `@metadata.code.branch_hint` is Core/Binaryen code-metadata evidence, not current Starshine WAST expression-annotation support; route local parser/lowerer claims through [`../../../wast/code-metadata-and-function-annotations.md`](../../../wast/code-metadata-and-function-annotations.md)
 
 ## Positive family 7: debug/source location differences still merge
 

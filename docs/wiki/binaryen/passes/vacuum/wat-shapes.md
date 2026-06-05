@@ -288,7 +288,7 @@ Why:
 - Binaryen flips the condition instead of keeping a useless `then`
 - the branch hint must flip too
 
-This family is locked by `vacuum-branch-hints.wast`.
+This family is locked by `vacuum-branch-hints.wast`. For Starshine-local fixture planning, remember that `@metadata.code.branch_hint` is Core/Binaryen code-metadata evidence, not current Starshine WAST expression-annotation support; route local parser/lowerer claims through [`../../../wast/code-metadata-and-function-annotations.md`](../../../wast/code-metadata-and-function-annotations.md).
 
 ## Shape 10: `drop(local.tee(...))` becomes `local.set`
 

@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wiki-health | branch-hint example routing
+
+- During the follow-up health check, searched empty Markdown links, malformed nested wiki paths, stale archived `docs/00xx` references, and branch-hint wording across WAST and Binaryen pass pages.
+- Added explicit branch-hint fixture caveats to [`binaryen/passes/vacuum/wat-shapes.md`](binaryen/passes/vacuum/wat-shapes.md), [`binaryen/passes/remove-unused-brs/wat-shapes.md`](binaryen/passes/remove-unused-brs/wat-shapes.md), and [`binaryen/passes/duplicate-function-elimination/wat-shapes.md`](binaryen/passes/duplicate-function-elimination/wat-shapes.md) so Binaryen `@metadata.code.branch_hint` examples route Starshine-local parser/lowerer claims through [`wast/code-metadata-and-function-annotations.md`](wast/code-metadata-and-function-annotations.md) instead of implying current expression-annotation support.
+
 ## [2026-06-05] wast/wiki | code metadata and branch-hint status routing
 
 - Added [`raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md`](raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md) after rechecking current Core 3.0 custom annotation, code-metadata, and branch-hinting pages, the official finished-proposals table, the active proposals tracker, and current Starshine WAST/function-annotation sources.

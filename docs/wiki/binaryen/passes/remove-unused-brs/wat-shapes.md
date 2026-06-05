@@ -554,7 +554,7 @@ If the branch value must always execute, or the condition cannot move safely aro
 
 ### Why
 
-This flag exists so RUB does not start executing code that previously might not have run, especially in branch-hint fuzzing scenarios.
+This flag exists so RUB does not start executing code that previously might not have run, especially in branch-hint fuzzing scenarios. For Starshine-local fixture planning, `@metadata.code.branch_hint` is Core/Binaryen code-metadata evidence, not current Starshine WAST expression-annotation support; route local parser/lowerer claims through [`../../../wast/code-metadata-and-function-annotations.md`](../../../wast/code-metadata-and-function-annotations.md).
 
 ## Negative shape 4: caught throws with `exnref` stay throws
 
