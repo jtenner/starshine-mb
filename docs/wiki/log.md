@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | SIMD lane-extract roots
+
+- Added core-built LCSE boundary coverage for repeated SIMD lane-extract roots across integer and floating vector lanes.
+- Documented Starshine's conservative no-CSE behavior even though Binaryen materializes representative repeated lane-extract roots; this stays out of SIMD temp-local/value-numbering work.
+
 ## [2026-06-05] local-cse/wiki | wider SIMD lane-store boundary
 
 - Added core-built LCSE boundary coverage for local-only scalar reuse across `v128.store16_lane`, `v128.store32_lane`, and `v128.store64_lane`.

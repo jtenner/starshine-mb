@@ -2213,3 +2213,23 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: Binaryen materialized the representative scalar root across wider SIMD lane stores; the added conservative core-built coverage passed immediately (`136/136`), so this was missing-test-only coverage. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`136/136`); `moon test src/passes` passed (`1693/1693`); full `moon test` passed (`4878/4878`); native build succeeded with warnings only and exit `0`; compare reached `6769` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up SIMD lane-extract root boundary on 2026-06-05
+
+A later focused LCSE hardening slice added core-built coverage for repeated SIMD lane-extract roots across integer and floating vector lanes. Binaryen spot-checking the representative WAT at `.tmp/lcse-next-spots/simd-lane-extract-roots/input.wat` materialized representative repeated lane-extract roots with `local.tee` / `local.get`; Starshine intentionally leaves these roots unmaterialized rather than adding SIMD temp locals or SIMD value numbering. Agent classification: documented conservative deferral / missing-test-only coverage, not a semantic mismatch.
+
+Validation evidence for this slice:
+
+```sh
+wasm-opt .tmp/lcse-next-spots/simd-lane-extract-roots/input.wat --all-features --local-cse -S -o .tmp/lcse-next-spots/simd-lane-extract-roots/binaryen.wat
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-simd-lane-extract-boundary-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: Binaryen materialized representative repeated lane-extract roots; the added conservative core-built coverage passed immediately (`137/137`), so this was missing-test-only coverage. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`137/137`); `moon test src/passes` passed (`1694/1694`); full `moon test` passed (`4879/4879`); native build reported no work; compare reached `6770` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
