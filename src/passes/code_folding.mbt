@@ -2399,17 +2399,21 @@ fn code_folding_block_suffix_matches_region(
   block_body_ref : @ir.HotRegionRef,
   block_start : Int,
   other_ref : @ir.HotRegionRef,
+  other_start : Int,
   suffix_len : Int,
   result_arity : Int,
   label_used : @bitset.BitSet,
 ) -> Bool {
   if suffix_len <= 0 ||
+    block_start < 0 ||
+    other_start < 0 ||
     code_folding_region_prefix_has_exit(func, block_body_ref, block_start) ||
+    code_folding_region_prefix_has_exit(func, other_ref, other_start) ||
     !code_folding_suffix_matches_result_arity(
       func, block_body_ref, block_start, suffix_len, result_arity,
     ) ||
     !code_folding_suffix_matches_result_arity(
-      func, other_ref, 0, suffix_len, result_arity,
+      func, other_ref, other_start, suffix_len, result_arity,
     ) ||
     code_folding_suffix_has_if_terminal(
       func, block_body_ref, block_start, suffix_len,
@@ -2422,7 +2426,7 @@ fn code_folding_block_suffix_matches_region(
       block_body_ref,
       block_start + offset,
     )
-    let other_root = @ir.hot_region_get(func, other_ref, offset)
+    let other_root = @ir.hot_region_get(func, other_ref, other_start + offset)
     if !code_folding_node_is_if_hoistable_suffix(
         func, block_root, if_id, label_used,
       ) ||
@@ -2461,13 +2465,23 @@ fn code_folding_try_fold_one_block_if_arm(
   let block_body_ref = @ir.hot_region_body_ref(func, block_id)
   let block_count = @ir.hot_region_root_count(func, block_body_ref)
   let other_count = @ir.hot_region_root_count(func, other_ref)
-  if other_count == 0 || block_count <= other_count {
+  if other_count == 0 || block_count == 0 {
     return false
   }
-  let block_start = block_count - other_count
+  let suffix_len = code_folding_common_suffix_len(
+    func, if_id, block_body_ref, other_ref, label_used,
+  )
+  if suffix_len == 0 {
+    return false
+  }
+  let block_start = block_count - suffix_len
+  let other_start = other_count - suffix_len
+  if block_start == 0 && other_start == 0 && result_arity == 0 {
+    return false
+  }
   if !code_folding_block_suffix_matches_region(
-      func, if_id, block_body_ref, block_start, other_ref, other_count, result_arity,
-      label_used,
+      func, if_id, block_body_ref, block_start, other_ref, other_start, suffix_len,
+      result_arity, label_used,
     ) {
     return false
   }
@@ -2477,16 +2491,26 @@ fn code_folding_try_fold_one_block_if_arm(
     func,
     block_body_ref,
     block_start,
-    other_count,
+    suffix_len,
     [],
   )
-  ignore(pass_splice_region(ctx, func, other_ref, 0, other_count, []))
-  if result_arity != 0 {
-    @ir.hot_control_result_type_set(func, block_id, @ir.hot_type_void(func))
-    @ir.hot_control_result_type_set(func, if_id, @ir.hot_type_void(func))
-    pass_mark_mutated(ctx, func)
+  ignore(pass_splice_region(ctx, func, other_ref, other_start, suffix_len, []))
+  if block_start == 0 && other_start == 0 {
+    let condition = @ir.hot_child_get(func, if_id, 0)
+    let drop_condition = @ir.hot_build_drop(func, condition)
+    let replacement = [drop_condition]
+    for node_id in hoisted {
+      replacement.push(node_id)
+    }
+    ignore(pass_splice_region(ctx, func, region_ref, idx, 1, replacement))
+  } else {
+    if result_arity != 0 {
+      @ir.hot_control_result_type_set(func, block_id, @ir.hot_type_void(func))
+      @ir.hot_control_result_type_set(func, if_id, @ir.hot_type_void(func))
+      pass_mark_mutated(ctx, func)
+    }
+    ignore(pass_splice_region(ctx, func, region_ref, idx + 1, 0, hoisted))
   }
-  ignore(pass_splice_region(ctx, func, region_ref, idx + 1, 0, hoisted))
   pipeline_trace_hook(
     ctx.trace,
     ctx.descriptor.name,
