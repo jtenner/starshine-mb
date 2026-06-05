@@ -1993,3 +1993,21 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`123/123`). Broad `moon test src/passes` and full `moon test` failed in the unrelated dirty `remove_unused_brs_test.mbt` guard (`remove-unused-brs skips void-root stack/local-set call hazards`), not in LCSE. Native `moon build --target native --release src/cmd` failed before compare because the same unrelated dirty `src/passes/remove_unused_brs.mbt` change currently does not compile (`Cannot create values of the read-only type: LocalSet`). The compare lane was rerun with the already-present native `target/native/release/build/cmd/cmd.exe` because this slice only added tests/docs; it reached `6765` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification for those command failures: Binaryen/tool oracle failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up SIMD load-extend root boundary on 2026-06-05
+
+A later focused LCSE hardening slice added core-built coverage for repeated `v128.load8x8_s`, `v128.load8x8_u`, `v128.load16x4_s`, `v128.load16x4_u`, `v128.load32x2_s`, and `v128.load32x2_u` roots. Binaryen spot-checking the representative WAT materialized repeated `v128.load8x8_s`, `v128.load16x4_u`, and `v128.load32x2_s` roots with `local.tee` / `local.get`; Starshine intentionally leaves the load-extend family unmaterialized rather than adding SIMD value numbering or SIMD-aware memory GVN. Agent classification: documented conservative deferral / missing-test-only coverage, not a semantic mismatch.
+
+Validation evidence for this slice:
+
+```sh
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-simd-load-extend-boundary-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the added conservative core-built coverage passed immediately (`124/124`), so this was missing-test-only coverage. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`124/124`); `moon test src/passes` passed (`1676/1676`); full `moon test` passed (`4861/4861`); native build reported no work; compare reached `6769` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
