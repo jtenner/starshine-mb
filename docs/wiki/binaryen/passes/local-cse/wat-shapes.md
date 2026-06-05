@@ -363,7 +363,7 @@ Before, `array.init_elem` variant:
 (drop (i32.add (local.get $x) (local.get $y)))
 ```
 
-Before, `memory.copy` / `memory.fill` / `memory.init` / `memory.grow` / `table.copy` / `table.fill` / `table.init` / `table.set` / `table.grow` / `table.size` / `global.set` / `data.drop` / `elem.drop` variants:
+Before, `memory.copy` / `memory.fill` / `memory.init` / `memory.grow` / `memory.size` / `table.copy` / `table.fill` / `table.init` / `table.set` / `table.grow` / `table.size` / `global.set` / `data.drop` / `elem.drop` variants:
 
 ```wat
 (drop (i32.add (local.get $x) (local.get $y)))
@@ -371,6 +371,7 @@ Before, `memory.copy` / `memory.fill` / `memory.init` / `memory.grow` / `table.c
 ;; or: (memory.fill (i32.const 0) (i32.const 7) (i32.const 1))
 ;; or: (memory.init 0 (i32.const 0) (i32.const 0) (i32.const 1))
 ;; or: (drop (memory.grow (i32.const 1)))
+;; or: (drop (memory.size))
 ;; or: (table.copy 0 0 (i32.const 0) (i32.const 1) (i32.const 1))
 ;; or: (table.fill 0 (i32.const 0) (ref.null func) (i32.const 1))
 ;; or: (table.init 0 0 (i32.const 0) (i32.const 0) (i32.const 0))
@@ -387,17 +388,17 @@ After, conceptually:
 
 ```wat
 (drop (local.tee $tmp (i32.add (local.get $x) (local.get $y))))
-(struct.set $box 0 (local.get $box) (i32.const 7)) ;; or array.set/fill/copy/init_data/init_elem/memory.copy/fill/init/grow/table.copy/fill/init/set/grow/size/global.set/data.drop/elem.drop ...
+(struct.set $box 0 (local.get $box) (i32.const 7)) ;; or array.set/fill/copy/init_data/init_elem/memory.copy/fill/init/grow/size/table.copy/fill/init/set/grow/size/global.set/data.drop/elem.drop ...
 (drop (local.get $tmp))
 ```
 
 Why this rewrites:
 
 - the repeated tree reads locals only
-- the intervening `struct.set`, `array.set`, `array.fill`, `array.copy`, `array.init_data`, or `array.init_elem` mutates GC storage, or `memory.copy` / `memory.fill` / `memory.init` mutates linear memory, or `memory.grow` mutates memory size, or `table.copy` / `table.fill` / `table.init` / `table.set` / `table.grow` mutates table elements or table size, or `table.size` reads table size, or `global.set` mutates a global, or `data.drop` / `elem.drop` mutate segment availability, not those locals
+- the intervening `struct.set`, `array.set`, `array.fill`, `array.copy`, `array.init_data`, or `array.init_elem` mutates GC storage, or `memory.copy` / `memory.fill` / `memory.init` mutates linear memory, or `memory.grow` mutates memory size, or `memory.size` reads memory size, or `table.copy` / `table.fill` / `table.init` / `table.set` / `table.grow` mutates table elements or table size, or `table.size` reads table size, or `global.set` mutates a global, or `data.drop` / `elem.drop` mutate segment availability, not those locals
 - this is an effect-invalidation decision, not arbitrary heap or memory CSE
 
-Starshine status: these Binaryen-positive shapes are covered and implemented narrowly by modeling `struct.set`, `array.set`, `array.fill`, `array.copy`, `array.init_data`, `array.init_elem`, `memory.copy`, `memory.fill`, `memory.init`, `memory.grow`, `table.copy`, `table.fill`, `table.init`, `table.set`, and `global.set` operands, the side-effecting `memory.grow` / `table.grow` results, the `table.size` stack result, plus the zero-operand `data.drop` / `elem.drop` side effects in the raw/module path. The intervening side-effect instructions themselves are still not reusable roots; `memory.grow` roots, memory-size expressions across `memory.grow`, `table.grow` roots, `table.size`-dependent roots, and global-dependent expressions across `global.set` are explicitly guarded by no-reuse regressions.
+Starshine status: these Binaryen-positive shapes are covered and implemented narrowly by modeling `struct.set`, `array.set`, `array.fill`, `array.copy`, `array.init_data`, `array.init_elem`, `memory.copy`, `memory.fill`, `memory.init`, `memory.grow`, `table.copy`, `table.fill`, `table.init`, `table.set`, and `global.set` operands, the side-effecting `memory.grow` / `table.grow` results, the `memory.size` / `table.size` stack results, plus the zero-operand `data.drop` / `elem.drop` side effects in the raw/module path. The intervening effect/state-read instructions themselves are still not arbitrary reusable roots; `memory.grow` roots, memory-size expressions across `memory.grow`, `table.grow` roots, `table.size`-dependent roots, and global-dependent expressions across `global.set` are explicitly guarded by no-reuse regressions, while repeated `memory.size` roots without intervening growth are covered as a narrow size-read case rather than arbitrary memory GVN.
 
 ## Shape 9: repeated ordinary call roots do not fold
 

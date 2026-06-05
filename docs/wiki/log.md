@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wiki-health | JS-interface source-anchor repair
+
+- During the follow-up health check, repaired stale repository line anchors in [`binaryen/passes/legalize-js-interface/starshine-strategy.md`](binaryen/passes/legalize-js-interface/starshine-strategy.md) and [`binaryen/passes/legalize-and-prune-js-interface/starshine-strategy.md`](binaryen/passes/legalize-and-prune-js-interface/starshine-strategy.md) after the binary-section scan found old import/export encode/decode anchors that no longer pointed at current helpers.
+- Refreshed [`index.md`](index.md) so both JS-interface dossiers advertise current local module/import/export/ref.func source anchors. No raw source was needed; this was a repository-anchor health repair, not a change to the upstream Binaryen strategy evidence.
+
 ## [2026-06-05] binary/wiki | function-section code-anchor refresh
 
 - Refreshed [`binary/module-section-map.md`](binary/module-section-map.md) and [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md) against current repository source anchors in [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), and [`../../src/binary/tests.mbt`](../../src/binary/tests.mbt).
@@ -90,6 +95,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added [`raw/wiki/2026-06-04-wiki-maintenance-source-bridge.md`](raw/wiki/2026-06-04-wiki-maintenance-source-bridge.md) after rechecking the LLM Wiki / LLM Wiki v2 methodology sources plus current [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), [`index.md`](index.md), and this log.
 - Added [`tooling/wiki-maintenance-playbook.md`](tooling/wiki-maintenance-playbook.md) as the operational checklist for autonomous wiki runs: target selection, evidence ladder, update flow, raw-source placement, transient-artifact citation discipline, whole-wiki health checks, common mistakes, and wiki-only signoff.
 - Refreshed [`raw/README.md`](raw/README.md) and [`index.md`](index.md) so the new `raw/wiki/` methodology-source directory and playbook are discoverable without duplicating the normative schema in [`../README.md`](../README.md).
+
+## [2026-06-04] passes/local-cse | memory.size coverage
+
+- Spot-checked local-only reuse across `memory.size` and repeated `memory.size` roots without intervening growth; Binaryen materializes both profitable repeated trees with `local.tee` / `local.get`.
+- Added WAT-form direct `local-cse` regressions for both shapes. Starshine already matched, so this was missing-test-only and keeps the existing `memory.grow` no-reuse guard as the boundary against arbitrary memory-size GVN.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-memory-size-coverage-10000`: 6768 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
+- Refreshed the LCSE wiki pages, raw research note, and `[O4Z-AUDIT-LCSE]` backlog wording so `memory.size` is listed as a covered narrow state-read case.
 
 ## [2026-06-04] passes/local-cse | memory.copy local-only reuse fix
 
