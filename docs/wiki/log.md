@@ -2,6 +2,17 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasm/wiki | More Array Constructors boundary routing
+
+- Added [`raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md`](raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md) after checking the current WebAssembly proposals tracker, the More Array Constructors proposal overview, current Core 3.0 GC array instruction pages, and Starshine WAST/core/binary/validator/generator evidence.
+- Added [`wasm-more-array-constructors-boundary.md`](wasm-more-array-constructors-boundary.md) so `array.new_array`, `array.new_memory`, and `array.new_table` route as active Phase-1 proposal evidence instead of being inferred from current Core `array.new*` / `array.init_*` support.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wasm-gc-core-boundary.md`](wasm-gc-core-boundary.md), [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md), [`wast/text-surface-gap-ledger.md`](wast/text-surface-gap-ledger.md), and [`index.md`](index.md) so Core array support, WAST `array.*` text gaps, data-count/element-segment rules, and future memory/table slice-constructor work stay separate.
+
+## [2026-06-05] local-cse/wiki | SIMD splat roots
+
+- Added core-built LCSE boundary coverage for repeated SIMD splat roots across integer and floating lane widths.
+- Documented Starshine's conservative no-CSE behavior even though Binaryen materializes representative repeated splat roots; this stays out of SIMD temp-local/value-numbering work.
+
 ## [2026-06-05] wiki-health | Shared-Everything index summary routing
 
 - During the follow-up whole-wiki health check, searched malformed Markdown links plus broad Shared-Everything / shared-GC atomic mentions after the focused boundary landed.
