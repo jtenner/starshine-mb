@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-05
 sources:
   - ../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md
+  - ../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md
   - ../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md
   - ../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md
   - ../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md
@@ -24,6 +25,7 @@ related:
   - identifier-name-and-annotation-authoring.md
   - ../binary/custom-and-name-sections.md
   - ../binary/function-import-export-and-code-sections.md
+  - ../wasm-compilation-hints-boundary.md
   - ../binaryen/passes/inlining/compilation-hints-vs-no-inline-flags-and-clone-survival.md
   - ../binaryen/passes/mark-js-called/index.md
   - ../binaryen/passes/strip-toolchain-annotations/index.md
@@ -40,6 +42,7 @@ Use this page when a fixture, pass, or CLI policy mentions `(@...)`, `@metadata.
 
 - **Official WebAssembly custom annotation syntax and branch hinting** are finished/Core-3.0 metadata surfaces. `@name` / `@custom` live in the custom-section appendix, and branch hints use the code-metadata mechanism as `metadata.code.branch_hint`.
 - **WebAssembly/Binaryen code metadata** can describe instruction-location metadata such as inline hints, branch hints, and toolchain-owned annotations. Code metadata attaches to a concrete instruction location, not to a whole function by default.
+- **Compilation Hints** is a separate active Phase-2 proposal over `metadata.code.compilation_priority`, `metadata.code.instr_freq`, and `metadata.code.call_targets`; route that through [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md) instead of treating local annotations or branch hints as support.
 - **Starshine today supports only a narrow function/import annotation lane** in WAST and in memory. Its `(@...)` syntax looks similar to code metadata text, but it attaches to the following function/import field and lowers to `FuncAnnotationSec`. It does not yet model official `@name`, placement-aware `@custom`, expression-level code metadata, `metadata.code.branch_hint`, or binary custom-section encoding for those annotations.
 
 The current 2026-06-05 status refresh is [`../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md`](../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md). It rechecked the current Core 3.0 custom appendix, code-metadata pages, branch-hinting spec, finished-proposals table, active proposals tracker, and Starshine repository evidence. The older source manifest [`../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md`](../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md) remains useful for the original source map, while the 2026-06-04 custom/name refresh adds one more practical warning: official text `(@name ...)` and `(@custom ...)` have name-section and placement-aware custom-section meanings upstream, but Starshine's current WAST `(@...)` lane does not implement those official semantics.
@@ -49,7 +52,8 @@ The current 2026-06-05 status refresh is [`../raw/wasm/2026-06-05-code-metadata-
 | Layer | Portable or local? | Starshine status | What not to infer |
 | --- | --- | --- | --- |
 | WebAssembly name/custom annotations | Finished/Core-3.0 text name-section/custom-section model | Starshine preserves opaque non-`name` custom sections at the binary layer and lowers function `$` ids into function names, but it does not implement official `@name` lowering or exact `@custom` placement. See [`../binary/custom-and-name-sections.md`](../binary/custom-and-name-sections.md). | Do not infer official `@name` or exact `@custom` support from Starshine's `(@...)` parser lane. |
-| WebAssembly/Binaryen code metadata | Core/code-metadata plus Binaryen optimizer metadata | Starshine documents `metadata.code.inline` and branch hints through Binaryen pass pages, but has no general expression annotation model. Branch hints are now finished/Core-3.0 metadata, while unrelated `Compilation Hints` remain an active proposal. | Do not treat a pass WAT example containing `@metadata.code.branch_hint` as proof that Starshine can parse/lower that expression annotation, preserve byte-offset metadata sections, or support active compilation-hint payloads. |
+| WebAssembly/Binaryen code metadata | Core/code-metadata plus Binaryen optimizer metadata | Starshine documents `metadata.code.inline` and branch hints through Binaryen pass pages, but has no general expression annotation model. Branch hints are now finished/Core-3.0 metadata. | Do not treat a pass WAT example containing `@metadata.code.branch_hint` as proof that Starshine can parse/lower that expression annotation or preserve byte-offset metadata sections. |
+| Compilation Hints | Active Phase-2 proposal over `metadata.code.compilation_priority`, `metadata.code.instr_freq`, and `metadata.code.call_targets` | No first-class Starshine payload parser, byte-offset metadata model, structured WAST hint syntax, generator gate, or optimizer consumer. | Do not infer proposal support from raw function annotations, local no-inline markers, Binaryen metadata examples, or opaque custom-section preservation. |
 | Starshine WAST function annotations | Local WAST and in-memory metadata | `(@...)` immediately before a defined function or func import becomes `FuncAnnotationSec` keyed by absolute `FuncIdx`. | Do not assume annotations on globals, memories, tables, expressions, modules, arbitrary custom sections, or instruction offsets are supported. |
 | Starshine no-inline policy | Local optimizer policy | `no-inline*` passes add internal `starshine.no-full-inline` / `starshine.no-partial-inline` function annotations. | Do not confuse those markers with Binaryen `@metadata.code.inline` bytes. |
 
@@ -147,6 +151,7 @@ For Starshine work, do not claim branch-hint parity unless the change adds a loc
 - **Function-import annotations use imported-prefix indices.** An annotation on the first imported function is keyed at `FuncIdx(0)`, not at a separate import ordinal.
 - **Existing `js.called` syntax is not `mark-js-called` parity.** Use [`../binaryen/passes/mark-js-called/index.md`](../binaryen/passes/mark-js-called/index.md) for the upstream configureAll-driven pass contract.
 - **Branch-hinting is upstream/Core metadata, not local support.** A Binaryen or official WAT example with `@metadata.code.branch_hint` is source-oracle evidence until Starshine grows an expression-level representation and remap tests.
+- **Compilation Hints is proposal metadata, not local optimizer policy.** Starshine's current no-inline/inlining annotations do not consume `metadata.code.compilation_priority`, `metadata.code.instr_freq`, `metadata.code.call_targets`, `never_opt`, or `always_opt`; use [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md).
 - **Binary roundtrip is absent for `FuncAnnotationSec`.** If a test needs annotation preservation after binary encode/decode, it must first implement and document the binary custom/code-metadata format or preserve an opaque custom section separately.
 - **Name-section and annotation-section repairs are separate.** A function can have a debug name, annotations, both, or neither. Rewriting one map does not repair the other automatically.
 - **Toolchain-stripping is not generic metadata stripping.** [`strip-toolchain-annotations`](../binaryen/passes/strip-toolchain-annotations/index.md) removes selected Binaryen-owned annotations and preserves `metadata.code.inline`; future local support should make the same subset boundary explicit.
@@ -159,11 +164,12 @@ For Starshine work, do not claim branch-hint parity unless the change adds a loc
 - Function-remapping passes should add tests that annotations follow surviving functions, removed functions lose annotations, and repeated remaps do not duplicate markers.
 - No-inline policy changes should update [`src/passes/no_inline.mbt`](../../../src/passes/no_inline.mbt), [`src/passes/inlining.mbt`](../../../src/passes/inlining.mbt), the inlining dossier, and CLI/registry docs if command-facing behavior changes.
 - Official `@name` / `@custom` text work should start in the WAST parser/lowerer/printer and binary custom/name docs, with tests proving `NameSec` or `CustomSec` effects rather than `FuncAnnotationSec` effects.
-- Expression-level code-metadata or branch-hint work should start with a representation design and source-backed tests before updating pass pages that currently describe only Binaryen oracle behavior.
+- Expression-level code-metadata, branch-hint, or Compilation Hints work should start with a representation design and source-backed tests before updating pass pages that currently describe only Binaryen oracle behavior.
 
 ## Sources
 
 - Current code-metadata / branch-hint status refresh: [`../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md`](../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md)
+- Compilation Hints boundary refresh: [`../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md`](../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md), [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md)
 - Binaryen `mark-js-called` behavior refresh: [`../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md)
 - Current custom/name/text-annotation refresh: [`../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md`](../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md)
 - Source refresh: [`../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md`](../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md)

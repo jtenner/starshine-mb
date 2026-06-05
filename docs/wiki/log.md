@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasm/wiki | compilation hints boundary routing
+
+- Added [`raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md`](raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md) after checking the current WebAssembly proposals tracker, Compilation Hints proposal repository/overview, existing Core/code-metadata branch-hint routing, and current Starshine custom-section, WAST function-annotation, no-inline, and inlining code paths.
+- Added [`wasm-compilation-hints-boundary.md`](wasm-compilation-hints-boundary.md) as the focused active Phase-2 guide for `metadata.code.compilation_priority`, `metadata.code.instr_freq`, and `metadata.code.call_targets`; current Starshine function/import `(@...)` annotations, `FuncAnnotationSec`, no-inline markers, branch hints, Binaryen metadata examples, and opaque custom-section preservation are explicitly documented as not first-class Compilation Hints support.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wast/code-metadata-and-function-annotations.md`](wast/code-metadata-and-function-annotations.md), [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so future metadata, inlining-policy, and feature-status claims route through the focused boundary.
+
 ## [2026-06-05] wasm/wiki | stack switching boundary routing
 
 - Added [`raw/wasm/2026-06-05-stack-switching-boundary-refresh.md`](raw/wasm/2026-06-05-stack-switching-boundary-refresh.md) after checking the current WebAssembly proposals tracker, Stack Switching proposal repository/explainer, WasmFX typed-continuations mirror pages, and current Starshine core AST, tag validation, binary decode/encode, WAST keyword/opcode, generator gate, and nearby wiki evidence.

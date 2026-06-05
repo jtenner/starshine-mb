@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-05
 sources:
   - ../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md
+  - ../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md
   - ../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md
   - ../raw/research/0711-2026-06-04-cli-print-utility-routing.md
   - ../raw/wasm/2026-05-20-name-section-label-subsection-correction.md
@@ -29,6 +30,7 @@ related:
   - ../validate/fuzz-hardening.md
   - ../wast/identifier-name-and-annotation-authoring.md
   - ../wast/code-metadata-and-function-annotations.md
+  - ../wasm-compilation-hints-boundary.md
   - ../tooling/cli-command-and-dispatcher.md
   - ../binaryen/passes/reorder-locals/index.md
   - ../binaryen/passes/remove-unused-module-elements/index.md
@@ -60,6 +62,7 @@ This gives validators and mutating passes a typed view of debug names while stil
 | `name` custom section | Standard name-section metadata for debug names. | Parsed into `Module.name_sec` plus optional `raw_name_sec_payload`; raw `CustomSec("name", ...)` is rejected on encode/validation. | Rewrite or clear structured maps after index-space rewrites; do not keep stale raw name bytes after structural changes. |
 | `producers` custom section | WebAssembly tool-conventions provenance for language, tool, and SDK name-version pairs. | Opaque `CustomSec("producers", payload)` like any other non-`name` custom section. | Preserve by default, but never use it to infer pass legality, optimization hints, feature use, or Binaryen parity. |
 | `target_features` custom section | Feature-advertisement metadata; Binaryen's `strip-target-features` / `emit-target-features` toggles whether output has this metadata. | Opaque `CustomSec("target_features", payload)` if decoded; no first-class feature metadata model or local pass today. | Only a deliberately named metadata policy should remove/suppress it; deleting it does not lower feature-using code or make unsupported instructions valid. |
+| `metadata.code.*` custom sections | Code-metadata payloads such as finished branch hints or active-proposal Compilation Hints. | Opaque non-`name` `CustomSec` unless/until a focused metadata model decodes a named payload. | Preserving bytes is not payload support; route branch hints through [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md) and compilation-priority / instruction-frequency / call-target hints through [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md). |
 | `FuncAnnotationSec` | Starshine-local function/import annotations lowered from the current WAST `(@...)` lane. | Separate `Module.func_annotation_sec`, not a binary custom section today. | Remap with absolute function indices; route code-metadata and branch-hint claims through [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md). |
 | Unknown custom names | Non-semantic custom payloads that the core spec allows tools to ignore. | Opaque `CustomSec(name, payload)`. | Preserve unless a page and tests name the exact metadata policy; do not implement generic custom-section stripping by accident. |
 
@@ -154,6 +157,7 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 - **Function annotations are not binary name sections.** `FuncAnnotationSec` is a Starshine WAST/in-memory metadata lane today; the binary codec does not encode or decode it. Route code-metadata, inline-hint, branch-hint, and no-inline-marker details through [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md).
 - **`producers` is provenance, not policy.** Preserve it by default, but do not read it as an optimizer, feature, or pass-scheduling input.
 - **`target_features` is metadata, not lowering.** A future `strip-target-features` port may remove or suppress that named metadata section, but the executable feature surface must still be lowered, validated, or rejected by the actual instruction/type/section owners.
+- **`metadata.code.*` names need focused ownership.** Branch hints, Binaryen inline examples, and Compilation Hints proposal payloads share a naming family but have different status and local support. Preserve unknown payloads opaquely unless a named metadata policy owns them.
 - **Function names depend on absolute function-index stability.** See [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md) for the imported-prefix `FuncIdx` model that function name maps describe.
 - **Type/table/memory/global/tag names depend on imported-prefix or definition-order stability.** See [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) for the shared type and module resource index-space contract.
 - **Element/data names depend on segment-index stability.** See [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md) for the canonical segment model that those name maps describe.
@@ -161,6 +165,7 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 ## Sources
 
 - Tool-conventions custom metadata refresh: [`../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md`](../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md)
+- Compilation Hints boundary refresh: [`../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md`](../raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md), [`../wasm-compilation-hints-boundary.md`](../wasm-compilation-hints-boundary.md)
 - Current custom/name/text-annotation refresh: [`../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md`](../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md)
 - CLI print-utility routing audit: [`../raw/research/0711-2026-06-04-cli-print-utility-routing.md`](../raw/research/0711-2026-06-04-cli-print-utility-routing.md)
 - Label-subsection correction: [`../raw/wasm/2026-05-20-name-section-label-subsection-correction.md`](../raw/wasm/2026-05-20-name-section-label-subsection-correction.md)
