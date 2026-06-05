@@ -5622,6 +5622,55 @@ test "local-cse reuses expression across br-on-non-null continuation" {
 }
 
 ///|
+test "local-cse conservatively clears local-only expression across call-ref" {
+  let callee_type_idx = @lib.TypeIdx::new(0U)
+  let caller_type_idx = @lib.TypeIdx::new(1U)
+  let callee_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(callee_type_idx), exact=true),
+  )
+  let callee_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let caller_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func(
+        [@lib.ValType::i32(), @lib.ValType::i32(), callee_ref],
+        [],
+      ),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([callee_type, caller_type]))
+    .with_func_sec(@lib.FuncSec::new([callee_type_idx, caller_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::from_types([]), @lib.Expr::new([])),
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i32_add(),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::call_ref(callee_type_idx),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i32_add(),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_defined_func(
+    optimized, 1,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(3U)), 0)
+}
+
+///|
 test "local-cse does not reuse call-ref roots" {
   let callee_type_idx = @lib.TypeIdx::new(0U)
   let caller_type_idx = @lib.TypeIdx::new(1U)

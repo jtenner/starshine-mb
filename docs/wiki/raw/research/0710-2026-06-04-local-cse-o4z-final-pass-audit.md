@@ -2510,3 +2510,13 @@ Added test:
 - `local-cse conservatively clears local-only expression across call-indirect`
 
 Agent classification: semantically safe conservative deferral / missed Binaryen-positive optimization. This is intentionally not arbitrary call CSE and not indirect-call value reasoning.
+
+## Follow-up `call_ref` local-only boundary on 2026-06-05
+
+A focused continuation slice added core-built coverage for a local-only scalar repeat across `call_ref`. Binaryen spot-checking materialized the representative WAT shape, but Starshine keeps the `call_ref` window cleared.
+
+Added test:
+
+- `local-cse conservatively clears local-only expression across call-ref`
+
+Agent classification: semantically safe conservative deferral / missed Binaryen-positive optimization. This is intentionally not arbitrary `call_ref` CSE and not reference-call/callee reasoning.
