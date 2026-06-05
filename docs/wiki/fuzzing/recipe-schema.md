@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-05
 sources:
+  - ../raw/fuzzing/2026-06-05-text-differential-adapter-source-refresh.md
   - ../raw/fuzzing/2026-06-04-fuzz-recipe-schema-source-refresh.md
   - ../../../src/fuzz/main.mbt
   - ../../../src/fuzz/main_wbtest.mbt
@@ -14,6 +15,7 @@ related:
   - ../tooling/validation-gates.md
   - ../tooling/pass-fuzz-compare.md
   - ../tooling/external-validator-adapters.md
+  - text-differential-adapters.md
   - golden-seed-catalog.md
   - reduction-backends.md
   - ../validate/fuzz-hardening.md
@@ -117,7 +119,7 @@ The checked-in catalog is intentionally small and discoverable through `moon run
 | `validator-stress` | `validate-valid` | `stress` | `0x10d69` | `16 / 4` | `jsonl` | Validator stress recipe using the suite's stress generator configuration. |
 | `parser-stress` | `wast-roundtrip` | `stress+parser-stress+scripts` | `0x5eed` | `16 / 4` | `jsonl` | WAST parser/script stress lane. |
 | `binaryen-oracle` | `gen-valid-wat-validate-roundtrip` | `binaryen-oracle-portable` | `0x5eed` | `8 / 4` | `jsonl` | Portable GenValid WAT validation roundtrip aligned with Binaryen-oracle inputs. |
-| `text-differential-smoke` | `text-differential` | `smoke` | `0x1045a7` | `1 / 1` | `jsonl` | Opt-in local WAT parse/print/reparse/lower matrix; unavailable external text adapters are skipped evidence. |
+| `text-differential-smoke` | `text-differential` | `smoke` | `0x1045a7` | `1 / 1` | `jsonl` | Opt-in local WAT parse/print/reparse/lower matrix; unavailable external text adapters are skipped evidence. See [`text-differential-adapters.md`](text-differential-adapters.md) for the local-vs-optional-external split. |
 
 ## Shards, Resume, And Output Directories
 

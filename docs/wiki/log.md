@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] fuzzing/wiki | text differential adapter routing
+
+- Added [`raw/fuzzing/2026-06-05-text-differential-adapter-source-refresh.md`](raw/fuzzing/2026-06-05-text-differential-adapter-source-refresh.md) after checking current WABT `wat2wasm`, `wasm-tools parse`, Starshine TypeScript optional text-adapter scaffold, MoonBit local text matrix, aggregate classifier, artifact persistence, and opt-in `text-differential` suite evidence.
+- Added [`fuzzing/text-differential-adapters.md`](fuzzing/text-differential-adapters.md) as the focused guide for `starshine.fuzz.text-adapters.v1`, `text-differential-smoke`, Starshine-local parse/lower/encode/print/reparse/relower byte-stability, optional WABT / `wasm-tools` command shapes, aggregate text classification, text repro artifact layout, and the current caveat that the MoonBit suite reports external adapters as unavailable placeholders rather than running them.
+- Refreshed [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md), [`fuzzing/recipe-schema.md`](fuzzing/recipe-schema.md), and [`index.md`](index.md) so text-differential readers route through the focused page instead of inferring behavior from a single runner paragraph or historical log entries.
+
 ## [2026-06-05] passes/local-cse | ref.test deferral
 
 - Spot-checked repeated standard `ref.test`; Binaryen materializes the repeated root with `local.tee` / `local.get`.

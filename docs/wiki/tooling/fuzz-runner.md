@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-05
 sources:
+  - ../raw/fuzzing/2026-06-05-text-differential-adapter-source-refresh.md
   - ../raw/wasm/2026-06-04-wast-static-harness-current-refresh.md
   - ../raw/research/0003-2026-03-12-fuzz-migration.md
   - ../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md
@@ -21,6 +22,7 @@ related:
   - ./pass-fuzz-compare.md
   - ./external-validator-adapters.md
   - ../fuzzing/recipe-schema.md
+  - ../fuzzing/text-differential-adapters.md
   - ../validate/fuzz-hardening.md
   - ../validate/diagnostics-and-invalid-repro.md
   - ../fuzzing/generator-coverage-ledger.md
@@ -79,7 +81,7 @@ The lower-level [`run_cmd_fuzz_harness(...)`](../../../src/cmd/fuzz_harness.mbt)
 
 Cmd-harness corpus tools also expose `FuzzCorpusDedupIndex`, a deterministic FNV-1a keyed hash index that records every source seed, attempt, generator profile, pass profile, stage, and duplicate decision under the emitted wasm hash. Keep that text index next to generated corpus artifacts when deduplicating so a retained hash can be traced back to all source seeds/profiles and duplicate decisions without regenerating the corpus.
 
-The `[FUZ]1045A7` text differential runner is intentionally opt-in and is not part of the default `all` suite. `moon run src/fuzz -- text-differential smoke --seed 0x1045a7` and the `text-differential-smoke` recipe run a deterministic local WAT parse/print/reparse/lower matrix and report `adapter_unavailable` counts for WABT / wasm-tools text adapters when those external tools are not wired into the runner; unavailable tools are skipped evidence, not suite failures.
+The `[FUZ]1045A7` text differential runner is intentionally opt-in and is not part of the default `all` suite. `moon run src/fuzz -- text-differential smoke --seed 0x1045a7` and the `text-differential-smoke` recipe run a deterministic local WAT parse/print/reparse/lower matrix and report `adapter_unavailable` counts for WABT / `wasm-tools` text adapters when those external tools are not wired into the runner; unavailable tools are skipped evidence, not suite failures. Route the exact local matrix, TypeScript optional adapter scaffold, `wat2wasm` / `wasm-tools parse` command shapes, and text-vs-binary-validator split through [`../fuzzing/text-differential-adapters.md`](../fuzzing/text-differential-adapters.md).
 
 The `[FUZ]1044*` binary differential helpers are intentionally opt-in command-harness support rather than ordinary suite success criteria. They classify Starshine decode/validate plus optional `wasm-tools`, WABT, and Binaryen validators into agree-valid, agree-invalid, proposal-gap, decoder-stage disagreement, validator-stage disagreement, tool-failure, unsupported-feature, and adapter-unavailable buckets; route exact adapter command lines and skip semantics through [`external-validator-adapters.md`](external-validator-adapters.md).
 
