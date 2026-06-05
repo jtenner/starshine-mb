@@ -2313,3 +2313,23 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: Binaryen materialized representative repeated SIMD-derived scalar roots; the added conservative core-built coverage passed immediately (`141/141`), so this was missing-test-only coverage. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`141/141`); `moon test src/passes` passed (`1699/1699`); full `moon test` passed (`4884/4884`); native build reported no work; compare reached `6766` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up wider SIMD arithmetic/logic root boundary on 2026-06-05
+
+A later focused LCSE hardening slice added core-built coverage for a representative wider set of repeated pure SIMD arithmetic and logic roots beyond the earlier `v128.not` / `i8x16.eq` smoke: `v128.and`, `v128.xor`, `v128.bitselect`, `i8x16.abs`, `i16x8.neg`, `i32x4.add`, `i64x2.mul`, `f32x4.sqrt`, and `f64x2.add`. Binaryen spot-checking the representative WAT at `.tmp/lcse-next-spots/simd-vector-arith-logic-roots/input.wat` materialized each repeated root with `local.tee` / `local.get`; Starshine intentionally leaves these vector roots unmaterialized rather than adding SIMD temp locals or value numbering. Agent classification: documented conservative deferral / missing-test-only coverage, not a semantic mismatch.
+
+Validation evidence for this slice:
+
+```sh
+wasm-opt .tmp/lcse-next-spots/simd-vector-arith-logic-roots/input.wat --all-features --local-cse -S -o .tmp/lcse-next-spots/simd-vector-arith-logic-roots/binaryen.wat
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-simd-vector-arith-logic-boundary-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: Binaryen materialized representative repeated wider SIMD arithmetic/logic roots; the added conservative core-built coverage passed immediately (`142/142`), so this was missing-test-only coverage. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`142/142`); `moon test src/passes` passed (`1700/1700`); full `moon test` passed (`4885/4885`); native build reported no work; compare reached `6766` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
