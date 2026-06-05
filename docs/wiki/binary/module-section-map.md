@@ -47,7 +47,7 @@ Starshine follows those rules in its core module representation and validation e
 
 | Stream position | Section | Id | Starshine field | Canonical page | Notes |
 | --- | --- | ---: | --- | --- | --- |
-| Header | Magic + version | n/a | n/a | this page | [`Encode for Module`](../../../src/binary/encode.mbt#L1651-L1653) writes `00 61 73 6d 01 00 00 00`; [`decode_module_with_detail`](../../../src/binary/decode.mbt#L1235-L1242) requires the same bytes. Section payload lengths and later vector/index fields are LEB-encoded; see [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md). |
+| Header | Magic + version | n/a | n/a | this page | [`Encode for Module`](../../../src/binary/encode.mbt#L1638-L1639) writes `00 61 73 6d 01 00 00 00`; [`decode_module_with_detail`](../../../src/binary/decode.mbt#L1271-L1284) requires the same bytes. Section payload lengths and later vector/index fields are LEB-encoded; see [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md). |
 | Any gap | Custom | `0` | `custom_secs`, `name_sec`, `raw_name_sec_payload` | [`custom-and-name-sections.md`](custom-and-name-sections.md) | Decode accepts custom sections before each standard family and at the tail; encode emits non-`name` custom sections first and the structured `name` section at the tail. |
 | 1 | Type | `1` | `type_sec` | [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) | Defines the type index space used by signatures, blocks, casts, GC ops, tags, and resource types. |
 | 2 | Import | `2` | `import_sec` | [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md), [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) | Imports extend function/table/memory/global/tag index spaces before local definition sections. |
@@ -70,13 +70,13 @@ This table is grounded in the primary-source snapshot [`../raw/wasm/2026-05-13-m
 
 ### Decode
 
-[`decode_module_with_detail`](../../../src/binary/decode.mbt#L1225-L1552) walks the standard-section order and calls [`decode_custom_sections_with_detail`](../../../src/binary/decode.mbt#L1153-L1202) before every standard section plus the tail. Non-`name` custom sections are accumulated in `custom_secs`; the first `name` custom section is parsed into `NameSec` and preserved as `raw_name_sec_payload`; a second `name` section is rejected.
+[`decode_module_with_detail`](../../../src/binary/decode.mbt#L1271-L1569) walks the standard-section order and calls [`decode_custom_sections_with_detail`](../../../src/binary/decode.mbt#L1175-L1221) before every standard section plus the tail. Non-`name` custom sections are accumulated in `custom_secs`; the first `name` custom section is parsed into `NameSec` and preserved as `raw_name_sec_payload`; a second `name` section is rejected.
 
-A decode-time `stringrefs` context is installed only around the sections that can contain `string.const` immediates in Starshine's representation: globals, element/data-count/code/data tail handling, and especially code-body expressions. The result is a structured [`Module`](../../../src/lib/types.mbt#L351-L368), not a byte-for-byte placement model.
+A decode-time `stringrefs` context is installed only around the sections that can contain `string.const` immediates in Starshine's representation: globals, element/data-count/code/data tail handling, and especially code-body expressions. The result is a structured [`Module`](../../../src/lib/types.mbt#L351-L369), not a byte-for-byte placement model.
 
 ### Encode
 
-[`Encode for Module`](../../../src/binary/encode.mbt#L1651-L1727) always emits a canonical layout:
+[`Encode for Module`](../../../src/binary/encode.mbt#L1638-L1724) always emits a canonical layout:
 
 1. magic/version;
 2. all non-`name` `custom_secs` before standard sections;
@@ -132,7 +132,7 @@ The pass dossiers most sensitive to this checklist include [`remove-unused-modul
 - **Length and index fields are bounded LEBs, not fixed-width bytes.** Decode rejects malformed section-size, vector-length, index, and integer-immediate encodings before validation, while still accepting official-compatible overlong-but-bounded forms; use [`leb128-and-integer-encoding.md`](leb128-and-integer-encoding.md) for that byte-layer contract.
 - **Custom-section placement is normalized.** Non-`name` custom payloads survive, but exact gap placement does not.
 - **Structured `name` validation is stronger than core custom-section semantics.** Starshine validates parsed name maps because they are used for diagnostics, printing, and pass rewrite checks.
-- **`func_annotation_sec` is a Starshine/WAST-side metadata surface.** It is present in [`Module`](../../../src/lib/types.mbt#L351-L368) and maintained by some module passes, but it is not part of the core binary section stream described by this page; the focused contract is [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md).
+- **`func_annotation_sec` is a Starshine/WAST-side metadata surface.** It is present in [`Module`](../../../src/lib/types.mbt#L351-L369) and maintained by some module passes, but it is not part of the core binary section stream described by this page; the focused contract is [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md).
 
 ## Sources
 

@@ -48,7 +48,7 @@ The WebAssembly Core Specification models imports and definitions as shared inde
 - the **function section** (`id = 3`) stores one type index per defined function;
 - the **code section** (`id = 10`) stores the matching body for each defined function.
 
-Starshine mirrors that split in [`Module`](../../../src/lib/types.mbt#L351-L377): `import_sec`, `func_sec`, `export_sec`, `start_sec`, and `code_sec` are separate optional fields, while [`FuncIdx`](../../../src/lib/types.mbt#L104) is the absolute index used by calls, `ref.func`, exports, starts, element payloads, names, and pass rewrite maps. For the byte-level instruction/expression contract inside each code body, see [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md). For the separate module-level declaration set that makes `ref.func` values legal, see [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
+Starshine mirrors that split in [`Module`](../../../src/lib/types.mbt#L351-L369): `import_sec`, `func_sec`, `export_sec`, `start_sec`, and `code_sec` are separate optional fields, while [`FuncIdx`](../../../src/lib/types.mbt#L104) is the absolute index used by calls, `ref.func`, exports, starts, element payloads, names, and pass rewrite maps. For the byte-level instruction/expression contract inside each code body, see [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md). For the separate module-level declaration set that makes `ref.func` values legal, see [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md).
 
 ## Section Shapes
 
@@ -58,7 +58,7 @@ Starshine mirrors that split in [`Module`](../../../src/lib/types.mbt#L351-L377)
 | Function | `3` | [`FuncSec(Array[TypeIdx])`](../../../src/lib/types.mbt#L433). | One function type index for each **defined** function body, not for imports. |
 | Export | `7` | [`ExportSec(Array[Export])`](../../../src/lib/types.mbt#L460) with [`ExternIdx`](../../../src/lib/types.mbt#L189-L196). | Export names are unique and each index resolves in the target index space. |
 | Start | `8` | [`StartSec(FuncIdx)`](../../../src/lib/types.mbt#L463). | Target function exists and has no params/results. |
-| Code | `10` | [`CodeSec(Array[Func])`](../../../src/lib/types.mbt#L493). | Body vector length equals `FuncSec` length; body ordinal `i` belongs to absolute function index `imported_func_count + i`; each body is locals plus an expression whose binary instruction details are covered in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md). |
+| Code | `10` | [`CodeSec(Array[Func])`](../../../src/lib/types.mbt#L509). | Body vector length equals `FuncSec` length; body ordinal `i` belongs to absolute function index `imported_func_count + i`; each body is locals plus an expression whose binary instruction details are covered in [`instruction-and-expression-encoding.md`](instruction-and-expression-encoding.md). |
 
 The current source refresh in [`../raw/wasm/2026-05-20-function-code-section-source-refresh.md`](../raw/wasm/2026-05-20-function-code-section-source-refresh.md) rechecks the official WebAssembly 3.0 module, binary, validation, and text sources behind this table. The earlier broader snapshot [`../raw/wasm/2026-05-13-function-import-export-section-sources.md`](../raw/wasm/2026-05-13-function-import-export-section-sources.md) remains the surrounding function/import/export/start context.
 
@@ -85,7 +85,7 @@ For example, a module with one imported function and two defined functions has:
   (start $a))
 ```
 
-After WAST lowering, `$a` and `$b` are not stored as symbolic references in the core module. [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt#L2893-L3531) resolves imports first, then defined functions, then exports and start declarations. The resulting body for `$b` contains `Instruction::Call(FuncIdx(1))`, and the start section contains `StartSec(FuncIdx(1))`.
+After WAST lowering, `$a` and `$b` are not stored as symbolic references in the core module. [`wt_lower_module`](../../../src/wast/lower_to_lib.mbt#L2910-L3613) resolves imports first, then defined functions, then exports and start declarations. The resulting body for `$b` contains `Instruction::Call(FuncIdx(1))`, and the start section contains `StartSec(FuncIdx(1))`.
 
 Starshine keeps the mapping explicit in the validator proof sidecar:
 
@@ -99,12 +99,12 @@ These helpers matter for diagnostics and pass writeback. A failure in defined bo
 
 | Stage | Starshine behavior | Evidence |
 | --- | --- | --- |
-| Decode imports | [`Decode for ImportSec`](../../../src/binary/decode.mbt#L2109-L2115) reads section `2` as a vector of imports. [`Decode for ExternType`](../../../src/binary/decode.mbt#L2061-L2105) maps external-kind bytes `0x00` through `0x04` to function/table/memory/global/tag types. | `src/binary/decode.mbt` |
-| Decode function declarations | [`Decode for FuncSec`](../../../src/binary/decode.mbt#L2117-L2123) reads section `3` as a vector of type indices. | `src/binary/decode.mbt` |
-| Decode exports/start/code | [`Decode for ExportSec`](../../../src/binary/decode.mbt#L2280-L2286), [`Decode for StartSec`](../../../src/binary/decode.mbt#L2288-L2298), and [`Decode for CodeSec`](../../../src/binary/decode.mbt#L1795-L1810) preserve the separate section surfaces. | `src/binary/decode.mbt` |
-| Encode sections | [`Encode for ImportSec`](../../../src/binary/encode.mbt#L1151-L1153), [`FuncSec`](../../../src/binary/encode.mbt#L1307-L1309), [`ExportSec`](../../../src/binary/encode.mbt#L1351-L1353), [`StartSec`](../../../src/binary/encode.mbt#L1366-L1369), and [`CodeSec`](../../../src/binary/encode.mbt#L1474-L1488) write section ids `2`, `3`, `7`, `8`, and `10`. | `src/binary/encode.mbt` |
-| Encode whole module | [`Encode for Module`](../../../src/binary/encode.mbt#L1651-L1727) emits the standard sections in canonical order, with import before function declarations and code after data-count/element handling. | `src/binary/encode.mbt` |
-| Round-trip fuzz | [`run_binary_fuzz_with_state`](../../../src/binary/tests.mbt#L160-L240) includes independent arbitrary round-trips for `ImportSec`, `FuncSec`, `ExportSec`, `StartSec`, and `CodeSec`. Focused invalid-binary export descriptor byte carriers live in [`src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt) and [`src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt). | `src/binary/tests.mbt`; `src/fuzz/invalid_binary.mbt`; `src/fuzz/invalid_binary_wbtest.mbt` |
+| Decode imports | [`Decode for ImportSec`](../../../src/binary/decode.mbt#L2132-L2137) reads section `2` as a vector of imports. [`Decode for ExternType`](../../../src/binary/decode.mbt#L2097-L2127) maps external-kind bytes `0x00` through `0x04` to function/table/memory/global/tag types. | `src/binary/decode.mbt` |
+| Decode function declarations | [`Decode for FuncSec`](../../../src/binary/decode.mbt#L2140-L2145) reads section `3` as a vector of type indices. | `src/binary/decode.mbt` |
+| Decode exports/start/code | [`Decode for ExportSec`](../../../src/binary/decode.mbt#L2303-L2308), [`Decode for StartSec`](../../../src/binary/decode.mbt#L2311-L2319), and [`Decode for CodeSec`](../../../src/binary/decode.mbt#L1817-L1822) preserve the separate section surfaces. | `src/binary/decode.mbt` |
+| Encode sections | [`Encode for ImportSec`](../../../src/binary/encode.mbt#L1138-L1140), [`FuncSec`](../../../src/binary/encode.mbt#L1294-L1296), [`ExportSec`](../../../src/binary/encode.mbt#L1338-L1340), [`StartSec`](../../../src/binary/encode.mbt#L1353-L1357), and [`CodeSec`](../../../src/binary/encode.mbt#L1461-L1465) write section ids `2`, `3`, `7`, `8`, and `10`. | `src/binary/encode.mbt` |
+| Encode whole module | [`Encode for Module`](../../../src/binary/encode.mbt#L1638-L1724) emits the standard sections in canonical order, with import before function declarations and code after data-count/element handling. | `src/binary/encode.mbt` |
+| Round-trip fuzz | [`run_binary_roundtrip_fuzz`](../../../src/binary/tests.mbt#L446-L679) includes independent arbitrary round-trips for `ImportSec`, `FuncSec`, `ExportSec`, `StartSec`, and `CodeSec` among the section family. Focused invalid-binary export descriptor byte carriers live in [`src/fuzz/invalid_binary.mbt`](../../../src/fuzz/invalid_binary.mbt) and [`src/fuzz/invalid_binary_wbtest.mbt`](../../../src/fuzz/invalid_binary_wbtest.mbt). | `src/binary/tests.mbt`; `src/fuzz/invalid_binary.mbt`; `src/fuzz/invalid_binary_wbtest.mbt` |
 
 Starshine does not preserve a source-level interleaving of imports, functions, exports, and start declarations after lowering. The core module preserves the semantic section surfaces and index targets. The binary-invalid lane locks the export descriptor decode surface with `invalid-export-kind-byte`, malformed export index ULEB carriers (`malformed-export-func-index-uleb`, `malformed-export-table-index-uleb`, `malformed-export-memory-index-uleb`, `malformed-export-global-index-uleb`, `malformed-export-tag-index-uleb`), and overwide export index ULEB carriers (`overwide-export-func-index-uleb`, `overwide-export-table-index-uleb`, `overwide-export-memory-index-uleb`, `overwide-export-global-index-uleb`, `overwide-export-tag-index-uleb`). Function and import/tag type-index decode coverage now includes both unterminated and overwide carriers: `malformed-function-section-type-index-uleb`, `overwide-function-section-type-index-uleb`, `malformed-import-func-type-index-uleb`, `overwide-import-func-type-index-uleb`, `malformed-import-tag-type-index-uleb`, and `overwide-import-tag-type-index-uleb`.
 
@@ -179,7 +179,7 @@ A pass that deletes, merges, reorders, or appends functions must audit all of th
 - `func_sec` and `code_sec` must remain parallel for defined functions.
 - Function imports are part of the absolute `FuncIdx` space but have no code bodies.
 - Function signature edits must distinguish parameter locals from encoded body locals; local-index repair often crosses both the type-use and code-entry layers.
-- Body instructions include direct calls, tail calls, and `ref.func` through [`Instruction::Call`](../../../src/lib/types.mbt#L526), `ReturnCall`, and `RefFunc`.
+- Body instructions include direct calls, tail calls, and `ref.func` through [`Instruction::Call`](../../../src/lib/types.mbt#L543), `ReturnCall`, and `RefFunc`.
 - `start_sec` stores one `FuncIdx`.
 - `export_sec` can store `FuncExternIdx` values. Pure export-section filtering, such as Binaryen [`remove-exports`](../binaryen/passes/remove-exports/index.md), should delete or retain export entries without remapping the target definition indices by itself.
 - `elem_sec` can store legacy function-index payloads and expression payloads containing `ref.func`; see [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md).

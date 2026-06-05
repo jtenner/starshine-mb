@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] binary/wiki | function-section code-anchor refresh
+
+- Refreshed [`binary/module-section-map.md`](binary/module-section-map.md) and [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md) against current repository source anchors in [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/binary/encode.mbt`](../../src/binary/encode.mbt), [`../../src/wast/lower_to_lib.mbt`](../../src/wast/lower_to_lib.mbt), [`../../src/lib/types.mbt`](../../src/lib/types.mbt), and [`../../src/binary/tests.mbt`](../../src/binary/tests.mbt).
+- Repaired stale line anchors for module magic/version encode/decode, custom-section scanning, canonical module encode order, `CodeSec`, import/function/export/start/code section encode/decode helpers, WAST lowering, binary roundtrip fuzzing, and `Instruction::Call`; no new raw source was needed because the official section semantics were already covered and the drift was repository-anchor-only.
+- Refreshed [`index.md`](index.md) so the catalog marks the binary module and function-section pages as current Starshine anchor refreshes.
+
 ## [2026-06-04] ir2/wiki | local SSA cache and pass-use refresh
 
 - Added [`raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md`](raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md) after rechecking the Cytron SSA lineage source, the existing 2026-05-20 local-SSA bridge, and current Starshine `analysis_cache`, pass descriptor/helper, verifier, SSA builder, SSA destruction, and cache tests.
