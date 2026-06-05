@@ -12422,3 +12422,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added `table.grow` WAT regression coverage for Binaryen-positive local-only reuse across table growth.
 - Updated the Starshine LCSE raw/module operand model so `table.grow` is a two-operand, `i32`-result side-effecting table operation rather than an unknown hard boundary, while adding a no-reuse regression for repeated `table.grow` roots.
 - Recorded focused, standard, native-build, and 10000-case direct compare evidence in `docs/wiki/raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`.
+
+## 2026-06-04 local-cse global.set local-only effect coverage
+
+- Added `global.set` WAT regression coverage for Binaryen-positive local-only reuse across global writes.
+- Added a paired no-reuse guard for global-dependent expressions across `global.set`, documenting that the slice does not add arbitrary global GVN.
+- Recorded focused, standard, native-build, and 10000-case direct compare evidence in `docs/wiki/raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`.
