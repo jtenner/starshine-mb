@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] ir2/wiki | local SSA cache and pass-use refresh
+
+- Added [`raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md`](raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md) after rechecking the Cytron SSA lineage source, the existing 2026-05-20 local-SSA bridge, and current Starshine `analysis_cache`, pass descriptor/helper, verifier, SSA builder, SSA destruction, and cache tests.
+- Refreshed [`ir2/local-ssa-policy.md`](ir2/local-ssa-policy.md) so local SSA is documented not only as a locals-only overlay but also as a normal revision-keyed `HotAnalysisCache` participant requested by `HotAnalysis::ssa()` / `pass_require_ssa(...)`, invalidated by `pass_mark_mutated(...)`, and proven by focused SSA/cache tests rather than by a deep `hot_verify_ssa(...)` checker.
+- Refreshed [`ir2/architecture-rules.md`](ir2/architecture-rules.md) and [`index.md`](index.md) so IR2 readers can find the cache/pass-use bridge, current verifier boundary, and analysis-cache test-source map from both the architecture contract and catalog.
+
 ## [2026-06-04] wasm/wiki | active proposal routing snapshot
 
 - Added [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md) after rechecking current WebAssembly Core 3.0, the official active and finished proposal tables, the proposal process phases, focused Relaxed Atomics and Custom Descriptors repositories, and Starshine `GenValidProposalFeature` source.

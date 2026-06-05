@@ -1,16 +1,21 @@
 ---
 kind: decision
 status: supported
-last_reviewed: 2026-05-20
+last_reviewed: 2026-06-04
 sources:
+  - ../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md
   - ../raw/ir2/2026-05-20-local-ssa-source-bridge.md
   - ../raw/research/0061-2026-03-24-local-ssa-policy.md
   - ../../../src/ir/ssa_policy.mbt
   - ../../../src/ir/ssa_local.mbt
   - ../../../src/ir/ssa_destroy.mbt
+  - ../../../src/ir/analysis_cache.mbt
+  - ../../../src/ir/architecture.mbt
+  - ../../../src/passes/pass_common.mbt
   - ../../../src/ir/ssa_policy_test.mbt
   - ../../../src/ir/ssa_local_test.mbt
   - ../../../src/ir/ssa_destroy_test.mbt
+  - ../../../src/ir/analysis_cache_test.mbt
 related:
   - ./architecture-rules.md
   - ./cfg-contract.md
@@ -20,6 +25,9 @@ related:
   - ../../../src/ir/liveness.mbt
   - ../../../src/ir/dominators.mbt
   - ../../../src/ir/hot_mutate.mbt
+  - ../../../src/ir/analysis_cache.mbt
+  - ../../../src/ir/architecture.mbt
+  - ../../../src/passes/pass_common.mbt
 ---
 
 # IR2 Local SSA Policy
@@ -28,7 +36,7 @@ related:
 
 Starshine's local SSA is **not** a second optimizer IR. It is a locals-only analysis overlay built over a normal [`HotFunc`](../../../src/ir/hot_core.mbt) body, keyed to that function's revision. The body remains ordinary HOT IR before and after SSA-assisted work: local reads are still `LocalGet`, writes are still `LocalSet` / `LocalTee`, and phis are metadata that never become persistent HOT nodes.
 
-Use this page when adding or reviewing an SSA-assisted pass, debugging local-def/use facts, or deciding whether a new optimization really needs the current local overlay versus a different IR2 analysis. The classic external lineage is Cytron-style SSA placement, but Starshine intentionally narrows it: [`ssa_policy.mbt`](../../../src/ir/ssa_policy.mbt) uses dominance frontiers plus liveness filtering for locals, [`ssa_local.mbt`](../../../src/ir/ssa_local.mbt) performs dominator-tree renaming over local ops, and [`ssa_destroy.mbt`](../../../src/ir/ssa_destroy.mbt) lowers overlay phis back to predecessor copies so the owned body never stops being HOT IR. The source bridge is [`../raw/ir2/2026-05-20-local-ssa-source-bridge.md`](../raw/ir2/2026-05-20-local-ssa-source-bridge.md); the original local policy note is now archived at [`../raw/research/0061-2026-03-24-local-ssa-policy.md`](../raw/research/0061-2026-03-24-local-ssa-policy.md).
+Use this page when adding or reviewing an SSA-assisted pass, debugging local-def/use facts, or deciding whether a new optimization really needs the current local overlay versus a different IR2 analysis. The classic external lineage is Cytron-style SSA placement, but Starshine intentionally narrows it: [`ssa_policy.mbt`](../../../src/ir/ssa_policy.mbt) uses dominance frontiers plus liveness filtering for locals, [`ssa_local.mbt`](../../../src/ir/ssa_local.mbt) performs dominator-tree renaming over local ops, and [`ssa_destroy.mbt`](../../../src/ir/ssa_destroy.mbt) lowers overlay phis back to predecessor copies so the owned body never stops being HOT IR. The current cache/pass-use source bridge is [`../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md`](../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md); the original bibliographic and implementation bridge remains [`../raw/ir2/2026-05-20-local-ssa-source-bridge.md`](../raw/ir2/2026-05-20-local-ssa-source-bridge.md), and the first local policy note is archived at [`../raw/research/0061-2026-03-24-local-ssa-policy.md`](../raw/research/0061-2026-03-24-local-ssa-policy.md).
 
 ## Data Shape
 
@@ -63,6 +71,25 @@ The implemented build pipeline is:
 8. Sort phi inputs into predecessor order and abort if a phi's inputs no longer align with the normal-flow predecessor set.
 
 Concrete locked examples live in [`ssa_local_test.mbt`](../../../src/ir/ssa_local_test.mbt): diamond joins create one join phi, loop headers create loop-carried phis, uninitialized locals read their default-init entry definitions, `LocalTee` creates a definition for later reads, and unreachable branch-carry ladders do not let unreachable predecessor blocks corrupt phi-input alignment.
+
+## Cache And Pass-Use Lifecycle
+
+Local SSA participates in the same revision-keyed overlay lifecycle as CFG, dominance, liveness, and effects. [`HotAnalysisCache`](../../../src/ir/analysis_cache.mbt) stores `ssa : HotCacheEntry[HotLocalSsa]?`; [`cache_get_or_build_ssa(...)`](../../../src/ir/analysis_cache.mbt) reuses that slot only when `built_at_revision == hot_revision_current(func)`. A cache miss rebuilds dependencies through CFG, dominators, use-def, and liveness before calling `ssa_build_local(...)`.
+
+Passes should normally request SSA through their descriptor and the pass helper layer:
+
+```moonbit
+HotPassDescriptor::new(
+  "example-pass",
+  requires=[HotAnalysis::ssa()],
+)
+```
+
+In the public optimizer path, [`pass_require_ssa(...)`](../../../src/passes/pass_common.mbt) routes that request through the shared cache, records `analysis:ssa` timing/counters when the entry was stale, and returns the overlay for the current function revision. After a pass mutates a `HotFunc`, [`pass_mark_mutated(...)`](../../../src/passes/pass_common.mbt) calls `cache_invalidate_all(...)`; any old `SsaValueId`, `PhiId`, phi-input order, `BlockId`, liveness bit, or derived predecessor-copy plan must be reacquired instead of reused.
+
+Descriptor wording matters: `requires=[HotAnalysis::ssa()]` means “the pass may need the locals-only SSA overlay built before it runs.” It does **not** mean the pass owns persistent SSA state, rewrites through phi nodes, or must call `ssa_destroy_into_hot(...)`. Current active pass declarations often include SSA together with CFG/effects/loop info for common HOT analysis setup, while concrete direct users such as [`ssa_nomerge.mbt`](../../../src/passes/ssa_nomerge.mbt) and [`precompute.mbt`](../../../src/passes/precompute.mbt) call `pass_require_ssa(...)` for pass-specific decisions. Pass dossiers should say which of those roles applies rather than letting descriptor presence imply deeper semantics.
+
+The cache behavior is locked in [`analysis_cache_test.mbt`](../../../src/ir/analysis_cache_test.mbt): unchanged revisions reuse cached overlays, root mutation rebuilds stale SSA plus its dependencies, and `cache_invalidate_all(...)` drops the SSA slot. [`hot_verify_ssa(...)`](../../../src/ir/hot_verify.mbt) currently delegates to HOT control verification and ignores the supplied SSA object, so deep SSA consistency is proven by `ssa_policy` / `ssa_local` / `ssa_destroy` / `analysis_cache` tests plus the normal verify-lower-validate loop, not by a comprehensive verifier entry point.
 
 ## Out-Of-SSA Flow
 
@@ -102,7 +129,7 @@ So `ssa_build_local` creates one join phi for local `0`, maps the later `local.g
 
 ## Correctness Constraints
 
-- **Revision-keyed:** `HotLocalSsa.revision` records `hot_revision_current(func)` at build time. Treat any mutation through [`hot_mutate.mbt`](../../../src/ir/hot_mutate.mbt) or other revision-bumping APIs as invalidating the overlay.
+- **Revision-keyed:** `HotLocalSsa.revision` records `hot_revision_current(func)` at build time. Treat any mutation through [`hot_mutate.mbt`](../../../src/ir/hot_mutate.mbt), [`pass_mark_mutated(...)`](../../../src/passes/pass_common.mbt), or other revision-bumping APIs as invalidating the overlay and its dependent ids.
 - **Normal-flow only:** SSA v1 skips exceptional successors while recording phi inputs. Do not use it to prove facts across `try` / `try_table` exceptional edges.
 - **Local values only:** The overlay models local variable definitions and uses. It does not model stack SSA, globals, memory, tables, tags, heap objects, data/elem segments, or arbitrary expression values.
 - **No persistent phis:** A pass may inspect `PhiId`s and phi input values, but it must not add a HOT `Phi` opcode or store SSA as an owned body form.
@@ -126,16 +153,19 @@ If future work needs any of those, update the IR2 architecture contract first, a
 
 - Start from the current code and tests, not the old March policy note alone.
 - Keep new queries on `HotLocalSsa` overlay types; do not add persistent SSA nodes to `HotFunc`.
-- Build CFG/dominance/use-def/liveness from the same function revision as the SSA overlay.
-- Add focused tests in `src/ir/ssa_policy_test.mbt`, `src/ir/ssa_local_test.mbt`, or `src/ir/ssa_destroy_test.mbt` for new placement, rename, or destruction behavior.
+- Build CFG/dominance/use-def/liveness from the same function revision as the SSA overlay, preferably through `cache_get_or_build_ssa(...)` or `pass_require_ssa(...)` instead of parallel private caches.
+- Reacquire SSA after any mutation that bumps the HOT revision; never keep `SsaValueId` or `PhiId` handles across `pass_mark_mutated(...)`.
+- Add focused tests in `src/ir/ssa_policy_test.mbt`, `src/ir/ssa_local_test.mbt`, `src/ir/ssa_destroy_test.mbt`, or `src/ir/analysis_cache_test.mbt` for new placement, rename, destruction, or cache-lifecycle behavior.
 - If an optimizer pass uses SSA, document the pass-local assumptions in that pass dossier and include ordinary pass validation plus Binaryen oracle comparison when the pass has an upstream equivalent.
 
 ## Sources
 
+- Current cache/pass-use refresh: [`../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md`](../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md)
 - SSA lineage and source bridge: [`../raw/ir2/2026-05-20-local-ssa-source-bridge.md`](../raw/ir2/2026-05-20-local-ssa-source-bridge.md)
 - Archived original policy note: [`../raw/research/0061-2026-03-24-local-ssa-policy.md`](../raw/research/0061-2026-03-24-local-ssa-policy.md)
 - Policy/query layer: [`../../../src/ir/ssa_policy.mbt`](../../../src/ir/ssa_policy.mbt)
 - Builder: [`../../../src/ir/ssa_local.mbt`](../../../src/ir/ssa_local.mbt)
 - Destruction/writeback: [`../../../src/ir/ssa_destroy.mbt`](../../../src/ir/ssa_destroy.mbt)
-- Tests: [`../../../src/ir/ssa_policy_test.mbt`](../../../src/ir/ssa_policy_test.mbt), [`../../../src/ir/ssa_local_test.mbt`](../../../src/ir/ssa_local_test.mbt), [`../../../src/ir/ssa_destroy_test.mbt`](../../../src/ir/ssa_destroy_test.mbt)
+- Cache/pass helper layer: [`../../../src/ir/analysis_cache.mbt`](../../../src/ir/analysis_cache.mbt), [`../../../src/ir/architecture.mbt`](../../../src/ir/architecture.mbt), [`../../../src/passes/pass_common.mbt`](../../../src/passes/pass_common.mbt)
+- Tests: [`../../../src/ir/ssa_policy_test.mbt`](../../../src/ir/ssa_policy_test.mbt), [`../../../src/ir/ssa_local_test.mbt`](../../../src/ir/ssa_local_test.mbt), [`../../../src/ir/ssa_destroy_test.mbt`](../../../src/ir/ssa_destroy_test.mbt), [`../../../src/ir/analysis_cache_test.mbt`](../../../src/ir/analysis_cache_test.mbt)
 - Supporting overlays: [`../../../src/ir/use_def.mbt`](../../../src/ir/use_def.mbt), [`../../../src/ir/liveness.mbt`](../../../src/ir/liveness.mbt), [`../../../src/ir/dominators.mbt`](../../../src/ir/dominators.mbt), [`../../../src/ir/cfg.mbt`](../../../src/ir/cfg.mbt)

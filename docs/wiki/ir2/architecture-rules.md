@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-04
 sources:
   - ../raw/ir2/2026-06-04-ir2-architecture-current-refresh.md
+  - ../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md
   - ../raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md
   - ../raw/ir2/2026-05-20-local-ssa-source-bridge.md
   - ../raw/research/0059-2026-03-24-ir2-architecture-rules.md
@@ -138,7 +139,7 @@ When adding a new invariant, prefer a focused module or the existing focused own
 - **Single owned body:** a pass may use raw `@lib.Module` for module-level facts, but function-body optimizer mutation should converge on `HotFunc`, not on a second owned function IR.
 - **Public mutation only:** direct writes to HOT storage are architecture debt unless they are inside the owning IR module. Shared mutation helpers exist so revisioning, tombstones, labels, and region membership stay consistent.
 - **Analysis invalidation by revision:** never carry `BlockId`, dominance facts, liveness bitsets, effect masks, SSA value ids, or phi ids across a revision-changing mutation.
-- **Overlay honesty:** local SSA is an overlay and destruction/writeback step; it must not become persistent HOT phi nodes. See [`local-ssa-policy.md`](./local-ssa-policy.md).
+- **Overlay honesty:** local SSA is an overlay and destruction/writeback step; it must not become persistent HOT phi nodes. It is also a normal revision-keyed `HotAnalysisCache` participant requested through `HotAnalysis::ssa()` / `pass_require_ssa(...)`, so old SSA ids must not survive mutation. See [`local-ssa-policy.md`](./local-ssa-policy.md).
 - **CFG honesty:** CFG blocks and edges are overlay ids and edge facts, not owned body nodes. See [`cfg-contract.md`](./cfg-contract.md).
 - **Module-level passes stay explicit:** a module pass such as function reordering, global cleanup, or type-section rewriting may need module-level logic outside one `HotFunc`, but any lifted function-body rewrite still has to respect HOT verification and module validation boundaries.
 
@@ -168,6 +169,7 @@ That example is deliberately ordinary: most IR2 bugs come from skipping one bori
 
 - Current source bridge: [`../raw/ir2/2026-06-04-ir2-architecture-current-refresh.md`](../raw/ir2/2026-06-04-ir2-architecture-current-refresh.md)
 - Current test matrix bridge: [`../raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md`](../raw/ir2/2026-05-20-ir2-test-matrix-repository-refresh.md)
+- Local SSA cache/pass-use refresh: [`../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md`](../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md)
 - Local SSA source bridge: [`../raw/ir2/2026-05-20-local-ssa-source-bridge.md`](../raw/ir2/2026-05-20-local-ssa-source-bridge.md)
 - Archived original architecture note: [`../raw/research/0059-2026-03-24-ir2-architecture-rules.md`](../raw/research/0059-2026-03-24-ir2-architecture-rules.md)
 - Package-local ownership summary: [`../../../src/ir/README.md`](../../../src/ir/README.md)
