@@ -2047,3 +2047,21 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the first core-built test attempt failed to compile because the test used the nonexistent `Mut::var()` constructor; after correcting the fixture to `Mut::var_()`, focused LCSE tests passed (`126/126`). `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; `moon test src/passes` passed (`1680/1680`); full `moon test` passed (`4865/4865`); native build reported no work; compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up descriptor read root boundary on 2026-06-05
+
+A later focused LCSE hardening slice added core-built coverage for repeated `ref.get_desc` roots. The installed Binaryen text oracle rejected the attempted descriptor-read fixture while parsing the exact reference descriptor text shape, so this slice does not claim a Binaryen materialization result for `ref.get_desc`. Starshine intentionally leaves descriptor reads unmaterialized rather than adding descriptor/nullability reasoning or reference temp-local typing in this audit slice. Agent classification: fixture-safety deferral / missing-test-only local boundary coverage, not a semantic mismatch.
+
+Validation evidence for this slice:
+
+```sh
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-ref-get-desc-boundary-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the added conservative core-built coverage passed immediately (`127/127`), so this was missing-test-only local coverage paired with an external fixture-safety deferral. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`127/127`); `moon test src/passes` passed (`1681/1681`); full `moon test` passed (`4866/4866`); native build reported no work; compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).

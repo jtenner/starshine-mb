@@ -66,7 +66,7 @@ The active local strategy is still deliberately slot-honest:
 - schedule the proven late `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` cleanup neighborhood in public `optimize` / `shrink`
 - keep the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gated until `flatten` lands
 - grow the implementation from same-window temp-localizing reuse without recasting it as a whole-function GVN pass
-- keep `ref.as_non_null` and reference conversions grouped with `ref.test`, `ref.cast`, descriptor, and other reference/nullability reasoning as documented conservative deferrals unless a separate safe root model is approved
+- keep `ref.as_non_null`, reference conversions, and descriptor reads grouped with `ref.test`, `ref.cast`, descriptor, and other reference/nullability reasoning as documented conservative deferrals unless a separate safe root model is approved
 - keep `i31.get_s` / `i31.get_u` as narrow scalar accessor roots while leaving `ref.i31` root CSE deferred until non-null temp-local materialization has a safe typed story
 - keep repeated `struct.get` / `array.get` roots, including packed signed/unsigned accessors, as a documented heap-read deferral, not a shortcut into heap GVN
 - keep linear atomic operations and packed shared-GC atomic accessors grouped with shared-GC atomics as documented conservative boundaries rather than adding atomic or memory GVN
