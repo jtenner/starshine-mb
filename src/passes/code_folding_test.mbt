@@ -1798,6 +1798,50 @@ test "code-folding shares direct return-call tails with typed results" {
 }
 
 ///|
+test "code-folding keeps simple result return-call sibling tails unshared" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func $target (param i32) (result i32)
+      #|    (local.get 0))
+      #|  (func (param i32 i32) (result i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (i32.const 7)
+      #|        (drop)
+      #|        (local.get 1)
+      #|        (return_call $target)))
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (i32.const 7)
+      #|        (drop)
+      #|        (local.get 1)
+      #|        (return_call $target)))
+      #|    (i32.const 99)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("br (Label"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return_call (Func 0)"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(99)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding shares non-root direct return-call tail subsets with root fallthrough" {
   let optimized = code_folding_test_run(
     (
