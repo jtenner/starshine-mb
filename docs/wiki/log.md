@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] binaryen/wiki | BrOn assertion oracle boundary
+
+- Added [`raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md) after checking the upstream Binaryen `IRBuilder::makeBrOn` fix commit, issue #8633, PR #8635, NVD CVE-2026-8257, the `version_130` release page, and tag ancestry showing the public `version_130` baseline is after the fix.
+- Refreshed [`binaryen/release-horizon-and-oracles.md`](binaryen/release-horizon-and-oracles.md), [`tooling/external-validator-adapters.md`](tooling/external-validator-adapters.md), [`tooling/pass-fuzz-compare.md`](tooling/pass-fuzz-compare.md), and [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md) so malformed `br_on*` / descriptor-branch assertion crashes in older installed Binaryen builds are classified as Binaryen tool/oracle failures first, not Starshine semantic or validation evidence.
+- Refreshed [`index.md`](index.md) so release-horizon, adapter, compare-pass, and reference-instruction readers can find the new oracle-boundary bridge.
+
 ## [2026-06-05] wasm/wiki | memory control boundary routing
 
 - Added [`raw/wasm/2026-06-05-memory-control-boundary-refresh.md`](raw/wasm/2026-06-05-memory-control-boundary-refresh.md) after checking the current official WebAssembly proposals tracker, Memory Control proposal repository/overview, focused `memory.discard` sub-proposal, and current Starshine memory instruction, WAST, binary, validation, and generator evidence.

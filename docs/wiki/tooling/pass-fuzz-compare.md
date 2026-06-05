@@ -1,8 +1,9 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-06-01
+last_reviewed: 2026-06-05
 sources:
+  - ../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md
   - ../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md
   - ../raw/research/0673-2026-05-26-dae-control-debris-normalizer.md
   - ../raw/fuzzing/2026-06-04-reduction-backends-source-refresh.md
@@ -31,7 +32,7 @@ related:
 
 `bun fuzz compare-pass` is Starshine's pass-local Binaryen oracle lane. Use it when an optimizer pass changes semantics, scheduler placement, supported syntax, or pass registry wiring. It is deliberately separate from `bun fuzz run`: ordinary fuzz suites prove Starshine's generators and validators keep working, while compare-pass asks whether one or more Starshine pass flags produce the same normalized output as the corresponding Binaryen `wasm-opt` flags on the same input modules.
 
-The 2026-05-20 source bridge is [`../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md`](../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md). It rechecked the current Binaryen, `wasm-tools`, `wasm-smith`, WebAssembly validation, and local script/test sources behind this workflow. The 2026-05-26 DAE control-debris research note extends that workflow with the opt-in `--normalize unreachable-control-debris` compare normalizer, which is intentionally separate from `--normalize drop-consts` so exact normalized matches and cleanup-normalized matches stay distinguishable.
+The 2026-05-20 source bridge is [`../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md`](../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md). It rechecked the current Binaryen, `wasm-tools`, `wasm-smith`, WebAssembly validation, and local script/test sources behind this workflow. The 2026-06-05 Binaryen BrOn assertion bridge [`../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md) adds a concrete current tool-failure family: older `wasm-opt` builds can assert while parsing malformed `br_on*` / descriptor-branch operands, while the current public `version_130` baseline is after the fix. The 2026-05-26 DAE control-debris research note extends this workflow with the opt-in `--normalize unreachable-control-debris` compare normalizer, which is intentionally separate from `--normalize drop-consts` so exact normalized matches and cleanup-normalized matches stay distinguishable.
 
 Beginner mental model:
 
@@ -182,6 +183,8 @@ Command failures may or may not count toward `--max-failures`. By default they d
 
 Known command-failure classes are intentionally concrete and replayable: `starshine-command-failed`, `starshine-invalid-limits`, `starshine-invalid-range-for-limits`, `binaryen-invalid-type-index`, `binaryen-invalid-tag-index`, `binaryen-rec-group-zero`, `binaryen-invalid-wasm-type-neg64`, `binaryen-initializer-expression-not-constant`, `binaryen-table-index-out-of-range`, `binaryen-bad-section-size`, and `binaryen-command-failed`.
 
+When `binaryen-command-failed` contains a BrOn-family assertion such as `Type::getHeapType()` / `isRef()` while parsing `br_on*` or descriptor-branch operands, use the 2026-06-05 Binaryen bridge before assigning blame. On older installed Binaryen builds this is a known upstream tool/oracle failure family fixed by commit `1251efb`; preserve the exact command/build and replay on a fixed build before claiming Starshine semantic mismatch.
+
 ## Concurrency Rules
 
 `--jobs auto` uses host parallelism; `--jobs <n>` fixes worker count. Documentation and signoff commands should include `--jobs auto` and `--starshine-bin target/native/release/build/cmd/cmd.exe` together explicitly. Any effective worker count above `1` requires `--starshine-bin`.
@@ -205,6 +208,7 @@ For preset or neighborhood work, direct pass green is necessary but not sufficie
 
 ## Sources
 
+- Binaryen BrOn assertion / oracle boundary bridge: [`../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md)
 - Tool/source bridge: [`../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md`](../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md)
 - Harness implementation: [`../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../scripts/lib/pass-fuzz-compare-task.ts)
 - Wrapper split: [`../../../scripts/lib/fuzz-task.ts`](../../../scripts/lib/fuzz-task.ts)

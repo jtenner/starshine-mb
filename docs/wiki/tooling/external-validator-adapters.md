@@ -3,6 +3,7 @@ kind: workflow
 status: supported
 last_reviewed: 2026-06-05
 sources:
+  - ../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md
   - ../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md
   - ../raw/validation/2026-06-04-external-validator-surface-split.md
   - ../raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md
@@ -33,7 +34,7 @@ Starshine has three related but separate external-validator surfaces:
 
 Do not merge those concepts. Classified command-harness adapters answer “how do validators classify these bytes by stage?” The legacy helper answers “did the selected boolean adapters agree with Starshine for this generated case?” Compare-pass answers “did a Starshine pass match the Binaryen pass oracle after the input and output were independently valid?”
 
-The current source bridges are [`../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md`](../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md) and [`../raw/validation/2026-06-04-external-validator-surface-split.md`](../raw/validation/2026-06-04-external-validator-surface-split.md). They rechecked the official `wasm-tools`, WABT, and Binaryen surfaces plus the local MoonBit adapter and test code. Feature-status dashboards are a separate evidence kind: [`../raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md`](../raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md) records why browser/runtime support tables can guide engine repro choices but cannot replace exact external-validator command evidence.
+The current source bridges are [`../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md`](../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md) and [`../raw/validation/2026-06-04-external-validator-surface-split.md`](../raw/validation/2026-06-04-external-validator-surface-split.md). They rechecked the official `wasm-tools`, WABT, and Binaryen surfaces plus the local MoonBit adapter and test code. The Binaryen-specific [`../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md) adds current guidance for classifying older `wasm-opt` `br_on*` / descriptor-branch assertion crashes as tool/oracle failures. Feature-status dashboards are a separate evidence kind: [`../raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md`](../raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md) records why browser/runtime support tables can guide engine repro choices but cannot replace exact external-validator command evidence.
 
 ## Beginner Model
 
@@ -147,6 +148,7 @@ That means a command-harness `agree-valid` result is useful external evidence, b
 - **Browser/runtime support is not adapter evidence.** A `webassembly.org/features` support row can motivate a Node, browser, or engine smoke test, but it does not prove the installed `wasm-tools`, WABT, or Binaryen command accepted the same bytes with this repo's flags. Keep feature-dashboard citations on the feature-status page and adapter command citations here.
 - **Decode-vs-validation stage matters.** A malformed LEB or section-size underflow is a binary codec issue; a decoded `call_indirect` type mismatch is validator semantics.
 - **Binaryen validation is optimizer-backed.** The current adapter uses `wasm-opt --all-features --validate` and writes a temporary output, so it can expose Binaryen parser/validator behavior but does not preserve original bytes.
+- **Binaryen assertion crashes are tool failures first.** The 2026-06-05 BrOn recheck records a fixed Binaryen reachable assertion in `IRBuilder::makeBrOn(...)` for malformed `br_on*` / descriptor-branch operands. If an installed older `wasm-opt` crashes or asserts on that family, preserve the exact command/build and report the adapter outcome as `tool-failure` unless replay on a fixed build proves a Starshine-specific validity disagreement.
 - **WABT command-harness evidence is not all-features evidence.** The local adapter invokes `wasm-validate` without additional feature flags today.
 - **Legacy `binaryen_valid` is not necessarily Binaryen evidence.** In `DifferentialValidationReport`, the current native default for `binaryen_validate` is WABT `wasm-validate`. Use the FUZ1044 `run_binaryen_binary_validation_adapter(...)` surface for Binaryen `wasm-opt --all-features --validate` evidence.
 - **Compare-pass `--features all` wording belongs to compare-pass and self-opt gates.** Do not retrofit it onto the command-harness adapter unless the code changes.
@@ -161,6 +163,7 @@ That means a command-harness `agree-valid` result is useful external evidence, b
 
 ## Sources
 
+- Binaryen BrOn assertion / oracle boundary bridge: [`../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md)
 - Current source bridges: [`../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md`](../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md), [`../raw/validation/2026-06-04-external-validator-surface-split.md`](../raw/validation/2026-06-04-external-validator-surface-split.md)
 - Feature-dashboard evidence boundary: [`../raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md`](../raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md), [`../wasm-feature-status-and-proposal-boundaries.md`](../wasm-feature-status-and-proposal-boundaries.md)
 - Adapter implementation: [`../../../src/cmd/fuzz_harness.mbt`](../../../src/cmd/fuzz_harness.mbt)

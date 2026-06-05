@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-05
 sources:
+  - ../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md
   - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
   - ../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md
   - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
@@ -179,6 +180,8 @@ BrOnCastFail(LabelIdx, CastOp(source_nullable, target_nullable), source_heap, ta
 
 When a pass regression needs one of these forms today, prefer a programmatic `@lib.Instruction` fixture or a binary fixture. If the goal is WAST coverage, the first slice is not an optimizer change; it is a parser/printer/lowerer widening with tests in `src/wast` and validation coverage in `src/validate`.
 
+The Binaryen-specific BrOn assertion bridge [`../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md) is only tool-oracle guidance for malformed-input assertions in older `wasm-opt` builds. It does not change Starshine's local reference-branch stack rules, does not add WAST text support, and should not be used to override the source map above.
+
 ## Rewrite And Validation Checklist
 
 1. **Keep text, core, binary, and validation claims separate.** WAST parser support is narrower than core support in this snapshot.
@@ -188,9 +191,11 @@ When a pass regression needs one of these forms today, prefer a programmatic `@l
 5. **Treat cast/test hierarchy checks as semantic checks.** Binary opcode decode does not prove that source and target heap types share a legal hierarchy relationship.
 6. **Update WAST arbitrary only after text support exists.** `src/wast/arbitrary.mbt` should not emit ordinary `ref.test` / `ref.cast` / `br_on_*` or ordinary `call_ref` text until keywords, parser, lowerer, printer, and roundtrip tests exist.
 7. **Validate after mutation.** Reference rewrites commonly touch stack types, type indices, function declarations, and labels; run module validation plus the pass's Binaryen-oracle lane where relevant.
+8. **Classify external `br_on*` assertions as tool evidence first.** If Binaryen asserts while parsing malformed `br_on*` / descriptor-branch operands, preserve the installed command/build and use the BrOn assertion bridge plus [`../tooling/pass-fuzz-compare.md`](../tooling/pass-fuzz-compare.md) before claiming a Starshine semantic issue.
 
 ## Source Map
 
+- Binaryen BrOn assertion / oracle boundary bridge: [`../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md)
 - Descriptor instruction bridge: [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md)
 - Primary-source and local-code manifests: [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md), [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md), [`../raw/wasm/2026-05-19-wast-reference-instruction-sources.md`](../raw/wasm/2026-05-19-wast-reference-instruction-sources.md), [`../raw/wasm/2026-05-20-reference-branch-validation-refresh.md`](../raw/wasm/2026-05-20-reference-branch-validation-refresh.md), [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md), [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md)
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)

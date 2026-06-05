@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-05
 sources:
+  - ../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md
   - ../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md
   - ../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md
   - ../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md
@@ -36,6 +37,7 @@ Use it when you need to answer a basic question like:
 The current answer is:
 
 - the newest public Binaryen release baseline is `version_130`, confirmed on 2026-06-04 by the official GitHub release page, the official `main` changelog, the Chromium refs listing, and the Chromium-hosted `main` changelog;
+- the 2026-06-05 BrOn assertion/security recheck confirms `version_130` is after Binaryen commit `1251efb`, the April 2026 fix for a reachable assertion while parsing malformed `br_on*` / descriptor-branch operands;
 - the live `main` changelog is the drift watch for anything beyond `version_130`;
 - detailed pass pages may still stay anchored to `version_129` or a specific current-main recheck when that is the last source-backed contract that page has actually reviewed.
 
@@ -52,6 +54,7 @@ That `v130` baseline is substantive, not just a renumbering. The changelog inclu
 | Layer | Preferred source | What it is good for |
 | --- | --- | --- |
 | Public release baseline | Official GitHub release page for `version_130` | The newest tagged public release horizon. |
+| Oracle/security boundary | `docs/wiki/raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md` | Current-source bridge for the `IRBuilder::makeBrOn` reachable-assertion fix; classify matching older-Binaryen crashes as tool/oracle failures unless a fixed-build replay proves otherwise. |
 | Durable local evidence | `docs/wiki/raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md` plus research note 0704 | The repo-captured, immutable summary of the latest release-horizon read. |
 | Live trunk drift watch | Official GitHub `main` changelog | Whether trunk has moved past the newest tag in a way that matters to the docs. |
 | Corroboration | Chromium refs listing and Chromium-hosted `main` changelog | Secondary confirmation that the public tag and trunk story match. |
@@ -76,6 +79,18 @@ The 2026-06-04 recheck supersedes the earlier `version_125` correction. Direct o
 
 The key wiki-maintenance consequence is that `version_130` is the public release baseline, but it does **not** force every detailed pass dossier to retag itself. Many pass pages still stay on the reviewed `version_129` source oracle until they get a fresh current-main or `version_130` reread.
 
+## BrOn Assertion And Oracle-Failure Boundary
+
+The 2026-06-05 BrOn assertion recheck in [`../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md) records an important current-tooling caveat. Binaryen commit `1251efb` fixed a reachable assertion in `IRBuilder::makeBrOn(...)` where malformed `br_on*` / descriptor-branch operands could reach later reference-only finalization logic. The upstream issue and PR were on `main` in April 2026; `version_130` was tagged after that fix.
+
+For Starshine, this is an oracle-classification rule, not a new Starshine behavior claim:
+
+- if an older installed `wasm-opt` asserts while parsing or validating a BrOn-family malformed input, report it as Binaryen `tool-failure` / oracle failure until replayed on a fixed build;
+- do not treat that crash as evidence that Starshine accepted an invalid module, rejected a valid one, or miscompiled a pass output;
+- do not use NVD's version-range metadata alone to change the public release baseline. The actionable wiki evidence is the upstream issue/PR/commit plus release/tag ancestry.
+
+Starshine's own reference-branch semantics still live in [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md), with descriptor-local non-branch forms routed through [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md).
+
 ## Where this page points next
 
 - [`no-dwarf-default-optimize-path.md`](no-dwarf-default-optimize-path.md) — the no-DWARF `-O` / `-Os` path audit that uses the release horizon as a guardrail.
@@ -90,6 +105,7 @@ The key wiki-maintenance consequence is that `version_130` is the public release
 - Pass-specific v130 behavior/source reads for `mark-js-called` / `remove-exports`: [`../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md`](../raw/binaryen/2026-06-04-mark-js-called-remove-exports-behavior-refresh.md), [`../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md`](../raw/binaryen/2026-06-04-v130-mark-js-called-remove-exports-source-read.md), [`../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md`](../raw/research/0706-2026-06-04-v130-mark-js-called-remove-exports-tracker-expansion.md)
 - Superseded 2026-06-02 correction: [`../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md`](../raw/research/0698-2026-06-02-binaryen-v125-release-horizon-correction.md)
 - Historical 2026-06-01 bridge: [`../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md`](../raw/binaryen/2026-06-01-binaryen-v130-current-trunk-release-horizon.md)
+- BrOn assertion / oracle boundary bridge: [`../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md)
 - Official GitHub `version_130` release page: <https://github.com/WebAssembly/binaryen/releases/tag/version_130>
 - Official GitHub `main` changelog: <https://github.com/WebAssembly/binaryen/blob/main/CHANGELOG.md>
 - Chromium refs listing: <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+refs>
