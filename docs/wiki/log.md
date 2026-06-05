@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | ref.null tiny roots
+
+- Added LCSE coverage for repeated `ref.null` roots as a missing-test-only no-materialization shape.
+- Documented that Starshine keeps these tiny reference constants unmaterialized, matching the conservative tiny-root policy rather than adding reference temp-local traffic.
+
 ## [2026-06-05] local-cse/wiki | call_ref local-only boundary
 
 - Added core-built LCSE coverage for local-only scalar repeats around `call_ref` as a conservative no-materialization boundary.

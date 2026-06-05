@@ -2520,3 +2520,13 @@ Added test:
 - `local-cse conservatively clears local-only expression across call-ref`
 
 Agent classification: semantically safe conservative deferral / missed Binaryen-positive optimization. This is intentionally not arbitrary `call_ref` CSE and not reference-call/callee reasoning.
+
+## Follow-up `ref.null` tiny-root coverage on 2026-06-05
+
+A focused continuation slice added missing-test-only coverage for repeated `ref.null` roots. Binaryen spot-checking left the representative repeated roots unmaterialized, and Starshine already did the same through the existing tiny-root profitability policy.
+
+Added test:
+
+- `local-cse leaves repeated ref-null roots unmaterialized`
+
+Agent classification: missing coverage only; no implementation change and no reference temp-local reasoning added.

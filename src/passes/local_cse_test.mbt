@@ -2081,6 +2081,25 @@ test "local-cse reuses repeated ref-is-null roots" {
 }
 
 ///|
+test "local-cse leaves repeated ref-null roots unmaterialized" {
+  let input =
+    #| (module
+    #|   (func
+    #|     (drop (ref.null eq))
+    #|     (drop (ref.null eq))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+}
+
+///|
 test "local-cse defers repeated ref-i31 roots" {
   let input =
     #| (module
