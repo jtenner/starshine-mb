@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | wider SIMD lane-store boundary
+
+- Added core-built LCSE boundary coverage for local-only scalar reuse across `v128.store16_lane`, `v128.store32_lane`, and `v128.store64_lane`.
+- Documented Starshine's conservative window-clearing behavior even though Binaryen materializes representative local-only repeats across wider SIMD lane stores; this stays out of SIMD store effect modeling and memory GVN.
+
 ## [2026-06-05] local-cse/wiki | wider SIMD lane-load roots
 
 - Added core-built LCSE boundary coverage for repeated `v128.load16_lane`, `v128.load32_lane`, and `v128.load64_lane` roots.
