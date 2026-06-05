@@ -142,7 +142,7 @@ The current local root-anchored model now reruns to a fixpoint, but that is not 
 
 Do not mix EH movement into the first green port.
 Binaryen's source has conservative `pop` / throwing-through-`try` barriers plus nested-pop repair after block-adding rewrites.
-The current local decision is to bail out: `code-folding` does not descend into `try` / `try_table` bodies, does not treat EH controls as normal exiting/fallthrough-preventing cleanup nodes, and has focused `try_table` terminal/block-exit tests. A later local port should only move EH-sensitive shapes if it also proves:
+The current local decision is to bail out: `code-folding` does not descend into `try` / `try_table` bodies, does not treat EH controls as normal exiting/fallthrough-preventing cleanup nodes, and has focused `try_table` terminal/block-exit tests. The 2026-06-04 outer-`catch_all` `try_table` terminal-tail probe matched Binaryen's bailout under `wasm-opt version_129 --enable-exception-handling --code-folding -S`, while a non-terminal duplicate `if` arm inside a `try_table` body showed Binaryen can fold EH-body-local shapes that Starshine still defers. A later local port should only move EH-sensitive shapes if it also proves:
 
 - HOT lift exposes enough catch / `try_table` ownership to detect the same hazards
 - HOT lower/writeback preserves the repaired shape

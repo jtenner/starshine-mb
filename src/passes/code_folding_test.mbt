@@ -1938,6 +1938,37 @@ test "code-folding keeps careful switch target scopes" {
 }
 
 ///|
+test "code-folding keeps outer-catch try-table terminal tails as EH bailout" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (tag $e)
+      #|  (func $sink (param i32))
+      #|  (func (param i32 i32)
+      #|    (block $exit
+      #|      (try_table (catch_all $exit)
+      #|        (if (local.get 0)
+      #|          (then
+      #|            (local.get 1)
+      #|            (call $sink)
+      #|            (return)))
+      #|        (local.get 1)
+      #|        (call $sink)
+      #|        (return)))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding keeps try-table terminal tails as EH bailout" {
   let optimized = code_folding_test_run(
     (
