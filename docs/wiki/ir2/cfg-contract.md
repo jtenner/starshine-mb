@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-04
 sources:
   - ../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md
+  - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../raw/research/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md
   - ../raw/wasm/2026-05-19-tail-call-control-flow-sources.md
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
@@ -24,6 +25,7 @@ related:
   - ../wast/control-flow-authoring.md
   - ../wast/exception-tag-authoring.md
   - ../wast/tail-call-authoring.md
+  - ../wasm-typed-function-references-boundary.md
   - ../../../src/ir/cfg_contract.mbt
   - ../../../src/ir/cfg_contract_test.mbt
   - ../../../src/ir/cfg.mbt
@@ -91,7 +93,7 @@ Terminator edge policy in the concrete builder is:
 - `delegate` produces an `ExceptionalEdge` to the delegated label target.
 - `unreachable` produces an `UnreachableExitEdge` to the synthetic normal exit.
 
-The 2026-06-04 recheck in [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md) is the current source bridge for this rule. WebAssembly Core 3.0 syntax includes `return_call`, `return_call_indirect`, and `return_call_ref`; validation treats them as stack-polymorphic tail-call forms whose callee result must match the enclosing function result; execution routes them through a tail-call path that unwinds the current function's frame/labels/handlers before entering the callee. Starshine's HOT flags agree with the no-fallthrough semantic model: [`hot_default_flags_for_op(...)`](../../../src/ir/hot_flags.mbt) marks all three tail-call HOT ops as both calls and terminators. WAST authoring details live in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md), and the older tail-call source manifest remains provenance at [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md).
+The 2026-06-04 recheck in [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md) is the current source bridge for this rule. WebAssembly Core 3.0 syntax includes `return_call`, `return_call_indirect`, and `return_call_ref`; validation treats them as stack-polymorphic tail-call forms whose callee result must match the enclosing function result; execution routes them through a tail-call path that unwinds the current function's frame/labels/handlers before entering the callee. Starshine's HOT flags agree with the no-fallthrough semantic model: [`hot_default_flags_for_op(...)`](../../../src/ir/hot_flags.mbt) marks all three tail-call HOT ops as both calls and terminators. WAST authoring details live in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md); the typed-function-reference boundary owns the `return_call_ref` / ordinary `call_ref` target-shape split at [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md); and the older tail-call source manifest remains provenance at [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md).
 
 ## Exceptional-Flow Policy
 
@@ -113,7 +115,7 @@ Tail calls are easy to misread because they combine two families of facts:
 | --- | --- | --- | --- |
 | `ReturnCall` | Direct call: callee signature, import/export, side effect, trap, and performance reasoning. | `ReturnEdge` to the synthetic normal exit. | No ordinary successor after the node; later roots are unreachable from this block. |
 | `ReturnCallIndirect` | Indirect call: table/reference/signature checks plus ordinary call effects. | `ReturnEdge` to the synthetic normal exit. | Treat it as a call for validation/effects, but as a return for CFG shape. |
-| `ReturnCallRef` | Typed-function-reference call: reference nullability/type checks plus ordinary call effects. | `ReturnEdge` to the synthetic normal exit. | It is not the same as `call_ref`; it tail-exits the current function. |
+| `ReturnCallRef` | Typed-function-reference call: reference nullability/type checks plus ordinary call effects. | `ReturnEdge` to the synthetic normal exit. | It shares the typed-function-reference target shape with ordinary `call_ref`, but tail-exits the current function; route the standards/local-WAST split through [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md). |
 
 A concrete CFG tail-call test should therefore assert that the ending block has a single `ReturnEdge` and that a following root has no predecessor from the tail-call block. An effects or pass-safety test may still need to assert the call/trap side of the same op.
 
@@ -194,3 +196,4 @@ The `try` header has ordinary fallthrough into the body region and an exceptiona
 - Ordinary WAST control-flow guide: [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md)
 - Exception/tag catch payload guide: [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md)
 - Tail-call WAST authoring guide: [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md)
+- Typed-function-reference boundary for `return_call_ref` versus ordinary `call_ref`: [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md)

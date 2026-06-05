@@ -11,6 +11,7 @@ sources:
   - ../raw/wasm/2026-06-04-leb128-current-refresh.md
   - ../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md
   - ../raw/wasm/2026-05-20-leb128-binary-integer-encoding-refresh.md
+  - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
   - ../raw/wasm/2026-05-13-instruction-expression-encoding-sources.md
   - ../raw/wasm/2026-05-13-instruction-expression-binary-sources.md
@@ -32,6 +33,7 @@ sources:
   - ../../../src/binary/tests.mbt
 related:
   - ../wasm-multi-memory-boundary.md
+  - ../wasm-typed-function-references-boundary.md
   - module-section-map.md
   - leb128-and-integer-encoding.md
   - function-import-export-and-code-sections.md
@@ -132,7 +134,7 @@ The untyped `select` carrier is opcode `0x1B`; typed `select` is opcode `0x1C` f
 
 ### Reference instructions
 
-Reference and reference-call instructions are split across one-byte opcodes and GC-prefixed forms. Starshine encodes/decodes the basic `0xD0`-family forms (`ref.null`, `ref.is_null`, `ref.func`, `ref.eq`, `ref.as_non_null`, `br_on_null`, and `br_on_non_null`), the ordinary reference-call opcodes `call_ref` `0x14` and `return_call_ref` `0x15`, and `0xFB` subcodes for ordinary/descriptor test-cast plus cast-branch forms. The binary-invalid lane includes malformed/overwide heaptype-immediate decode fixtures for the one-byte `ref.null` carrier plus both `0xFB 0x14` `ref.test` and `0xFB 0x16` `ref.cast` prefixed carriers, and it now mirrors that overwide-ULEB coverage for selected GC aggregate index carriers such as `struct.new`, `struct.get`, and `array.new_data`. The text authoring surface is narrower: current WAST supports the basic `ref.*` subset, descriptor forms, and `return_call_ref`, but not ordinary `ref.test` / `ref.cast` / `br_on_*` or ordinary non-tail `call_ref` text keywords. Use [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md) and [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md) before drawing parser, binary, or validation conclusions from one layer alone.
+Reference and reference-call instructions are split across one-byte opcodes and GC-prefixed forms. Starshine encodes/decodes the basic `0xD0`-family forms (`ref.null`, `ref.is_null`, `ref.func`, `ref.eq`, `ref.as_non_null`, `br_on_null`, and `br_on_non_null`), the ordinary reference-call opcodes `call_ref` `0x14` and `return_call_ref` `0x15`, and `0xFB` subcodes for ordinary/descriptor test-cast plus cast-branch forms. The binary-invalid lane includes malformed/overwide heaptype-immediate decode fixtures for the one-byte `ref.null` carrier plus both `0xFB 0x14` `ref.test` and `0xFB 0x16` `ref.cast` prefixed carriers, and it now mirrors that overwide-ULEB coverage for selected GC aggregate index carriers such as `struct.new`, `struct.get`, and `array.new_data`. The text authoring surface is narrower: current WAST supports the basic `ref.*` subset, descriptor forms, and `return_call_ref`, but not ordinary `ref.test` / `ref.cast` / `br_on_*` or ordinary non-tail `call_ref` text keywords. Use [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md) for the `call_ref` / `return_call_ref` Core-3.0 status and WAST split, then use [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md) and [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md) before drawing parser, binary, or validation conclusions from one layer alone.
 
 ### Prefixed opcode families
 
@@ -157,7 +159,7 @@ Key typechecker responsibilities:
 
 - [`Typecheck for Expr`](../../../src/validate/typecheck.mbt) runs instructions in order and threads a `TcState` containing environment, operand stack, reachability, and escape state.
 - `block`, `loop`, `if`, and `try_table` expand their `BlockType`, install labels, typecheck child expressions, and verify result stacks; ordinary WAST control-flow fixture rules live in [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md), while `try_table` catch payload/label rules are summarized in [`../wast/exception-tag-authoring.md`](../wast/exception-tag-authoring.md).
-- `call`, `call_indirect`, and ordinary `call_ref` validate function/type/table/reference operands plus callee parameter/result stack effects above the byte layer; WAST fixture guidance for direct calls, function imports/exports/starts, the function/type side of `call_indirect`, and the current ordinary-`call_ref` core/binary-versus-text split lives in [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md).
+- `call`, `call_indirect`, and ordinary `call_ref` validate function/type/table/reference operands plus callee parameter/result stack effects above the byte layer; Core-3.0 status and the current Starshine ordinary-`call_ref` binary-versus-WAST split live in [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md), while WAST fixture guidance for direct calls, function imports/exports/starts, and the function/type side of `call_indirect` lives in [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md).
 - `br`, `br_if`, `br_table`, `return`, and tail calls use label or function result types rather than raw byte structure; ordinary branch payload/fallthrough guidance lives in [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md), and WAST fixture guidance for `return_call`, `return_call_indirect`, and `return_call_ref` lives in [`../wast/tail-call-authoring.md`](../wast/tail-call-authoring.md).
 - `local.get`, `local.set`, `local.tee`, `global.get`, and `global.set` validate local/global index existence, stack operand types, and global mutability above the byte layer; fixture and rewrite rules live in [`../wast/variable-instruction-authoring.md`](../wast/variable-instruction-authoring.md).
 - Scalar numeric constants, comparisons, arithmetic, conversions, reinterprets, sign-extension, and saturating truncations validate stack arity and exact operand/result value types above the byte layer; text fixture rules and rewrite hazards live in [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md).

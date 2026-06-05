@@ -2,11 +2,17 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wiki-health | typed function reference backlinks
+
+- During the follow-up whole-wiki health check, searched malformed Markdown links, empty link targets, broad `call_ref` / typed-function-reference mentions, and pages that still described reference-call, generator, WAST-arbitrary, GC, binary, or CFG surfaces without a backlink to the focused typed-function-reference boundary.
+- Refreshed [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`fuzzing/wast-arbitrary-parity-plan.md`](fuzzing/wast-arbitrary-parity-plan.md), [`ir2/cfg-contract.md`](ir2/cfg-contract.md), [`wasm-gc-core-boundary.md`](wasm-gc-core-boundary.md), and [`index.md`](index.md) so binary opcode, generator coverage, arbitrary-WAST gap, GC reference, and tail-call CFG claims route ordinary `call_ref` / `return_call_ref` details through [`wasm-typed-function-references-boundary.md`](wasm-typed-function-references-boundary.md).
+
 ## [2026-06-05] wasm/wiki | typed function references boundary routing
 
 - Added [`raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md) after checking current WebAssembly Core 3.0 syntax/text/binary/validation pages, official Wasm 3.0 completion routing, historical function-references validation pages used as teaching aids, and current Starshine WAST/core/binary/validator/generator evidence.
 - Added [`wasm-typed-function-references-boundary.md`](wasm-typed-function-references-boundary.md) as the focused Core-3.0 guide for ordinary `call_ref`, `return_call_ref`, and first-class function-reference values; it maps Starshine's core/binary/validator/generator support separately from the current high-level WAST ordinary-`call_ref` text gap and keeps `ref.func` declaration sources separate from reference-call consumption.
 - Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wast/function-call-and-module-authoring.md`](wast/function-call-and-module-authoring.md), [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md), [`wast/tail-call-authoring.md`](wast/tail-call-authoring.md), [`wast/text-surface-gap-ledger.md`](wast/text-surface-gap-ledger.md), and [`index.md`](index.md) so future `call_ref` claims route through a focused boundary instead of scattered call/reference/tail-call prose or active-proposal buckets.
+
 
 ## [2026-06-05] local-cse/wiki | ref.func root no-op
 
