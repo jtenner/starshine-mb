@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md
   - ../raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md
   - ../raw/wasm/2026-06-04-webassembly-proposal-status-current-recheck.md
   - ../raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md
@@ -31,6 +32,7 @@ related:
   - ../binary/instruction-and-expression-encoding.md
   - ../fuzzing/generator-coverage-ledger.md
   - ../validate/module-validation-phases.md
+  - ../wasm-relaxed-atomics-boundary.md
 ---
 
 # Atomic Memory Instruction Authoring
@@ -39,7 +41,7 @@ related:
 
 Atomic memory instructions are the threads/proposal-backed operations that synchronize through **linear memory**: `memory.atomic.notify`, `memory.atomic.wait32`, `memory.atomic.wait64`, atomic loads/stores, atomic read-modify-write (RMW), atomic compare-exchange, and the sibling ordering barrier `atomic.fence`. In Starshine they are **real core instructions** with binary, validation, generator, HOT-IR, and effect-model coverage, but they are **not yet high-level WAST parser syntax**. Be precise about the split: every `MemArg`-based atomic helper selects a memory and is currently validated as requiring that memory to be shared, while `atomic.fence` has no `MemArg`, no selected memory, and no stack effect.
 
-Do not use this page as the owner for every instruction whose name contains `atomic`. The shared-everything threads proposal also has **shared-GC aggregate atomics** such as `struct.atomic.get*`. Starshine now has a focused WAST/core/binary/validator surface for `struct.atomic.get`, `struct.atomic.get_s`, and `struct.atomic.get_u`; route those through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) and the 2026-06-04 source snapshot instead of through `MemArg`-based memory rules. The official proposals tracker also now lists **Relaxed Atomics** as a separate active Phase-2 proposal; current Starshine atomics support, `AtomicsFeature`, and `RelaxedSimdFeature` are not evidence for relaxed-atomics support. Keep relaxed-atomics fixtures out of this page's positive examples until local AST/binary/validator/generator evidence exists, and route the status vocabulary through [`../wasm-feature-status-and-proposal-boundaries.md`](../wasm-feature-status-and-proposal-boundaries.md).
+Do not use this page as the owner for every instruction whose name contains `atomic`. The shared-everything threads proposal also has **shared-GC aggregate atomics** such as `struct.atomic.get*`. Starshine now has a focused WAST/core/binary/validator surface for `struct.atomic.get`, `struct.atomic.get_s`, and `struct.atomic.get_u`; route those through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) and the 2026-06-04 source snapshot instead of through `MemArg`-based memory rules. The official proposals tracker also now lists **Relaxed Atomics** as a separate active Phase-2 proposal for linear-memory ordering and `pause`; current Starshine ordinary atomics, `AtomicsFeature`, shared-GC `AtomicOrder::AcqRel`, and `RelaxedSimdFeature` are not evidence for relaxed-atomics support. Keep relaxed-atomics fixtures out of this page's positive examples until local AST/binary/validator/generator evidence exists, and route the detailed status vocabulary through [`../wasm-relaxed-atomics-boundary.md`](../wasm-relaxed-atomics-boundary.md) plus [`../wasm-feature-status-and-proposal-boundaries.md`](../wasm-feature-status-and-proposal-boundaries.md).
 
 Use this page when a fixture, pass, fuzzer row, or wiki claim mentions linear-memory atomics. Use [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for ordinary scalar and bulk memory instructions, [`memory-argument-authoring.md`](memory-argument-authoring.md) for `MemArg` alignment/offset/index rules, [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) for `struct.atomic.get*`, [`resource-declaration-authoring.md`](resource-declaration-authoring.md) for memory declarations/imports in WAST text, and [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md) for validator-side memory limits, memory64, and Starshine-local shared-memory maximum policy.
 
@@ -159,10 +161,11 @@ When touching atomics:
 - Starshine WAST does not currently accept **linear-memory** atomic text keywords such as `i32.atomic.load`, `memory.atomic.wait32`, or `atomic.fence`.
 - Core debug `Show` output for linear-memory atomics is not a parser roundtrip contract.
 - WAST memory declarations still lower through the `i32` limits path and have no shared-memory spelling; use direct core/binary fixtures for shared-memory atomic cases today, and cite [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md) for the validator-side shared-memory maximum rule.
-- The generator's `[FZG]017` row is strong current-Starshine core/binary/validator evidence for ordinary linear-memory atomics, not evidence that arbitrary WAST text can author those shapes, that Starshine exactly matches every proposal atomic/shared-memory distinction, or that the active Relaxed Atomics proposal is supported. In particular, it should not hide the local policy split between standalone `AtomicFence` and the shared-memory gate on `MemArg` atomics.
+- The generator's `[FZG]017` row is strong current-Starshine core/binary/validator evidence for ordinary linear-memory atomics, not evidence that arbitrary WAST text can author those shapes, that Starshine exactly matches every proposal atomic/shared-memory distinction, or that the active Relaxed Atomics proposal is supported. In particular, it should not hide the local policy split between standalone `AtomicFence` and the shared-memory gate on `MemArg` atomics. Relaxed-atomics work needs a future source recheck and the representation/codec/validator/generator checklist in [`../wasm-relaxed-atomics-boundary.md`](../wasm-relaxed-atomics-boundary.md).
 
 ## Sources
 
+- Relaxed Atomics boundary: [`../wasm-relaxed-atomics-boundary.md`](../wasm-relaxed-atomics-boundary.md), [`../raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md`](../raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md)
 - Active proposal routing refresh: [`../raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](../raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md)
 - Focused Relaxed Atomics recheck: [`../raw/wasm/2026-06-04-webassembly-proposal-status-current-recheck.md`](../raw/wasm/2026-06-04-webassembly-proposal-status-current-recheck.md)
 - Fence/unshared-memory reconciliation: [`../raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md`](../raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md)

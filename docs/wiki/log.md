@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasm/wiki | relaxed atomics boundary routing
+
+- Added [`raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md`](raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md) after checking the current WebAssembly proposals tracker, Relaxed Atomics proposal repository/overview, and current Starshine ordinary linear-memory atomic, shared-GC atomic-get, binary, validator, WAST, and generator evidence.
+- Added [`wasm-relaxed-atomics-boundary.md`](wasm-relaxed-atomics-boundary.md) as the focused active Phase-2 guide for linear-memory ordering and `pause`, explicitly separating relaxed atomics from ordinary threads atomics, `[FZG]017`, `AtomicsFeature`, shared-GC `AtomicOrder::AcqRel`, and Core relaxed SIMD.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so relaxed-atomics bytes, WAST examples, generator gates, and pass/effect claims route through the new no-support boundary instead of current ordinary atomic coverage.
+
 ## [2026-06-05] wasm/wiki | JSPI host-async boundary routing
 
 - Added [`raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md`](raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md) after checking the current WebAssembly proposals tracker, JSPI proposal repository/overview, WebAssembly JS API repository, and current Starshine Node runtime/package evidence.
