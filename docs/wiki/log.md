@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasm/wiki | JSPI host-async boundary routing
+
+- Added [`raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md`](raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md) after checking the current WebAssembly proposals tracker, JSPI proposal repository/overview, WebAssembly JS API repository, and current Starshine Node runtime/package evidence.
+- Added [`wasm-jspi-host-async-boundary.md`](wasm-jspi-host-async-boundary.md) as the focused active Phase-4 JavaScript Promise Integration guide for `WebAssembly.Suspending`, `WebAssembly.promising(...)`, Promise-returning host imports, and JavaScript embedding behavior; current Starshine async Node loading is explicitly documented as not JSPI support.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`tooling/node-package-surface.md`](tooling/node-package-surface.md), and [`index.md`](index.md) so JSPI stays separate from JS String Builtins, Component Model / WASI, WAST/binary/validator/generator claims, optimizer pass evidence, and generic async package helpers.
+
 ## [2026-06-05] wiki-health | wide arithmetic Binaryen backlink
 
 - During the follow-up health check, searched empty Markdown links, malformed nested wiki/raw paths, stale `docs/wiki/docs/wiki` paths, broad `Wide Arithmetic` mentions, and active-proposal routing duplication.
