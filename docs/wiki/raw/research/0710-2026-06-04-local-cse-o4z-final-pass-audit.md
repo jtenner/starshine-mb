@@ -1406,3 +1406,23 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the first focused run failed as intended (`75/78` passed) before the implementation change; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed after the fix (`78/78`); `moon test src/passes` passed (`1626/1626`); full `moon test` passed (`4811/4811`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; compare reached `6772` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up `select` root coverage slice on 2026-06-05
+
+A later focused LCSE hardening slice spot-checked `select` in two narrow forms: a local-only arithmetic tree before and after an intervening `select`, and a repeated `select` root. Binaryen materialized both profitable repeated trees with `local.tee` / `local.get`. Starshine already matched through its existing three-operand `Select(_)` candidate/root modeling, so this slice was missing-test-only coverage.
+
+The slice added WAT-form direct regressions `local-cse reuses local-only expression across select` and `local-cse reuses repeated select roots`. This coverage is limited to `select` as a local pure stack result; it does not add branch/control-root CSE, CFG-wide GVN, memory/table/heap value analysis, or any throwing-root behavior.
+
+Validation evidence for this slice:
+
+```sh
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-select-root-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the focused TDD run passed immediately (`80/80`) because Starshine already matched Binaryen's `select` materialization shape; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`80/80`); `moon test src/passes` passed (`1628/1628`); full `moon test` passed (`4813/4813`); native build succeeded with no work to do; compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).

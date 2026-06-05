@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] passes/local-cse | select root coverage
+
+- Spot-checked `select`; Binaryen materializes both local-only arithmetic reuse across `select` and repeated `select` roots.
+- Added WAT-form direct regressions for both shapes. Starshine already matched through existing `Select(_)` candidate/root modeling, so this was missing-test-only coverage.
+- Refreshed the LCSE research/backlog wording so `select` is listed as a covered pure stack-result root, not a branch/control-root or CFG-wide GVN expansion.
+
 ## [2026-06-05] passes/local-cse | float pure-operator reuse
 
 - Spot-checked `f32.add` and `f32.lt`; Binaryen materializes local-only arithmetic reuse across float arithmetic plus repeated float arithmetic/comparison roots.
