@@ -745,6 +745,52 @@ test "local-cse reuses repeated ref-is-null roots" {
 }
 
 ///|
+test "local-cse defers repeated ref-i31 roots" {
+  let input =
+    #| (module
+    #|   (func (param i32)
+    #|     (drop (ref.i31 (local.get 0)))
+    #|     (drop (ref.i31 (local.get 0)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(1U)), 0)
+}
+
+///|
+test "local-cse reuses repeated i31 get roots" {
+  let input =
+    #| (module
+    #|   (func (param (ref i31))
+    #|     (drop (i31.get_s (local.get 0)))
+    #|     (drop (i31.get_s (local.get 0)))
+    #|     (drop (i31.get_u (local.get 0)))
+    #|     (drop (i31.get_u (local.get 0)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  for temp in [@lib.LocalIdx::new(1U), @lib.LocalIdx::new(2U)] {
+    @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+    @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+  }
+}
+
+///|
 test "local-cse defers repeated ref-test roots" {
   let ref_ty = @lib.ValType::ref_null(
     @lib.HeapType::abs(@lib.AbsHeapType::any()),

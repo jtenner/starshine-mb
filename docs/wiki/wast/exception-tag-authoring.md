@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-05
 sources:
+  - ../raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md
   - ../raw/wasm/2026-06-04-exception-tag-current-refresh.md
   - ../raw/wasm/2026-05-19-wast-exception-tag-sources.md
   - ../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md
@@ -23,6 +24,10 @@ related:
   - ../validate/stack-polymorphism-and-bottom.md
   - ../validate/fuzz-hardening.md
   - ../fuzzing/wast-arbitrary-parity-plan.md
+  - ../wasm-feature-status-and-proposal-boundaries.md
+  - ../wasm-stack-switching-boundary.md
+  - ../wasm-jspi-host-async-boundary.md
+  - ../wasm-relaxed-dead-code-validation-boundary.md
 ---
 
 # WAST Exception Tag Authoring
@@ -31,13 +36,24 @@ related:
 
 Exception handling in Starshine crosses three layers:
 
-1. **Text/WAST authoring**: fixtures use `(tag ...)`, `throw`, `throw_ref`, and `try_table` catch clauses.
-2. **Core module representation**: tags occupy the same imported-prefix `TagIdx` space whether they come from imports or from the tag section; instructions carry numeric `TagIdx` and `LabelIdx` values.
-3. **Validation**: Starshine currently requires tag types to point at function types with no results; `throw` consumes a tag payload and makes control unreachable; `throw_ref` consumes nullable `exnref` and makes control unreachable; `try_table` catches branch to labels outside the temporary try body. Current Core 3.0 source is slightly broader at tag-declaration validation time, so keep the local-versus-official split below visible.
+1. **Feature status**: Exception Handling is a finished/Core-3.0 WebAssembly surface for ordinary `tag`, `throw`, `throw_ref`, and `try_table` claims. It is not an active proposal gap, and it is not the same as active Stack Switching continuations, JSPI host async wrappers, or Relaxed Dead Code Validation.
+2. **Text/WAST authoring**: fixtures use `(tag ...)`, `throw`, `throw_ref`, and `try_table` catch clauses. Starshine also accepts legacy `try` / `delegate` / `rethrow` text as compatibility syntax, but that lowers away instead of becoming a preserved core legacy instruction.
+3. **Core module representation**: tags occupy the same imported-prefix `TagIdx` space whether they come from imports or from the tag section; instructions carry numeric `TagIdx` and `LabelIdx` values.
+4. **Validation and execution constraints**: Starshine currently requires tag types to point at function types with no results; `throw` consumes a tag payload and makes control unreachable; `throw_ref` consumes nullable `exnref` and makes control unreachable, while execution still traps on null; `try_table` catches branch to labels outside the temporary try body. Current Core 3.0 source is slightly broader at tag-declaration validation time, so keep the local-versus-official split below visible.
 
-Use this page when adding WAST fixtures, fuzz-prelude shapes, validation tests, or pass rewrite rules that touch exception tags. The broader binary section guide in [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md) explains section id `13` and imported-prefix index spaces; this page focuses on the text syntax and lowering/validation traps that are easiest to miss.
+Use this page when adding WAST fixtures, fuzz-prelude shapes, validation tests, or pass rewrite rules that touch exception tags. The broader binary section guide in [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md) explains section id `13` and imported-prefix index spaces; this page focuses on the feature-status, text syntax, lowering, validation, and execution-preservation traps that are easiest to miss.
 
-The current source refresh is [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md). It checked the official WebAssembly Core 3.0 pages dated 2026-06-03 plus local parser/lowering/printer/binary/typechecker sources. The older broad snapshot [`../raw/wasm/2026-05-19-wast-exception-tag-sources.md`](../raw/wasm/2026-05-19-wast-exception-tag-sources.md) remains useful for the original source map, and the targeted 2026-05-20 refresh [`../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md`](../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md) remains the historical correction that `throw_ref` validates with a nullable `exnref` operand while `catch_ref` / `catch_all_ref` branch payloads carry non-null captured `(ref exn)`.
+The current feature-status bridge is [`../raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md`](../raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md). It rechecked the official finished-proposals table, active proposals tracker, archived Exception Handling proposal repository, current Core 3.0 instruction/validation/execution pages, Stack Switching proposal repository, and current Starshine WAST/core/validator evidence. The detailed source refresh [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md) remains the owner-file and tag-result-shape source map. The older broad snapshot [`../raw/wasm/2026-05-19-wast-exception-tag-sources.md`](../raw/wasm/2026-05-19-wast-exception-tag-sources.md) remains useful for the original source map, and the targeted 2026-05-20 refresh [`../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md`](../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md) remains the historical correction that `throw_ref` validates with a nullable `exnref` operand while `catch_ref` / `catch_all_ref` branch payloads carry non-null captured `(ref exn)`.
+
+## Feature Status And Nearby Boundaries
+
+| Question | Route it here? | Why |
+| --- | --- | --- |
+| “Is `throw_ref` / `try_table` active proposal syntax?” | Yes, for the correction; answer no. | Exception Handling is finished/Core-3.0 evidence today. Local Starshine gaps should be named as WAST, validator, generator, or pass-layer gaps, not proposal status gaps. |
+| “Does Stack Switching implement exception handling?” | No. | Stack Switching uses continuation types and instructions such as `cont.new`, `suspend`, `resume*`, and `switch`; it is active Phase-3 proposal work routed through [`../wasm-stack-switching-boundary.md`](../wasm-stack-switching-boundary.md). |
+| “Does JSPI use these exception tags?” | No. | JSPI is a JavaScript embedding API boundary for Promise integration, routed through [`../wasm-jspi-host-async-boundary.md`](../wasm-jspi-host-async-boundary.md), not a Core `tag` / `try_table` feature. |
+| “Can unreachable EH code skip ordinary stack checks?” | Only under current Core/Starshine stack-polymorphism rules. | Relaxed Dead Code Validation is separate active Phase-2 validator-policy work; route that through [`../wasm-relaxed-dead-code-validation-boundary.md`](../wasm-relaxed-dead-code-validation-boundary.md). |
+| “Can a pass drop or move `throw_ref` because the continuation is unreachable?” | No without preserving operand evaluation and null-trap/throw behavior. | Validation says the continuation is stack-polymorphic after the operand is consumed, but execution still observes the operand and distinguishes null from non-null. |
 
 ## Concrete Text Shapes
 
@@ -118,6 +134,7 @@ Starshine's lowering gives the `try_table` body its own temporary label for resu
 | Module validation | [`src/validate/validate.mbt`](../../../src/validate/validate.mbt) | Validates tag definitions after memories and before globals; each `TagType` must resolve to a function type with no results. |
 | Instruction typecheck | [`src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt) | Checks `throw`, nullable-operand `throw_ref`, `try_table`, and catch payload-to-label compatibility, with `catch_ref` / `catch_all_ref` adding non-null `(ref exn)` to branch payloads. |
 | Fuzz/text coverage | [`src/wast/arbitrary.mbt`](../../../src/wast/arbitrary.mbt), [`src/fuzz/invalid_text.mbt`](../../../src/fuzz/invalid_text.mbt), [`src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt) | WAST arbitrary generation includes representative exception syntax; invalid lanes include tag-family diagnostics and unlinkable tag-import seeds. |
+| Feature/proposal routing | [`../wasm-feature-status-and-proposal-boundaries.md`](../wasm-feature-status-and-proposal-boundaries.md), [`../wasm-stack-switching-boundary.md`](../wasm-stack-switching-boundary.md), [`../wasm-relaxed-dead-code-validation-boundary.md`](../wasm-relaxed-dead-code-validation-boundary.md) | Keeps Core Exception Handling separate from active Stack Switching continuations, JSPI host async wrappers, relaxed dead-code validator policy, and Starshine-only legacy text compatibility. |
 
 ## Modern Versus Legacy Exception Syntax
 
@@ -176,7 +193,7 @@ Any pass that removes, reorders, deduplicates, imports, exports, or renames tags
 5. validation summaries or caches that include tag payload types.
 6. WAST id/name expectations if the fixture source uses `$tag` ids.
 
-When a pass rewrites control around `try_table`, rerun validation. The high-risk failure mode is a catch branch whose payload no longer matches the target label's result type, especially for `catch_ref` / `catch_all_ref` because they carry a non-null captured `(ref exn)`. When a pass rewrites around `throw_ref`, preserve operand evaluation and the possible null trap; do not treat nullable `exnref` input as already proven non-null unless the proof is local and validated.
+When a pass rewrites control around `try_table`, rerun validation. The high-risk failure mode is a catch branch whose payload no longer matches the target label's result type, especially for `catch_ref` / `catch_all_ref` because they carry a non-null captured `(ref exn)`. When a pass rewrites around `throw_ref`, preserve operand evaluation and the possible null trap; do not treat nullable `exnref` input as already proven non-null unless the proof is local and validated. If a mismatch appears only because an installed Binaryen or external validator crashes on malformed `br_on*` / reference-branch inputs, route that through the Binaryen oracle guidance in [`../binaryen/release-horizon-and-oracles.md`](../binaryen/release-horizon-and-oracles.md) instead of reclassifying exception semantics.
 
 ## Authoring And Signoff Guidance
 
@@ -188,6 +205,7 @@ When a pass rewrites control around `try_table`, rerun validation. The high-risk
 
 ## Sources
 
+- Exception Handling feature-status bridge: [`../raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md`](../raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md)
 - Current exception tag refresh: [`../raw/wasm/2026-06-04-exception-tag-current-refresh.md`](../raw/wasm/2026-06-04-exception-tag-current-refresh.md)
 - Broad primary-source and local-code manifest: [`../raw/wasm/2026-05-19-wast-exception-tag-sources.md`](../raw/wasm/2026-05-19-wast-exception-tag-sources.md)
 - Targeted `throw_ref` nullability refresh: [`../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md`](../raw/wasm/2026-05-20-exception-throwref-nullability-refresh.md)
