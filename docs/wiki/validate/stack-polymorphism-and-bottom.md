@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md
   - ../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md
   - ../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md
   - ../raw/wasm/2026-05-19-wast-control-flow-sources.md
@@ -13,6 +14,7 @@ sources:
   - ../../../src/validate/typecheck_negative_tests.mbt
   - ../../../src/validate/validate.mbt
 related:
+  - ../wasm-relaxed-dead-code-validation-boundary.md
   - ./module-validation-phases.md
   - ./constant-expressions.md
   - ./runtime-trap-semantics.md
@@ -32,7 +34,9 @@ WebAssembly validation treats code after a nonfallthrough instruction as **stack
 
 Starshine models that rule with a `reachable` flag in [`TcState`](../../../src/validate/typecheck.mbt) and a local bottom value, [`ValType::bottom()` / `BotValType`](../../../src/lib/types.mbt). This page owns the focused validator contract. Use it when a pass, fixture, reducer, or wiki claim mentions `unreachable`, `return`, `br`, `br_table`, tail calls, throws, "bottom", stack underflow in unreachable code, or leftover stack values after a terminal instruction. Use [`runtime-trap-semantics.md`](runtime-trap-semantics.md) for the separate execution-time trap/`RuntimeError`/`mayTrap` vocabulary.
 
-The current source bridge is [`../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md`](../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md), with the original focused bridge preserved in [`../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md`](../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md). The 2026-06-04 refresh rechecked current WebAssembly Core 3.0 validation-algorithm, instruction-validation, module-validation, and syntax pages plus Starshine's typechecker, validator diagnostics, and regression tests. It found no drift in the core rule, but it sharpens the maintenance split between value-polymorphic instructions (`drop`, `select`), unconditional stack-polymorphic transfers (`unreachable`, `br`, `br_table`, `return`, tail calls, throws), conditional branch fallthrough (`br_if`, `br_on_*`), and Starshine's concrete-stack-junk diagnostics.
+The current Core/Starshine source bridge is [`../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md`](../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md), with the original focused bridge preserved in [`../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md`](../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md). The 2026-06-04 refresh rechecked current WebAssembly Core 3.0 validation-algorithm, instruction-validation, module-validation, and syntax pages plus Starshine's typechecker, validator diagnostics, and regression tests. It found no drift in the core rule, but it sharpens the maintenance split between value-polymorphic instructions (`drop`, `select`), unconditional stack-polymorphic transfers (`unreachable`, `br`, `br_table`, `return`, tail calls, throws), conditional branch fallthrough (`br_if`, `br_on_*`), and Starshine's concrete-stack-junk diagnostics.
+
+The 2026-06-05 Relaxed Dead Code Validation bridge, [`../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md`](../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md), adds an important proposal boundary: active Phase-2 Relaxed Dead Code Validation is a future validator-policy relaxation, not the current Core/Starshine bottom model. Use [`../wasm-relaxed-dead-code-validation-boundary.md`](../wasm-relaxed-dead-code-validation-boundary.md) when a fixture or external tool result depends on skipping stack-dependent checks in dead code beyond ordinary bottom synthesis.
 
 ## Beginner Model
 
@@ -146,6 +150,12 @@ Module-level constant expressions reuse instruction typechecking, but Starshine 
 
 Use [`constant-expressions.md`](constant-expressions.md) for the full initializer/offset allow-list, immutable-`global.get` visibility, and local/spec differences. Do not use ordinary function-body stack polymorphism as evidence that an initializer may be unreachable.
 
+## Proposal Boundary: Relaxed Dead Code Validation
+
+The active Relaxed Dead Code Validation proposal tries to relax stack-dependent validation inside syntactically dead code. Current Starshine does **not** implement that proposal: it still synthesizes bottom only for missing operands below an unreachable frame, and it still rejects real concrete stack values left after a terminal instruction when end-stack checks fail.
+
+That distinction matters for external-validator triage. If a tool accepts a dead-code fixture because it implements or experiments with Relaxed Dead Code Validation, classify that as proposal-support drift unless Starshine has explicitly enabled a matching mode. Do not rewrite this page's current Core/Starshine rules into relaxed proposal rules; route future work through [`../wasm-relaxed-dead-code-validation-boundary.md`](../wasm-relaxed-dead-code-validation-boundary.md).
+
 ## Pass And Fixture Guidance
 
 When an optimization or generator creates, removes, or moves a terminal instruction:
@@ -171,6 +181,7 @@ When an optimization or generator creates, removes, or moves a terminal instruct
 
 - Current source refresh: [`../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md`](../raw/wasm/2026-06-04-stack-polymorphism-current-refresh.md)
 - Original source bridge: [`../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md`](../raw/wasm/2026-05-20-stack-polymorphism-and-bottom-sources.md)
+- Relaxed Dead Code Validation proposal boundary: [`../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md`](../raw/wasm/2026-06-05-relaxed-dead-code-validation-boundary-refresh.md), [`../wasm-relaxed-dead-code-validation-boundary.md`](../wasm-relaxed-dead-code-validation-boundary.md)
 - Runtime trap source refresh for the execution/host boundary: [`../raw/wasm/2026-06-04-runtime-trap-current-refresh.md`](../raw/wasm/2026-06-04-runtime-trap-current-refresh.md)
 - Earlier control-flow source manifest: [`../raw/wasm/2026-05-19-wast-control-flow-sources.md`](../raw/wasm/2026-05-19-wast-control-flow-sources.md)
 - Official WebAssembly sources checked: <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/appendix/algorithm.html>, <https://webassembly.github.io/spec/core/valid/modules.html>, <https://webassembly.github.io/spec/core/syntax/instructions.html>
