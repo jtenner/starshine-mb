@@ -101,11 +101,11 @@ Today Starshine's behavior for `code-folding` is deliberately active but narrow.
 - full tails ending in a branch to an outer live label can be hoisted safely
 - full `if` arms ending in empty-payload `return` or `unreachable` share one terminal suffix
 - adjacent no-else `if` then-tails and immediate fallthrough tails ending in empty-payload `return` or `unreachable` can share one terminal suffix through a fresh void wrapper block label
-- root-anchored non-adjacent `return`, block-backed `unreachable`, typed-result direct `return_call`, `return_call_indirect`, and core-built `return_call_ref` tails can share a deepest profitable suffix through a fresh wrapper label when the selected group includes the original function-ending tail, including a narrow nested internal-label self-branching suffix case, and the current local root-anchored model reruns to fixpoint
+- root-anchored non-adjacent `return`, block-backed `unreachable`, typed-result direct `return_call`, `return_call_indirect`, and core-built `return_call_ref` tails can share a deepest profitable suffix through a fresh wrapper label when the selected group includes the original function-ending tail, including a narrow nested internal-label self-branching suffix case and a crossed-label negative that keeps inner-target and outer-target branches distinct, and the current local root-anchored model reruns to fixpoint
 - a conservative named block-exit tail shared by branch exits and fallthrough can be hoisted after the block
 - single-result typed named-block exits can share a matching plain-`br` payload with the fallthrough value or with other matching branch payloads, and can also share matching void/effectful roots immediately before the final value root
 - unsupported `br_on_null` and `br_table` traffic to the same label poisons block-exit folding instead of being silently merged with plain `br` tails
-- live-label exiting blocks, outside-target switch-like tails, careful switch scopes, and structured `if` suffixes are not flattened or hoisted out from under their branch targets
+- live-label exiting blocks, outside-target switch-like tails, crossed nested-label branches, careful switch scopes, and structured `if` suffixes are not flattened or hoisted out from under their branch targets
 - `try` / `try_table` bodies are conservative bailouts for this pass until EH movement/repair is deliberately implemented; the explicit outer-`catch_all` `try_table` terminal-tail bailout was checked against Binaryen `version_129`
 - result-region trailing `unreachable` sentinels are preserved when they still provide the required bottom-typed result
 - an exiting dead-value block shape is flattened without duplicating unreachable residue
