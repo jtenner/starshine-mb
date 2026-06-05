@@ -98,7 +98,7 @@ The named-block expression-exit substrate now covers the first safe multi-root s
 Keep these first-slice bailouts explicit:
 
 - any unsupported branch family beyond plain `br`
-- any `br_table`, `br_if`, `br_on_*`, `delegate`, `try`, `try_table`, `throw`, or `pop` shape until the movement proof is local and tested
+- any `br_table`, `br_if`, `br_on_*`, `delegate`, `try`, `try_table`, `throw`, or `pop` shape until the movement proof is local and tested; focused H/I coverage now protects `br_table`, outside-target/switch-scope negatives, and tested `try_table` bailout shapes
 - any candidate whose branch target is not still in scope after the proposed move
 - any multi-result, multi-value-payload, or refined-reference shape whose outer type cannot be reverified immediately
 - any case that needs a fresh helper label at the end of the function body
@@ -136,11 +136,13 @@ This remains a separate implementation slice because the full Binaryen algorithm
 - broader movement safety for branch/control-bearing moved items
 - direct root replacement for root-level terminators in groups that do not include the final body suffix
 
+The current local root-anchored model now reruns to a fixpoint, but that is not the same as Binaryen's arbitrary non-root subset search or exact helper-cost behavior.
+
 ### Slice 4: EH and broad movement safety
 
 Do not mix EH movement into the first green port.
 Binaryen's source has conservative `pop` / throwing-through-`try` barriers plus nested-pop repair after block-adding rewrites.
-A local port should initially bail out on EH-sensitive shapes unless it also proves:
+The current local decision is to bail out: `code-folding` does not descend into `try` / `try_table` bodies, does not treat EH controls as normal exiting/fallthrough-preventing cleanup nodes, and has focused `try_table` terminal/block-exit tests. A later local port should only move EH-sensitive shapes if it also proves:
 
 - HOT lift exposes enough catch / `try_table` ownership to detect the same hazards
 - HOT lower/writeback preserves the repaired shape
@@ -173,7 +175,7 @@ For named-block expression exits, `src/passes/code_folding.mbt` now models branc
 - selected suffix length
 - profitability score
 
-Keep that shape for future broadening. Terminating-tail candidates now have the first explicit root-anchored model in `src/passes/code_folding.mbt`: owning region, region end index, terminator family, selected suffix length, profitability, and a rewrite path that requires one selected tail to be the root function-ending suffix. Future broadening should add the missing Binaryen fields deliberately, especially arbitrary replacement-site provenance, movement-safety proof for branch/control-bearing suffixes, and helper-cost/fixpoint state. This avoids the common over-broad implementation mistake: comparing two root arrays, finding them equal, and moving them without knowing why the move is legal.
+Keep that shape for future broadening. Terminating-tail candidates now have the first explicit root-anchored model in `src/passes/code_folding.mbt`: owning region, region end index, terminator family, selected suffix length, profitability, and a rewrite path that requires one selected tail to be the root function-ending suffix. The pass now recomputes label use and repeats the local visit/terminating-tail sequence until no local change remains. Future broadening should add the missing Binaryen fields deliberately, especially arbitrary replacement-site provenance, movement-safety proof for branch/control-bearing suffixes, and exact helper-cost/fixpoint state. This avoids the common over-broad implementation mistake: comparing two root arrays, finding them equal, and moving them without knowing why the move is legal.
 
 ## Validation ladder
 
@@ -199,8 +201,9 @@ After slice 1 is green, keep adding:
 1. duplicate `return` suffixes produce one shared function-ending suffix (root-anchored non-adjacent coverage now exists)
 2. duplicate `unreachable` suffixes share safely (root-anchored block-backed coverage now exists)
 3. `return_call*` belongs to the same family (root-anchored direct/indirect/ref coverage now exists)
-4. old-body fallthrough cannot accidentally execute the shared suffix (covered for groups anchored on the original root ending; arbitrary non-root groups remain future)
-5. root-level terminators are rewritten correctly, not only block-backed ones (root-ending anchor coverage exists; direct pointer-style non-root replacement remains future)
+4. a second local root-anchored fold exposed by the first is reached in the same pass invocation
+5. old-body fallthrough cannot accidentally execute the shared suffix (covered for groups anchored on the original root ending; arbitrary non-root groups remain future)
+6. root-level terminators are rewritten correctly, not only block-backed ones (root-ending anchor coverage exists; direct pointer-style non-root replacement remains future)
 
 ### Then add neighborhood tests
 
@@ -280,7 +283,18 @@ The root-anchored `[O4Z-AUDIT-CF-F]` / `[O4Z-AUDIT-CF-G]` terminating-tail lane 
 - direct 1000-case smoke at `.tmp/pass-fuzz-code-folding-fg-1000`: `998/1000` compared cases, `998` normalized matches, `0` mismatches, `2` `binaryen-rec-group-zero` command failures;
 - timing-only debug-WASI replay at `.tmp/code-folding-fg-self-compare`: `210.383ms` Starshine pass time vs `187.861ms` Binaryen, within the <=2x floor.
 
-Direct `[CF]002` signoff is accepted as of 2026-05-10 for the earlier narrowed surface, `[O4Z-AUDIT-CF-A]` baselines the June widening, `[O4Z-AUDIT-CF-B]` through `[O4Z-AUDIT-CF-D]` add the source-backed matrix, explicit named-block candidate model, and first multi-root named-block expression-exit widening, `[O4Z-AUDIT-CF-E]` has concrete one-block/one-non-block progress plus a HOT-level unreachable-condition bailout, `[O4Z-AUDIT-CF-F]` has adjacent and root-anchored return/unreachable terminal-tail helper shapes, and `[O4Z-AUDIT-CF-G]` has started root-anchored `return_call*` sharing. The remaining direct debug-artifact diff is classified representation drift, and the focused `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names` cleanup replay produced the same first diff as the no-CF cleanup baseline. The 2026-06-04 O4z audit is tracked in [`../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md`](../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md); it now keeps the broader Binaryen behavior-parity slices open.
+The `[O4Z-AUDIT-CF-H]` / `[O4Z-AUDIT-CF-I]` / `[O4Z-AUDIT-CF-J]` movement-safety, EH-bailout, and local-fixpoint lane is green:
+
+- first test-first `moon test src/passes` failed the new root-anchored terminating-tail fixpoint test and the new `try_table` terminal-tail bailout test before implementation;
+- after implementation `moon test src/passes` passed `1608/1608`;
+- `moon fmt` completed;
+- `moon info` completed with 6 tasks up to date;
+- full `moon test` passed `4793/4793`;
+- `moon build --target native --release src/cmd` produced `_build/native/release/build/cmd/cmd.exe` with only the existing `pass_manager.mbt` unused-function warnings;
+- direct 1000-case smoke at `.tmp/pass-fuzz-code-folding-hij-1000`: `998/1000` compared cases, `998` normalized matches, `0` mismatches, `2` `binaryen-rec-group-zero` command failures;
+- timing-only debug-WASI replay at `.tmp/code-folding-hij-self-compare`: `231.629ms` Starshine pass time vs `195.691ms` Binaryen, within the <=2x floor.
+
+Direct `[CF]002` signoff is accepted as of 2026-05-10 for the earlier narrowed surface, `[O4Z-AUDIT-CF-A]` baselines the June widening, `[O4Z-AUDIT-CF-B]` through `[O4Z-AUDIT-CF-D]` add the source-backed matrix, explicit named-block candidate model, and first multi-root named-block expression-exit widening, `[O4Z-AUDIT-CF-E]` has concrete one-block/one-non-block progress plus a HOT-level unreachable-condition bailout, `[O4Z-AUDIT-CF-F]` has adjacent and root-anchored return/unreachable terminal-tail helper shapes, `[O4Z-AUDIT-CF-G]` has started root-anchored `return_call*` sharing, `[O4Z-AUDIT-CF-H]` has movement-safety negatives, `[O4Z-AUDIT-CF-I]` has tested EH bailouts, and `[O4Z-AUDIT-CF-J]` has local root-anchored fixpoint plus a small late-neighborhood fixture. The remaining direct debug-artifact diff is classified representation drift, and the focused `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names` cleanup replay produced the same first diff as the no-CF cleanup baseline. The 2026-06-04 O4z audit is tracked in [`../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md`](../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md); it now keeps the broader Binaryen behavior-parity slices open.
 
 Future parity work should only proceed when one of these is true:
 
@@ -297,7 +311,7 @@ Follow the repo-level pass signoff rule from [`../../../../../AGENTS.md`](../../
 - Should suffix equality begin with exact HOT-node structural equality, or reuse a normalized lowered-instruction comparison for the first slice? Current answer: exact HOT-node structural equality plus label-use-aware comparison for the covered named-block slices.
 - How should Starshine represent Binaryen's `unoptimizables` label set when a label has both plain-`br` tails and unsupported branch-form users? Current answer: the local collectors poison the whole target by returning false when `br_if`, `br_on_*`, `br_table`, or `delegate` traffic reaches the target label.
 - Which local size model should stand in for Binaryen's expression `Measurer` before Starshine has byte-level profitability for this pass? Current answer: `code_folding_node_measure` is the provisional node-count measure; it is good enough for the tested direct after-block suffix sharing but not a full Binaryen helper-block cost model.
-- Is it better to add EH support after function-ending tails, or should EH-sensitive shapes stay permanent bailouts until more local EH rewrite infrastructure exists? Still open; current code treats `try` / `try_table` as hard bailouts for this pass.
+- Is it better to add EH support after function-ending tails, or should EH-sensitive shapes stay permanent bailouts until more local EH rewrite infrastructure exists? Current batch chose tested bailouts: the pass skips `try` / `try_table` bodies and has no nested-pop repair path.
 
 ## Bottom line
 

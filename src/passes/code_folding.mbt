@@ -604,7 +604,8 @@ fn code_folding_node_always_exits(func : @ir.HotFunc, node_id : Int) -> Bool {
     @ir.HotOp::Drop =>
       @ir.hot_child_count(func, node_id) == 1 &&
       code_folding_node_always_exits(func, @ir.hot_child_get(func, node_id, 0))
-    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable => {
+    @ir.HotOp::Try | @ir.HotOp::TryTable => false
+    @ir.HotOp::Block | @ir.HotOp::Loop => {
       let body_ref = @ir.hot_region_body_ref(func, node_id)
       for i = 0; i < @ir.hot_region_root_count(func, body_ref); i = i + 1 {
         if code_folding_node_always_exits(
@@ -830,7 +831,8 @@ fn code_folding_node_prevents_fallthrough(
         func,
         @ir.hot_child_get(func, node_id, 0),
       )
-    @ir.HotOp::Block | @ir.HotOp::Try | @ir.HotOp::TryTable => {
+    @ir.HotOp::Try | @ir.HotOp::TryTable => false
+    @ir.HotOp::Block => {
       let body_ref = @ir.hot_region_body_ref(func, node_id)
       let count = @ir.hot_region_root_count(func, body_ref)
       count > 0 &&
@@ -2584,15 +2586,7 @@ fn code_folding_visit_embedded_controls(
         None => ()
       }
     }
-    @ir.HotOp::Try | @ir.HotOp::TryTable =>
-      if code_folding_visit_region(
-          ctx,
-          func,
-          @ir.hot_region_body_ref(func, node_id),
-          label_used,
-        ) {
-        changed = true
-      }
+    @ir.HotOp::Try | @ir.HotOp::TryTable => ()
     _ =>
       for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
         let child_id = @ir.hot_child_get(func, node_id, slot)
@@ -2698,15 +2692,7 @@ fn code_folding_visit_region(
             changed = true
           }
         }
-        @ir.HotOp::Try | @ir.HotOp::TryTable =>
-          if code_folding_visit_region(
-              ctx,
-              func,
-              @ir.hot_region_body_ref(func, current_id),
-              label_used,
-            ) {
-            changed = true
-          }
+        @ir.HotOp::Try | @ir.HotOp::TryTable => ()
         @ir.HotOp::Br => {
           let seen = [0]
           if code_folding_node_has_direct_control_child(func, current_id) &&
@@ -2742,15 +2728,24 @@ pub fn code_folding_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
-  let label_used = pass_compute_label_used(func)
-  let mut changed = code_folding_visit_region(
-    ctx,
-    func,
-    @ir.HotRegionRef::root(),
-    label_used,
-  )
-  if code_folding_try_fold_terminating_tails(ctx, func, label_used) {
-    changed = true
+  let mut changed = false
+  let mut again = true
+  while again {
+    let label_used = pass_compute_label_used(func)
+    let mut iteration_changed = code_folding_visit_region(
+      ctx,
+      func,
+      @ir.HotRegionRef::root(),
+      label_used,
+    )
+    if code_folding_try_fold_terminating_tails(ctx, func, label_used) {
+      iteration_changed = true
+    }
+    if iteration_changed {
+      changed = true
+    } else {
+      again = false
+    }
   }
   if changed {
     HotPassResult::changed()

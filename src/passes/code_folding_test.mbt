@@ -889,6 +889,108 @@ test "code-folding shares return-call-ref tails" {
 }
 
 ///|
+test "code-folding reaches a root-anchored terminating-tail fixpoint" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func $a (param i32))
+      #|  (func $b (param i32))
+      #|  (func $c (param i32))
+      #|  (func (param i32 i32 i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (local.get 2)
+      #|        (call $a)
+      #|        (local.get 2)
+      #|        (call $b)
+      #|        (local.get 2)
+      #|        (call $c)
+      #|        (return)))
+      #|    (if (local.get 1)
+      #|      (then
+      #|        (local.get 2)
+      #|        (call $b)
+      #|        (local.get 2)
+      #|        (call $c)
+      #|        (return)))
+      #|    (local.get 2)
+      #|    (call $a)
+      #|    (local.get 2)
+      #|    (call $b)
+      #|    (local.get 2)
+      #|    (call $c)
+      #|    (return)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 1)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 2)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding late branch-cleanup neighborhood keeps shared return tail valid" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $sink (param i32))
+        #|  (func (param i32 i32)
+        #|    (if (local.get 0)
+        #|      (then
+        #|        (local.get 1)
+        #|        (call $sink)
+        #|        (i32.const 7)
+        #|        (drop)
+        #|        (return)))
+        #|    (i32.const 99)
+        #|    (drop)
+        #|    (local.get 1)
+        #|    (call $sink)
+        #|    (i32.const 7)
+        #|    (drop)
+        #|    (return)))
+        #|,
+      ),
+      [
+        "code-folding", "merge-blocks", "remove-unused-brs", "remove-unused-names",
+        "merge-blocks",
+      ],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected late code-folding neighborhood success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("i32.const I32(99)"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+  assert_true(
+    code_folding_test_count_substring(pretty, "return") <= 1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding keeps br-on-null-poisoned block-exit suffixes" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::anyref()], [])),
@@ -930,6 +1032,177 @@ test "code-folding keeps br-on-null-poisoned block-exit suffixes" {
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("br_on_null"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding keeps br-table-poisoned block-exit suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32 i32)
+      #|    (block $out
+      #|      (if (local.get 0)
+      #|        (then
+      #|          (local.get 1)
+      #|          (br_table $out)))
+      #|      (block
+      #|        (i32.const 7)
+      #|        (drop)
+      #|        (br $out))
+      #|      (i32.const 7)
+      #|      (drop))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_table"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding keeps outside-target switch-like return tails" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32 i32)
+      #|    (block $label$A
+      #|      (if
+      #|        (local.get 0)
+      #|        (then
+      #|          (block
+      #|            (block
+      #|              (block $label$B
+      #|                (if
+      #|                  (local.get 0)
+      #|                  (then
+      #|                    (br_table $label$A $label$B
+      #|                      (local.get 1)))))
+      #|              (return))))
+      #|        (else
+      #|          (block
+      #|            (block $label$C
+      #|              (if
+      #|                (local.get 0)
+      #|                (then
+      #|                  (br_table $label$A $label$C
+      #|                    (local.get 1)))))
+      #|            (return))))))
+      #|)
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "br_table"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding keeps careful switch target scopes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32)
+      #|    (block $label$1
+      #|      (block $label$3
+      #|        (block $label$5
+      #|          (block $label$7
+      #|            (br_table $label$3 $label$7
+      #|              (i32.const 0)))
+      #|          (br $label$1))
+      #|        (block $label$8
+      #|          (br_table $label$3 $label$8
+      #|            (i32.const 0)))
+      #|        (br $label$1))
+      #|      (unreachable)))
+      #|)
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "br_table"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "br (Label"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding keeps try-table terminal tails as EH bailout" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (tag $e)
+      #|  (func $sink (param i32))
+      #|  (func (param i32 i32)
+      #|    (try_table (catch_all 0)
+      #|      (if (local.get 0)
+      #|        (then
+      #|          (local.get 1)
+      #|          (call $sink)
+      #|          (return)))
+      #|      (local.get 1)
+      #|      (call $sink)
+      #|      (return))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding keeps try-table block-exit suffixes as EH bailout" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (tag $e)
+      #|  (func (param i32)
+      #|    (block $exit
+      #|      (try_table (catch_all $exit)
+      #|        (if (local.get 0)
+      #|          (then
+      #|            (i32.const 7)
+      #|            (drop)
+      #|            (br $exit))))
+      #|      (i32.const 7)
+      #|      (drop))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "i32.const I32(7)"),
     2,

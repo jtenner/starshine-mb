@@ -251,7 +251,7 @@ Why it folds:
 - Binaryen can rewrite the old tails to branch to a fresh helper label
 - only one copy of the shared terminating suffix remains
 
-The real emitted shape is more detailed, but this is the right beginner mental model. Starshine now covers a conservative root-anchored version of this shape: one selected tail must be the original function-ending suffix, so ordinary fallthrough from the wrapped old body still reaches code it would have reached before. Local focused tests cover non-adjacent `return`, block-backed `unreachable`, direct `return_call`, `return_call_indirect`, and core-built `return_call_ref` variants of that root-anchored helper-label pattern; arbitrary non-root subsets remain future work.
+The real emitted shape is more detailed, but this is the right beginner mental model. Starshine now covers a conservative root-anchored version of this shape: one selected tail must be the original function-ending suffix, so ordinary fallthrough from the wrapped old body still reaches code it would have reached before. Local focused tests cover non-adjacent `return`, block-backed `unreachable`, direct `return_call`, `return_call_indirect`, and core-built `return_call_ref` variants of that root-anchored helper-label pattern. The latest local batch reruns that root-anchored model to a fixpoint when one root-anchored fold exposes another; arbitrary non-root subsets and exact Binaryen helper-cost choices remain future work.
 
 ## Shape 8: outer-target branches stop a would-be fold
 
@@ -268,7 +268,7 @@ Why it matters:
 
 ## Shape 9: equal-looking switch tails can still be unsafe to hoist
 
-The `careful-of-the-switch` test is even more instructive.
+The `careful-of-the-switch` test is even more instructive. Starshine now has a focused local negative for this family.
 
 Two blocks differ only in internal label names, so they look alpha-equivalent. But each contains a `br_table` that also depends on an outer target staying in scope.
 
@@ -367,6 +367,8 @@ If code folding rewrites several exits into simpler `br $folding-innerN` traffic
 ### Unlock family 3: `remove-unused-names`
 
 If helper labels or old labels become less useful after sharing a suffix, name cleanup may shrink the structure further.
+
+Starshine now has a focused small fixture for the immediate `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names -> merge-blocks` neighborhood on a helper-label return-tail shape. Generated artifact late-slot evidence is still open before the audit can close.
 
 ### Unlock family 4: late peepholes and `rse`
 

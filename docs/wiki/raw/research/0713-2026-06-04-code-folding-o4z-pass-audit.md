@@ -91,19 +91,19 @@ This table is backed by Binaryen `version_129` `src/passes/CodeFolding.cpp` and 
 | General terminating `return` tails | Searches subsets of function-ending `return` tails, prefers deeper suffixes, rewrites old tails to a fresh helper label, and appends one shared suffix at function end. | Partially covered for adjacent no-else `if`/fallthrough tails and root-anchored non-adjacent `return` suffixes; implemented with a fresh wrapper block label and branch to the shared suffix. | `code-folding shares if-then and fallthrough return tails`; `code-folding shares non-adjacent return tails`. | Needs arbitrary subsets that do not include the root-end tail, broader movement safety, exact helper-block cost modeling, and fixpoint exposure. | `[O4Z-AUDIT-CF-F]` / `[O4Z-AUDIT-CF-J]`. |
 | Terminating `return_call`, `return_call_indirect`, `return_call_ref` | Records tail-call terminators through the same terminating-tail helper path. | Partially covered for root-anchored direct, indirect, and ref tail-call suffixes, including typed-result direct `return_call` and logical call-signature comparison for indirect/ref nodes. | `code-folding shares direct return-call tails with typed results`; `code-folding shares return-call-indirect tails`; `code-folding shares return-call-ref tails`. | Needs arbitrary non-root subsets, broader movement-safety negatives, and more natural non-null `return_call_ref` fixtures once local syntax/HOT support is cleaner. | `[O4Z-AUDIT-CF-G]` / `[O4Z-AUDIT-CF-H/J]`. |
 | Terminating `unreachable` tails | Runs terminating-tail folding for `unreachable` groups before return groups. | Partially covered for adjacent no-else `if`/fallthrough tails and root-anchored block-backed `unreachable` suffixes. | `code-folding shares full if arms ending in unreachable`; `code-folding shares if-then and fallthrough unreachable tails`; `code-folding shares block-backed unreachable tails`; unreachable cleanup tests. | Needs arbitrary non-root helper-label subset/deeper-suffix search and branch/control-bearing movement proof. | `[O4Z-AUDIT-CF-F]` / `[O4Z-AUDIT-CF-H/J]`. |
-| Unsupported branch poisoning (`br_on_*`, `br_if`, `br_table`, `delegate`) | Unsupported branch forms targeting a label mark that label unoptimizable for label folding; `br_table` / switch targets are treated conservatively. | Poison behavior preserved for local named-block folds. | Core-built `code-folding keeps br-on-null-poisoned block-exit suffixes`; collector rejects `br_if`, `br_on_*`, `br_table`, and `delegate` target traffic. | More official poison fixtures could be added for each unsupported family. | `[O4Z-AUDIT-CF-H]`. |
-| Outside-target movement bailout | `canMove` rejects equal-looking suffixes if moving them would strand a branch target whose owner is inside the moved-out region. | Covered in simplified form through label-use and target-survival checks. | `code-folding keeps live-label structured if suffixes`; branch-target survival helper in `code_folding.mbt`. | Needs official `break-target-outside-of-return-merged-code`-style fixtures for expression exits and terminating tails. | `[O4Z-AUDIT-CF-H]`. |
-| Equal-looking unsafe switch / `br_table` cases | Binaryen rejects switch/table cases where equality is insufficient because branch targets would not remain valid. | Conservative local collector poisons `br_table` target traffic; no positive switch folding. | No dedicated equal-looking `br_table` negative yet. | Add official `careful-of-the-switch` family as a negative before any broadening. | `[O4Z-AUDIT-CF-H]`. |
-| EH-sensitive movement / bailout / repair | `canMove` rejects dangling `pop` and throwing-through-`try` hazards; block-adding rewrites can run EH nested-pop repair. | Local code treats `try` / `try_table` as hard bailouts for this pass and has no repair path. | Collector returns false on `Try` / `TryTable`; no EH positives. | Binaryen folds that require EH repair remain unimplemented and must not be claimed as parity. | `[O4Z-AUDIT-CF-I]`. |
-| Helper block / profitability / fixpoint | Uses a measured profitability heuristic, can add helper blocks, and repeats until no new fold is exposed. | Local expression-exit folds use a simplified suffix measure and direct after-block insertion; root-anchored function-ending helper labels now use a node-count profitability threshold, but full Binaryen helper cost modeling and fixpoint search remain absent. | Current tests cover unprofitable tiny full-void `if` bailout; named-block and terminating-tail plans carry suffix length and profitability score. | Needs arbitrary helper-label subset search, exact helper cost modeling, and fold-exposes-fold tests. | `[O4Z-AUDIT-CF-J]` plus `[O4Z-AUDIT-CF-F/G]`. |
+| Unsupported branch poisoning (`br_on_*`, `br_if`, `br_table`, `delegate`) | Unsupported branch forms targeting a label mark that label unoptimizable for label folding; `br_table` / switch targets are treated conservatively. | Poison behavior preserved for local named-block folds, including a focused `br_table` negative. | Core-built `code-folding keeps br-on-null-poisoned block-exit suffixes`; `code-folding keeps br-table-poisoned block-exit suffixes`; collector rejects `br_if`, `br_on_*`, `br_table`, and `delegate` target traffic. | More official poison fixtures could be added for each unsupported family. | `[O4Z-AUDIT-CF-H]`. |
+| Outside-target movement bailout | `canMove` rejects equal-looking suffixes if moving them would strand a branch target whose owner is inside the moved-out region. | Covered in simplified form through label-use and target-survival checks, with a reduced outside-target switch-like return-tail negative. | `code-folding keeps live-label structured if suffixes`; `code-folding keeps outside-target switch-like return tails`; branch-target survival helper in `code_folding.mbt`. | Full branch/control-bearing terminating-tail movement is still rejected instead of repaired/moved. | `[O4Z-AUDIT-CF-H]`. |
+| Equal-looking unsafe switch / `br_table` cases | Binaryen rejects switch/table cases where equality is insufficient because branch targets would not remain valid. | Conservative local collector poisons `br_table` target traffic; no positive switch folding. | `code-folding keeps careful switch target scopes`. | Positive switch folding remains out of scope; keep this negative before any broadening. | `[O4Z-AUDIT-CF-H]`. |
+| EH-sensitive movement / bailout / repair | `canMove` rejects dangling `pop` and throwing-through-`try` hazards; block-adding rewrites can run EH nested-pop repair. | Local code treats `try` / `try_table` as hard bailouts for this pass, no longer descends into EH bodies, and has no repair path. | Collector returns false on `Try` / `TryTable`; `code-folding keeps try-table terminal tails as EH bailout`; `code-folding keeps try-table block-exit suffixes as EH bailout`; no EH positives. | Binaryen folds that require EH repair remain unimplemented and must not be claimed as parity. | `[O4Z-AUDIT-CF-I]`. |
+| Helper block / profitability / fixpoint | Uses a measured profitability heuristic, can add helper blocks, and repeats until no new fold is exposed. | Local expression-exit folds use a simplified suffix measure and direct after-block insertion; root-anchored function-ending helper labels now use a node-count profitability threshold and the pass reruns its local visit/terminating-tail sequence to fixpoint. | Current tests cover unprofitable tiny full-void `if` bailout; named-block and terminating-tail plans carry suffix length and profitability score; `code-folding reaches a root-anchored terminating-tail fixpoint`; `code-folding late branch-cleanup neighborhood keeps shared return tail valid`. | Needs arbitrary helper-label subset search, exact Binaryen helper cost modeling, and generated late-slot proof. | `[O4Z-AUDIT-CF-J]` plus `[O4Z-AUDIT-CF-F/G]`. |
 
 ## Remaining direct completeness gaps
 
 These are not new regressions; they are the known difference between Starshine's accepted narrow direct pass and Binaryen's broader `CodeFolding.cpp` surface.
 
-- Function-ending helper-label sharing now covers a root-anchored subset for `return`, `return_call`, `return_call_indirect`, `return_call_ref`, and `unreachable`, but it is still narrower than Binaryen's general algorithm: arbitrary non-root subsets, branch/control-bearing moved suffixes, EH repair, and full fixpoint exposure remain unimplemented.
+- Function-ending helper-label sharing now covers a root-anchored subset for `return`, `return_call`, `return_call_indirect`, `return_call_ref`, and `unreachable`, and the local pass now reruns that root-anchored subset to fixpoint. It is still narrower than Binaryen's general algorithm: arbitrary non-root subsets, branch/control-bearing moved suffixes, exact helper cost modeling, and EH repair remain unimplemented.
 - Branch-value folding for typed named-block exits now covers single-result plain-`br` payload sharing with matching fallthrough or multiple branch payloads, including a safe multi-root suffix before the final value root. It remains narrower than Binaryen's full branch-payload suffix model: no multi-value payloads, no `br_if` / `br_table` / `br_on_*` participation, no full helper-block profitability/subset search, and no broad EH-aware movement.
-- EH-sensitive movement remains a hard bailout; there is no local nested-pop repair equivalent for this pass.
+- EH-sensitive movement remains a hard bailout; the pass now avoids descending into `try` / `try_table` bodies and has no local nested-pop repair equivalent.
 - Broader helper-block creation and profitability modeling remain conditional future work rather than a v0.1.0 direct blocker unless a semantic, validity, or proven downstream code-size issue appears.
 - The exact late O4z slot/neighborhood still needs refreshed generated evidence before the audit slice can close.
 
@@ -370,6 +370,57 @@ bun scripts/self-optimize-compare.ts \
 
 The new root-anchored terminating-tail helper-label slice remains inside the repo pass-local floor (`210.383ms <= 2 * 187.861ms`). The direct compare smoke had zero mismatches; the two command failures are again `command-class.binaryen-rec-group-zero`, classified as tool/Binaryen command failures rather than Starshine semantic mismatches. The new rewrite is deliberately narrower than Binaryen's full function-ending algorithm: it requires the selected group to include the root function-ending tail so normal fallthrough into the shared suffix remains semantically justified, rejects EH and branch/control-bearing moved suffix items, and still leaves arbitrary non-root subsets and broader movement-safety cases to `[O4Z-AUDIT-CF-H]` / `[O4Z-AUDIT-CF-I]` / `[O4Z-AUDIT-CF-J]`.
 
+Follow-up `[O4Z-AUDIT-CF-H]` / `[O4Z-AUDIT-CF-I]` / `[O4Z-AUDIT-CF-J]` progress after the movement-safety, EH-bailout, and local fixpoint batch:
+
+```sh
+moon test src/passes
+# First test-first run failed the new root-anchored terminating-tail fixpoint test and the new try_table terminal-tail EH bailout test.
+# After implementation: Total tests: 1608, passed: 1608, failed: 0
+
+moon fmt
+# Finished. moon: ran 2 tasks, now up to date
+
+moon info
+# Finished. moon: ran 6 tasks, now up to date
+
+moon test
+# Total tests: 4793, passed: 4793, failed: 0
+
+moon build --target native --release src/cmd
+# Finished with existing unused-function warnings in pass_manager.mbt and 0 errors
+# Native binary path in this workspace: _build/native/release/build/cmd/cmd.exe
+
+bun scripts/pass-fuzz-compare.ts \
+  --pass code-folding \
+  --count 1000 \
+  --seed 0x5eed \
+  --out-dir .tmp/pass-fuzz-code-folding-hij-1000 \
+  --jobs auto \
+  --starshine-bin _build/native/release/build/cmd/cmd.exe
+# Compared cases: 998/1000
+# Normalized matches: 998
+# Compare-normalized matches: 0
+# Validation failures: 0
+# Property failures: 0
+# Generator failures: 0
+# Command failures: 2 (command-class.binaryen-rec-group-zero)
+# Mismatches: 0
+
+bun scripts/self-optimize-compare.ts \
+  tests/node/dist/starshine-debug-wasi.wasm \
+  --starshine-bin _build/native/release/build/cmd/cmd.exe \
+  --out-dir .tmp/code-folding-hij-self-compare \
+  --timing-only \
+  --code-folding
+# Starshine runtime (ms): 1373.596
+# Binaryen runtime (ms): 696.997
+# Starshine pass runtime (ms): 231.629
+# Starshine pass skipped raw: no
+# Binaryen pass runtime (ms): 195.691
+```
+
+The batch remains inside the repo pass-local floor (`231.629ms <= 2 * 195.691ms`). The direct compare smoke had zero mismatches; the two command failures are again `command-class.binaryen-rec-group-zero`, classified as tool/Binaryen command failures rather than Starshine semantic mismatches. Focused tests now cover `br_table` poisoning, outside-target/switch-scope movement negatives, tested `try_table` terminal-tail and block-exit bailouts, a local root-anchored terminating-tail fixpoint, and a small `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names -> merge-blocks` helper-label neighborhood. A larger debug-WASI timing-only replay of the full late-neighborhood flag sequence was attempted separately and failed during Starshine command validation, so it is not counted as generated late-slot evidence for closing `[O4Z-AUDIT-CF-J]`.
+
 Still required before closing the overall `[O4Z-AUDIT-CF]` parity track:
 
 - scale direct compare to `10000` after the next behavior-widening batch or before closeout;
@@ -378,4 +429,4 @@ Still required before closing the overall `[O4Z-AUDIT-CF]` parity track:
 
 ## Audit classification
 
-Current agent classification: `code-folding` is wired and semantically accepted as a narrow direct pass based on prior May evidence. The June audit first widened single-result typed block-exit branch payload sharing, then completed the source-backed shape matrix and widened the named-block expression-exit candidate model to single-result multi-root suffix sharing for branch-plus-fallthrough and branch-only plain-`br` tails. The next `[O4Z-AUDIT-CF-E]` progress widened `if` expression-exit folding for the safe one-block/one-non-block value-suffix shape in both orientations and added a HOT-level unreachable-condition bailout, while exact public unreachable-condition fixtures remain blocked by local HOT/lower bottom-condition handling. `[O4Z-AUDIT-CF-F]` has progressed from the simple adjacent no-else `if` then-tail plus fallthrough `return`/`unreachable` shape to a root-anchored helper-label algorithm that collects root and nested region terminators, searches the deepest profitable suffix that includes the function-end tail, rewrites old nested tails to `br` to the fresh wrapper label, and keeps one shared terminal suffix after the wrapper. `[O4Z-AUDIT-CF-G]` has started on the same model for typed-result direct `return_call`, `return_call_indirect`, and core-built `return_call_ref` tails. Validation is green at `moon test src/passes`, full `moon test`, native direct 1000-case compare, and pass-local timing lanes within the <=2x floor. `[O4Z-AUDIT-CF]` is still not complete because Binaryen behavior parity requires remaining exact `if` caveats, arbitrary terminating-tail subsets beyond root-anchored groups, broader movement-safety, EH, fixpoint, 10000-case compare, and late-neighborhood slices now tracked in `agent-todo.md`.
+Current agent classification: `code-folding` is wired and semantically accepted as a narrow direct pass based on prior May evidence. The June audit first widened single-result typed block-exit branch payload sharing, then completed the source-backed shape matrix and widened the named-block expression-exit candidate model to single-result multi-root suffix sharing for branch-plus-fallthrough and branch-only plain-`br` tails. The next `[O4Z-AUDIT-CF-E]` progress widened `if` expression-exit folding for the safe one-block/one-non-block value-suffix shape in both orientations and added a HOT-level unreachable-condition bailout, while exact public unreachable-condition fixtures remain blocked by local HOT/lower bottom-condition handling. `[O4Z-AUDIT-CF-F]` has progressed from the simple adjacent no-else `if` then-tail plus fallthrough `return`/`unreachable` shape to a root-anchored helper-label algorithm that collects root and nested region terminators, searches the deepest profitable suffix that includes the function-end tail, rewrites old nested tails to `br` to the fresh wrapper label, and keeps one shared terminal suffix after the wrapper. `[O4Z-AUDIT-CF-G]` has started on the same model for typed-result direct `return_call`, `return_call_indirect`, and core-built `return_call_ref` tails. `[O4Z-AUDIT-CF-H]` now has focused movement-safety negatives for `br_table`, outside-target switch-like return tails, and careful switch target scope; `[O4Z-AUDIT-CF-I]` deliberately chose conservative EH bailouts by not descending into `try` / `try_table` bodies and testing `try_table` terminal/block-exit shapes; `[O4Z-AUDIT-CF-J]` now has a local root-anchored fixpoint loop plus a small late-neighborhood helper-label fixture. Validation is green at `moon test src/passes`, full `moon test`, native direct 1000-case compare, and pass-local timing lanes within the <=2x floor. `[O4Z-AUDIT-CF]` is still not complete because Binaryen behavior parity requires remaining exact `if` caveats, arbitrary terminating-tail subsets beyond root-anchored groups, broader branch/control-bearing movement, EH repair or exact folded/bailout classification, exact helper cost/fixpoint parity, 10000-case compare, and generated late-neighborhood evidence now tracked in `agent-todo.md`.
