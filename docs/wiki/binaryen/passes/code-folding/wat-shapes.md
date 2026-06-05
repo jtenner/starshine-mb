@@ -128,6 +128,8 @@ Why Binaryen leaves it alone here:
 - this pass only looks at `if`s with block arms, or a one-arm-wrap case
 - the simpler pure-expression case is left to `optimize-instructions`
 
+Starshine now preserves this boundary with `code-folding keeps simple full value if arms for optimize-instructions`, so the direct pass no longer folds this simple full-value non-block shape itself.
+
 This is an easy way to tell whether a surprising non-fold is actually a bug.
 
 ## Shape 4: named `if` arm blocks do not fold

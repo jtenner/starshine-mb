@@ -151,6 +151,31 @@ test "code-folding hoists identical full value if arms" {
 }
 
 ///|
+test "code-folding keeps simple full value if arms for optimize-instructions" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32) (result f32)
+      #|    (if (result f32)
+      #|      (local.get 0)
+      #|      (then
+      #|        (f32.const 0))
+      #|      (else
+      #|        (f32.const 0)))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "f32.const"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding hoists identical partial value if suffixes" {
   let optimized = code_folding_test_run(
     (

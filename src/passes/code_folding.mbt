@@ -766,6 +766,37 @@ fn code_folding_suffix_has_if_terminal(
 }
 
 ///|
+fn code_folding_full_value_if_common_suffix_allowed(
+  func : @ir.HotFunc,
+  then_ref : @ir.HotRegionRef,
+  else_ref : @ir.HotRegionRef,
+  then_start : Int,
+  else_start : Int,
+  suffix_len : Int,
+  result_arity : Int,
+) -> Bool {
+  if result_arity == 0 || then_start != 0 || else_start != 0 {
+    return true
+  }
+  if suffix_len != 1 {
+    return false
+  }
+  let then_root = @ir.hot_region_get(func, then_ref, 0)
+  let else_root = @ir.hot_region_get(func, else_ref, 0)
+  if then_root < 0 || else_root < 0 {
+    return false
+  }
+  match @ir.hot_node_get(func, then_root).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  match @ir.hot_node_get(func, else_root).op {
+    @ir.HotOp::Block => true
+    _ => false
+  }
+}
+
+///|
 fn code_folding_node_always_exits(func : @ir.HotFunc, node_id : Int) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -2766,7 +2797,10 @@ fn code_folding_try_fold_if_at_region(
     !code_folding_suffix_matches_result_arity(
       func, else_ref, else_start, suffix_len, result_arity,
     ) ||
-    (suffix_has_terminal && (then_start != 0 || else_start != 0)) {
+    (suffix_has_terminal && (then_start != 0 || else_start != 0)) ||
+    !code_folding_full_value_if_common_suffix_allowed(
+      func, then_ref, else_ref, then_start, else_start, suffix_len, result_arity,
+    ) {
     return false
   }
   if result_arity == 0 &&
