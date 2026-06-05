@@ -161,6 +161,11 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::I64ReinterpretF64 => 105
     @lib.Instruction::F32ReinterpretI32 => 106
     @lib.Instruction::F64ReinterpretI64 => 107
+    @lib.Instruction::I32Extend8S => 108
+    @lib.Instruction::I32Extend16S => 109
+    @lib.Instruction::I64Extend8S => 110
+    @lib.Instruction::I64Extend16S => 111
+    @lib.Instruction::I64Extend32S => 112
     @lib.Instruction::I32Load(_) => 13
     @lib.Instruction::I64Load(_) => 14
     @lib.Instruction::F32Load(_) => 15
@@ -435,7 +440,12 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::I32ReinterpretF32
     | @lib.Instruction::I64ReinterpretF64
     | @lib.Instruction::F32ReinterpretI32
-    | @lib.Instruction::F64ReinterpretI64 => Some(1)
+    | @lib.Instruction::F64ReinterpretI64
+    | @lib.Instruction::I32Extend8S
+    | @lib.Instruction::I32Extend16S
+    | @lib.Instruction::I64Extend8S
+    | @lib.Instruction::I64Extend16S
+    | @lib.Instruction::I64Extend32S => Some(1)
     @lib.Instruction::StructSet(_, _) | @lib.Instruction::TableSet(_) => Some(2)
     @lib.Instruction::TableGet(_) => Some(1)
     @lib.Instruction::TableGrow(_) => Some(2)
@@ -486,7 +496,9 @@ fn lcse_raw_result_type(
     | @lib.Instruction::TableSize(_)
     | @lib.Instruction::TableGrow(_)
     | @lib.Instruction::I32WrapI64
-    | @lib.Instruction::I32ReinterpretF32 => Some(@lib.ValType::i32())
+    | @lib.Instruction::I32ReinterpretF32
+    | @lib.Instruction::I32Extend8S
+    | @lib.Instruction::I32Extend16S => Some(@lib.ValType::i32())
     @lib.Instruction::I64Const(_)
     | @lib.Instruction::I64Load(_)
     | @lib.Instruction::I64Load8S(_)
@@ -497,7 +509,10 @@ fn lcse_raw_result_type(
     | @lib.Instruction::I64Load32U(_)
     | @lib.Instruction::I64ExtendI32S
     | @lib.Instruction::I64ExtendI32U
-    | @lib.Instruction::I64ReinterpretF64 => Some(@lib.ValType::i64())
+    | @lib.Instruction::I64ReinterpretF64
+    | @lib.Instruction::I64Extend8S
+    | @lib.Instruction::I64Extend16S
+    | @lib.Instruction::I64Extend32S => Some(@lib.ValType::i64())
     @lib.Instruction::F32Const(_)
     | @lib.Instruction::F32Load(_)
     | @lib.Instruction::F32Abs

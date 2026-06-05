@@ -1470,3 +1470,24 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the first focused run failed as intended for all four initial new fixtures (`82/86` passed) before the implementation change; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed after the final coverage additions (`88/88`); `moon test src/passes` passed (`1636/1636`); full `moon test` passed (`4821/4821`); native build succeeded with no work to do. An intermediate compare rerun to `.tmp/pass-fuzz-local-cse-numeric-conversion-10000` failed in the generator step with a harness/tool `moon run --target native --release src/fuzz -- --emit-gen-valid-batch ...` no-return-code error; a clean rerun to `.tmp/pass-fuzz-local-cse-numeric-conversion-final-10000` reached `6764` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up sign-extension pure-root slice on 2026-06-05
+
+A later focused LCSE hardening slice spot-checked nontrapping sign-extension operations: `i32.extend8_s`, `i32.extend16_s`, `i64.extend8_s`, `i64.extend16_s`, and `i64.extend32_s`. Binaryen materialized repeated representative roots with `local.tee` / `local.get`.
+
+The slice added WAT-form direct regressions `local-cse reuses repeated i32 sign-extension roots` and `local-cse reuses repeated i64 sign-extension roots`. Both failed as intended before the implementation change (`88/90` passed). Starshine then modeled the sign-extension operations as pure one-operand candidate roots with `i32` or `i64` result types. This is a narrow nontrapping numeric-root slice; it does not add trap-sensitive trunc conversions, saturating truncs, SIMD conversion reasoning, or broad numeric/heap/memory/table GVN.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-sign-extension-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the first focused run failed as intended for both new fixtures (`88/90` passed) before the implementation change; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed after the fix (`90/90`); `moon test src/passes` passed (`1638/1638`); full `moon test` passed (`4823/4823`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
