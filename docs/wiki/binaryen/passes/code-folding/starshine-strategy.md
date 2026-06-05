@@ -96,7 +96,7 @@ Today Starshine's behavior for `code-folding` is deliberately active but narrow.
 
 - identical void `if`-arm suffixes are hoisted once
 - profitable identical full void arms collapse to condition evaluation plus one shared suffix, while tiny unprofitable full-void arms stay in place like Binaryen
-- typed/value `if` suffixes can be hoisted when the moved suffix provides the original result, including a safe one-block/one-non-block arm shape in either orientation; simple full-value non-block arms remain a no-op for this pass and are left to `optimize-instructions`
+- typed/value `if` suffixes can be hoisted when the moved suffix provides the original result, including the exact partial non-block value-arm lit/doc shape and a safe one-block/one-non-block arm shape in either orientation; simple full-value non-block arms remain a no-op for this pass and are left to `optimize-instructions`
 - branch-free structured suffixes can be hoisted through alpha-equivalent unused labels
 - full tails ending in a branch to an outer live label can be hoisted safely
 - full `if` arms ending in empty-payload `return` or `unreachable` share one terminal suffix

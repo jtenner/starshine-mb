@@ -83,7 +83,7 @@ The current owner file and tests cover a conservative subset of the expression-e
 - void block-exit/fallthrough tail sharing
 - single-result typed named-block plain-`br` payload sharing with a matching fallthrough value or other branch payloads, including a safe multi-root suffix before the final value root
 - unsupported `br_on_null` label-poisoning coverage for block-exit folding
-- one-block/one-non-block `if` value-suffix folding in both then-block and else-block orientations
+- exact partial non-block value-arm `if` suffix sharing and one-block/one-non-block `if` value-suffix folding in both then-block and else-block orientations
 - live-label structured `if` suffix bailout coverage
 - small exiting dead-value block flattening cleanup
 
@@ -91,7 +91,7 @@ The current owner file and tests cover a conservative subset of the expression-e
 
 The named-block expression-exit substrate now covers the first safe multi-root single-result branch-payload suffix shapes. Continue with the remaining broader expression-exit family from [`./binaryen-strategy.md`](./binaryen-strategy.md):
 
-- remaining unnamed `if` arm duplicate suffix caveats beyond the covered direct suffix and one-block/one-non-block value-suffix cases
+- remaining unnamed `if` arm duplicate suffix caveats beyond the covered direct suffix, exact partial non-block value suffix, and one-block/one-non-block value-suffix cases
 - named-arm negatives from the official lit matrix where the local HOT/name surface can distinguish them
 - any further named-block broadening only when it goes beyond the covered plain-`br`, single-result, multi-root safe subset, such as multi-value payloads with HOT/lower proof
 
@@ -296,7 +296,7 @@ The `[O4Z-AUDIT-CF-H]` / `[O4Z-AUDIT-CF-I]` / `[O4Z-AUDIT-CF-J]` movement-safety
 
 A later `[O4Z-AUDIT-CF-H]` guard added `code-folding keeps crossed nested self-branch return suffixes`, which was already green locally and protects the multi-label alpha map from equating an inner-target branch with an outer-target branch. This is guard coverage, not a broader movement-safety implementation.
 
-Direct `[CF]002` signoff is accepted as of 2026-05-10 for the earlier narrowed surface, `[O4Z-AUDIT-CF-A]` baselines the June widening, `[O4Z-AUDIT-CF-B]` through `[O4Z-AUDIT-CF-D]` add the source-backed matrix, explicit named-block candidate model, and first multi-root named-block expression-exit widening, `[O4Z-AUDIT-CF-E]` has concrete one-block/one-non-block progress plus a HOT-level unreachable-condition bailout, `[O4Z-AUDIT-CF-F]` has adjacent and root-anchored return/unreachable terminal-tail helper shapes, `[O4Z-AUDIT-CF-G]` has started root-anchored `return_call*` sharing, `[O4Z-AUDIT-CF-H]` has movement-safety negatives, `[O4Z-AUDIT-CF-I]` has tested EH bailouts, and `[O4Z-AUDIT-CF-J]` has local root-anchored fixpoint plus a small late-neighborhood fixture. The remaining direct debug-artifact diff is classified representation drift, and the focused `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names` cleanup replay produced the same first diff as the no-CF cleanup baseline. The 2026-06-04 O4z audit is tracked in [`../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md`](../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md); it now keeps the broader Binaryen behavior-parity slices open.
+Direct `[CF]002` signoff is accepted as of 2026-05-10 for the earlier narrowed surface, `[O4Z-AUDIT-CF-A]` baselines the June widening, `[O4Z-AUDIT-CF-B]` through `[O4Z-AUDIT-CF-D]` add the source-backed matrix, explicit named-block candidate model, and first multi-root named-block expression-exit widening, `[O4Z-AUDIT-CF-E]` has exact partial non-block and one-block/one-non-block progress plus a HOT-level unreachable-condition bailout, `[O4Z-AUDIT-CF-F]` has adjacent and root-anchored return/unreachable terminal-tail helper shapes, `[O4Z-AUDIT-CF-G]` has started root-anchored `return_call*` sharing, `[O4Z-AUDIT-CF-H]` has movement-safety negatives, `[O4Z-AUDIT-CF-I]` has tested EH bailouts, and `[O4Z-AUDIT-CF-J]` has local root-anchored fixpoint plus a small late-neighborhood fixture. The remaining direct debug-artifact diff is classified representation drift, and the focused `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names` cleanup replay produced the same first diff as the no-CF cleanup baseline. The 2026-06-04 O4z audit is tracked in [`../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md`](../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md); it now keeps the broader Binaryen behavior-parity slices open.
 
 Future parity work should only proceed when one of these is true:
 

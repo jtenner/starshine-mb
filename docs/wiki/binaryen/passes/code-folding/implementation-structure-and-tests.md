@@ -132,7 +132,7 @@ Starshine implements an active narrowed transform, and the current status is rep
 
 The detailed local slice order and HOT prerequisite map now live in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). In short, a future implementation should use the upstream lit families as the first local tests:
 
-1. unnamed `if` arm duplicate-tail positives, including the covered one-block/one-non-block value-suffix orientations
+1. unnamed `if` arm duplicate-tail positives, including the covered exact partial non-block value suffix and one-block/one-non-block value-suffix orientations
 2. named block branch-value positives, keeping the covered single-result plain-`br` payload-root and multi-root suffix cases green and adding multi-value cases only with new tests
 3. branch-plus-fallthrough positives, keeping covered void and single-result payload-root / multi-root suffix cases green
 4. terminating `return`, `return_call*`, and `unreachable` positives, keeping the covered adjacent no-else `if` plus fallthrough and root-anchored helper-label subsets green while adding arbitrary non-root subset search separately

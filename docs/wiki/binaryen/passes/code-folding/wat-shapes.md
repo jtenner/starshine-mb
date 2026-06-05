@@ -108,6 +108,8 @@ Why it folds:
 - the other arm's whole body equals that tail
 - Binaryen can wrap the non-block arm in a synthetic block and then treat both as block tails
 
+Starshine has exact WAT coverage for this source shape in `code-folding hoists exact partial non-block value if suffix`. The local HOT/lower path elides `nop` in the final pretty output, so the test asserts the shared `f32.const` suffix and surviving `if`, not final `nop` text.
+
 This is why the pass is slightly broader than “both arms must already be blocks” but still narrower than generic arm similarity.
 
 ## Shape 3: simple non-block `if` arms are *not* this pass's job
