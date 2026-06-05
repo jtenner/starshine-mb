@@ -1880,3 +1880,26 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the added conservative core-built coverage passed immediately (`118/118`), so this was missing-test-only coverage for Starshine's existing conservative behavior. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`118/118`); `moon test src/passes` passed (`1666/1666`); full `moon test` passed (`4851/4851`); native build succeeded with no work to do; compare reached `6767` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up SIMD lane-load root boundary slice on 2026-06-05
+
+A later focused LCSE hardening slice spot-checked repeated `v128.load8_lane` roots. Binaryen materialized the representative repeated lane load with `local.tee` / `local.get` in the spot-check fixture under `.tmp/lcse-next-spots/simd-lane-load.wat`.
+
+This slice deliberately did not implement SIMD lane-load CSE or SIMD/memory GVN. The landed core-built direct test `local-cse defers repeated SIMD lane-load roots` documents Starshine's conservative no-CSE behavior for `v128.load8_lane` roots while keeping this boundary separate from scalar load CSE, ordinary `v128.load`, and broad SIMD value numbering. This is semantically safe but may miss a Binaryen-positive local opportunity that would need a vector lane-load/memory-state model.
+
+Validation evidence for this slice:
+
+```sh
+wasm-tools parse .tmp/lcse-next-spots/simd-lane-load.wat -o .tmp/lcse-next-spots/simd-lane-load.wasm
+wasm-opt .tmp/lcse-next-spots/simd-lane-load.wasm --all-features --local-cse -S -o .tmp/lcse-next-spots/simd-lane-load.binaryen.wat
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-simd-lane-load-boundary-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the added conservative core-built coverage passed immediately (`119/119`), so this was missing-test-only coverage for Starshine's existing conservative behavior. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`119/119`); `moon test src/passes` passed (`1667/1667`); full `moon test` passed (`4852/4852`); native build succeeded with no work to do; compare reached `6765` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
