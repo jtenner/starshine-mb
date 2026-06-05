@@ -2098,6 +2098,49 @@ test "code-folding folds non-terminal try-table if-arm body suffixes" {
 }
 
 ///|
+test "code-folding folds nested try-table if-arm body suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (tag $e)
+      #|  (func $sink (param i32))
+      #|  (func (param i32 i32)
+      #|    (try_table (catch_all 0)
+      #|      (try_table (catch_all 0)
+      #|        (if (local.get 0)
+      #|          (then
+      #|            (local.get 1)
+      #|            (call $sink)
+      #|            (i32.const 7)
+      #|            (drop))
+      #|          (else
+      #|            (local.get 1)
+      #|            (call $sink)
+      #|            (i32.const 7)
+      #|            (drop)))))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "try_table"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding keeps outer-catch try-table terminal tails as EH bailout" {
   let optimized = code_folding_test_run(
     (
