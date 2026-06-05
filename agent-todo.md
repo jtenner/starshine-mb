@@ -53,7 +53,7 @@
   - Suggested tests: focused `src/passes/vacuum*_test.mbt` or pass-manager prefix fixture, `moon test src/passes`, `moon build --target native --release src/cmd`, and cloned `json-as` prefix replay without `remove-unused-brs` slots.
 
 - [JSON-AS]005 - `simplify-locals-nostructure` corrupts json-as medium-naive after prefix 16
-  - Status: fixed for the 2026-06-05 medium-naive prefix-17 replay; keep open until the follow-on `simplify-locals` prefix blocker is resolved and full O4 smokes are green.
+  - Status: fixed for the 2026-06-05 medium-naive prefix-17 replay and covered by the later full O4 smokes.
   - Goal: make the post-`tuple-optimization` `simplify-locals-nostructure` slot preserve string/object state before resuming full O4 smoke.
   - Why: after RUB prefix 8/11 and vacuum prefix 10 were smoke-green, the first failing medium-naive prefix became slot 17: `... -> code-pushing -> tuple-optimization -> simplify-locals-nostructure`. Prefix 16 completed under Node; prefix 17 validated but trapped before benchmark output with `RuntimeError: memory access out of bounds` in `~lib/rt/common/OBJECT#get:rtSize`, called from `~lib/string/String.UTF8.byteLength`, `assembly/__benches__/lib/bench/utf8ByteLength`, and `start:assembly/__benches__/medium.bench`.
   - Finding: the first HOT guard left raw/lowered `simplify-locals-nostructure` cleanup active. That cleanup removed stack-root `local.tee` / local traffic in functions that also contained calls or memory-copy/fill hazards, including the huge benchmark start function. A pass-manager raw/lowered no-structure guard now skips those stack-effect/local-write cleanup families; `prefix-17-fixed1.wasm` validates and completes the Node serialize+deserialize smoke.
@@ -61,11 +61,11 @@
     - [x] Minimize the prefix-17 failure to raw/lowered no-structure cleanup preserving stack-root call hazards.
     - [x] Add a focused regression before changing behavior (`pass_manager_wbtest.mbt` lowered cleanup stack-root call hazard).
     - [x] Replay medium-naive prefix 17 under Node after the fix. 2026-06-05 replay completed serialize and deserialize.
-    - [ ] Resume full O4 smoke for medium-naive, medium-simd, and large-swar after the next `simplify-locals` prefix blocker is fixed.
+    - [x] Resume full O4 smoke for medium-naive, medium-simd, and large-swar after the next `simplify-locals` prefix blocker is fixed. 2026-06-05 rebuilt standard `*.starshine-o4.wasm` artifacts with `--traps-never-happen --closed-world --optimize -O4`; all three validated and completed Node serialize/deserialize smoke.
   - Suggested tests: focused pass-manager/simplify-locals tests, `moon test src/passes`, `moon build --target native --release src/cmd`, and cloned `json-as` prefix/full O4 runtime smokes.
 
 - [JSON-AS]006 - `simplify-locals` corrupts json-as medium-naive after local-cse
-  - Status: fixed for the no-HSO prefix-26 replay on 2026-06-05; keep open until the follow-on `merge-blocks` prefix blocker is resolved and full O4 smokes are green.
+  - Status: fixed for the no-HSO prefix-26 replay on 2026-06-05 and covered by the later full O4 smokes.
   - Goal: make the later full `simplify-locals` slot preserve string/object state after `local-cse` so full O4 runtime smoke can proceed.
   - Why: after prefix 17 was fixed, medium-naive prefixes through `local-cse` completed under Node. The next failing no-HSO ordered prefix was slot 26: `... -> coalesce-locals -> local-cse -> simplify-locals`. The first validating output trapped with `RuntimeError: memory access out of bounds` in `~lib/rt/common/OBJECT#get:rtSize`, called from `assembly/index/JSON.__serialize<~lib/string/String>`, `UserPreferences#__SERIALIZE`, `serializeStruct<UserPreferences>`, and the benchmark start function. After the global-delta guard, prefix 26 reached benchmark execution and then trapped during allocation in `~lib/rt/itcms/Object#get:nextWithColor` from `~lib/rt/itcms/__new`.
   - Finding: `simplify-locals` was moving global-derived delta reads across realloc-style calls; a focused regression now keeps `global.get offset` before the call and the pass guards large raw `simplify-locals` functions that mix local writes, stack effects, and global state. A second allocator subfamily came from large local-tee/memory-write functions such as TLSF `removeBlock`: dropping the stack-root tee before a later local read left allocator bitmap state stale. Large `simplify-locals` functions that combine local tees with memory writes now skip the hazardous rewrite family; `prefix-26-fixed4.wasm` validates and completes medium-naive serialize plus deserialize under Node.
@@ -77,14 +77,14 @@
   - Suggested tests: focused `src/passes/simplify_locals*_test.mbt` or pass-manager whitebox coverage, `moon test src/passes`, `moon build --target native --release src/cmd`, and cloned `json-as` prefix replay under Node.
 
 - [JSON-AS]007 - `merge-blocks` corrupts json-as medium-naive after prefix 26
-  - Status: active correctness blocker found after `[JSON-AS]006` prefix-26 fix on 2026-06-05.
+  - Status: fixed for the no-HSO prefix-27 replay and full medium/large O4 smokes on 2026-06-05.
   - Goal: make the next no-HSO ordered prefix, `... -> simplify-locals -> merge-blocks`, preserve string serialization state before continuing O4 bisection.
   - Why: `prefix-26-fixed4.wasm` validates and completes the Node benchmark, but adding the next no-HSO pass (`merge-blocks`) produces a validating module that fails the medium benchmark assertion. Serialized strings gain an extra leading quote (for example `"jairus` instead of `jairus`) and then trap at `Expectation#toBe<~lib/string/String>`.
-  - Finding: initial prefix-26/fixed-prefix-27 diffs show `merge-blocks` flattening block wrappers around AssemblyScript buffer growth / `heap.realloc` sequences in string and array serializers, including `JSON.__serialize<~lib/string/String>` and `serializeArray` helpers. Classify this as a separate merge-blocks control/ordering subfamily, not a remaining simplify-locals allocator issue.
+  - Finding: prefix-26/fixed-prefix-27 diffs showed `merge-blocks` flattening the block wrapper around the string serializer loop in `JSON.__serialize<~lib/string/String>` plus similar buffer growth / `heap.realloc` wrappers in serializer helpers. Removing that loop wrapper changed the lowered stack/control shape enough to copy the opening quote into string payload output. `merge-blocks` now conservatively preserves block roots whose body contains a loop; `prefix-27-fixed1.wasm` and all later no-HSO prefixes through directize validate and complete Node smoke.
   - Deliverables:
-    - [ ] Diff and reduce the prefix-26/fixed-prefix-27 `merge-blocks` changes, starting with functions `101`, `214`, `219`, `223`, and `226`.
-    - [ ] Add a focused `merge-blocks` regression before changing behavior.
-    - [ ] Replay no-HSO prefix 27 under Node after the fix, then continue ordered-prefix bisection.
+    - [x] Diff and reduce the prefix-26/fixed-prefix-27 `merge-blocks` changes, starting with functions `101`, `214`, `219`, `223`, and `226`.
+    - [x] Add a focused `merge-blocks` regression before changing behavior (`merge-blocks preserves loop wrapper blocks with continue targets`).
+    - [x] Replay no-HSO prefix 27 under Node after the fix, then continue ordered-prefix bisection. Prefixes 27 through 37 completed under Node.
   - Suggested tests: focused `src/passes/merge_blocks*_test.mbt`, `moon test src/passes`, `moon build --target native --release src/cmd`, and cloned `json-as` prefix replay under Node.
 
 - [JSON-AS]003 - Optimize preset misses Binaryen O4 function/type cleanup on json-as debug artifacts

@@ -85,6 +85,73 @@ fn merge_blocks_block_has_params(
 }
 
 ///|
+fn merge_blocks_region_contains_loop(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, region_ref, idx)
+    if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, root_id)
+    match node.op {
+      @ir.HotOp::Loop => return true
+      @ir.HotOp::Block =>
+        if merge_blocks_region_contains_loop(
+            func,
+            @ir.hot_region_body_ref(func, root_id),
+          ) {
+          return true
+        }
+      @ir.HotOp::If => {
+        if merge_blocks_region_contains_loop(
+            func,
+            @ir.hot_region_then_ref(func, root_id),
+          ) {
+          return true
+        }
+        match @ir.hot_region_else_ref(func, root_id) {
+          Some(else_ref) =>
+            if merge_blocks_region_contains_loop(func, else_ref) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @ir.HotOp::Try => {
+        if merge_blocks_region_contains_loop(
+            func,
+            @ir.hot_region_body_ref(func, root_id),
+          ) {
+          return true
+        }
+        match @ir.hot_region_catch_ref(func, root_id) {
+          Some(catch_ref) =>
+            if merge_blocks_region_contains_loop(func, catch_ref) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @ir.HotOp::TryTable =>
+        if merge_blocks_region_contains_loop(
+            func,
+            @ir.hot_region_body_ref(func, root_id),
+          ) ||
+          merge_blocks_region_contains_loop(
+            func,
+            @ir.hot_region_catch_list_ref(func, root_id),
+          ) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn merge_blocks_rewrite_dead_unreachable_suffix_roots(
   func : @ir.HotFunc,
   roots : Array[Int],
@@ -259,6 +326,9 @@ fn merge_blocks_flatten_region_root_block(
     return false
   }
   let body_ref = @ir.hot_region_body_ref(func, block_id)
+  if merge_blocks_region_contains_loop(func, body_ref) {
+    return false
+  }
   merge_blocks_collect_region_roots(func, body_ref, flattened_roots)
   if !merge_blocks_rewrite_dead_unreachable_suffix_roots(func, flattened_roots) {
     return false

@@ -42,6 +42,23 @@ test "merge-blocks flattens nested block roots in parent regions" {
 }
 
 ///|
+test "merge-blocks preserves loop wrapper blocks with continue targets" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (block (loop $l local.get 0 if local.get 0 i32.const 1 i32.sub local.set 0 br $l end)) local.get 0))",
+      ["merge-blocks"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected merge-blocks loop-wrapper success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(block"), msg=pretty)
+  assert_true(pretty.contains("(loop"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+}
+
+///|
 test "merge-blocks flattens inner blocks inside loops without dropping continue targets" {
   let optimized = match
     pass_test_run_pipeline("(module (func (loop $l (block (nop)) (br $l))))", [
