@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | unrelated local-write precision
+
+- Taught LCSE raw-window invalidation to retain active expressions that do not read the local written by an intervening `local.set` or `local.tee`.
+- Added focused coverage for local-only scalar reuse across unrelated local writes while preserving the existing write-to-read-local barrier.
+
 ## [2026-06-05] local-cse/wiki | SIMD float min/max roots
 
 - Added core-built LCSE boundary coverage for repeated SIMD floating min/max roots: `f32x4.min/max/pmin/pmax` and `f64x2.min/max/pmin/pmax`.

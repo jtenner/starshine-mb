@@ -705,6 +705,36 @@ fn lcse_raw_filter_active_without_memory_size(
 }
 
 ///|
+fn lcse_raw_expr_reads_local(expr : LcseRawExpr, local_idx : Int) -> Bool {
+  for read_idx in expr.reads_locals {
+    if read_idx == local_idx {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn lcse_raw_filter_active_without_local(
+  exprs : Array[LcseRawExpr],
+  active : Array[Int],
+  local_idx : Int,
+) -> Unit {
+  let keep : Array[Int] = []
+  for expr_id in active {
+    if expr_id >= 0 &&
+      expr_id < exprs.length() &&
+      !lcse_raw_expr_reads_local(exprs[expr_id], local_idx) {
+      keep.push(expr_id)
+    }
+  }
+  active.clear()
+  for expr_id in keep {
+    active.push(expr_id)
+  }
+}
+
+///|
 fn lcse_raw_exprs_match(
   exprs : Array[LcseRawExpr],
   lhs_id : Int,
@@ -945,8 +975,13 @@ fn lcse_raw_rewrite_instrs(
       ignore(stack.pop())
     }
     match instr {
-      @lib.Instruction::LocalSet(_) | @lib.Instruction::LocalTee(_) =>
-        active.clear()
+      @lib.Instruction::LocalSet(local_idx)
+      | @lib.Instruction::LocalTee(local_idx) =>
+        lcse_raw_filter_active_without_local(
+          exprs,
+          active,
+          cl_local_idx_raw(local_idx),
+        )
       @lib.Instruction::Call(call_idx) =>
         if !lcse_raw_call_is_idempotent(call_infos, call_idx) {
           active.clear()

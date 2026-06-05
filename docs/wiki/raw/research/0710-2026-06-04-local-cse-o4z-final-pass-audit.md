@@ -2478,3 +2478,14 @@ moon test --package jtenner/starshine/passes --file local_cse_test.mbt
 ```
 
 Results: Binaryen materialized representative repeated SIMD float min/max roots; the added conservative core-built coverage passed immediately (`153/153`), so this was missing-test-only coverage. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`153/153`); `moon test src/passes` passed (`1712/1712`); full `moon test` passed (`4897/4897`); native build reported no work; compare reached `6764` normalized matches, `0` mismatches, and `20` command failures under `.tmp/pass-fuzz-local-cse-simd-float-minmax-boundary-10000`. Agent classification: the command failures are Binaryen/tool oracle failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index), not Starshine semantic failures.
+
+## Follow-up unrelated local-write precision on 2026-06-05
+
+A focused continuation slice found that Binaryen keeps local-only repeated scalar expressions live across intervening writes to unrelated locals. Starshine previously cleared the whole active raw LCSE window on every `local.set` / `local.tee`, which was conservative but missed this local-only parity shape.
+
+Added tests:
+
+- `local-cse reuses expression across unrelated local-set`
+- `local-cse reuses expression across unrelated local-tee`
+
+The implementation now filters the active raw expression window by the written local index, retaining only expressions whose recorded local-read set does not contain that written local. The existing `local-cse clears the reuse window across writes to read locals` negative remains green, so this is local-write precision rather than local/GVN widening.
