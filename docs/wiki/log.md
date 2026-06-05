@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] tooling/cli | startup path contract refresh
+
+- Refreshed [`tooling/cli-startup-path.md`](tooling/cli-startup-path.md) from terse audit notes into the current startup contract: trivial help/version exits, parsed help/version fast paths, `STARSHINE_INPUT` append timing, config/env overlay laziness, normalized input resolution, glob bucketing/order semantics, regression-test ownership, and wiki routing boundaries.
+- Rechecked the current repository evidence in [`src/cmd/cmd.mbt`](../../src/cmd/cmd.mbt), [`src/cmd/cmd_wbtest.mbt`](../../src/cmd/cmd_wbtest.mbt), [`src/cli/cli.mbt`](../../src/cli/cli.mbt), [`src/cli/glob.mbt`](../../src/cli/glob.mbt), and [`src/cli/glob_test.mbt`](../../src/cli/glob_test.mbt). Existing archived research notes and local source/test evidence were sufficient, so no new raw-source file was added; the external Binaryen CLI orientation remains routed through the dispatcher page rather than this Starshine-specific startup-cost page.
+- Refreshed [`index.md`](index.md) so CLI readers can distinguish startup latency/path handling from full dispatcher semantics, the current stdin byte-source gap, and the repaired `o4z` debug-startup trap.
+
 ## [2026-06-04] tooling/release | package surface refresh
 
 - Added [`raw/release/2026-06-04-release-package-surface-refresh.md`](raw/release/2026-06-04-release-package-surface-refresh.md) after rechecking current npm CLI v11 package metadata / pack / publish / lifecycle docs, current MoonBit `moon.mod` docs, and live Starshine `moon.mod`, `node/package.json`, root `package.json`, Node README, `node/internal/.gitignore`, `node/internal/.npmignore`, and build/generation scripts.
