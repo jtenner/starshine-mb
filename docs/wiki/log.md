@@ -3,6 +3,13 @@
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
 
+
+## [2026-06-05] passes/local-cse | memory.size non-growing-effect precision
+
+- Spot-checked repeated `memory.size`-dependent roots across `memory.copy`, `memory.fill`, and `memory.init`; local Binaryen did not materialize these roots across the non-growing memory effects, but `memory.size` itself is unchanged by them.
+- Added missing WAT-form direct regressions proving Starshine keeps its existing memory-size precision across those non-growing effects while the `memory.grow` no-reuse guard remains the growth boundary. This is semantic-safe size-state coverage, not arbitrary memory/load/segment GVN.
+- Refreshed the LCSE research/backlog wording so the memory-size coverage distinguishes non-growing memory effects from `memory.grow`.
+
 ## [2026-06-05] passes/local-cse | table-state invalidation coverage
 
 - Spot-checked table-state-dependent roots around `table.set` and `table.grow`: Binaryen leaves `ref.is_null(table.get ...)` and `i32.add(table.size, const)` roots unmaterialized across table mutation while still allowing unrelated local-only arithmetic reuse in the spot-check fixtures.

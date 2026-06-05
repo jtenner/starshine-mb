@@ -478,6 +478,76 @@ test "local-cse reuses repeated memory-size root without intervening grow" {
 }
 
 ///|
+test "local-cse reuses memory-size expression across memory-copy" {
+  let input =
+    #| (module
+    #|   (memory 1)
+    #|   (func
+    #|     (drop (i32.add (memory.size) (i32.const 1)))
+    #|     (memory.copy (i32.const 0) (i32.const 4) (i32.const 1))
+    #|     (drop (i32.add (memory.size) (i32.const 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  let temp = @lib.LocalIdx::new(0U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
+test "local-cse reuses memory-size expression across memory-fill" {
+  let input =
+    #| (module
+    #|   (memory 1)
+    #|   (func
+    #|     (drop (i32.add (memory.size) (i32.const 1)))
+    #|     (memory.fill (i32.const 0) (i32.const 7) (i32.const 1))
+    #|     (drop (i32.add (memory.size) (i32.const 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  let temp = @lib.LocalIdx::new(0U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
+test "local-cse reuses memory-size expression across memory-init" {
+  let input =
+    #| (module
+    #|   (memory 1)
+    #|   (data "abcd")
+    #|   (func
+    #|     (drop (i32.add (memory.size) (i32.const 1)))
+    #|     (memory.init 0 (i32.const 0) (i32.const 0) (i32.const 1))
+    #|     (drop (i32.add (memory.size) (i32.const 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  let temp = @lib.LocalIdx::new(0U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
 test "local-cse reuses local-only expression across table-copy" {
   let input =
     #| (module

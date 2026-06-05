@@ -1296,3 +1296,25 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the first focused run was coverage-only and already passed (`66/66`), so no implementation change was required; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`66/66`); `moon test src/passes` passed (`1614/1614`); full `moon test` passed (`4799/4799`); native build was already up to date and succeeded; compare reached `6770` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+
+## Follow-up memory-size non-growing-effect precision slice on 2026-06-05
+
+A later focused LCSE hardening slice spot-checked repeated `memory.size`-dependent arithmetic roots across `memory.copy`, `memory.fill`, and `memory.init`. The local Binaryen spot-check did not materialize those roots across the non-growing memory effects, even though it materializes the same repeated `memory.size` root with no intervening memory operation. Starshine already preserved the more precise size-state behavior: it filters memory-size-dependent active expressions across `memory.grow` only, while `memory.copy` / `memory.fill` / `memory.init` do not change memory size.
+
+The slice added WAT-form direct regressions `local-cse reuses memory-size expression across memory-copy`, `local-cse reuses memory-size expression across memory-fill`, and `local-cse reuses memory-size expression across memory-init`. This was coverage-only for Starshine and is classified as semantic-safe size-state precision rather than arbitrary memory GVN: the tests reason only about `memory.size`, not memory contents, loads, aliases, or segment contents.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-memory-size-non-grow-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the first focused run was coverage-only and already passed (`69/69`), so no implementation change was required; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`69/69`); `moon test src/passes` passed (`1617/1617`); full `moon test` passed (`4802/4802`); native build was already up to date and succeeded; compare reached `6770` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
