@@ -98,7 +98,7 @@ The named-block expression-exit substrate now covers the first safe multi-root s
 Keep these first-slice bailouts explicit:
 
 - any unsupported branch family beyond plain `br`
-- any `br_table`, `br_if`, `br_on_*`, `delegate`, `try`, `try_table`, `throw`, or `pop` shape until the movement proof is local and tested; focused H/I coverage now protects `br_table`, outside-target/switch-scope negatives, simple and nested non-terminal `try_table` body positives, and tested `try_table` bailout shapes
+- any `br_table`, `br_if`, `br_on_*`, `delegate`, `try`, `try_table`, `throw`, or `pop` shape until the movement proof is local and tested; focused H/I coverage now protects `br_table`, outside-target/switch-scope negatives, simple and nested non-terminal `try_table` body positives, and tested `try_table` bailout shapes including `catch_ref` terminal tails
 - any candidate whose branch target is not still in scope after the proposed move
 - any additional multi-result, multi-value-payload, or refined-reference shape whose outer type cannot be reverified immediately
 - any case that needs a fresh helper label at the end of the function body
@@ -142,7 +142,7 @@ The current local root-anchored model now reruns to a fixpoint, but that is not 
 
 Do not mix EH movement into the first green port.
 Binaryen's source has conservative `pop` / throwing-through-`try` barriers plus nested-pop repair after block-adding rewrites.
-The current local decision is mostly bailout: `code-folding` now descends into `try` / `try_table` bodies only for ordinary non-terminal `if` suffix folding, does not treat EH controls as normal exiting/fallthrough-preventing cleanup nodes, and keeps focused `try_table` terminal/block-exit tests. The 2026-06-04 outer-`catch_all` and 2026-06-05 `catch_all_ref` `try_table` terminal-tail probes matched Binaryen's bailouts under `wasm-opt` version 129 (`version_129`), while simple and nested non-terminal duplicate `if` arms inside `try_table` bodies are locally covered for `catch_all` and explicit `catch`. Exact text-level plain `try` coverage remains blocked because local WAT lowering does not preserve that EH surface in the final HOT/pretty output, and a throwing-body `catch_all_ref` body-local positive remains open because Binaryen folds it but the local fixture does not yet. A later local port should only move EH-sensitive shapes if it also proves:
+The current local decision is mostly bailout: `code-folding` now descends into `try` / `try_table` bodies only for ordinary non-terminal `if` suffix folding, does not treat EH controls as normal exiting/fallthrough-preventing cleanup nodes, and keeps focused `try_table` terminal/block-exit tests. The 2026-06-04 outer-`catch_all` and 2026-06-05 `catch_ref` / `catch_all_ref` `try_table` terminal-tail probes matched Binaryen's bailouts under `wasm-opt` version 129 (`version_129`), while simple and nested non-terminal duplicate `if` arms inside `try_table` bodies are locally covered for `catch_all` and explicit `catch`. Exact text-level plain `try` coverage remains blocked because local WAT lowering does not preserve that EH surface in the final HOT/pretty output, and a throwing-body `catch_all_ref` body-local positive remains open because Binaryen folds it but the local fixture does not yet. A later local port should only move EH-sensitive shapes if it also proves:
 
 - HOT lift exposes enough catch / `try_table` ownership to detect the same hazards
 - HOT lower/writeback preserves the repaired shape
@@ -200,7 +200,7 @@ After slice 1 is green, keep adding:
 
 1. duplicate `return` suffixes produce one shared function-ending suffix (root-anchored non-adjacent coverage now exists)
 2. duplicate `unreachable` suffixes share safely (root-anchored block-backed coverage now exists)
-3. `return_call*` belongs to the same family (root-anchored direct/indirect/ref coverage now exists)
+3. `return_call*` belongs to the same family (root-anchored direct/indirect/ref coverage now exists, and simple result direct/indirect sibling-tail bailout boundaries are covered)
 4. a second local root-anchored fold exposed by the first is reached in the same pass invocation
 5. old-body fallthrough cannot accidentally execute the shared suffix (covered for groups anchored on the original root ending; arbitrary non-root groups remain future)
 6. root-level terminators are rewritten correctly, not only block-backed ones (root-ending anchor coverage exists; direct pointer-style non-root replacement remains future)

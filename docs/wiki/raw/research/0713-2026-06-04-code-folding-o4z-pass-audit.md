@@ -522,6 +522,8 @@ Follow-up `[O4Z-AUDIT-CF-G]` simple result `return_call` sibling-tail profitabil
 
 Follow-up `[O4Z-AUDIT-CF-G]` simple result `return_call_indirect` sibling-tail profitability coverage on 2026-06-05 checked `wasm-opt` version 129 (`version_129`) with `--all-features --code-folding -S` on `.tmp/code-folding-next5b/slice4-simple-result-return-call-indirect-negative.wat`; Binaryen preserves both indirect tail-call roots under the same no-root-tail/simple-operand boundary. The matching local slice extends the direct tail-call negative to the indirect-signature comparison path without changing the broader nested internal-label positives.
 
+Follow-up `[O4Z-AUDIT-CF-J/G]` late-neighborhood simple direct tail-call bailout coverage on 2026-06-05 checked `wasm-opt` version 129 (`version_129`) with `--all-features --code-folding --merge-blocks --remove-unused-brs --remove-unused-names --merge-blocks -S` on `.tmp/code-folding-next5b/slice5-simple-result-return-call-late-neighborhood.wat`; Binaryen's late cleanup neighborhood still preserves the two simple result `return_call` tails and the fallback value. The local pipeline now has the same small deterministic neighborhood guard for this negative tail-call boundary.
+
 Still required before closing the overall `[O4Z-AUDIT-CF]` parity track:
 
 - scale direct compare to `10000` after the next behavior-widening batch or before closeout;

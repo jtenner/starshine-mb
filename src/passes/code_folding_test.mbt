@@ -2680,6 +2680,60 @@ test "code-folding late branch-cleanup neighborhood keeps non-root return subset
 }
 
 ///|
+test "code-folding late branch-cleanup neighborhood keeps simple return-call bailout valid" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $target (param i32) (result i32)
+        #|    (local.get 0))
+        #|  (func (param i32 i32) (result i32)
+        #|    (if (local.get 0)
+        #|      (then
+        #|        (i32.const 7)
+        #|        (drop)
+        #|        (local.get 1)
+        #|        (return_call $target)))
+        #|    (if (local.get 0)
+        #|      (then
+        #|        (i32.const 7)
+        #|        (drop)
+        #|        (local.get 1)
+        #|        (return_call $target)))
+        #|    (i32.const 99)))
+        #|,
+      ),
+      [
+        "code-folding", "merge-blocks", "remove-unused-brs", "remove-unused-names",
+        "merge-blocks",
+      ],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected simple tail-call late code-folding neighborhood success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return_call (Func 0)"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(99)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding keeps br-on-null-poisoned block-exit suffixes" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::anyref()], [])),
