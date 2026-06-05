@@ -298,8 +298,8 @@ A later `[O4Z-AUDIT-CF-H]` guard added `code-folding keeps crossed nested self-b
 
 The 2026-06-05 five-slice continuation is green:
 
-- source-backed coverage now includes one-block/one-non-block multi-root `if` value suffixes in both orientations, two-unnamed-block multi-root `if` value suffixes, crossed live-label `if` suffix bailout, `br_if` block-exit payload poisoning, explicit-`catch` `try_table` body-local folding, `catch_all_ref` `try_table` terminal-tail bailout classification, crossed nested-label `unreachable` and `return_call_indirect` bailouts, nested self-branching `return_call_indirect` suffix sharing, non-null `ref.func` / `return_call_ref` nested self-branching suffix coverage, and a branch-only multi-value named-block payload suffix with an unreachable fallback;
-- per-slice `moon fmt` and `moon test src/passes` passed through `1645/1645` for the latest focused branch-poison coverage slice;
+- source-backed coverage now includes one-block/one-non-block multi-root `if` value suffixes in both orientations, two-unnamed-block multi-root `if` value suffixes, crossed live-label `if` suffix bailout, `br_if` block-exit payload poisoning, explicit-`catch` `try_table` body-local folding, `catch_all_ref` `try_table` terminal-tail bailout classification, crossed nested-label `unreachable`, `return_call`, and `return_call_indirect` bailouts, nested self-branching `return_call_indirect` suffix sharing, non-null `ref.func` / `return_call_ref` nested self-branching suffix coverage, and a branch-only multi-value named-block payload suffix with an unreachable fallback;
+- per-slice `moon fmt` and `moon test src/passes` passed through `1646/1646` for the latest focused tail-call movement coverage slice;
 - `moon info` completed with no work to do;
 - full `moon test` passed `4822/4822`;
 - `moon build --target native --release src/cmd` completed with no work to do and reused `_build/native/release/build/cmd/cmd.exe`;
