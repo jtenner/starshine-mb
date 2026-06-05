@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-05-gc-core-boundary-refresh.md
   - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
   - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../raw/wasm/2026-06-04-struct-atomic-get-sources.md
@@ -23,6 +24,7 @@ sources:
   - ../../../src/validate/gen_valid.mbt
   - ../../../src/validate/validate.mbt
 related:
+  - ../wasm-gc-core-boundary.md
   - gc-type-authoring.md
   - reference-instruction-authoring.md
   - ../custom-descriptors/descriptor-instruction-surface.md
@@ -44,7 +46,7 @@ related:
 
 ## Overview
 
-Use this page when writing or reducing fixtures that allocate, read, or mutate WebAssembly GC aggregates: structs, arrays, packed fields, i31 values, and the nearby `any`/`extern` conversion instructions. The companion [`gc-type-authoring.md`](gc-type-authoring.md) page owns type declarations such as `(type $S (struct ...))` and `(type $A (array ...))`; this page owns the **instruction** layer that consumes those types. Array-backed string helpers such as `string.new_utf8_array` and `string.encode_utf8_array` are covered in [`string-instruction-authoring.md`](string-instruction-authoring.md), but their fixtures still depend on the GC array type/storage rules summarized here.
+Use this page when writing or reducing fixtures that allocate, read, or mutate WebAssembly GC aggregates: structs, arrays, packed fields, i31 values, and the nearby `any`/`extern` conversion instructions. Start with [`../wasm-gc-core-boundary.md`](../wasm-gc-core-boundary.md) for the cross-layer question—Core GC versus Starshine WAST/core/binary/validator/generator/constant-expression/custom-descriptor evidence—then use this page for the **instruction** layer that consumes aggregate types. The companion [`gc-type-authoring.md`](gc-type-authoring.md) page owns type declarations such as `(type $S (struct ...))` and `(type $A (array ...))`. Array-backed string helpers such as `string.new_utf8_array` and `string.encode_utf8_array` are covered in [`string-instruction-authoring.md`](string-instruction-authoring.md), but their fixtures still depend on the GC array type/storage rules summarized here.
 
 The high-value local rule is a two-layer split:
 
@@ -216,6 +218,7 @@ Do not use `gen_valid` aggregate coverage or binary decode success as proof of i
 
 ## Source Map
 
+- Cross-layer GC boundary refresh: [`../raw/wasm/2026-06-05-gc-core-boundary-refresh.md`](../raw/wasm/2026-06-05-gc-core-boundary-refresh.md), [`../wasm-gc-core-boundary.md`](../wasm-gc-core-boundary.md)
 - Constant-expression current refresh: [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md)
 - Struct atomic get source snapshot: [`../raw/wasm/2026-06-04-struct-atomic-get-sources.md`](../raw/wasm/2026-06-04-struct-atomic-get-sources.md)
 - Current data/data-count refresh: [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md)

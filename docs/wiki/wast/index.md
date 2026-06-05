@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-05
 sources:
+  - ../raw/wasm/2026-06-05-gc-core-boundary-refresh.md
   - ../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md
   - ../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md
   - ../raw/wasm/2026-06-04-wast-text-surface-gap-ledger-source-bridge.md
@@ -22,6 +23,7 @@ sources:
   - ../raw/wasm/2026-05-20-code-metadata-and-function-annotation-sources.md
   - ../../README.md
 related:
+  - ../wasm-gc-core-boundary.md
   - text-surface-gap-ledger.md
   - function-call-and-module-authoring.md
   - resource-declaration-authoring.md
@@ -73,8 +75,9 @@ Do not treat success in one layer as proof for another. For example, core/binary
 - [`code-metadata-and-function-annotations.md`](code-metadata-and-function-annotations.md) — Starshine's function/import-only `(@...)` lane, Core-3.0 custom annotation / branch-hint metadata status, Binaryen inline/metadata examples, internal no-inline markers, and pass rewrite obligations.
 - [`static-assertion-harness.md`](static-assertion-harness.md) — `.wast` script assertions, static-only evaluation, and pass/skip/fail policy for spec-runner use.
 
-### Types, references, and GC proposal surfaces
+### Types, references, and GC surfaces
 
+- [`../wasm-gc-core-boundary.md`](../wasm-gc-core-boundary.md) — top-level finished/Core-3.0 GC router separating broad Starshine core/binary/validator/generator support from current WAST text gaps, constant-expression gaps, shared-GC atomic get-only text support, and active-proposal/local custom-descriptor exactness.
 - [`gc-type-authoring.md`](gc-type-authoring.md) — function/struct/array/rec types, `sub` / `final`, type-use syntax, flat type indices, and descriptor metadata caveats.
 - [`reference-instruction-authoring.md`](reference-instruction-authoring.md) — `ref.null`, `ref.func`, null tests, equality, casts, reference branches, the branch-path versus fallthrough-path type split, `CastOp` nullability, `call_ref` declaration-source boundaries, and current Starshine text gaps for officially sourced ordinary `ref.test` / `ref.cast` / `br_on_*` forms.
 - [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) — struct constructors/gets, focused `struct.atomic.get*` shared-GC reads, local descriptor constructors, i31 operations, the current core/binary-only status of many `array.*`, `struct.set`, and aggregate atomic write/RMW/cmpxchg forms, and the separate initializer caveat where official array constructor constant expressions outpace Starshine's local allow-list.
@@ -106,6 +109,7 @@ Do not treat success in one layer as proof for another. For example, core/binary
 The WAST pages deliberately keep text-surface gaps visible instead of smoothing them into generic support claims. The compact cross-family routing table is [`text-surface-gap-ledger.md`](text-surface-gap-ledger.md); the bullets below preserve the main caveats in this namespace index:
 
 - **Ordinary versus specialized control:** route `block` / `loop` / `if` / `br` / `br_if` / `br_table` / `return` / `unreachable` label mechanics through [`control-flow-authoring.md`](control-flow-authoring.md). Route `return_call*` through [`tail-call-authoring.md`](tail-call-authoring.md), `throw*` / `try_table` through [`exception-tag-authoring.md`](exception-tag-authoring.md), and `br_on_*` reference branches through [`reference-instruction-authoring.md`](reference-instruction-authoring.md) so branch/fallthrough refinements are not misread as ordinary `br_if` behavior. For exception tags, keep the result-shape split visible: current Starshine rejects resultful tag declarations earlier than current Core 3.0, while EH use sites still require empty-result tag expansions.
+- **GC layer first:** when a fixture is called “GC,” first decide whether it is a type-section, reference instruction, aggregate instruction, constant-expression, shared-GC atomic, or custom-descriptor fixture. The cross-layer router is [`../wasm-gc-core-boundary.md`](../wasm-gc-core-boundary.md); the focused child pages below own the exact syntax and validation contracts.
 - **Reference branch, cast, and ordinary `call_ref` text:** ordinary `ref.test`, `ref.cast`, `br_on_*`, and non-tail `call_ref` forms are official WebAssembly/core/binary concepts and are Starshine core/binary/validator/generator-visible, but not all human-authored Starshine WAST text forms are available. Route reference/cast/branch forms through [`reference-instruction-authoring.md`](reference-instruction-authoring.md), which also owns the branch-label versus fallthrough type split, and route ordinary reference calls through [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md).
 - **Aggregate instruction text:** many official `array.*` and `struct.set` families currently need core/binary/generator fixtures, but focused shared-GC `struct.atomic.get*` WAST text now exists with `seq_cst` / `acq_rel` order spellings. A second initializer caveat now lives with that split: official WebAssembly allows `array.new*` as constant expressions, while Starshine's reviewed initializer gate does not yet; route through [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md) and [`../validate/constant-expressions.md`](../validate/constant-expressions.md).
 - **Linear-memory atomic text:** `0xFE` linear-memory atomic instructions are core/binary/validator/generator-visible, while WAST keywords/parser cases are still absent; route those through [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md), including the standalone no-memory `atomic.fence` caveat. Do not confuse that gap with the narrower `struct.atomic.get*` aggregate WAST surface.

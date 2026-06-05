@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasm/wiki | GC Core boundary routing
+
+- Added [`raw/wasm/2026-06-05-gc-core-boundary-refresh.md`](raw/wasm/2026-06-05-gc-core-boundary-refresh.md) after checking the current WebAssembly finished-proposals table, Core 3.0 type/instruction/text/binary/validation pages, the historical GC proposal repository, the active Custom Descriptors proposal source, and current Starshine `src/lib`, `src/wast`, `src/binary`, `src/validate`, and generator evidence.
+- Added [`wasm-gc-core-boundary.md`](wasm-gc-core-boundary.md) as the focused router for ordinary finished/Core-3.0 GC versus Starshine layer-specific support: broad core/binary/validator/generator coverage, narrower WAST text coverage, narrower constant-expression initializer admission, shared-GC atomic get-only text support, and active-proposal/local custom-descriptor exactness.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wast/index.md`](wast/index.md), [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md), [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md), [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md), and [`index.md`](index.md) so “GC” claims route through exact type/reference/aggregate/initializer/descriptor layers instead of collapsing into a generic support statement.
+
 ## [2026-06-05] binaryen/wiki | BrOn assertion oracle boundary
 
 - Added [`raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md) after checking the upstream Binaryen `IRBuilder::makeBrOn` fix commit, issue #8633, PR #8635, NVD CVE-2026-8257, the `version_130` release page, and tag ancestry showing the public `version_130` baseline is after the fix.

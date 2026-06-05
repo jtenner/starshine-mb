@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-05
 sources:
+  - ../raw/wasm/2026-06-05-gc-core-boundary-refresh.md
   - ../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md
   - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
   - ../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md
@@ -24,6 +25,7 @@ sources:
   - ../../../src/validate/gen_valid.mbt
   - ../../../src/wast/arbitrary.mbt
 related:
+  - ../wasm-gc-core-boundary.md
   - function-call-and-module-authoring.md
   - gc-type-authoring.md
   - gc-aggregate-instruction-authoring.md
@@ -41,14 +43,14 @@ related:
 
 ## Overview
 
-Use this page when writing, reducing, or widening fixtures that mention WebAssembly reference values or reference-sensitive branch/cast instructions:
+Use this page when writing, reducing, or widening fixtures that mention WebAssembly reference values or reference-sensitive branch/cast instructions. For the bigger “is this GC/Core, Starshine WAST, Starshine core/binary/validator, or custom-descriptor evidence?” question, start with [`../wasm-gc-core-boundary.md`](../wasm-gc-core-boundary.md); this page owns the reference-instruction and reference-branch slice:
 
 - basic reference values: `ref.null`, `ref.func`, `ref.is_null`, `ref.eq`, and `ref.as_non_null`;
 - GC cast/test instructions represented by Starshine core and binary: `ref.test`, `ref.cast`, `br_on_cast`, and `br_on_cast_fail`;
 - nullability-specialized branches represented by Starshine core and binary: `br_on_null` and `br_on_non_null`;
 - Starshine's descriptor-family local/custom-descriptor text forms: `ref.test_desc`, `ref.test_desc_null`, `ref.cast_desc_eq`, and `ref.cast_desc_eq_null`.
 
-The current descriptor-instruction bridge is [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md) and the focused descriptor overview is [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md). The current ordinary reference source-routing refresh is [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md). The broad primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-reference-instruction-sources.md`](../raw/wasm/2026-05-19-wast-reference-instruction-sources.md). The targeted branch/cast refresh is [`../raw/wasm/2026-05-20-reference-branch-validation-refresh.md`](../raw/wasm/2026-05-20-reference-branch-validation-refresh.md), the focused ordinary reference-call refresh is [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md), and the current `ref.func` / start `refs` declaration-membership refresh is [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md). The key local lesson from these ingests is a layer split: **Starshine's core, binary, validator, and valid-generator surfaces are wider than its current WAST text surface.** Text fixtures can directly author the basic `ref.*` subset and descriptor-family forms today, while ordinary `ref.test` / `ref.cast`, `br_on_*`, and ordinary non-tail `call_ref` require core/binary fixtures or a WAST parser/printer widening first. For `ref.i31`, `i31.get_*`, `any.convert_extern`, and struct/array aggregate allocation or access, use [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md).
+The cross-layer GC router is [`../wasm-gc-core-boundary.md`](../wasm-gc-core-boundary.md), backed by [`../raw/wasm/2026-06-05-gc-core-boundary-refresh.md`](../raw/wasm/2026-06-05-gc-core-boundary-refresh.md). The current descriptor-instruction bridge is [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md) and the focused descriptor overview is [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md). The current ordinary reference source-routing refresh is [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md). The broad primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-reference-instruction-sources.md`](../raw/wasm/2026-05-19-wast-reference-instruction-sources.md). The targeted branch/cast refresh is [`../raw/wasm/2026-05-20-reference-branch-validation-refresh.md`](../raw/wasm/2026-05-20-reference-branch-validation-refresh.md), the focused ordinary reference-call refresh is [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md), and the current `ref.func` / start `refs` declaration-membership refresh is [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md). The key local lesson from these ingests is a layer split: **Starshine's core, binary, validator, and valid-generator surfaces are wider than its current WAST text surface.** Text fixtures can directly author the basic `ref.*` subset and descriptor-family forms today, while ordinary `ref.test` / `ref.cast`, `br_on_*`, and ordinary non-tail `call_ref` require core/binary fixtures or a WAST parser/printer widening first. For `ref.i31`, `i31.get_*`, `any.convert_extern`, and struct/array aggregate allocation or access, use [`gc-aggregate-instruction-authoring.md`](gc-aggregate-instruction-authoring.md).
 
 ## Beginner Mental Model
 
@@ -195,6 +197,7 @@ The Binaryen-specific BrOn assertion bridge [`../raw/binaryen/2026-06-05-binarye
 
 ## Source Map
 
+- Cross-layer GC boundary refresh: [`../raw/wasm/2026-06-05-gc-core-boundary-refresh.md`](../raw/wasm/2026-06-05-gc-core-boundary-refresh.md), [`../wasm-gc-core-boundary.md`](../wasm-gc-core-boundary.md)
 - Binaryen BrOn assertion / oracle boundary bridge: [`../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md`](../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md)
 - Descriptor instruction bridge: [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md)
 - Primary-source and local-code manifests: [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md), [`../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md`](../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md), [`../raw/wasm/2026-05-19-wast-reference-instruction-sources.md`](../raw/wasm/2026-05-19-wast-reference-instruction-sources.md), [`../raw/wasm/2026-05-20-reference-branch-validation-refresh.md`](../raw/wasm/2026-05-20-reference-branch-validation-refresh.md), [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md), [`../raw/wasm/2026-05-20-ref-func-declaration-refresh.md`](../raw/wasm/2026-05-20-ref-func-declaration-refresh.md)
