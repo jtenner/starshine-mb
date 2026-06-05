@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasm/wiki | component model boundary routing
+
+- Added [`raw/wasm/2026-06-05-component-model-boundary-refresh.md`](raw/wasm/2026-06-05-component-model-boundary-refresh.md) after checking the current official WebAssembly proposals tracker, Component Model repository, MVP explainer, WIT documentation, Canonical ABI documentation, and Starshine core module / binary / WAST / generator source evidence.
+- Added [`wasm-component-model-boundary.md`](wasm-component-model-boundary.md) as the focused guide for keeping Component Model, WIT, worlds, WASI Preview 2, and Canonical ABI claims outside ordinary Core module support unless a future implementation slice adds a component representation, decoder/parser policy, validator behavior, fuzzing strategy, Node API, and optimizer boundary.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md) and [`index.md`](index.md) so the broad feature-status router now links the focused Phase-1 Component Model boundary instead of leaving it inside the generic active-proposal bucket.
+
 ## [2026-06-05] fuzzing/wiki | text differential adapter routing
 
 - Added [`raw/fuzzing/2026-06-05-text-differential-adapter-source-refresh.md`](raw/fuzzing/2026-06-05-text-differential-adapter-source-refresh.md) after checking current WABT `wat2wasm`, `wasm-tools parse`, Starshine TypeScript optional text-adapter scaffold, MoonBit local text matrix, aggregate classifier, artifact persistence, and opt-in `text-differential` suite evidence.
