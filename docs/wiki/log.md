@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | atomic store boundary
+
+- Added core-built LCSE boundary coverage for local-only scalar reuse across representative linear atomic stores (`i32.atomic.store` and `i64.atomic.store32`).
+- Documented Starshine's conservative no-CSE behavior even though Binaryen materializes the representative local-only scalar across atomic stores; this stays out of atomic or memory GVN.
+
 ## [2026-06-05] local-cse/wiki | atomic cmpxchg boundary
 
 - Added core-built LCSE boundary coverage for local-only scalar reuse across `i32.atomic.rmw.cmpxchg`.
