@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wiki/schema | research archive forwarding-stub hygiene
+
+- Refreshed [`../README.md`](../README.md), [`raw/research/README.md`](raw/research/README.md), and [`index.md`](index.md) so archived numbered-note policy now distinguishes direct reference repointing from intentional tiny forwarding stubs.
+- Added the current `docs/` forwarding-stub ledger for `0063`, `0064`, `0065`, and `0089`, including their archived raw notes, living wiki destinations, and compatibility reasons, after checking the existing stubs and repo references.
+- No new external raw source was added: the change is repo-schema hygiene grounded in the existing wiki schema, the already-cited LLM Wiki methodology references, and current repository evidence.
+
 ## [2026-06-05] tooling/wiki | WASI runner preview boundary routing
 
 - Added [`raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md`](raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md) after checking the current Node.js `node:wasi` API docs, WebAssembly/WASI repository, WASI API catalog, Component Model documentation, Preview 1 WITX source, and current Starshine Node/script runner, package-build, smoke-test, and self-opt evidence.

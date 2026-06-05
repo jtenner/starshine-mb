@@ -149,6 +149,7 @@ Keep three layers in the wiki architecture:
 - Append a dated entry to `docs/wiki/log.md`.
 - If the source changes an existing belief, mark the previous claim stale or superseded instead of silently overwriting history.
 - If an old numbered doc in `docs/` has become absorbed research rather than active policy or handoff material, move it into `docs/wiki/raw/research/` in the same change.
+- Prefer direct reference repointing over forwarding stubs. A tiny `docs/` forwarding stub is allowed only for a concrete compatibility reason, must link both the archived raw note and the living wiki page, and must be tracked in `docs/wiki/raw/research/README.md` until removal.
 
 ### Query Rules
 
