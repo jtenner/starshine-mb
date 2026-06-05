@@ -932,6 +932,70 @@ test "local-cse defers repeated descriptor test and cast roots" {
 }
 
 ///|
+test "local-cse defers repeated descriptor allocation roots" {
+  let struct_type_idx = @lib.TypeIdx::new(0U)
+  let desc_type_idx = @lib.TypeIdx::new(1U)
+  let func_type_idx = @lib.TypeIdx::new(2U)
+  let desc_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(desc_type_idx)),
+  )
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::const_(),
+        ),
+      ]),
+      metadata=@lib.TypeMetadata::new(descriptor=Some(desc_type_idx)),
+    ),
+  )
+  let desc_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([]),
+      metadata=@lib.TypeMetadata::new(describes=Some(struct_type_idx)),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32(), desc_ref], []),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([struct_type, desc_type, func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::struct_new_desc(struct_type_idx),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::struct_new_desc(struct_type_idx),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::struct_new_default_desc(struct_type_idx),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::struct_new_default_desc(struct_type_idx),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(2U)), 0)
+}
+
+///|
 test "local-cse reuses local-only expression across numeric reinterpret" {
   let input =
     #| (module
