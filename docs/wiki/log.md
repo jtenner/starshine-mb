@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wasm/wiki | relaxed-atomics proposal routing
+
+- Added [`raw/wasm/2026-06-04-webassembly-proposal-status-current-recheck.md`](raw/wasm/2026-06-04-webassembly-proposal-status-current-recheck.md) after rechecking the current official WebAssembly Core 3.0 page, proposals tracker, finished-proposals table, process notes, Relaxed Atomics proposal repository, and Starshine `GenValidProposalFeature` source.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md) so `Relaxed Atomics` is visible as an active Phase-2 proposal that must not be conflated with Core/finished relaxed SIMD or Starshine's existing ordinary atomics support.
+- Refreshed [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) and [`index.md`](index.md) so the current `[FZG]017` / `AtomicsFeature` evidence remains scoped to ordinary linear-memory atomics plus `atomic.fence`, with relaxed-atomics fixtures requiring future AST/binary/validator/generator evidence.
+
 ## [2026-06-04] tooling/cli | startup path contract refresh
 
 - Refreshed [`tooling/cli-startup-path.md`](tooling/cli-startup-path.md) from terse audit notes into the current startup contract: trivial help/version exits, parsed help/version fast paths, `STARSHINE_INPUT` append timing, config/env overlay laziness, normalized input resolution, glob bucketing/order semantics, regression-test ownership, and wiki routing boundaries.
