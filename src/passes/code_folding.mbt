@@ -479,6 +479,22 @@ fn code_folding_terminal_tail_item_is_movable(
 }
 
 ///|
+fn code_folding_terminal_tail_item_has_external_break_target(
+  func : @ir.HotFunc,
+  tail : CodeFoldingTerminatingTail,
+  node_id : Int,
+) -> Bool {
+  node_id >= 0 &&
+  @ir.hot_node_is_live(func, node_id) &&
+  !code_folding_branch_targets_survive_hoist(
+    func,
+    node_id,
+    tail.region_ref.holder,
+    node_id,
+  )
+}
+
+///|
 fn code_folding_node_is_if_hoistable_suffix(
   func : @ir.HotFunc,
   node_id : Int,
@@ -2492,6 +2508,54 @@ fn code_folding_terminating_tail_group_has_root_end(
 }
 
 ///|
+fn code_folding_node_is_simple_tail_call_operand(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::LocalGet
+    | @ir.HotOp::GlobalGet
+    | @ir.HotOp::Const
+    | @ir.HotOp::RefNull
+    | @ir.HotOp::RefFunc => true
+    _ => false
+  }
+}
+
+///|
+fn code_folding_terminating_suffix_is_tail_call_operands_only(
+  func : @ir.HotFunc,
+  tail : CodeFoldingTerminatingTail,
+  suffix_len : Int,
+) -> Bool {
+  let terminal_id = code_folding_terminating_tail_item_at_depth(func, tail, 0)
+  if terminal_id < 0 || !@ir.hot_node_is_live(func, terminal_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, terminal_id).op {
+    @ir.HotOp::ReturnCall
+    | @ir.HotOp::ReturnCallIndirect
+    | @ir.HotOp::ReturnCallRef => ()
+    _ => return false
+  }
+  if suffix_len <= 1 {
+    return true
+  }
+  for depth = 1; depth < suffix_len; depth = depth + 1 {
+    if !code_folding_node_is_simple_tail_call_operand(
+        func,
+        code_folding_terminating_tail_item_at_depth(func, tail, depth),
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn code_folding_pick_terminating_tail_group_from_anchor(
   func : @ir.HotFunc,
   anchor_tail : CodeFoldingTerminatingTail,
@@ -2506,15 +2570,28 @@ fn code_folding_pick_terminating_tail_group_from_anchor(
     let anchor = code_folding_terminating_tail_item_at_depth(
       func, anchor_tail, depth,
     )
-    if anchor < 0 ||
-      !code_folding_terminal_tail_item_is_movable(
+    if anchor < 0 {
+      break
+    }
+    if !code_folding_terminal_tail_item_is_movable(
         func, anchor_tail, anchor, depth, label_used,
       ) {
+      if code_folding_terminal_tail_item_has_external_break_target(
+          func, anchor_tail, anchor,
+        ) {
+        return []
+      }
       break
     }
     let next : Array[CodeFoldingTerminatingTail] = []
+    let mut blocked_by_external_target = false
     for tail in current {
       let item = code_folding_terminating_tail_item_at_depth(func, tail, depth)
+      if code_folding_terminal_tail_item_has_external_break_target(
+          func, tail, item,
+        ) {
+        blocked_by_external_target = true
+      }
       if item >= 0 &&
         code_folding_terminal_tail_item_is_movable(
           func, tail, item, depth, label_used,
@@ -2522,6 +2599,9 @@ fn code_folding_pick_terminating_tail_group_from_anchor(
         code_folding_nodes_equal(func, anchor, item, label_used) {
         next.push(tail)
       }
+    }
+    if blocked_by_external_target {
+      return []
     }
     if next.length() < 2 {
       break
@@ -2538,7 +2618,10 @@ fn code_folding_pick_terminating_tail_group_from_anchor(
       func, anchor_tail, best_len,
     ) *
     (best.length() - 1)
-  if profitability < 3 {
+  if profitability < 3 ||
+    code_folding_terminating_suffix_is_tail_call_operands_only(
+      func, anchor_tail, best_len,
+    ) {
     return []
   }
   let planned : Array[CodeFoldingTerminatingTail] = []

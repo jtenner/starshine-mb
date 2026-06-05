@@ -1913,6 +1913,68 @@ test "code-folding shares non-root nested self-branch return-call-indirect suffi
 }
 
 ///|
+test "code-folding keeps crossed nested self-branch return-call-indirect suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (type $t (func (param i32)))
+      #|  (table 1 funcref)
+      #|  (func $target (type $t))
+      #|  (elem (i32.const 0) $target)
+      #|  (func (param i32 i32 i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (block $left_outer
+      #|          (block $left_inner
+      #|            (i32.const 7)
+      #|            (drop)
+      #|            (br $left_inner))
+      #|          (i32.const 8)
+      #|          (drop)
+      #|          (br $left_outer))
+      #|        (local.get 1)
+      #|        (local.get 2)
+      #|        (return_call_indirect (type $t))))
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (block $right_outer
+      #|          (block $right_inner
+      #|            (i32.const 7)
+      #|            (drop)
+      #|            (br $right_outer))
+      #|          (i32.const 8)
+      #|          (drop)
+      #|          (br $right_outer))
+      #|        (local.get 1)
+      #|        (local.get 2)
+      #|        (return_call_indirect (type $t))))
+      #|    (i32.const 99)
+      #|    (drop)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("i32.const I32(99)"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(8)"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return_call_indirect"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding shares return-call-ref tails" {
   let callee_type_idx = @lib.TypeIdx::new(0U)
   let caller_type_idx = @lib.TypeIdx::new(1U)

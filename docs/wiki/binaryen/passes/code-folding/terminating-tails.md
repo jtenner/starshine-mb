@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-05
 sources:
   - ../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md
@@ -247,7 +247,7 @@ The next passes are exactly the passes you would want to clean that up.
 
 ## Current Starshine progress
 
-The broader staged local plan is in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). As of the 2026-06-04 O4z audit continuation, Starshine first covered the adjacent shape where a no-else `if` then-tail and the immediately following fallthrough tail share an identical empty-payload `return` or `unreachable` suffix. The next slice now implements a conservative root-anchored helper-label algorithm: it collects root-level and nested region terminators, searches backward for the deepest profitable common suffix that also includes the function-end tail, rewrites the old nested tails to `br` to a fresh wrapper label, wraps the old function prefix in that void block, and leaves one shared terminal suffix after it. Focused tests cover non-adjacent `return`, block-backed `unreachable`, typed-result direct `return_call`, `return_call_indirect`, and core-built `return_call_ref` tails. The H/I/J batch now reruns this local root-anchored model to fixpoint, with a focused test where the first root-anchored fold exposes a second root-anchored fold. This is useful progress, but it is still not the full Binaryen subset/deeper-suffix terminating-tail algorithm because arbitrary non-root subsets, branch/control-bearing moved suffixes, exact helper cost modeling, and EH repair remain open.
+The broader staged local plan is in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). As of the 2026-06-04 O4z audit continuation, Starshine first covered the adjacent shape where a no-else `if` then-tail and the immediately following fallthrough tail share an identical empty-payload `return` or `unreachable` suffix. The next slice now implements a conservative root-anchored helper-label algorithm: it collects root-level and nested region terminators, searches backward for the deepest profitable common suffix that also includes the function-end tail, rewrites the old nested tails to `br` to a fresh wrapper label, wraps the old function prefix in that void block, and leaves one shared terminal suffix after it. Focused tests cover non-adjacent `return`, block-backed `unreachable`, typed-result direct `return_call`, `return_call_indirect`, and core-built `return_call_ref` tails, plus narrow nested internal-label positives and crossed-label negatives through `return_call_indirect`. The H/I/J batch now reruns this local root-anchored model to fixpoint, with a focused test where the first root-anchored fold exposes a second root-anchored fold; the June 5 tail-call guard also keeps operand-only tail-call suffixes unshared when Binaryen's helper-cost model preserves them. This is useful progress, but it is still not the full Binaryen subset/deeper-suffix terminating-tail algorithm because arbitrary non-root subsets, branch/control-bearing moved suffixes, exact helper cost modeling, and EH repair remain open.
 
 ## What a future Starshine port must preserve
 
