@@ -1836,3 +1836,24 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the initial focused run with the added conservative core-built coverage passed (`116/116`); `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`116/116`); `moon test src/passes` passed (`1664/1664`); full `moon test` passed (`4849/4849`); native build succeeded with no work to do; compare reached `6765` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up linear atomic boundary slice on 2026-06-05
+
+A later focused LCSE hardening slice spot-checked local-only scalar reuse across ordinary linear-memory atomic operations with representative `i32.atomic.load` and `i32.atomic.rmw.add` roots. Binaryen materialized the local-only arithmetic value across the representative atomic operations with `local.tee` / `local.get` in the spot-check fixture under `.tmp/local-cse-spot/linear_atomic.wat`.
+
+This slice deliberately did not model linear atomic operations as reusable loads/effects or add atomic/memory GVN. The initial WAT-form Starshine fixture was not accepted by the local test parser, so the landed coverage uses the core instruction surface. The new `local-cse defers local-only reuse across linear atomic operations` test documents Starshine's conservative no-CSE behavior around linear atomics; recovering this Binaryen-positive local-only opportunity would need a separate atomic effect model and must still keep atomic roots distinct.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-linear-atomic-boundary-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the initial WAT-form focused fixture failed because the Starshine test parser rejected the linear atomic text shape; the landed core-built fixture passed (`117/117`). `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`117/117`); `moon test src/passes` passed (`1665/1665`); full `moon test` passed (`4850/4850`); native build succeeded with no work to do; compare reached `6766` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).

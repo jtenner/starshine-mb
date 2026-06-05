@@ -8,6 +8,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Refreshed [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md) so `tag`, `throw`, nullable-operand `throw_ref`, `try_table`, and modern catch clauses route as finished/Core-3.0 Exception Handling while keeping Starshine's stricter resultful-tag declaration validation, legacy `try` text compatibility, pass rewrite obligations, and `throw_ref` null-trap behavior explicit.
 - Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so EH claims no longer sit only in the generic ordinary-Core row and readers route Stack Switching, JSPI, and Relaxed Dead Code Validation to their separate focused boundaries.
 
+## [2026-06-05] local-cse/wiki | linear atomic boundary
+
+- Added core-built LCSE boundary coverage for local-only scalar reuse across representative linear-memory atomic operations, documenting Starshine's conservative behavior even though Binaryen materializes the local-only repeat.
+- Refreshed the LCSE strategy, implementation/test guide, backlog, and final-pass audit note so linear atomics remain separate from arbitrary atomic or memory GVN.
+
 ## [2026-06-05] local-cse/wiki | descriptor allocation deferral
 
 - Added core-built LCSE boundary coverage for repeated `struct.new_desc` and `struct.new_default_desc` roots while documenting that the installed Binaryen oracle asserted on the descriptor allocation text fixture.
