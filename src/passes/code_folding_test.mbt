@@ -2856,6 +2856,44 @@ test "code-folding folds catch try-table if-arm body suffixes" {
 }
 
 ///|
+test "code-folding keeps catch-ref try-table terminal tails as EH bailout" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (tag $e)
+      #|  (func $sink (param i32))
+      #|  (func (param i32 i32)
+      #|    (block $h (result exnref)
+      #|      (try_table (catch_ref $e $h)
+      #|        (if (local.get 0)
+      #|          (then
+      #|            (local.get 1)
+      #|            (call $sink)
+      #|            (return)))
+      #|        (local.get 1)
+      #|        (call $sink)
+      #|        (return))
+      #|      (unreachable))
+      #|    (drop)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("catch_ref"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding keeps catch-all-ref try-table terminal tails as EH bailout" {
   let optimized = code_folding_test_run(
     (

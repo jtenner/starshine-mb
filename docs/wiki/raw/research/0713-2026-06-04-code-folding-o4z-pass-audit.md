@@ -516,6 +516,8 @@ The actual native binary path for this workspace is `_build/native/release/build
 
 Follow-up `[O4Z-AUDIT-CF-F]` simple return-operand profitability coverage on 2026-06-05 checked `wasm-opt` version 129 (`version_129`) with `--all-features --code-folding -S` on `.tmp/code-folding-next5b/slice1-return-operand-only-negative.wat`; Binaryen preserves both sibling `(local.get 1) / return` tails and the `i32.const 99` fallback rather than building a helper for an operand-only return suffix. The matching local slice is coverage for the existing simplified profitability boundary rather than a behavior change.
 
+Follow-up `[O4Z-AUDIT-CF-I]` `catch_ref` terminal-tail EH bailout coverage on 2026-06-05 checked `wasm-opt` version 129 (`version_129`) with `--all-features --enable-exception-handling --code-folding -S` on `.tmp/code-folding-next5b/slice2-catch-ref-terminal-bailout.wat`; Binaryen preserves both terminal `call $sink` / `return` tails under the `catch_ref` `try_table`. The matching local slice extends the existing EH-terminal bailout coverage from `catch_all`/`catch_all_ref` to explicit `catch_ref` without implementing EH movement or nested-pop repair.
+
 Still required before closing the overall `[O4Z-AUDIT-CF]` parity track:
 
 - scale direct compare to `10000` after the next behavior-widening batch or before closeout;
