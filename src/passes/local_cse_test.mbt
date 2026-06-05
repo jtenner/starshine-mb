@@ -458,6 +458,29 @@ test "local-cse reuses local-only expression across table-init" {
 }
 
 ///|
+test "local-cse reuses local-only expression across data-drop" {
+  let input =
+    #| (module
+    #|   (data "abcd")
+    #|   (func (param i32 i32)
+    #|     (drop (i32.add (local.get 0) (local.get 1)))
+    #|     (data.drop 0)
+    #|     (drop (i32.add (local.get 0) (local.get 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  let temp = @lib.LocalIdx::new(2U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
 test "local-cse leaves repeated tiny global.get roots unmaterialized" {
   let input =
     #| (module

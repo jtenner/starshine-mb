@@ -205,6 +205,7 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::F32Const(_)
     | @lib.Instruction::F64Const(_)
     | @lib.Instruction::MemorySize(_)
+    | @lib.Instruction::DataDrop(_)
     | @lib.Instruction::RefNull(_)
     | @lib.Instruction::RefFunc(_)
     | @lib.Instruction::StringConst(_) => Some(0)

@@ -12384,3 +12384,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added a failing WAT-form direct `local-cse` regression, then fixed the raw/module path to model `table.init` as a three-operand, no-result instruction rather than an unknown hard boundary.
 - Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-table-init-local-only-10000`: 6764 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
 - Refreshed the LCSE wiki pages, the 0710 audit note, and [`../../agent-todo.md`](../../agent-todo.md) so this effect-invalidation case is tracked as a covered positive without broad table/GVN claims.
+
+## [2026-06-04] passes/local-cse | data.drop local-only reuse fix
+
+- Spot-checked a `data.drop` between two local-only arithmetic trees and confirmed Binaryen materializes the pre-drop expression with `local.tee` and reuses it after the data segment drop.
+- Added a failing WAT-form direct `local-cse` regression, then fixed the raw/module path to model `data.drop` as a zero-operand, no-result side-effecting instruction rather than an unknown hard boundary.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-data-drop-local-only-10000`: 6768 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
+- Refreshed the LCSE wiki pages, the 0710 audit note, and [`../../agent-todo.md`](../../agent-todo.md) so this side-effect case is tracked as a covered positive without broad memory, table, or segment GVN claims.
