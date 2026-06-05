@@ -305,6 +305,29 @@ Why Binaryen keeps the duplication:
 
 This is the easiest visible example of the pass's “poisoned label” rule.
 
+## EH body-local shape: non-terminal `if` suffixes can fold inside `try_table`
+
+Before:
+
+```wat
+(try_table (catch_all 0)
+  (if (local.get 0)
+    (then
+      (local.get 1)
+      (call $sink)
+      (i32.const 7)
+      (drop))
+    (else
+      (local.get 1)
+      (call $sink)
+      (i32.const 7)
+      (drop))))
+```
+
+Binaryen can preserve the `try_table` while sharing the ordinary non-terminal `if` arm suffix inside its body. Starshine now has focused coverage for this narrow body-local fold.
+
+This does **not** mean EH movement parity is complete: terminal tails through `try_table`, block exits across EH boundaries, throwing-through-try movement, and nested-pop repair remain separate hazards.
+
 ## Shape 11: atomic and non-atomic tails are not equal
 
 Before and after stay the same:

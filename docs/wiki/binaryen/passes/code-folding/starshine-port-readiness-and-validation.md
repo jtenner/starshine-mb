@@ -142,11 +142,11 @@ The current local root-anchored model now reruns to a fixpoint, but that is not 
 
 Do not mix EH movement into the first green port.
 Binaryen's source has conservative `pop` / throwing-through-`try` barriers plus nested-pop repair after block-adding rewrites.
-The current local decision is to bail out: `code-folding` does not descend into `try` / `try_table` bodies, does not treat EH controls as normal exiting/fallthrough-preventing cleanup nodes, and has focused `try_table` terminal/block-exit tests. The 2026-06-04 outer-`catch_all` `try_table` terminal-tail probe matched Binaryen's bailout under `wasm-opt version_129 --enable-exception-handling --code-folding -S`, while a non-terminal duplicate `if` arm inside a `try_table` body showed Binaryen can fold EH-body-local shapes that Starshine still defers. A later local port should only move EH-sensitive shapes if it also proves:
+The current local decision is mostly bailout: `code-folding` now descends into `try` / `try_table` bodies only for ordinary non-terminal `if` suffix folding, does not treat EH controls as normal exiting/fallthrough-preventing cleanup nodes, and keeps focused `try_table` terminal/block-exit tests. The 2026-06-04 outer-`catch_all` `try_table` terminal-tail probe matched Binaryen's bailout under `wasm-opt version_129 --enable-exception-handling --code-folding -S`, while the non-terminal duplicate `if` arm inside a `try_table` body is now locally covered. A later local port should only move EH-sensitive shapes if it also proves:
 
 - HOT lift exposes enough catch / `try_table` ownership to detect the same hazards
 - HOT lower/writeback preserves the repaired shape
-- focused EH tests cover both accepted and rejected movement
+- focused EH tests cover both accepted and rejected movement beyond the current non-terminal `if` body fold
 
 ## Local implementation substrate
 
@@ -294,7 +294,7 @@ The `[O4Z-AUDIT-CF-H]` / `[O4Z-AUDIT-CF-I]` / `[O4Z-AUDIT-CF-J]` movement-safety
 - direct 1000-case smoke at `.tmp/pass-fuzz-code-folding-hij-1000`: `998/1000` compared cases, `998` normalized matches, `0` mismatches, `2` `binaryen-rec-group-zero` command failures;
 - timing-only debug-WASI replay at `.tmp/code-folding-hij-self-compare`: `231.629ms` Starshine pass time vs `195.691ms` Binaryen, within the <=2x floor.
 
-A later `[O4Z-AUDIT-CF-H]` guard added `code-folding keeps crossed nested self-branch return suffixes`, which was already green locally and protects the multi-label alpha map from equating an inner-target branch with an outer-target branch. This is guard coverage, not a broader movement-safety implementation.
+A later `[O4Z-AUDIT-CF-H]` guard added `code-folding keeps crossed nested self-branch return suffixes`, which was already green locally and protects the multi-label alpha map from equating an inner-target branch with an outer-target branch. This is guard coverage, not a broader movement-safety implementation. The same continuation added `[O4Z-AUDIT-CF-I]` coverage and a narrow implementation for `code-folding folds non-terminal try-table if-arm body suffixes`, matching the checked Binaryen body-local fold while leaving EH movement/repair and terminal-tail collection across EH boundaries open.
 
 Direct `[CF]002` signoff is accepted as of 2026-05-10 for the earlier narrowed surface, `[O4Z-AUDIT-CF-A]` baselines the June widening, `[O4Z-AUDIT-CF-B]` through `[O4Z-AUDIT-CF-D]` add the source-backed matrix, explicit named-block candidate model, and first multi-root named-block expression-exit widening, `[O4Z-AUDIT-CF-E]` has exact partial non-block and one-block/one-non-block progress plus a HOT-level unreachable-condition bailout, `[O4Z-AUDIT-CF-F]` has adjacent and root-anchored return/unreachable terminal-tail helper shapes, `[O4Z-AUDIT-CF-G]` has started root-anchored `return_call*` sharing, `[O4Z-AUDIT-CF-H]` has movement-safety negatives, `[O4Z-AUDIT-CF-I]` has tested EH bailouts, and `[O4Z-AUDIT-CF-J]` has local root-anchored fixpoint plus a small late-neighborhood fixture. The remaining direct debug-artifact diff is classified representation drift, and the focused `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names` cleanup replay produced the same first diff as the no-CF cleanup baseline. The 2026-06-04 O4z audit is tracked in [`../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md`](../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md); it now keeps the broader Binaryen behavior-parity slices open.
 
@@ -313,7 +313,7 @@ Follow the repo-level pass signoff rule from [`../../../../../AGENTS.md`](../../
 - Should suffix equality begin with exact HOT-node structural equality, or reuse a normalized lowered-instruction comparison for the first slice? Current answer: exact HOT-node structural equality plus label-use-aware comparison for the covered named-block slices.
 - How should Starshine represent Binaryen's `unoptimizables` label set when a label has both plain-`br` tails and unsupported branch-form users? Current answer: the local collectors poison the whole target by returning false when `br_if`, `br_on_*`, `br_table`, or `delegate` traffic reaches the target label.
 - Which local size model should stand in for Binaryen's expression `Measurer` before Starshine has byte-level profitability for this pass? Current answer: `code_folding_node_measure` is the provisional node-count measure; it is good enough for the tested direct after-block suffix sharing but not a full Binaryen helper-block cost model.
-- Is it better to add EH support after function-ending tails, or should EH-sensitive shapes stay permanent bailouts until more local EH rewrite infrastructure exists? Current batch chose tested bailouts: the pass skips `try` / `try_table` bodies and has no nested-pop repair path.
+- Is it better to add EH support after function-ending tails, or should EH-sensitive shapes stay permanent bailouts until more local EH rewrite infrastructure exists? Current batch keeps EH-sensitive movement as tested bailouts while allowing only body-local non-terminal `if` suffix folding inside `try` / `try_table`; there is still no nested-pop repair path.
 
 ## Bottom line
 
