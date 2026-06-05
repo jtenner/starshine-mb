@@ -813,7 +813,22 @@ fn code_folding_full_value_if_common_suffix_allowed(
 }
 
 ///|
-fn code_folding_try_fold_embedded_select_if_child(
+fn code_folding_parent_accepts_embedded_value_wrapper(
+  func : @ir.HotFunc,
+  parent_id : Int,
+) -> Bool {
+  if parent_id < 0 || !@ir.hot_node_is_live(func, parent_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, parent_id).op {
+    @ir.HotOp::Select | @ir.HotOp::Drop | @ir.HotOp::Call | @ir.HotOp::Binary =>
+      true
+    _ => false
+  }
+}
+
+///|
+fn code_folding_try_fold_embedded_value_if_child(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   parent_id : Int,
@@ -824,12 +839,9 @@ fn code_folding_try_fold_embedded_select_if_child(
   if parent_id < 0 ||
     if_id < 0 ||
     !@ir.hot_node_is_live(func, parent_id) ||
-    !@ir.hot_node_is_live(func, if_id) {
+    !@ir.hot_node_is_live(func, if_id) ||
+    !code_folding_parent_accepts_embedded_value_wrapper(func, parent_id) {
     return false
-  }
-  match @ir.hot_node_get(func, parent_id).op {
-    @ir.HotOp::Select => ()
-    _ => return false
   }
   let if_node = @ir.hot_node_get(func, if_id)
   match if_node.op {
@@ -910,7 +922,7 @@ fn code_folding_try_fold_embedded_select_if_child(
     ctx.trace,
     ctx.descriptor.name,
     "mutated",
-    payload="embedded-select-if-common-suffix",
+    payload="embedded-value-if-common-suffix",
   )
   true
 }
@@ -1555,7 +1567,10 @@ fn code_folding_should_visit_drop_embedded_controls(
     seen,
     code_folding_embedded_control_visit_budget(),
   ) &&
-  code_folding_node_has_embedded_branch_control_payload(func, node_id)
+  (
+    code_folding_node_has_embedded_branch_control_payload(func, node_id) ||
+    code_folding_node_has_direct_control_child(func, node_id)
+  )
 }
 
 ///|
@@ -3660,7 +3675,7 @@ fn code_folding_visit_embedded_controls(
                 changed = true
               }
               let next_child_id = @ir.hot_child_get(func, node_id, slot)
-              if code_folding_try_fold_embedded_select_if_child(
+              if code_folding_try_fold_embedded_value_if_child(
                   ctx, func, node_id, slot, next_child_id, label_used,
                 ) {
                 changed = true
@@ -3783,7 +3798,7 @@ fn code_folding_visit_region(
             ) {
             changed = true
           }
-        @ir.HotOp::Select =>
+        @ir.HotOp::Select | @ir.HotOp::Call | @ir.HotOp::Binary =>
           if code_folding_node_has_direct_control_child(func, current_id) &&
             code_folding_visit_embedded_controls(
               ctx, func, current_id, label_used,
