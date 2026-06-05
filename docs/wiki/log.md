@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasm/wiki | linear-memory Threads boundary routing
+
+- Added [`wasm-linear-memory-threads-boundary.md`](wasm-linear-memory-threads-boundary.md) as the focused router for active Phase-4 Threads proposal evidence, Starshine's current `MemType(..., shared)` / ordinary `0xFE` atomic subset, shared-without-max invalid specimens, the standalone `atomic.fence` versus `MemArg` sharedness split, WAST text gaps, generator gates, and nearby Relaxed Atomics / shared-GC atomics / Memory Control / Custom Page Sizes boundaries.
+- Reused the already-ingested 2026-06-04 primary-source bridges [`raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md) and [`raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md`](raw/wasm/2026-06-04-linear-atomics-fence-unshared-reconciliation.md), with a current web recheck of official WebAssembly proposal routing and Threads/shared-memory sources; no duplicate raw source was added because those committed bridges were still the durable source captures.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), and [`index.md`](index.md) so Threads/shared-memory support claims route through the focused page rather than scattered raw-source links.
+
 ## [2026-06-05] local-cse/wiki | struct atomic-get boundary
 
 - Added focused LCSE coverage for local-only scalar reuse across `struct.atomic.get`, documenting Starshine's conservative no-CSE boundary even though Binaryen materializes the representative local-only repeat.
