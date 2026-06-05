@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-05
 sources:
   - ../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md
@@ -220,6 +220,8 @@ Why it folds:
 - the shared value tail is identical
 
 The shared suffix can be more than just the final value root. A safe single-result example is a repeated void/effectful root immediately before the final value, such as `local.get; call $sink; i32.const 7`, where the `call` is the void root to share and the `i32.const` supplies the named block's result.
+
+Starshine's current source-backed multi-value increment uses the same idea for `(result i32 f32)`: the branch payload and fallthrough tail share `call $sink`, `i32.const 7`, and `f32.const 0`, then the branch shell becomes a valueless branch to the demoted block.
 
 This is why the source keeps a special `fallthrough` tail representation.
 

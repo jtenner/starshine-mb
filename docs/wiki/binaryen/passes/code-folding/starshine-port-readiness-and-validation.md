@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-05
 sources:
   - ../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md
   - ../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md
@@ -59,8 +59,8 @@ The local surfaces that already exist are active implementation and planning sur
 
 | Surface | Location | What it proves |
 | --- | --- | --- |
-| Active owner | `src/passes/code_folding.mbt` | `code-folding` has a real HOT descriptor and transform for the current narrow subset, now with explicit typed named-block exit-tail provenance and single-result multi-root suffix plans. |
-| Focused tests | `src/passes/code_folding_test.mbt` | current void-tail positives, typed named-block payload and multi-root suffix positives, terminal `if` subsets, and bailouts are regression-protected. |
+| Active owner | `src/passes/code_folding.mbt` | `code-folding` has a real HOT descriptor and transform for the current narrow subset, now with explicit typed named-block exit-tail provenance, single-result multi-root suffix plans, and the first source-backed multi-value branch-plus-fallthrough payload suffix. |
+| Focused tests | `src/passes/code_folding_test.mbt` | current void-tail positives, typed named-block payload, multi-root, and first multi-value suffix positives, terminal `if` subsets, and bailouts are regression-protected. |
 | Registry entry | `src/passes/optimize.mbt` | `code-folding` is an active hot pass, not a removed-name placeholder. |
 | Dispatcher arm | `src/passes/pass_manager.mbt` | active requests dispatch to `code_folding_run(ctx, func)`. |
 | CLI spelling preservation | `src/cli/cli_test.mbt` | `--code-folding` parses and explicit pass-token order is stable. |
@@ -81,7 +81,7 @@ The current owner file and tests cover a conservative subset of the expression-e
 - value-producing `if` bailout
 - full-`if` terminal suffix sharing for empty-payload `return` and `unreachable`
 - void block-exit/fallthrough tail sharing
-- single-result typed named-block plain-`br` payload sharing with a matching fallthrough value or other branch payloads, including a safe multi-root suffix before the final value root
+- typed named-block plain-`br` payload sharing with a matching fallthrough value or other branch payloads, including safe single-result multi-root suffixes and one source-backed multi-value branch-plus-fallthrough suffix
 - unsupported `br_on_null` label-poisoning coverage for block-exit folding
 - exact partial non-block value-arm `if` suffix sharing, one-block/one-non-block `if` value-suffix folding in both then-block and else-block orientations, and a source-backed two-unnamed-block value-arm suffix fold with unique prefixes
 - live-label structured `if` suffix bailout coverage
@@ -89,18 +89,18 @@ The current owner file and tests cover a conservative subset of the expression-e
 
 ### Current next slice: broader `if` expression-exit positives with hard bailouts
 
-The named-block expression-exit substrate now covers the first safe multi-root single-result branch-payload suffix shapes. Continue with the remaining broader expression-exit family from [`./binaryen-strategy.md`](./binaryen-strategy.md):
+The named-block expression-exit substrate now covers the first safe multi-root single-result branch-payload suffix shapes and one source-backed multi-value branch-plus-fallthrough shape. Continue with the remaining broader expression-exit family from [`./binaryen-strategy.md`](./binaryen-strategy.md):
 
 - remaining unnamed `if` arm duplicate suffix caveats beyond the covered direct suffix, exact partial non-block value suffix, one-block/one-non-block value-suffix cases, and the new two-unnamed-block value-suffix case
 - named-arm negatives from the official lit matrix where the local HOT/name surface can distinguish them
-- any further named-block broadening only when it goes beyond the covered plain-`br`, single-result, multi-root safe subset, such as multi-value payloads with HOT/lower proof
+- any further named-block broadening only when it goes beyond the covered plain-`br`, single-result multi-root safe subset and first multi-value branch-plus-fallthrough payload suffix, with HOT/lower proof for each new shape
 
 Keep these first-slice bailouts explicit:
 
 - any unsupported branch family beyond plain `br`
 - any `br_table`, `br_if`, `br_on_*`, `delegate`, `try`, `try_table`, `throw`, or `pop` shape until the movement proof is local and tested; focused H/I coverage now protects `br_table`, outside-target/switch-scope negatives, simple and nested non-terminal `try_table` body positives, and tested `try_table` bailout shapes
 - any candidate whose branch target is not still in scope after the proposed move
-- any multi-result, multi-value-payload, or refined-reference shape whose outer type cannot be reverified immediately
+- any additional multi-result, multi-value-payload, or refined-reference shape whose outer type cannot be reverified immediately
 - any case that needs a fresh helper label at the end of the function body
 
 This next slice should remain narrower than Binaryen until local candidate equality, movement-safety, mutation, and tests are proven for each new branch-bearing or arm-wrapping family.
@@ -188,8 +188,8 @@ Seed a future `src/passes/code_folding_test.mbt` from Binaryen's dedicated `code
 1. identical unnamed `if` arm blocks fold to a shared suffix
 2. partially shared `if` arm suffixes fold while preserving the unique prefix
 3. named arm blocks stay untouched
-4. plain branch-value tails to one named exit share the payload suffix while preserving the branch shell (single-result payload-root and multi-root pre-payload suffix cases now have June 4 coverage; multi-value cases remain future)
-5. branch-plus-fallthrough tails share the suffix (void tails and single-result payload-root plus multi-root payload-suffix cases now have coverage; broader helper/profitability cases remain future)
+4. plain branch-value tails to one named exit share the payload suffix while preserving the branch shell (single-result payload-root and multi-root pre-payload suffix cases now have June 4 coverage; a first multi-value branch-plus-fallthrough suffix has June 5 coverage)
+5. branch-plus-fallthrough tails share the suffix (void tails, single-result payload-root plus multi-root payload-suffix cases, and one multi-value payload suffix now have coverage; broader helper/profitability cases remain future)
 6. `br_on_*` / unsupported branch forms poison label folding
 7. outside-target branches block movement
 8. refined-result and typed-block contexts still validate
