@@ -96,6 +96,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added [`tooling/wiki-maintenance-playbook.md`](tooling/wiki-maintenance-playbook.md) as the operational checklist for autonomous wiki runs: target selection, evidence ladder, update flow, raw-source placement, transient-artifact citation discipline, whole-wiki health checks, common mistakes, and wiki-only signoff.
 - Refreshed [`raw/README.md`](raw/README.md) and [`index.md`](index.md) so the new `raw/wiki/` methodology-source directory and playbook are discoverable without duplicating the normative schema in [`../README.md`](../README.md).
 
+## [2026-06-04] passes/local-cse | table.get local-only reuse fix
+
+- Spot-checked a `table.get` between two local-only arithmetic trees and confirmed Binaryen materializes the pre-read expression with `local.tee` and reuses it after the table read.
+- Added a failing WAT-form direct `local-cse` regression, then fixed the raw/module path to model `table.get` as a one-operand stack-result table-state read. Added a no-reuse guard test for `table.get`-dependent roots so this remains narrower than arbitrary table GVN.
+- Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-table-get-local-only-10000`: 6764 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
+- Refreshed the LCSE wiki pages, raw research note, and `[O4Z-AUDIT-LCSE]` backlog wording so `table.get` is listed as a covered narrow table-state read case.
+
 ## [2026-06-04] passes/local-cse | memory.size coverage
 
 - Spot-checked local-only reuse across `memory.size` and repeated `memory.size` roots without intervening growth; Binaryen materializes both profitable repeated trees with `local.tee` / `local.get`.

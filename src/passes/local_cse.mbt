@@ -214,6 +214,7 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::RefFunc(_)
     | @lib.Instruction::StringConst(_) => Some(0)
     @lib.Instruction::Drop
+    | @lib.Instruction::RefIsNull
     | @lib.Instruction::ThrowRef
     | @lib.Instruction::BrOnNull(_)
     | @lib.Instruction::BrOnNonNull(_)
@@ -258,6 +259,7 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::I64Ne => Some(2)
     @lib.Instruction::I32Eqz | @lib.Instruction::I64Eqz => Some(1)
     @lib.Instruction::StructSet(_, _) | @lib.Instruction::TableSet(_) => Some(2)
+    @lib.Instruction::TableGet(_) => Some(1)
     @lib.Instruction::TableGrow(_) => Some(2)
     @lib.Instruction::ArraySet(_) => Some(3)
     @lib.Instruction::ArrayFill(_) => Some(4)
@@ -300,6 +302,7 @@ fn lcse_raw_result_type(
     | @lib.Instruction::I32Load8U(_)
     | @lib.Instruction::I32Load16S(_)
     | @lib.Instruction::I32Load16U(_)
+    | @lib.Instruction::RefIsNull
     | @lib.Instruction::MemorySize(_)
     | @lib.Instruction::MemoryGrow(_)
     | @lib.Instruction::TableSize(_)
@@ -317,7 +320,8 @@ fn lcse_raw_result_type(
     @lib.Instruction::F64Const(_) | @lib.Instruction::F64Load(_) =>
       Some(@lib.ValType::f64())
     @lib.Instruction::RefNull(ty) => Some(@lib.ValType::ref_type(ty))
-    @lib.Instruction::RefFunc(_) => Some(@lib.ValType::funcref())
+    @lib.Instruction::RefFunc(_) | @lib.Instruction::TableGet(_) =>
+      Some(@lib.ValType::funcref())
     @lib.Instruction::Select(_) =>
       match child_exprs.get(0) {
         Some(expr) => Some(expr.ty)
@@ -660,7 +664,7 @@ fn lcse_raw_rewrite_instrs(
           _ => false
         }
         let mut reads_table_state = match instr {
-          @lib.Instruction::TableSize(_) => true
+          @lib.Instruction::TableGet(_) | @lib.Instruction::TableSize(_) => true
           _ => false
         }
         for child in children {
