@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md
   - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
   - ../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md
   - ../raw/wasm/2026-05-19-wast-data-segment-sources.md
@@ -29,6 +30,7 @@ related:
   - ../validate/data-count-and-code-data-indices.md
   - ../validate/diagnostics-and-invalid-repro.md
   - ../fuzzing/generator-coverage-ledger.md
+  - ../wasm-feature-status-and-proposal-boundaries.md
 ---
 
 # WAST Data Segment Authoring
@@ -39,7 +41,7 @@ Use this page when writing or reviewing WAST module fields that introduce **data
 
 This page owns the text shapes, Starshine WAST parser/lowerer behavior, data-count interactions, and rewrite checklist for `(data ...)` fields. Use [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for the runtime stack effects and traps of `memory.init` / `data.drop`, [`memory-argument-authoring.md`](memory-argument-authoring.md) for load/store `offset=` and `align=` immediates, and [`resource-declaration-authoring.md`](resource-declaration-authoring.md) for `(memory ...)` declarations. The binary section and on-wire header map remains [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md).
 
-The current source refresh is [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md). It rechecks the official WebAssembly 3.0 pages dated 2026-06-03 plus Starshine WAST parser, lowerer, printer, core model, binary codec, validator, generator, and WAST arbitrary evidence. The older broad manifest [`../raw/wasm/2026-05-19-wast-data-segment-sources.md`](../raw/wasm/2026-05-19-wast-data-segment-sources.md) remains useful for the original source map.
+The current data/data-count source refresh is [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md). It rechecks the official WebAssembly 3.0 pages dated 2026-06-03 plus Starshine WAST parser, lowerer, printer, core model, binary codec, validator, generator, and WAST arbitrary evidence. The active-proposal routing bridge for numeric data payload syntax is [`../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md`](../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md). The older broad manifest [`../raw/wasm/2026-05-19-wast-data-segment-sources.md`](../raw/wasm/2026-05-19-wast-data-segment-sources.md) remains useful for the original source map.
 
 ## Beginner Model
 
@@ -111,7 +113,26 @@ Passive data has no parent memory and no offset expression. Starshine lowering t
   (data (i32.const 0) "hello" " " "world\0a" "\00"))
 ```
 
-[`parse_data_strings(...)`](../../../src/wast/parser.mbt) decodes each text token and appends the resulting bytes. This means split strings, escaped bytes, and printable text all become one `Bytes` payload in [`Data`](../../../src/lib/types.mbt).
+[`parse_data_strings(...)`](../../../src/wast/parser.mbt) and the data-field loop in [`parse_data(...)`](../../../src/wast/parser.mbt) decode each `Text` token and append the resulting bytes. This means split strings, escaped bytes, and printable text all become one `Bytes` payload in [`Data`](../../../src/lib/types.mbt).
+
+### Numeric data payload proposal caveat
+
+`Numeric Values in WAT Data Segments` is currently an active Phase-2 WebAssembly proposal, not stable Core WebAssembly and not current Starshine WAST syntax. Its proposal examples use typed numeric groups inside data payloads, such as:
+
+```wat
+;; Proposal syntax, not current Starshine WAST parser evidence:
+(data (i32.const 0) (i8 0x01 0x02 0x03 0x04) (i32 1024) (f32 123.5))
+```
+
+Current Starshine WAST parsing does **not** consume `i8` / `i16` / `i32` / `i64` / `f32` / `f64` / `v128` payload groups after `(data ...)`; it consumes string tokens only. If a fixture needs the same bytes today, either spell them as escaped strings in WAST or build the core/binary data payload directly:
+
+```wat
+(module
+  (memory 1)
+  (data (i32.const 0) "\01\02\03\04" "\00\04\00\00"))
+```
+
+Do not confuse `(i32.const 0)` in an active-data offset expression with proposed `(i32 1024)` data-payload syntax. The first is an instruction in a constant expression; the second would be byte-literal syntax with proposal-specific little-endian and range-check rules. Future support needs parser, lowerer, printer, accepted/invalid tests, and routing through [`text-surface-gap-ledger.md`](text-surface-gap-ledger.md) and [`../wasm-feature-status-and-proposal-boundaries.md`](../wasm-feature-status-and-proposal-boundaries.md).
 
 ### Inline memory-data abbreviation caveat
 
@@ -150,7 +171,7 @@ That third local phase is intentionally called out as a current validator gap fo
 | Layer | Files | Current behavior |
 | --- | --- | --- |
 | WAST AST | [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) | Stores `DataSegment { id, memory_index, offset, data }`; defaults memory use to `0`; uses empty offset for passive data. |
-| String decoding | [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) | Decodes one or more text string literals and concatenates them into bytes. |
+| String decoding | [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) | Decodes one or more text string literals and concatenates them into bytes; proposal numeric data groups are not parsed today. |
 | WAST lowering | [`src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt) | Resolves active memory indices, lowers active/passive modes, emits `DataSec`, and emits matching `DataCntSec` when data exists. |
 | WAST printing | [`src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt) | Prints `(data ...)` fields, explicit memory index text, optional `(offset ...)`, and quoted bytes. Current printer is accepted locally but is not the most concise official passive-data spelling. |
 | Core model | [`src/lib/types.mbt`](../../../src/lib/types.mbt) | Represents `DataMode::active(MemIdx, Expr)`, `DataMode::passive()`, `Data`, `DataSec`, `DataCntSec`, and `DataIdx`. |
@@ -177,9 +198,11 @@ When a pass, fixture generator, or printer changes data segments:
 - Removing passive data without rewriting `memory.init`, `data.drop`, `array.new_data`, and `array.init_data` users.
 - Using current WAST memory declarations as evidence for memory64 data offset behavior.
 - Assuming data-count absence is always invalid. It is invalid only when the data-count equality rule is violated or code/data-index users require the section.
+- Treating active Phase-2 numeric data-segment groups as current Starshine text syntax. Use string escapes, core builders, or binary fixtures until proposal-specific parser/printer support lands.
 
 ## Sources
 
+- Active numeric data-payload proposal routing: [`../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md`](../raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md)
 - Current data/data-count refresh: [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md)
 - Focused data-count/data-index guide: [`../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md`](../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md), [`../validate/data-count-and-code-data-indices.md`](../validate/data-count-and-code-data-indices.md)
 - Original source manifest: [`../raw/wasm/2026-05-19-wast-data-segment-sources.md`](../raw/wasm/2026-05-19-wast-data-segment-sources.md)

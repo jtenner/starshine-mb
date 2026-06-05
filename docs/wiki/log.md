@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasm/wiki | numeric data-segment proposal routing
+
+- Added [`raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md`](raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md) after checking the current official WebAssembly proposals tracker, the `wat-numeric-values` proposal repository/overview, and current Starshine WAST data parser/lowerer/core data-byte evidence.
+- Refreshed [`wast/data-segment-authoring.md`](wast/data-segment-authoring.md) so ordinary Starshine data fixtures remain string-payload examples, while active Phase-2 numeric payload groups such as `(i8 ...)`, `(i32 ...)`, `(f32 ...)`, and `v128` are routed as proposal text syntax that current Starshine WAST does not parse or print.
+- Cross-linked [`wast/text-surface-gap-ledger.md`](wast/text-surface-gap-ledger.md), [`wast/index.md`](wast/index.md), [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), and [`index.md`](index.md) so future fixture authors can choose escaped strings, core builders, or binary fixtures without mistaking byte-vector support for proposal-source support.
+
 ## [2026-06-05] wiki-health | branch-hint example routing
 
 - During the follow-up health check, searched empty Markdown links, malformed nested wiki paths, stale archived `docs/00xx` references, and branch-hint wording across WAST and Binaryen pass pages.
