@@ -176,6 +176,14 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::I64Load16U(_) => 120
     @lib.Instruction::I64Load32S(_) => 121
     @lib.Instruction::I64Load32U(_) => 122
+    @lib.Instruction::I32TruncSatF32S => 123
+    @lib.Instruction::I32TruncSatF32U => 124
+    @lib.Instruction::I32TruncSatF64S => 125
+    @lib.Instruction::I32TruncSatF64U => 126
+    @lib.Instruction::I64TruncSatF32S => 127
+    @lib.Instruction::I64TruncSatF32U => 128
+    @lib.Instruction::I64TruncSatF64S => 129
+    @lib.Instruction::I64TruncSatF64U => 130
     @lib.Instruction::I32Load(_) => 13
     @lib.Instruction::I64Load(_) => 14
     @lib.Instruction::F32Load(_) => 15
@@ -231,7 +239,7 @@ fn lcse_instrs_may_have_repeated_candidate(
 ) -> Bool {
   lcse_instrs_may_have_repeated_candidate_with_seen(
     instrs,
-    @bitset.BitSet::new(128),
+    @bitset.BitSet::new(192),
   )
 }
 
@@ -455,7 +463,15 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::I32Extend16S
     | @lib.Instruction::I64Extend8S
     | @lib.Instruction::I64Extend16S
-    | @lib.Instruction::I64Extend32S => Some(1)
+    | @lib.Instruction::I64Extend32S
+    | @lib.Instruction::I32TruncSatF32S
+    | @lib.Instruction::I32TruncSatF32U
+    | @lib.Instruction::I32TruncSatF64S
+    | @lib.Instruction::I32TruncSatF64U
+    | @lib.Instruction::I64TruncSatF32S
+    | @lib.Instruction::I64TruncSatF32U
+    | @lib.Instruction::I64TruncSatF64S
+    | @lib.Instruction::I64TruncSatF64U => Some(1)
     @lib.Instruction::StructSet(_, _) | @lib.Instruction::TableSet(_) => Some(2)
     @lib.Instruction::TableGet(_) => Some(1)
     @lib.Instruction::TableGrow(_) => Some(2)
@@ -508,7 +524,11 @@ fn lcse_raw_result_type(
     | @lib.Instruction::I32WrapI64
     | @lib.Instruction::I32ReinterpretF32
     | @lib.Instruction::I32Extend8S
-    | @lib.Instruction::I32Extend16S => Some(@lib.ValType::i32())
+    | @lib.Instruction::I32Extend16S
+    | @lib.Instruction::I32TruncSatF32S
+    | @lib.Instruction::I32TruncSatF32U
+    | @lib.Instruction::I32TruncSatF64S
+    | @lib.Instruction::I32TruncSatF64U => Some(@lib.ValType::i32())
     @lib.Instruction::I64Const(_)
     | @lib.Instruction::I64Load(_)
     | @lib.Instruction::I64Load8S(_)
@@ -522,7 +542,11 @@ fn lcse_raw_result_type(
     | @lib.Instruction::I64ReinterpretF64
     | @lib.Instruction::I64Extend8S
     | @lib.Instruction::I64Extend16S
-    | @lib.Instruction::I64Extend32S => Some(@lib.ValType::i64())
+    | @lib.Instruction::I64Extend32S
+    | @lib.Instruction::I64TruncSatF32S
+    | @lib.Instruction::I64TruncSatF32U
+    | @lib.Instruction::I64TruncSatF64S
+    | @lib.Instruction::I64TruncSatF64U => Some(@lib.ValType::i64())
     @lib.Instruction::F32Const(_)
     | @lib.Instruction::F32Load(_)
     | @lib.Instruction::F32Abs
