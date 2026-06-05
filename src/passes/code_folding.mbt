@@ -1456,6 +1456,89 @@ fn code_folding_should_visit_drop_embedded_controls(
 }
 
 ///|
+fn code_folding_node_has_embedded_eh_control(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Try | @ir.HotOp::TryTable => true
+    @ir.HotOp::Block | @ir.HotOp::Loop => {
+      let body_ref = @ir.hot_region_body_ref(func, node_id)
+      for idx = 0
+          idx < @ir.hot_region_root_count(func, body_ref)
+          idx = idx + 1 {
+        if code_folding_node_has_embedded_eh_control(
+            func,
+            @ir.hot_region_get(func, body_ref, idx),
+          ) {
+          return true
+        }
+      }
+      false
+    }
+    @ir.HotOp::If => {
+      let then_ref = @ir.hot_region_then_ref(func, node_id)
+      for idx = 0
+          idx < @ir.hot_region_root_count(func, then_ref)
+          idx = idx + 1 {
+        if code_folding_node_has_embedded_eh_control(
+            func,
+            @ir.hot_region_get(func, then_ref, idx),
+          ) {
+          return true
+        }
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) => {
+          for idx = 0
+              idx < @ir.hot_region_root_count(func, else_ref)
+              idx = idx + 1 {
+            if code_folding_node_has_embedded_eh_control(
+                func,
+                @ir.hot_region_get(func, else_ref, idx),
+              ) {
+              return true
+            }
+          }
+          false
+        }
+        None => false
+      }
+    }
+    _ => {
+      for slot = 0; slot < node.child_count; slot = slot + 1 {
+        if code_folding_node_has_embedded_eh_control(
+            func,
+            @ir.hot_child_get(func, node_id, slot),
+          ) {
+          return true
+        }
+      }
+      false
+    }
+  }
+}
+
+///|
+fn code_folding_should_visit_drop_embedded_eh_body_if_suffixes(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let seen = [0]
+  code_folding_node_embedded_size_within_budget(
+    func,
+    node_id,
+    seen,
+    code_folding_embedded_control_visit_budget(),
+  ) &&
+  code_folding_node_has_embedded_eh_control(func, node_id)
+}
+
+///|
 fn code_folding_value_exit_tail_payload_count(
   tail : CodeFoldingValueExitTail,
 ) -> Int {
@@ -3296,6 +3379,86 @@ fn code_folding_visit_eh_body_if_suffixes(
 }
 
 ///|
+fn code_folding_visit_embedded_eh_body_if_suffixes(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  label_used : @bitset.BitSet,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let mut changed = false
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Try | @ir.HotOp::TryTable =>
+      if code_folding_visit_eh_body_if_suffixes(
+          ctx,
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          label_used,
+        ) {
+        changed = true
+      }
+    @ir.HotOp::Block | @ir.HotOp::Loop => {
+      let body_ref = @ir.hot_region_body_ref(func, node_id)
+      for idx = 0
+          idx < @ir.hot_region_root_count(func, body_ref)
+          idx = idx + 1 {
+        if code_folding_visit_embedded_eh_body_if_suffixes(
+            ctx,
+            func,
+            @ir.hot_region_get(func, body_ref, idx),
+            label_used,
+          ) {
+          changed = true
+        }
+      }
+    }
+    @ir.HotOp::If => {
+      let then_ref = @ir.hot_region_then_ref(func, node_id)
+      for idx = 0
+          idx < @ir.hot_region_root_count(func, then_ref)
+          idx = idx + 1 {
+        if code_folding_visit_embedded_eh_body_if_suffixes(
+            ctx,
+            func,
+            @ir.hot_region_get(func, then_ref, idx),
+            label_used,
+          ) {
+          changed = true
+        }
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) =>
+          for idx = 0
+              idx < @ir.hot_region_root_count(func, else_ref)
+              idx = idx + 1 {
+            if code_folding_visit_embedded_eh_body_if_suffixes(
+                ctx,
+                func,
+                @ir.hot_region_get(func, else_ref, idx),
+                label_used,
+              ) {
+              changed = true
+            }
+          }
+        None => ()
+      }
+    }
+    _ =>
+      for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+        let child_id = @ir.hot_child_get(func, node_id, slot)
+        if code_folding_visit_embedded_eh_body_if_suffixes(
+            ctx, func, child_id, label_used,
+          ) {
+          changed = true
+        }
+      }
+  }
+  changed
+}
+
+///|
 fn code_folding_visit_embedded_controls(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -3508,6 +3671,13 @@ fn code_folding_visit_region(
         @ir.HotOp::Drop =>
           if code_folding_should_visit_drop_embedded_controls(func, current_id) &&
             code_folding_visit_embedded_controls(
+              ctx, func, current_id, label_used,
+            ) {
+            changed = true
+          } else if code_folding_should_visit_drop_embedded_eh_body_if_suffixes(
+              func, current_id,
+            ) &&
+            code_folding_visit_embedded_eh_body_if_suffixes(
               ctx, func, current_id, label_used,
             ) {
             changed = true
