@@ -89,6 +89,28 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::I64LeU => 33
     @lib.Instruction::I64GeS => 34
     @lib.Instruction::I64GeU => 35
+    @lib.Instruction::I32Clz => 36
+    @lib.Instruction::I32Ctz => 37
+    @lib.Instruction::I32Popcnt => 38
+    @lib.Instruction::I64Clz => 39
+    @lib.Instruction::I64Ctz => 40
+    @lib.Instruction::I64Popcnt => 41
+    @lib.Instruction::I32And => 42
+    @lib.Instruction::I32Or => 43
+    @lib.Instruction::I32Xor => 44
+    @lib.Instruction::I32Shl => 45
+    @lib.Instruction::I32ShrS => 46
+    @lib.Instruction::I32ShrU => 47
+    @lib.Instruction::I32Rotl => 48
+    @lib.Instruction::I32Rotr => 49
+    @lib.Instruction::I64And => 50
+    @lib.Instruction::I64Or => 51
+    @lib.Instruction::I64Xor => 52
+    @lib.Instruction::I64Shl => 53
+    @lib.Instruction::I64ShrS => 54
+    @lib.Instruction::I64ShrU => 55
+    @lib.Instruction::I64Rotl => 56
+    @lib.Instruction::I64Rotr => 57
     @lib.Instruction::I32Load(_) => 13
     @lib.Instruction::I64Load(_) => 14
     @lib.Instruction::F32Load(_) => 15
@@ -267,9 +289,25 @@ fn lcse_raw_instr_operand_count(
     @lib.Instruction::I32Add
     | @lib.Instruction::I32Sub
     | @lib.Instruction::I32Mul
+    | @lib.Instruction::I32And
+    | @lib.Instruction::I32Or
+    | @lib.Instruction::I32Xor
+    | @lib.Instruction::I32Shl
+    | @lib.Instruction::I32ShrS
+    | @lib.Instruction::I32ShrU
+    | @lib.Instruction::I32Rotl
+    | @lib.Instruction::I32Rotr
     | @lib.Instruction::I64Add
     | @lib.Instruction::I64Sub
     | @lib.Instruction::I64Mul
+    | @lib.Instruction::I64And
+    | @lib.Instruction::I64Or
+    | @lib.Instruction::I64Xor
+    | @lib.Instruction::I64Shl
+    | @lib.Instruction::I64ShrS
+    | @lib.Instruction::I64ShrU
+    | @lib.Instruction::I64Rotl
+    | @lib.Instruction::I64Rotr
     | @lib.Instruction::I32Eq
     | @lib.Instruction::I32Ne
     | @lib.Instruction::I32LtS
@@ -291,7 +329,14 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::I64GeS
     | @lib.Instruction::I64GeU
     | @lib.Instruction::RefEq => Some(2)
-    @lib.Instruction::I32Eqz | @lib.Instruction::I64Eqz => Some(1)
+    @lib.Instruction::I32Eqz
+    | @lib.Instruction::I32Clz
+    | @lib.Instruction::I32Ctz
+    | @lib.Instruction::I32Popcnt
+    | @lib.Instruction::I64Eqz
+    | @lib.Instruction::I64Clz
+    | @lib.Instruction::I64Ctz
+    | @lib.Instruction::I64Popcnt => Some(1)
     @lib.Instruction::StructSet(_, _) | @lib.Instruction::TableSet(_) => Some(2)
     @lib.Instruction::TableGet(_) => Some(1)
     @lib.Instruction::TableGrow(_) => Some(2)
@@ -368,10 +413,32 @@ fn lcse_raw_result_type(
       }
     @lib.Instruction::I32Add
     | @lib.Instruction::I32Sub
-    | @lib.Instruction::I32Mul => Some(@lib.ValType::i32())
+    | @lib.Instruction::I32Mul
+    | @lib.Instruction::I32Clz
+    | @lib.Instruction::I32Ctz
+    | @lib.Instruction::I32Popcnt
+    | @lib.Instruction::I32And
+    | @lib.Instruction::I32Or
+    | @lib.Instruction::I32Xor
+    | @lib.Instruction::I32Shl
+    | @lib.Instruction::I32ShrS
+    | @lib.Instruction::I32ShrU
+    | @lib.Instruction::I32Rotl
+    | @lib.Instruction::I32Rotr => Some(@lib.ValType::i32())
     @lib.Instruction::I64Add
     | @lib.Instruction::I64Sub
-    | @lib.Instruction::I64Mul => Some(@lib.ValType::i64())
+    | @lib.Instruction::I64Mul
+    | @lib.Instruction::I64Clz
+    | @lib.Instruction::I64Ctz
+    | @lib.Instruction::I64Popcnt
+    | @lib.Instruction::I64And
+    | @lib.Instruction::I64Or
+    | @lib.Instruction::I64Xor
+    | @lib.Instruction::I64Shl
+    | @lib.Instruction::I64ShrS
+    | @lib.Instruction::I64ShrU
+    | @lib.Instruction::I64Rotl
+    | @lib.Instruction::I64Rotr => Some(@lib.ValType::i64())
     @lib.Instruction::I32Eq
     | @lib.Instruction::I32Ne
     | @lib.Instruction::I32Eqz

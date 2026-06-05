@@ -4,6 +4,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 
 
+## [2026-06-05] passes/local-cse | integer bit-op reuse
+
+- Spot-checked `i32.clz` and `i32.and`; Binaryen materializes local-only arithmetic reuse across the unary bit op and repeated binary bit-op roots.
+- Added failing WAT-form direct regressions, then modeled nontrapping integer unary bit operations plus bit/shift/rotate operations as pure stack-result candidate roots. Integer division/remainder and trap-sensitive conversions remain out of scope.
+- Refreshed the LCSE research/backlog wording so integer bit-op coverage is listed separately from broader numeric or trap-sensitive reasoning.
+
 ## [2026-06-05] passes/local-cse | integer comparison reuse
 
 - Spot-checked `i32.lt_s`; Binaryen materializes both local-only arithmetic reuse across the comparison and repeated integer-comparison roots.
