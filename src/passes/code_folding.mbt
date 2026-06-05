@@ -2300,15 +2300,15 @@ fn code_folding_try_rewrite_terminating_tail_group(
     return false
   }
   let has_root_tail = root_tails.length() == 1
-  if !has_root_tail {
-    let root_count = @ir.hot_region_root_count(func, root_ref)
-    if root_count == 0 ||
-      !code_folding_node_prevents_fallthrough(
-        func,
-        @ir.hot_region_get(func, root_ref, root_count - 1),
-      ) {
-      return false
-    }
+  let root_count_before_rewrite = @ir.hot_region_root_count(func, root_ref)
+  let root_prevents_fallthrough = root_count_before_rewrite > 0 &&
+    code_folding_node_prevents_fallthrough(
+      func,
+      @ir.hot_region_get(func, root_ref, root_count_before_rewrite - 1),
+    )
+  let needs_fallthrough_skip = !has_root_tail && !root_prevents_fallthrough
+  if needs_fallthrough_skip && @ir.hot_region_result_arity(func, root_ref) != 0 {
+    return false
   }
   let anchor_tail = if has_root_tail { root_tails[0] } else { tails[0] }
   let suffix_len = anchor_tail.suffix_len
@@ -2326,6 +2326,16 @@ fn code_folding_try_rewrite_terminating_tail_group(
   )
   let wrapper = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
   let wrapper_label = @ir.hot_control_node_label(func, wrapper)
+  let skip_wrapper = if needs_fallthrough_skip {
+    @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  } else {
+    -1
+  }
+  let skip_label = if needs_fallthrough_skip {
+    @ir.hot_control_node_label(func, skip_wrapper)
+  } else {
+    -1
+  }
   for tail in tails {
     let start_idx = tail.end_idx - suffix_len
     if start_idx < 0 {
@@ -2346,16 +2356,32 @@ fn code_folding_try_rewrite_terminating_tail_group(
   }
   let prefix_count = @ir.hot_region_root_count(func, root_ref)
   let prefix_roots = pass_splice_region(ctx, func, root_ref, 0, prefix_count, [])
+  if needs_fallthrough_skip {
+    prefix_roots.push(@ir.hot_build_br(func, skip_label))
+  }
   @ir.hot_region_replace_body(
     func,
     @ir.hot_region_body_ref(func, wrapper),
     prefix_roots,
   )
-  let replacement = [wrapper]
-  for node_id in hoisted {
-    replacement.push(node_id)
+  if needs_fallthrough_skip {
+    let skip_roots = [wrapper]
+    for node_id in hoisted {
+      skip_roots.push(node_id)
+    }
+    @ir.hot_region_replace_body(
+      func,
+      @ir.hot_region_body_ref(func, skip_wrapper),
+      skip_roots,
+    )
+    ignore(pass_splice_region(ctx, func, root_ref, 0, 0, [skip_wrapper]))
+  } else {
+    let replacement = [wrapper]
+    for node_id in hoisted {
+      replacement.push(node_id)
+    }
+    ignore(pass_splice_region(ctx, func, root_ref, 0, 0, replacement))
   }
-  ignore(pass_splice_region(ctx, func, root_ref, 0, 0, replacement))
   pipeline_trace_hook(
     ctx.trace,
     ctx.descriptor.name,
