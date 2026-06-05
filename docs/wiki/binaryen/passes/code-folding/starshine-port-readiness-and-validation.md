@@ -142,7 +142,7 @@ The current local root-anchored model now reruns to a fixpoint, but that is not 
 
 Do not mix EH movement into the first green port.
 Binaryen's source has conservative `pop` / throwing-through-`try` barriers plus nested-pop repair after block-adding rewrites.
-The current local decision is mostly bailout: `code-folding` now descends into `try` / `try_table` bodies only for ordinary non-terminal `if` suffix folding, does not treat EH controls as normal exiting/fallthrough-preventing cleanup nodes, and keeps focused `try_table` terminal/block-exit tests. The 2026-06-04 outer-`catch_all` `try_table` terminal-tail probe matched Binaryen's bailout under `wasm-opt version_129 --enable-exception-handling --code-folding -S`, while simple and nested non-terminal duplicate `if` arms inside `try_table` bodies are now locally covered. Exact text-level plain `try` coverage remains blocked because local WAT lowering does not preserve that EH surface in the final HOT/pretty output. A later local port should only move EH-sensitive shapes if it also proves:
+The current local decision is mostly bailout: `code-folding` now descends into `try` / `try_table` bodies only for ordinary non-terminal `if` suffix folding, does not treat EH controls as normal exiting/fallthrough-preventing cleanup nodes, and keeps focused `try_table` terminal/block-exit tests. The 2026-06-04 outer-`catch_all` and 2026-06-05 `catch_all_ref` `try_table` terminal-tail probes matched Binaryen's bailouts under `wasm-opt` version 129 (`version_129`), while simple and nested non-terminal duplicate `if` arms inside `try_table` bodies are locally covered for `catch_all` and explicit `catch`. Exact text-level plain `try` coverage remains blocked because local WAT lowering does not preserve that EH surface in the final HOT/pretty output, and a throwing-body `catch_all_ref` body-local positive remains open because Binaryen folds it but the local fixture does not yet. A later local port should only move EH-sensitive shapes if it also proves:
 
 - HOT lift exposes enough catch / `try_table` ownership to detect the same hazards
 - HOT lower/writeback preserves the repaired shape
@@ -298,8 +298,8 @@ A later `[O4Z-AUDIT-CF-H]` guard added `code-folding keeps crossed nested self-b
 
 The 2026-06-05 five-slice continuation is green:
 
-- source-backed coverage now includes two-unnamed-block multi-root `if` value suffixes, crossed live-label `if` suffix bailout, explicit-`catch` `try_table` body-local folding, crossed nested-label `unreachable` bailout, and nested self-branching `return_call_indirect` suffix sharing;
-- per-slice `moon fmt` and `moon test src/passes` passed through `1637/1637`;
+- source-backed coverage now includes two-unnamed-block multi-root `if` value suffixes, crossed live-label `if` suffix bailout, explicit-`catch` `try_table` body-local folding, `catch_all_ref` `try_table` terminal-tail bailout classification, crossed nested-label `unreachable` bailout, and nested self-branching `return_call_indirect` suffix sharing;
+- per-slice `moon fmt` and `moon test src/passes` passed through `1640/1640` for the latest focused EH classification slice;
 - `moon info` completed with no work to do;
 - full `moon test` passed `4822/4822`;
 - `moon build --target native --release src/cmd` completed with no work to do and reused `_build/native/release/build/cmd/cmd.exe`;
@@ -322,7 +322,7 @@ Follow the repo-level pass signoff rule from [`../../../../../AGENTS.md`](../../
 - Should suffix equality begin with exact HOT-node structural equality, or reuse a normalized lowered-instruction comparison for the first slice? Current answer: exact HOT-node structural equality plus label-use-aware comparison for the covered named-block slices.
 - How should Starshine represent Binaryen's `unoptimizables` label set when a label has both plain-`br` tails and unsupported branch-form users? Current answer: the local collectors poison the whole target by returning false when `br_if`, `br_on_*`, `br_table`, or `delegate` traffic reaches the target label.
 - Which local size model should stand in for Binaryen's expression `Measurer` before Starshine has byte-level profitability for this pass? Current answer: `code_folding_node_measure` is the provisional node-count measure; it is good enough for the tested direct after-block suffix sharing but not a full Binaryen helper-block cost model.
-- Is it better to add EH support after function-ending tails, or should EH-sensitive shapes stay permanent bailouts until more local EH rewrite infrastructure exists? Current batch keeps EH-sensitive movement as tested bailouts while allowing only body-local non-terminal `if` suffix folding inside `try` / `try_table`; nested `try_table` body-local coverage is green, exact plain `try` text coverage is blocked by local WAT lowering, and there is still no nested-pop repair path.
+- Is it better to add EH support after function-ending tails, or should EH-sensitive shapes stay permanent bailouts until more local EH rewrite infrastructure exists? Current batch keeps EH-sensitive movement as tested bailouts while allowing only body-local non-terminal `if` suffix folding inside `try` / `try_table`; nested `try_table` body-local coverage is green for the currently covered catch kinds, exact plain `try` text coverage is blocked by local WAT lowering, the throwing-body `catch_all_ref` body-positive remains open, and there is still no nested-pop repair path.
 
 ## Bottom line
 
