@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-06-05
 sources:
+  - ../../../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
   - ../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-multi-memory-lowering-primary-sources.md
   - ../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md
@@ -14,6 +15,7 @@ related:
   - ./memory-layout-bounds-and-growth.md
   - ./starshine-strategy.md
   - ./starshine-port-readiness-and-validation.md
+  - ../../../wasm-custom-page-sizes-boundary.md
 ---
 
 # `multi-memory-lowering` WAT shapes
@@ -177,7 +179,7 @@ The reviewed source preserves import/export identity only through the combined f
 
 ## Bailout family 3: mixed memory properties
 
-All memories must share address type, sharedness, and page size. `multi-memory-lowering` is not the pass that reconciles memory32 with memory64 or shared with unshared memory.
+All memories must share address type, sharedness, and page size. `multi-memory-lowering` is not the pass that reconciles memory32 with memory64, shared with unshared memory, or different custom page sizes. For Starshine specifically, page size is only a Binaryen/future-port caveat today because current `MemType` has no page-size field; see [`../../../wasm-custom-page-sizes-boundary.md`](../../../wasm-custom-page-sizes-boundary.md).
 
 ## Bailout family 4: non-constant active data offset
 

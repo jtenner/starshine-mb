@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-05
 sources:
+  - ../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
   - ../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md
   - ../raw/wasm/2026-06-04-exception-tag-current-refresh.md
   - ../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md
@@ -29,6 +30,7 @@ related:
   - ../wast/function-call-and-module-authoring.md
   - ../wast/resource-declaration-authoring.md
   - ../wast/static-assertion-harness.md
+  - ../wasm-custom-page-sizes-boundary.md
   - ../fuzzing/generator-coverage-ledger.md
 ---
 
@@ -127,7 +129,7 @@ The official WebAssembly model uses a matching relation to decide whether one ex
 | Type surface | Starshine matching rule | Why it matters |
 | --- | --- | --- |
 | `Limits` | Same limit width (`i32` with `i32`, `i64` with `i64`); actual minimum must be at least expected minimum; actual maximum must be no larger than expected maximum when expected is bounded. | A host memory/table with enough initial capacity and no too-large maximum can satisfy an import; section-level range validation remains centralized in [`resource-sections-and-limits.md`](resource-sections-and-limits.md). |
-| `MemType` | Limits match by the same i32/i64 address-width family and the local `shared` flag is identical. | Core 3.0 memory matching is address-type-plus-limits; Starshine's `shared` Boolean is a local/proposal extension, so a shared-memory import cannot be satisfied by an unshared memory or the reverse. Keep shared-memory maxima and shared-without-max invalid-byte fixtures on [`resource-sections-and-limits.md`](resource-sections-and-limits.md). |
+| `MemType` | Limits match by the same i32/i64 address-width family and the local `shared` flag is identical. | Core 3.0 memory matching is address-type-plus-limits; Starshine's `shared` Boolean is a local/proposal extension, so a shared-memory import cannot be satisfied by an unshared memory or the reverse. Current Starshine has no custom-page-size field to compare, so Custom Page Sizes remains future-port evidence routed through [`../wasm-custom-page-sizes-boundary.md`](../wasm-custom-page-sizes-boundary.md). Keep shared-memory maxima and shared-without-max invalid-byte fixtures on [`resource-sections-and-limits.md`](resource-sections-and-limits.md). |
 | immutable `GlobalType` | Value type is covariant. | A `(global (ref eq))` can satisfy a `(global (ref any))`-style expectation when the reference type matches by subtype. |
 | mutable `GlobalType` | Value type is invariant and mutability must match. | Mutable globals can be read and written, so allowing only one direction would be unsound. |
 | `TableType` | Limits match and reference type matches both directions. | Starshine treats table element reference type as invariant even when heap types have subtyping. |
@@ -144,7 +146,8 @@ Starshine currently has no active public runtime linker page or complete host-im
 - do not cite `validate_module(...)` as proof that host imports were supplied;
 - do cite `validate_importsec(...)` as proof that import declarations are internally valid and extend the local context;
 - do cite `Match for ExternType` as the reusable compatibility relation for future linker/embedding work;
-- when discussing shared memories, say explicitly that Starshine's shared-flag equality is local/proposal policy layered on top of the stable Core 3.0 memory matching relation; and
+- when discussing shared memories, say explicitly that Starshine's shared-flag equality is local/proposal policy layered on top of the stable Core 3.0 memory matching relation;
+- when discussing Custom Page Sizes, say explicitly that current Starshine cannot match page size because `MemType` has no page-size field; and
 - if a new Node or CLI instantiation surface is added, document whether it uses `Match::matches(actual, expected, env)` exactly, how it reports the `(module, name)` import pair, and whether it adds host-specific policy.
 
 ### Static WAST `assert_unlinkable` Is Pre-Link Evidence

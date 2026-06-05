@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasm/wiki | custom page sizes boundary routing
+
+- Added [`raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md`](raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md) after checking the current official WebAssembly proposals repository, the Custom Page Sizes proposal repository/overview, current Core memory-type pages, and Starshine `MemType` / binary / validator / external matching / WAST declaration evidence.
+- Added [`wasm-custom-page-sizes-boundary.md`](wasm-custom-page-sizes-boundary.md) as the focused active-proposal guide separating page size from memory64 address width and shared-memory support, documenting that current Starshine has no page-size carrier, no custom-page-size binary flag/immediate handling, no validator or matching dimension, and no WAST declaration syntax.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md), [`validate/import-export-and-external-type-matching.md`](validate/import-export-and-external-type-matching.md), [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md), [`wast/memory-instruction-authoring.md`](wast/memory-instruction-authoring.md), the Binaryen `multi-memory-lowering` guide, and [`index.md`](index.md) so page-size claims are routed as future-port constraints rather than accidental local support.
+
 ## [2026-06-05] wiki/schema | research serial and health-check routing
 
 - Added [`raw/wiki/2026-06-05-research-serial-and-health-check-routing.md`](raw/wiki/2026-06-05-research-serial-and-health-check-routing.md) after rechecking the current LLM Wiki / LLM Wiki v2 methodology sources against [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), [`raw/research/README.md`](raw/research/README.md), and the existing log claim that serial policy had been clarified.

@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-06-05
 sources:
+  - ../../../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
   - ../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-multi-memory-lowering-primary-sources.md
   - ../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md
@@ -22,6 +23,7 @@ related:
   - ./starshine-port-readiness-and-validation.md
   - ../memory64-lowering/index.md
   - ../memory-packing/index.md
+  - ../../../wasm-custom-page-sizes-boundary.md
   - ../remove-unused-module-elements/index.md
   - ../tracker.md
 ---
@@ -43,7 +45,7 @@ The advanced version:
 
 - memory declarations, active data segments, memory exports, `memory.size`, `memory.grow`, bulk-memory operations, ordinary loads/stores, SIMD memory ops, and atomics all participate;
 - non-last `memory.grow` must move later original memories upward inside the combined memory;
-- the pass only accepts a constrained memory family: same address type, same sharedness, same page size, no imported memories after the first, and no exported memories after the first.
+- the pass only accepts a constrained memory family: same address type, same sharedness, same page size, no imported memories after the first, and no exported memories after the first. In Starshine, the page-size part is currently a Binaryen/future-port constraint only because local `MemType` has no page-size field; route that proposal boundary through [`../../../wasm-custom-page-sizes-boundary.md`](../../../wasm-custom-page-sizes-boundary.md).
 
 ## Inputs and outputs
 
@@ -76,7 +78,7 @@ The output has:
 - **Segment repair:** active data segments are part of the observable initialization behavior and must move with their memory.
 - **Size/grow illusion:** callers of `memory.size` and `memory.grow` must still see per-original-memory sizes and growth behavior even though only one real memory remains.
 - **Non-last grow movement:** growing an earlier original memory must preserve the bytes of later original memories by copying them upward and updating offset globals.
-- **Module-shape restrictions:** imported/exported memory restrictions, address-type equality, sharedness equality, and page-size equality are part of Binaryen's contract rather than accidental implementation detail.
+- **Module-shape restrictions:** imported/exported memory restrictions, address-type equality, sharedness equality, and page-size equality are part of Binaryen's contract rather than accidental implementation detail. Current Starshine can represent address type and sharedness, but not custom page size.
 - **Bounds-check variant caveat:** the checked sibling adds explicit traps, but Binaryen's source comments still record an imprecision around spec-style offset overflow in one shifted-address family.
 
 ## Notable edge cases
@@ -89,7 +91,8 @@ The output has:
 - non-constant active data offset: still behind a source TODO/assertion;
 - `memory.copy` where source and destination memories differ;
 - `memory.grow` on any memory except the last original memory;
-- memory64 input: all memories must share the same address type, and this pass is not a substitute for [`memory64-lowering`](../memory64-lowering/index.md).
+- memory64 input: all memories must share the same address type, and this pass is not a substitute for [`memory64-lowering`](../memory64-lowering/index.md);
+- custom-page-size input: not locally representable in Starshine today, even though Binaryen's accepted family compares page size upstream.
 
 ## Validation strategy
 

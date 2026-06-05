@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-05
 sources:
+  - ../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md
   - ../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md
   - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md
@@ -34,6 +35,7 @@ related:
   - ../validate/module-validation-phases.md
   - ../validate/resource-sections-and-limits.md
   - ../validate/import-export-and-external-type-matching.md
+  - ../wasm-custom-page-sizes-boundary.md
   - ../fuzzing/generator-coverage-ledger.md
 ---
 
@@ -51,7 +53,7 @@ Use this page when writing or debugging WAST module fields that **declare table,
 
 This page deliberately does **not** own runtime operations or segment payloads on those resources. Use [`table-instruction-authoring.md`](table-instruction-authoring.md) for `table.get` / `table.init` / `call_indirect`, [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for loads, stores, `memory.copy`, and `memory.init`, [`memory-argument-authoring.md`](memory-argument-authoring.md) for `offset=` / `align=`, [`data-segment-authoring.md`](data-segment-authoring.md) for `(data ...)` fields and the current inline memory-data abbreviation caveat, and [`variable-instruction-authoring.md`](variable-instruction-authoring.md) for `global.get` / `global.set`. The binary/core section guide remains [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md).
 
-The current WAST-facing primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-resource-declaration-sources.md`](../raw/wasm/2026-05-19-wast-resource-declaration-sources.md). It reconciles official WebAssembly text/module/type/validation sources with Starshine's WAST parser, lowerer, printer, core model, binary codec, validator, valid generator, and WAST arbitrary surface. The validator-focused resource refresh is [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md), with durable limit, shared-memory, initializer, and segment-offset rules in [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md). The 2026-06-04 linear-memory threads/shared-memory bridge in [`../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md) keeps current WAST declarations scoped: shared memory and memory64 are core/binary/generator evidence today, not text-declaration evidence.
+The current WAST-facing primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-resource-declaration-sources.md`](../raw/wasm/2026-05-19-wast-resource-declaration-sources.md). It reconciles official WebAssembly text/module/type/validation sources with Starshine's WAST parser, lowerer, printer, core model, binary codec, validator, valid generator, and WAST arbitrary surface. The validator-focused resource refresh is [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md), with durable limit, shared-memory, initializer, and segment-offset rules in [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md). The Custom Page Sizes bridge [`../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md`](../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md) records that current Starshine WAST memory declarations have no page-size syntax and lower only to the current `MemType(Limits, shared)` shape. The 2026-06-04 linear-memory threads/shared-memory bridge in [`../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md) keeps current WAST declarations scoped: shared memory and memory64 are core/binary/generator evidence today, not text-declaration evidence.
 
 ## Beginner Mental Model
 
@@ -131,10 +133,11 @@ A memory definition has optional id, optional inline exports, and min/max limits
 
 - limits are natural numbers parsed by [`parse_limits(...)`](../../../src/wast/parser.mbt);
 - lowering uses `@lib.Limits::i32(...)`;
-- there is no WAST declaration spelling for shared memory; and
-- memory64 / shared-memory resource-definition tests should use direct core, binary, or generator fixtures today.
+- there is no WAST declaration spelling for shared memory;
+- there is no WAST declaration spelling for Custom Page Sizes; and
+- memory64 / shared-memory / custom-page-size resource-definition tests should use direct core, binary, or generator fixtures today, with custom page size still future-port-only until core/binary support exists.
 
-The core and binary layers are broader than this text surface: [`src/lib/types.mbt`](../../../src/lib/types.mbt) has `I64Limits` and `MemType(..., shared)`, and [`src/binary/decode.mbt`](../../../src/binary/decode.mbt) / [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) support the corresponding binary tags. Do not cite current WAST memory declarations as full coverage for memory64 or shared-memory behavior. If a binary fixture uses shared-without-maximum flags, route it through validation as an invalid specimen rather than through this WAST authoring surface.
+The core and binary layers are broader than this text surface: [`src/lib/types.mbt`](../../../src/lib/types.mbt) has `I64Limits` and `MemType(..., shared)`, and [`src/binary/decode.mbt`](../../../src/binary/decode.mbt) / [`src/binary/encode.mbt`](../../../src/binary/encode.mbt) support the corresponding binary tags. Do not cite current WAST memory declarations as full coverage for memory64, shared-memory, or custom-page-size behavior. If a binary fixture uses shared-without-maximum flags, route it through validation as an invalid specimen rather than through this WAST authoring surface. If a fixture is about Custom Page Sizes, route it through [`../wasm-custom-page-sizes-boundary.md`](../wasm-custom-page-sizes-boundary.md); current Starshine binary decode rejects the proposal memory-type flag shape and current WAST has no text spelling.
 
 ### Global definitions
 
@@ -179,7 +182,7 @@ When a pass, generator, or fixture touches resource declarations, check these in
 3. **Inline exports are real exports.** A table, memory, or global inline export lowers into `ExportSec` and participates in duplicate-export validation and rewrite checklists.
 4. **Table abbreviations are element-segment sugar.** If a pass deletes or remaps tables or functions, repair the generated active element segments too.
 5. **Global initializers see only imports and earlier globals.** Reordering globals can invalidate or change initializer `global.get` references unless all `GlobalIdx` carriers are rewritten and validation is rerun. Optional core table initializers are stricter: they are validated before local globals and should use only imported immutable globals for `global.get`.
-6. **Current WAST resource declarations are not memory64/shared evidence.** Use direct core, binary, or generator fixtures for `I64Limits`, table64/memory64 declaration behavior, and shared-memory validation until WAST text support exists. Keep the shared-memory maximum requirement and shared-without-max invalid-byte shapes routed through [`../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md).
+6. **Current WAST resource declarations are not memory64/shared/custom-page-size evidence.** Use direct core, binary, or generator fixtures for `I64Limits`, table64/memory64 declaration behavior, and shared-memory validation until WAST text support exists. Keep the shared-memory maximum requirement and shared-without-max invalid-byte shapes routed through [`../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md). Keep Custom Page Sizes routed through [`../wasm-custom-page-sizes-boundary.md`](../wasm-custom-page-sizes-boundary.md); local WAST and core memory types do not model it today.
 7. **Import/export declarations are module-boundary facts, not host-linking proof.** Explicit imports extend local index spaces; inline and explicit exports lower to `ExportSec` and duplicate-name checks. The external-type matching relation for future linker/embedding work lives in [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md).
 8. **Re-run full module validation after resource rewrites.** Section-level changes affect imports, exports, names, instructions, segments, constant expressions, and pass-local summaries.
 
@@ -194,7 +197,7 @@ Useful related signoff pages:
 
 ## Common Mistakes
 
-- Assuming `(memory 1)` proves memory64 or shared-memory behavior. Current WAST declaration lowering produces `I32Limits` and has no shared-memory spelling; memory64/shared declaration evidence needs core, binary, or generator fixtures.
+- Assuming `(memory 1)` proves memory64, shared-memory, or custom-page-size behavior. Current WAST declaration lowering produces `I32Limits`, has no shared-memory spelling, and has no page-size spelling; memory64/shared/custom-page-size declaration evidence needs core, binary, or generator fixtures, with custom page size still blocked on local representation support.
 - Writing inline table/memory/global import shorthand and expecting Starshine to lower it today. Use explicit import fields.
 - Treating a table-attached `(elem ...)` abbreviation as a `Table(..., Some(expr))` core initializer. Starshine WAST lowers it to an element segment.
 - Using official inline memory-data abbreviation syntax as current Starshine WAST evidence. Use separate `(memory ...)` and `(data ...)` fields until [`data-segment-authoring.md`](data-segment-authoring.md) says otherwise.
@@ -211,6 +214,7 @@ Useful related signoff pages:
 - Current import/export matching source bridge: [`../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md`](../raw/wasm/2026-06-04-import-export-external-type-matching-current-refresh.md)
 - Previous import/export matching source bridge: [`../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md`](../raw/wasm/2026-05-20-external-type-matching-import-export-validation.md)
 - Linear-memory threads/shared-memory bridge: [`../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md`](../raw/wasm/2026-06-04-linear-memory-threads-shared-memory-refresh.md)
+- Custom Page Sizes boundary refresh: [`../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md`](../raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md), [`../wasm-custom-page-sizes-boundary.md`](../wasm-custom-page-sizes-boundary.md)
 - Broader binary/core resource manifest: [`../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md`](../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md)
 - Official WebAssembly sources checked: <https://webassembly.github.io/spec/core/text/modules.html>, <https://webassembly.github.io/spec/core/text/types.html>, <https://webassembly.github.io/spec/core/syntax/modules.html>, <https://webassembly.github.io/spec/core/binary/modules.html>, <https://webassembly.github.io/spec/core/valid/modules.html>, <https://webassembly.github.io/memory64/core/>
 - Starshine implementation: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt)
