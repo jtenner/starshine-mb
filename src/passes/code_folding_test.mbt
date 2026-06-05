@@ -2484,6 +2484,38 @@ test "code-folding keeps br-on-null-poisoned block-exit suffixes" {
 }
 
 ///|
+test "code-folding keeps br-if-poisoned block-exit payload suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func $sink (param i32))
+      #|  (func (param i32 i32) (result i32)
+      #|    (block $out (result i32)
+      #|      (local.get 1)
+      #|      (call $sink)
+      #|      (drop (br_if $out (i32.const 7) (local.get 0)))
+      #|      (local.get 1)
+      #|      (call $sink)
+      #|      (i32.const 7))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding keeps br-table-poisoned block-exit suffixes" {
   let optimized = code_folding_test_run(
     (
