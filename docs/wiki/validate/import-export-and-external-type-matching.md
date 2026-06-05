@@ -28,6 +28,7 @@ related:
   - ../binary/custom-and-name-sections.md
   - ../wast/function-call-and-module-authoring.md
   - ../wast/resource-declaration-authoring.md
+  - ../wast/static-assertion-harness.md
   - ../fuzzing/generator-coverage-ledger.md
 ---
 
@@ -146,7 +147,13 @@ Starshine currently has no active public runtime linker page or complete host-im
 - when discussing shared memories, say explicitly that Starshine's shared-flag equality is local/proposal policy layered on top of the stable Core 3.0 memory matching relation; and
 - if a new Node or CLI instantiation surface is added, document whether it uses `Match::matches(actual, expected, env)` exactly, how it reports the `(module, name)` import pair, and whether it adds host-specific policy.
 
-The inactive compatibility directories called out in [`../../AGENTS.md`](../../../AGENTS.md) (`src/node_api/`, `src/optimization/`, `src/transformer/`) should not be used as evidence for an active linker contract unless they are rebuilt and re-documented.
+### Static WAST `assert_unlinkable` Is Pre-Link Evidence
+
+[`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md) deliberately keeps `assert_unlinkable` as a **pre-link** static assertion. In current Starshine, an `assert_unlinkable` command succeeds when the module compiles/lowers/decodes and then passes core validation; the result stage is `ValidBeforeLink`. That stage is useful because it proves the import declarations are internally valid and the module has reached the point where a host linker could try to satisfy them. It does **not** prove that a host value was supplied, that a `(module, name)` pair was found, or that `Match::matches(actual, expected, env)` accepted a supplied external value.
+
+This matters for fuzzing names too. `validate-invalid-text` and `validate-invalid-spec-seed` can generate or replay `assert_unlinkable` fixtures with messages like "unknown import" or "incompatible import type", but current Starshine does not compare those diagnostic strings to a real linker failure. Treat those cases as static stage-classification evidence until a dedicated linker/embedding API exists. A future host-linking surface should reuse this page's matching relation, define the host environment shape explicitly, and then update the static harness page to say whether `assert_unlinkable` remains pre-link-only or gains real import-resolution coverage.
+
+The inactive compatibility directories called out in [`../../../AGENTS.md`](../../../AGENTS.md) (`src/node_api/`, `src/optimization/`, `src/transformer/`) should not be used as evidence for an active linker contract unless they are rebuilt and re-documented.
 
 ## Pass, Generator, And Fixture Checklist
 
@@ -160,7 +167,8 @@ When a pass, generator, or fixture changes import/export structure:
 6. For import-declaration fuzzing, expect `ImportSection` diagnostics for invalid imported function/tag type indices or invalid external type shapes.
 7. For export fuzzing, expect `ExportSection` diagnostics for duplicate names and invalid function/table/memory/global/tag export indices.
 8. For future instantiation tests, add host-value matching cases separately from ordinary module validation.
-9. When changing table or memory limit validation, update [`resource-sections-and-limits.md`](resource-sections-and-limits.md) first, then keep this page focused on the import/export and host-matching boundary.
+9. For `assert_unlinkable` fixtures, keep the stage distinction explicit: today they prove `ValidBeforeLink`, not host-resolution or diagnostic-text parity; update [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md) if that changes.
+10. When changing table or memory limit validation, update [`resource-sections-and-limits.md`](resource-sections-and-limits.md) first, then keep this page focused on the import/export and host-matching boundary.
 
 ## Sources
 
@@ -174,4 +182,4 @@ When a pass, generator, or fixture changes import/export structure:
 - Validation implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt)
 - Invalid-fuzzer evidence: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid_tests.mbt`](../../../src/validate/gen_invalid_tests.mbt)
 - Core/binary/WAST surfaces: [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)
-- Related pages: [`module-validation-phases.md`](module-validation-phases.md), [`diagnostics-and-invalid-repro.md`](diagnostics-and-invalid-repro.md), [`resource-sections-and-limits.md`](resource-sections-and-limits.md), [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md), [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md), [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md), [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md)
+- Related pages: [`module-validation-phases.md`](module-validation-phases.md), [`diagnostics-and-invalid-repro.md`](diagnostics-and-invalid-repro.md), [`resource-sections-and-limits.md`](resource-sections-and-limits.md), [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md), [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md), [`../wast/function-call-and-module-authoring.md`](../wast/function-call-and-module-authoring.md), [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md), [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md)

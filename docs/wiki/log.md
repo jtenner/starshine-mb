@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] validate/wast | unlinkable pre-link bridge
+
+- Refreshed [`validate/import-export-and-external-type-matching.md`](validate/import-export-and-external-type-matching.md) so the current no-public-linker boundary explicitly covers static WAST `assert_unlinkable`: current `ValidBeforeLink` proves compile/lower/decode plus core validation, not host import lookup, external-value matching, or diagnostic-text parity.
+- Cross-linked [`wast/static-assertion-harness.md`](wast/static-assertion-harness.md) back to the import/export matching relation and clarified that generated or spec-seed `assert_unlinkable` labels such as `unknown import` / `incompatible import type` remain stage-classification provenance until a real linker/embedding API exists.
+- Refreshed [`index.md`](index.md) so both validator and WAST readers can find the handoff. No new raw source was added because the current 2026-06-04 Core 3.0 import/export/instantiation and static-harness source bridges already covered the official evidence; this run rechecked the official source direction and updated navigation/terminology.
+
 ## [2026-06-05] wiki-health | JS-interface source-anchor repair
 
 - During the follow-up health check, repaired stale repository line anchors in [`binaryen/passes/legalize-js-interface/starshine-strategy.md`](binaryen/passes/legalize-js-interface/starshine-strategy.md), [`binaryen/passes/legalize-js-interface/starshine-port-readiness-and-validation.md`](binaryen/passes/legalize-js-interface/starshine-port-readiness-and-validation.md), and [`binaryen/passes/legalize-and-prune-js-interface/starshine-strategy.md`](binaryen/passes/legalize-and-prune-js-interface/starshine-strategy.md) after the binary-section scan found old import/export encode/decode anchors that no longer pointed at current helpers.

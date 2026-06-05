@@ -16,6 +16,7 @@ related:
   - index.md
   - ../validate/fuzz-hardening.md
   - ../validate/diagnostics-and-invalid-repro.md
+  - ../validate/import-export-and-external-type-matching.md
   - ../tooling/fuzz-runner.md
   - ../tooling/node-package-surface.md
   - identifier-name-and-annotation-authoring.md
@@ -34,7 +35,7 @@ Starshine currently implements a **static** spec-harness subset:
 - `assert_malformed`, `assert_invalid`, and `assert_unlinkable` are evaluated by [`evaluate_wast_static_assertion(...)`](../../../src/wast/spec_harness.mbt);
 - runtime-only commands such as `assert_return`, `assert_trap`, `assert_exception`, `assert_exhaustion`, `invoke`, `get`, and `register` are parsed but skipped by the static harness.
 
-**Important terminology boundary:** current Starshine docs and counters may use link-shaped names such as `assert_unlinkable`, `ValidBeforeLink`, or `valid-multi-module-linking`, but the static harness does not perform provider/consumer import resolution. It only proves that a module reached the pre-link validation boundary. Reusable import/export compatibility rules for a future linker live in [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md).
+**Important terminology boundary:** current Starshine docs and counters may use link-shaped names such as `assert_unlinkable`, `ValidBeforeLink`, `valid-multi-module-linking`, `unknown import`, or `incompatible import type`, but the static harness does not perform provider/consumer import resolution. It only proves that a module reached the pre-link validation boundary. Reusable import/export compatibility rules for a future linker live in [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md), which now also records the exact handoff between `assert_unlinkable` stage evidence and future host-value matching.
 
 That distinction is intentional. Starshine can use official spec files and spec-seeded invalid-fuzz fixtures as **validation evidence** without claiming to execute WebAssembly or to link imports in the WAST harness.
 
@@ -77,7 +78,7 @@ The first assertion is about failing to accept the quoted module text, so a pars
   "unknown import")
 ```
 
-The current static evaluator does not instantiate modules or resolve imports. It only proves the pre-link half: the module compiles and validates. That is still useful because it separates core validation from import-resolution failures, but it is not runtime/linker evidence.
+The current static evaluator does not instantiate modules or resolve imports. It only proves the pre-link half: the module compiles and validates. That is still useful because it separates core validation from import-resolution failures, but it is not runtime/linker evidence. For example, expected strings such as `"unknown import"` or `"incompatible import type"` are fixture labels/provenance in current Starshine, not checked linker diagnostics.
 
 ## Spec Runner Flow
 
@@ -119,7 +120,7 @@ Do **not** cite skipped files as green conformance. When reporting `starshine sp
 The text invalid and spec-seed lanes reuse this same static evaluator:
 
 - [`src/fuzz/invalid_text.mbt`](../../../src/fuzz/invalid_text.mbt) defines the local stage names `parse-or-lower-rejected`, `validate-rejected`, and `valid-before-link` by mapping from `WastStaticAssertionStage`.
-- `validate-invalid-text` uses inline `assert_malformed`, `assert_invalid`, and `assert_unlinkable` strategies to prove the parser/lowerer/validator stage split. Its dynamic helper adds a separate GenValid-WAT mutation lane: derive per-strategy/per-attempt base-module seeds from the `text-mutation-choice` stream, generate valid WAT, verify the base parses/lowers/validates, then mutate the printed text into quoted `assert_malformed` missing-final-paren / bad-opcode-token / bad-type-token / bad-lane / bad-memarg / bad-export-string specimens, raw `assert_invalid` duplicate-export, bad-table-index, mutable-global-const-init, and bad-start-type module-field specimens, or `assert_unlinkable` unknown function-import and unknown memory-import specimens, classify the result with the same static evaluator, and report the owning stream label/seed plus simple source feature facts in suite details.
+- `validate-invalid-text` uses inline `assert_malformed`, `assert_invalid`, and `assert_unlinkable` strategies to prove the parser/lowerer/validator stage split. Its dynamic helper adds a separate GenValid-WAT mutation lane: derive per-strategy/per-attempt base-module seeds from the `text-mutation-choice` stream, generate valid WAT, verify the base parses/lowers/validates, then mutate the printed text into quoted `assert_malformed` missing-final-paren / bad-opcode-token / bad-type-token / bad-lane / bad-memarg / bad-export-string specimens, raw `assert_invalid` duplicate-export, bad-table-index, mutable-global-const-init, and bad-start-type module-field specimens, or `assert_unlinkable` unknown function-import and unknown memory-import specimens, classify the result with the same static evaluator, and report the owning stream label/seed plus simple source feature facts in suite details. The `assert_unlinkable` rows assert only the `ValidBeforeLink` stage today; they do not prove that a host import lookup failed.
 - `validate-invalid-spec-seed` extracts selected assertions from `tests/spec/*.wast` and replays the raw assertion S-expression through `evaluate_wast_static_assertion(...)`. Its `smoke` profile stays curated and deterministic, while `ci` / `stress` also scan committed `tests/spec` dynamically and require successful malformed, invalid, unlinkable, and multi-family matches from the scanned inventory; see [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md) for suite breadth and [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md) for expected stage/family metadata.
 
 The practical rule for maintainers is: **do not fork assertion semantics between the spec runner and fuzzing.** If a static assertion category changes, update `src/wast/spec_harness.mbt`, the fuzz stage mapping, and the wiki together.
@@ -141,7 +142,7 @@ When touching WAST script support or static assertions:
 2. If parser command coverage changes, update [`src/wast/parser.mbt`](../../../src/wast/parser.mbt) and the lexer keywords in [`src/wast/keywords.mbt`](../../../src/wast/keywords.mbt) together.
 3. If stage semantics change, update [`src/fuzz/invalid_text.mbt`](../../../src/fuzz/invalid_text.mbt), [`src/fuzz/invalid_text_wbtest.mbt`](../../../src/fuzz/invalid_text_wbtest.mbt), [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md), [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md), and this page.
 4. For broad confidence, run the `spec_runner` on selected `tests/spec/*.wast` files and the `validate-invalid-text` / `validate-invalid-spec-seed` fuzz suites through the wrapper described in [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md).
-5. If the `valid-multi-module-linking` suite or `link_*` JSON counters change, update this page and [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md) so readers know whether the suite still means static link-shaped scripts or now performs real import resolution.
+5. If the `valid-multi-module-linking` suite or `link_*` JSON counters change, update this page, [`../validate/import-export-and-external-type-matching.md`](../validate/import-export-and-external-type-matching.md), and [`../tooling/fuzz-runner.md`](../tooling/fuzz-runner.md) so readers know whether the suite still means static link-shaped scripts or now performs real import resolution.
 
 ## Sources
 
