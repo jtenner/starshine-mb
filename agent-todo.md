@@ -26,6 +26,55 @@
     - [ ] Recover optimization precision one pass at a time only with focused tests and semantic evidence: nested SSA liveness, safe commutative operand ordering, local.tee-aware simplify-locals sinking, path-sensitive coalesce-locals, and branchy structured vacuum cleanup.
   - Suggested tests: `moon fmt`, `moon test src/passes`, `moon build --target native --release src/cmd`, `bun test scripts/lib/o4z-debug-startup-map.test.ts`, `wasm-tools validate --features all tests/repros/o4z-debug-startup-map-init-repro.wasm`, `wasm-tools validate --features all .tmp/o4z-bench/starshine-o4z-candidate.wasm`, and the self-optimized spec smoke commands listed in the research note.
 
+### json-as debug artifact triage
+
+- [JSON-AS]001 - `remove-unused-brs` corrupts AssemblyScript incremental-GC loop exits
+  - Status: active correctness blocker found during 2026-06-05 `json-as` debug-artifact triage.
+  - Goal: make `remove-unused-brs` preserve normal loop fallthrough exits when stripping tail branches/returns from nested regions.
+  - Why: a fresh git clone of `JairusSW/json-as` at `f707d68d5ce5136ecfd0c576140421286c9e93a8`, built with AssemblyScript `0.28.17`, produced a valid Starshine output that traps at runtime. Prefix bisection of `medium.bench.incremental.naive.debug.wasm` found the first failing optimize prefix at slot 8: `memory-packing -> once-reduction -> global-refining -> global-struct-inference -> ssa-nomerge -> dead-code-elimination -> remove-unused-names -> remove-unused-brs`. Prefix 7 ran successfully; prefix 8 trapped in `~lib/rt/itcms/step` / `~lib/rt/itcms/interrupt` / `~lib/rt/itcms/__new` during benchmark startup.
+  - Finding: in `~lib/rt/itcms/step`, `remove-unused-brs` rewrote a loop whose `obj == toSpace` arm normally falls out of the loop into a shape where that fallthrough path reaches `unreachable`. This is a true semantic mismatch, not representation drift or a validation issue.
+  - Deliverables:
+    - [ ] Add a focused regression fixture for the `itcms.step` loop shape: conditional loop body where one arm updates state and branches back, while the other arm falls through normally.
+    - [ ] Guard `remove_unused_brs_try_strip_tail_if_exits` / `remove_unused_brs_strip_tail_control` so branch-to-loop-tail rewrites do not turn legitimate loop exits into `unreachable`.
+    - [ ] Replay the `json-as` medium-naive prefix 8 artifact and require it to run under the Node benchmark runner before re-enabling this shape.
+    - [ ] Refresh direct `--remove-unused-brs` compare evidence and classify any remaining mismatches separately from this artifact trap.
+  - Suggested tests: focused `src/passes/remove_unused_brs*_test.mbt`, `moon test src/passes`, `moon build --target native --release src/cmd`, direct `bun scripts/pass-fuzz-compare.ts --pass remove-unused-brs --count 1000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe`, and a cloned `json-as` replay of the prefix listed above.
+
+- [JSON-AS]002 - `vacuum` after repeated `remove-unused-names` corrupts json-as debug runtime state
+  - Status: active correctness blocker found after removing all `remove-unused-brs` slots from the same 2026-06-05 `json-as` preset replay.
+  - Goal: identify whether `vacuum`, `remove-unused-names`, or HOT lowering/splice cleanup corrupts stack/object state when `vacuum` cleans the post-`remove-unused-names` artifact.
+  - Why: with all `remove-unused-brs` slots removed, `medium.bench.incremental.naive.debug.wasm` still failed. The first failing prefix was `memory-packing -> once-reduction -> global-refining -> global-struct-inference -> ssa-nomerge -> dead-code-elimination -> remove-unused-names -> remove-unused-names -> vacuum`. Prefix 8 ran repeatedly; prefix 9 serialized once and then failed during GC with `abort: Index out of range in ~lib/rt.ts:21`, followed by an `unreachable` in `~lib/rt/__typeinfo`, reached from `~lib/rt/itcms/Object#get:isPointerfree`, `Object#makeGray`, `__visit`, and `Array<RecentActivity>#__visit`.
+  - Finding: the printed prefix-8-to-prefix-9 diff mostly shows removal of `const; drop` debris, but several array constructor / setter / assertion functions also show stack/local traffic moving around stores. The module validates, so the actionable issue is a runtime semantic corruption in cleanup or lowering, not malformed wasm.
+  - Deliverables:
+    - [ ] Minimize the no-`remove-unused-brs` prefix-9 failure into a smaller WAT or wasm repro that still reaches the `~lib/rt/__typeinfo` abort.
+    - [ ] Audit `vacuum` region splicing and dead-root deletion around stack-producing locals and stores; confirm whether the suspicious array constructor / `#__set` reorderings are semantic changes or printer/lowering artifacts.
+    - [ ] Add a focused regression before changing behavior; prefer a fixture that exercises `const; drop` cleanup adjacent to array allocation, write barriers, and GC visits.
+    - [ ] Replay the no-`remove-unused-brs` prefix after the fix and require the medium-naive benchmark to complete.
+  - Suggested tests: focused `src/passes/vacuum*_test.mbt` or pass-manager prefix fixture, `moon test src/passes`, `moon build --target native --release src/cmd`, and cloned `json-as` prefix replay without `remove-unused-brs` slots.
+
+- [JSON-AS]003 - Optimize preset misses Binaryen O4 function/type cleanup on json-as debug artifacts
+  - Status: active optimization-parity gap; do not widen the preset until `[JSON-AS]001` and `[JSON-AS]002` are fixed or safely gated.
+  - Goal: close the largest size gaps against standard Binaryen `wasm-opt -O4` for `json-as` debug artifacts after correctness is restored.
+  - Why: on `medium.bench.incremental.naive.debug.wasm`, Starshine reduced data and globals but left many functions/types alive. Size and section evidence from the 2026-06-05 replay: debug `222187` bytes / `276` functions / `29` types / `128` globals; Starshine `--optimize -O4` `148288` bytes / `276` functions / `29` types / `38` globals; Binaryen O4 `110359` bytes / `85` functions / `17` types / `36` globals. Starshine matched Binaryen's data-section size (`25312` bytes) but missed most function/type cleanup.
+  - Finding: `duplicate-function-elimination` works directly on this artifact (`276` functions -> `222`) but is not part of the exercised public optimize preset; Binaryen gets further wins from inlining/DAE/type cleanup/reorder-function style whole-module cleanup.
+  - Deliverables:
+    - [ ] After correctness is green, add or test preset placement for `duplicate-function-elimination` with artifact and fuzz evidence.
+    - [ ] Measure incremental contributions of `inlining`, `inlining-optimizing`, `dae-optimizing`, type cleanup / `remove-unused-types`, and function reordering/removal equivalents against the same `json-as` debug artifacts.
+    - [ ] Add preset-order tests for any widened optimize/shrink slots; do not collapse repeated cleanup slots without Binaryen-neighborhood evidence.
+    - [ ] Record size deltas by section (`types`, `functions`, `globals`, `code`, `data`) for medium-naive, medium-simd, and large-swar debug artifacts.
+  - Suggested tests: `moon test src/passes`, `moon test src/cmd` for preset changes, `moon build --target native --release src/cmd`, direct pass compare for every newly scheduled pass, and cloned `json-as` Starshine-vs-Binaryen artifact size replay.
+
+- [JSON-AS]004 - Keep a cloned json-as benchmark replay for optimizer artifact signoff
+  - Status: active artifact-signoff follow-up.
+  - Goal: make the `json-as` debug-artifact comparison repeatable without relying on temporary restored wasm files under `examples/`.
+  - Why: the restored example wasm files were already heavily optimized and made Starshine look size-regressive. A fresh git clone of `json-as` at `f707d68d5ce5136ecfd0c576140421286c9e93a8`, local `bun install`, `assemblyscript@0.28.17`, and `bun run build:transform` produced debug artifacts where Binaryen O4 runs successfully and Starshine currently validates but traps. The clone path used during triage was `.tmp/json-as`, which is intentionally not durable.
+  - Deliverables:
+    - [ ] Add a documented, opt-in replay command or task that clones `json-as` into `.tmp/`, pins AssemblyScript `0.28.17`, builds `large` SWAR, `medium` NAIVE, and `medium` SIMD debug artifacts, and emits Starshine/Binaryen outputs without touching committed examples.
+    - [ ] Keep runtime execution separate from validation: validation alone missed the current Starshine corruption.
+    - [ ] Prefer the repo's `d8` runner when available; otherwise use a checked-in Node runner equivalent for local smoke comparisons.
+    - [ ] Capture Binaryen baseline runtime numbers as reference only, not as deterministic CI thresholds, unless a stable benchmark environment is added.
+  - Suggested tests: opt-in script/task dry run, `wasm-tools validate --features all` on all generated outputs, and runtime smoke under Node or `d8` for debug, Binaryen O4, and Starshine outputs.
+
 ### Whole-command wall-time budget
 
 - [WALL]001 - Cross-Pass Runtime Budget And Attribution
