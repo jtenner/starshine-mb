@@ -932,6 +932,78 @@ test "local-cse defers local-only scalar reuse across SIMD stores" {
 }
 
 ///|
+test "local-cse defers repeated packed struct atomic get roots" {
+  let struct_type_idx = @lib.TypeIdx::new(0U)
+  let func_type_idx = @lib.TypeIdx::new(1U)
+  let ref_ty = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(struct_type_idx)),
+  )
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::pack_type(@lib.PackType::i8()),
+          @lib.Mut::var_(),
+        ),
+        @lib.FieldType::new(
+          @lib.StorageType::pack_type(@lib.PackType::i16()),
+          @lib.Mut::var_(),
+        ),
+      ]),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([ref_ty], [])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::struct_atomic_get_s(
+              @lib.AtomicOrder::seq_cst(),
+              struct_type_idx,
+              @lib.U32(0U),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::struct_atomic_get_s(
+              @lib.AtomicOrder::seq_cst(),
+              struct_type_idx,
+              @lib.U32(0U),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::struct_atomic_get_u(
+              @lib.AtomicOrder::acq_rel(),
+              struct_type_idx,
+              @lib.U32(1U),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::struct_atomic_get_u(
+              @lib.AtomicOrder::acq_rel(),
+              struct_type_idx,
+              @lib.U32(1U),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+}
+
+///|
 test "local-cse reuses local-only expression across select" {
   let input =
     #| (module
