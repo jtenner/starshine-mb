@@ -1,11 +1,12 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-05
 sources:
   - ../../README.md
   - ../../../AGENTS.md
   - ../raw/wiki/2026-06-04-wiki-maintenance-source-bridge.md
+  - ../raw/wiki/2026-06-05-research-serial-and-health-check-routing.md
   - ../index.md
   - ../log.md
 related:
@@ -21,7 +22,7 @@ related:
 
 Use this playbook when doing broad Starshine wiki maintenance: source ingest, page refreshes, stale-reference cleanup, citation repair, schema alignment, and whole-wiki health checks.
 
-This page is deliberately an **operational checklist**, not a second schema. The normative schema remains [`../../README.md`](../../README.md), and the compact repo rules remain [`../../../AGENTS.md`](../../../AGENTS.md). The current methodology bridge is [`../raw/wiki/2026-06-04-wiki-maintenance-source-bridge.md`](../raw/wiki/2026-06-04-wiki-maintenance-source-bridge.md), which ties the local workflow back to the LLM Wiki / LLM Wiki v2 pattern and current Starshine policy.
+This page is deliberately an **operational checklist**, not a second schema. The normative schema remains [`../../README.md`](../../README.md), and the compact repo rules remain [`../../../AGENTS.md`](../../../AGENTS.md). The methodology bridge [`../raw/wiki/2026-06-04-wiki-maintenance-source-bridge.md`](../raw/wiki/2026-06-04-wiki-maintenance-source-bridge.md) ties the local workflow back to the LLM Wiki / LLM Wiki v2 pattern and current Starshine policy; the focused serial/health-check bridge [`../raw/wiki/2026-06-05-research-serial-and-health-check-routing.md`](../raw/wiki/2026-06-05-research-serial-and-health-check-routing.md) records the current research-archive placement rule and why historical duplicate serials are provenance rather than cleanup targets.
 
 ## Mental Model
 
@@ -75,7 +76,7 @@ When evidence is uncertain, say so. Useful labels include `current-main recheck`
 | Source kind | Preferred location | Example use |
 | --- | --- | --- |
 | Official WebAssembly, proposal, or tool docs | Topic directory such as `raw/wasm/`, `raw/binaryen/`, `raw/moonbit/`, or `raw/wiki/` | Current-source bridge for a living page. |
-| Local run or investigation summary | `raw/research/[serial]-[YYYY-MM-DD]-[title].md` | Compare-pass audit, parity investigation, design spike, or substantial debugging session. |
+| Local run or investigation summary | `raw/research/[serial]-[YYYY-MM-DD]-[title].md` | Compare-pass audit, parity investigation, design spike, or substantial debugging session. Before creating one, scan `docs/`, `docs/wiki/`, and `docs/wiki/raw/research/` and use the next unused zero-padded serial; preserve historical duplicate serial prefixes as provenance but do not create a new duplicate. |
 | Completed old planning doc | `raw/research/` plus live-reference repointing | Preserve provenance after a living page becomes canonical. |
 | Large generated artifacts | Usually not committed; promote only the minimal durable summary | Counts, command, classification, hashes, and reduced repro if needed. |
 
@@ -91,6 +92,7 @@ After the main update, scan beyond the touched area for high-confidence fixes:
 - log entries missing for durable ingests or health fixes;
 - duplicate or near-duplicate pages competing for the same concept;
 - stale `docs/00xx` forwarding-stub references in living pages, unless preserved intentionally in historical raw notes;
+- accidental new research-serial reuse, while leaving historical duplicate serial prefixes stable unless a just-created file can still be renamed safely;
 - broad claims such as "all", "current", or "latest" that need a date, release tag, or local/spec qualifier;
 - transient `.tmp` / `.artifacts` source links in frontmatter where a committed raw note should carry the evidence.
 

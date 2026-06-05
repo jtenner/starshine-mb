@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wiki/schema | research serial and health-check routing
+
+- Added [`raw/wiki/2026-06-05-research-serial-and-health-check-routing.md`](raw/wiki/2026-06-05-research-serial-and-health-check-routing.md) after rechecking the current LLM Wiki / LLM Wiki v2 methodology sources against [`../README.md`](../README.md), [`../../AGENTS.md`](../../AGENTS.md), [`raw/research/README.md`](raw/research/README.md), and the existing log claim that serial policy had been clarified.
+- Refreshed [`tooling/wiki-maintenance-playbook.md`](tooling/wiki-maintenance-playbook.md) and [`raw/research/README.md`](raw/research/README.md) so autonomous wiki runs explicitly scan `docs/`, `docs/wiki/`, and `docs/wiki/raw/research/` for the next unused research serial, preserve historical duplicate serial prefixes as provenance, and include accidental new serial reuse in whole-wiki health checks.
+- Refreshed [`index.md`](index.md) so schema/operations readers can find the focused serial-routing bridge. This was wiki-schema maintenance only; no WebAssembly behavior, Starshine code, or validation contract changed.
+
 ## [2026-06-05] wasm/wiki | JS string builtins boundary routing
 
 - Added [`raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md) after checking the current WebAssembly finished-proposals table, active proposals tracker, JS String Builtins draft, MDN JavaScript builtins / `WebAssembly.compile()` / imported string constants pages, and current Starshine Node runtime plus WAST/core/binary/validator/pass evidence.
