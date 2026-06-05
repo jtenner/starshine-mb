@@ -2216,6 +2216,90 @@ fn code_folding_try_fold_one_block_if_arm(
 }
 
 ///|
+fn code_folding_try_fold_two_block_if_at_region(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  if_id : Int,
+  then_ref : @ir.HotRegionRef,
+  else_ref : @ir.HotRegionRef,
+  result_arity : Int,
+  label_used : @bitset.BitSet,
+) -> Bool {
+  if result_arity == 0 {
+    return false
+  }
+  let then_block = code_folding_region_single_unused_block(
+    func, then_ref, label_used,
+  )
+  let else_block = code_folding_region_single_unused_block(
+    func, else_ref, label_used,
+  )
+  if then_block < 0 || else_block < 0 {
+    return false
+  }
+  let then_type = @ir.hot_node_get(func, then_block).ty
+  let else_type = @ir.hot_node_get(func, else_block).ty
+  if then_type != else_type ||
+    @ir.hot_type_result_arity(func, then_type) != result_arity {
+    return false
+  }
+  let then_body_ref = @ir.hot_region_body_ref(func, then_block)
+  let else_body_ref = @ir.hot_region_body_ref(func, else_block)
+  let suffix_len = code_folding_common_suffix_len(
+    func, if_id, then_body_ref, else_body_ref, label_used,
+  )
+  if suffix_len == 0 {
+    return false
+  }
+  let then_count = @ir.hot_region_root_count(func, then_body_ref)
+  let else_count = @ir.hot_region_root_count(func, else_body_ref)
+  let then_start = then_count - suffix_len
+  let else_start = else_count - suffix_len
+  if then_start == 0 && else_start == 0 {
+    return false
+  }
+  if code_folding_region_prefix_has_exit(func, then_body_ref, then_start) ||
+    code_folding_region_prefix_has_exit(func, else_body_ref, else_start) ||
+    !code_folding_suffix_matches_result_arity(
+      func, then_body_ref, then_start, suffix_len, result_arity,
+    ) ||
+    !code_folding_suffix_matches_result_arity(
+      func, else_body_ref, else_start, suffix_len, result_arity,
+    ) ||
+    code_folding_suffix_has_if_terminal(
+      func, then_body_ref, then_start, suffix_len,
+    ) {
+    return false
+  }
+
+  let hoisted = pass_splice_region(
+    ctx,
+    func,
+    then_body_ref,
+    then_start,
+    suffix_len,
+    [],
+  )
+  ignore(
+    pass_splice_region(ctx, func, else_body_ref, else_start, suffix_len, []),
+  )
+  @ir.hot_control_result_type_set(func, then_block, @ir.hot_type_void(func))
+  @ir.hot_control_result_type_set(func, else_block, @ir.hot_type_void(func))
+  @ir.hot_control_result_type_set(func, if_id, @ir.hot_type_void(func))
+  pass_mark_mutated(ctx, func)
+  ignore(pass_splice_region(ctx, func, region_ref, idx + 1, 0, hoisted))
+  pipeline_trace_hook(
+    ctx.trace,
+    ctx.descriptor.name,
+    "mutated",
+    payload="if-two-block-common-suffix",
+  )
+  true
+}
+
+///|
 fn code_folding_try_fold_one_block_if_at_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -2778,9 +2862,12 @@ fn code_folding_try_fold_if_at_region(
     func, if_id, then_ref, else_ref, label_used,
   )
   if suffix_len == 0 {
-    return code_folding_try_fold_one_block_if_at_region(
-      ctx, func, region_ref, idx, if_id, then_ref, else_ref, result_arity, label_used,
-    )
+    return code_folding_try_fold_two_block_if_at_region(
+        ctx, func, region_ref, idx, if_id, then_ref, else_ref, result_arity, label_used,
+      ) ||
+      code_folding_try_fold_one_block_if_at_region(
+        ctx, func, region_ref, idx, if_id, then_ref, else_ref, result_arity, label_used,
+      )
   }
   let then_count = @ir.hot_region_root_count(func, then_ref)
   let else_count = @ir.hot_region_root_count(func, else_ref)

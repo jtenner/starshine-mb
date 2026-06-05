@@ -83,7 +83,7 @@ The current owner file and tests cover a conservative subset of the expression-e
 - void block-exit/fallthrough tail sharing
 - single-result typed named-block plain-`br` payload sharing with a matching fallthrough value or other branch payloads, including a safe multi-root suffix before the final value root
 - unsupported `br_on_null` label-poisoning coverage for block-exit folding
-- exact partial non-block value-arm `if` suffix sharing and one-block/one-non-block `if` value-suffix folding in both then-block and else-block orientations
+- exact partial non-block value-arm `if` suffix sharing, one-block/one-non-block `if` value-suffix folding in both then-block and else-block orientations, and a source-backed two-unnamed-block value-arm suffix fold with unique prefixes
 - live-label structured `if` suffix bailout coverage
 - small exiting dead-value block flattening cleanup
 
@@ -91,7 +91,7 @@ The current owner file and tests cover a conservative subset of the expression-e
 
 The named-block expression-exit substrate now covers the first safe multi-root single-result branch-payload suffix shapes. Continue with the remaining broader expression-exit family from [`./binaryen-strategy.md`](./binaryen-strategy.md):
 
-- remaining unnamed `if` arm duplicate suffix caveats beyond the covered direct suffix, exact partial non-block value suffix, and one-block/one-non-block value-suffix cases
+- remaining unnamed `if` arm duplicate suffix caveats beyond the covered direct suffix, exact partial non-block value suffix, one-block/one-non-block value-suffix cases, and the new two-unnamed-block value-suffix case
 - named-arm negatives from the official lit matrix where the local HOT/name surface can distinguish them
 - any further named-block broadening only when it goes beyond the covered plain-`br`, single-result, multi-root safe subset, such as multi-value payloads with HOT/lower proof
 
