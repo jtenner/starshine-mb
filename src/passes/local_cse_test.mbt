@@ -745,6 +745,47 @@ test "local-cse defers repeated ref-test roots" {
 }
 
 ///|
+test "local-cse defers repeated ref-cast roots" {
+  let ref_ty = @lib.ValType::ref_null(
+    @lib.HeapType::abs(@lib.AbsHeapType::any()),
+  )
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([ref_ty], [])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(
+              true,
+              @lib.HeapType::abs(@lib.AbsHeapType::eq()),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(
+              true,
+              @lib.HeapType::abs(@lib.AbsHeapType::eq()),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(1U)), 0)
+}
+
+///|
 test "local-cse reuses local-only expression across numeric reinterpret" {
   let input =
     #| (module

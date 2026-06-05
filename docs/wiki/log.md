@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | standard ref.cast deferral
+
+- Added core-built LCSE boundary coverage for repeated nullable `ref.cast` roots, documenting Starshine's conservative no-CSE behavior even though Binaryen materializes the representative standard cast repeat.
+- Refreshed the LCSE implementation/test guide and final-pass audit note so `ref.cast` remains paired with the existing `ref.test` and descriptor/cast-reasoning deferrals.
+
 ## [2026-06-05] local-cse/wiki | trap-sensitive trunc deferral
 
 - Added focused LCSE coverage for repeated non-saturating `i32.trunc_f32_s` and `i64.trunc_f64_u` roots, documenting Starshine's conservative no-CSE boundary even though Binaryen materializes the representative repeats.

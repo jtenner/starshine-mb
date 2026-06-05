@@ -1668,3 +1668,24 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the initial focused run with the added deferral coverage passed (`107/107`) because this was documented conservative coverage; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`107/107`); `moon test src/passes` passed (`1655/1655`); full `moon test` passed (`4840/4840`); native build succeeded with no work to do; compare reached `6765` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up standard ref.cast deferral slice on 2026-06-05
+
+A later focused LCSE hardening slice spot-checked a standard nullable `ref.cast` root with a representative `(ref.cast (ref null eq) ...)` fixture. Binaryen materialized the repeated root with `local.tee` / `local.get` in the spot-check fixture under `.tmp/local-cse-ref-cast/`.
+
+This slice deliberately did not implement `ref.cast` CSE or heap/cast/trap reasoning. It added the core-built direct boundary test `local-cse defers repeated ref-cast roots`, documenting Starshine's conservative no-CSE behavior for cast roots. The existing `ref.test` deferral remains paired with this cast boundary; `br_on_cast` / `br_on_cast_fail` fallthrough-continuation operand modeling remains separate and does not make cast roots reusable.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-ref-cast-deferral-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the initial focused run with the added deferral coverage passed (`108/108`) because this was documented conservative coverage; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`108/108`); `moon test src/passes` passed (`1656/1656`); full `moon test` passed (`4841/4841`); native build succeeded with no work to do; compare reached `6770` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
