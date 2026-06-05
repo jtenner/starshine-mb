@@ -2529,9 +2529,6 @@ fn code_folding_try_fold_two_block_if_at_region(
   result_arity : Int,
   label_used : @bitset.BitSet,
 ) -> Bool {
-  if result_arity == 0 {
-    return false
-  }
   let then_block = code_folding_region_single_unused_block(
     func, then_ref, label_used,
   )
@@ -2587,10 +2584,12 @@ fn code_folding_try_fold_two_block_if_at_region(
   ignore(
     pass_splice_region(ctx, func, else_body_ref, else_start, suffix_len, []),
   )
-  @ir.hot_control_result_type_set(func, then_block, @ir.hot_type_void(func))
-  @ir.hot_control_result_type_set(func, else_block, @ir.hot_type_void(func))
-  @ir.hot_control_result_type_set(func, if_id, @ir.hot_type_void(func))
-  pass_mark_mutated(ctx, func)
+  if result_arity != 0 {
+    @ir.hot_control_result_type_set(func, then_block, @ir.hot_type_void(func))
+    @ir.hot_control_result_type_set(func, else_block, @ir.hot_type_void(func))
+    @ir.hot_control_result_type_set(func, if_id, @ir.hot_type_void(func))
+    pass_mark_mutated(ctx, func)
+  }
   ignore(pass_splice_region(ctx, func, region_ref, idx + 1, 0, hoisted))
   pipeline_trace_hook(
     ctx.trace,
