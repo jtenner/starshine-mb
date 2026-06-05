@@ -38,6 +38,21 @@ test "merge-locals retargets same-typed source gets after copy" {
 }
 
 ///|
+test "merge-locals stops retargeting across control that writes destination" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32) local.get 0 local.set 1 loop local.get 1 i32.const 1 i32.add local.set 1 end local.get 0))",
+      ["merge-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected merge-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(end))(local.get (Local 0))(end)"), msg=pretty)
+}
+
+///|
 test "merge-locals stops retargeting after destination write" {
   let optimized = match
     pass_test_run_pipeline(

@@ -67,6 +67,46 @@ test "simplify-locals-notee-nostructure accepts O4z spelling" {
 }
 
 ///|
+fn simplify_locals_nostructure_test_large_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  let mut idx = 0
+  while idx < 101 {
+    out.write_string("  (func $f")
+    out.write_string(idx.to_string())
+    out.write_string(" (result i32) (local i32) i32.const ")
+    out.write_string((idx & 1).to_string())
+    out.write_string(" local.set 0 local.get 0)\n")
+    idx += 1
+  }
+  out.write_string(")")
+  out.to_string()
+}
+
+///|
+test "simplify-locals-notee-nostructure skips large modules" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      simplify_locals_nostructure_test_large_module(),
+      ["simplify-locals-notee-nostructure"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected simplify-locals-notee-nostructure large module success, got \{err}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[simplify-locals-notee-nostructure]:skip-large-module")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "simplify-locals-nostructure folds dead exact-slot set-copy local" {
   let optimized = match
     pass_test_run_pipeline(

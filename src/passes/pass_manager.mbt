@@ -11212,7 +11212,7 @@ fn run_hot_pipeline_apply_hot_pass(
     return Ok(mod_)
   }
   match mod_.code_sec {
-    Some(@lib.CodeSec(defs)) =>
+    Some(@lib.CodeSec(defs)) => {
       if descriptor.name == "simplify-locals" && defs.length() >= 2048 {
         pipeline_trace_hook(
           options.trace,
@@ -11222,6 +11222,17 @@ fn run_hot_pipeline_apply_hot_pass(
         )
         return Ok(mod_)
       }
+      if descriptor.name == "simplify-locals-notee-nostructure" &&
+        defs.length() > 100 {
+        pipeline_trace_hook(
+          options.trace,
+          descriptor.name,
+          "skip-large-module",
+          payload="reason=large-module-simplify-locals-notee-nostructure-noop funcs=\{defs.length()}",
+        )
+        return Ok(mod_)
+      }
+    }
     None => ()
   }
   let module_state = { module_ctx: None }

@@ -2489,3 +2489,14 @@ Added tests:
 - `local-cse reuses expression across unrelated local-tee`
 
 The implementation now filters the active raw expression window by the written local index, retaining only expressions whose recorded local-read set does not contain that written local. The existing `local-cse clears the reuse window across writes to read locals` negative remains green, so this is local-write precision rather than local/GVN widening.
+
+## Follow-up direct-call local-only precision on 2026-06-05
+
+A focused continuation slice spot-checked Binaryen's direct-call barrier behavior and found that it can reuse a local-only repeated scalar expression across an ordinary direct call, while still not CSEing the call root itself. Starshine previously cleared the entire active raw LCSE window for non-idempotent direct calls, which was safe but missed this local-only continuation shape.
+
+Added tests:
+
+- `local-cse reuses local-only expression across ordinary direct call`
+- `local-cse does not reuse global-dependent expression across ordinary direct call`
+
+The implementation keeps this scoped to candidate-window precision: non-idempotent calls are still not roots, and ordinary calls filter active candidates down to expressions that do not read memory, memory size, table state, or globals. This avoids arbitrary call CSE and preserves effect-sensitive invalidation for global-dependent expressions.

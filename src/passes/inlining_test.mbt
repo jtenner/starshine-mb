@@ -2619,6 +2619,46 @@ test "inlining-optimizing prunes dead unreachable value blocks even without inli
 }
 
 ///|
+fn inl_test_large_module_for_nested_cleanup_guard() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func $tiny (result i32) i32.const 1)\n")
+  out.write_string("  (func (export \"run\") (result i32) call $tiny)\n")
+  let mut idx = 0
+  while idx < 81 {
+    out.write_string("  (func $f")
+    out.write_string(idx.to_string())
+    out.write_string(" (result i32) i32.const ")
+    out.write_string((idx & 1).to_string())
+    out.write_string(")\n")
+    idx += 1
+  }
+  out.write_string(")")
+  out.to_string()
+}
+
+///|
+test "inlining-optimizing skips nested cleanup passes on large modules" {
+  let source = inl_test_large_module_for_nested_cleanup_guard()
+  let trace = match pass_test_capture_trace(source, ["inlining-optimizing"]) {
+    Ok(trace) => trace
+    Err(err) => fail("expected traced large inlining success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[inlining-optimizing]:nested-cleanup")
+    }),
+    msg=trace.to_string(),
+  )
+  assert_false(
+    trace.any(fn(line) {
+      line.contains("pass[inlining-optimizing]:nested-pass name=")
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "inlining-optimizing emits nested cleanup trace for touched functions" {
   let source =
     #|(module

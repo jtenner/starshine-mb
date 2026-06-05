@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | direct-call local-only precision
+
+- Taught LCSE to keep local-only scalar candidates live across ordinary direct calls without CSEing the call itself.
+- Added a negative guard for global-dependent expressions across ordinary direct calls so call effects still clear non-local state.
+
 ## [2026-06-05] local-cse/wiki | unrelated local-write precision
 
 - Taught LCSE raw-window invalidation to retain active expressions that do not read the local written by an intervening `local.set` or `local.tee`.

@@ -39,6 +39,7 @@ priv struct LcseRawExpr {
   reads_memory : Bool
   reads_memory_size : Bool
   reads_table_state : Bool
+  reads_global : Bool
   mut repeat_of : Int
   mut local_id : Int
 }
@@ -735,6 +736,29 @@ fn lcse_raw_filter_active_without_local(
 }
 
 ///|
+fn lcse_raw_filter_active_local_only(
+  exprs : Array[LcseRawExpr],
+  active : Array[Int],
+) -> Unit {
+  let keep : Array[Int] = []
+  for expr_id in active {
+    if expr_id >= 0 && expr_id < exprs.length() {
+      let expr = exprs[expr_id]
+      if !expr.reads_memory &&
+        !expr.reads_memory_size &&
+        !expr.reads_table_state &&
+        !expr.reads_global {
+        keep.push(expr_id)
+      }
+    }
+  }
+  active.clear()
+  for expr_id in keep {
+    active.push(expr_id)
+  }
+}
+
+///|
 fn lcse_raw_exprs_match(
   exprs : Array[LcseRawExpr],
   lhs_id : Int,
@@ -984,7 +1008,7 @@ fn lcse_raw_rewrite_instrs(
         )
       @lib.Instruction::Call(call_idx) =>
         if !lcse_raw_call_is_idempotent(call_infos, call_idx) {
-          active.clear()
+          lcse_raw_filter_active_local_only(exprs, active)
         }
       @lib.Instruction::CallIndirect(_, _) | @lib.Instruction::CallRef(_) =>
         active.clear()
@@ -1023,6 +1047,10 @@ fn lcse_raw_rewrite_instrs(
           @lib.Instruction::TableGet(_) | @lib.Instruction::TableSize(_) => true
           _ => false
         }
+        let mut reads_global = match instr {
+          @lib.Instruction::GlobalGet(_) => true
+          _ => false
+        }
         for child in children {
           let child_expr = exprs[child]
           if child_expr.start < start {
@@ -1042,6 +1070,9 @@ fn lcse_raw_rewrite_instrs(
           }
           if child_expr.reads_table_state {
             reads_table_state = true
+          }
+          if child_expr.reads_global {
+            reads_global = true
           }
         }
         match instr {
@@ -1081,6 +1112,7 @@ fn lcse_raw_rewrite_instrs(
           reads_memory,
           reads_memory_size,
           reads_table_state,
+          reads_global,
           repeat_of: -1,
           local_id: -1,
         }

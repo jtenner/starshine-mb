@@ -112,18 +112,30 @@ fn merge_locals_rewrite_expr(
   let alias_to : Array[Int] = Array::make(local_types.length(), -1)
   let alias_target_epoch : Array[Int] = Array::make(local_types.length(), -1)
   let local_epoch : Array[Int] = Array::make(local_types.length(), 0)
+  let clear_aliases = fn() {
+    let mut local_id = 0
+    while local_id < alias_to.length() {
+      alias_to[local_id] = -1
+      alias_target_epoch[local_id] = -1
+      local_id += 1
+    }
+  }
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
-      @lib.Block(ty, @lib.Expr(body)) =>
+      @lib.Block(ty, @lib.Expr(body)) => {
         if merge_locals_rewrite_expr(body, local_types) {
           instrs[idx] = @lib.Instruction::block(ty, @lib.Expr::new(body))
           changed = true
         }
-      @lib.Loop(ty, @lib.Expr(body)) =>
+        clear_aliases()
+      }
+      @lib.Loop(ty, @lib.Expr(body)) => {
         if merge_locals_rewrite_expr(body, local_types) {
           instrs[idx] = @lib.Instruction::loop_(ty, @lib.Expr::new(body))
           changed = true
         }
+        clear_aliases()
+      }
       @lib.If(ty, then_body, else_body) => {
         let then_changed = merge_locals_rewrite_expr(then_body, local_types)
         let else_changed = match else_body {
@@ -134,8 +146,9 @@ fn merge_locals_rewrite_expr(
           instrs[idx] = @lib.Instruction::if_(ty, then_body, else_body)
           changed = true
         }
+        clear_aliases()
       }
-      @lib.TryTable(ty, catches, @lib.Expr(body)) =>
+      @lib.TryTable(ty, catches, @lib.Expr(body)) => {
         if merge_locals_rewrite_expr(body, local_types) {
           instrs[idx] = @lib.Instruction::try_table(
             ty,
@@ -144,6 +157,8 @@ fn merge_locals_rewrite_expr(
           )
           changed = true
         }
+        clear_aliases()
+      }
       @lib.LocalGet(local_idx) => {
         let raw = merge_locals_local_idx_raw(local_idx)
         if raw >= 0 && raw < alias_to.length() && alias_to[raw] >= 0 {

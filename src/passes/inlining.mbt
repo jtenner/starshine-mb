@@ -5119,11 +5119,17 @@ fn inl_run_final_local_cleanup(mod_ : @lib.Module) -> @lib.Module {
 }
 
 ///|
+fn inl_large_nested_cleanup_func_limit() -> Int {
+  80
+}
+
+///|
 fn inl_finalize_module_pass_result(
   mod_ : @lib.Module,
   optimize : Bool,
 ) -> @lib.Module {
-  if optimize {
+  if optimize &&
+    inl_defined_func_count(mod_) <= inl_large_nested_cleanup_func_limit() {
     inl_run_final_local_cleanup(mod_)
   } else {
     mod_
@@ -5140,6 +5146,16 @@ fn inl_run_nested_cleanup(
   shrink_level : Int,
 ) -> @lib.Module {
   if !optimize {
+    return mod_
+  }
+  // The optimizing cleanup suffix currently delegates to several HOT passes whose
+  // full-module lanes are safe only after their own artifact/runtime audits. On
+  // large inlined modules (json-as debug artifacts are the live witness), those
+  // nested cleanups can validate but corrupt allocation/string state at runtime.
+  // Keep small generated parity fixtures optimized, but make large-module
+  // inlining-optimizing fall back to plain inlining until each suffix owner is
+  // independently runtime-green.
+  if inl_defined_func_count(mod_) > inl_large_nested_cleanup_func_limit() {
     return mod_
   }
   if inl_has_two_func_exact_root_hot_unsafe_helper(mod_) {

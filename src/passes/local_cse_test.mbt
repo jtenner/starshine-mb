@@ -5158,6 +5158,51 @@ test "local-cse does not reuse repeated array-new roots" {
 }
 
 ///|
+test "local-cse reuses local-only expression across ordinary direct call" {
+  let input =
+    #| (module
+    #|   (func $ordinary)
+    #|   (func (param i32 i32)
+    #|     (drop (i32.add (local.get 0) (local.get 1)))
+    #|     (call $ordinary)
+    #|     (drop (i32.add (local.get 0) (local.get 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_defined_func(
+    optimized, 1,
+  )
+  let temp = @lib.LocalIdx::new(2U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
+test "local-cse does not reuse global-dependent expression across ordinary direct call" {
+  let input =
+    #| (module
+    #|   (global $g (mut i32) (i32.const 0))
+    #|   (func $ordinary)
+    #|   (func
+    #|     (drop (i32.add (global.get $g) (i32.const 1)))
+    #|     (call $ordinary)
+    #|     (drop (i32.add (global.get $g) (i32.const 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_defined_func(
+    optimized, 1,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+}
+
+///|
 test "local-cse reuses annotated idempotent direct calls" {
   let input =
     #| (module
