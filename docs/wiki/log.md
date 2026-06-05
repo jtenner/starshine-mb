@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wiki-health | wide arithmetic Binaryen backlink
+
+- During the follow-up health check, searched empty Markdown links, malformed nested wiki/raw paths, stale `docs/wiki/docs/wiki` paths, broad `Wide Arithmetic` mentions, and active-proposal routing duplication.
+- Refreshed [`binaryen/release-horizon-and-oracles.md`](binaryen/release-horizon-and-oracles.md) and [`index.md`](index.md) so Binaryen `version_130` release-note mentions of Wide Arithmetic route to [`wasm-wide-arithmetic-boundary.md`](wasm-wide-arithmetic-boundary.md) for Starshine support claims and proposal opcode caveats.
+
 ## [2026-06-05] wasm/wiki | wide arithmetic boundary routing
 
 - Added [`raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md`](raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md) after checking the current WebAssembly proposals tracker, Wide Arithmetic proposal repository/overview, draft binary and validation pages, Binaryen `version_130` release-horizon evidence, and current Starshine WAST/core/binary/validator/generator sources.

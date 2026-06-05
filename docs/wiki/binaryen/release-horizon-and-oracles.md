@@ -20,6 +20,7 @@ related:
   - passes/late-pipeline-dispatch.md
   - passes/index.md
   - passes/tracker.md
+  - ../wasm-wide-arithmetic-boundary.md
 ---
 
 # Binaryen Release Horizon And Source Oracles
@@ -41,7 +42,7 @@ The current answer is:
 - the live `main` changelog is the drift watch for anything beyond `version_130`;
 - detailed pass pages may still stay anchored to `version_129` or a specific current-main recheck when that is the last source-backed contract that page has actually reviewed.
 
-That `v130` baseline is substantive, not just a renumbering. The changelog includes user-visible surface changes such as [`mark-js-called`](passes/mark-js-called/index.md), [`remove-exports`](passes/remove-exports/index.md), Wide Arithmetic support, relaxed-SIMD naming changes, and MemorySegment-to-DataSegment API renames. Keep this page as the release-horizon anchor, but still send pass-specific algorithm questions to the owning dossier.
+That `v130` baseline is substantive, not just a renumbering. The changelog includes user-visible surface changes such as [`mark-js-called`](passes/mark-js-called/index.md), [`remove-exports`](passes/remove-exports/index.md), Wide Arithmetic support, relaxed-SIMD naming changes, and MemorySegment-to-DataSegment API renames. Keep this page as the release-horizon anchor, but still send pass-specific algorithm questions to the owning dossier. Wide Arithmetic remains Binaryen/tool release evidence here; route Starshine support claims and proposal opcode caveats through [`../wasm-wide-arithmetic-boundary.md`](../wasm-wide-arithmetic-boundary.md).
 
 ## Supersession timeline
 
