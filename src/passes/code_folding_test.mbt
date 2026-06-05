@@ -2087,6 +2087,55 @@ test "code-folding shares return-call-indirect tails" {
 }
 
 ///|
+test "code-folding keeps simple result return-call-indirect sibling tails unshared" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (type $t (func (param i32) (result i32)))
+      #|  (table 1 funcref)
+      #|  (func $target (type $t)
+      #|    (local.get 0))
+      #|  (elem (i32.const 0) $target)
+      #|  (func (param i32 i32 i32) (result i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (i32.const 7)
+      #|        (drop)
+      #|        (local.get 1)
+      #|        (local.get 2)
+      #|        (return_call_indirect (type $t))))
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (i32.const 7)
+      #|        (drop)
+      #|        (local.get 1)
+      #|        (local.get 2)
+      #|        (return_call_indirect (type $t))))
+      #|    (i32.const 99)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("br (Label"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return_call_indirect"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(99)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding shares non-root return-call-indirect tail subsets with root fallthrough" {
   let optimized = code_folding_test_run(
     (

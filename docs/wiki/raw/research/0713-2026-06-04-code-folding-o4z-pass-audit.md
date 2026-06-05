@@ -520,6 +520,8 @@ Follow-up `[O4Z-AUDIT-CF-I]` `catch_ref` terminal-tail EH bailout coverage on 20
 
 Follow-up `[O4Z-AUDIT-CF-G]` simple result `return_call` sibling-tail profitability coverage on 2026-06-05 checked `wasm-opt` version 129 (`version_129`) with `--all-features --code-folding -S` on `.tmp/code-folding-next5b/slice3-simple-result-return-call-negative.wat`; Binaryen preserves both direct `return_call` tails when the selected non-root group has no root-ending tail and only simple local/constant operands around the terminal. The matching local slice is coverage for the existing tail-call profitability/root-fallthrough boundary rather than a behavior change.
 
+Follow-up `[O4Z-AUDIT-CF-G]` simple result `return_call_indirect` sibling-tail profitability coverage on 2026-06-05 checked `wasm-opt` version 129 (`version_129`) with `--all-features --code-folding -S` on `.tmp/code-folding-next5b/slice4-simple-result-return-call-indirect-negative.wat`; Binaryen preserves both indirect tail-call roots under the same no-root-tail/simple-operand boundary. The matching local slice extends the direct tail-call negative to the indirect-signature comparison path without changing the broader nested internal-label positives.
+
 Still required before closing the overall `[O4Z-AUDIT-CF]` parity track:
 
 - scale direct compare to `10000` after the next behavior-widening batch or before closeout;
