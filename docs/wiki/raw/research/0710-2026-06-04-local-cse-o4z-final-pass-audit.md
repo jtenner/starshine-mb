@@ -1603,3 +1603,25 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the initial focused run with the added coverage passed (`102/102`) because this was missing-test-only; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`102/102`); `moon test src/passes` passed (`1650/1650`); full `moon test` passed (`4835/4835`); native build succeeded with no work to do; compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+
+## Follow-up integer division/remainder deferral slice on 2026-06-05
+
+A later focused LCSE hardening slice spot-checked trap-sensitive integer division/remainder roots: representative `i32.div_s` and `i64.rem_u` roots. Binaryen materialized repeated roots with `local.tee` / `local.get`.
+
+This slice deliberately did not implement integer division or remainder CSE. Even though repeated adjacent roots can be semantically safe under a carefully specified trap-order argument, the user intent for this audit explicitly kept division/remainder-style trap-sensitive broadening out of scope. The slice added direct boundary tests `local-cse defers repeated integer division roots` and `local-cse defers repeated integer remainder roots`, which document Starshine's current conservative no-CSE behavior. This is a documented deferral, not arbitrary numeric GVN, and it stays paired with the existing trap-sensitive trunc-conversion exclusion.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-div-rem-deferral-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the initial focused run with the deferral tests passed (`104/104`) because Starshine already intentionally leaves these roots unmaterialized; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`104/104`); `moon test src/passes` passed (`1652/1652`); full `moon test` passed (`4837/4837`); native build succeeded with no work to do; compare reached `6769` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index). The observed Binaryen materialization for div/rem remains classified as an intentionally deferred optimization opportunity, not a Starshine semantic failure.

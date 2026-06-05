@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] passes/local-cse | integer div/rem deferral
+
+- Spot-checked repeated `i32.div_s` and `i64.rem_u`; Binaryen materializes these repeated trap-sensitive roots with `local.tee` / `local.get`.
+- Added direct boundary tests documenting Starshine's intentionally conservative no-CSE behavior for repeated integer division and remainder roots. This is a documented deferral, not an implementation gap being fixed in this slice.
+- Refreshed LCSE research/backlog wording so integer division/remainder remains out of scope with trap-sensitive trunc conversions unless separately approved.
+
 ## [2026-06-05] passes/local-cse | float equality coverage
 
 - Spot-checked repeated `f32.eq` and `f64.ne` roots; Binaryen materializes these float equality/inequality roots with `local.tee` / `local.get`.
