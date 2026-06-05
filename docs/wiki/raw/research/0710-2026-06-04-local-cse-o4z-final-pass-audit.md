@@ -2105,3 +2105,17 @@ moon test --package jtenner/starshine/passes --file local_cse_test.mbt
 ```
 
 Results: Binaryen rejected the representative external text fixture (`unrecognized instruction`); focused LCSE tests passed (`130/130`). Full signoff for this slice is recorded in the commit/report for the string encode-array boundary slice.
+
+## Follow-up atomic wait/notify/fence local-only boundary on 2026-06-05
+
+A later focused LCSE hardening slice added core-built coverage for local-only scalar reuse across `memory.atomic.notify`, `memory.atomic.wait32`, `memory.atomic.wait64`, and `atomic.fence`. Binaryen spot-checking the representative WAT materialized the repeated scalar expression with `local.tee` / `local.get` across these atomic operations; Starshine intentionally leaves the expression unmaterialized and keeps the atomic family as a conservative boundary rather than adding atomic or memory GVN. Agent classification: documented conservative deferral / missing-test-only coverage, not a semantic mismatch.
+
+Validation evidence for this slice:
+
+```sh
+wasm-tools parse .tmp/lcse-next-spots/atomic-wait-notify/input.wat -o .tmp/lcse-next-spots/atomic-wait-notify/input.wasm
+wasm-opt .tmp/lcse-next-spots/atomic-wait-notify/input.wasm --all-features --local-cse -S -o .tmp/lcse-next-spots/atomic-wait-notify/binaryen.wat
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+```
+
+Results: Binaryen materialized the representative scalar root across wait/notify/fence operations; focused LCSE tests passed (`131/131`). Full signoff for this slice is recorded in the commit/report for the atomic wait/notify/fence boundary slice.

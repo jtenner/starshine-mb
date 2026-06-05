@@ -13,6 +13,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added [`wasm-typed-function-references-boundary.md`](wasm-typed-function-references-boundary.md) as the focused Core-3.0 guide for ordinary `call_ref`, `return_call_ref`, and first-class function-reference values; it maps Starshine's core/binary/validator/generator support separately from the current high-level WAST ordinary-`call_ref` text gap and keeps `ref.func` declaration sources separate from reference-call consumption.
 - Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wast/function-call-and-module-authoring.md`](wast/function-call-and-module-authoring.md), [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md), [`wast/tail-call-authoring.md`](wast/tail-call-authoring.md), [`wast/text-surface-gap-ledger.md`](wast/text-surface-gap-ledger.md), and [`index.md`](index.md) so future `call_ref` claims route through a focused boundary instead of scattered call/reference/tail-call prose or active-proposal buckets.
 
+## [2026-06-05] local-cse/wiki | atomic wait/notify/fence boundary
+
+- Added core-built LCSE boundary coverage for local-only scalar reuse across `memory.atomic.notify`, `memory.atomic.wait32`, `memory.atomic.wait64`, and `atomic.fence`.
+- Documented Starshine's conservative no-CSE behavior even though Binaryen materializes the representative local-only scalar across these atomic operations; this stays out of atomic or memory GVN.
+
 ## [2026-06-05] local-cse/wiki | string encode-array roots
 
 - Added core-built LCSE boundary coverage for repeated `string.encode_utf8_array`, `string.encode_wtf16_array`, `string.encode_lossy_utf8_array`, and `string.encode_wtf8_array` roots.
