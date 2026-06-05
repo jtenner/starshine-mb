@@ -193,7 +193,7 @@ test "run_hot_pipeline applies duplicate-function-elimination and rewrites funct
 }
 
 ///|
-test "duplicate-function-elimination is single-pass when callee dedup unlocks more duplicates" {
+test "duplicate-function-elimination reaches fixed point when callee dedup unlocks more duplicates" {
   let input = @lib.Module::new()
     .with_type_sec(dfe_test_type_sec())
     .with_func_sec(
@@ -242,12 +242,11 @@ test "duplicate-function-elimination is single-pass when callee dedup unlocks mo
   }
 
   match optimized.code_sec {
-    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 4)
+    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 3)
     None => fail("expected code section")
   }
   @debug.assert_eq(try! dfe_test_call_target(optimized, 0), 1U)
-  @debug.assert_eq(try! dfe_test_call_target(optimized, 1), 3U)
-  @debug.assert_eq(try! dfe_test_call_target(optimized, 2), 3U)
+  @debug.assert_eq(try! dfe_test_call_target(optimized, 1), 2U)
 }
 
 ///|

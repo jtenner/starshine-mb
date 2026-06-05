@@ -3049,7 +3049,6 @@ fn dfe_trace_opt(perf : HotPerfSession?, msg : String) -> Unit {
 ///|
 priv struct DfeIterationResult {
   mod_ : @lib.Module
-  kept_type_rewrite_flags : @bitset.BitSet
 }
 
 ///|
@@ -3245,18 +3244,13 @@ fn dfe_iteration(
       let annotations_by_abs_idx = dfe_func_annotation_map(mod_)
       let normalize_timer = dfe_perf_start_timer_opt(perf, "normalize-funcs")
       let mut normalized_rewrite_count = 0
-      let normalized_mentions_type_idxs = @bitset.BitSet::new(funcs.length())
       let normalized_funcs : Array[@lib.Func] = if type_canon.length() == 0 {
-        for idx = 0; idx < funcs.length(); idx = idx + 1 {
-          normalized_mentions_type_idxs[idx] = false
-        }
         funcs
       } else {
         let rewritten : Array[@lib.Func] = Array::new(capacity=funcs.length())
         for idx = 0; idx < funcs.length(); idx = idx + 1 {
           let func = funcs[idx]
           let scan = dfe_scan_rewrite_func_type_idxs(func, type_canon)
-          normalized_mentions_type_idxs[idx] = scan.mentions_type_idxs
           match scan.rewritten {
             Some(next) => {
               normalized_rewrite_count += 1
@@ -3415,8 +3409,6 @@ fn dfe_iteration(
       let rebuild_timer = dfe_perf_start_timer_opt(perf, "rebuild")
       let kept_types : Array[@lib.TypeIdx] = Array::new(capacity=funcs.length())
       let kept_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
-      let kept_type_rewrite_flags = @bitset.BitSet::new(0)
-      let track_kept_type_rewrite_flags = type_canon.length() != 0
       let kept_abs : Array[Int] = Array::make(funcs.length(), -1)
       let kept_timer = dfe_perf_start_timer_opt(perf, "rebuild:kept")
       let mut next_abs = imported_count.reinterpret_as_uint()
@@ -3426,10 +3418,6 @@ fn dfe_iteration(
           kept_abs[idx] = next_abs.reinterpret_as_int()
           kept_types.push(type_idxs[idx])
           kept_funcs.push(normalized_funcs[idx])
-          let kept_idx = kept_funcs.length() - 1
-          kept_type_rewrite_flags.grow(kept_idx + 1)
-          kept_type_rewrite_flags[kept_idx] = track_kept_type_rewrite_flags &&
-            normalized_mentions_type_idxs[idx]
           next_abs += 1U
         }
         idx += 1
@@ -3473,7 +3461,7 @@ fn dfe_iteration(
       let rewritten = dfe_rewrite_module_func_idxs(compacted, abs_remap, perf~)
       dfe_perf_stop_timer_opt(perf, "rebuild:rewrite-module", rewrite_timer)
       dfe_perf_stop_timer_opt(perf, "rebuild", rebuild_timer)
-      Some({ mod_: rewritten, kept_type_rewrite_flags })
+      Some({ mod_: rewritten })
     }
     _ => None
   }
@@ -3484,30 +3472,37 @@ fn dfe_run_module_pass_with_perf(
   mod_ : @lib.Module,
   perf : HotPerfSession?,
 ) -> @lib.Module {
-  let iteration_timer = dfe_perf_start_timer_opt(perf, "iteration")
-  let iteration = match dfe_iteration(mod_, perf~) {
-    Some(next) => next
-    None => {
-      dfe_perf_stop_timer_opt(perf, "iteration", iteration_timer)
-      let elem_timer = dfe_perf_start_timer_opt(
-        perf, "canonicalize-elem-segments",
-      )
-      let rewritten = dfe_strip_name_sec(dfe_canonicalize_elem_segments(mod_))
-      dfe_perf_stop_timer_opt(perf, "canonicalize-elem-segments", elem_timer)
-      return rewritten
+  let iteration_timer = dfe_perf_start_timer_opt(perf, "iterations")
+  let mut current = mod_
+  let mut changed = false
+  let mut iteration_count = 0
+  while true {
+    match dfe_iteration(current, perf~) {
+      Some(iteration) => {
+        current = iteration.mod_
+        changed = true
+        iteration_count += 1
+      }
+      None => break
     }
   }
-  dfe_perf_stop_timer_opt(perf, "iteration", iteration_timer)
+  dfe_perf_stop_timer_opt(perf, "iterations", iteration_timer)
+  dfe_trace_opt(perf, "iterations count=\{iteration_count}")
+
   let elem_timer = dfe_perf_start_timer_opt(perf, "canonicalize-elem-segments")
-  let with_elem_segments = dfe_canonicalize_elem_segments(iteration.mod_)
+  let with_elem_segments = dfe_canonicalize_elem_segments(current)
+  let with_elem_segments = dfe_strip_name_sec(with_elem_segments)
   dfe_perf_stop_timer_opt(perf, "canonicalize-elem-segments", elem_timer)
+  if !changed {
+    return with_elem_segments
+  }
+
   let type_timer = dfe_perf_start_timer_opt(
     perf, "canonicalize-duplicate-types",
   )
   let rewritten = dfe_canonicalize_duplicate_simple_type_indices(
     with_elem_segments,
     perf~,
-    code_rewrite_flags=Some(iteration.kept_type_rewrite_flags),
   )
   dfe_perf_stop_timer_opt(perf, "canonicalize-duplicate-types", type_timer)
   rewritten
