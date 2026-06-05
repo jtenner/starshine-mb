@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-02
 sources:
+  - ../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md
   - ../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md
   - ../raw/wasm/2026-06-04-runtime-trap-current-refresh.md
   - ../raw/wasm/2026-06-02-runtimeerror-unreachable-trap-sources.md
@@ -12,6 +13,7 @@ sources:
   - ../../../tests/repros/o4z-debug-startup-map-init-repro.wasm
   - ./cli-startup-path.md
 related:
+  - ./wasi-runner-and-preview-boundary.md
   - ./cli-command-and-dispatcher.md
   - ./cli-startup-path.md
   - ./validation-gates.md
@@ -25,7 +27,7 @@ related:
 
 This page records the repaired `o4z` debug-startup trap and the permanent guard that keeps the committed debug-WASI artifact honest. The fast-path and path-normalization work still belong in [`cli-startup-path.md`](./cli-startup-path.md); this page is only about the separate startup trap that used to come from a stale debug artifact and now serves as a regression sentinel.
 
-The host-visible symptom was `RuntimeError: unreachable` during startup. That message is still useful as a trap-classification hint; the reusable trap vocabulary now lives in [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md). The important current fact is that the stale allocator-root shape has been repaired: the committed debug-WASI path and the reduced fixture now pass the reduced guard and the startup replay.
+The host-visible symptom was `RuntimeError: unreachable` during startup. That message is still useful as a trap-classification hint; the reusable trap vocabulary now lives in [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md). The replay host is the Node-hosted WASI Preview 1 runner documented in [`wasi-runner-and-preview-boundary.md`](wasi-runner-and-preview-boundary.md); use that page for `_start`/reactor and import-module boundaries. The important current fact is that the stale allocator-root shape has been repaired: the committed debug-WASI path and the reduced fixture now pass the reduced guard and the startup replay.
 
 ## Current understanding
 
@@ -34,6 +36,7 @@ The host-visible symptom was `RuntimeError: unreachable` during startup. That me
 - `scripts/lib/self-optimized-artifacts.mjs` names the debug artifact path that the build pipeline copies into the node-dist layout.
 - The runtime-trap semantics remain source-backed in [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md) and [`../raw/wasm/2026-06-04-runtime-trap-current-refresh.md`](../raw/wasm/2026-06-04-runtime-trap-current-refresh.md); use that guide to remember that `RuntimeError: unreachable` is a wasm trap surface, not a Node-specific exception class.
 - The detailed owner evidence and the repaired pass-owner follow-up live in the archived research note [`../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md`](../raw/research/0693-2026-06-01-o4z-debug-startup-func3750.md).
+- The Node-hosted WASI runner boundary lives in [`wasi-runner-and-preview-boundary.md`](wasi-runner-and-preview-boundary.md); this page uses that runner as replay evidence but does not make WASI Preview 2, Component Model, JSPI, or sandboxing claims.
 
 ## Current TDD guard
 
@@ -60,4 +63,5 @@ The host-visible symptom was `RuntimeError: unreachable` during startup. That me
 - Artifact-path helper: [`../../../scripts/lib/self-optimized-artifacts.mjs`](../../../scripts/lib/self-optimized-artifacts.mjs)
 - Active reduced guard: [`../../../scripts/lib/o4z-debug-startup-map.test.ts`](../../../scripts/lib/o4z-debug-startup-map.test.ts)
 - Reduced repro: [`../../../tests/repros/o4z-debug-startup-map-init-repro.wasm`](../../../tests/repros/o4z-debug-startup-map-init-repro.wasm)
+- WASI runner / Preview boundary: [`wasi-runner-and-preview-boundary.md`](wasi-runner-and-preview-boundary.md), [`../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md`](../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md)
 - Related audit: [`./cli-startup-path.md`](./cli-startup-path.md)
