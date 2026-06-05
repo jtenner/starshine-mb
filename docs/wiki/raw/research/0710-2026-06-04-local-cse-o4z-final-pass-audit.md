@@ -1903,3 +1903,26 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the added conservative core-built coverage passed immediately (`119/119`), so this was missing-test-only coverage for Starshine's existing conservative behavior. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`119/119`); `moon test src/passes` passed (`1667/1667`); full `moon test` passed (`4852/4852`); native build succeeded with no work to do; compare reached `6765` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up packed heap-read root deferral slice on 2026-06-05
+
+A later focused LCSE hardening slice spot-checked repeated packed `struct.get_s`, `struct.get_u`, `array.get_s`, and `array.get_u` roots. Binaryen materialized each representative repeated packed heap read with `local.tee` / `local.get` in the spot-check fixture under `.tmp/lcse-next-spots/gc-packed-read.wat`.
+
+This slice deliberately did not implement packed heap-read CSE or heap GVN. The landed core-built direct test `local-cse defers repeated packed struct and array get roots` documents Starshine's conservative no-CSE behavior for signed and unsigned packed heap reads while keeping this boundary separate from scalar numeric CSE and the earlier plain `struct.get` / `array.get` deferral. This is semantically safe but may miss a Binaryen-positive local opportunity that would need a heap-state model preserving null, bounds, and packed signedness semantics.
+
+Validation evidence for this slice:
+
+```sh
+wasm-tools parse .tmp/lcse-next-spots/gc-packed-read.wat -o .tmp/lcse-next-spots/gc-packed-read.wasm
+wasm-opt .tmp/lcse-next-spots/gc-packed-read.wasm --all-features --local-cse -S -o .tmp/lcse-next-spots/gc-packed-read.binaryen.wat
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-packed-heap-read-boundary-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the added conservative core-built coverage passed immediately (`120/120`), so this was missing-test-only coverage for Starshine's existing conservative behavior. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`120/120`); `moon test src/passes` passed (`1669/1669`); full `moon test` passed (`4854/4854`); native build succeeded with no work to do; compare reached `6769` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
