@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasi/wiki | WASI 0.3 preview boundary routing
+
+- Added [`raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md`](raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md) after checking current Node `node:wasi` docs, the WebAssembly/WASI repository, WASI.dev roadmap/interfaces, and Component Model documentation.
+- Refreshed [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md), [`wasm-component-model-boundary.md`](wasm-component-model-boundary.md), [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), and [`index.md`](index.md) so WASI Preview 3 / WASI 0.3 native-async roadmap references route through Component Model / WIT design work instead of implying support in Starshine's current Preview 1 Core-module runner.
+
 ## [2026-06-05] local-cse/wiki | SIMD lane-extract roots
 
 - Added core-built LCSE boundary coverage for repeated SIMD lane-extract roots across integer and floating vector lanes.

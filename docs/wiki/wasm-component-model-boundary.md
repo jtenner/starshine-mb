@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-05
 sources:
   - raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md
+  - raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md
   - raw/wasm/2026-06-05-component-model-boundary-refresh.md
   - raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md
   - ../../src/lib/types.mbt
@@ -25,11 +26,11 @@ related:
 
 ## Overview
 
-Use this page when a bug report, fixture idea, package request, or external tool result mentions the **WebAssembly Component Model**, **WIT**, **worlds**, **WASI Preview 2**, or the **Canonical ABI**. These are related to WebAssembly, but they are not the same artifact as the Core WebAssembly modules Starshine currently parses, validates, optimizes, fuzzes, and packages.
+Use this page when a bug report, fixture idea, package request, or external tool result mentions the **WebAssembly Component Model**, **WIT**, **worlds**, **WASI Preview 2 / WASI 0.2**, **WASI Preview 3 / WASI 0.3**, or the **Canonical ABI**. These are related to WebAssembly, but they are not the same artifact as the Core WebAssembly modules Starshine currently parses, validates, optimizes, fuzzes, and packages.
 
 For a beginner: a Core WebAssembly module is the familiar `module` with functions, memories, tables, globals, imports, exports, code, data, and custom sections. A Component Model component is a higher-level packaging and interoperability layer. It can contain Core modules, but it also describes interfaces, instances, lifted/lowered functions, and host-language data passing through the Canonical ABI.
 
-The current primary-source bridge is [`raw/wasm/2026-06-05-component-model-boundary-refresh.md`](raw/wasm/2026-06-05-component-model-boundary-refresh.md). It rechecked the official proposals tracker, the Component Model repository, the MVP explainer, WIT documentation, Canonical ABI documentation, and current Starshine source evidence. The durable status is:
+The current primary-source bridge is [`raw/wasm/2026-06-05-component-model-boundary-refresh.md`](raw/wasm/2026-06-05-component-model-boundary-refresh.md), with the WASI runner / WASI 0.3 routing refresh in [`raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md`](raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md). These notes rechecked the official proposals tracker, the Component Model repository, the MVP explainer, WIT documentation, Canonical ABI documentation, current WASI roadmap material, Node's current Preview 1 runner API, and current Starshine source evidence. The durable status is:
 
 - **Standards status:** the official proposals tracker currently routes `Component Model` as an active Phase-1 feature-proposal row, not a finished/Core 3.0 feature.
 - **Starshine status:** no documented local support for component binaries, WIT, component text, worlds, component validation, or Canonical ABI lift/lower exists today.
@@ -69,7 +70,7 @@ The important phrase is **embedded inside**. A component may carry a core module
 | WAST parser/harness | [`src/wast/parser.mbt`](../../src/wast/parser.mbt) parses `module` commands, quoted/binary modules, `register`, `invoke`, and static assertions over module definitions. | No `(component ...)` grammar, WIT parser, component instance syntax, or component assertion harness exists. |
 | Validation | [`src/validate/validate.mbt`](../../src/validate/validate.mbt) and [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt) validate Core module declarations and function bodies. | They do not validate component imports/exports, worlds, adapter graph correctness, or Canonical ABI lowering. |
 | Generator / fuzzing | [`src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt) has local feature gates for Core/proposal-shaped surfaces such as GC, tail calls, exceptions, SIMD, relaxed SIMD, atomics, bulk memory, multi-memory, memory64, extended const, and reference types. | There is no Component Model or WIT gate; generated valid Core modules are not generated components. |
-| Node package | [`tooling/node-package-surface.md`](tooling/node-package-surface.md) documents a partial ESM-first JavaScript wrapper boundary for Starshine's current binary/text/validation/command toolkit; [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md) documents the current Node-hosted Preview 1 Core-module runner; Wasm ESM Integration is routed separately through [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md). | The package does not expose WIT parsing, component composition, WASI Preview 2 / WASI 0.2 component adapters, Canonical ABI helpers, source-phase Wasm imports, or instance-phase Wasm namespace imports. |
+| Node package | [`tooling/node-package-surface.md`](tooling/node-package-surface.md) documents a partial ESM-first JavaScript wrapper boundary for Starshine's current binary/text/validation/command toolkit; [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md) documents the current Node-hosted Preview 1 Core-module runner; Wasm ESM Integration is routed separately through [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md). | The package does not expose WIT parsing, component composition, WASI Preview 2 / WASI 0.2 component adapters, WASI Preview 3 / WASI 0.3 native-async APIs, Canonical ABI helpers, source-phase Wasm imports, or instance-phase Wasm namespace imports. |
 
 ## Concrete Examples
 
@@ -122,7 +123,7 @@ Use this decision table before filing or accepting component-shaped work:
 | Request or evidence | Route it as | Do not claim |
 | --- | --- | --- |
 | A `.wasm` file that is actually a Core module | Ordinary Starshine binary decode/validation/optimization evidence. | Component Model support. |
-| A component binary, `.wit`, `.wac`, or WASI Preview 2 / WASI 0.2 component adapter request | New Component Model boundary/design work, with Preview 1 runner separation through [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md). | A small WAST syntax gap, ordinary module-section bug, or existing `wasi_snapshot_preview1` runner feature without source review. |
+| A component binary, `.wit`, `.wac`, WASI Preview 2 / WASI 0.2 component adapter request, or WASI Preview 3 / WASI 0.3 native-async API request | New Component Model boundary/design work, with Preview 1 runner separation through [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md). | A small WAST syntax gap, ordinary module-section bug, or existing `wasi_snapshot_preview1` runner feature without source review. |
 | A runtime/tool says it supports components | Implementation-availability evidence; use [`tooling/external-validator-adapters.md`](tooling/external-validator-adapters.md) style classification if comparing tools. | Standards status, Starshine support, or pass-oracle parity. |
 | A component embeds a Core module that Starshine can decode when extracted | Core-module subset evidence only. | Whole-component validation, composition, Canonical ABI, or WIT support. |
 | A Node package consumer asks for WIT or Preview-2 helpers | Public API design request tied to [`tooling/node-package-surface.md`](tooling/node-package-surface.md) and release policy. | Existing wrapper drift inside `./wast` or `./validate`. |
@@ -148,7 +149,7 @@ Until those questions have answers and tests, keep component artifacts out of or
 - Focused source bridge: [`raw/wasm/2026-06-05-component-model-boundary-refresh.md`](raw/wasm/2026-06-05-component-model-boundary-refresh.md)
 - Broad active-proposal routing bridge: [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md)
 - Feature-status router: [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md)
-- WASI runner / Preview boundary: [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md), [`raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md`](raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md)
+- WASI runner / Preview boundary: [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md), [`raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md`](raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md), [`raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md`](raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md)
 - ESM Integration boundary: [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md)
 - Core module map: [`binary/module-section-map.md`](binary/module-section-map.md), [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md)
 - Local implementation anchors: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt)
