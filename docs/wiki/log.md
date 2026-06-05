@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | SIMD any-true/all-true/bitmask roots
+
+- Added core-built LCSE boundary coverage for repeated SIMD-derived scalar roots: `v128.any_true`, lane-width `*.all_true`, and lane-width `*.bitmask`.
+- Documented Starshine's conservative no-CSE behavior even though Binaryen materializes representative repeated roots; this stays out of SIMD temp-local/value-numbering work.
+
 ## [2026-06-05] local-cse/wiki | SIMD shuffle/swizzle roots
 
 - Added core-built LCSE boundary coverage for repeated `i8x16.shuffle` and `i8x16.swizzle` roots.
