@@ -5125,10 +5125,31 @@ fn simplify_locals_should_skip_root_local_set_stack_global_hazard(
 }
 
 ///|
+fn simplify_locals_should_skip_large_local_tee_memory_write_hazard(
+  func : @ir.HotFunc,
+) -> Bool {
+  @ir.hot_local_count(func) >= 16 &&
+  simplify_locals_has_local_tee(func) &&
+  simplify_locals_effects_has(
+    simplify_locals_effects_mask_for_region(func, @ir.HotRegionRef::root()),
+    @ir.EFFECT_MASK_MEMORY_WRITE,
+  )
+}
+
+///|
 fn simplify_locals_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
+  if simplify_locals_should_skip_large_local_tee_memory_write_hazard(func) {
+    pipeline_trace_hook(
+      ctx.trace,
+      ctx.descriptor.name,
+      "skip-hot",
+      payload="reason=large-local-tee-memory-write-hazard-noop",
+    )
+    return HotPassResult::unchanged()
+  }
   if simplify_locals_should_skip_root_local_set_stack_global_hazard(func) {
     pipeline_trace_hook(
       ctx.trace,

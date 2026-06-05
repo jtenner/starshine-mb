@@ -2303,6 +2303,23 @@ test "simplify-locals rewrites same-arm tee aliases back to the source local" {
 }
 
 ///|
+test "simplify-locals keeps tee value live after memory-map update" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func $get_mm (param i32) (result i32) local.get 0 i32.load) (func $get_prev (param i32) (result i32) local.get 0 i32.load offset=8) (func $get_next (param i32) (result i32) local.get 0 i32.load offset=12) (func $set_next (param i32 i32) local.get 0 local.get 1 i32.store offset=12) (func $set_prev (param i32 i32) local.get 0 local.get 1 i32.store offset=8) (func $get_flmap (param i32) (result i32) local.get 0 i32.load) (func $set_flmap (param i32 i32) local.get 0 local.get 1 i32.store) (func $target (param i32 i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) local.get 1 call $get_mm local.set 9 nop nop local.get 9 i32.const -4 i32.and local.set 5 nop nop local.get 5 i32.const 256 i32.lt_u if i32.const 0 local.set 2 local.get 5 i32.const 4 i32.shr_u local.set 4 else local.get 5 local.tee 10 i32.const 1073741820 local.tee 11 local.get 10 local.get 11 i32.lt_u select local.set 8 i32.const 31 local.get 8 i32.clz i32.sub local.set 2 local.get 8 local.get 2 i32.const 4 i32.sub i32.shr_u i32.const 16 i32.xor local.set 4 local.get 2 i32.const 7 i32.sub local.set 2 end nop local.get 2 i32.const 23 i32.lt_u if nop else end local.get 1 call $get_prev local.set 6 local.get 1 call $get_next local.set 3 local.get 6 if local.get 6 local.get 3 call $set_next end local.get 3 if local.get 3 local.get 6 call $set_prev end local.get 1 block (result i32) local.get 0 local.set 12 local.get 2 local.set 13 local.get 4 local.set 14 local.get 12 local.get 13 i32.const 4 i32.shl local.get 14 i32.add i32.const 2 i32.shl i32.add i32.load offset=96 br 0 end i32.eq if block local.get 0 local.set 15 local.get 2 local.set 16 local.get 4 local.set 17 local.get 3 local.set 18 local.get 15 local.get 16 i32.const 4 i32.shl local.get 17 i32.add i32.const 2 i32.shl i32.add local.get 18 i32.store offset=96 end local.get 3 i32.eqz if block (result i32) local.get 0 local.set 19 local.get 2 local.set 20 local.get 19 local.get 20 i32.const 2 i32.shl i32.add i32.load offset=4 br 0 end local.set 7 block local.get 0 local.set 21 local.get 2 local.set 22 local.get 7 i32.const 1 local.get 4 i32.shl i32.const -1 i32.xor i32.and local.tee 7 local.set 23 local.get 21 local.get 22 i32.const 2 i32.shl i32.add local.get 23 i32.store offset=4 end local.get 7 i32.eqz if local.get 0 local.get 0 call $get_flmap i32.const 1 local.get 2 i32.shl i32.const -1 i32.xor i32.and call $set_flmap end end end))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected map-update tee simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(7U))
+  assert_true(pretty.contains("local.tee (Local 7)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 7)"), msg=pretty)
+}
+
+///|
 test "simplify-locals does not sink trapping reads across memory writes" {
   let optimized = match
     pass_test_run_pipeline(
