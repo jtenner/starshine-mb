@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasm/wiki | memory control boundary routing
+
+- Added [`raw/wasm/2026-06-05-memory-control-boundary-refresh.md`](raw/wasm/2026-06-05-memory-control-boundary-refresh.md) after checking the current official WebAssembly proposals tracker, Memory Control proposal repository/overview, focused `memory.discard` sub-proposal, and current Starshine memory instruction, WAST, binary, validation, and generator evidence.
+- Added [`wasm-memory-control-boundary.md`](wasm-memory-control-boundary.md) as the focused active Phase-1 proposal guide separating `memory.discard`, lazy commit, memory protection, mappable memory, virtual mode, and BYOB host-memory ideas from current Starshine `memory.fill`, `data.drop`, memory64, multi-memory, shared-memory, Custom Page Sizes, binary, WAST, validator, generator, and pass surfaces.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wast/memory-instruction-authoring.md`](wast/memory-instruction-authoring.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), and [`index.md`](index.md) so Memory Control is routed as future-port proposal evidence rather than accidental local support.
+
 ## [2026-06-05] wasm/wiki | custom page sizes boundary routing
 
 - Added [`raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md`](raw/wasm/2026-06-05-custom-page-sizes-boundary-refresh.md) after checking the current official WebAssembly proposals repository, the Custom Page Sizes proposal repository/overview, current Core memory-type pages, and Starshine `MemType` / binary / validator / external matching / WAST declaration evidence.
