@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasm/wiki | Extended Name Section boundary routing
+
+- Added [`raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md`](raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md) after checking the current WebAssembly proposals tracker, Extended Name Section proposal overview, Core 3.0 custom/name appendix, feature-dashboard evidence tier, and current Starshine `NameSec`, binary codec, validator, generator, invalid-fuzzer, and metamorphic-fuzz evidence.
+- Added [`wasm-extended-name-section-boundary.md`](wasm-extended-name-section-boundary.md) as the focused active Phase-2 guide for name subsection ids `3` label, `5` table, `6` memory, `7` global, `8` element segment, and `9` data segment; current Starshine accepts, emits, validates, fuzzes, and remaps these as proposal-facing/local structured metadata, not current Core 3.0 name-section support.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md), [`wast/identifier-name-and-annotation-authoring.md`](wast/identifier-name-and-annotation-authoring.md), [`validate/local-spec-divergence-ledger.md`](validate/local-spec-divergence-ledger.md), [`validate/module-validation-phases.md`](validate/module-validation-phases.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), and [`index.md`](index.md) so Extended Name Section stays separate from Core name subsections, WAST `$` identifier resolution, ordinary custom-section opacity, and semantic validation.
+
 ## [2026-06-05] wiki/schema | research archive forwarding-stub hygiene
 
 - Refreshed [`../README.md`](../README.md), [`raw/research/README.md`](raw/research/README.md), and [`index.md`](index.md) so archived numbered-note policy now distinguishes direct reference repointing from intentional tiny forwarding stubs.
