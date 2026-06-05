@@ -1112,6 +1112,69 @@ test "code-folding shares return-call-ref tails" {
 }
 
 ///|
+test "code-folding shares non-root return-call-ref tail subsets with root fallthrough" {
+  let callee_type_idx = @lib.TypeIdx::new(0U)
+  let caller_type_idx = @lib.TypeIdx::new(1U)
+  let sink_type_idx = @lib.TypeIdx::new(2U)
+  let callee_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+  )
+  let caller_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], []),
+    ),
+  )
+  let sink_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+  )
+  let then_tail = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::ref_null(@lib.HeapType::new(callee_type_idx)),
+    @lib.Instruction::return_call_ref(callee_type_idx),
+  ]
+  let optimized = code_folding_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([callee_type, caller_type, sink_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([callee_type_idx, sink_type_idx, caller_type_idx]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::if_(@lib.BlockType::void_(), then_tail, None),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::if_(@lib.BlockType::void_(), then_tail, None),
+            @lib.Instruction::i32_const(@lib.I32::new(99)),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("i32.const I32(99)"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 1)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return_call_ref"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding reaches a root-anchored terminating-tail fixpoint" {
   let optimized = code_folding_test_run(
     (
