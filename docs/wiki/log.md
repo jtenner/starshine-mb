@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | SIMD replace-lane roots
+
+- Added core-built LCSE boundary coverage for repeated SIMD replace-lane roots across integer and floating vector lanes.
+- Documented Starshine's conservative no-CSE behavior even though Binaryen materializes representative repeated replace-lane roots; this stays out of SIMD temp-local/value-numbering work.
+
 ## [2026-06-05] wasm/wiki | More Array Constructors boundary routing
 
 - Added [`raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md`](raw/wasm/2026-06-05-more-array-constructors-boundary-refresh.md) after checking the current WebAssembly proposals tracker, the More Array Constructors proposal overview, current Core 3.0 GC array instruction pages, and Starshine WAST/core/binary/validator/generator evidence.

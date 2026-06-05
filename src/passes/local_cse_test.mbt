@@ -746,6 +746,81 @@ test "local-cse defers repeated SIMD splat roots" {
 }
 
 ///|
+test "local-cse defers repeated SIMD replace-lane roots" {
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let lane = @lib.LaneIdx::new(0)
+  let func_types = [
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::v128(), @lib.ValType::i32()], []),
+      ),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::v128(), @lib.ValType::i64()], []),
+      ),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::v128(), @lib.ValType::f32()], []),
+      ),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::v128(), @lib.ValType::f64()], []),
+      ),
+    ),
+  ]
+  let body_for = fn(replace : @lib.Instruction) {
+    @lib.Func::new(
+      @lib.Locals::from_types([]),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        replace,
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        replace,
+        @lib.Instruction::drop(),
+      ]),
+    )
+  }
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new(func_types))
+    .with_func_sec(
+      @lib.FuncSec::new([
+        func_type_idx,
+        func_type_idx,
+        func_type_idx,
+        @lib.TypeIdx::new(1U),
+        @lib.TypeIdx::new(2U),
+        @lib.TypeIdx::new(3U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        body_for(@lib.Instruction::i8x16_replace_lane(lane)),
+        body_for(@lib.Instruction::i16x8_replace_lane(lane)),
+        body_for(@lib.Instruction::i32x4_replace_lane(lane)),
+        body_for(@lib.Instruction::i64x2_replace_lane(lane)),
+        body_for(@lib.Instruction::f32x4_replace_lane(lane)),
+        body_for(@lib.Instruction::f64x2_replace_lane(lane)),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(locals, @lib.Expr(instrs)) = func
+        @debug.assert_eq(locals, @lib.Locals::from_types([]))
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
 test "local-cse defers repeated SIMD lane-extract roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let lane = @lib.LaneIdx::new(0)
