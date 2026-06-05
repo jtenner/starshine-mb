@@ -37,6 +37,7 @@ priv struct LcseRawExpr {
   children : Array[Int]
   reads_locals : Array[Int]
   reads_memory : Bool
+  reads_table_state : Bool
   mut repeat_of : Int
   mut local_id : Int
 }
@@ -205,6 +206,7 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::F32Const(_)
     | @lib.Instruction::F64Const(_)
     | @lib.Instruction::MemorySize(_)
+    | @lib.Instruction::TableSize(_)
     | @lib.Instruction::DataDrop(_)
     | @lib.Instruction::ElemDrop(_)
     | @lib.Instruction::RefNull(_)
@@ -297,6 +299,7 @@ fn lcse_raw_result_type(
     | @lib.Instruction::I32Load16S(_)
     | @lib.Instruction::I32Load16U(_)
     | @lib.Instruction::MemorySize(_)
+    | @lib.Instruction::TableSize(_)
     | @lib.Instruction::TableGrow(_) => Some(@lib.ValType::i32())
     @lib.Instruction::I64Const(_)
     | @lib.Instruction::I64Load(_)
@@ -628,6 +631,10 @@ fn lcse_raw_rewrite_instrs(
         let mut size = 1
         let reads_locals : Array[Int] = []
         let mut reads_memory = lcse_instr_is_load(instr)
+        let mut reads_table_state = match instr {
+          @lib.Instruction::TableSize(_) => true
+          _ => false
+        }
         for child in children {
           let child_expr = exprs[child]
           if child_expr.start < start {
@@ -642,6 +649,9 @@ fn lcse_raw_rewrite_instrs(
           if child_expr.reads_memory {
             reads_memory = true
           }
+          if child_expr.reads_table_state {
+            reads_table_state = true
+          }
         }
         match instr {
           @lib.Instruction::LocalGet(local_idx) => {
@@ -655,7 +665,7 @@ fn lcse_raw_rewrite_instrs(
         let expr_id = exprs.length()
         let reusable_root = match instr {
           @lib.Instruction::TableGrow(_) => false
-          _ => true
+          _ => !reads_table_state
         }
         let original_id = if reusable_root && size <= 32 {
           lcse_raw_find_active_match(exprs, active, instr, children)
@@ -677,6 +687,7 @@ fn lcse_raw_rewrite_instrs(
           children,
           reads_locals,
           reads_memory,
+          reads_table_state,
           repeat_of: -1,
           local_id: -1,
         }
