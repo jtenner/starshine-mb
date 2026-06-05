@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] binary/wiki | custom metadata tool-conventions routing
+
+- Added [`raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md`](raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md) after checking current WebAssembly Core 3.0 custom-section/annotation docs, the WebAssembly tool-conventions `producers` section, Binaryen current-main and `version_129` `StripTargetFeatures.cpp`, and Starshine custom-section decode/encode/validation sources.
+- Refreshed [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md) with a common metadata routing table that separates structured `name`, provenance-only `producers`, metadata-only `target_features`, Starshine-local `FuncAnnotationSec`, and unknown custom names.
+- Refreshed [`binaryen/passes/strip-target-features/index.md`](binaryen/passes/strip-target-features/index.md), [`binaryen/passes/strip-target-features/starshine-port-readiness-and-validation.md`](binaryen/passes/strip-target-features/starshine-port-readiness-and-validation.md), and [`index.md`](index.md) so future target-feature work preserves `producers`, treats opaque `target_features` removal as metadata suppression only, and does not conflate metadata stripping with feature lowering or validation repair.
+
 ## [2026-06-05] wasm/wiki | numeric data-segment proposal routing
 
 - Added [`raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md`](raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md) after checking the current official WebAssembly proposals tracker, the `wat-numeric-values` proposal repository/overview, and current Starshine WAST data parser/lowerer/core data-byte evidence.

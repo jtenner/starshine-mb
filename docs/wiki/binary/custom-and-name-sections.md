@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-05
 sources:
+  - ../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md
   - ../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md
   - ../raw/research/0711-2026-06-04-cli-print-utility-routing.md
   - ../raw/wasm/2026-05-20-name-section-label-subsection-correction.md
@@ -42,13 +43,25 @@ For the whole-module placement and ordering map that ties custom metadata to the
 
 The standardized name section is a special custom section named `name`, but the official-versus-local boundary matters. The 2026-05-20 primary-source refresh in [`../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md`](../raw/wasm/2026-05-20-custom-name-section-subsection-refresh.md) corrected the earlier 2026-05-13 snapshot by removing table, memory, global, element, and data from the current official set. The later same-day correction in [`../raw/wasm/2026-05-20-name-section-label-subsection-correction.md`](../raw/wasm/2026-05-20-name-section-label-subsection-correction.md) narrows the official set one step further: the current WebAssembly 3.0 page checked during this run documents module, function, local, type, field, and tag name subsections, while Starshine additionally accepts, validates, and can emit label, table, memory, global, element, and data name maps as local richer metadata.
 
-Starshine deliberately does **not** keep arbitrary custom sections and the `name` section in one opaque bucket. The in-memory module shape in [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt) splits metadata into:
+Starshine deliberately does **not** keep arbitrary custom sections and the `name` section in one opaque bucket. The 2026-06-05 tool-conventions refresh in [`../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md`](../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md) adds the important neighboring rule: common metadata section names such as `producers` and `target_features` still need purpose-specific routing. `producers` is toolchain provenance and must not become an optimizer hint source; `target_features` is feature-advertisement metadata and stripping it is not feature lowering.
+
+The in-memory module shape in [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt) splits metadata into:
 
 - `Module.custom_secs : Array[CustomSec]` for non-`name` custom sections;
 - `Module.name_sec : NameSec?` for a parsed structured name section; and
 - `Module.raw_name_sec_payload : Bytes?` for preserving the original decoded name payload when no structured rewrite has invalidated it.
 
 This gives validators and mutating passes a typed view of debug names while still preserving unknown custom payloads. The tradeoff is that Starshine normalizes section placement on encode: non-`name` custom sections are emitted before standard sections, and the `name` custom section is emitted after the data section.
+
+## Common Metadata Section Routing
+
+| Section or metadata lane | Upstream meaning | Current Starshine route | Maintenance rule |
+| --- | --- | --- | --- |
+| `name` custom section | Standard name-section metadata for debug names. | Parsed into `Module.name_sec` plus optional `raw_name_sec_payload`; raw `CustomSec("name", ...)` is rejected on encode/validation. | Rewrite or clear structured maps after index-space rewrites; do not keep stale raw name bytes after structural changes. |
+| `producers` custom section | WebAssembly tool-conventions provenance for language, tool, and SDK name-version pairs. | Opaque `CustomSec("producers", payload)` like any other non-`name` custom section. | Preserve by default, but never use it to infer pass legality, optimization hints, feature use, or Binaryen parity. |
+| `target_features` custom section | Feature-advertisement metadata; Binaryen's `strip-target-features` / `emit-target-features` toggles whether output has this metadata. | Opaque `CustomSec("target_features", payload)` if decoded; no first-class feature metadata model or local pass today. | Only a deliberately named metadata policy should remove/suppress it; deleting it does not lower feature-using code or make unsupported instructions valid. |
+| `FuncAnnotationSec` | Starshine-local function/import annotations lowered from the current WAST `(@...)` lane. | Separate `Module.func_annotation_sec`, not a binary custom section today. | Remap with absolute function indices; route code-metadata and branch-hint claims through [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md). |
+| Unknown custom names | Non-semantic custom payloads that the core spec allows tools to ignore. | Opaque `CustomSec(name, payload)`. | Preserve unless a page and tests name the exact metadata policy; do not implement generic custom-section stripping by accident. |
 
 ## Binary Shapes
 
@@ -123,7 +136,7 @@ This makes stale structured names observable even when they are semantically met
 
 ### Opaque custom sections
 
-Most passes should preserve `custom_secs` unless they specifically own a metadata policy. The clearest future exception is `strip-target-features`: the port-readiness page explicitly distinguishes deleting only `target_features` custom sections from generic custom-section stripping. Do not use that pass as a reason to drop `producers`, unknown third-party custom sections, or the structured `name` section.
+Most passes should preserve `custom_secs` unless they specifically own a metadata policy. The clearest future exception is `strip-target-features`: the port-readiness page explicitly distinguishes deleting only `target_features` custom sections from generic custom-section stripping. Do not use that pass as a reason to drop `producers`, unknown third-party custom sections, or the structured `name` section. Conversely, do not treat a preserved `target_features` payload as validator truth: Starshine validation is driven by section/instruction/type rules and local feature gates, not by opaque custom-section names.
 
 ### Fuzzing and invalid repros
 
@@ -139,12 +152,15 @@ The generator coverage ledger tracks `NameCustomSections` so valid-generator cov
 - **Name maps are not uniqueness maps for strings.** Indices must be unique and ordered; name strings themselves may repeat. `[FUZ]1020G1` classifies ordering/count corruption as binary/codec-invalid rather than AST-invalid: serialized counts are byte framing, `NameMap` and `IndirectNameMap` arrays can be built in memory, encode rejects non-increasing indices with `InvalidNameMapOrder`, decode rejects malformed ordered/count payloads before validation, and `validate_name_sec(...)` owns only structured index-space bounds once the codec has accepted the map shape.
 - **WAST identifiers are a separate authoring layer.** Starshine currently promotes WAST function/import identifiers into `NameSec.func_names`, but local/type/table/memory/global/tag/element/data identifiers remain source-resolution aids unless a dedicated lowering path creates the corresponding structured name map.
 - **Function annotations are not binary name sections.** `FuncAnnotationSec` is a Starshine WAST/in-memory metadata lane today; the binary codec does not encode or decode it. Route code-metadata, inline-hint, branch-hint, and no-inline-marker details through [`../wast/code-metadata-and-function-annotations.md`](../wast/code-metadata-and-function-annotations.md).
+- **`producers` is provenance, not policy.** Preserve it by default, but do not read it as an optimizer, feature, or pass-scheduling input.
+- **`target_features` is metadata, not lowering.** A future `strip-target-features` port may remove or suppress that named metadata section, but the executable feature surface must still be lowered, validated, or rejected by the actual instruction/type/section owners.
 - **Function names depend on absolute function-index stability.** See [`function-import-export-and-code-sections.md`](function-import-export-and-code-sections.md) for the imported-prefix `FuncIdx` model that function name maps describe.
 - **Type/table/memory/global/tag names depend on imported-prefix or definition-order stability.** See [`type-table-memory-global-tag-sections.md`](type-table-memory-global-tag-sections.md) for the shared type and module resource index-space contract.
 - **Element/data names depend on segment-index stability.** See [`data-element-and-datacount-sections.md`](data-element-and-datacount-sections.md) for the canonical segment model that those name maps describe.
 
 ## Sources
 
+- Tool-conventions custom metadata refresh: [`../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md`](../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md)
 - Current custom/name/text-annotation refresh: [`../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md`](../raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md)
 - CLI print-utility routing audit: [`../raw/research/0711-2026-06-04-cli-print-utility-routing.md`](../raw/research/0711-2026-06-04-cli-print-utility-routing.md)
 - Label-subsection correction: [`../raw/wasm/2026-05-20-name-section-label-subsection-correction.md`](../raw/wasm/2026-05-20-name-section-label-subsection-correction.md)

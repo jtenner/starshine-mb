@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-05
 sources:
+  - ../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md
   - ../../../raw/binaryen/2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md
@@ -32,7 +33,7 @@ related:
 
 `strip-target-features` is a public Binaryen pass that removes the module-level target-features metadata from later output. It is **not** a code optimizer and **not** a feature-lowering pass.
 
-The 2026-04-26 source recheck corrected an important stale wiki claim: Binaryen does **not** implement this as `runner->options.emitTargetFeatures = false`, and it does **not** report `modifiesBinaryenIR() == false`. The 2026-04-27 recheck refined that correction: in `version_129` and current `main`, `strip-target-features` shares an owner with the sibling `emit-target-features` pass, inherits the base `Pass::modifiesBinaryenIR()` default of true, and clears `module->hasFeaturesSection` by constructing the shared owner in stripping mode. The 2026-05-05 current-main recheck preserved the same contract.
+The 2026-04-26 source recheck corrected an important stale wiki claim: Binaryen does **not** implement this as `runner->options.emitTargetFeatures = false`, and it does **not** report `modifiesBinaryenIR() == false`. The 2026-04-27 recheck refined that correction: in `version_129` and current `main`, `strip-target-features` shares an owner with the sibling `emit-target-features` pass, inherits the base `Pass::modifiesBinaryenIR()` default of true, and clears `module->hasFeaturesSection` by constructing the shared owner in stripping mode. The 2026-05-05 current-main recheck preserved the same contract. The 2026-06-05 custom-metadata routing refresh in [`../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md`](../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md) adds the Starshine-facing consequence: an opaque-section first slice may remove `CustomSec("target_features", ...)`, but that is still metadata suppression, not feature lowering or validation repair.
 
 It is currently **upstream-only** in Starshine:
 
@@ -83,6 +84,7 @@ The executable in-memory IR is otherwise unchanged, but Binaryen's module metada
 - A Starshine implementation over decoded `Module.custom_secs` would be architecturally different from Binaryen's `hasFeaturesSection` flag unless Starshine first adds first-class target-feature metadata.
 - The local port-readiness bridge keeps the safe first slices explicit: registry honesty, narrow opaque `target_features` custom-section deletion, then a larger first-class target-feature metadata model.
 - Starshine currently stores arbitrary custom sections as opaque `CustomSec` records and has no semantic target-features section model.
+- The neighboring `producers` tool-conventions section should be preserved by any future target-feature pass; it is provenance metadata, not an input to pass scheduling or feature validation.
 
 ## Validation strategy
 
@@ -112,6 +114,7 @@ For a future Starshine port, add tests in this order:
 
 ## Sources
 
+- [`../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md`](../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md)
 - [`../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md)
 - [`../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md`](../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-26-strip-target-features-source-correction.md`](../../../raw/binaryen/2026-04-26-strip-target-features-source-correction.md)

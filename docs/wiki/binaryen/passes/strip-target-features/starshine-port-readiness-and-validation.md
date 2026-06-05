@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-05
 sources:
+  - ../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md
   - ../../../raw/binaryen/2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md
@@ -35,7 +36,7 @@ related:
 3. add a narrow module pass that deletes decoded opaque `target_features` custom sections; or
 4. add first-class target-feature metadata and implement a closer Binaryen-style metadata toggle.
 
-Do not treat opaque custom-section round-tripping as an implementation of the pass. Round-tripping can preserve `target_features`; the pass must suppress or clear that metadata. For the shared Starshine `CustomSec` / structured `name` model and placement-normalization caveats, see [`../../../binary/custom-and-name-sections.md`](../../../binary/custom-and-name-sections.md).
+Do not treat opaque custom-section round-tripping as an implementation of the pass. Round-tripping can preserve `target_features`; the pass must suppress or clear that metadata. For the shared Starshine `CustomSec` / structured `name` model, `producers` provenance boundary, and placement-normalization caveats, see [`../../../binary/custom-and-name-sections.md`](../../../binary/custom-and-name-sections.md) and [`../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md`](../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md).
 
 ## Upstream contract to match
 
@@ -93,7 +94,8 @@ Validation positives:
 Validation negatives:
 
 - do not remove `producers`, toolchain annotations, `name`, or unknown custom sections;
-- do not rewrite relaxed SIMD, memory64, GC, EH, strings, or any feature-using instruction;
+- do not read `producers` name-version pairs as feature, optimization, or scheduling facts;
+- do not rewrite relaxed SIMD, memory64, GC, EH, strings, custom descriptors, or any feature-using instruction;
 - do not filter individual feature entries inside a kept section;
 - do not make validation accept unsupported feature use.
 
@@ -104,7 +106,7 @@ A closer Binaryen port would decode target-feature metadata into explicit module
 Open questions:
 
 - Should Starshine preserve unknown or malformed target-feature payloads opaquely, normalize them, or reject them?
-- Should `emit-target-features` synthesize metadata from Starshine's feature model or only re-enable previously decoded metadata?
+- Should `emit-target-features` synthesize metadata from Starshine's feature model, only re-enable previously decoded metadata, or stay unsupported until a first-class feature model exists?
 - Should metadata stripping be available only as an explicit pass, or also as an output option?
 
 ## Binaryen oracle lanes
