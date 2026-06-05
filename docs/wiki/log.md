@@ -12440,3 +12440,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added `table.size` WAT regression coverage for Binaryen-positive local-only reuse across table-size reads.
 - Updated the Starshine LCSE raw/module operand model so `table.size` is a zero-operand `i32` stack-result instruction rather than an unknown hard boundary, while adding a no-reuse regression for table-size-dependent roots.
 - Recorded focused, standard, native-build, and 10000-case direct compare evidence in `docs/wiki/raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`.
+
+## 2026-06-04 local-cse memory.grow local-only effect hardening
+
+- Added `memory.grow` WAT regression coverage for Binaryen-positive local-only reuse across memory growth.
+- Updated the Starshine LCSE raw/module operand model so `memory.grow` is a one-operand, `i32`-result side-effecting memory operation rather than an unknown hard boundary, while filtering memory-size-dependent active expressions across `memory.grow`.
+- Recorded focused, standard, native-build, and 10000-case direct compare evidence in `docs/wiki/raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`.

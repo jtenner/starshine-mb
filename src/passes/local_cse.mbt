@@ -37,6 +37,7 @@ priv struct LcseRawExpr {
   children : Array[Int]
   reads_locals : Array[Int]
   reads_memory : Bool
+  reads_memory_size : Bool
   reads_table_state : Bool
   mut repeat_of : Int
   mut local_id : Int
@@ -221,6 +222,7 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::LocalSet(_)
     | @lib.Instruction::LocalTee(_)
     | @lib.Instruction::GlobalSet(_)
+    | @lib.Instruction::MemoryGrow(_)
     | @lib.Instruction::If(_, _, _)
     | @lib.Instruction::BrIf(_) => Some(1)
     @lib.Instruction::Select(_) => Some(3)
@@ -299,6 +301,7 @@ fn lcse_raw_result_type(
     | @lib.Instruction::I32Load16S(_)
     | @lib.Instruction::I32Load16U(_)
     | @lib.Instruction::MemorySize(_)
+    | @lib.Instruction::MemoryGrow(_)
     | @lib.Instruction::TableSize(_)
     | @lib.Instruction::TableGrow(_) => Some(@lib.ValType::i32())
     @lib.Instruction::I64Const(_)
@@ -355,6 +358,25 @@ fn lcse_cancel_request_tree(exprs : Array[LcseRawExpr], expr_id : Int) -> Unit {
 ///|
 fn lcse_raw_expr_profitable(expr : LcseRawExpr) -> Bool {
   expr.size >= 2
+}
+
+///|
+fn lcse_raw_filter_active_without_memory_size(
+  exprs : Array[LcseRawExpr],
+  active : Array[Int],
+) -> Unit {
+  let keep : Array[Int] = []
+  for expr_id in active {
+    if expr_id >= 0 &&
+      expr_id < exprs.length() &&
+      !exprs[expr_id].reads_memory_size {
+      keep.push(expr_id)
+    }
+  }
+  active.clear()
+  for expr_id in keep {
+    active.push(expr_id)
+  }
 }
 
 ///|
@@ -606,6 +628,8 @@ fn lcse_raw_rewrite_instrs(
         }
       @lib.Instruction::CallIndirect(_, _) | @lib.Instruction::CallRef(_) =>
         active.clear()
+      @lib.Instruction::MemoryGrow(_) =>
+        lcse_raw_filter_active_without_memory_size(exprs, active)
       _ => if lcse_instr_is_store(instr) { active.clear() }
     }
     match instr {
@@ -631,6 +655,10 @@ fn lcse_raw_rewrite_instrs(
         let mut size = 1
         let reads_locals : Array[Int] = []
         let mut reads_memory = lcse_instr_is_load(instr)
+        let mut reads_memory_size = match instr {
+          @lib.Instruction::MemorySize(_) => true
+          _ => false
+        }
         let mut reads_table_state = match instr {
           @lib.Instruction::TableSize(_) => true
           _ => false
@@ -649,6 +677,9 @@ fn lcse_raw_rewrite_instrs(
           if child_expr.reads_memory {
             reads_memory = true
           }
+          if child_expr.reads_memory_size {
+            reads_memory_size = true
+          }
           if child_expr.reads_table_state {
             reads_table_state = true
           }
@@ -664,7 +695,8 @@ fn lcse_raw_rewrite_instrs(
         }
         let expr_id = exprs.length()
         let reusable_root = match instr {
-          @lib.Instruction::TableGrow(_) => false
+          @lib.Instruction::MemoryGrow(_) | @lib.Instruction::TableGrow(_) =>
+            false
           _ => !reads_table_state
         }
         let original_id = if reusable_root && size <= 32 {
@@ -687,6 +719,7 @@ fn lcse_raw_rewrite_instrs(
           children,
           reads_locals,
           reads_memory,
+          reads_memory_size,
           reads_table_state,
           repeat_of: -1,
           local_id: -1,
