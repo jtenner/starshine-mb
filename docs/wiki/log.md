@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] passes/local-cse | ref.test deferral
+
+- Spot-checked repeated standard `ref.test`; Binaryen materializes the repeated root with `local.tee` / `local.get`.
+- Added a core-built direct boundary test documenting Starshine's conservative no-CSE behavior for repeated `ref.test` roots. This is a documented deferral, not descriptor/cast/trap or heap reasoning.
+- Refreshed LCSE research/backlog wording so `ref.test`, `ref.cast`, descriptor tests/casts, and arbitrary heap reasoning remain out of scope unless separately audited.
+
 ## [2026-06-05] passes/local-cse | integer div/rem deferral
 
 - Spot-checked repeated `i32.div_s` and `i64.rem_u`; Binaryen materializes these repeated trap-sensitive roots with `local.tee` / `local.get`.

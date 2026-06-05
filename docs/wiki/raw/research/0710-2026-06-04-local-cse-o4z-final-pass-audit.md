@@ -1625,3 +1625,25 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the initial focused run with the deferral tests passed (`104/104`) because Starshine already intentionally leaves these roots unmaterialized; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`104/104`); `moon test src/passes` passed (`1652/1652`); full `moon test` passed (`4837/4837`); native build succeeded with no work to do; compare reached `6769` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index). The observed Binaryen materialization for div/rem remains classified as an intentionally deferred optimization opportunity, not a Starshine semantic failure.
+
+
+## Follow-up ref.test deferral slice on 2026-06-05
+
+A later focused LCSE hardening slice spot-checked repeated standard `ref.test` roots with a local GC reference operand. Binaryen materialized the repeated root with `local.tee` / `local.get`.
+
+This slice deliberately did not implement `ref.test` root CSE. The audit intent kept cast/trap/descriptor reasoning and arbitrary heap reasoning out of scope, and the local WAT parser surface is descriptor-oriented while the standard `ref.test` fixture is safest as a core-built module. The slice added the core-built boundary test `local-cse defers repeated ref-test roots`, documenting Starshine's current conservative no-CSE behavior. This does not add `ref.cast`, descriptor `ref.test_desc` / `ref.cast_desc_eq`, GC allocation CSE, or heap/GVN reasoning.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-ref-test-deferral-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the initial focused run with the deferral test passed (`105/105`) because Starshine already intentionally leaves this root unmaterialized; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`105/105`); `moon test src/passes` passed (`1653/1653`); full `moon test` passed (`4838/4838`); native build succeeded with no work to do; compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index). The observed Binaryen materialization for `ref.test` remains classified as an intentionally deferred optimization opportunity, not a Starshine semantic failure.
