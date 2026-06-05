@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wiki-health | Shared-Everything index summary routing
+
+- During the follow-up whole-wiki health check, searched malformed Markdown links plus broad Shared-Everything / shared-GC atomic mentions after the focused boundary landed.
+- Refreshed [`index.md`](index.md) and [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md) so top-level WAST summaries and the feature-status narrative mention the focused Shared-Everything boundary instead of leaving readers with only generic shared-GC atomic caveats.
+
 ## [2026-06-05] wasm/wiki | Shared-Everything Threads boundary routing
 
 - Added [`raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md`](raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md) after checking the current WebAssembly proposals tracker, Shared-Everything Threads proposal overview/instruction surface, the existing struct-atomic-get source snapshot, and current Starshine WAST/core/binary/validator/generator/pass evidence.
