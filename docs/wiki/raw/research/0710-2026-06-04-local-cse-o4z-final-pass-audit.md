@@ -1426,3 +1426,24 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the focused TDD run passed immediately (`80/80`) because Starshine already matched Binaryen's `select` materialization shape; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`80/80`); `moon test src/passes` passed (`1628/1628`); full `moon test` passed (`4813/4813`); native build succeeded with no work to do; compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up `ref.is_null` pure-root slice on 2026-06-05
+
+A later focused LCSE hardening slice spot-checked repeated `ref.is_null` on a `funcref` local. Binaryen materialized the repeated null-test root with `local.tee` / `local.get`. Starshine already modeled `RefIsNull` as a one-operand `i32` result for stack/effect handling, so local-only arithmetic reuse across an intervening `ref.is_null` was already safe, but the repeated-root-only fixture exposed a fast pre-scan gap: `RefIsNull` was not in `lcse_candidate_op_id`, so the function could be skipped before the raw rewrite saw the repeat.
+
+The slice added WAT-form direct regressions `local-cse reuses local-only expression across ref-is-null` and `local-cse reuses repeated ref-is-null roots`. The first passed under the existing model; the second failed as intended before the implementation change (`81/82` passed). Starshine then added `RefIsNull` as a pure one-operand `i32` candidate root. This remains limited to null-test reuse and does not add `ref.cast`, `ref.test`, descriptor reasoning, throwing/cast roots, GC allocation CSE, or broad heap reasoning.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-ref-is-null-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the first focused run failed as intended for repeated `ref.is_null` roots (`81/82` passed) before the implementation change; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed after the fix (`82/82`); `moon test src/passes` passed (`1630/1630`); full `moon test` passed (`4815/4815`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; compare reached `6772` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).

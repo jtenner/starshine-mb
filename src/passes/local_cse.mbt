@@ -151,6 +151,7 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::F64Min => 95
     @lib.Instruction::F64Max => 96
     @lib.Instruction::F64Copysign => 97
+    @lib.Instruction::RefIsNull => 98
     @lib.Instruction::I32Load(_) => 13
     @lib.Instruction::I64Load(_) => 14
     @lib.Instruction::F32Load(_) => 15

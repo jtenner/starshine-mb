@@ -2,6 +2,18 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wiki/schema | research serial policy clarification
+
+- Clarified [`../../AGENTS.md`](../../AGENTS.md), [`../README.md`](../README.md), and [`raw/research/README.md`](raw/research/README.md) so new research notes use the next unused zero-padded serial after scanning `docs/`, `docs/wiki/`, and `docs/wiki/raw/research/`; historical duplicate serial prefixes remain stable provenance but must not be reused.
+- Refreshed [`tooling/wiki-maintenance-playbook.md`](tooling/wiki-maintenance-playbook.md) and [`index.md`](index.md) so autonomous wiki runs check for accidental new serial reuse during raw/research placement and whole-wiki health checks.
+- Existing methodology and repository-policy sources were sufficient; no new raw source was added because this was schema/maintenance-rule reconciliation against current committed archive state, not an external behavior change.
+
+## [2026-06-05] passes/local-cse | ref.is_null pure-root reuse
+
+- Spot-checked repeated `ref.is_null`; Binaryen materializes the repeated pure null-test root with `local.tee` / `local.get`.
+- Added focused regressions for local-only reuse across `ref.is_null` and repeated `ref.is_null` roots; the repeated-root fixture failed until `RefIsNull` was added to the LCSE candidate pre-scan.
+- Refreshed LCSE research/backlog wording so this is scoped to pure null-test reuse, not cast/trap, descriptor, GC allocation, or broad heap reasoning.
+
 ## [2026-06-05] passes/local-cse | select root coverage
 
 - Spot-checked `select`; Binaryen materializes both local-only arithmetic reuse across `select` and repeated `select` roots.
