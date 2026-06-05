@@ -805,6 +805,86 @@ test "remove-unused-brs lets loop-body one-arm return ifs fall through at void f
 }
 
 ///|
+test "remove-unused-brs preserves loop fallthrough when one-arm if continues" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32) i32.const 0 local.set 1 block loop local.get 1 local.get 0 i32.ne if local.get 1 i32.const 1 i32.add local.set 1 br 1 end end end i32.const 42))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs loop fallthrough preservation success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(loop (Void)"), msg=pretty)
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_false(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs keeps stack-style tail return when earlier roots feed local.set" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func (param i32) (result i32) (local i32 i32) i32.const 100 local.set 1 local.get 1 i32.const 20 i32.add local.set 2 local.get 2 i32.const 0 local.get 0 memory.fill local.get 2 return))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs stack-style return preservation success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(
+    pretty.contains(
+      "(local.get (Local 1))(i32.const I32(20))i32.add(local.set (Local 2))",
+    ),
+    msg=pretty,
+  )
+  assert_true(pretty.contains("return"), msg=pretty)
+  assert_false(
+    pretty.contains(
+      "(local.get (Local 1))(local.set (Local 2))(local.get (Local 2))(i32.const I32(20))i32.add",
+    ),
+    msg=pretty,
+  )
+}
+
+///|
+test "remove-unused-brs keeps stack-style block branch when earlier roots feed local.set" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func $alloc (param i32 i32) (result i32) (i32.const 64)) (func (param i32 i32) (result i32) (local i32) (block (result i32) local.get 0 i32.const 2 call $alloc local.set 2 local.get 2 local.get 1 local.get 0 memory.copy local.get 2 br 0)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs stack-style branch preservation success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(
+    pretty.contains(
+      "(local.get (Local 0))(i32.const I32(2))(call (Func 0))(local.set (Local 2))",
+    ),
+    msg=pretty,
+  )
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_false(
+    pretty.contains(
+      "(local.get (Local 0))(local.set (Local 2))(local.get (Local 2))(i32.const I32(2))(call",
+    ),
+    msg=pretty,
+  )
+}
+
+///|
 test "remove-unused-brs restructures loop-body one-exit-arm ifs with carried self tails into fallthrough arms" {
   let optimized = match
     pass_test_run_pipeline(

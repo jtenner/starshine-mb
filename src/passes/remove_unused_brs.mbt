@@ -458,6 +458,75 @@ fn remove_unused_brs_can_skip_large_br_table_return_ladder(
 }
 
 ///|
+fn remove_unused_brs_region_has_result_local_set_stack_hazard(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  let result_arity = if region_ref == @ir.HotRegionRef::root() {
+    @ir.hot_type_result_arity(func, @ir.hot_body_result_type(func))
+  } else if region_ref.holder >= 0 &&
+    @ir.hot_node_is_live(func, region_ref.holder) {
+    @ir.hot_node_result_arity(func, region_ref.holder)
+  } else {
+    @ir.hot_region_result_arity(func, region_ref)
+  }
+  if result_arity > 0 && @ir.hot_region_root_count(func, region_ref) > 1 {
+    let mut has_local_set = false
+    let mut has_stack_effect = false
+    for idx = 0
+        idx < @ir.hot_region_root_count(func, region_ref)
+        idx = idx + 1 {
+      let root_id = @ir.hot_region_get(func, region_ref, idx)
+      if root_id >= 0 && @ir.hot_node_is_live(func, root_id) {
+        match @ir.hot_node_get(func, root_id).op {
+          @ir.HotOp::LocalSet => has_local_set = true
+          @ir.HotOp::Call
+          | @ir.HotOp::CallIndirect
+          | @ir.HotOp::CallRef
+          | @ir.HotOp::MemoryCopy
+          | @ir.HotOp::MemoryFill => has_stack_effect = true
+          _ => ()
+        }
+      }
+    }
+    if has_local_set && has_stack_effect {
+      return true
+    }
+  }
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, region_ref, idx)
+    if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, root_id)
+    for info in @ir.hot_control_region_slot_info(node.op) {
+      let child_ref = match info.role {
+        @ir.HotControlRegionRole::BodyRegion =>
+          Some(@ir.hot_region_body_ref(func, root_id))
+        @ir.HotControlRegionRole::ThenRegion =>
+          Some(@ir.hot_region_then_ref(func, root_id))
+        @ir.HotControlRegionRole::ElseRegion =>
+          @ir.hot_region_else_ref(func, root_id)
+        @ir.HotControlRegionRole::CatchRegion =>
+          @ir.hot_region_catch_ref(func, root_id)
+        @ir.HotControlRegionRole::CatchListRegion =>
+          Some(@ir.hot_region_catch_list_ref(func, root_id))
+      }
+      match child_ref {
+        Some(child_ref) =>
+          if remove_unused_brs_region_has_result_local_set_stack_hazard(
+              func, child_ref,
+            ) {
+            return true
+          }
+        None => ()
+      }
+    }
+  }
+  false
+}
+
+///|
 fn remove_unused_brs_tail_target(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -1886,35 +1955,20 @@ fn remove_unused_brs_try_remove_region_tail(
   match remove_unused_brs_tail_target(func, region_ref) {
     ReturnTarget =>
       match tail.op {
-        @ir.HotOp::Return =>
-          if tail.child_count == 0 {
-            let changed = remove_unused_brs_splice_tail_roots(
-              ctx,
-              func,
-              region_ref,
-              tail_id,
-              [],
-            )
-            changed
-          } else if tail.child_count == 1 {
-            rewrite_tail_child(@ir.hot_child_get(func, tail_id, 0))
+        @ir.HotOp::Return => {
+          let result_arity = if region_ref == @ir.HotRegionRef::root() {
+            @ir.hot_type_result_arity(func, @ir.hot_body_result_type(func))
           } else {
-            let changed = remove_unused_brs_splice_tail_with_children(
-              ctx, func, region_ref, tail_id,
-            )
-            changed
+            @ir.hot_region_result_arity(func, region_ref)
           }
-        _ => false
-      }
-    BranchTarget(target) => {
-      if tail.child_count > 0 &&
-        @ir.hot_region_result_arity(func, region_ref) == 0 {
-        return false
-      }
-      match tail.op {
-        @ir.HotOp::Br if tail.imm0 == target =>
+          if result_arity > 0 &&
+            region_ref == @ir.HotRegionRef::root() &&
+            @ir.hot_region_root_count(func, region_ref) > 1 {
+            return false
+          }
           if tail.child_count == 0 {
-            if @ir.hot_region_result_arity(func, region_ref) == 0 {
+            if result_arity > 0 &&
+              @ir.hot_region_root_count(func, region_ref) > result_arity + 1 {
               return false
             }
             let changed = remove_unused_brs_splice_tail_roots(
@@ -1933,6 +1987,41 @@ fn remove_unused_brs_try_remove_region_tail(
             )
             changed
           }
+        }
+        _ => false
+      }
+    BranchTarget(target) => {
+      if tail.child_count > 0 &&
+        @ir.hot_region_result_arity(func, region_ref) == 0 {
+        return false
+      }
+      match tail.op {
+        @ir.HotOp::Br if tail.imm0 == target => {
+          let result_arity = @ir.hot_region_result_arity(func, region_ref)
+          if result_arity > 0 && @ir.hot_region_root_count(func, region_ref) > 1 {
+            return false
+          }
+          if tail.child_count == 0 {
+            if result_arity == 0 {
+              return false
+            }
+            let changed = remove_unused_brs_splice_tail_roots(
+              ctx,
+              func,
+              region_ref,
+              tail_id,
+              [],
+            )
+            changed
+          } else if tail.child_count == 1 {
+            rewrite_tail_child(@ir.hot_child_get(func, tail_id, 0))
+          } else {
+            let changed = remove_unused_brs_splice_tail_with_children(
+              ctx, func, region_ref, tail_id,
+            )
+            changed
+          }
+        }
         _ => false
       }
     }
@@ -2135,6 +2224,9 @@ fn remove_unused_brs_region_result_arity(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
 ) -> Int? {
+  if region_ref == @ir.HotRegionRef::root() {
+    return Some(@ir.hot_type_result_arity(func, @ir.hot_body_result_type(func)))
+  }
   Some(@ir.hot_region_result_arity(func, region_ref))
 }
 
@@ -2148,6 +2240,26 @@ fn remove_unused_brs_try_strip_return_context_tail(
     remove_unused_brs_region_result_arity(func, region_ref) {
     Some(arity) => arity
     None => return false
+  }
+  let tail_id = remove_unused_brs_region_tail_id(func, region_ref)
+  if tail_id < 0 || !@ir.hot_node_is_live(func, tail_id) {
+    return false
+  }
+  let tail = @ir.hot_node_get(func, tail_id)
+  if expected_payloads > 0 &&
+    region_ref == @ir.HotRegionRef::root() &&
+    @ir.hot_region_root_count(func, region_ref) > 1 {
+    return false
+  }
+  if expected_payloads > 0 &&
+    tail.child_count == 0 &&
+    region_ref == @ir.HotRegionRef::root() {
+    return false
+  }
+  if expected_payloads > 0 &&
+    tail.child_count == 0 &&
+    @ir.hot_region_root_count(func, region_ref) > expected_payloads + 1 {
+    return false
   }
   let payloads = match
     remove_unused_brs_region_tail_control_payload_count(
@@ -3828,6 +3940,9 @@ fn remove_unused_brs_build_stack_exit_region_value_body(
       }
     NoTarget => return None
   }
+  if roots.length() > 1 {
+    return None
+  }
   let body_roots : Array[Int] = []
   for idx = 0; idx < roots.length() - 1; idx = idx + 1 {
     body_roots.push(roots[idx])
@@ -3872,6 +3987,9 @@ fn remove_unused_brs_build_stack_exit_region_value_expr(
         _ => return None
       }
     NoTarget => return None
+  }
+  if roots.length() > 1 {
+    return None
   }
   let payload_roots : Array[Int] = []
   for idx = 0; idx < roots.length() - 1; idx = idx + 1 {
@@ -5204,6 +5322,9 @@ fn remove_unused_brs_try_rotate_void_block_single_loop(
     _ => return false
   }
   let loop_body_ref = @ir.hot_region_body_ref(func, loop_id)
+  if !remove_unused_brs_tail_is_nonfallthrough(func, loop_body_ref) {
+    return false
+  }
   let loop_body_roots : Array[Int] = []
   for root_idx = 0
       root_idx < @ir.hot_region_root_count(func, loop_body_ref)
@@ -6379,6 +6500,18 @@ fn remove_unused_brs_run(
       ctx.descriptor.name,
       "skip-hot",
       payload="reason=\{reason}",
+    )
+    return HotPassResult::unchanged()
+  }
+  if remove_unused_brs_region_has_result_local_set_stack_hazard(
+      func,
+      @ir.HotRegionRef::root(),
+    ) {
+    pipeline_trace_hook(
+      ctx.trace,
+      ctx.descriptor.name,
+      "skip-hot",
+      payload="reason=result-local-set-stack-hazard-noop",
     )
     return HotPassResult::unchanged()
   }
