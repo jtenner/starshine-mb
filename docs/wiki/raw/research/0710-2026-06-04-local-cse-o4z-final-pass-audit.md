@@ -2079,3 +2079,16 @@ moon test --package jtenner/starshine/passes --file local_cse_test.mbt
 ```
 
 Results: Binaryen's spot-check output still contained both `ref.func` roots and no local materialization; focused LCSE tests passed (`128/128`). Full signoff for this slice is recorded in the commit/report for the `ref.func` no-op slice.
+
+## Follow-up string new-array root boundary on 2026-06-05
+
+A later focused LCSE hardening slice added core-built coverage for repeated `string.new_utf8_array`, `string.new_wtf16_array`, `string.new_lossy_utf8_array`, and `string.new_wtf8_array` roots. The installed Binaryen text oracle rejected the attempted representative string-new-array fixture as an unrecognized instruction, so this slice does not claim Binaryen materialization for the family. Starshine intentionally leaves these string-producing proposal roots unmaterialized rather than adding string/reference temp-local reasoning. Agent classification: fixture-safety deferral / missing-test-only local boundary coverage, not a semantic mismatch.
+
+Validation evidence for this slice:
+
+```sh
+wasm-opt .tmp/lcse-next-spots/string-new-array/input.wat --all-features --local-cse -S -o .tmp/lcse-next-spots/string-new-array/binaryen.wat
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+```
+
+Results: Binaryen rejected the representative external text fixture (`unrecognized instruction`); focused LCSE tests passed (`129/129`). Full signoff for this slice is recorded in the commit/report for the string new-array boundary slice.

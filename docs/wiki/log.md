@@ -13,6 +13,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added [`wasm-typed-function-references-boundary.md`](wasm-typed-function-references-boundary.md) as the focused Core-3.0 guide for ordinary `call_ref`, `return_call_ref`, and first-class function-reference values; it maps Starshine's core/binary/validator/generator support separately from the current high-level WAST ordinary-`call_ref` text gap and keeps `ref.func` declaration sources separate from reference-call consumption.
 - Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wast/function-call-and-module-authoring.md`](wast/function-call-and-module-authoring.md), [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md), [`wast/tail-call-authoring.md`](wast/tail-call-authoring.md), [`wast/text-surface-gap-ledger.md`](wast/text-surface-gap-ledger.md), and [`index.md`](index.md) so future `call_ref` claims route through a focused boundary instead of scattered call/reference/tail-call prose or active-proposal buckets.
 
+## [2026-06-05] local-cse/wiki | string new-array roots
+
+- Added core-built LCSE boundary coverage for repeated `string.new_utf8_array`, `string.new_wtf16_array`, `string.new_lossy_utf8_array`, and `string.new_wtf8_array` roots.
+- The installed Binaryen text oracle rejected the attempted string-new-array fixture, so Starshine keeps these proposal roots unmaterialized and documents the fixture-safety deferral instead of adding string/reference temp-local reasoning.
 
 ## [2026-06-05] local-cse/wiki | ref.func root no-op
 
