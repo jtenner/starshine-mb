@@ -1773,3 +1773,24 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the initial focused run with the added conservative boundary coverage passed (`112/112`); `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`112/112`); `moon test src/passes` passed (`1660/1660`); full `moon test` passed (`4845/4845`); native build succeeded with no work to do; compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up i31 boundary slice on 2026-06-05
+
+A later focused LCSE hardening slice spot-checked repeated `ref.i31`, `i31.get_s`, and `i31.get_u` roots. Binaryen materialized all three representative repeat families with `local.tee` / `local.get` in the spot-check fixture under `.tmp/local-cse-spot/i31.wat`.
+
+The TDD run initially failed for both added positive fixtures (`112/114` passed). During implementation, materializing `ref.i31` with an exact non-null `(ref i31)` temp made final validation reject the optimized module because non-nullable locals have no default value. The landed slice therefore keeps `ref.i31` as a documented conservative deferral, and only models `i31.get_s` / `i31.get_u` as pure one-operand `i32` candidate roots. This is narrow i31 scalar accessor CSE, not heap, cast, allocation, or non-null temp-local reasoning.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-i31-boundary-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the initial focused run failed as intended for missing i31 coverage (`112/114`), then the landed implementation/deferral split passed focused LCSE tests (`114/114`); `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; `moon test src/passes` passed (`1662/1662`); full `moon test` passed (`4847/4847`); native build succeeded with warnings only and exit `0`; compare reached `6771` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
