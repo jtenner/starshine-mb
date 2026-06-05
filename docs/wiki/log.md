@@ -13,6 +13,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added [`wasm-multi-memory-boundary.md`](wasm-multi-memory-boundary.md) as the focused Core selected-memory guide for `MemArg`, `memory.size`, `memory.grow`, `memory.fill`, `memory.copy`, `memory.init`, and active data-segment memory indices; it separates current core/binary/validator/generator support from WAST nonzero-memory-index gaps, memory64 address-width behavior, Custom Page Sizes, Threads/shared-memory, Memory Control, and Binaryen `multi-memory-lowering`.
 - Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`validate/memory-table-address-widths.md`](validate/memory-table-address-widths.md), [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md), [`wast/memory-instruction-authoring.md`](wast/memory-instruction-authoring.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), and [`index.md`](index.md) so future selected-memory claims route through a focused page instead of being inferred from memory64, Memory Control, Custom Page Sizes, shared-memory, WAST gaps, or pass-lowering pages.
 
+## [2026-06-05] local-cse/wiki | SIMD load-splat/load-zero boundary
+
+- Added core-built LCSE boundary coverage for repeated `v128.load8_splat`, `v128.load16_splat`, `v128.load32_splat`, `v128.load64_splat`, `v128.load32_zero`, and `v128.load64_zero` roots.
+- Documented Starshine's conservative no-CSE behavior even though Binaryen materializes representative SIMD load-splat/load-zero repeats; this stays out of arbitrary SIMD or memory GVN.
+
 ## [2026-06-05] wasm/wiki | memory64/table64 Core boundary routing
 
 - Added [`raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md`](raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md) after checking current WebAssembly Core 3.0 type/text/validation pages, the finished-proposals table, the active proposal tracker, and current Starshine `Limits`, binary codec, typechecker, and generator/invalid-generator test evidence.
