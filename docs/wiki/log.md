@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wiki-health | descriptor backlink repair
+
+- During the follow-up health check, repaired remaining descriptor-navigation backlinks in [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`validate/type-section-and-subtyping.md`](validate/type-section-and-subtyping.md), and [`index.md`](index.md) so type authoring, binary `0xFB` opcode, and validator type-section readers now route descriptor instruction details through [`custom-descriptors/descriptor-instruction-surface.md`](custom-descriptors/descriptor-instruction-surface.md) instead of only the older static-fixture / `ref.get_desc` / exactness pages.
+- Health-check scope included empty Markdown links, stale archived `docs/00xx` research paths, bad nested `docs/wiki/raw/...` paths, broad TODO/stale-link markers, and descriptor backlinks outside the initially touched pages. No additional raw source was needed; this was a navigation/schema health repair after the descriptor instruction page landed.
+
 ## [2026-06-05] custom-descriptors/wiki | descriptor instruction surface bridge
 
 - Added [`raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md) after rechecking the current WebAssembly proposals tracker, custom-descriptors proposal overview, upstream `ref.get_desc` bottom-input issue/V8 fix, and current Starshine WAST/core/binary/validator/generator sources.

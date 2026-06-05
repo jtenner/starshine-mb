@@ -6,6 +6,7 @@ sources:
   - ../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
   - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
   - ../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md
+  - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
   - ../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md
   - ../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md
   - ../../../src/lib/types.mbt
@@ -20,6 +21,7 @@ related:
   - import-export-and-external-type-matching.md
   - ../binary/type-table-memory-global-tag-sections.md
   - ../wast/gc-type-authoring.md
+  - ../custom-descriptors/descriptor-instruction-surface.md
   - ../custom-descriptors/ref-get-desc-fixture-path.md
   - ../custom-descriptors/exact-reference-equivalence.md
   - ../fuzzing/generator-coverage-ledger.md
@@ -95,7 +97,7 @@ The official Core 3.0 rules are stricter than mere Starshine parser acceptance. 
 
 ## Descriptor Metadata And Exact References
 
-Custom descriptors add proposal-local metadata on top of the core type-section flow. Starshine validates that surface in the same `RecType` group pass, but the durable proposal explanation belongs in the custom-descriptor pages and the current descriptor source bridge [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md). That bridge keeps the official proposal/local split explicit: descriptor metadata remains Phase-3 proposal material and currently struct-oriented, while Starshine WAST parsing/lowering can still carry broader array metadata shapes that this validator rejects.
+Custom descriptors add proposal-local metadata on top of the core type-section flow. Starshine validates that surface in the same `RecType` group pass, but the durable proposal explanation belongs in the custom-descriptor pages and the current instruction bridge [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md) plus descriptor source bridge [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md). That bridge keeps the official proposal/local split explicit: descriptor metadata remains Phase-3 proposal material and currently struct-oriented, while Starshine WAST parsing/lowering can still carry broader array metadata shapes that this validator rejects.
 
 Current local descriptor checks in [`validate_descriptor_metadata_group(...)`](../../../src/validate/validate.mbt):
 
@@ -106,7 +108,7 @@ Current local descriptor checks in [`validate_descriptor_metadata_group(...)`](.
 - descriptor-bearing subtypes cannot silently drop descriptor metadata required by their supertypes; and
 - describing subtypes must stay compatible with describing supertypes.
 
-Exact references are validated separately in `Validate for RefType`: exact refs require a defined heap type. The deeper exact structural-equivalence and `ref.get_desc` result rules live in [`../custom-descriptors/exact-reference-equivalence.md`](../custom-descriptors/exact-reference-equivalence.md) and [`../custom-descriptors/ref-get-desc-fixture-path.md`](../custom-descriptors/ref-get-desc-fixture-path.md).
+Exact references are validated separately in `Validate for RefType`: exact refs require a defined heap type. The descriptor instruction surface lives in [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md); deeper exact structural-equivalence and `ref.get_desc` result rules live in [`../custom-descriptors/exact-reference-equivalence.md`](../custom-descriptors/exact-reference-equivalence.md) and [`../custom-descriptors/ref-get-desc-fixture-path.md`](../custom-descriptors/ref-get-desc-fixture-path.md).
 
 ## Concrete Shapes
 
@@ -193,9 +195,10 @@ When changing type-section validation, WAST type lowering, or a pass that rewrit
 - Current source bridge: [`../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md`](../raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md)
 - Older type-section source bridge: [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md)
 - Older WAST type-use and subtype source bridge: [`../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md`](../raw/wasm/2026-05-20-wast-gc-typeuse-and-subtype-sources.md)
+- Current custom-descriptor instruction bridge: [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md)
 - Current custom-descriptor status bridge: [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md)
 - Earlier custom-descriptor exactness bridge: [`../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md`](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md)
 - Validator implementation: [`../../../src/validate/validate.mbt`](../../../src/validate/validate.mbt), [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt), [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt)
 - Invalid fuzzing: [`../../../src/validate/invalid_fuzzer.mbt`](../../../src/validate/invalid_fuzzer.mbt), [`../../../src/validate/gen_invalid.mbt`](../../../src/validate/gen_invalid.mbt)
 - Proof helpers: [`../../../src/validate_proof/rectype_index.mbt`](../../../src/validate_proof/rectype_index.mbt), [`../validation/moonbit-prove-strategy.md`](../validation/moonbit-prove-strategy.md)
-- Companion pages: [`module-validation-phases.md`](module-validation-phases.md), [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../custom-descriptors/exact-reference-equivalence.md`](../custom-descriptors/exact-reference-equivalence.md), [`../custom-descriptors/ref-get-desc-fixture-path.md`](../custom-descriptors/ref-get-desc-fixture-path.md)
+- Companion pages: [`module-validation-phases.md`](module-validation-phases.md), [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md), [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md), [`../custom-descriptors/exact-reference-equivalence.md`](../custom-descriptors/exact-reference-equivalence.md), [`../custom-descriptors/ref-get-desc-fixture-path.md`](../custom-descriptors/ref-get-desc-fixture-path.md)
