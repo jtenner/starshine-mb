@@ -1731,3 +1731,24 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the first WAT-form focused fixture failed (`109/110`) because Starshine's local test parser rejected the SIMD text shape; the landed core-built fixture then passed (`110/110`). `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`110/110`); `moon test src/passes` passed (`1658/1658`); full `moon test` passed (`4843/4843`); native build succeeded with no work to do. The first compare command failed during gen-valid batch emission (`moon run --target native --release src/fuzz ...`, no return code) and was agent-classified as a transient tool/harness command failure, not a Starshine semantic failure. The rerun compare command with out dir `.tmp/pass-fuzz-local-cse-simd-deferral-10000-rerun` reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up struct atomic-get boundary slice on 2026-06-05
+
+A later focused LCSE hardening slice spot-checked local-only scalar reuse across a shared-GC `struct.atomic.get` root. Binaryen materialized the local-only `i32.add` across the representative atomic root with `local.tee` / `local.get` in the spot-check fixture under `.tmp/local-cse-atomic/`; existing Starshine atomic pass-support tests already cover repeated `struct.atomic.get` roots staying distinct.
+
+This slice deliberately did not model atomic roots as reusable loads or add atomic/memory GVN. It added the direct WAT boundary test `local-cse defers local-only reuse across struct atomic get`, documenting Starshine's current conservative behavior around the shared-GC atomic surface. This is semantically safe but may miss a Binaryen-positive local-only reuse opportunity; recovering it would require a separate, narrow atomic operand/effect model that still keeps repeated atomic roots distinct.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-atomic-boundary-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the initial focused run with the added conservative boundary coverage passed (`111/111`); `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`111/111`); `moon test src/passes` passed (`1659/1659`); full `moon test` passed (`4844/4844`); native build succeeded with no work to do; compare reached `6767` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).

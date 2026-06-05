@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | struct atomic-get boundary
+
+- Added focused LCSE coverage for local-only scalar reuse across `struct.atomic.get`, documenting Starshine's conservative no-CSE boundary even though Binaryen materializes the representative local-only repeat.
+- Refreshed the LCSE implementation/test guide and final-pass audit note so atomic roots remain distinct and any future local-only recovery is kept separate from arbitrary atomic or memory GVN.
+
 ## [2026-06-05] local-cse/wiki | SIMD pure-root deferral
 
 - Added focused LCSE boundary coverage for repeated `v128.not` and `i8x16.eq` roots, documenting Starshine's conservative no-CSE behavior even though Binaryen materializes representative SIMD repeats.
