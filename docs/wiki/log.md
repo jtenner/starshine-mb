@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | SIMD float rounding roots
+
+- Added core-built LCSE boundary coverage for repeated SIMD float rounding roots: `f32x4.ceil`, `f32x4.floor`, `f32x4.trunc`, `f32x4.nearest`, `f64x2.ceil`, `f64x2.floor`, `f64x2.trunc`, and `f64x2.nearest`.
+- Documented Starshine's conservative no-CSE behavior even though Binaryen materializes representative repeated vector rounding roots; this stays out of SIMD temp-local/value-numbering work.
+
 ## [2026-06-05] local-cse/wiki | wider SIMD arithmetic/logic roots
 
 - Added core-built LCSE boundary coverage for representative repeated pure SIMD arithmetic/logic roots beyond the earlier tiny `v128.not` / `i8x16.eq` smoke.
