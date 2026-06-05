@@ -2065,3 +2065,17 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the added conservative core-built coverage passed immediately (`127/127`), so this was missing-test-only local coverage paired with an external fixture-safety deferral. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`127/127`); `moon test src/passes` passed (`1681/1681`); full `moon test` passed (`4866/4866`); native build reported no work; compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up `ref.func` root no-op on 2026-06-05
+
+A later focused LCSE hardening slice added core-built coverage for repeated `ref.func` roots. Binaryen spot-checking a representative declared-function text fixture also left the two `ref.func` roots unmaterialized, with no `local.tee` / `local.get` materialization. Starshine likewise keeps `ref.func` unmaterialized, preserving the existing string/reference temp-local boundary rather than inventing reference-local materialization during the audit. Agent classification: missing-test-only no-op coverage, not a semantic mismatch.
+
+Validation evidence for this slice:
+
+```sh
+wasm-tools parse .tmp/lcse-next-spots/ref-func/input.wat -o .tmp/lcse-next-spots/ref-func/input.wasm
+wasm-opt .tmp/lcse-next-spots/ref-func/input.wasm --all-features --local-cse -S -o .tmp/lcse-next-spots/ref-func/binaryen.wat
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+```
+
+Results: Binaryen's spot-check output still contained both `ref.func` roots and no local materialization; focused LCSE tests passed (`128/128`). Full signoff for this slice is recorded in the commit/report for the `ref.func` no-op slice.
