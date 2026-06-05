@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-05
 sources:
   - raw/wasm/2026-06-05-gc-core-boundary-refresh.md
+  - raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md
   - raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - raw/wasm/2026-06-04-gc-type-subtyping-current-refresh.md
   - raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md
@@ -114,7 +115,7 @@ A struct constructor accepted in a function body is not automatically accepted i
 3. **Packed field signedness is semantic.** `struct.get_s` / `array.get_s` and `*_get_u` differ by sign extension for packed storage. Do not canonicalize them without a proof.
 4. **Array operations carry traps and segment dependencies.** Index/range, mutable-storage, data-index, and elem-index checks matter. Segment-backed array instructions should also consult [`validate/data-count-and-code-data-indices.md`](validate/data-count-and-code-data-indices.md), [`wast/data-segment-authoring.md`](wast/data-segment-authoring.md), and [`wast/element-segment-authoring.md`](wast/element-segment-authoring.md).
 5. **Descriptor exactness is not ordinary reference nullability.** `CastOp` for `br_on_cast` stores source/target nullability; descriptor exactness and descriptor compatibility live in the custom-descriptor pages.
-6. **Shared-GC atomics are separate from linear-memory atomics.** Current text support is `struct.atomic.get*` only. Do not infer `struct.atomic.set`, aggregate RMW/cmpxchg, or array atomic support from linear-memory atomic pages.
+6. **Shared-GC atomics are separate from linear-memory atomics.** Current text support is `struct.atomic.get*` only. Route Shared-Everything proposal status through [`wasm-shared-everything-threads-boundary.md`](wasm-shared-everything-threads-boundary.md), and do not infer `struct.atomic.set`, aggregate RMW/cmpxchg, wait/notify, shared heap-type syntax, or array atomic support from linear-memory atomic pages.
 
 ## Signoff Guidance
 

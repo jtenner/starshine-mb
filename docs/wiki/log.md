@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasm/wiki | Shared-Everything Threads boundary routing
+
+- Added [`raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md`](raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md) after checking the current WebAssembly proposals tracker, Shared-Everything Threads proposal overview/instruction surface, the existing struct-atomic-get source snapshot, and current Starshine WAST/core/binary/validator/generator/pass evidence.
+- Added [`wasm-shared-everything-threads-boundary.md`](wasm-shared-everything-threads-boundary.md) so shared heap types and aggregate GC atomics route as active Phase-1 proposal evidence, while Starshine's current `struct.atomic.get*` slice stays explicit and separate from array atomics, aggregate set/RMW/cmpxchg, wait/notify, shared heap-type syntax, linear-memory atomics, Relaxed Atomics, and runtime-thread claims.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wasm-linear-memory-threads-boundary.md`](wasm-linear-memory-threads-boundary.md), [`wasm-gc-core-boundary.md`](wasm-gc-core-boundary.md), [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md), [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), [`wast/index.md`](wast/index.md), [`wast/text-surface-gap-ledger.md`](wast/text-surface-gap-ledger.md), and [`index.md`](index.md) so future shared-GC atomic claims no longer sit only in generic feature-status rows or linear-memory atomic caveats.
+
 ## [2026-06-05] wasm/wiki | JS primitive and text-encoding builtin routing
 
 - Added [`raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md`](raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md) after checking the current WebAssembly proposals tracker, JS Primitive Builtins overview, JS Text Encoding Builtins overview, existing JS String Builtins boundary, and current Starshine Node/WAST/core/binary/validator evidence.

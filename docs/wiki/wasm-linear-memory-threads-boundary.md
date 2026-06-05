@@ -54,7 +54,7 @@ The current primary-source bridge is [`raw/wasm/2026-06-04-linear-memory-threads
 | Ordinary `0xFE` atomics | Threads proposal/draft instruction evidence. | Core, binary, validator, generator, HOT/effects support the current local subset. Linear-memory WAST keywords are absent. | [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) |
 | `atomic.fence` | Threads proposal/draft ordering barrier. | Core/binary/validator support zero-immediate fence as standalone `[] -> []`; no selected memory and no sharedness check. | [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) |
 | Relaxed Atomics | Separate active Phase-2 proposal for ordering immediates and `pause`. | No local support: no `pause`, no linear-memory ordering field, no nonzero fence ordering. | [`wasm-relaxed-atomics-boundary.md`](wasm-relaxed-atomics-boundary.md) |
-| Shared-GC aggregate atomics | Shared-Everything / GC aggregate surface, not linear-memory `MemArg` atomics. | Focused `struct.atomic.get*` WAST/core/binary/validator support only; broader aggregate atomics remain future work. | [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md) |
+| Shared-GC aggregate atomics | Shared-Everything / GC aggregate surface, not linear-memory `MemArg` atomics. | Focused `struct.atomic.get*` WAST/core/binary/validator support only; broader aggregate atomics remain future work. | [`wasm-shared-everything-threads-boundary.md`](wasm-shared-everything-threads-boundary.md), [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md) |
 | Memory Control | Separate active Phase-1 runtime memory-management proposal. | No `memory.discard` / lazy commit / mapping / BYOB support. | [`wasm-memory-control-boundary.md`](wasm-memory-control-boundary.md) |
 | Custom Page Sizes | Separate active-proposal memory-type dimension. | No page-size field, binary flag, validator dimension, or WAST spelling. | [`wasm-custom-page-sizes-boundary.md`](wasm-custom-page-sizes-boundary.md) |
 
@@ -137,7 +137,7 @@ Treat shared memory and atomics as semantic constraints, not as incidental synta
 - It does not prove full Threads proposal support. Threads is an active proposal row; current Starshine has a documented local subset.
 - It does not prove high-level WAST support for linear-memory atomic text.
 - It does not prove Relaxed Atomics support. `acqrel` linear-memory ordering, nonzero `atomic.fence` ordering bytes, and `pause` route through [`wasm-relaxed-atomics-boundary.md`](wasm-relaxed-atomics-boundary.md).
-- It does not prove Shared-Everything Threads support. `struct.atomic.get*` is a focused shared-GC aggregate slice and lives on [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md).
+- It does not prove full Shared-Everything Threads support. `struct.atomic.get*` is a focused shared-GC aggregate slice routed through [`wasm-shared-everything-threads-boundary.md`](wasm-shared-everything-threads-boundary.md) and [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md).
 - It does not prove Memory Control or Custom Page Sizes support. Those proposals add separate memory-management and memory-type dimensions.
 
 ## Validation And Signoff Checklist

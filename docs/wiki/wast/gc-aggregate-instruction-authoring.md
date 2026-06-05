@@ -1,11 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-05
 sources:
   - ../raw/wasm/2026-06-05-gc-core-boundary-refresh.md
   - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
   - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
+  - ../raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md
   - ../raw/wasm/2026-06-04-struct-atomic-get-sources.md
   - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
   - ../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md
@@ -57,7 +58,7 @@ official Wasm GC instruction family
   -> still-narrower Starshine constant-expression allow-list for initializers
 ```
 
-Starshine can model, encode, decode, validate, and generate the broad GC aggregate family in core modules. The higher-level `src/wast` parser/printer/lowerer is narrower today: it exposes struct constructors, ordinary struct reads, shared-GC `struct.atomic.get*` reads, descriptor constructors, `ref.get_desc`, descriptor cast/test helpers, i31 operations, and `any`/`extern` conversions, but **does not expose official `struct.set`, aggregate atomic set/RMW/cmpxchg forms, or any `array.*` WAST text keyword yet**. That means pass regressions involving `struct.set`, `array.new`, `array.get`, `array.init_data`, `array.init_elem`, or aggregate atomic writes/RMW/cmpxchg should currently use core/binary/generated fixtures unless the task is explicitly to widen WAST text support first. Descriptor-specific allocation and cast/test semantics now route through [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md), so this page remains focused on the ordinary aggregate instruction layer.
+Starshine can model, encode, decode, validate, and generate the broad GC aggregate family in core modules. The higher-level `src/wast` parser/printer/lowerer is narrower today: it exposes struct constructors, ordinary struct reads, shared-GC `struct.atomic.get*` reads, descriptor constructors, `ref.get_desc`, descriptor cast/test helpers, i31 operations, and `any`/`extern` conversions, but **does not expose official `struct.set`, aggregate atomic set/RMW/cmpxchg forms, or any `array.*` WAST text keyword yet**. That means pass regressions involving `struct.set`, `array.new`, `array.get`, `array.init_data`, `array.init_elem`, or aggregate atomic writes/RMW/cmpxchg should currently use core/binary/generated fixtures unless the task is explicitly to widen WAST text support first. Descriptor-specific allocation and cast/test semantics now route through [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md), while shared heap-type / aggregate-atomic proposal status routes through [`../wasm-shared-everything-threads-boundary.md`](../wasm-shared-everything-threads-boundary.md). This page remains focused on the ordinary aggregate instruction layer and the current local WAST surface.
 
 The 2026-05-20 focused refresh in [`../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md) and the 2026-06-04 current refresh in [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md) add a second caveat for initializer contexts: current official WebAssembly 3.0 treats `array.new`, `array.new_default`, and `array.new_fixed` as constant-expression instructions, but Starshine's reviewed [`validate_const_instr(...)`](../../../src/validate/validate.mbt) still admits struct constructors and local descriptor constructors only. Ordinary core/binary `array.new*` tests are therefore not evidence that Starshine accepts array constructors in global/table/element/data initializer constant expressions; use [`../validate/constant-expressions.md`](../validate/constant-expressions.md) for that allow-list contract.
 
@@ -78,7 +79,7 @@ Aggregate instructions either create a heap object, read storage, mutate storage
 | Struct constructors | `struct.new`, `struct.new_default` | Yes | Yes | Prefer WAST fixtures when constructor text/lowering is the point. |
 | Descriptor struct constructors | `struct.new_desc`, `struct.new_default_desc` | Yes, local/custom-descriptor surface | Yes | Use [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md) for exact descriptor operands and proposal/local caveats; do not treat as official 3.0 syntax. |
 | Struct reads | `struct.get`, `struct.get_s`, `struct.get_u` | Yes | Yes | WAST fixtures are supported; signed/unsigned variants require packed fields. |
-| Struct atomic reads | `struct.atomic.get`, `struct.atomic.get_s`, `struct.atomic.get_u` | Yes, focused shared-GC surface using canonical `seq_cst` / `acq_rel` order spellings | Yes for get variants | Use WAST fixtures for get-only shared-GC atomic reads; keep linear-memory atomics routed to [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md). |
+| Struct atomic reads | `struct.atomic.get`, `struct.atomic.get_s`, `struct.atomic.get_u` | Yes, focused shared-GC surface using canonical `seq_cst` / `acq_rel` order spellings | Yes for get variants | Use WAST fixtures for get-only shared-GC atomic reads; keep full Shared-Everything proposal status routed to [`../wasm-shared-everything-threads-boundary.md`](../wasm-shared-everything-threads-boundary.md) and linear-memory atomics routed to [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md). |
 | Struct writes | `struct.set` | No | Yes | Use core/binary/generated fixtures, or add WAST keyword/parser/lowerer/printer coverage first. |
 | Array constructors | `array.new`, `array.new_default`, `array.new_fixed`, `array.new_data`, `array.new_elem` | No | Yes | Use core/binary/generated fixtures; data/element-backed forms also touch segment index spaces. |
 | Array reads/writes | `array.get`, `array.get_s`, `array.get_u`, `array.set`, `array.len`, `array.fill`, `array.copy` | No | Yes | Use core/binary/generated fixtures; mutable operations require mutable array element storage. |
@@ -189,7 +190,7 @@ ArrayInitData(TypeIdx, DataIdx)
 ArrayInitElem(TypeIdx, ElemIdx)
 ```
 
-Shared-GC aggregate atomic families beyond `StructAtomicGet*` are also not WAST-text-supported in the reviewed local surface. Treat `struct.atomic.set`, `struct.atomic.rmw*`, `struct.atomic.cmpxchg`, and array aggregate atomic examples from Binaryen or the shared-everything threads proposal as future widening work unless a task adds exact local instruction variants and tests first.
+Shared-GC aggregate atomic families beyond `StructAtomicGet*` are also not WAST-text-supported in the reviewed local surface. Treat `struct.atomic.set`, `struct.atomic.rmw*`, `struct.atomic.cmpxchg`, array aggregate atomics, wait/notify, shared heap-type syntax, and other examples from Binaryen or the Shared-Everything Threads proposal as future widening work unless a task adds exact local instruction variants and tests first. The focused proposal boundary is [`../wasm-shared-everything-threads-boundary.md`](../wasm-shared-everything-threads-boundary.md).
 
 When a pass needs these instructions today, construct them directly in core fixtures, decode them from binary, or rely on `gen_valid` coverage. If a human-readable WAST fixture is needed, the first implementation slice is WAST support, not a pass workaround: add keywords, parser coverage, lowerer resolution for named type/data/element indices, printer coverage, and validator tests.
 
@@ -220,6 +221,7 @@ Do not use `gen_valid` aggregate coverage or binary decode success as proof of i
 
 - Cross-layer GC boundary refresh: [`../raw/wasm/2026-06-05-gc-core-boundary-refresh.md`](../raw/wasm/2026-06-05-gc-core-boundary-refresh.md), [`../wasm-gc-core-boundary.md`](../wasm-gc-core-boundary.md)
 - Constant-expression current refresh: [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md)
+- Shared-Everything Threads boundary refresh: [`../raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md`](../raw/wasm/2026-06-05-shared-everything-threads-boundary-refresh.md), [`../wasm-shared-everything-threads-boundary.md`](../wasm-shared-everything-threads-boundary.md)
 - Struct atomic get source snapshot: [`../raw/wasm/2026-06-04-struct-atomic-get-sources.md`](../raw/wasm/2026-06-04-struct-atomic-get-sources.md)
 - Current data/data-count refresh: [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md)
 - Focused data-count/data-index guide: [`../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md`](../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md), [`../validate/data-count-and-code-data-indices.md`](../validate/data-count-and-code-data-indices.md)
