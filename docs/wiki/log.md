@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wiki-health | shared-memory backlink routing
+
+- During the follow-up whole-wiki health check, searched empty Markdown links, malformed nested wiki paths, stale feature-phase wording, and broad Threads/shared-memory references after the new focused boundary landed.
+- Refreshed [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), and [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md) so binary-resource, generator-ledger, and WAST-resource readers route shared linear-memory flags, bounded shared GenValid coverage, shared-without-max invalid specimens, and Threads/source status through [`wasm-linear-memory-threads-boundary.md`](wasm-linear-memory-threads-boundary.md) instead of only raw-source links.
+
 ## [2026-06-05] wasm/wiki | linear-memory Threads boundary routing
 
 - Added [`wasm-linear-memory-threads-boundary.md`](wasm-linear-memory-threads-boundary.md) as the focused router for active Phase-4 Threads proposal evidence, Starshine's current `MemType(..., shared)` / ordinary `0xFE` atomic subset, shared-without-max invalid specimens, the standalone `atomic.fence` versus `MemArg` sharedness split, WAST text gaps, generator gates, and nearby Relaxed Atomics / shared-GC atomics / Memory Control / Custom Page Sizes boundaries.
