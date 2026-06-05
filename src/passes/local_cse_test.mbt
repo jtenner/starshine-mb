@@ -1090,6 +1090,86 @@ test "local-cse defers repeated wider SIMD arithmetic and logic roots" {
 }
 
 ///|
+test "local-cse defers repeated SIMD extended integer arithmetic roots" {
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func(
+        [@lib.ValType::v128(), @lib.ValType::v128(), @lib.ValType::i32()],
+        [],
+      ),
+    ),
+  )
+  let binary_body_for = fn(op : @lib.Instruction) {
+    @lib.Func::new(
+      @lib.Locals::from_types([]),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        op,
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        op,
+        @lib.Instruction::drop(),
+      ]),
+    )
+  }
+  let shift_body_for = fn(op : @lib.Instruction) {
+    @lib.Func::new(
+      @lib.Locals::from_types([]),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+        op,
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+        op,
+        @lib.Instruction::drop(),
+      ]),
+    )
+  }
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([
+        func_type_idx, func_type_idx, func_type_idx, func_type_idx, func_type_idx,
+        func_type_idx, func_type_idx, func_type_idx, func_type_idx, func_type_idx,
+        func_type_idx, func_type_idx, func_type_idx, func_type_idx,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        binary_body_for(@lib.Instruction::i8x16_add_sat_s()),
+        binary_body_for(@lib.Instruction::i8x16_sub_sat_u()),
+        binary_body_for(@lib.Instruction::i8x16_min_s()),
+        binary_body_for(@lib.Instruction::i8x16_avgr_u()),
+        binary_body_for(@lib.Instruction::i16x8_add_sat_u()),
+        binary_body_for(@lib.Instruction::i16x8q15mulr_sat_s()),
+        binary_body_for(@lib.Instruction::i16x8_avgr_u()),
+        binary_body_for(@lib.Instruction::i16x8_extmul_high_i8x16u()),
+        shift_body_for(@lib.Instruction::i32x4_shl()),
+        binary_body_for(@lib.Instruction::i32x4_min_u()),
+        binary_body_for(@lib.Instruction::i32x4_dot_i16x8s()),
+        binary_body_for(@lib.Instruction::i32x4_extmul_low_i16x8s()),
+        shift_body_for(@lib.Instruction::i64x2_shr_u()),
+        binary_body_for(@lib.Instruction::i64x2_extmul_high_i32x4u()),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(locals, @lib.Expr(instrs)) = func
+        @debug.assert_eq(locals, @lib.Locals::from_types([]))
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
 test "local-cse defers repeated SIMD float rounding roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let func_type = @lib.RecType::new(

@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | SIMD extended integer arithmetic roots
+
+- Added core-built LCSE boundary coverage for repeated SIMD extended integer arithmetic roots, including saturating, average, q15mulr, extmul, dot-product, and shift representatives not explicitly named by earlier broad arithmetic/logic coverage.
+- Documented Starshine's conservative no-CSE behavior even though Binaryen materializes representative repeated roots; this stays out of SIMD temp-local/value-numbering work.
+
 ## [2026-06-05] local-cse/wiki | SIMD comparison roots
 
 - Added core-built LCSE boundary coverage for repeated SIMD comparison roots across integer and floating vector lane widths.
