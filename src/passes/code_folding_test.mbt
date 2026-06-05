@@ -1114,6 +1114,44 @@ test "code-folding shares non-root return subsets excluding a different root ret
 }
 
 ///|
+test "code-folding keeps simple return operand tails unshared" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32 i32) (result i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (local.get 1)
+      #|        (return)))
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (local.get 1)
+      #|        (return)))
+      #|    (i32.const 99)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br (Label"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "local.get (Local 1)"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(99)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding folds deeper non-root return subset then shallow fixpoint" {
   let optimized = code_folding_test_run(
     (

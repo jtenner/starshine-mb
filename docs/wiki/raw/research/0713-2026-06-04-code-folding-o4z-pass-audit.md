@@ -482,6 +482,40 @@ Follow-up `[O4Z-AUDIT-CF-G/H]` crossed nested-label direct `return_call` negativ
 
 Follow-up `[O4Z-AUDIT-CF-G/H]` nested self-branching direct `return_call` coverage on 2026-06-05 checked `wasm-opt` version 129 (`version_129`) with `--all-features --code-folding -S` on `.tmp/code-folding-next5/slice10-nested-return-call.wat`; Binaryen shares the nested internal-label block suffix and leaves one direct tail call. The existing local alpha-map movement proof already handled this direct tail-call sibling of the indirect/ref positives, and `moon test src/passes` passed `1647/1647`.
 
+Requested 10000-case compare smoke on 2026-06-05:
+
+```sh
+moon build --target native --release src/cmd
+# Finished with existing unused-function warnings in pass_manager.mbt and 0 errors.
+# The requested target/native/release/build/cmd/cmd.exe path did not exist in this workspace.
+
+bun scripts/pass-fuzz-compare.ts --pass code-folding --count 10000 --seed 0x5eed \
+  --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe \
+  --out-dir .tmp/pass-fuzz-code-folding-after-10-more-slices-10000
+# Compared cases: 0/10000
+# Normalized matches: 0
+# Mismatches: 0
+# Command failures: 35 command-class.starshine-command-failed
+# First failure: ENOENT for target/native/release/build/cmd/cmd.exe
+
+bun scripts/pass-fuzz-compare.ts --pass code-folding --count 10000 --seed 0x5eed \
+  --jobs auto --starshine-bin _build/native/release/build/cmd/cmd.exe \
+  --out-dir .tmp/pass-fuzz-code-folding-after-10-more-slices-10000-nativebin
+# Compared cases: 6768/10000
+# Normalized matches: 6768
+# Compare-normalized matches: 0
+# Cleanup-normalized matches: 0
+# Validation failures: 0
+# Property failures: 0
+# Generator failures: 0
+# Command failures: 20
+# Mismatches: 0
+```
+
+The actual native binary path for this workspace is `_build/native/release/build/cmd/cmd.exe`. The 20 rerun command failures are classified as tool/Binaryen command failures, not Starshine semantic mismatches: `binaryen-rec-group-zero` (17), `binaryen-bad-section-size` (1), `binaryen-table-index-out-of-range` (1), and `binaryen-invalid-tag-index` (1). This requested smoke is evidence before the next five slices, not a final parity closeout for any later state.
+
+Follow-up `[O4Z-AUDIT-CF-F]` simple return-operand profitability coverage on 2026-06-05 checked `wasm-opt` version 129 (`version_129`) with `--all-features --code-folding -S` on `.tmp/code-folding-next5b/slice1-return-operand-only-negative.wat`; Binaryen preserves both sibling `(local.get 1) / return` tails and the `i32.const 99` fallback rather than building a helper for an operand-only return suffix. The matching local slice is coverage for the existing simplified profitability boundary rather than a behavior change.
+
 Still required before closing the overall `[O4Z-AUDIT-CF]` parity track:
 
 - scale direct compare to `10000` after the next behavior-widening batch or before closeout;
