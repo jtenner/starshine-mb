@@ -1752,3 +1752,24 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the initial focused run with the added conservative boundary coverage passed (`111/111`); `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`111/111`); `moon test src/passes` passed (`1659/1659`); full `moon test` passed (`4844/4844`); native build succeeded with no work to do; compare reached `6767` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up `ref.as_non_null` deferral slice on 2026-06-05
+
+A later focused LCSE hardening slice spot-checked repeated `ref.as_non_null` roots with an `externref` operand. Binaryen materialized the repeated root with `local.tee` / `local.get` in the spot-check fixture under `.tmp/local-cse-spot/ref_as_non_null.wat`.
+
+This slice deliberately did not implement `ref.as_non_null` CSE or nullability trap reasoning. It added the direct WAT boundary test `local-cse defers repeated ref-as-non-null roots`, documenting Starshine's conservative no-CSE behavior for nullability trap roots. This stays paired with the existing `ref.test`, `ref.cast`, descriptor test/cast, and trap-sensitive numeric deferrals rather than adding broad cast/trap reasoning.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-ref-as-non-null-deferral-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the initial focused run with the added conservative boundary coverage passed (`112/112`); `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`112/112`); `moon test src/passes` passed (`1660/1660`); full `moon test` passed (`4845/4845`); native build succeeded with no work to do; compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).

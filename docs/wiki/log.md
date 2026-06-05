@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | ref.as_non_null deferral
+
+- Added focused LCSE boundary coverage for repeated `ref.as_non_null` roots, documenting Starshine's conservative no-CSE behavior even though Binaryen materializes the representative repeat.
+- Refreshed the LCSE strategy, implementation/test guide, backlog, and final-pass audit note so nullability trap reasoning remains paired with the existing cast/trap deferrals.
+
 ## [2026-06-05] wiki-health | shared-memory backlink routing
 
 - During the follow-up whole-wiki health check, searched empty Markdown links, malformed nested wiki paths, stale feature-phase wording, and broad Threads/shared-memory references after the new focused boundary landed.
