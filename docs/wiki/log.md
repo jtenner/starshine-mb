@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasm/wiki | Exception Handling boundary page
+
+- Added [`wasm-exception-handling-boundary.md`](wasm-exception-handling-boundary.md) as the root finished/Core-3.0 router for `tag`, `throw`, `throw_ref`, `try_table`, and modern catch clauses, crystallizing the already-ingested [`raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md`](raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md) and [`raw/wasm/2026-06-04-exception-tag-current-refresh.md`](raw/wasm/2026-06-04-exception-tag-current-refresh.md).
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wast/index.md`](wast/index.md), [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md), and [`index.md`](index.md) so feature-status and cross-layer Exception Handling questions route through the new boundary while text-fixture details remain on the WAST guide.
+- Whole-wiki health fix: repaired the feature-status source list so the Exception Handling bridge appears with the other boundary refreshes instead of only being cited in prose.
+
 ## [2026-06-05] wiki-health | typed function reference backlinks
 
 - During the follow-up whole-wiki health check, searched malformed Markdown links, empty link targets, broad `call_ref` / typed-function-reference mentions, and pages that still described reference-call, generator, WAST-arbitrary, GC, binary, or CFG surfaces without a backlink to the focused typed-function-reference boundary.
