@@ -1581,3 +1581,25 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the initial focused run with the final split coverage passed (`100/100`) because this was missing-test-only; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`100/100`); `moon test src/passes` passed (`1648/1648`); full `moon test` passed (`4833/4833`); native build succeeded with no work to do; compare reached `6770` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+
+## Follow-up float equality coverage slice on 2026-06-05
+
+A later focused LCSE hardening slice spot-checked float equality/inequality roots: representative `f32.eq` and `f64.ne` roots. Binaryen materialized repeated roots with `local.tee` / `local.get`.
+
+The slice added WAT-form direct tests `local-cse reuses local-only expression across float equality` and `local-cse reuses repeated float equality roots`. Starshine already matched via existing float-comparison candidate/result modeling, so this was missing-test-only coverage rather than an implementation change. This remains the core nontrapping float comparison surface; it does not add trap-sensitive numeric conversions or broad numeric GVN.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-float-equality-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the initial focused run with the added coverage passed (`102/102`) because this was missing-test-only; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`102/102`); `moon test src/passes` passed (`1650/1650`); full `moon test` passed (`4835/4835`); native build succeeded with no work to do; compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).

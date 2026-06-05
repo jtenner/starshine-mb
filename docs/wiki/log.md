@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] passes/local-cse | float equality coverage
+
+- Spot-checked repeated `f32.eq` and `f64.ne` roots; Binaryen materializes these float equality/inequality roots with `local.tee` / `local.get`.
+- Added WAT-form direct coverage for local-only reuse across float equality and repeated float equality roots. Starshine already matched through existing float-comparison candidate/result modeling, so this was missing-test-only coverage.
+- Refreshed LCSE research/backlog wording so float equality/inequality is explicitly covered while trap-sensitive conversions and broad numeric GVN remain out of scope.
+
 ## [2026-06-05] passes/local-cse | full-width non-i32 load coverage
 
 - Spot-checked repeated `i64.load`, `f32.load`, and `f64.load` roots; Binaryen materializes each with `local.tee` / `local.get` when no intervening memory write invalidates the load.
