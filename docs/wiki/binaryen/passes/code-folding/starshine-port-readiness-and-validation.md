@@ -119,21 +119,22 @@ These are correctness tests. They should fail before implementation, not be adde
 
 ### Slice 3: terminating-tail helper-label sharing
 
-The first terminating-tail step is now covered for a narrow adjacent shape: a no-else `if` then-tail and the immediately following fallthrough tail can share identical empty-payload `return` or `unreachable` suffixes by wrapping the old `if` in a fresh void helper block and replacing the old then-tail with `br` to that block label. Continue with the full dedicated terminating-tail family from [`./terminating-tails.md`](./terminating-tails.md):
+The first terminating-tail step covered a narrow adjacent shape: a no-else `if` then-tail and the immediately following fallthrough tail can share identical empty-payload `return` or `unreachable` suffixes by wrapping the old `if` in a fresh void helper block and replacing the old then-tail with `br` to that block label. The next slice now covers a conservative root-anchored helper-label subset of the dedicated terminating-tail family from [`./terminating-tails.md`](./terminating-tails.md):
 
-- general `return` subsets beyond the adjacent no-else `if` shape
-- `return_call`
+- non-adjacent `return` suffixes where the selected group includes the root function-ending tail
+- block-backed `unreachable` suffixes with the same root-tail anchor
+- typed-result direct `return_call`
 - `return_call_indirect`
-- `return_call_ref`
-- general `unreachable` subsets beyond the adjacent no-else `if` shape
+- core-built `return_call_ref` using a typed nullable reference fixture
 
 This remains a separate implementation slice because the full Binaryen algorithm still needs:
 
-- subset grouping instead of all-tails-or-nothing matching
-- deeper common-suffix search before shallower search
+- arbitrary subset grouping instead of requiring the root-end tail anchor
+- deeper common-suffix search across non-root groups, not just root-anchored groups
 - fresh helper-label creation for arbitrary selected tails
-- old-body fallthrough prevention beyond the adjacent no-else `if` case
-- direct root replacement for root-level terminators, not just block-backed or adjacent tails
+- old-body fallthrough prevention for groups that cannot rely on the original root-ending suffix
+- broader movement safety for branch/control-bearing moved items
+- direct root replacement for root-level terminators in groups that do not include the final body suffix
 
 ### Slice 4: EH and broad movement safety
 
@@ -172,7 +173,7 @@ For named-block expression exits, `src/passes/code_folding.mbt` now models branc
 - selected suffix length
 - profitability score
 
-Keep that shape for future broadening. Terminating-tail candidates should get an equally explicit model before helper-label sharing lands: owning region or root pointer, tail root sequence, terminator kind, replacement site, movement-safety proof, suffix length, and profitability. This avoids the common over-broad implementation mistake: comparing two root arrays, finding them equal, and moving them without knowing why the move is legal.
+Keep that shape for future broadening. Terminating-tail candidates now have the first explicit root-anchored model in `src/passes/code_folding.mbt`: owning region, region end index, terminator family, selected suffix length, profitability, and a rewrite path that requires one selected tail to be the root function-ending suffix. Future broadening should add the missing Binaryen fields deliberately, especially arbitrary replacement-site provenance, movement-safety proof for branch/control-bearing suffixes, and helper-cost/fixpoint state. This avoids the common over-broad implementation mistake: comparing two root arrays, finding them equal, and moving them without knowing why the move is legal.
 
 ## Validation ladder
 
@@ -193,13 +194,13 @@ Seed a future `src/passes/code_folding_test.mbt` from Binaryen's dedicated `code
 
 ### Then add terminating-tail tests
 
-After slice 1 is green, add:
+After slice 1 is green, keep adding:
 
-1. duplicate `return` suffixes produce one shared function-ending suffix
-2. duplicate `unreachable` suffixes share safely
-3. `return_call*` belongs to the same family
-4. old-body fallthrough cannot accidentally execute the shared suffix
-5. root-level terminators are rewritten correctly, not only block-backed ones
+1. duplicate `return` suffixes produce one shared function-ending suffix (root-anchored non-adjacent coverage now exists)
+2. duplicate `unreachable` suffixes share safely (root-anchored block-backed coverage now exists)
+3. `return_call*` belongs to the same family (root-anchored direct/indirect/ref coverage now exists)
+4. old-body fallthrough cannot accidentally execute the shared suffix (covered for groups anchored on the original root ending; arbitrary non-root groups remain future)
+5. root-level terminators are rewritten correctly, not only block-backed ones (root-ending anchor coverage exists; direct pointer-style non-root replacement remains future)
 
 ### Then add neighborhood tests
 
@@ -268,7 +269,18 @@ The first `[O4Z-AUDIT-CF-F]` adjacent terminating-tail lane is green:
 - direct 1000-case smoke at `.tmp/pass-fuzz-code-folding-f-1000`: `998/1000` compared cases, `998` normalized matches, `0` mismatches, `2` `binaryen-rec-group-zero` command failures;
 - timing-only debug-WASI replay at `.tmp/code-folding-f-self-compare`: `187.189ms` Starshine pass time vs `198.305ms` Binaryen.
 
-Direct `[CF]002` signoff is accepted as of 2026-05-10 for the earlier narrowed surface, `[O4Z-AUDIT-CF-A]` baselines the June widening, `[O4Z-AUDIT-CF-B]` through `[O4Z-AUDIT-CF-D]` add the source-backed matrix, explicit named-block candidate model, and first multi-root named-block expression-exit widening, `[O4Z-AUDIT-CF-E]` has concrete one-block/one-non-block progress, and `[O4Z-AUDIT-CF-F]` has a first adjacent return/unreachable terminal-tail helper shape. The remaining direct debug-artifact diff is classified representation drift, and the focused `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names` cleanup replay produced the same first diff as the no-CF cleanup baseline. The 2026-06-04 O4z audit is tracked in [`../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md`](../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md); it now keeps the broader Binaryen behavior-parity slices open.
+The root-anchored `[O4Z-AUDIT-CF-F]` / `[O4Z-AUDIT-CF-G]` terminating-tail lane is also green:
+
+- failing-first/implementation-loop `moon test src/passes` runs exposed the new non-adjacent return, block-backed unreachable, direct `return_call`, `return_call_indirect`, and `return_call_ref` positives before the final implementation was complete; the attempted unreachable-condition `if` fixture still failed in the local HOT/lower pipeline and remains documented as a fixture blocker;
+- after implementation `moon test src/passes` passed `1601/1601`;
+- `moon fmt` completed;
+- `moon info` completed with 6 tasks up to date;
+- full `moon test` passed `4786/4786`;
+- `moon build --target native --release src/cmd` produced `_build/native/release/build/cmd/cmd.exe` with only the existing `pass_manager.mbt` unused-function warnings;
+- direct 1000-case smoke at `.tmp/pass-fuzz-code-folding-fg-1000`: `998/1000` compared cases, `998` normalized matches, `0` mismatches, `2` `binaryen-rec-group-zero` command failures;
+- timing-only debug-WASI replay at `.tmp/code-folding-fg-self-compare`: `210.383ms` Starshine pass time vs `187.861ms` Binaryen, within the <=2x floor.
+
+Direct `[CF]002` signoff is accepted as of 2026-05-10 for the earlier narrowed surface, `[O4Z-AUDIT-CF-A]` baselines the June widening, `[O4Z-AUDIT-CF-B]` through `[O4Z-AUDIT-CF-D]` add the source-backed matrix, explicit named-block candidate model, and first multi-root named-block expression-exit widening, `[O4Z-AUDIT-CF-E]` has concrete one-block/one-non-block progress plus a HOT-level unreachable-condition bailout, `[O4Z-AUDIT-CF-F]` has adjacent and root-anchored return/unreachable terminal-tail helper shapes, and `[O4Z-AUDIT-CF-G]` has started root-anchored `return_call*` sharing. The remaining direct debug-artifact diff is classified representation drift, and the focused `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names` cleanup replay produced the same first diff as the no-CF cleanup baseline. The 2026-06-04 O4z audit is tracked in [`../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md`](../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md); it now keeps the broader Binaryen behavior-parity slices open.
 
 Future parity work should only proceed when one of these is true:
 

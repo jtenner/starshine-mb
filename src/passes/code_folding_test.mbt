@@ -658,6 +658,237 @@ test "code-folding shares if-then and fallthrough unreachable tails" {
 }
 
 ///|
+test "code-folding shares non-adjacent return tails" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func $sink (param i32))
+      #|  (func (param i32 i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (local.get 1)
+      #|        (call $sink)
+      #|        (i32.const 7)
+      #|        (drop)
+      #|        (return)))
+      #|    (i32.const 99)
+      #|    (drop)
+      #|    (local.get 1)
+      #|    (call $sink)
+      #|    (i32.const 7)
+      #|    (drop)
+      #|    (return)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("i32.const I32(99)"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding shares block-backed unreachable tails" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func $sink (param i32))
+      #|  (func (param i32 i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (block
+      #|          (local.get 1)
+      #|          (call $sink)
+      #|          (unreachable))))
+      #|    (i32.const 99)
+      #|    (drop)
+      #|    (local.get 1)
+      #|    (call $sink)
+      #|    (unreachable)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("i32.const I32(99)"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "unreachable"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding shares direct return-call tails with typed results" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (type $t (func (param i32) (result i32)))
+      #|  (func $target (type $t)
+      #|    (local.get 0))
+      #|  (func $sink (param i32))
+      #|  (func (param i32 i32) (result i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (local.get 1)
+      #|        (call $sink)
+      #|        (local.get 1)
+      #|        (return_call $target)))
+      #|    (i32.const 99)
+      #|    (drop)
+      #|    (local.get 1)
+      #|    (call $sink)
+      #|    (local.get 1)
+      #|    (return_call $target)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("i32.const I32(99)"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 1)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return_call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding shares return-call-indirect tails" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (type $t (func (param i32)))
+      #|  (table 1 funcref)
+      #|  (func $target (type $t))
+      #|  (func $sink (param i32))
+      #|  (elem (i32.const 0) $target)
+      #|  (func (param i32 i32 i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (local.get 1)
+      #|        (call $sink)
+      #|        (local.get 1)
+      #|        (local.get 2)
+      #|        (return_call_indirect (type $t))))
+      #|    (i32.const 99)
+      #|    (drop)
+      #|    (local.get 1)
+      #|    (call $sink)
+      #|    (local.get 1)
+      #|    (local.get 2)
+      #|    (return_call_indirect (type $t))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("i32.const I32(99)"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 1)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return_call_indirect"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding shares return-call-ref tails" {
+  let callee_type_idx = @lib.TypeIdx::new(0U)
+  let caller_type_idx = @lib.TypeIdx::new(1U)
+  let sink_type_idx = @lib.TypeIdx::new(2U)
+  let callee_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+  )
+  let caller_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], []),
+    ),
+  )
+  let sink_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+  )
+  let optimized = code_folding_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([callee_type, caller_type, sink_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([callee_type_idx, sink_type_idx, caller_type_idx]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::ref_null(@lib.HeapType::new(callee_type_idx)),
+                @lib.Instruction::return_call_ref(callee_type_idx),
+              ],
+              None,
+            ),
+            @lib.Instruction::i32_const(@lib.I32::new(99)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::ref_null(@lib.HeapType::new(callee_type_idx)),
+            @lib.Instruction::return_call_ref(callee_type_idx),
+          ]),
+        ),
+      ]),
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("i32.const I32(99)"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 1)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return_call_ref"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding keeps br-on-null-poisoned block-exit suffixes" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::anyref()], [])),

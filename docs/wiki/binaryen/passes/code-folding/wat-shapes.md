@@ -251,7 +251,7 @@ Why it folds:
 - Binaryen can rewrite the old tails to branch to a fresh helper label
 - only one copy of the shared terminating suffix remains
 
-The real emitted shape is more detailed, but this is the right beginner mental model.
+The real emitted shape is more detailed, but this is the right beginner mental model. Starshine now covers a conservative root-anchored version of this shape: one selected tail must be the original function-ending suffix, so ordinary fallthrough from the wrapped old body still reaches code it would have reached before. Local focused tests cover non-adjacent `return`, block-backed `unreachable`, direct `return_call`, `return_call_indirect`, and core-built `return_call_ref` variants of that root-anchored helper-label pattern; arbitrary non-root subsets remain future work.
 
 ## Shape 8: outer-target branches stop a would-be fold
 
