@@ -821,8 +821,15 @@ fn code_folding_parent_accepts_embedded_value_wrapper(
     return false
   }
   match @ir.hot_node_get(func, parent_id).op {
-    @ir.HotOp::Select | @ir.HotOp::Drop | @ir.HotOp::Call | @ir.HotOp::Binary =>
-      true
+    @ir.HotOp::Select
+    | @ir.HotOp::Drop
+    | @ir.HotOp::Call
+    | @ir.HotOp::Binary
+    | @ir.HotOp::LocalSet
+    | @ir.HotOp::LocalTee
+    | @ir.HotOp::GlobalSet
+    | @ir.HotOp::Store
+    | @ir.HotOp::Return => true
     _ => false
   }
 }
@@ -3798,7 +3805,14 @@ fn code_folding_visit_region(
             ) {
             changed = true
           }
-        @ir.HotOp::Select | @ir.HotOp::Call | @ir.HotOp::Binary =>
+        @ir.HotOp::Select
+        | @ir.HotOp::Call
+        | @ir.HotOp::Binary
+        | @ir.HotOp::LocalSet
+        | @ir.HotOp::LocalTee
+        | @ir.HotOp::GlobalSet
+        | @ir.HotOp::Store
+        | @ir.HotOp::Return =>
           if code_folding_node_has_direct_control_child(func, current_id) &&
             code_folding_visit_embedded_controls(
               ctx, func, current_id, label_used,
