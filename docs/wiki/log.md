@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-04] wasm/wiki | active proposal routing snapshot
+
+- Added [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md) after rechecking current WebAssembly Core 3.0, the official active and finished proposal tables, the proposal process phases, focused Relaxed Atomics and Custom Descriptors repositories, and Starshine `GenValidProposalFeature` source.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md) so Phase 4/3/2/1 proposal-tracker rows are explicitly status-only until local WAST, binary, validator, generator, pass, or CLI evidence exists; the page now routes Custom Descriptors as Phase 3/struct-oriented, Relaxed Atomics as active Phase 2, Reference-Typed Strings as Phase 1 plus a narrow Starshine-local subset, and GenValid gates as local fuzz vocabulary rather than standards authority.
+- Refreshed [`index.md`](index.md) so the feature-status catalog entry points to the new active-proposal routing bridge and warns against inferring local implementation coverage from current proposal rows.
+- Follow-up health check refreshed [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) so its relaxed-atomics caveat cites the broader active-proposal routing bridge as well as the focused relaxed-atomics recheck.
+
 ## [2026-06-04] wasm/wiki | relaxed-atomics proposal routing
 
 - Added [`raw/wasm/2026-06-04-webassembly-proposal-status-current-recheck.md`](raw/wasm/2026-06-04-webassembly-proposal-status-current-recheck.md) after rechecking the current official WebAssembly Core 3.0 page, proposals tracker, finished-proposals table, process notes, Relaxed Atomics proposal repository, and Starshine `GenValidProposalFeature` source.
