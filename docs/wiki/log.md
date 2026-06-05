@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wiki-health | multi-memory backlink routing
+
+- During the follow-up whole-wiki health check, searched malformed Markdown links plus broad multi-memory / selected-memory mentions after the focused Core selected-memory boundary landed.
+- Refreshed [`wasm-memory-control-boundary.md`](wasm-memory-control-boundary.md), [`wasm-custom-page-sizes-boundary.md`](wasm-custom-page-sizes-boundary.md), [`wast/text-surface-gap-ledger.md`](wast/text-surface-gap-ledger.md), and [`index.md`](index.md) so remaining Memory Control, Custom Page Sizes, and WAST text-gap routes point selected-memory claims at [`wasm-multi-memory-boundary.md`](wasm-multi-memory-boundary.md) rather than implying support from Binaryen `multi-memory-lowering` or nearby memory proposals.
+
 ## [2026-06-05] wasm/wiki | multi-memory Core boundary routing
 
 - Added [`raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md`](raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md) after checking current WebAssembly Core 3.0 text, binary, validation, and module pages, historical multi-memory proposal context, and current Starshine `MemIdx` / `MemArg`, binary codec, typechecker, WAST lowerer, generator feature-gate, and memory-packing evidence.

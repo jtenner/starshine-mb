@@ -29,7 +29,7 @@ related:
 
 ## Overview
 
-Custom Page Sizes is a WebAssembly active proposal for linear memories whose page size is not the ordinary 64 KiB. It is related to memory32/memory64, shared memory, and multi-memory lowering, but it is a separate memory-type dimension:
+Custom Page Sizes is a WebAssembly active proposal for linear memories whose page size is not the ordinary 64 KiB. It is related to memory32/memory64, shared memory, and selected-memory / multi-memory behavior, but it is a separate memory-type dimension; route that selected-memory axis through [`wasm-multi-memory-boundary.md`](wasm-multi-memory-boundary.md) rather than through Binaryen `multi-memory-lowering`:
 
 - **address width** decides whether addresses and page counts use `i32` or `i64`;
 - **sharedness** decides whether the memory is a threads/shared-memory memory and whether Starshine requires a maximum;

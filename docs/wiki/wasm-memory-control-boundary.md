@@ -102,7 +102,7 @@ Both can make a range read back as zeroes, but only `memory.fill` is a current S
 ### Memory Control is not memory64, multi-memory, shared memory, or Custom Page Sizes
 
 - **memory64** changes address and page-count value widths; see [`validate/memory-table-address-widths.md`](validate/memory-table-address-widths.md).
-- **multi-memory** changes which memory an instruction selects; see [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md) and [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md).
+- **multi-memory** changes which memory an instruction selects; see [`wasm-multi-memory-boundary.md`](wasm-multi-memory-boundary.md), [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md), and [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md).
 - **shared memory / atomics** changes synchronization and sharedness requirements; see [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md) and [`validate/resource-sections-and-limits.md`](validate/resource-sections-and-limits.md).
 - **Custom Page Sizes** changes the declared page-size dimension; see [`wasm-custom-page-sizes-boundary.md`](wasm-custom-page-sizes-boundary.md).
 - **Memory Control** changes runtime memory-management capabilities and currently has no Starshine carrier.
