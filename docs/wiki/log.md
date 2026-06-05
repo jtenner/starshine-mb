@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasm/wiki | Exception Handling core boundary routing
+
+- Added [`raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md`](raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md) after checking the current WebAssembly finished-proposals table, active proposals tracker, archived Exception Handling proposal repository, Core 3.0 instruction/validation/execution pages, Stack Switching proposal source, and current Starshine WAST/core/validator evidence.
+- Refreshed [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md) so `tag`, `throw`, nullable-operand `throw_ref`, `try_table`, and modern catch clauses route as finished/Core-3.0 Exception Handling while keeping Starshine's stricter resultful-tag declaration validation, legacy `try` text compatibility, pass rewrite obligations, and `throw_ref` null-trap behavior explicit.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so EH claims no longer sit only in the generic ordinary-Core row and readers route Stack Switching, JSPI, and Relaxed Dead Code Validation to their separate focused boundaries.
+
 ## [2026-06-05] local-cse/wiki | ref.as_non_null deferral
 
 - Added focused LCSE boundary coverage for repeated `ref.as_non_null` roots, documenting Starshine's conservative no-CSE behavior even though Binaryen materializes the representative repeat.
