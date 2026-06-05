@@ -1952,3 +1952,26 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the added conservative core-built coverage passed immediately (`121/121`), so this was missing-test-only coverage for Starshine's existing conservative behavior. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`121/121`). The first broad `moon test src/passes` and `moon test` attempts hit a `remove_unused_brs_test.mbt` assertion while unrelated `src/passes/remove_unused_brs*` worktree edits were present; agent classification: unrelated/transient non-LCSE command failure, because the slice only changed LCSE tests/docs and the focused `remove_unused_brs_test.mbt` rerun then passed (`106/106`). Rerun `moon test src/passes` passed (`1671/1671`) and rerun full `moon test` passed (`4856/4856`); native build succeeded with no work to do; compare reached `6764` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up `string.const` root no-op slice on 2026-06-05
+
+A later focused LCSE hardening slice spot-checked repeated `string.const` roots. The installed `wasm-tools parse` did not accept the string proposal text shape, so the external spot-check used `wasm-opt input.wat --all-features --local-cse -S` directly on `.tmp/lcse-next-spots/string-const.wat`; Binaryen kept both representative `string.const` roots unmaterialized in that fixture.
+
+This slice deliberately did not implement string-reference root CSE. The landed core-built direct test `local-cse leaves repeated string const roots unmaterialized` documents Starshine's no-temp behavior for `string.const` roots and matches the direct Binaryen text spot-check instead of forcing a brittle external parser path. This remains a string/reference boundary, not arbitrary string value numbering or non-null reference temp-local reasoning.
+
+Validation evidence for this slice:
+
+```sh
+wasm-tools parse .tmp/lcse-next-spots/string-const.wat -o .tmp/lcse-next-spots/string-const.wasm # rejected the string.const text shape
+wasm-opt .tmp/lcse-next-spots/string-const.wat --all-features --local-cse -S -o .tmp/lcse-next-spots/string-const.binaryen-text.wat
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-string-const-boundary-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the added conservative core-built coverage passed immediately (`122/122`), so this was missing-test-only coverage for behavior that already matched the Binaryen text spot-check. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`122/122`); `moon test src/passes` passed (`1673/1673`); full `moon test` passed (`4858/4858`); native build succeeded with warnings only and exit `0`; compare reached `6767` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).

@@ -36,6 +36,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Refreshed [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md) so `tag`, `throw`, nullable-operand `throw_ref`, `try_table`, and modern catch clauses route as finished/Core-3.0 Exception Handling while keeping Starshine's stricter resultful-tag declaration validation, legacy `try` text compatibility, pass rewrite obligations, and `throw_ref` null-trap behavior explicit.
 - Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so EH claims no longer sit only in the generic ordinary-Core row and readers route Stack Switching, JSPI, and Relaxed Dead Code Validation to their separate focused boundaries.
 
+## [2026-06-05] local-cse/wiki | string const no-op
+
+- Added core-built LCSE coverage for repeated `string.const` roots staying unmaterialized, matching the Binaryen direct-text spot-check while noting that `wasm-tools parse` rejected the string proposal text fixture.
+- Refreshed the LCSE strategy, implementation/test guide, backlog, and final-pass audit note so string roots remain separate from arbitrary string value numbering and non-null reference temp-local reasoning.
+
 ## [2026-06-05] local-cse/wiki | reference conversion deferral
 
 - Added core-built LCSE boundary coverage for repeated `any.convert_extern` and `extern.convert_any` roots, documenting Starshine's conservative behavior even though Binaryen materializes the representative reference-conversion repeats.
