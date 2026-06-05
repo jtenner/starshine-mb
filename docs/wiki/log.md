@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasm/wiki | ESM Integration boundary routing
+
+- Added [`raw/wasm/2026-06-05-esm-integration-boundary-refresh.md`](raw/wasm/2026-06-05-esm-integration-boundary-refresh.md) after checking the current WebAssembly proposals tracker, ESM Integration proposal repository and JavaScript Interface draft, Node.js Wasm ESM module docs, and current Starshine Node package/runtime evidence.
+- Added [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md) as the focused active Phase-3 JavaScript module-loader guide for source-phase `import source`, dynamic `import.source(...)`, and instance-phase `.wasm` imports; current Starshine remains an ESM-first JavaScript package that loads wasm artifacts through direct `WebAssembly.compile(...)` / `instantiate(...)` wrappers, not Wasm ESM Integration.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`tooling/node-package-surface.md`](tooling/node-package-surface.md), [`wasm-js-string-builtins-boundary.md`](wasm-js-string-builtins-boundary.md), and [`index.md`](index.md) so ESM Integration stays separate from JS String Builtins, JSPI, Component Model, Core-module WAST/binary/validator evidence, external-validator results, and ordinary Node package metadata.
+
 ## [2026-06-05] wasm/wiki | Exception Handling core boundary routing
 
 - Added [`raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md`](raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md) after checking the current WebAssembly finished-proposals table, active proposals tracker, archived Exception Handling proposal repository, Core 3.0 instruction/validation/execution pages, Stack Switching proposal source, and current Starshine WAST/core/validator evidence.

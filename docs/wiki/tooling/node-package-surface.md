@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-05
 sources:
   - ../raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md
+  - ../raw/wasm/2026-06-05-esm-integration-boundary-refresh.md
   - ../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
   - ../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md
   - ../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md
@@ -26,6 +27,7 @@ sources:
   - ../../../src/wast/pkg.generated.mbti
 related:
   - ../wasm-jspi-host-async-boundary.md
+  - ../wasm-esm-integration-boundary.md
   - ../wasm-js-string-builtins-boundary.md
   - ./fuzz-runner.md
   - ./cli-command-and-dispatcher.md
@@ -55,6 +57,8 @@ The current flow has two important artifacts:
 That split is the main invariant for maintainers: **do not assume `npm run build` refreshes all JS/TS wrappers from the current MoonBit signatures.** The wasm-gc adapter also has a host feature requirement: [`node/internal/runtime.js`](../../../node/internal/runtime.js) compiles and instantiates with `builtins: ["js-string"]`, matching the README's Node.js 25+ / WebAssembly GC / JS string builtins runtime note. The JS builtins versus `stringref` / `StringRefsSec` split is documented in [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md); current Node runtime code does not pass `importedStringConstants`.
 
 The package's async loading is also **not JSPI support**. [`node/internal/runtime.js`](../../../node/internal/runtime.js) and [`node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js) use ordinary JavaScript `async` / `await` around file I/O, compile/instantiate, and WASI execution, but current code does not construct `WebAssembly.Suspending` wrappers, call `WebAssembly.promising(...)`, or advertise Promise-suspending imports/exports. Route future JavaScript Promise Integration work through [`../wasm-jspi-host-async-boundary.md`](../wasm-jspi-host-async-boundary.md) so it stays separate from JS String Builtins, Component Model / WASI, WAST/binary/validator support, and optimizer pass evidence.
+
+The ESM-first package format is also **not WebAssembly ESM Integration support**. Current [`node/package.json`](../../../node/package.json) exposes JavaScript wrapper subpaths, while [`node/internal/runtime.js`](../../../node/internal/runtime.js) and [`node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js) load wasm artifacts by reading bytes and calling the JavaScript `WebAssembly.compile(...)` / `instantiate(...)` APIs directly. They do not use source-phase `import source`, dynamic `import.source(...)`, instance-phase `.wasm` namespace imports, package `.wasm` export targets, or host-loader reserved-namespace policy. Route future Wasm ESM import work through [`../wasm-esm-integration-boundary.md`](../wasm-esm-integration-boundary.md) so it stays separate from ordinary package metadata, JS String Builtins, JSPI, Component Model / WASI, and Core-module validation.
 
 There is one packaging caveat: the wasm artifacts are Git-ignored by [`node/internal/.gitignore`](../../../node/internal/.gitignore) but deliberately kept publishable by [`node/internal/.npmignore`](../../../node/internal/.npmignore). The script and some older notes call the wasm-gc artifact “checked-in,” but current Git metadata makes it better to treat both wasm files as ignored local/package artifacts whose presence and tarball inclusion must be verified during release prep. The package README states the same build boundary at a higher level: build refreshes the WASI CLI artifact only, while wrapper generation remains disabled until the Node adapter story is redesigned.
 
@@ -174,7 +178,8 @@ Use these checks when touching the Node package or documenting its surface:
 5. **Publication metadata:** if trusted publishing or package provenance is introduced, add the package-level `repository` metadata and release workflow evidence before calling the package trusted-publishing-ready.
 6. **JS string builtins runtime:** if the wasm-gc adapter changes `builtins: ["js-string"]`, adds `importedStringConstants`, or stops requiring JS string builtins, update [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md), README runtime requirements, and package smoke tests together.
 7. **JSPI / host async:** if the package starts wrapping imports with `WebAssembly.Suspending`, adapting exports with `WebAssembly.promising(...)`, or advertising Promise-suspending host calls, update [`../wasm-jspi-host-async-boundary.md`](../wasm-jspi-host-async-boundary.md), README runtime requirements, API docs, runtime feature-detection tests, and release-gate expectations together.
-8. **Docs truthfulness:** when adding a wrapper, update [`node/README.md`](../../../node/README.md), this page, the release checklist in [`release-process.md`](release-process.md) if package contents or versioning change, and any relevant top-level API docs together.
+8. **Wasm ESM Integration:** if the package starts exposing `.wasm` resources through source-phase `import source`, dynamic `import.source(...)`, instance-phase `.wasm` imports, or package wasm export targets, update [`../wasm-esm-integration-boundary.md`](../wasm-esm-integration-boundary.md), README/API docs, Node smoke/examples tests, runtime-support notes, and release packaging checks together.
+9. **Docs truthfulness:** when adding a wrapper, update [`node/README.md`](../../../node/README.md), this page, the release checklist in [`release-process.md`](release-process.md) if package contents or versioning change, and any relevant top-level API docs together.
 
 A future stronger parity test should compare:
 
@@ -202,6 +207,7 @@ The comparison must start from the `exports` allowlist, not from every file in `
 ## Sources
 
 - JSPI host-async boundary: [`../raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md`](../raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md), [`../wasm-jspi-host-async-boundary.md`](../wasm-jspi-host-async-boundary.md), [`../../../node/internal/runtime.js`](../../../node/internal/runtime.js), [`../../../node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js)
+- ESM Integration boundary: [`../raw/wasm/2026-06-05-esm-integration-boundary-refresh.md`](../raw/wasm/2026-06-05-esm-integration-boundary-refresh.md), [`../wasm-esm-integration-boundary.md`](../wasm-esm-integration-boundary.md), [`../../../node/package.json`](../../../node/package.json), [`../../../node/internal/runtime.js`](../../../node/internal/runtime.js), [`../../../node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js)
 - JS String Builtins runtime boundary: [`../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md), [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md), [`../../../node/internal/runtime.js`](../../../node/internal/runtime.js)
 - npm trusted-publishing and provenance refresh: [`../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md`](../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md)
 - Node/TypeScript package export bridge and drift refresh: [`../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md`](../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md), [`../raw/node/2026-05-20-node-package-export-boundary.md`](../raw/node/2026-05-20-node-package-export-boundary.md)
