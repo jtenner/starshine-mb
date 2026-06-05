@@ -2119,3 +2119,17 @@ moon test --package jtenner/starshine/passes --file local_cse_test.mbt
 ```
 
 Results: Binaryen materialized the representative scalar root across wait/notify/fence operations; focused LCSE tests passed (`131/131`). Full signoff for this slice is recorded in the commit/report for the atomic wait/notify/fence boundary slice.
+
+## Follow-up `array.len` root boundary on 2026-06-05
+
+A later focused LCSE hardening slice added core-built coverage for repeated `array.len` roots. Binaryen spot-checking the representative WAT materialized the repeated length root with `local.tee` / `local.get`; Starshine intentionally leaves the length reads unmaterialized and groups them with heap-read/null-trap conservative deferrals rather than adding heap reasoning or heap GVN. Agent classification: documented conservative deferral / missing-test-only coverage, not a semantic mismatch.
+
+Validation evidence for this slice:
+
+```sh
+wasm-tools parse .tmp/lcse-next-spots/array-len/input.wat -o .tmp/lcse-next-spots/array-len/input.wasm
+wasm-opt .tmp/lcse-next-spots/array-len/input.wasm --all-features --local-cse -S -o .tmp/lcse-next-spots/array-len/binaryen.wat
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+```
+
+Results: Binaryen materialized the representative `array.len` repeat; focused LCSE tests passed (`132/132`). Full signoff for this slice is recorded in the commit/report for the `array.len` boundary slice.
