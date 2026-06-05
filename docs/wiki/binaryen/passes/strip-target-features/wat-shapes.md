@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-05
 sources:
+  - ../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md
   - ../../../raw/binaryen/2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md
@@ -114,7 +115,7 @@ custom section "name"
 code sections
 ```
 
-A future concrete Starshine implementation over `Module.custom_secs` must be careful not to turn this into generic custom-section stripping.
+A future concrete Starshine implementation over `Module.custom_secs` must be careful not to turn this into generic custom-section stripping. The shared binary metadata guide records why `producers` stays provenance-only and why `name` stays structured metadata: [`../../../binary/custom-and-name-sections.md`](../../../binary/custom-and-name-sections.md).
 
 ## 5. Already-absent target-features metadata is a no-op
 

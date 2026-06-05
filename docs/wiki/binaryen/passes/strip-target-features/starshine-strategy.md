@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-06-05
 sources:
+  - ../../../raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md
   - ../../../raw/binaryen/2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md
@@ -101,7 +102,7 @@ Minimum acceptance criteria:
 - document the sibling `emit-target-features` status at the same time;
 - define whether the pass owns first-class target-feature metadata, decoded opaque custom sections, or both;
 - remove or suppress only target-features metadata;
-- preserve arbitrary other custom sections, including `name` / producers-like metadata if present in the chosen representation;
+- preserve arbitrary other custom sections, including structured `name` metadata and `producers` provenance; route those boundaries through [`../../../binary/custom-and-name-sections.md`](../../../binary/custom-and-name-sections.md);
 - leave all executable module sections unchanged;
 - keep the pass out of optimize/shrink presets unless a separate user-facing policy wants metadata stripping;
 - add tests for absent section, preserved non-target custom sections, and no executable IR mutation.

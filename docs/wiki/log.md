@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wiki-health | strip-target metadata backlink repair
+
+- During the follow-up health check, searched empty Markdown links, malformed nested wiki/raw paths, stale archived `docs/00xx` references, and cross-page `producers` / `target_features` wording.
+- Repaired remaining strip-target navigation in [`binaryen/passes/index.md`](binaryen/passes/index.md), [`binaryen/passes/strip-target-features/starshine-strategy.md`](binaryen/passes/strip-target-features/starshine-strategy.md), and [`binaryen/passes/strip-target-features/wat-shapes.md`](binaryen/passes/strip-target-features/wat-shapes.md) so folder-level readers and example-shape readers also route `producers` preservation and `target_features` metadata-only claims through [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md) and the 2026-06-05 source bridge.
+
 ## [2026-06-05] binary/wiki | custom metadata tool-conventions routing
 
 - Added [`raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md`](raw/wasm/2026-06-05-tool-conventions-custom-metadata-routing.md) after checking current WebAssembly Core 3.0 custom-section/annotation docs, the WebAssembly tool-conventions `producers` section, Binaryen current-main and `version_129` `StripTargetFeatures.cpp`, and Starshine custom-section decode/encode/validation sources.
