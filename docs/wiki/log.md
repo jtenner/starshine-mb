@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | SIMD pure-root deferral
+
+- Added focused LCSE boundary coverage for repeated `v128.not` and `i8x16.eq` roots, documenting Starshine's conservative no-CSE behavior even though Binaryen materializes representative SIMD repeats.
+- Refreshed the LCSE implementation/test guide and final-pass audit note so SIMD remains a narrow documented deferral rather than broad vector GVN or SIMD load/value analysis.
+
 ## [2026-06-05] local-cse/wiki | descriptor test-cast deferral
 
 - Added core-built LCSE boundary coverage for repeated `ref.test_desc` / `ref.cast_desc_eq` roots while documenting that the installed external WAT/Binaryen oracle rejected the descriptor text fixture.
