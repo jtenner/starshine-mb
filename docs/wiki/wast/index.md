@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-05
 sources:
+  - ../raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md
   - ../raw/wasm/2026-06-04-wast-text-surface-gap-ledger-source-bridge.md
   - ../raw/wasm/2026-06-04-element-segment-current-refresh.md
   - ../raw/wasm/2026-06-04-control-flow-current-refresh.md
@@ -68,7 +69,7 @@ Do not treat success in one layer as proof for another. For example, core/binary
 - [`resource-declaration-authoring.md`](resource-declaration-authoring.md) — table, memory, and global declarations/imports/exports, global initializers, imported-prefix resource indices, and current memory64/shared text caveats.
 - [`exception-tag-authoring.md`](exception-tag-authoring.md) — tag declarations and exception instructions, including `throw_ref` nullable operands and catch payloads.
 - [`identifier-name-and-annotation-authoring.md`](identifier-name-and-annotation-authoring.md) — `$` source identifiers, current official-vs-local name-section metadata, the boundary between source ids and debug names, and how `--print-*` selectors consume lowered names or import/export payload names.
-- [`code-metadata-and-function-annotations.md`](code-metadata-and-function-annotations.md) — Starshine's function/import-only `(@...)` lane, Binaryen code metadata such as inline and branch hints, internal no-inline markers, and pass rewrite obligations.
+- [`code-metadata-and-function-annotations.md`](code-metadata-and-function-annotations.md) — Starshine's function/import-only `(@...)` lane, Core-3.0 custom annotation / branch-hint metadata status, Binaryen inline/metadata examples, internal no-inline markers, and pass rewrite obligations.
 - [`static-assertion-harness.md`](static-assertion-harness.md) — `.wast` script assertions, static-only evaluation, and pass/skip/fail policy for spec-runner use.
 
 ### Types, references, and GC proposal surfaces
@@ -110,7 +111,7 @@ The WAST pages deliberately keep text-surface gaps visible instead of smoothing 
 - **Memory and table widths:** memory64/table64 behavior is often best proved at the core/binary layer until declaration and validation widening lands; route `offset=` / selected-memory-index questions through [`memory-argument-authoring.md`](memory-argument-authoring.md), runtime bulk-memory stack widths through [`memory-instruction-authoring.md`](memory-instruction-authoring.md), and table address-width caveats through [`table-instruction-authoring.md`](table-instruction-authoring.md).
 - **Declarative elements:** direct core/binary/generator paths preserve declarative mode, but current text lowering has a declarative-mode preservation gap. The current official text grammar allows broader typed declarative element lists than Starshine's narrow `declare func` parser branch, so typed declarative text is not a proven WAST surface; route through [`element-segment-authoring.md`](element-segment-authoring.md).
 - **Constant expressions and data-count:** official and Starshine-local initializer/offset allow-lists differ; route through [`../validate/constant-expressions.md`](../validate/constant-expressions.md). Data-count is likewise broader than ordinary WAST `memory.init` / `data.drop` examples because core/binary `array.new_data` and `array.init_data` are also data-index users; route the validator rule through [`../validate/data-count-and-code-data-indices.md`](../validate/data-count-and-code-data-indices.md), with text/binary shape context in [`data-segment-authoring.md`](data-segment-authoring.md) and [`../binary/data-element-and-datacount-sections.md`](../binary/data-element-and-datacount-sections.md).
-- **Code metadata and annotations:** Starshine's current WAST `(@...)` support is function/import-only and lowers to `FuncAnnotationSec`; expression-level code metadata such as branch hints remains Binaryen-oracle documentation unless a local representation/parser/lowerer is cited. Route through [`code-metadata-and-function-annotations.md`](code-metadata-and-function-annotations.md).
+- **Code metadata and annotations:** official custom annotation syntax and branch hints are finished/Core-3.0 metadata surfaces, but Starshine's current WAST `(@...)` support is function/import-only and lowers to `FuncAnnotationSec`; expression-level code metadata such as `metadata.code.branch_hint` remains source-oracle documentation unless a local representation/parser/lowerer is cited. Route through [`code-metadata-and-function-annotations.md`](code-metadata-and-function-annotations.md).
 
 ## Maintenance Rules
 

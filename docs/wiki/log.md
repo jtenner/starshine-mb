@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wast/wiki | code metadata and branch-hint status routing
+
+- Added [`raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md`](raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md) after rechecking current Core 3.0 custom annotation, code-metadata, and branch-hinting pages, the official finished-proposals table, the active proposals tracker, and current Starshine WAST/function-annotation sources.
+- Refreshed [`wast/code-metadata-and-function-annotations.md`](wast/code-metadata-and-function-annotations.md) so official `@name` / `@custom` syntax and `metadata.code.branch_hint` are taught as finished/Core-3.0 metadata surfaces, while Starshine's current `(@...)` lane remains function/import-only `FuncAnnotationSec` with no expression-level branch-hint or binary code-metadata support.
+- Cross-linked [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wast/text-surface-gap-ledger.md`](wast/text-surface-gap-ledger.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so readers do not confuse Core branch-hinting/custom-annotation status, active Compilation Hints proposal routing, Binaryen oracle examples, and local Starshine parser/lowerer support.
+
 ## [2026-06-05] wiki-health | descriptor backlink repair
 
 - During the follow-up health check, repaired remaining descriptor-navigation backlinks in [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), [`validate/type-section-and-subtyping.md`](validate/type-section-and-subtyping.md), and [`index.md`](index.md) so type authoring, binary `0xFB` opcode, and validator type-section readers now route descriptor instruction details through [`custom-descriptors/descriptor-instruction-surface.md`](custom-descriptors/descriptor-instruction-surface.md) instead of only the older static-fixture / `ref.get_desc` / exactness pages.
