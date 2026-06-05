@@ -3598,6 +3598,56 @@ test "dae selected func237 cleanup trims trailing unused locals" {
 }
 
 ///|
+test "dae selected func237 raw debris uses current signature when trimming locals" {
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], []),
+      ),
+    ),
+  ])
+  let funcs = Array::make(
+    238,
+    @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+  )
+  funcs[237] = @lib.Func::new(
+    @lib.Locals::from_types([@lib.ValType::i32()]),
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::drop(),
+    ]),
+  )
+  let selected = Array::make(238, false)
+  selected[237] = true
+  let type_idxs = Array::make(238, @lib.TypeIdx::new(0U))
+  let result = dae_try_strip_selected_func237_raw_debris_once(
+    @lib.Module::new()
+    .with_type_sec(type_sec)
+    .with_func_sec(@lib.FuncSec::new(type_idxs))
+    .with_code_sec(@lib.CodeSec::new(funcs)),
+    selected,
+  )
+  assert_true(result.changed)
+  match result.mod_out.code_sec {
+    Some(@lib.CodeSec(rewritten_funcs)) => {
+      let @lib.Func(locals, @lib.Expr(cleaned)) = rewritten_funcs[237]
+      assert_eq(locals.length(), 1)
+      assert_eq(cleaned, [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::drop(),
+      ])
+    }
+    None => fail("expected rewritten code section")
+  }
+}
+
+///|
 test "dae selected func237 raw debris strips nops and dropped zero only" {
   let funcs = Array::make(
     238,

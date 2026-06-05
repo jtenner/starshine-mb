@@ -15565,19 +15565,28 @@ fn dae_try_strip_selected_func237_raw_debris_once(
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
   }
   let @lib.Func(locals, @lib.Expr(body)) = funcs[def_idx]
+  let param_count = match
+    dae_resolve_func_type(
+      mod_,
+      dae_collect_func_type_indices(mod_),
+      dae_imported_func_count(mod_) + def_idx,
+    ) {
+    Some(@lib.FuncType(params, _)) => params.length()
+    None => 4
+  }
   let folded_body = dae_fold_func237_used_temp_copies(
     dae_fold_func237_immediate_local_copies(
-      dae_fold_func237_store_carrier_copies(body, 4),
-      4,
+      dae_fold_func237_store_carrier_copies(body, param_count),
+      param_count,
     ),
-    4,
+    param_count,
   )
   let mapped_body = dae_rewrite_func237_frontier_low_locals(
-    folded_body, locals, 4,
+    folded_body, locals, param_count,
   )
   let rewritten = dae_strip_nops_and_dropped_i32_zero_instrs(mapped_body)
   let rewritten_locals = dae_trim_trailing_unused_func237_locals(
-    locals, rewritten, 4,
+    locals, rewritten, param_count,
   )
   if rewritten == body && rewritten_locals.length() == locals.length() {
     return { mod_out: mod_, touched: [], changed: false, primary_def: -1 }
