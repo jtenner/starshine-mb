@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | SIMD float min/max roots
+
+- Added core-built LCSE boundary coverage for repeated SIMD floating min/max roots: `f32x4.min/max/pmin/pmax` and `f64x2.min/max/pmin/pmax`.
+- Documented Starshine's conservative no-CSE behavior even though Binaryen materializes representative repeated roots; this stays out of SIMD temp-local/value-numbering and NaN/min-max-specific reasoning work.
+
 ## [2026-06-05] local-cse/wiki | SIMD extended integer arithmetic roots
 
 - Added core-built LCSE boundary coverage for repeated SIMD extended integer arithmetic roots, including saturating, average, q15mulr, extmul, dot-product, and shift representatives not explicitly named by earlier broad arithmetic/logic coverage.
