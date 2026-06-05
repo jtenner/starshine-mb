@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | call_indirect local-only boundary
+
+- Added LCSE coverage for local-only scalar repeats around `call_indirect`; an initial Binaryen-positive expectation failed in Starshine and was kept as a conservative boundary.
+- Documented that Starshine still clears indirect-call windows instead of adding indirect-call effect or table/callee reasoning.
+
 ## [2026-06-05] local-cse/wiki | direct-call local-only precision
 
 - Taught LCSE to keep local-only scalar candidates live across ordinary direct calls without CSEing the call itself.

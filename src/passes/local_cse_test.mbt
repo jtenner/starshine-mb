@@ -5248,6 +5248,30 @@ test "local-cse does not reuse ordinary direct calls" {
 }
 
 ///|
+test "local-cse conservatively clears local-only expression across call-indirect" {
+  let input =
+    #| (module
+    #|   (type $t (func))
+    #|   (table 1 funcref)
+    #|   (elem (i32.const 0) $target)
+    #|   (func $target)
+    #|   (func (param i32 i32 i32)
+    #|     (drop (i32.add (local.get 0) (local.get 1)))
+    #|     (call_indirect (type $t) (local.get 2))
+    #|     (drop (i32.add (local.get 0) (local.get 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_defined_func(
+    optimized, 1,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(3U)), 0)
+}
+
+///|
 test "local-cse does not reuse call-indirect roots" {
   let input =
     #| (module

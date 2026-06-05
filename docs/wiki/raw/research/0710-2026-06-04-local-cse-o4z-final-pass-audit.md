@@ -2500,3 +2500,13 @@ Added tests:
 - `local-cse does not reuse global-dependent expression across ordinary direct call`
 
 The implementation keeps this scoped to candidate-window precision: non-idempotent calls are still not roots, and ordinary calls filter active candidates down to expressions that do not read memory, memory size, table state, or globals. This avoids arbitrary call CSE and preserves effect-sensitive invalidation for global-dependent expressions.
+
+## Follow-up `call_indirect` local-only boundary on 2026-06-05
+
+A focused continuation slice tried the Binaryen-positive shape where a local-only scalar expression is repeated across an intervening `call_indirect`. The initial TDD expectation failed in Starshine, and the slice was kept as a documented conservative boundary rather than adding indirect-call effect, table, or callee reasoning.
+
+Added test:
+
+- `local-cse conservatively clears local-only expression across call-indirect`
+
+Agent classification: semantically safe conservative deferral / missed Binaryen-positive optimization. This is intentionally not arbitrary call CSE and not indirect-call value reasoning.
