@@ -723,6 +723,50 @@ test "local-cse reuses repeated load trees until a store barrier" {
 }
 
 ///|
+test "local-cse reuses repeated i32 narrow load roots" {
+  let input =
+    #| (module
+    #|   (memory 1)
+    #|   (func (param i32)
+    #|     (drop (i32.load8_u (local.get 0)))
+    #|     (drop (i32.load8_u (local.get 0)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  let temp = @lib.LocalIdx::new(1U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
+test "local-cse reuses repeated i64 narrow load roots" {
+  let input =
+    #| (module
+    #|   (memory 1)
+    #|   (func (param i32)
+    #|     (drop (i64.load32_u (local.get 0)))
+    #|     (drop (i64.load32_u (local.get 0)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  let temp = @lib.LocalIdx::new(1U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i64()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
 test "local-cse reuses local-only expression across memory-copy" {
   let input =
     #| (module

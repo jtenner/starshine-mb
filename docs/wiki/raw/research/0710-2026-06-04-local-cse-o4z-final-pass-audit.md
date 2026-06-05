@@ -1491,3 +1491,26 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the first focused run failed as intended for both new fixtures (`88/90` passed) before the implementation change; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed after the fix (`90/90`); `moon test src/passes` passed (`1638/1638`); full `moon test` passed (`4823/4823`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up narrow-load root slice on 2026-06-05
+
+A later focused LCSE hardening slice spot-checked narrow integer loads: representative `i32.load8_u`, `i32.load16_s`, `i64.load8_u`, `i64.load16_s`, and `i64.load32_u` roots. Binaryen materialized repeated representative roots with `local.tee` / `local.get` when no intervening memory write invalidated the loaded memory.
+
+Starshine already treated narrow loads as one-operand memory reads with `i32` / `i64` result types, so store invalidation and stack modeling were in place. The missing piece was the fast candidate pre-scan: only full-width loads were candidates, so functions containing only repeated narrow-load roots could be skipped before the raw rewrite saw them. The slice added WAT-form direct regressions `local-cse reuses repeated i32 narrow load roots` and `local-cse reuses repeated i64 narrow load roots`; both failed as intended before the implementation change (`90/92` passed). Starshine then added the narrow integer load instructions to `lcse_candidate_op_id`.
+
+This remains ordinary local load CSE with existing store barriers. It does not add arbitrary memory alias analysis, heap/table GVN, segment reasoning, or reuse across memory writes.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-narrow-loads-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the first focused run failed as intended for both new fixtures (`90/92` passed) before the implementation change; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed after the fix (`92/92`); `moon test src/passes` passed (`1640/1640`); full `moon test` passed (`4825/4825`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; compare reached `6770` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).

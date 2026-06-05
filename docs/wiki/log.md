@@ -53,6 +53,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Refreshed [`tooling/wiki-maintenance-playbook.md`](tooling/wiki-maintenance-playbook.md) and [`index.md`](index.md) so autonomous wiki runs check for accidental new serial reuse during raw/research placement and whole-wiki health checks.
 - Existing methodology and repository-policy sources were sufficient; no new raw source was added because this was schema/maintenance-rule reconciliation against current committed archive state, not an external behavior change.
 
+## [2026-06-05] passes/local-cse | narrow-load root reuse
+
+- Spot-checked representative `i32.load8/16_*` and `i64.load8/16/32_*` roots; Binaryen materializes repeated narrow-load roots when no intervening memory write invalidates them.
+- Added failing WAT-form direct regressions, then added the narrow integer load instructions to the LCSE candidate pre-scan. Existing one-operand/result memory-read modeling and store barriers were unchanged.
+- Refreshed LCSE research/backlog wording so this remains ordinary local load CSE, not arbitrary memory alias analysis or memory GVN.
+
 ## [2026-06-05] passes/local-cse | sign-extension reuse
 
 - Spot-checked `i32.extend8_s` / `i32.extend16_s` and `i64.extend8_s` / `i64.extend16_s` / `i64.extend32_s`; Binaryen materializes repeated representative sign-extension roots.

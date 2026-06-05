@@ -166,6 +166,16 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::I64Extend8S => 110
     @lib.Instruction::I64Extend16S => 111
     @lib.Instruction::I64Extend32S => 112
+    @lib.Instruction::I32Load8S(_) => 113
+    @lib.Instruction::I32Load8U(_) => 114
+    @lib.Instruction::I32Load16S(_) => 115
+    @lib.Instruction::I32Load16U(_) => 116
+    @lib.Instruction::I64Load8S(_) => 117
+    @lib.Instruction::I64Load8U(_) => 118
+    @lib.Instruction::I64Load16S(_) => 119
+    @lib.Instruction::I64Load16U(_) => 120
+    @lib.Instruction::I64Load32S(_) => 121
+    @lib.Instruction::I64Load32U(_) => 122
     @lib.Instruction::I32Load(_) => 13
     @lib.Instruction::I64Load(_) => 14
     @lib.Instruction::F32Load(_) => 15
