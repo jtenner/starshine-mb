@@ -1158,3 +1158,22 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the first focused run failed as intended (`51/52` passed) before the implementation change; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed after the fix (`52/52`); `moon test src/passes` passed (`1600/1600`); full `moon test` passed (`4785/4785`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; compare reached `6766` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up `table.grow` local-only effect slice on 2026-06-04
+
+A later focused LCSE hardening slice spot-checked a `table.grow` between two local-only arithmetic trees. Binaryen materialized the pre-`table.grow` `i32.add` with `local.tee` and reused it after the table growth operation. Starshine added the failing WAT-form direct regression `local-cse reuses local-only expression across table-grow`, then fixed the raw/module operand model by treating `table.grow` as a two-operand, `i32`-result side-effecting table operation rather than an unknown hard boundary. The slice also added `local-cse does not reuse repeated table-grow roots` so the new stack-result modeling cannot become arbitrary `table.grow` CSE. This does not implement arbitrary table GVN reasoning.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-table-grow-local-only-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the first focused run failed as intended (`52/53` passed) before the implementation change; the later no-reuse root guard is coverage-only and passed after the implementation; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed after the fix (`54/54`); `moon test src/passes` passed (`1602/1602`); full `moon test` passed (`4787/4787`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; compare reached `6767` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).

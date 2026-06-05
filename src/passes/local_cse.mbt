@@ -254,6 +254,7 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::I64Ne => Some(2)
     @lib.Instruction::I32Eqz | @lib.Instruction::I64Eqz => Some(1)
     @lib.Instruction::StructSet(_, _) | @lib.Instruction::TableSet(_) => Some(2)
+    @lib.Instruction::TableGrow(_) => Some(2)
     @lib.Instruction::ArraySet(_) => Some(3)
     @lib.Instruction::ArrayFill(_) => Some(4)
     @lib.Instruction::ArrayCopy(_, _) => Some(5)
@@ -295,7 +296,8 @@ fn lcse_raw_result_type(
     | @lib.Instruction::I32Load8U(_)
     | @lib.Instruction::I32Load16S(_)
     | @lib.Instruction::I32Load16U(_)
-    | @lib.Instruction::MemorySize(_) => Some(@lib.ValType::i32())
+    | @lib.Instruction::MemorySize(_)
+    | @lib.Instruction::TableGrow(_) => Some(@lib.ValType::i32())
     @lib.Instruction::I64Const(_)
     | @lib.Instruction::I64Load(_)
     | @lib.Instruction::I64Load8S(_)
@@ -651,7 +653,11 @@ fn lcse_raw_rewrite_instrs(
           _ => ()
         }
         let expr_id = exprs.length()
-        let original_id = if size <= 32 {
+        let reusable_root = match instr {
+          @lib.Instruction::TableGrow(_) => false
+          _ => true
+        }
+        let original_id = if reusable_root && size <= 32 {
           lcse_raw_find_active_match(exprs, active, instr, children)
         } else {
           -1
@@ -682,7 +688,7 @@ fn lcse_raw_rewrite_instrs(
               lcse_cancel_request_tree(exprs, child)
             }
           }
-        } else {
+        } else if reusable_root {
           active.push(expr_id)
         }
         stack.push(expr_id)
