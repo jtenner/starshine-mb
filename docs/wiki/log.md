@@ -4,6 +4,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 
 
+## [2026-06-05] passes/local-cse | ref.eq pure-reference reuse
+
+- Spot-checked `ref.eq` with `(ref.null eq)` operands; Binaryen materializes both local-only arithmetic reuse across the pure reference comparison and repeated `ref.eq` roots.
+- Added failing WAT-form direct regressions, then modeled `RefEq` as a pure two-operand `i32` result and candidate root. The change is limited to stable `ref.eq` comparison and does not add GC allocation, cast/trap, descriptor, or broad heap reasoning.
+- Refreshed the LCSE research/backlog wording so pure-reference operator coverage is listed separately from GC/generative-root exclusions.
+
 ## [2026-06-05] passes/local-cse | memory.size non-growing-effect precision
 
 - Spot-checked repeated `memory.size`-dependent roots across `memory.copy`, `memory.fill`, and `memory.init`; local Binaryen did not materialize these roots across the non-growing memory effects, but `memory.size` itself is unchanged by them.

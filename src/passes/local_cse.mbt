@@ -79,6 +79,7 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::F64Load(_) => 16
     @lib.Instruction::Select(_) => 17
     @lib.Instruction::Call(_) => 18
+    @lib.Instruction::RefEq => 19
     _ => -1
   }
 }
@@ -256,7 +257,8 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::I32Eq
     | @lib.Instruction::I32Ne
     | @lib.Instruction::I64Eq
-    | @lib.Instruction::I64Ne => Some(2)
+    | @lib.Instruction::I64Ne
+    | @lib.Instruction::RefEq => Some(2)
     @lib.Instruction::I32Eqz | @lib.Instruction::I64Eqz => Some(1)
     @lib.Instruction::StructSet(_, _) | @lib.Instruction::TableSet(_) => Some(2)
     @lib.Instruction::TableGet(_) => Some(1)
@@ -343,7 +345,8 @@ fn lcse_raw_result_type(
     | @lib.Instruction::I32Eqz
     | @lib.Instruction::I64Eq
     | @lib.Instruction::I64Ne
-    | @lib.Instruction::I64Eqz => Some(@lib.ValType::i32())
+    | @lib.Instruction::I64Eqz
+    | @lib.Instruction::RefEq => Some(@lib.ValType::i32())
     _ => None
   }
 }
