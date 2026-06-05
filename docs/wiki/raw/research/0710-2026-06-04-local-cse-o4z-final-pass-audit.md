@@ -1274,3 +1274,25 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the first focused run failed as intended (`62/64` passed) before the implementation change; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed after the fix (`64/64`); `moon test src/passes` passed (`1612/1612`); full `moon test` passed (`4797/4797`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; compare reached `6764` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+
+## Follow-up table-state invalidation coverage slice on 2026-06-05
+
+A later focused LCSE hardening slice spot-checked table-state-dependent expressions around table mutations. Binaryen did not reuse `ref.is_null(table.get 0 ...)` across `table.set`, and did not reuse `i32.add(table.size 0, const)` across `table.grow`, while still materializing an unrelated local-only arithmetic tree across those mutations in the spot-check fixtures. Starshine already matched the conservative table-state result locally because `table.get` / `table.size` dependent trees are tracked as table-state reads and are not reusable roots.
+
+The slice added WAT-form direct regressions `local-cse does not reuse table-get-dependent roots across table-set` and `local-cse does not reuse table-size-dependent roots across table-grow`. This was missing-test-only and stays narrower than arbitrary table GVN or table alias analysis; existing local-only `table.set` / `table.grow` tests continue to cover reuse across the side-effecting table operations.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-table-state-invalidation-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the first focused run was coverage-only and already passed (`66/66`), so no implementation change was required; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`66/66`); `moon test src/passes` passed (`1614/1614`); full `moon test` passed (`4799/4799`); native build was already up to date and succeeded; compare reached `6770` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).

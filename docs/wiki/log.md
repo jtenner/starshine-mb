@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+
+## [2026-06-05] passes/local-cse | table-state invalidation coverage
+
+- Spot-checked table-state-dependent roots around `table.set` and `table.grow`: Binaryen leaves `ref.is_null(table.get ...)` and `i32.add(table.size, const)` roots unmaterialized across table mutation while still allowing unrelated local-only arithmetic reuse in the spot-check fixtures.
+- Added missing WAT-form direct regressions for `table.get`-dependent roots across `table.set` and `table.size`-dependent roots across `table.grow`. Starshine already matched, so this was coverage-only and remains narrower than arbitrary table GVN.
+- Refreshed the LCSE research/backlog wording so table-state mutation invalidation is listed as covered direct-pass evidence.
+
 ## [2026-06-05] validate/wast | unlinkable pre-link bridge
 
 - Refreshed [`validate/import-export-and-external-type-matching.md`](validate/import-export-and-external-type-matching.md) so the current no-public-linker boundary explicitly covers static WAST `assert_unlinkable`: current `ValidBeforeLink` proves compile/lower/decode plus core validation, not host import lookup, external-value matching, or diagnostic-text parity.

@@ -618,6 +618,28 @@ test "local-cse does not reuse table-get-dependent roots" {
 }
 
 ///|
+test "local-cse does not reuse table-get-dependent roots across table-set" {
+  let input =
+    #| (module
+    #|   (table 4 funcref)
+    #|   (func
+    #|     (drop (ref.is_null (table.get 0 (i32.const 0))))
+    #|     (table.set 0 (i32.const 0) (ref.null func))
+    #|     (drop (ref.is_null (table.get 0 (i32.const 0))))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(0U)), 0)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, @lib.LocalIdx::new(0U)), 0)
+}
+
+///|
 test "local-cse reuses local-only expression across table-grow" {
   let input =
     #| (module
@@ -691,6 +713,28 @@ test "local-cse does not reuse repeated table-size roots" {
     #|   (table 4 funcref)
     #|   (func
     #|     (drop (i32.add (table.size 0) (i32.const 1)))
+    #|     (drop (i32.add (table.size 0) (i32.const 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(0U)), 0)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, @lib.LocalIdx::new(0U)), 0)
+}
+
+///|
+test "local-cse does not reuse table-size-dependent roots across table-grow" {
+  let input =
+    #| (module
+    #|   (table 4 funcref)
+    #|   (func
+    #|     (drop (i32.add (table.size 0) (i32.const 1)))
+    #|     (drop (table.grow 0 (ref.null func) (i32.const 1)))
     #|     (drop (i32.add (table.size 0) (i32.const 1)))))
     #|
   let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
