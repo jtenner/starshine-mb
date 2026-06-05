@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | relaxed SIMD roots
+
+- Added core-built LCSE boundary coverage for repeated relaxed SIMD roots, including relaxed swizzle, truncation, madd/nmadd, lane-select, min/max, q15mulr, and dot-product instructions.
+- Documented Starshine's conservative no-CSE behavior even though Binaryen materializes representative repeated relaxed roots; this stays out of SIMD temp-local/value-numbering and relaxed-SIMD reasoning work.
+
 ## [2026-06-05] local-cse/wiki | SIMD conversion roots
 
 - Added core-built LCSE boundary coverage for repeated SIMD conversion roots, including vector demote/promote, saturating vector truncation, and vector integer/float conversion instructions.
