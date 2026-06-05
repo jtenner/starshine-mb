@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasm/wiki | JS string builtins boundary routing
+
+- Added [`raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md) after checking the current WebAssembly finished-proposals table, active proposals tracker, JS String Builtins draft, MDN JavaScript builtins / `WebAssembly.compile()` / imported string constants pages, and current Starshine Node runtime plus WAST/core/binary/validator/pass evidence.
+- Added [`wasm-js-string-builtins-boundary.md`](wasm-js-string-builtins-boundary.md) as the focused guide separating finished/Core-3.0 + JS API `builtins: ["js-string"]`, reserved `wasm:js-string` helper imports, and `importedStringConstants` from active Phase-1 Reference-Typed Strings / `stringref`, Starshine's local `StringRefsSec`, and Binaryen `string-lowering` / `string-lifting` future-port surfaces.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wast/string-instruction-authoring.md`](wast/string-instruction-authoring.md), [`strings/string-const-surface.md`](strings/string-const-surface.md), [`binary/module-section-map.md`](binary/module-section-map.md), [`binary/type-table-memory-global-tag-sections.md`](binary/type-table-memory-global-tag-sections.md), [`tooling/node-package-surface.md`](tooling/node-package-surface.md), [`validate/local-spec-divergence-ledger.md`](validate/local-spec-divergence-ledger.md), the string-lowering / string-lifting overview pages, and [`index.md`](index.md) so string-related readers do not confuse JS host compile options with proposal/local string instruction or literal-pool support.
+
 ## [2026-06-05] wasm/wiki | component model boundary routing
 
 - Added [`raw/wasm/2026-06-05-component-model-boundary-refresh.md`](raw/wasm/2026-06-05-component-model-boundary-refresh.md) after checking the current official WebAssembly proposals tracker, Component Model repository, MVP explainer, WIT documentation, Canonical ABI documentation, and Starshine core module / binary / WAST / generator source evidence.

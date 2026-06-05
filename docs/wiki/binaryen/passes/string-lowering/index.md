@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-06-05
 sources:
+  - ../../../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
   - ../../../raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md
@@ -21,6 +22,7 @@ related:
   - ./starshine-port-readiness-and-validation.md
   - ../string-gathering/index.md
   - ../string-lifting/index.md
+  - ../../../wasm-js-string-builtins-boundary.md
   - ../../../strings/string-const-surface.md
   - ../tracker.md
 ---
@@ -88,7 +90,8 @@ That is much more accurate than saying either:
 - After lowering, Binaryen runs `ReFinalize()` and disables `FeatureSet::Strings`.
 - A 2026-04-24 direct source check found no visible drift in `main/src/passes/StringLowering.cpp` on the checked surfaces.
 - A 2026-04-26 port-readiness recheck again found no teaching-relevant current-main drift, and it tied the helper import namespace to the official JS string builtins proposal.
-- Starshine currently supports `string.const` textual, binary, validation, and HOT roundtrip plumbing plus some string new/encode array opcodes, but it has no `string-lowering` pass, no local registry spelling, no `wasm:js-string` helper-call source surface, and no active backlog slice for the broader ABI-lowering transform.
+- A 2026-06-05 JS String Builtins boundary refresh separates the finished/Core-3.0 + JS API `wasm:js-string` / `importedStringConstants` ABI from the active Phase-1 `stringref` proposal and from Starshine's local `StringRefsSec`; see [`../../../wasm-js-string-builtins-boundary.md`](../../../wasm-js-string-builtins-boundary.md).
+- Starshine currently supports `string.const` textual, binary, validation, and HOT roundtrip plumbing plus some string new/encode array opcodes, and the Node wasm-gc runtime opts into JS string builtins, but it has no `string-lowering` pass, no local registry spelling, no `importedStringConstants` runtime option, no `wasm:js-string` helper-call source surface, and no active backlog slice for the broader ABI-lowering transform.
 
 ## Page map
 
@@ -109,10 +112,12 @@ That is much more accurate than saying either:
 
 - Treat this folder as the canonical home for future `string-lowering` research.
 - Keep it explicitly marked as **upstream-only** unless Starshine grows a real module pass for this surface.
-- Keep the split from `string-gathering` and [`string-lifting`](../string-lifting/index.md) explicit in future edits.
+- Keep the split from `string-gathering`, [`string-lifting`](../string-lifting/index.md), and the host/JS API boundary in [`../../../wasm-js-string-builtins-boundary.md`](../../../wasm-js-string-builtins-boundary.md) explicit in future edits.
 
 ## Sources
 
+- [`../../../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](../../../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md)
+- [`../../../wasm-js-string-builtins-boundary.md`](../../../wasm-js-string-builtins-boundary.md)
 - [`../../../raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md)
 - [`../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md`](../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md)

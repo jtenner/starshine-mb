@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-06-05
 sources:
+  - ../../../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
   - ../../../raw/binaryen/2026-06-02-string-lifting-current-main-recheck.md
   - ../../../raw/research/0697-2026-06-02-string-lifting-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md
@@ -25,6 +26,7 @@ related:
   - ./starshine-port-readiness-and-validation.md
   - ../string-lowering/index.md
   - ../string-gathering/index.md
+  - ../../../wasm-js-string-builtins-boundary.md
   - ../../../strings/string-const-surface.md
   - ../tracker.md
 ---
@@ -70,6 +72,8 @@ The pass looks for two main input families:
   - numbered imports from module `string.const` plus a `string.consts` JSON custom section.
 - imported helper functions under module `wasm:js-string` with exact expected signatures; a recognized helper name with the wrong expected type is a fatal Binaryen pass error, not a preserved-call bailout.
 
+The `wasm:js-string` namespace belongs to finished JS String Builtins / JavaScript API compile-option behavior, while many lifted output instructions belong to the still-active Reference-Typed Strings proposal. Keep that split routed through [`../../../wasm-js-string-builtins-boundary.md`](../../../wasm-js-string-builtins-boundary.md) when planning any Starshine port.
+
 ## Outputs
 
 When a shape is accepted, Binaryen emits wasm-string instructions:
@@ -114,6 +118,7 @@ For Binaryen parity research:
 For Starshine work:
 
 - first add honest registry handling if the pass is tracked locally;
+- recheck [`../../../wasm-js-string-builtins-boundary.md`](../../../wasm-js-string-builtins-boundary.md) before freezing `wasm:js-string` helper signatures, JSON/magic-import constants, or `importedStringConstants` host assumptions;
 - add module-pass tests before implementation;
 - start with the magic-import `global.get -> string.const` slice before JSON custom-section or helper-call work;
 - keep the pass out of active presets until parser/type/model coverage includes the full lifted output surface.
@@ -141,6 +146,8 @@ See [`../../../raw/binaryen/2026-06-02-string-lifting-current-main-recheck.md`](
 
 ## Sources
 
+- [`../../../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](../../../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md)
+- [`../../../wasm-js-string-builtins-boundary.md`](../../../wasm-js-string-builtins-boundary.md)
 - [`../../../raw/binaryen/2026-06-02-string-lifting-current-main-recheck.md`](../../../raw/binaryen/2026-06-02-string-lifting-current-main-recheck.md)
 - [`../../../raw/research/0697-2026-06-02-string-lifting-current-main-recheck.md`](../../../raw/research/0697-2026-06-02-string-lifting-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md)
