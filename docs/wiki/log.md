@@ -12403,3 +12403,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added `elem.drop` WAT regression coverage for Binaryen-positive local-only reuse across element segment drops.
 - Updated the Starshine LCSE raw/module operand model so `elem.drop` is a zero-operand, no-result side effect rather than an unknown hard boundary; this does not add segment/table GVN or make `elem.drop` reusable.
 - Recorded focused, standard, native-build, and 10000-case direct compare evidence in `docs/wiki/raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`.
+
+## 2026-06-04 local-cse table.set local-only effect hardening
+
+- Added `table.set` WAT regression coverage for Binaryen-positive local-only reuse across table element writes.
+- Updated the Starshine LCSE raw/module operand model so `table.set` is a two-operand, no-result table write rather than an unknown hard boundary; this does not add table GVN or make `table.set` reusable.
+- Recorded focused, standard, native-build, and 10000-case direct compare evidence in `docs/wiki/raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`.

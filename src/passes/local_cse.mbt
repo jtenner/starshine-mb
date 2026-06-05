@@ -253,7 +253,7 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::I64Eq
     | @lib.Instruction::I64Ne => Some(2)
     @lib.Instruction::I32Eqz | @lib.Instruction::I64Eqz => Some(1)
-    @lib.Instruction::StructSet(_, _) => Some(2)
+    @lib.Instruction::StructSet(_, _) | @lib.Instruction::TableSet(_) => Some(2)
     @lib.Instruction::ArraySet(_) => Some(3)
     @lib.Instruction::ArrayFill(_) => Some(4)
     @lib.Instruction::ArrayCopy(_, _) => Some(5)
