@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
   - ../raw/wasm/2026-06-04-constant-expression-current-refresh.md
   - ../raw/wasm/2026-06-04-struct-atomic-get-sources.md
   - ../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md
@@ -24,6 +25,7 @@ sources:
 related:
   - gc-type-authoring.md
   - reference-instruction-authoring.md
+  - ../custom-descriptors/descriptor-instruction-surface.md
   - string-instruction-authoring.md
   - element-segment-authoring.md
   - table-instruction-authoring.md
@@ -53,7 +55,7 @@ official Wasm GC instruction family
   -> still-narrower Starshine constant-expression allow-list for initializers
 ```
 
-Starshine can model, encode, decode, validate, and generate the broad GC aggregate family in core modules. The higher-level `src/wast` parser/printer/lowerer is narrower today: it exposes struct constructors, ordinary struct reads, shared-GC `struct.atomic.get*` reads, descriptor constructors, `ref.get_desc`, descriptor cast/test helpers, i31 operations, and `any`/`extern` conversions, but **does not expose official `struct.set`, aggregate atomic set/RMW/cmpxchg forms, or any `array.*` WAST text keyword yet**. That means pass regressions involving `struct.set`, `array.new`, `array.get`, `array.init_data`, `array.init_elem`, or aggregate atomic writes/RMW/cmpxchg should currently use core/binary/generated fixtures unless the task is explicitly to widen WAST text support first.
+Starshine can model, encode, decode, validate, and generate the broad GC aggregate family in core modules. The higher-level `src/wast` parser/printer/lowerer is narrower today: it exposes struct constructors, ordinary struct reads, shared-GC `struct.atomic.get*` reads, descriptor constructors, `ref.get_desc`, descriptor cast/test helpers, i31 operations, and `any`/`extern` conversions, but **does not expose official `struct.set`, aggregate atomic set/RMW/cmpxchg forms, or any `array.*` WAST text keyword yet**. That means pass regressions involving `struct.set`, `array.new`, `array.get`, `array.init_data`, `array.init_elem`, or aggregate atomic writes/RMW/cmpxchg should currently use core/binary/generated fixtures unless the task is explicitly to widen WAST text support first. Descriptor-specific allocation and cast/test semantics now route through [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md), so this page remains focused on the ordinary aggregate instruction layer.
 
 The 2026-05-20 focused refresh in [`../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md) and the 2026-06-04 current refresh in [`../raw/wasm/2026-06-04-constant-expression-current-refresh.md`](../raw/wasm/2026-06-04-constant-expression-current-refresh.md) add a second caveat for initializer contexts: current official WebAssembly 3.0 treats `array.new`, `array.new_default`, and `array.new_fixed` as constant-expression instructions, but Starshine's reviewed [`validate_const_instr(...)`](../../../src/validate/validate.mbt) still admits struct constructors and local descriptor constructors only. Ordinary core/binary `array.new*` tests are therefore not evidence that Starshine accepts array constructors in global/table/element/data initializer constant expressions; use [`../validate/constant-expressions.md`](../validate/constant-expressions.md) for that allow-list contract.
 
@@ -72,7 +74,7 @@ Aggregate instructions either create a heap object, read storage, mutate storage
 | Family | Official examples | Starshine WAST text today | Starshine core/binary/validator today | Fixture guidance |
 | --- | --- | --- | --- | --- |
 | Struct constructors | `struct.new`, `struct.new_default` | Yes | Yes | Prefer WAST fixtures when constructor text/lowering is the point. |
-| Descriptor struct constructors | `struct.new_desc`, `struct.new_default_desc` | Yes, local/custom-descriptor surface | Yes | Use with [`../custom-descriptors/static-fixtures.md`](../custom-descriptors/static-fixtures.md); do not treat as official 3.0 syntax. |
+| Descriptor struct constructors | `struct.new_desc`, `struct.new_default_desc` | Yes, local/custom-descriptor surface | Yes | Use [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md) for exact descriptor operands and proposal/local caveats; do not treat as official 3.0 syntax. |
 | Struct reads | `struct.get`, `struct.get_s`, `struct.get_u` | Yes | Yes | WAST fixtures are supported; signed/unsigned variants require packed fields. |
 | Struct atomic reads | `struct.atomic.get`, `struct.atomic.get_s`, `struct.atomic.get_u` | Yes, focused shared-GC surface using canonical `seq_cst` / `acq_rel` order spellings | Yes for get variants | Use WAST fixtures for get-only shared-GC atomic reads; keep linear-memory atomics routed to [`atomic-memory-instruction-authoring.md`](atomic-memory-instruction-authoring.md). |
 | Struct writes | `struct.set` | No | Yes | Use core/binary/generated fixtures, or add WAST keyword/parser/lowerer/printer coverage first. |
@@ -147,7 +149,7 @@ The atomic get variants consume one struct reference like ordinary `struct.get*`
       (struct.new $node_desc))))
 ```
 
-This is Starshine's local custom-descriptor surface, not plain WebAssembly 3.0. Keep the distinction explicit when reducing Binaryen descriptor-family regressions.
+This is Starshine's local custom-descriptor surface, not plain WebAssembly 3.0. Keep the distinction explicit when reducing Binaryen descriptor-family regressions, and use [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md) for the exact operand/result rules shared with `ref.get_desc`, `ref.test_desc*`, and `ref.cast_desc_eq*`.
 
 ### i31 and extern conversion forms
 
@@ -196,7 +198,7 @@ Aggregate constructors can appear in module-level initializer contexts in curren
 | Aggregate family | Current official constant-expression status | Starshine constant-expression status reviewed 2026-06-04 | Fixture guidance |
 | --- | --- | --- | --- |
 | `struct.new`, `struct.new_default` | Listed as constant instructions. | Accepted when the type resolves as a struct. | WAST or core fixtures can be used, then validate the initializer. |
-| `struct.new_desc`, `struct.new_default_desc` | Starshine/custom-descriptor extension, not plain official 3.0. | Accepted locally when the type resolves as a struct. | Keep proposal-versus-local wording explicit. |
+| `struct.new_desc`, `struct.new_default_desc` | Starshine/custom-descriptor extension, not plain official 3.0. | Accepted locally when the type resolves as a descriptor-bearing struct and the descriptor operand is nullable exact. | Keep proposal-versus-local wording explicit and route details through [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md). |
 | `array.new`, `array.new_default`, `array.new_fixed` | Listed as constant instructions. | Not admitted by `validate_const_instr(...)` in the reviewed local gate. | Use only ordinary body/core tests unless the task widens constant expressions first. |
 | `array.new_data`, `array.new_elem`, `array.init_data`, `array.init_elem` | Aggregate instructions with segment dependencies, not initializer shortcuts here. | Ordinary instruction typechecker support only; no WAST text support. | Pair core fixtures with data/element segment docs and rerun module validation. |
 
@@ -219,6 +221,7 @@ Do not use `gen_valid` aggregate coverage or binary decode success as proof of i
 - Current data/data-count refresh: [`../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md`](../raw/wasm/2026-06-04-data-segment-datacount-current-refresh.md)
 - Focused data-count/data-index guide: [`../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md`](../raw/wasm/2026-06-04-data-count-code-data-index-recheck.md), [`../validate/data-count-and-code-data-indices.md`](../validate/data-count-and-code-data-indices.md)
 - Constant-expression refresh: [`../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md`](../raw/wasm/2026-05-20-gc-aggregate-constant-expression-refresh.md)
+- Custom-descriptor instruction bridge: [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), [`../custom-descriptors/descriptor-instruction-surface.md`](../custom-descriptors/descriptor-instruction-surface.md)
 - Primary-source and local-code manifest: [`../raw/wasm/2026-05-19-wast-gc-aggregate-instruction-sources.md`](../raw/wasm/2026-05-19-wast-gc-aggregate-instruction-sources.md)
 - Type declaration companion: [`gc-type-authoring.md`](gc-type-authoring.md)
 - WAST keyword/parser/printer/lowerer: [`../../../src/wast/keywords.mbt`](../../../src/wast/keywords.mbt), [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt)

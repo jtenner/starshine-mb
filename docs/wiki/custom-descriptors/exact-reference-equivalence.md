@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
   - ../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md
   - ../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md
   - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
@@ -14,6 +15,7 @@ sources:
   - ../../../src/validate/match_tests.mbt
   - ../../../src/wast/exact_type_equivalence_test.mbt
 related:
+  - ./descriptor-instruction-surface.md
   - ./static-fixtures.md
   - ./ref-get-desc-fixture-path.md
   - ../wast/gc-type-authoring.md
@@ -36,9 +38,9 @@ Two rules are easy to confuse:
 1. **Subtype matching** still handles ordinary reference compatibility: non-null is a subtype of nullable, declared subtypes can match supertypes, and structs can widen by trailing fields when the target is inexact.
 2. **Exact matching** is a structural-equivalence check for exact refs. Starshine does not require raw `TypeIdx` identity; it compares the full reachable defined-type closure with cycle guards so independently declared but structurally identical exact types can match.
 
-This page owns the second rule. The `ref.get_desc` operand/result exactness flow lives in [`ref-get-desc-fixture-path.md`](ref-get-desc-fixture-path.md), the broader WAST type authoring surface lives in [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), and the validator-side type-section normalization/subtype-matching contract lives in [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md).
+This page owns the second rule. The descriptor instruction-family overview lives in [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md), the `ref.get_desc` operand/result exactness flow lives in [`ref-get-desc-fixture-path.md`](ref-get-desc-fixture-path.md), the broader WAST type authoring surface lives in [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md), and the validator-side type-section normalization/subtype-matching contract lives in [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md).
 
-The current primary-source bridge is [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md). It rechecked the Phase-3 custom-descriptors proposal, the upstream `ref.get_desc` bottom-input discussion, the V8 fix, and current Starshine validator sources. The proposal still uses exact heap types for descriptor-allocation soundness, but Starshine's structural exact-reference equivalence is a local validator implementation rule: it can compare structs, functions, and arrays because the shared `Match::matches(...)` engine works over the whole type system, not because the descriptor proposal standardizes metadata on every composite family.
+The current instruction-surface bridge is [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), building on the broader [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md). These rechecked the Phase-3 custom-descriptors proposal, the upstream `ref.get_desc` bottom-input discussion, the V8 fix, and current Starshine validator sources. The proposal still uses exact heap types for descriptor-allocation soundness, but Starshine's structural exact-reference equivalence is a local validator implementation rule: it can compare structs, functions, and arrays because the shared `Match::matches(...)` engine works over the whole type system, not because the descriptor proposal standardizes metadata on every composite family.
 
 ## Concrete Shapes
 
@@ -114,6 +116,7 @@ When changing exact reference matching:
 
 ## Sources
 
+- Current instruction-surface bridge: [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md)
 - Current primary-source bridge: [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md)
 - Earlier exactness/source bridge: [`../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md`](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md)
 - Type-section/subtyping bridge: [`../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md`](../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md), [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md)

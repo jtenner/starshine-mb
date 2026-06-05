@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] custom-descriptors/wiki | descriptor instruction surface bridge
+
+- Added [`raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md) after rechecking the current WebAssembly proposals tracker, custom-descriptors proposal overview, upstream `ref.get_desc` bottom-input issue/V8 fix, and current Starshine WAST/core/binary/validator/generator sources.
+- Added [`custom-descriptors/descriptor-instruction-surface.md`](custom-descriptors/descriptor-instruction-surface.md) as the focused descriptor-instruction guide for `struct.new_desc`, `struct.new_default_desc`, `ref.get_desc`, `ref.test_desc*`, and `ref.cast_desc_eq*`, including stack shapes, exact descriptor operand/result rules, struct-only validation, bottom-input caveats, proposal-local status, and current no-evidence boundaries for branch descriptor-cast forms and JS interop.
+- Cross-linked [`custom-descriptors/static-fixtures.md`](custom-descriptors/static-fixtures.md), [`custom-descriptors/ref-get-desc-fixture-path.md`](custom-descriptors/ref-get-desc-fixture-path.md), [`custom-descriptors/exact-reference-equivalence.md`](custom-descriptors/exact-reference-equivalence.md), [`wast/reference-instruction-authoring.md`](wast/reference-instruction-authoring.md), [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md), [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), and [`index.md`](index.md) so descriptor-local WAST forms no longer have to carry the whole instruction contract inline.
+
 ## [2026-06-05] cli/wiki | print selector name-source bridge
 
 - Refreshed [`wast/identifier-name-and-annotation-authoring.md`](wast/identifier-name-and-annotation-authoring.md) so WAST authors can distinguish source `$` identifiers, lowered structured `NameSec` entries, import/export payload names, and numeric `--print-*` selectors when debugging modules after lowering or binary decode.

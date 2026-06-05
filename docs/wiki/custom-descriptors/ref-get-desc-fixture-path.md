@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md
   - ../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md
   - ../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md
   - ../raw/wasm/2026-05-20-type-section-validation-and-subtyping-refresh.md
@@ -21,6 +22,7 @@ sources:
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/typecheck_negative_tests.mbt
 related:
+  - ./descriptor-instruction-surface.md
   - ../wast/gc-type-authoring.md
   - ../wast/reference-instruction-authoring.md
   - ../validate/type-section-and-subtyping.md
@@ -49,9 +51,9 @@ related:
 4. Typechecking verifies that the inspected type has descriptor metadata, that the operand is compatible with the inspected type, and that the result exactness follows the operand.
 5. The static harness keeps `tests/spec/proposals/custom-descriptors/ref_get_desc.wast` on the checked static path while separating runtime-skip debt from conformance evidence.
 
-Use this page for `ref.get_desc` fixture, lowering, validator, generator, or pass work. Use [`exact-reference-equivalence.md`](exact-reference-equivalence.md) for the lower-level exact-ref structural equality rule, [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md) for authoring `describes` / `descriptor` metadata, and [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md) for the validator phase that proves descriptor metadata pairs are structurally valid before instructions can rely on them.
+Use this page for `ref.get_desc` fixture, lowering, validator, generator, or pass work. Use [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md) for the broader descriptor-aware instruction family (`struct.new_desc`, `struct.new_default_desc`, `ref.test_desc*`, and `ref.cast_desc_eq*`), [`exact-reference-equivalence.md`](exact-reference-equivalence.md) for the lower-level exact-ref structural equality rule, [`../wast/gc-type-authoring.md`](../wast/gc-type-authoring.md) for authoring `describes` / `descriptor` metadata, and [`../validate/type-section-and-subtyping.md`](../validate/type-section-and-subtyping.md) for the validator phase that proves descriptor metadata pairs are structurally valid before instructions can rely on them.
 
-The current source bridge is [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md), which supersedes the source-freshness layer of the May [`ref.get_desc` / exactness refresh](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md). It rechecked the Phase-3 custom-descriptors proposal, the upstream bottom-input discussion, the V8 fix, and current Starshine parser/lowerer/typechecker/static-harness code. Durable conclusion: proposal descriptor metadata is still struct-oriented, while Starshine WAST can still parse/lower broader local array-metadata fixtures that validation rejects as non-struct descriptor metadata.
+The current instruction-surface bridge is [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), building on [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md), which supersedes the source-freshness layer of the May [`ref.get_desc` / exactness refresh](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md). These rechecks covered the Phase-3 custom-descriptors proposal, the upstream bottom-input discussion, the V8 fix, and current Starshine parser/lowerer/typechecker/static-harness code. Durable conclusion: proposal descriptor metadata is still struct-oriented, while Starshine WAST can still parse/lower broader local array-metadata fixtures that validation rejects as non-struct descriptor metadata.
 
 ## Concrete Flow
 
@@ -141,7 +143,7 @@ A pass that mutates type indices or descriptor-bearing types must preserve every
 1. `TypeMetadata.describes` and `TypeMetadata.descriptor` on all affected type definitions.
 2. `Instruction::RefGetDesc(TypeIdx)` immediates.
 3. Exact `(ref (exact $t))` / nullable exact `(ref null (exact $t))` type annotations.
-4. Descriptor-aware constructors, casts, and branch/cast operations documented from the WAST side in [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md) and [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md).
+4. Descriptor-aware constructors, predicate/cast operations, and current proposal-local caveats documented in [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md), with WAST routing through [`../wast/reference-instruction-authoring.md`](../wast/reference-instruction-authoring.md) and [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md).
 5. Static fixtures or reduced tests that assert exact descriptor results from `none` / bottom inputs.
 6. Binary encode/decode and name/debug section expectations if the pass rewrites type order.
 
@@ -157,6 +159,7 @@ After any rewrite, rerun validation. The common failure modes are `type without 
 
 ## Sources
 
+- Current instruction-surface bridge: [`../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](../raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), [`descriptor-instruction-surface.md`](descriptor-instruction-surface.md)
 - Current primary-source bridge: [`../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md`](../raw/wasm/2026-06-04-custom-descriptor-current-recheck.md)
 - Earlier exactness/source bridge: [`../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md`](../raw/wasm/2026-05-20-custom-descriptor-refgetdesc-exactness-refresh.md)
 - GC/custom-descriptor source snapshot: [`../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md`](../raw/wasm/2026-05-13-gc-type-and-custom-descriptor-sources.md)
