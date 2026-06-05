@@ -853,16 +853,14 @@ fn code_folding_try_fold_embedded_select_if_child(
   let suffix_len = code_folding_common_suffix_len(
     func, if_id, then_ref, else_ref, label_used,
   )
-  if suffix_len <= 1 {
+  if suffix_len <= 0 {
     return false
   }
   let then_count = @ir.hot_region_root_count(func, then_ref)
   let else_count = @ir.hot_region_root_count(func, else_ref)
   let then_start = then_count - suffix_len
   let else_start = else_count - suffix_len
-  if then_start != 0 ||
-    else_start != 0 ||
-    code_folding_region_prefix_has_exit(func, then_ref, then_start) ||
+  if code_folding_region_prefix_has_exit(func, then_ref, then_start) ||
     code_folding_region_prefix_has_exit(func, else_ref, else_start) ||
     !code_folding_suffix_matches_result_arity(
       func, then_ref, then_start, suffix_len, result_arity,
@@ -871,6 +869,9 @@ fn code_folding_try_fold_embedded_select_if_child(
       func, else_ref, else_start, suffix_len, result_arity,
     ) ||
     code_folding_suffix_has_if_terminal(func, then_ref, then_start, suffix_len) {
+    return false
+  }
+  if then_start == 0 && else_start == 0 && suffix_len <= 1 {
     return false
   }
 
@@ -883,10 +884,20 @@ fn code_folding_try_fold_embedded_select_if_child(
     [],
   )
   ignore(pass_splice_region(ctx, func, else_ref, else_start, suffix_len, []))
-  let drop_condition = @ir.hot_build_drop(func, condition)
-  let replacement = [drop_condition]
-  for node_id in hoisted {
-    replacement.push(node_id)
+  let replacement = if then_start == 0 && else_start == 0 {
+    let drop_condition = @ir.hot_build_drop(func, condition)
+    let nodes = [drop_condition]
+    for node_id in hoisted {
+      nodes.push(node_id)
+    }
+    nodes
+  } else {
+    @ir.hot_control_result_type_set(func, if_id, @ir.hot_type_void(func))
+    let nodes = [if_id]
+    for node_id in hoisted {
+      nodes.push(node_id)
+    }
+    nodes
   }
   let wrapper = @ir.hot_build_block(
     func,

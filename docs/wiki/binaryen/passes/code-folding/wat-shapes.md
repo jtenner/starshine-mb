@@ -132,7 +132,7 @@ Why Binaryen leaves it alone here:
 
 Starshine now preserves this boundary with `code-folding keeps simple full value if arms for optimize-instructions`, so the direct pass no longer folds this simple full-value non-block shape itself.
 
-The boundary is specifically the one-root case. Binaryen does fold source-backed full multi-root non-block arms such as `(nop) (f32.const 0)` / `(nop) (f32.const 0)` to `drop(condition); nop; f32.const 0`, and Starshine now matches that top-level shape plus the narrow embedded-`select` typed-wrapper variant.
+The boundary is specifically the one-root case. Binaryen does fold source-backed full multi-root non-block arms such as `(nop) (f32.const 0)` / `(nop) (f32.const 0)` to `drop(condition); nop; f32.const 0`, and Starshine now matches that top-level shape plus narrow embedded-`select` typed-wrapper variants for full multi-root arms and partial value suffixes.
 
 This is an easy way to tell whether a surprising non-fold is actually a bug.
 
