@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-05
 sources:
+  - ../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../raw/wasm/2026-05-19-wast-memory-argument-sources.md
   - ../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
@@ -43,7 +44,7 @@ A WebAssembly memory instruction has two different address components:
 
 It may also have an **alignment hint** and, in multi-memory contexts, a **selected memory index**. Starshine has all of those concepts in the core/binary/validator layers, but its current WAST text lowering only preserves `offset=` and `align=` for ordinary scalar/SIMD load/store memory arguments. Explicit nonzero memory indices in text memory instructions are a known fixture-readiness gap.
 
-The current source manifest is [`../raw/wasm/2026-05-19-wast-memory-argument-sources.md`](../raw/wasm/2026-05-19-wast-memory-argument-sources.md). It checks the official WebAssembly 3.0 text, binary, validation, and PDF sources plus the multi-memory and memory64 proposal surfaces and the Starshine parser, lowerer, printer, binary codec, typechecker, equality, and generator code. The 2026-06-04 address-width refresh in [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md) is the current raw source for the positional memory/table instruction width split used by this page; the living validator matrix is [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md).
+The original source manifest is [`../raw/wasm/2026-05-19-wast-memory-argument-sources.md`](../raw/wasm/2026-05-19-wast-memory-argument-sources.md). It checked official WebAssembly text, binary, validation, PDF, historical multi-memory/memory64 proposal surfaces, and the Starshine parser, lowerer, printer, binary codec, typechecker, equality, and generator code. For current memory64/table64 status, use the 2026-06-05 Core/status bridge [`../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md`](../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md); for the detailed positional instruction-width split, use [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md). The living validator matrix is [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md).
 
 ## Mental Model
 
@@ -177,9 +178,10 @@ When changing memory-argument text, binary, or validation behavior:
 ## Sources
 
 - Primary-source manifest: [`../raw/wasm/2026-05-19-wast-memory-argument-sources.md`](../raw/wasm/2026-05-19-wast-memory-argument-sources.md)
-- Current memory/table address-width refresh: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md), [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md)
+- Current memory64/table64 Core/status bridge: [`../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md`](../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md), [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md)
+- Detailed memory/table address-width validator refresh: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
 - Memory64 bulk-memory validation refresh: [`../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md)
 - Resource-section validation refresh: [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md), [`../validate/resource-sections-and-limits.md`](../validate/resource-sections-and-limits.md)
 - Official WebAssembly sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>, <https://webassembly.github.io/spec/core/_download/WebAssembly.pdf>
-- Official proposal surfaces checked for non-MVP shape: <https://webassembly.github.io/multi-memory/core/text/modules.html>, <https://webassembly.github.io/memory64/core/>
+- Historical proposal/context surfaces checked by older manifests: <https://webassembly.github.io/multi-memory/core/text/modules.html>, <https://webassembly.github.io/memory64/core/>; use the 2026-06-05 Core/status bridge before making current memory64/table64 status claims.
 - Starshine implementation: [`../../../src/wast/parser.mbt`](../../../src/wast/parser.mbt), [`../../../src/wast/lower_to_lib.mbt`](../../../src/wast/lower_to_lib.mbt), [`../../../src/wast/module_wast.mbt`](../../../src/wast/module_wast.mbt), [`../../../src/lib/types.mbt`](../../../src/lib/types.mbt), [`../../../src/lib/eq.mbt`](../../../src/lib/eq.mbt), [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`../../../src/binary/encode.mbt`](../../../src/binary/encode.mbt), [`../../../src/validate/typecheck.mbt`](../../../src/validate/typecheck.mbt)

@@ -8,6 +8,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Refreshed [`validate/memory-table-address-widths.md`](validate/memory-table-address-widths.md) so memory64/table64 is taught first as Core/finished address-width behavior with exact Starshine layer claims: core/binary/resource support, partial instruction validation, high-level WAST text gaps, and separate Memory Control / Custom Page Sizes / Threads boundaries.
 - Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so future memory64/table64 claims route through the focused validator/status matrix instead of the generic Core row or active memory-proposal buckets.
 
+## [2026-06-05] wiki-health | memory64 WAST source routing
+
+- During the follow-up whole-wiki health check, searched malformed Markdown links plus broad memory64/table64 mentions after the focused Core/status bridge landed.
+- Refreshed [`wast/memory-argument-authoring.md`](wast/memory-argument-authoring.md) and [`wast/resource-declaration-authoring.md`](wast/resource-declaration-authoring.md) so historical `memory64/core` proposal-context links are no longer the first route for current status claims; both pages now point current memory64/table64 claims to [`raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md`](raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md) and [`validate/memory-table-address-widths.md`](validate/memory-table-address-widths.md).
+
 ## [2026-06-05] wasm/wiki | Extended Name Section boundary routing
 
 - Added [`raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md`](raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md) after checking the current WebAssembly proposals tracker, Extended Name Section proposal overview, Core 3.0 custom/name appendix, feature-dashboard evidence tier, and current Starshine `NameSec`, binary codec, validator, generator, invalid-fuzzer, and metamorphic-fuzz evidence.
