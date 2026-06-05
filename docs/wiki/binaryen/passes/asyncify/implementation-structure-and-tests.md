@@ -11,6 +11,7 @@ sources:
   - ../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
+  - ../../../wasm-jspi-host-async-boundary.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md
   - ./state-machine-memory-and-eh-boundaries.md
@@ -40,7 +41,7 @@ Future readers should start with the top-level `Asyncify::run(...)` flow, then r
 ### `src/passes/pass.cpp`
 
 `pass.cpp` gives `asyncify` its public CLI/pass identity.
-The same registration table also places nearby JS/ABI passes such as `jspi` and `legalize-js-interface`, which is useful context: `asyncify` is part of the broad host-integration / async-boundary family, not the no-DWARF local-optimizer queue.
+The same registration table also places nearby JS/ABI passes such as `jspi` and `legalize-js-interface`, which is useful context: `asyncify` is part of the broad host-integration / async-boundary family, not the no-DWARF local-optimizer queue. Route JSPI-specific host wrapper and proposal-status claims through [`../../../wasm-jspi-host-async-boundary.md`](../../../wasm-jspi-host-async-boundary.md) instead of inferring them from Asyncify's source file.
 
 ### `src/passes/passes.h`
 

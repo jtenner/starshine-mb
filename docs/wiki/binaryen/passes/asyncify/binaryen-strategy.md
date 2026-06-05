@@ -11,6 +11,7 @@ sources:
   - ../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
+  - ../../../wasm-jspi-host-async-boundary.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./state-machine-memory-and-eh-boundaries.md
@@ -119,12 +120,12 @@ The tail-call boundary is not a missing small case: tail calls remove the ordina
 `asyncify` is not:
 
 - a general optimizer;
-- a replacement for JavaScript Promise integration by itself;
+- a replacement for JavaScript Promise integration by itself (route JSPI-specific host wrappers through [`../../../wasm-jspi-host-async-boundary.md`](../../../wasm-jspi-host-async-boundary.md));
 - a local-only HOT peephole pass;
 - a way to make every host call asynchronous automatically;
 - the same pass as `jspi` or JS-interface legalization.
 
-It creates the Wasm-side state machine.
+It creates the Wasm-side state machine. JSPI is a separate JavaScript embedding API boundary; current Starshine has a focused router for that proposal in [`../../../wasm-jspi-host-async-boundary.md`](../../../wasm-jspi-host-async-boundary.md).
 A runtime and configuration still decide which host operations actually suspend.
 
 ## Current-main check

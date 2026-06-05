@@ -16,6 +16,7 @@ sources:
   - ../../../../../src/validate/typecheck.mbt
 related:
   - ./binaryen-strategy.md
+  - ../../../wasm-jspi-host-async-boundary.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./state-machine-memory-and-eh-boundaries.md
@@ -39,6 +40,8 @@ The beginner version:
 - `asyncify` instruments calls and live locals so the module can save enough state to leave and later re-enter;
 - the transformed module exports helper functions such as `asyncify_start_unwind`, `asyncify_stop_unwind`, `asyncify_start_rewind`, `asyncify_stop_rewind`, and `asyncify_get_state`;
 - the host/runtime must still cooperate by calling those helpers correctly.
+
+Do not confuse this with JavaScript Promise Integration. Asyncify is a Binaryen Wasm-side state-machine transform; JSPI-specific `WebAssembly.Suspending` / `WebAssembly.promising(...)` host-adapter claims route through [`../../../wasm-jspi-host-async-boundary.md`](../../../wasm-jspi-host-async-boundary.md).
 
 The advanced version:
 
