@@ -1447,3 +1447,26 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the first focused run failed as intended for repeated `ref.is_null` roots (`81/82` passed) before the implementation change; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed after the fix (`82/82`); `moon test src/passes` passed (`1630/1630`); full `moon test` passed (`4815/4815`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; compare reached `6772` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up nontrapping numeric conversion slice on 2026-06-05
+
+A later focused LCSE hardening slice spot-checked nontrapping numeric conversions: `i32.reinterpret_f32`, `f32.reinterpret_i32`, `i64.reinterpret_f64`, `f64.reinterpret_i64`, `i32.wrap_i64`, `i64.extend_i32_s`, `i64.extend_i32_u`, `f64.promote_f32`, and `f32.demote_f64`. Binaryen materialized repeated roots for these representative operations with `local.tee` / `local.get`.
+
+The slice first added WAT-form direct regressions `local-cse reuses local-only expression across numeric reinterpret`, `local-cse reuses repeated numeric reinterpret roots`, `local-cse reuses repeated integer wrap roots`, and `local-cse reuses repeated float widen roots`. Those four failed as intended before the implementation change (`82/86` passed). Starshine then modeled those operations as pure one-operand stack-result candidate roots with the correct `i32`, `i64`, `f32`, or `f64` result type. After the implementation was green, the slice added matching focused coverage for `i64.extend_i32_s` and `f32.demote_f64` as `local-cse reuses repeated integer widen roots` and `local-cse reuses repeated float narrow roots`.
+
+This slice deliberately stays limited to nontrapping conversions spot-checked against Binaryen. Trap-sensitive `i32.trunc_f32_s/u`, `i32.trunc_f64_s/u`, `i64.trunc_*`, and broader conversion or heap/memory/table GVN remain out of scope; saturating truncs were not added in this slice.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-numeric-conversion-final-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the first focused run failed as intended for all four initial new fixtures (`82/86` passed) before the implementation change; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed after the final coverage additions (`88/88`); `moon test src/passes` passed (`1636/1636`); full `moon test` passed (`4821/4821`); native build succeeded with no work to do. An intermediate compare rerun to `.tmp/pass-fuzz-local-cse-numeric-conversion-10000` failed in the generator step with a harness/tool `moon run --target native --release src/fuzz -- --emit-gen-valid-batch ...` no-return-code error; a clean rerun to `.tmp/pass-fuzz-local-cse-numeric-conversion-final-10000` reached `6764` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).

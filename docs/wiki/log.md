@@ -8,6 +8,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Refreshed [`tooling/wiki-maintenance-playbook.md`](tooling/wiki-maintenance-playbook.md) and [`index.md`](index.md) so autonomous wiki runs check for accidental new serial reuse during raw/research placement and whole-wiki health checks.
 - Existing methodology and repository-policy sources were sufficient; no new raw source was added because this was schema/maintenance-rule reconciliation against current committed archive state, not an external behavior change.
 
+## [2026-06-05] passes/local-cse | nontrapping numeric conversion reuse
+
+- Spot-checked reinterpret, integer wrap/extend, and float promote/demote conversions; Binaryen materializes repeated roots for the representative nontrapping conversion surface.
+- Added failing WAT-form direct regressions, then modeled those conversion instructions as pure one-operand stack-result candidate roots with the correct result types.
+- Refreshed LCSE research/backlog wording so trap-sensitive trunc conversions, saturating truncs, and broad numeric or memory/heap/table GVN remain out of scope.
+
 ## [2026-06-05] passes/local-cse | ref.is_null pure-root reuse
 
 - Spot-checked repeated `ref.is_null`; Binaryen materializes the repeated pure null-test root with `local.tee` / `local.get`.
