@@ -23,6 +23,7 @@ related:
   - ./validation-gates.md
   - ../wast/static-assertion-harness.md
   - ../binary/custom-and-name-sections.md
+  - ../wast/identifier-name-and-annotation-authoring.md
   - ../validate/import-export-and-external-type-matching.md
   - ../validate/runtime-trap-semantics.md
   - ../ir2/registry-map.md
@@ -128,7 +129,7 @@ The dispatcher flushes pending optimizer passes before each utility step. That m
 | `--validate` | Validates the current module state and includes offending function text when available. |
 | `--extract-functions <index,index,...>` | Replaces the current module with a safe minimal module rooted at selected functions through RUME extraction. |
 
-Print selectors intentionally support both fast numeric debugging and name-based lookup:
+Print selectors intentionally support both fast numeric debugging and name-based lookup. For the authoring-layer split between WAST `$` ids, lowered structured `NameSec` entries, and source-only ids that do not survive as printable names, use [`../wast/identifier-name-and-annotation-authoring.md`](../wast/identifier-name-and-annotation-authoring.md).
 
 - `71` and `(71)` both select absolute index `71`.
 - Any other selector is a name.

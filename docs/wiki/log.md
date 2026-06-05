@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] cli/wiki | print selector name-source bridge
+
+- Refreshed [`wast/identifier-name-and-annotation-authoring.md`](wast/identifier-name-and-annotation-authoring.md) so WAST authors can distinguish source `$` identifiers, lowered structured `NameSec` entries, import/export payload names, and numeric `--print-*` selectors when debugging modules after lowering or binary decode.
+- Refreshed [`binary/custom-and-name-sections.md`](binary/custom-and-name-sections.md) and [`tooling/cli-command-and-dispatcher.md`](tooling/cli-command-and-dispatcher.md) with the command-dispatcher consumer side: most printable module items resolve names through structured name maps, imports/exports use their payload names, and `--print-func` uses absolute imported-prefix `FuncIdx` values.
+- Refreshed [`wast/index.md`](wast/index.md) and [`index.md`](index.md) so the WAST namespace and top-level catalog route readers through the shared print-selector bridge. Existing primary-source and repository evidence was sufficient: the already-archived [`raw/research/0711-2026-06-04-cli-print-utility-routing.md`](raw/research/0711-2026-06-04-cli-print-utility-routing.md), [`raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md`](raw/wasm/2026-06-04-custom-name-annotation-current-refresh.md), and current `src/cmd` / `src/wast` / `src/binary` sources covered the behavior, so no duplicate raw source was added.
+
 ## [2026-06-05] wiki/schema | research serial policy clarification
 
 - Clarified [`../../AGENTS.md`](../../AGENTS.md), [`../README.md`](../README.md), and [`raw/research/README.md`](raw/research/README.md) so new research notes use the next unused zero-padded serial after scanning `docs/`, `docs/wiki/`, and `docs/wiki/raw/research/`; historical duplicate serial prefixes remain stable provenance but must not be reused.
