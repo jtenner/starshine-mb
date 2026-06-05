@@ -8,6 +8,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Refreshed [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md) so `tag`, `throw`, nullable-operand `throw_ref`, `try_table`, and modern catch clauses route as finished/Core-3.0 Exception Handling while keeping Starshine's stricter resultful-tag declaration validation, legacy `try` text compatibility, pass rewrite obligations, and `throw_ref` null-trap behavior explicit.
 - Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so EH claims no longer sit only in the generic ordinary-Core row and readers route Stack Switching, JSPI, and Relaxed Dead Code Validation to their separate focused boundaries.
 
+## [2026-06-05] local-cse/wiki | heap-read root deferral
+
+- Added core-built LCSE boundary coverage for repeated `struct.get` and `array.get` roots, documenting Starshine's conservative no-CSE behavior even though Binaryen materializes representative repeats.
+- Refreshed the LCSE strategy, implementation/test guide, backlog, and final-pass audit note so heap-read CSE remains an explicit deferred heap-state/GVN opportunity.
+
 ## [2026-06-05] local-cse/wiki | i31 boundary
 
 - Added focused LCSE i31 coverage, implementing repeated `i31.get_s` / `i31.get_u` root reuse while documenting `ref.i31` root CSE as deferred because exact non-null temp locals do not validate.
