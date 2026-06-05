@@ -359,6 +359,70 @@ test "local-cse reuses repeated integer binary bit op roots" {
 }
 
 ///|
+test "local-cse reuses local-only expression across float arithmetic" {
+  let input =
+    #| (module
+    #|   (func (param i32 i32 f32 f32)
+    #|     (drop (i32.add (local.get 0) (local.get 1)))
+    #|     (drop (f32.add (local.get 2) (local.get 3)))
+    #|     (drop (i32.add (local.get 0) (local.get 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  let temp = @lib.LocalIdx::new(4U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
+test "local-cse reuses repeated float arithmetic roots" {
+  let input =
+    #| (module
+    #|   (func (param f32 f32)
+    #|     (drop (f32.add (local.get 0) (local.get 1)))
+    #|     (drop (f32.add (local.get 0) (local.get 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  let temp = @lib.LocalIdx::new(2U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::f32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
+test "local-cse reuses repeated float comparison roots" {
+  let input =
+    #| (module
+    #|   (func (param f32 f32)
+    #|     (drop (f32.lt (local.get 0) (local.get 1)))
+    #|     (drop (f32.lt (local.get 0) (local.get 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  let temp = @lib.LocalIdx::new(2U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
 test "local-cse prefers repeated parent trees over child trees" {
   let input =
     #| (module

@@ -111,6 +111,46 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::I64ShrU => 55
     @lib.Instruction::I64Rotl => 56
     @lib.Instruction::I64Rotr => 57
+    @lib.Instruction::F32Eq => 58
+    @lib.Instruction::F32Ne => 59
+    @lib.Instruction::F32Lt => 60
+    @lib.Instruction::F32Gt => 61
+    @lib.Instruction::F32Le => 62
+    @lib.Instruction::F32Ge => 63
+    @lib.Instruction::F64Eq => 64
+    @lib.Instruction::F64Ne => 65
+    @lib.Instruction::F64Lt => 66
+    @lib.Instruction::F64Gt => 67
+    @lib.Instruction::F64Le => 68
+    @lib.Instruction::F64Ge => 69
+    @lib.Instruction::F32Abs => 70
+    @lib.Instruction::F32Neg => 71
+    @lib.Instruction::F32Ceil => 72
+    @lib.Instruction::F32Floor => 73
+    @lib.Instruction::F32Trunc => 74
+    @lib.Instruction::F32Nearest => 75
+    @lib.Instruction::F32Sqrt => 76
+    @lib.Instruction::F64Abs => 77
+    @lib.Instruction::F64Neg => 78
+    @lib.Instruction::F64Ceil => 79
+    @lib.Instruction::F64Floor => 80
+    @lib.Instruction::F64Trunc => 81
+    @lib.Instruction::F64Nearest => 82
+    @lib.Instruction::F64Sqrt => 83
+    @lib.Instruction::F32Add => 84
+    @lib.Instruction::F32Sub => 85
+    @lib.Instruction::F32Mul => 86
+    @lib.Instruction::F32Div => 87
+    @lib.Instruction::F32Min => 88
+    @lib.Instruction::F32Max => 89
+    @lib.Instruction::F32Copysign => 90
+    @lib.Instruction::F64Add => 91
+    @lib.Instruction::F64Sub => 92
+    @lib.Instruction::F64Mul => 93
+    @lib.Instruction::F64Div => 94
+    @lib.Instruction::F64Min => 95
+    @lib.Instruction::F64Max => 96
+    @lib.Instruction::F64Copysign => 97
     @lib.Instruction::I32Load(_) => 13
     @lib.Instruction::I64Load(_) => 14
     @lib.Instruction::F32Load(_) => 15
@@ -166,7 +206,7 @@ fn lcse_instrs_may_have_repeated_candidate(
 ) -> Bool {
   lcse_instrs_may_have_repeated_candidate_with_seen(
     instrs,
-    @bitset.BitSet::new(64),
+    @bitset.BitSet::new(128),
   )
 }
 
@@ -308,6 +348,20 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::I64ShrU
     | @lib.Instruction::I64Rotl
     | @lib.Instruction::I64Rotr
+    | @lib.Instruction::F32Add
+    | @lib.Instruction::F32Sub
+    | @lib.Instruction::F32Mul
+    | @lib.Instruction::F32Div
+    | @lib.Instruction::F32Min
+    | @lib.Instruction::F32Max
+    | @lib.Instruction::F32Copysign
+    | @lib.Instruction::F64Add
+    | @lib.Instruction::F64Sub
+    | @lib.Instruction::F64Mul
+    | @lib.Instruction::F64Div
+    | @lib.Instruction::F64Min
+    | @lib.Instruction::F64Max
+    | @lib.Instruction::F64Copysign
     | @lib.Instruction::I32Eq
     | @lib.Instruction::I32Ne
     | @lib.Instruction::I32LtS
@@ -328,6 +382,18 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::I64LeU
     | @lib.Instruction::I64GeS
     | @lib.Instruction::I64GeU
+    | @lib.Instruction::F32Eq
+    | @lib.Instruction::F32Ne
+    | @lib.Instruction::F32Lt
+    | @lib.Instruction::F32Gt
+    | @lib.Instruction::F32Le
+    | @lib.Instruction::F32Ge
+    | @lib.Instruction::F64Eq
+    | @lib.Instruction::F64Ne
+    | @lib.Instruction::F64Lt
+    | @lib.Instruction::F64Gt
+    | @lib.Instruction::F64Le
+    | @lib.Instruction::F64Ge
     | @lib.Instruction::RefEq => Some(2)
     @lib.Instruction::I32Eqz
     | @lib.Instruction::I32Clz
@@ -336,7 +402,21 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::I64Eqz
     | @lib.Instruction::I64Clz
     | @lib.Instruction::I64Ctz
-    | @lib.Instruction::I64Popcnt => Some(1)
+    | @lib.Instruction::I64Popcnt
+    | @lib.Instruction::F32Abs
+    | @lib.Instruction::F32Neg
+    | @lib.Instruction::F32Ceil
+    | @lib.Instruction::F32Floor
+    | @lib.Instruction::F32Trunc
+    | @lib.Instruction::F32Nearest
+    | @lib.Instruction::F32Sqrt
+    | @lib.Instruction::F64Abs
+    | @lib.Instruction::F64Neg
+    | @lib.Instruction::F64Ceil
+    | @lib.Instruction::F64Floor
+    | @lib.Instruction::F64Trunc
+    | @lib.Instruction::F64Nearest
+    | @lib.Instruction::F64Sqrt => Some(1)
     @lib.Instruction::StructSet(_, _) | @lib.Instruction::TableSet(_) => Some(2)
     @lib.Instruction::TableGet(_) => Some(1)
     @lib.Instruction::TableGrow(_) => Some(2)
@@ -394,10 +474,38 @@ fn lcse_raw_result_type(
     | @lib.Instruction::I64Load16U(_)
     | @lib.Instruction::I64Load32S(_)
     | @lib.Instruction::I64Load32U(_) => Some(@lib.ValType::i64())
-    @lib.Instruction::F32Const(_) | @lib.Instruction::F32Load(_) =>
-      Some(@lib.ValType::f32())
-    @lib.Instruction::F64Const(_) | @lib.Instruction::F64Load(_) =>
-      Some(@lib.ValType::f64())
+    @lib.Instruction::F32Const(_)
+    | @lib.Instruction::F32Load(_)
+    | @lib.Instruction::F32Abs
+    | @lib.Instruction::F32Neg
+    | @lib.Instruction::F32Ceil
+    | @lib.Instruction::F32Floor
+    | @lib.Instruction::F32Trunc
+    | @lib.Instruction::F32Nearest
+    | @lib.Instruction::F32Sqrt
+    | @lib.Instruction::F32Add
+    | @lib.Instruction::F32Sub
+    | @lib.Instruction::F32Mul
+    | @lib.Instruction::F32Div
+    | @lib.Instruction::F32Min
+    | @lib.Instruction::F32Max
+    | @lib.Instruction::F32Copysign => Some(@lib.ValType::f32())
+    @lib.Instruction::F64Const(_)
+    | @lib.Instruction::F64Load(_)
+    | @lib.Instruction::F64Abs
+    | @lib.Instruction::F64Neg
+    | @lib.Instruction::F64Ceil
+    | @lib.Instruction::F64Floor
+    | @lib.Instruction::F64Trunc
+    | @lib.Instruction::F64Nearest
+    | @lib.Instruction::F64Sqrt
+    | @lib.Instruction::F64Add
+    | @lib.Instruction::F64Sub
+    | @lib.Instruction::F64Mul
+    | @lib.Instruction::F64Div
+    | @lib.Instruction::F64Min
+    | @lib.Instruction::F64Max
+    | @lib.Instruction::F64Copysign => Some(@lib.ValType::f64())
     @lib.Instruction::RefNull(ty) => Some(@lib.ValType::ref_type(ty))
     @lib.Instruction::RefFunc(_) | @lib.Instruction::TableGet(_) =>
       Some(@lib.ValType::funcref())
@@ -461,6 +569,18 @@ fn lcse_raw_result_type(
     | @lib.Instruction::I64LeU
     | @lib.Instruction::I64GeS
     | @lib.Instruction::I64GeU
+    | @lib.Instruction::F32Eq
+    | @lib.Instruction::F32Ne
+    | @lib.Instruction::F32Lt
+    | @lib.Instruction::F32Gt
+    | @lib.Instruction::F32Le
+    | @lib.Instruction::F32Ge
+    | @lib.Instruction::F64Eq
+    | @lib.Instruction::F64Ne
+    | @lib.Instruction::F64Lt
+    | @lib.Instruction::F64Gt
+    | @lib.Instruction::F64Le
+    | @lib.Instruction::F64Ge
     | @lib.Instruction::RefEq => Some(@lib.ValType::i32())
     _ => None
   }

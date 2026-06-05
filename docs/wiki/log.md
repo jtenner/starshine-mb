@@ -4,6 +4,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 
 
+## [2026-06-05] passes/local-cse | float pure-operator reuse
+
+- Spot-checked `f32.add` and `f32.lt`; Binaryen materializes local-only arithmetic reuse across float arithmetic plus repeated float arithmetic/comparison roots.
+- Added failing WAT-form direct regressions, then modeled core `f32` / `f64` arithmetic and comparison operators as pure stack-result candidate roots. Trap-sensitive conversions, memory/heap/table GVN, and CFG-wide GVN remain out of scope.
+- Refreshed the LCSE research/backlog wording so float pure-operator coverage is listed separately from broader numeric conversion reasoning.
+
 ## [2026-06-05] passes/local-cse | integer bit-op reuse
 
 - Spot-checked `i32.clz` and `i32.and`; Binaryen materializes local-only arithmetic reuse across the unary bit op and repeated binary bit-op roots.
