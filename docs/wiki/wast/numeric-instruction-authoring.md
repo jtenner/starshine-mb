@@ -6,6 +6,7 @@ sources:
   - ../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md
   - ../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md
   - ../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md
+  - ../raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md
   - ../../../src/wast/keywords.mbt
   - ../../../src/wast/parser.mbt
   - ../../../src/wast/lower_to_lib.mbt
@@ -22,6 +23,7 @@ related:
   - memory-instruction-authoring.md
   - memory-argument-authoring.md
   - simd-authoring.md
+  - ../wasm-wide-arithmetic-boundary.md
   - ../binary/instruction-and-expression-encoding.md
   - ../validate/module-validation-phases.md
   - ../fuzzing/generator-coverage-ledger.md
@@ -40,7 +42,7 @@ Use this page when writing or reviewing scalar numeric WAST fixtures for `i32`, 
 - float unary, binary, and comparison operations;
 - conversions, reinterprets, sign-extension operations, and saturating truncations.
 
-This page is scalar-only. Memory loads/stores use [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for stack/effect behavior and [`memory-argument-authoring.md`](memory-argument-authoring.md) for `align=` / `offset=`, local/global operands use [`variable-instruction-authoring.md`](variable-instruction-authoring.md), vector instructions use [`simd-authoring.md`](simd-authoring.md), and byte-level instruction encoding is summarized in [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md). The checked primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md`](../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md). The targeted 2026-05-20 refresh in [`../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md`](../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md) sharpens the official-literal versus Starshine lexer/parser/lowerer split and the optimizer rewrite hazards around traps, saturation, reinterprets, signedness, NaNs, and signed zero. The 2026-06-04 current-source refresh in [`../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md`](../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md) rechecked the current WebAssembly Core 3.0 pages dated 2026-06-03 and found no new scalar numeric family or local-code drift that needs a separate page.
+This page is scalar-only for the current Core/Starshine numeric surface. Memory loads/stores use [`memory-instruction-authoring.md`](memory-instruction-authoring.md) for stack/effect behavior and [`memory-argument-authoring.md`](memory-argument-authoring.md) for `align=` / `offset=`, local/global operands use [`variable-instruction-authoring.md`](variable-instruction-authoring.md), vector instructions use [`simd-authoring.md`](simd-authoring.md), and byte-level instruction encoding is summarized in [`../binary/instruction-and-expression-encoding.md`](../binary/instruction-and-expression-encoding.md). Active-proposal Wide Arithmetic (`i64.add128`, `i64.sub128`, `i64.mul_wide_s`, `i64.mul_wide_u`) is scalar-looking but outside current Starshine support; route it through [`../wasm-wide-arithmetic-boundary.md`](../wasm-wide-arithmetic-boundary.md), not through the ordinary `i64.*` or `i64x2.*` rules here. The checked primary-source and local-code manifest is [`../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md`](../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md). The targeted 2026-05-20 refresh in [`../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md`](../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md) sharpens the official-literal versus Starshine lexer/parser/lowerer split and the optimizer rewrite hazards around traps, saturation, reinterprets, signedness, NaNs, and signed zero. The 2026-06-04 current-source refresh in [`../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md`](../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md) rechecked the current WebAssembly Core 3.0 pages dated 2026-06-03 and found no new scalar numeric family or local-code drift that needs a separate page.
 
 ## Beginner Mental Model
 
@@ -145,6 +147,7 @@ Two source-current caveats are worth keeping visible:
 
 - **Official text literals are broader than every Starshine local path.** Current WebAssembly text permits decimal/hex integer forms with separators and several float special forms. Starshine recognizes many of these at the lexer/lowerer boundary, but scalar body constants, index parsing, SIMD lane parsing, and WAST assertion result rendering still use different helper paths. Keep large unsigned wraparound, separator-heavy scalar integers, hex floats, and NaN payload roundtrips focused and test-backed.
 - **Official and Starshine constant-expression lists differ.** The current official constant-expression predicate admits scalar numeric constants plus only integer `i32`/`i64` `add`/`sub`/`mul` among scalar numeric no-argument operators. Starshine's [`validate_const_instr(...)`](../../../src/validate/validate.mbt) deliberately admits many more scalar numeric operators locally, then relies on ordinary typechecking for arity and result type. Use [`../validate/constant-expressions.md`](../validate/constant-expressions.md) when a pass or fixture depends on initializer portability.
+- **Wide Arithmetic is not part of this current scalar surface.** The active Phase-3 proposal adds multi-result scalar integer instructions and has a current proposal-source subopcode contradiction. Current Starshine has no WAST keywords, core variants, binary cases, typecheck cases, or generator rows for those instructions; see [`../wasm-wide-arithmetic-boundary.md`](../wasm-wide-arithmetic-boundary.md) before triaging any `i64.add128` / `i64.mul_wide_*` input.
 
 ## Binary And Validation Contract
 
@@ -207,12 +210,14 @@ Useful local signoff lanes for numeric authoring changes are `moon test src/wast
 - Assuming unsigned and signed suffixes are cosmetic.
 - Assuming exact NaN payload text survives every local parser/lowerer/printer path without focused tests; body instructions and assertion-result expectations do not currently use identical token handling.
 - Using WAST arbitrary coverage as proof that every `[FZG]002` scalar numeric opcode has typed valid-generator coverage; those are related but separate surfaces.
+- Treating active-proposal Wide Arithmetic as a missing ordinary `i64.*` keyword or as `i64x2` SIMD. It needs a future proposal-gated feature slice, not an ordinary numeric-page fixture.
 
 ## Sources
 
 - Primary-source manifest: [`../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md`](../raw/wasm/2026-05-19-wast-numeric-instruction-sources.md)
 - Targeted literal/rewrite refresh: [`../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md`](../raw/wasm/2026-05-20-scalar-numeric-literal-and-rewrite-refresh.md)
 - Current-source refresh: [`../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md`](../raw/wasm/2026-06-04-scalar-numeric-current-refresh.md)
+- Wide Arithmetic proposal boundary: [`../raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md`](../raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md), [`../wasm-wide-arithmetic-boundary.md`](../wasm-wide-arithmetic-boundary.md)
 - Official WebAssembly instruction sources: <https://webassembly.github.io/spec/core/text/instructions.html>, <https://webassembly.github.io/spec/core/syntax/instructions.html>, <https://webassembly.github.io/spec/core/binary/instructions.html>, <https://webassembly.github.io/spec/core/valid/instructions.html>
 - Official numeric execution and text values sources: <https://webassembly.github.io/spec/core/exec/numerics.html>, <https://webassembly.github.io/spec/core/text/values.html>
 - Local parser/lowerer/printer sources listed in the frontmatter above.

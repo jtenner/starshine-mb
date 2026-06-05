@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasm/wiki | wide arithmetic boundary routing
+
+- Added [`raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md`](raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md) after checking the current WebAssembly proposals tracker, Wide Arithmetic proposal repository/overview, draft binary and validation pages, Binaryen `version_130` release-horizon evidence, and current Starshine WAST/core/binary/validator/generator sources.
+- Added [`wasm-wide-arithmetic-boundary.md`](wasm-wide-arithmetic-boundary.md) as the focused active Phase-3 proposal guide for `i64.add128`, `i64.sub128`, `i64.mul_wide_s`, and `i64.mul_wide_u`, including proposal stack shapes, current Starshine no-support mapping, Binaryen-oracle separation, and the current proposal-source `0xFC` subopcode contradiction to recheck before any implementation.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wast/numeric-instruction-authoring.md`](wast/numeric-instruction-authoring.md), [`binary/instruction-and-expression-encoding.md`](binary/instruction-and-expression-encoding.md), and [`index.md`](index.md) so Wide Arithmetic is routed as active proposal work rather than current scalar numeric, SIMD, binary `0xFC`, validator, generator, or pass evidence.
+
 ## [2026-06-05] wasm/wiki | GC Core boundary routing
 
 - Added [`raw/wasm/2026-06-05-gc-core-boundary-refresh.md`](raw/wasm/2026-06-05-gc-core-boundary-refresh.md) after checking the current WebAssembly finished-proposals table, Core 3.0 type/instruction/text/binary/validation pages, the historical GC proposal repository, the active Custom Descriptors proposal source, and current Starshine `src/lib`, `src/wast`, `src/binary`, `src/validate`, and generator evidence.
