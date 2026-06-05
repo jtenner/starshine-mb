@@ -895,6 +895,58 @@ test "code-folding shares non-root structured block return suffixes" {
 }
 
 ///|
+test "code-folding shares non-root structured if return suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (if (local.get 0)
+      #|          (then
+      #|            (i32.const 7)
+      #|            (drop))
+      #|          (else
+      #|            (i32.const 8)
+      #|            (drop)))
+      #|        (return)))
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (if (local.get 0)
+      #|          (then
+      #|            (i32.const 7)
+      #|            (drop))
+      #|          (else
+      #|            (i32.const 8)
+      #|            (drop)))
+      #|        (return)))
+      #|    (i32.const 99)
+      #|    (drop)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("i32.const I32(99)"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(8)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding shares non-root return tail subsets with root fallthrough" {
   let optimized = code_folding_test_run(
     (
