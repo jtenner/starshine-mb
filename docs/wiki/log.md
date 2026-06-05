@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasm/wiki | feature-dashboard evidence boundary
+
+- Added [`raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md`](raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md) after checking the current official WebAssembly feature-status dashboard, proposals tracker, finished-proposals table, and Core specification introduction.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md) so browser/runtime feature dashboards are treated as implementation-availability hints, not Core/proposal authority, Starshine support proof, or `wasm-tools` / WABT / Binaryen adapter evidence; the page now also supersedes older shorthand that treated `webassembly.org/features/` as a finished-proposals table.
+- Refreshed [`tooling/external-validator-adapters.md`](tooling/external-validator-adapters.md) and [`index.md`](index.md) so external-validator disagreements keep exact installed tool commands separate from browser/engine support rows.
+
 ## [2026-06-05] wiki-health | strip-target metadata backlink repair
 
 - During the follow-up health check, searched empty Markdown links, malformed nested wiki/raw paths, stale archived `docs/00xx` references, and cross-page `producers` / `target_features` wording.

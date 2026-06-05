@@ -1,10 +1,11 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-05
 sources:
   - ../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md
   - ../raw/validation/2026-06-04-external-validator-surface-split.md
+  - ../raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md
   - ../../../src/cmd/fuzz_harness.mbt
   - ../../../src/cmd/fuzz_harness_wbtest.mbt
 related:
@@ -15,6 +16,7 @@ related:
   - ../validate/diagnostics-and-invalid-repro.md
   - ../binary/leb128-and-integer-encoding.md
   - ../binary/module-section-map.md
+  - ../wasm-feature-status-and-proposal-boundaries.md
 ---
 
 # External Validator Adapters
@@ -31,7 +33,7 @@ Starshine has three related but separate external-validator surfaces:
 
 Do not merge those concepts. Classified command-harness adapters answer “how do validators classify these bytes by stage?” The legacy helper answers “did the selected boolean adapters agree with Starshine for this generated case?” Compare-pass answers “did a Starshine pass match the Binaryen pass oracle after the input and output were independently valid?”
 
-The current source bridges are [`../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md`](../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md) and [`../raw/validation/2026-06-04-external-validator-surface-split.md`](../raw/validation/2026-06-04-external-validator-surface-split.md). They rechecked the official `wasm-tools`, WABT, and Binaryen surfaces plus the local MoonBit adapter and test code.
+The current source bridges are [`../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md`](../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md) and [`../raw/validation/2026-06-04-external-validator-surface-split.md`](../raw/validation/2026-06-04-external-validator-surface-split.md). They rechecked the official `wasm-tools`, WABT, and Binaryen surfaces plus the local MoonBit adapter and test code. Feature-status dashboards are a separate evidence kind: [`../raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md`](../raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md) records why browser/runtime support tables can guide engine repro choices but cannot replace exact external-validator command evidence.
 
 ## Beginner Model
 
@@ -142,6 +144,7 @@ That means a command-harness `agree-valid` result is useful external evidence, b
 
 - **Adapter unavailability is explicit.** Do not silently drop selected adapters from aggregate counts.
 - **Do not classify proposal gaps as Starshine bugs without source review.** External tools can lag or lead Starshine on GC, strings, exception handling, memory64, threads, SIMD, relaxed SIMD, custom descriptors, or other proposal surfaces; use [`../wasm-feature-status-and-proposal-boundaries.md`](../wasm-feature-status-and-proposal-boundaries.md) for the shared Core-vs-proposal-vs-local vocabulary before assigning blame.
+- **Browser/runtime support is not adapter evidence.** A `webassembly.org/features` support row can motivate a Node, browser, or engine smoke test, but it does not prove the installed `wasm-tools`, WABT, or Binaryen command accepted the same bytes with this repo's flags. Keep feature-dashboard citations on the feature-status page and adapter command citations here.
 - **Decode-vs-validation stage matters.** A malformed LEB or section-size underflow is a binary codec issue; a decoded `call_indirect` type mismatch is validator semantics.
 - **Binaryen validation is optimizer-backed.** The current adapter uses `wasm-opt --all-features --validate` and writes a temporary output, so it can expose Binaryen parser/validator behavior but does not preserve original bytes.
 - **WABT command-harness evidence is not all-features evidence.** The local adapter invokes `wasm-validate` without additional feature flags today.
@@ -159,6 +162,7 @@ That means a command-harness `agree-valid` result is useful external evidence, b
 ## Sources
 
 - Current source bridges: [`../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md`](../raw/validation/2026-06-04-external-validator-adapters-source-refresh.md), [`../raw/validation/2026-06-04-external-validator-surface-split.md`](../raw/validation/2026-06-04-external-validator-surface-split.md)
+- Feature-dashboard evidence boundary: [`../raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md`](../raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md), [`../wasm-feature-status-and-proposal-boundaries.md`](../wasm-feature-status-and-proposal-boundaries.md)
 - Adapter implementation: [`../../../src/cmd/fuzz_harness.mbt`](../../../src/cmd/fuzz_harness.mbt)
 - Adapter and classifier tests: [`../../../src/cmd/fuzz_harness_wbtest.mbt`](../../../src/cmd/fuzz_harness_wbtest.mbt)
 - Related workflows: [`fuzz-runner.md`](fuzz-runner.md), [`pass-fuzz-compare.md`](pass-fuzz-compare.md), [`validation-gates.md`](validation-gates.md), [`../validate/fuzz-hardening.md`](../validate/fuzz-hardening.md), [`../validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md)

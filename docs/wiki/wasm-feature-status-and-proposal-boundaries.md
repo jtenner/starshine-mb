@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-05
 sources:
+  - raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md
   - raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md
   - raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md
   - raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md
@@ -40,6 +41,8 @@ For a beginner: WebAssembly evolves by proposals. Some proposals become part of 
 
 The current primary-source bridge for active-proposal routing is [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md). It supplements the earlier relaxed-atomics-focused recheck [`raw/wasm/2026-06-04-webassembly-proposal-status-current-recheck.md`](raw/wasm/2026-06-04-webassembly-proposal-status-current-recheck.md) and broad bridge [`raw/wasm/2026-06-04-webassembly-proposal-status-refresh.md`](raw/wasm/2026-06-04-webassembly-proposal-status-refresh.md). Together they rechecked the official WebAssembly Core 3.0 spec site, the official WebAssembly proposals repository, the finished-proposals table, the CG process phases document, focused Relaxed Atomics and Custom Descriptors proposal repositories, and Starshine's local `GenValidProposalFeature` gate vocabulary. The active-proposal routing update is broader than one feature now: Phase 4 rows are still active until they are finished/Core, Custom Descriptors remains Phase 3 and struct-oriented, `Relaxed Atomics` and `Numeric Values in WAT Data Segments` are active Phase-2 proposals, and Phase-1 Reference-Typed Strings must stay separate from Starshine's narrow local string subset.
 
+A separate 2026-06-05 bridge, [`raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md`](raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md), keeps implementation-support dashboards in their own evidence tier. Browser/runtime support tables can help choose an engine for runtime smoke tests, but they are not standards authority, Starshine source evidence, or proof of what `wasm-tools`, WABT, or Binaryen accepted under a specific command line. Treat this bridge as the living supersession for older raw manifests that used the `webassembly.org/features/` page as a finished-proposals shorthand: use the GitHub finished-proposals table or Core pages for finished/Core claims, and use the feature dashboard only for engine-support hints.
+
 ## Evidence Tiers
 
 | Claim type | Primary source to cite first | What it proves | What it does **not** prove |
@@ -49,6 +52,7 @@ The current primary-source bridge for active-proposal routing is [`raw/wasm/2026
 | Active proposal | Proposal repository / proposal draft / proposal tracker | The draft design, phase, and feature-specific rules. | That the feature is stable Core, or that Starshine implements the whole draft. |
 | Binaryen oracle behavior | Binaryen release tag, source file, lit test, or release note | What Binaryen does for a pass, parser, or validator surface. | That Starshine should expose identical user-facing CLI/WAST behavior without a local policy decision. |
 | Starshine support | Local source, tests, raw notes, and focused wiki pages | The exact implemented layer: core AST, binary, WAST, validator, generator, pass, or command harness. | That the behavior is standardized unless paired with upstream evidence. |
+| Implementation support dashboard | Browser/runtime feature-status page, engine release note, or runtime compatibility table | Which engines may support a feature and are worth trying for runtime repros. | That the feature is Core, that Starshine implements it, or that `wasm-tools` / WABT / Binaryen accepted it under this repo's adapter commands. |
 
 ## Current High-Value Status Map
 
@@ -66,6 +70,7 @@ This table is intentionally small. It is a routing map, not a replacement for fo
 | Shared-GC aggregate atomics | Route through shared-everything / GC aggregate evidence, not through `MemArg`-based linear-memory atomics. Starshine currently documents only `struct.atomic.get*`, not the full aggregate atomic family. | See [`wast/gc-aggregate-instruction-authoring.md`](wast/gc-aggregate-instruction-authoring.md), [`wast/atomic-memory-instruction-authoring.md`](wast/atomic-memory-instruction-authoring.md), and [`raw/wasm/2026-06-04-struct-atomic-get-sources.md`](raw/wasm/2026-06-04-struct-atomic-get-sources.md). |
 | Custom descriptors and exact refs | Keep active proposal status visible and distinguish proposal struct metadata from Starshine-local broader type metadata. The 2026-06-05 instruction-surface bridge keeps this at Phase 3 and still struct-oriented, with current Starshine support for descriptor-aware allocation, `ref.get_desc`, and non-branch descriptor predicate/cast forms only. | See [`custom-descriptors/descriptor-instruction-surface.md`](custom-descriptors/descriptor-instruction-surface.md), [`custom-descriptors/static-fixtures.md`](custom-descriptors/static-fixtures.md), [`custom-descriptors/ref-get-desc-fixture-path.md`](custom-descriptors/ref-get-desc-fixture-path.md), [`custom-descriptors/exact-reference-equivalence.md`](custom-descriptors/exact-reference-equivalence.md), [`raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md`](raw/wasm/2026-06-05-custom-descriptor-instruction-surface-refresh.md), and [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md). |
 | Other active proposal tracker rows | Treat Phase 4 / 3 / 2 / 1 rows as current standards-process routing, not Starshine implementation evidence. The 2026-06-04 snapshot calls out examples that are easy to overroute locally: JSPI, Threads, Stack Switching, Wide Arithmetic, Custom Page Sizes, Compilation Hints, Component Model, Reference-Typed Strings, Shared-Everything Threads, More Array Constructors, and JS Text Encoding Builtins. The 2026-06-05 numeric data-segment bridge adds `Numeric Values in WAT Data Segments` as a focused Phase-2 WAST text-syntax example. Branch Hinting and Custom Annotation Syntax are no longer routed through this active-row bucket because the current finished-proposals table lists them under Core 3.0. | Use [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md) as the routing bridge, then require focused code/tests/wiki evidence before claiming local WAST, binary, validator, generator, or pass support. |
+| Implementation support dashboards | Treat browser/runtime feature tables as implementation-availability hints only. They are useful for choosing candidate engines for runtime smoke tests, but they are not the standards-status source and not local Starshine or external-validator adapter evidence. | Use [`raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md`](raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md) when a feature-status claim risks conflating browser support with Core/proposal status, Starshine support, or `wasm-tools` / WABT / Binaryen command results. |
 | External validator disagreements | Do not classify feature-default or proposal-support disagreements as Starshine bugs without source review. | Use [`tooling/external-validator-adapters.md`](tooling/external-validator-adapters.md) and record `proposal-gap`, `unsupported-feature`, or tool failure separately from Starshine decode/validation disagreements. |
 | GenValid feature gates | Treat `GenValidProposalFeature` as local fuzzing vocabulary. It groups toggles needed to generate Starshine-valid surfaces; it is not a standards-status authority. | See [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) and [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt). |
 
@@ -82,6 +87,7 @@ Prefer precise layer claims:
 - “Numeric data-segment groups are active Phase-2 WAT proposal syntax; Starshine's current `(data ...)` parser still consumes string payload tokens only.”
 - “Custom Descriptors is active Phase 3 and struct-oriented; Starshine's broader array metadata parsing/lowering is local compatibility evidence, not proposal-standard evidence.”
 - “A proposal tracker row is not a local support claim. Name the Starshine layer—WAST, binary, validator, generator, pass, CLI—or say there is no documented local support yet.”
+- “A browser/runtime support dashboard is implementation availability evidence, not a Core/proposal status source and not proof that Starshine or an external validator adapter accepts the feature.”
 - “This is Binaryen pass-oracle behavior; local CLI or preset behavior still needs Starshine registry/dispatcher evidence.”
 - “This fuzzer profile enables a proposal-shaped surface; it does not prove external tools accept the same module under their default feature flags.”
 
@@ -100,6 +106,7 @@ When changing a feature-status claim:
 
 ## Sources
 
+- Feature-dashboard routing: [`raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md`](raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md)
 - Numeric WAT data-segment proposal routing: [`raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md`](raw/wasm/2026-06-05-wat-numeric-data-segments-routing.md)
 - Code-metadata and branch-hint status refresh: [`raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md`](raw/wasm/2026-06-05-code-metadata-branch-hint-current-refresh.md)
 - Active proposal routing refresh: [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md)
