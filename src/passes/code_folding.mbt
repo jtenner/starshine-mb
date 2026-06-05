@@ -898,6 +898,9 @@ fn code_folding_try_flatten_exiting_block_at_region(
   if pass_label_is_used(label_id, label_used) {
     return false
   }
+  if @ir.hot_node_result_arity(func, block_id) > 1 {
+    return false
+  }
   let body_ref = @ir.hot_region_body_ref(func, block_id)
   let body_count = @ir.hot_region_root_count(func, body_ref)
   let mut unreachable_idx = -1
@@ -957,11 +960,30 @@ fn code_folding_try_flatten_exiting_block_at_region(
 }
 
 ///|
+fn code_folding_region_has_trailing_value_root(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+) -> Bool {
+  let count = @ir.hot_region_root_count(func, region_ref)
+  for next_idx = idx + 1; next_idx < count; next_idx = next_idx + 1 {
+    let next_id = @ir.hot_region_get(func, region_ref, next_idx)
+    if next_id >= 0 &&
+      @ir.hot_node_is_live(func, next_id) &&
+      @ir.hot_node_result_arity(func, next_id) > 0 {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn code_folding_try_remove_unreachable_after_exit_at_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   idx : Int,
+  preserve_bottom_tail : Bool,
 ) -> Bool {
   if idx <= 0 {
     return false
@@ -974,8 +996,11 @@ fn code_folding_try_remove_unreachable_after_exit_at_region(
     @ir.HotOp::Unreachable => ()
     _ => return false
   }
-  if @ir.hot_region_result_arity(func, region_ref) > 0 &&
-    idx == @ir.hot_region_root_count(func, region_ref) - 1 {
+  if preserve_bottom_tail &&
+    (
+      idx == @ir.hot_region_root_count(func, region_ref) - 1 ||
+      code_folding_region_has_trailing_value_root(func, region_ref, idx)
+    ) {
     return false
   }
   let prev_id = @ir.hot_region_get(func, region_ref, idx - 1)
@@ -3151,6 +3176,8 @@ fn code_folding_visit_embedded_controls(
     return false
   }
   let mut changed = false
+  let control_preserve_bottom_tail = @ir.hot_node_result_arity(func, node_id) >
+    0
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Block =>
       if code_folding_visit_region(
@@ -3158,6 +3185,7 @@ fn code_folding_visit_embedded_controls(
           func,
           @ir.hot_region_body_ref(func, node_id),
           label_used,
+          false,
         ) {
         changed = true
       }
@@ -3167,6 +3195,7 @@ fn code_folding_visit_embedded_controls(
           func,
           @ir.hot_region_body_ref(func, node_id),
           label_used,
+          control_preserve_bottom_tail,
         ) {
         changed = true
       }
@@ -3176,12 +3205,15 @@ fn code_folding_visit_embedded_controls(
           func,
           @ir.hot_region_then_ref(func, node_id),
           label_used,
+          control_preserve_bottom_tail,
         ) {
         changed = true
       }
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_ref) =>
-          if code_folding_visit_region(ctx, func, else_ref, label_used) {
+          if code_folding_visit_region(
+              ctx, func, else_ref, label_used, control_preserve_bottom_tail,
+            ) {
             changed = true
           }
         None => ()
@@ -3225,6 +3257,7 @@ fn code_folding_visit_region(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   label_used : @bitset.BitSet,
+  preserve_bottom_tail : Bool,
 ) -> Bool {
   let mut changed = false
   let mut idx = 0
@@ -3238,7 +3271,7 @@ fn code_folding_visit_region(
           ctx, func, region_ref, idx, label_used,
         ) ||
         code_folding_try_remove_unreachable_after_exit_at_region(
-          ctx, func, region_ref, idx,
+          ctx, func, region_ref, idx, preserve_bottom_tail,
         ) {
         changed = true
         if idx >= @ir.hot_region_root_count(func, region_ref) {
@@ -3258,6 +3291,7 @@ fn code_folding_visit_region(
               func,
               @ir.hot_region_body_ref(func, current_id),
               label_used,
+              false,
             ) {
             changed = true
           }
@@ -3270,27 +3304,40 @@ fn code_folding_visit_region(
             changed = true
           }
         }
-        @ir.HotOp::Loop =>
+        @ir.HotOp::Loop => {
+          let control_preserve_bottom_tail = @ir.hot_node_result_arity(
+              func, current_id,
+            ) >
+            0
           if code_folding_visit_region(
               ctx,
               func,
               @ir.hot_region_body_ref(func, current_id),
               label_used,
+              control_preserve_bottom_tail,
             ) {
             changed = true
           }
+        }
         @ir.HotOp::If => {
+          let control_preserve_bottom_tail = @ir.hot_node_result_arity(
+              func, current_id,
+            ) >
+            0
           if code_folding_visit_region(
               ctx,
               func,
               @ir.hot_region_then_ref(func, current_id),
               label_used,
+              control_preserve_bottom_tail,
             ) {
             changed = true
           }
           match @ir.hot_region_else_ref(func, current_id) {
             Some(else_ref) =>
-              if code_folding_visit_region(ctx, func, else_ref, label_used) {
+              if code_folding_visit_region(
+                  ctx, func, else_ref, label_used, control_preserve_bottom_tail,
+                ) {
                 changed = true
               }
             None => ()
@@ -3349,11 +3396,13 @@ pub fn code_folding_run(
   let mut again = true
   while again {
     let label_used = pass_compute_label_used(func)
+    let root_ref = @ir.HotRegionRef::root()
     let mut iteration_changed = code_folding_visit_region(
       ctx,
       func,
-      @ir.HotRegionRef::root(),
+      root_ref,
       label_used,
+      @ir.hot_region_result_arity(func, root_ref) > 0,
     )
     if code_folding_try_fold_terminating_tails(ctx, func, label_used) {
       iteration_changed = true

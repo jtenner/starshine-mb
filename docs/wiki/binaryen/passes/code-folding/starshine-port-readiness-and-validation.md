@@ -305,14 +305,23 @@ The 2026-06-05 five-slice continuation is green:
 - `moon build --target native --release src/cmd` completed with no work to do and reused `_build/native/release/build/cmd/cmd.exe`;
 - direct 1000-case smoke at `.tmp/pass-fuzz-code-folding-five-slices-2026-06-05-1000`: `998/1000` compared cases, `998` normalized matches, `0` mismatches, `2` `binaryen-rec-group-zero` command failures, agent-classified as tool/Binaryen command failures.
 
+The `[O4Z-AUDIT-CF-K]` invalid-output fix and large-smoke continuation is green on validity/Starshine command stability and leaves only documented semantic-safe drift:
+
+- failing-first regressions covered multi-result exiting-block wrappers before bottom tails, typed loop and `try_table` bottom tails before enclosing unreachable, root branches after typed dead operands, root bottom sentinels before trailing typed debris, and duplicate bottom tails in typed dead blocks;
+- implementation now preserves bottom sentinels in result-producing root/loop/`if` regions when they are still needed, avoids flattening multi-result exiting blocks, computes HOT lift branch arity for branches to the implicit function label from the function return type, and clears the validator operand stack on repeated unreachable/branch escapes;
+- `moon fmt` completed; `moon test src/passes` passed `1658/1658`; `moon test src/validate` passed `1552/1552`; `moon build --target native --release src/cmd` completed with `_build/native/release/build/cmd/cmd.exe`; final docs/code signoff after `moon update` ran `moon info`, `moon fmt`, and full `moon test` (`4843/4843`);
+- direct 100000-case smoke at `.tmp/pass-fuzz-code-folding-100000-after-td-fixes`: `99747/100000` compared cases, `99742` normalized matches, `0` Starshine command failures, `0` validation failures, `0` property failures, `253` tool/Binaryen command failures, and `5` mismatches;
+- agent-classified mismatch families: `012741`/`043481`, `023083`, and `082547` are semantic-safe size-winning cleanup drift where Starshine removes pure nontrapping value debris before `unreachable`; `046375` is semantic-safe but size-losing representation drift where Starshine now keeps a valid typed-dead wrapper that Binaryen reduces to `nop; unreachable`.
+
 Direct `[CF]002` signoff is accepted as of 2026-05-10 for the earlier narrowed surface, `[O4Z-AUDIT-CF-A]` baselines the June widening, `[O4Z-AUDIT-CF-B]` through `[O4Z-AUDIT-CF-D]` add the source-backed matrix, explicit named-block candidate model, and first multi-root named-block expression-exit widening, `[O4Z-AUDIT-CF-E]` has exact partial non-block, one-block/one-non-block, two-unnamed-block multi-root progress plus a HOT-level unreachable-condition bailout, `[O4Z-AUDIT-CF-F]` has adjacent and root-anchored return/unreachable terminal-tail helper shapes, `[O4Z-AUDIT-CF-G]` has started root-anchored and selected non-root `return_call*` sharing, `[O4Z-AUDIT-CF-H]` has movement-safety positives/negatives, `[O4Z-AUDIT-CF-I]` has tested EH body-local positives and bailouts, and `[O4Z-AUDIT-CF-J]` has local root-anchored fixpoint plus a small late-neighborhood fixture. The remaining direct debug-artifact diff is classified representation drift, and the focused `code-folding -> merge-blocks -> remove-unused-brs -> remove-unused-names` cleanup replay produced the same first diff as the no-CF cleanup baseline. The 2026-06-04 O4z audit is tracked in [`../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md`](../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md); it now keeps the broader Binaryen behavior-parity slices open.
 
 Future parity work should only proceed when one of these is true:
 
 1. a new semantic or validity mismatch appears
-2. a proven downstream code-size blocker requires broader helper-label sharing
+2. a proven downstream code-size blocker requires broader helper-label sharing, including the documented `case-046375` typed-dead-wrapper size-losing drift if it becomes worth targeting
 3. preset scheduling is being advanced with separate ordered-path proof
 4. the pass-targeted comparison harness regresses after a future broadening change
+5. the team decides the current five semantic-safe mismatch families should be normalized or eliminated for a stricter parity gate
 
 Follow the repo-level pass signoff rule from [`../../../../../AGENTS.md`](../../../../../AGENTS.md): compare against Binaryen at meaningful counts before calling parity done.
 

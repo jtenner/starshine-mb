@@ -287,6 +287,21 @@ fn hot_lift_impl_resolve_label(
 }
 
 ///|
+fn hot_lift_impl_branch_arity(
+  func : HotFunc,
+  label_id : LabelId,
+  return_type : Array[ValType]?,
+) -> Result[Int, HotLiftError] {
+  if label_id == HOT_IMPLICIT_FUNCTION_LABEL {
+    return match return_type {
+      Some(types) => Ok(types.length())
+      None => Err(HotLiftError::InvalidLabelDepth(-1))
+    }
+  }
+  Ok(hot_label_branch_arity(func, label_id))
+}
+
+///|
 fn hot_lift_impl_resolve_catch_label(
   frames : HotLiftLabelFrames,
   label_stack_head : Int,
@@ -2052,7 +2067,11 @@ fn hot_lift_impl_lift_instruction(
         Ok(label_id) => label_id
         Err(err) => return Err(err)
       }
-      let payload_count = hot_label_branch_arity(func, target)
+      let payload_count = match
+        hot_lift_impl_branch_arity(func, target, tc_state.env.return_type) {
+        Ok(count) => count
+        Err(err) => return Err(err)
+      }
       if !hot_lift_impl_can_materialize_unreachable_instr(
           instr, tc_state, concrete_values, payload_count,
         ) {
@@ -2087,7 +2106,11 @@ fn hot_lift_impl_lift_instruction(
         Ok(label_id) => label_id
         Err(err) => return Err(err)
       }
-      let payload_count = hot_label_branch_arity(func, target)
+      let payload_count = match
+        hot_lift_impl_branch_arity(func, target, tc_state.env.return_type) {
+        Ok(count) => count
+        Err(err) => return Err(err)
+      }
       if !hot_lift_impl_can_materialize_unreachable_instr(
           instr,
           tc_state,
@@ -2137,7 +2160,15 @@ fn hot_lift_impl_lift_instruction(
           Err(err) => return Err(err)
         }
       }
-      let payload_count = hot_label_branch_arity(func, default_label)
+      let payload_count = match
+        hot_lift_impl_branch_arity(
+          func,
+          default_label,
+          tc_state.env.return_type,
+        ) {
+        Ok(count) => count
+        Err(err) => return Err(err)
+      }
       if !hot_lift_impl_can_materialize_unreachable_instr(
           instr,
           tc_state,
@@ -2298,7 +2329,11 @@ fn hot_lift_impl_lift_instruction(
         Ok(label_id) => label_id
         Err(err) => return Err(err)
       }
-      let payload_count = hot_label_branch_arity(func, target)
+      let payload_count = match
+        hot_lift_impl_branch_arity(func, target, tc_state.env.return_type) {
+        Ok(count) => count
+        Err(err) => return Err(err)
+      }
       if !hot_lift_impl_can_materialize_unreachable_instr(
           instr,
           tc_state,
@@ -2346,7 +2381,11 @@ fn hot_lift_impl_lift_instruction(
         Ok(label_id) => label_id
         Err(err) => return Err(err)
       }
-      let payload_count = hot_label_branch_arity(func, target) - 1
+      let payload_count = match
+        hot_lift_impl_branch_arity(func, target, tc_state.env.return_type) {
+        Ok(count) => count - 1
+        Err(err) => return Err(err)
+      }
       if !hot_lift_impl_can_materialize_unreachable_instr(
           instr,
           tc_state,

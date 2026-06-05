@@ -3429,6 +3429,142 @@ test "code-folding keeps root trailing unreachable for exiting result functions"
 }
 
 ///|
+test "code-folding keeps multi-result exiting block wrapper before bottom tail" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func
+      #|    (block (result i32 i64)
+      #|      (block)
+      #|      unreachable)
+      #|    unreachable))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("block"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "code-folding removes duplicate bottom tail in typed dead block" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (result v128)
+      #|    (block (result f64)
+      #|      v128.const i32x4 0 0 0 0
+      #|      i32x4.trunc_sat_f64x2_s_zero
+      #|      unreachable
+      #|      unreachable)
+      #|    unreachable))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("block"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "code-folding keeps typed loop bottom tail until enclosing unreachable" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (result i64)
+      #|    (loop (result f32)
+      #|      unreachable
+      #|      unreachable)
+      #|    unreachable))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("loop"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "unreachable"),
+    3,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding handles root branch after typed dead operands" {
+  let void_func = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let optimized = code_folding_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([void_func]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32::new(1)),
+            @lib.Instruction::f64_const(@lib.F64(0.0)),
+            @lib.Instruction::f64_abs(),
+            @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+            @lib.Instruction::unreachable_(),
+          ]),
+        ),
+      ]),
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br"), msg=pretty)
+}
+
+///|
+test "code-folding accepts typed try-table bottom before root unreachable" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func
+      #|    (try_table (result v128)
+      #|      unreachable)
+      #|    unreachable))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "unreachable"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding keeps root bottom sentinel before trailing typed debris" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (result f64)
+      #|    v128.const i32x4 0 0 0 0
+      #|    unreachable
+      #|    unreachable))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("v128.const"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "unreachable"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding keeps exiting blocks with live branch labels" {
   let optimized = code_folding_test_run(
     (

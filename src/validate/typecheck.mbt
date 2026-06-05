@@ -50,19 +50,19 @@ pub trait Typecheck {
 
 ///|
 fn TcState::set_unreachable(st : TcState) -> TcState {
+  st.stack.clear()
   if !st.reachable {
     return st
   }
-  st.stack.clear()
   TcState::{ ..st, reachable: false, escape: TerminalTcEscape }
 }
 
 ///|
 fn TcState::set_branch_escape(st : TcState, depth : Int) -> TcState {
+  st.stack.clear()
   if !st.reachable {
     return st
   }
-  st.stack.clear()
   TcState::{ ..st, reachable: false, escape: BranchTcEscape(depth) }
 }
 
