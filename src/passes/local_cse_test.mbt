@@ -1158,6 +1158,59 @@ test "local-cse defers repeated SIMD widening and narrowing roots" {
 }
 
 ///|
+test "local-cse defers repeated SIMD conversion roots" {
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::v128()], [])),
+  )
+  let body_for = fn(op : @lib.Instruction) {
+    @lib.Func::new(
+      @lib.Locals::from_types([]),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        op,
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        op,
+        @lib.Instruction::drop(),
+      ]),
+    )
+  }
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([
+        func_type_idx, func_type_idx, func_type_idx, func_type_idx, func_type_idx,
+        func_type_idx, func_type_idx, func_type_idx, func_type_idx, func_type_idx,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        body_for(@lib.Instruction::f32x4_demote_f64x2_zero()),
+        body_for(@lib.Instruction::f64x2_promote_low_f32x4()),
+        body_for(@lib.Instruction::i32x4_trunc_sat_f32x4s()),
+        body_for(@lib.Instruction::i32x4_trunc_sat_f32x4u()),
+        body_for(@lib.Instruction::f32x4_convert_i32x4s()),
+        body_for(@lib.Instruction::f32x4_convert_i32x4u()),
+        body_for(@lib.Instruction::i32x4_trunc_sat_f64x2s_zero()),
+        body_for(@lib.Instruction::i32x4_trunc_sat_f64x2u_zero()),
+        body_for(@lib.Instruction::f64x2_convert_low_i32x4s()),
+        body_for(@lib.Instruction::f64x2_convert_low_i32x4u()),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(locals, @lib.Expr(instrs)) = func
+        @debug.assert_eq(locals, @lib.Locals::from_types([]))
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
 test "local-cse defers repeated SIMD lane-extract roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let lane = @lib.LaneIdx::new(0)

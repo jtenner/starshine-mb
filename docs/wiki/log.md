@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | SIMD conversion roots
+
+- Added core-built LCSE boundary coverage for repeated SIMD conversion roots, including vector demote/promote, saturating vector truncation, and vector integer/float conversion instructions.
+- Documented Starshine's conservative no-CSE behavior even though Binaryen materializes representative repeated conversion roots; this stays out of SIMD temp-local/value-numbering work.
+
 ## [2026-06-05] local-cse/wiki | SIMD widening/narrowing roots
 
 - Added core-built LCSE boundary coverage for repeated SIMD widening/narrowing roots, including vector narrow, extend-pairwise, and lane-width extend-low/high instructions.
