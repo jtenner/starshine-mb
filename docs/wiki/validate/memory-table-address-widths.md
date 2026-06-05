@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-05
 sources:
+  - ../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
   - ../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md
@@ -31,7 +32,20 @@ Use this page when a fixture, validator change, generator, binary codec change, 
 - [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md), [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md), and [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md) own fixture-facing text shapes and current WAST gaps.
 - This page owns the cross-cutting rule: **the selected resource's address type controls specific stack operands, but not every operand in that instruction family**.
 
-The current source bridge is [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md). It rechecked the official WebAssembly Core 3.0 syntax/validation pages and the local Starshine typechecker. A fresh web check during this wiki pass found the same official rule on the current Core 3.0 pages: memory and table instructions use address types positionally, while segment source offsets for `memory.init` / `table.init` remain `i32`.
+The current Core/status source bridge is [`../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md`](../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md). It rechecked the official Core 3.0 type and instruction-validation pages, the finished-proposals table, the active-proposal tracker, and the local Starshine type/binary/typechecker/test surfaces. The detailed validator matrix remains [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md): memory and table instructions use address types positionally, while segment source offsets for `memory.init` / `table.init` remain `i32`.
+
+## Core Status And Local Layer Split
+
+memory64/table64 should be taught as **Core WebAssembly address-width behavior**, not as an active proposal bucket. The current WebAssembly Core 3.0 pages attach an address type (`i32` or `i64`) to memory/table limits, and the official finished-proposals table records `memory64` as finished. That does **not** mean every Starshine layer is complete:
+
+| Layer | Current Starshine claim | Route questions to |
+| --- | --- | --- |
+| Core model | `Limits` has `I32Limits` and `I64Limits`; `MemType` and `TableType` carry those limits. | [`src/lib/types.mbt`](../../../src/lib/types.mbt) and [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md). |
+| Binary codec | Limit and memory-type decoding/encoding can represent memory64/table64-shaped resources; semantic invalids still belong to validation. | [`src/binary/decode.mbt`](../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../src/binary/encode.mbt), and [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md). |
+| Resource validation | i64 memory/table limits are resource-layer facts; shared-memory maximum and table element-count caps remain separate validation policy. | [`resource-sections-and-limits.md`](resource-sections-and-limits.md). |
+| Instruction validation | Some instruction families are already address-width-aware; the gaps in the table below are local validator-widening gaps, not proposal status. | This page plus [`local-spec-divergence-ledger.md`](local-spec-divergence-ledger.md). |
+| WAST text | Current high-level resource declarations and selected-resource text remain narrower than core/binary/generator fixtures. | [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md), [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md), and [`../wast/text-surface-gap-ledger.md`](../wast/text-surface-gap-ledger.md). |
+| Nearby proposals | Memory Control, Custom Page Sizes, Threads/shared memory, and multi-memory/table selection can interact with address width but are different claims. | [`../wasm-memory-control-boundary.md`](../wasm-memory-control-boundary.md), [`../wasm-custom-page-sizes-boundary.md`](../wasm-custom-page-sizes-boundary.md), and [`../wasm-linear-memory-threads-boundary.md`](../wasm-linear-memory-threads-boundary.md). |
 
 ## Beginner Model
 
@@ -151,7 +165,8 @@ Use this checklist for passes, generators, binary roundtrips, and validator chan
 
 ## Sources
 
-- Current focused source bridge: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
+- Current Core/status source bridge: [`../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md`](../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md)
+- Detailed validator-matrix source bridge: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
 - Earlier focused memory64 bridge: [`../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md)
 - Earlier focused table64 correction: [`../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md`](../raw/wasm/2026-05-20-table64-table-instruction-validation-refresh.md)
 - Resource-section validation bridge: [`../raw/wasm/2026-05-20-resource-section-validation-refresh.md`](../raw/wasm/2026-05-20-resource-section-validation-refresh.md)

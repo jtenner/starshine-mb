@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasm/wiki | memory64/table64 Core boundary routing
+
+- Added [`raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md`](raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md) after checking current WebAssembly Core 3.0 type/text/validation pages, the finished-proposals table, the active proposal tracker, and current Starshine `Limits`, binary codec, typechecker, and generator/invalid-generator test evidence.
+- Refreshed [`validate/memory-table-address-widths.md`](validate/memory-table-address-widths.md) so memory64/table64 is taught first as Core/finished address-width behavior with exact Starshine layer claims: core/binary/resource support, partial instruction validation, high-level WAST text gaps, and separate Memory Control / Custom Page Sizes / Threads boundaries.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so future memory64/table64 claims route through the focused validator/status matrix instead of the generic Core row or active memory-proposal buckets.
+
 ## [2026-06-05] wasm/wiki | Extended Name Section boundary routing
 
 - Added [`raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md`](raw/wasm/2026-06-05-extended-name-section-boundary-refresh.md) after checking the current WebAssembly proposals tracker, Extended Name Section proposal overview, Core 3.0 custom/name appendix, feature-dashboard evidence tier, and current Starshine `NameSec`, binary codec, validator, generator, invalid-fuzzer, and metamorphic-fuzz evidence.
