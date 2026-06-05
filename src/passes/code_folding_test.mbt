@@ -2366,6 +2366,50 @@ test "code-folding keeps live-label structured if suffixes" {
 }
 
 ///|
+test "code-folding keeps crossed live-label structured if suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (block $then_outer
+      #|          (block $then_inner
+      #|            (i32.const 7)
+      #|            (drop)
+      #|            (br $then_inner))
+      #|          (i32.const 8)
+      #|          (drop)
+      #|          (br $then_outer)))
+      #|      (else
+      #|        (block $else_outer
+      #|          (block $else_inner
+      #|            (i32.const 7)
+      #|            (drop)
+      #|            (br $else_outer))
+      #|          (i32.const 8)
+      #|          (drop)
+      #|          (br $else_outer))))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("if"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(8)"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding shares nested value branch helper-wrapper tails" {
   let optimized = code_folding_test_run(
     (
