@@ -4,6 +4,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 
 
+## [2026-06-05] passes/local-cse | integer comparison reuse
+
+- Spot-checked `i32.lt_s`; Binaryen materializes both local-only arithmetic reuse across the comparison and repeated integer-comparison roots.
+- Added failing WAT-form direct regressions, then modeled integer ordering comparisons as pure two-operand `i32` result operations and candidate roots. Existing equality handling was unchanged, and the change does not add CFG-wide GVN or effectful-root reuse.
+- Refreshed the LCSE research/backlog wording so integer comparison coverage is listed with the pure-operator surface.
+
 ## [2026-06-05] passes/local-cse | ref.eq pure-reference reuse
 
 - Spot-checked `ref.eq` with `(ref.null eq)` operands; Binaryen materializes both local-only arithmetic reuse across the pure reference comparison and repeated `ref.eq` roots.

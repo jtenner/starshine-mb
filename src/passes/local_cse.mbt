@@ -73,6 +73,22 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::I32Ne => 10
     @lib.Instruction::I64Eq => 11
     @lib.Instruction::I64Ne => 12
+    @lib.Instruction::I32LtS => 20
+    @lib.Instruction::I32LtU => 21
+    @lib.Instruction::I32GtS => 22
+    @lib.Instruction::I32GtU => 23
+    @lib.Instruction::I32LeS => 24
+    @lib.Instruction::I32LeU => 25
+    @lib.Instruction::I32GeS => 26
+    @lib.Instruction::I32GeU => 27
+    @lib.Instruction::I64LtS => 28
+    @lib.Instruction::I64LtU => 29
+    @lib.Instruction::I64GtS => 30
+    @lib.Instruction::I64GtU => 31
+    @lib.Instruction::I64LeS => 32
+    @lib.Instruction::I64LeU => 33
+    @lib.Instruction::I64GeS => 34
+    @lib.Instruction::I64GeU => 35
     @lib.Instruction::I32Load(_) => 13
     @lib.Instruction::I64Load(_) => 14
     @lib.Instruction::F32Load(_) => 15
@@ -256,8 +272,24 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::I64Mul
     | @lib.Instruction::I32Eq
     | @lib.Instruction::I32Ne
+    | @lib.Instruction::I32LtS
+    | @lib.Instruction::I32LtU
+    | @lib.Instruction::I32GtS
+    | @lib.Instruction::I32GtU
+    | @lib.Instruction::I32LeS
+    | @lib.Instruction::I32LeU
+    | @lib.Instruction::I32GeS
+    | @lib.Instruction::I32GeU
     | @lib.Instruction::I64Eq
     | @lib.Instruction::I64Ne
+    | @lib.Instruction::I64LtS
+    | @lib.Instruction::I64LtU
+    | @lib.Instruction::I64GtS
+    | @lib.Instruction::I64GtU
+    | @lib.Instruction::I64LeS
+    | @lib.Instruction::I64LeU
+    | @lib.Instruction::I64GeS
+    | @lib.Instruction::I64GeU
     | @lib.Instruction::RefEq => Some(2)
     @lib.Instruction::I32Eqz | @lib.Instruction::I64Eqz => Some(1)
     @lib.Instruction::StructSet(_, _) | @lib.Instruction::TableSet(_) => Some(2)
@@ -343,9 +375,25 @@ fn lcse_raw_result_type(
     @lib.Instruction::I32Eq
     | @lib.Instruction::I32Ne
     | @lib.Instruction::I32Eqz
+    | @lib.Instruction::I32LtS
+    | @lib.Instruction::I32LtU
+    | @lib.Instruction::I32GtS
+    | @lib.Instruction::I32GtU
+    | @lib.Instruction::I32LeS
+    | @lib.Instruction::I32LeU
+    | @lib.Instruction::I32GeS
+    | @lib.Instruction::I32GeU
     | @lib.Instruction::I64Eq
     | @lib.Instruction::I64Ne
     | @lib.Instruction::I64Eqz
+    | @lib.Instruction::I64LtS
+    | @lib.Instruction::I64LtU
+    | @lib.Instruction::I64GtS
+    | @lib.Instruction::I64GtU
+    | @lib.Instruction::I64LeS
+    | @lib.Instruction::I64LeU
+    | @lib.Instruction::I64GeS
+    | @lib.Instruction::I64GeU
     | @lib.Instruction::RefEq => Some(@lib.ValType::i32())
     _ => None
   }
