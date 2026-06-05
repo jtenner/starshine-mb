@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-05
 sources:
+  - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md
   - ../raw/wasm/2026-06-04-ref-func-start-refs-current-refresh.md
   - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
@@ -22,6 +23,7 @@ sources:
   - ../../../src/wast/arbitrary.mbt
 related:
   - index.md
+  - ../wasm-typed-function-references-boundary.md
   - table-instruction-authoring.md
   - tail-call-authoring.md
   - reference-instruction-authoring.md
@@ -56,7 +58,7 @@ Neighbor pages own the parts that are easy to conflate with this topic:
 - [`reference-instruction-authoring.md`](reference-instruction-authoring.md) and [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md) own `ref.func`, declaration sources, and the current start-section declaration divergence.
 - [`../binary/function-import-export-and-code-sections.md`](../binary/function-import-export-and-code-sections.md) owns binary section ids, imported-prefix function index spaces, `FuncSec`/`CodeSec` parallelism, the parameter-local versus encoded-body-local split, and module-pass remap checklists.
 
-The current source-routing refresh for reference calls, casts, and reference branches is [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md). The detailed primary-source and local-code manifest for the ordinary reference-call split remains [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md). The broader WAST function/import/export/start source snapshot remains [`../raw/wasm/2026-05-19-wast-call-and-function-sources.md`](../raw/wasm/2026-05-19-wast-call-and-function-sources.md), while binary code-entry/local-run details now route through [`../raw/wasm/2026-05-20-function-code-section-source-refresh.md`](../raw/wasm/2026-05-20-function-code-section-source-refresh.md).
+The focused typed-function-reference router is [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md), backed by [`../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md). Use it for the Core-3.0 status of `call_ref` / `return_call_ref`, the current Starshine WAST ordinary-`call_ref` gap, generator and binary evidence, and the separation from `ref.func` declaration sources. The broader source-routing refresh for reference calls, casts, and reference branches remains [`../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md`](../raw/wasm/2026-06-04-reference-call-and-cast-current-refresh.md). The detailed primary-source and local-code manifest for the ordinary reference-call split remains [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md). The broader WAST function/import/export/start source snapshot remains [`../raw/wasm/2026-05-19-wast-call-and-function-sources.md`](../raw/wasm/2026-05-19-wast-call-and-function-sources.md), while binary code-entry/local-run details now route through [`../raw/wasm/2026-05-20-function-code-section-source-refresh.md`](../raw/wasm/2026-05-20-function-code-section-source-refresh.md).
 
 ## Beginner Model: Names Become Absolute Function Indices
 
@@ -152,7 +154,7 @@ A start function must exist and have no parameters and no results. The focused v
 | --- | --- | --- | --- | --- |
 | `call` | `funcidx` | callee params | callee results | The function index must exist; stack operands must match the target function type. |
 | `call_indirect` | optional `tableidx`, then `typeuse` | call params..., table element index | function type results | The type index must resolve to a function type, and the selected table must be function-reference-compatible. Table index defaults and table64 caveats live in [`table-instruction-authoring.md`](table-instruction-authoring.md). |
-| `call_ref` | `typeidx` / type use in official text; not Starshine WAST text today | call params..., function reference | function type results | Core/binary/validator/generator-visible ordinary reference call. The 2026-06-04 refresh notes that the official text page routes it through the generic verbatim-control path rather than a standalone subsection; use non-WAST fixtures locally until Starshine adds parser/lowerer/printer support. |
+| `call_ref` | `typeidx` / type use in official text; not Starshine WAST text today | call params..., function reference | function type results | Core/binary/validator/generator-visible ordinary reference call. The focused [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md) records the Core-3.0 status and current Starshine WAST gap; use non-WAST fixtures locally until Starshine adds parser/lowerer/printer support. |
 | `return_call` | `funcidx` | callee params | unreachable | Shares function-index resolution with `call`, but result validation and CFG behavior live in [`tail-call-authoring.md`](tail-call-authoring.md). |
 | `return_call_indirect` | optional `tableidx`, then `typeuse` | call params..., table element index | unreachable | Shares indirect-call resolution but is a tail call; see both [`table-instruction-authoring.md`](table-instruction-authoring.md) and [`tail-call-authoring.md`](tail-call-authoring.md). |
 | `return_call_ref` | `typeuse` | call params..., function reference | unreachable | WAST-supported reference tail-call form; ordinary non-tail `call_ref` is currently not exposed as WAST text. |
@@ -190,7 +192,7 @@ The direct call consumes the argument produced by `local.get` and pushes the `i3
 
 ### Ordinary `call_ref` core/binary route
 
-Official WebAssembly treats ordinary `call_ref` as a call-family instruction with a function type immediate. The current syntax page lists it in the control-instruction family, and the binary page gives opcode `0x14` with a `typeidx` immediate. The generated current text page does not give `call_ref` its own subsection; it relies on the generic rule that other control instructions are represented verbatim. The caller places the callee parameters first, then the function reference. If the immediate type is `(func (param i32) (result i64))`, the stack intuition is:
+The focused typed-function-reference boundary owns the reusable standards/status split: [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md). In short, official WebAssembly treats ordinary `call_ref` as a Core-3.0 call-family instruction with a function type immediate. The current syntax page lists it in the control-instruction family, and the binary page gives opcode `0x14` with a `typeidx` immediate. The generated current text page does not give `call_ref` its own subsection; it relies on the generic rule that other control instructions are represented verbatim. The caller places the callee parameters first, then the function reference. If the immediate type is `(func (param i32) (result i64))`, the stack intuition is:
 
 ```text
 ... i32 (ref null $sig)  -- call_ref $sig -->  ... i64

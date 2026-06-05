@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-05
 sources:
+  - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
   - ../raw/wasm/2026-06-04-tail-call-current-refresh.md
   - ../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md
   - ../raw/wasm/2026-05-20-call-ref-source-refresh.md
@@ -19,6 +20,7 @@ sources:
   - ../../../src/ir/hot_flags.mbt
   - ../../../src/ir/cfg.mbt
 related:
+  - ../wasm-typed-function-references-boundary.md
   - function-call-and-module-authoring.md
   - table-instruction-authoring.md
   - gc-type-authoring.md
@@ -45,7 +47,7 @@ Use this page when writing, debugging, or widening WAST fixtures that contain We
 
 The beginner mental model is: **a tail call is still a call, but it is also a return from the current function.** The callee receives parameters like an ordinary call. If the callee finishes normally, control returns to the caller of the current function, not to the instruction after the tail call. That means Starshine must treat tail calls as call-family use sites for indices, types, traps, and effects, while treating them as return-family terminators for validation and CFG flow. The non-tail function/import/export/start and direct-`call` authoring contract lives in [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md); shared WAST type-use and rec-group flat-index rules live in [`gc-type-authoring.md`](gc-type-authoring.md).
 
-The current-source refresh is [`../raw/wasm/2026-06-04-tail-call-current-refresh.md`](../raw/wasm/2026-06-04-tail-call-current-refresh.md), which rechecked the official WebAssembly Core 3.0 syntax, text, binary, validation, and execution pages dated 2026-06-03 against Starshine's WAST/core/binary/validator/CFG surfaces. The newest CFG-only bridge is [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md), which keeps the `return_call*` helper/test gap separate from actual HOT flag and concrete CFG behavior. The focused `call_ref` / `return_call_ref` split is still routed through [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md). The broader original tail-call source map remains [`../raw/wasm/2026-05-19-wast-tail-call-sources.md`](../raw/wasm/2026-05-19-wast-tail-call-sources.md), and the older CFG-only source snapshot remains [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md).
+The current-source refresh is [`../raw/wasm/2026-06-04-tail-call-current-refresh.md`](../raw/wasm/2026-06-04-tail-call-current-refresh.md), which rechecked the official WebAssembly Core 3.0 syntax, text, binary, validation, and execution pages dated 2026-06-03 against Starshine's WAST/core/binary/validator/CFG surfaces. The newest CFG-only bridge is [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md), which keeps the `return_call*` helper/test gap separate from actual HOT flag and concrete CFG behavior. The focused `call_ref` / `return_call_ref` split is now routed through [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md) and [`../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md), with the older detailed stack-shape note preserved at [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md). The broader original tail-call source map remains [`../raw/wasm/2026-05-19-wast-tail-call-sources.md`](../raw/wasm/2026-05-19-wast-tail-call-sources.md), and the older CFG-only source snapshot remains [`../raw/wasm/2026-05-19-tail-call-control-flow-sources.md`](../raw/wasm/2026-05-19-tail-call-control-flow-sources.md).
 
 ## Layer Model
 
@@ -149,7 +151,7 @@ The omitted table index means table `0`. Starshine's WAST parser accepts that sh
     (return_call_ref (type $sig))))
 ```
 
-`return_call_ref` is not a `ref.func` declaration source by itself. If a fixture materializes the function reference with `ref.func`, the instruction's text/core stack shape lives in [`reference-instruction-authoring.md`](reference-instruction-authoring.md), and the declaration-source rules still live in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md). For the non-tail sibling, use [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md): ordinary `call_ref` is currently a core/binary/validator/generator surface, not Starshine WAST text.
+`return_call_ref` is not a `ref.func` declaration source by itself. If a fixture materializes the function reference with `ref.func`, the instruction's text/core stack shape lives in [`reference-instruction-authoring.md`](reference-instruction-authoring.md), and the declaration-source rules still live in [`../validate/ref-func-declarations.md`](../validate/ref-func-declarations.md). For the non-tail sibling, use [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md) and [`function-call-and-module-authoring.md`](function-call-and-module-authoring.md): ordinary `call_ref` is currently a core/binary/validator/generator surface, not Starshine WAST text.
 
 ### Tail call inside `try_table`
 
@@ -186,6 +188,7 @@ When a pass, generator, or fixture change touches tail calls, use this checklist
 ## Source Map
 
 - Current official Core 3.0 and Starshine source refresh: [`../raw/wasm/2026-06-04-tail-call-current-refresh.md`](../raw/wasm/2026-06-04-tail-call-current-refresh.md)
+- Focused typed-function-reference boundary refresh: [`../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md`](../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md), [`../wasm-typed-function-references-boundary.md`](../wasm-typed-function-references-boundary.md)
 - Focused reference-call source refresh: [`../raw/wasm/2026-05-20-call-ref-source-refresh.md`](../raw/wasm/2026-05-20-call-ref-source-refresh.md)
 - Original primary-source and local-code manifest: [`../raw/wasm/2026-05-19-wast-tail-call-sources.md`](../raw/wasm/2026-05-19-wast-tail-call-sources.md)
 - Current CFG-only tail-call recheck: [`../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md`](../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md)
