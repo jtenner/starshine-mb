@@ -25,6 +25,30 @@ test "simplify-locals-nostructure sinks straight-line single-use sets" {
 }
 
 ///|
+test "simplify-locals-nostructure skips root stack/local-set call hazards" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      "(module (func $alloc (param i32 i32) (result i32) (local.get 0)) (func (param i32 i32) (local i32) local.get 0 i32.const 2 call $alloc local.set 2 local.get 2 local.get 1 call $alloc drop))",
+      ["simplify-locals-nostructure"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected simplify-locals-nostructure stack/local-set hazard success, got \{err}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals-nostructure]:skip-hot reason=root-local-set-stack-hazard-noop",
+      )
+    }),
+  )
+}
+
+///|
 test "simplify-locals-notee-nostructure accepts O4z spelling" {
   let optimized = match
     pass_test_run_pipeline(

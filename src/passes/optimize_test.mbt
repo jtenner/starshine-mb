@@ -252,6 +252,44 @@ test "vacuum skips branchy structured writes" {
 }
 
 ///|
+test "vacuum skips root stack/local-set call hazards" {
+  let trace : Array[String] = []
+  let input =
+    #|(module
+    #|  (func $alloc (param i32 i32) (result i32)
+    #|    local.get 0)
+    #|  (func (param i32 i32) (local i32)
+    #|    local.get 0
+    #|    i32.const 2
+    #|    call $alloc
+    #|    local.set 2
+    #|    local.get 2
+    #|    local.get 1
+    #|    call $alloc
+    #|    drop
+    #|    i32.const 1
+    #|    drop))
+    #|
+  match
+    pass_test_run_pipeline(
+      input,
+      ["vacuum"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected root stack/local-set vacuum hazard success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[vacuum]:skip-hot reason=root-local-set-stack-hazard-noop",
+      )
+    }),
+  )
+}
+
+///|
 test "vacuum flips empty then with live else" {
   let input =
     #|(module

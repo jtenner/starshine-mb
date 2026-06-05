@@ -458,6 +458,37 @@ fn remove_unused_brs_can_skip_large_br_table_return_ladder(
 }
 
 ///|
+fn remove_unused_brs_node_has_stack_effect_hazard(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Call
+    | @ir.HotOp::CallIndirect
+    | @ir.HotOp::CallRef
+    | @ir.HotOp::MemoryCopy
+    | @ir.HotOp::MemoryFill => return true
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if remove_unused_brs_is_region_child_slot(node.op, slot) {
+      continue
+    }
+    if remove_unused_brs_node_has_stack_effect_hazard(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn remove_unused_brs_region_has_result_local_set_stack_hazard(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -470,7 +501,8 @@ fn remove_unused_brs_region_has_result_local_set_stack_hazard(
   } else {
     @ir.hot_region_result_arity(func, region_ref)
   }
-  if result_arity > 0 && @ir.hot_region_root_count(func, region_ref) > 1 {
+  if (region_ref == @ir.HotRegionRef::root() || result_arity > 0) &&
+    @ir.hot_region_root_count(func, region_ref) > 1 {
     let mut has_local_set = false
     let mut has_stack_effect = false
     for idx = 0
@@ -480,12 +512,10 @@ fn remove_unused_brs_region_has_result_local_set_stack_hazard(
       if root_id >= 0 && @ir.hot_node_is_live(func, root_id) {
         match @ir.hot_node_get(func, root_id).op {
           @ir.HotOp::LocalSet => has_local_set = true
-          @ir.HotOp::Call
-          | @ir.HotOp::CallIndirect
-          | @ir.HotOp::CallRef
-          | @ir.HotOp::MemoryCopy
-          | @ir.HotOp::MemoryFill => has_stack_effect = true
           _ => ()
+        }
+        if remove_unused_brs_node_has_stack_effect_hazard(func, root_id) {
+          has_stack_effect = true
         }
       }
     }

@@ -380,6 +380,73 @@ fn vacuum_build_i32_eqz(func : @ir.HotFunc, operand : @ir.NodeId) -> @ir.NodeId 
 }
 
 ///|
+fn hot_pass_vacuum_is_region_child_slot(op : @ir.HotOp, slot : Int) -> Bool {
+  for info in @ir.hot_control_region_slot_info(op) {
+    if info.slot == slot {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hot_pass_vacuum_node_has_stack_effect_hazard(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Call
+    | @ir.HotOp::CallIndirect
+    | @ir.HotOp::CallRef
+    | @ir.HotOp::MemoryCopy
+    | @ir.HotOp::MemoryFill => return true
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if hot_pass_vacuum_is_region_child_slot(node.op, slot) {
+      continue
+    }
+    if hot_pass_vacuum_node_has_stack_effect_hazard(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hot_pass_vacuum_should_skip_root_local_set_stack_hazard(
+  func : @ir.HotFunc,
+) -> Bool {
+  let root_ref = @ir.HotRegionRef::root()
+  if @ir.hot_region_root_count(func, root_ref) <= 1 {
+    return false
+  }
+  let mut has_local_set = false
+  let mut has_stack_effect = false
+  for idx = 0; idx < @ir.hot_region_root_count(func, root_ref); idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, root_ref, idx)
+    if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::LocalSet => has_local_set = true
+      _ => ()
+    }
+    if hot_pass_vacuum_node_has_stack_effect_hazard(func, root_id) {
+      has_stack_effect = true
+    }
+  }
+  has_local_set && has_stack_effect
+}
+
+///|
 fn hot_pass_vacuum_should_skip_branchy_structured_writes(
   func : @ir.HotFunc,
 ) -> Bool {
@@ -12428,7 +12495,15 @@ pub fn hot_pass_run(
   let result = match descriptor.name {
     "ssa-nomerge" => ssa_nomerge_run(ctx, func)
     "vacuum" =>
-      if hot_pass_vacuum_should_skip_branchy_structured_writes(func) {
+      if hot_pass_vacuum_should_skip_root_local_set_stack_hazard(func) {
+        pipeline_trace_hook(
+          ctx.trace,
+          descriptor.name,
+          "skip-hot",
+          payload="reason=root-local-set-stack-hazard-noop",
+        )
+        HotPassResult::unchanged()
+      } else if hot_pass_vacuum_should_skip_branchy_structured_writes(func) {
         HotPassResult::unchanged()
       } else if hot_pass_remove_region_nops(
           ctx,

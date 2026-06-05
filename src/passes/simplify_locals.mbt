@@ -4927,6 +4927,73 @@ fn simplify_locals_run_with_options(
 }
 
 ///|
+fn simplify_locals_is_region_child_slot(op : @ir.HotOp, slot : Int) -> Bool {
+  for info in @ir.hot_control_region_slot_info(op) {
+    if info.slot == slot {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn simplify_locals_node_has_stack_effect_hazard(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Call
+    | @ir.HotOp::CallIndirect
+    | @ir.HotOp::CallRef
+    | @ir.HotOp::MemoryCopy
+    | @ir.HotOp::MemoryFill => return true
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if simplify_locals_is_region_child_slot(node.op, slot) {
+      continue
+    }
+    if simplify_locals_node_has_stack_effect_hazard(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn simplify_locals_should_skip_root_local_set_stack_hazard(
+  func : @ir.HotFunc,
+) -> Bool {
+  let root_ref = @ir.HotRegionRef::root()
+  if @ir.hot_region_root_count(func, root_ref) <= 1 {
+    return false
+  }
+  let mut has_local_set = false
+  let mut has_stack_effect = false
+  for idx = 0; idx < @ir.hot_region_root_count(func, root_ref); idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, root_ref, idx)
+    if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::LocalSet => has_local_set = true
+      _ => ()
+    }
+    if simplify_locals_node_has_stack_effect_hazard(func, root_id) {
+      has_stack_effect = true
+    }
+  }
+  has_local_set && has_stack_effect
+}
+
+///|
 fn simplify_locals_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4956,6 +5023,15 @@ fn simplify_locals_nostructure_run(
   // No-structure sinking currently lacks a precise barrier model for values
   // loaded through locals defined by local.tee later in the same stack region.
   if simplify_locals_has_local_tee(func) {
+    return HotPassResult::unchanged()
+  }
+  if simplify_locals_should_skip_root_local_set_stack_hazard(func) {
+    pipeline_trace_hook(
+      ctx.trace,
+      ctx.descriptor.name,
+      "skip-hot",
+      payload="reason=root-local-set-stack-hazard-noop",
+    )
     return HotPassResult::unchanged()
   }
   simplify_locals_run_with_options(ctx, func, false, true)

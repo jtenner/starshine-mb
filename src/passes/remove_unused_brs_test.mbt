@@ -885,6 +885,30 @@ test "remove-unused-brs keeps stack-style block branch when earlier roots feed l
 }
 
 ///|
+test "remove-unused-brs skips void-root stack/local-set call hazards" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      "(module (func $mode (param i32) (result i32) (local.get 0)) (func $concat (param i32 i32) (result i32) (local.get 0)) (func (param i32) (local i32) i32.const 100 i32.const 2 call $mode local.set 1 local.get 1 call $concat drop block br 0 end))",
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs void-root stack/local-set hazard success, got \{err}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[remove-unused-brs]:skip-hot reason=result-local-set-stack-hazard-noop",
+      )
+    }),
+  )
+}
+
+///|
 test "remove-unused-brs restructures loop-body one-exit-arm ifs with carried self tails into fallthrough arms" {
   let optimized = match
     pass_test_run_pipeline(
