@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-05
 sources:
+  - ../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md
   - ../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md
@@ -12,6 +13,7 @@ sources:
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/validate.mbt
 related:
+  - ../wasm-multi-memory-boundary.md
   - ./module-validation-phases.md
   - ./resource-sections-and-limits.md
   - ../wast/memory-instruction-authoring.md
@@ -45,9 +47,11 @@ memory64/table64 should be taught as **Core WebAssembly address-width behavior**
 | Resource validation | i64 memory/table limits are resource-layer facts; shared-memory maximum and table element-count caps remain separate validation policy. | [`resource-sections-and-limits.md`](resource-sections-and-limits.md). |
 | Instruction validation | Some instruction families are already address-width-aware; the gaps in the table below are local validator-widening gaps, not proposal status. | This page plus [`local-spec-divergence-ledger.md`](local-spec-divergence-ledger.md). |
 | WAST text | Current high-level resource declarations and selected-resource text remain narrower than core/binary/generator fixtures. | [`../wast/resource-declaration-authoring.md`](../wast/resource-declaration-authoring.md), [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md), and [`../wast/text-surface-gap-ledger.md`](../wast/text-surface-gap-ledger.md). |
-| Nearby proposals | Memory Control, Custom Page Sizes, Threads/shared memory, and multi-memory/table selection can interact with address width but are different claims. | [`../wasm-memory-control-boundary.md`](../wasm-memory-control-boundary.md), [`../wasm-custom-page-sizes-boundary.md`](../wasm-custom-page-sizes-boundary.md), and [`../wasm-linear-memory-threads-boundary.md`](../wasm-linear-memory-threads-boundary.md). |
+| Nearby features/proposals | Multi-memory/table selection can combine with address width but answers a different question: which resource is selected. Memory Control, Custom Page Sizes, and Threads/shared memory are also separate claims. | [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md), [`../wasm-memory-control-boundary.md`](../wasm-memory-control-boundary.md), [`../wasm-custom-page-sizes-boundary.md`](../wasm-custom-page-sizes-boundary.md), and [`../wasm-linear-memory-threads-boundary.md`](../wasm-linear-memory-threads-boundary.md). |
 
 ## Beginner Model
+
+Multi-memory/multi-table selection and memory64/table64 address width often appear in the same fixture, but they are independent dimensions. A `memory.copy` can select destination memory `0` and source memory `1`; separately, each selected memory may be memory32 or memory64, which controls operand widths. Use [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md) for the selected-memory route and this page for address-width typing.
 
 A WebAssembly memory or table has a **limit type**. In Starshine that is represented by [`Limits`](../../../src/lib/types.mbt), either `I32Limits(...)` or `I64Limits(...)`. The limit type answers two different questions:
 
@@ -165,6 +169,7 @@ Use this checklist for passes, generators, binary roundtrips, and validator chan
 
 ## Sources
 
+- Multi-memory selected-resource source bridge: [`../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md`](../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md), [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md)
 - Current Core/status source bridge: [`../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md`](../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md)
 - Detailed validator-matrix source bridge: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
 - Earlier focused memory64 bridge: [`../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md)

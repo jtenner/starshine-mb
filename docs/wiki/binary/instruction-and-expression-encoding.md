@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
+  - ../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md
   - ../raw/wasm/2026-06-05-memory-control-boundary-refresh.md
   - ../raw/wasm/2026-06-05-wide-arithmetic-boundary-refresh.md
   - ../raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md
@@ -30,6 +31,7 @@ sources:
   - ../../../src/wast/lower_to_lib.mbt
   - ../../../src/binary/tests.mbt
 related:
+  - ../wasm-multi-memory-boundary.md
   - module-section-map.md
   - leb128-and-integer-encoding.md
   - function-import-export-and-code-sections.md
@@ -112,7 +114,7 @@ Starshine rejects recursive-index blocktypes during binary encode (`CannotEncode
 
 ### Memory arguments
 
-Official core memory arguments are alignment plus offset. Starshine represents the multi-memory extension as `MemArg(U32(align_pow), Some(memidx), U64(offset))`; binary encode writes `align_pow + 64`, then the memory index, then the offset. With no explicit memory index, encode writes `align_pow` followed by the offset. The WAST text authoring caveats, including text-byte `align=` versus core exponent form and the current lack of explicit nonzero memory indices in WAST memargs, are documented in [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md).
+Official core memory arguments are alignment plus offset plus selected-memory behavior in current Core multi-memory contexts. Starshine represents explicit selected memories as `MemArg(U32(align_pow), Some(memidx), U64(offset))`; binary encode writes `align_pow + 64`, then the memory index, then the offset. With no explicit memory index, encode writes `align_pow` followed by the offset. The focused status and layer boundary is [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md); WAST text authoring caveats, including text-byte `align=` versus core exponent form and the current lack of explicit nonzero memory indices in WAST memargs, are documented in [`../wast/memory-argument-authoring.md`](../wast/memory-argument-authoring.md).
 
 The binary layer can reject malformed immediate ranges (`InvalidMemArgEncoding` / `InvalidMemArg`), but semantic legality is in [`memarg_check`](../../../src/validate/typecheck.mbt): selected memory must exist, alignment must fit the access width, and i32 memories reject offsets outside the 32-bit address range. This is why pass authors should not treat a well-formed `MemArg` as automatically valid after memory rewrites. Stack shapes, data-count requirements, and trap/effect guidance for scalar and bulk memory instructions live in [`../wast/memory-instruction-authoring.md`](../wast/memory-instruction-authoring.md).
 
@@ -219,13 +221,14 @@ Before committing a pass, fuzzer change, or binary/WAST codec change that touche
 - **Expression terminators are structural.** Do not preserve or synthesize raw `end` opcodes in the `Instruction` enum; they are owned by expression/control encoding. Use [`../wast/control-flow-authoring.md`](../wast/control-flow-authoring.md) when the same shape needs text-level label, `br_if`, or `br_table` guidance.
 - **Blocktype type indices must name function types.** Struct/array type indices are not legal blocktype expansions.
 - **Recursive-index blocktypes are not binary-output-safe.** Normalize to absolute type indices before encode.
-- **Explicit memory indices are encoded through Starshine's extended memarg form.** Passes touching memories must update `MemArg` carriers, not only `memory.size` / `memory.grow` instructions.
+- **Explicit memory indices are encoded through Starshine's selected-memory memarg form.** Passes touching memories must update `MemArg` carriers, `memory.size`, `memory.grow`, `memory.fill`, both `memory.copy` operands, `memory.init`, and active data modes together; route selected-memory status and WAST gaps through [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md).
 - **Prefixed spaces are part of instruction coverage.** A one-byte opcode audit misses scalar `0xFC` saturating truncations, bulk memory, table bulk operations, SIMD, atomics, and GC/custom-descriptor operations. It can also overclaim active-proposal coverage: Memory Control's prototype `memory.discard` discussion and Wide Arithmetic's proposed `i64.add128` / `i64.mul_wide_*` discussion are not current Starshine `0xFC` decode/encode cases, and Relaxed Atomics' ordering-bearing `0xFE` encodings plus `pause` are not current Starshine atomics cases. For scalar numeric text fixtures, pair this binary guide with [`../wast/numeric-instruction-authoring.md`](../wast/numeric-instruction-authoring.md) so constants, signedness, trap behavior, and `[FZG]002` coverage stay aligned; for Wide Arithmetic specifically, use [`../wasm-wide-arithmetic-boundary.md`](../wasm-wide-arithmetic-boundary.md) because it needs a proposal-gated multi-result numeric slice. For GC aggregate fixtures, pair it with [`../wast/gc-aggregate-instruction-authoring.md`](../wast/gc-aggregate-instruction-authoring.md) so the current WAST support gap around `struct.set` and `array.*` does not get mistaken for core/binary absence. For table text fixtures specifically, pair this binary guide with [`../wast/table-instruction-authoring.md`](../wast/table-instruction-authoring.md) so default table indices and `table.init` element/table ordering stay aligned across text, core, and binary layers. For SIMD, pair it with [`../wast/simd-authoring.md`](../wast/simd-authoring.md) so lane-shaped text fixtures stay aligned with the canonical 16-byte core representation. For ordinary atomics, pair it with [`../wast/atomic-memory-instruction-authoring.md`](../wast/atomic-memory-instruction-authoring.md) so `0xFE` byte coverage, `[FZG]017` generator evidence, and missing WAST text support stay separated; for Relaxed Atomics specifically, use [`../wasm-relaxed-atomics-boundary.md`](../wasm-relaxed-atomics-boundary.md) before deciding whether a byte is unsupported-feature evidence or a future codec slice. For Memory Control proposal bytes, use [`../wasm-memory-control-boundary.md`](../wasm-memory-control-boundary.md) before deciding whether the right evidence is unsupported-feature classification or a future codec slice.
 - **SIMD lane immediates need shape-specific evidence.** Starshine's WAST lowerer enforces exact lane bounds; binary decode still uses a coarse generic `<16` lane guard except for shuffle's `<32` decoder, and the typechecker now rejects decoded but shape-invalid single-lane forms such as `i64x2.extract_lane 2` or `v128.store32_lane 4`. See [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md) and [`../wast/simd-authoring.md`](../wast/simd-authoring.md) before treating binary-origin decode acceptance as validation parity.
 - **Deep nesting is a fuzz-hardening boundary.** Raising or removing the decoder limit should be treated as a security/performance-sensitive codec change.
 
 ## Sources
 
+- Multi-memory Core boundary refresh: [`../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md`](../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md), [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md)
 - Relaxed Atomics boundary refresh: [`../raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md`](../raw/wasm/2026-06-05-relaxed-atomics-boundary-refresh.md), [`../wasm-relaxed-atomics-boundary.md`](../wasm-relaxed-atomics-boundary.md)
 - Current SIMD lane-immediate validation refresh: [`../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md`](../raw/wasm/2026-06-04-simd-lane-validation-current-refresh.md), [`../validate/simd-lane-immediates.md`](../validate/simd-lane-immediates.md)
 - Original SIMD lane-immediate validation refresh: [`../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md`](../raw/wasm/2026-05-20-simd-lane-immediate-validation-refresh.md)

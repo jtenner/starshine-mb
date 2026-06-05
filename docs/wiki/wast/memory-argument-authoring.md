@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-05
 sources:
+  - ../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md
   - ../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md
   - ../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md
   - ../raw/wasm/2026-05-19-wast-memory-argument-sources.md
@@ -18,6 +19,7 @@ sources:
   - ../../../src/validate/typecheck.mbt
   - ../../../src/validate/gen_valid.mbt
 related:
+  - ../wasm-multi-memory-boundary.md
   - ./memory-instruction-authoring.md
   - ./data-segment-authoring.md
   - ./resource-declaration-authoring.md
@@ -44,7 +46,7 @@ A WebAssembly memory instruction has two different address components:
 
 It may also have an **alignment hint** and, in multi-memory contexts, a **selected memory index**. Starshine has all of those concepts in the core/binary/validator layers, but its current WAST text lowering only preserves `offset=` and `align=` for ordinary scalar/SIMD load/store memory arguments. Explicit nonzero memory indices in text memory instructions are a known fixture-readiness gap.
 
-The original source manifest is [`../raw/wasm/2026-05-19-wast-memory-argument-sources.md`](../raw/wasm/2026-05-19-wast-memory-argument-sources.md). It checked official WebAssembly text, binary, validation, PDF, historical multi-memory/memory64 proposal surfaces, and the Starshine parser, lowerer, printer, binary codec, typechecker, equality, and generator code. For current memory64/table64 status, use the 2026-06-05 Core/status bridge [`../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md`](../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md); for the detailed positional instruction-width split, use [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md). The living validator matrix is [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md).
+The original source manifest is [`../raw/wasm/2026-05-19-wast-memory-argument-sources.md`](../raw/wasm/2026-05-19-wast-memory-argument-sources.md). It checked official WebAssembly text, binary, validation, PDF, historical multi-memory/memory64 proposal surfaces, and the Starshine parser, lowerer, printer, binary codec, typechecker, equality, and generator code. For current multi-memory status and selected-memory layer routing, use the 2026-06-05 Core boundary [`../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md`](../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md) and [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md). For current memory64/table64 status, use the 2026-06-05 Core/status bridge [`../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md`](../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md); for the detailed positional instruction-width split, use [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md). The living validator matrix is [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md).
 
 ## Mental Model
 
@@ -108,6 +110,8 @@ However, current Starshine WAST memory declarations do not author memory64 resou
 The static offset still has an address-width rule once the selected core/binary memory is memory64: an i32 memory rejects offsets at or above `2^32`, while local i64 memory offsets can use the full `UInt64` immediate range. The focused Binaryen lowering caveat for large static offsets lives in [`../binaryen/passes/memory64-lowering/static-offsets-dynamic-operands-and-grow-repair.md`](../binaryen/passes/memory64-lowering/static-offsets-dynamic-operands-and-grow-repair.md); this page covers Starshine's WAST/core validation model without implying that current WAST declarations can spell every core memory type.
 
 ### Multi-memory instruction indices are a current WAST gap
+
+For current standards/status routing and Starshine layer boundaries, use [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md). This section is the WAST-facing slice: it explains why text fixtures cannot yet author the whole selected-memory surface even though core, binary, validator, and generator evidence is broader.
 
 The core representation can distinguish default memory `0` from explicit nonzero memories:
 
@@ -178,6 +182,7 @@ When changing memory-argument text, binary, or validation behavior:
 ## Sources
 
 - Primary-source manifest: [`../raw/wasm/2026-05-19-wast-memory-argument-sources.md`](../raw/wasm/2026-05-19-wast-memory-argument-sources.md)
+- Current multi-memory Core boundary: [`../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md`](../raw/wasm/2026-06-05-multi-memory-core-boundary-refresh.md), [`../wasm-multi-memory-boundary.md`](../wasm-multi-memory-boundary.md)
 - Current memory64/table64 Core/status bridge: [`../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md`](../raw/wasm/2026-06-05-memory64-table64-core-boundary-refresh.md), [`../validate/memory-table-address-widths.md`](../validate/memory-table-address-widths.md)
 - Detailed memory/table address-width validator refresh: [`../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md`](../raw/wasm/2026-06-04-memory-table-address-width-validation-refresh.md)
 - Memory64 bulk-memory validation refresh: [`../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md`](../raw/wasm/2026-05-20-memory64-bulk-memory-validation-refresh.md)
