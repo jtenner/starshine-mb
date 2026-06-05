@@ -36,6 +36,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Refreshed [`wast/exception-tag-authoring.md`](wast/exception-tag-authoring.md) so `tag`, `throw`, nullable-operand `throw_ref`, `try_table`, and modern catch clauses route as finished/Core-3.0 Exception Handling while keeping Starshine's stricter resultful-tag declaration validation, legacy `try` text compatibility, pass rewrite obligations, and `throw_ref` null-trap behavior explicit.
 - Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wast/index.md`](wast/index.md), and [`index.md`](index.md) so EH claims no longer sit only in the generic ordinary-Core row and readers route Stack Switching, JSPI, and Relaxed Dead Code Validation to their separate focused boundaries.
 
+## [2026-06-05] local-cse/wiki | reference conversion deferral
+
+- Added core-built LCSE boundary coverage for repeated `any.convert_extern` and `extern.convert_any` roots, documenting Starshine's conservative behavior even though Binaryen materializes the representative reference-conversion repeats.
+- Refreshed the LCSE strategy, implementation/test guide, backlog, and final-pass audit note so reference conversions remain separate from the narrow `ref.is_null` / `ref.eq` scalar reuse surfaces and broader cast/nullability reasoning.
+
 ## [2026-06-05] local-cse/wiki | packed heap-read deferral
 
 - Added core-built LCSE boundary coverage for repeated packed `struct.get_s` / `struct.get_u` / `array.get_s` / `array.get_u` roots, documenting Starshine's conservative behavior even though Binaryen materializes the representative packed heap-read repeats.

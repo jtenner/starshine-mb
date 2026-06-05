@@ -1926,3 +1926,29 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the added conservative core-built coverage passed immediately (`120/120`), so this was missing-test-only coverage for Starshine's existing conservative behavior. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`120/120`); `moon test src/passes` passed (`1669/1669`); full `moon test` passed (`4854/4854`); native build succeeded with no work to do; compare reached `6769` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up reference-conversion root deferral slice on 2026-06-05
+
+A later focused LCSE hardening slice spot-checked repeated `any.convert_extern` and `extern.convert_any` roots. Binaryen materialized both representative repeated reference conversions with `local.tee` / `local.get` in the spot-check fixture under `.tmp/lcse-next-spots/ref-convert.wat`.
+
+This slice deliberately did not implement reference-conversion CSE or broaden LCSE's reference/cast reasoning. The landed core-built direct test `local-cse defers repeated reference conversion roots` documents Starshine's conservative no-CSE behavior for these reference conversions while keeping the boundary separate from `ref.is_null` / `ref.eq` scalar results and from trap/nullability/cast/descriptor reasoning. This is semantically safe but may miss a Binaryen-positive local opportunity that would need a separate safe reference-conversion result-type model.
+
+Validation evidence for this slice:
+
+```sh
+wasm-tools parse .tmp/lcse-next-spots/ref-convert.wat -o .tmp/lcse-next-spots/ref-convert.wasm
+wasm-opt .tmp/lcse-next-spots/ref-convert.wasm --all-features --local-cse -S -o .tmp/lcse-next-spots/ref-convert.binaryen.wat
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon test --package jtenner/starshine/passes --file remove_unused_brs_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-ref-convert-boundary-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the added conservative core-built coverage passed immediately (`121/121`), so this was missing-test-only coverage for Starshine's existing conservative behavior. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`121/121`). The first broad `moon test src/passes` and `moon test` attempts hit a `remove_unused_brs_test.mbt` assertion while unrelated `src/passes/remove_unused_brs*` worktree edits were present; agent classification: unrelated/transient non-LCSE command failure, because the slice only changed LCSE tests/docs and the focused `remove_unused_brs_test.mbt` rerun then passed (`106/106`). Rerun `moon test src/passes` passed (`1671/1671`) and rerun full `moon test` passed (`4856/4856`); native build succeeded with no work to do; compare reached `6764` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
