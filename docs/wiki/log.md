@@ -12391,3 +12391,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added a failing WAT-form direct `local-cse` regression, then fixed the raw/module path to model `data.drop` as a zero-operand, no-result side-effecting instruction rather than an unknown hard boundary.
 - Refreshed the direct 10000-case lane at `.tmp/pass-fuzz-local-cse-data-drop-local-only-10000`: 6768 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures agent-classified as tool/oracle failures rather than Starshine semantic failures.
 - Refreshed the LCSE wiki pages, the 0710 audit note, and [`../../agent-todo.md`](../../agent-todo.md) so this side-effect case is tracked as a covered positive without broad memory, table, or segment GVN claims.
+
+## 2026-06-04 local-cse elem.drop local-only effect hardening
+
+- Added `elem.drop` WAT regression coverage for Binaryen-positive local-only reuse across element segment drops.
+- Updated the Starshine LCSE raw/module operand model so `elem.drop` is a zero-operand, no-result side effect rather than an unknown hard boundary; this does not add segment/table GVN or make `elem.drop` reusable.
+- Recorded focused, standard, native-build, and 10000-case direct compare evidence in `docs/wiki/raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`.
