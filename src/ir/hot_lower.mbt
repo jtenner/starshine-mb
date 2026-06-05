@@ -839,6 +839,10 @@ fn hot_lower_impl_finalize_region_stack(
   if stack.length() <= keep_count {
     return
   }
+  if out.length() > 0 &&
+    hot_lower_impl_instr_is_nonfallthrough(out[out.length() - 1]) {
+    return
+  }
   let preserved : Array[LocalIdx] = []
   let preserved_count = if keep_count < stack.length() {
     keep_count
@@ -2281,6 +2285,27 @@ fn hot_lower_impl_trim_redundant_unreachable_tail(
   if body.length() < 2 {
     return body
   }
+  for i = 0; i + 1 < body.length(); i = i + 1 {
+    match body[i] {
+      Unreachable => {
+        let mut only_dead_debris = true
+        for j = i + 1; j < body.length(); j = j + 1 {
+          match body[j] {
+            Nop | Drop | Block(_, Expr([])) => ()
+            _ => only_dead_debris = false
+          }
+        }
+        if only_dead_debris {
+          let trimmed : Array[Instruction] = []
+          for j = 0; j <= i; j = j + 1 {
+            trimmed.push(body[j])
+          }
+          return trimmed
+        }
+      }
+      _ => ()
+    }
+  }
   match body[body.length() - 1] {
     Unreachable => {
       let prev = body[body.length() - 2]
@@ -3151,6 +3176,17 @@ fn hot_lower_impl_strip_redundant_nops_and_dead_local_tee_drops(
   let mut i = 0
   while i < body.length() {
     match body[i] {
+      Unreachable => {
+        stripped.push(body[i])
+        i = i + 1
+        while i < body.length() {
+          match body[i] {
+            Nop | Drop | Block(_, Expr([])) => i = i + 1
+            _ => break
+          }
+        }
+        continue
+      }
       Nop => {
         if (options.preserve_nontrailing_nops && i + 1 < body.length()) ||
           (options.preserve_trailing_nops && i + 1 == body.length()) {

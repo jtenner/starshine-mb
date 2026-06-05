@@ -879,6 +879,136 @@ fn code_folding_node_always_exits(func : @ir.HotFunc, node_id : Int) -> Bool {
 }
 
 ///|
+fn code_folding_node_is_noop_before_unreachable(
+  func : @ir.HotFunc,
+  node_id : Int,
+  label_used : @bitset.BitSet,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return true
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Nop => true
+    @ir.HotOp::Block => {
+      if @ir.hot_node_result_arity(func, node_id) != 0 {
+        return false
+      }
+      let label_id = @ir.hot_control_node_label(func, node_id)
+      if pass_label_is_used(label_id, label_used) {
+        return false
+      }
+      let body_ref = @ir.hot_region_body_ref(func, node_id)
+      let body_count = @ir.hot_region_root_count(func, body_ref)
+      for idx = 0; idx < body_count; idx = idx + 1 {
+        if !code_folding_node_is_noop_before_unreachable(
+            func,
+            @ir.hot_region_get(func, body_ref, idx),
+            label_used,
+          ) {
+          return false
+        }
+      }
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+fn code_folding_try_remove_dead_block_before_unreachable_at_region(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  label_used : @bitset.BitSet,
+) -> Bool {
+  // Keep this byte-level cleanup out of large artifact functions until CF-L
+  // resolves the current code-folding pass-local timing blocker.
+  if @ir.hot_node_count(func) > 4096 {
+    return false
+  }
+  let block_id = @ir.hot_region_get(func, region_ref, idx)
+  if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, block_id).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  let label_id = @ir.hot_control_node_label(func, block_id)
+  if label_id < 0 || @ir.hot_label_branch_arity(func, label_id) <= 1 {
+    return false
+  }
+  let count = @ir.hot_region_root_count(func, region_ref)
+  let mut after_unreachable = false
+  if idx > 0 {
+    let prev_id = @ir.hot_region_get(func, region_ref, idx - 1)
+    if prev_id >= 0 {
+      match @ir.hot_node_get(func, prev_id).op {
+        @ir.HotOp::Unreachable => after_unreachable = true
+        _ => ()
+      }
+    }
+  }
+  let mut before_unreachable = false
+  if idx + 1 < count {
+    let next_id = @ir.hot_region_get(func, region_ref, idx + 1)
+    if next_id >= 0 {
+      match @ir.hot_node_get(func, next_id).op {
+        @ir.HotOp::Unreachable => before_unreachable = true
+        _ => ()
+      }
+    }
+  }
+  if !after_unreachable && !before_unreachable {
+    return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  if !after_unreachable && pass_label_is_used(label_id, label_used) {
+    return false
+  }
+  let body_count = @ir.hot_region_root_count(func, body_ref)
+  let mut unreachable_idx = -1
+  for body_idx = 0; body_idx < body_count; body_idx = body_idx + 1 {
+    let root_id = @ir.hot_region_get(func, body_ref, body_idx)
+    if root_id < 0 {
+      return false
+    }
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::Unreachable => {
+        if unreachable_idx >= 0 {
+          return false
+        }
+        unreachable_idx = body_idx
+      }
+      _ => ()
+    }
+  }
+  if unreachable_idx <= 0 {
+    return false
+  }
+  for body_idx = 0; body_idx < unreachable_idx; body_idx = body_idx + 1 {
+    if !code_folding_node_is_noop_before_unreachable(
+        func,
+        @ir.hot_region_get(func, body_ref, body_idx),
+        label_used,
+      ) {
+      return false
+    }
+  }
+  let nop_id = @ir.hot_build_nop(func)
+  ignore(pass_splice_region(ctx, func, region_ref, idx, 1, [nop_id]))
+  @ir.hot_region_replace_body(func, body_ref, [])
+  pipeline_trace_hook(
+    ctx.trace,
+    ctx.descriptor.name,
+    "mutated",
+    payload="remove-dead-block-before-unreachable",
+  )
+  true
+}
+
+///|
 fn code_folding_try_flatten_exiting_block_at_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -3266,6 +3396,9 @@ fn code_folding_visit_region(
     if node_id >= 0 && @ir.hot_node_is_live(func, node_id) {
       if code_folding_try_remove_drop_unreachable_at_region(
           ctx, func, region_ref, idx,
+        ) ||
+        code_folding_try_remove_dead_block_before_unreachable_at_region(
+          ctx, func, region_ref, idx, label_used,
         ) ||
         code_folding_try_flatten_exiting_block_at_region(
           ctx, func, region_ref, idx, label_used,

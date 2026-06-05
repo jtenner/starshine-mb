@@ -3429,7 +3429,7 @@ test "code-folding keeps root trailing unreachable for exiting result functions"
 }
 
 ///|
-test "code-folding keeps multi-result exiting block wrapper before bottom tail" {
+test "code-folding keeps multi-result exiting block valid before bottom tail" {
   let optimized = code_folding_test_run(
     (
       #|(module
@@ -3443,8 +3443,30 @@ test "code-folding keeps multi-result exiting block wrapper before bottom tail" 
   )
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("block"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
   assert_false(pretty.contains("drop"), msg=pretty)
+}
+
+///|
+test "code-folding removes size-losing dead multi-result wrapper before root unreachable" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (type $arr (sub (array i32)))
+      #|  (type $f (sub (func)))
+      #|  (type $block_result (func (result (ref null $arr) i32)))
+      #|  (func (type $f)
+      #|    (block (type $block_result) (result (ref null $arr) i32)
+      #|      (block)
+      #|      unreachable)
+      #|    unreachable))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("block"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
 }
 
 ///|
