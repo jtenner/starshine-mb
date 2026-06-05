@@ -779,6 +779,89 @@ fn simplify_locals_exact_local_write_id(node : @ir.HotNode) -> Int {
 }
 
 ///|
+fn simplify_locals_effects_mask_for_region(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> @ir.EffectMask {
+  let mut mask = 0U
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    mask = mask |
+      simplify_locals_effects_mask_for_subtree(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+      )
+  }
+  mask
+}
+
+///|
+fn simplify_locals_effects_mask_for_subtree(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> @ir.EffectMask {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return 0U
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  let mut mask = @ir.effects_for_node(func, node_id) |
+    simplify_locals_effects_mask_for_exact_node(func, node_id)
+  match node.op {
+    @ir.HotOp::If => {
+      mask = mask |
+        simplify_locals_effects_mask_for_region(
+          func,
+          @ir.hot_region_then_ref(func, node_id),
+        )
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) =>
+          mask = mask | simplify_locals_effects_mask_for_region(func, else_ref)
+        None => ()
+      }
+    }
+    @ir.HotOp::Try => {
+      mask = mask |
+        simplify_locals_effects_mask_for_region(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+        )
+      match @ir.hot_region_catch_ref(func, node_id) {
+        Some(catch_ref) =>
+          mask = mask | simplify_locals_effects_mask_for_region(func, catch_ref)
+        None => ()
+      }
+    }
+    @ir.HotOp::TryTable =>
+      mask = mask |
+        simplify_locals_effects_mask_for_region(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+        ) |
+        simplify_locals_effects_mask_for_region(
+          func,
+          @ir.hot_region_catch_list_ref(func, node_id),
+        )
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      mask = mask |
+        simplify_locals_effects_mask_for_region(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+        )
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if simplify_locals_is_region_child_slot(node.op, slot) {
+      continue
+    }
+    mask = mask |
+      simplify_locals_effects_mask_for_subtree(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      )
+  }
+  mask
+}
+
+///|
 fn simplify_locals_effects_for_pending_local_set(
   func : @ir.HotFunc,
   node_id : Int,
@@ -788,7 +871,10 @@ fn simplify_locals_effects_for_pending_local_set(
   let effects = simplify_locals_empty_effects()
   let stamp = simplify_locals_next_scratch_stamp(sinkables)
   let value_mask = if node.child_count != 0 {
-    @ir.effects_for_node(func, @ir.hot_child_get(func, node_id, 0))
+    simplify_locals_effects_mask_for_subtree(
+      func,
+      @ir.hot_child_get(func, node_id, 0),
+    )
   } else {
     0U
   }
@@ -1960,6 +2046,12 @@ fn simplify_locals_value_can_move_one_use(
   func : @ir.HotFunc,
   node_id : Int,
 ) -> Bool {
+  if simplify_locals_effects_has(
+      simplify_locals_effects_mask_for_subtree(func, node_id),
+      @ir.EFFECT_MASK_GLOBAL_STATE,
+    ) {
+    return false
+  }
   if simplify_locals_value_can_clone_node(func, node_id) {
     return true
   }
@@ -2188,6 +2280,12 @@ fn simplify_locals_value_is_child_inline_safe(
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return true
+  }
+  if simplify_locals_effects_has(
+      simplify_locals_effects_mask_for_subtree(func, node_id),
+      @ir.EFFECT_MASK_GLOBAL_STATE,
+    ) {
+    return false
   }
   if simplify_locals_value_is_pure(func, node_id) {
     return true
@@ -4994,10 +5092,52 @@ fn simplify_locals_should_skip_root_local_set_stack_hazard(
 }
 
 ///|
+fn simplify_locals_should_skip_root_local_set_stack_global_hazard(
+  func : @ir.HotFunc,
+) -> Bool {
+  let root_ref = @ir.HotRegionRef::root()
+  if @ir.hot_region_root_count(func, root_ref) <= 1 {
+    return false
+  }
+  let mut has_local_set = false
+  let mut has_stack_effect = false
+  let mut has_global_state = false
+  for idx = 0; idx < @ir.hot_region_root_count(func, root_ref); idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, root_ref, idx)
+    if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::LocalSet => has_local_set = true
+      _ => ()
+    }
+    if simplify_locals_node_has_stack_effect_hazard(func, root_id) {
+      has_stack_effect = true
+    }
+    if simplify_locals_effects_has(
+        simplify_locals_effects_mask_for_subtree(func, root_id),
+        @ir.EFFECT_MASK_GLOBAL_STATE,
+      ) {
+      has_global_state = true
+    }
+  }
+  has_local_set && has_stack_effect && has_global_state
+}
+
+///|
 fn simplify_locals_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
+  if simplify_locals_should_skip_root_local_set_stack_global_hazard(func) {
+    pipeline_trace_hook(
+      ctx.trace,
+      ctx.descriptor.name,
+      "skip-hot",
+      payload="reason=root-local-set-stack-global-hazard-noop",
+    )
+    return HotPassResult::unchanged()
+  }
   simplify_locals_run_with_options(ctx, func, true, true)
 }
 

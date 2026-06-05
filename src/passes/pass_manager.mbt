@@ -2020,6 +2020,37 @@ fn run_hot_pipeline_raw_simplify_locals_has_stack_effect_hazard(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_has_global_state(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.GlobalGet(_) | @lib.GlobalSet(_) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_simplify_locals_has_global_state(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_simplify_locals_has_global_state(then_body) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_simplify_locals_has_global_state(else_body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_simplify_locals_descriptor_is_nostructure(
   descriptor_name : String,
 ) -> Bool {
@@ -5374,6 +5405,11 @@ fn run_hot_pipeline_raw_simplify_locals(
     descriptor.name,
     instrs,
   )
+  let raw_simplify_locals_stack_global_hazard = descriptor.name ==
+    "simplify-locals" &&
+    run_hot_pipeline_raw_simplify_locals_has_local_write(instrs) &&
+    run_hot_pipeline_raw_simplify_locals_has_stack_effect_hazard(instrs) &&
+    run_hot_pipeline_raw_simplify_locals_has_global_state(instrs)
   let should_rewrite_ladder = if stats.locals_count < 16 ||
     stats.locals_count > 512 {
     false
@@ -5758,7 +5794,7 @@ fn run_hot_pipeline_raw_simplify_locals(
     stats.instr_count >= 256 &&
     stats.local_set_count >= 24 &&
     stats.local_get_count >= 48
-  if raw_nostructure_stack_hazard &&
+  if (raw_nostructure_stack_hazard || raw_simplify_locals_stack_global_hazard) &&
     (
       stats.has_structured_control ||
       stats.locals_count >= 16 ||

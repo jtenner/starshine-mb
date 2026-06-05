@@ -43,6 +43,43 @@ fn simplify_locals_test_assert_strings_in_order(
 }
 
 ///|
+test "simplify-locals keeps global delta reads before realloc calls" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (global $buffer (mut i32) (i32.const 0))
+        #|  (global $offset (mut i32) (i32.const 0))
+        #|  (func $realloc (param i32 i32) (result i32) (local.get 0))
+        #|  (func (param $size i32) (local $buf i32) (local $delta i32) (local $newBuf i32)
+        #|    global.get $buffer
+        #|    local.set $buf
+        #|    global.get $offset
+        #|    local.get $buf
+        #|    i32.sub
+        #|    local.set $delta
+        #|    local.get $buf
+        #|    local.get $size
+        #|    call $realloc
+        #|    local.set $newBuf
+        #|    local.get $newBuf
+        #|    local.get $delta
+        #|    i32.add
+        #|    global.set $offset))
+      ),
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  simplify_locals_test_assert_strings_in_order(pretty, [
+    "global.get (Global 1)", "call (Func 0)", "global.set (Global 1)",
+  ])
+}
+
+///|
 fn simplify_locals_test_low_local_structured_call_heavy_fixture() -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")

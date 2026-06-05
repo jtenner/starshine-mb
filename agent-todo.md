@@ -65,14 +65,15 @@
   - Suggested tests: focused pass-manager/simplify-locals tests, `moon test src/passes`, `moon build --target native --release src/cmd`, and cloned `json-as` prefix/full O4 runtime smokes.
 
 - [JSON-AS]006 - `simplify-locals` corrupts json-as medium-naive after local-cse
-  - Status: active correctness blocker found after `[JSON-AS]005` prefix-17 fix on 2026-06-05.
+  - Status: active correctness blocker found after `[JSON-AS]005` prefix-17 fix on 2026-06-05; one `simplify-locals` subfamily fixed, but prefix 26 still fails later in runtime allocation.
   - Goal: make the later full `simplify-locals` slot preserve string/object state after `local-cse` so full O4 runtime smoke can proceed.
-  - Why: after prefix 17 was fixed, medium-naive prefixes through `local-cse` completed under Node. The next failing no-HSO ordered prefix is slot 26: `... -> coalesce-locals -> local-cse -> simplify-locals`. The validating output traps with `RuntimeError: memory access out of bounds` in `~lib/rt/common/OBJECT#get:rtSize`, called from `assembly/index/JSON.__serialize<~lib/string/String>`, `UserPreferences#__SERIALIZE`, `serializeStruct<UserPreferences>`, and the benchmark start function.
-  - Finding: unclassified. This may be the full `simplify-locals` variant reintroducing a stack-root/local cleanup hazard after `local-cse`; do not assume it is identical to `[JSON-AS]005` without a focused diff/repro.
+  - Why: after prefix 17 was fixed, medium-naive prefixes through `local-cse` completed under Node. The next failing no-HSO ordered prefix is slot 26: `... -> coalesce-locals -> local-cse -> simplify-locals`. The first validating output trapped with `RuntimeError: memory access out of bounds` in `~lib/rt/common/OBJECT#get:rtSize`, called from `assembly/index/JSON.__serialize<~lib/string/String>`, `UserPreferences#__SERIALIZE`, `serializeStruct<UserPreferences>`, and the benchmark start function. After the global-delta guard, prefix 26 reaches benchmark execution and then traps during allocation in `~lib/rt/itcms/Object#get:nextWithColor` from `~lib/rt/itcms/__new`.
+  - Finding: `simplify-locals` was moving global-derived delta reads across realloc-style calls; a focused regression now keeps `global.get offset` before the call and the pass guards large raw `simplify-locals` functions that mix local writes, stack effects, and global state. Remaining prefix-26 diffs are concentrated in allocator/runtime helpers such as TLSF functions `12`, `13`, `14`, `19`, `20`, `21`, `22`, `92`, `96`, and `97`; classify this as a separate unresolved subfamily rather than assuming the string-serializer issue is still active.
   - Deliverables:
-    - [ ] Diff the prefix-25/26 artifacts, starting with stack functions `100`, `105`, `218`, `219`, `220`, and `264`.
-    - [ ] Add a focused regression before changing `simplify-locals` behavior.
-    - [ ] Replay prefix 26 under Node after the fix, then continue ordered-prefix bisection.
+    - [x] Diff the initial prefix-25/26 artifacts for stack functions `100`, `105`, `218`, `219`, `220`, and `264`, and isolate the global-delta/realloc ordering issue.
+    - [x] Add a focused regression before changing `simplify-locals` behavior (`simplify-locals keeps global delta reads before realloc calls`).
+    - [ ] Diff the remaining prefix-25/fixed-prefix-26 allocator changes, starting with TLSF/RT functions `12`, `13`, `14`, `19`, `20`, `21`, `22`, `92`, `96`, and `97`.
+    - [ ] Replay prefix 26 under Node after the allocator subfamily fix, then continue ordered-prefix bisection.
   - Suggested tests: focused `src/passes/simplify_locals*_test.mbt` or pass-manager whitebox coverage, `moon test src/passes`, `moon build --target native --release src/cmd`, and cloned `json-as` prefix replay under Node.
 
 - [JSON-AS]003 - Optimize preset misses Binaryen O4 function/type cleanup on json-as debug artifacts
