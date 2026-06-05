@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | trap-sensitive trunc deferral
+
+- Added focused LCSE coverage for repeated non-saturating `i32.trunc_f32_s` and `i64.trunc_f64_u` roots, documenting Starshine's conservative no-CSE boundary even though Binaryen materializes the representative repeats.
+- Refreshed the LCSE implementation/test guide and final-pass audit note so trap-sensitive trunc conversions stay paired with the integer division/remainder and cast/trap deferrals rather than being confused with the already-reusable saturating trunc roots.
+
 ## [2026-06-05] wasm/wiki | compilation hints boundary routing
 
 - Added [`raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md`](raw/wasm/2026-06-05-compilation-hints-boundary-refresh.md) after checking the current WebAssembly proposals tracker, Compilation Hints proposal repository/overview, existing Core/code-metadata branch-hint routing, and current Starshine custom-section, WAST function-annotation, no-inline, and inlining code paths.

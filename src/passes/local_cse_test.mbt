@@ -424,6 +424,44 @@ test "local-cse defers repeated integer remainder roots" {
 }
 
 ///|
+test "local-cse defers repeated i32 trapping trunc roots" {
+  let input =
+    #| (module
+    #|   (func (param f32)
+    #|     (drop (i32.trunc_f32_s (local.get 0)))
+    #|     (drop (i32.trunc_f32_s (local.get 0)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(1U)), 0)
+}
+
+///|
+test "local-cse defers repeated i64 trapping trunc roots" {
+  let input =
+    #| (module
+    #|   (func (param f64)
+    #|     (drop (i64.trunc_f64_u (local.get 0)))
+    #|     (drop (i64.trunc_f64_u (local.get 0)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(1U)), 0)
+}
+
+///|
 test "local-cse reuses local-only expression across integer unary bit op" {
   let input =
     #| (module
