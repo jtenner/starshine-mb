@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-05
 sources:
+  - raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md
   - raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md
   - tooling/node-package-surface.md
   - ../../node/internal/runtime.js
@@ -10,6 +11,7 @@ sources:
   - ../../node/README.md
   - ../../node/package.json
 related:
+  - tooling/wasi-runner-and-preview-boundary.md
   - wasm-feature-status-and-proposal-boundaries.md
   - wasm-stack-switching-boundary.md
   - wasm-js-string-builtins-boundary.md
@@ -70,7 +72,7 @@ That example is intentionally a **proposal-shape sketch**, not current Starshine
 | --- | --- | --- |
 | wasm-gc adapter loading | [`node/internal/runtime.js`](../../node/internal/runtime.js) reads the local wasm-gc artifact, compiles/instantiates it with `builtins: ["js-string"]`, and caches exports behind async JavaScript functions. | Async loading only; no `WebAssembly.Suspending` import wrappers and no `WebAssembly.promising(...)` export adaptation. |
 | wasm-gc imports | The import object currently handles MoonBit filesystem/time shims, console logging, and string constants. Unsupported import modules throw. | No Promise-suspending host import policy. |
-| WASI runner | [`node/internal/wasi-runner.js`](../../node/internal/wasi-runner.js) instantiates a module, then runs `_start` or initializes WASI. | Ordinary WASI execution; no JSPI wrapper policy. |
+| WASI runner | [`node/internal/wasi-runner.js`](../../node/internal/wasi-runner.js) instantiates a Core module with a Preview 1 `wasi_snapshot_preview1` import object, then runs `_start` or initializes a reactor; focused runner details live in [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md). | Preview 1 runner execution; no JSPI wrapper policy and no Preview 2 / component support. |
 | Package contract | [`node/README.md`](../../node/README.md) and [`node/package.json`](../../node/package.json) require Node.js 25+ with WebAssembly GC and JS string builtins. | No advertised JSPI requirement or JSPI API. |
 | Core/WAST/binary/validator | Current Starshine module docs route Core module syntax, binary, validation, generator, and pass claims through focused pages. | No JSPI-specific module layer exists today. |
 
@@ -84,7 +86,7 @@ The key wording rule is: **Starshine's Node package is async, but not JSPI-enabl
 | ESM Integration | Loads `.wasm` resources through JavaScript module graphs with source-phase or instance-phase imports. It is about module loading/linking, not Promise-aware suspension. | [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md) |
 | Reference-Typed Strings / `stringref` | Active proposal/local string instruction and literal-pool surfaces. | [`wast/string-instruction-authoring.md`](wast/string-instruction-authoring.md), [`strings/string-const-surface.md`](strings/string-const-surface.md) |
 | Component Model / Canonical ABI | Higher-level components, WIT worlds, and lift/lower adapters. It may eventually have async interface questions, but it is not the same as JSPI. | [`wasm-component-model-boundary.md`](wasm-component-model-boundary.md) |
-| WASI Preview 2 | Host capability/interface model often discussed with components. Current Starshine's WASI runner is a package execution helper, not component/JSPI support. | [`tooling/node-package-surface.md`](tooling/node-package-surface.md), [`tooling/release-process.md`](tooling/release-process.md) |
+| WASI Preview 1 runner / WASI Preview 2 | Current Starshine's runner is Preview 1 Core-module execution through `wasi_snapshot_preview1`; Preview 2 / WASI 0.2 is component/WIT-facing. Neither is JSPI Promise suspension. | [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md), [`wasm-component-model-boundary.md`](wasm-component-model-boundary.md) |
 | Stack Switching | Separate active Phase-3 typed-continuations proposal mechanics for stackful Core-module control transfer. JSPI may be discussed near suspension/resumption, but Starshine support claims need continuation-type / `cont.*` / `resume*` source and local implementation evidence. | [`wasm-stack-switching-boundary.md`](wasm-stack-switching-boundary.md), [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md) |
 | External validator support | `wasm-tools`, WABT, and Binaryen command adapters validate/print/optimize modules; they do not prove JavaScript host wrapper behavior. | [`tooling/external-validator-adapters.md`](tooling/external-validator-adapters.md) |
 
@@ -110,5 +112,6 @@ Do **not** start by adding a Starshine WAST keyword, binary opcode, validation r
 - JS String Builtins boundary: [`wasm-js-string-builtins-boundary.md`](wasm-js-string-builtins-boundary.md)
 - Component Model boundary: [`wasm-component-model-boundary.md`](wasm-component-model-boundary.md)
 - ESM Integration boundary: [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md)
+- WASI runner / Preview boundary: [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md), [`raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md`](raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md)
 - Node package surface: [`tooling/node-package-surface.md`](tooling/node-package-surface.md)
 - Current Node package files: [`../../node/internal/runtime.js`](../../node/internal/runtime.js), [`../../node/internal/wasi-runner.js`](../../node/internal/wasi-runner.js), [`../../node/README.md`](../../node/README.md), [`../../node/package.json`](../../node/package.json)

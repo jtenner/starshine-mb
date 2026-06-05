@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-05
 sources:
+  - raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md
   - raw/wasm/2026-06-05-esm-integration-boundary-refresh.md
   - raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md
   - wasm-js-string-builtins-boundary.md
@@ -14,6 +15,7 @@ sources:
   - ../../node/internal/runtime.js
   - ../../node/internal/wasi-runner.js
 related:
+  - tooling/wasi-runner-and-preview-boundary.md
   - wasm-feature-status-and-proposal-boundaries.md
   - wasm-js-string-builtins-boundary.md
   - wasm-jspi-host-async-boundary.md
@@ -70,7 +72,7 @@ These shapes are about **JavaScript module loading and linking**. They do not ad
 | --- | --- | --- |
 | Package format | [`node/package.json`](../../node/package.json) sets `"type": "module"` and an explicit JavaScript `exports` map. | ESM-first JavaScript package only; not proof that `.wasm` resources are importable through WebAssembly ESM Integration. |
 | Internal wasm-gc adapter | [`node/internal/runtime.js`](../../node/internal/runtime.js) reads `starshine.wasm-gc.wasm`, calls `WebAssembly.compile(...)` with `builtins: ["js-string"]`, builds an explicit import object, and calls `WebAssembly.instantiate(...)`. | Direct JavaScript API loading; no `import source`, no `import.source(...)`, and no instance-phase Wasm namespace import. |
-| WASI runner | [`node/internal/wasi-runner.js`](../../node/internal/wasi-runner.js) reads an arbitrary wasm file path, compiles bytes, constructs WASI/import objects, and instantiates directly. | Execution helper for user-supplied wasm files; not an ESM module graph or loader integration. |
+| WASI runner | [`node/internal/wasi-runner.js`](../../node/internal/wasi-runner.js) reads an arbitrary wasm file path, compiles bytes, constructs a Preview 1 `wasi_snapshot_preview1` import object plus Starshine/MoonBit host shims, and instantiates directly. | Execution helper for Core modules; not an ESM module graph, source-phase import, instance-phase loader integration, or WASI Preview 2 component path. See [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md). |
 | README/API | [`node/README.md`](../../node/README.md) documents an ESM-first Node package and runtime requirements for WebAssembly GC plus JS string builtins. | No advertised source-phase or instance-phase `.wasm` import API. |
 | Core/WAST/binary/validator | Starshine's core pages cover ordinary Core module parsing, binary decode/encode, validation, fuzzing, and optimizer passes. | No JavaScript module-record model, host ESM resolver, source-phase parser, instance-phase wrapper, or ESM reserved-namespace policy. |
 
@@ -82,7 +84,7 @@ The key wording rule is: **Starshine is an ESM package, but it is not a Wasm ESM
 | --- | --- | --- |
 | JS String Builtins | Node's ESM-loaded Wasm path automatically enables JS String Builtins; Starshine's current wrapper enables them explicitly through direct `WebAssembly.compile(...)` / `instantiate(...)` options. That is a host string-helper boundary, not proof of ESM Integration. | [`wasm-js-string-builtins-boundary.md`](wasm-js-string-builtins-boundary.md) |
 | JSPI | JavaScript Promise Integration wraps imports/exports for Promise suspension. It is a host async API proposal, not a module-loader proposal. | [`wasm-jspi-host-async-boundary.md`](wasm-jspi-host-async-boundary.md) |
-| Component Model | Components/WIT/Canonical ABI are higher-level WebAssembly artifact/interface layers. ESM Integration loads Core Wasm modules through JavaScript module graphs. | [`wasm-component-model-boundary.md`](wasm-component-model-boundary.md) |
+| Component Model / WASI Preview 2 | Components, WIT, Canonical ABI, and WASI 0.2 interfaces are higher-level artifact/interface layers. ESM Integration loads Core Wasm modules through JavaScript module graphs, while the current Starshine WASI runner is Preview 1 direct instantiation. | [`wasm-component-model-boundary.md`](wasm-component-model-boundary.md), [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md) |
 | Core module binary/text support | Starshine can decode, validate, print, fuzz, and optimize ordinary Core modules. That does not imply Node can import them through `import source` from Starshine's package. | [`binary/module-section-map.md`](binary/module-section-map.md), [`tooling/node-package-surface.md`](tooling/node-package-surface.md) |
 | External validator adapters | `wasm-tools`, WABT, Binaryen, and Starshine command adapters validate/print/optimize modules. They do not prove JavaScript module-loader behavior. | [`tooling/external-validator-adapters.md`](tooling/external-validator-adapters.md) |
 
@@ -123,5 +125,6 @@ Do **not** start by adding Starshine WAST syntax, binary opcode cases, validatio
 - JS String Builtins boundary: [`wasm-js-string-builtins-boundary.md`](wasm-js-string-builtins-boundary.md)
 - JSPI boundary: [`wasm-jspi-host-async-boundary.md`](wasm-jspi-host-async-boundary.md)
 - Component Model boundary: [`wasm-component-model-boundary.md`](wasm-component-model-boundary.md)
+- WASI runner / Preview boundary: [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md), [`raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md`](raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md)
 - Node package surface: [`tooling/node-package-surface.md`](tooling/node-package-surface.md)
 - Current Node package files: [`../../node/package.json`](../../node/package.json), [`../../node/README.md`](../../node/README.md), [`../../node/internal/runtime.js`](../../node/internal/runtime.js), [`../../node/internal/wasi-runner.js`](../../node/internal/wasi-runner.js)

@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-05
 sources:
+  - ../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md
   - ../raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md
   - ../raw/wasm/2026-06-05-esm-integration-boundary-refresh.md
   - ../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
@@ -26,6 +27,7 @@ sources:
   - ../../../src/validate/pkg.generated.mbti
   - ../../../src/wast/pkg.generated.mbti
 related:
+  - ./wasi-runner-and-preview-boundary.md
   - ../wasm-jspi-host-async-boundary.md
   - ../wasm-esm-integration-boundary.md
   - ../wasm-js-string-builtins-boundary.md
@@ -59,6 +61,8 @@ That split is the main invariant for maintainers: **do not assume `npm run build
 The package's async loading is also **not JSPI support**. [`node/internal/runtime.js`](../../../node/internal/runtime.js) and [`node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js) use ordinary JavaScript `async` / `await` around file I/O, compile/instantiate, and WASI execution, but current code does not construct `WebAssembly.Suspending` wrappers, call `WebAssembly.promising(...)`, or advertise Promise-suspending imports/exports. Route future JavaScript Promise Integration work through [`../wasm-jspi-host-async-boundary.md`](../wasm-jspi-host-async-boundary.md) so it stays separate from JS String Builtins, Component Model / WASI, WAST/binary/validator support, and optimizer pass evidence.
 
 The ESM-first package format is also **not WebAssembly ESM Integration support**. Current [`node/package.json`](../../../node/package.json) exposes JavaScript wrapper subpaths, while [`node/internal/runtime.js`](../../../node/internal/runtime.js) and [`node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js) load wasm artifacts by reading bytes and calling the JavaScript `WebAssembly.compile(...)` / `instantiate(...)` APIs directly. They do not use source-phase `import source`, dynamic `import.source(...)`, instance-phase `.wasm` namespace imports, package `.wasm` export targets, or host-loader reserved-namespace policy. Route future Wasm ESM import work through [`../wasm-esm-integration-boundary.md`](../wasm-esm-integration-boundary.md) so it stays separate from ordinary package metadata, JS String Builtins, JSPI, Component Model / WASI, and Core-module validation.
+
+The package's `starshine.wasm-wasi.wasm` runner path is **WASI Preview 1 Core-module execution**, not WASI Preview 2 / WASI 0.2 or Component Model support. [`node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js) constructs Node's experimental `WASI` object with `version: "preview1"`, wires the `wasi_snapshot_preview1` import module plus Starshine/MoonBit-specific host shims, and runs `_start` or initializes a reactor. Route runtime, import-module, sandboxing, and `*-wasi.wasm` artifact claims through [`wasi-runner-and-preview-boundary.md`](wasi-runner-and-preview-boundary.md) so they stay separate from package export-map parity, JSPI, Wasm ESM Integration, and Component Model claims.
 
 There is one packaging caveat: the wasm artifacts are Git-ignored by [`node/internal/.gitignore`](../../../node/internal/.gitignore) but deliberately kept publishable by [`node/internal/.npmignore`](../../../node/internal/.npmignore). The script and some older notes call the wasm-gc artifact “checked-in,” but current Git metadata makes it better to treat both wasm files as ignored local/package artifacts whose presence and tarball inclusion must be verified during release prep. The package README states the same build boundary at a higher level: build refreshes the WASI CLI artifact only, while wrapper generation remains disabled until the Node adapter story is redesigned.
 
@@ -206,6 +210,7 @@ The comparison must start from the `exports` allowlist, not from every file in `
 
 ## Sources
 
+- WASI runner / Preview boundary: [`../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md`](../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md), [`wasi-runner-and-preview-boundary.md`](wasi-runner-and-preview-boundary.md), [`../../../node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js), [`../../../scripts/lib/moonbit-wasi-runner.mjs`](../../../scripts/lib/moonbit-wasi-runner.mjs)
 - JSPI host-async boundary: [`../raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md`](../raw/wasm/2026-06-05-jspi-host-async-boundary-refresh.md), [`../wasm-jspi-host-async-boundary.md`](../wasm-jspi-host-async-boundary.md), [`../../../node/internal/runtime.js`](../../../node/internal/runtime.js), [`../../../node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js)
 - ESM Integration boundary: [`../raw/wasm/2026-06-05-esm-integration-boundary-refresh.md`](../raw/wasm/2026-06-05-esm-integration-boundary-refresh.md), [`../wasm-esm-integration-boundary.md`](../wasm-esm-integration-boundary.md), [`../../../node/package.json`](../../../node/package.json), [`../../../node/internal/runtime.js`](../../../node/internal/runtime.js), [`../../../node/internal/wasi-runner.js`](../../../node/internal/wasi-runner.js)
 - JS String Builtins runtime boundary: [`../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md), [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md), [`../../../node/internal/runtime.js`](../../../node/internal/runtime.js)

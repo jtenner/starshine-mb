@@ -3,6 +3,7 @@ kind: workflow
 status: supported
 last_reviewed: 2026-06-04
 sources:
+  - ../raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md
   - ../raw/moonbit/2026-06-04-formal-verification-v093-refresh.md
   - ../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md
   - ../raw/moonbit/2026-05-20-moon-cli-command-manual-refresh.md
@@ -28,6 +29,7 @@ sources:
   - ../raw/research/0673-2026-05-26-dae-control-debris-normalizer.md
   - ../../../scripts/test/task-family-commands.ts
 related:
+  - ./wasi-runner-and-preview-boundary.md
   - ./cli-command-and-dispatcher.md
   - ./release-process.md
   - ./moonbit-workspace-package-map.md
@@ -67,8 +69,8 @@ The important maintenance rule is: **do not blur tool capability with repo polic
 | `bun validate coverage [--top n] [--baseline path] [--update-baseline]` | Parses `moon coverage analyze`, reports uncovered-line totals, and optionally fails CI on uncovered-line regression versus a simple baseline file. | Default top count is `10`; no baseline means report-only. | Coverage reviews and CI coverage-regression checks. |
 | `bun validate readme-api-sync ...` | Verifies README/API synchronization through [`scripts/lib/readme-api-sync`](../../../scripts/lib/readme-api-sync.ts). | Arguments are owned by the readme-sync parser. | Public API or README surface changes. |
 | `bun validate trace-benchmark [--repeat n] [--corpus name] [--target target] [--list-corpora]` | Runs `src/validate_trace` benchmark corpora and emits trace summaries; the wiki stores durable corpus totals separately from machine wall time. | Default target `wasm-gc`; repeated `--corpus` filters and `--list-corpora` lists available corpora. | Validator trace performance work. |
-| `bun validate self-opt-smoke [--wasm path] [--limit n|--file path]` | Validates an already-built self-optimized CLI artifact with `wasm-tools validate --features all`, executes the artifact under Node/WASI with `--help`, then runs a fast WAST spec workload. | Defaults to `tests/node/dist/starshine-self-optimized-wasi.wasm` and `--limit 1`; `--wasm` may point at a candidate artifact such as `.tmp/o4z-bench/starshine-o4z-candidate.wasm`. | Checking optimized-artifact safety without rebuilding the full self-opt pipeline. |
-| `bun validate self-opt-full [--wasm path]` | Runs the same wasm-validity and Node/WASI smoke checks as `self-opt-smoke`, then executes all checked-in `tests/spec/**/*.wast` files through the self-optimized CLI artifact. | Forwards to the self-opt check lane with `--full-spec`; ask before running because it is intentionally broader than the default smoke lane. | CI/full signoff that the optimized artifact remains runtime-safe and spec-workload-correct. |
+| `bun validate self-opt-smoke [--wasm path] [--limit n|--file path]` | Validates an already-built self-optimized CLI artifact with `wasm-tools validate --features all`, executes the artifact under the Node-hosted WASI Preview 1 runner with `--help`, then runs a fast WAST spec workload. | Defaults to `tests/node/dist/starshine-self-optimized-wasi.wasm` and `--limit 1`; `--wasm` may point at a candidate artifact such as `.tmp/o4z-bench/starshine-o4z-candidate.wasm`. | Checking optimized-artifact safety without rebuilding the full self-opt pipeline; runner/Preview boundaries live in [`wasi-runner-and-preview-boundary.md`](wasi-runner-and-preview-boundary.md). |
+| `bun validate self-opt-full [--wasm path]` | Runs the same wasm-validity and Node-hosted WASI Preview 1 smoke checks as `self-opt-smoke`, then executes all checked-in `tests/spec/**/*.wast` files through the self-optimized CLI artifact. | Forwards to the self-opt check lane with `--full-spec`; ask before running because it is intentionally broader than the default smoke lane. | CI/full signoff that the optimized artifact remains runtime-safe and spec-workload-correct. |
 | `moon prove src/validate_proof` | Required formal-proof gate for the proof helper package, separate from ordinary validation. | Requires a configured MoonBit proof toolchain and solvers; solver/config flags are host-tooling controls, not semantic repo policy. | Changes to proved helper contracts or the validator proof kernel. |
 
 ## `bun validate full` Flow
@@ -144,11 +146,11 @@ The check order is deliberate:
 
 ```text
 wasm-tools validate --features all <artifact>
-Node/WASI run <artifact> --help
-Node/WASI run <temporary runner copy> spec <selected tests/spec/**/*.wast>
+Node-hosted WASI Preview 1 run <artifact> --help
+Node-hosted WASI Preview 1 run <temporary runner copy> spec <selected tests/spec/**/*.wast>
 ```
 
-Use `--wasm <path>` to test a candidate artifact outside `tests/node/dist/`; relative paths resolve from the repo root. The spec workload runs against a temporary runner copy so the checked artifact remains available for later validation or size inspection. Use `bun self-opt build` only when the artifact itself must be regenerated, and ask before running the full build pipeline or full-spec lane in an ordinary development thread.
+Use `--wasm <path>` to test a candidate artifact outside `tests/node/dist/`; relative paths resolve from the repo root. The spec workload runs against a temporary runner copy so the checked artifact remains available for later validation or size inspection. The runtime lane is Preview 1 Core-module execution through `wasi_snapshot_preview1`; use [`wasi-runner-and-preview-boundary.md`](wasi-runner-and-preview-boundary.md) for import-module, `_start`/reactor, security, and WASI Preview 2 separation. Use `bun self-opt build` only when the artifact itself must be regenerated, and ask before running the full build pipeline or full-spec lane in an ordinary development thread.
 
 ## Formal Proof Is A Separate Lane
 

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] tooling/wiki | WASI runner preview boundary routing
+
+- Added [`raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md`](raw/node/2026-06-05-wasi-runner-preview-boundary-refresh.md) after checking the current Node.js `node:wasi` API docs, WebAssembly/WASI repository, WASI API catalog, Component Model documentation, Preview 1 WITX source, and current Starshine Node/script runner, package-build, smoke-test, and self-opt evidence.
+- Added [`tooling/wasi-runner-and-preview-boundary.md`](tooling/wasi-runner-and-preview-boundary.md) as the focused guide for current `wasi_snapshot_preview1` / WASI Preview 1 Core-module execution, `_start` versus reactor initialization, local `spectest` and MoonBit FS/time host shims, missing-import classification, `*-wasi.wasm` artifact routing, self-opt/package validation lanes, Node `node:wasi` experimental/sandbox caveat, and boundaries against WASI Preview 2 / WASI 0.2, Component Model, JSPI, and Wasm ESM Integration.
+- Refreshed [`tooling/node-package-surface.md`](tooling/node-package-surface.md), [`tooling/validation-gates.md`](tooling/validation-gates.md), [`tooling/release-process.md`](tooling/release-process.md), [`wasm-jspi-host-async-boundary.md`](wasm-jspi-host-async-boundary.md), [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md), [`wasm-component-model-boundary.md`](wasm-component-model-boundary.md), and [`index.md`](index.md) so WASI runner claims no longer have to be inferred from package, JSPI, ESM, or Component Model pages.
+
 ## [2026-06-05] wasm/wiki | ESM Integration boundary routing
 
 - Added [`raw/wasm/2026-06-05-esm-integration-boundary-refresh.md`](raw/wasm/2026-06-05-esm-integration-boundary-refresh.md) after checking the current WebAssembly proposals tracker, ESM Integration proposal repository and JavaScript Interface draft, Node.js Wasm ESM module docs, and current Starshine Node package/runtime evidence.
