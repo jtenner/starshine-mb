@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wiki-health | WASI 0.3 backlink routing
+
+- During the follow-up whole-wiki health check, searched empty Markdown links plus broad WASI 0.2 / WASI 0.3 / `wasi_snapshot_preview1` mentions after the focused WASI 0.3 routing update landed.
+- Refreshed [`wasm-jspi-host-async-boundary.md`](wasm-jspi-host-async-boundary.md), [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md), [`tooling/node-package-surface.md`](tooling/node-package-surface.md), [`tooling/validation-gates.md`](tooling/validation-gates.md), and [`tooling/o4z-debug-startup-trap.md`](tooling/o4z-debug-startup-trap.md) so nearby JSPI, ESM, package, validation, and debug-artifact pages also keep WASI 0.2/0.3 claims separate from the current Preview 1 runner.
+
 ## [2026-06-05] wasi/wiki | WASI 0.3 preview boundary routing
 
 - Added [`raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md`](raw/node/2026-06-05-wasi-03-preview-boundary-refresh.md) after checking current Node `node:wasi` docs, the WebAssembly/WASI repository, WASI.dev roadmap/interfaces, and Component Model documentation.
