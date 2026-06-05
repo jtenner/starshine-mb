@@ -2159,34 +2159,32 @@ fn code_folding_terminating_suffix_measure(
 }
 
 ///|
-fn code_folding_pick_terminating_tail_group(
+fn code_folding_terminating_tail_group_has_root_end(
   func : @ir.HotFunc,
-  desired_kind : Int,
-  all_tails : Array[CodeFoldingTerminatingTail],
-  label_used : @bitset.BitSet,
-) -> Array[CodeFoldingTerminatingTail] {
-  let candidates : Array[CodeFoldingTerminatingTail] = []
-  let root_tails : Array[CodeFoldingTerminatingTail] = []
-  for tail in all_tails {
-    if tail.terminal_kind == desired_kind &&
-      code_folding_terminating_tail_still_at_site(func, tail) {
-      candidates.push(tail)
-      if code_folding_terminating_tail_is_root_end(func, tail) {
-        root_tails.push(tail)
-      }
+  tails : Array[CodeFoldingTerminatingTail],
+) -> Bool {
+  for tail in tails {
+    if code_folding_terminating_tail_is_root_end(func, tail) {
+      return true
     }
   }
-  if candidates.length() < 2 || root_tails.length() != 1 {
-    return []
-  }
-  let root_tail = root_tails[0]
+  false
+}
+
+///|
+fn code_folding_pick_terminating_tail_group_from_anchor(
+  func : @ir.HotFunc,
+  anchor_tail : CodeFoldingTerminatingTail,
+  candidates : Array[CodeFoldingTerminatingTail],
+  label_used : @bitset.BitSet,
+) -> Array[CodeFoldingTerminatingTail] {
   let mut current = candidates
   let mut best : Array[CodeFoldingTerminatingTail] = []
   let mut best_len = 0
   let mut depth = 0
   while true {
     let anchor = code_folding_terminating_tail_item_at_depth(
-      func, root_tail, depth,
+      func, anchor_tail, depth,
     )
     if anchor < 0 ||
       !code_folding_terminal_tail_item_is_movable(func, anchor, depth) {
@@ -2213,7 +2211,7 @@ fn code_folding_pick_terminating_tail_group(
     return []
   }
   let profitability = code_folding_terminating_suffix_measure(
-      func, root_tail, best_len,
+      func, anchor_tail, best_len,
     ) *
     (best.length() - 1)
   if profitability < 3 {
@@ -2226,6 +2224,55 @@ fn code_folding_pick_terminating_tail_group(
     )
   }
   planned
+}
+
+///|
+fn code_folding_pick_terminating_tail_group(
+  func : @ir.HotFunc,
+  desired_kind : Int,
+  all_tails : Array[CodeFoldingTerminatingTail],
+  label_used : @bitset.BitSet,
+) -> Array[CodeFoldingTerminatingTail] {
+  let candidates : Array[CodeFoldingTerminatingTail] = []
+  for tail in all_tails {
+    if tail.terminal_kind == desired_kind &&
+      code_folding_terminating_tail_still_at_site(func, tail) {
+      candidates.push(tail)
+    }
+  }
+  if candidates.length() < 2 {
+    return []
+  }
+  let mut best : Array[CodeFoldingTerminatingTail] = []
+  let mut best_len = 0
+  let mut best_profitability = 0
+  let mut best_has_root = false
+  for anchor_tail in candidates {
+    let planned = code_folding_pick_terminating_tail_group_from_anchor(
+      func, anchor_tail, candidates, label_used,
+    )
+    if planned.length() > 0 {
+      let planned_len = planned[0].suffix_len
+      let planned_profitability = planned[0].profitability
+      let planned_has_root = code_folding_terminating_tail_group_has_root_end(
+        func, planned,
+      )
+      if planned_len > best_len ||
+        (planned_len == best_len && planned_profitability > best_profitability) ||
+        (
+          planned_len == best_len &&
+          planned_profitability == best_profitability &&
+          planned_has_root &&
+          !best_has_root
+        ) {
+        best = planned
+        best_len = planned_len
+        best_profitability = planned_profitability
+        best_has_root = planned_has_root
+      }
+    }
+  }
+  best
 }
 
 ///|
@@ -2249,38 +2296,53 @@ fn code_folding_try_rewrite_terminating_tail_group(
       root_tails.push(tail)
     }
   }
-  if root_tails.length() != 1 {
+  if root_tails.length() > 1 {
     return false
   }
-  let root_tail = root_tails[0]
-  let suffix_len = root_tail.suffix_len
-  let root_start = root_tail.end_idx - suffix_len
-  if root_start < 0 {
+  let has_root_tail = root_tails.length() == 1
+  if !has_root_tail {
+    let root_count = @ir.hot_region_root_count(func, root_ref)
+    if root_count == 0 ||
+      !code_folding_node_prevents_fallthrough(
+        func,
+        @ir.hot_region_get(func, root_ref, root_count - 1),
+      ) {
+      return false
+    }
+  }
+  let anchor_tail = if has_root_tail { root_tails[0] } else { tails[0] }
+  let suffix_len = anchor_tail.suffix_len
+  let anchor_start = anchor_tail.end_idx - suffix_len
+  if anchor_start < 0 {
     return false
   }
   let hoisted = pass_splice_region(
     ctx,
     func,
-    root_ref,
-    root_start,
+    anchor_tail.region_ref,
+    anchor_start,
     suffix_len,
     [],
   )
   let wrapper = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
   let wrapper_label = @ir.hot_control_node_label(func, wrapper)
   for tail in tails {
-    if tail.region_ref != root_ref {
-      let start_idx = tail.end_idx - suffix_len
-      if start_idx < 0 {
-        return false
-      }
-      let branch = @ir.hot_build_br(func, wrapper_label)
-      ignore(
-        pass_splice_region(ctx, func, tail.region_ref, start_idx, suffix_len, [
-          branch,
-        ]),
-      )
+    let start_idx = tail.end_idx - suffix_len
+    if start_idx < 0 {
+      return false
     }
+    let is_anchor = tail.region_ref == anchor_tail.region_ref &&
+      tail.end_idx == anchor_tail.end_idx
+    if has_root_tail && is_anchor {
+      continue
+    }
+    let branch = @ir.hot_build_br(func, wrapper_label)
+    let remove_count = if is_anchor { 0 } else { suffix_len }
+    ignore(
+      pass_splice_region(ctx, func, tail.region_ref, start_idx, remove_count, [
+        branch,
+      ]),
+    )
   }
   let prefix_count = @ir.hot_region_root_count(func, root_ref)
   let prefix_roots = pass_splice_region(ctx, func, root_ref, 0, prefix_count, [])
