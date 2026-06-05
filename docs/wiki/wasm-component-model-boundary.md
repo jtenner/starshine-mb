@@ -15,6 +15,7 @@ related:
   - binary/function-import-export-and-code-sections.md
   - wast/static-assertion-harness.md
   - tooling/node-package-surface.md
+  - wasm-esm-integration-boundary.md
   - tooling/external-validator-adapters.md
 ---
 
@@ -66,7 +67,7 @@ The important phrase is **embedded inside**. A component may carry a core module
 | WAST parser/harness | [`src/wast/parser.mbt`](../../src/wast/parser.mbt) parses `module` commands, quoted/binary modules, `register`, `invoke`, and static assertions over module definitions. | No `(component ...)` grammar, WIT parser, component instance syntax, or component assertion harness exists. |
 | Validation | [`src/validate/validate.mbt`](../../src/validate/validate.mbt) and [`src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt) validate Core module declarations and function bodies. | They do not validate component imports/exports, worlds, adapter graph correctness, or Canonical ABI lowering. |
 | Generator / fuzzing | [`src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt) has local feature gates for Core/proposal-shaped surfaces such as GC, tail calls, exceptions, SIMD, relaxed SIMD, atomics, bulk memory, multi-memory, memory64, extended const, and reference types. | There is no Component Model or WIT gate; generated valid Core modules are not generated components. |
-| Node package | [`tooling/node-package-surface.md`](tooling/node-package-surface.md) documents a partial ESM boundary for Starshine's current binary/text/validation/command toolkit. | The package does not expose WIT parsing, component composition, WASI Preview 2 component adapters, or Canonical ABI helpers. |
+| Node package | [`tooling/node-package-surface.md`](tooling/node-package-surface.md) documents a partial ESM-first JavaScript wrapper boundary for Starshine's current binary/text/validation/command toolkit, with Wasm ESM Integration routed separately through [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md). | The package does not expose WIT parsing, component composition, WASI Preview 2 component adapters, Canonical ABI helpers, source-phase Wasm imports, or instance-phase Wasm namespace imports. |
 
 ## Concrete Examples
 
@@ -123,6 +124,7 @@ Use this decision table before filing or accepting component-shaped work:
 | A runtime/tool says it supports components | Implementation-availability evidence; use [`tooling/external-validator-adapters.md`](tooling/external-validator-adapters.md) style classification if comparing tools. | Standards status, Starshine support, or pass-oracle parity. |
 | A component embeds a Core module that Starshine can decode when extracted | Core-module subset evidence only. | Whole-component validation, composition, Canonical ABI, or WIT support. |
 | A Node package consumer asks for WIT or Preview-2 helpers | Public API design request tied to [`tooling/node-package-surface.md`](tooling/node-package-surface.md) and release policy. | Existing wrapper drift inside `./wast` or `./validate`. |
+| A consumer asks to import `.wasm` from JavaScript with `import source` or an instance-phase `.wasm` import | Wasm ESM Integration / Node package loader design through [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md). | Component Model, WIT, or Canonical ABI support. |
 
 ## Implementation Readiness Checklist
 
@@ -144,5 +146,6 @@ Until those questions have answers and tests, keep component artifacts out of or
 - Focused source bridge: [`raw/wasm/2026-06-05-component-model-boundary-refresh.md`](raw/wasm/2026-06-05-component-model-boundary-refresh.md)
 - Broad active-proposal routing bridge: [`raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md`](raw/wasm/2026-06-04-webassembly-active-proposal-routing-current-refresh.md)
 - Feature-status router: [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md)
+- ESM Integration boundary: [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md)
 - Core module map: [`binary/module-section-map.md`](binary/module-section-map.md), [`binary/function-import-export-and-code-sections.md`](binary/function-import-export-and-code-sections.md)
 - Local implementation anchors: [`../../src/lib/types.mbt`](../../src/lib/types.mbt), [`../../src/binary/decode.mbt`](../../src/binary/decode.mbt), [`../../src/wast/parser.mbt`](../../src/wast/parser.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt)

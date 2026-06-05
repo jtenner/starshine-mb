@@ -8,6 +8,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md) as the focused active Phase-3 JavaScript module-loader guide for source-phase `import source`, dynamic `import.source(...)`, and instance-phase `.wasm` imports; current Starshine remains an ESM-first JavaScript package that loads wasm artifacts through direct `WebAssembly.compile(...)` / `instantiate(...)` wrappers, not Wasm ESM Integration.
 - Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`tooling/node-package-surface.md`](tooling/node-package-surface.md), [`wasm-js-string-builtins-boundary.md`](wasm-js-string-builtins-boundary.md), and [`index.md`](index.md) so ESM Integration stays separate from JS String Builtins, JSPI, Component Model, Core-module WAST/binary/validator evidence, external-validator results, and ordinary Node package metadata.
 
+## [2026-06-05] wiki-health | host proposal backlink routing
+
+- During the follow-up whole-wiki health check, searched empty Markdown links, malformed nested wiki paths, broad host/loader proposal mentions, and stale active-proposal phase wording after the ESM Integration page landed.
+- Refreshed [`wasm-jspi-host-async-boundary.md`](wasm-jspi-host-async-boundary.md) and [`wasm-component-model-boundary.md`](wasm-component-model-boundary.md) so host-async and Component Model readers route `.wasm` JavaScript module-graph imports through [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md) instead of treating them as JSPI, Component Model, WIT, Canonical ABI, or ordinary Node package evidence.
+
 ## [2026-06-05] wasm/wiki | Exception Handling core boundary routing
 
 - Added [`raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md`](raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md) after checking the current WebAssembly finished-proposals table, active proposals tracker, archived Exception Handling proposal repository, Core 3.0 instruction/validation/execution pages, Stack Switching proposal source, and current Starshine WAST/core/validator evidence.

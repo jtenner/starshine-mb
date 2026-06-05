@@ -13,6 +13,7 @@ related:
   - wasm-feature-status-and-proposal-boundaries.md
   - wasm-stack-switching-boundary.md
   - wasm-js-string-builtins-boundary.md
+  - wasm-esm-integration-boundary.md
   - wasm-component-model-boundary.md
   - tooling/node-package-surface.md
   - tooling/release-process.md
@@ -80,6 +81,7 @@ The key wording rule is: **Starshine's Node package is async, but not JSPI-enabl
 | Nearby feature | Why it is different | Routing |
 | --- | --- | --- |
 | JS String Builtins | Uses JavaScript compile/instantiate options such as `builtins: ["js-string"]` and reserved `wasm:js-string` imports. It is about string helpers, not Promise suspension. | [`wasm-js-string-builtins-boundary.md`](wasm-js-string-builtins-boundary.md) |
+| ESM Integration | Loads `.wasm` resources through JavaScript module graphs with source-phase or instance-phase imports. It is about module loading/linking, not Promise-aware suspension. | [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md) |
 | Reference-Typed Strings / `stringref` | Active proposal/local string instruction and literal-pool surfaces. | [`wast/string-instruction-authoring.md`](wast/string-instruction-authoring.md), [`strings/string-const-surface.md`](strings/string-const-surface.md) |
 | Component Model / Canonical ABI | Higher-level components, WIT worlds, and lift/lower adapters. It may eventually have async interface questions, but it is not the same as JSPI. | [`wasm-component-model-boundary.md`](wasm-component-model-boundary.md) |
 | WASI Preview 2 | Host capability/interface model often discussed with components. Current Starshine's WASI runner is a package execution helper, not component/JSPI support. | [`tooling/node-package-surface.md`](tooling/node-package-surface.md), [`tooling/release-process.md`](tooling/release-process.md) |
@@ -107,5 +109,6 @@ Do **not** start by adding a Starshine WAST keyword, binary opcode, validation r
 - Stack Switching boundary: [`wasm-stack-switching-boundary.md`](wasm-stack-switching-boundary.md)
 - JS String Builtins boundary: [`wasm-js-string-builtins-boundary.md`](wasm-js-string-builtins-boundary.md)
 - Component Model boundary: [`wasm-component-model-boundary.md`](wasm-component-model-boundary.md)
+- ESM Integration boundary: [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md)
 - Node package surface: [`tooling/node-package-surface.md`](tooling/node-package-surface.md)
 - Current Node package files: [`../../node/internal/runtime.js`](../../node/internal/runtime.js), [`../../node/internal/wasi-runner.js`](../../node/internal/wasi-runner.js), [`../../node/README.md`](../../node/README.md), [`../../node/package.json`](../../node/package.json)
