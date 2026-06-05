@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] release/wiki | npm trusted-publishing boundary
+
+- Added [`raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md`](raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md) after checking current npm trusted-publisher, npm provenance, npm publish, and GitHub Actions OIDC documentation against `node/package.json`, the root private package, and existing read-only GitHub workflows.
+- Refreshed [`tooling/release-process.md`](tooling/release-process.md) so release prep now distinguishes manual human-controlled publication from future trusted publishing: current Starshine lacks npm trusted-publisher setup, package `repository` metadata, a release workflow with `id-token: write`, and a publish step from the `node/` package boundary.
+- Refreshed [`tooling/node-package-surface.md`](tooling/node-package-surface.md) and [`index.md`](index.md) so Node package health checks include publication metadata/provenance readiness without treating provenance as a substitute for wrapper parity, wasm artifact checks, validation gates, or tarball inspection.
+
 ## [2026-06-05] passes/local-cse | integer equality and eqz coverage
 
 - Spot-checked repeated `i32.eq` / `i64.ne` equality roots and `i64.eqz` roots; Binaryen materializes both families with `local.tee` / `local.get`.

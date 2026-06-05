@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-06-04
 sources:
+  - ../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md
   - ../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md
   - ../raw/node/2026-05-20-node-package-export-boundary.md
   - ../raw/moonbit/2026-05-20-workspace-package-surface.md
@@ -144,6 +145,16 @@ That is a small but useful gap for JS-side spec-harness tooling because it would
 
 The current MoonBit `wast` package also exposes `wast_arbitrary_feature_stats(...)`, but Node does not expose `wastArbitraryFeatureStats(...)` or `WastArbitraryFeatureStats`. Treat that as a fuzz/reporting wrapper gap, not as part of the static-assertion API slice.
 
+## Publication Metadata And Provenance Boundary
+
+The Node package is also the npm publication boundary. The 2026-06-05 trusted-publishing refresh in [`../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md`](../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md) checked npm trusted-publisher / provenance docs and GitHub Actions OIDC docs against current package metadata and workflows. Current Starshine is **not** configured for npm trusted publishing yet:
+
+- [`node/package.json`](../../../node/package.json) has no `repository` field and no `publishConfig`.
+- Existing GitHub workflows are validation/test workflows with read-only contents permissions; no workflow grants `id-token: write` for an npm OIDC publish.
+- No checked-in workflow runs a package publish step from the `node/` package directory.
+
+That means publication remains a release-process concern rather than a Node API-health fact. Future work that adds trusted publishing should update package metadata, the dedicated release workflow, npm package trusted-publisher settings, [`release-process.md`](release-process.md), and this page together. Provenance does not replace wrapper parity, package tests, ignored-but-publishable wasm artifact checks, or `npm pack --dry-run` tarball inspection.
+
 ## Maintenance And Validation Guidance
 
 Use these checks when touching the Node package or documenting its surface:
@@ -152,7 +163,8 @@ Use these checks when touching the Node package or documenting its surface:
 2. **Smoke behavior:** keep [`node/test/smoke.test.mjs`](../../../node/test/smoke.test.mjs) green for binary/text validation, `cmd` adapter hooks, differential validation, fuzz-report persistence, closed-world summary precedence, and WASI startup.
 3. **Examples:** keep [`node/test/examples.test.mjs`](../../../node/test/examples.test.mjs) green so the checked-in published examples still exercise the public API.
 4. **Build boundary:** remember that [`npm run build`](../../../node/package.json) rebuilds the WASI CLI artifact through [`scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs), but does not regenerate every JS/TS wrapper from MoonBit. Verify the ignored-but-publishable wasm artifacts with release tarball inspection instead of treating Git tracking as package evidence.
-5. **Docs truthfulness:** when adding a wrapper, update [`node/README.md`](../../../node/README.md), this page, the release checklist in [`release-process.md`](release-process.md) if package contents or versioning change, and any relevant top-level API docs together.
+5. **Publication metadata:** if trusted publishing or package provenance is introduced, add the package-level `repository` metadata and release workflow evidence before calling the package trusted-publishing-ready.
+6. **Docs truthfulness:** when adding a wrapper, update [`node/README.md`](../../../node/README.md), this page, the release checklist in [`release-process.md`](release-process.md) if package contents or versioning change, and any relevant top-level API docs together.
 
 A future stronger parity test should compare:
 
@@ -179,6 +191,7 @@ The comparison must start from the `exports` allowlist, not from every file in `
 
 ## Sources
 
+- npm trusted-publishing and provenance refresh: [`../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md`](../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md)
 - Node/TypeScript package export bridge and drift refresh: [`../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md`](../raw/node/2026-06-04-node-package-export-and-wrapper-drift-recheck.md), [`../raw/node/2026-05-20-node-package-export-boundary.md`](../raw/node/2026-05-20-node-package-export-boundary.md)
 - Archived baseline audit: [`../raw/research/0110-2026-04-18-node-package-api-audit.md`](../raw/research/0110-2026-04-18-node-package-api-audit.md)
 - Package metadata and README: [`../../../node/package.json`](../../../node/package.json), [`../../../node/README.md`](../../../node/README.md)

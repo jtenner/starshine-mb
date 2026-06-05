@@ -3,6 +3,7 @@ kind: workflow
 status: supported
 last_reviewed: 2026-06-04
 sources:
+  - ../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md
   - ../raw/release/2026-06-04-release-package-surface-refresh.md
   - ../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md
   - ../raw/release/2026-05-20-starshine-release-process-sources.md
@@ -45,6 +46,8 @@ A Starshine release is not just “run tests and publish npm.” The current rep
 
 The current release package-surface refresh is [`../raw/release/2026-06-04-release-package-surface-refresh.md`](../raw/release/2026-06-04-release-package-surface-refresh.md). It supersedes the stale local-path claims in the older [`../raw/release/2026-05-20-starshine-release-process-sources.md`](../raw/release/2026-05-20-starshine-release-process-sources.md) manifest after rechecking current npm CLI v11 packaging docs, current MoonBit `moon.mod` docs, and the live Starshine package files. The MoonBit-specific module-file correction is also tracked in [`../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md`](../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md).
 
+The current publication-trust refresh is [`../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md`](../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md). It checked current npm trusted-publishing / provenance docs and GitHub Actions OIDC docs against the live Starshine package and workflows. The durable result is a boundary, not a new release path: Starshine has release-prep guidance, package tests, and tarball-inspection guidance, but no configured npm trusted publisher, no publish workflow, no `id-token: write` publication job, and no `node/package.json` `repository` field yet.
+
 For releases that include an already-built self-optimized CLI artifact, treat that artifact as a separate release surface. Use the dedicated `bun validate self-opt-smoke` / `bun validate self-opt-full` gate from [`validation-gates.md`](validation-gates.md) so artifact safety stays explicit instead of being inferred from the ordinary repo validation ladder.
 
 ## Release Surface Matrix
@@ -70,6 +73,7 @@ For beginners: npm publication does not upload the whole repository. It uploads 
 - **Node build does not regenerate wrappers.** [`node/package.json`](../../../node/package.json) has `prepack: npm run build`, and [`scripts/lib/build-node-package.mjs`](../../../scripts/lib/build-node-package.mjs) rebuilds the optimized WASI CLI artifact. [`scripts/lib/generate-node-package.mjs`](../../../scripts/lib/generate-node-package.mjs) intentionally throws, so JS/TS wrapper changes remain hand-maintained until the adapter story changes.
 - **Release notes replace per-commit changelog edits.** The current policy says durable change records live in wiki pages, [`docs/wiki/log.md`](../log.md), release notes, and git history. Do not revive a committed `CHANGELOG.md` workflow without updating [`AGENTS.md`](../../../AGENTS.md), [`docs/README.md`](../../README.md), and this page together.
 - **Publishing is human-controlled.** npm tokens, package-registry writes, remote pushes, and public tags are credentials-sensitive operations. Agents may prepare and commit release documentation, but actual publish/push/tag actions need explicit human instruction.
+- **Trusted publishing is not configured yet.** npm trusted publishing and provenance would be a release-hardening improvement, but current Starshine has no npm trusted-publisher setup, no GitHub Actions publish workflow with `id-token: write`, no package publish step from `node/`, and no package-level `repository` metadata in [`node/package.json`](../../../node/package.json). Keep publication manual until those pieces land together.
 
 ## Version And Package Surface Checklist
 
@@ -105,6 +109,7 @@ From the `node/` package perspective, validate five things:
 3. **Build boundary:** `npm run build` refreshes the WASI CLI artifact but does not regenerate wrappers; wrapper changes require explicit JS/TS diffs and tests.
 4. **Ignored-but-publishable artifact boundary:** the current build requires `node/internal/starshine.wasm-gc.wasm` to already exist and keeps it unchanged; both wasm package artifacts are ignored by Git but intentionally not ignored by npm packaging. If the wasm-gc artifact is stale, missing, or intentionally updated, record the release evidence separately from the WASI artifact rebuild.
 5. **Tarball contents:** use npm's package inspection path, e.g. `npm pack --dry-run` from `node/`, before a real publish. Treat dry-run output as packaging evidence, not as a replacement for tests.
+6. **Publish trust metadata:** if the release uses npm trusted publishing or provenance, verify `node/package.json` has repository metadata matching the publishing repository, the npm package has a trusted publisher configured when using OIDC, and the GitHub Actions publishing job has `id-token: write` plus an exact publish command from the `node/` package boundary. Use trusted-publishing provenance when available; use the explicit npm provenance option only for an intentionally manual-token provenance path.
 
 The detailed Node API drift and omitted-subpath map lives in [`node-package-surface.md`](node-package-surface.md).
 
@@ -180,9 +185,10 @@ Before a real npm publish or public tag:
 3. Confirm validation gates and Node package checks are green or that any exception is explicitly documented and accepted.
 4. Confirm release notes exist and cite durable wiki/log/git evidence.
 5. Inspect `npm pack --dry-run` output from `node/` and confirm only intended files are included.
-6. Use human-controlled credentials and explicit commands for `npm publish`, git tags, and remote pushes.
+6. If using manual publication, use human-controlled credentials and explicit commands for `npm publish`, git tags, and remote pushes.
+7. If using trusted publishing, verify the npm package trusted-publisher configuration, package `repository` metadata, GitHub Actions OIDC `id-token: write` permission, and package-boundary publish command are all present and scoped to the intended release workflow.
 
-Do not let an automated wiki or code-maintenance run publish by accident. Preparing a release branch or commit is different from writing to registries.
+Do not let an automated wiki or code-maintenance run publish by accident. Preparing a release branch or commit is different from writing to registries. Trusted publishing reduces long-lived-token exposure, but it still writes to the public registry and needs the same release approval, version, validation, tarball, and notes checks.
 
 ## Common Failure Modes
 
@@ -197,6 +203,7 @@ Do not let an automated wiki or code-maintenance run publish by accident. Prepar
 
 ## Sources
 
+- npm trusted-publishing and provenance refresh: [`../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md`](../raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md)
 - Current release package-surface refresh: [`../raw/release/2026-06-04-release-package-surface-refresh.md`](../raw/release/2026-06-04-release-package-surface-refresh.md)
 - Current MoonBit module-file refresh: [`../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md`](../raw/moonbit/2026-06-04-moon-mod-file-current-refresh.md)
 - Earlier release source snapshot superseded for local `moon.mod.json` paths: [`../raw/release/2026-05-20-starshine-release-process-sources.md`](../raw/release/2026-05-20-starshine-release-process-sources.md)
