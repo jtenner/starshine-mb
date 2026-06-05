@@ -659,6 +659,42 @@ test "local-cse defers repeated SIMD pure roots" {
 }
 
 ///|
+test "local-cse defers repeated SIMD load roots" {
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let memarg = @lib.MemArg::new(@lib.U32(4U), None, @lib.U64(0UL))
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::v128_load(memarg),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::v128_load(memarg),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(1U)), 0)
+}
+
+///|
 test "local-cse reuses local-only expression across select" {
   let input =
     #| (module
