@@ -2203,6 +2203,44 @@ test "code-folding folds non-terminal try-table if-arm body suffixes" {
 }
 
 ///|
+test "code-folding folds catch try-table if-arm body suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (tag $e)
+      #|  (func $sink (param i32))
+      #|  (func (param i32 i32)
+      #|    (try_table (catch $e 0)
+      #|      (if (local.get 0)
+      #|        (then
+      #|          (local.get 1)
+      #|          (call $sink)
+      #|          (i32.const 7)
+      #|          (drop))
+      #|        (else
+      #|          (local.get 1)
+      #|          (call $sink)
+      #|          (i32.const 7)
+      #|          (drop))))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding folds nested try-table if-arm body suffixes" {
   let optimized = code_folding_test_run(
     (
