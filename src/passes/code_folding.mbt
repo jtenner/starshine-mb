@@ -2476,9 +2476,6 @@ fn code_folding_try_fold_one_block_if_arm(
   }
   let block_start = block_count - suffix_len
   let other_start = other_count - suffix_len
-  if block_start == 0 && other_start == 0 && result_arity == 0 {
-    return false
-  }
   if !code_folding_block_suffix_matches_region(
       func, if_id, block_body_ref, block_start, other_ref, other_start, suffix_len,
       result_arity, label_used,

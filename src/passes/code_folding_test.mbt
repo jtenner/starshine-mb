@@ -425,6 +425,80 @@ test "code-folding hoists one-block value suffixes with both arm prefixes" {
 }
 
 ///|
+test "code-folding folds tiny full one-block void arms" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (block
+      #|          (i32.const 7)
+      #|          (drop)))
+      #|      (else
+      #|        (i32.const 7)
+      #|        (drop)))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "drop"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding folds full one-block void arms" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func $sink (param i32))
+      #|  (func (param i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (block
+      #|          (local.get 0)
+      #|          (call $sink)
+      #|          (i32.const 7)
+      #|          (drop)))
+      #|      (else
+      #|        (local.get 0)
+      #|        (call $sink)
+      #|        (i32.const 7)
+      #|        (drop)))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "drop"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding folds full one-block value arms" {
   let optimized = code_folding_test_run(
     (
