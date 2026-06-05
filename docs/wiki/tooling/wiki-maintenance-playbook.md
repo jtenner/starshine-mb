@@ -34,7 +34,7 @@ The wiki has four cooperating layers:
 | Living pages | Maintained explanations under [`../`](../) | Update these in place when a concept evolves; avoid near-duplicate topic pages. |
 | Catalog and audit trail | [`../index.md`](../index.md) and [`../log.md`](../log.md) | Keep the index navigable and the log detailed enough to explain what changed and why. |
 
-A strong wiki update usually touches at least one living page and the log. It touches raw sources when evidence changed or a new durable source was used. It touches the index when a page is created, renamed, substantially reframed, or new raw-source routing needs to be discoverable. For research-note filenames, use the next unused zero-padded serial described in [`../raw/research/README.md`](../raw/research/README.md); historical duplicate prefixes are provenance, not reusable slots.
+A strong wiki update usually touches at least one living page and the log. It touches raw sources when evidence changed or a new durable source was used. It touches the index when a page is created, renamed, substantially reframed, or new raw-source routing needs to be discoverable.
 
 ## Target Selection
 
@@ -75,7 +75,7 @@ When evidence is uncertain, say so. Useful labels include `current-main recheck`
 | Source kind | Preferred location | Example use |
 | --- | --- | --- |
 | Official WebAssembly, proposal, or tool docs | Topic directory such as `raw/wasm/`, `raw/binaryen/`, `raw/moonbit/`, or `raw/wiki/` | Current-source bridge for a living page. |
-| Local run or investigation summary | `raw/research/[serial]-[YYYY-MM-DD]-[title].md` using the next unused serial | Compare-pass audit, parity investigation, design spike, or substantial debugging session. |
+| Local run or investigation summary | `raw/research/[serial]-[YYYY-MM-DD]-[title].md` | Compare-pass audit, parity investigation, design spike, or substantial debugging session. |
 | Completed old planning doc | `raw/research/` plus live-reference repointing | Preserve provenance after a living page becomes canonical. |
 | Large generated artifacts | Usually not committed; promote only the minimal durable summary | Counts, command, classification, hashes, and reduced repro if needed. |
 
@@ -91,7 +91,6 @@ After the main update, scan beyond the touched area for high-confidence fixes:
 - log entries missing for durable ingests or health fixes;
 - duplicate or near-duplicate pages competing for the same concept;
 - stale `docs/00xx` forwarding-stub references in living pages, unless preserved intentionally in historical raw notes;
-- new research files that accidentally reuse an existing serial prefix;
 - broad claims such as "all", "current", or "latest" that need a date, release tag, or local/spec qualifier;
 - transient `.tmp` / `.artifacts` source links in frontmatter where a committed raw note should carry the evidence.
 
