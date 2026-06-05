@@ -1981,6 +1981,63 @@ fn run_hot_pipeline_raw_simplify_locals_has_local_write(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_has_stack_effect_hazard(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Call(_)
+      | @lib.CallIndirect(_, _)
+      | @lib.CallRef(_)
+      | @lib.MemoryCopy(_, _)
+      | @lib.MemoryFill(_) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_simplify_locals_has_stack_effect_hazard(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_simplify_locals_has_stack_effect_hazard(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_simplify_locals_has_stack_effect_hazard(
+                else_body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_simplify_locals_descriptor_is_nostructure(
+  descriptor_name : String,
+) -> Bool {
+  descriptor_name == "simplify-locals-nostructure" ||
+  descriptor_name == "simplify-locals-no-structure"
+}
+
+///|
+fn run_hot_pipeline_simplify_locals_lowered_should_skip_stack_hazard(
+  descriptor_name : String,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  run_hot_pipeline_simplify_locals_descriptor_is_nostructure(descriptor_name) &&
+  run_hot_pipeline_raw_simplify_locals_has_local_write(instrs) &&
+  run_hot_pipeline_raw_simplify_locals_has_stack_effect_hazard(instrs)
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_scan_shape(
   instrs : Array[@lib.Instruction],
   shape : RawSimplifyLocalsShape,
@@ -5313,6 +5370,10 @@ fn run_hot_pipeline_raw_simplify_locals(
     })
   }
   let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  let raw_nostructure_stack_hazard = run_hot_pipeline_simplify_locals_lowered_should_skip_stack_hazard(
+    descriptor.name,
+    instrs,
+  )
   let should_rewrite_ladder = if stats.locals_count < 16 ||
     stats.locals_count > 512 {
     false
@@ -5697,6 +5758,19 @@ fn run_hot_pipeline_raw_simplify_locals(
     stats.instr_count >= 256 &&
     stats.local_set_count >= 24 &&
     stats.local_get_count >= 48
+  if raw_nostructure_stack_hazard &&
+    (
+      stats.has_structured_control ||
+      stats.locals_count >= 16 ||
+      stats.instr_count >= 128
+    ) {
+    return Some({
+      reason: "root-local-set-stack-hazard-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   if !should_rewrite_ladder && should_rewrite_straight_line_adjacent_local_tees {
     let (rewritten_instrs, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_local_tees(
       instrs,
@@ -10167,6 +10241,12 @@ fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
     descriptor_name != "simplify-locals-nostructure" &&
     descriptor_name != "simplify-locals-no-structure" &&
     descriptor_name != "simplify-locals-notee-nostructure" {
+    return func
+  }
+  let @lib.Func(_, @lib.Expr(body)) = func
+  if run_hot_pipeline_simplify_locals_lowered_should_skip_stack_hazard(
+      descriptor_name, body,
+    ) {
     return func
   }
   let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(func)

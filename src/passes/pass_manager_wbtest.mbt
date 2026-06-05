@@ -1,4 +1,42 @@
 ///|
+test "simplify-locals-nostructure lowered cleanup skips stack-root call hazards" {
+  let mod_ = pass_test_module_from_wat(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (global $sp (mut i32) (i32.const 1024))
+      #|  (func $touch)
+      #|  (func (param $value i32) (local i32 i32)
+      #|    global.get $sp
+      #|    i32.const 4
+      #|    i32.sub
+      #|    global.set $sp
+      #|    global.get $sp
+      #|    local.get $value
+      #|    local.tee 1
+      #|    i32.store
+      #|    call $touch
+      #|    global.get $sp
+      #|    i32.const 4
+      #|    i32.add
+      #|    global.set $sp))
+    ),
+  )
+  let func = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs.get(1) {
+        Some(func) => func
+        None => fail("expected second function body")
+      }
+    None => fail("expected code section")
+  }
+  let cleaned = run_hot_pipeline_canonicalize_lowered_func_for_descriptor(
+    func, "simplify-locals-nostructure",
+  )
+  @debug.assert_eq(cleaned, func)
+}
+
+///|
 test "dae descending dropped-result scheduler orders high candidates without huge module" {
   let selected_defs = Array::make(4600, false)
   for i = 0; i < 40; i = i + 1 {

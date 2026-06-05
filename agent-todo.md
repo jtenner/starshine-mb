@@ -53,15 +53,27 @@
   - Suggested tests: focused `src/passes/vacuum*_test.mbt` or pass-manager prefix fixture, `moon test src/passes`, `moon build --target native --release src/cmd`, and cloned `json-as` prefix replay without `remove-unused-brs` slots.
 
 - [JSON-AS]005 - `simplify-locals-nostructure` corrupts json-as medium-naive after prefix 16
-  - Status: active correctness blocker found after `[JSON-AS]001` and `[JSON-AS]002` prefix fixes on 2026-06-05.
+  - Status: fixed for the 2026-06-05 medium-naive prefix-17 replay; keep open until the follow-on `simplify-locals` prefix blocker is resolved and full O4 smokes are green.
   - Goal: make the post-`tuple-optimization` `simplify-locals-nostructure` slot preserve string/object state before resuming full O4 smoke.
-  - Why: after RUB prefix 8/11 and vacuum prefix 10 were smoke-green, the first failing medium-naive prefix became slot 17: `... -> code-pushing -> tuple-optimization -> simplify-locals-nostructure`. Prefix 16 completed under Node; prefix 17 validates but traps before benchmark output with `RuntimeError: memory access out of bounds` in `~lib/rt/common/OBJECT#get:rtSize`, called from `~lib/string/String.UTF8.byteLength`, `assembly/__benches__/lib/bench/utf8ByteLength`, and `start:assembly/__benches__/medium.bench`.
-  - Finding: direct prefix diff shows many simplify-locals-nostructure rewrites across runtime, serializers, `utf8ByteLength`, and the huge start function. A conservative root stack/local-set call-hazard skip was added for the same HOT lowering family seen in RUB/vacuum, but it did not resolve prefix 17; the remaining corrupting subfamily is still unclassified.
+  - Why: after RUB prefix 8/11 and vacuum prefix 10 were smoke-green, the first failing medium-naive prefix became slot 17: `... -> code-pushing -> tuple-optimization -> simplify-locals-nostructure`. Prefix 16 completed under Node; prefix 17 validated but trapped before benchmark output with `RuntimeError: memory access out of bounds` in `~lib/rt/common/OBJECT#get:rtSize`, called from `~lib/string/String.UTF8.byteLength`, `assembly/__benches__/lib/bench/utf8ByteLength`, and `start:assembly/__benches__/medium.bench`.
+  - Finding: the first HOT guard left raw/lowered `simplify-locals-nostructure` cleanup active. That cleanup removed stack-root `local.tee` / local traffic in functions that also contained calls or memory-copy/fill hazards, including the huge benchmark start function. A pass-manager raw/lowered no-structure guard now skips those stack-effect/local-write cleanup families; `prefix-17-fixed1.wasm` validates and completes the Node serialize+deserialize smoke.
   - Deliverables:
-    - [ ] Minimize the prefix-17 failure, starting with functions in the runtime stack (`100`, `110`, `232`, `264`) and any SLNS diffs that change stack/local traffic feeding string pointers.
-    - [ ] Add a focused regression before changing SLNS beyond the current conservative root stack/local-set guard.
-    - [ ] Replay medium-naive prefix 17 under Node after the fix, then resume full O4 smoke for medium-naive, medium-simd, and large-swar.
-  - Suggested tests: focused `src/passes/simplify_locals_nostructure_test.mbt`, `moon test src/passes`, `moon build --target native --release src/cmd`, and cloned `json-as` prefix 17 plus full O4 runtime smokes.
+    - [x] Minimize the prefix-17 failure to raw/lowered no-structure cleanup preserving stack-root call hazards.
+    - [x] Add a focused regression before changing behavior (`pass_manager_wbtest.mbt` lowered cleanup stack-root call hazard).
+    - [x] Replay medium-naive prefix 17 under Node after the fix. 2026-06-05 replay completed serialize and deserialize.
+    - [ ] Resume full O4 smoke for medium-naive, medium-simd, and large-swar after the next `simplify-locals` prefix blocker is fixed.
+  - Suggested tests: focused pass-manager/simplify-locals tests, `moon test src/passes`, `moon build --target native --release src/cmd`, and cloned `json-as` prefix/full O4 runtime smokes.
+
+- [JSON-AS]006 - `simplify-locals` corrupts json-as medium-naive after local-cse
+  - Status: active correctness blocker found after `[JSON-AS]005` prefix-17 fix on 2026-06-05.
+  - Goal: make the later full `simplify-locals` slot preserve string/object state after `local-cse` so full O4 runtime smoke can proceed.
+  - Why: after prefix 17 was fixed, medium-naive prefixes through `local-cse` completed under Node. The next failing no-HSO ordered prefix is slot 26: `... -> coalesce-locals -> local-cse -> simplify-locals`. The validating output traps with `RuntimeError: memory access out of bounds` in `~lib/rt/common/OBJECT#get:rtSize`, called from `assembly/index/JSON.__serialize<~lib/string/String>`, `UserPreferences#__SERIALIZE`, `serializeStruct<UserPreferences>`, and the benchmark start function.
+  - Finding: unclassified. This may be the full `simplify-locals` variant reintroducing a stack-root/local cleanup hazard after `local-cse`; do not assume it is identical to `[JSON-AS]005` without a focused diff/repro.
+  - Deliverables:
+    - [ ] Diff the prefix-25/26 artifacts, starting with stack functions `100`, `105`, `218`, `219`, `220`, and `264`.
+    - [ ] Add a focused regression before changing `simplify-locals` behavior.
+    - [ ] Replay prefix 26 under Node after the fix, then continue ordered-prefix bisection.
+  - Suggested tests: focused `src/passes/simplify_locals*_test.mbt` or pass-manager whitebox coverage, `moon test src/passes`, `moon build --target native --release src/cmd`, and cloned `json-as` prefix replay under Node.
 
 - [JSON-AS]003 - Optimize preset misses Binaryen O4 function/type cleanup on json-as debug artifacts
   - Status: active optimization-parity gap; do not widen the preset until `[JSON-AS]001` and `[JSON-AS]002` are fixed or safely gated.
