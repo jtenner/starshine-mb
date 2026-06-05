@@ -372,8 +372,10 @@ fn code_folding_node_children_have_no_control_or_exit(
 ///|
 fn code_folding_terminal_tail_item_is_movable(
   func : @ir.HotFunc,
+  tail : CodeFoldingTerminatingTail,
   node_id : Int,
   depth : Int,
+  label_used : @bitset.BitSet,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -384,7 +386,12 @@ fn code_folding_terminal_tail_item_is_movable(
   }
   @ir.hot_node_result_arity(func, node_id) == 0 &&
   !code_folding_node_prevents_fallthrough(func, node_id) &&
-  !code_folding_node_has_control_or_exit(func, node_id)
+  code_folding_node_is_hoistable_suffix(
+    func,
+    node_id,
+    tail.region_ref.holder,
+    label_used,
+  )
 }
 
 ///|
@@ -2187,14 +2194,18 @@ fn code_folding_pick_terminating_tail_group_from_anchor(
       func, anchor_tail, depth,
     )
     if anchor < 0 ||
-      !code_folding_terminal_tail_item_is_movable(func, anchor, depth) {
+      !code_folding_terminal_tail_item_is_movable(
+        func, anchor_tail, anchor, depth, label_used,
+      ) {
       break
     }
     let next : Array[CodeFoldingTerminatingTail] = []
     for tail in current {
       let item = code_folding_terminating_tail_item_at_depth(func, tail, depth)
       if item >= 0 &&
-        code_folding_terminal_tail_item_is_movable(func, item, depth) &&
+        code_folding_terminal_tail_item_is_movable(
+          func, tail, item, depth, label_used,
+        ) &&
         code_folding_nodes_equal(func, anchor, item, label_used) {
         next.push(tail)
       }
