@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | atomic cmpxchg boundary
+
+- Added core-built LCSE boundary coverage for local-only scalar reuse across `i32.atomic.rmw.cmpxchg`.
+- Documented Starshine's conservative no-CSE behavior even though Binaryen materializes the representative local-only scalar across cmpxchg; this stays out of atomic or memory GVN.
+
 ## [2026-06-05] wasm/wiki | Exception Handling boundary page
 
 - Added [`wasm-exception-handling-boundary.md`](wasm-exception-handling-boundary.md) as the root finished/Core-3.0 router for `tag`, `throw`, `throw_ref`, `try_table`, and modern catch clauses, crystallizing the already-ingested [`raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md`](raw/wasm/2026-06-05-exception-handling-core-boundary-routing.md) and [`raw/wasm/2026-06-04-exception-tag-current-refresh.md`](raw/wasm/2026-06-04-exception-tag-current-refresh.md).
