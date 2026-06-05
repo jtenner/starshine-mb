@@ -1,16 +1,19 @@
 ---
 kind: policy
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-05
 sources:
   - ./fuzz-runner.md
   - ./pass-fuzz-compare.md
+  - ../fuzzing/interestingness-hash-schema.md
   - ../validate/diagnostics-and-invalid-repro.md
   - ../../../agent-todo.md
   - ../raw/research/0705-2026-06-04-transient-artifact-citation-hygiene.md
 related:
   - ./fuzz-runner.md
   - ./pass-fuzz-compare.md
+  - ../fuzzing/interestingness-hash-schema.md
+  - ../fuzzing/reduction-backends.md
   - ../validate/fuzz-hardening.md
   - ../validate/diagnostics-and-invalid-repro.md
 ---
@@ -75,7 +78,7 @@ Use relative paths rooted at the repository when possible. Do not store absolute
 - allowed `state` values: `promoted-valid`, `promoted-invalid`, `pass-mismatch`, `tool-failure`, `accepted-divergence`, and `quarantine`;
 - required fields: `id`, `state`, `source`, `input`, `created_at`, `generator`, `features`, `expectation`, `classification`, `replay`, `artifacts`, `owner_or_task`, `notes`, `raw_artifact_hash`, `reduced_artifact_hash`, `normalized_shape_hash`, `predicate_hash`, `feature_fact_hash`, and `interestingness_label`.
 
-`[FUZ]1050A` also adds `FuzzCorpusHashMetadata` and `build_fuzz_corpus_hash_metadata(...)`, which compute the four hash fields with the local `fnv1a64-*` corpus hash and sort feature facts before hashing. The helper intentionally formats and parses a compact deterministic JSON subset for metadata produced by Starshine itself. It does not execute replays.
+`[FUZ]1050A` also adds `FuzzCorpusHashMetadata` and `build_fuzz_corpus_hash_metadata(...)`, which compute the artifact, predicate, and feature hash fields with the local `fnv1a64-*` corpus hash and sort feature facts before hashing. Use [`../fuzzing/interestingness-hash-schema.md`](../fuzzing/interestingness-hash-schema.md) for the exact six-layer vocabulary, non-cryptographic FNV-1a boundary, `normalized_shape_hash` bridge, and dry-run grouping rules. The helper intentionally formats and parses a compact deterministic JSON subset for metadata produced by Starshine itself. It does not execute replays.
 
 `[FUZ]1050B` adds the reversible case-index helper for duplicate corpus cases. `build_fuzz_corpus_case_index(...)` groups `starshine.fuzz-corpus-entry.v1` entries by raw and reduced artifact hash, preserving case ids, parsed seeds, profiles, and artifact paths for each duplicate group. `[FUZ]1050D1` extends the same index with report-only `normalized-shape` groups keyed by `normalized_shape_hash`; these groups are correlation metadata only and do not delete, compress, or replace raw artifacts. `format_fuzz_corpus_case_index_json(...)` and `parse_fuzz_corpus_case_index_json(...)` roundtrip the compact `starshine.fuzz-corpus-case-index.v1` schema without deleting or compressing artifacts.
 

@@ -2,8 +2,6 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
-
-
 ## [2026-06-05] passes/local-cse | float pure-operator reuse
 
 - Spot-checked `f32.add` and `f32.lt`; Binaryen materializes local-only arithmetic reuse across float arithmetic plus repeated float arithmetic/comparison roots.
@@ -21,6 +19,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Spot-checked `i32.lt_s`; Binaryen materializes both local-only arithmetic reuse across the comparison and repeated integer-comparison roots.
 - Added failing WAT-form direct regressions, then modeled integer ordering comparisons as pure two-operand `i32` result operations and candidate roots. Existing equality handling was unchanged, and the change does not add CFG-wide GVN or effectful-root reuse.
 - Refreshed the LCSE research/backlog wording so integer comparison coverage is listed with the pure-operator surface.
+
+## [2026-06-05] fuzzing/wiki | interestingness hash schema refresh
+
+- Added [`raw/fuzzing/2026-06-05-interestingness-hash-schema-source-refresh.md`](raw/fuzzing/2026-06-05-interestingness-hash-schema-source-refresh.md) after rechecking current Starshine fuzz corpus helpers/tests and RFC 9923 FNV-1a reference material.
+- Refreshed [`fuzzing/interestingness-hash-schema.md`](fuzzing/interestingness-hash-schema.md) from a terse schema note into the current beginner-to-advanced guide: six-layer vocabulary, local `fnv1a64-hex` non-cryptographic digest boundary, corpus-entry hash fields, `normalized_shape_hash` bridge, feature-fact sort stability, reversible raw/reduced/normalized-shape case-index rows, and non-destructive dry-run dedup rules.
+- Cross-linked [`tooling/fuzz-corpus-policy.md`](tooling/fuzz-corpus-policy.md) and refreshed [`index.md`](index.md) so corpus promotion/quarantine readers start from the same hash vocabulary instead of inferring it from implementation field names.
 
 ## [2026-06-05] passes/local-cse | ref.eq pure-reference reuse
 
