@@ -176,6 +176,69 @@ test "code-folding keeps simple full value if arms for optimize-instructions" {
 }
 
 ///|
+test "code-folding folds full multi-root non-block value arms" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32) (result f32)
+      #|    (if (result f32)
+      #|      (local.get 0)
+      #|      (then
+      #|        (nop)
+      #|        (f32.const 0))
+      #|      (else
+      #|        (nop)
+      #|        (f32.const 0)))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "drop"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "f32.const"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding folds embedded select full multi-root value if arms" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32) (result f32)
+      #|    (select
+      #|      (if (result f32)
+      #|        (local.get 0)
+      #|        (then
+      #|          (nop)
+      #|          (f32.const 0))
+      #|        (else
+      #|          (nop)
+      #|          (f32.const 0)))
+      #|      (f32.const 1)
+      #|      (local.get 0))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("if"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "f32.const"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding hoists identical partial value if suffixes" {
   let optimized = code_folding_test_run(
     (

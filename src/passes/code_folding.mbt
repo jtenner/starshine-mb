@@ -794,8 +794,8 @@ fn code_folding_full_value_if_common_suffix_allowed(
   if result_arity == 0 || then_start != 0 || else_start != 0 {
     return true
   }
-  if suffix_len != 1 {
-    return false
+  if suffix_len > 1 {
+    return true
   }
   let then_root = @ir.hot_region_get(func, then_ref, 0)
   let else_root = @ir.hot_region_get(func, else_ref, 0)
@@ -810,6 +810,98 @@ fn code_folding_full_value_if_common_suffix_allowed(
     @ir.HotOp::Block => true
     _ => false
   }
+}
+
+///|
+fn code_folding_try_fold_embedded_select_if_child(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  parent_id : Int,
+  child_slot : Int,
+  if_id : Int,
+  label_used : @bitset.BitSet,
+) -> Bool {
+  if parent_id < 0 ||
+    if_id < 0 ||
+    !@ir.hot_node_is_live(func, parent_id) ||
+    !@ir.hot_node_is_live(func, if_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, parent_id).op {
+    @ir.HotOp::Select => ()
+    _ => return false
+  }
+  let if_node = @ir.hot_node_get(func, if_id)
+  match if_node.op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  let condition = @ir.hot_child_get(func, if_id, 0)
+  if code_folding_node_always_exits(func, condition) {
+    return false
+  }
+  let result_types = @ir.hot_type_results(func, if_node.ty)
+  if result_types.length() != 1 {
+    return false
+  }
+  let result_arity = 1
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let else_ref = match @ir.hot_region_else_ref(func, if_id) {
+    Some(ref_) => ref_
+    None => return false
+  }
+  let suffix_len = code_folding_common_suffix_len(
+    func, if_id, then_ref, else_ref, label_used,
+  )
+  if suffix_len <= 1 {
+    return false
+  }
+  let then_count = @ir.hot_region_root_count(func, then_ref)
+  let else_count = @ir.hot_region_root_count(func, else_ref)
+  let then_start = then_count - suffix_len
+  let else_start = else_count - suffix_len
+  if then_start != 0 ||
+    else_start != 0 ||
+    code_folding_region_prefix_has_exit(func, then_ref, then_start) ||
+    code_folding_region_prefix_has_exit(func, else_ref, else_start) ||
+    !code_folding_suffix_matches_result_arity(
+      func, then_ref, then_start, suffix_len, result_arity,
+    ) ||
+    !code_folding_suffix_matches_result_arity(
+      func, else_ref, else_start, suffix_len, result_arity,
+    ) ||
+    code_folding_suffix_has_if_terminal(func, then_ref, then_start, suffix_len) {
+    return false
+  }
+
+  let hoisted = pass_splice_region(
+    ctx,
+    func,
+    then_ref,
+    then_start,
+    suffix_len,
+    [],
+  )
+  ignore(pass_splice_region(ctx, func, else_ref, else_start, suffix_len, []))
+  let drop_condition = @ir.hot_build_drop(func, condition)
+  let replacement = [drop_condition]
+  for node_id in hoisted {
+    replacement.push(node_id)
+  }
+  let wrapper = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(result_types[0]),
+    replacement,
+  )
+  @ir.hot_child_set(func, parent_id, child_slot, wrapper)
+  pass_mark_mutated(ctx, func)
+  pipeline_trace_hook(
+    ctx.trace,
+    ctx.descriptor.name,
+    "mutated",
+    payload="embedded-select-if-common-suffix",
+  )
+  true
 }
 
 ///|
@@ -3550,12 +3642,19 @@ fn code_folding_visit_embedded_controls(
             | @ir.HotOp::Loop
             | @ir.HotOp::If
             | @ir.HotOp::Try
-            | @ir.HotOp::TryTable =>
+            | @ir.HotOp::TryTable => {
               if code_folding_visit_embedded_controls(
                   ctx, func, child_id, label_used,
                 ) {
                 changed = true
               }
+              let next_child_id = @ir.hot_child_get(func, node_id, slot)
+              if code_folding_try_fold_embedded_select_if_child(
+                  ctx, func, node_id, slot, next_child_id, label_used,
+                ) {
+                changed = true
+              }
+            }
             _ => ()
           }
         }
@@ -3670,6 +3769,13 @@ fn code_folding_visit_region(
               func,
               @ir.hot_region_body_ref(func, current_id),
               label_used,
+            ) {
+            changed = true
+          }
+        @ir.HotOp::Select =>
+          if code_folding_node_has_direct_control_child(func, current_id) &&
+            code_folding_visit_embedded_controls(
+              ctx, func, current_id, label_used,
             ) {
             changed = true
           }
