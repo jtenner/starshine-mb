@@ -370,6 +370,79 @@ fn code_folding_node_children_have_no_control_or_exit(
 }
 
 ///|
+fn code_folding_node_exits_to_own_block_label(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  let label_id = @ir.hot_control_node_label(func, node_id)
+  let body_ref = @ir.hot_region_body_ref(func, node_id)
+  let count = @ir.hot_region_root_count(func, body_ref)
+  if label_id < 0 || count == 0 {
+    return false
+  }
+  let last_id = @ir.hot_region_get(func, body_ref, count - 1)
+  if last_id < 0 || !@ir.hot_node_is_live(func, last_id) {
+    return false
+  }
+  let last = @ir.hot_node_get(func, last_id)
+  match last.op {
+    @ir.HotOp::Br => last.imm0 == label_id && last.child_count == 0
+    _ => false
+  }
+}
+
+///|
+fn code_folding_terminal_tail_item_allows_following(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  !code_folding_node_prevents_fallthrough(func, node_id) ||
+  code_folding_node_exits_to_own_block_label(func, node_id)
+}
+
+///|
+fn code_folding_terminal_tail_item_is_hoistable_suffix(
+  func : @ir.HotFunc,
+  node_id : Int,
+  out_of_id : Int,
+  label_used : @bitset.BitSet,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Try
+    | @ir.HotOp::TryTable
+    | @ir.HotOp::Return
+    | @ir.HotOp::ReturnCall
+    | @ir.HotOp::ReturnCallIndirect
+    | @ir.HotOp::ReturnCallRef
+    | @ir.HotOp::Unreachable
+    | @ir.HotOp::Throw
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Delegate => return false
+    @ir.HotOp::Block => ()
+    @ir.HotOp::Loop | @ir.HotOp::If => {
+      let label_id = @ir.hot_control_node_label(func, node_id)
+      if pass_label_is_used(label_id, label_used) {
+        return false
+      }
+    }
+    _ => ()
+  }
+  code_folding_branch_targets_survive_hoist(func, node_id, out_of_id, node_id)
+}
+
+///|
 fn code_folding_terminal_tail_item_is_movable(
   func : @ir.HotFunc,
   tail : CodeFoldingTerminatingTail,
@@ -385,8 +458,8 @@ fn code_folding_terminal_tail_item_is_movable(
       code_folding_node_children_have_no_control_or_exit(func, node_id)
   }
   @ir.hot_node_result_arity(func, node_id) == 0 &&
-  !code_folding_node_prevents_fallthrough(func, node_id) &&
-  code_folding_node_is_hoistable_suffix(
+  code_folding_terminal_tail_item_allows_following(func, node_id) &&
+  code_folding_terminal_tail_item_is_hoistable_suffix(
     func,
     node_id,
     tail.region_ref.holder,
@@ -406,11 +479,28 @@ fn code_folding_node_is_if_hoistable_suffix(
 }
 
 ///|
-fn code_folding_nodes_equal(
+fn code_folding_labels_equal_with_map(
+  left_label : Int,
+  right_label : Int,
+  mapped_left_label : Int,
+  mapped_right_label : Int,
+) -> Bool {
+  left_label == right_label ||
+  (
+    mapped_left_label >= 0 &&
+    left_label == mapped_left_label &&
+    right_label == mapped_right_label
+  )
+}
+
+///|
+fn code_folding_nodes_equal_with_label_map(
   func : @ir.HotFunc,
   left_id : Int,
   right_id : Int,
   label_used : @bitset.BitSet,
+  mapped_left_label : Int,
+  mapped_right_label : Int,
 ) -> Bool {
   if left_id == right_id {
     return true
@@ -430,6 +520,8 @@ fn code_folding_nodes_equal(
     left.child_count != right.child_count {
     return false
   }
+  let mut next_mapped_left_label = mapped_left_label
+  let mut next_mapped_right_label = mapped_right_label
   match left.op {
     @ir.HotOp::Const | @ir.HotOp::RefNull =>
       if @ir.hot_const_get(func, left.imm0) !=
@@ -440,8 +532,27 @@ fn code_folding_nodes_equal(
       if pass_label_is_used(left.imm0, label_used) ||
         pass_label_is_used(right.imm0, label_used) {
         if left.imm0 != right.imm0 {
-          return false
+          if mapped_left_label >= 0 {
+            return false
+          }
+          next_mapped_left_label = left.imm0
+          next_mapped_right_label = right.imm0
         }
+      }
+    @ir.HotOp::Br
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail
+    | @ir.HotOp::Delegate =>
+      if !code_folding_labels_equal_with_map(
+          left.imm0,
+          right.imm0,
+          mapped_left_label,
+          mapped_right_label,
+        ) {
+        return false
       }
     @ir.HotOp::CallIndirect
     | @ir.HotOp::CallRef
@@ -454,16 +565,30 @@ fn code_folding_nodes_equal(
     _ => if left.imm0 != right.imm0 { return false }
   }
   for slot = 0; slot < left.child_count; slot = slot + 1 {
-    if !code_folding_nodes_equal(
+    if !code_folding_nodes_equal_with_label_map(
         func,
         @ir.hot_child_get(func, left_id, slot),
         @ir.hot_child_get(func, right_id, slot),
         label_used,
+        next_mapped_left_label,
+        next_mapped_right_label,
       ) {
       return false
     }
   }
   true
+}
+
+///|
+fn code_folding_nodes_equal(
+  func : @ir.HotFunc,
+  left_id : Int,
+  right_id : Int,
+  label_used : @bitset.BitSet,
+) -> Bool {
+  code_folding_nodes_equal_with_label_map(
+    func, left_id, right_id, label_used, -1, -1,
+  )
 }
 
 ///|
