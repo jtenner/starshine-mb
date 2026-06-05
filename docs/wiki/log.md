@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] wasm/wiki | JS primitive and text-encoding builtin routing
+
+- Added [`raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md`](raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md) after checking the current WebAssembly proposals tracker, JS Primitive Builtins overview, JS Text Encoding Builtins overview, existing JS String Builtins boundary, and current Starshine Node/WAST/core/binary/validator evidence.
+- Added [`wasm-js-primitive-and-text-encoding-builtins-boundary.md`](wasm-js-primitive-and-text-encoding-builtins-boundary.md) so active Phase-2 JS Primitive Builtins and active Phase-1 JS Text Encoding Builtins route separately from finished JS String Builtins, active Reference-Typed Strings, Starshine's local `stringref` array helpers, and Binaryen string-lowering/lifting oracle examples.
+- Refreshed [`wasm-feature-status-and-proposal-boundaries.md`](wasm-feature-status-and-proposal-boundaries.md), [`wasm-js-string-builtins-boundary.md`](wasm-js-string-builtins-boundary.md), [`wast/string-instruction-authoring.md`](wast/string-instruction-authoring.md), and [`index.md`](index.md) so `wasm:js-number`, `wasm:js-bigint`, `wasm:text-encoding`, and host UTF-8 helper claims do not imply current Starshine Node, WAST, binary, validator, generator, or pass support.
+
 ## [2026-06-05] wiki-health | WASI 0.3 backlink routing
 
 - During the follow-up whole-wiki health check, searched empty Markdown links plus broad WASI 0.2 / WASI 0.3 / `wasi_snapshot_preview1` mentions after the focused WASI 0.3 routing update landed.

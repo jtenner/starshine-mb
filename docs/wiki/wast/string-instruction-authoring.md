@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-04
 sources:
   - ../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
+  - ../raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md
   - ../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md
   - ../raw/wasm/2026-05-19-wast-string-instruction-sources.md
   - ../raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md
@@ -21,6 +22,7 @@ sources:
   - ../../../src/wast/arbitrary.mbt
 related:
   - ../wasm-js-string-builtins-boundary.md
+  - ../wasm-js-primitive-and-text-encoding-builtins-boundary.md
   - ../strings/string-const-surface.md
   - gc-type-authoring.md
   - gc-aggregate-instruction-authoring.md
@@ -43,7 +45,7 @@ Use this page when writing, reducing, or widening fixtures that mention Starshin
 - array-backed construction: `string.new_utf8_array`, `string.new_wtf16_array`, `string.new_lossy_utf8_array`, and `string.new_wtf8_array`;
 - array-backed encoding: `string.encode_utf8_array`, `string.encode_wtf16_array`, `string.encode_lossy_utf8_array`, and `string.encode_wtf8_array`.
 
-The current primary-source and local-code refresh for this instruction subset is [`../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md`](../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md), superseding only the source-status and array-operand wording in the older [`2026-05-19` manifest](../raw/wasm/2026-05-19-wast-string-instruction-sources.md). The key reconciliation is that **Starshine has a real WAST/core/binary/validator surface for a narrow stringref-proposal subset, but that surface is not the full active Phase-1 Reference-Typed Strings proposal and is not stable Core WebAssembly 3.0.** The 2026-06-05 JS String Builtins bridge adds the host-side split: [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md) owns `builtins: ["js-string"]`, reserved `wasm:js-string` helper imports, and `importedStringConstants`; those are JavaScript API / Binaryen lowering-lifting concerns, not proof that this WAST stringref subset is Core-stable or complete. For the shared wording rule behind “Core 3.0” versus “active proposal” versus “Starshine-local subset,” use [`../wasm-feature-status-and-proposal-boundaries.md`](../wasm-feature-status-and-proposal-boundaries.md). Keep binary literal-pool and section-id claims routed through [`../strings/string-const-surface.md`](../strings/string-const-surface.md) and [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md).
+The current primary-source and local-code refresh for this instruction subset is [`../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md`](../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md), superseding only the source-status and array-operand wording in the older [`2026-05-19` manifest](../raw/wasm/2026-05-19-wast-string-instruction-sources.md). The key reconciliation is that **Starshine has a real WAST/core/binary/validator surface for a narrow stringref-proposal subset, but that surface is not the full active Phase-1 Reference-Typed Strings proposal and is not stable Core WebAssembly 3.0.** The 2026-06-05 JS String Builtins bridge adds the host-side split: [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md) owns `builtins: ["js-string"]`, reserved `wasm:js-string` helper imports, and `importedStringConstants`; those are JavaScript API / Binaryen lowering-lifting concerns, not proof that this WAST stringref subset is Core-stable or complete. The sibling JS Primitive / JS Text Encoding boundary [`../wasm-js-primitive-and-text-encoding-builtins-boundary.md`](../wasm-js-primitive-and-text-encoding-builtins-boundary.md) adds another host-side caveat: current `string.new_*_array` and `string.encode_*_array` instructions are Wasm stringref-proposal/local instructions, not `wasm:text-encoding` host-builtin imports. For the shared wording rule behind “Core 3.0” versus “active proposal” versus “Starshine-local subset,” use [`../wasm-feature-status-and-proposal-boundaries.md`](../wasm-feature-status-and-proposal-boundaries.md). Keep binary literal-pool and section-id claims routed through [`../strings/string-const-surface.md`](../strings/string-const-surface.md) and [`../binary/type-table-memory-global-tag-sections.md`](../binary/type-table-memory-global-tag-sections.md).
 
 ## Beginner Mental Model
 
@@ -156,10 +158,10 @@ The checked stringref proposal source is broader than Starshine's current model.
 - string measurement, comparison, hash, equality, or ordering helpers;
 - string views, iterators, or code-point walking helpers;
 - memory-buffer forms such as non-array UTF-8/WTF-16 new/encode helpers;
-- JavaScript builtin import ABI behavior such as `wasm:js-string` helpers or `importedStringConstants`;
+- JavaScript builtin import ABI behavior such as `wasm:js-string` helpers, `importedStringConstants`, JS Primitive Builtins, or JS Text Encoding Builtins `wasm:text-encoding` helpers;
 - a stable Core WebAssembly `stringrefs` binary section id, even though the active proposal draft currently defines section id `14`.
 
-Use [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md) when the fixture or pass question is about JS host compile options, builtin helper imports, or imported string constants rather than local WAST string instructions.
+Use [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md) when the fixture or pass question is about JS host compile options, builtin helper imports, or imported string constants rather than local WAST string instructions. Use [`../wasm-js-primitive-and-text-encoding-builtins-boundary.md`](../wasm-js-primitive-and-text-encoding-builtins-boundary.md) when a claim mentions primitive JS builtins or text-encoding helper imports; current Starshine string array instructions do not implement those active proposals.
 
 When adding one of those families, the implementation needs at least a new core instruction shape, binary decode/encode evidence, typechecker coverage, WAST keyword/parser/lowerer/printer support if text is exposed, generator/arbitrary coverage if fuzzing claims are made, and a wiki/source-manifest refresh.
 
@@ -176,6 +178,7 @@ When adding one of those families, the implementation needs at least a new core 
 ## Source Map
 
 - JS String Builtins host-boundary refresh: [`../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](../raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md), [`../wasm-js-string-builtins-boundary.md`](../wasm-js-string-builtins-boundary.md)
+- JS Primitive / JS Text Encoding Builtins host-boundary refresh: [`../raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md`](../raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md), [`../wasm-js-primitive-and-text-encoding-builtins-boundary.md`](../wasm-js-primitive-and-text-encoding-builtins-boundary.md)
 - Current primary-source and local-code refresh: [`../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md`](../raw/wasm/2026-06-04-stringref-proposal-current-refresh.md)
 - Original broad primary-source and local-code manifest: [`../raw/wasm/2026-05-19-wast-string-instruction-sources.md`](../raw/wasm/2026-05-19-wast-string-instruction-sources.md)
 - Literal-pool companion: [`../strings/string-const-surface.md`](../strings/string-const-surface.md)

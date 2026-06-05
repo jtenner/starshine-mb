@@ -4,6 +4,7 @@ status: supported
 last_reviewed: 2026-06-05
 sources:
   - raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md
+  - raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md
   - raw/wasm/2026-06-05-esm-integration-boundary-refresh.md
   - raw/wasm/2026-06-04-stringref-proposal-current-refresh.md
   - raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md
@@ -18,6 +19,7 @@ sources:
   - ../../src/binary/decode.mbt
 related:
   - wasm-feature-status-and-proposal-boundaries.md
+  - wasm-js-primitive-and-text-encoding-builtins-boundary.md
   - strings/string-const-surface.md
   - wast/string-instruction-authoring.md
   - binary/type-table-memory-global-tag-sections.md
@@ -38,7 +40,8 @@ Use this page when a wiki claim mentions any of these similar-looking names:
 - `builtins: ["js-string"]`;
 - imported helpers such as `(import "wasm:js-string" "concat" ...)`;
 - `importedStringConstants`;
-- `stringref`, `string.const`, or Starshine's `StringRefsSec`.
+- `stringref`, `string.const`, or Starshine's `StringRefsSec`;
+- JS Primitive Builtins or JS Text Encoding Builtins names such as `wasm:js-number`, `wasm:js-bigint`, or `wasm:text-encoding`.
 
 They are related string features, but they do **not** all mean the same thing. The current source bridge is [`raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md). It rechecked the official WebAssembly finished-proposals table, active proposals tracker, JS String Builtins draft, MDN JavaScript API pages for compile options and imported string constants, and current Starshine Node / WAST / binary / validator / pass evidence.
 
@@ -46,7 +49,8 @@ The durable rule is:
 
 - **JS String Builtins** is a finished/Core-3.0 + JavaScript API feature boundary. It is about host-enabled builtin imports and compile options.
 - **Reference-Typed Strings / `stringref`** is still an active Phase-1 proposal boundary. It is about `stringref`, `string.const`, a draft `stringrefs` section, and a much wider string instruction family.
-- **Starshine** implements a narrow proposal-facing `stringref` subset plus Node runtime opt-in to JS string builtins; it does not implement the whole active stringref proposal, and it does not currently expose a `string-lowering` / `string-lifting` pass that translates through the JS builtin ABI.
+- **JS Primitive Builtins** and **JS Text Encoding Builtins** are separate active host-builtin proposal rows. Route them through [`wasm-js-primitive-and-text-encoding-builtins-boundary.md`](wasm-js-primitive-and-text-encoding-builtins-boundary.md) instead of treating them as `js-string` or stringref support.
+- **Starshine** implements a narrow proposal-facing `stringref` subset plus Node runtime opt-in to JS string builtins; it does not implement the whole active stringref proposal, JS Primitive Builtins, JS Text Encoding Builtins, and it does not currently expose a `string-lowering` / `string-lifting` pass that translates through the JS builtin ABI.
 
 ## The Three Things People Conflate
 
@@ -55,6 +59,7 @@ The durable rule is:
 | JS String Builtins | JavaScript API / host feature that lets Wasm import known JS string helper functions from the reserved `wasm:` namespace when compile options enable `"js-string"`; Node's Wasm ESM Integration path also enables them automatically for ESM-loaded Wasm. | Finished proposal affecting Core + JS API in WebAssembly 3.0; focused draft is `3.0 + js-string-builtins`. | The Node wasm-gc runtime calls `WebAssembly.compile(..., { builtins: ["js-string"] })` and `WebAssembly.instantiate(..., { builtins: ["js-string"] })` in [`node/internal/runtime.js`](../../node/internal/runtime.js). Current Starshine does not use source-phase or instance-phase Wasm ESM imports; route that split through [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md). | That `stringref` proposal instructions are stable Core, that Starshine rewrites modules to/from `wasm:js-string` helper imports, or that explicit Node wrapper compile options are the same evidence as Wasm ESM Integration support. |
 | Imported string constants | JavaScript API compile option that chooses the namespace whose imported globals become JS strings from import names. | JS API / host behavior documented with `importedStringConstants`. | Current Node runtime does **not** pass `importedStringConstants`; Binaryen `string-lowering` / `string-lifting` dossiers document future JSON/magic-import behavior, but local Starshine has no active port. | That Starshine's `StringRefsSec` is the same mechanism. |
 | Reference-Typed Strings / `stringref` | Active proposal with `stringref`, `string.const`, draft `stringrefs` section id `14`, array/memory string helpers, comparisons, views, and iterators. | Active Phase 1 as of the 2026-06-05 recheck. | Starshine supports `string.const`, eight array-backed helper instructions, `ValType::stringref()`, and local/proposal-facing `StringRefsSec` section id `14`; see [`wast/string-instruction-authoring.md`](wast/string-instruction-authoring.md) and [`strings/string-const-surface.md`](strings/string-const-surface.md). | That JS String Builtins being finished makes the whole stringref proposal stable or locally complete. |
+| JS Primitive / JS Text Encoding Builtins | Active host-builtin proposals for primitive JS values and text-encoding helper imports. | JS Primitive Builtins is active Phase 2; JS Text Encoding Builtins is active Phase 1. | No current Starshine runtime, WAST/core/binary/validator/generator, or pass support; see [`wasm-js-primitive-and-text-encoding-builtins-boundary.md`](wasm-js-primitive-and-text-encoding-builtins-boundary.md). | That `builtins: ["js-string"]`, `externref`, or local `string.encode_utf8_array` support covers those proposals. |
 
 ## Beginner Mental Model
 
@@ -119,6 +124,7 @@ Prefer these phrases:
 - “Reference-Typed Strings remains active Phase 1; Starshine implements only a narrow proposal-facing `stringref` subset.”
 - “`StringRefsSec` is Starshine's local/proposal-facing in-module literal pool for `string.const`; it is not the JS API `importedStringConstants` mechanism.”
 - “`wasm:js-string` helper imports belong to JS String Builtins and Binaryen string-lowering/lifting parity work, not to ordinary WAST string instruction support.”
+- “JS Primitive Builtins and JS Text Encoding Builtins are active proposals with no current Starshine support; use the focused boundary before adding Node, pass, or WAST claims.”
 
 Avoid these phrases unless the surrounding sentence is more precise:
 
@@ -126,6 +132,7 @@ Avoid these phrases unless the surrounding sentence is more precise:
 - “Starshine supports JS strings” — name whether you mean Node compile options, local `stringref` instructions, or future helper-import lowering.
 - “Section 14 is a Core `stringrefs` section” — current Starshine mirrors an active proposal draft, but current Core WebAssembly 3.0 does not stabilize that section.
 - “`importedStringConstants` is like `StringRefsSec`” — one is host/import-based, the other is in-module local/proposal binary plumbing.
+- “`string.encode_utf8_array` implements JS Text Encoding Builtins” — Starshine's helper is a stringref instruction, not a reserved `wasm:text-encoding` host import.
 
 ## Validation And Maintenance Guidance
 
@@ -140,6 +147,7 @@ When touching string-related docs or code:
 ## Sources
 
 - JS String Builtins boundary refresh: [`raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md`](raw/wasm/2026-06-05-js-string-builtins-boundary-refresh.md)
+- JS Primitive / JS Text Encoding Builtins boundary: [`raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md`](raw/wasm/2026-06-05-js-primitive-text-encoding-builtins-boundary-refresh.md), [`wasm-js-primitive-and-text-encoding-builtins-boundary.md`](wasm-js-primitive-and-text-encoding-builtins-boundary.md)
 - Stringref proposal/local refresh: [`raw/wasm/2026-06-04-stringref-proposal-current-refresh.md`](raw/wasm/2026-06-04-stringref-proposal-current-refresh.md)
 - Older section-id caveat: [`raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md`](raw/wasm/2026-05-13-type-table-memory-global-tag-sources.md)
 - ESM Integration boundary refresh: [`raw/wasm/2026-06-05-esm-integration-boundary-refresh.md`](raw/wasm/2026-06-05-esm-integration-boundary-refresh.md), [`wasm-esm-integration-boundary.md`](wasm-esm-integration-boundary.md)
