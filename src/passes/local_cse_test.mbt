@@ -759,6 +759,58 @@ test "local-cse defers repeated SIMD lane-load roots" {
 }
 
 ///|
+test "local-cse defers repeated wider SIMD lane-load roots" {
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let memarg = @lib.MemArg::new(@lib.U32(0U), None, @lib.U64(0UL))
+  let lane = @lib.LaneIdx::new(0)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::v128()], []),
+    ),
+  )
+  let body_for = fn(load : @lib.Instruction) {
+    @lib.Func::new(
+      @lib.Locals::from_types([]),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        load,
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        load,
+        @lib.Instruction::drop(),
+      ]),
+    )
+  }
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([func_type_idx, func_type_idx, func_type_idx]),
+    )
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        body_for(@lib.Instruction::v128_load16_lane(memarg, lane)),
+        body_for(@lib.Instruction::v128_load32_lane(memarg, lane)),
+        body_for(@lib.Instruction::v128_load64_lane(memarg, lane)),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(locals, @lib.Expr(instrs)) = func
+        @debug.assert_eq(locals, @lib.Locals::from_types([]))
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
 test "local-cse defers repeated SIMD load splat and zero roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let memarg = @lib.MemArg::new(@lib.U32(0U), None, @lib.U64(0UL))

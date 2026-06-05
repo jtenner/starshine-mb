@@ -2173,3 +2173,23 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: Binaryen materialized the representative scalar root across atomic store; the added conservative core-built coverage passed immediately (`134/134`), so this was missing-test-only coverage. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`134/134`). Broad `moon test src/passes` failed `1` unrelated dirty `simplify_locals_test.mbt` assertion (`1690/1691`) and full `moon test` likewise failed the same unrelated assertion (`4875/4876`); agent classification: unrelated/interleaved simplify-locals test-worktree failure, not an LCSE regression, because the slice changed only LCSE tests/docs and the focused LCSE lane remained green. Native build succeeded with warnings only and exit `0`; compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up wider SIMD lane-load root boundary on 2026-06-05
+
+A later focused LCSE hardening slice added core-built coverage for repeated wider SIMD lane-load roots: `v128.load16_lane`, `v128.load32_lane`, and `v128.load64_lane`. Binaryen spot-checking the representative WAT at `.tmp/lcse-next-spots/simd-lane-load-widths/input.wat` materialized each repeated lane-load root with `local.tee` / `local.get`; Starshine intentionally leaves these vector lane-load roots unmaterialized rather than adding SIMD value numbering or SIMD-aware memory GVN. Agent classification: documented conservative deferral / missing-test-only coverage, not a semantic mismatch.
+
+Validation evidence for this slice:
+
+```sh
+wasm-opt .tmp/lcse-next-spots/simd-lane-load-widths/input.wat --all-features --local-cse -S -o .tmp/lcse-next-spots/simd-lane-load-widths/binaryen.wat
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-simd-wide-lane-load-boundary-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: Binaryen materialized the representative wider lane-load roots; the added conservative core-built coverage passed immediately (`135/135`), so this was missing-test-only coverage. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`135/135`). Broad `moon test src/passes` failed `2` unrelated dirty `simplify_locals_test.mbt` assertions (`1690/1692`) and full `moon test` likewise failed those same unrelated assertions (`4875/4877`); agent classification: unrelated/interleaved simplify-locals test-worktree failures, not LCSE regressions, because the slice changed only LCSE tests/docs and the focused LCSE lane remained green. Native build succeeded with warnings only and exit `0`; compare reached `6766` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
