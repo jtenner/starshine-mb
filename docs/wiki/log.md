@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | SIMD comparison roots
+
+- Added core-built LCSE boundary coverage for repeated SIMD comparison roots across integer and floating vector lane widths.
+- Documented Starshine's conservative no-CSE behavior even though Binaryen materializes representative repeated comparison roots; this stays out of SIMD temp-local/value-numbering work.
+
 ## [2026-06-05] local-cse/wiki | atomic store width variants
 
 - Added core-built LCSE boundary coverage for local-only scalar reuse across additional linear atomic store widths: full `i64`, `i32` 8/16-bit, and `i64` 8/16-bit variants.

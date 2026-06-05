@@ -2437,3 +2437,16 @@ moon test --package jtenner/starshine/passes --file local_cse_test.mbt
 ```
 
 Results: Binaryen materialized the representative local-only scalar across atomic store width variants; the added conservative core-built coverage passed immediately (`150/150`), so this was missing-test-only coverage. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`150/150`); `moon test src/passes` passed (`1708/1708`); full `moon test` passed (`4893/4893`); native build reported no work; compare reached `6772` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up SIMD comparison root boundary on 2026-06-05
+
+A later focused LCSE hardening slice added core-built coverage for repeated SIMD comparison roots across integer and floating vector lane widths, including representative `i8x16`, `i16x8`, `i32x4`, `i64x2`, `f32x4`, and `f64x2` comparison operators. Binaryen spot-checking the representative WAT at `.tmp/lcse-next-spots/simd-comparison-roots/input.wat` materialized representative repeated comparison roots with `local.tee` / `local.get`; Starshine intentionally leaves these vector roots unmaterialized rather than adding SIMD temp locals or SIMD value numbering. Agent classification: documented conservative deferral / missing-test-only coverage, not a semantic mismatch.
+
+Validation evidence for this slice:
+
+```sh
+wasm-opt .tmp/lcse-next-spots/simd-comparison-roots/input.wat --all-features --local-cse -S -o .tmp/lcse-next-spots/simd-comparison-roots/binaryen.wat
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+```
+
+Results: Binaryen materialized representative repeated SIMD comparison roots; the added conservative core-built coverage passed immediately (`151/151`), so this was missing-test-only coverage. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`151/151`); `moon test src/passes` passed (`1709/1709`); full `moon test` passed (`4894/4894`); native build reported no work; compare reached `6769` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
