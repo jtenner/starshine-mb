@@ -316,6 +316,76 @@ test "local-cse reuses repeated integer comparison roots" {
 }
 
 ///|
+test "local-cse reuses repeated integer equality roots" {
+  let input =
+    #| (module
+    #|   (func (param i32 i32 i64 i64)
+    #|     (drop (i32.eq (local.get 0) (local.get 1)))
+    #|     (drop (i32.eq (local.get 0) (local.get 1)))
+    #|     (drop (i64.ne (local.get 2) (local.get 3)))
+    #|     (drop (i64.ne (local.get 2) (local.get 3)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(4U)), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, @lib.LocalIdx::new(4U)), 1)
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(5U)), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, @lib.LocalIdx::new(5U)), 1)
+}
+
+///|
+test "local-cse reuses local-only expression across integer eqz" {
+  let input =
+    #| (module
+    #|   (func (param i32 i32 i64)
+    #|     (drop (i32.add (local.get 0) (local.get 1)))
+    #|     (drop (i64.eqz (local.get 2)))
+    #|     (drop (i32.add (local.get 0) (local.get 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  let temp = @lib.LocalIdx::new(3U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
+test "local-cse reuses repeated integer eqz roots" {
+  let input =
+    #| (module
+    #|   (func (param i64)
+    #|     (drop (i64.eqz (local.get 0)))
+    #|     (drop (i64.eqz (local.get 0)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  let temp = @lib.LocalIdx::new(1U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
 test "local-cse reuses local-only expression across integer unary bit op" {
   let input =
     #| (module

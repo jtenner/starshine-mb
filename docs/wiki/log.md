@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] passes/local-cse | integer equality and eqz coverage
+
+- Spot-checked repeated `i32.eq` / `i64.ne` equality roots and `i64.eqz` roots; Binaryen materializes both families with `local.tee` / `local.get`.
+- Added WAT-form direct coverage for repeated integer equality roots, local-only reuse across `eqz`, and repeated `eqz` roots. Starshine already matched through existing equality/`eqz` candidate and result modeling, so this was missing-test-only coverage.
+- Refreshed LCSE research/backlog wording so equality and `eqz` are explicitly covered while integer division/remainder and trap-sensitive conversion reasoning remain separate out-of-scope decisions.
+
 ## [2026-06-05] wasm/wiki | feature-dashboard evidence boundary
 
 - Added [`raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md`](raw/wasm/2026-06-05-webassembly-feature-dashboard-routing.md) after checking the current official WebAssembly feature-status dashboard, proposals tracker, finished-proposals table, and Core specification introduction.

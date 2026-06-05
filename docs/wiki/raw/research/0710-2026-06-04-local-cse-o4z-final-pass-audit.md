@@ -1537,3 +1537,25 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: the first focused run failed as intended for both new fixtures (`92/94` passed) before the implementation change; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed after the fix (`94/94`); `moon test src/passes` passed (`1642/1642`); full `moon test` passed (`4827/4827`); native build succeeded with existing unused-function warnings in `src/passes/pass_manager.mbt`; compare reached `6769` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+
+## Follow-up integer equality and eqz coverage slice on 2026-06-05
+
+A later focused LCSE hardening slice spot-checked repeated integer equality and zero-test roots: representative `i32.eq`, `i64.ne`, and `i64.eqz` roots. Binaryen materialized these repeated roots with `local.tee` / `local.get`.
+
+The slice added WAT-form direct tests `local-cse reuses repeated integer equality roots`, `local-cse reuses local-only expression across integer eqz`, and `local-cse reuses repeated integer eqz roots`. Starshine already matched via existing `I32Eq`, `I32Ne`, `I64Eq`, `I64Ne`, `I32Eqz`, and `I64Eqz` candidate/result modeling, so this was missing-test-only coverage rather than an implementation change. It does not add integer division/remainder CSE, trap-sensitive trunc conversion reasoning, or broad numeric GVN.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-eq-eqz-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the initial focused run with the added coverage passed (`97/97`) because this was missing-test-only; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`97/97`); `moon test src/passes` passed (`1645/1645`); full `moon test` passed (`4830/4830`); native build succeeded with no work to do; compare reached `6772` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
