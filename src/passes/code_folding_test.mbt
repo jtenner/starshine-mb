@@ -341,6 +341,57 @@ test "code-folding hoists two-block value if suffixes" {
 }
 
 ///|
+test "code-folding hoists two-block multi-root value if suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func $sink (param i32))
+      #|  (func (param i32 i32) (result f32)
+      #|    (if (result f32)
+      #|      (local.get 0)
+      #|      (then
+      #|        (block (result f32)
+      #|          (i32.const 1)
+      #|          (drop)
+      #|          (local.get 1)
+      #|          (call $sink)
+      #|          (f32.const 0)))
+      #|      (else
+      #|        (block (result f32)
+      #|          (i32.const 42)
+      #|          (drop)
+      #|          (local.get 1)
+      #|          (call $sink)
+      #|          (f32.const 0))))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(1)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(42)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "f32.const"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding hoists identical structured suffixes" {
   let optimized = code_folding_test_run(
     (
