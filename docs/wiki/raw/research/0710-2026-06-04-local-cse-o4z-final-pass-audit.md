@@ -2273,3 +2273,23 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 ```
 
 Results: Binaryen materialized representative repeated replace-lane roots; the added conservative core-built coverage passed immediately (`139/139`), so this was missing-test-only coverage. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`139/139`); `moon test src/passes` passed (`1697/1697`); full `moon test` passed (`4882/4882`); native build reported no work; compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+## Follow-up SIMD shuffle/swizzle root boundary on 2026-06-05
+
+A later focused LCSE hardening slice added core-built coverage for repeated SIMD lane-rearrangement roots: `i8x16.shuffle` and `i8x16.swizzle`. Binaryen spot-checking the representative WAT at `.tmp/lcse-next-spots/simd-shuffle-swizzle-roots/input.wat` materialized both repeated roots with `local.tee` / `local.get`; Starshine intentionally leaves these vector roots unmaterialized rather than adding SIMD temp locals or SIMD value numbering. Agent classification: documented conservative deferral / missing-test-only coverage, not a semantic mismatch.
+
+Validation evidence for this slice:
+
+```sh
+wasm-opt .tmp/lcse-next-spots/simd-shuffle-swizzle-roots/input.wat --all-features --local-cse -S -o .tmp/lcse-next-spots/simd-shuffle-swizzle-roots/binaryen.wat
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-simd-shuffle-swizzle-boundary-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: Binaryen materialized representative repeated shuffle/swizzle roots; the added conservative core-built coverage passed immediately (`140/140`), so this was missing-test-only coverage. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`140/140`); `moon test src/passes` passed (`1698/1698`); full `moon test` passed (`4883/4883`); native build reported no work; compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).

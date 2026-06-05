@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] local-cse/wiki | SIMD shuffle/swizzle roots
+
+- Added core-built LCSE boundary coverage for repeated `i8x16.shuffle` and `i8x16.swizzle` roots.
+- Documented Starshine's conservative no-CSE behavior even though Binaryen materializes representative repeated lane-rearrangement roots; this stays out of SIMD temp-local/value-numbering work.
+
 ## [2026-06-05] local-cse/wiki | SIMD replace-lane roots
 
 - Added core-built LCSE boundary coverage for repeated SIMD replace-lane roots across integer and floating vector lanes.
