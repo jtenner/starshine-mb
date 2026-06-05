@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-05] passes/local-cse | full-width non-i32 load coverage
+
+- Spot-checked repeated `i64.load`, `f32.load`, and `f64.load` roots; Binaryen materializes each with `local.tee` / `local.get` when no intervening memory write invalidates the load.
+- Added focused WAT-form direct coverage for local-only reuse across `f64.load`, repeated `i64.load` roots, and repeated float load roots. Starshine already matched through existing full-width load candidate/result/memory-read modeling, so this was missing-test-only coverage.
+- Refreshed LCSE research/backlog wording so full-width non-`i32` load coverage remains local load CSE under existing store barriers, not memory alias analysis or arbitrary memory GVN.
+
 ## [2026-06-05] release/wiki | npm trusted-publishing boundary
 
 - Added [`raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md`](raw/release/2026-06-05-npm-trusted-publishing-provenance-refresh.md) after checking current npm trusted-publisher, npm provenance, npm publish, and GitHub Actions OIDC documentation against `node/package.json`, the root private package, and existing read-only GitHub workflows.
