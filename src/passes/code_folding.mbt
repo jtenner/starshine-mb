@@ -825,6 +825,7 @@ fn code_folding_parent_accepts_embedded_value_wrapper(
     | @ir.HotOp::Drop
     | @ir.HotOp::Call
     | @ir.HotOp::CallIndirect
+    | @ir.HotOp::CallRef
     | @ir.HotOp::RefIsNull
     | @ir.HotOp::RefTest
     | @ir.HotOp::RefCast
@@ -3827,6 +3828,7 @@ fn code_folding_visit_region(
         @ir.HotOp::Select
         | @ir.HotOp::Call
         | @ir.HotOp::CallIndirect
+        | @ir.HotOp::CallRef
         | @ir.HotOp::RefIsNull
         | @ir.HotOp::RefTest
         | @ir.HotOp::RefCast
