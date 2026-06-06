@@ -123,6 +123,36 @@ describe("pass-fuzz compare normalizers", () => {
       applyCompareNormalizersForTest(starshineWat, ["local-cleanup-debris"]),
     );
   });
+
+  test("unreachable-control-debris erases drop-unreachable before an adjacent unreachable", () => {
+    const binaryenWat = `(module
+ (export "run" (func $0))
+ (func $0
+  (drop
+   (f64.const 7.52804e-317)
+  )
+  (unreachable)
+ )
+)
+`;
+    const starshineWat = `(module
+ (export "run" (func $0))
+ (func $0
+  (drop
+   (f64.const 7.52804e-317)
+  )
+  (drop
+   (unreachable)
+  )
+  (unreachable)
+ )
+)
+`;
+
+    expect(applyCompareNormalizersForTest(binaryenWat, ["unreachable-control-debris"])).toBe(
+      applyCompareNormalizersForTest(starshineWat, ["unreachable-control-debris"]),
+    );
+  });
 });
 
 describe("pass fuzz summary coverage report", () => {

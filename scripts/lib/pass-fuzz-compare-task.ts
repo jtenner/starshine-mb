@@ -1251,9 +1251,41 @@ function normalizeUnusedUnreachableFunctions(wat: string): string {
   return output.join("\n");
 }
 
+function isDropUnreachableExpression(exprText: string): boolean {
+  return /^\s*\(drop\s*\n\s*\(unreachable\)\s*\n\s*\)\s*$/.test(exprText);
+}
+
+function normalizeDropUnreachableBeforeUnreachable(wat: string): string {
+  const lines = wat.split("\n");
+  const output: string[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line.trimStart().startsWith("(drop")) {
+      output.push(line);
+      continue;
+    }
+    const exprLines = [line];
+    let balance = parenDelta(line);
+    while (balance > 0 && index + 1 < lines.length) {
+      index += 1;
+      exprLines.push(lines[index]);
+      balance += parenDelta(lines[index]);
+    }
+    const nextLine = index + 1 < lines.length ? lines[index + 1].trim() : "";
+    const exprText = exprLines.join("\n");
+    if (nextLine === "(unreachable)" && isDropUnreachableExpression(exprText)) {
+      continue;
+    }
+    output.push(...exprLines);
+  }
+  return output.join("\n");
+}
+
 function normalizeUnreachableControlDebris(wat: string): string {
   return stripFunctionTypeIds(
-    normalizeUnusedUnreachableFunctions(normalizeLocalUnreachableControlDebris(wat)),
+    normalizeDropUnreachableBeforeUnreachable(
+      normalizeUnusedUnreachableFunctions(normalizeLocalUnreachableControlDebris(wat)),
+    ),
   );
 }
 
