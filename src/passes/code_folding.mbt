@@ -835,7 +835,8 @@ fn code_folding_heap_parent_accepts_embedded_value_wrapper(
     | Some(@lib.Instruction::ArraySet(_))
     | Some(@lib.Instruction::ArrayFill(_))
     | Some(@lib.Instruction::ArrayCopy(_, _))
-    | Some(@lib.Instruction::ArrayInitData(_, _)) => true
+    | Some(@lib.Instruction::ArrayInitData(_, _))
+    | Some(@lib.Instruction::ArrayInitElem(_, _)) => true
     _ => false
   }
 }
