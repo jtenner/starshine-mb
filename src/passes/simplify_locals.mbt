@@ -5203,5 +5203,19 @@ fn simplify_locals_notee_nostructure_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
+  // The no-tee spelling shares no-structure's barrier limitations; it should
+  // not sink stack-root local traffic across calls or existing local.tee roots.
+  if simplify_locals_has_local_tee(func) {
+    return HotPassResult::unchanged()
+  }
+  if simplify_locals_should_skip_root_local_set_stack_hazard(func) {
+    pipeline_trace_hook(
+      ctx.trace,
+      ctx.descriptor.name,
+      "skip-hot",
+      payload="reason=root-local-set-stack-hazard-noop",
+    )
+    return HotPassResult::unchanged()
+  }
   simplify_locals_run_with_options(ctx, func, false, false)
 }

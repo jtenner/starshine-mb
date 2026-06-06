@@ -283,6 +283,7 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
     pass_registry_entry_module("local-subtyping", local_subtyping_summary()),
     pass_registry_entry_module("coalesce-locals", coalesce_locals_summary()),
     pass_registry_entry_module("duplicate-import-elimination", die_summary()),
+    pass_registry_entry_module("strip-debug", strip_debug_summary()),
     pass_registry_entry_module(
       "simplify-globals-optimizing",
       simplify_globals_optimizing_summary(),

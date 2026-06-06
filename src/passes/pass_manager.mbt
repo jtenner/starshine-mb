@@ -2055,7 +2055,8 @@ fn run_hot_pipeline_simplify_locals_descriptor_is_nostructure(
   descriptor_name : String,
 ) -> Bool {
   descriptor_name == "simplify-locals-nostructure" ||
-  descriptor_name == "simplify-locals-no-structure"
+  descriptor_name == "simplify-locals-no-structure" ||
+  descriptor_name == "simplify-locals-notee-nostructure"
 }
 
 ///|
@@ -11212,7 +11213,7 @@ fn run_hot_pipeline_apply_hot_pass(
     return Ok(mod_)
   }
   match mod_.code_sec {
-    Some(@lib.CodeSec(defs)) => {
+    Some(@lib.CodeSec(defs)) =>
       if descriptor.name == "simplify-locals" && defs.length() >= 2048 {
         pipeline_trace_hook(
           options.trace,
@@ -11222,17 +11223,6 @@ fn run_hot_pipeline_apply_hot_pass(
         )
         return Ok(mod_)
       }
-      if descriptor.name == "simplify-locals-notee-nostructure" &&
-        defs.length() > 100 {
-        pipeline_trace_hook(
-          options.trace,
-          descriptor.name,
-          "skip-large-module",
-          payload="reason=large-module-simplify-locals-notee-nostructure-noop funcs=\{defs.length()}",
-        )
-        return Ok(mod_)
-      }
-    }
     None => ()
   }
   let module_state = { module_ctx: None }
@@ -12521,6 +12511,7 @@ fn run_hot_pipeline_apply_module_pass(
     "local-cse" => local_cse_run_module_pass(mod_)
     "merge-locals" => merge_locals_run_module_pass(mod_)
     "duplicate-import-elimination" => die_run_module_pass(mod_)
+    "strip-debug" => strip_debug_run_module_pass(mod_)
     "simplify-globals-optimizing" =>
       match run_hot_pipeline_apply_sgo_optimizing_module_pass(mod_, options) {
         Ok(next) => next

@@ -18,4 +18,5 @@ result.json
 .artifacts/
 agent-lost-and-found.md
 .tmp/
+build/
 vgcore.*

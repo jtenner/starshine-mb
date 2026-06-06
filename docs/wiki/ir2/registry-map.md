@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-06
 sources:
   - ../raw/research/0709-2026-06-04-reorder-locals-preset-scheduling-reconciliation.md
   - ../raw/research/0063-2026-03-24-pass-port-batches-and-registry-map.md
@@ -41,7 +41,7 @@ These have `HotPass` category and a hot descriptor where applicable:
 
 These have `ModulePass` category and are runnable through the same pass request path, but apply module-level logic or module-shaped adapters:
 
-`local-cse`, `merge-locals`, `avoid-reinterprets`, `untee`, `duplicate-function-elimination`, `remove-unused-module-elements`, `remove-unused-nonfunction-module-elements`, `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `reorder-locals`, `local-subtyping`, `coalesce-locals`, `duplicate-import-elimination`, `simplify-globals-optimizing`, `dae-optimizing`, `dead-argument-elimination-optimizing`, `inlining`, `inlining-optimizing`, `no-inline`, `no-full-inline`, `no-partial-inline`, `string-gathering`, `reorder-globals`, and `directize`.
+`local-cse`, `merge-locals`, `avoid-reinterprets`, `untee`, `duplicate-function-elimination`, `remove-unused-module-elements`, `remove-unused-nonfunction-module-elements`, `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `reorder-locals`, `local-subtyping`, `coalesce-locals`, `duplicate-import-elimination`, `strip-debug`, `simplify-globals-optimizing`, `dae-optimizing`, `dead-argument-elimination-optimizing`, `inlining`, `inlining-optimizing`, `no-inline`, `no-full-inline`, `no-partial-inline`, `string-gathering`, `reorder-globals`, and `directize`.
 
 ### Active presets
 

@@ -49,6 +49,31 @@ test "simplify-locals-nostructure skips root stack/local-set call hazards" {
 }
 
 ///|
+test "simplify-locals-notee-nostructure skips root stack/local-set call hazards" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      "(module (func $alloc (param i32 i32) (result i32) (local.get 0)) (func (param i32 i32) (local i32) local.get 0 i32.const 2 call $alloc local.set 2 local.get 2 local.get 1 call $alloc drop))",
+      ["simplify-locals-notee-nostructure"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected simplify-locals-notee-nostructure stack/local-set hazard success, got \{err}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals-notee-nostructure]:skip-hot reason=root-local-set-stack-hazard-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "simplify-locals-notee-nostructure accepts O4z spelling" {
   let optimized = match
     pass_test_run_pipeline(
@@ -84,26 +109,30 @@ fn simplify_locals_nostructure_test_large_module() -> String {
 }
 
 ///|
-test "simplify-locals-notee-nostructure skips large modules" {
+test "simplify-locals-notee-nostructure runs safe large modules" {
   let trace : Array[String] = []
-  match
+  let optimized = match
     pass_test_run_pipeline(
       simplify_locals_nostructure_test_large_module(),
       ["simplify-locals-notee-nostructure"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
-    Ok(_) => ()
+    Ok(mod_) => mod_
     Err(err) =>
       fail(
         "expected simplify-locals-notee-nostructure large module success, got \{err}",
       )
   }
-  assert_true(
+  assert_false(
     trace.any(fn(line) {
       line.contains("pass[simplify-locals-notee-nostructure]:skip-large-module")
     }),
     msg=trace.to_string(),
   )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(100U))
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 0)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 0)"), msg=pretty)
 }
 
 ///|

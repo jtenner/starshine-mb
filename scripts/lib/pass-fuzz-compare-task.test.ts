@@ -14,6 +14,7 @@ import {
   summarizeRuntimeExportInvocationMatrix,
   passFuzzReductionLogTextForTest,
   passFuzzSummaryCoverageReport,
+  applyCompareNormalizersForTest,
 } from "./pass-fuzz-compare-task";
 
 function wasmFromWat(wat: string): string {
@@ -46,6 +47,81 @@ describe("pass-fuzz mismatch reduction metadata", () => {
     expect(text).toContain("predicate_evaluations=7\n");
     expect(text).toContain("reduced_wasm_path=reduced-input.wasm\n");
     expect(text).toContain("step=delete-byte-slice|start=4|len=8|before=16|after=8\n");
+  });
+});
+
+describe("pass-fuzz compare normalizers", () => {
+  test("local-cleanup-debris erases unused local declarations and standalone nops after safe dropped const cleanup", () => {
+    const binaryenWat = `(module
+ (func $0
+  (local $1 i32)
+  (local $2 i64)
+  (drop
+   (i32.const 0)
+  )
+  (if
+   (i32.const 1)
+   (then)
+   (else
+    (nop)
+   )
+  )
+ )
+)
+`;
+    const starshineWat = `(module
+ (func $0
+  (if
+   (i32.const 1)
+   (then)
+   (else
+   )
+  )
+ )
+)
+`;
+
+    expect(applyCompareNormalizersForTest(binaryenWat, ["drop-consts", "local-cleanup-debris"])).toBe(
+      applyCompareNormalizersForTest(starshineWat, ["drop-consts", "local-cleanup-debris"]),
+    );
+  });
+
+  test("local-cleanup-debris keeps local declarations referenced by local operations", () => {
+    const wat = `(module
+ (func $0
+  (local $1 i32)
+  (local.set $1
+   (i32.const 1)
+  )
+ )
+)
+`;
+
+    const normalized = applyCompareNormalizersForTest(wat, ["local-cleanup-debris"]);
+    expect(normalized).toContain("(local $local0 i32)");
+    expect(normalized).toContain("local.set $local0");
+  });
+
+  test("local-cleanup-debris canonicalizes local names after unused local deletion", () => {
+    const binaryenWat = `(module
+ (func $0 (param $0 i64) (result f32)
+  (local $1 i32)
+  (local $2 f32)
+  (local.get $2)
+ )
+)
+`;
+    const starshineWat = `(module
+ (func $0 (param $0 i64) (result f32)
+  (local $1 f32)
+  (local.get $1)
+ )
+)
+`;
+
+    expect(applyCompareNormalizersForTest(binaryenWat, ["local-cleanup-debris"])).toBe(
+      applyCompareNormalizersForTest(starshineWat, ["local-cleanup-debris"]),
+    );
   });
 });
 

@@ -18,7 +18,7 @@ import { formatReductionReportLog, reduceBinaryByByteSlicesWithReport, type Redu
 
 type GeneratorMode = "both" | "wasm-smith" | "gen-valid";
 type GeneratorKind = "wasm-smith" | "gen-valid";
-type CompareNormalizer = "drop-consts" | "unreachable-control-debris";
+type CompareNormalizer = "drop-consts" | "unreachable-control-debris" | "local-cleanup-debris";
 type CaseStatus = "match" | "mismatch" | "validation-failure" | "generator-failure" | "command-failure" | "property-failure";
 type ExternalValidatorKind = "wasm-tools" | "binaryen" | "wabt";
 type RuntimeExecutionMode = "off" | "node";
@@ -250,6 +250,7 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--merge-locals",
   "--duplicate-function-elimination",
   "--duplicate-import-elimination",
+  "--strip-debug",
   "--simplify-globals-optimizing",
   "--dae-optimizing",
   "--inlining",
@@ -296,7 +297,7 @@ const HELP_TEXT = [
   "  --max-failures <n>    Stop after this many mismatches/failures. Default: 20",
   "  --keep-going-after-command-failures",
   "                       Record command failures without counting them toward --max-failures",
-  "  --normalize <name>   Enable compare normalizer. Supported: drop-consts, unreachable-control-debris. May repeat",
+  "  --normalize <name>   Enable compare normalizer. Supported: drop-consts, unreachable-control-debris, local-cleanup-debris. May repeat",
   "  --jobs <n|auto>       Concurrent case jobs. Default: auto with --starshine-bin, otherwise 1; auto uses available parallelism; >1 requires --starshine-bin",
   "  --pass <name>         Canonical pass name without leading --. May repeat",
   "  --replay-failures-from <dir>",
@@ -402,6 +403,8 @@ function normalizeCompareNormalizer(raw: string): CompareNormalizer {
       return "drop-consts";
     case "unreachable-control-debris":
       return "unreachable-control-debris";
+    case "local-cleanup-debris":
+      return "local-cleanup-debris";
     default:
       fail(`unsupported pass-fuzz-compare normalizer: ${raw}`);
   }
@@ -1254,6 +1257,82 @@ function normalizeUnreachableControlDebris(wat: string): string {
   );
 }
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeStandaloneNops(wat: string): string {
+  return wat
+    .split("\n")
+    .filter((line) => line.trim() !== "(nop)")
+    .join("\n");
+}
+
+function normalizeUnusedLocalDeclarationsInFunction(funcText: string): string {
+  if (/\blocal\.(?:get|set|tee)\s+\d+\b/.test(funcText)) return funcText;
+  const lines = funcText.split("\n");
+  const localDeclPattern = /^\s*\(local\s+(\$[A-Za-z0-9_.$-]+)\s+[A-Za-z0-9_.]+\)\s*$/;
+  return lines
+    .filter((line) => {
+      const match = line.match(localDeclPattern);
+      if (!match) return true;
+      const localName = match[1];
+      const refPattern = new RegExp(`\\blocal\\.(?:get|set|tee)\\s+${escapeRegExp(localName)}\\b`);
+      return refPattern.test(funcText);
+    })
+    .join("\n");
+}
+
+function normalizeLocalNamesInFunction(funcText: string): string {
+  if (/\blocal\.(?:get|set|tee)\s+\d+\b/.test(funcText)) return funcText;
+  const localNames: string[] = [];
+  for (const match of funcText.matchAll(/\(param\s+(\$[A-Za-z0-9_.$-]+)\s+[A-Za-z0-9_.]+/g)) {
+    if (!localNames.includes(match[1])) localNames.push(match[1]);
+  }
+  for (const match of funcText.matchAll(/^\s*\(local\s+(\$[A-Za-z0-9_.$-]+)\s+[A-Za-z0-9_.]+\)\s*$/gm)) {
+    if (!localNames.includes(match[1])) localNames.push(match[1]);
+  }
+  if (localNames.length === 0) return funcText;
+  const localNameMap = new Map(localNames.map((name, index) => [name, `$local${index}`]));
+  return funcText
+    .split("\n")
+    .map((line) => line
+      .replace(/\((param|local)\s+(\$[A-Za-z0-9_.$-]+)\b/g, (full, kind: string, name: string) => {
+        const replacement = localNameMap.get(name);
+        return replacement === undefined ? full : `(${kind} ${replacement}`;
+      })
+      .replace(/\blocal\.(get|set|tee)\s+(\$[A-Za-z0-9_.$-]+)\b/g, (full, kind: string, name: string) => {
+        const replacement = localNameMap.get(name);
+        return replacement === undefined ? full : `local.${kind} ${replacement}`;
+      }))
+    .join("\n");
+}
+
+function normalizeUnusedLocalDeclarations(wat: string): string {
+  const lines = wat.split("\n");
+  const output: string[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line.trimStart().startsWith("(func")) {
+      output.push(line);
+      continue;
+    }
+    const funcLines = [line];
+    let balance = parenDelta(line);
+    while (balance > 0 && index + 1 < lines.length) {
+      index += 1;
+      funcLines.push(lines[index]);
+      balance += parenDelta(lines[index]);
+    }
+    output.push(...normalizeLocalNamesInFunction(normalizeUnusedLocalDeclarationsInFunction(funcLines.join("\n"))).split("\n"));
+  }
+  return output.join("\n");
+}
+
+function normalizeLocalCleanupDebris(wat: string): string {
+  return normalizeStandaloneNops(normalizeUnusedLocalDeclarations(wat));
+}
+
 function applyCompareNormalizers(wat: string, normalizers: CompareNormalizer[]): string {
   let normalized = wat;
   for (const normalizer of normalizers) {
@@ -1261,9 +1340,15 @@ function applyCompareNormalizers(wat: string, normalizers: CompareNormalizer[]):
       normalized = normalizeDroppedConstExpressions(normalized);
     } else if (normalizer === "unreachable-control-debris") {
       normalized = normalizeUnreachableControlDebris(normalized);
+    } else if (normalizer === "local-cleanup-debris") {
+      normalized = normalizeLocalCleanupDebris(normalized);
     }
   }
   return normalized;
+}
+
+export function applyCompareNormalizersForTest(wat: string, normalizers: CompareNormalizer[]): string {
+  return applyCompareNormalizers(wat, normalizers);
 }
 
 async function runSmith(
