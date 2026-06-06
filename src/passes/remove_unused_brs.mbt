@@ -1259,6 +1259,39 @@ fn remove_unused_brs_match_br_if_ladder_eq_const(
 }
 
 ///|
+fn remove_unused_brs_try_fold_constant_br_if(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+) -> Bool {
+  let branch_id = @ir.hot_region_get(func, region_ref, idx)
+  let branch_node = @ir.hot_node_get(func, branch_id)
+  match branch_node.op {
+    @ir.HotOp::BrIf => ()
+    _ => return false
+  }
+  if branch_node.child_count != 1 {
+    return false
+  }
+  let condition = @ir.hot_child_get(func, branch_id, 0)
+  let value = match remove_unused_brs_match_i32_const_value(func, condition) {
+    Some(value) => value
+    None => return false
+  }
+  let removed = if value == 0 {
+    pass_splice_region(ctx, func, region_ref, idx, 1, [])
+  } else {
+    let replacement = @ir.hot_build_br(func, branch_node.imm0)
+    pass_splice_region(ctx, func, region_ref, idx, 1, [replacement])
+  }
+  removed.push(condition)
+  remove_unused_brs_delete_unused_nodes(ctx, func, removed)
+  remove_unused_brs_mark_mutated(ctx, func, "fold-constant-br-if")
+  true
+}
+
+///|
 fn remove_unused_brs_try_rewrite_br_if_eq_ladder_to_br_table(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -6318,13 +6351,20 @@ fn remove_unused_brs_visit_region(
       continue
     }
     match @ir.hot_node_get(func, node_id).op {
-      @ir.HotOp::BrIf =>
+      @ir.HotOp::BrIf => {
+        if remove_unused_brs_try_fold_constant_br_if(
+            ctx, func, region_ref, idx,
+          ) {
+          changed = true
+          continue
+        }
         if remove_unused_brs_try_rewrite_br_if_eq_ladder_to_br_table(
             ctx, func, region_ref, idx,
           ) {
           changed = true
           continue
         }
+      }
       _ => ()
     }
     if !remove_unused_brs_subtree_has_embedded_control(

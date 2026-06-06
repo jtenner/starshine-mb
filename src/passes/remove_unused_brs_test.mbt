@@ -1,4 +1,28 @@
 ///|
+test "remove-unused-brs folds constant br-if conditions" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (export "main")
+        #|    (loop (br_if 0 (i32.const 1)))
+        #|    (block (br_if 0 (i32.const 0)))))
+        #|,
+      ),
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected constant br-if cleanup success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_if"), msg=pretty)
+  assert_false(pretty.contains("I32(1)"), msg=pretty)
+  assert_false(pretty.contains("I32(0)"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs prunes suffix after br-table then unreachable block" {
   let optimized = match
     pass_test_run_pipeline(
