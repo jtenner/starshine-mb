@@ -682,6 +682,168 @@ test "code-folding folds embedded compare partial value if suffixes" {
 }
 
 ///|
+test "code-folding folds embedded ref.is_null partial value if suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32) (result i32)
+      #|    (ref.is_null
+      #|      (if (result funcref)
+      #|        (local.get 0)
+      #|        (then
+      #|          (i32.const 1)
+      #|          (drop)
+      #|          (ref.null func))
+      #|        (else
+      #|          (i32.const 2)
+      #|          (drop)
+      #|          (ref.null func))))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "(ref.null"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding folds embedded table.get partial value if suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (table 1 funcref)
+      #|  (func (param i32) (result funcref)
+      #|    (table.get 0
+      #|      (if (result i32)
+      #|        (local.get 0)
+      #|        (then
+      #|          (i32.const 1)
+      #|          (drop)
+      #|          (i32.const 0))
+      #|        (else
+      #|          (i32.const 2)
+      #|          (drop)
+      #|          (i32.const 0))))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("table.get"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(0)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding folds embedded table.set index partial value if suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (table 1 funcref)
+      #|  (func (param i32)
+      #|    (table.set 0
+      #|      (if (result i32)
+      #|        (local.get 0)
+      #|        (then
+      #|          (i32.const 1)
+      #|          (drop)
+      #|          (i32.const 0))
+      #|        (else
+      #|          (i32.const 2)
+      #|          (drop)
+      #|          (i32.const 0)))
+      #|      (ref.null func))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("table.set"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(0)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding folds embedded call_indirect partial value if suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (type $t (func (result i32)))
+      #|  (table 1 funcref)
+      #|  (func (type $t) (i32.const 9))
+      #|  (elem (i32.const 0) 0)
+      #|  (func (param i32) (result i32)
+      #|    (call_indirect (type $t)
+      #|      (if (result i32)
+      #|        (local.get 0)
+      #|        (then
+      #|          (i32.const 1)
+      #|          (drop)
+      #|          (i32.const 0))
+      #|        (else
+      #|          (i32.const 2)
+      #|          (drop)
+      #|          (i32.const 0))))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call_indirect"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(0)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding folds embedded memory.grow partial value if suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (memory 1)
+      #|  (func (param i32) (result i32)
+      #|    (memory.grow
+      #|      (if (result i32)
+      #|        (local.get 0)
+      #|        (then
+      #|          (i32.const 1)
+      #|          (drop)
+      #|          (i32.const 0))
+      #|        (else
+      #|          (i32.const 2)
+      #|          (drop)
+      #|          (i32.const 0))))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("memory.grow"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(0)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding folds embedded call full multi-root value if arms" {
   let optimized = code_folding_test_run(
     (

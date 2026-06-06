@@ -132,7 +132,7 @@ Why Binaryen leaves it alone here:
 
 Starshine now preserves this boundary with `code-folding keeps simple full value if arms for optimize-instructions`, so the direct pass no longer folds this simple full-value non-block shape itself.
 
-The boundary is specifically the one-root case. Binaryen does fold source-backed full multi-root non-block arms such as `(nop) (f32.const 0)` / `(nop) (f32.const 0)` to `drop(condition); nop; f32.const 0`, and Starshine now matches that top-level shape plus narrow embedded typed-wrapper variants for source-backed `select`, `drop`, `call`, `unary`, `binary`, `compare`, `convert`, `load`, `local.set`, `local.tee`, `global.set`, `store`, `br` payload, and `return` value parents, covering both full multi-root arms and partial value suffixes where probed.
+The boundary is specifically the one-root case. Binaryen does fold source-backed full multi-root non-block arms such as `(nop) (f32.const 0)` / `(nop) (f32.const 0)` to `drop(condition); nop; f32.const 0`, and Starshine now matches that top-level shape plus narrow embedded typed-wrapper variants for source-backed `select`, `drop`, `call`, `unary`, `binary`, `compare`, `convert`, `load`, `local.set`, `local.tee`, `global.set`, `store`, `br` payload, `return`, `ref.is_null`, `table.get`, `table.set` index, `call_indirect`, and `memory.grow` value parents, covering both full multi-root arms and partial value suffixes where probed.
 
 This is an easy way to tell whether a surprising non-fold is actually a bug.
 

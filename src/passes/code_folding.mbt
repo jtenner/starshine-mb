@@ -824,6 +824,11 @@ fn code_folding_parent_accepts_embedded_value_wrapper(
     @ir.HotOp::Select
     | @ir.HotOp::Drop
     | @ir.HotOp::Call
+    | @ir.HotOp::CallIndirect
+    | @ir.HotOp::RefIsNull
+    | @ir.HotOp::TableGet
+    | @ir.HotOp::TableSet
+    | @ir.HotOp::MemoryGrow
     | @ir.HotOp::Unary
     | @ir.HotOp::Binary
     | @ir.HotOp::Compare
@@ -3812,6 +3817,11 @@ fn code_folding_visit_region(
           }
         @ir.HotOp::Select
         | @ir.HotOp::Call
+        | @ir.HotOp::CallIndirect
+        | @ir.HotOp::RefIsNull
+        | @ir.HotOp::TableGet
+        | @ir.HotOp::TableSet
+        | @ir.HotOp::MemoryGrow
         | @ir.HotOp::Unary
         | @ir.HotOp::Binary
         | @ir.HotOp::Compare
