@@ -1111,6 +1111,38 @@ test "code-folding folds embedded return_call_ref partial value if suffixes" {
 }
 
 ///|
+test "code-folding folds embedded struct.new field partial value if suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (type $s (struct (field (mut i32))))
+      #|  (func (param i32) (result (ref $s))
+      #|    (struct.new $s
+      #|      (if (result i32)
+      #|        (local.get 0)
+      #|        (then
+      #|          (i32.const 1)
+      #|          (drop)
+      #|          (i32.const 42))
+      #|        (else
+      #|          (i32.const 2)
+      #|          (drop)
+      #|          (i32.const 42))))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(42)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding folds embedded memory.grow partial value if suffixes" {
   let optimized = code_folding_test_run(
     (

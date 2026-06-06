@@ -662,6 +662,13 @@ Follow-up `[O4Z-AUDIT-CF-E]` embedded table-copy value-parent suffix breadth on 
 - Implementation: `code_folding_parent_accepts_embedded_value_wrapper` now admits `HotOp::TableCopy`, and `code_folding_visit_region` visits direct embedded controls at `table.copy` roots. This is another source-backed allowlist increment, not a general heap/value-parent widening.
 - Validation/evidence: after the fix `moon fmt`, `moon info`, and full `moon test` passed (`4882/4882`); native `src/cmd` rebuilt at `_build/native/release/build/cmd/cmd.exe`; direct 1000-case compare at `.tmp/pass-fuzz-code-folding-table-copy-1000` compared `998/1000` cases with `998` normalized matches, `0` mismatches, `0` validation failures, and `2` tool/Binaryen command failures.
 
+2026-06-06 embedded `struct.new` value-parent continuation:
+
+- Source-backed probe with `wasm-opt version_129 --all-features --code-folding -S -o -` on `.tmp/cf-gc-probes.wat` showed Binaryen uses the same typed wrapper style for a partial value-child `if` suffix consumed by a `struct.new` field operand.
+- Added failing-first local test `code-folding folds embedded struct.new field partial value if suffixes`. The initial `moon test src/passes` run failed that new behavior test (`1702/1703` passed) because heap parents were not admitted by the embedded value-parent allowlist or direct-control visitor.
+- Implementation: `code_folding_parent_accepts_embedded_value_wrapper` now admits only exact `StructNew` heap instructions through `hot_node_exact_instr`, and `code_folding_visit_region` visits direct embedded controls at heap roots. This is a source-backed exact heap-instruction allowlist increment, not a general heap broadening.
+- Validation/evidence: after the fix `moon test src/passes`, `moon fmt`, `moon info`, and full `moon test` passed (`4888/4888`); native `src/cmd` rebuilt at `_build/native/release/build/cmd/cmd.exe`; direct 1000-case compare at `.tmp/pass-fuzz-code-folding-struct-new-1000` compared `998/1000` cases with `998` normalized matches, `0` mismatches, `0` validation failures, and `2` tool/Binaryen command failures.
+
 2026-06-06 embedded `return_call_ref` value-parent continuation:
 
 - Source-backed probe with `wasm-opt version_129 --all-features --code-folding -S -o -` on `.tmp/cf-return-call-ref-partial-stack.wat` showed Binaryen uses the same typed wrapper style for a partial value-child `if` suffix consumed by a `return_call_ref` callee-reference operand.

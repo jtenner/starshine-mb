@@ -813,6 +813,17 @@ fn code_folding_full_value_if_common_suffix_allowed(
 }
 
 ///|
+fn code_folding_heap_parent_accepts_embedded_value_wrapper(
+  func : @ir.HotFunc,
+  parent_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, parent_id) {
+    Some(@lib.Instruction::StructNew(_)) => true
+    _ => false
+  }
+}
+
+///|
 fn code_folding_parent_accepts_embedded_value_wrapper(
   func : @ir.HotFunc,
   parent_id : Int,
@@ -851,6 +862,8 @@ fn code_folding_parent_accepts_embedded_value_wrapper(
     | @ir.HotOp::Br
     | @ir.HotOp::Return
     | @ir.HotOp::ReturnCallRef => true
+    @ir.HotOp::Heap =>
+      code_folding_heap_parent_accepts_embedded_value_wrapper(func, parent_id)
     _ => false
   }
 }
@@ -3843,6 +3856,7 @@ fn code_folding_visit_region(
         | @ir.HotOp::MemoryCopy
         | @ir.HotOp::MemoryFill
         | @ir.HotOp::MemoryInit
+        | @ir.HotOp::Heap
         | @ir.HotOp::Unary
         | @ir.HotOp::Binary
         | @ir.HotOp::Compare
