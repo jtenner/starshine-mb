@@ -818,7 +818,8 @@ fn code_folding_heap_parent_accepts_embedded_value_wrapper(
   parent_id : Int,
 ) -> Bool {
   match @ir.hot_node_exact_instr(func, parent_id) {
-    Some(@lib.Instruction::StructNew(_)) => true
+    Some(@lib.Instruction::StructNew(_))
+    | Some(@lib.Instruction::ArrayNew(_)) => true
     _ => false
   }
 }
