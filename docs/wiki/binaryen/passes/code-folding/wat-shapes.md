@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-06-06
 sources:
   - ../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md

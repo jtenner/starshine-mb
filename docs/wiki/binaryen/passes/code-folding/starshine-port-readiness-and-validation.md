@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-06-06
 sources:
   - ../../../raw/research/0713-2026-06-04-code-folding-o4z-pass-audit.md
   - ../../../raw/research/0522-2026-05-06-code-folding-direct-revalidation.md
