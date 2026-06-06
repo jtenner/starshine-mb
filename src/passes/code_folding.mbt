@@ -827,6 +827,7 @@ fn code_folding_parent_accepts_embedded_value_wrapper(
     | @ir.HotOp::CallIndirect
     | @ir.HotOp::RefIsNull
     | @ir.HotOp::RefTest
+    | @ir.HotOp::RefCast
     | @ir.HotOp::TableGet
     | @ir.HotOp::TableSet
     | @ir.HotOp::TableGrow
@@ -3828,6 +3829,7 @@ fn code_folding_visit_region(
         | @ir.HotOp::CallIndirect
         | @ir.HotOp::RefIsNull
         | @ir.HotOp::RefTest
+        | @ir.HotOp::RefCast
         | @ir.HotOp::TableGet
         | @ir.HotOp::TableSet
         | @ir.HotOp::TableGrow
