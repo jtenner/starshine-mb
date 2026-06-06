@@ -828,7 +828,12 @@ fn code_folding_parent_accepts_embedded_value_wrapper(
     | @ir.HotOp::RefIsNull
     | @ir.HotOp::TableGet
     | @ir.HotOp::TableSet
+    | @ir.HotOp::TableGrow
+    | @ir.HotOp::TableFill
     | @ir.HotOp::MemoryGrow
+    | @ir.HotOp::MemoryCopy
+    | @ir.HotOp::MemoryFill
+    | @ir.HotOp::MemoryInit
     | @ir.HotOp::Unary
     | @ir.HotOp::Binary
     | @ir.HotOp::Compare
@@ -3821,7 +3826,12 @@ fn code_folding_visit_region(
         | @ir.HotOp::RefIsNull
         | @ir.HotOp::TableGet
         | @ir.HotOp::TableSet
+        | @ir.HotOp::TableGrow
+        | @ir.HotOp::TableFill
         | @ir.HotOp::MemoryGrow
+        | @ir.HotOp::MemoryCopy
+        | @ir.HotOp::MemoryFill
+        | @ir.HotOp::MemoryInit
         | @ir.HotOp::Unary
         | @ir.HotOp::Binary
         | @ir.HotOp::Compare
