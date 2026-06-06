@@ -3809,7 +3809,7 @@ test "precompute raw-folds constant if results without hot lift" {
 }
 
 ///|
-test "precompute raw-defers branchy constant if to hot lift" {
+test "precompute raw-folds branchy constant if without hot lift" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
@@ -3822,13 +3822,16 @@ test "precompute raw-defers branchy constant if to hot lift" {
     ) {
     Ok(_) => ()
     Err(err) =>
-      fail("expected hot precompute branchy const-if success, got \{err}")
+      fail("expected raw precompute branchy const-if success, got \{err}")
   }
 
   let text = perf_test_join_lines(lines)
-  assert_false(text.contains("pass[precompute]:skip-raw"), msg=text)
-  assert_true(text.contains("perf:timer name=lift"), msg=text)
-  assert_true(text.contains("perf:timer name=pass:precompute"), msg=text)
+  assert_true(
+    text.contains("pass[precompute]:skip-raw reason=raw-scalar-folds"),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:precompute"), msg=text)
 }
 
 ///|
@@ -3881,7 +3884,7 @@ test "precompute raw-removes dropped pure block results with nested branch witho
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("br"), msg=pretty)
+  assert_false(pretty.contains("br"), msg=pretty)
   let text = perf_test_join_lines(lines)
   assert_true(
     text.contains("pass[precompute]:skip-raw reason=raw-scalar-folds"),

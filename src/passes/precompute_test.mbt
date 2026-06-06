@@ -122,6 +122,30 @@ test "precompute preserves trapping exact operators it does not fold" {
 }
 
 ///|
+test "precompute folds constant br-if and self-branch debris" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (export "main")
+        #|    (loop (br_if 0 (i32.const 1)))
+        #|    (block (br_if 0 (i32.const 0)))
+        #|    (block (br 0))))
+        #|,
+      ),
+      ["precompute"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected precompute branch debris cleanup success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_if"), msg=pretty)
+  assert_false(pretty.contains("I32(1)"), msg=pretty)
+  assert_false(pretty.contains("I32(0)"), msg=pretty)
+}
+
+///|
 test "precompute folds constant false void ifs away" {
   let optimized = match
     pass_test_run_pipeline(

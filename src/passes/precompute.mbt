@@ -1974,6 +1974,17 @@ fn precompute_raw_fold_output_tail(out : Array[@lib.Instruction]) -> Bool {
     return true
   }
   if out.length() >= 2 {
+    match (out[out.length() - 2], out[out.length() - 1]) {
+      (@lib.I32Const(@lib.I32(value)), @lib.BrIf(label_idx)) => {
+        ignore(out.pop())
+        ignore(out.pop())
+        if value != 0 {
+          out.push(@lib.Instruction::br(label_idx))
+        }
+        return true
+      }
+      _ => ()
+    }
     match out[out.length() - 1] {
       @lib.Drop => {
         match
@@ -2079,6 +2090,17 @@ fn precompute_raw_rewrite_instr(
       }
     @lib.Block(block_type, @lib.Expr(body)) => {
       let (next_body, changed) = precompute_raw_rewrite_instrs(body, module_ctx)
+      if block_type == @lib.BlockType::void_() {
+        if next_body.length() == 1 {
+          match next_body[0] {
+            @lib.Br(@lib.LabelIdx(0U)) => return (@lib.Instruction::nop(), true)
+            _ => ()
+          }
+        }
+        if precompute_raw_instrs_are_all_nops(next_body) {
+          return (@lib.Instruction::nop(), true)
+        }
+      }
       if changed {
         (@lib.Instruction::block(block_type, @lib.Expr::new(next_body)), true)
       } else {
@@ -2419,26 +2441,6 @@ fn precompute_raw_instrs_are_all_nops(instrs : Array[@lib.Instruction]) -> Bool 
 }
 
 ///|
-fn precompute_raw_root_nop_block_cleanup_candidate(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  for instr in instrs {
-    match instr {
-      @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
-        if precompute_raw_instrs_are_all_nops(body) {
-          return true
-        }
-      @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if precompute_raw_instrs_are_all_nops(body) {
-          return true
-        }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn precompute_raw_root_nop_cleanup_candidate(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -2588,8 +2590,7 @@ fn precompute_run_raw_func(
     precompute_raw_instrs_have_hot_only_candidate(instrs, module_ctx) {
     return None
   }
-  if precompute_raw_root_nop_cleanup_candidate(instrs) ||
-    precompute_raw_root_nop_block_cleanup_candidate(instrs) {
+  if precompute_raw_root_nop_cleanup_candidate(instrs) {
     return None
   }
   let (rewritten, changed) = precompute_raw_rewrite_instrs(instrs, module_ctx)
