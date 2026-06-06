@@ -662,6 +662,14 @@ Follow-up `[O4Z-AUDIT-CF-E]` embedded table-copy value-parent suffix breadth on 
 - Implementation: `code_folding_parent_accepts_embedded_value_wrapper` now admits `HotOp::TableCopy`, and `code_folding_visit_region` visits direct embedded controls at `table.copy` roots. This is another source-backed allowlist increment, not a general heap/value-parent widening.
 - Validation/evidence: after the fix `moon fmt`, `moon info`, and full `moon test` passed (`4882/4882`); native `src/cmd` rebuilt at `_build/native/release/build/cmd/cmd.exe`; direct 1000-case compare at `.tmp/pass-fuzz-code-folding-table-copy-1000` compared `998/1000` cases with `998` normalized matches, `0` mismatches, `0` validation failures, and `2` tool/Binaryen command failures.
 
+2026-06-06 embedded `struct.set` value-parent continuation:
+
+- Source-backed probe with `wasm-opt version_129 --all-features --code-folding -S -o -` on `.tmp/cf-gc-probes.wat` showed Binaryen uses the same typed wrapper style for a partial value-child `if` suffix consumed by a `struct.set` value operand.
+- The local WAT fixture path rejected this struct.set surface, so the focused local test is core-built with `@lib.Instruction::struct_set` and the same logical shape as the Binaryen probe.
+- Added failing-first local test `code-folding folds embedded struct.set value partial value if suffixes`. The core-built initial `moon test src/passes` run failed that new behavior test (`1704/1705` passed) because the exact heap-instruction allowlist only admitted `StructNew` and `ArrayNew`.
+- Implementation: `code_folding_heap_parent_accepts_embedded_value_wrapper` now admits exact `StructSet` heap instructions beside `StructNew`/`ArrayNew`. This remains an exact source-backed heap-instruction allowlist increment, not a general heap broadening.
+- Validation/evidence: after the fix `moon test src/passes`, `moon fmt`, `moon info`, and full `moon test` passed (`4890/4890`); native `src/cmd` rebuilt at `_build/native/release/build/cmd/cmd.exe`; direct 1000-case compare at `.tmp/pass-fuzz-code-folding-struct-set-1000` compared `998/1000` cases with `998` normalized matches, `0` mismatches, `0` validation failures, and `2` tool/Binaryen command failures.
+
 2026-06-06 embedded `array.new` value-parent continuation:
 
 - Source-backed probe with `wasm-opt version_129 --all-features --code-folding -S -o -` on `.tmp/cf-gc-probes.wat` showed Binaryen uses the same typed wrapper style for a partial value-child `if` suffix consumed by an `array.new` value operand.
