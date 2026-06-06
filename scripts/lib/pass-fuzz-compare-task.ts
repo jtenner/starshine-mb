@@ -1191,6 +1191,46 @@ function stripFunctionTypeIds(wat: string): string {
     .join("\n");
 }
 
+function isVoidBranchUnreachableBlockDebris(text: string): boolean {
+  const labelMatch = text.match(/^\s*\(block\s+(\$[A-Za-z0-9_.$-]+)\s*\n/);
+  if (!labelMatch) return false;
+  const label = labelMatch[1].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(
+    `^\\s*\\(block\\s+${label}\\s*\\n` +
+      `\\s*\\(block\\s*\\n` +
+      `\\s*\\(br\\s+${label}\\)\\s*\\n` +
+      `\\s*\\)\\s*\\n` +
+      `\\s*\\(unreachable\\)\\s*\\n` +
+      `\\s*\\)\\s*$`,
+  );
+  return pattern.test(text);
+}
+
+function normalizeVoidBranchUnreachableBlockDebris(wat: string): string {
+  const lines = wat.split("\n");
+  const output: string[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line.trimStart().startsWith("(block")) {
+      output.push(line);
+      continue;
+    }
+    const exprLines = [line];
+    let balance = parenDelta(line);
+    while (balance > 0 && index + 1 < lines.length) {
+      index += 1;
+      exprLines.push(lines[index]);
+      balance += parenDelta(lines[index]);
+    }
+    const exprText = exprLines.join("\n");
+    if (isVoidBranchUnreachableBlockDebris(exprText)) {
+      continue;
+    }
+    output.push(...exprLines);
+  }
+  return output.join("\n");
+}
+
 function normalizeLocalUnreachableControlDebris(wat: string): string {
   const lines = wat.split("\n");
   const output: string[] = [];
@@ -1291,7 +1331,11 @@ function normalizeDropUnreachableBeforeUnreachable(wat: string): string {
 function normalizeUnreachableControlDebris(wat: string): string {
   return stripFunctionTypeIds(
     normalizeDropUnreachableBeforeUnreachable(
-      normalizeUnusedUnreachableFunctions(normalizeLocalUnreachableControlDebris(wat)),
+      normalizeUnusedUnreachableFunctions(
+        normalizeVoidBranchUnreachableBlockDebris(
+          normalizeLocalUnreachableControlDebris(wat),
+        ),
+      ),
     ),
   );
 }

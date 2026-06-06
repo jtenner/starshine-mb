@@ -124,6 +124,39 @@ describe("pass-fuzz compare normalizers", () => {
     );
   });
 
+  test("unreachable-control-debris erases void branch-unreachable wrapper blocks", () => {
+    const binaryenWat = `(module
+ (func $0
+  (drop
+   (f64.const 1.5)
+  )
+  (block $block
+   (block
+    (br $block)
+   )
+   (unreachable)
+  )
+  (loop
+  )
+ )
+)
+`;
+    const starshineWat = `(module
+ (func $0
+  (drop
+   (f64.const 1.5)
+  )
+  (loop
+  )
+ )
+)
+`;
+
+    expect(applyCompareNormalizersForTest(binaryenWat, ["unreachable-control-debris"])).toBe(
+      applyCompareNormalizersForTest(starshineWat, ["unreachable-control-debris"]),
+    );
+  });
+
   test("unreachable-control-debris erases drop-unreachable before an adjacent unreachable", () => {
     const binaryenWat = `(module
  (export "run" (func $0))

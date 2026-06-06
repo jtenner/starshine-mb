@@ -23,6 +23,32 @@ test "remove-unused-brs folds constant br-if conditions" {
 }
 
 ///|
+test "remove-unused-brs drops void self-branch blocks inside constant ifs" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func (export "main")
+        #|    (if (i32.const 0)
+        #|      (then (block (br 0)))
+        #|      (else (nop)))
+        #|    (if (i32.const 1)
+        #|      (then (block (br 0)))
+        #|      (else (nop)))))
+        #|,
+      ),
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected self-branch block cleanup success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs prunes suffix after br-table then unreachable block" {
   let optimized = match
     pass_test_run_pipeline(
