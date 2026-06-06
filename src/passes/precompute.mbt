@@ -899,7 +899,49 @@ fn precompute_simplify_region_roots(
     }
     if node_id >= 0 && @ir.hot_node_is_live(func, node_id) {
       match @ir.hot_node_get(func, node_id).op {
-        @ir.HotOp::Block | @ir.HotOp::Loop =>
+        @ir.HotOp::Block | @ir.HotOp::Loop => {
+          if region_ref == @ir.HotRegionRef::root() &&
+            @ir.hot_node_result_arity(func, node_id) == 0 {
+            match @ir.hot_node_get(func, node_id).op {
+              @ir.HotOp::Loop => {
+                let body_ref = @ir.hot_region_body_ref(func, node_id)
+                if @ir.hot_region_root_count(func, body_ref) == 1 {
+                  let branch_id = @ir.hot_region_get(func, body_ref, 0)
+                  let branch_node = @ir.hot_node_get(func, branch_id)
+                  match branch_node.op {
+                    @ir.HotOp::BrIf =>
+                      if branch_node.child_count == 1 &&
+                        branch_node.imm0 ==
+                        @ir.hot_control_node_label(func, node_id) {
+                        match
+                          precompute_i32_exact_const(
+                            ctx,
+                            func,
+                            @ir.hot_child_get(func, branch_id, 0),
+                          ) {
+                          Some(@lib.I32(0)) => {
+                            let removed = pass_splice_region(
+                              ctx,
+                              func,
+                              region_ref,
+                              idx,
+                              1,
+                              [@ir.hot_build_nop(func)],
+                            )
+                            pass_delete_detached_nodes(ctx, func, removed)
+                            changed = true
+                            continue
+                          }
+                          _ => ()
+                        }
+                      }
+                    _ => ()
+                  }
+                }
+              }
+              _ => ()
+            }
+          }
           if region_ref == @ir.HotRegionRef::root() &&
             @ir.hot_node_result_arity(func, node_id) == 0 &&
             precompute_region_is_all_nops(
@@ -933,6 +975,7 @@ fn precompute_simplify_region_roots(
               _ => ()
             }
           }
+        }
         @ir.HotOp::Drop =>
           if @ir.hot_child_count(func, node_id) == 1 &&
             precompute_is_discardable_value(
@@ -2109,6 +2152,10 @@ fn precompute_raw_rewrite_instr(
     }
     @lib.Loop(block_type, @lib.Expr(body)) => {
       let (next_body, changed) = precompute_raw_rewrite_instrs(body, module_ctx)
+      if block_type == @lib.BlockType::void_() &&
+        precompute_raw_instrs_are_all_nops(next_body) {
+        return (@lib.Instruction::nop(), true)
+      }
       if changed {
         (@lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)), true)
       } else {
