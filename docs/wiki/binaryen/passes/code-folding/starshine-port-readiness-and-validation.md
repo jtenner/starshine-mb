@@ -320,6 +320,13 @@ The `case-046375` size cleanup continuation is also green on correctness but exp
 - validation: `moon test src/passes` `1659/1659`, `moon test src/ir` `245/245`, full `moon test` `4844/4844`;
 - requested performance check at `.tmp/code-folding-046375-self-compare-after-large-gate`: Starshine pass `5051.616ms` vs Binaryen `185.490ms`, outside the <=2x floor and now tracked under `[O4Z-AUDIT-CF-L]`.
 
+The requested five-mismatch triage after the table/bulk-memory 100000-case lane is green on validity and removes the only raw-size-detrimental inspected families:
+
+- inspected `.tmp/pass-fuzz-code-folding-table-memory-bulk-100000-maxfail2000/failures/{case-012741,case-023083,case-043481,case-046375,case-082547}-wasm-smith` and kept the semantic-safe classification because the differences are nontrapping/effect-free value debris around paths that still hit `unreachable`, plus the no-op/nop-elision wrapper family;
+- raw-size inspection found `023083` (`74B` Starshine raw vs `72B` Binaryen raw) and `082547` (`70B` Starshine raw vs `68B` Binaryen raw) were detrimental despite size-winning normalized outputs;
+- failing-first tests `code-folding removes pure simd debris after bottom in typed dead block` and `code-folding removes pure float debris after loop bottom` initially failed (`1694/1696`); `hot_lower` now removes only those source-backed pure nontrapping dropped unary/SIMD expressions when they sit between a leading bottom sentinel and a later `unreachable`;
+- validation: `moon fmt`, `moon test src/passes` `1696/1696`, `moon test src/ir` `245/245`, native build at `_build/native/release/build/cmd/cmd.exe`, replay at `.tmp/pass-fuzz-code-folding-replay-5-pure-drop-cleanup` (`5/5` compared, no command/validation failures, five remaining semantic-safe mismatches), direct 1000-case compare at `.tmp/pass-fuzz-code-folding-pure-drop-cleanup-1000` (`998` normalized matches, `0` mismatches, `2` tool/Binaryen command failures), and final serialized `moon info`, `moon fmt`, full `moon test` (`4881/4881`). Replay raw sizes for the fixed families are now size-winning (`023083`: `51B` Starshine raw vs `72B` Binaryen raw; `082547`: `62B` Starshine raw vs `68B` Binaryen raw).
+
 The EH-body `catch_ref` / `catch_all_ref` breadth continuation is green:
 
 - failing-first tests covered Binaryen's throwing-body non-terminal `if` suffix fold for `catch_ref` and `catch_all_ref` try-tables embedded in a dropped resultful outer block;
@@ -340,7 +347,7 @@ Future parity work should only proceed when one of these is true:
 2. a proven downstream code-size blocker requires broader helper-label sharing
 3. preset scheduling is being advanced with separate ordered-path proof
 4. the pass-targeted comparison harness regresses after a future broadening change
-5. the team decides the current five semantic-safe mismatch families should be normalized or eliminated for a stricter parity gate
+5. the team decides the current five semantic-safe mismatch families should be normalized or eliminated for a stricter text-shape gate (the latest triage found no remaining raw-size-detrimental inspected family)
 
 Follow the repo-level pass signoff rule from [`../../../../../AGENTS.md`](../../../../../AGENTS.md): compare against Binaryen at meaningful counts before calling parity done.
 

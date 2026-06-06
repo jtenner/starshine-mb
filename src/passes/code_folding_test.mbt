@@ -4626,6 +4626,28 @@ test "code-folding removes duplicate bottom tail in typed dead block" {
 }
 
 ///|
+test "code-folding removes pure simd debris after bottom in typed dead block" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (result v128)
+      #|    (block (result f64)
+      #|      v128.const i32x4 0x8477c514 0x9702b3f3 0x11fe0a74 0xee94920a
+      #|      i32x4.trunc_sat_f64x2_s_zero
+      #|      unreachable
+      #|      unreachable)
+      #|    unreachable))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("trunc_sat"), msg=pretty)
+  assert_false(pretty.contains("v128.const"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
 test "code-folding keeps typed loop bottom tail until enclosing unreachable" {
   let optimized = code_folding_test_run(
     (
@@ -4646,6 +4668,31 @@ test "code-folding keeps typed loop bottom tail until enclosing unreachable" {
     3,
     msg=pretty,
   )
+}
+
+///|
+test "code-folding removes pure float debris after loop bottom" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (result i64)
+      #|    (loop
+      #|      f32.const -0.020934515
+      #|      f32.ceil
+      #|      (block (result f64)
+      #|        unreachable
+      #|        unreachable)
+      #|      unreachable)
+      #|    unreachable))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("f32.ceil"), msg=pretty)
+  assert_false(pretty.contains("f32.const"), msg=pretty)
+  assert_true(pretty.contains("loop"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
 }
 
 ///|

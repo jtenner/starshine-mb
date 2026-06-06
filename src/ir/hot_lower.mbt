@@ -3086,6 +3086,74 @@ fn hot_lower_impl_can_inline_value_wrapper(
 }
 
 ///|
+fn hot_lower_impl_instr_is_pure_dead_drop_leaf(instr : Instruction) -> Bool {
+  match instr {
+    I32Const(_)
+    | I64Const(_)
+    | F32Const(_)
+    | F64Const(_)
+    | V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | RefNull(_)
+    | RefFunc(_)
+    | StringConst(_)
+    | LocalGet(_)
+    | GlobalGet(_) => true
+    _ => false
+  }
+}
+
+///|
+fn hot_lower_impl_instr_is_pure_dead_drop_unary(instr : Instruction) -> Bool {
+  match instr {
+    F32Ceil | I32x4TruncSatF64x2SZero | I32x4TruncSatF64x2UZero => true
+    _ => false
+  }
+}
+
+///|
+fn hot_lower_impl_remove_pure_drop_between_unreachables(
+  body : Array[Instruction],
+) -> Array[Instruction] {
+  match body {
+    [Unreachable, ..] => ()
+    _ => return body
+  }
+  let rewritten : Array[Instruction] = []
+  let mut changed = false
+  let mut idx = 0
+  while idx < body.length() {
+    if idx > 0 && idx + 2 < body.length() {
+      match body[idx + 2] {
+        Drop =>
+          if hot_lower_impl_instr_is_pure_dead_drop_leaf(body[idx]) &&
+            hot_lower_impl_instr_is_pure_dead_drop_unary(body[idx + 1]) {
+            let mut has_later_unreachable = false
+            for probe = idx + 3; probe < body.length(); probe = probe + 1 {
+              match body[probe] {
+                Unreachable => has_later_unreachable = true
+                _ => ()
+              }
+            }
+            if has_later_unreachable {
+              changed = true
+              idx = idx + 3
+              continue
+            }
+          }
+        _ => ()
+      }
+    }
+    rewritten.push(body[idx])
+    idx = idx + 1
+  }
+  if changed {
+    rewritten
+  } else {
+    body
+  }
+}
+
+///|
 fn hot_lower_impl_instr_is_const_like_dead_value_before_unreachable(
   instr : Instruction,
 ) -> Bool {
@@ -3314,6 +3382,9 @@ fn hot_lower_impl_canonicalize_body(
       canonical_instr => canonical.push(canonical_instr)
     }
   }
+  let canonical = hot_lower_impl_remove_pure_drop_between_unreachables(
+    canonical,
+  )
   let canonical = hot_lower_impl_hoist_dropped_values_before_leading_unreachable(
     canonical,
   )
