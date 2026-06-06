@@ -712,6 +712,65 @@ test "code-folding folds embedded ref.is_null partial value if suffixes" {
 }
 
 ///|
+test "code-folding folds embedded ref.as_non_null partial value if suffixes" {
+  let ref_type_idx = @lib.TypeIdx::new(0U)
+  let func_type_idx = @lib.TypeIdx::new(1U)
+  let ref_heap = @lib.HeapType::new(ref_type_idx)
+  let nullable_func_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, ref_heap),
+  )
+  let nonnull_func_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, ref_heap),
+  )
+  let ref_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [nonnull_func_ref]),
+    ),
+  )
+  let optimized = code_folding_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([ref_type, func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::if_(
+              @lib.BlockType::val_type(nullable_func_ref),
+              [
+                @lib.Instruction::i32_const(@lib.I32::new(1)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::ref_null(ref_heap),
+              ],
+              Some([
+                @lib.Instruction::i32_const(@lib.I32::new(2)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::ref_null(ref_heap),
+              ]),
+            ),
+            @lib.Instruction::ref_as_non_null(),
+          ]),
+        ),
+      ]),
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("ref.as_non_null"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "(ref.null"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding folds embedded ref.test partial value if suffixes" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(
