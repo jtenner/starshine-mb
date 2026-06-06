@@ -662,6 +662,13 @@ Follow-up `[O4Z-AUDIT-CF-E]` embedded table-copy value-parent suffix breadth on 
 - Implementation: `code_folding_parent_accepts_embedded_value_wrapper` now admits `HotOp::TableCopy`, and `code_folding_visit_region` visits direct embedded controls at `table.copy` roots. This is another source-backed allowlist increment, not a general heap/value-parent widening.
 - Validation/evidence: after the fix `moon fmt`, `moon info`, and full `moon test` passed (`4882/4882`); native `src/cmd` rebuilt at `_build/native/release/build/cmd/cmd.exe`; direct 1000-case compare at `.tmp/pass-fuzz-code-folding-table-copy-1000` compared `998/1000` cases with `998` normalized matches, `0` mismatches, `0` validation failures, and `2` tool/Binaryen command failures.
 
+2026-06-06 embedded `array.len` value-parent continuation:
+
+- Source-backed probe with `wasm-opt version_129 --all-features --code-folding -S -o -` on `.tmp/cf-gc-probes.wat` showed Binaryen uses the same typed wrapper style for a partial value-child `if` suffix consumed by an `array.len` reference operand.
+- Added failing-first local test `code-folding folds embedded array.len operand partial value if suffixes`. The core-built initial `moon test src/passes` run failed that new behavior test (`1706/1707` passed) because the exact heap-instruction allowlist did not admit `ArrayLen`.
+- Implementation: `code_folding_heap_parent_accepts_embedded_value_wrapper` now admits exact `ArrayLen` heap instructions beside the previous exact heap cases. This remains an exact source-backed heap-instruction allowlist increment, not a general heap broadening.
+- Validation/evidence: after the fix `moon test src/passes`, `moon fmt`, `moon info`, and full `moon test` passed (`4892/4892`); native `src/cmd` rebuilt at `_build/native/release/build/cmd/cmd.exe`; direct 1000-case compare at `.tmp/pass-fuzz-code-folding-array-len-1000` compared `998/1000` cases with `998` normalized matches, `0` mismatches, `0` validation failures, and `2` tool/Binaryen command failures.
+
 2026-06-06 embedded `array.get` value-parent continuation:
 
 - Source-backed probe with `wasm-opt version_129 --all-features --code-folding -S -o -` on `.tmp/cf-gc-probes.wat` showed Binaryen uses the same typed wrapper style for a partial value-child `if` suffix consumed by an `array.get` index operand.
