@@ -837,7 +837,11 @@ fn code_folding_heap_parent_accepts_embedded_value_wrapper(
     | Some(@lib.Instruction::ArrayCopy(_, _))
     | Some(@lib.Instruction::ArrayInitData(_, _))
     | Some(@lib.Instruction::ArrayInitElem(_, _))
-    | Some(@lib.Instruction::RefAsNonNull) => true
+    | Some(@lib.Instruction::RefEq)
+    | Some(@lib.Instruction::RefAsNonNull)
+    | Some(@lib.Instruction::AnyConvertExtern)
+    | Some(@lib.Instruction::ExternConvertAny)
+    | Some(@lib.Instruction::RefI31) => true
     _ => false
   }
 }

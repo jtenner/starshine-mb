@@ -839,6 +839,107 @@ test "code-folding folds embedded ref.as_non_null partial value if suffixes" {
 }
 
 ///|
+test "code-folding folds embedded ref.eq partial value if suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32) (result i32)
+      #|    (ref.eq
+      #|      (if (result eqref)
+      #|        (local.get 0)
+      #|        (then (i32.const 1) (drop) (ref.null eq))
+      #|        (else (i32.const 2) (drop) (ref.null eq)))
+      #|      (ref.null eq))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("ref.eq"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "(ref.null"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding folds embedded any.convert_extern partial value if suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32) (result anyref)
+      #|    (any.convert_extern
+      #|      (if (result externref)
+      #|        (local.get 0)
+      #|        (then (i32.const 1) (drop) (ref.null extern))
+      #|        (else (i32.const 2) (drop) (ref.null extern))))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("any.convert_extern"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "(ref.null"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding folds embedded extern.convert_any partial value if suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32) (result externref)
+      #|    (extern.convert_any
+      #|      (if (result anyref)
+      #|        (local.get 0)
+      #|        (then (i32.const 1) (drop) (ref.null any))
+      #|        (else (i32.const 2) (drop) (ref.null any))))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("extern.convert_any"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "(ref.null"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding folds embedded ref.i31 partial value if suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32) (result (ref i31))
+      #|    (ref.i31
+      #|      (if (result i32)
+      #|        (local.get 0)
+      #|        (then (i32.const 1) (drop) (i32.const 7))
+      #|        (else (i32.const 2) (drop) (i32.const 7))))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("ref.i31"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding folds embedded ref.test partial value if suffixes" {
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(
