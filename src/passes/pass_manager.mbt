@@ -8555,6 +8555,30 @@ fn run_hot_pipeline_optimize_instructions_collect_stats_body(
 }
 
 ///|
+fn run_hot_pipeline_raw_size_cleanup_skip(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  descriptor : @ir.HotPassDescriptor,
+) -> HotPipelineFuncResult? {
+  if descriptor.name != "merge-blocks" {
+    return None
+  }
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let @lib.Func(locals, @lib.Expr(body)) = original
+  let stats = OptimizeInstructionsLoweredStats::new()
+  run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
+  if locals.length() > 128 && stats.instrs > 1000 {
+    return Some({
+      reason: "large-local-merge-blocks-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  None
+}
+
+///|
 fn run_hot_pipeline_raw_code_pushing_skip(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -8576,6 +8600,14 @@ fn run_hot_pipeline_raw_code_pushing_skip(
   let @lib.Func(locals, @lib.Expr(body)) = original
   let stats = OptimizeInstructionsLoweredStats::new()
   run_hot_pipeline_optimize_instructions_collect_stats_body(body, stats)
+  if locals.length() > 128 && stats.instrs > 1000 {
+    return Some({
+      reason: "large-local-code-pushing-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   if locals.length() > 512 || stats.instrs > 5000 {
     return Some({
       reason: "large-lowered-code-pushing-noop",
@@ -9624,6 +9656,54 @@ fn run_hot_pipeline_raw_remove_unused_names(
 }
 
 ///|
+fn run_hot_pipeline_raw_remove_unused_brs_deep_dispatch_block_go(
+  instr : @lib.Instruction,
+  depth : Int,
+) -> Bool {
+  match instr {
+    @lib.Instruction::Block(_, @lib.Expr(body)) => {
+      let next_depth = depth + 1
+      if next_depth >= 12 {
+        let mut br_if_count = 0
+        for item in body {
+          match item {
+            @lib.Instruction::BrIf(_) => br_if_count += 1
+            _ => ()
+          }
+        }
+        if br_if_count >= 8 {
+          return true
+        }
+      }
+      if body.length() == 0 {
+        return false
+      }
+      run_hot_pipeline_raw_remove_unused_brs_deep_dispatch_block_go(
+        body[0],
+        next_depth,
+      )
+    }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_deep_dispatch_block(
+  instr : @lib.Instruction,
+) -> Bool {
+  run_hot_pipeline_raw_remove_unused_brs_deep_dispatch_block_go(instr, 0)
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_has_deep_dispatch_block(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  instrs.any(fn(instr) {
+    run_hot_pipeline_raw_remove_unused_brs_deep_dispatch_block(instr)
+  })
+}
+
+///|
 fn run_hot_pipeline_raw_remove_unused_brs(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -9778,6 +9858,18 @@ fn run_hot_pipeline_raw_remove_unused_brs(
     ) {
     return Some({
       reason: "structured-return-ladder-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  let large_stats = OptimizeInstructionsLoweredStats::new()
+  run_hot_pipeline_optimize_instructions_collect_stats_body(instrs, large_stats)
+  if locals.length() > 96 &&
+    large_stats.instrs > 1000 &&
+    run_hot_pipeline_raw_remove_unused_brs_has_deep_dispatch_block(instrs) {
+    return Some({
+      reason: "large-local-dispatch-noop",
       func: original,
       unchanged_original: true,
       trace_skip_raw: true,
@@ -10492,6 +10584,10 @@ fn run_hot_pipeline_func(
     run_hot_pipeline_raw_optimize_instructions_skip(
       mod_, func_idx, module_state, descriptor, options,
     ) {
+    Some(result) => return Ok(result)
+    None => ()
+  }
+  match run_hot_pipeline_raw_size_cleanup_skip(mod_, func_idx, descriptor) {
     Some(result) => return Ok(result)
     None => ()
   }

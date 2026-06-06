@@ -18,6 +18,48 @@ fn merge_blocks_test_count_substring(text : String, needle : String) -> Int {
 }
 
 ///|
+fn merge_blocks_large_jsonas_like_fixture() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module (func (local i32")
+  for i = 0; i < 129; i = i + 1 {
+    let _ = i
+    out.write_string(" i32")
+  }
+  out.write_string(")")
+  for i = 0; i < 1001; i = i + 1 {
+    let _ = i
+    out.write_string(" nop")
+  }
+  out.write_string("))")
+  out.to_string()
+}
+
+///|
+test "merge-blocks skips large local-heavy json-as shaped functions" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      merge_blocks_large_jsonas_like_fixture(),
+      ["merge-blocks"],
+      options=HotPipelineOptions::new(
+        optimize_level=4,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected large merge-blocks skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[merge-blocks]:skip-raw reason=large-local-merge-blocks-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "merge-blocks flattens nested block roots in parent regions" {
   let optimized = match
     pass_test_run_pipeline(

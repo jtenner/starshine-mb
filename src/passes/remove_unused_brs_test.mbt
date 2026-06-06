@@ -1,4 +1,58 @@
 ///|
+fn remove_unused_brs_large_jsonas_dispatch_fixture() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module (func (param i32) (result i32) (local i32")
+  for i = 0; i < 97; i = i + 1 {
+    let _ = i
+    out.write_string(" i32")
+  }
+  out.write_string(")")
+  for i = 0; i < 12; i = i + 1 {
+    let _ = i
+    out.write_string(" (block")
+  }
+  for i = 0; i < 8; i = i + 1 {
+    out.write_string(" local.get 0 br_if \{i}")
+  }
+  for i = 0; i < 12; i = i + 1 {
+    let _ = i
+    out.write_string(")")
+  }
+  for i = 0; i < 1001; i = i + 1 {
+    let _ = i
+    out.write_string(" nop")
+  }
+  out.write_string(" i32.const 0))")
+  out.to_string()
+}
+
+///|
+test "remove-unused-brs skips large local-heavy json-as dispatch functions" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      remove_unused_brs_large_jsonas_dispatch_fixture(),
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(
+        optimize_level=4,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected large remove-unused-brs skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[remove-unused-brs]:skip-raw reason=large-local-dispatch-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "remove-unused-brs folds constant br-if conditions" {
   let optimized = match
     pass_test_run_pipeline(

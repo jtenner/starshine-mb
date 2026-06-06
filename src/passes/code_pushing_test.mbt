@@ -1,4 +1,46 @@
 ///|
+fn code_pushing_large_jsonas_like_fixture() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module (func (local i32")
+  for i = 0; i < 129; i = i + 1 {
+    let _ = i
+    out.write_string(" i32")
+  }
+  out.write_string(")")
+  for i = 0; i < 1001; i = i + 1 {
+    let _ = i
+    out.write_string(" nop")
+  }
+  out.write_string("))")
+  out.to_string()
+}
+
+///|
+test "code-pushing skips large local-heavy json-as shaped functions" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      code_pushing_large_jsonas_like_fixture(),
+      ["code-pushing"],
+      options=HotPipelineOptions::new(
+        optimize_level=4,
+        trace=Some(fn(line) { trace.push(line) }),
+      ),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected large code-pushing skip success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[code-pushing]:skip-raw reason=large-local-code-pushing-noop",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "code-pushing skips O4z raw pass until self-opt decoder hazards are safe" {
   let trace : Array[String] = []
   match

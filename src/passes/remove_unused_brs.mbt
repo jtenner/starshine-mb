@@ -6386,9 +6386,7 @@ fn remove_unused_brs_visit_region(
     }
     match @ir.hot_node_get(func, node_id).op {
       @ir.HotOp::BrIf => {
-        if remove_unused_brs_try_fold_constant_br_if(
-            ctx, func, region_ref, idx,
-          ) {
+        if remove_unused_brs_try_fold_constant_br_if(ctx, func, region_ref, idx) {
           changed = true
           continue
         }
@@ -6408,9 +6406,7 @@ fn remove_unused_brs_visit_region(
     }
     match @ir.hot_node_get(func, node_id).op {
       @ir.HotOp::Block => {
-        if remove_unused_brs_try_drop_void_self_branch_block(
-            ctx, func, node_id,
-          ) {
+        if remove_unused_brs_try_drop_void_self_branch_block(ctx, func, node_id) {
           changed = true
           continue
         }
