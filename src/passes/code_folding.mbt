@@ -827,6 +827,7 @@ fn code_folding_heap_parent_accepts_embedded_value_wrapper(
     | Some(@lib.Instruction::StructSet(_, _))
     | Some(@lib.Instruction::ArrayGet(_))
     | Some(@lib.Instruction::ArrayGetS(_))
+    | Some(@lib.Instruction::ArrayGetU(_))
     | Some(@lib.Instruction::ArrayLen)
     | Some(@lib.Instruction::ArraySet(_))
     | Some(@lib.Instruction::ArrayFill(_))

@@ -794,6 +794,13 @@ Follow-up `[O4Z-AUDIT-CF-E]` embedded table-copy value-parent suffix breadth on 
 - Implementation: `code_folding_heap_parent_accepts_embedded_value_wrapper` now admits exact `ArrayGetS` heap instructions beside the previous exact heap cases. This remains an exact source-backed heap-instruction allowlist increment, not a general heap broadening.
 - Validation/evidence: after the fix `moon test src/passes`, `moon fmt`, `moon info`, and full `moon test` passed (`4900/4900`); native `src/cmd` rebuilt at `_build/native/release/build/cmd/cmd.exe`; direct 1000-case compare at `.tmp/pass-fuzz-code-folding-array-get-s-1000` compared `998/1000` cases with `998` normalized matches, `0` mismatches, `0` validation failures, and `2` tool/Binaryen command failures.
 
+2026-06-06 embedded `array.get_u` value-parent continuation:
+
+- Source-backed probe with `wasm-opt version_129 --all-features --code-folding -S -o -` on `.tmp/cf-gc-next5-probes.wat` showed Binaryen uses the same typed wrapper style for a partial value-child `if` suffix consumed by a packed `array.get_u` index operand.
+- Added failing-first local test `code-folding folds embedded array.get_u index partial value if suffixes`. The core-built initial `moon test src/passes` run failed that new behavior test (`1715/1716` passed) because the exact heap-instruction allowlist did not admit `ArrayGetU`.
+- Implementation: `code_folding_heap_parent_accepts_embedded_value_wrapper` now admits exact `ArrayGetU` heap instructions beside the previous exact heap cases. This remains an exact source-backed heap-instruction allowlist increment, not a general heap broadening.
+- Validation/evidence: after the fix `moon test src/passes`, `moon fmt`, `moon info`, and full `moon test` passed (`4901/4901`); native `src/cmd` rebuilt at `_build/native/release/build/cmd/cmd.exe`; direct 1000-case compare at `.tmp/pass-fuzz-code-folding-array-get-u-1000` compared `998/1000` cases with `998` normalized matches, `0` mismatches, `0` validation failures, and `2` tool/Binaryen command failures.
+
 Still required before closing the overall `[O4Z-AUDIT-CF]` parity track:
 
 - rerun direct compare at large count after the next behavior-widening batch or before closeout; the latest 100000-case lane has no Starshine validation/command failures, and the latest focused replay has five documented semantic-safe size-winning representation/cleanup mismatches;
