@@ -5972,6 +5972,75 @@ test "code-folding reaches a root-anchored terminating-tail fixpoint" {
 }
 
 ///|
+test "code-folding late branch-cleanup neighborhood keeps fixpoint-exposed return tails valid" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (func $a (param i32))
+        #|  (func $b (param i32))
+        #|  (func $c (param i32))
+        #|  (func (param i32 i32 i32)
+        #|    (if (local.get 0)
+        #|      (then
+        #|        (local.get 2)
+        #|        (call $a)
+        #|        (local.get 2)
+        #|        (call $b)
+        #|        (local.get 2)
+        #|        (call $c)
+        #|        (return)))
+        #|    (if (local.get 1)
+        #|      (then
+        #|        (local.get 2)
+        #|        (call $b)
+        #|        (local.get 2)
+        #|        (call $c)
+        #|        (return)))
+        #|    (local.get 2)
+        #|    (call $a)
+        #|    (local.get 2)
+        #|    (call $b)
+        #|    (local.get 2)
+        #|    (call $c)
+        #|    (return)))
+        #|,
+      ),
+      [
+        "code-folding", "merge-blocks", "remove-unused-brs", "remove-unused-names",
+        "merge-blocks",
+      ],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected fixpoint-exposed late code-folding neighborhood success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 1)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 2)"),
+    1,
+    msg=pretty,
+  )
+  assert_true(
+    code_folding_test_count_substring(pretty, "return") <= 1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding late branch-cleanup neighborhood keeps shared return tail valid" {
   let optimized = match
     pass_test_run_pipeline(
@@ -6139,6 +6208,58 @@ test "code-folding late branch-cleanup neighborhood keeps arbitrary non-root ret
   )
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "i32.const I32(8)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding late branch-cleanup neighborhood keeps shared return-call tail valid" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #|(module
+        #|  (type $t (func (param i32)))
+        #|  (func $target (type $t))
+        #|  (func $sink (param i32))
+        #|  (func (param i32 i32)
+        #|    (if (local.get 0)
+        #|      (then
+        #|        (local.get 1)
+        #|        (call $sink)
+        #|        (local.get 1)
+        #|        (return_call $target)))
+        #|    (if (local.get 0)
+        #|      (then
+        #|        (local.get 1)
+        #|        (call $sink)
+        #|        (local.get 1)
+        #|        (return_call $target)))
+        #|    (i32.const 99)
+        #|    (drop)))
+        #|,
+      ),
+      [
+        "code-folding", "merge-blocks", "remove-unused-brs", "remove-unused-names",
+        "merge-blocks",
+      ],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected shared tail-call late code-folding neighborhood success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("i32.const I32(99)"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 1)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return_call (Func 0)"),
     1,
     msg=pretty,
   )
