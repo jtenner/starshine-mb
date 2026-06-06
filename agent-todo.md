@@ -172,9 +172,10 @@ Use this checklist for every `[O4Z-AUDIT-*]` slice below:
   - Deliverables: apply the common checklist; add missing GC/effect/escape fixtures; refresh direct compare and `HSO` slot evidence; record unsafe fold blockers separately from missed profitable folds.
 
 - [O4Z-AUDIT-PC] - Deep audit `precompute`
-  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit; branch-heavy direct compare blocker cleared on 2026-06-06, but the broader audit still needs the common checklist and O4z slot evidence.
   - Scope: constant folding, trap/effect preservation, raw precleaner/writeback guards, precompute-propagate prefix distinction, GC/array atomic exclusions, and O4z slot19/slot43 history.
-  - Deliverables: apply the common checklist; coordinate descriptor work with `[AUDIT001-E]`/`[AUDIT001-F]`; refresh direct compare and all `PC` slot evidence; record missed folds versus deliberate trap/effect bailouts.
+  - Latest evidence: `.tmp/pass-fuzz-precompute-branch-heavy-slice4-norm4-10000` with `--normalize drop-consts --normalize local-cleanup-debris --normalize unreachable-control-debris` compared `6769/10000`, normalized `3375`, cleanup-normalized `3394`, mismatches `0`, command failures `20` (Binaryen/tool decode classes). Branch-heavy constant-control drift is covered by focused raw cleanup and semantic-safe normalizer tests.
+  - Deliverables: apply the common checklist; coordinate descriptor work with `[AUDIT001-E]`/`[AUDIT001-F]`; refresh all `PC` slot evidence; record missed folds versus deliberate trap/effect bailouts.
 
 - [O4Z-AUDIT-CP] - Deep audit `code-pushing`
   - Status: active v0.1.0 release-gating `-O4z` per-pass audit.

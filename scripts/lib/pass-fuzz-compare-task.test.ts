@@ -124,6 +124,53 @@ describe("pass-fuzz compare normalizers", () => {
     );
   });
 
+  test("unreachable-control-debris normalizes constant self-branch blocks and loops", () => {
+    const binaryenWat = `(module
+ (func $0
+  (loop $label
+   (br $label)
+  )
+  (unreachable)
+ )
+ (func $1
+  (loop
+  )
+  (nop)
+ )
+)
+`;
+    const starshineWat = `(module
+ (func $0
+  (loop $label
+   (br_if $label
+    (i32.const 1)
+   )
+  )
+  (block $block
+   (br_if $block
+    (i32.const 0)
+   )
+  )
+  (block $block1
+   (br $block1)
+  )
+  (f32.const 29)
+ )
+ (func $1
+  (loop $label
+   (br_if $label
+    (i32.const 0)
+   )
+  )
+ )
+)
+`;
+
+    expect(applyCompareNormalizersForTest(binaryenWat, ["unreachable-control-debris", "local-cleanup-debris"])).toBe(
+      applyCompareNormalizersForTest(starshineWat, ["unreachable-control-debris", "local-cleanup-debris"]),
+    );
+  });
+
   test("unreachable-control-debris erases void branch-unreachable wrapper blocks", () => {
     const binaryenWat = `(module
  (func $0

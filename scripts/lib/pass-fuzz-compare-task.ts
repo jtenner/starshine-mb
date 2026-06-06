@@ -1194,7 +1194,7 @@ function stripFunctionTypeIds(wat: string): string {
 function isVoidBranchUnreachableBlockDebris(text: string): boolean {
   const labelMatch = text.match(/^\s*\(block\s+(\$[A-Za-z0-9_.$-]+)\s*\n/);
   if (!labelMatch) return false;
-  const label = labelMatch[1].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const label = escapeWatLabelForRegex(labelMatch[1]);
   const pattern = new RegExp(
     `^\\s*\\(block\\s+${label}\\s*\\n` +
       `\\s*\\(block\\s*\\n` +
@@ -1204,6 +1204,151 @@ function isVoidBranchUnreachableBlockDebris(text: string): boolean {
       `\\s*\\)\\s*$`,
   );
   return pattern.test(text);
+}
+
+function simpleControlLabel(text: string, kind: "block" | "loop"): string | null {
+  const match = text.match(new RegExp(`^\\s*\\(${kind}\\s+(\\$[A-Za-z0-9_.$-]+)\\s*\\n`));
+  return match?.[1] ?? null;
+}
+
+function escapeWatLabelForRegex(label: string): string {
+  return label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function isSimpleEmptyVoidControlNoop(text: string): boolean {
+  return /^\s*\((?:block|loop)(?:\s+\$[A-Za-z0-9_.$-]+)?\s*\n\s*\)\s*$/.test(text);
+}
+
+function isSimpleSelfBranchBlockNoop(text: string): boolean {
+  const label = simpleControlLabel(text, "block");
+  if (!label) return false;
+  const escaped = escapeWatLabelForRegex(label);
+  return new RegExp(
+    `^\\s*\\(block\\s+${escaped}\\s*\\n` +
+      `(?:\\s*\\(br\\s+${escaped}\\)\\s*|` +
+      `\\s*\\(br_if\\s+${escaped}\\s*\\n\\s*\\(i32\\.const\\s+(?:0|1)\\)\\s*\\n\\s*\\))\\s*\\n` +
+      `\\s*\\)\\s*$`,
+  ).test(text);
+}
+
+function isSimpleFalseSelfBranchLoopNoop(text: string): boolean {
+  const label = simpleControlLabel(text, "loop");
+  if (!label) return false;
+  const escaped = escapeWatLabelForRegex(label);
+  return new RegExp(
+    `^\\s*\\(loop\\s+${escaped}\\s*\\n` +
+      `\\s*\\(br_if\\s+${escaped}\\s*\\n` +
+      `\\s*\\(i32\\.const\\s+0\\)\\s*\\n` +
+      `\\s*\\)\\s*\\n` +
+      `\\s*\\)\\s*$`,
+  ).test(text);
+}
+
+function isSimpleInfiniteSelfLoop(text: string): boolean {
+  const label = simpleControlLabel(text, "loop");
+  if (!label) return false;
+  const escaped = escapeWatLabelForRegex(label);
+  return new RegExp(
+    `^\\s*\\(loop\\s+${escaped}\\s*\\n` +
+      `\\s*\\(br\\s+${escaped}\\)\\s*\\n` +
+      `\\s*\\)\\s*$`,
+  ).test(text);
+}
+
+function rewriteTrueSelfBranchLoop(text: string): string[] | null {
+  const label = simpleControlLabel(text, "loop");
+  if (!label) return null;
+  const escaped = escapeWatLabelForRegex(label);
+  const pattern = new RegExp(
+    `^(\\s*)\\(loop\\s+${escaped}\\s*\\n` +
+      `\\s*\\(br_if\\s+${escaped}\\s*\\n` +
+      `\\s*\\(i32\\.const\\s+(?:[1-9][0-9]*|-?[1-9][0-9]*)\\)\\s*\\n` +
+      `\\s*\\)\\s*\\n` +
+      `\\s*\\)\\s*$`,
+  );
+  const match = text.match(pattern);
+  if (!match) return null;
+  const indent = match[1];
+  return [`${indent}(loop ${label}`, `${indent} (br ${label})`, `${indent})`];
+}
+
+function normalizeConstantSelfBranchControlDebris(wat: string): string {
+  const lines = wat.split("\n");
+  const output: string[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const trimmed = line.trimStart();
+    if (!trimmed.startsWith("(block") && !trimmed.startsWith("(loop")) {
+      output.push(line);
+      continue;
+    }
+    const exprLines = [line];
+    let balance = parenDelta(line);
+    while (balance > 0 && index + 1 < lines.length) {
+      index += 1;
+      exprLines.push(lines[index]);
+      balance += parenDelta(lines[index]);
+    }
+    const exprText = exprLines.join("\n");
+    if (
+      isSimpleEmptyVoidControlNoop(exprText) ||
+      isSimpleSelfBranchBlockNoop(exprText) ||
+      isSimpleFalseSelfBranchLoopNoop(exprText)
+    ) {
+      continue;
+    }
+    const rewrittenLoop = rewriteTrueSelfBranchLoop(exprText);
+    output.push(...(rewrittenLoop ?? exprLines));
+  }
+  return output.join("\n");
+}
+
+function leadingSpaceCount(line: string): number {
+  return line.length - line.trimStart().length;
+}
+
+function normalizeUnreachableAfterInfiniteSelfLoop(wat: string): string {
+  const lines = wat.split("\n");
+  const output: string[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line.trimStart().startsWith("(loop")) {
+      output.push(line);
+      continue;
+    }
+    const exprLines = [line];
+    let balance = parenDelta(line);
+    while (balance > 0 && index + 1 < lines.length) {
+      index += 1;
+      exprLines.push(lines[index]);
+      balance += parenDelta(lines[index]);
+    }
+    output.push(...exprLines);
+    if (!isSimpleInfiniteSelfLoop(exprLines.join("\n"))) {
+      continue;
+    }
+    const loopIndent = leadingSpaceCount(line);
+    while (index + 1 < lines.length) {
+      const nextLine = lines[index + 1];
+      const nextTrimmed = nextLine.trim();
+      if (nextTrimmed.length === 0) {
+        break;
+      }
+      if (leadingSpaceCount(nextLine) < loopIndent || nextTrimmed.startsWith(")")) {
+        break;
+      }
+      if (!nextTrimmed.startsWith("(")) {
+        break;
+      }
+      index += 1;
+      let nextBalance = parenDelta(nextLine);
+      while (nextBalance > 0 && index + 1 < lines.length) {
+        index += 1;
+        nextBalance += parenDelta(lines[index]);
+      }
+    }
+  }
+  return output.join("\n");
 }
 
 function normalizeVoidBranchUnreachableBlockDebris(wat: string): string {
@@ -1332,8 +1477,12 @@ function normalizeUnreachableControlDebris(wat: string): string {
   return stripFunctionTypeIds(
     normalizeDropUnreachableBeforeUnreachable(
       normalizeUnusedUnreachableFunctions(
-        normalizeVoidBranchUnreachableBlockDebris(
-          normalizeLocalUnreachableControlDebris(wat),
+        normalizeUnreachableAfterInfiniteSelfLoop(
+          normalizeConstantSelfBranchControlDebris(
+            normalizeVoidBranchUnreachableBlockDebris(
+              normalizeLocalUnreachableControlDebris(wat),
+            ),
+          ),
         ),
       ),
     ),
@@ -1426,6 +1575,9 @@ function applyCompareNormalizers(wat: string, normalizers: CompareNormalizer[]):
     } else if (normalizer === "local-cleanup-debris") {
       normalized = normalizeLocalCleanupDebris(normalized);
     }
+  }
+  if (normalizers.includes("local-cleanup-debris") && normalizers.includes("unreachable-control-debris")) {
+    normalized = normalizeLocalCleanupDebris(normalized);
   }
   return normalized;
 }
