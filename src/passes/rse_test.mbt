@@ -822,6 +822,53 @@ test "rse hot path folds post-if set when branch exit agrees with else" {
 }
 
 ///|
+test "rse raw path keeps default reset in loop when entry value may differ" {
+  let input =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    i32.const 1
+    #|    local.set 1
+    #|    loop
+    #|      local.get 1
+    #|      drop
+    #|      i32.const 0
+    #|      local.set 1
+    #|      local.get 0
+    #|      br_if 0
+    #|    end))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(input, ["redundant-set-elimination"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected rse loop reset fixture success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(instrs)) = rse_test_first_defined_func(optimized)
+  match instrs {
+    [
+      @lib.Instruction::I32Const(@lib.I32(1)),
+      @lib.Instruction::LocalSet(@lib.LocalIdx(1U)),
+      @lib.Instruction::Loop(_, @lib.Expr(loop_body)),
+    ] =>
+      match loop_body {
+        [
+          @lib.Instruction::LocalGet(@lib.LocalIdx(1U)),
+          @lib.Instruction::Drop,
+          @lib.Instruction::I32Const(@lib.I32(0)),
+          @lib.Instruction::LocalSet(@lib.LocalIdx(1U)),
+          @lib.Instruction::LocalGet(@lib.LocalIdx(0U)),
+          @lib.Instruction::BrIf(@lib.LabelIdx(0U)),
+        ] => ()
+        other =>
+          fail(
+            "expected loop reset local.set to remain, got \{@debug.to_string(other)}",
+          )
+      }
+    other =>
+      fail("expected loop reset fixture shape, got \{@debug.to_string(other)}")
+  }
+}
+
+///|
 test "rse raw path preserves branch disagreement as a merge value for self sets" {
   let input =
     #|(module

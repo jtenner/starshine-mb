@@ -750,7 +750,8 @@ fn rse_raw_prepare_loop_entry(
         )
         if writes == 0 {
           loop_state.local_values[local_id] = state.local_values[local_id]
-        } else if writes == default_writes {
+        } else if writes == default_writes &&
+          state.local_values[local_id] == default_value {
           loop_state.local_values[local_id] = default_value
         }
       }
