@@ -3950,6 +3950,120 @@ test "code-folding shares non-root return subsets excluding a different root ret
 }
 
 ///|
+test "code-folding shares arbitrary non-root return subset among distractor tails" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func $sink (param i32))
+      #|  (func $other (param i32))
+      #|  (func (param i32 i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (local.get 1)
+      #|        (call $sink)
+      #|        (i32.const 7)
+      #|        (drop)
+      #|        (return)))
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (local.get 1)
+      #|        (call $other)
+      #|        (i32.const 8)
+      #|        (drop)
+      #|        (return)))
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (local.get 1)
+      #|        (call $sink)
+      #|        (i32.const 7)
+      #|        (drop)
+      #|        (return)))
+      #|    (i32.const 99)
+      #|    (drop)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("i32.const I32(99)"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 1)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(8)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding shares arbitrary non-root unreachable subset among distractor tails" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func $sink (param i32))
+      #|  (func $other (param i32))
+      #|  (func (param i32 i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (local.get 1)
+      #|        (call $sink)
+      #|        (unreachable)))
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (local.get 1)
+      #|        (call $other)
+      #|        (unreachable)))
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (local.get 1)
+      #|        (call $sink)
+      #|        (unreachable)))
+      #|    (i32.const 99)
+      #|    (drop)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("i32.const I32(99)"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 1)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "unreachable"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding keeps simple return operand tails unshared" {
   let optimized = code_folding_test_run(
     (
@@ -4471,6 +4585,44 @@ test "code-folding keeps crossed nested self-branch unreachable suffixes" {
 }
 
 ///|
+test "code-folding keeps return suffixes that branch to an outside target" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32)
+      #|    (block $exit
+      #|      (if (local.get 0)
+      #|        (then
+      #|          (block
+      #|            (i32.const 7)
+      #|            (drop)
+      #|            (br $exit))
+      #|          (return)))
+      #|      (if (local.get 0)
+      #|        (then
+      #|          (block
+      #|            (i32.const 7)
+      #|            (drop)
+      #|            (br $exit))
+      #|          (return))))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding shares non-root return tail subsets with root fallthrough" {
   let optimized = code_folding_test_run(
     (
@@ -4714,6 +4866,66 @@ test "code-folding shares non-root direct return-call tail subsets with root fal
   )
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "return_call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding shares arbitrary non-root direct return-call subset among distractor tails" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (type $t (func (param i32)))
+      #|  (func $target (type $t))
+      #|  (func $other_target (type $t))
+      #|  (func $sink (param i32))
+      #|  (func $other (param i32))
+      #|  (func (param i32 i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (local.get 1)
+      #|        (call $sink)
+      #|        (local.get 1)
+      #|        (return_call $target)))
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (local.get 1)
+      #|        (call $other)
+      #|        (local.get 1)
+      #|        (return_call $other_target)))
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (local.get 1)
+      #|        (call $sink)
+      #|        (local.get 1)
+      #|        (return_call $target)))
+      #|    (i32.const 99)
+      #|    (drop)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("i32.const I32(99)"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 2)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "call (Func 3)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return_call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return_call (Func 1)"),
     1,
     msg=pretty,
   )
