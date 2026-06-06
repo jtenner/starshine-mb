@@ -820,6 +820,7 @@ fn code_folding_heap_parent_accepts_embedded_value_wrapper(
   match @ir.hot_node_exact_instr(func, parent_id) {
     Some(@lib.Instruction::StructNew(_))
     | Some(@lib.Instruction::StructGet(_, _))
+    | Some(@lib.Instruction::StructGetS(_, _))
     | Some(@lib.Instruction::ArrayNew(_))
     | Some(@lib.Instruction::ArrayNewFixed(_, _))
     | Some(@lib.Instruction::StructSet(_, _))

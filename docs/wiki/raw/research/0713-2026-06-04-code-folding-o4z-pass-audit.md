@@ -773,6 +773,13 @@ Follow-up `[O4Z-AUDIT-CF-E]` embedded table-copy value-parent suffix breadth on 
 - Implementation: `code_folding_parent_accepts_embedded_value_wrapper` now admits `HotOp::TableInit`, and `code_folding_visit_region` visits direct embedded controls at `table.init` roots. This is another source-backed allowlist increment, not a general all-value-parent widening.
 - Validation/evidence: after the fix `moon test src/passes`, `moon fmt`, `moon info`, and full `moon test` passed (`4883/4883`); native `src/cmd` rebuilt at `_build/native/release/build/cmd/cmd.exe`; direct 1000-case compare at `.tmp/pass-fuzz-code-folding-table-init-1000` compared `998/1000` cases with `998` normalized matches, `0` mismatches, `0` validation failures, and `2` tool/Binaryen command failures.
 
+2026-06-06 embedded `struct.get_s` value-parent continuation:
+
+- Source-backed probe with `wasm-opt version_129 --all-features --code-folding -S -o -` on `.tmp/cf-gc-next5-probes.wat` showed Binaryen uses the same typed wrapper style for a partial value-child `if` suffix consumed by a packed `struct.get_s` reference operand.
+- Added failing-first local test `code-folding folds embedded struct.get_s operand partial value if suffixes`. The core-built initial `moon test src/passes` run failed that new behavior test (`1712/1713` passed) because the exact heap-instruction allowlist did not admit `StructGetS`.
+- Implementation: `code_folding_heap_parent_accepts_embedded_value_wrapper` now admits exact `StructGetS` heap instructions beside the previous exact heap cases. This remains an exact source-backed heap-instruction allowlist increment, not a general heap broadening.
+- Validation/evidence: after the fix `moon test src/passes`, `moon fmt`, `moon info`, and full `moon test` passed (`4898/4898`); native `src/cmd` rebuilt at `_build/native/release/build/cmd/cmd.exe`; direct 1000-case compare at `.tmp/pass-fuzz-code-folding-struct-get-s-1000` compared `998/1000` cases with `998` normalized matches, `0` mismatches, `0` validation failures, and `2` tool/Binaryen command failures.
+
 Still required before closing the overall `[O4Z-AUDIT-CF]` parity track:
 
 - rerun direct compare at large count after the next behavior-widening batch or before closeout; the latest 100000-case lane has no Starshine validation/command failures, and the latest focused replay has five documented semantic-safe size-winning representation/cleanup mismatches;
