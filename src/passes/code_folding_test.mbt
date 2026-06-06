@@ -712,6 +712,54 @@ test "code-folding folds embedded ref.is_null partial value if suffixes" {
 }
 
 ///|
+test "code-folding folds embedded ref.test partial value if suffixes" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let func_heap = @lib.HeapType::abs(@lib.AbsHeapType::func())
+  let optimized = code_folding_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::if_(
+              @lib.BlockType::val_type(@lib.ValType::funcref()),
+              [
+                @lib.Instruction::i32_const(@lib.I32::new(1)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::ref_null(func_heap),
+              ],
+              Some([
+                @lib.Instruction::i32_const(@lib.I32::new(2)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::ref_null(func_heap),
+              ]),
+            ),
+            @lib.Instruction::ref_test(true, func_heap),
+          ]),
+        ),
+      ]),
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("ref.test"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "(ref.null"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding folds embedded table.copy dest partial value if suffixes" {
   let optimized = code_folding_test_run(
     (
