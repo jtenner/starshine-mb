@@ -879,6 +879,7 @@ fn code_folding_parent_accepts_embedded_value_wrapper(
     | @ir.HotOp::GlobalSet
     | @ir.HotOp::Store
     | @ir.HotOp::Br
+    | @ir.HotOp::BrIf
     | @ir.HotOp::Return
     | @ir.HotOp::ReturnCall
     | @ir.HotOp::ReturnCallIndirect
@@ -3897,7 +3898,7 @@ fn code_folding_visit_region(
             ) {
             changed = true
           }
-        @ir.HotOp::Br => {
+        @ir.HotOp::Br | @ir.HotOp::BrIf => {
           let seen = [0]
           if code_folding_node_has_direct_control_child(func, current_id) &&
             code_folding_node_embedded_size_within_budget(
