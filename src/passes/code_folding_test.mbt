@@ -19,6 +19,15 @@ fn code_folding_test_run_module(mod_ : @lib.Module) -> @lib.Module {
 }
 
 ///|
+fn code_folding_test_repeated_i32_drops(count : Int) -> String {
+  let mut text = ""
+  for i = 0; i < count; i = i + 1 {
+    text = text + " (i32.const " + i.to_string() + ") (drop)"
+  }
+  text
+}
+
+///|
 fn code_folding_test_count_substring(text : String, needle : String) -> Int {
   if needle.length() == 0 {
     return 0
@@ -297,6 +306,83 @@ test "code-folding folds embedded drop partial value if suffixes" {
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "f32.const"),
     1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding skips oversized functions" {
+  let prefix = code_folding_test_repeated_i32_drops(520)
+  let optimized = code_folding_test_run(
+    "(module (func (param i32) " +
+    prefix +
+    " (local.get 0) (if (then (i32.const 1) (drop) (i32.const 9999) (drop)) (else (i32.const 2) (drop) (i32.const 9999) (drop)))))",
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(9999)"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding skips oversized if-arm suffix scan" {
+  let prefix = code_folding_test_repeated_i32_drops(130)
+  let optimized = code_folding_test_run(
+    "(module (func (param i32) (local.get 0) (if (then " +
+    prefix +
+    " (i32.const 9999) (drop)) (else " +
+    prefix +
+    " (i32.const 9999) (drop)))))",
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(9999)"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding skips oversized terminating-tail search" {
+  let prefix = code_folding_test_repeated_i32_drops(150)
+  let optimized = code_folding_test_run(
+    "(module (func $sink) (func (param i32) (result i32) " +
+    prefix +
+    " (if (local.get 0) (then (call $sink) (i32.const 7) (return))) (call $sink) (i32.const 7) (return)))",
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("br (Label"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding skips oversized embedded call value-if scan" {
+  let prefix = code_folding_test_repeated_i32_drops(260)
+  let optimized = code_folding_test_run(
+    "(module (func $sink (param i32)) (func (param i32) (call $sink (if (result i32) (local.get 0) (then " +
+    prefix +
+    " (i32.const 9999)) (else " +
+    prefix +
+    " (i32.const 9999))))))",
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(9999)"),
+    2,
     msg=pretty,
   )
 }

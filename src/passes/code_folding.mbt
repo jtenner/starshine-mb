@@ -680,6 +680,9 @@ fn code_folding_common_suffix_len(
 ) -> Int {
   let then_count = @ir.hot_region_root_count(func, then_ref)
   let else_count = @ir.hot_region_root_count(func, else_ref)
+  if then_count + else_count > code_folding_if_arm_suffix_scan_budget() {
+    return 0
+  }
   let limit = if then_count < else_count { then_count } else { else_count }
   let mut count = 0
   while count < limit {
@@ -1470,6 +1473,26 @@ fn code_folding_node_has_direct_control_child(
 ///|
 fn code_folding_embedded_control_visit_budget() -> Int {
   512
+}
+
+///|
+fn code_folding_terminating_tail_candidate_budget() -> Int {
+  16
+}
+
+///|
+fn code_folding_if_arm_suffix_scan_budget() -> Int {
+  256
+}
+
+///|
+fn code_folding_function_node_budget() -> Int {
+  1024
+}
+
+///|
+fn code_folding_terminating_tail_node_budget() -> Int {
+  256
 }
 
 ///|
@@ -3090,7 +3113,8 @@ fn code_folding_pick_terminating_tail_group(
       candidates.push(tail)
     }
   }
-  if candidates.length() < 2 {
+  if candidates.length() < 2 ||
+    candidates.length() > code_folding_terminating_tail_candidate_budget() {
     return []
   }
   let mut best : Array[CodeFoldingTerminatingTail] = []
@@ -3247,6 +3271,9 @@ fn code_folding_try_fold_terminating_tails(
   func : @ir.HotFunc,
   label_used : @bitset.BitSet,
 ) -> Bool {
+  if @ir.hot_node_count(func) > code_folding_terminating_tail_node_budget() {
+    return false
+  }
   let tails : Array[CodeFoldingTerminatingTail] = []
   if !code_folding_collect_terminating_tails(
       func,
@@ -3896,11 +3923,19 @@ fn code_folding_visit_region(
         | @ir.HotOp::ReturnCall
         | @ir.HotOp::ReturnCallIndirect
         | @ir.HotOp::ReturnCallRef =>
-          if code_folding_node_has_direct_control_child(func, current_id) &&
-            code_folding_visit_embedded_controls(
-              ctx, func, current_id, label_used,
-            ) {
-            changed = true
+          if code_folding_node_has_direct_control_child(func, current_id) {
+            let seen = [0]
+            if code_folding_node_embedded_size_within_budget(
+                func,
+                current_id,
+                seen,
+                code_folding_embedded_control_visit_budget(),
+              ) &&
+              code_folding_visit_embedded_controls(
+                ctx, func, current_id, label_used,
+              ) {
+              changed = true
+            }
           }
         @ir.HotOp::Br | @ir.HotOp::BrIf => {
           let seen = [0]
@@ -3944,6 +3979,9 @@ pub fn code_folding_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
+  if @ir.hot_node_count(func) > code_folding_function_node_budget() {
+    return HotPassResult::unchanged()
+  }
   let mut changed = false
   let mut again = true
   while again {
