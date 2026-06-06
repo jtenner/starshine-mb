@@ -1268,6 +1268,83 @@ test "code-folding folds embedded array.new_default length partial value if suff
 }
 
 ///|
+test "code-folding folds embedded array.new_elem offset partial value if suffixes" {
+  let array_type_idx = @lib.TypeIdx::new(0U)
+  let dummy_type_idx = @lib.TypeIdx::new(1U)
+  let func_type_idx = @lib.TypeIdx::new(2U)
+  let elem_idx = @lib.ElemIdx::new(0U)
+  let array_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(array_type_idx)),
+  )
+  let array_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::funcref()),
+          @lib.Mut::var_(),
+        ),
+      ),
+    ),
+  )
+  let dummy_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [array_ref]),
+    ),
+  )
+  let optimized = code_folding_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([array_type, dummy_type, func_type]))
+    .with_func_sec(@lib.FuncSec::new([dummy_type_idx, func_type_idx]))
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::passive(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::if_(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [
+                @lib.Instruction::i32_const(@lib.I32::new(1)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(@lib.I32::new(0)),
+              ],
+              Some([
+                @lib.Instruction::i32_const(@lib.I32::new(2)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(@lib.I32::new(0)),
+              ]),
+            ),
+            @lib.Instruction::i32_const(@lib.I32::new(1)),
+            @lib.Instruction::array_new_elem(array_type_idx, elem_idx),
+          ]),
+        ),
+      ]),
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("array.new_elem"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(0)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding folds embedded array.new_data offset partial value if suffixes" {
   let array_type_idx = @lib.TypeIdx::new(0U)
   let func_type_idx = @lib.TypeIdx::new(1U)
