@@ -1399,6 +1399,60 @@ fn run_hot_pipeline_raw_remove_unused_brs_unchecked_moderate_call_mesh_stats(
 }
 
 ///|
+fn run_hot_pipeline_raw_simd_parser_br_table_stack_hazard_stats(
+  locals_count : Int,
+  instr_count : Int,
+  shape : RawRemoveUnusedBrsShape,
+) -> Bool {
+  locals_count >= 20 &&
+  locals_count <= 40 &&
+  instr_count >= 8000 &&
+  instr_count <= 20000 &&
+  shape.call_count >= 100 &&
+  shape.call_count <= 220 &&
+  shape.local_set_count >= 600 &&
+  shape.local_set_count <= 850 &&
+  shape.local_tee_count >= 500 &&
+  shape.local_tee_count <= 760 &&
+  shape.if_count >= 600 &&
+  shape.if_count <= 850 &&
+  shape.return_count <= 4 &&
+  shape.select_count >= 40 &&
+  shape.select_count <= 120 &&
+  shape.br_if_count >= 150 &&
+  shape.br_if_count <= 280 &&
+  shape.block_count >= 100 &&
+  shape.block_count <= 240 &&
+  shape.value_block_count >= 35 &&
+  shape.value_block_count <= 90 &&
+  shape.void_block_count >= 60 &&
+  shape.void_block_count <= 150 &&
+  shape.loop_count >= 180 &&
+  shape.loop_count <= 340 &&
+  shape.br_count >= 320 &&
+  shape.br_count <= 520 &&
+  shape.br_table_count >= 1 &&
+  shape.br_table_count <= 4 &&
+  shape.drop_count >= 60 &&
+  shape.drop_count <= 180
+}
+
+///|
+fn run_hot_pipeline_raw_can_skip_simd_parser_br_table_stack_hazard(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let (_, _, _, _, _, instr_count) = run_hot_pipeline_instr_scan(instrs)
+  let shape = RawRemoveUnusedBrsShape::new()
+  run_hot_pipeline_raw_remove_unused_brs_scan_shape(instrs, shape)
+  run_hot_pipeline_raw_simd_parser_br_table_stack_hazard_stats(
+    locals.length(),
+    instr_count,
+    shape,
+  )
+}
+
+///|
 fn run_hot_pipeline_raw_remove_unused_brs_can_skip_unchecked_moderate_call_mesh(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -8983,6 +9037,16 @@ fn run_hot_pipeline_raw_precompute(
       trace_skip_raw: true,
     })
   }
+  if run_hot_pipeline_raw_can_skip_simd_parser_br_table_stack_hazard(
+      locals, body,
+    ) {
+    return Some({
+      reason: "simd-parser-br-table-stack-hazard-precompute-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   let module_ctx = if precompute_raw_func_has_global_get(original) {
     Some(run_hot_pipeline_require_module_ctx(mod_, module_state, options))
   } else {
@@ -9598,6 +9662,16 @@ fn run_hot_pipeline_raw_remove_unused_brs(
         trace_skip_raw: true,
       })
     }
+  }
+  if run_hot_pipeline_raw_can_skip_simd_parser_br_table_stack_hazard(
+      locals, instrs,
+    ) {
+    return Some({
+      reason: "simd-parser-br-table-stack-hazard-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
   }
   let (rewritten_instrs, rewrite_count, saw_br_table) = run_hot_pipeline_raw_remove_unused_brs_rewrite_decision_ladder_instrs(
     instrs,

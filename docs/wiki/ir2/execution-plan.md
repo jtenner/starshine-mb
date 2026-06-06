@@ -91,6 +91,11 @@ Boundary-only families, such as closed-world type/signature passes, ABI/lowering
 4. Add slot-level preset tests only after the Binaryen-adjacent neighborhood is source-confirmed.
 5. Keep one atomic slice per coherent dependency step.
 
+## Runtime Artifact Correctness Notes
+
+- 2026-06-06: the restored `examples/modules/medium.bench.incremental.simd.wasm` runtime smoke exposed a function-66 stack-order hazard that validation and direct inlining did not catch. `remove-unused-brs` and `precompute` now share a conservative raw shape gate for the SIMD parser br-table stack hazard; it skips that artifact-shaped function before HOT lowering can move stack-carried locals across side-effectful blocks. Covered by `src/passes/pass_manager_wbtest.mbt`; implemented in `src/passes/pass_manager.mbt`.
+- Preset widening remains blocked on runtime smoke evidence, not validation alone. The same restored artifact now passes direct `--remove-unused-brs`, direct `--precompute`, direct `--inlining-optimizing --remove-unused-module-elements`, and full `--optimize` under Node in the current local evidence, but direct compare-pass lanes still need branch-heavy GenValid mismatch triage before claiming refreshed standard signoff.
+
 ## Practical Rule
 
 - If a future pass needs a new IR rule or overlay contract, land the docs and contract first, then the pass slice.

@@ -357,6 +357,44 @@ test "raw remove-unused-brs unchecked moderate call mesh gate accepts artifact-l
 }
 
 ///|
+test "raw simd parser br-table stack hazard gate accepts artifact-like stats" {
+  let shape = RawRemoveUnusedBrsShape::new()
+  shape.call_count = 141
+  shape.local_set_count = 708
+  shape.local_tee_count = 643
+  shape.if_count = 710
+  shape.return_count = 1
+  shape.select_count = 73
+  shape.br_if_count = 212
+  shape.block_count = 146
+  shape.value_block_count = 56
+  shape.void_block_count = 90
+  shape.loop_count = 249
+  shape.br_count = 410
+  shape.br_table_count = 1
+  shape.drop_count = 98
+
+  assert_true(
+    run_hot_pipeline_raw_simd_parser_br_table_stack_hazard_stats(
+      25, 13414, shape,
+    ),
+  )
+  shape.br_table_count = 0
+  assert_false(
+    run_hot_pipeline_raw_simd_parser_br_table_stack_hazard_stats(
+      25, 13414, shape,
+    ),
+  )
+  shape.br_table_count = 1
+  shape.br_if_count = 12
+  assert_false(
+    run_hot_pipeline_raw_simd_parser_br_table_stack_hazard_stats(
+      25, 13414, shape,
+    ),
+  )
+}
+
+///|
 test "raw remove-unused-brs decision ladder skips empty value-if arms" {
   let instrs = [
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
