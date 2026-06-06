@@ -479,19 +479,87 @@ fn code_folding_terminal_tail_item_is_movable(
 }
 
 ///|
+fn code_folding_branch_target_is_internal_to_item(
+  func : @ir.HotFunc,
+  item_id : Int,
+  label_id : Int,
+) -> Bool {
+  if label_id < 0 || label_id >= func.labels.length() {
+    return false
+  }
+  code_folding_node_contains(func, item_id, @ir.hot_label_owner(func, label_id))
+}
+
+///|
+fn code_folding_branch_targets_are_internal_to_item(
+  func : @ir.HotFunc,
+  item_id : Int,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Br | @ir.HotOp::BrIf | @ir.HotOp::Delegate =>
+      if !code_folding_branch_target_is_internal_to_item(
+          func,
+          item_id,
+          node.imm0,
+        ) {
+        return false
+      }
+    @ir.HotOp::BrTable => {
+      if !code_folding_branch_target_is_internal_to_item(
+          func,
+          item_id,
+          @ir.hot_branch_table_default_target(func, node.imm0),
+        ) {
+        return false
+      }
+      for label_id in @ir.hot_branch_table_targets(func, node.imm0) {
+        if !code_folding_branch_target_is_internal_to_item(
+            func, item_id, label_id,
+          ) {
+          return false
+        }
+      }
+    }
+    @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail =>
+      if !code_folding_branch_target_is_internal_to_item(
+          func,
+          item_id,
+          node.imm0,
+        ) {
+        return false
+      }
+    @ir.HotOp::TryTable => return false
+    _ => ()
+  }
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    if !code_folding_branch_targets_are_internal_to_item(
+        func,
+        item_id,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn code_folding_terminal_tail_item_has_external_break_target(
   func : @ir.HotFunc,
-  tail : CodeFoldingTerminatingTail,
+  _tail : CodeFoldingTerminatingTail,
   node_id : Int,
 ) -> Bool {
   node_id >= 0 &&
   @ir.hot_node_is_live(func, node_id) &&
-  !code_folding_branch_targets_survive_hoist(
-    func,
-    node_id,
-    tail.region_ref.holder,
-    node_id,
-  )
+  !code_folding_branch_targets_are_internal_to_item(func, node_id, node_id)
 }
 
 ///|
@@ -3042,32 +3110,21 @@ fn code_folding_pick_terminating_tail_group_from_anchor(
     if !code_folding_terminal_tail_item_is_movable(
         func, anchor_tail, anchor, depth, label_used,
       ) {
-      if code_folding_terminal_tail_item_has_external_break_target(
-          func, anchor_tail, anchor,
-        ) {
-        return []
-      }
       break
     }
     let next : Array[CodeFoldingTerminatingTail] = []
-    let mut blocked_by_external_target = false
     for tail in current {
       let item = code_folding_terminating_tail_item_at_depth(func, tail, depth)
-      if code_folding_terminal_tail_item_has_external_break_target(
-          func, tail, item,
-        ) {
-        blocked_by_external_target = true
-      }
       if item >= 0 &&
+        !code_folding_terminal_tail_item_has_external_break_target(
+          func, tail, item,
+        ) &&
         code_folding_terminal_tail_item_is_movable(
           func, tail, item, depth, label_used,
         ) &&
         code_folding_nodes_equal(func, anchor, item, label_used) {
         next.push(tail)
       }
-    }
-    if blocked_by_external_target {
-      return []
     }
     if next.length() < 2 {
       break

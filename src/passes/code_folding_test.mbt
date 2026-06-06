@@ -4414,6 +4414,49 @@ test "code-folding shares non-root self-branch block return suffixes" {
 }
 
 ///|
+test "code-folding shares internal-target conditional branch return suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (block $left
+      #|          (local.get 0)
+      #|          (br_if $left)
+      #|          (i32.const 7)
+      #|          (drop))
+      #|        (return)))
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (block $right
+      #|          (local.get 0)
+      #|          (br_if $right)
+      #|          (i32.const 7)
+      #|          (drop))
+      #|        (return)))
+      #|    (i32.const 99)
+      #|    (drop)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_true(pretty.contains("i32.const I32(99)"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding shares non-root nested self-branch block return suffixes" {
   let optimized = code_folding_test_run(
     (
@@ -4665,6 +4708,51 @@ test "code-folding keeps crossed nested self-branch unreachable suffixes" {
   )
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "unreachable"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding keeps conditional return suffixes that branch to an ancestor target" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32)
+      #|    (block $exit
+      #|      (if (local.get 0)
+      #|        (then
+      #|          (block
+      #|            (local.get 0)
+      #|            (br_if $exit)
+      #|            (i32.const 7)
+      #|            (drop))
+      #|          (return)))
+      #|      (if (local.get 0)
+      #|        (then
+      #|          (block
+      #|            (local.get 0)
+      #|            (br_if $exit)
+      #|            (i32.const 7)
+      #|            (drop))
+      #|          (return))))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "br_if"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return"),
     2,
     msg=pretty,
   )
