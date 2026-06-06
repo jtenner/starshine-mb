@@ -824,11 +824,16 @@ fn code_folding_parent_accepts_embedded_value_wrapper(
     @ir.HotOp::Select
     | @ir.HotOp::Drop
     | @ir.HotOp::Call
+    | @ir.HotOp::Unary
     | @ir.HotOp::Binary
+    | @ir.HotOp::Compare
+    | @ir.HotOp::Convert
+    | @ir.HotOp::Load
     | @ir.HotOp::LocalSet
     | @ir.HotOp::LocalTee
     | @ir.HotOp::GlobalSet
     | @ir.HotOp::Store
+    | @ir.HotOp::Br
     | @ir.HotOp::Return => true
     _ => false
   }
@@ -3807,7 +3812,11 @@ fn code_folding_visit_region(
           }
         @ir.HotOp::Select
         | @ir.HotOp::Call
+        | @ir.HotOp::Unary
         | @ir.HotOp::Binary
+        | @ir.HotOp::Compare
+        | @ir.HotOp::Convert
+        | @ir.HotOp::Load
         | @ir.HotOp::LocalSet
         | @ir.HotOp::LocalTee
         | @ir.HotOp::GlobalSet
