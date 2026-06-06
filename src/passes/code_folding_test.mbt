@@ -1044,6 +1044,73 @@ test "code-folding folds embedded call_ref partial value if suffixes" {
 }
 
 ///|
+test "code-folding folds embedded return_call_ref partial value if suffixes" {
+  let callee_type_idx = @lib.TypeIdx::new(0U)
+  let caller_type_idx = @lib.TypeIdx::new(1U)
+  let callee_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let caller_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let callee_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(callee_type_idx)),
+  )
+  let optimized = code_folding_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([callee_type, caller_type]))
+    .with_func_sec(@lib.FuncSec::new([callee_type_idx, caller_type_idx]))
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32::new(9))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::if_(
+              @lib.BlockType::val_type(callee_ref),
+              [
+                @lib.Instruction::i32_const(@lib.I32::new(1)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+              ],
+              Some([
+                @lib.Instruction::i32_const(@lib.I32::new(2)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::return_call_ref(callee_type_idx),
+          ]),
+        ),
+      ]),
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("return_call_ref"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "ref.func"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding folds embedded memory.grow partial value if suffixes" {
   let optimized = code_folding_test_run(
     (
