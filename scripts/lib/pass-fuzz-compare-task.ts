@@ -994,7 +994,7 @@ function parenDelta(line: string): number {
 
 function isDropConstExpression(text: string): boolean {
   if (!text.trimStart().startsWith("(drop")) return false;
-  const unsafePattern = /\b(call|call_ref|return_call|local\.|global\.|load|store|memory\.|table\.|ref\.|struct\.|array\.|br|br_if|br_table|return|if|block|loop|try|try_table|throw|rethrow|delegate|select|unreachable|nop|promote|demote|reinterpret|wrap)\b/;
+  const unsafePattern = /\b(call|call_ref|return_call|local\.|global\.|load|store|memory\.|table\.|ref\.|struct\.|array\.|br|br_if|br_table|return|if|block|loop|try|try_table|throw|rethrow|delegate|select|unreachable|nop|promote|demote)\b/;
   if (unsafePattern.test(text)) return false;
   if (/\.(?:div_s|div_u|rem_s|rem_u)\b/.test(text) && /\b[if](?:32|64)\.const\s+(?:0|-1)\b/.test(text)) {
     return false;
@@ -1008,6 +1008,8 @@ function isDropConstExpression(text: string): boolean {
     "drop",
     "nan",
     "inf",
+    "e",
+    "E",
     "i32.const",
     "i64.const",
     "f32.const",
@@ -1095,6 +1097,11 @@ function isDropConstExpression(text: string): boolean {
     "i64.trunc_sat_f64_s",
     "i64.trunc_sat_f64_u",
     "i64.extend_i32_u",
+    "i32.wrap_i64",
+    "f32.reinterpret_i32",
+    "f64.reinterpret_i64",
+    "i32.reinterpret_f32",
+    "i64.reinterpret_f64",
     "i32.extend8_s",
     "i32.extend16_s",
     "i64.extend8_s",
@@ -1125,7 +1132,7 @@ function isDropConstExpression(text: string): boolean {
     "f64.max",
     "f64.copysign",
   ]);
-  const tokenPattern = /[A-Za-z_][A-Za-z0-9_.$-]*/g;
+  const tokenPattern = /(?<![0-9.])[A-Za-z_][A-Za-z0-9_.$-]*/g;
   for (const match of text.matchAll(tokenPattern)) {
     if (!allowedTokens.has(match[0])) {
       return false;

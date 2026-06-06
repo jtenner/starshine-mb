@@ -153,6 +153,62 @@ describe("pass-fuzz compare normalizers", () => {
       applyCompareNormalizersForTest(starshineWat, ["unreachable-control-debris"]),
     );
   });
+
+  test("drop-consts erases exponent float constants before local nop cleanup", () => {
+    const binaryenWat = `(module
+ (func $0 (result f64)
+  (nop)
+  (unreachable)
+ )
+)
+`;
+    const starshineWat = `(module
+ (func $0 (result f64)
+  (drop
+   (f32.const 1.5046326793694263e-36)
+  )
+  (unreachable)
+ )
+)
+`;
+
+    expect(applyCompareNormalizersForTest(binaryenWat, ["drop-consts", "local-cleanup-debris"])).toBe(
+      applyCompareNormalizersForTest(starshineWat, ["drop-consts", "local-cleanup-debris"]),
+    );
+  });
+
+  test("drop-consts erases pure reinterpret numeric trees", () => {
+    const binaryenWat = `(module
+ (func $0
+  (try_table
+   (nop)
+  )
+  (unreachable)
+ )
+)
+`;
+    const starshineWat = `(module
+ (func $0
+  (try_table
+   (drop
+    (f32.reinterpret_i32
+     (i32.extend16_s
+      (i32.trunc_sat_f32_s
+       (f32.const -1.9999998807907104)
+      )
+     )
+    )
+   )
+  )
+  (unreachable)
+ )
+)
+`;
+
+    expect(applyCompareNormalizersForTest(binaryenWat, ["drop-consts", "local-cleanup-debris"])).toBe(
+      applyCompareNormalizersForTest(starshineWat, ["drop-consts", "local-cleanup-debris"]),
+    );
+  });
 });
 
 describe("pass fuzz summary coverage report", () => {
