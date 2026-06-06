@@ -746,6 +746,41 @@ test "code-folding folds embedded table.copy dest partial value if suffixes" {
 }
 
 ///|
+test "code-folding folds embedded table.init dest partial value if suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (table 4 funcref)
+      #|  (elem func)
+      #|  (func (param i32)
+      #|    (table.init 0 0
+      #|      (if (result i32)
+      #|        (local.get 0)
+      #|        (then
+      #|          (i32.const 1)
+      #|          (drop)
+      #|          (i32.const 42))
+      #|        (else
+      #|          (i32.const 2)
+      #|          (drop)
+      #|          (i32.const 42)))
+      #|      (i32.const 0)
+      #|      (i32.const 1))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("table.init"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(42)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding folds embedded table.get partial value if suffixes" {
   let optimized = code_folding_test_run(
     (

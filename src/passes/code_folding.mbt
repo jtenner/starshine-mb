@@ -831,6 +831,7 @@ fn code_folding_parent_accepts_embedded_value_wrapper(
     | @ir.HotOp::TableGrow
     | @ir.HotOp::TableFill
     | @ir.HotOp::TableCopy
+    | @ir.HotOp::TableInit
     | @ir.HotOp::MemoryGrow
     | @ir.HotOp::MemoryCopy
     | @ir.HotOp::MemoryFill
@@ -3830,6 +3831,7 @@ fn code_folding_visit_region(
         | @ir.HotOp::TableGrow
         | @ir.HotOp::TableFill
         | @ir.HotOp::TableCopy
+        | @ir.HotOp::TableInit
         | @ir.HotOp::MemoryGrow
         | @ir.HotOp::MemoryCopy
         | @ir.HotOp::MemoryFill
