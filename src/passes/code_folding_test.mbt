@@ -1326,6 +1326,68 @@ test "code-folding folds embedded array.get index partial value if suffixes" {
 }
 
 ///|
+test "code-folding folds embedded array.get_s index partial value if suffixes" {
+  let array_type_idx = @lib.TypeIdx::new(0U)
+  let func_type_idx = @lib.TypeIdx::new(1U)
+  let array_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::pack_type(@lib.PackType::i8()),
+          @lib.Mut::var_(),
+        ),
+      ),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let optimized = code_folding_test_run_module(
+    @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([array_type, func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32::new(7)),
+            @lib.Instruction::i32_const(@lib.I32::new(1)),
+            @lib.Instruction::array_new(array_type_idx),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::if_(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              [
+                @lib.Instruction::i32_const(@lib.I32::new(1)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(@lib.I32::new(0)),
+              ],
+              Some([
+                @lib.Instruction::i32_const(@lib.I32::new(2)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(@lib.I32::new(0)),
+              ]),
+            ),
+            @lib.Instruction::array_get_s(array_type_idx),
+          ]),
+        ),
+      ]),
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("array.get_s"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(0)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding folds embedded array.set value partial value if suffixes" {
   let array_type_idx = @lib.TypeIdx::new(0U)
   let func_type_idx = @lib.TypeIdx::new(1U)
