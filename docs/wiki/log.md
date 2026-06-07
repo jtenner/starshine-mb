@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-07] passes/local-cse | LCSE nullable ref.cast_desc_eq descriptor-cast parity
+
+- Completed repeated nullable `ref.cast_desc_eq` LCSE behavior parity for the current two-operand custom-descriptor binary shape. Starshine now decodes/encodes the Binaryen-current opcodes, models nullable descriptor casts as defaultable two-operand reference-result roots, and keeps non-null descriptor casts plus unsupported/obsolete `ref.test_desc` roots deferred.
+- Validation/evidence: Binaryen spot-check `.tmp/lcse-descriptor-roots-inventory/ref-cast-desc-eq-repeat-binary.wasm` materialized repeated nullable `ref.cast_desc_eq` with a fresh `(ref null $a)` local; focused LCSE TDD failed before implementation (`173/174`) and then passed (`174/174`); `moon info` still hit the known Moon panic; `moon fmt`, `moon test src/passes` (`1919/1919`), full `moon test` (`5105/5105`), native `src/cmd` build, native descriptor-cast replay validation, and `bun validate readme-api-sync` passed. Direct `local-cse` compare at `.tmp/pass-fuzz-local-cse-ref-cast-desc-eq-10000` requested `10000` cases, compared `9972`, had `9972` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `28` command failures classified as `22` Binaryen empty-recursion-group, `1` Binaryen bad-section-size, and `5` Starshine/tool initializer-expression validation failures.
+- Descriptor allocation roots remain deferred because Binaryen preserves distinct `struct.new_desc` / `struct.new_default_desc` allocations in the repeated-root fixture; `ref.test_desc` remains blocked by the installed toolchain, which rejects the text operator and exposes no current binary operator.
+
 ## [2026-06-07] passes/local-cse | LCSE ref.get_desc descriptor-read parity
 
 - Completed repeated `ref.get_desc` LCSE behavior parity for locally representable descriptor-read roots with defaultable operands. Binaryen materializes the non-null descriptor result directly; Starshine uses operand-cache replay so it never appends a non-default descriptor result local.

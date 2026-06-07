@@ -3290,20 +3290,10 @@ fn decode_instruction_with_depth(
           }
         Ok((@lib.U32(35), i)) =>
           match Decode::decode(bytes, i) {
-            Ok((ht, i)) => Ok((Instruction::ref_test_desc(false, ht), i))
-            Err(t) => Err(t)
-          }
-        Ok((@lib.U32(36), i)) =>
-          match Decode::decode(bytes, i) {
-            Ok((ht, i)) => Ok((Instruction::ref_test_desc(true, ht), i))
-            Err(t) => Err(t)
-          }
-        Ok((@lib.U32(37), i)) =>
-          match Decode::decode(bytes, i) {
             Ok((ht, i)) => Ok((Instruction::ref_cast_desc_eq(false, ht), i))
             Err(t) => Err(t)
           }
-        Ok((@lib.U32(38), i)) =>
+        Ok((@lib.U32(36), i)) =>
           match Decode::decode(bytes, i) {
             Ok((ht, i)) => Ok((Instruction::ref_cast_desc_eq(true, ht), i))
             Err(t) => Err(t)

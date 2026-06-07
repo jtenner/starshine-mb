@@ -485,6 +485,7 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::ArrayGetU(_) => 171
     @lib.Instruction::ArrayLen => 172
     @lib.Instruction::RefGetDesc(_) => 174
+    @lib.Instruction::RefCastDescEq(_, _) => 175
     @lib.Instruction::F32ConvertI32S => 134
     @lib.Instruction::F32ConvertI32U => 135
     @lib.Instruction::F32ConvertI64S => 136
@@ -1158,7 +1159,9 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::StructGetS(_, _)
     | @lib.Instruction::StructGetU(_, _)
     | @lib.Instruction::ArrayLen => Some(1)
-    @lib.Instruction::StructSet(_, _) | @lib.Instruction::TableSet(_) => Some(2)
+    @lib.Instruction::RefCastDescEq(_, _)
+    | @lib.Instruction::StructSet(_, _)
+    | @lib.Instruction::TableSet(_) => Some(2)
     @lib.Instruction::TableGet(_) => Some(1)
     @lib.Instruction::TableGrow(_) => Some(2)
     @lib.Instruction::ArrayGet(_)
@@ -1403,7 +1406,8 @@ fn lcse_raw_result_type(
     @lib.Instruction::RefNull(ty) => Some(@lib.ValType::ref_type(ty))
     @lib.Instruction::RefAsNonNull =>
       lcse_ref_as_non_null_result_type(child_exprs)
-    @lib.Instruction::RefCast(nullable, heap_type) =>
+    @lib.Instruction::RefCast(nullable, heap_type)
+    | @lib.Instruction::RefCastDescEq(nullable, heap_type) =>
       Some(@lib.ValType::ref_type(@lib.RefType::new(nullable, heap_type)))
     @lib.Instruction::RefI31 => Some(@lib.ValType::i31ref())
     @lib.Instruction::RefGetDesc(type_idx) =>

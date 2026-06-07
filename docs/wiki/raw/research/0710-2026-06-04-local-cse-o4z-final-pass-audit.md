@@ -3060,3 +3060,59 @@ bun scripts/pass-fuzz-compare.ts \
 ```
 
 Results: focused LCSE TDD failed before implementation (`172/173`) and then passed (`173/173`); `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; `moon test src/passes` passed (`1918/1918`); full `moon test` passed (`5104/5104`); native `src/cmd` build passed with the pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; native spot replay validated with `wasm-tools validate --features all`; `bun validate readme-api-sync` passed. Direct compare requested `10000`, compared `9972`, reported `9972` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `28` command failures. Agent classification: no LCSE semantic mismatches; command failures were `22` Binaryen empty-recursion-group parser failures, `1` Binaryen bad-section-size parser failure, and `5` Starshine/tool failures on generated table initializer expressions that Starshine rejects as non-constant.
+
+## Nullable `ref.cast_desc_eq` descriptor-cast parity on 2026-06-07
+
+A follow-up descriptor-root slice reopened the descriptor test/cast deferral after `ref.get_desc`. The current installed `wasm-tools 1.251.0` and Binaryen text parsers still reject `ref.test_desc` text fixtures (`unknown operator or unexpected token` / `unrecognized instruction`), and their binaries expose no `ref.test_desc` operator string. The same toolchain does support the Binaryen-current two-operand `ref.cast_desc_eq` binary opcodes: subopcode `35` is non-null and subopcode `36` is nullable, both with operands `(inspected-ref, descriptor-ref)` and a described target heap immediate. Starshine's older binary mapping had decoded those subopcodes as `RefTestDesc` and encoded `RefCastDescEq` as obsolete subopcodes `37/38`, so the slice first corrected decode/encode for current `ref.cast_desc_eq` while keeping Starshine's legacy one-operand validator fallback for older locally built fixtures.
+
+Binaryen-positive inventory used `.tmp/lcse-descriptor-roots-inventory/ref-cast-desc-eq-repeat-binary.wasm`, constructed from the same reciprocal descriptor pair as the `ref.get_desc` slice and with two repeated nullable descriptor casts:
+
+```wat
+(module
+  (rec
+    (type $a (descriptor $b) (struct))
+    (type $b (describes $a) (struct))
+  )
+  (func (param anyref) (param (ref null $b))
+    (drop (ref.cast_desc_eq (ref null $a) (local.get 0) (local.get 1)))
+    (drop (ref.cast_desc_eq (ref null $a) (local.get 0) (local.get 1)))))
+```
+
+`wasm-tools validate --features all` accepted the binary, and `wasm-opt --all-features --local-cse -S` materialized the repeated cast with a fresh nullable `(ref null $a)` local. Starshine now treats `RefCastDescEq(true, _)` as a two-operand defaultable reference-result LCSE candidate and emits the behavior-equivalent native replay:
+
+```wat
+(local (ref null $a))
+local.get 0
+local.get 1
+ref.cast_desc_eq (ref null $a)
+local.tee 2
+drop
+local.get 2
+drop
+```
+
+Non-null `ref.cast_desc_eq` remains deferred because it would require either non-default result locals or a multi-operand replay cache; the current replay cache only handles single-child roots such as non-null `ref.cast`, `ref.as_non_null`, `ref.i31`, and `ref.get_desc`. Descriptor allocation roots remain deferred: a repeated `struct.new_desc` / `struct.new_default_desc` fixture validates, but Binaryen does not CSE the allocations and only canonicalizes empty `struct.new_desc` to `struct.new_default_desc`, preserving allocation identity. This slice therefore makes no allocation-CSE claim.
+
+Validation evidence:
+
+```sh
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+wasm-tools validate --features all .tmp/lcse-descriptor-roots-inventory/ref-cast-desc-eq-repeat.starshine.after.wasm
+bun validate readme-api-sync
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-ref-cast-desc-eq-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe \
+  --max-failures 2000 \
+  --keep-going-after-command-failures
+```
+
+Results: focused LCSE TDD failed before implementation (`173/174`) and then passed (`174/174`); `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`174/174`); `moon test src/passes` passed (`1919/1919`); full `moon test` passed (`5105/5105`); native `src/cmd` build passed with the pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; native descriptor-cast spot replay validated with `wasm-tools validate --features all`; `bun validate readme-api-sync` passed. Direct compare requested `10000`, compared `9972`, reported `9972` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `28` command failures. Agent classification: no LCSE semantic mismatches; command failures were `22` Binaryen empty-recursion-group parser failures, `1` Binaryen bad-section-size parser failure, and `5` Starshine/tool failures on generated table initializer expressions rejected as non-constant.

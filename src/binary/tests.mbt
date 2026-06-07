@@ -2795,8 +2795,6 @@ test "Float specific edge case?" {
 ///|
 test "Descriptor instruction roundtrip" {
   roundtrip(Instruction::ref_get_desc(TypeIdx::new(0)))
-  roundtrip(Instruction::ref_test_desc(true, HeapType::abs(AbsHeapType::eq())))
-  roundtrip(Instruction::ref_test_desc(false, HeapType::new(TypeIdx::new(0))))
   roundtrip(
     Instruction::ref_cast_desc_eq(true, HeapType::abs(AbsHeapType::struct_())),
   )

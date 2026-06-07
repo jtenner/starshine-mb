@@ -129,11 +129,12 @@ test "Typecheck RefTestDesc rejects invalid descriptor target type index" {
 
 ///|
 test "Typecheck RefCastDescEq rejects incompatible target hierarchy" {
-  let state = tcneg_make_state(empty_env(), [
+  let state = tcneg_make_state(tcneg_descriptor_struct_env(), [
     tcneg_non_nullable_ref(HeapType::abs(AbsHeapType::func())),
+    tcneg_nullable_ref(HeapType::new(TypeIdx::new(1U))),
   ])
   let result = Typecheck::typecheck(
-    Instruction::ref_cast_desc_eq(true, HeapType::abs(AbsHeapType::i31())),
+    Instruction::ref_cast_desc_eq(true, HeapType::new(TypeIdx::new(0U))),
     state,
   )
   tcneg_assert_err_contains(result, "target does not match operand type")
@@ -141,7 +142,7 @@ test "Typecheck RefCastDescEq rejects incompatible target hierarchy" {
 
 ///|
 test "Typecheck RefCastDescEq rejects invalid descriptor target type index" {
-  let state = tcneg_make_state(empty_env(), [tcneg_anyref()])
+  let state = tcneg_make_state(empty_env(), [tcneg_anyref(), tcneg_anyref()])
   let result = Typecheck::typecheck(
     Instruction::ref_cast_desc_eq(false, HeapType::new(TypeIdx::new(999))),
     state,

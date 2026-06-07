@@ -2973,7 +2973,7 @@ pub impl Encode for Instruction with fn encode(val, buf) {
     }
     RefCastDescEq(false, ht) => {
       buf.write_byte(0xFB)
-      if Encode::encode(@lib.U32(37), buf) is Err(t) {
+      if Encode::encode(@lib.U32(35), buf) is Err(t) {
         return Err(t)
       }
       if Encode::encode(ht, buf) is Err(t) {
@@ -2982,7 +2982,7 @@ pub impl Encode for Instruction with fn encode(val, buf) {
     }
     RefCastDescEq(true, ht) => {
       buf.write_byte(0xFB)
-      if Encode::encode(@lib.U32(38), buf) is Err(t) {
+      if Encode::encode(@lib.U32(36), buf) is Err(t) {
         return Err(t)
       }
       if Encode::encode(ht, buf) is Err(t) {

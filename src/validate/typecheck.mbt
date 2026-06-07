@@ -2020,6 +2020,29 @@ fn typecheck_ref_test_desc(
 }
 
 ///|
+fn typecheck_ref_cast_desc_eq_descriptor_matches(
+  descriptor : RefType,
+  target : RefType,
+  env : Env,
+) -> Bool {
+  match env.resolve_heaptype_subtype(descriptor.get_heap_type()) {
+    Some(st) =>
+      match st.describes_type() {
+        Some(described_idx) => {
+          let described = RefType::new(
+            target.is_nullable(),
+            HeapType::new(described_idx),
+            exact=descriptor.is_exact(),
+          )
+          Match::matches(described, target, env)
+        }
+        None => false
+      }
+    None => false
+  }
+}
+
+///|
 fn typecheck_ref_cast_desc_eq(
   st : TcState,
   nullable : Bool,
@@ -2029,18 +2052,37 @@ fn typecheck_ref_cast_desc_eq(
     Ok(t) => t
     Err(e) => return Err(e)
   }
-  let (st1, rt_in_opt) = match st.pop_ref_or_bot() {
+  let (st1, first_opt) = match st.pop_ref_or_bot() {
     Err(e) => return Err(e)
     Ok(x) => x
   }
-  match rt_in_opt {
-    None => ()
-    Some(rt_in) =>
-      if !descriptor_compatible(rt, rt_in, st.env) {
-        return Err("ref.cast_desc_eq target does not match operand type")
+  match first_opt {
+    None => Ok(st1.push1(ValType::ref_type(rt)))
+    Some(first) =>
+      if typecheck_ref_cast_desc_eq_descriptor_matches(first, rt, st.env) {
+        let (st2, rt_in_opt) = match st1.pop_ref_or_bot() {
+          Err(e) => return Err(e)
+          Ok(x) => x
+        }
+        match rt_in_opt {
+          None => ()
+          Some(rt_in) =>
+            if !descriptor_compatible(rt, rt_in, st.env) {
+              return Err("ref.cast_desc_eq target does not match operand type")
+            }
+        }
+        Ok(st2.push1(ValType::ref_type(rt)))
+      } else {
+        // Compatibility with Starshine's older one-operand descriptor-cast
+        // surface. Current custom-descriptor binaries put the descriptor
+        // operand on top of the inspected reference; locally built legacy
+        // fixtures still model only the inspected reference.
+        if !descriptor_compatible(rt, first, st.env) {
+          return Err("ref.cast_desc_eq target does not match operand type")
+        }
+        Ok(st1.push1(ValType::ref_type(rt)))
       }
   }
-  Ok(st1.push1(ValType::ref_type(rt)))
 }
 
 ///|
@@ -6890,14 +6932,25 @@ test "Typecheck RefTestDesc stack effect" {
 
 ///|
 test "Typecheck RefCastDescEq stack effect" {
-  let env = empty_env()
-  let state = make_state(env, [anyref_type()])
+  let described = SubType::comp_type(
+    CompType::struct_([]),
+    metadata=TypeMetadata::new(descriptor=Some(TypeIdx::new(1U))),
+  )
+  let descriptor = SubType::comp_type(
+    CompType::struct_([]),
+    metadata=TypeMetadata::new(describes=Some(TypeIdx::new(0U))),
+  )
+  let env = Env::{ ..empty_env(), global_types: [described, descriptor] }
+  let state = make_state(env, [
+    anyref_type(),
+    ValType::ref_null(HeapType::new(TypeIdx::new(1U))),
+  ])
   let result = Typecheck::typecheck(
-    Instruction::ref_cast_desc_eq(true, HeapType::abs(AbsHeapType::eq())),
+    Instruction::ref_cast_desc_eq(true, HeapType::new(TypeIdx::new(0U))),
     state,
   )
   let final_state = assert_ok(result)
-  @debug.assert_eq(final_state.stack.length(), 1)
+  assert_stack(final_state, [ValType::ref_null(HeapType::new(TypeIdx::new(0U)))])
 }
 
 ///|
