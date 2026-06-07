@@ -3480,7 +3480,10 @@ fn gen_valid_const_expr_observe(
       StructNew(_)
       | StructNewDefault(_)
       | StructNewDesc(_)
-      | StructNewDefaultDesc(_) =>
+      | StructNewDefaultDesc(_)
+      | ArrayNew(_)
+      | ArrayNewDefault(_)
+      | ArrayNewFixed(_, _) =>
         gen_valid_const_expr_add_observed_op(
           target_ops,
           GcConstructorConstExprOp,
@@ -3837,6 +3840,7 @@ fn gen_valid_gc_type_plan_empty() -> GenValidGcTypePlan {
   {
     struct_type_idxs: [],
     array_type_idxs: [],
+    array_const_expr_shapes: [],
     concrete_ref_types: [],
     exact_ref_types: [],
     bulk_data_array_idx: None,
@@ -3845,6 +3849,7 @@ fn gen_valid_gc_type_plan_empty() -> GenValidGcTypePlan {
     packed_struct_idx: None,
     packed_i8_array_idx: None,
     packed_i16_array_idx: None,
+    v128_array_idx: None,
     descriptor_struct_idx: None,
     descriptor_type_idx: None,
     string_wtf16_array_idx: None,
@@ -3861,6 +3866,19 @@ fn gen_valid_gc_type_field_ref(type_idx : TypeIdx) -> ValType {
 ///|
 fn gen_valid_gc_type_exact_ref(type_idx : TypeIdx) -> ValType {
   ValType::ref_type(RefType::new(true, HeapType::new(type_idx), exact=true))
+}
+
+///|
+fn gen_valid_gc_type_register_array_const_expr_shape(
+  plan : GenValidGcTypePlan,
+  type_idx : TypeIdx,
+  elem_vt : ValType,
+) -> Unit {
+  plan.array_const_expr_shapes.push({
+    type_idx,
+    elem_vt,
+    has_default: has_default(elem_vt),
+  })
 }
 
 ///|
@@ -3905,6 +3923,9 @@ fn gen_valid_gc_type_defs(
       ctx.config.mode == CoverageForced ||
       ctx.random_int_from(TypeStream, 3) == 0
     )
+  let want_v128_array = ctx.config.features.allow_v128 &&
+    ctx.config.mode == CoverageForced &&
+    remaining_type_budget - defs.length() > 0
   let want_descriptor_group = remaining_type_budget - defs.length() > 0 &&
     (
       ctx.config.mode == CoverageForced ||
@@ -4023,6 +4044,11 @@ fn gen_valid_gc_type_defs(
       ),
     )
     plan.array_type_idxs.push(array_idx)
+    gen_valid_gc_type_register_array_const_expr_shape(
+      plan,
+      array_idx,
+      ValType::i32(),
+    )
     plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(array_idx))
     plan = { ..plan, bulk_data_array_idx: Some(array_idx) }
     type_idx_cursor += 1
@@ -4040,6 +4066,12 @@ fn gen_valid_gc_type_defs(
           ),
         ),
       ),
+    )
+    plan.array_type_idxs.push(packed_i8_array_idx)
+    gen_valid_gc_type_register_array_const_expr_shape(
+      plan,
+      packed_i8_array_idx,
+      ValType::i32(),
     )
     plan = { ..plan, packed_i8_array_idx: Some(packed_i8_array_idx) }
     plan.concrete_ref_types.push(
@@ -4061,10 +4093,38 @@ fn gen_valid_gc_type_defs(
         ),
       ),
     )
+    plan.array_type_idxs.push(packed_i16_array_idx)
+    gen_valid_gc_type_register_array_const_expr_shape(
+      plan,
+      packed_i16_array_idx,
+      ValType::i32(),
+    )
     plan = { ..plan, packed_i16_array_idx: Some(packed_i16_array_idx) }
     plan.concrete_ref_types.push(
       gen_valid_gc_type_field_ref(packed_i16_array_idx),
     )
+    type_idx_cursor += 1
+  }
+
+  if want_v128_array && defs.length() < remaining_type_budget {
+    let v128_array_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
+    defs.push(
+      RecType::new(
+        SubType::comp_type(
+          CompType::array(
+            FieldType::new(StorageType::val_type(ValType::v128()), Var),
+          ),
+        ),
+      ),
+    )
+    plan.array_type_idxs.push(v128_array_idx)
+    gen_valid_gc_type_register_array_const_expr_shape(
+      plan,
+      v128_array_idx,
+      ValType::v128(),
+    )
+    plan = { ..plan, v128_array_idx: Some(v128_array_idx) }
+    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(v128_array_idx))
     type_idx_cursor += 1
   }
 
@@ -4217,6 +4277,11 @@ fn gen_valid_gc_type_defs(
       ),
     )
     plan.array_type_idxs.push(elem_array_idx)
+    gen_valid_gc_type_register_array_const_expr_shape(
+      plan,
+      elem_array_idx,
+      ValType::ref_type(elem_ref_type),
+    )
     plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(elem_array_idx))
     plan = {
       ..plan,
@@ -4241,6 +4306,11 @@ fn gen_valid_gc_type_defs(
     )
     plan = { ..plan, string_wtf16_array_idx: Some(string_wtf16_array_idx) }
     plan.array_type_idxs.push(string_wtf16_array_idx)
+    gen_valid_gc_type_register_array_const_expr_shape(
+      plan,
+      string_wtf16_array_idx,
+      ValType::i32(),
+    )
     plan.concrete_ref_types.push(
       gen_valid_gc_type_field_ref(string_wtf16_array_idx),
     )
@@ -4262,6 +4332,11 @@ fn gen_valid_gc_type_defs(
     )
     plan = { ..plan, string_utf8_array_idx: Some(string_utf8_array_idx) }
     plan.array_type_idxs.push(string_utf8_array_idx)
+    gen_valid_gc_type_register_array_const_expr_shape(
+      plan,
+      string_utf8_array_idx,
+      ValType::i32(),
+    )
     plan.concrete_ref_types.push(
       gen_valid_gc_type_field_ref(string_utf8_array_idx),
     )
@@ -4347,6 +4422,86 @@ fn gen_valid_contains_type_idx(
 }
 
 ///|
+fn gen_valid_array_const_expr_shape_for_type_idx(
+  gc_type_plan : GenValidGcTypePlan,
+  target : TypeIdx,
+) -> GenValidArrayConstExprShape? {
+  for shape in gc_type_plan.array_const_expr_shapes {
+    if shape.type_idx == target {
+      return Some(shape)
+    }
+  }
+  None
+}
+
+///|
+fn gen_valid_array_const_expr_shape_for_ref_type(
+  gc_type_plan : GenValidGcTypePlan,
+  rt : RefType,
+) -> GenValidArrayConstExprShape? {
+  match rt {
+    HeapTypeRefType(_, _, HeapType(type_idx)) =>
+      gen_valid_array_const_expr_shape_for_type_idx(gc_type_plan, type_idx)
+    _ => None
+  }
+}
+
+///|
+fn gen_valid_first_array_const_expr_shape(
+  gc_type_plan : GenValidGcTypePlan,
+) -> GenValidArrayConstExprShape? {
+  if gc_type_plan.array_const_expr_shapes.is_empty() {
+    None
+  } else {
+    Some(gc_type_plan.array_const_expr_shapes[0])
+  }
+}
+
+///|
+fn gen_valid_v128_array_const_expr_shape(
+  gc_type_plan : GenValidGcTypePlan,
+) -> GenValidArrayConstExprShape? {
+  match gc_type_plan.v128_array_idx {
+    Some(type_idx) =>
+      gen_valid_array_const_expr_shape_for_type_idx(gc_type_plan, type_idx)
+    None => None
+  }
+}
+
+///|
+fn gen_valid_array_ref_type_from_shape(
+  shape : GenValidArrayConstExprShape,
+) -> RefType {
+  RefType::new(true, HeapType::new(shape.type_idx))
+}
+
+///|
+fn gen_valid_array_const_expr_from_shape(
+  ctx : GenValidContext,
+  label : GenValidRandomStreamLabel,
+  shape : GenValidArrayConstExprShape,
+  kind : GenValidArrayConstExprKind,
+) -> Expr {
+  match kind {
+    ArrayNewConstExpr =>
+      Expr::new([
+        gen_const_instr_from(ctx, label, shape.elem_vt),
+        Instruction::i32_const(I32(1)),
+        Instruction::array_new(shape.type_idx),
+      ])
+    ArrayNewDefaultConstExpr if shape.has_default =>
+      Expr::new([
+        Instruction::i32_const(I32(1)),
+        Instruction::array_new_default(shape.type_idx),
+      ])
+    ArrayNewDefaultConstExpr =>
+      Expr::new([Instruction::array_new_fixed(shape.type_idx, U32::new(0U))])
+    ArrayNewFixedConstExpr =>
+      Expr::new([Instruction::array_new_fixed(shape.type_idx, U32::new(0U))])
+  }
+}
+
+///|
 fn gen_valid_callable_by_idx(
   funcs : Array[GenValidFuncSig],
   func_idx : FuncIdx,
@@ -4377,9 +4532,24 @@ priv struct GenValidImportPlan {
 }
 
 ///|
+priv enum GenValidArrayConstExprKind {
+  ArrayNewConstExpr
+  ArrayNewDefaultConstExpr
+  ArrayNewFixedConstExpr
+} derive(Eq, Debug)
+
+///|
+priv struct GenValidArrayConstExprShape {
+  type_idx : TypeIdx
+  elem_vt : ValType
+  has_default : Bool
+}
+
+///|
 priv struct GenValidGcTypePlan {
   struct_type_idxs : Array[TypeIdx]
   array_type_idxs : Array[TypeIdx]
+  array_const_expr_shapes : Array[GenValidArrayConstExprShape]
   concrete_ref_types : Array[ValType]
   exact_ref_types : Array[ValType]
   bulk_data_array_idx : TypeIdx?
@@ -4388,6 +4558,7 @@ priv struct GenValidGcTypePlan {
   packed_struct_idx : TypeIdx?
   packed_i8_array_idx : TypeIdx?
   packed_i16_array_idx : TypeIdx?
+  v128_array_idx : TypeIdx?
   descriptor_struct_idx : TypeIdx?
   descriptor_type_idx : TypeIdx?
   string_wtf16_array_idx : TypeIdx?
@@ -4808,11 +4979,40 @@ fn gen_valid_elem_ref_expr(
   ctx : GenValidContext,
   rt : RefType,
   func_idx? : FuncIdx = FuncIdx::new(0U),
+  gc_type_plan? : GenValidGcTypePlan = gen_valid_gc_type_plan_empty(),
+  array_kind? : GenValidArrayConstExprKind? = None,
 ) -> Expr {
   let vt = ValType::ref_type(rt)
   if vt == ValType::funcref() {
     gen_valid_funcref_expr(ctx, func_idx)
   } else {
+    if ctx.config.features.allow_const_expr_variants {
+      match gen_valid_array_const_expr_shape_for_ref_type(gc_type_plan, rt) {
+        Some(shape) => {
+          let kind = match array_kind {
+            Some(k) => k
+            None =>
+              if ctx.config.mode == CoverageForced {
+                ArrayNewFixedConstExpr
+              } else if shape.has_default &&
+                ctx.random_int_from(ElemStream, 3) == 0 {
+                ArrayNewDefaultConstExpr
+              } else if ctx.random_bool_from(ElemStream) {
+                ArrayNewConstExpr
+              } else {
+                ArrayNewFixedConstExpr
+              }
+          }
+          return gen_valid_array_const_expr_from_shape(
+            ctx,
+            ElemStream,
+            shape,
+            kind,
+          )
+        }
+        None => ()
+      }
+    }
     gen_valid_const_expr_from_context(
       ctx,
       ElemStream,
@@ -10113,7 +10313,25 @@ fn gen_valid_table_ref_type(
     RefType::new(true, HeapType::abs(AbsHeapType::i31()))
   } else if ctx.config.features.allow_table_limit_variants &&
     ctx.config.mode == CoverageForced &&
-    total_table_idx >= 4 {
+    total_table_idx == 4 {
+    RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  } else if ctx.config.features.allow_table_limit_variants &&
+    ctx.config.mode == CoverageForced &&
+    total_table_idx == 5 {
+    match gen_valid_first_array_const_expr_shape(gc_type_plan) {
+      Some(shape) => gen_valid_array_ref_type_from_shape(shape)
+      None => RefType::new(true, HeapType::abs(AbsHeapType::func()))
+    }
+  } else if ctx.config.features.allow_table_limit_variants &&
+    ctx.config.mode == CoverageForced &&
+    total_table_idx == 6 {
+    match gen_valid_v128_array_const_expr_shape(gc_type_plan) {
+      Some(shape) => gen_valid_array_ref_type_from_shape(shape)
+      None => RefType::new(true, HeapType::abs(AbsHeapType::func()))
+    }
+  } else if ctx.config.features.allow_table_limit_variants &&
+    ctx.config.mode == CoverageForced &&
+    total_table_idx > 6 {
     RefType::new(true, HeapType::abs(AbsHeapType::func()))
   } else if ctx.config.features.allow_table_limit_variants &&
     ctx.random_int_from(TableStream, 6) == 0 {
@@ -10151,11 +10369,44 @@ fn gen_valid_table_type(
 ///|
 fn gen_valid_table_init_expr(
   ctx : GenValidContext,
-  _total_table_idx : Int,
+  total_table_idx : Int,
   rt : RefType,
   func_idx : FuncIdx,
   imported_global_types : Array[GlobalType],
+  gc_type_plan : GenValidGcTypePlan,
 ) -> Expr? {
+  if ctx.config.features.allow_const_expr_variants &&
+    ctx.config.mode == CoverageForced &&
+    total_table_idx == 5 {
+    match gen_valid_array_const_expr_shape_for_ref_type(gc_type_plan, rt) {
+      Some(shape) =>
+        return Some(
+          gen_valid_array_const_expr_from_shape(
+            ctx,
+            TableStream,
+            shape,
+            ArrayNewFixedConstExpr,
+          ),
+        )
+      None => ()
+    }
+  }
+  if ctx.config.features.allow_const_expr_variants &&
+    ctx.config.mode == CoverageForced &&
+    total_table_idx == 6 {
+    match gen_valid_v128_array_const_expr_shape(gc_type_plan) {
+      Some(shape) =>
+        return Some(
+          gen_valid_array_const_expr_from_shape(
+            ctx,
+            TableStream,
+            shape,
+            ArrayNewFixedConstExpr,
+          ),
+        )
+      None => ()
+    }
+  }
   if ctx.config.features.allow_const_expr_variants &&
     (
       ctx.config.mode == CoverageForced ||
@@ -10170,12 +10421,28 @@ fn gen_valid_table_init_expr(
       None => ()
     }
   }
+  if ctx.config.features.allow_const_expr_variants &&
+    ctx.config.mode != CoverageForced &&
+    ctx.random_int_from(TableStream, 4) == 0 {
+    match gen_valid_array_const_expr_shape_for_ref_type(gc_type_plan, rt) {
+      Some(shape) =>
+        return Some(
+          gen_valid_array_const_expr_from_shape(
+            ctx,
+            TableStream,
+            shape,
+            ArrayNewFixedConstExpr,
+          ),
+        )
+      None => ()
+    }
+  }
   if ctx.config.features.allow_table_limit_variants &&
     ctx.config.mode == CoverageForced {
-    Some(gen_valid_elem_ref_expr(ctx, rt, func_idx~))
+    Some(gen_valid_elem_ref_expr(ctx, rt, func_idx~, gc_type_plan~))
   } else if ctx.config.features.allow_table_limit_variants &&
     ctx.random_int_from(TableStream, 5) == 0 {
-    Some(gen_valid_elem_ref_expr(ctx, rt, func_idx~))
+    Some(gen_valid_elem_ref_expr(ctx, rt, func_idx~, gc_type_plan~))
   } else {
     None
   }
@@ -10394,6 +10661,15 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
     config.max_tables,
     config.section_bias.tables_percent,
     if config.features.allow_table_limit_variants &&
+      config.features.allow_ref_types &&
+      config.features.allow_const_expr_variants &&
+      config.features.allow_v128 {
+      6
+    } else if config.features.allow_table_limit_variants &&
+      config.features.allow_ref_types &&
+      config.features.allow_const_expr_variants {
+      5
+    } else if config.features.allow_table_limit_variants &&
       config.features.allow_ref_types {
       4
     } else {
@@ -10446,7 +10722,11 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       config.features.allow_elems,
       config.max_elems,
       config.section_bias.elems_percent,
-      if ctx.config.mode == CoverageForced {
+      if ctx.config.mode == CoverageForced &&
+        config.features.allow_const_expr_variants &&
+        config.features.allow_ref_types {
+        6
+      } else if ctx.config.mode == CoverageForced {
         4
       } else {
         3
@@ -10908,6 +11188,7 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
         table_type,
         gen_valid_table_init_expr(
           ctx, total_table_idx, table_ref_type, first_defined_func_idx, imported_global_types,
+          gc_type_plan,
         ),
       ),
     )
@@ -11065,7 +11346,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
                     table_idx,
                     gen_valid_active_i32_boundary_offset(),
                   ),
-                  ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
+                  ElemKind::typed_exprs(rt, [
+                    gen_valid_elem_ref_expr(ctx, rt, gc_type_plan~),
+                  ]),
                 )
               _ =>
                 match gc_type_plan.bulk_elem_ref_type {
@@ -11073,14 +11356,52 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
                     Elem::new(
                       ElemMode::passive(),
                       ElemKind::typed_exprs(rt, [
-                        gen_valid_elem_ref_expr(ctx, rt),
-                        gen_valid_elem_ref_expr(ctx, rt),
+                        gen_valid_elem_ref_expr(ctx, rt, gc_type_plan~),
+                        gen_valid_elem_ref_expr(ctx, rt, gc_type_plan~),
                       ]),
                     )
                   None =>
                     Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
                 }
             }
+        }
+      } else if ctx.config.mode == CoverageForced && i == 4 {
+        match gen_valid_first_array_const_expr_shape(gc_type_plan) {
+          Some(shape) =>
+            Elem::new(
+              ElemMode::passive(),
+              ElemKind::typed_exprs(
+                gen_valid_array_ref_type_from_shape(shape),
+                [
+                  gen_valid_array_const_expr_from_shape(
+                    ctx,
+                    ElemStream,
+                    shape,
+                    ArrayNewDefaultConstExpr,
+                  ),
+                ],
+              ),
+            )
+          None => Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
+        }
+      } else if ctx.config.mode == CoverageForced && i == 5 {
+        match gen_valid_first_array_const_expr_shape(gc_type_plan) {
+          Some(shape) =>
+            Elem::new(
+              ElemMode::passive(),
+              ElemKind::typed_exprs(
+                gen_valid_array_ref_type_from_shape(shape),
+                [
+                  gen_valid_array_const_expr_from_shape(
+                    ctx,
+                    ElemStream,
+                    shape,
+                    ArrayNewConstExpr,
+                  ),
+                ],
+              ),
+            )
+          None => Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
         }
       } else if (match gc_type_plan.bulk_elem_ref_type {
           Some(_) => ctx.random_int_from(ElemStream, 4) == 0
@@ -11090,7 +11411,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
           Some(rt) =>
             Elem::new(
               ElemMode::passive(),
-              ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
+              ElemKind::typed_exprs(rt, [
+                gen_valid_elem_ref_expr(ctx, rt, gc_type_plan~),
+              ]),
             )
           None => Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
         }
@@ -11111,7 +11434,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
                   global_idx=const_i32_global_idx,
                 ),
               ),
-              ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
+              ElemKind::typed_exprs(rt, [
+                gen_valid_elem_ref_expr(ctx, rt, gc_type_plan~),
+              ]),
             )
           _ => Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
         }
@@ -11162,7 +11487,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
                       global_idx=const_i32_global_idx,
                     ),
                   ),
-                  ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
+                  ElemKind::typed_exprs(rt, [
+                    gen_valid_elem_ref_expr(ctx, rt, gc_type_plan~),
+                  ]),
                 )
               _ => Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
             }
@@ -11171,7 +11498,9 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
               Some(rt) if ValType::ref_type(rt) != ValType::funcref() =>
                 Elem::new(
                   ElemMode::passive(),
-                  ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
+                  ElemKind::typed_exprs(rt, [
+                    gen_valid_elem_ref_expr(ctx, rt, gc_type_plan~),
+                  ]),
                 )
               _ =>
                 Elem::new(
@@ -13429,7 +13758,10 @@ fn gen_valid_const_expr_has_variant(expr : Expr) -> Bool {
       | StructNew(_)
       | StructNewDefault(_)
       | StructNewDesc(_)
-      | StructNewDefaultDesc(_) => return true
+      | StructNewDefaultDesc(_)
+      | ArrayNew(_)
+      | ArrayNewDefault(_)
+      | ArrayNewFixed(_, _) => return true
       _ => ()
     }
   }

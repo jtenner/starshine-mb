@@ -1086,6 +1086,235 @@ test "gen-valid coverage-forced globals include descriptor-bearing initializer" 
 }
 
 ///|
+test "gen-valid observed const-expression report treats array constructors as GC constructors" {
+  let array_idx = TypeIdx::new(0U)
+  let mod_ = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(
+          SubType::comp_type(
+            CompType::array(
+              FieldType::new(StorageType::val_type(ValType::i32()), Var),
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      TableSec::new([
+        Table::new(
+          TableType::new(
+            RefType::new(true, HeapType::new(array_idx)),
+            Limits::i32(1U, Some(1U)),
+          ),
+          Some(
+            Expr::new([Instruction::array_new_fixed(array_idx, U32::new(0U))]),
+          ),
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      ElemSec::new([
+        Elem::new(
+          ElemMode::passive(),
+          ElemKind::typed_exprs(RefType::new(true, HeapType::new(array_idx)), [
+            Expr::new([
+              Instruction::i32_const(I32(1)),
+              Instruction::array_new_default(array_idx),
+            ]),
+            Expr::new([
+              Instruction::i32_const(I32(7)),
+              Instruction::i32_const(I32(1)),
+              Instruction::array_new(array_idx),
+            ]),
+          ]),
+        ),
+      ]),
+    )
+  let report = gen_valid_const_expr_observed_op_matrix(mod_)
+  assert_true(
+    report[3].observed_ops.contains(GcConstructorConstExprOp),
+    msg="element payload array constructors should count as GC constructor const-expression coverage",
+  )
+  assert_true(
+    report[4].observed_ops.contains(GcConstructorConstExprOp),
+    msg="table initializer array constructors should count as GC constructor const-expression coverage",
+  )
+}
+
+///|
+fn gen_valid_test_has_table_initializer_array_new_fixed(mod_ : Module) -> Bool {
+  match mod_.table_sec {
+    Some(TableSec(tables)) => {
+      for table in tables {
+        let Table(_, init_opt) = table
+        match init_opt {
+          Some(Expr([ArrayNewFixed(_, _)])) => return true
+          _ => ()
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_has_elem_payload_array_new_default(mod_ : Module) -> Bool {
+  match mod_.elem_sec {
+    Some(ElemSec(elems)) => {
+      for elem in elems {
+        let Elem(_, kind) = elem
+        match kind {
+          TypedExprsElemKind(_, exprs) =>
+            for expr in exprs {
+              match expr {
+                Expr([_, ArrayNewDefault(_)]) => return true
+                _ => ()
+              }
+            }
+          _ => ()
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_has_elem_payload_array_new(mod_ : Module) -> Bool {
+  match mod_.elem_sec {
+    Some(ElemSec(elems)) => {
+      for elem in elems {
+        let Elem(_, kind) = elem
+        match kind {
+          TypedExprsElemKind(_, exprs) =>
+            for expr in exprs {
+              match expr {
+                Expr([_, _, ArrayNew(_)]) => return true
+                _ => ()
+              }
+            }
+          _ => ()
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_type_idx_is_v128_array(
+  mod_ : Module,
+  type_idx : TypeIdx,
+) -> Bool {
+  let target = match type_idx {
+    TypeIdx(idx) | RecIdx(idx) => idx.reinterpret_as_int()
+  }
+  match mod_.type_sec {
+    Some(TypeSec(types)) => {
+      let mut cursor = 0
+      for rec_type in types {
+        match rec_type {
+          SingleRecType(subtype) => {
+            if cursor == target && gen_valid_test_subtype_is_v128_array(subtype) {
+              return true
+            }
+            cursor += 1
+          }
+          GroupRecType(group) =>
+            for subtype in group {
+              if cursor == target &&
+                gen_valid_test_subtype_is_v128_array(subtype) {
+                return true
+              }
+              cursor += 1
+            }
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_test_subtype_is_v128_array(subtype : SubType) -> Bool {
+  match subtype {
+    SubType(
+      _,
+      _,
+      _,
+      ArrayCompType(FieldType(ValTypeStorageType(VecTypeValType), _))
+    )
+    | CompTypeSubType(
+      _,
+      ArrayCompType(FieldType(ValTypeStorageType(VecTypeValType), _))
+    ) => true
+    _ => false
+  }
+}
+
+///|
+fn gen_valid_test_has_v128_table_initializer_array_new_fixed(
+  mod_ : Module,
+) -> Bool {
+  match mod_.table_sec {
+    Some(TableSec(tables)) => {
+      for table in tables {
+        let Table(_, init_opt) = table
+        match init_opt {
+          Some(Expr([ArrayNewFixed(type_idx, U32(0U))])) if gen_valid_test_type_idx_is_v128_array(
+              mod_, type_idx,
+            ) => return true
+          _ => ()
+        }
+      }
+      false
+    }
+    None => false
+  }
+}
+
+///|
+test "gen-valid coverage-forced const expressions emit GC array constructors" {
+  let config = GenValidConfig::{
+    ..GenValidConfig::coverage_forced_default(),
+    max_type_defs: 32,
+    max_tables: 6,
+    max_elems: 6,
+  }
+  let generated = match gen_valid_module_result_from_seed(0x51037A4UL, config) {
+    Ok(v) => v
+    Err(failure) => fail(failure.validation_error_message)
+  }
+  match validate_module(generated.wasm_module) {
+    Ok(_) => ()
+    Err(err) => fail(validation_error_message(err))
+  }
+  assert_true(
+    gen_valid_test_has_table_initializer_array_new_fixed(generated.wasm_module),
+    msg="coverage-forced GenValid should emit a table initializer array.new_fixed const expression",
+  )
+  assert_true(
+    gen_valid_test_has_v128_table_initializer_array_new_fixed(
+      generated.wasm_module,
+    ),
+    msg="coverage-forced GenValid should include a zero-length v128 array.new_fixed table initializer",
+  )
+  assert_true(
+    gen_valid_test_has_elem_payload_array_new_default(generated.wasm_module),
+    msg="coverage-forced GenValid should emit an elem payload array.new_default const expression",
+  )
+  assert_true(
+    gen_valid_test_has_elem_payload_array_new(generated.wasm_module),
+    msg="coverage-forced GenValid should emit an elem payload array.new const expression",
+  )
+}
+
+///|
 test "gen-valid feature facts scan table initializer expressions" {
   let struct_idx = TypeIdx::new(0U)
   let mod_ = Module::new()

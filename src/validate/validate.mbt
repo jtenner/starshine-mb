@@ -1003,6 +1003,13 @@ fn validate_const_instr(env : Env, ins : Instruction) -> Result[Unit, String] {
         Ok(_) => Ok(())
         Err(e) => Err(e)
       }
+    ArrayNew(type_idx)
+    | ArrayNewDefault(type_idx)
+    | ArrayNewFixed(type_idx, _) =>
+      match env.resolve_array_field(type_idx) {
+        Ok(_) => Ok(())
+        Err(e) => Err(e)
+      }
     GlobalGet(idx) =>
       match env.get_global_type(idx) {
         None => Err("constant expression references an unknown global")
@@ -9726,6 +9733,162 @@ test "validate_module accepts descriptor-bearing struct.new_default_desc const i
     Err(err) =>
       fail(
         "expected descriptor-bearing const initializer to validate: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+test "validate_module accepts table initializer array.new_fixed const expression" {
+  let array_idx = TypeIdx::new(0U)
+  let array_ref = RefType::new(true, HeapType::new(array_idx))
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(
+          SubType::comp_type(
+            CompType::array(
+              FieldType::new(StorageType::pack_type(PackType::i16()), Const),
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      TableSec::new([
+        Table::new(
+          TableType::new(array_ref, Limits::i32(0U, None)),
+          Some(
+            Expr::new([
+              Instruction::i32_const(I32(1)),
+              Instruction::i32_const(I32(2)),
+              Instruction::i32_const(I32(3)),
+              Instruction::array_new_fixed(array_idx, U32::new(3U)),
+            ]),
+          ),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected table initializer array.new_fixed const expression to validate: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+test "validate_module accepts elem payload array.new_default const expression" {
+  let array_idx = TypeIdx::new(0U)
+  let array_ref = RefType::new(true, HeapType::new(array_idx))
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(
+          SubType::comp_type(
+            CompType::array(
+              FieldType::new(StorageType::pack_type(PackType::i8()), Var),
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      ElemSec::new([
+        Elem::new(
+          ElemMode::passive(),
+          ElemKind::typed_exprs(array_ref, [
+            Expr::new([
+              Instruction::i32_const(I32(230)),
+              Instruction::array_new_default(array_idx),
+            ]),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected elem payload array.new_default const expression to validate: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+test "validate_module accepts elem payload array.new const expression" {
+  let array_idx = TypeIdx::new(0U)
+  let array_ref = RefType::new(true, HeapType::new(array_idx))
+  let exn_ref = RefType::abs(AbsHeapType::exn())
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(
+          SubType::comp_type(
+            CompType::array(
+              FieldType::new(
+                StorageType::val_type(ValType::ref_type(exn_ref)),
+                Var,
+              ),
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      ElemSec::new([
+        Elem::new(
+          ElemMode::passive(),
+          ElemKind::typed_exprs(array_ref, [
+            Expr::new([
+              Instruction::ref_null(HeapType::abs(AbsHeapType::exn())),
+              Instruction::i32_const(I32(2)),
+              Instruction::array_new(array_idx),
+            ]),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected elem payload array.new const expression to validate: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+test "validate_module accepts zero-length v128 array.new_fixed table initializer" {
+  let array_idx = TypeIdx::new(0U)
+  let array_ref = RefType::new(true, HeapType::new(array_idx))
+  let mod = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(
+          SubType::comp_type(
+            CompType::array(
+              FieldType::new(StorageType::val_type(ValType::v128()), Var),
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      TableSec::new([
+        Table::new(
+          TableType::new(array_ref, Limits::i32(1U, None)),
+          Some(
+            Expr::new([Instruction::array_new_fixed(array_idx, U32::new(0U))]),
+          ),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected zero-length v128 array.new_fixed table initializer to validate: \{validation_error_message(err)}",
       )
   }
 }

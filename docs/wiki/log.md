@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-07] validate/gen-valid | GC array constructors in constant expressions
+
+- Fixed the validator/front-end constant-expression allow-list so `array.new`, `array.new_default`, and `array.new_fixed` validate in table initializer and element payload contexts when their type index resolves to an array and the operands typecheck.
+- Widened GenValid's initializer-expression coverage so coverage-forced modules deliberately emit `array.new_fixed` table initializers, including zero-length `v128` arrays, plus element payload `array.new_default` and `array.new` expressions; the observed-op matrix now attributes these array constructors to the existing GC-constructor const-expression family.
+- Validation/evidence: focused validator/GenValid TDD failed first on the new cases, then `moon test src/validate` passed (`1559/1559`); full `moon test` passed (`5115/5115`); native replay of the five relaxed-SIMD LCSE compare Starshine failures now validates; rerunning the same 10000-case `local-cse` compare reduced command failures from `28` to `23`, all remaining command failures classified as Binaryen parser/tool failures (`22` empty-recursion-group, `1` bad-section-size), with `9977/10000` compared, `9977` normalized matches, and `0` mismatches.
+- Updated [`validate/constant-expressions.md`](validate/constant-expressions.md) and [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) to supersede the stale note that Starshine omitted official GC array constructors from initializer contexts.
+
 ## [2026-06-07] passes/local-cse | LCSE relaxed SIMD parity reopening
 
 - Superseded the earlier relaxed-SIMD accepted-deferral wording after the user explicitly rejected treating remaining LCSE behavior gaps as closed. Reopened the Binaryen-positive relaxed SIMD root family and implemented parity for all 20 locally modeled relaxed SIMD opcodes.
