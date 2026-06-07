@@ -475,6 +475,7 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::RefCast(true, _) => 162
     @lib.Instruction::RefCast(false, _) => 163
     @lib.Instruction::RefAsNonNull => 164
+    @lib.Instruction::RefI31 => 165
     @lib.Instruction::F32ConvertI32S => 134
     @lib.Instruction::F32ConvertI32U => 135
     @lib.Instruction::F32ConvertI64S => 136
@@ -1094,6 +1095,7 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::ExternConvertAny
     | @lib.Instruction::RefAsNonNull
     | @lib.Instruction::RefCast(_, _)
+    | @lib.Instruction::RefI31
     | @lib.Instruction::I32TruncF32S
     | @lib.Instruction::I32TruncF32U
     | @lib.Instruction::I32TruncF64S
@@ -1262,6 +1264,7 @@ fn lcse_raw_result_type(
       lcse_ref_as_non_null_result_type(child_exprs)
     @lib.Instruction::RefCast(nullable, heap_type) =>
       Some(@lib.ValType::ref_type(@lib.RefType::new(nullable, heap_type)))
+    @lib.Instruction::RefI31 => Some(@lib.ValType::i31ref())
     @lib.Instruction::V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
       Some(@lib.ValType::v128())
     @lib.Instruction::AnyConvertExtern => Some(@lib.ValType::anyref())
@@ -1372,7 +1375,9 @@ fn lcse_raw_expr_profitable(expr : LcseRawExpr) -> Bool {
 ///|
 fn lcse_raw_instr_caches_child_for_replay(instr : @lib.Instruction) -> Bool {
   match instr {
-    @lib.Instruction::RefAsNonNull | @lib.Instruction::RefCast(false, _) => true
+    @lib.Instruction::RefAsNonNull
+    | @lib.Instruction::RefCast(false, _)
+    | @lib.Instruction::RefI31 => true
     _ => false
   }
 }

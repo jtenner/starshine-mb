@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-07] passes/local-cse | LCSE ref.i31 parity
+
+- Completed repeated `ref.i31` LCSE behavior parity using operand-cache replay rather than Binaryen's direct non-null `(ref i31)` result local: cache the defaultable `i32` operand at the first occurrence and replay `ref.i31` at replacements.
+- Binaryen spot-check `.tmp/lcse-parity008-ref-i31/ref-i31-spot.wat` materialized repeated `ref.i31` with a non-null local; Starshine native replay validates the behavior-equivalent `i32` operand-cache shape.
+- Validation/evidence: focused LCSE TDD failed before implementation (`165/166`) and then passed (`166/166`); `moon info` still hit the known Moon panic; `moon fmt`, `moon test src/passes` (`1911/1911`), full `moon test` (`5097/5097`), native `src/cmd` build, native spot replay validation, and `bun validate readme-api-sync` passed. Direct `local-cse` compare at `.tmp/pass-fuzz-local-cse-ref-i31-10000` requested `10000` cases, compared `9975`, had `9975` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `25` Binaryen/tool command failures.
+
 ## [2026-06-07] passes/local-cse | LCSE ref.as_non_null parity
 
 - Fixed Starshine `ref.as_non_null` typechecking for abstract nullable refs such as decoded `externref`, returning an explicit non-null heap ref result instead of rejecting `AbsHeapTypeRefType(_)`.

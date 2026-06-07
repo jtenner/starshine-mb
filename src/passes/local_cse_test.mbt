@@ -111,6 +111,29 @@ fn lcse_test_count_ref_as_non_null(instrs : Array[@lib.Instruction]) -> Int {
 }
 
 ///|
+fn lcse_test_count_ref_i31(instrs : Array[@lib.Instruction]) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Instruction::RefI31 => count += 1
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+        count += lcse_test_count_ref_i31(body)
+      @lib.Instruction::If(_, then_body, Some(else_body)) => {
+        count += lcse_test_count_ref_i31(then_body)
+        count += lcse_test_count_ref_i31(else_body)
+      }
+      @lib.Instruction::If(_, then_body, None) =>
+        count += lcse_test_count_ref_i31(then_body)
+      @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        count += lcse_test_count_ref_i31(body)
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
 fn lcse_test_count_unreachable(instrs : Array[@lib.Instruction]) -> Int {
   let mut count = 0
   for instr in instrs {
@@ -2321,7 +2344,7 @@ test "local-cse leaves repeated ref-null roots unmaterialized" {
 }
 
 ///|
-test "local-cse defers repeated ref-i31 roots" {
+test "local-cse reuses repeated ref-i31 roots by caching i32 operand" {
   let input =
     #| (module
     #|   (func (param i32)
@@ -2335,8 +2358,11 @@ test "local-cse defers repeated ref-i31 roots" {
   let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
     optimized,
   )
-  @debug.assert_eq(locals, @lib.Locals::from_types([]))
-  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(1U)), 0)
+  let temp = @lib.LocalIdx::new(1U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_ref_i31(instrs), 2)
 }
 
 ///|

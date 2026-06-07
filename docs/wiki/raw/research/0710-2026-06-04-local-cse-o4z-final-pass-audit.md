@@ -2848,3 +2848,42 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused validator tests passed (`533/533`); focused LCSE tests passed (`166/166`); `moon test src/validate` passed (`1553/1553`); `moon test src/passes` passed (`1911/1911`); full `moon test` passed (`5097/5097`); native `src/cmd` build succeeded with the pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; the native spot replay validated; and `bun validate readme-api-sync` passed.
 
 The direct compare at `.tmp/pass-fuzz-local-cse-ref-as-non-null-10000` requested `10000` cases and compared `9975`; all compared cases were normalized matches, with `0` mismatches, `0` validation/property/generator failures, and `25` Binaryen/tool command failures. Agent classification: no LCSE semantic mismatch was found in this lane; the command failures are oracle/tool failures, not Starshine semantic failures: `22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`.
+
+## `ref.i31` root parity on 2026-06-07
+
+Slice `[O4Z-AUDIT-LCSE-PARITY]006` superseded the earlier `ref.i31` conservative deferral from the 2026-06-05 i31 boundary slice. Binaryen materializes repeated `ref.i31` roots with a non-null `(ref i31)` result local, but Starshine still avoids appending non-default locals. The landed behavior-parity implementation therefore reuses the safe replay model from non-null `ref.cast` and `ref.as_non_null`: cache the defaultable `i32` operand at the first occurrence and replay `ref.i31` at replacement sites.
+
+Binaryen spot-check:
+
+```sh
+wasm-opt .tmp/lcse-parity008-ref-i31/ref-i31-spot.wat --all-features --local-cse -S -o .tmp/lcse-parity008-ref-i31/ref-i31-spot.binaryen.wat
+```
+
+Result: Binaryen emitted a fresh `(ref i31)` local with `local.tee` / `local.get` for representative repeated `ref.i31` roots.
+
+TDD and implementation evidence:
+
+- The focused LCSE test failed first (`165/166`) after flipping `local-cse defers repeated ref-i31 roots` into the positive `local-cse reuses repeated ref-i31 roots by caching i32 operand`.
+- `src/passes/local_cse.mbt` now includes `RefI31` in the candidate prefilter, unary operand model, non-null i31 result-type model, and child-cache replay root set.
+- Native replay under `.tmp/lcse-parity008-ref-i31/ref-i31-spot.wat` validates and prints an `i32` local cache followed by replayed `ref.i31` instructions.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt # first run failed before the LCSE fix
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+wasm-tools parse .tmp/lcse-parity008-ref-i31/ref-i31-spot.wat -o .tmp/lcse-parity008-ref-i31/ref-i31-spot.wasm
+target/native/release/build/cmd/cmd.exe --local-cse -o .tmp/lcse-parity008-ref-i31/ref-i31-spot.starshine.wasm .tmp/lcse-parity008-ref-i31/ref-i31-spot.wasm
+wasm-tools validate --features all .tmp/lcse-parity008-ref-i31/ref-i31-spot.starshine.wasm
+bun validate readme-api-sync
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-ref-i31-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+```
+
+Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`166/166`); `moon test src/passes` passed (`1911/1911`); full `moon test` passed (`5097/5097`); native `src/cmd` build succeeded with the pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; the native spot replay validated; and `bun validate readme-api-sync` passed.
+
+The direct compare at `.tmp/pass-fuzz-local-cse-ref-i31-10000` requested `10000` cases and compared `9975`; all compared cases were normalized matches, with `0` mismatches, `0` validation/property/generator failures, and `25` Binaryen/tool command failures. Agent classification: no LCSE semantic mismatch was found in this lane; the command failures are oracle/tool failures, not Starshine semantic failures: `22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`.
