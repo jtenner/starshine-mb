@@ -1702,6 +1702,8 @@ fn optimize_options_to_hot_pipeline_options(
     },
     validate_final_module~,
     closed_world=options.closed_world,
+    traps_never_happen=options.traps_never_happen,
+    zero_filled_memory=options.zero_filled_memory,
     optimize_level=options.optimize_level,
     shrink_level=options.shrink_level,
     stack_function_passes=options.stack_function_passes,

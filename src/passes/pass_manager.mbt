@@ -24,6 +24,8 @@ pub struct HotPipelineOptions {
   verify_policy : HotPipelineVerifyPolicy
   validate_final_module : Bool
   closed_world : Bool
+  traps_never_happen : Bool
+  zero_filled_memory : Bool
   optimize_level : Int
   shrink_level : Int
   stack_function_passes : Bool
@@ -37,6 +39,8 @@ pub fn HotPipelineOptions::new(
   verify_policy? : HotPipelineVerifyPolicy = HotPipelineVerifyPolicy::final_module_only(),
   validate_final_module? : Bool = true,
   closed_world? : Bool = false,
+  traps_never_happen? : Bool = false,
+  zero_filled_memory? : Bool = false,
   optimize_level? : Int = 0,
   shrink_level? : Int = 0,
   stack_function_passes? : Bool = false,
@@ -47,6 +51,8 @@ pub fn HotPipelineOptions::new(
     verify_policy,
     validate_final_module,
     closed_world,
+    traps_never_happen,
+    zero_filled_memory,
     optimize_level,
     shrink_level,
     stack_function_passes,
@@ -12661,7 +12667,12 @@ fn run_hot_pipeline_apply_module_pass(
     "remove-unused-module-elements" => rume_run_module_pass(mod_)
     "remove-unused-nonfunction-module-elements" =>
       rume_run_nonfunction_module_pass(mod_)
-    "memory-packing" => memory_packing_run_module_pass(mod_)
+    "memory-packing" =>
+      memory_packing_run_module_pass(
+        mod_,
+        traps_never_happen=options.traps_never_happen,
+        zero_filled_memory=options.zero_filled_memory,
+      )
     "once-reduction" => once_reduction_run_module_pass(mod_)
     "global-refining" =>
       global_refining_run_module_pass(mod_, closed_world=options.closed_world)

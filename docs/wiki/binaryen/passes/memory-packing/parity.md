@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-06-03
+last_reviewed: 2026-06-07
 sources:
+  - ../../../raw/research/0715-2026-06-07-memory-packing-parity-gap-audit.md
   - ../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md
   - ../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
@@ -26,10 +27,10 @@ related:
 ## Durable conclusions
 
 - Binaryen `version_129` `memory-packing` is a module-level segment-plus-segment-op rewrite pass, not just an active-segment splitter.
-- Current Starshine still models only a narrow subset of Binaryen's full module-plus-segment-op pass, but it now also performs conservative dead passive-segment cleanup, passive data-index remapping, sorted active-overlap checking, active-only scan elision, and a fast path for common one-kept-range active segments.
+- Current Starshine still does not model every Binaryen option and validity guard, but it now covers the core active and passive segment-user rewrite families: conservative dead passive cleanup, passive zero-range splitting, `memory.init` replacement with `memory.fill`, split-passive `data.drop` expansion, active segment-op cleanup, lowered active/split-passive `memory.init` operand side-effect preservation, data-name repair, `__llvm*` no-split handling, sorted active-overlap checking, active-only scan elision, and a fast path for common one-kept-range active segments.
 - The saved generated-artifact `-O4z` slot `3` is already green, which shows the local subset is useful and exercised by that artifact.
 - The 2026-05-07 saved dead-passive normalization family from `.tmp/recheck-memory-packing/` is now retired on current head.
-- That saved green slot is **not** proof that Starshine already covers full passive-segment rewriting, imported-memory `zeroFilledMemory`, GC data-referrer conservatism, or segment-count limiting.
+- That saved green slot is **not** proof that Starshine already covers every option-surface corner; focused tests now cover imported-memory `zeroFilledMemory`, TNH trap elision, GC data-user conservatism, segment-count limiting, split-name suffixes, constant out-of-range passive source traps, and operand side-effect/trap preservation for lowered active/split-passive `memory.init` paths.
 
 ## Current in-tree status
 
@@ -45,29 +46,40 @@ The current Starshine subset covers:
 - trap-preserving top-byte retention
 - overlap bailout
 - conservative removal of passive segments with no non-`data.drop` referrers
-- passive data-index remapping after active segment count changes
+- passive data-index remapping after active or passive segment count changes
+- passive segment splitting around profitable zero ranges for constant-source `memory.init` users
+- replacement of split-passive zero slices with `memory.fill`
+- temporary i32 locals for dynamic split-passive `memory.init` destinations
+- split-passive `data.drop` expansion plus lazy drop-state globals for fill-first replacements
+- active `data.drop` cleanup to `nop`
+- active `memory.init` cleanup to `nop` or explicit `unreachable` when its constant source range is known in or out of bounds, preserving evaluated operands with drops before the replacement
 - `data.drop` -> `nop` cleanup for removed passive segments
 - data-count section updates after changed segment counts
+- data-name repair after segment deletion/remapping
+- Binaryen-style suffixed data names for split segments
+- `__llvm*` data-name no-split handling
+- conservative no-split behavior for passive segments with GC `array.new_data` / `array.init_data` users
+- segment-count limiting to avoid exceeding `MaxDataSegments`
+- `trapsNeverHappen` active trap-elision plumbing through the hot pipeline
+- imported-memory packing when the hot pipeline marks memory as known zero-filled
+- saturating high-address i32 active offset repair instead of wrapping into low memory
 - active-only data modules avoid code-section data-usage scans
 - many active segment legality checks use sorted spans instead of pairwise overlap scans
 - common leading/trailing-zero active segments use a fast single-kept-range path while preserving traps
+- lowered active and split-passive `memory.init` paths preserve destination/source/size evaluation before `nop` / `unreachable` replacement when the pass rewrites constant-source/size users
 
 ## Remaining gap
 
-The main documented Binaryen gap is the entire passive-segment and segment-user half of the official pass:
+The 2026-06-07 gap audit originally kept one main documented Binaryen gap around lowered `memory.init` operand side effects plus narrower option/validity gaps found by static inspection. The operand side-effect gap is now covered for the local rewrite surface: lowered active and split-passive constant-source/size `memory.init` rewrites evaluate and drop the original destination/source/size operands before the replacement `nop` or `unreachable`.
 
-- no local `memory.init` rewrite engine
-- no local `memory.fill` insertion for zero slices
-- no local `data.drop` expansion for split passive segments
-- no local lazy drop-state globals
-- no imported-memory `zeroFilledMemory` mode
-- no GC `array.new_data` / `array.init_data` no-split boundary beyond conservative index remapping
-- no `MaxDataSegments` limiting guard
+The remaining documented gap is:
+
+- no full option plumbing for Binaryen's entire pass option surface beyond the current `trapsNeverHappen` and `zeroFilledMemory` paths
 
 So the honest parity rule is:
 
-- current Starshine has **artifact-local parity on the exercised active subset**
-- but not yet full official-surface parity with Binaryen `MemoryPacking.cpp`
+- current Starshine has **artifact-local parity on the exercised active subset** and focused coverage for the newly implemented active/passive segment-user families
+- but not yet full official-surface parity with Binaryen `MemoryPacking.cpp` options beyond the current wired subset
 
 ## Current evidence
 
@@ -134,18 +146,23 @@ The 2026-06-03 audit expanded focused coverage with imported-memory bailout, emp
 
 Those tests are real, but still much smaller than the upstream lit surface.
 
+The 2026-06-07 behavior-gap audit did not run fresh fuzz evidence, but refined the incomplete-upstream-coverage list with active segment-op cleanup, TNH/zero-filled-memory option behavior, data-name/`__llvm*` handling, high-address checked-offset behavior, and `MaxDataSegments` validity. The follow-up implementations added focused coverage for active segment-op cleanup, split-passive `memory.init`/`memory.fill`, split-passive `data.drop`, lazy drop-state globals, `__llvm*` no-split behavior, data-name repair and split-name suffixes, saturating high-address i32 active offset repair, GC data-user no-split behavior, `MaxDataSegments` guards, `trapsNeverHappen` active trap elision, zero-filled imported-memory packing, and constant out-of-range split-passive source traps. Fresh 2026-06-07 direct `memory-packing` compare evidence was mismatch-free after those changes: `.tmp/pass-fuzz-memory-packing-20260607-passive-source-10000` compared `7608/10000` with `7608` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures before the harness command-failure cap.
+
+A later 2026-06-07 side-effect preservation slice added focused TDD for active out-of-range source traps with side-effecting destinations, zero-size active lowerings with trapping destinations, and split-passive out-of-range source traps with side-effecting destinations. The implementation now extracts the destination operand expression, emits operand evaluation plus `drop`s before active/split-passive `nop` or `unreachable` replacement, and uses a temp local for non-constant split-passive destinations that are reused by `memory.fill` / split `memory.init` replacement parts. Fresh direct compare evidence after this slice is mismatch-free: `.tmp/pass-fuzz-memory-packing-20260607-side-effects-10000` compared `7602/10000` with `7602` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures before the harness command-failure cap (`19` Binaryen empty-recursion-group, `1` Binaryen bad-section-size).
+
 ## Practical signoff rule
 
 For now, treat `memory-packing` as:
 
 - **green on the saved generated artifact**
 - **green again on the direct saved-repro family and current direct compare lane, modulo known Binaryen/tool command-failure noise**
-- **still narrowly implemented locally, not a full port of Binaryen `MemoryPacking.cpp`**
+- **wider than the former active-only subset, but still not a full port of Binaryen `MemoryPacking.cpp`**
 
 That is the honest status this dossier should preserve.
 
 ## Sources
 
+- [`../../../raw/research/0715-2026-06-07-memory-packing-parity-gap-audit.md`](../../../raw/research/0715-2026-06-07-memory-packing-parity-gap-audit.md)
 - [`../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md`](../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md)
 - [`../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md`](../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md)
 - [`../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md`](../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md)
@@ -153,5 +170,6 @@ That is the honest status this dossier should preserve.
 - [`../../../raw/research/0556-2026-05-07-memory-packing-passive-cleanup-parity.md`](../../../raw/research/0556-2026-05-07-memory-packing-passive-cleanup-parity.md)
 - Saved generated-artifact slot and Binaryen debug-log facts are copied into the committed O4z audit note [`../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md`](../../../raw/research/0700-2026-06-03-memory-packing-o4z-audit.md); any older `.artifacts` path is a local replay identifier, not a durable source link.
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MemoryPacking.cpp>
+- Binaryen `version_130` pass source used for the 2026-06-07 gap audit: <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/MemoryPacking.cpp>
 - Implementation: [`../../../../../src/passes/memory_packing.mbt`](../../../../../src/passes/memory_packing.mbt)
 - Focused tests: [`../../../../../src/passes/memory_packing_test.mbt`](../../../../../src/passes/memory_packing_test.mbt)

@@ -2,6 +2,22 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-07] passes/memory-packing | memory.init operand side-effect preservation
+
+- Closed the main remaining documented `memory-packing` parity gap for lowered active/split-passive `memory.init` paths on the current constant-source/size rewrite surface. Trap and no-op lowerings now evaluate the original destination/source/size operands and drop their values before emitting the replacement `unreachable` or `nop`; split-passive in-range rewrites still cache dynamic destinations in a temp local before `memory.fill` / split `memory.init` replacement.
+- Added focused TDD coverage for active out-of-range source traps with side-effecting destinations, zero-size active lowerings with trapping destinations, and split-passive out-of-range source traps with side-effecting destinations.
+- Validation/evidence: focused `memory_packing_test.mbt` passed (`29/29`), focused `memory_packing_wbtest.mbt` passed (`1/1`), full `moon test` passed (`5156/5156`), native `src/cmd` build passed with pre-existing pass-manager unused warnings, and direct `memory-packing` compare at `.tmp/pass-fuzz-memory-packing-20260607-side-effects-10000` compared `7602/10000` with `7602` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures before the harness command-failure cap (`19` Binaryen empty-recursion-group, `1` Binaryen bad-section-size). `moon info` still hit the known Moon panic. Updated the parity page and `[O4Z-AUDIT-MP]` backlog so only remaining option-surface details stay listed.
+
+## [2026-06-07] passes/memory-packing | Active/passive segment-user widening
+
+- Implemented the first follow-up from the `0715` parity gap audit: active `data.drop` cleanup, constant-source active `memory.init` cleanup/trap lowering, passive zero-range splitting, split-passive `memory.init` replacement with `memory.fill`, dynamic-destination temp locals, split-passive `data.drop` expansion, fill-first lazy drop-state globals, `__llvm*` no-split behavior, data-name repair after remapping/deletion plus split-name suffixes, saturating high-address i32 active offset repair, GC data-user no-split behavior, `MaxDataSegments` guard logic, hot-pipeline `trapsNeverHappen` active trap elision, imported-memory packing under the `zeroFilledMemory` option, and constant out-of-range split-passive source traps.
+- Validation/evidence: focused `memory_packing_test.mbt` passed (`26/26`), focused `memory_packing_wbtest.mbt` passed (`1/1`), full `moon test` passed (`5153/5153`), native `src/cmd` build passed with pre-existing pass-manager unused warnings, and the scaled direct `memory-packing` compare at `.tmp/pass-fuzz-memory-packing-20260607-passive-source-10000` compared `7608/10000` with `7608` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures before the harness command-failure cap. `moon info` still hit the known Moon panic. Updated the parity page and `[O4Z-AUDIT-MP]` backlog to mark operand side-effect preservation for lowered memory.init trap paths as the main remaining documented gap.
+
+## [2026-06-07] passes/memory-packing | Behavior-parity gap audit
+
+- Added [`raw/research/0715-2026-06-07-memory-packing-parity-gap-audit.md`](raw/research/0715-2026-06-07-memory-packing-parity-gap-audit.md) to enumerate remaining Starshine-vs-Binaryen `memory-packing` behavior gaps: active segment-op cleanup, passive splitting/replacement, zero-filled imported memory, TNH sensitivity, data-name / `__llvm*` handling, high-address checked offsets, GC user proof, and `MaxDataSegments` limiting.
+- Updated the `memory-packing` parity page and `[O4Z-AUDIT-MP]` backlog scope so future work does not close the audit solely on green active-subset compare evidence.
+
 ## [2026-06-07] passes/audit | Behavior-parity inventory and backlog reframe
 
 - Added [`raw/research/0714-2026-06-07-o4z-behavior-parity-inventory.md`](raw/research/0714-2026-06-07-o4z-behavior-parity-inventory.md) to distinguish Binaryen behavior parity from raw output parity and inventory which previously audited/removed passes still have documented Binaryen behavior gaps.
