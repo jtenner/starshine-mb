@@ -7124,6 +7124,80 @@ test "code-folding keeps catch-all-ref try-table terminal tails as EH bailout" {
 }
 
 ///|
+test "code-folding folds try-table if-arm partial terminal return suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (tag $e)
+      #|  (func (param i32)
+      #|    (try_table (catch_all 0)
+      #|      (if (local.get 0)
+      #|        (then
+      #|          (i32.const 1)
+      #|          (drop)
+      #|          (i32.const 7)
+      #|          (drop)
+      #|          (return))
+      #|        (else
+      #|          (i32.const 2)
+      #|          (drop)
+      #|          (i32.const 7)
+      #|          (drop)
+      #|          (return))))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding folds try-table if-arm throwing suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (tag $e)
+      #|  (func (param i32)
+      #|    (try_table (catch_all 0)
+      #|      (if (local.get 0)
+      #|        (then
+      #|          (i32.const 7)
+      #|          (drop)
+      #|          (throw $e))
+      #|        (else
+      #|          (i32.const 7)
+      #|          (drop)
+      #|          (throw $e))))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(7)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "throw"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding folds nested try-table if-arm body suffixes" {
   let optimized = code_folding_test_run(
     (

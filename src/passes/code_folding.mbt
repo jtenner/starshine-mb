@@ -308,6 +308,7 @@ fn code_folding_node_is_hoistable_suffix(
     }
     _ => ()
   }
+  code_folding_can_move_eh_effects(func, node_id, out_of_id) &&
   code_folding_branch_targets_survive_hoist(func, node_id, out_of_id, node_id)
 }
 
@@ -328,7 +329,10 @@ fn code_folding_node_is_if_terminal_suffix(
     | @ir.HotOp::ReturnCall
     | @ir.HotOp::ReturnCallIndirect
     | @ir.HotOp::ReturnCallRef
-    | @ir.HotOp::Unreachable => true
+    | @ir.HotOp::Unreachable
+    | @ir.HotOp::Throw
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::ThrowRef => true
     _ => false
   }
 }
@@ -462,6 +466,7 @@ fn code_folding_terminal_tail_item_is_hoistable_suffix(
     }
     _ => ()
   }
+  code_folding_can_move_eh_effects(func, node_id, out_of_id) &&
   code_folding_branch_targets_survive_hoist(func, node_id, out_of_id, node_id)
 }
 
@@ -478,7 +483,11 @@ fn code_folding_terminal_tail_item_is_movable(
   }
   if depth == 0 {
     return code_folding_terminal_tail_kind_of_node(func, node_id) != 0 &&
-      code_folding_node_children_have_no_control_or_exit(func, node_id)
+      code_folding_node_children_have_no_control_or_exit(func, node_id) &&
+      code_folding_can_move_eh_effects(func, node_id, -1)
+  }
+  if !code_folding_can_move_eh_effects(func, node_id, -1) {
+    return false
   }
   @ir.hot_node_result_arity(func, node_id) == 0 &&
   code_folding_terminal_tail_item_allows_following(func, node_id) &&
@@ -581,8 +590,11 @@ fn code_folding_node_is_if_hoistable_suffix(
   if_id : Int,
   label_used : @bitset.BitSet,
 ) -> Bool {
-  code_folding_node_is_hoistable_suffix(func, node_id, if_id, label_used) ||
-  code_folding_node_is_if_terminal_suffix(func, node_id)
+  (
+    code_folding_node_is_hoistable_suffix(func, node_id, if_id, label_used) ||
+    code_folding_node_is_if_terminal_suffix(func, node_id)
+  ) &&
+  code_folding_can_move_eh_effects(func, node_id, if_id)
 }
 
 ///|
@@ -1835,6 +1847,76 @@ fn code_folding_node_has_embedded_eh_control(
 }
 
 ///|
+fn code_folding_region_has_embedded_eh_control(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if code_folding_node_has_embedded_eh_control(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn code_folding_out_of_has_eh_control(
+  func : @ir.HotFunc,
+  out_of_id : Int,
+) -> Bool {
+  if out_of_id < 0 {
+    code_folding_region_has_embedded_eh_control(func, @ir.HotRegionRef::root())
+  } else {
+    code_folding_node_has_embedded_eh_control(func, out_of_id)
+  }
+}
+
+///|
+fn code_folding_node_may_throw_for_eh_move(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Call
+    | @ir.HotOp::CallIndirect
+    | @ir.HotOp::CallRef
+    | @ir.HotOp::ReturnCall
+    | @ir.HotOp::ReturnCallIndirect
+    | @ir.HotOp::ReturnCallRef
+    | @ir.HotOp::Throw
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::ThrowRef => return true
+    _ => ()
+  }
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    if code_folding_node_may_throw_for_eh_move(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn code_folding_can_move_eh_effects(
+  func : @ir.HotFunc,
+  node_id : Int,
+  out_of_id : Int,
+) -> Bool {
+  !code_folding_node_may_throw_for_eh_move(func, node_id) ||
+  !code_folding_out_of_has_eh_control(func, out_of_id)
+}
+
+///|
 fn code_folding_should_visit_drop_embedded_eh_body_if_suffixes(
   func : @ir.HotFunc,
   node_id : Int,
@@ -3036,7 +3118,15 @@ fn code_folding_collect_terminating_tails(
           None => ()
         }
       }
-      @ir.HotOp::Try | @ir.HotOp::TryTable => return false
+      @ir.HotOp::Try => return false
+      @ir.HotOp::TryTable =>
+        if !code_folding_collect_terminating_tails(
+            func,
+            @ir.hot_region_body_ref(func, node_id),
+            tails,
+          ) {
+          return false
+        }
       _ => ()
     }
   }
@@ -3545,9 +3635,6 @@ fn code_folding_try_fold_if_at_region(
   let else_count = @ir.hot_region_root_count(func, else_ref)
   let then_start = then_count - suffix_len
   let else_start = else_count - suffix_len
-  let suffix_has_terminal = code_folding_suffix_has_if_terminal(
-    func, then_ref, then_start, suffix_len,
-  )
   if code_folding_region_prefix_has_exit(func, then_ref, then_start) ||
     code_folding_region_prefix_has_exit(func, else_ref, else_start) ||
     !code_folding_suffix_matches_result_arity(
@@ -3556,7 +3643,6 @@ fn code_folding_try_fold_if_at_region(
     !code_folding_suffix_matches_result_arity(
       func, else_ref, else_start, suffix_len, result_arity,
     ) ||
-    (suffix_has_terminal && (then_start != 0 || else_start != 0)) ||
     !code_folding_full_value_if_common_suffix_allowed(
       func, then_ref, else_ref, then_start, else_start, suffix_len, result_arity,
     ) {
@@ -3619,22 +3705,9 @@ fn code_folding_try_fold_if_at_eh_body_region(
     @ir.HotOp::If => ()
     _ => return false
   }
-  let then_ref = @ir.hot_region_then_ref(func, if_id)
-  let else_ref = match @ir.hot_region_else_ref(func, if_id) {
-    Some(ref_) => ref_
+  match @ir.hot_region_else_ref(func, if_id) {
+    Some(_) => ()
     None => return false
-  }
-  let suffix_len = code_folding_common_suffix_len(
-    func, if_id, then_ref, else_ref, label_used,
-  )
-  if suffix_len > 0 {
-    let then_count = @ir.hot_region_root_count(func, then_ref)
-    let then_start = then_count - suffix_len
-    if code_folding_suffix_has_if_terminal(
-        func, then_ref, then_start, suffix_len,
-      ) {
-      return false
-    }
   }
   code_folding_try_fold_if_at_region(ctx, func, region_ref, idx, label_used)
 }
