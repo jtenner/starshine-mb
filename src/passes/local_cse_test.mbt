@@ -2829,6 +2829,67 @@ test "local-cse reuses repeated float narrow roots" {
 }
 
 ///|
+test "local-cse reuses repeated integer-to-float conversion roots" {
+  let func_type_i32_idx = @lib.TypeIdx::new(0U)
+  let func_type_i64_idx = @lib.TypeIdx::new(1U)
+  let func_types = [
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i64()], [])),
+    ),
+  ]
+  let body_for = fn(op : @lib.Instruction) {
+    @lib.Func::new(
+      @lib.Locals::from_types([]),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        op,
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        op,
+        @lib.Instruction::drop(),
+      ]),
+    )
+  }
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new(func_types))
+    .with_func_sec(
+      @lib.FuncSec::new([
+        func_type_i32_idx, func_type_i32_idx, func_type_i64_idx, func_type_i64_idx,
+        func_type_i32_idx, func_type_i32_idx, func_type_i64_idx, func_type_i64_idx,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        body_for(@lib.Instruction::f32_convert_i32s()),
+        body_for(@lib.Instruction::f32_convert_i32u()),
+        body_for(@lib.Instruction::f32_convert_i64s()),
+        body_for(@lib.Instruction::f32_convert_i64u()),
+        body_for(@lib.Instruction::f64_convert_i32s()),
+        body_for(@lib.Instruction::f64_convert_i32u()),
+        body_for(@lib.Instruction::f64_convert_i64s()),
+        body_for(@lib.Instruction::f64_convert_i64u()),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      @debug.assert_eq(funcs.length(), 8)
+      for func in funcs {
+        let @lib.Func(locals, @lib.Expr(instrs)) = func
+        let temp = @lib.LocalIdx::new(1U)
+        @debug.assert_eq(locals.length(), 1)
+        @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+        @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+      }
+    }
+    None => fail("expected code section")
+  }
+}
+
+///|
 test "local-cse reuses repeated i32 saturating trunc roots" {
   let input =
     #| (module

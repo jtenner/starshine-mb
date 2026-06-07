@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-06] passes/local-cse | LCSE remaining-gap grep closeout
+
+- Completed `[O4Z-AUDIT-LCSE-CLOSE]004` by grepping/inventorying `src/passes/local_cse_test.mbt`, `src/lib/types.mbt`, and the WAT/parser/typecheck surfaces for locally representable LCSE instruction families.
+- Found and fixed one non-duplicative safe gap: repeated integer-to-float conversion roots now materialize for all `f32.convert_i32/i64_{s,u}` and `f64.convert_i32/i64_{s,u}` variants. The new focused test failed before the implementation (`160/161`) and passed after (`161/161`).
+- Validation/evidence: `moon fmt` passed; `moon info` still hit the known Moon panic; `moon test src/passes` passed (`1906/1906`); full `moon test` passed (`5091/5091`); native `src/cmd` build succeeded with pre-existing unused-function warnings; direct `local-cse` compare at `.tmp/pass-fuzz-local-cse-close004-int-convert-10000` had `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- Updated the LCSE research note and Starshine strategy page to record that the remaining uncovered LCSE surfaces are either already covered positives or accepted conservative deferrals owned by the LCSE accepted-drift closeout / future non-LCSE work.
+
 ## [2026-06-06] passes/code-folding | CF final profitability and oracle closeout
 
 - Closed `[O4Z-AUDIT-CF-K]` and `[O4Z-AUDIT-CF-M]` for the v0.1.0 direct semantic audit. Final profitability probes re-read Binaryen's `WORTH_ADDING_BLOCK_TO_REMOVE_THIS_MUCH = 3` helper-cost logic and checked focused `if`, terminating `return`, and operand-only tail-call fold/skip shapes under `.tmp/cf-profit-probes/`.

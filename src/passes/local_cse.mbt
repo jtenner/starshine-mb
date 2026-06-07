@@ -185,6 +185,14 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::I64TruncSatF32U => 128
     @lib.Instruction::I64TruncSatF64S => 129
     @lib.Instruction::I64TruncSatF64U => 130
+    @lib.Instruction::F32ConvertI32S => 134
+    @lib.Instruction::F32ConvertI32U => 135
+    @lib.Instruction::F32ConvertI64S => 136
+    @lib.Instruction::F32ConvertI64U => 137
+    @lib.Instruction::F64ConvertI32S => 138
+    @lib.Instruction::F64ConvertI32U => 139
+    @lib.Instruction::F64ConvertI64S => 140
+    @lib.Instruction::F64ConvertI64U => 141
     @lib.Instruction::I31GetS => 132
     @lib.Instruction::I31GetU => 133
     @lib.Instruction::I32Load(_) => 13
@@ -456,7 +464,15 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::I32WrapI64
     | @lib.Instruction::I64ExtendI32S
     | @lib.Instruction::I64ExtendI32U
+    | @lib.Instruction::F32ConvertI32S
+    | @lib.Instruction::F32ConvertI32U
+    | @lib.Instruction::F32ConvertI64S
+    | @lib.Instruction::F32ConvertI64U
     | @lib.Instruction::F32DemoteF64
+    | @lib.Instruction::F64ConvertI32S
+    | @lib.Instruction::F64ConvertI32U
+    | @lib.Instruction::F64ConvertI64S
+    | @lib.Instruction::F64ConvertI64U
     | @lib.Instruction::F64PromoteF32
     | @lib.Instruction::I32ReinterpretF32
     | @lib.Instruction::I64ReinterpretF64
@@ -570,6 +586,10 @@ fn lcse_raw_result_type(
     | @lib.Instruction::F32Min
     | @lib.Instruction::F32Max
     | @lib.Instruction::F32Copysign
+    | @lib.Instruction::F32ConvertI32S
+    | @lib.Instruction::F32ConvertI32U
+    | @lib.Instruction::F32ConvertI64S
+    | @lib.Instruction::F32ConvertI64U
     | @lib.Instruction::F32DemoteF64
     | @lib.Instruction::F32ReinterpretI32 => Some(@lib.ValType::f32())
     @lib.Instruction::F64Const(_)
@@ -588,6 +608,10 @@ fn lcse_raw_result_type(
     | @lib.Instruction::F64Min
     | @lib.Instruction::F64Max
     | @lib.Instruction::F64Copysign
+    | @lib.Instruction::F64ConvertI32S
+    | @lib.Instruction::F64ConvertI32U
+    | @lib.Instruction::F64ConvertI64S
+    | @lib.Instruction::F64ConvertI64U
     | @lib.Instruction::F64PromoteF32
     | @lib.Instruction::F64ReinterpretI64 => Some(@lib.ValType::f64())
     @lib.Instruction::RefNull(ty) => Some(@lib.ValType::ref_type(ty))

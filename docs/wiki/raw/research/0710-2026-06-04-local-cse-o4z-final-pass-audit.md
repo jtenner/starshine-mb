@@ -2530,3 +2530,33 @@ Added test:
 - `local-cse leaves repeated ref-null roots unmaterialized`
 
 Agent classification: missing coverage only; no implementation change and no reference temp-local reasoning added.
+
+## Closeout remaining-gap grep and integer-to-float conversion fix on 2026-06-06
+
+Slice `[O4Z-AUDIT-LCSE-CLOSE]004` did a final grep/inventory pass across `src/passes/local_cse_test.mbt`, the `Instruction` enum and constructors in `src/lib/types.mbt`, and the WAT/parser/typecheck surfaces for locally representable LCSE roots. The review grouped the remaining surface by scalar numeric roots, trap-sensitive deferrals, reference/string roots, heap/GC roots and effects, memory/table/segment state, atomics/SIMD, and control/call boundaries.
+
+The one non-duplicative safe gap found was scalar integer-to-float conversions: `f32.convert_i32_{s,u}`, `f32.convert_i64_{s,u}`, `f64.convert_i32_{s,u}`, and `f64.convert_i64_{s,u}`. These are ordinary nontrapping unary numeric conversions with defaultable `f32`/`f64` temp-local result types. Binaryen spot-checking `.tmp/lcse-close-gap/int-to-float.wat` materialized representative repeats with `local.tee` / `local.get`; before the Starshine fix, the focused test failed because LCSE left those repeats unmaterialized.
+
+Added test:
+
+- `local-cse reuses repeated integer-to-float conversion roots`
+
+Implementation change: `src/passes/local_cse.mbt` now includes the eight integer-to-float conversion opcodes in the raw candidate prefilter, unary operand model, and `f32`/`f64` result-type model. This is not a trap-sensitive truncation widening: the existing `i32.trunc_*` / `i64.trunc_*` deferral tests remain unchanged, while saturating truncation and nontrapping conversions stay reusable.
+
+Validation evidence for this slice:
+
+```sh
+wasm-opt .tmp/lcse-close-gap/int-to-float.wat --all-features --local-cse -S -o .tmp/lcse-close-gap/int-to-float.binaryen.wat
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt # first run failed before fix
+moon fmt
+moon info
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-close004-int-convert-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: the Binaryen spot-check emitted local materialization for representative `f32.convert_i32_s` and `f64.convert_i64_u` repeats. The first focused Starshine run failed as intended (`160/161` passed) before the implementation change. After the fix, `moon fmt` passed; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); focused LCSE tests passed (`161/161`); `moon test src/passes` passed (`1906/1906`); full `moon test` passed (`5091/5091`); native build succeeded with pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; and the direct compare reached `6768/10000` compared cases, `6768` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `20` Binaryen/tool command failures. Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+
+The follow-up inventory found no further non-duplicative, safely representable LCSE closeout gap that should be added under `[O4Z-AUDIT-LCSE-CLOSE]004`; remaining candidates are already covered positives or explicitly accepted conservative deferrals owned by `[O4Z-AUDIT-LCSE-CLOSE]003` / future non-LCSE slices.
