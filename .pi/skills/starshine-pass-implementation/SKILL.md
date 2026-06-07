@@ -27,8 +27,9 @@ Read the relevant sources before substantial pass work:
 ## Non-Negotiables
 
 - Correctness first.
-- Match Binaryen oracle semantics at minimum, unless a deliberate semantic divergence is explicitly documented and approved.
-- Do not require byte-for-byte wasm, raw canonical wasm/text, or transform-for-transform parity when normalized/canonical semantic evidence proves equivalence.
+- Target Binaryen **behavior parity** by default. Do not treat broad instruction families, root kinds, or effect classes as permanently deferrable just because they are hard; continue shrinking and implementing them until Starshine matches Binaryen-observable behavior.
+- Output parity is not the target: do not require byte-for-byte wasm, raw canonical wasm/text, or transform-for-transform parity when normalized/canonical semantic evidence proves equivalent Binaryen behavior.
+- A deferral is allowed only when it is narrow, evidence-backed, and explicitly accepted by the user or tied to a concrete missing local representation/tooling blocker. Record what evidence would reopen it. Prefer implementing net-positive semantic cleanups over classifying them as merely safe drift.
 - Every transform must be safe and must produce a valid wasm module.
 - Pass-local performance target: Starshine should be at least 50% as fast as Binaryen on comparable pass-local measurements (`starshine_time <= 2 * binaryen_time`) unless a slower result is explicitly accepted or attributed outside the pass.
 - Use TDD: add or update tests first and confirm the intended failure when practical.
@@ -80,13 +81,14 @@ Read the relevant sources before substantial pass work:
    - Public API snapshots: review `.mbti` diffs when public surfaces change.
    - Docs/backlog: update relevant docs and `agent-todo.md` before commit when behavior or status changes; do not add per-commit changelog entries.
 
-6. Handle mismatches deliberately.
-   - Classify mismatch families as an agent judgment in the report, not as a script-determined truth. Use categories such as semantic-safe/size-winning, representation-only, size-losing, unknown/risky, validation failure, tool/Binaryen failure, and true semantic mismatch.
+6. Handle mismatches and gaps deliberately.
+   - Classify mismatch families as an agent judgment in the report, not as a script-determined truth. Use categories such as behavior-parity match despite output drift, representation-only, size-losing, unknown/risky, validation failure, tool/Binaryen failure, true semantic mismatch, or intentionally deferred with approval.
    - Do not call a mismatch semantically safe merely because both outputs validate or because Starshine's canonical output is smaller. Validity and size are supporting evidence only. A semantic-safe classification needs an inspected transform contract, diff-family analysis, replay evidence, or another explicit semantic argument.
+   - Treat recurring representation drift as implementation work when it is a net-positive semantic cleanup or needed to clear direct compare lanes; do not default to “accepted drift.”
    - Classify semantic mismatches separately from decode, validation, tool, or Binaryen parser failures.
    - Replay saved failure dirs after fixes.
    - Promote durable repros into tests.
-   - Document unresolved differences with exact command, seed, out dir, failure class, agent classification, and reason they are deferred.
+   - Document unresolved differences with exact command, seed, out dir, failure class, agent classification, why behavior parity is currently blocked, who approved the deferral if applicable, and what evidence or missing API would reopen it.
 
 ## Signoff Ladder
 
@@ -127,12 +129,12 @@ Report exact `normalizedMatchCount`, `cleanupNormalizedMatchCount`, remaining `m
 
 Required result:
 
-- Binaryen semantic parity at minimum.
+- Binaryen behavior parity for the targeted pass, not merely “no known catastrophic semantic bug.”
 - `10000` compared cases when the harness can complete that many valid comparisons.
-- Zero semantic mismatches.
+- Zero true semantic mismatches, and no broad unapproved family deferrals hidden behind “safe drift.”
 - Command failures classified separately from semantic mismatches.
-- Raw wasm/text or transform-shape differences are not failures when normalized/canonical semantic comparison is green.
-- Replayable failure dirs preserved until fixed, documented, or intentionally discarded after triage.
+- Raw wasm/text or transform-shape differences are not failures when normalized/canonical semantic comparison is green and the observed behavior matches Binaryen.
+- Replayable failure dirs preserved until fixed, documented with explicit approval for a narrow deferral, or intentionally discarded after triage.
 
 ### Performance and artifact signoff
 
@@ -193,7 +195,7 @@ A pass is done only when:
 
 - public behavior is protected by tests
 - registry, dispatcher, CLI, and preset surfaces are wired or explicitly out of scope
-- direct pass execution matches Binaryen semantics on the standard compare-pass run or any semantic divergence is approved and documented
+- direct pass execution matches Binaryen behavior on the standard compare-pass run; any remaining behavior divergence or unimplemented family is narrow, evidence-backed, explicitly approved, and documented with reopening criteria
 - every transform is covered as safe and valid, with validation evidence for changed modules when applicable
 - relevant performance/artifact evidence is captured when applicable, and pass-local Starshine timing is at least 50% of Binaryen speed unless explicitly accepted
 - docs/backlog updates are complete
