@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-07] passes/local-cse | LCSE SIMD memory-load parity
+
+- Completed repeated SIMD memory-load LCSE behavior parity for `v128.load`, SIMD lane loads, load-splat, load-zero, and load-extend roots, matching Binaryen's same-window `local.tee` / `local.get` materialization without widening to arbitrary memory GVN.
+- Added memory-read invalidation across scalar stores, SIMD stores, `memory.copy`, `memory.fill`, `memory.init`, and `memory.grow`, while preserving Binaryen-positive local-only reuse across scalar/SIMD memory writes and memory-size reuse across non-growing memory writes.
+- Validation/evidence: Binaryen spot-check `.tmp/lcse-next-inventory/simd-memory.wat` materialized representative SIMD memory reads and local-only reuse across SIMD stores; focused LCSE TDD failed before implementation (`164/173`) and then passed (`173/173`); `moon info` still hit the known Moon panic; `moon fmt`, `moon test src/passes` (`1918/1918`), full `moon test` (`5104/5104`), native `src/cmd` build, native spot replay validation, and `bun validate readme-api-sync` passed. Direct `local-cse` compare at `.tmp/pass-fuzz-local-cse-simd-memory-10000` requested `10000` cases, compared `9975`, had `9975` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `25` Binaryen/tool command failures.
+
 ## [2026-06-07] passes/local-cse | LCSE heap-read parity
 
 - Completed repeated GC heap-read LCSE behavior parity for `struct.get`, packed `struct.get_s` / `struct.get_u`, `array.get`, packed `array.get_s` / `array.get_u`, and `array.len` roots. Starshine now materializes same-window repeated reads with scalar/defaultable temp locals, matching Binaryen-observable behavior without widening to arbitrary heap GVN.

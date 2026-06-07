@@ -502,9 +502,13 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::Call(_) => 18
     @lib.Instruction::RefEq => 19
     _ =>
-      match lcse_simd_pure_operand_count(instr) {
-        Some(_) => 161
-        None => -1
+      if lcse_instr_is_simd_memory_load(instr) {
+        173
+      } else {
+        match lcse_simd_pure_operand_count(instr) {
+          Some(_) => 161
+          None => -1
+        }
       }
   }
 }
@@ -553,7 +557,7 @@ fn lcse_instrs_may_have_repeated_candidate(
 ) -> Bool {
   lcse_instrs_may_have_repeated_candidate_with_seen(
     instrs,
-    @bitset.BitSet::new(192),
+    @bitset.BitSet::new(224),
   )
 }
 
@@ -875,6 +879,35 @@ fn lcse_instr_is_load(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn lcse_instr_is_simd_memory_load(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Instruction::V128Load(_)
+    | @lib.Instruction::V128Load8x8S(_)
+    | @lib.Instruction::V128Load8x8U(_)
+    | @lib.Instruction::V128Load16x4S(_)
+    | @lib.Instruction::V128Load16x4U(_)
+    | @lib.Instruction::V128Load32x2S(_)
+    | @lib.Instruction::V128Load32x2U(_)
+    | @lib.Instruction::V128Load8Splat(_)
+    | @lib.Instruction::V128Load16Splat(_)
+    | @lib.Instruction::V128Load32Splat(_)
+    | @lib.Instruction::V128Load64Splat(_)
+    | @lib.Instruction::V128Load32Zero(_)
+    | @lib.Instruction::V128Load64Zero(_)
+    | @lib.Instruction::V128Load8Lane(_, _)
+    | @lib.Instruction::V128Load16Lane(_, _)
+    | @lib.Instruction::V128Load32Lane(_, _)
+    | @lib.Instruction::V128Load64Lane(_, _) => true
+    _ => false
+  }
+}
+
+///|
+fn lcse_instr_reads_memory(instr : @lib.Instruction) -> Bool {
+  lcse_instr_is_load(instr) || lcse_instr_is_simd_memory_load(instr)
+}
+
+///|
 fn lcse_instr_is_store(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.Instruction::I32Store(_)
@@ -885,7 +918,12 @@ fn lcse_instr_is_store(instr : @lib.Instruction) -> Bool {
     | @lib.Instruction::I64Store16(_)
     | @lib.Instruction::I64Store32(_)
     | @lib.Instruction::F32Store(_)
-    | @lib.Instruction::F64Store(_) => true
+    | @lib.Instruction::F64Store(_)
+    | @lib.Instruction::V128Store(_)
+    | @lib.Instruction::V128Store8Lane(_, _)
+    | @lib.Instruction::V128Store16Lane(_, _)
+    | @lib.Instruction::V128Store32Lane(_, _)
+    | @lib.Instruction::V128Store64Lane(_, _) => true
     _ => false
   }
 }
@@ -1135,13 +1173,18 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::TableCopy(_, _)
     | @lib.Instruction::TableFill(_)
     | @lib.Instruction::TableInit(_, _) => Some(3)
+    @lib.Instruction::V128Load8Lane(_, _)
+    | @lib.Instruction::V128Load16Lane(_, _)
+    | @lib.Instruction::V128Load32Lane(_, _)
+    | @lib.Instruction::V128Load64Lane(_, _) => Some(2)
     _ =>
       match lcse_simd_pure_operand_count(instr) {
         Some(count) => Some(count)
         None =>
           if lcse_instr_is_store(instr) {
             Some(2)
-          } else if lcse_instr_is_load(instr) {
+          } else if lcse_instr_is_load(instr) ||
+            lcse_instr_is_simd_memory_load(instr) {
             Some(1)
           } else {
             None
@@ -1334,8 +1377,24 @@ fn lcse_raw_result_type(
     @lib.Instruction::RefCast(nullable, heap_type) =>
       Some(@lib.ValType::ref_type(@lib.RefType::new(nullable, heap_type)))
     @lib.Instruction::RefI31 => Some(@lib.ValType::i31ref())
-    @lib.Instruction::V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-      Some(@lib.ValType::v128())
+    @lib.Instruction::V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | @lib.Instruction::V128Load(_)
+    | @lib.Instruction::V128Load8x8S(_)
+    | @lib.Instruction::V128Load8x8U(_)
+    | @lib.Instruction::V128Load16x4S(_)
+    | @lib.Instruction::V128Load16x4U(_)
+    | @lib.Instruction::V128Load32x2S(_)
+    | @lib.Instruction::V128Load32x2U(_)
+    | @lib.Instruction::V128Load8Splat(_)
+    | @lib.Instruction::V128Load16Splat(_)
+    | @lib.Instruction::V128Load32Splat(_)
+    | @lib.Instruction::V128Load64Splat(_)
+    | @lib.Instruction::V128Load32Zero(_)
+    | @lib.Instruction::V128Load64Zero(_)
+    | @lib.Instruction::V128Load8Lane(_, _)
+    | @lib.Instruction::V128Load16Lane(_, _)
+    | @lib.Instruction::V128Load32Lane(_, _)
+    | @lib.Instruction::V128Load64Lane(_, _) => Some(@lib.ValType::v128())
     @lib.Instruction::AnyConvertExtern => Some(@lib.ValType::anyref())
     @lib.Instruction::ExternConvertAny => Some(@lib.ValType::externref())
     @lib.Instruction::RefFunc(_) | @lib.Instruction::TableGet(_) =>
@@ -1495,7 +1554,24 @@ fn lcse_raw_can_cache_child_for_replay(
 }
 
 ///|
-fn lcse_raw_filter_active_without_memory_size(
+fn lcse_raw_filter_active_without_memory(
+  exprs : Array[LcseRawExpr],
+  active : Array[Int],
+) -> Unit {
+  let keep : Array[Int] = []
+  for expr_id in active {
+    if expr_id >= 0 && expr_id < exprs.length() && !exprs[expr_id].reads_memory {
+      keep.push(expr_id)
+    }
+  }
+  active.clear()
+  for expr_id in keep {
+    active.push(expr_id)
+  }
+}
+
+///|
+fn lcse_raw_filter_active_without_memory_or_size(
   exprs : Array[LcseRawExpr],
   active : Array[Int],
 ) -> Unit {
@@ -1503,6 +1579,7 @@ fn lcse_raw_filter_active_without_memory_size(
   for expr_id in active {
     if expr_id >= 0 &&
       expr_id < exprs.length() &&
+      !exprs[expr_id].reads_memory &&
       !exprs[expr_id].reads_memory_size {
       keep.push(expr_id)
     }
@@ -1876,7 +1953,11 @@ fn lcse_raw_rewrite_instrs(
       @lib.Instruction::CallIndirect(_, _) | @lib.Instruction::CallRef(_) =>
         active.clear()
       @lib.Instruction::MemoryGrow(_) =>
-        lcse_raw_filter_active_without_memory_size(exprs, active)
+        lcse_raw_filter_active_without_memory_or_size(exprs, active)
+      @lib.Instruction::MemoryCopy(_, _)
+      | @lib.Instruction::MemoryFill(_)
+      | @lib.Instruction::MemoryInit(_, _) =>
+        lcse_raw_filter_active_without_memory(exprs, active)
       @lib.Instruction::StructSet(_, _)
       | @lib.Instruction::ArraySet(_)
       | @lib.Instruction::ArrayFill(_)
@@ -1884,7 +1965,10 @@ fn lcse_raw_rewrite_instrs(
       | @lib.Instruction::ArrayInitData(_, _)
       | @lib.Instruction::ArrayInitElem(_, _) =>
         lcse_raw_filter_active_without_heap(exprs, active)
-      _ => if lcse_instr_is_store(instr) { active.clear() }
+      _ =>
+        if lcse_instr_is_store(instr) {
+          lcse_raw_filter_active_without_memory(exprs, active)
+        }
     }
     match instr {
       @lib.Instruction::BrOnNull(_)
@@ -1909,7 +1993,7 @@ fn lcse_raw_rewrite_instrs(
         let mut start = idx
         let mut size = 1
         let reads_locals : Array[Int] = []
-        let mut reads_memory = lcse_instr_is_load(instr)
+        let mut reads_memory = lcse_instr_reads_memory(instr)
         let mut reads_memory_size = match instr {
           @lib.Instruction::MemorySize(_) => true
           _ => false

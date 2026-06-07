@@ -2934,3 +2934,59 @@ bun scripts/pass-fuzz-compare.ts \
 Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`170/170`); `moon test src/passes` passed (`1915/1915`); full `moon test` passed (`5101/5101`); native `src/cmd` build passed with pre-existing `pass_manager.mbt` unused-function warnings; native spot replay validated; `bun validate readme-api-sync` passed. Direct compare at `.tmp/pass-fuzz-local-cse-heap-read-10000` requested `10000` cases and compared `9975`, with `9975` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `25` Binaryen/tool command failures: `22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`.
 
 Pass-local timing probe on `tests/node/dist/starshine-debug-wasi.wasm`: Starshine `pass:local-cse` reported `105086us`; Binaryen `wasm-opt --all-features --local-cse --debug` reported `0.116892s` for the pass. Agent classification: the slice remains within the repo's pass-local 2x Binaryen budget on this sampled artifact.
+
+## SIMD memory-load parity and memory-write invalidation on 2026-06-07
+
+Slice `[O4Z-AUDIT-LCSE-PARITY]008` supersedes the earlier conservative SIMD memory boundary entries for SIMD load roots and SIMD store local-only boundaries. Binaryen spot-checking under `.tmp/lcse-next-inventory/simd-memory.wat` materialized repeated `v128.load`, `v128.load8_splat`, `v128.load8x8_s`, and `v128.load8_lane` roots with `local.tee` / `local.get`, and also kept local-only scalar expressions reusable across representative `v128.store` and `v128.store8_lane` writes. A separate spot-check for `ref.null`, `ref.func`, and `string.const` under `.tmp/lcse-next-inventory/ref-string-const.wat` confirmed Binaryen leaves those tiny roots unmaterialized in the tested shape, so they were not implementation-positive candidates for this slice.
+
+The implementation adds a narrow SIMD memory-read model rather than arbitrary memory GVN. Starshine now models operand counts and `v128` result types for `v128.load`, load-splat, load-zero, load-extend, and lane-load roots. Those roots carry the existing raw `reads_memory` bit, so scalar stores, SIMD stores, `memory.copy`, `memory.fill`, `memory.init`, and `memory.grow` invalidate memory-read candidates. Non-growing memory writes still preserve local-only and memory-size candidates, matching Binaryen-positive local-only reuse across scalar/SIMD stores and bulk memory writes. `memory.grow` invalidates both memory reads and memory-size candidates while preserving local-only reuse.
+
+Focused tests in `src/passes/local_cse_test.mbt` were flipped/added for:
+
+- repeated `v128.load` root reuse
+- repeated `v128.load8_lane`, `v128.load16_lane`, `v128.load32_lane`, and `v128.load64_lane` root reuse
+- repeated `v128.load8_splat`, `v128.load16_splat`, `v128.load32_splat`, `v128.load64_splat`, `v128.load32_zero`, and `v128.load64_zero` root reuse
+- repeated `v128.load8x8_s`, `v128.load8x8_u`, `v128.load16x4_s`, `v128.load16x4_u`, `v128.load32x2_s`, and `v128.load32x2_u` root reuse
+- local-only scalar reuse across scalar stores, `v128.store`, and SIMD lane stores
+- no scalar/SIMD memory-read reuse across scalar/SIMD stores, `memory.copy`, `memory.fill`, `memory.init`, or `memory.grow`
+
+TDD and validation evidence:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+```
+
+First result after flipping/adding tests and before implementation: `164/173` passed, `9` failed, covering the intended SIMD load/local-only store positives and the memory-write invalidation guard.
+
+Final standard slice evidence:
+
+```sh
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+wasm-tools parse .tmp/lcse-next-inventory/simd-memory-reduced.wat -o .tmp/lcse-next-inventory/simd-memory-reduced.wasm
+target/native/release/build/cmd/cmd.exe --local-cse -o .tmp/lcse-next-inventory/simd-memory-reduced.starshine.wasm .tmp/lcse-next-inventory/simd-memory-reduced.wasm
+wasm-tools validate --features all .tmp/lcse-next-inventory/simd-memory-reduced.starshine.wasm
+bun validate readme-api-sync
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-simd-memory-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe \
+  --max-failures 2000 \
+  --keep-going-after-command-failures
+```
+
+Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`). `moon fmt` passed. Focused LCSE passed `173/173`; `moon test src/passes` passed `1918/1918`; full `moon test` passed `5104/5104`; native `src/cmd` build passed with the pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; native replay validated. `bun validate readme-api-sync` passed. Direct `local-cse` compare at `.tmp/pass-fuzz-local-cse-simd-memory-10000` requested `10000` cases and compared `9975`, with `9975` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `25` Binaryen/tool command failures: `22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`.
+
+Pass-local timing probe on `tests/node/dist/starshine-debug-wasi.wasm`:
+
+- Starshine `pass:local-cse`: `104901us`
+- Binaryen debug `local-cse`: `0.11015s`
+
+Agent classification: the slice is behavior-parity reuse for same-window SIMD memory loads and memory-write precision, not arbitrary alias analysis or CFG-wide memory GVN. The direct compare has no LCSE semantic mismatches; the remaining command failures are Binaryen/tool oracle failures.

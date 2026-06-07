@@ -1807,7 +1807,7 @@ test "local-cse reuses repeated SIMD lane-extract roots" {
 }
 
 ///|
-test "local-cse defers repeated SIMD load roots" {
+test "local-cse reuses repeated SIMD load roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let memarg = @lib.MemArg::new(@lib.U32(4U), None, @lib.U64(0UL))
   let func_type = @lib.RecType::new(
@@ -1838,12 +1838,12 @@ test "local-cse defers repeated SIMD load roots" {
   let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
     optimized,
   )
-  @debug.assert_eq(locals, @lib.Locals::from_types([]))
-  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(1U)), 0)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::v128()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(1U)), 1)
 }
 
 ///|
-test "local-cse defers repeated SIMD lane-load roots" {
+test "local-cse reuses repeated SIMD lane-load roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let memarg = @lib.MemArg::new(@lib.U32(0U), None, @lib.U64(0UL))
   let lane = @lib.LaneIdx::new(0)
@@ -1879,12 +1879,12 @@ test "local-cse defers repeated SIMD lane-load roots" {
   let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
     optimized,
   )
-  @debug.assert_eq(locals, @lib.Locals::from_types([]))
-  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(2U)), 0)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::v128()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(2U)), 1)
 }
 
 ///|
-test "local-cse defers repeated wider SIMD lane-load roots" {
+test "local-cse reuses repeated wider SIMD lane-load roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let memarg = @lib.MemArg::new(@lib.U32(0U), None, @lib.U64(0UL))
   let lane = @lib.LaneIdx::new(0)
@@ -1928,15 +1928,18 @@ test "local-cse defers repeated wider SIMD lane-load roots" {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        @debug.assert_eq(
+          locals,
+          @lib.Locals::from_types([@lib.ValType::v128()]),
+        )
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 1)
       }
     None => fail("expected code section")
   }
 }
 
 ///|
-test "local-cse defers repeated SIMD load splat and zero roots" {
+test "local-cse reuses repeated SIMD load splat and zero roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let memarg = @lib.MemArg::new(@lib.U32(0U), None, @lib.U64(0UL))
   let func_type = @lib.RecType::new(
@@ -1981,15 +1984,18 @@ test "local-cse defers repeated SIMD load splat and zero roots" {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        @debug.assert_eq(
+          locals,
+          @lib.Locals::from_types([@lib.ValType::v128()]),
+        )
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 1)
       }
     None => fail("expected code section")
   }
 }
 
 ///|
-test "local-cse defers repeated SIMD load extend roots" {
+test "local-cse reuses repeated SIMD load extend roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let memarg = @lib.MemArg::new(@lib.U32(0U), None, @lib.U64(0UL))
   let func_type = @lib.RecType::new(
@@ -2034,15 +2040,18 @@ test "local-cse defers repeated SIMD load extend roots" {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        @debug.assert_eq(
+          locals,
+          @lib.Locals::from_types([@lib.ValType::v128()]),
+        )
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 1)
       }
     None => fail("expected code section")
   }
 }
 
 ///|
-test "local-cse defers local-only scalar reuse across SIMD stores" {
+test "local-cse reuses local-only scalar expressions across SIMD stores" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let memarg = @lib.MemArg::new(@lib.U32(0U), None, @lib.U64(0UL))
   let lane = @lib.LaneIdx::new(0)
@@ -2101,15 +2110,15 @@ test "local-cse defers local-only scalar reuse across SIMD stores" {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 1)
       }
     None => fail("expected code section")
   }
 }
 
 ///|
-test "local-cse defers local-only scalar reuse across wider SIMD lane stores" {
+test "local-cse reuses local-only scalar expressions across wider SIMD lane stores" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let memarg = @lib.MemArg::new(@lib.U32(0U), None, @lib.U64(0UL))
   let lane = @lib.LaneIdx::new(0)
@@ -2152,6 +2161,65 @@ test "local-cse defers local-only scalar reuse across wider SIMD lane stores" {
         body_for(@lib.Instruction::v128_store16_lane(memarg, lane)),
         body_for(@lib.Instruction::v128_store32_lane(memarg, lane)),
         body_for(@lib.Instruction::v128_store64_lane(memarg, lane)),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(locals, @lib.Expr(instrs)) = func
+        @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 1)
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
+test "local-cse does not reuse memory-read roots across SIMD stores" {
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let memarg = @lib.MemArg::new(@lib.U32(0U), None, @lib.U64(0UL))
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::v128()], []),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx, func_type_idx]))
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::v128_load(memarg),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::v128_store(memarg),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::v128_load(memarg),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_load(memarg),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::v128_store8_lane(memarg, @lib.LaneIdx::new(0)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_load(memarg),
+            @lib.Instruction::drop(),
+          ]),
+        ),
       ]),
     )
   let optimized = local_cse_run_module_pass(input)
@@ -3338,6 +3406,65 @@ test "local-cse reuses repeated load trees until a store barrier" {
   assert_true(
     instrs.contains(@lib.Instruction::local_tee(@lib.LocalIdx::new(1U))),
   )
+}
+
+///|
+test "local-cse does not reuse load roots across memory writes" {
+  let input =
+    #| (module
+    #|   (memory 1)
+    #|   (data "abc")
+    #|   (func (param i32)
+    #|     (drop (i32.load (local.get 0)))
+    #|     (memory.copy (i32.const 0) (i32.const 4) (i32.const 1))
+    #|     (drop (i32.load (local.get 0))))
+    #|   (func (param i32)
+    #|     (drop (i32.load (local.get 0)))
+    #|     (memory.fill (i32.const 0) (i32.const 7) (i32.const 1))
+    #|     (drop (i32.load (local.get 0))))
+    #|   (func (param i32)
+    #|     (drop (i32.load (local.get 0)))
+    #|     (memory.init 0 (i32.const 0) (i32.const 0) (i32.const 1))
+    #|     (drop (i32.load (local.get 0))))
+    #|   (func (param i32)
+    #|     (drop (i32.load (local.get 0)))
+    #|     (drop (memory.grow (i32.const 1)))
+    #|     (drop (i32.load (local.get 0)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(locals, @lib.Expr(instrs)) = func
+        @debug.assert_eq(locals, @lib.Locals::from_types([]))
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
+test "local-cse reuses local-only expression across scalar memory store" {
+  let input =
+    #| (module
+    #|   (memory 1)
+    #|   (func (param i32 i32)
+    #|     (drop (i32.add (local.get 0) (local.get 1)))
+    #|     (i32.store (i32.const 0) (i32.const 1))
+    #|     (drop (i32.add (local.get 0) (local.get 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 1)
 }
 
 ///|
