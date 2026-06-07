@@ -2652,3 +2652,49 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`160/160`); `moon test src/passes` passed (`1905/1905`); full `moon test` passed (`5090/5090`); native `src/cmd` build succeeded with pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; and the direct compare reached `6769/10000` compared cases, `6769` normalized matches, `0` compare-normalized matches, `0` validation/property/generator failures, `0` mismatches, and `20` Binaryen/tool command failures.
 
 Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures: `17` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`. No LCSE semantic mismatch was found in this direct 10000-case lane.
+
+## Reference-conversion root parity on 2026-06-06
+
+Slice `[O4Z-AUDIT-LCSE-PARITY]003` continued the user-approved Binaryen behavior-parity direction by implementing repeated reference-conversion roots. This is still a narrow reference-result slice because both temp-local result types are defaultable nullable references: `anyref` for `any.convert_extern` and `externref` for `extern.convert_any`.
+
+Implemented root families:
+
+- `any.convert_extern`
+- `extern.convert_any`
+
+Semantic scope: both conversions are deterministic pure conversions over the operand. LCSE still materializes only the first identical whole-tree occurrence and replaces later identical repeats inside the existing local window/effect invalidation model. This does not add `ref.cast`, `ref.as_non_null`, non-null reference locals, descriptor reasoning, heap-read CSE, or broad reference/nullability value numbering.
+
+Binaryen spot-check:
+
+```sh
+wasm-opt --all-features --local-cse -S \
+  -o .tmp/lcse-parity003-ref-convert/ref-convert-spot.binaryen.wat \
+  .tmp/lcse-parity003-ref-convert/ref-convert-spot.wat
+```
+
+Result: Binaryen emitted fresh `anyref` and `externref` locals with `local.tee` / `local.get` materialization for representative `any.convert_extern` and `extern.convert_any` repeats. The saved output is `.tmp/lcse-parity003-ref-convert/ref-convert-spot.binaryen.wat`.
+
+TDD and implementation evidence:
+
+- Flipped the previous deferral test into the breadth positive `local-cse reuses repeated reference conversion roots`.
+- The first focused run failed as intended before implementation: `159/160` passed because no temp locals were added.
+- `src/passes/local_cse.mbt` now includes `AnyConvertExtern` and `ExternConvertAny` in the candidate-op prefilter, unary operand-count model, and defaultable nullable `anyref` / `externref` result-type model.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt # first run failed before fix
+wasm-opt --all-features --local-cse -S -o .tmp/lcse-parity003-ref-convert/ref-convert-spot.binaryen.wat .tmp/lcse-parity003-ref-convert/ref-convert-spot.wat
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-parity003-ref-convert-100000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+bun scripts/pass-fuzz-compare.ts --replay-failures-from .tmp/pass-fuzz-local-cse-parity003-ref-convert-100000 --failure-status mismatch --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-parity003-ref-convert-100000-mismatch-replay-unreachable-normalized --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --normalize unreachable-control-debris --max-failures 2000 --keep-going-after-command-failures
+```
+
+Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`160/160`); `moon test src/passes` passed (`1905/1905`); full `moon test` passed (`5090/5090`); native `src/cmd` build succeeded with pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; and the required 100000-case direct compare reached `99747/100000` compared cases, `99744` normalized matches, `0` compare-normalized matches, `0` validation/property/generator failures, `253` Binaryen/tool command failures, and `3` mismatches.
+
+Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures: `221` `binaryen-rec-group-zero`, `8` `binaryen-bad-section-size`, `10` `binaryen-table-index-out-of-range`, `2` `binaryen-invalid-tag-index`, `10` `binaryen-command-failed`, and `2` `binaryen-invalid-type-index`. The three mismatches are semantic-safe unreachable/control-debris representation drift, not reference-conversion or LCSE semantic mismatches: cases `23083`, `46375`, and `82547` differ by Binaryen removing unobservable `drop (unreachable)` / nested dropped-unreachable wrappers while Starshine preserves them before a following `unreachable`. Replaying the three mismatches with `--normalize unreachable-control-debris` produced `2` compare-normalized matches and `1` remaining nested-wrapper mismatch; manual inspection classifies the remaining nested `drop (drop (unreachable))` before `unreachable` as the same semantic-safe unreachable-tail debris family.

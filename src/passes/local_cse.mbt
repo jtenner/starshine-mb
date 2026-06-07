@@ -202,6 +202,8 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::I64TruncF64S => 156
     @lib.Instruction::I64TruncF64U => 157
     @lib.Instruction::RefTest(_, _) => 158
+    @lib.Instruction::AnyConvertExtern => 159
+    @lib.Instruction::ExternConvertAny => 160
     @lib.Instruction::F32ConvertI32S => 134
     @lib.Instruction::F32ConvertI32U => 135
     @lib.Instruction::F32ConvertI64S => 136
@@ -517,6 +519,8 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::I64TruncSatF64S
     | @lib.Instruction::I64TruncSatF64U
     | @lib.Instruction::RefTest(_, _)
+    | @lib.Instruction::AnyConvertExtern
+    | @lib.Instruction::ExternConvertAny
     | @lib.Instruction::I32TruncF32S
     | @lib.Instruction::I32TruncF32U
     | @lib.Instruction::I32TruncF64S
@@ -658,6 +662,8 @@ fn lcse_raw_result_type(
     | @lib.Instruction::F64PromoteF32
     | @lib.Instruction::F64ReinterpretI64 => Some(@lib.ValType::f64())
     @lib.Instruction::RefNull(ty) => Some(@lib.ValType::ref_type(ty))
+    @lib.Instruction::AnyConvertExtern => Some(@lib.ValType::anyref())
+    @lib.Instruction::ExternConvertAny => Some(@lib.ValType::externref())
     @lib.Instruction::RefFunc(_) | @lib.Instruction::TableGet(_) =>
       Some(@lib.ValType::funcref())
     @lib.Instruction::Select(_) =>

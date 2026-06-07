@@ -2610,7 +2610,7 @@ test "local-cse defers repeated string encode array roots" {
 }
 
 ///|
-test "local-cse defers repeated reference conversion roots" {
+test "local-cse reuses repeated reference conversion roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(
@@ -2645,8 +2645,14 @@ test "local-cse defers repeated reference conversion roots" {
   let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
     optimized,
   )
-  @debug.assert_eq(locals, @lib.Locals::from_types([]))
-  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(2U)), 0)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::anyref(), @lib.ValType::externref()]),
+  )
+  for temp in [@lib.LocalIdx::new(2U), @lib.LocalIdx::new(3U)] {
+    @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+    @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+  }
 }
 
 ///|

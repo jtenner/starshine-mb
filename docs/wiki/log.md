@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-06] passes/local-cse | LCSE reference-conversion parity
+
+- Completed `[O4Z-AUDIT-LCSE-PARITY]003` by moving repeated `any.convert_extern` / `extern.convert_any` roots from documented conservative deferral to Binaryen behavior parity. The slice stays narrow: result locals are defaultable nullable `anyref` / `externref`, and it does not add `ref.cast`, `ref.as_non_null`, descriptor, non-null local, or heap-GVN reasoning.
+- Binaryen spot-check `.tmp/lcse-parity003-ref-convert/ref-convert-spot.wat` materialized representative reference-conversion repeats with fresh locals and `local.tee` / `local.get`. The focused test failed first (`159/160`) after flipping the former deferral fixture, then passed after adding `AnyConvertExtern` / `ExternConvertAny` to the candidate, operand-count, and result-type model.
+- Validation/evidence: `moon info` still hit the known Moon panic; `moon fmt` passed; focused LCSE tests passed (`160/160`); `moon test src/passes` passed (`1905/1905`); full `moon test` passed (`5090/5090`); native `src/cmd` build succeeded with pre-existing unused-function warnings. Required 100000-case direct compare at `.tmp/pass-fuzz-local-cse-parity003-ref-convert-100000` had `99747/100000` compared, `99744` normalized matches, `3` agent-classified semantic-safe unreachable/control-debris representation mismatches, `0` validation/property/generator failures, and `253` Binaryen/tool command failures.
+
 ## [2026-06-06] passes/local-cse | LCSE ref.test parity
 
 - Completed `[O4Z-AUDIT-LCSE-PARITY]002` by moving repeated `ref.test` predicate roots from documented conservative deferral to Binaryen behavior parity. The slice stays narrow: the materialized temp-local type is scalar `i32`, and exact heap/nullability immediates remain part of the instruction key.
