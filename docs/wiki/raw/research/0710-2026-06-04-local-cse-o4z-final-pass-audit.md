@@ -1,7 +1,7 @@
 ---
 kind: research
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-06
 sources:
   - ../binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md
   - ../../binaryen/passes/local-cse/index.md
@@ -1627,11 +1627,11 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 Results: the initial focused run with the deferral tests passed (`104/104`) because Starshine already intentionally leaves these roots unmaterialized; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`104/104`); `moon test src/passes` passed (`1652/1652`); full `moon test` passed (`4837/4837`); native build succeeded with no work to do; compare reached `6769` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index). The observed Binaryen materialization for div/rem remains classified as an intentionally deferred optimization opportunity, not a Starshine semantic failure.
 
 
-## Follow-up ref.test deferral slice on 2026-06-05
+## Follow-up ref.test deferral slice on 2026-06-05 (superseded by `[O4Z-AUDIT-LCSE-PARITY]002`)
 
 A later focused LCSE hardening slice spot-checked repeated standard `ref.test` roots with a local GC reference operand. Binaryen materialized the repeated root with `local.tee` / `local.get`.
 
-This slice deliberately did not implement `ref.test` root CSE. The audit intent kept cast/trap/descriptor reasoning and arbitrary heap reasoning out of scope, and the local WAT parser surface is descriptor-oriented while the standard `ref.test` fixture is safest as a core-built module. The slice added the core-built boundary test `local-cse defers repeated ref-test roots`, documenting Starshine's current conservative no-CSE behavior. This does not add `ref.cast`, descriptor `ref.test_desc` / `ref.cast_desc_eq`, GC allocation CSE, or heap/GVN reasoning.
+This slice deliberately did not implement `ref.test` root CSE at the time. The audit intent kept cast/trap/descriptor reasoning and arbitrary heap reasoning out of scope, and the local WAT parser surface is descriptor-oriented while the standard `ref.test` fixture is safest as a core-built module. The slice added the core-built boundary test `local-cse defers repeated ref-test roots`, documenting Starshine's then-current conservative no-CSE behavior. `[O4Z-AUDIT-LCSE-PARITY]002` later superseded only the standard `ref.test` predicate-root deferral; it still does not add `ref.cast`, descriptor `ref.test_desc` / `ref.cast_desc_eq`, GC allocation CSE, or heap/GVN reasoning.
 
 Validation evidence for this slice:
 
@@ -1646,7 +1646,7 @@ moon build --target native --release src/cmd
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-ref-test-deferral-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
 ```
 
-Results: the initial focused run with the deferral test passed (`105/105`) because Starshine already intentionally leaves this root unmaterialized; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`105/105`); `moon test src/passes` passed (`1653/1653`); full `moon test` passed (`4838/4838`); native build succeeded with no work to do; compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index). The observed Binaryen materialization for `ref.test` remains classified as an intentionally deferred optimization opportunity, not a Starshine semantic failure.
+Results: the initial focused run with the deferral test passed (`105/105`) because Starshine already intentionally leaves this root unmaterialized; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`105/105`); `moon test src/passes` passed (`1653/1653`); full `moon test` passed (`4838/4838`); native build succeeded with no work to do; compare reached `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index). The observed Binaryen materialization for `ref.test` was classified in this older slice as an intentionally deferred optimization opportunity, not a Starshine semantic failure; `[O4Z-AUDIT-LCSE-PARITY]002` later implements that predicate-root parity.
 
 ## Follow-up trap-sensitive trunc-conversion deferral slice on 2026-06-05
 
@@ -1673,7 +1673,7 @@ Results: the initial focused run with the added deferral coverage passed (`107/1
 
 A later focused LCSE hardening slice spot-checked a standard nullable `ref.cast` root with a representative `(ref.cast (ref null eq) ...)` fixture. Binaryen materialized the repeated root with `local.tee` / `local.get` in the spot-check fixture under `.tmp/local-cse-ref-cast/`.
 
-This slice deliberately did not implement `ref.cast` CSE or heap/cast/trap reasoning. It added the core-built direct boundary test `local-cse defers repeated ref-cast roots`, documenting Starshine's conservative no-CSE behavior for cast roots. The existing `ref.test` deferral remains paired with this cast boundary; `br_on_cast` / `br_on_cast_fail` fallthrough-continuation operand modeling remains separate and does not make cast roots reusable.
+This slice deliberately did not implement `ref.cast` CSE or heap/cast/trap reasoning. It added the core-built direct boundary test `local-cse defers repeated ref-cast roots`, documenting Starshine's conservative no-CSE behavior for cast roots. The standard `ref.test` predicate-root deferral was later superseded by `[O4Z-AUDIT-LCSE-PARITY]002`, but this cast boundary remains: `br_on_cast` / `br_on_cast_fail` fallthrough-continuation operand modeling remains separate and does not make cast roots reusable.
 
 Validation evidence for this slice:
 
@@ -1757,7 +1757,7 @@ Results: the initial focused run with the added conservative boundary coverage p
 
 A later focused LCSE hardening slice spot-checked repeated `ref.as_non_null` roots with an `externref` operand. Binaryen materialized the repeated root with `local.tee` / `local.get` in the spot-check fixture under `.tmp/local-cse-spot/ref_as_non_null.wat`.
 
-This slice deliberately did not implement `ref.as_non_null` CSE or nullability trap reasoning. It added the direct WAT boundary test `local-cse defers repeated ref-as-non-null roots`, documenting Starshine's conservative no-CSE behavior for nullability trap roots. This stays paired with the existing `ref.test`, `ref.cast`, descriptor test/cast, and trap-sensitive numeric deferrals rather than adding broad cast/trap reasoning.
+This slice deliberately did not implement `ref.as_non_null` CSE or nullability trap reasoning. It added the direct WAT boundary test `local-cse defers repeated ref-as-non-null roots`, documenting Starshine's conservative no-CSE behavior for nullability trap roots. This stays paired with the remaining `ref.cast` and descriptor test/cast deferrals rather than adding broad cast/trap reasoning; standard `ref.test` predicate roots were later split out and implemented by `[O4Z-AUDIT-LCSE-PARITY]002`.
 
 Validation evidence for this slice:
 
@@ -2541,7 +2541,7 @@ Added test:
 
 - `local-cse reuses repeated integer-to-float conversion roots`
 
-Implementation change: `src/passes/local_cse.mbt` now includes the eight integer-to-float conversion opcodes in the raw candidate prefilter, unary operand model, and `f32`/`f64` result-type model. This is not a trap-sensitive truncation widening: the existing `i32.trunc_*` / `i64.trunc_*` deferral tests remain unchanged, while saturating truncation and nontrapping conversions stay reusable.
+Implementation change: `src/passes/local_cse.mbt` now includes the eight integer-to-float conversion opcodes in the raw candidate prefilter, unary operand model, and `f32`/`f64` result-type model. At the time, this was not a trap-sensitive truncation widening; the later `[O4Z-AUDIT-LCSE-PARITY]001` section below supersedes that conservative truncation stance for scalar non-saturating float-to-int trunc roots.
 
 Validation evidence for this slice:
 
@@ -2559,4 +2559,96 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 
 Results: the Binaryen spot-check emitted local materialization for representative `f32.convert_i32_s` and `f64.convert_i64_u` repeats. The first focused Starshine run failed as intended (`160/161` passed) before the implementation change. After the fix, `moon fmt` passed; `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); focused LCSE tests passed (`161/161`); `moon test src/passes` passed (`1906/1906`); full `moon test` passed (`5091/5091`); native build succeeded with pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; and the direct compare reached `6768/10000` compared cases, `6768` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `20` Binaryen/tool command failures. Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
 
-The follow-up inventory found no further non-duplicative, safely representable LCSE closeout gap that should be added under `[O4Z-AUDIT-LCSE-CLOSE]004`; remaining candidates are already covered positives or explicitly accepted conservative deferrals owned by `[O4Z-AUDIT-LCSE-CLOSE]003` / future non-LCSE slices.
+The follow-up inventory originally found no further non-duplicative, safely representable LCSE closeout gap under the conservative closeout direction. User-approved `[O4Z-AUDIT-LCSE-PARITY]001` below supersedes that direction for deterministic trap-sensitive scalar numeric roots while leaving the broader reference, heap, atomics, SIMD, call, and CFG-wide GVN deferrals separate.
+
+## Trap-sensitive scalar numeric root parity on 2026-06-06
+
+Slice `[O4Z-AUDIT-LCSE-PARITY]001` changed direction from conservative LCSE drift to Binaryen behavior parity for trap-sensitive scalar numeric roots that are deterministic and safe to reuse when the repeated whole tree is identical and operands/effects are unchanged.
+
+Implemented root families:
+
+- integer division: `i32.div_s`, `i32.div_u`, `i64.div_s`, `i64.div_u`
+- integer remainder: `i32.rem_s`, `i32.rem_u`, `i64.rem_s`, `i64.rem_u`
+- non-saturating float-to-int trunc conversions: `i32.trunc_f32_s`, `i32.trunc_f32_u`, `i32.trunc_f64_s`, `i32.trunc_f64_u`, `i64.trunc_f32_s`, `i64.trunc_f32_u`, `i64.trunc_f64_s`, and `i64.trunc_f64_u`
+
+Semantic scope: this is still LCSE materialization of the first occurrence and replacement of later identical repeats, not speculative motion or CFG-wide GVN. If the first evaluation traps, execution stops before any later replacement can be observed. If the first evaluation does not trap, the identical repeated expression over unchanged operands would not trap either. The implementation keeps the existing LCSE local window, local-write filtering, and effect invalidation rules.
+
+Binaryen spot-check:
+
+```sh
+wasm-opt --all-features --local-cse -S -o - \
+  .tmp/lcse-parity001/trap-numeric-spot.wat
+```
+
+Result: Binaryen emitted fresh locals and `local.tee` / `local.get` materialization for representative `i32.div_s`, `i64.rem_u`, `i32.trunc_f32_s`, and `i64.trunc_f64_u` repeated roots. The saved output is `.tmp/lcse-parity001/trap-numeric-spot.binaryen.wat`.
+
+TDD and implementation evidence:
+
+- Flipped the previous deferral tests into breadth positives:
+  - `local-cse reuses repeated integer division roots`
+  - `local-cse reuses repeated integer remainder roots`
+  - `local-cse reuses repeated trapping float-to-int trunc roots`
+- The first focused run failed as intended before implementation: `157/160` passed, with all three new parity tests failing because no temp local was added.
+- `src/passes/local_cse.mbt` now includes those roots in the candidate-op prefilter, the raw operand-count model, and the `i32` / `i64` result-type model.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt # first run failed before fix
+wasm-opt --all-features --local-cse -S -o - .tmp/lcse-parity001/trap-numeric-spot.wat
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-parity001-trap-numeric-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: `moon fmt` passed; focused LCSE tests passed (`160/160`); `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon test src/passes` passed (`1905/1905`); full `moon test` passed (`5090/5090`); native `src/cmd` build succeeded with pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; and the direct compare reached `6768/10000` compared cases, `6768` normalized matches, `0` compare-normalized matches, `0` validation/property/generator failures, `0` mismatches, and `20` Binaryen/tool command failures.
+
+Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures: `17` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`. No LCSE semantic mismatch was found in this direct 10000-case lane.
+
+## `ref.test` predicate-root parity on 2026-06-06
+
+Slice `[O4Z-AUDIT-LCSE-PARITY]002` continued the user-approved Binaryen behavior-parity direction by implementing repeated `ref.test` predicate roots. This is a narrow reference-family slice because the materialized temp local has scalar result type `i32`; it does not require non-defaultable reference locals, cast result locals, descriptor reasoning, or broad reference/nullability value numbering.
+
+Implemented root family:
+
+- `ref.test` with exact nullable/non-nullable heap-type immediates preserved in the instruction key
+
+Semantic scope: `ref.test` is a pure predicate over its operand and immediate heap type. LCSE still materializes only the first identical whole-tree occurrence and replaces later identical repeats inside the existing local window/effect invalidation model. The expression match compares the full `Instruction`, so different heap/nullability immediates do not alias.
+
+Binaryen spot-check:
+
+```sh
+wasm-opt --all-features --local-cse -S \
+  -o .tmp/lcse-parity002/ref-test-spot.binaryen.wat \
+  .tmp/lcse-parity002/ref-test-spot.wat
+```
+
+Result: Binaryen emitted fresh `i32` locals and `local.tee` / `local.get` materialization for representative nullable `ref.test (ref null eq)` and non-nullable `ref.test (ref any)` repeats. The saved output is `.tmp/lcse-parity002/ref-test-spot.binaryen.wat`.
+
+TDD and implementation evidence:
+
+- Flipped the previous deferral test into the breadth positive `local-cse reuses repeated ref-test predicate roots`.
+- The first focused run failed as intended before implementation: `159/160` passed because no temp locals were added.
+- `src/passes/local_cse.mbt` now includes `RefTest(_, _)` in the candidate-op prefilter, unary operand-count model, and `i32` result-type model.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt # first run failed before fix
+wasm-opt --all-features --local-cse -S -o .tmp/lcse-parity002/ref-test-spot.binaryen.wat .tmp/lcse-parity002/ref-test-spot.wat
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-parity002-ref-test-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
+```
+
+Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`160/160`); `moon test src/passes` passed (`1905/1905`); full `moon test` passed (`5090/5090`); native `src/cmd` build succeeded with pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; and the direct compare reached `6769/10000` compared cases, `6769` normalized matches, `0` compare-normalized matches, `0` validation/property/generator failures, `0` mismatches, and `20` Binaryen/tool command failures.
+
+Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures: `17` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`. No LCSE semantic mismatch was found in this direct 10000-case lane.

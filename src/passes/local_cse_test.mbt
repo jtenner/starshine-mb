@@ -409,79 +409,203 @@ test "local-cse reuses repeated integer eqz roots" {
 }
 
 ///|
-test "local-cse defers repeated integer division roots" {
-  let input =
-    #| (module
-    #|   (func (param i32 i32)
-    #|     (drop (i32.div_s (local.get 0) (local.get 1)))
-    #|     (drop (i32.div_s (local.get 0) (local.get 1)))))
-    #|
-  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+test "local-cse reuses repeated integer division roots" {
+  let func_type_i32_idx = @lib.TypeIdx::new(0U)
+  let func_type_i64_idx = @lib.TypeIdx::new(1U)
+  let func_types = [
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], []),
+      ),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::i64(), @lib.ValType::i64()], []),
+      ),
+    ),
+  ]
+  let body_for = fn(op : @lib.Instruction) {
+    @lib.Func::new(
+      @lib.Locals::from_types([]),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        op,
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        op,
+        @lib.Instruction::drop(),
+      ]),
+    )
   }
-  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
-    optimized,
-  )
-  @debug.assert_eq(locals, @lib.Locals::from_types([]))
-  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(2U)), 0)
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new(func_types))
+    .with_func_sec(
+      @lib.FuncSec::new([
+        func_type_i32_idx, func_type_i32_idx, func_type_i64_idx, func_type_i64_idx,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        body_for(@lib.Instruction::i32_div_s()),
+        body_for(@lib.Instruction::i32_div_u()),
+        body_for(@lib.Instruction::i64_div_s()),
+        body_for(@lib.Instruction::i64_div_u()),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      @debug.assert_eq(funcs.length(), 4)
+      for i = 0; i < funcs.length(); i = i + 1 {
+        let @lib.Func(locals, @lib.Expr(instrs)) = funcs[i]
+        let expected_ty = if i < 2 {
+          @lib.ValType::i32()
+        } else {
+          @lib.ValType::i64()
+        }
+        let temp = @lib.LocalIdx::new(2U)
+        @debug.assert_eq(locals, @lib.Locals::from_types([expected_ty]))
+        @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+        @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+      }
+    }
+    None => fail("expected code section")
+  }
 }
 
 ///|
-test "local-cse defers repeated integer remainder roots" {
-  let input =
-    #| (module
-    #|   (func (param i64 i64)
-    #|     (drop (i64.rem_u (local.get 0) (local.get 1)))
-    #|     (drop (i64.rem_u (local.get 0) (local.get 1)))))
-    #|
-  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+test "local-cse reuses repeated integer remainder roots" {
+  let func_type_i32_idx = @lib.TypeIdx::new(0U)
+  let func_type_i64_idx = @lib.TypeIdx::new(1U)
+  let func_types = [
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], []),
+      ),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::i64(), @lib.ValType::i64()], []),
+      ),
+    ),
+  ]
+  let body_for = fn(op : @lib.Instruction) {
+    @lib.Func::new(
+      @lib.Locals::from_types([]),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        op,
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        op,
+        @lib.Instruction::drop(),
+      ]),
+    )
   }
-  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
-    optimized,
-  )
-  @debug.assert_eq(locals, @lib.Locals::from_types([]))
-  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(2U)), 0)
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new(func_types))
+    .with_func_sec(
+      @lib.FuncSec::new([
+        func_type_i32_idx, func_type_i32_idx, func_type_i64_idx, func_type_i64_idx,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        body_for(@lib.Instruction::i32_rem_s()),
+        body_for(@lib.Instruction::i32_rem_u()),
+        body_for(@lib.Instruction::i64_rem_s()),
+        body_for(@lib.Instruction::i64_rem_u()),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      @debug.assert_eq(funcs.length(), 4)
+      for i = 0; i < funcs.length(); i = i + 1 {
+        let @lib.Func(locals, @lib.Expr(instrs)) = funcs[i]
+        let expected_ty = if i < 2 {
+          @lib.ValType::i32()
+        } else {
+          @lib.ValType::i64()
+        }
+        let temp = @lib.LocalIdx::new(2U)
+        @debug.assert_eq(locals, @lib.Locals::from_types([expected_ty]))
+        @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+        @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+      }
+    }
+    None => fail("expected code section")
+  }
 }
 
 ///|
-test "local-cse defers repeated i32 trapping trunc roots" {
-  let input =
-    #| (module
-    #|   (func (param f32)
-    #|     (drop (i32.trunc_f32_s (local.get 0)))
-    #|     (drop (i32.trunc_f32_s (local.get 0)))))
-    #|
-  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+test "local-cse reuses repeated trapping float-to-int trunc roots" {
+  let func_type_f32_idx = @lib.TypeIdx::new(0U)
+  let func_type_f64_idx = @lib.TypeIdx::new(1U)
+  let func_types = [
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::f32()], [])),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::f64()], [])),
+    ),
+  ]
+  let body_for = fn(op : @lib.Instruction) {
+    @lib.Func::new(
+      @lib.Locals::from_types([]),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        op,
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        op,
+        @lib.Instruction::drop(),
+      ]),
+    )
   }
-  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
-    optimized,
-  )
-  @debug.assert_eq(locals, @lib.Locals::from_types([]))
-  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(1U)), 0)
-}
-
-///|
-test "local-cse defers repeated i64 trapping trunc roots" {
-  let input =
-    #| (module
-    #|   (func (param f64)
-    #|     (drop (i64.trunc_f64_u (local.get 0)))
-    #|     (drop (i64.trunc_f64_u (local.get 0)))))
-    #|
-  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new(func_types))
+    .with_func_sec(
+      @lib.FuncSec::new([
+        func_type_f32_idx, func_type_f32_idx, func_type_f64_idx, func_type_f64_idx,
+        func_type_f32_idx, func_type_f32_idx, func_type_f64_idx, func_type_f64_idx,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        body_for(@lib.Instruction::i32_trunc_f32s()),
+        body_for(@lib.Instruction::i32_trunc_f32u()),
+        body_for(@lib.Instruction::i32_trunc_f64s()),
+        body_for(@lib.Instruction::i32_trunc_f64u()),
+        body_for(@lib.Instruction::i64_trunc_f32s()),
+        body_for(@lib.Instruction::i64_trunc_f32u()),
+        body_for(@lib.Instruction::i64_trunc_f64s()),
+        body_for(@lib.Instruction::i64_trunc_f64u()),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      @debug.assert_eq(funcs.length(), 8)
+      for i = 0; i < funcs.length(); i = i + 1 {
+        let @lib.Func(locals, @lib.Expr(instrs)) = funcs[i]
+        let expected_ty = if i < 4 {
+          @lib.ValType::i32()
+        } else {
+          @lib.ValType::i64()
+        }
+        let temp = @lib.LocalIdx::new(1U)
+        @debug.assert_eq(locals, @lib.Locals::from_types([expected_ty]))
+        @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+        @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+      }
+    }
+    None => fail("expected code section")
   }
-  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
-    optimized,
-  )
-  @debug.assert_eq(locals, @lib.Locals::from_types([]))
-  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(1U)), 0)
 }
 
 ///|
@@ -2146,7 +2270,7 @@ test "local-cse reuses repeated i31 get roots" {
 }
 
 ///|
-test "local-cse defers repeated ref-test roots" {
+test "local-cse reuses repeated ref-test predicate roots" {
   let ref_ty = @lib.ValType::ref_null(
     @lib.HeapType::abs(@lib.AbsHeapType::any()),
   )
@@ -2174,6 +2298,18 @@ test "local-cse defers repeated ref-test roots" {
               @lib.HeapType::abs(@lib.AbsHeapType::eq()),
             ),
             @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test(
+              false,
+              @lib.HeapType::abs(@lib.AbsHeapType::any()),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_test(
+              false,
+              @lib.HeapType::abs(@lib.AbsHeapType::any()),
+            ),
+            @lib.Instruction::drop(),
           ]),
         ),
       ]),
@@ -2182,8 +2318,14 @@ test "local-cse defers repeated ref-test roots" {
   let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
     optimized,
   )
-  @debug.assert_eq(locals, @lib.Locals::from_types([]))
-  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(1U)), 0)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  for temp in [@lib.LocalIdx::new(1U), @lib.LocalIdx::new(2U)] {
+    @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+    @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+  }
 }
 
 ///|

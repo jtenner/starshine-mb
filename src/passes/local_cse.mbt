@@ -65,9 +65,17 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::I32Add => 1
     @lib.Instruction::I32Sub => 2
     @lib.Instruction::I32Mul => 3
+    @lib.Instruction::I32DivS => 142
+    @lib.Instruction::I32DivU => 143
+    @lib.Instruction::I32RemS => 144
+    @lib.Instruction::I32RemU => 145
     @lib.Instruction::I64Add => 4
     @lib.Instruction::I64Sub => 5
     @lib.Instruction::I64Mul => 6
+    @lib.Instruction::I64DivS => 146
+    @lib.Instruction::I64DivU => 147
+    @lib.Instruction::I64RemS => 148
+    @lib.Instruction::I64RemU => 149
     @lib.Instruction::I32Eqz => 7
     @lib.Instruction::I64Eqz => 8
     @lib.Instruction::I32Eq => 9
@@ -185,6 +193,15 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::I64TruncSatF32U => 128
     @lib.Instruction::I64TruncSatF64S => 129
     @lib.Instruction::I64TruncSatF64U => 130
+    @lib.Instruction::I32TruncF32S => 150
+    @lib.Instruction::I32TruncF32U => 151
+    @lib.Instruction::I32TruncF64S => 152
+    @lib.Instruction::I32TruncF64U => 153
+    @lib.Instruction::I64TruncF32S => 154
+    @lib.Instruction::I64TruncF32U => 155
+    @lib.Instruction::I64TruncF64S => 156
+    @lib.Instruction::I64TruncF64U => 157
+    @lib.Instruction::RefTest(_, _) => 158
     @lib.Instruction::F32ConvertI32S => 134
     @lib.Instruction::F32ConvertI32U => 135
     @lib.Instruction::F32ConvertI64S => 136
@@ -373,6 +390,10 @@ fn lcse_raw_instr_operand_count(
     @lib.Instruction::I32Add
     | @lib.Instruction::I32Sub
     | @lib.Instruction::I32Mul
+    | @lib.Instruction::I32DivS
+    | @lib.Instruction::I32DivU
+    | @lib.Instruction::I32RemS
+    | @lib.Instruction::I32RemU
     | @lib.Instruction::I32And
     | @lib.Instruction::I32Or
     | @lib.Instruction::I32Xor
@@ -384,6 +405,10 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::I64Add
     | @lib.Instruction::I64Sub
     | @lib.Instruction::I64Mul
+    | @lib.Instruction::I64DivS
+    | @lib.Instruction::I64DivU
+    | @lib.Instruction::I64RemS
+    | @lib.Instruction::I64RemU
     | @lib.Instruction::I64And
     | @lib.Instruction::I64Or
     | @lib.Instruction::I64Xor
@@ -491,6 +516,15 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::I64TruncSatF32U
     | @lib.Instruction::I64TruncSatF64S
     | @lib.Instruction::I64TruncSatF64U
+    | @lib.Instruction::RefTest(_, _)
+    | @lib.Instruction::I32TruncF32S
+    | @lib.Instruction::I32TruncF32U
+    | @lib.Instruction::I32TruncF64S
+    | @lib.Instruction::I32TruncF64U
+    | @lib.Instruction::I64TruncF32S
+    | @lib.Instruction::I64TruncF32U
+    | @lib.Instruction::I64TruncF64S
+    | @lib.Instruction::I64TruncF64U
     | @lib.Instruction::I31GetS
     | @lib.Instruction::I31GetU => Some(1)
     @lib.Instruction::StructSet(_, _) | @lib.Instruction::TableSet(_) => Some(2)
@@ -550,6 +584,11 @@ fn lcse_raw_result_type(
     | @lib.Instruction::I32TruncSatF32U
     | @lib.Instruction::I32TruncSatF64S
     | @lib.Instruction::I32TruncSatF64U
+    | @lib.Instruction::I32TruncF32S
+    | @lib.Instruction::I32TruncF32U
+    | @lib.Instruction::I32TruncF64S
+    | @lib.Instruction::I32TruncF64U
+    | @lib.Instruction::RefTest(_, _)
     | @lib.Instruction::I31GetS
     | @lib.Instruction::I31GetU => Some(@lib.ValType::i32())
     @lib.Instruction::I64Const(_)
@@ -569,7 +608,11 @@ fn lcse_raw_result_type(
     | @lib.Instruction::I64TruncSatF32S
     | @lib.Instruction::I64TruncSatF32U
     | @lib.Instruction::I64TruncSatF64S
-    | @lib.Instruction::I64TruncSatF64U => Some(@lib.ValType::i64())
+    | @lib.Instruction::I64TruncSatF64U
+    | @lib.Instruction::I64TruncF32S
+    | @lib.Instruction::I64TruncF32U
+    | @lib.Instruction::I64TruncF64S
+    | @lib.Instruction::I64TruncF64U => Some(@lib.ValType::i64())
     @lib.Instruction::F32Const(_)
     | @lib.Instruction::F32Load(_)
     | @lib.Instruction::F32Abs
@@ -630,6 +673,10 @@ fn lcse_raw_result_type(
     @lib.Instruction::I32Add
     | @lib.Instruction::I32Sub
     | @lib.Instruction::I32Mul
+    | @lib.Instruction::I32DivS
+    | @lib.Instruction::I32DivU
+    | @lib.Instruction::I32RemS
+    | @lib.Instruction::I32RemU
     | @lib.Instruction::I32Clz
     | @lib.Instruction::I32Ctz
     | @lib.Instruction::I32Popcnt
@@ -644,6 +691,10 @@ fn lcse_raw_result_type(
     @lib.Instruction::I64Add
     | @lib.Instruction::I64Sub
     | @lib.Instruction::I64Mul
+    | @lib.Instruction::I64DivS
+    | @lib.Instruction::I64DivU
+    | @lib.Instruction::I64RemS
+    | @lib.Instruction::I64RemU
     | @lib.Instruction::I64Clz
     | @lib.Instruction::I64Ctz
     | @lib.Instruction::I64Popcnt

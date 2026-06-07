@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-06] passes/local-cse | LCSE ref.test parity
+
+- Completed `[O4Z-AUDIT-LCSE-PARITY]002` by moving repeated `ref.test` predicate roots from documented conservative deferral to Binaryen behavior parity. The slice stays narrow: the materialized temp-local type is scalar `i32`, and exact heap/nullability immediates remain part of the instruction key.
+- Binaryen spot-check `.tmp/lcse-parity002/ref-test-spot.wat` materialized nullable and non-nullable representative `ref.test` repeats with fresh `i32` locals and `local.tee` / `local.get`. The focused test failed first (`159/160`) after flipping the former deferral fixture, then passed after adding `RefTest(_, _)` to the candidate, operand-count, and result-type model.
+- Validation/evidence: `moon info` still hit the known Moon panic; `moon fmt` passed; focused LCSE tests passed (`160/160`); `moon test src/passes` passed (`1905/1905`); full `moon test` passed (`5090/5090`); native `src/cmd` build succeeded with pre-existing unused-function warnings; direct `local-cse` compare at `.tmp/pass-fuzz-local-cse-parity002-ref-test-10000` had `6769` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-06] passes/local-cse | LCSE remaining-gap grep closeout
 
 - Completed `[O4Z-AUDIT-LCSE-CLOSE]004` by grepping/inventorying `src/passes/local_cse_test.mbt`, `src/lib/types.mbt`, and the WAT/parser/typecheck surfaces for locally representable LCSE instruction families.
@@ -13507,3 +13513,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added `memory.grow` WAT regression coverage for Binaryen-positive local-only reuse across memory growth.
 - Updated the Starshine LCSE raw/module operand model so `memory.grow` is a one-operand, `i32`-result side-effecting memory operation rather than an unknown hard boundary, while filtering memory-size-dependent active expressions across `memory.grow`.
 - Recorded focused, standard, native-build, and 10000-case direct compare evidence in `docs/wiki/raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`.
+
+## 2026-06-06 local-cse trap-sensitive scalar numeric parity
+
+- Implemented `[O4Z-AUDIT-LCSE-PARITY]001` for Binaryen-style LCSE materialization of repeated trap-sensitive scalar numeric roots: integer div/rem and non-saturating float-to-int trunc conversions.
+- Flipped the former conservative deferral coverage into breadth-positive tests; initial focused run failed (`157/160`) before adding the roots to the LCSE candidate, operand-count, and result-type models.
+- Validation: `moon fmt`, focused LCSE tests (`160/160`), `moon test src/passes` (`1905/1905`), full `moon test` (`5090/5090`), and native `src/cmd` build passed; `moon info` still hit the known Moon DB panic.
+- Direct compare `.tmp/pass-fuzz-local-cse-parity001-trap-numeric-10000` reached `6768/10000` compared cases, `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures (`17` rec-group-zero plus one each bad-section-size, table-index-out-of-range, invalid-tag-index).
