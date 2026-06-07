@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-07] passes/local-cse | LCSE nullable ref.cast parity
+
+- Completed `[O4Z-AUDIT-LCSE-PARITY]005` by moving repeated nullable `ref.cast` roots from conservative deferral to Binaryen behavior parity with defaultable nullable reference temp locals.
+- Binaryen spot-checks under `.tmp/lcse-slice/` materialized nullable `ref.cast`, non-null `ref.cast`, and `ref.as_non_null` repeats. Starshine implements the nullable subset in this slice; non-null `ref.cast` and `ref.as_non_null` remain narrow deferrals because the generic non-null temp-local implementation failed Starshine validation with `type has no default value`, reopening only when non-default locals or a pre-root operand-caching materialization model is available.
+- Validation/evidence: focused TDD failed before implementation, then the scoped nullable cast coverage passed (`166/166`); `moon info` still hit the known Moon panic; `moon fmt`, `moon test src/passes` (`1911/1911`), full `moon test` (`5096/5096`), native `src/cmd` build, and `bun validate readme-api-sync` passed. Direct `local-cse` compare at `.tmp/pass-fuzz-local-cse-nullable-ref-cast-10000` requested `10000` cases, compared `9975`, had `9975` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `25` Binaryen/tool command failures.
+
 ## [2026-06-07] passes/local-cse | LCSE dropped-unreachable cleanup and SIMD parity
 
 - Superseded the prior 100k LCSE unreachable/control-debris mismatch classification by removing the debris in Starshine: dropped `unreachable`, nested dropped-unreachable wrappers, and branchless block/unreachable debris are now cleaned before an immediately following hard `unreachable`.

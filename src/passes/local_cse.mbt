@@ -471,6 +471,7 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::RefTest(_, _) => 158
     @lib.Instruction::AnyConvertExtern => 159
     @lib.Instruction::ExternConvertAny => 160
+    @lib.Instruction::RefCast(true, _) => 162
     @lib.Instruction::F32ConvertI32S => 134
     @lib.Instruction::F32ConvertI32U => 135
     @lib.Instruction::F32ConvertI64S => 136
@@ -1088,6 +1089,7 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::RefTest(_, _)
     | @lib.Instruction::AnyConvertExtern
     | @lib.Instruction::ExternConvertAny
+    | @lib.Instruction::RefCast(_, _)
     | @lib.Instruction::I32TruncF32S
     | @lib.Instruction::I32TruncF32U
     | @lib.Instruction::I32TruncF64S
@@ -1233,6 +1235,8 @@ fn lcse_raw_result_type(
     | @lib.Instruction::F64PromoteF32
     | @lib.Instruction::F64ReinterpretI64 => Some(@lib.ValType::f64())
     @lib.Instruction::RefNull(ty) => Some(@lib.ValType::ref_type(ty))
+    @lib.Instruction::RefCast(true, heap_type) =>
+      Some(@lib.ValType::ref_type(@lib.RefType::new(true, heap_type)))
     @lib.Instruction::V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
       Some(@lib.ValType::v128())
     @lib.Instruction::AnyConvertExtern => Some(@lib.ValType::anyref())

@@ -2741,3 +2741,33 @@ bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass local-cse -
 Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`165/165`); `moon test src/passes` passed (`1910/1910`); full `moon test` passed (`5095/5095`); native `src/cmd` build succeeded; `bun validate readme-api-sync` passed; and the previous three mismatch cases replayed as raw normalized matches (`3/3`, `0` mismatches) at `.tmp/pass-fuzz-local-cse-drop-unreachable-simd-replay2`.
 
 The required 100000-case direct compare at `.tmp/pass-fuzz-local-cse-drop-unreachable-simd-100000` reached `99747/100000` compared cases, `99747` normalized matches, `0` compare-normalized matches, `0` validation/property/generator failures, `253` Binaryen/tool command failures, and `0` mismatches. Agent classification: no LCSE semantic mismatch remains in this lane; the command failures are Binaryen/tool failures, not Starshine semantic failures: `221` `binaryen-rec-group-zero`, `8` `binaryen-bad-section-size`, `10` `binaryen-table-index-out-of-range`, `2` `binaryen-invalid-tag-index`, `10` `binaryen-command-failed`, and `2` `binaryen-invalid-type-index`.
+
+## Nullable `ref.cast` root parity on 2026-06-07
+
+Slice `[O4Z-AUDIT-LCSE-PARITY]005` moved the defaultable nullable `ref.cast` subset from conservative deferral to Binaryen behavior parity. Binaryen spot checks under `.tmp/lcse-slice/` showed that `wasm-opt --all-features --local-cse -S` materializes repeated nullable `ref.cast`, non-null `ref.cast`, and `ref.as_non_null` roots with fresh locals. The landed Starshine slice intentionally implements only the nullable `ref.cast` subset because its temp-local result type is defaultable.
+
+TDD and blocker evidence:
+
+- The first focused tests were intentionally flipped to require `ref.as_non_null` and both nullable/non-null `ref.cast` materialization; the pre-implementation run failed because no temp locals were added.
+- A generic non-null root implementation then failed final module validation for `ref.as_non_null` with `locals: type has no default value`. This is a concrete local validator/materialization blocker for non-null `ref.cast` and `ref.as_non_null`, not a broad family deferral: reopening requires either valid non-default local support throughout Starshine validation/encoding or a different LCSE materialization model that stores the nullable operand before the cast/non-null assertion and replays the checked operation at each replacement.
+- The landed implementation keeps `ref.as_non_null` and non-null `ref.cast` conservative, and adds only nullable `RefCast(true, _)` to the candidate-op prefilter, unary operand-count model, and nullable reference result-type model.
+
+Validation evidence for this slice:
+
+```sh
+wasm-opt .tmp/lcse-slice/ref-cast-nullable.wat --all-features --local-cse -S -o -
+wasm-opt .tmp/lcse-slice/ref-cast-nonnull.wat --all-features --local-cse -S -o -
+wasm-opt .tmp/lcse-slice/ref-as-non-null.wat --all-features --local-cse -S -o -
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun validate readme-api-sync
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-nullable-ref-cast-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+```
+
+Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`166/166`); `moon test src/passes` passed (`1911/1911`); full `moon test` passed (`5096/5096`); native `src/cmd` build succeeded with the pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; and `bun validate readme-api-sync` passed.
+
+The direct compare at `.tmp/pass-fuzz-local-cse-nullable-ref-cast-10000` requested `10000` cases and compared `9975`; all compared cases were normalized matches, with `0` mismatches, `0` validation/property/generator failures, and `25` Binaryen/tool command failures. Agent classification: no LCSE semantic mismatch was found in this lane; the command failures are oracle/tool failures, not Starshine semantic failures: `22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`.

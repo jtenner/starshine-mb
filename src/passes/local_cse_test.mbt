@@ -2730,7 +2730,7 @@ test "local-cse reuses repeated reference conversion roots" {
 }
 
 ///|
-test "local-cse defers repeated ref-cast roots" {
+test "local-cse reuses repeated nullable ref-cast roots" {
   let ref_ty = @lib.ValType::ref_null(
     @lib.HeapType::abs(@lib.AbsHeapType::any()),
   )
@@ -2755,6 +2755,52 @@ test "local-cse defers repeated ref-cast roots" {
             @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
             @lib.Instruction::ref_cast(
               true,
+              @lib.HeapType::abs(@lib.AbsHeapType::eq()),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  let expected_ty = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+  )
+  let temp = @lib.LocalIdx::new(1U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([expected_ty]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
+test "local-cse defers repeated non-null ref-cast roots" {
+  let ref_ty = @lib.ValType::ref_null(
+    @lib.HeapType::abs(@lib.AbsHeapType::any()),
+  )
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([ref_ty], [])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(
+              false,
+              @lib.HeapType::abs(@lib.AbsHeapType::eq()),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_cast(
+              false,
               @lib.HeapType::abs(@lib.AbsHeapType::eq()),
             ),
             @lib.Instruction::drop(),
