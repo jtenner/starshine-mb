@@ -40,6 +40,7 @@ priv struct LcseRawExpr {
   reads_memory_size : Bool
   reads_table_state : Bool
   reads_global : Bool
+  reads_heap : Bool
   cache_child_for_replay : Bool
   mut repeat_of : Int
   mut local_id : Int
@@ -476,6 +477,13 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::RefCast(false, _) => 163
     @lib.Instruction::RefAsNonNull => 164
     @lib.Instruction::RefI31 => 165
+    @lib.Instruction::StructGet(_, _) => 166
+    @lib.Instruction::StructGetS(_, _) => 167
+    @lib.Instruction::StructGetU(_, _) => 168
+    @lib.Instruction::ArrayGet(_) => 169
+    @lib.Instruction::ArrayGetS(_) => 170
+    @lib.Instruction::ArrayGetU(_) => 171
+    @lib.Instruction::ArrayLen => 172
     @lib.Instruction::F32ConvertI32S => 134
     @lib.Instruction::F32ConvertI32U => 135
     @lib.Instruction::F32ConvertI64S => 136
@@ -1105,10 +1113,17 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::I64TruncF64S
     | @lib.Instruction::I64TruncF64U
     | @lib.Instruction::I31GetS
-    | @lib.Instruction::I31GetU => Some(1)
+    | @lib.Instruction::I31GetU
+    | @lib.Instruction::StructGet(_, _)
+    | @lib.Instruction::StructGetS(_, _)
+    | @lib.Instruction::StructGetU(_, _)
+    | @lib.Instruction::ArrayLen => Some(1)
     @lib.Instruction::StructSet(_, _) | @lib.Instruction::TableSet(_) => Some(2)
     @lib.Instruction::TableGet(_) => Some(1)
     @lib.Instruction::TableGrow(_) => Some(2)
+    @lib.Instruction::ArrayGet(_)
+    | @lib.Instruction::ArrayGetS(_)
+    | @lib.Instruction::ArrayGetU(_) => Some(2)
     @lib.Instruction::ArraySet(_) => Some(3)
     @lib.Instruction::ArrayFill(_) => Some(4)
     @lib.Instruction::ArrayCopy(_, _) => Some(5)
@@ -1155,11 +1170,60 @@ fn lcse_ref_as_non_null_result_type(
 }
 
 ///|
+fn lcse_raw_subtype_for_idx(
+  subtypes : Array[@lib.SubType],
+  type_idx : @lib.TypeIdx,
+) -> @lib.SubType? {
+  match type_idx {
+    @lib.TypeIdx(type_pos) => subtypes.get(type_pos.reinterpret_as_int())
+    @lib.RecIdx(_) => None
+  }
+}
+
+///|
+fn lcse_raw_struct_field_type(
+  subtypes : Array[@lib.SubType],
+  type_idx : @lib.TypeIdx,
+  field_idx : @lib.U32,
+) -> @lib.ValType? {
+  let subtype = match lcse_raw_subtype_for_idx(subtypes, type_idx) {
+    Some(st) => st
+    None => return None
+  }
+  match subtype.get_comptype() {
+    @lib.StructCompType(fields) => {
+      let @lib.U32(raw_field_idx) = field_idx
+      match fields.get(raw_field_idx.reinterpret_as_int()) {
+        Some(@lib.FieldType(storage, _)) => Some(storage.unpack())
+        None => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
+fn lcse_raw_array_field_type(
+  subtypes : Array[@lib.SubType],
+  type_idx : @lib.TypeIdx,
+) -> @lib.ValType? {
+  let subtype = match lcse_raw_subtype_for_idx(subtypes, type_idx) {
+    Some(st) => st
+    None => return None
+  }
+  match subtype.get_comptype() {
+    @lib.ArrayCompType(@lib.FieldType(storage, _)) => Some(storage.unpack())
+    _ => None
+  }
+}
+
+///|
 fn lcse_raw_result_type(
   instr : @lib.Instruction,
   all_locals : Array[@lib.ValType],
   child_exprs : Array[LcseRawExpr],
   call_infos : Array[LcseRawCallInfo],
+  subtypes : Array[@lib.SubType],
 ) -> @lib.ValType? {
   match instr {
     @lib.Instruction::LocalGet(idx) | @lib.Instruction::LocalTee(idx) =>
@@ -1192,7 +1256,12 @@ fn lcse_raw_result_type(
     | @lib.Instruction::I32TruncF64U
     | @lib.Instruction::RefTest(_, _)
     | @lib.Instruction::I31GetS
-    | @lib.Instruction::I31GetU => Some(@lib.ValType::i32())
+    | @lib.Instruction::I31GetU
+    | @lib.Instruction::StructGetS(_, _)
+    | @lib.Instruction::StructGetU(_, _)
+    | @lib.Instruction::ArrayGetS(_)
+    | @lib.Instruction::ArrayGetU(_)
+    | @lib.Instruction::ArrayLen => Some(@lib.ValType::i32())
     @lib.Instruction::I64Const(_)
     | @lib.Instruction::I64Load(_)
     | @lib.Instruction::I64Load8S(_)
@@ -1271,6 +1340,10 @@ fn lcse_raw_result_type(
     @lib.Instruction::ExternConvertAny => Some(@lib.ValType::externref())
     @lib.Instruction::RefFunc(_) | @lib.Instruction::TableGet(_) =>
       Some(@lib.ValType::funcref())
+    @lib.Instruction::StructGet(type_idx, field_idx) =>
+      lcse_raw_struct_field_type(subtypes, type_idx, field_idx)
+    @lib.Instruction::ArrayGet(type_idx) =>
+      lcse_raw_array_field_type(subtypes, type_idx)
     @lib.Instruction::Select(_) =>
       match child_exprs.get(0) {
         Some(expr) => Some(expr.ty)
@@ -1482,9 +1555,27 @@ fn lcse_raw_filter_active_local_only(
       if !expr.reads_memory &&
         !expr.reads_memory_size &&
         !expr.reads_table_state &&
-        !expr.reads_global {
+        !expr.reads_global &&
+        !expr.reads_heap {
         keep.push(expr_id)
       }
+    }
+  }
+  active.clear()
+  for expr_id in keep {
+    active.push(expr_id)
+  }
+}
+
+///|
+fn lcse_raw_filter_active_without_heap(
+  exprs : Array[LcseRawExpr],
+  active : Array[Int],
+) -> Unit {
+  let keep : Array[Int] = []
+  for expr_id in active {
+    if expr_id >= 0 && expr_id < exprs.length() && !exprs[expr_id].reads_heap {
+      keep.push(expr_id)
     }
   }
   active.clear()
@@ -1786,6 +1877,13 @@ fn lcse_raw_rewrite_instrs(
         active.clear()
       @lib.Instruction::MemoryGrow(_) =>
         lcse_raw_filter_active_without_memory_size(exprs, active)
+      @lib.Instruction::StructSet(_, _)
+      | @lib.Instruction::ArraySet(_)
+      | @lib.Instruction::ArrayFill(_)
+      | @lib.Instruction::ArrayCopy(_, _)
+      | @lib.Instruction::ArrayInitData(_, _)
+      | @lib.Instruction::ArrayInitElem(_, _) =>
+        lcse_raw_filter_active_without_heap(exprs, active)
       _ => if lcse_instr_is_store(instr) { active.clear() }
     }
     match instr {
@@ -1805,6 +1903,7 @@ fn lcse_raw_rewrite_instrs(
         all_locals,
         children.map(fn(id) { exprs[id] }),
         call_infos,
+        subtypes,
       ) {
       Some(ty) => {
         let mut start = idx
@@ -1821,6 +1920,16 @@ fn lcse_raw_rewrite_instrs(
         }
         let mut reads_global = match instr {
           @lib.Instruction::GlobalGet(_) => true
+          _ => false
+        }
+        let mut reads_heap = match instr {
+          @lib.Instruction::StructGet(_, _)
+          | @lib.Instruction::StructGetS(_, _)
+          | @lib.Instruction::StructGetU(_, _)
+          | @lib.Instruction::ArrayGet(_)
+          | @lib.Instruction::ArrayGetS(_)
+          | @lib.Instruction::ArrayGetU(_)
+          | @lib.Instruction::ArrayLen => true
           _ => false
         }
         for child in children {
@@ -1846,6 +1955,9 @@ fn lcse_raw_rewrite_instrs(
           if child_expr.reads_global {
             reads_global = true
           }
+          if child_expr.reads_heap {
+            reads_heap = true
+          }
         }
         match instr {
           @lib.Instruction::LocalGet(local_idx) => {
@@ -1867,13 +1979,15 @@ fn lcse_raw_rewrite_instrs(
             false
           _ => !reads_table_state && can_cache_child_for_replay
         }
-        let original_id = if reusable_root && size <= 32 {
+        let materializable_root = cache_child_for_replay || @lib.has_default(ty)
+        let key_match_id = if reusable_root && size <= 32 {
           lcse_raw_find_active_match(exprs, active, instr, children)
         } else {
           -1
         }
-        let canonical_key = if original_id >= 0 {
-          exprs[original_id].key
+        let original_id = if materializable_root { key_match_id } else { -1 }
+        let canonical_key = if key_match_id >= 0 {
+          exprs[key_match_id].key
         } else {
           expr_id
         }
@@ -1890,6 +2004,7 @@ fn lcse_raw_rewrite_instrs(
           reads_memory_size,
           reads_table_state,
           reads_global,
+          reads_heap,
           cache_child_for_replay,
           repeat_of: -1,
           local_id: -1,

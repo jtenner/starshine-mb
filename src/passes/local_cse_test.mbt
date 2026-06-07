@@ -3481,7 +3481,7 @@ test "local-cse reuses local-only expression across memory-copy" {
 }
 
 ///|
-test "local-cse defers repeated struct and array get roots" {
+test "local-cse reuses repeated struct and array get roots" {
   let struct_type_idx = @lib.TypeIdx::new(0U)
   let array_type_idx = @lib.TypeIdx::new(1U)
   let func_type_idx = @lib.TypeIdx::new(2U)
@@ -3540,12 +3540,18 @@ test "local-cse defers repeated struct and array get roots" {
   let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
     optimized,
   )
-  @debug.assert_eq(locals, @lib.Locals::from_types([]))
-  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(2U)), 0)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(2U)), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, @lib.LocalIdx::new(2U)), 1)
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(3U)), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, @lib.LocalIdx::new(3U)), 1)
 }
 
 ///|
-test "local-cse defers repeated array len roots" {
+test "local-cse reuses repeated array len roots" {
   let array_type_idx = @lib.TypeIdx::new(0U)
   let func_type_idx = @lib.TypeIdx::new(1U)
   let array_type = @lib.RecType::new(
@@ -3585,12 +3591,13 @@ test "local-cse defers repeated array len roots" {
   let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
     optimized,
   )
-  @debug.assert_eq(locals, @lib.Locals::from_types([]))
-  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(1U)), 0)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(1U)), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, @lib.LocalIdx::new(1U)), 1)
 }
 
 ///|
-test "local-cse defers repeated packed struct and array get roots" {
+test "local-cse reuses repeated packed struct and array get roots" {
   let struct_type_idx = @lib.TypeIdx::new(0U)
   let array_type_idx = @lib.TypeIdx::new(1U)
   let func_type_idx = @lib.TypeIdx::new(2U)
@@ -3639,20 +3646,6 @@ test "local-cse defers repeated packed struct and array get roots" {
             @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
             @lib.Instruction::struct_get_s(struct_type_idx, @lib.U32(0U)),
             @lib.Instruction::drop(),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-            @lib.Instruction::struct_get_u(struct_type_idx, @lib.U32(1U)),
-            @lib.Instruction::drop(),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-            @lib.Instruction::struct_get_u(struct_type_idx, @lib.U32(1U)),
-            @lib.Instruction::drop(),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
-            @lib.Instruction::array_get_s(array_type_idx),
-            @lib.Instruction::drop(),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
-            @lib.Instruction::array_get_s(array_type_idx),
-            @lib.Instruction::drop(),
             @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
             @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
             @lib.Instruction::array_get_u(array_type_idx),
@@ -3669,8 +3662,234 @@ test "local-cse defers repeated packed struct and array get roots" {
   let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
     optimized,
   )
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 2)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, @lib.LocalIdx::new(3U)), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, @lib.LocalIdx::new(4U)), 1)
+}
+
+///|
+test "local-cse reuses repeated alternate packed heap-read roots" {
+  let struct_type_idx = @lib.TypeIdx::new(0U)
+  let array_type_idx = @lib.TypeIdx::new(1U)
+  let func_type_idx = @lib.TypeIdx::new(2U)
+  let struct_ref = @lib.ValType::ref_null(@lib.HeapType::new(struct_type_idx))
+  let array_ref = @lib.ValType::ref_null(@lib.HeapType::new(array_type_idx))
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::pack_type(@lib.PackType::i8()),
+          @lib.Mut::var_(),
+        ),
+        @lib.FieldType::new(
+          @lib.StorageType::pack_type(@lib.PackType::i16()),
+          @lib.Mut::var_(),
+        ),
+      ]),
+    ),
+  )
+  let array_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::pack_type(@lib.PackType::i8()),
+          @lib.Mut::var_(),
+        ),
+      ),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([struct_ref, array_ref, @lib.ValType::i32()], []),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([struct_type, array_type, func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::struct_get_u(struct_type_idx, @lib.U32(1U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::struct_get_u(struct_type_idx, @lib.U32(1U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::array_get_s(array_type_idx),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::array_get_s(array_type_idx),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 2)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, @lib.LocalIdx::new(3U)), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, @lib.LocalIdx::new(4U)), 1)
+}
+
+///|
+test "local-cse defers non-defaultable heap-read result locals" {
+  let struct_type_idx = @lib.TypeIdx::new(0U)
+  let func_type_idx = @lib.TypeIdx::new(1U)
+  let non_null_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(struct_type_idx)),
+  )
+  let nullable_ref = @lib.ValType::ref_null(@lib.HeapType::new(struct_type_idx))
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(non_null_ref),
+          @lib.Mut::var_(),
+        ),
+      ]),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([nullable_ref], [])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::struct_get(struct_type_idx, @lib.U32(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::struct_get(struct_type_idx, @lib.U32(0U)),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
   @debug.assert_eq(locals, @lib.Locals::from_types([]))
-  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(3U)), 0)
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+}
+
+///|
+test "local-cse does not reuse struct.get across struct.set" {
+  let struct_type_idx = @lib.TypeIdx::new(0U)
+  let func_type_idx = @lib.TypeIdx::new(1U)
+  let struct_ref = @lib.ValType::ref_null(@lib.HeapType::new(struct_type_idx))
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+      ]),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([struct_ref], [])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::struct_get(struct_type_idx, @lib.U32(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::struct_set(struct_type_idx, @lib.U32(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::struct_get(struct_type_idx, @lib.U32(0U)),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+}
+
+///|
+test "local-cse does not reuse array.get across array.set" {
+  let array_type_idx = @lib.TypeIdx::new(0U)
+  let func_type_idx = @lib.TypeIdx::new(1U)
+  let array_ref = @lib.ValType::ref_null(@lib.HeapType::new(array_type_idx))
+  let array_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+      ),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([array_ref, @lib.ValType::i32()], []),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([array_type, func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::array_get(array_type_idx),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i32_const(2),
+            @lib.Instruction::array_set(array_type_idx),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::array_get(array_type_idx),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
 }
 
 ///|

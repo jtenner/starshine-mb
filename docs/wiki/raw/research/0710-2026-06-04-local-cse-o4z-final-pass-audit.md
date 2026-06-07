@@ -2887,3 +2887,50 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`166/166`); `moon test src/passes` passed (`1911/1911`); full `moon test` passed (`5097/5097`); native `src/cmd` build succeeded with the pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; the native spot replay validated; and `bun validate readme-api-sync` passed.
 
 The direct compare at `.tmp/pass-fuzz-local-cse-ref-i31-10000` requested `10000` cases and compared `9975`; all compared cases were normalized matches, with `0` mismatches, `0` validation/property/generator failures, and `25` Binaryen/tool command failures. Agent classification: no LCSE semantic mismatch was found in this lane; the command failures are oracle/tool failures, not Starshine semantic failures: `22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`.
+
+## Follow-up heap-read parity slice on 2026-06-07
+
+`[O4Z-AUDIT-LCSE-PARITY]007` moved the same-window GC heap-read family from conservative deferral to implemented Binaryen behavior parity for `struct.get`, packed `struct.get_s` / `struct.get_u`, `array.get`, packed `array.get_s` / `array.get_u`, and `array.len` roots.
+
+A Binaryen spot-check under `.tmp/lcse-parity009-inventory/heap-read-reduced.wat` materialized representative struct, packed-struct, array, and array-length reads with scalar temp locals. Starshine now emits the same behavior-equivalent `local.tee` / `local.get` shape for locally representable windows and validates the native replay with `wasm-tools validate`.
+
+The implementation stays deliberately narrower than arbitrary heap GVN. `src/passes/local_cse.mbt` now tracks a `reads_heap` bit on raw LCSE expressions. Heap-read candidates are invalidated by heap writes (`struct.set`, `array.set`, `array.fill`, `array.copy`, `array.init_data`, and `array.init_elem`) and by existing call/local/effect barriers, while existing local-only reuse across those heap writes remains allowed. Heap-read roots are only materialized when their result local is defaultable; non-defaultable heap-read results remain deferred rather than appending invalid locals. Linear memory, SIMD memory, atomics/shared-GC atomics, descriptor reads/casts, arbitrary calls, and CFG-wide heap reasoning remain separate conservative surfaces.
+
+Focused tests in `src/passes/local_cse_test.mbt` were flipped/added for:
+
+- repeated `struct.get` and `array.get` roots;
+- repeated `array.len` roots;
+- repeated packed heap reads;
+- no heap-read reuse across intervening `struct.set` / `array.set` writes;
+- no materialization for non-defaultable heap-read result locals.
+
+TDD evidence: the focused LCSE test file failed first (`164/167`) before implementation; the later non-default result guard failed before the safety fix (`168/169`); final focused LCSE coverage for this slice is `170/170` after adding alternate packed signed/unsigned and split heap-write invalidation coverage.
+
+Validation evidence for this slice:
+
+```sh
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+target/native/release/build/cmd/cmd.exe --local-cse \
+  -o .tmp/lcse-parity009-inventory/heap-read-reduced.starshine.wasm \
+  .tmp/lcse-parity009-inventory/heap-read-reduced.wasm
+wasm-tools validate .tmp/lcse-parity009-inventory/heap-read-reduced.starshine.wasm
+bun validate readme-api-sync
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-heap-read-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe \
+  --max-failures 2000 \
+  --keep-going-after-command-failures
+```
+
+Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`170/170`); `moon test src/passes` passed (`1915/1915`); full `moon test` passed (`5101/5101`); native `src/cmd` build passed with pre-existing `pass_manager.mbt` unused-function warnings; native spot replay validated; `bun validate readme-api-sync` passed. Direct compare at `.tmp/pass-fuzz-local-cse-heap-read-10000` requested `10000` cases and compared `9975`, with `9975` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `25` Binaryen/tool command failures: `22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`.
+
+Pass-local timing probe on `tests/node/dist/starshine-debug-wasi.wasm`: Starshine `pass:local-cse` reported `105086us`; Binaryen `wasm-opt --all-features --local-cse --debug` reported `0.116892s` for the pass. Agent classification: the slice remains within the repo's pass-local 2x Binaryen budget on this sampled artifact.

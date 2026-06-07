@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-07] passes/local-cse | LCSE heap-read parity
+
+- Completed repeated GC heap-read LCSE behavior parity for `struct.get`, packed `struct.get_s` / `struct.get_u`, `array.get`, packed `array.get_s` / `array.get_u`, and `array.len` roots. Starshine now materializes same-window repeated reads with scalar/defaultable temp locals, matching Binaryen-observable behavior without widening to arbitrary heap GVN.
+- Added a narrow heap-read state bit so `struct.set`, `array.set`, `array.fill`, `array.copy`, `array.init_data`, and `array.init_elem` invalidate heap-read candidates while preserving existing local-only reuse across those writes; non-defaultable heap-read results remain deferred instead of appending invalid locals.
+- Validation/evidence: Binaryen spot-check `.tmp/lcse-parity009-inventory/heap-read-reduced.wat` materialized representative heap reads; focused LCSE TDD failed before implementation (`164/167`), the non-default result guard failed before the safety fix (`168/169`), and final focused LCSE coverage is `170/170`; `moon info` still hit the known Moon panic; `moon fmt`, `moon test src/passes` (`1915/1915`), full `moon test` (`5101/5101`), native `src/cmd` build, native spot replay validation, and `bun validate readme-api-sync` passed. Direct `local-cse` compare at `.tmp/pass-fuzz-local-cse-heap-read-10000` requested `10000` cases, compared `9975`, had `9975` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `25` Binaryen/tool command failures.
+
 ## [2026-06-07] passes/local-cse | LCSE ref.i31 parity
 
 - Completed repeated `ref.i31` LCSE behavior parity using operand-cache replay rather than Binaryen's direct non-null `(ref i31)` result local: cache the defaultable `i32` operand at the first occurrence and replay `ref.i31` at replacements.
