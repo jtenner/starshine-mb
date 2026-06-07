@@ -44,6 +44,7 @@ priv struct LcseRawExpr {
   cache_child_for_replay : Bool
   mut repeat_of : Int
   mut local_id : Int
+  replay_local_ids : Array[Int]
 }
 
 ///|
@@ -52,6 +53,13 @@ priv struct LcseRawNestedRepeat {
   start : Int
   end : Int
   original : Int
+}
+
+///|
+priv struct LcseRawMaterializePoint {
+  instr_idx : Int
+  original : Int
+  child_slot : Int
 }
 
 ///|
@@ -1560,9 +1568,25 @@ fn lcse_raw_instr_caches_child_for_replay(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.Instruction::RefAsNonNull
     | @lib.Instruction::RefCast(false, _)
+    | @lib.Instruction::RefCastDescEq(false, _)
     | @lib.Instruction::RefI31
     | @lib.Instruction::RefGetDesc(_) => true
     _ => false
+  }
+}
+
+///|
+fn lcse_raw_replay_child_cache_type(child : LcseRawExpr) -> @lib.ValType {
+  match child.ty {
+    @lib.RefTypeValType(ref_type) =>
+      @lib.ValType::ref_type(
+        @lib.RefType::new(
+          true,
+          ref_type.get_heap_type(),
+          exact=ref_type.is_exact(),
+        ),
+      )
+    _ => child.ty
   }
 }
 
@@ -1575,17 +1599,7 @@ fn lcse_raw_child_cache_type(
     return None
   }
   match exprs.get(expr.children[0]) {
-    Some({ ty: @lib.RefTypeValType(ref_type), .. }) =>
-      Some(
-        @lib.ValType::ref_type(
-          @lib.RefType::new(
-            true,
-            ref_type.get_heap_type(),
-            exact=ref_type.is_exact(),
-          ),
-        ),
-      )
-    Some(child) => Some(child.ty)
+    Some(child) => Some(lcse_raw_replay_child_cache_type(child))
     None => None
   }
 }
@@ -1595,14 +1609,19 @@ fn lcse_raw_can_cache_child_for_replay(
   exprs : Array[LcseRawExpr],
   children : Array[Int],
 ) -> Bool {
-  match children {
-    [child_id] =>
-      match exprs.get(child_id) {
-        Some(child) => @lib.has_default(child.ty)
-        None => false
-      }
-    _ => false
+  if children.length() == 0 {
+    return false
   }
+  for child_id in children {
+    match exprs.get(child_id) {
+      Some(child) =>
+        if !@lib.has_default(lcse_raw_replay_child_cache_type(child)) {
+          return false
+        }
+      None => return false
+    }
+  }
+  true
 }
 
 ///|
@@ -1871,43 +1890,148 @@ fn lcse_raw_nested_repeat_for_parent(
 }
 
 ///|
+fn lcse_raw_original_has_materialization(original : LcseRawExpr) -> Bool {
+  if original.replay_local_ids.length() > 0 {
+    if original.cache_child_for_replay &&
+      original.replay_local_ids.length() != original.children.length() {
+      return false
+    }
+    for local_id in original.replay_local_ids {
+      if local_id < 0 {
+        return false
+      }
+    }
+    return true
+  }
+  original.local_id >= 0
+}
+
+///|
 fn lcse_raw_push_replay(
   out : Array[@lib.Instruction],
-  expr : LcseRawExpr,
-  local_id : Int,
+  repeat : LcseRawExpr,
+  original : LcseRawExpr,
 ) -> Unit {
-  out.push(
-    @lib.Instruction::local_get(
-      @lib.LocalIdx::new(local_id.reinterpret_as_uint()),
-    ),
-  )
-  if expr.cache_child_for_replay {
-    out.push(expr.instr)
+  if original.replay_local_ids.length() > 0 {
+    for local_id in original.replay_local_ids {
+      out.push(
+        @lib.Instruction::local_get(
+          @lib.LocalIdx::new(local_id.reinterpret_as_uint()),
+        ),
+      )
+    }
+    out.push(repeat.instr)
+  } else {
+    out.push(
+      @lib.Instruction::local_get(
+        @lib.LocalIdx::new(original.local_id.reinterpret_as_uint()),
+      ),
+    )
   }
 }
 
 ///|
-fn lcse_raw_original_materialize_end(
+fn lcse_raw_materialize_point_exists(
+  points : Array[LcseRawMaterializePoint],
+  instr_idx : Int,
+  original : Int,
+  child_slot : Int,
+) -> Bool {
+  for point in points {
+    if point.instr_idx == instr_idx &&
+      point.original == original &&
+      point.child_slot == child_slot {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn lcse_raw_schedule_materialization(
   exprs : Array[LcseRawExpr],
-  original : LcseRawExpr,
-) -> Int {
-  if original.cache_child_for_replay && original.children.length() == 1 {
-    match exprs.get(original.children[0]) {
-      Some(child) => return child.end
+  points : Array[LcseRawMaterializePoint],
+  original_id : Int,
+) -> Unit {
+  match exprs.get(original_id) {
+    Some(original) =>
+      if original.cache_child_for_replay {
+        for slot = 0; slot < original.children.length(); slot = slot + 1 {
+          match exprs.get(original.children[slot]) {
+            Some(child) =>
+              if !lcse_raw_materialize_point_exists(
+                  points,
+                  child.end,
+                  original_id,
+                  slot,
+                ) {
+                points.push({
+                  instr_idx: child.end,
+                  original: original_id,
+                  child_slot: slot,
+                })
+              }
+            None => ()
+          }
+        }
+      } else if !lcse_raw_materialize_point_exists(
+          points,
+          original.end,
+          original_id,
+          -1,
+        ) {
+        points.push({
+          instr_idx: original.end,
+          original: original_id,
+          child_slot: -1,
+        })
+      }
+    None => ()
+  }
+}
+
+///|
+fn lcse_raw_materialize_point_type(
+  exprs : Array[LcseRawExpr],
+  point : LcseRawMaterializePoint,
+) -> @lib.ValType {
+  if point.child_slot >= 0 {
+    match exprs.get(point.original) {
+      Some(original) => {
+        if original.children.length() == 1 {
+          match lcse_raw_child_cache_type(exprs, original) {
+            Some(ty) => return ty
+            None => ()
+          }
+        }
+        match exprs.get(original.children[point.child_slot]) {
+          Some(child) => return lcse_raw_replay_child_cache_type(child)
+          None => ()
+        }
+      }
       None => ()
     }
   }
-  original.end
+  exprs[point.original].ty
 }
 
 ///|
-fn lcse_raw_original_materialize_type(
+fn lcse_raw_record_materialized_local(
   exprs : Array[LcseRawExpr],
-  original : LcseRawExpr,
-) -> @lib.ValType {
-  match lcse_raw_child_cache_type(exprs, original) {
-    Some(ty) => ty
-    None => original.ty
+  point : LcseRawMaterializePoint,
+  local_id : Int,
+) -> Unit {
+  if point.child_slot >= 0 {
+    let ids = exprs[point.original].replay_local_ids
+    while ids.length() <= point.child_slot {
+      ids.push(-1)
+    }
+    ids[point.child_slot] = local_id
+    if exprs[point.original].local_id < 0 {
+      exprs[point.original].local_id = local_id
+    }
+  } else {
+    exprs[point.original].local_id = local_id
   }
 }
 
@@ -1924,9 +2048,9 @@ fn lcse_raw_rewrite_nested_with_outer_repeats(
   while i < body.length() {
     match lcse_raw_nested_repeat_for_parent(repeats, parent_idx, i) {
       Some(repeat) => {
-        let local_id = exprs[repeat.original].local_id
-        if local_id >= 0 {
-          lcse_raw_push_replay(out, exprs[repeat.original], local_id)
+        let original = exprs[repeat.original]
+        if lcse_raw_original_has_materialization(original) {
+          lcse_raw_push_replay(out, original, original)
           changed = true
           i = repeat.end + 1
           continue
@@ -2150,6 +2274,7 @@ fn lcse_raw_rewrite_instrs(
           cache_child_for_replay,
           repeat_of: -1,
           local_id: -1,
+          replay_local_ids: [],
         }
         exprs.push(expr)
         if original_id >= 0 {
@@ -2177,22 +2302,24 @@ fn lcse_raw_rewrite_instrs(
     }
   }
   let repeat_start = Array::make(instrs.length(), -1)
-  let original_end = Array::make(instrs.length(), -1)
+  let materialize_points : Array[LcseRawMaterializePoint] = []
   for expr_id = 0; expr_id < exprs.length(); expr_id = expr_id + 1 {
     let expr = exprs[expr_id]
     if expr.repeat_of >= 0 {
       repeat_start[expr.start] = expr_id
-      let original = exprs[expr.repeat_of]
-      let materialize_end = lcse_raw_original_materialize_end(exprs, original)
-      original_end[materialize_end] = expr.repeat_of
+      lcse_raw_schedule_materialization(
+        exprs,
+        materialize_points,
+        expr.repeat_of,
+      )
     }
   }
   for repeat in nested_repeats {
-    let original = exprs[repeat.original]
-    let materialize_end = lcse_raw_original_materialize_end(exprs, original)
-    if materialize_end >= 0 && materialize_end < original_end.length() {
-      original_end[materialize_end] = repeat.original
-    }
+    lcse_raw_schedule_materialization(
+      exprs,
+      materialize_points,
+      repeat.original,
+    )
   }
   let out : Array[@lib.Instruction] = []
   let mut changed = false
@@ -2201,9 +2328,9 @@ fn lcse_raw_rewrite_instrs(
     let repeat_id = repeat_start[i]
     if repeat_id >= 0 {
       let original_id = exprs[repeat_id].repeat_of
-      let local_id = exprs[original_id].local_id
-      if local_id >= 0 {
-        lcse_raw_push_replay(out, exprs[repeat_id], local_id)
+      let original = exprs[original_id]
+      if lcse_raw_original_has_materialization(original) {
+        lcse_raw_push_replay(out, exprs[repeat_id], original)
         changed = true
         i = exprs[repeat_id].end + 1
         continue
@@ -2271,19 +2398,18 @@ fn lcse_raw_rewrite_instrs(
       other => other
     }
     out.push(rewritten_instr)
-    let original_id = original_end[i]
-    if original_id >= 0 {
-      let local_id = params.length() + local_types.length()
-      local_types.push(
-        lcse_raw_original_materialize_type(exprs, exprs[original_id]),
-      )
-      exprs[original_id].local_id = local_id
-      out.push(
-        @lib.Instruction::local_tee(
-          @lib.LocalIdx::new(local_id.reinterpret_as_uint()),
-        ),
-      )
-      changed = true
+    for point in materialize_points {
+      if point.instr_idx == i {
+        let local_id = params.length() + local_types.length()
+        local_types.push(lcse_raw_materialize_point_type(exprs, point))
+        lcse_raw_record_materialized_local(exprs, point, local_id)
+        out.push(
+          @lib.Instruction::local_tee(
+            @lib.LocalIdx::new(local_id.reinterpret_as_uint()),
+          ),
+        )
+        changed = true
+      }
     }
     i += 1
   }

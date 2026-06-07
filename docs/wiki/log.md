@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-07] passes/local-cse | LCSE non-null ref.cast_desc_eq descriptor-cast parity
+
+- Reopened the non-null `ref.cast_desc_eq` deferral with fresh Binaryen/tool evidence and implemented the feasible parity subset using two-operand replay. Starshine now caches the defaultable reference and descriptor operands at the first occurrence, then replays the checked non-null descriptor cast at replacement sites instead of appending an invalid non-default result local.
+- Validation/evidence: Binaryen spot-check `.tmp/lcse-reopen-gaps/ref-cast-desc-eq-nonnull.wat` materialized repeated non-null `ref.cast_desc_eq`; focused LCSE TDD failed first (`176/177`) and then passed (`177/177`); `moon info` still hit the known Moon panic; `moon fmt`, `moon test src/passes` (`1922/1922`), full `moon test` (`5108/5108`), native `src/cmd` build, native spot replay validation, and `bun validate readme-api-sync` passed. Direct `local-cse` compare at `.tmp/pass-fuzz-local-cse-nonnull-ref-cast-desc-eq-10000` requested `10000` cases, compared `9972`, had `9972` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `28` command failures classified as `22` Binaryen empty-recursion-group, `1` Binaryen bad-section-size, and `5` Starshine/tool initializer-expression validation failures.
+- Fresh reopening evidence kept `ref.test_desc` tool-blocked, observed representative `ref.null` / `ref.func` tiny roots as Binaryen no-ops, kept `string.const` text tool-blocked in the direct spot, and left relaxed SIMD plus atomic local-only gaps as evidence-backed follow-up work rather than final unexamined deferrals.
+
 ## [2026-06-07] passes/local-cse | LCSE indirect/reference-call local-only boundary parity
 
 - Reopened the `call_indirect` / `call_ref` local-only reuse deferral and implemented the Binaryen-positive subset: Starshine now preserves only local-only candidates across indirect/reference calls while still refusing to CSE the call roots or call-result-dependent expressions.

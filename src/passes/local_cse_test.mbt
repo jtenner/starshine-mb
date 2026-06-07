@@ -3055,7 +3055,7 @@ test "local-cse reuses repeated nullable ref-cast-desc-eq roots" {
 }
 
 ///|
-test "local-cse defers repeated descriptor test and non-null cast roots" {
+test "local-cse defers repeated descriptor test roots" {
   let ref_ty = @lib.ValType::funcref()
   let func_type_idx = @lib.TypeIdx::new(0U)
   let func_type = @lib.RecType::new(
@@ -3076,14 +3076,6 @@ test "local-cse defers repeated descriptor test and non-null cast roots" {
             @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
             @lib.Instruction::ref_test_desc(false, desc_heap_type),
             @lib.Instruction::drop(),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-            @lib.Instruction::ref_cast_desc_eq(false, desc_heap_type),
-            @lib.Instruction::drop(),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-            @lib.Instruction::ref_cast_desc_eq(false, desc_heap_type),
-            @lib.Instruction::drop(),
           ]),
         ),
       ]),
@@ -3094,6 +3086,71 @@ test "local-cse defers repeated descriptor test and non-null cast roots" {
   )
   @debug.assert_eq(locals, @lib.Locals::from_types([]))
   @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(1U)), 0)
+}
+
+///|
+test "local-cse reuses repeated non-null ref-cast-desc-eq roots by caching both operands" {
+  let described_type_idx = @lib.TypeIdx::new(0U)
+  let descriptor_type_idx = @lib.TypeIdx::new(1U)
+  let func_type_idx = @lib.TypeIdx::new(2U)
+  let any_ref = @lib.ValType::anyref()
+  let desc_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(descriptor_type_idx)),
+  )
+  let described_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([]),
+      metadata=@lib.TypeMetadata::new(descriptor=Some(descriptor_type_idx)),
+    ),
+  )
+  let descriptor_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([]),
+      metadata=@lib.TypeMetadata::new(describes=Some(described_type_idx)),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([any_ref, desc_ref], [])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([described_type, descriptor_type, func_type]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::ref_cast_desc_eq(
+              false,
+              @lib.HeapType::new(described_type_idx),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::ref_cast_desc_eq(
+              false,
+              @lib.HeapType::new(described_type_idx),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  let ref_temp = @lib.LocalIdx::new(2U)
+  let desc_temp = @lib.LocalIdx::new(3U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([any_ref, desc_ref]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, ref_temp), 1)
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, desc_temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, ref_temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, desc_temp), 1)
 }
 
 ///|

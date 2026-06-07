@@ -3184,3 +3184,57 @@ bun scripts/pass-fuzz-compare.ts \
 ```
 
 Results: focused LCSE TDD failed before implementation (`172/174`) after flipping the two conservative boundary tests, then passed after implementation and added result-dropping coverage (`176/176`); `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; `moon test src/passes` passed (`1921/1921`); full `moon test` passed (`5107/5107`); native `src/cmd` build passed with the pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; native spot replays validated with `wasm-tools validate --features all`; `bun validate readme-api-sync` passed. Direct compare requested `10000`, compared `9972`, reported `9972` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `28` command failures. Agent classification: no LCSE semantic mismatches; command failures were `22` Binaryen empty-recursion-group parser failures, `1` Binaryen bad-section-size parser failure, and `5` Starshine/tool failures on generated table initializer expressions rejected as non-constant.
+
+## Non-null `ref.cast_desc_eq` two-operand replay parity on 2026-06-07
+
+A follow-up reopened the remaining non-null descriptor-cast gap rather than keeping it as a final local-type deferral. Fresh Binaryen/tool evidence used `.tmp/lcse-reopen-gaps/ref-cast-desc-eq-nonnull.wat` with the current custom-descriptor binary shape:
+
+```wat
+(module
+ (rec
+  (type $a (descriptor $b) (struct))
+  (type $b (describes $a) (struct))
+ )
+ (func (param anyref (ref null $b))
+  (drop (ref.cast_desc_eq (ref $a) (local.get 0) (local.get 1)))
+  (drop (ref.cast_desc_eq (ref $a) (local.get 0) (local.get 1)))))
+```
+
+`wasm-tools 1.251.0` parsed the fixture and `wasm-opt version_130 --all-features --local-cse -S` materialized the repeated non-null cast with a fresh `(ref $a)` local. Starshine still cannot append non-default result locals safely, so the implementation deliberately does **not** copy Binaryen's exact local type. Instead, LCSE now treats non-null `ref.cast_desc_eq` like a multi-operand replay root: the first occurrence caches both defaultable operands (`anyref` and `(ref null $b)`) with `local.tee`, and replacement sites replay `ref.cast_desc_eq` from those cached operands. This preserves the checked cast/trap at each replacement site and avoids introducing a non-default local.
+
+The same reopening pass refreshed the remaining gap evidence without widening them:
+
+- `ref.test_desc` remains tool-blocked: `wasm-tools 1.251.0` rejects the text operator with `unknown operator or unexpected token`, and `wasm-opt version_130` rejects it with `unrecognized instruction`.
+- Representative `ref.null` and `ref.func` repeated-root fixtures under `.tmp/lcse-reopen-gaps/` were parsed and optimized successfully, and Binaryen left those tiny roots unmaterialized, matching the current Starshine boundary tests.
+- `string.const` text remains rejected by the installed `wasm-tools` text parser in the direct spot fixture, so no new Binaryen-positive string-root claim was made in this slice.
+- A representative relaxed SIMD root (`i8x16.relaxed_swizzle`) is still Binaryen-positive, but remains intentionally unimplemented because the root family has relaxed/nondeterministic semantics and needs a separate approved model.
+- A representative shared-memory atomic local-only fixture (`i32.atomic.load` between two identical `i32.add` trees) is still Binaryen-positive, but remains outside this slice because implementing it correctly should model atomic operand counts/effects while still preventing atomic-root CSE and broader memory/heap GVN.
+- `rethrow` remains locally unavailable as a distinct `@lib.Instruction` variant; current local EH coverage still routes through `throw`, `throw_ref`, and `try_table`.
+
+Validation evidence:
+
+```sh
+wasm-tools --version
+wasm-opt --version
+wasm-tools parse .tmp/lcse-reopen-gaps/ref-cast-desc-eq-nonnull.wat -o .tmp/lcse-reopen-gaps/ref-cast-desc-eq-nonnull.wasm
+wasm-opt .tmp/lcse-reopen-gaps/ref-cast-desc-eq-nonnull.wasm --all-features --local-cse -S -o .tmp/lcse-reopen-gaps/ref-cast-desc-eq-nonnull.binaryen.wat
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon info
+moon build --target native --release src/cmd
+target/native/release/build/cmd/cmd.exe --local-cse -o .tmp/lcse-reopen-gaps/ref-cast-desc-eq-nonnull.starshine.wasm .tmp/lcse-reopen-gaps/ref-cast-desc-eq-nonnull.wasm
+wasm-tools validate --features all .tmp/lcse-reopen-gaps/ref-cast-desc-eq-nonnull.starshine.wasm
+bun validate readme-api-sync
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-nonnull-ref-cast-desc-eq-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe \
+  --max-failures 2000 \
+  --keep-going-after-command-failures
+```
+
+Results: the focused TDD test failed before implementation (`176/177`) after flipping non-null `ref.cast_desc_eq` from the descriptor boundary test into a positive two-operand replay test, then passed after implementation (`177/177`). `moon fmt` passed; focused LCSE tests passed (`177/177`); `moon test src/passes` passed (`1922/1922`); full `moon test` passed (`5108/5108`); `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); native `src/cmd` build passed with the pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; native non-null descriptor-cast spot replay validated with `wasm-tools validate --features all`; `bun validate readme-api-sync` passed. Direct compare requested `10000`, compared `9972`, reported `9972` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `28` command failures. Agent classification: no LCSE semantic mismatches; command failures were `22` Binaryen empty-recursion-group parser failures, `1` Binaryen bad-section-size parser failure, and `5` Starshine/tool failures on generated table initializer expressions rejected as non-constant.
