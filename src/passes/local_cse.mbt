@@ -999,6 +999,16 @@ fn lcse_raw_instr_operand_count(
         Some(info) => Some(info.params.length())
         None => None
       }
+    @lib.Instruction::CallIndirect(type_idx, _) =>
+      match lcse_raw_func_type_for_idx(subtypes, type_idx) {
+        Some(@lib.FuncType(params, _)) => Some(params.length() + 1)
+        None => None
+      }
+    @lib.Instruction::CallRef(type_idx) =>
+      match lcse_raw_func_type_for_idx(subtypes, type_idx) {
+        Some(@lib.FuncType(params, _)) => Some(params.length() + 1)
+        None => None
+      }
     @lib.Instruction::ReturnCallIndirect(type_idx, _) =>
       match lcse_raw_func_type_for_idx(subtypes, type_idx) {
         Some(@lib.FuncType(params, _)) => Some(params.length() + 1)
@@ -1448,6 +1458,12 @@ fn lcse_raw_result_type(
         Some({ result: Some(ty), idempotent: true, .. }) => Some(ty)
         _ => None
       }
+    @lib.Instruction::CallIndirect(type_idx, _)
+    | @lib.Instruction::CallRef(type_idx) =>
+      match lcse_raw_func_type_for_idx(subtypes, type_idx) {
+        Some(@lib.FuncType(_, [ty])) => Some(ty)
+        _ => None
+      }
     @lib.Instruction::I32Add
     | @lib.Instruction::I32Sub
     | @lib.Instruction::I32Mul
@@ -1766,8 +1782,9 @@ fn lcse_raw_instr_slice_matches(
 fn lcse_raw_instr_clears_nested_window(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.Instruction::LocalSet(_) | @lib.Instruction::LocalTee(_) => true
-    @lib.Instruction::Call(_) => false
-    @lib.Instruction::CallIndirect(_, _) | @lib.Instruction::CallRef(_) => true
+    @lib.Instruction::Call(_)
+    | @lib.Instruction::CallIndirect(_, _)
+    | @lib.Instruction::CallRef(_) => false
     @lib.Instruction::Br(_)
     | @lib.Instruction::BrTable(_, _)
     | @lib.Instruction::Return
@@ -1829,8 +1846,10 @@ fn lcse_raw_scan_nested_repeats(
     match body[idx] {
       @lib.Instruction::Call(call_idx) =>
         if !lcse_raw_call_is_idempotent(call_infos, call_idx) {
-          active.clear()
+          lcse_raw_filter_active_local_only(exprs, active)
         }
+      @lib.Instruction::CallIndirect(_, _) | @lib.Instruction::CallRef(_) =>
+        lcse_raw_filter_active_local_only(exprs, active)
       other => if lcse_raw_instr_clears_nested_window(other) { active.clear() }
     }
     idx += 1
@@ -1987,7 +2006,7 @@ fn lcse_raw_rewrite_instrs(
           lcse_raw_filter_active_local_only(exprs, active)
         }
       @lib.Instruction::CallIndirect(_, _) | @lib.Instruction::CallRef(_) =>
-        active.clear()
+        lcse_raw_filter_active_local_only(exprs, active)
       @lib.Instruction::MemoryGrow(_) =>
         lcse_raw_filter_active_without_memory_or_size(exprs, active)
       @lib.Instruction::MemoryCopy(_, _)
@@ -2035,7 +2054,10 @@ fn lcse_raw_rewrite_instrs(
           _ => false
         }
         let mut reads_table_state = match instr {
-          @lib.Instruction::TableGet(_) | @lib.Instruction::TableSize(_) => true
+          @lib.Instruction::TableGet(_)
+          | @lib.Instruction::TableSize(_)
+          | @lib.Instruction::CallIndirect(_, _)
+          | @lib.Instruction::CallRef(_) => true
           _ => false
         }
         let mut reads_global = match instr {

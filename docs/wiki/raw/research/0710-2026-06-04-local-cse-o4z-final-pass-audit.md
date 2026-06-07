@@ -3116,3 +3116,71 @@ bun scripts/pass-fuzz-compare.ts \
 ```
 
 Results: focused LCSE TDD failed before implementation (`173/174`) and then passed (`174/174`); `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`174/174`); `moon test src/passes` passed (`1919/1919`); full `moon test` passed (`5105/5105`); native `src/cmd` build passed with the pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; native descriptor-cast spot replay validated with `wasm-tools validate --features all`; `bun validate readme-api-sync` passed. Direct compare requested `10000`, compared `9972`, reported `9972` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `28` command failures. Agent classification: no LCSE semantic mismatches; command failures were `22` Binaryen empty-recursion-group parser failures, `1` Binaryen bad-section-size parser failure, and `5` Starshine/tool failures on generated table initializer expressions rejected as non-constant.
+
+## `call_indirect` / `call_ref` local-only boundary parity on 2026-06-07
+
+A follow-up reopened the remaining call-boundary deferral instead of treating `call_indirect` / `call_ref` as final conservative barriers. The safety question was narrowed to local-only expressions: indirect/reference calls can mutate memory, globals, tables, and heap state or trap, but they cannot mutate Wasm locals. Therefore a repeated whole tree that only reads unchanged locals can be materialized before the call and replayed after the call without CSEing the call itself or assuming anything about callee effects.
+
+Binaryen-positive inventory used fixtures under `.tmp/lcse-reopen-remaining/`:
+
+```wat
+(module
+  (type $t (func))
+  (table 1 funcref)
+  (func $target)
+  (elem (i32.const 0) $target)
+  (func (param i32 i32 i32)
+    (drop (i32.add (local.get 0) (local.get 1)))
+    (call_indirect (type $t) (local.get 2))
+    (drop (i32.add (local.get 0) (local.get 1)))))
+```
+
+```wat
+(module
+  (type $t (func (param i32) (result i32)))
+  (table 1 funcref)
+  (func $target (type $t) (local.get 0))
+  (elem (i32.const 0) $target)
+  (func (param i32 i32 i32)
+    (drop (i32.add (local.get 0) (local.get 1)))
+    (drop (call_indirect (type $t) (local.get 0) (local.get 2)))
+    (drop (i32.add (local.get 0) (local.get 1)))))
+```
+
+```wat
+(module
+  (type $t (func))
+  (func $target)
+  (func (param i32 i32 (ref $t))
+    (drop (i32.add (local.get 0) (local.get 1)))
+    (call_ref $t (local.get 2))
+    (drop (i32.add (local.get 0) (local.get 1)))))
+```
+
+For all three, `wasm-tools parse`, `wasm-tools validate --features all`, and `wasm-opt --all-features --local-cse -S` succeeded, and Binaryen materialized the first `i32.add` into a fresh `i32` local with `local.tee` / `local.get`. Starshine now matches the behavior by filtering active candidates across `call_indirect` / `call_ref` to local-only expressions, adding raw operand/result stack modeling for single-result indirect/reference calls so result-dropping call forms do not accidentally clear the surviving local-only candidate, and marking call-result expressions as non-reusable state-dependent roots. This does not CSE `call_indirect` / `call_ref` roots and does not preserve memory/table/global/heap-dependent expressions across the call.
+
+Validation evidence:
+
+```sh
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+wasm-tools validate --features all .tmp/lcse-reopen-remaining/call-indirect-local-only.starshine.wasm
+wasm-tools validate --features all .tmp/lcse-reopen-remaining/call-indirect-result-drop-local-only.starshine.wasm
+wasm-tools validate --features all .tmp/lcse-reopen-remaining/call-ref-local-only.starshine.wasm
+bun validate readme-api-sync
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-indirect-ref-call-local-only-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe \
+  --max-failures 2000 \
+  --keep-going-after-command-failures
+```
+
+Results: focused LCSE TDD failed before implementation (`172/174`) after flipping the two conservative boundary tests, then passed after implementation and added result-dropping coverage (`176/176`); `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; `moon test src/passes` passed (`1921/1921`); full `moon test` passed (`5107/5107`); native `src/cmd` build passed with the pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; native spot replays validated with `wasm-tools validate --features all`; `bun validate readme-api-sync` passed. Direct compare requested `10000`, compared `9972`, reported `9972` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `28` command failures. Agent classification: no LCSE semantic mismatches; command failures were `22` Binaryen empty-recursion-group parser failures, `1` Binaryen bad-section-size parser failure, and `5` Starshine/tool failures on generated table initializer expressions rejected as non-constant.

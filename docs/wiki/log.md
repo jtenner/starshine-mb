@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-07] passes/local-cse | LCSE indirect/reference-call local-only boundary parity
+
+- Reopened the `call_indirect` / `call_ref` local-only reuse deferral and implemented the Binaryen-positive subset: Starshine now preserves only local-only candidates across indirect/reference calls while still refusing to CSE the call roots or call-result-dependent expressions.
+- Validation/evidence: Binaryen spot-checks under `.tmp/lcse-reopen-remaining/` materialized repeated local-only `i32.add` roots across void `call_indirect`, result-dropping `call_indirect`, and void `call_ref`; focused LCSE TDD failed first (`172/174`) and then passed with result-dropping coverage (`176/176`); `moon info` still hit the known Moon panic; `moon fmt`, `moon test src/passes` (`1921/1921`), full `moon test` (`5107/5107`), native `src/cmd` build, native spot replay validation, and `bun validate readme-api-sync` passed. Direct `local-cse` compare at `.tmp/pass-fuzz-local-cse-indirect-ref-call-local-only-10000` requested `10000` cases, compared `9972`, had `9972` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `28` command failures classified as `22` Binaryen empty-recursion-group, `1` Binaryen bad-section-size, and `5` Starshine/tool initializer-expression validation failures.
+
 ## [2026-06-07] passes/local-cse | LCSE nullable ref.cast_desc_eq descriptor-cast parity
 
 - Completed repeated nullable `ref.cast_desc_eq` LCSE behavior parity for the current two-operand custom-descriptor binary shape. Starshine now decodes/encodes the Binaryen-current opcodes, models nullable descriptor casts as defaultable two-operand reference-result roots, and keeps non-null descriptor casts plus unsupported/obsolete `ref.test_desc` roots deferred.
