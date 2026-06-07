@@ -105,7 +105,7 @@ Use during the implementation loop:
 
 ### Standard pass signoff
 
-Use before declaring a pass complete:
+Use during implementation and before ordinary commit-sized parity slices:
 
 1. `moon info`
 2. `moon fmt`
@@ -119,6 +119,20 @@ Equivalent direct entrypoint:
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass <canonical-name> --out-dir .tmp/pass-fuzz-<name> --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
 ```
 
+### Final pass closeout signoff
+
+Use before declaring a pass closed, audit-complete, or behavior-parity complete. This is stronger than ordinary slice signoff:
+
+1. `moon info`
+2. `moon fmt`
+3. focused pass tests, e.g. `moon test --package jtenner/starshine/passes --file <pass>_test.mbt`
+4. `moon test src/passes`
+5. `moon test`
+6. `moon build --target native --release src/cmd`
+7. `bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass <canonical-name> --out-dir .tmp/pass-fuzz-<name>-final-100000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures`
+
+Final closeout must use the `100000`-case direct pass lane, not the ordinary `10000`-case slice lane, unless the user explicitly approves a smaller run for that specific closeout.
+
 For DAE / `dae-optimizing` mixed-generator lanes, add the documented compare normalizer so generated dropped-constant debris does not consume the mismatch budget:
 
 ```sh
@@ -130,7 +144,7 @@ Report exact `normalizedMatchCount`, `cleanupNormalizedMatchCount`, remaining `m
 Required result:
 
 - Binaryen behavior parity for the targeted pass, not merely “no known catastrophic semantic bug.”
-- `10000` compared cases when the harness can complete that many valid comparisons.
+- `10000` compared cases for ordinary implementation slices, and `100000` requested cases for final pass closeout when the harness can complete that many valid comparisons.
 - Zero true semantic mismatches, and no broad unapproved family deferrals hidden behind “safe drift.”
 - Command failures classified separately from semantic mismatches.
 - Raw wasm/text or transform-shape differences are not failures when normalized/canonical semantic comparison is green and the observed behavior matches Binaryen.
@@ -181,7 +195,7 @@ When reporting pass signoff, include:
 - tests added or updated
 - focused Moon command results
 - standard Moon signoff results: `moon info`, `moon fmt`, `moon test`
-- `10000` compare-pass command, seed, out dir, explicit `--jobs auto`, explicit `--starshine-bin`, compared count, normalized match count, cleanup-normalized match count when `--normalize ...` is used, raw mismatch count, and command-failure classification
+- compare-pass command, seed, out dir, explicit `--jobs auto`, explicit `--starshine-bin`, requested count (`10000` for ordinary slices or `100000` for final closeout), compared count, normalized match count, cleanup-normalized match count when `--normalize ...` is used, raw mismatch count, and command-failure classification
 - agent-classified mismatch breakdown, with explicit rationale for any semantic-safe/size-winning mismatch family; never imply the harness proved semantic safety
 - replayed failure dirs and their outcomes, if any
 - pass-local performance numbers, artifact comparisons, any `[WALL]001` attribution, or why they were not applicable
@@ -195,7 +209,7 @@ A pass is done only when:
 
 - public behavior is protected by tests
 - registry, dispatcher, CLI, and preset surfaces are wired or explicitly out of scope
-- direct pass execution matches Binaryen behavior on the standard compare-pass run; any remaining behavior divergence or unimplemented family is narrow, evidence-backed, explicitly approved, and documented with reopening criteria
+- direct pass execution matches Binaryen behavior on the required compare-pass run: `10000` for ordinary slices and `100000` for final pass closeout; any remaining behavior divergence or unimplemented family is narrow, evidence-backed, explicitly approved, and documented with reopening criteria
 - every transform is covered as safe and valid, with validation evidence for changed modules when applicable
 - relevant performance/artifact evidence is captured when applicable, and pass-local Starshine timing is at least 50% of Binaryen speed unless explicitly accepted
 - docs/backlog updates are complete
