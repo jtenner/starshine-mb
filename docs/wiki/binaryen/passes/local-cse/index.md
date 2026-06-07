@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-07
 sources:
   - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md
@@ -61,7 +61,7 @@ related:
   - `simplify-locals-notee-nostructure`
   - `local-cse`
 - The saved Binaryen debug log shows `36` `local-cse` executions in one full `-O4z` run, which means the pass is also part of the nested optimizing-rerun story, not just the obvious top-level slots.
-- The repo backlog already treats it as a real parity blocker under slice `LCSE` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
+- The repo backlog no longer carries an active LCSE audit item; the completed parity/performance evidence is filed in the linked research note and living wiki pages.
 - It also sits between several already-documented neighbors whose behavior is easier to understand once `local-cse` is documented clearly:
   - `simplify-locals-notee-nostructure`
   - `coalesce-locals`
@@ -103,6 +103,8 @@ That is smaller and more local than “Binaryen does generic CSE here.”
 - Fresh/generative GC roots such as `struct.new`, `struct.new_default`, and `array.new*` must not be reused; Starshine now has direct regression coverage for repeated `struct.new`, `struct.new_default`, and core-built `array.new` / `array.new_default` / `array.new_fixed` / `array.new_data` / `array.new_elem` roots remaining separate.
 - The early `-O4` slot depends on `flatten` plus a little simplify-locals cleanup to expose more identical whole trees.
 - The pass adds locals, so Binaryen marks it as DWARF-invalidating.
+- The 2026-06-07 conservative-lanes reopening implemented safe local-only reuse across string/reference, GC/descriptor allocation, call, and atomic barriers while preserving no-CSE coverage for generative/stateful roots; the direct compare at `.tmp/pass-fuzz-local-cse-conservative-lanes-20260607-10000` had `9977` normalized matches and `0` mismatches, with only Binaryen parser/tool command failures.
+- The 2026-06-07 pass-local performance matrix after conservative lanes found no LCSE pass-time problem on the requested debug-WASI and `json-as` artifact set: five timing-only samples per artifact all cleared the stricter `Starshine <= 1.5x Binaryen` cap, with medians from `0.250x` to `0.856x` Binaryen pass time; the refreshed 10000-case parity guard at `.tmp/pass-fuzz-local-cse-perf-20260607-10000` stayed mismatch-free.
 
 ## Page map
 
@@ -124,7 +126,7 @@ That is smaller and more local than “Binaryen does generic CSE here.”
 - Treat this folder as the canonical home for `local-cse` behavior, parity, and slot-planning notes.
 - Keep the active Starshine implementation status in sync with `src/passes/local_cse.mbt`, `src/passes/local_cse_test.mbt`, `src/passes/optimize.mbt`, `src/passes/pass_manager.mbt`, `src/cmd/cmd_wbtest.mbt`, and `agent-todo.md`.
 - New `local-cse` findings should update the strategy page, implementation/test-map page, and windows/barriers page together so the algorithm explanation, proof-surface map, and control-flow safety story stay aligned.
-- The before-`if` into `then`, before-block into straight-line block, before-`try_table` into try-body, annotated idempotent direct-call, `return_call` / `return_call_indirect` / `return_call_ref` / `throw_ref` unreachable-continuation, `br_on_null` / `br_on_non_null` / `br_on_cast` / `br_on_cast_fail` fallthrough-continuation, and `struct.set` / `array.set` / `array.fill` / `array.copy` / `array.init_data` / `array.init_elem` / `memory.copy` / `memory.fill` / `memory.init` / `memory.grow` / `memory.size` / `table.get` / `table.copy` / `table.fill` / `table.init` / `table.set` / `table.grow` / `table.size` / `global.set` / `data.drop` local-only effect/state-read cases are now covered and implemented in the raw/module path, the ordinary direct-call, `call_indirect`, and `call_ref` root no-ops, before-loop into loop-body, `br`/`br_table`, return-boundary, throw-boundary, top-level unreachable-boundary, and `try_table` body unreachable-boundary negatives are covered, the tiny-root repeated-`global.get` no-op is covered, the repeated `memory.size` root without intervening growth is covered, and the repeated `struct.new` / `struct.new_default` / core `array.new` / `array.new_default` / `array.new_fixed` / `array.new_data` / `array.new_elem` generative-root no-ops are covered as durable direct tests; keep future O4z LCSE closure criteria focused on the remaining hard control-boundary and GC/generative shapes rather than reopening those fixed/covered families.
+- The before-`if` into `then`, before-block into straight-line block, before-`try_table` into try-body, annotated idempotent direct-call, `return_call` / `return_call_indirect` / `return_call_ref` / `throw_ref` unreachable-continuation, `br_on_null` / `br_on_non_null` / `br_on_cast` / `br_on_cast_fail` fallthrough-continuation, local-only call/string/reference/allocation/atomic barrier positives, and `struct.set` / `array.set` / `array.fill` / `array.copy` / `array.init_data` / `array.init_elem` / `memory.copy` / `memory.fill` / `memory.init` / `memory.grow` / `memory.size` / `table.get` / `table.copy` / `table.fill` / `table.init` / `table.set` / `table.grow` / `table.size` / `global.set` / `data.drop` local-only effect/state-read cases are now covered and implemented in the raw/module path. Ordinary/imported/multi-result direct-call roots, `call_indirect` and `call_ref` roots/dependent parents, before-loop into loop-body, `br`/`br_table`, return-boundary, throw-boundary, top-level unreachable-boundary, `try_table` body unreachable-boundary, disjoint memory/table write no-GVN, tiny-root repeated-`global.get`, repeated string/reference tiny roots, repeated allocation roots, and repeated atomic roots are covered as durable negatives; keep future O4z LCSE closure criteria focused on genuinely tool-blocked descriptor/string proposal frontiers, non-semantic exact-shape parity, or newly proven Binaryen-positive behavior rather than reopening those fixed/covered families.
 
 ## Sources
 

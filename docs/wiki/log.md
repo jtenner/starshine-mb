@@ -2,6 +2,29 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-07] passes/audit | Behavior-parity inventory and backlog reframe
+
+- Added [`raw/research/0714-2026-06-07-o4z-behavior-parity-inventory.md`](raw/research/0714-2026-06-07-o4z-behavior-parity-inventory.md) to distinguish Binaryen behavior parity from raw output parity and inventory which previously audited/removed passes still have documented Binaryen behavior gaps.
+- Reframed `agent-todo.md` O4z audits around behavior parity, reopened MP/OR/RUN/DFE/GR/GSI slices where committed docs still list missing Binaryen behavior, added a preset-behavior inventory slice for the documented no-DWARF order gap, and corrected stale `strip-debug` backlog wording now that the direct module pass exists.
+- Updated the pass implementation skill so future pass closeouts cannot remove an audit solely on green compare output while source/docs still admit broad unimplemented Binaryen behavior. Also refreshed the no-DWARF path page to note the local `wasm-opt` binary now reports `version_130`.
+
+## [2026-06-07] passes/local-cse | LCSE removed from active backlog
+
+- Marked the LCSE audit/performance work complete after signoff and removed the active `[O4Z-AUDIT-LCSE]` section plus leftover LCSE-specific checklist items from `agent-todo.md`.
+- Updated the LCSE index and Starshine strategy page so they no longer describe `agent-todo.md` as the active LCSE evidence holder; completed evidence now lives in the LCSE wiki dossier and `docs/wiki/raw/research/0710-2026-06-04-local-cse-o4z-final-pass-audit.md`.
+
+## [2026-06-07] passes/local-cse | LCSE pass-local performance matrix
+
+- Measured post-conservative-lane `local-cse` pass-local time against Binaryen `wasm-opt --local-cse --debug` with five timing-only samples each on `tests/node/dist/starshine-debug-wasi.wasm` and the eight restored `examples/modules/` benchmark artifacts.
+- Result: every artifact cleared the stricter user-requested `Starshine <= 1.5x Binaryen` pass-local cap. The closest ratio was debug-WASI at `113.688ms` Starshine median vs `132.845ms` Binaryen median (`0.856x`); the example artifacts ranged from `0.250x` to `0.365x`. No LCSE code change was made because no pass-time target breach or borderline sample was observed.
+- Evidence: matrix artifacts under `.tmp/lcse-perf-matrix-20260607-185546/`; focused LCSE tests passed (`200/200`); direct compare at `.tmp/pass-fuzz-local-cse-perf-20260607-10000` compared `9977/10000`, with `9977` normalized matches, `0` mismatches, and `23` Binaryen parser/tool command failures (`22` rec-group-zero, `1` bad-section-size). Updated the LCSE research note, index, strategy page, and backlog.
+
+## [2026-06-07] passes/local-cse | LCSE conservative lanes reopened and classified
+
+- Reopened the remaining conservative LCSE lanes after the earlier closeout wording was superseded. Implemented the safe Binaryen-positive subset: local-only expression reuse across `ref.null`, `ref.func`, `string.const`, string new/encode array roots, ordinary GC allocations, descriptor allocations, calls, and atomic roots while keeping those opaque/generative/stateful roots themselves non-reusable.
+- Added durable negative coverage for repeated string/allocation/atomic roots, imported/ordinary/multi-result direct call roots, `call_indirect` / `call_ref` roots and call-dependent parents, idempotent calls across ordinary calls/local writes/memory writes, memory-read roots across disjoint memory writes, and table-get-dependent roots across disjoint table writes. `ref.test_desc` and external string proposal array/encode text-oracle lanes remain tool-blocked with exact `wasm-tools` / Binaryen rejection evidence; descriptor allocation and atomic roots remain no-CSE/semantic-risk lanes.
+- Validation/evidence: focused LCSE tests failed first for the intended allocation/string local-only and idempotent-call gaps, then passed (`200/200`); `moon fmt`, `moon test src/passes` (`1945/1945`), full `moon test` (`5137/5137`), and native `src/cmd` build passed; `moon info` still hit the known Moon panic. Direct `local-cse` compare at `.tmp/pass-fuzz-local-cse-conservative-lanes-20260607-10000` requested `10000`, compared `9977`, had `9977` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `23` Binaryen parser/tool command failures (`22` rec-group-zero, `1` bad-section-size).
+
 ## [2026-06-07] validate/gen-valid | GC array constructors in constant expressions
 
 - Fixed the validator/front-end constant-expression allow-list so `array.new`, `array.new_default`, and `array.new_fixed` validate in table initializer and element payload contexts when their type index resolves to an array and the operands typecheck.

@@ -17,7 +17,8 @@ Read the relevant sources before substantial pass work:
 - `docs/README.md` sections **Working On Passes**, **Validation And Signoff**, and **Workflow Details** for mirrored docs/wiki policy and command notes.
 - `docs/wiki/ir2/pass-porting-checklist.md` for the living IR2 pass-author contract.
 - `docs/0062-2026-03-24-pass-porting-checklist.md` for the numbered source behind the checklist when needed.
-- `agent-todo.md` for active pass blockers, exact slices, known failures, and artifact status.
+- `agent-todo.md` for active pass blockers, exact slices, known failures, behavior-parity inventory links, and artifact status.
+- `docs/wiki/raw/research/0714-2026-06-07-o4z-behavior-parity-inventory.md` when deciding whether a previously audited/removed pass can stay closed under the behavior-parity standard.
 - `src/passes/pass_common.mbt` for shared analysis, mutation, and verification helpers.
 - `src/passes/pass_test_helpers.mbt` for WAT fixture and public-pipeline test helpers.
 - `src/passes/optimize.mbt` for registry entries, pass categories, and preset expansion.
@@ -27,8 +28,9 @@ Read the relevant sources before substantial pass work:
 ## Non-Negotiables
 
 - Correctness first.
-- Target Binaryen **behavior parity** by default. Do not treat broad instruction families, root kinds, or effect classes as permanently deferrable just because they are hard; continue shrinking and implementing them until Starshine matches Binaryen-observable behavior.
-- Output parity is not the target: do not require byte-for-byte wasm, raw canonical wasm/text, or transform-for-transform parity when normalized/canonical semantic evidence proves equivalent Binaryen behavior.
+- Target Binaryen **behavior parity** by default. Do not treat broad instruction families, root kinds, scheduler slots, or effect classes as permanently deferrable just because they are hard; continue shrinking and implementing them until Starshine matches Binaryen-observable behavior.
+- Behavior parity is stronger than "the generated module still behaves the same" and weaker than output parity: Starshine should implement the semantically relevant Binaryen transform families for the agreed pass/preset scope, while preserving WebAssembly behavior and validation. A green randomized compare lane is evidence, not a substitute for source/test review when docs still list broad missing Binaryen behavior.
+- Output parity is not the target: do not require byte-for-byte wasm, raw canonical wasm/text, helper-label shape, local-numbering, or transform-for-transform parity when normalized/canonical semantic evidence proves equivalent Binaryen behavior.
 - A deferral is allowed only when it is narrow, evidence-backed, and explicitly accepted by the user or tied to a concrete missing local representation/tooling blocker. Record what evidence would reopen it. Prefer implementing net-positive semantic cleanups over classifying them as merely safe drift.
 - Every transform must be safe and must produce a valid wasm module.
 - Pass-local performance target: Starshine should be at least 50% as fast as Binaryen on comparable pass-local measurements (`starshine_time <= 2 * binaryen_time`) unless a slower result is explicitly accepted or attributed outside the pass.
@@ -38,6 +40,7 @@ Read the relevant sources before substantial pass work:
 - Keep hot pass descriptors truthful: `requires` must list needed analyses and `invalidates` must list stale analyses after mutation.
 - Mutate through public hot-IR APIs and shared pass helpers; do not reach into storage internals directly.
 - Do not widen `optimize`/`shrink` preset behavior before the direct pass is correct and separately signable.
+- Do not remove or close an audit item while the pass dossier or inventory still says the pass is a narrow subset, lacks broad Binaryen behavior, or has unclassified behavior gaps. Either reopen/keep a backlog slice, or record a narrow explicit non-goal with user approval and reopening criteria.
 - Keep release blockers and known failures visible in `agent-todo.md` until resolved.
 - If signoff cannot be run, say exactly which command was not run and why; do not imply completion.
 
@@ -209,7 +212,8 @@ A pass is done only when:
 
 - public behavior is protected by tests
 - registry, dispatcher, CLI, and preset surfaces are wired or explicitly out of scope
-- direct pass execution matches Binaryen behavior on the required compare-pass run: `10000` for ordinary slices and `100000` for final pass closeout; any remaining behavior divergence or unimplemented family is narrow, evidence-backed, explicitly approved, and documented with reopening criteria
+- direct pass execution matches Binaryen behavior on the required compare-pass run: `10000` for ordinary slices and `100000` for final pass closeout; a green lane must be cross-checked against source/docs so broad missing transform families are not hidden as "no mismatches"
+- any remaining behavior divergence or unimplemented family is narrow, evidence-backed, explicitly approved, and documented with reopening criteria; otherwise the audit stays active or is reopened
 - every transform is covered as safe and valid, with validation evidence for changed modules when applicable
 - relevant performance/artifact evidence is captured when applicable, and pass-local Starshine timing is at least 50% of Binaryen speed unless explicitly accepted
 - docs/backlog updates are complete

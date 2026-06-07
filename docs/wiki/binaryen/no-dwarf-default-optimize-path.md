@@ -1,13 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-07
 sources:
   - ../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md
   - ../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md
   - ../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md
   - ../raw/binaryen/2026-06-04-binaryen-v130-release-horizon-recheck.md
   - ../raw/research/0704-2026-06-04-binaryen-v130-release-horizon-recheck.md
+  - ../raw/research/0714-2026-06-07-o4z-behavior-parity-inventory.md
 related:
   - ../../../agent-todo.md
   - ../../../src/passes/optimize.mbt
@@ -54,8 +55,8 @@ related:
 - Treat repeated cleanup slots as intentional, not accidental duplication.
 - Preserve the phase split, feature gates, and nested reruns before trying to tune performance or collapse preset shape.
 - The archived `0066` note remains the historical line-anchored source for older work, but new conclusions should be checked against the current `version_130` release baseline and the release-horizon note first.
-- The local workspace `wasm-opt` reports `version_129`, so command-based parity evidence on this page remains tied to that older local oracle until the workspace toolchain is refreshed.
-- Earlier command-based evidence tied to `version_125` remains historical until rerun under `version_129`.
+- As of the 2026-06-07 behavior-parity inventory, the local workspace `wasm-opt --version` reports `version_130`; older command-based evidence on this page remains tied to the `version_129` or earlier local oracle that produced it until rerun under the refreshed toolchain.
+- Earlier command-based evidence tied to `version_125` or `version_129` remains historical until rerun under the current local `version_130` oracle.
 - The post-SGO late-tail neighborhood `simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` is directly oracle-proven for v0.1.0 scheduling purposes: the 10k ordered-neighborhood fuzz lane is green, same-input RUME comparisons are canonical-green on both SGO-side artifact inputs, and the remaining debug-artifact first diff is inherited SGO representation/function-layout drift feeding RUME before the later string/reorder/directize tail changes anything. Public `optimize` and `shrink` now append this accepted suffix; see [`../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md`](../raw/research/0571-2026-05-19-late-tail-five-pass-neighborhood-baseline.md) and [`../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md`](../raw/research/0572-2026-05-19-public-preset-late-tail-scheduling.md).
 - `scripts/self-optimize-compare.ts` now runs `moon build --target native --release --package jtenner/starshine/cmd` and invokes the built `_build/native/release/build/cmd/cmd.exe` by default, so recorded Starshine command timings measure the native CLI rather than a `moon run` wrapper unless `--starshine-bin` overrides it.
 

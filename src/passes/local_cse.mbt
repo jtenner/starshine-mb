@@ -42,6 +42,7 @@ priv struct LcseRawExpr {
   reads_global : Bool
   reads_heap : Bool
   reads_atomic : Bool
+  reads_call : Bool
   cache_child_for_replay : Bool
   mut repeat_of : Int
   mut local_id : Int
@@ -1059,6 +1060,58 @@ fn lcse_raw_call_is_idempotent(
 }
 
 ///|
+fn lcse_raw_u32_to_nonnegative_int(value : @lib.U32) -> Int? {
+  let @lib.U32(raw) = value
+  let count = raw.reinterpret_as_int()
+  if count < 0 {
+    None
+  } else {
+    Some(count)
+  }
+}
+
+///|
+fn lcse_raw_struct_field_count(
+  subtypes : Array[@lib.SubType],
+  type_idx : @lib.TypeIdx,
+) -> Int? {
+  let subtype = match lcse_raw_subtype_for_idx(subtypes, type_idx) {
+    Some(st) => st
+    None => return None
+  }
+  match subtype.get_comptype() {
+    @lib.StructCompType(fields) => Some(fields.length())
+    _ => None
+  }
+}
+
+///|
+fn lcse_raw_instr_is_allocation_or_string_effect(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Instruction::StringNewUtf8Array
+    | @lib.Instruction::StringNewWtf16Array
+    | @lib.Instruction::StringNewLossyUtf8Array
+    | @lib.Instruction::StringNewWtf8Array
+    | @lib.Instruction::StringEncodeUtf8Array
+    | @lib.Instruction::StringEncodeWtf16Array
+    | @lib.Instruction::StringEncodeLossyUtf8Array
+    | @lib.Instruction::StringEncodeWtf8Array
+    | @lib.Instruction::StructNew(_)
+    | @lib.Instruction::StructNewDefault(_)
+    | @lib.Instruction::StructNewDesc(_)
+    | @lib.Instruction::StructNewDefaultDesc(_)
+    | @lib.Instruction::ArrayNew(_)
+    | @lib.Instruction::ArrayNewDefault(_)
+    | @lib.Instruction::ArrayNewFixed(_, _)
+    | @lib.Instruction::ArrayNewData(_, _)
+    | @lib.Instruction::ArrayNewElem(_, _) => true
+    _ => false
+  }
+}
+
+///|
 fn lcse_raw_instr_operand_count(
   instr : @lib.Instruction,
   call_infos : Array[LcseRawCallInfo],
@@ -1077,7 +1130,29 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::ElemDrop(_)
     | @lib.Instruction::RefNull(_)
     | @lib.Instruction::RefFunc(_)
-    | @lib.Instruction::StringConst(_) => Some(0)
+    | @lib.Instruction::StringConst(_)
+    | @lib.Instruction::StructNewDefault(_) => Some(0)
+    @lib.Instruction::StringNewUtf8Array
+    | @lib.Instruction::StringNewWtf16Array
+    | @lib.Instruction::StringNewLossyUtf8Array
+    | @lib.Instruction::StringNewWtf8Array
+    | @lib.Instruction::StringEncodeUtf8Array
+    | @lib.Instruction::StringEncodeWtf16Array
+    | @lib.Instruction::StringEncodeLossyUtf8Array
+    | @lib.Instruction::StringEncodeWtf8Array => Some(3)
+    @lib.Instruction::StructNew(type_idx) =>
+      lcse_raw_struct_field_count(subtypes, type_idx)
+    @lib.Instruction::StructNewDesc(type_idx) =>
+      lcse_raw_struct_field_count(subtypes, type_idx).map(fn(count) {
+        count + 1
+      })
+    @lib.Instruction::StructNewDefaultDesc(_) => Some(1)
+    @lib.Instruction::ArrayNew(_) => Some(2)
+    @lib.Instruction::ArrayNewDefault(_) => Some(1)
+    @lib.Instruction::ArrayNewFixed(_, count) =>
+      lcse_raw_u32_to_nonnegative_int(count)
+    @lib.Instruction::ArrayNewData(_, _)
+    | @lib.Instruction::ArrayNewElem(_, _) => Some(2)
     @lib.Instruction::Drop
     | @lib.Instruction::RefIsNull
     | @lib.Instruction::ThrowRef
@@ -1552,6 +1627,30 @@ fn lcse_raw_result_type(
     | @lib.Instruction::F64PromoteF32
     | @lib.Instruction::F64ReinterpretI64 => Some(@lib.ValType::f64())
     @lib.Instruction::RefNull(ty) => Some(@lib.ValType::ref_type(ty))
+    @lib.Instruction::StringConst(_)
+    | @lib.Instruction::StringNewUtf8Array
+    | @lib.Instruction::StringNewWtf16Array
+    | @lib.Instruction::StringNewLossyUtf8Array
+    | @lib.Instruction::StringNewWtf8Array => Some(@lib.ValType::stringref())
+    @lib.Instruction::StringEncodeUtf8Array
+    | @lib.Instruction::StringEncodeWtf16Array
+    | @lib.Instruction::StringEncodeLossyUtf8Array
+    | @lib.Instruction::StringEncodeWtf8Array => Some(@lib.ValType::i32())
+    @lib.Instruction::StructNew(type_idx)
+    | @lib.Instruction::StructNewDefault(type_idx)
+    | @lib.Instruction::StructNewDesc(type_idx)
+    | @lib.Instruction::StructNewDefaultDesc(type_idx) =>
+      Some(
+        @lib.ValType::ref_type(
+          @lib.RefType::new(false, @lib.HeapType::new(type_idx), exact=true),
+        ),
+      )
+    @lib.Instruction::ArrayNew(type_idx)
+    | @lib.Instruction::ArrayNewDefault(type_idx)
+    | @lib.Instruction::ArrayNewFixed(type_idx, _)
+    | @lib.Instruction::ArrayNewData(type_idx, _)
+    | @lib.Instruction::ArrayNewElem(type_idx, _) =>
+      Some(@lib.ValType::ref_array_nonnull(type_idx))
     @lib.Instruction::RefAsNonNull =>
       lcse_ref_as_non_null_result_type(child_exprs)
     @lib.Instruction::RefCast(nullable, heap_type)
@@ -1766,7 +1865,10 @@ fn lcse_raw_filter_active_without_memory(
 ) -> Unit {
   let keep : Array[Int] = []
   for expr_id in active {
-    if expr_id >= 0 && expr_id < exprs.length() && !exprs[expr_id].reads_memory {
+    if expr_id >= 0 &&
+      expr_id < exprs.length() &&
+      !exprs[expr_id].reads_memory &&
+      !exprs[expr_id].reads_call {
       keep.push(expr_id)
     }
   }
@@ -1786,7 +1888,8 @@ fn lcse_raw_filter_active_without_memory_or_size(
     if expr_id >= 0 &&
       expr_id < exprs.length() &&
       !exprs[expr_id].reads_memory &&
-      !exprs[expr_id].reads_memory_size {
+      !exprs[expr_id].reads_memory_size &&
+      !exprs[expr_id].reads_call {
       keep.push(expr_id)
     }
   }
@@ -1827,6 +1930,37 @@ fn lcse_raw_filter_active_without_local(
 }
 
 ///|
+fn lcse_raw_remove_active_expr(active : Array[Int], target : Int) -> Unit {
+  let keep : Array[Int] = []
+  for expr_id in active {
+    if expr_id != target {
+      keep.push(expr_id)
+    }
+  }
+  active.clear()
+  for expr_id in keep {
+    active.push(expr_id)
+  }
+}
+
+///|
+fn lcse_raw_filter_active_without_call(
+  exprs : Array[LcseRawExpr],
+  active : Array[Int],
+) -> Unit {
+  let keep : Array[Int] = []
+  for expr_id in active {
+    if expr_id >= 0 && expr_id < exprs.length() && !exprs[expr_id].reads_call {
+      keep.push(expr_id)
+    }
+  }
+  active.clear()
+  for expr_id in keep {
+    active.push(expr_id)
+  }
+}
+
+///|
 fn lcse_raw_filter_active_local_only(
   exprs : Array[LcseRawExpr],
   active : Array[Int],
@@ -1840,7 +1974,8 @@ fn lcse_raw_filter_active_local_only(
         !expr.reads_table_state &&
         !expr.reads_global &&
         !expr.reads_heap &&
-        !expr.reads_atomic {
+        !expr.reads_atomic &&
+        !expr.reads_call {
         keep.push(expr_id)
       }
     }
@@ -1858,7 +1993,10 @@ fn lcse_raw_filter_active_without_heap(
 ) -> Unit {
   let keep : Array[Int] = []
   for expr_id in active {
-    if expr_id >= 0 && expr_id < exprs.length() && !exprs[expr_id].reads_heap {
+    if expr_id >= 0 &&
+      expr_id < exprs.length() &&
+      !exprs[expr_id].reads_heap &&
+      !exprs[expr_id].reads_call {
       keep.push(expr_id)
     }
   }
@@ -2260,17 +2398,30 @@ fn lcse_raw_rewrite_instrs(
     }
     match instr {
       @lib.Instruction::LocalSet(local_idx)
-      | @lib.Instruction::LocalTee(local_idx) =>
+      | @lib.Instruction::LocalTee(local_idx) => {
         lcse_raw_filter_active_without_local(
           exprs,
           active,
           cl_local_idx_raw(local_idx),
         )
+        lcse_raw_filter_active_without_call(exprs, active)
+      }
+      @lib.Instruction::GlobalSet(_)
+      | @lib.Instruction::TableSet(_)
+      | @lib.Instruction::TableGrow(_)
+      | @lib.Instruction::TableCopy(_, _)
+      | @lib.Instruction::TableFill(_)
+      | @lib.Instruction::TableInit(_, _)
+      | @lib.Instruction::DataDrop(_)
+      | @lib.Instruction::ElemDrop(_) =>
+        lcse_raw_filter_active_without_call(exprs, active)
       @lib.Instruction::Call(call_idx) =>
         if !lcse_raw_call_is_idempotent(call_infos, call_idx) {
           lcse_raw_filter_active_local_only(exprs, active)
         }
       @lib.Instruction::CallIndirect(_, _) | @lib.Instruction::CallRef(_) =>
+        lcse_raw_filter_active_local_only(exprs, active)
+      _ if lcse_raw_instr_is_allocation_or_string_effect(instr) =>
         lcse_raw_filter_active_local_only(exprs, active)
       _ if lcse_raw_instr_is_atomic(instr) =>
         lcse_raw_filter_active_local_only(exprs, active)
@@ -2290,6 +2441,16 @@ fn lcse_raw_rewrite_instrs(
       _ =>
         if lcse_instr_is_store(instr) {
           lcse_raw_filter_active_without_memory(exprs, active)
+        }
+    }
+    match instr {
+      @lib.Instruction::Drop => ()
+      _ =>
+        for child in children {
+          if child >= 0 && child < exprs.length() && exprs[child].reads_call {
+            lcse_cancel_request_tree(exprs, child)
+            lcse_raw_remove_active_expr(active, child)
+          }
         }
     }
     match instr {
@@ -2345,6 +2506,10 @@ fn lcse_raw_rewrite_instrs(
           _ => false
         }
         let mut reads_atomic = lcse_raw_instr_is_atomic(instr)
+        let mut reads_call = match instr {
+          @lib.Instruction::Call(_) => true
+          _ => false
+        }
         for child in children {
           let child_expr = exprs[child]
           if child_expr.start < start {
@@ -2374,6 +2539,9 @@ fn lcse_raw_rewrite_instrs(
           if child_expr.reads_atomic {
             reads_atomic = true
           }
+          if child_expr.reads_call {
+            reads_call = true
+          }
         }
         match instr {
           @lib.Instruction::LocalGet(local_idx) => {
@@ -2393,7 +2561,16 @@ fn lcse_raw_rewrite_instrs(
         let reusable_root = match instr {
           @lib.Instruction::MemoryGrow(_) | @lib.Instruction::TableGrow(_) =>
             false
+          _ if lcse_raw_instr_is_allocation_or_string_effect(instr) => false
           _ if reads_atomic => false
+          _ if reads_call =>
+            match instr {
+              @lib.Instruction::Call(call_idx) =>
+                lcse_raw_call_is_idempotent(call_infos, call_idx) &&
+                !reads_table_state &&
+                can_cache_child_for_replay
+              _ => false
+            }
           _ => !reads_table_state && can_cache_child_for_replay
         }
         let materializable_root = cache_child_for_replay || @lib.has_default(ty)
@@ -2423,6 +2600,7 @@ fn lcse_raw_rewrite_instrs(
           reads_global,
           reads_heap,
           reads_atomic,
+          reads_call,
           cache_child_for_replay,
           repeat_of: -1,
           local_id: -1,

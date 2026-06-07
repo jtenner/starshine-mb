@@ -3359,3 +3359,124 @@ bun scripts/pass-fuzz-compare.ts \
 ```
 
 Results: the relaxed-SIMD test was an explicit array/list of behavior cases (`relaxed_simd_behavior_tests`) and failed red before implementation (`177/178`, assertion `0 != 1`). After adding the relaxed SIMD opcodes to the SIMD pure operand-count/result model, focused LCSE tests passed (`178/178`); `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; `moon test src/passes` passed (`1923/1923`); full `moon test` passed (`5109/5109`); native `src/cmd` build passed with the pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; native relaxed-SIMD spot replay validated with `wasm-tools validate --features all` and printed `20` Starshine `local.tee` sites; `bun validate readme-api-sync` passed. Direct compare requested `10000`, compared `9972`, reported `9972` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `28` command failures. Agent classification: no LCSE semantic mismatches; command failures were `22` Binaryen empty-recursion-group parser failures, `1` Binaryen bad-section-size parser failure, and `5` Starshine/tool failures on generated table initializer expressions rejected as non-constant.
+
+## Validator cleanup and rerun after relaxed SIMD on 2026-06-07
+
+The relaxed-SIMD compare surfaced five Starshine/tool command failures that were not LCSE output mismatches. The generated inputs used official GC array constructors in constant initializer contexts, and Starshine's validator/front-end allow-list was stale for `array.new`, `array.new_default`, and `array.new_fixed` when the type index resolves to an array.
+
+That front-end gap was fixed outside LCSE: `validate_const_instr` now admits those GC array constructors in constant initializer contexts after type-index and operand checks, and GenValid now deliberately covers table/element initializer shapes for `array.new_fixed`, zero-length `v128 array.new_fixed`, `array.new_default`, and `array.new`.
+
+Validation/evidence:
+
+```sh
+moon test src/validate
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-relaxed-simd-validator-fix-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe \
+  --max-failures 2000 \
+  --keep-going-after-command-failures
+```
+
+Results: focused validator/GenValid TDD failed first, then `moon test src/validate` passed (`1559/1559`), full `moon test` passed (`5115/5115`), the native replay of the five relaxed-SIMD compare failures validated, and the rerun `local-cse` compare at `.tmp/pass-fuzz-local-cse-relaxed-simd-validator-fix-10000` compared `9977/10000`, reported `9977` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `23` remaining command failures. Agent classification: those remaining command failures are all Binaryen parser/tool failures (`22` empty-recursion-group and `1` bad-section-size), not LCSE semantic mismatches.
+
+## Conservative-lane reopening and final implemented subset on 2026-06-07
+
+A final conservative-lane pass reopened every remaining LCSE lane instead of accepting blanket deferrals. The rule used for implementation was: implement Binaryen-positive behavior when Starshine can model it safely, add durable no-CSE tests when Binaryen preserves distinct roots or the operation is semantically stateful/generative, and classify true tool-frontier cases with exact local tool evidence.
+
+Fresh tool evidence under `.tmp/lcse-conservative-20260607/` classified the remaining lanes:
+
+- `ref.test_desc`: **tool-blocked**. `wasm-tools 1.251.0` rejected the text operator with `unknown operator or unexpected token`, and `wasm-opt version_130 --all-features --local-cse -S` rejected it with `unrecognized instruction`.
+- String array/encode proposal ops: **tool-blocked as external text-oracle inputs** for `wasm-tools`/Binaryen text parsing (`stringref`, `string.new_*_array`, and `string.encode_*_array` rejected), but locally representable enough for Starshine behavior tests. Starshine keeps those roots unmaterialized and implements only local-only reuse across them.
+- `string.const`: Binaryen accepted the available binary/text probe but preserved repeated string roots; **Binaryen no-op for root CSE**. Binaryen did materialize a local-only `i32.add` across `string.const`, so Starshine now preserves that safe local-only candidate.
+- Descriptor allocations (`struct.new_desc`, `struct.new_default_desc`): Binaryen preserves repeated allocation roots; **allocation identity no-CSE**. Binaryen did materialize local-only arithmetic across those allocation roots, so Starshine now preserves only local-only candidates across descriptor allocation effects.
+- Ordinary GC allocations (`struct.new`, `struct.new_default`, `array.new`, `array.new_default`, `array.new_fixed`, `array.new_data`, `array.new_elem`): repeated roots remain generative no-CSE; local-only expressions across the allocation roots are Binaryen-positive and now implemented.
+- Atomic roots (`i32.atomic.load`, RMW, cmpxchg, notify, wait, fence): repeated roots remain **semantic-risk / Binaryen no-CSE**; local-only expressions across atomic roots had already been implemented, and this pass added durable negative coverage for repeated linear atomic roots.
+- Memory/table disjoint writes: Binaryen does not use this pass as multi-memory or multi-table GVN. Starshine now has explicit no-CSE coverage for memory-read roots across disjoint memory writes and table-get-dependent roots across disjoint table writes, while keeping local-only reuse across those writes.
+- Calls: imported/ordinary/multi-result direct call roots, `call_indirect` / `call_ref` roots, and call-result-dependent parents remain non-reusable. Annotated `@binaryen.idempotent` direct call roots are reusable only in the narrow pure-local window; ordinary calls, local writes, and memory writes invalidate them.
+
+Implementation summary: `src/passes/local_cse.mbt` now tracks `reads_call`, propagates call dependence through parent expressions, filters call-reading candidates across writes/effects where Binaryen does not preserve them, models string/GC/descriptor allocation operand counts and result types so those opaque roots become barriers rather than stack-clearing hard boundaries, treats allocation/string effects as local-only-preserving barriers, and keeps allocation/string/atomic roots themselves non-reusable. Focused tests in `src/passes/local_cse_test.mbt` now cover the positive local-only lanes across `ref.null`, `ref.func`, `string.const`, string array/encode roots, GC allocations, descriptor allocations, ordinary/imported/indirect/reference calls, and atomic roots, plus negative root/dependent lanes for string/allocation/atomic/call/memory/table cases.
+
+Validation/evidence:
+
+```sh
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon info
+moon test
+moon build --target native --release src/cmd
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-conservative-lanes-20260607-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe \
+  --max-failures 2000 \
+  --keep-going-after-command-failures
+```
+
+Results: focused LCSE TDD failed red before implementation for the intended allocation/string local-only and idempotent-call boundary gaps, then passed after implementation (`200/200`). `moon fmt` passed; `moon test src/passes` passed (`1945/1945`); `moon info` still hit the known Moon panic (`index out of bounds`, exit `101`); full `moon test` passed (`5137/5137`); native `src/cmd` build passed with the pre-existing unused-function warnings in `src/passes/pass_manager.mbt`. Direct compare at `.tmp/pass-fuzz-local-cse-conservative-lanes-20260607-10000` compared `9977/10000`, reported `9977` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `23` command failures. Agent classification: no LCSE semantic mismatches; command failures were `22` Binaryen rec-group-zero parser failures and `1` Binaryen bad-section-size parser failure.
+
+## Pass-local performance matrix after conservative lanes on 2026-06-07
+
+The post-conservative-lane implementation was measured against Binaryen's pass-local `wasm-opt --local-cse --debug` timing with the existing timing-only artifact harness. This refreshed the older debug-WASI-only timing probes and added the restored `json-as` example artifacts under `examples/modules/`. Tool versions recorded in the same session: `wasm-opt version 130 (version_130)`, `wasm-tools 1.251.0 (a1a178a02 2026-05-28)`, `bun 1.3.14`, and `moon 0.1.20260529`.
+
+Native Starshine was built first:
+
+```sh
+moon build --target native --release src/cmd
+```
+
+Each artifact used this harness command shape, repeated five times with per-run output dirs under `.tmp/lcse-perf-matrix-20260607-185546/`:
+
+```sh
+bun scripts/self-optimize-compare.ts <artifact.wasm> \
+  --out-dir .tmp/lcse-perf-matrix-20260607-185546/<artifact-label>/run-N \
+  --starshine-bin target/native/release/build/cmd/cmd.exe \
+  --timing-only \
+  --local-cse
+```
+
+The harness records Starshine pass-local time from `perf:timer name=pass:local-cse elapsed_us=...` and Binaryen pass-local time from the last `passes took ... seconds.` line in `wasm-opt --debug` output. Whole-command medians are listed separately below but the pass target is judged only on pass-local medians. The ratio is `Starshine median pass ms / Binaryen median pass ms`; the task-specific cap was `<= 1.5x`.
+
+| Artifact | n | Starshine pass median ms (min-max) | Binaryen pass median ms (min-max) | Ratio | Starshine command median ms | Binaryen command median ms | <=1.5x |
+|---|---:|---:|---:|---:|---:|---:|:---:|
+| `tests/node/dist/starshine-debug-wasi.wasm` | 5 | 113.688 (108.810-117.598) | 132.845 (128.380-134.066) | 0.856x | 533.337 | 623.608 | yes |
+| `examples/modules/large.lazy.bench.incremental.swar.wasm` | 5 | 2.701 (2.305-3.334) | 8.778 (8.449-9.964) | 0.308x | 23.418 | 34.344 | yes |
+| `examples/modules/large.lazy.bench.incremental.swar.starshine.optimized.wasm` | 5 | 3.117 (2.629-3.876) | 8.854 (8.618-9.117) | 0.352x | 24.562 | 34.301 | yes |
+| `examples/modules/medium.bench.incremental.naive.wasm` | 5 | 1.401 (0.899-1.705) | 3.837 (3.446-4.734) | 0.365x | 10.632 | 16.707 | yes |
+| `examples/modules/medium.bench.incremental.naive.starshine.optimized.wasm` | 5 | 0.968 (0.900-1.387) | 3.875 (3.570-4.459) | 0.250x | 10.701 | 18.002 | yes |
+| `examples/modules/medium.bench.incremental.simd.wasm` | 5 | 1.622 (1.526-2.410) | 5.766 (5.535-6.020) | 0.281x | 14.793 | 23.797 | yes |
+| `examples/modules/medium.bench.incremental.simd.starshine.optimized.wasm` | 5 | 1.692 (1.502-2.352) | 6.164 (5.495-7.068) | 0.274x | 16.104 | 23.809 | yes |
+| `examples/modules/medium.lazyauto.bench.incremental.simd.wasm` | 5 | 3.104 (2.876-3.176) | 10.719 (10.096-12.034) | 0.290x | 26.032 | 39.063 | yes |
+| `examples/modules/medium.lazyauto.bench.incremental.simd.starshine.optimized.wasm` | 5 | 3.869 (3.132-5.530) | 12.047 (11.607-14.239) | 0.321x | 25.710 | 40.205 | yes |
+
+Agent performance classification: no pass-time problem was observed on the requested artifact set. The closest artifact was the 7.2M debug-WASI module at a `0.856x` median ratio, and even its noisiest sample was `0.877x`, leaving substantial headroom under the user-requested `1.5x` cap. The `json-as` example artifacts were all well below parity risk (`0.250x` to `0.365x` median ratios). Whole-command wall time also favored Starshine in these timing-only runs, but whole-command wall time remains `[WALL]001` territory unless a future finding points back to `local-cse`.
+
+Source-path interpretation: the conservative-lane modeling adds `reads_call` and more allocation/string/atomic barriers, but the measured timings show the existing LCSE guardrails still dominate: `lcse_instrs_may_have_repeated_candidate` is a linear prefilter, `lcse_raw_rewrite_instrs` only performs direct raw expression matching for small instruction arrays (`instrs.length() <= 16`), and the active-list effect filters stay bounded by local windows rather than becoming whole-function GVN. Potential hotspots remain the active-list filters and nested-repeat scans, but they are not currently pass-time bottlenecks on the debug or `json-as` artifacts.
+
+No LCSE implementation change was made for this performance follow-up. Because every artifact passed the stricter `<=1.5x` pass-local target with non-borderline headroom, a speculative micro-optimization would add correctness risk without a measured pass-time problem to squash.
+
+Fresh parity guard after the timing run:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-perf-20260607-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe \
+  --max-failures 2000 \
+  --keep-going-after-command-failures
+```
+
+Results: focused LCSE tests passed (`200/200`). Direct compare at `.tmp/pass-fuzz-local-cse-perf-20260607-10000` compared `9977/10000`, reported `9977` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `23` command failures. Agent classification: no LCSE semantic mismatches; command failures were Binaryen parser/tool failures (`22` empty-recursion-group, `1` bad-section-size).

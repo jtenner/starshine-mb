@@ -2541,6 +2541,52 @@ test "local-cse reuses repeated ref-as-non-null roots by caching nullable operan
 }
 
 ///|
+test "local-cse reuses local-only expression across ref-null roots" {
+  let input =
+    #| (module
+    #|   (func (param i32 i32)
+    #|     (drop (i32.add (local.get 0) (local.get 1)))
+    #|     (drop (ref.null extern))
+    #|     (drop (i32.add (local.get 0) (local.get 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  let temp = @lib.LocalIdx::new(2U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
+test "local-cse reuses local-only expression across ref.func roots" {
+  let input =
+    #| (module
+    #|   (func $target)
+    #|   (elem declare func $target)
+    #|   (func (param i32 i32)
+    #|     (drop (i32.add (local.get 0) (local.get 1)))
+    #|     (drop (ref.func $target))
+    #|     (drop (i32.add (local.get 0) (local.get 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_defined_func(
+    optimized, 1,
+  )
+  let temp = @lib.LocalIdx::new(2U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
 test "local-cse leaves repeated string const roots unmaterialized" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let func_type = @lib.RecType::new(
@@ -3572,6 +3618,59 @@ test "local-cse does not reuse load roots across memory writes" {
 }
 
 ///|
+test "local-cse does not reuse memory-read roots across disjoint memory writes" {
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let mem0 = @lib.MemArg::new(
+    @lib.U32(2U),
+    Some(@lib.MemIdx::new(0U)),
+    @lib.U64(0UL),
+  )
+  let mem1 = @lib.MemArg::new(
+    @lib.U32(2U),
+    Some(@lib.MemIdx::new(1U)),
+    @lib.U64(0UL),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], []),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_mem_sec(
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i32(1U, Some(1U))),
+        @lib.MemType::new(@lib.Limits::i32(1U, Some(1U))),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_load(mem0),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i32_store(mem1),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_load(mem0),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+}
+
+///|
 test "local-cse reuses local-only expression across scalar memory store" {
   let input =
     #| (module
@@ -4132,6 +4231,131 @@ test "local-cse does not reuse array.get across array.set" {
             @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
             @lib.Instruction::array_get(array_type_idx),
             @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+}
+
+///|
+test "local-cse does not reuse repeated linear atomic roots" {
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let memarg32 = @lib.MemArg::new(@lib.U32(2U), None, @lib.U64(0UL))
+  let memarg64 = @lib.MemArg::new(@lib.U32(3U), None, @lib.U64(8UL))
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func(
+        [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i64()],
+        [],
+      ),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_mem_sec(
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i32(1U, Some(1U)), shared=true),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_atomic_load(memarg32),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::i32_atomic_load(memarg32),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::atomic_rmw(@lib.AtomicRmwOp::i32_add(), memarg32),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::atomic_rmw(@lib.AtomicRmwOp::i32_add(), memarg32),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::atomic_cmpxchg(
+              @lib.AtomicCmpxchgOp::i64(),
+              memarg64,
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::atomic_cmpxchg(
+              @lib.AtomicCmpxchgOp::i64(),
+              memarg64,
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+}
+
+///|
+test "local-cse does not reuse repeated atomic wait notify or fence roots" {
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let memarg32 = @lib.MemArg::new(@lib.U32(2U), None, @lib.U64(0UL))
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func(
+        [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i64()],
+        [],
+      ),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_mem_sec(
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i32(1U, Some(1U)), shared=true),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::memory_atomic_notify(memarg32),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::memory_atomic_notify(memarg32),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::memory_atomic_wait32(memarg32),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::memory_atomic_wait32(memarg32),
+            @lib.Instruction::drop(),
+            @lib.Instruction::atomic_fence(),
+            @lib.Instruction::atomic_fence(),
           ]),
         ),
       ]),
@@ -5103,6 +5327,55 @@ test "local-cse reuses local-only expression across table-init" {
   @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
   @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
   @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
+test "local-cse does not reuse table-get-dependent roots across disjoint table writes" {
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::funcref()], []),
+    ),
+  )
+  let table_type = @lib.TableType::new(
+    @lib.RefType::abs(@lib.AbsHeapType::func()),
+    @lib.Limits::i32(1U, Some(1U)),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(table_type, None),
+        @lib.Table::new(table_type, None),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::table_get(@lib.TableIdx::new(0U)),
+            @lib.Instruction::ref_is_null(),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::table_set(@lib.TableIdx::new(1U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::table_get(@lib.TableIdx::new(0U)),
+            @lib.Instruction::ref_is_null(),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
 }
 
 ///|
@@ -6130,6 +6403,477 @@ test "local-cse does not reuse repeated array-new roots" {
 }
 
 ///|
+test "local-cse reuses local-only expression across string const" {
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], []),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i32_add(),
+            @lib.Instruction::drop(),
+            @lib.Instruction::string_const(b"hello"),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i32_add(),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  let temp = @lib.LocalIdx::new(2U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
+test "local-cse reuses local-only expression across string new array roots" {
+  let bytes_type_idx = @lib.TypeIdx::new(0U)
+  let words_type_idx = @lib.TypeIdx::new(1U)
+  let func_type_idx = @lib.TypeIdx::new(2U)
+  let bytes_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::pack_type(@lib.PackType::i8()),
+          @lib.Mut::const_(),
+        ),
+      ),
+    ),
+  )
+  let words_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::pack_type(@lib.PackType::i16()),
+          @lib.Mut::const_(),
+        ),
+      ),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func(
+        [
+          @lib.ValType::i32(),
+          @lib.ValType::i32(),
+          @lib.ValType::ref_array_nullable(bytes_type_idx),
+          @lib.ValType::ref_array_nullable(words_type_idx),
+        ],
+        [],
+      ),
+    ),
+  )
+  let body_for = fn(array_local : @lib.LocalIdx, op : @lib.Instruction) {
+    @lib.Func::new(
+      @lib.Locals::from_types([]),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::i32_add(),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(array_local),
+        @lib.Instruction::i32_const(0),
+        @lib.Instruction::i32_const(0),
+        op,
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::i32_add(),
+        @lib.Instruction::drop(),
+      ]),
+    )
+  }
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([bytes_type, words_type, func_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([
+        func_type_idx, func_type_idx, func_type_idx, func_type_idx,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        body_for(
+          @lib.LocalIdx::new(2U),
+          @lib.Instruction::string_new_utf8_array(),
+        ),
+        body_for(
+          @lib.LocalIdx::new(3U),
+          @lib.Instruction::string_new_wtf16_array(),
+        ),
+        body_for(
+          @lib.LocalIdx::new(2U),
+          @lib.Instruction::string_new_lossy_utf8_array(),
+        ),
+        body_for(
+          @lib.LocalIdx::new(2U),
+          @lib.Instruction::string_new_wtf8_array(),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(locals, @lib.Expr(instrs)) = func
+        let temp = @lib.LocalIdx::new(4U)
+        @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+        @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+        @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
+test "local-cse reuses local-only expression across string encode array roots" {
+  let bytes_type_idx = @lib.TypeIdx::new(0U)
+  let words_type_idx = @lib.TypeIdx::new(1U)
+  let func_type_idx = @lib.TypeIdx::new(2U)
+  let bytes_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::pack_type(@lib.PackType::i8()),
+          @lib.Mut::var_(),
+        ),
+      ),
+    ),
+  )
+  let words_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::pack_type(@lib.PackType::i16()),
+          @lib.Mut::var_(),
+        ),
+      ),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func(
+        [
+          @lib.ValType::i32(),
+          @lib.ValType::i32(),
+          @lib.ValType::stringref(),
+          @lib.ValType::ref_array_nullable(bytes_type_idx),
+          @lib.ValType::ref_array_nullable(words_type_idx),
+        ],
+        [],
+      ),
+    ),
+  )
+  let body_for = fn(array_local : @lib.LocalIdx, op : @lib.Instruction) {
+    @lib.Func::new(
+      @lib.Locals::from_types([]),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::i32_add(),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::local_get(array_local),
+        @lib.Instruction::i32_const(0),
+        op,
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::i32_add(),
+        @lib.Instruction::drop(),
+      ]),
+    )
+  }
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([bytes_type, words_type, func_type]))
+    .with_func_sec(
+      @lib.FuncSec::new([
+        func_type_idx, func_type_idx, func_type_idx, func_type_idx,
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        body_for(
+          @lib.LocalIdx::new(3U),
+          @lib.Instruction::string_encode_utf8_array(),
+        ),
+        body_for(
+          @lib.LocalIdx::new(4U),
+          @lib.Instruction::string_encode_wtf16_array(),
+        ),
+        body_for(
+          @lib.LocalIdx::new(3U),
+          @lib.Instruction::string_encode_lossy_utf8_array(),
+        ),
+        body_for(
+          @lib.LocalIdx::new(3U),
+          @lib.Instruction::string_encode_wtf8_array(),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(locals, @lib.Expr(instrs)) = func
+        let temp = @lib.LocalIdx::new(5U)
+        @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+        @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+        @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
+test "local-cse reuses local-only expression across GC allocation roots" {
+  let struct_type_idx = @lib.TypeIdx::new(0U)
+  let array_type_idx = @lib.TypeIdx::new(1U)
+  let data_array_type_idx = @lib.TypeIdx::new(2U)
+  let elem_array_type_idx = @lib.TypeIdx::new(3U)
+  let target_type_idx = @lib.TypeIdx::new(4U)
+  let func_type_idx = @lib.TypeIdx::new(5U)
+  let data_idx = @lib.DataIdx::new(0U)
+  let elem_idx = @lib.ElemIdx::new(0U)
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::const_(),
+        ),
+      ]),
+    ),
+  )
+  let array_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::const_(),
+        ),
+      ),
+    ),
+  )
+  let data_array_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::pack_type(@lib.PackType::i8()),
+          @lib.Mut::var_(),
+        ),
+      ),
+    ),
+  )
+  let elem_array_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::funcref()),
+          @lib.Mut::const_(),
+        ),
+      ),
+    ),
+  )
+  let target_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], []),
+    ),
+  )
+  let body_for = fn(middle : Array[@lib.Instruction]) {
+    let instrs : Array[@lib.Instruction] = [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::i32_add(),
+      @lib.Instruction::drop(),
+    ]
+    for instr in middle {
+      instrs.push(instr)
+    }
+    instrs.push(@lib.Instruction::drop())
+    instrs.push(@lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+    instrs.push(@lib.Instruction::local_get(@lib.LocalIdx::new(1U)))
+    instrs.push(@lib.Instruction::i32_add())
+    instrs.push(@lib.Instruction::drop())
+    @lib.Func::new(@lib.Locals::from_types([]), @lib.Expr::new(instrs))
+  }
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        struct_type, array_type, data_array_type, elem_array_type, target_type, func_type,
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([
+        target_type_idx, func_type_idx, func_type_idx, func_type_idx, func_type_idx,
+        func_type_idx, func_type_idx, func_type_idx,
+      ]),
+    )
+    .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32::new(1U)))
+    .with_data_sec(
+      @lib.DataSec::new([@lib.Data::new(@lib.DataMode::passive(), b"abcd")]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::passive(),
+          @lib.ElemKind::typed_exprs(
+            @lib.RefType::abs(@lib.AbsHeapType::func()),
+            [
+              @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(0U))]),
+            ],
+          ),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::from_types([]), @lib.Expr::new([])),
+        body_for([
+          @lib.Instruction::i32_const(7),
+          @lib.Instruction::struct_new(struct_type_idx),
+        ]),
+        body_for([@lib.Instruction::struct_new_default(struct_type_idx)]),
+        body_for([
+          @lib.Instruction::i32_const(1),
+          @lib.Instruction::i32_const(1),
+          @lib.Instruction::array_new(array_type_idx),
+        ]),
+        body_for([
+          @lib.Instruction::i32_const(1),
+          @lib.Instruction::array_new_default(array_type_idx),
+        ]),
+        body_for([
+          @lib.Instruction::i32_const(1),
+          @lib.Instruction::i32_const(2),
+          @lib.Instruction::array_new_fixed(array_type_idx, @lib.U32::new(2U)),
+        ]),
+        body_for([
+          @lib.Instruction::i32_const(0),
+          @lib.Instruction::i32_const(2),
+          @lib.Instruction::array_new_data(data_array_type_idx, data_idx),
+        ]),
+        body_for([
+          @lib.Instruction::i32_const(0),
+          @lib.Instruction::i32_const(1),
+          @lib.Instruction::array_new_elem(elem_array_type_idx, elem_idx),
+        ]),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for idx = 1; idx < funcs.length(); idx = idx + 1 {
+        let @lib.Func(locals, @lib.Expr(instrs)) = funcs[idx]
+        let temp = @lib.LocalIdx::new(2U)
+        @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+        @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+        @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
+test "local-cse reuses local-only expression across descriptor allocation roots" {
+  let struct_type_idx = @lib.TypeIdx::new(0U)
+  let desc_type_idx = @lib.TypeIdx::new(1U)
+  let func_type_idx = @lib.TypeIdx::new(2U)
+  let desc_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(desc_type_idx), exact=true),
+  )
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::const_(),
+        ),
+      ]),
+      metadata=@lib.TypeMetadata::new(descriptor=Some(desc_type_idx)),
+    ),
+  )
+  let desc_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([]),
+      metadata=@lib.TypeMetadata::new(describes=Some(struct_type_idx)),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func(
+        [@lib.ValType::i32(), @lib.ValType::i32(), desc_ref],
+        [],
+      ),
+    ),
+  )
+  let body_for = fn(middle : Array[@lib.Instruction]) {
+    let instrs : Array[@lib.Instruction] = [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::i32_add(),
+      @lib.Instruction::drop(),
+    ]
+    for instr in middle {
+      instrs.push(instr)
+    }
+    instrs.push(@lib.Instruction::drop())
+    instrs.push(@lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+    instrs.push(@lib.Instruction::local_get(@lib.LocalIdx::new(1U)))
+    instrs.push(@lib.Instruction::i32_add())
+    instrs.push(@lib.Instruction::drop())
+    @lib.Func::new(@lib.Locals::from_types([]), @lib.Expr::new(instrs))
+  }
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([struct_type, desc_type, func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx, func_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        body_for([
+          @lib.Instruction::i32_const(7),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          @lib.Instruction::struct_new_desc(struct_type_idx),
+        ]),
+        body_for([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          @lib.Instruction::struct_new_default_desc(struct_type_idx),
+        ]),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(locals, @lib.Expr(instrs)) = func
+        let temp = @lib.LocalIdx::new(3U)
+        @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+        @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+        @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
 test "local-cse reuses local-only expression across ordinary direct call" {
   let input =
     #| (module
@@ -6220,6 +6964,238 @@ test "local-cse does not reuse ordinary direct calls" {
 }
 
 ///|
+test "local-cse reuses local-only expression across imported direct call" {
+  let input =
+    #| (module
+    #|   (import "m" "f" (func $imported))
+    #|   (func (param i32 i32)
+    #|     (drop (i32.add (local.get 0) (local.get 1)))
+    #|     (call $imported)
+    #|     (drop (i32.add (local.get 0) (local.get 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  let temp = @lib.LocalIdx::new(2U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
+test "local-cse does not reuse imported direct call roots" {
+  let input =
+    #| (module
+    #|   (import "m" "f" (func $imported (param i32) (result i32)))
+    #|   (func (param i32)
+    #|     (drop (call $imported (local.get 0)))
+    #|     (drop (call $imported (local.get 0)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(1U)), 0)
+}
+
+///|
+test "local-cse does not reuse ordinary call-dependent expression roots" {
+  let input =
+    #| (module
+    #|   (func $ordinary (param i32) (result i32)
+    #|     (local.get 0))
+    #|   (func (param i32)
+    #|     (drop (i32.add (call $ordinary (local.get 0)) (i32.const 1)))
+    #|     (drop (i32.add (call $ordinary (local.get 0)) (i32.const 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_defined_func(
+    optimized, 1,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+}
+
+///|
+test "local-cse does not reuse idempotent call-dependent expression roots" {
+  let input =
+    #| (module
+    #|   (@binaryen.idempotent)
+    #|   (func $idempotent (param i32) (result i32)
+    #|     (local.get 0))
+    #|   (func (param i32)
+    #|     (drop (i32.add (call $idempotent (local.get 0)) (i32.const 1)))
+    #|     (drop (i32.add (call $idempotent (local.get 0)) (i32.const 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_defined_func(
+    optimized, 1,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+}
+
+///|
+test "local-cse does not reuse idempotent direct call roots across ordinary calls" {
+  let input =
+    #| (module
+    #|   (@binaryen.idempotent)
+    #|   (func $idempotent (param i32) (result i32)
+    #|     (local.get 0))
+    #|   (func $ordinary)
+    #|   (func (param i32)
+    #|     (drop (call $idempotent (local.get 0)))
+    #|     (call $ordinary)
+    #|     (drop (call $idempotent (local.get 0)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_defined_func(
+    optimized, 2,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+}
+
+///|
+test "local-cse reuses idempotent direct call roots across pure local expressions" {
+  let input =
+    #| (module
+    #|   (@binaryen.idempotent)
+    #|   (func $idempotent (param i32) (result i32)
+    #|     (local.get 0))
+    #|   (func (param i32 i32)
+    #|     (drop (call $idempotent (local.get 0)))
+    #|     (drop (i32.add (local.get 0) (local.get 1)))
+    #|     (drop (call $idempotent (local.get 0)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_defined_func(
+    optimized, 1,
+  )
+  let temp = @lib.LocalIdx::new(2U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
+test "local-cse does not reuse idempotent direct call roots across local writes" {
+  let input =
+    #| (module
+    #|   (@binaryen.idempotent)
+    #|   (func $idempotent (param i32) (result i32)
+    #|     (local.get 0))
+    #|   (func (param i32 i32)
+    #|     (drop (call $idempotent (local.get 0)))
+    #|     (local.set 1 (i32.const 7))
+    #|     (drop (call $idempotent (local.get 0)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_defined_func(
+    optimized, 1,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+}
+
+///|
+test "local-cse does not reuse idempotent direct call roots across memory writes" {
+  let input =
+    #| (module
+    #|   (memory 1)
+    #|   (@binaryen.idempotent)
+    #|   (func $idempotent (param i32) (result i32)
+    #|     (local.get 0))
+    #|   (func (param i32)
+    #|     (drop (call $idempotent (local.get 0)))
+    #|     (i32.store (i32.const 0) (local.get 0))
+    #|     (drop (call $idempotent (local.get 0)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_defined_func(
+    optimized, 1,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+}
+
+///|
+test "local-cse does not reuse multi-result direct call roots" {
+  let callee_type_idx = @lib.TypeIdx::new(0U)
+  let caller_type_idx = @lib.TypeIdx::new(1U)
+  let callee_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [
+        @lib.ValType::i32(),
+        @lib.ValType::i32(),
+      ]),
+    ),
+  )
+  let caller_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([callee_type, caller_type]))
+    .with_func_sec(@lib.FuncSec::new([callee_type_idx, caller_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::drop(),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_defined_func(
+    optimized, 1,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+}
+
+///|
 test "local-cse reuses local-only expression across call-indirect" {
   let input =
     #| (module
@@ -6294,6 +7270,30 @@ test "local-cse does not reuse call-indirect roots" {
   )
   @debug.assert_eq(locals, @lib.Locals::from_types([]))
   @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(2U)), 0)
+}
+
+///|
+test "local-cse does not reuse call-indirect-dependent expression roots" {
+  let input =
+    #| (module
+    #|   (type $t (func (param i32) (result i32)))
+    #|   (table 1 funcref)
+    #|   (func $target (type $t)
+    #|     (local.get 0))
+    #|   (elem (i32.const 0) $target)
+    #|   (func (param i32 i32)
+    #|     (drop (i32.add (call_indirect (type $t) (local.get 0) (local.get 1)) (i32.const 1)))
+    #|     (drop (i32.add (call_indirect (type $t) (local.get 0) (local.get 1)) (i32.const 1)))))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_defined_func(
+    optimized, 1,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
 }
 
 ///|
@@ -6773,6 +7773,54 @@ test "local-cse does not reuse call-ref roots" {
   )
   @debug.assert_eq(locals, @lib.Locals::from_types([]))
   @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(1U)), 0)
+}
+
+///|
+test "local-cse does not reuse call-ref-dependent expression roots" {
+  let callee_type_idx = @lib.TypeIdx::new(0U)
+  let caller_type_idx = @lib.TypeIdx::new(1U)
+  let callee_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+    ),
+  )
+  let caller_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::i32()], [])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([callee_type, caller_type]))
+    .with_func_sec(@lib.FuncSec::new([callee_type_idx, caller_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(0U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call_ref(callee_type_idx),
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::i32_add(),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+            @lib.Instruction::call_ref(callee_type_idx),
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::i32_add(),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_defined_func(
+    optimized, 1,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
 }
 
 ///|

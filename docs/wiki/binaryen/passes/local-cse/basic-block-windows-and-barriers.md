@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-07
 sources:
   - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md
@@ -202,7 +202,7 @@ The key idea is:
 - if the root can produce a fresh or otherwise different value each time,
 - then replacing the second one with the first is wrong.
 
-This is the main GC-era “sounds pure, still not reusable” rule. Starshine now has direct regression coverage for the `call_indirect`, core-fixture `call_ref`, `struct.new`, `struct.new_default`, and core-fixture `array.new` / `array.new_default` / `array.new_fixed` / `array.new_data` / `array.new_elem` members of this family: repeated indirect/reference-call roots and repeated allocations remain separate and no temp local is introduced. Other GC-generative variants remain follow-up candidates if a future audit needs variant-by-variant coverage.
+This is the main GC-era “sounds pure, still not reusable” rule. Starshine now has direct regression coverage for ordinary/imported/multi-result direct-call roots, `call_indirect`, core-fixture `call_ref`, `struct.new`, `struct.new_default`, descriptor `struct.new_desc` / `struct.new_default_desc`, and core-fixture `array.new` / `array.new_default` / `array.new_fixed` / `array.new_data` / `array.new_elem` members of this family: repeated call roots and repeated allocations remain separate and no temp local is introduced. Local-only arithmetic can still cross those operations when Binaryen proves that boundary positive, but the operation root itself remains non-reusable.
 
 ## Barrier family 3: intervening invalidation
 
@@ -214,7 +214,7 @@ Examples include:
 - a store between two loads from the same memory location
 - a write to the same mutable global between two candidate `global.get`s, if they were otherwise profitable enough to matter
 
-This later invalidation happens in the checker, not in the scanner. The invalidation is effect/state-sensitive, not a blanket "any write kills everything" rule: 2026-06-04 Starshine slices confirmed Binaryen reuses a local-only arithmetic tree across intervening `struct.set`, `array.set`, `array.fill`, `array.copy`, `array.init_data`, `array.init_elem`, `memory.copy`, `memory.fill`, `memory.init`, `memory.grow`, `memory.size`, `table.get`, `table.copy`, `table.fill`, `table.init`, `table.set`, `table.grow`, `table.size`, and `global.set` operations plus `data.drop` / `elem.drop` segment-drop effects, because the repeated tree reads locals rather than the mutated GC field, array element, filled/copied array range, memory size, linear-memory range, table range, table size, or global value. Starshine now models those operations narrowly as operand-taking side effects or stack reads for this case without treating the write/drop/size instructions themselves as arbitrary reusable roots; `memory.grow` and `table.grow` have explicit no-reuse root guards despite their stack results, memory-size expressions across `memory.grow` stay unmaterialized, repeated `memory.size` roots without intervening growth are covered as a narrow state-read case, `table.size`-dependent roots stay unmaterialized, and global-dependent expressions across `global.set` stay unmaterialized. The same audit stream confirmed `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` mirror `br_on_null` as narrow reference-control continuation cases for local-only repeated trees; Starshine models the operands/fallthrough stack without making the branch operations reusable.
+This later invalidation happens in the checker, not in the scanner. The invalidation is effect/state-sensitive, not a blanket "any write kills everything" rule: 2026-06-04 Starshine slices confirmed Binaryen reuses a local-only arithmetic tree across intervening `struct.set`, `array.set`, `array.fill`, `array.copy`, `array.init_data`, `array.init_elem`, `memory.copy`, `memory.fill`, `memory.init`, `memory.grow`, `memory.size`, `table.get`, `table.copy`, `table.fill`, `table.init`, `table.set`, `table.grow`, `table.size`, and `global.set` operations plus `data.drop` / `elem.drop` segment-drop effects, because the repeated tree reads locals rather than the mutated GC field, array element, filled/copied array range, memory size, linear-memory range, table range, table size, or global value. Starshine now models those operations narrowly as operand-taking side effects or stack reads for this case without treating the write/drop/size instructions themselves as arbitrary reusable roots; `memory.grow` and `table.grow` have explicit no-reuse root guards despite their stack results, memory-size expressions across `memory.grow` stay unmaterialized, repeated `memory.size` roots without intervening growth are covered as a narrow state-read case, `table.size`-dependent roots stay unmaterialized, and global-dependent expressions across `global.set` stay unmaterialized. The same audit stream confirmed `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` mirror `br_on_null` as narrow reference-control continuation cases for local-only repeated trees; Starshine models the operands/fallthrough stack without making the branch operations reusable. The 2026-06-07 conservative-lanes reopening applies the same local-only precision to ordinary/imported/indirect/reference-call boundaries, string/reference tiny roots, string array/encode roots, GC/descriptor allocation roots, and linear-memory/GC atomic roots, while keeping call-dependent, memory/table-dependent, allocation-root, string-root, and atomic-root CSE disabled unless there is separate Binaryen-positive and semantic-safety evidence.
 
 ## Why loads are okay even though they may trap
 
@@ -239,13 +239,13 @@ Ordinary direct calls can:
 - return different results each time
 - or both
 
-So repeated call roots stay as separate calls.
+So repeated call roots stay as separate calls, and expressions that depend on call results do not become reusable parent roots just because the surrounding arithmetic matches. A pure local-only tree may cross an ordinary/imported/indirect/reference call boundary, but that is boundary precision, not call CSE.
 
 ## Narrow exception: idempotent direct calls
 
 There is one source-level carveout.
 
-If the callee annotations say `idempotent`, Binaryen allows that direct call as a candidate and also avoids letting a later shallowly-equal idempotent call invalidate the earlier one. Starshine now has a direct regression fixture for this narrow case: `@binaryen.idempotent` WAT annotations lower into `FuncAnnotationSec`, the raw/module `local-cse` path consults only that callee metadata, and repeated single-result direct calls can be materialized with a temp local. Ordinary non-annotated calls, indirect calls, and reference calls remain barriers; `call_ref` now has a core-built no-reuse fixture paired with the `call_indirect` WAT fixture.
+If the callee annotations say `idempotent`, Binaryen allows that direct call as a candidate and also avoids letting a later shallowly-equal idempotent call invalidate the earlier one. Starshine now has a direct regression fixture for this narrow case: `@binaryen.idempotent` WAT annotations lower into `FuncAnnotationSec`, the raw/module `local-cse` path consults only that callee metadata, and repeated single-result direct calls can be materialized with a temp local. Ordinary non-annotated calls, imported calls, multi-result calls, indirect calls, and reference calls remain root/dependent barriers; `call_ref` has a core-built no-reuse fixture paired with the `call_indirect` WAT fixture, and annotated idempotent calls are still invalidated by ordinary calls, local writes, and memory writes in Starshine's focused coverage.
 
 ## Barrier family 4: tiny roots are intentionally skipped
 
