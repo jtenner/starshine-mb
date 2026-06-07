@@ -147,7 +147,11 @@ fn lcse_simd_pure_operand_count(instr : @lib.Instruction) -> Int? {
     | @lib.Instruction::I32x4TruncSatF64x2SZero
     | @lib.Instruction::I32x4TruncSatF64x2UZero
     | @lib.Instruction::F64x2ConvertLowI32x4S
-    | @lib.Instruction::F64x2ConvertLowI32x4U => Some(1)
+    | @lib.Instruction::F64x2ConvertLowI32x4U
+    | @lib.Instruction::I32x4RelaxedTruncF32x4S
+    | @lib.Instruction::I32x4RelaxedTruncF32x4U
+    | @lib.Instruction::I32x4RelaxedTruncZeroF64x2S
+    | @lib.Instruction::I32x4RelaxedTruncZeroF64x2U => Some(1)
     @lib.Instruction::I8x16Shuffle(
       _,
       _,
@@ -303,8 +307,24 @@ fn lcse_simd_pure_operand_count(instr : @lib.Instruction) -> Int? {
     | @lib.Instruction::F64x2Min
     | @lib.Instruction::F64x2Max
     | @lib.Instruction::F64x2Pmin
-    | @lib.Instruction::F64x2Pmax => Some(2)
-    @lib.Instruction::V128Bitselect => Some(3)
+    | @lib.Instruction::F64x2Pmax
+    | @lib.Instruction::I8x16RelaxedSwizzle
+    | @lib.Instruction::F32x4RelaxedMin
+    | @lib.Instruction::F32x4RelaxedMax
+    | @lib.Instruction::F64x2RelaxedMin
+    | @lib.Instruction::F64x2RelaxedMax
+    | @lib.Instruction::I16x8RelaxedQ15mulrS
+    | @lib.Instruction::I16x8RelaxedDotI8x16I7x16S => Some(2)
+    @lib.Instruction::V128Bitselect
+    | @lib.Instruction::F32x4RelaxedMadd
+    | @lib.Instruction::F32x4RelaxedNmadd
+    | @lib.Instruction::F64x2RelaxedMadd
+    | @lib.Instruction::F64x2RelaxedNmadd
+    | @lib.Instruction::I8x16RelaxedLaneselect
+    | @lib.Instruction::I16x8RelaxedLaneselect
+    | @lib.Instruction::I32x4RelaxedLaneselect
+    | @lib.Instruction::I64x2RelaxedLaneselect
+    | @lib.Instruction::I32x4RelaxedDotI8x16I7x16AddS => Some(3)
     _ => None
   }
 }

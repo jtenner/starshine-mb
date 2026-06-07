@@ -1655,7 +1655,7 @@ test "local-cse reuses repeated SIMD conversion roots" {
 }
 
 ///|
-test "local-cse defers repeated relaxed SIMD roots" {
+test "local-cse reuses repeated relaxed SIMD roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(
@@ -1710,6 +1710,28 @@ test "local-cse defers repeated relaxed SIMD roots" {
       ]),
     )
   }
+  let relaxed_simd_behavior_tests = [
+    binary_body_for(@lib.Instruction::i8x16_relaxed_swizzle()),
+    unary_body_for(@lib.Instruction::i32x4_relaxed_trunc_f32x4s()),
+    unary_body_for(@lib.Instruction::i32x4_relaxed_trunc_f32x4u()),
+    unary_body_for(@lib.Instruction::i32x4_relaxed_trunc_zero_f64x2s()),
+    unary_body_for(@lib.Instruction::i32x4_relaxed_trunc_zero_f64x2u()),
+    ternary_body_for(@lib.Instruction::f32x4_relaxed_madd()),
+    ternary_body_for(@lib.Instruction::f32x4_relaxed_nmadd()),
+    ternary_body_for(@lib.Instruction::f64x2_relaxed_madd()),
+    ternary_body_for(@lib.Instruction::f64x2_relaxed_nmadd()),
+    ternary_body_for(@lib.Instruction::i8x16_relaxed_laneselect()),
+    ternary_body_for(@lib.Instruction::i16x8_relaxed_laneselect()),
+    ternary_body_for(@lib.Instruction::i32x4_relaxed_laneselect()),
+    ternary_body_for(@lib.Instruction::i64x2_relaxed_laneselect()),
+    binary_body_for(@lib.Instruction::f32x4_relaxed_min()),
+    binary_body_for(@lib.Instruction::f32x4_relaxed_max()),
+    binary_body_for(@lib.Instruction::f64x2_relaxed_min()),
+    binary_body_for(@lib.Instruction::f64x2_relaxed_max()),
+    binary_body_for(@lib.Instruction::i16x8_relaxed_q15mulr_s()),
+    binary_body_for(@lib.Instruction::i16x8_relaxed_dot_i8x16i7x16s()),
+    ternary_body_for(@lib.Instruction::i32x4_relaxed_dot_i8x16i7x16_add_s()),
+  ]
   let input = @lib.Module::new()
     .with_type_sec(@lib.TypeSec::new([func_type]))
     .with_func_sec(
@@ -1720,37 +1742,14 @@ test "local-cse defers repeated relaxed SIMD roots" {
         func_type_idx, func_type_idx, func_type_idx, func_type_idx, func_type_idx,
       ]),
     )
-    .with_code_sec(
-      @lib.CodeSec::new([
-        binary_body_for(@lib.Instruction::i8x16_relaxed_swizzle()),
-        unary_body_for(@lib.Instruction::i32x4_relaxed_trunc_f32x4s()),
-        unary_body_for(@lib.Instruction::i32x4_relaxed_trunc_f32x4u()),
-        unary_body_for(@lib.Instruction::i32x4_relaxed_trunc_zero_f64x2s()),
-        unary_body_for(@lib.Instruction::i32x4_relaxed_trunc_zero_f64x2u()),
-        ternary_body_for(@lib.Instruction::f32x4_relaxed_madd()),
-        ternary_body_for(@lib.Instruction::f32x4_relaxed_nmadd()),
-        ternary_body_for(@lib.Instruction::f64x2_relaxed_madd()),
-        ternary_body_for(@lib.Instruction::f64x2_relaxed_nmadd()),
-        ternary_body_for(@lib.Instruction::i8x16_relaxed_laneselect()),
-        ternary_body_for(@lib.Instruction::i16x8_relaxed_laneselect()),
-        ternary_body_for(@lib.Instruction::i32x4_relaxed_laneselect()),
-        ternary_body_for(@lib.Instruction::i64x2_relaxed_laneselect()),
-        binary_body_for(@lib.Instruction::f32x4_relaxed_min()),
-        binary_body_for(@lib.Instruction::f32x4_relaxed_max()),
-        binary_body_for(@lib.Instruction::f64x2_relaxed_min()),
-        binary_body_for(@lib.Instruction::f64x2_relaxed_max()),
-        binary_body_for(@lib.Instruction::i16x8_relaxed_q15mulr_s()),
-        binary_body_for(@lib.Instruction::i16x8_relaxed_dot_i8x16i7x16s()),
-        ternary_body_for(@lib.Instruction::i32x4_relaxed_dot_i8x16i7x16_add_s()),
-      ]),
-    )
+    .with_code_sec(@lib.CodeSec::new(relaxed_simd_behavior_tests))
   let optimized = local_cse_run_module_pass(input)
   match optimized.code_sec {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        ignore(locals)
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 1)
       }
     None => fail("expected code section")
   }

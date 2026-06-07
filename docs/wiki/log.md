@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-07] passes/local-cse | LCSE relaxed SIMD parity reopening
+
+- Superseded the earlier relaxed-SIMD accepted-deferral wording after the user explicitly rejected treating remaining LCSE behavior gaps as closed. Reopened the Binaryen-positive relaxed SIMD root family and implemented parity for all 20 locally modeled relaxed SIMD opcodes.
+- Evidence: Binaryen spot-check `.tmp/lcse-reopen-gaps/relaxed-simd-parity.wat` materialized all 20 repeated relaxed roots with one `local.tee` per function. The focused LCSE test now keeps those cases in an explicit `relaxed_simd_behavior_tests` array; it failed red first (`177/178`, `0 != 1`) and then passed (`178/178`) after implementation.
+- Validation/evidence: `moon info` still hit the known Moon panic; `moon fmt`, focused LCSE (`178/178`), `moon test src/passes` (`1923/1923`), full `moon test` (`5109/5109`), native `src/cmd` build, native relaxed-SIMD spot replay validation, and `bun validate readme-api-sync` passed. Direct `local-cse` compare at `.tmp/pass-fuzz-local-cse-relaxed-simd-10000` requested `10000`, compared `9972`, had `9972` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `28` command failures classified as `22` Binaryen empty-recursion-group, `1` Binaryen bad-section-size, and `5` Starshine/tool initializer-expression validation failures.
+
 ## [2026-06-07] passes/local-cse | LCSE final direct semantic-parity closeout
 
 - Closed the LCSE O4z audit for v0.1.0 direct semantic parity after descriptor-cast, call-boundary, and atomic local-only follow-ups. Implemented positives remain covered; remaining unsupported/nondeterministic/broad-GVN surfaces are accepted conservative deferrals, not active release blockers.

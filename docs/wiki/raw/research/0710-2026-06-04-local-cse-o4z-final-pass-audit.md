@@ -2375,7 +2375,7 @@ Results: Binaryen materialized representative repeated SIMD conversion roots; th
 
 ## Follow-up relaxed SIMD root boundary on 2026-06-05
 
-A later focused LCSE hardening slice added core-built coverage for repeated relaxed SIMD roots, including relaxed swizzle, relaxed truncation, relaxed madd/nmadd, relaxed lane-select, relaxed min/max, relaxed q15mulr, and relaxed dot-product instructions. Binaryen spot-checking the representative WAT at `.tmp/lcse-next-spots/simd-relaxed-roots/input.wat` materialized representative repeated roots with `local.tee` / `local.get`; Starshine intentionally leaves these vector roots unmaterialized rather than adding SIMD temp locals, relaxed-SIMD-specific reasoning, or SIMD value numbering. Agent classification: documented conservative deferral / missing-test-only coverage, not a semantic mismatch.
+A later focused LCSE hardening slice added core-built coverage for repeated relaxed SIMD roots, including relaxed swizzle, relaxed truncation, relaxed madd/nmadd, relaxed lane-select, relaxed min/max, relaxed q15mulr, and relaxed dot-product instructions. Binaryen spot-checking the representative WAT at `.tmp/lcse-next-spots/simd-relaxed-roots/input.wat` materialized representative repeated roots with `local.tee` / `local.get`. Historical/superseded classification: this was originally documented as a conservative deferral / missing-test-only coverage. The later 2026-06-07 user correction reopened the behavior gap, and the relaxed-SIMD parity section below records the implemented positive.
 
 Validation evidence for this slice:
 
@@ -2384,7 +2384,7 @@ wasm-opt .tmp/lcse-next-spots/simd-relaxed-roots/input.wat --all-features --loca
 moon test --package jtenner/starshine/passes --file local_cse_test.mbt
 ```
 
-Results: Binaryen materialized representative repeated relaxed SIMD roots; the added conservative core-built coverage passed immediately (`146/146`), so this was missing-test-only coverage. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`146/146`); `moon test src/passes` passed (`1704/1704`); full `moon test` passed (`4889/4889`); native build reported no work; compare reached `6770` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index).
+Results: Binaryen materialized representative repeated relaxed SIMD roots; the added conservative core-built coverage passed immediately (`146/146`), so this was missing-test-only coverage at that time. `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`146/146`); `moon test src/passes` passed (`1704/1704`); full `moon test` passed (`4889/4889`); native build reported no work; compare reached `6770` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Agent classification at that time: the compare command failures were oracle/tool failures, not Starshine semantic failures (`17` empty-recursion-group, `1` bad-section-size, `1` table-index-out-of-range, `1` invalid-tag-index). Supersession: relaxed SIMD is now implemented as Binaryen behavior parity in the later 2026-06-07 section.
 
 ## Follow-up atomic cmpxchg width-variant boundary on 2026-06-05
 
@@ -2703,7 +2703,7 @@ Agent classification: the compare command failures are oracle/tool failures, not
 
 Slice `[O4Z-AUDIT-LCSE-PARITY]004` superseded the remaining `[O4Z-AUDIT-LCSE-PARITY]003` mismatch classification by making Starshine remove the unobservable dropped-unreachable/control debris instead of carrying it as accepted raw drift. The cleanup is intentionally local: it removes `drop (unreachable)`, nested dropped-unreachable wrappers, and branchless dropped/result-block debris only when an immediately following hard `unreachable` remains as the trap tail. Branch-bearing block bodies are not flattened by this cleanup.
 
-The same slice moved non-relaxed pure SIMD roots from conservative deferral to Binaryen behavior parity. Starshine now models operand counts and result types for repeated pure SIMD roots that produce `v128`, `i32`, `i64`, `f32`, or `f64` temp locals. This includes comparison masks, splats, replace-lane, shuffle/swizzle, `v128.not`/logic/bitselect, any-true/all-true/bitmask, integer vector arithmetic, float min/max and rounding, widening/narrowing, conversions, and lane extracts. It deliberately still excludes relaxed SIMD and all SIMD memory roots because those need separate nondeterminism and memory-state reasoning.
+The same slice moved non-relaxed pure SIMD roots from conservative deferral to Binaryen behavior parity. Starshine now models operand counts and result types for repeated pure SIMD roots that produce `v128`, `i32`, `i64`, `f32`, or `f64` temp locals. This includes comparison masks, splats, replace-lane, shuffle/swizzle, `v128.not`/logic/bitselect, any-true/all-true/bitmask, integer vector arithmetic, float min/max and rounding, widening/narrowing, conversions, and lane extracts. Historical/superseded limitation: this slice still excluded relaxed SIMD and all SIMD memory roots; later 2026-06-07 sections implement both SIMD memory-load parity and relaxed-SIMD root parity as separate slices.
 
 Binaryen spot-check:
 
@@ -2719,7 +2719,7 @@ TDD and implementation evidence:
 
 - Added failing-first debris tests for simple dropped unreachable, nested dropped unreachable, result-block/unreachable debris, valueless result-block debris, and branchless void-block debris before a hard `unreachable`.
 - Flipped the existing non-relaxed SIMD deferral fixtures to positives across pure roots, comparisons, splats, replace-lane, shuffle/swizzle, any-true/all-true/bitmask, wider arithmetic/logic, extended integer arithmetic, float min/max, float rounding, widening/narrowing, conversions, and lane extracts.
-- Kept relaxed SIMD and SIMD memory deferral fixtures unchanged.
+- Kept relaxed SIMD and SIMD memory deferral fixtures unchanged at this point; later 2026-06-07 slices superseded both deferrals with implemented parity for SIMD memory loads and relaxed SIMD roots.
 - `src/passes/local_cse.mbt` now has a non-relaxed SIMD operand/result model and the local unreachable-debris cleanup guarded by an immediately following hard `unreachable` and branchless block bodies.
 
 Validation evidence for this slice:
@@ -3207,7 +3207,7 @@ The same reopening pass refreshed the remaining gap evidence without widening th
 - `ref.test_desc` remains tool-blocked: `wasm-tools 1.251.0` rejects the text operator with `unknown operator or unexpected token`, and `wasm-opt version_130` rejects it with `unrecognized instruction`.
 - Representative `ref.null` and `ref.func` repeated-root fixtures under `.tmp/lcse-reopen-gaps/` were parsed and optimized successfully, and Binaryen left those tiny roots unmaterialized, matching the current Starshine boundary tests.
 - `string.const` text remains rejected by the installed `wasm-tools` text parser in the direct spot fixture, so no new Binaryen-positive string-root claim was made in this slice.
-- A representative relaxed SIMD root (`i8x16.relaxed_swizzle`) is still Binaryen-positive, but remains intentionally unimplemented because the root family has relaxed/nondeterministic semantics and needs a separate approved model.
+- A representative relaxed SIMD root (`i8x16.relaxed_swizzle`) was Binaryen-positive. The later same-day user correction superseded this unimplemented/deferral stance; see the relaxed-SIMD parity section below.
 - A representative shared-memory atomic local-only fixture (`i32.atomic.load` between two identical `i32.add` trees) is still Binaryen-positive, but remains outside this slice because implementing it correctly should model atomic operand counts/effects while still preventing atomic-root CSE and broader memory/heap GVN.
 - `rethrow` remains locally unavailable as a distinct `@lib.Instruction` variant; current local EH coverage still routes through `throw`, `throw_ref`, and `try_table`.
 
@@ -3288,7 +3288,7 @@ The post-atomic closeout reran the standard LCSE ladder after the tracked LCSE t
 - `ref.test_desc` remains blocked by the installed tools (`wasm-tools 1.251.0` text parse error and `wasm-opt version_130` unrecognized instruction).
 - `ref.null` and `ref.func` tiny-root probes remained Binaryen no-ops, so Starshine leaves those roots unmaterialized.
 - A hand-encoded binary `string.const` probe at `.tmp/lcse-reopen-gaps/string-const-repeat-binary.wasm` showed the installed `wasm-tools` rejects the stringrefs section id (`malformed section id: 14`), while `wasm-opt --all-features --local-cse -S` accepts the binary and still leaves repeated `string.const "hi"` unmaterialized. Starshine therefore keeps string roots conservative rather than inventing a materialization behavior without Binaryen-positive evidence.
-- Relaxed SIMD roots remain deliberately deferred despite Binaryen-positive spot output for `i8x16.relaxed_swizzle`, because the relaxed-SIMD proposal permits nondeterministic choices and CSEing a repeated relaxed operation is not generally semantic-preserving under the spec model.
+- Historical/superseded: this closeout treated relaxed SIMD roots as deliberately deferred despite Binaryen-positive spot output for `i8x16.relaxed_swizzle`. The later same-day user correction rejected that behavior-deferral policy, and the relaxed-SIMD parity section below records the implemented Binaryen behavior-parity slice.
 - Atomic roots and atomic-dependent expressions remain non-reusable; only local-only expressions across atomic boundaries were implemented in the previous slice.
 
 Validation ladder: `moon info` still hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt`, focused LCSE tests (`178/178`), `moon test src/passes` (`1923/1923`), full `moon test` (`5109/5109`), native `src/cmd` build, native atomic spot replay validation, and `bun validate readme-api-sync` passed.
@@ -3311,4 +3311,51 @@ Result: `99710/100000` compared, `99709` normalized matches, `0` validation/prop
 
 Agent mismatch classification: case `056513` is semantic-safe, size-winning representation drift, not an LCSE semantic mismatch. The input executes a side-effecting multi-value loop and then immediately reaches `unreachable`; Binaryen's `local-cse` rewrites the implicit multi-value `tuple.drop` before the hard unreachable into a block with scratch locals and tuple extracts, while Starshine preserves the smaller `tuple.drop` shape. The side-effecting loop remains in both outputs, and the subsequent hard trap means the produced tuple values are unobservable. Starshine output is smaller and validates; replay with the existing `unreachable-control-debris` / `local-cleanup-debris` normalizers still reports a shape mismatch because this tuple-drop representation family is not covered by those normalizers. Classification: semantic-safe / size-winning representation-only drift.
 
-Closeout status: no known LCSE true semantic mismatch remains in the active direct-pass lane. The accepted future/non-semantic surfaces are exact tuple-drop/unreachable cleanup shape parity, exact Binaryen text/size choices, relaxed SIMD root CSE under a future nondeterminism proof, string/reference tiny-root materialization if Binaryen-positive evidence appears, descriptor-test roots when the installed tools support them, and broad memory/table/heap/atomic/call GVN beyond the documented local-window model.
+Historical closeout status: the final 100k lane found no true LCSE semantic mismatch in the active direct-pass lane, but the accepted-deferral framing is superseded by the later user correction. Relaxed SIMD root CSE is no longer listed as an accepted future deferral; it was reopened and implemented below. Remaining explicit non-implemented surfaces still need evidence-backed treatment: exact tuple-drop/unreachable cleanup shape parity, exact Binaryen text/size choices, string/reference tiny-root materialization if Binaryen-positive evidence appears, descriptor-test roots when the installed tools support them, and broad memory/table/heap/atomic/call GVN beyond the documented local-window model.
+
+## Relaxed SIMD root parity on 2026-06-07
+
+After the closeout, the user explicitly rejected treating remaining LCSE behavior gaps as accepted deferrals. This reopened the relaxed-SIMD root family because fresh Binaryen evidence showed repeated relaxed SIMD roots are materialized by `wasm-opt --local-cse`.
+
+Fresh spot evidence used `.tmp/lcse-reopen-gaps/relaxed-simd-parity.wat`, an explicit 20-function list covering the locally modeled relaxed SIMD roots:
+
+- `i8x16.relaxed_swizzle`
+- `i32x4.relaxed_trunc_f32x4_s` / `_u`
+- `i32x4.relaxed_trunc_f64x2_s_zero` / `_u_zero`
+- `f32x4.relaxed_madd` / `f32x4.relaxed_nmadd`
+- `f64x2.relaxed_madd` / `f64x2.relaxed_nmadd`
+- `i8x16` / `i16x8` / `i32x4` / `i64x2.relaxed_laneselect`
+- `f32x4` / `f64x2.relaxed_min` and `f32x4` / `f64x2.relaxed_max`
+- `i16x8.relaxed_q15mulr_s`
+- `i16x8.relaxed_dot_i8x16_i7x16_s`
+- `i32x4.relaxed_dot_i8x16_i7x16_add_s`
+
+`wasm-opt --all-features --local-cse -S` materialized all 20 functions with one `local.tee` per repeated relaxed root. Starshine now treats these exact relaxed SIMD opcodes as pure same-window LCSE roots with `v128` result locals. This follows Binaryen-observable behavior for identical repeated roots with unchanged operands; it does not imply broad nondeterministic-result reasoning outside this local materialization model.
+
+Validation evidence:
+
+```sh
+wasm-opt --all-features --local-cse -S .tmp/lcse-reopen-gaps/relaxed-simd-parity.wat -o .tmp/lcse-reopen-gaps/relaxed-simd-parity.opt.wat
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+wasm-tools parse .tmp/lcse-reopen-gaps/relaxed-simd-parity.wat -o .tmp/lcse-reopen-gaps/relaxed-simd-parity.wasm
+target/native/release/build/cmd/cmd.exe --local-cse -o .tmp/lcse-reopen-gaps/relaxed-simd-parity.starshine.wasm .tmp/lcse-reopen-gaps/relaxed-simd-parity.wasm
+wasm-tools validate --features all .tmp/lcse-reopen-gaps/relaxed-simd-parity.starshine.wasm
+bun validate readme-api-sync
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-relaxed-simd-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe \
+  --max-failures 2000 \
+  --keep-going-after-command-failures
+```
+
+Results: the relaxed-SIMD test was an explicit array/list of behavior cases (`relaxed_simd_behavior_tests`) and failed red before implementation (`177/178`, assertion `0 != 1`). After adding the relaxed SIMD opcodes to the SIMD pure operand-count/result model, focused LCSE tests passed (`178/178`); `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; `moon test src/passes` passed (`1923/1923`); full `moon test` passed (`5109/5109`); native `src/cmd` build passed with the pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; native relaxed-SIMD spot replay validated with `wasm-tools validate --features all` and printed `20` Starshine `local.tee` sites; `bun validate readme-api-sync` passed. Direct compare requested `10000`, compared `9972`, reported `9972` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `28` command failures. Agent classification: no LCSE semantic mismatches; command failures were `22` Binaryen empty-recursion-group parser failures, `1` Binaryen bad-section-size parser failure, and `5` Starshine/tool failures on generated table initializer expressions rejected as non-constant.
