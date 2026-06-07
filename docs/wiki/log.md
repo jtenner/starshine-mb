@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-07] passes/local-cse | LCSE non-null ref.cast parity
+
+- Extended `[O4Z-AUDIT-LCSE-PARITY]005` from nullable-only `ref.cast` reuse to non-null `ref.cast` behavior parity. Non-null casts now cache the defaultable nullable operand at the first occurrence and replay the checked cast at replacement sites, avoiding invalid non-default local types while preserving Binaryen-observable behavior.
+- Binaryen spot-check `.tmp/lcse-parity006-nonnull-ref/non-null-ref-spot.wat` materialized representative `ref.as_non_null` and non-null `ref.cast` roots. Starshine implements non-null `ref.cast`; `ref.as_non_null` remains narrow because native replay of the available abstract-heap input shape is rejected by Starshine validation/type representation, so it needs a separate frontend/validator or rewrite-model slice.
+- Validation/evidence: focused TDD failed before implementation, then scoped cast coverage passed (`166/166`); `moon info` still hit the known Moon panic; `moon fmt`, `moon test src/passes` (`1911/1911`), full `moon test` (`5096/5096`), native `src/cmd` build, and `bun validate readme-api-sync` passed. Direct `local-cse` compare at `.tmp/pass-fuzz-local-cse-nonnull-ref-cast-10000` requested `10000` cases, compared `9975`, had `9975` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `25` Binaryen/tool command failures.
+
 ## [2026-06-07] passes/local-cse | LCSE nullable ref.cast parity
 
 - Completed `[O4Z-AUDIT-LCSE-PARITY]005` by moving repeated nullable `ref.cast` roots from conservative deferral to Binaryen behavior parity with defaultable nullable reference temp locals.

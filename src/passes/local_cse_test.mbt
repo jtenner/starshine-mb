@@ -2776,7 +2776,7 @@ test "local-cse reuses repeated nullable ref-cast roots" {
 }
 
 ///|
-test "local-cse defers repeated non-null ref-cast roots" {
+test "local-cse reuses repeated non-null ref-cast roots by caching nullable operand" {
   let ref_ty = @lib.ValType::ref_null(
     @lib.HeapType::abs(@lib.AbsHeapType::any()),
   )
@@ -2812,8 +2812,10 @@ test "local-cse defers repeated non-null ref-cast roots" {
   let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
     optimized,
   )
-  @debug.assert_eq(locals, @lib.Locals::from_types([]))
-  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(1U)), 0)
+  let temp = @lib.LocalIdx::new(1U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([ref_ty]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
 }
 
 ///|

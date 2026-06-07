@@ -2771,3 +2771,44 @@ bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --
 Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`166/166`); `moon test src/passes` passed (`1911/1911`); full `moon test` passed (`5096/5096`); native `src/cmd` build succeeded with the pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; and `bun validate readme-api-sync` passed.
 
 The direct compare at `.tmp/pass-fuzz-local-cse-nullable-ref-cast-10000` requested `10000` cases and compared `9975`; all compared cases were normalized matches, with `0` mismatches, `0` validation/property/generator failures, and `25` Binaryen/tool command failures. Agent classification: no LCSE semantic mismatch was found in this lane; the command failures are oracle/tool failures, not Starshine semantic failures: `22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`.
+
+## Non-null `ref.cast` root parity on 2026-06-07
+
+Follow-up slice `[O4Z-AUDIT-LCSE-PARITY]005` extended the previous nullable-cast implementation to repeated non-null `ref.cast` roots. Binaryen materializes the non-null cast result in a non-default local, but Starshine cannot append non-default locals safely in the current validator/encoding model. The local behavior-parity implementation therefore caches the defaultable nullable operand at the first occurrence and replays the checked `ref.cast` at replacement sites.
+
+Binaryen spot-check:
+
+```sh
+wasm-opt .tmp/lcse-parity006-nonnull-ref/non-null-ref-spot.wat \
+  --all-features --local-cse -S \
+  -o .tmp/lcse-parity006-nonnull-ref/non-null-ref-spot.binaryen.wat
+```
+
+Result: Binaryen emitted fresh non-null locals with `local.tee` / `local.get` materialization for representative `ref.as_non_null` and non-null `ref.cast` repeats.
+
+TDD and implementation evidence:
+
+- The focused non-null `ref.cast` test failed before implementation because no temp local was added.
+- `src/passes/local_cse.mbt` now marks only `RefCast(false, _)` as a child-cache replay root: the first occurrence inserts `local.tee` after the nullable operand, and replacements emit `local.get` plus the original cast instruction. This preserves the checked cast at every observable repeat while avoiding invalid non-default locals.
+- The raw rewrite normalizes cached reference child locals to explicit nullable `HeapTypeRefType` locals so native validation accepts replayed non-null casts from abstract `anyref` inputs.
+- `ref.as_non_null` remains a narrow blocker, not a broad family deferral: the available native replay using `.tmp/lcse-parity006-nonnull-ref/non-null-ref-spot.wasm` rejects the `ref.as_non_null` abstract-heap input shape during Starshine validation/type checking, including the unoptimized original shape. Reopening criteria are a validator/frontend type-representation fix for `ref.as_non_null` on cached abstract-heap locals, or a separate rewrite model with focused native validation evidence.
+
+Validation evidence for this slice:
+
+```sh
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+wasm-tools parse .tmp/lcse-parity006-nonnull-ref/non-null-cast-only.wat -o .tmp/lcse-parity006-nonnull-ref/non-null-cast-only.wasm
+target/native/release/build/cmd/cmd.exe --local-cse -o .tmp/lcse-parity006-nonnull-ref/non-null-cast-only.starshine.wasm .tmp/lcse-parity006-nonnull-ref/non-null-cast-only.wasm
+wasm-tools validate --features all .tmp/lcse-parity006-nonnull-ref/non-null-cast-only.starshine.wasm
+bun validate readme-api-sync
+bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-nonnull-ref-cast-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+```
+
+Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`166/166`); `moon test src/passes` passed (`1911/1911`); full `moon test` passed (`5096/5096`); native `src/cmd` build succeeded with the pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; the native non-null-cast-only replay validated and printed the intended operand-cache shape; and `bun validate readme-api-sync` passed.
+
+The direct compare at `.tmp/pass-fuzz-local-cse-nonnull-ref-cast-10000` requested `10000` cases and compared `9975`; all compared cases were normalized matches, with `0` mismatches, `0` validation/property/generator failures, and `25` Binaryen/tool command failures. Agent classification: no LCSE semantic mismatch was found in this lane; the command failures are oracle/tool failures, not Starshine semantic failures: `22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`, `1` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`.

@@ -40,6 +40,7 @@ priv struct LcseRawExpr {
   reads_memory_size : Bool
   reads_table_state : Bool
   reads_global : Bool
+  cache_child_for_replay : Bool
   mut repeat_of : Int
   mut local_id : Int
 }
@@ -472,6 +473,7 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::AnyConvertExtern => 159
     @lib.Instruction::ExternConvertAny => 160
     @lib.Instruction::RefCast(true, _) => 162
+    @lib.Instruction::RefCast(false, _) => 163
     @lib.Instruction::F32ConvertI32S => 134
     @lib.Instruction::F32ConvertI32U => 135
     @lib.Instruction::F32ConvertI64S => 136
@@ -1089,6 +1091,7 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::RefTest(_, _)
     | @lib.Instruction::AnyConvertExtern
     | @lib.Instruction::ExternConvertAny
+    | @lib.Instruction::RefAsNonNull
     | @lib.Instruction::RefCast(_, _)
     | @lib.Instruction::I32TruncF32S
     | @lib.Instruction::I32TruncF32U
@@ -1126,6 +1129,25 @@ fn lcse_raw_instr_operand_count(
             None
           }
       }
+  }
+}
+
+///|
+fn lcse_ref_as_non_null_result_type(
+  child_exprs : Array[LcseRawExpr],
+) -> @lib.ValType? {
+  match child_exprs.get(0) {
+    Some({ ty: @lib.RefTypeValType(ref_type), .. }) =>
+      Some(
+        @lib.ValType::ref_type(
+          @lib.RefType::new(
+            false,
+            ref_type.get_heap_type(),
+            exact=ref_type.is_exact(),
+          ),
+        ),
+      )
+    _ => None
   }
 }
 
@@ -1235,8 +1257,10 @@ fn lcse_raw_result_type(
     | @lib.Instruction::F64PromoteF32
     | @lib.Instruction::F64ReinterpretI64 => Some(@lib.ValType::f64())
     @lib.Instruction::RefNull(ty) => Some(@lib.ValType::ref_type(ty))
-    @lib.Instruction::RefCast(true, heap_type) =>
-      Some(@lib.ValType::ref_type(@lib.RefType::new(true, heap_type)))
+    @lib.Instruction::RefAsNonNull =>
+      lcse_ref_as_non_null_result_type(child_exprs)
+    @lib.Instruction::RefCast(nullable, heap_type) =>
+      Some(@lib.ValType::ref_type(@lib.RefType::new(nullable, heap_type)))
     @lib.Instruction::V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
       Some(@lib.ValType::v128())
     @lib.Instruction::AnyConvertExtern => Some(@lib.ValType::anyref())
@@ -1342,6 +1366,53 @@ fn lcse_cancel_request_tree(exprs : Array[LcseRawExpr], expr_id : Int) -> Unit {
 ///|
 fn lcse_raw_expr_profitable(expr : LcseRawExpr) -> Bool {
   expr.size >= 2
+}
+
+///|
+fn lcse_raw_instr_caches_child_for_replay(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Instruction::RefCast(false, _) => true
+    _ => false
+  }
+}
+
+///|
+fn lcse_raw_child_cache_type(
+  exprs : Array[LcseRawExpr],
+  expr : LcseRawExpr,
+) -> @lib.ValType? {
+  if !expr.cache_child_for_replay || expr.children.length() != 1 {
+    return None
+  }
+  match exprs.get(expr.children[0]) {
+    Some({ ty: @lib.RefTypeValType(ref_type), .. }) =>
+      Some(
+        @lib.ValType::ref_type(
+          @lib.RefType::new(
+            true,
+            ref_type.get_heap_type(),
+            exact=ref_type.is_exact(),
+          ),
+        ),
+      )
+    Some(child) => Some(child.ty)
+    None => None
+  }
+}
+
+///|
+fn lcse_raw_can_cache_child_for_replay(
+  exprs : Array[LcseRawExpr],
+  children : Array[Int],
+) -> Bool {
+  match children {
+    [child_id] =>
+      match exprs.get(child_id) {
+        Some(child) => @lib.has_default(child.ty)
+        None => false
+      }
+    _ => false
+  }
 }
 
 ///|
@@ -1571,6 +1642,47 @@ fn lcse_raw_nested_repeat_for_parent(
 }
 
 ///|
+fn lcse_raw_push_replay(
+  out : Array[@lib.Instruction],
+  expr : LcseRawExpr,
+  local_id : Int,
+) -> Unit {
+  out.push(
+    @lib.Instruction::local_get(
+      @lib.LocalIdx::new(local_id.reinterpret_as_uint()),
+    ),
+  )
+  if expr.cache_child_for_replay {
+    out.push(expr.instr)
+  }
+}
+
+///|
+fn lcse_raw_original_materialize_end(
+  exprs : Array[LcseRawExpr],
+  original : LcseRawExpr,
+) -> Int {
+  if original.cache_child_for_replay && original.children.length() == 1 {
+    match exprs.get(original.children[0]) {
+      Some(child) => return child.end
+      None => ()
+    }
+  }
+  original.end
+}
+
+///|
+fn lcse_raw_original_materialize_type(
+  exprs : Array[LcseRawExpr],
+  original : LcseRawExpr,
+) -> @lib.ValType {
+  match lcse_raw_child_cache_type(exprs, original) {
+    Some(ty) => ty
+    None => original.ty
+  }
+}
+
+///|
 fn lcse_raw_rewrite_nested_with_outer_repeats(
   body : Array[@lib.Instruction],
   parent_idx : Int,
@@ -1585,11 +1697,7 @@ fn lcse_raw_rewrite_nested_with_outer_repeats(
       Some(repeat) => {
         let local_id = exprs[repeat.original].local_id
         if local_id >= 0 {
-          out.push(
-            @lib.Instruction::local_get(
-              @lib.LocalIdx::new(local_id.reinterpret_as_uint()),
-            ),
-          )
+          lcse_raw_push_replay(out, exprs[repeat.original], local_id)
           changed = true
           i = repeat.end + 1
           continue
@@ -1743,10 +1851,16 @@ fn lcse_raw_rewrite_instrs(
           _ => ()
         }
         let expr_id = exprs.length()
+        let cache_child_for_replay = lcse_raw_instr_caches_child_for_replay(
+          instr,
+        )
+        let can_cache_child_for_replay = !cache_child_for_replay ||
+          lcse_raw_can_cache_child_for_replay(exprs, children)
         let reusable_root = match instr {
-          @lib.Instruction::MemoryGrow(_) | @lib.Instruction::TableGrow(_) =>
-            false
-          _ => !reads_table_state
+          @lib.Instruction::MemoryGrow(_)
+          | @lib.Instruction::TableGrow(_)
+          | @lib.Instruction::RefAsNonNull => false
+          _ => !reads_table_state && can_cache_child_for_replay
         }
         let original_id = if reusable_root && size <= 32 {
           lcse_raw_find_active_match(exprs, active, instr, children)
@@ -1771,6 +1885,7 @@ fn lcse_raw_rewrite_instrs(
           reads_memory_size,
           reads_table_state,
           reads_global,
+          cache_child_for_replay,
           repeat_of: -1,
           local_id: -1,
         }
@@ -1806,13 +1921,15 @@ fn lcse_raw_rewrite_instrs(
     if expr.repeat_of >= 0 {
       repeat_start[expr.start] = expr_id
       let original = exprs[expr.repeat_of]
-      original_end[original.end] = expr.repeat_of
+      let materialize_end = lcse_raw_original_materialize_end(exprs, original)
+      original_end[materialize_end] = expr.repeat_of
     }
   }
   for repeat in nested_repeats {
     let original = exprs[repeat.original]
-    if original.end >= 0 && original.end < original_end.length() {
-      original_end[original.end] = repeat.original
+    let materialize_end = lcse_raw_original_materialize_end(exprs, original)
+    if materialize_end >= 0 && materialize_end < original_end.length() {
+      original_end[materialize_end] = repeat.original
     }
   }
   let out : Array[@lib.Instruction] = []
@@ -1824,11 +1941,7 @@ fn lcse_raw_rewrite_instrs(
       let original_id = exprs[repeat_id].repeat_of
       let local_id = exprs[original_id].local_id
       if local_id >= 0 {
-        out.push(
-          @lib.Instruction::local_get(
-            @lib.LocalIdx::new(local_id.reinterpret_as_uint()),
-          ),
-        )
+        lcse_raw_push_replay(out, exprs[repeat_id], local_id)
         changed = true
         i = exprs[repeat_id].end + 1
         continue
@@ -1899,7 +2012,9 @@ fn lcse_raw_rewrite_instrs(
     let original_id = original_end[i]
     if original_id >= 0 {
       let local_id = params.length() + local_types.length()
-      local_types.push(exprs[original_id].ty)
+      local_types.push(
+        lcse_raw_original_materialize_type(exprs, exprs[original_id]),
+      )
       exprs[original_id].local_id = local_id
       out.push(
         @lib.Instruction::local_tee(
