@@ -484,6 +484,7 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::ArrayGetS(_) => 170
     @lib.Instruction::ArrayGetU(_) => 171
     @lib.Instruction::ArrayLen => 172
+    @lib.Instruction::RefGetDesc(_) => 174
     @lib.Instruction::F32ConvertI32S => 134
     @lib.Instruction::F32ConvertI32U => 135
     @lib.Instruction::F32ConvertI64S => 136
@@ -1142,6 +1143,7 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::RefAsNonNull
     | @lib.Instruction::RefCast(_, _)
     | @lib.Instruction::RefI31
+    | @lib.Instruction::RefGetDesc(_)
     | @lib.Instruction::I32TruncF32S
     | @lib.Instruction::I32TruncF32U
     | @lib.Instruction::I32TruncF64S
@@ -1261,6 +1263,33 @@ fn lcse_raw_array_field_type(
 }
 
 ///|
+fn lcse_raw_ref_get_desc_result_type(
+  subtypes : Array[@lib.SubType],
+  type_idx : @lib.TypeIdx,
+  child_exprs : Array[LcseRawExpr],
+) -> @lib.ValType? {
+  let descriptor_type = match lcse_raw_subtype_for_idx(subtypes, type_idx) {
+    Some(subtype) =>
+      match subtype.descriptor_type() {
+        Some(desc) => desc
+        None => return None
+      }
+    None => return None
+  }
+  let exact = match child_exprs.get(0) {
+    Some({ ty: @lib.RefTypeValType(ref_type), .. }) =>
+      ref_type.is_exact() &&
+      ref_type.get_heap_type() == @lib.HeapType::new(type_idx)
+    _ => false
+  }
+  Some(
+    @lib.ValType::ref_type(
+      @lib.RefType::new(false, @lib.HeapType::new(descriptor_type), exact~),
+    ),
+  )
+}
+
+///|
 fn lcse_raw_result_type(
   instr : @lib.Instruction,
   all_locals : Array[@lib.ValType],
@@ -1377,6 +1406,8 @@ fn lcse_raw_result_type(
     @lib.Instruction::RefCast(nullable, heap_type) =>
       Some(@lib.ValType::ref_type(@lib.RefType::new(nullable, heap_type)))
     @lib.Instruction::RefI31 => Some(@lib.ValType::i31ref())
+    @lib.Instruction::RefGetDesc(type_idx) =>
+      lcse_raw_ref_get_desc_result_type(subtypes, type_idx, child_exprs)
     @lib.Instruction::V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
     | @lib.Instruction::V128Load(_)
     | @lib.Instruction::V128Load8x8S(_)
@@ -1509,7 +1540,8 @@ fn lcse_raw_instr_caches_child_for_replay(instr : @lib.Instruction) -> Bool {
   match instr {
     @lib.Instruction::RefAsNonNull
     | @lib.Instruction::RefCast(false, _)
-    | @lib.Instruction::RefI31 => true
+    | @lib.Instruction::RefI31
+    | @lib.Instruction::RefGetDesc(_) => true
     _ => false
   }
 }

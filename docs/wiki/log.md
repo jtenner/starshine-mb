@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-07] passes/local-cse | LCSE ref.get_desc descriptor-read parity
+
+- Completed repeated `ref.get_desc` LCSE behavior parity for locally representable descriptor-read roots with defaultable operands. Binaryen materializes the non-null descriptor result directly; Starshine uses operand-cache replay so it never appends a non-default descriptor result local.
+- Validation/evidence: Binaryen spot-check `.tmp/lcse-ref-get-desc-inventory/ref-get-desc-repeat.wat` materialized repeated `ref.get_desc` with a fresh descriptor local; focused LCSE TDD failed before implementation (`172/173`) and then passed (`173/173`); `moon info` still hit the known Moon panic; `moon fmt`, `moon test src/passes` (`1918/1918`), full `moon test` (`5104/5104`), native `src/cmd` build, native spot replay validation, and `bun validate readme-api-sync` passed. Direct `local-cse` compare at `.tmp/pass-fuzz-local-cse-ref-get-desc-10000` requested `10000` cases, compared `9972`, had `9972` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `28` command failures classified as `22` Binaryen empty-recursion-group, `1` Binaryen bad-section-size, and `5` Starshine/tool initializer-expression validation failures.
+
 ## [2026-06-07] passes/local-cse | LCSE SIMD memory-load parity
 
 - Completed repeated SIMD memory-load LCSE behavior parity for `v128.load`, SIMD lane loads, load-splat, load-zero, and load-extend roots, matching Binaryen's same-window `local.tee` / `local.get` materialization without widening to arbitrary memory GVN.

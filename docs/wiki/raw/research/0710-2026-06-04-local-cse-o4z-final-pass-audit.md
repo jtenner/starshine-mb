@@ -2990,3 +2990,73 @@ Pass-local timing probe on `tests/node/dist/starshine-debug-wasi.wasm`:
 - Binaryen debug `local-cse`: `0.11015s`
 
 Agent classification: the slice is behavior-parity reuse for same-window SIMD memory loads and memory-write precision, not arbitrary alias analysis or CFG-wide memory GVN. The direct compare has no LCSE semantic mismatches; the remaining command failures are Binaryen/tool oracle failures.
+
+## `ref.get_desc` descriptor-read parity on 2026-06-07
+
+Slice `[O4Z-AUDIT-LCSE-PARITY]009` reopened the earlier descriptor-read deferral with a smaller valid custom-descriptor fixture. The previous blocker was fixture/oracle syntax, not proof that descriptor reads should remain deferred: earlier attempts either rejected the descriptor relationship or tripped Binaryen on descriptor allocation text. The new fixture under `.tmp/lcse-ref-get-desc-inventory/ref-get-desc-repeat.wat` uses the spec-supported reciprocal descriptor pair:
+
+```wat
+(module
+  (rec
+    (type $a (descriptor $b) (struct))
+    (type $b (describes $a) (struct))
+  )
+  (func (param (ref null $a))
+    (drop (ref.get_desc $a (local.get 0)))
+    (drop (ref.get_desc $a (local.get 0)))))
+```
+
+Inventory commands:
+
+```sh
+wasm-tools parse .tmp/lcse-ref-get-desc-inventory/ref-get-desc-repeat.wat \
+  -o .tmp/lcse-ref-get-desc-inventory/ref-get-desc-repeat.wasm
+wasm-tools validate --features all \
+  .tmp/lcse-ref-get-desc-inventory/ref-get-desc-repeat.wasm
+wasm-opt --all-features --local-cse -S \
+  -o .tmp/lcse-ref-get-desc-inventory/ref-get-desc-repeat.binaryen.wat \
+  .tmp/lcse-ref-get-desc-inventory/ref-get-desc-repeat.wat
+target/native/release/build/cmd/cmd.exe --local-cse \
+  -o .tmp/lcse-ref-get-desc-inventory/ref-get-desc-repeat.starshine.after.wasm \
+  .tmp/lcse-ref-get-desc-inventory/ref-get-desc-repeat.wasm
+wasm-tools validate --features all \
+  .tmp/lcse-ref-get-desc-inventory/ref-get-desc-repeat.starshine.after.wasm
+```
+
+Binaryen materialized the repeated descriptor read with a fresh non-null `(ref $b)` local and `local.tee` / `local.get`. Starshine intentionally does not append a non-default descriptor result local. Instead, `local-cse` now treats `ref.get_desc` as a one-operand candidate whose first occurrence caches the defaultable descriptor operand and replays `ref.get_desc` at replacement sites. The native replay prints this behavior-equivalent shape:
+
+```wat
+(local (ref null $a))
+local.get 0
+local.tee 1
+ref.get_desc $a
+drop
+local.get 1
+ref.get_desc $a
+drop
+```
+
+The implementation remains narrower than broad descriptor reasoning. It covers exact-instruction repeated `ref.get_desc` roots only when the operand can be cached in a defaultable local; descriptor tests/casts, descriptor allocation roots, and arbitrary descriptor heap/type reasoning remain conservative deferrals. This mirrors the existing operand-cache model used for non-null `ref.cast`, `ref.as_non_null`, and `ref.i31` when Binaryen's direct result-local materialization would require a non-default local.
+
+Validation evidence:
+
+```sh
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun validate readme-api-sync
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-ref-get-desc-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe \
+  --max-failures 2000 \
+  --keep-going-after-command-failures
+```
+
+Results: focused LCSE TDD failed before implementation (`172/173`) and then passed (`173/173`); `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; `moon test src/passes` passed (`1918/1918`); full `moon test` passed (`5104/5104`); native `src/cmd` build passed with the pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; native spot replay validated with `wasm-tools validate --features all`; `bun validate readme-api-sync` passed. Direct compare requested `10000`, compared `9972`, reported `9972` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `28` command failures. Agent classification: no LCSE semantic mismatches; command failures were `22` Binaryen empty-recursion-group parser failures, `1` Binaryen bad-section-size parser failure, and `5` Starshine/tool failures on generated table initializer expressions that Starshine rejects as non-constant.

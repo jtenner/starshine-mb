@@ -2939,12 +2939,12 @@ test "local-cse reuses repeated non-null ref-cast roots by caching nullable oper
 }
 
 ///|
-test "local-cse defers repeated ref-get-desc roots" {
+test "local-cse reuses repeated ref-get-desc roots with operand replay" {
   let struct_type_idx = @lib.TypeIdx::new(0U)
   let desc_type_idx = @lib.TypeIdx::new(1U)
   let func_type_idx = @lib.TypeIdx::new(2U)
   let struct_ref = @lib.ValType::ref_type(
-    @lib.RefType::new(false, @lib.HeapType::new(struct_type_idx), exact=true),
+    @lib.RefType::new(true, @lib.HeapType::new(struct_type_idx)),
   )
   let struct_type = @lib.RecType::new(
     @lib.SubType::comp_type(
@@ -2983,8 +2983,10 @@ test "local-cse defers repeated ref-get-desc roots" {
   let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
     optimized,
   )
-  @debug.assert_eq(locals, @lib.Locals::from_types([]))
-  @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+  let temp = @lib.LocalIdx::new(1U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([struct_ref]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
 }
 
 ///|
