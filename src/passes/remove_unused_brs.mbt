@@ -6356,6 +6356,20 @@ fn remove_unused_brs_visit_node(
 }
 
 ///|
+fn remove_unused_brs_find_region_root_index(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  node_id : Int,
+) -> Int {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if @ir.hot_region_get(func, region_ref, idx) == node_id {
+      return idx
+    }
+  }
+  -1
+}
+
+///|
 fn remove_unused_brs_visit_region(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -6384,14 +6398,22 @@ fn remove_unused_brs_visit_region(
     if !@ir.hot_node_is_live(func, node_id) {
       continue
     }
+    let current_idx = remove_unused_brs_find_region_root_index(
+      func, region_ref, node_id,
+    )
+    if current_idx < 0 {
+      continue
+    }
     match @ir.hot_node_get(func, node_id).op {
       @ir.HotOp::BrIf => {
-        if remove_unused_brs_try_fold_constant_br_if(ctx, func, region_ref, idx) {
+        if remove_unused_brs_try_fold_constant_br_if(
+            ctx, func, region_ref, current_idx,
+          ) {
           changed = true
           continue
         }
         if remove_unused_brs_try_rewrite_br_if_eq_ladder_to_br_table(
-            ctx, func, region_ref, idx,
+            ctx, func, region_ref, current_idx,
           ) {
           changed = true
           continue
@@ -6411,36 +6433,36 @@ fn remove_unused_brs_visit_region(
           continue
         }
         if remove_unused_brs_try_sink_if_arm_self_branch_block(
-            ctx, func, region_ref, idx, label_refs,
+            ctx, func, region_ref, current_idx, label_refs,
           ) {
           changed = true
           continue
         }
         if remove_unused_brs_try_inline_single_br_if_block(
-            ctx, func, region_ref, idx, label_refs,
+            ctx, func, region_ref, current_idx, label_refs,
           ) {
           changed = true
           continue
         }
         if remove_unused_brs_try_drop_self_targeting_br_table_block(
-            ctx, func, region_ref, idx, label_refs,
+            ctx, func, region_ref, current_idx, label_refs,
           ) {
           changed = true
           continue
         }
         if remove_unused_brs_try_rewrite_br_table_continuation_wrappers(
-            ctx, func, region_ref, idx, label_refs,
+            ctx, func, region_ref, current_idx, label_refs,
           ) {
           return true
         }
         if remove_unused_brs_try_rewrite_block_prefix_payload_branch_root(
-            ctx, func, region_ref, idx, label_refs,
+            ctx, func, region_ref, current_idx, label_refs,
           ) {
           changed = true
           continue
         }
         if remove_unused_brs_try_rotate_void_block_single_loop(
-            ctx, func, region_ref, idx,
+            ctx, func, region_ref, current_idx,
           ) {
           changed = true
           continue
@@ -6448,14 +6470,14 @@ fn remove_unused_brs_visit_region(
       }
       @ir.HotOp::Drop =>
         if remove_unused_brs_try_rewrite_drop_result_block_if_tail_branch(
-            ctx, func, region_ref, idx, label_refs,
+            ctx, func, region_ref, current_idx, label_refs,
           ) {
           changed = true
           continue
         }
       @ir.HotOp::Br =>
         if remove_unused_brs_try_rewrite_branch_payload_if(
-            ctx, func, region_ref, idx, label_refs,
+            ctx, func, region_ref, current_idx, label_refs,
           ) {
           changed = true
           continue
@@ -6468,37 +6490,37 @@ fn remove_unused_brs_visit_region(
           continue
         }
         if remove_unused_brs_try_voidify_if_block_exit_unreachable_suffix(
-            ctx, func, region_ref, idx, label_refs,
+            ctx, func, region_ref, current_idx, label_refs,
           ) {
           changed = true
           continue
         }
         if remove_unused_brs_try_restructure_one_exit_arm_if_suffix(
-            ctx, func, region_ref, idx, label_refs,
+            ctx, func, region_ref, current_idx, label_refs,
           ) {
           changed = true
           continue
         }
         if remove_unused_brs_try_restructure_one_arm_return_if_suffix(
-            ctx, func, region_ref, idx, label_refs,
+            ctx, func, region_ref, current_idx, label_refs,
           ) {
           changed = true
           continue
         }
         if remove_unused_brs_try_rewrite_prefixed_one_arm_payload_branch_if_suffix(
-            ctx, func, region_ref, idx, label_refs, reorder_cache,
+            ctx, func, region_ref, current_idx, label_refs, reorder_cache,
           ) {
           changed = true
           continue
         }
         if remove_unused_brs_try_rewrite_one_arm_payload_branch_if(
-            ctx, func, region_ref, idx, label_refs, func_has_br_table,
+            ctx, func, region_ref, current_idx, label_refs, func_has_br_table,
           ) {
           changed = true
           continue
         }
         if remove_unused_brs_try_rewrite_two_arm_branch_if(
-            ctx, func, region_ref, idx,
+            ctx, func, region_ref, current_idx,
           ) {
           changed = true
           continue
@@ -6506,13 +6528,13 @@ fn remove_unused_brs_visit_region(
       }
       @ir.HotOp::LocalSet => {
         if remove_unused_brs_try_rewrite_region_local_set_br_arm(
-            ctx, func, region_ref, idx,
+            ctx, func, region_ref, current_idx,
           ) {
           changed = true
           continue
         }
         if remove_unused_brs_try_rewrite_region_local_set_copy_arm(
-            ctx, func, region_ref, idx,
+            ctx, func, region_ref, current_idx,
           ) {
           changed = true
           continue
@@ -6524,7 +6546,7 @@ fn remove_unused_brs_visit_region(
     changed = remove_unused_brs_visit_node(
         ctx,
         func,
-        Some({ region_ref, idx }),
+        Some({ region_ref, idx: current_idx }),
         node_id,
         seen,
         reorder_cache,
