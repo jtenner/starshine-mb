@@ -474,6 +474,7 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::ExternConvertAny => 160
     @lib.Instruction::RefCast(true, _) => 162
     @lib.Instruction::RefCast(false, _) => 163
+    @lib.Instruction::RefAsNonNull => 164
     @lib.Instruction::F32ConvertI32S => 134
     @lib.Instruction::F32ConvertI32U => 135
     @lib.Instruction::F32ConvertI64S => 136
@@ -1371,7 +1372,7 @@ fn lcse_raw_expr_profitable(expr : LcseRawExpr) -> Bool {
 ///|
 fn lcse_raw_instr_caches_child_for_replay(instr : @lib.Instruction) -> Bool {
   match instr {
-    @lib.Instruction::RefCast(false, _) => true
+    @lib.Instruction::RefAsNonNull | @lib.Instruction::RefCast(false, _) => true
     _ => false
   }
 }
@@ -1857,9 +1858,8 @@ fn lcse_raw_rewrite_instrs(
         let can_cache_child_for_replay = !cache_child_for_replay ||
           lcse_raw_can_cache_child_for_replay(exprs, children)
         let reusable_root = match instr {
-          @lib.Instruction::MemoryGrow(_)
-          | @lib.Instruction::TableGrow(_)
-          | @lib.Instruction::RefAsNonNull => false
+          @lib.Instruction::MemoryGrow(_) | @lib.Instruction::TableGrow(_) =>
+            false
           _ => !reads_table_state && can_cache_child_for_replay
         }
         let original_id = if reusable_root && size <= 32 {

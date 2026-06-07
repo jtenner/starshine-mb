@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-07] passes/local-cse | LCSE ref.as_non_null parity
+
+- Fixed Starshine `ref.as_non_null` typechecking for abstract nullable refs such as decoded `externref`, returning an explicit non-null heap ref result instead of rejecting `AbsHeapTypeRefType(_)`.
+- Completed repeated `ref.as_non_null` LCSE behavior parity using operand-cache replay: cache the defaultable nullable operand at the first occurrence and replay `ref.as_non_null` at replacements, preserving each checked operation without non-default locals.
+- Validation/evidence: focused validator TDD failed before the typecheck fix (`532/533`) and then passed (`533/533`); focused LCSE TDD failed before implementation (`165/166`) and then passed (`166/166`); `moon info` still hit the known Moon panic; `moon fmt`, `moon test src/validate` (`1553/1553`), `moon test src/passes` (`1911/1911`), full `moon test` (`5097/5097`), native `src/cmd` build, native spot replay validation, and `bun validate readme-api-sync` passed. Direct `local-cse` compare at `.tmp/pass-fuzz-local-cse-ref-as-non-null-10000` requested `10000` cases, compared `9975`, had `9975` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `25` Binaryen/tool command failures.
+
 ## [2026-06-07] passes/local-cse | LCSE non-null ref.cast parity
 
 - Extended `[O4Z-AUDIT-LCSE-PARITY]005` from nullable-only `ref.cast` reuse to non-null `ref.cast` behavior parity. Non-null casts now cache the defaultable nullable operand at the first occurrence and replay the checked cast at replacement sites, avoiding invalid non-default local types while preserving Binaryen-observable behavior.

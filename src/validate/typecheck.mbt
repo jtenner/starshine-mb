@@ -1909,8 +1909,12 @@ fn typecheck_ref_as_non_null(st : TcState) -> TcResult {
           Ok(st1.push1(ValType::ref_type(RefType::new(false, ht, exact~))))
         HeapTypeRefType(false, _, _) =>
           Err("ref.as_non_null expects (ref null ht), got non-null ref")
-        AbsHeapTypeRefType(_) =>
-          Err("ref.as_non_null expects (ref null ht), got abstract ref type")
+        AbsHeapTypeRefType(abs) =>
+          Ok(
+            st1.push1(
+              ValType::ref_type(RefType::new(false, HeapType::abs(abs))),
+            ),
+          )
       }
     _ => Err("ref.as_non_null expects a reference type")
   }
@@ -5903,11 +5907,20 @@ test "Typecheck RefEq" {
 ///|
 test "Typecheck RefAsNonNull" {
   let state = make_state(empty_env(), [nullable_funcref()])
-  let result = Typecheck::typecheck(Instruction::ref_as_non_null(), state)
-  match result {
-    Ok(new_state) => @debug.assert_eq(new_state.stack.length(), 1)
-    Err(_) => ()
-  }
+  let new_state = assert_ok(
+    Typecheck::typecheck(Instruction::ref_as_non_null(), state),
+  )
+  assert_stack(new_state, [non_nullable_funcref()])
+}
+
+///|
+test "Typecheck RefAsNonNull accepts abstract nullable externref" {
+  let externref = ValType::ref_type(RefType::abs(AbsHeapType::extern_()))
+  let state = make_state(empty_env(), [externref])
+  let new_state = assert_ok(
+    Typecheck::typecheck(Instruction::ref_as_non_null(), state),
+  )
+  assert_stack(new_state, [non_nullable_externref()])
 }
 
 // BrOnNonNull tests
