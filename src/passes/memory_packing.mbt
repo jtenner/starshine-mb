@@ -1198,7 +1198,7 @@ fn mp_block_type_result_count(block_type : @lib.BlockType) -> Int? {
 fn mp_instr_stack_counts(instr : @lib.Instruction) -> (Int, Int)? {
   match instr {
     @lib.Nop => Some((0, 0))
-    @lib.Unreachable => Some((0, 0))
+    @lib.Unreachable => Some((0, 1))
     @lib.Block(block_type, _)
     | @lib.Loop(block_type, _)
     | @lib.TryTable(block_type, _, _) =>
@@ -1538,6 +1538,19 @@ fn mp_memory_init_dest_is_i32_const(
 }
 
 ///|
+fn mp_memory_init_dest_is_trap_only(operands : MpMemoryInitOperands) -> Bool {
+  let mut has_unreachable = false
+  for instr in operands.dest_instrs {
+    match instr {
+      @lib.Unreachable => has_unreachable = true
+      @lib.Drop | @lib.Nop => ()
+      _ => return false
+    }
+  }
+  has_unreachable
+}
+
+///|
 fn mp_append_memory_init_dest(
   out : Array[@lib.Instruction],
   operands : MpMemoryInitOperands,
@@ -1563,6 +1576,10 @@ fn mp_rewrite_active_memory_init(
   let size = match mp_instr_i32_const_value(operands.size_instr) {
     Some(value) => value
     None => abort("expected constant memory.init size operand")
+  }
+  if mp_memory_init_dest_is_trap_only(operands) {
+    out.push(@lib.Instruction::unreachable_())
+    return true
   }
   mp_append_consumed_memory_init_operands(out, operands)
   if src < 0 || size < 0 || src + size < src || src + size > plan.data_size {
@@ -1593,6 +1610,10 @@ fn mp_rewrite_passive_split_memory_init(
   let size = match mp_instr_i32_const_value(operands.size_instr) {
     Some(value) => value
     None => abort("expected constant memory.init size operand")
+  }
+  if mp_memory_init_dest_is_trap_only(operands) {
+    out.push(@lib.Instruction::unreachable_())
+    return true
   }
   if src < 0 || size < 0 || src + size < src || src + size > plan.data_size {
     mp_append_consumed_memory_init_operands(out, operands)

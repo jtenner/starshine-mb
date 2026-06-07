@@ -837,6 +837,46 @@ test "memory-packing preserves active memory.init trap operand side effects" {
 }
 
 ///|
+test "memory-packing collapses trap-only active memory.init destination debris" {
+  let input = @lib.Module::new()
+    .with_mem_sec(
+      @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))]),
+    )
+    .with_data_sec(
+      @lib.DataSec::new([
+        @lib.Data::new(
+          @lib.DataMode::active(
+            @lib.MemIdx::new(0U),
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+          ),
+          b"abc",
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::unreachable_(),
+            @lib.Instruction::i32_const(@lib.I32(10)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::memory_init(
+              @lib.DataIdx::new(0U),
+              @lib.MemIdx::new(0U),
+            ),
+          ]),
+        ),
+      ]),
+    )
+
+  let optimized = memory_packing_run_module_pass(input)
+  @debug.assert_eq(mp_test_first_func_body(optimized), [
+    @lib.Instruction::unreachable_(),
+  ])
+}
+
+///|
 test "memory-packing lowers zero-size active memory.init bounds checks" {
   let input = @lib.Module::new()
     .with_mem_sec(

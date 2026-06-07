@@ -70,16 +70,11 @@ The current Starshine subset covers:
 
 ## Remaining gap
 
-The 2026-06-07 gap audit originally kept one main documented Binaryen gap around lowered `memory.init` operand side effects plus narrower option/validity gaps found by static inspection. The operand side-effect gap is now covered for the local rewrite surface: lowered active and split-passive constant-source/size `memory.init` rewrites evaluate and drop the original destination/source/size operands before the replacement `nop` or `unreachable`.
+The 2026-06-07 gap audit originally kept one main documented Binaryen gap around lowered `memory.init` operand side effects plus narrower option/validity gaps found by static inspection. The operand side-effect gap is now covered for the local rewrite surface: lowered active and split-passive constant-source/size `memory.init` rewrites evaluate and drop the original destination/source/size operands before the replacement `nop` or `unreachable`. A later closeout fixture also collapses trap-only destination debris to a single explicit trap when the destination operand is already an unconditional `unreachable` with only `drop`/`nop` debris.
 
-The remaining documented gap is:
+The earlier option-surface concern is now source-confirmed closed for the current local Binaryen oracle: local `wasm-opt --version` reports `version_130`, upstream `version_130` and `main` `MemoryPacking.cpp` were byte-identical on 2026-06-07, and the only `getPassOptions()` reads in that source are `zeroFilledMemory` for imported-memory eligibility and `trapsNeverHappen` for active trap preservation. Starshine wires both through the hot pipeline.
 
-- no full option plumbing for Binaryen's entire pass option surface beyond the current `trapsNeverHappen` and `zeroFilledMemory` paths
-
-So the honest parity rule is:
-
-- current Starshine has **artifact-local parity on the exercised active subset** and focused coverage for the newly implemented active/passive segment-user families
-- but not yet full official-surface parity with Binaryen `MemoryPacking.cpp` options beyond the current wired subset
+No broad source-confirmed `MemoryPacking.cpp` behavior family remains open in this dossier. Current closeout evidence still records six normalized-output differences in the 100000-case direct lane; all are agent-classified as semantic-safe representation or Starshine-local cleanup drift, not true `memory-packing` semantic mismatches. Reopen this audit if a future source refresh adds another pass option, if a normalized drift is shown to affect observable memory/segment behavior, or if generator coverage exposes a true semantic mismatch.
 
 ## Current evidence
 
@@ -150,15 +145,46 @@ The 2026-06-07 behavior-gap audit did not run fresh fuzz evidence, but refined t
 
 A later 2026-06-07 side-effect preservation slice added focused TDD for active out-of-range source traps with side-effecting destinations, zero-size active lowerings with trapping destinations, and split-passive out-of-range source traps with side-effecting destinations. The implementation now extracts the destination operand expression, emits operand evaluation plus `drop`s before active/split-passive `nop` or `unreachable` replacement, and uses a temp local for non-constant split-passive destinations that are reused by `memory.fill` / split `memory.init` replacement parts. Fresh direct compare evidence after this slice is mismatch-free: `.tmp/pass-fuzz-memory-packing-20260607-side-effects-10000` compared `7602/10000` with `7602` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures before the harness command-failure cap (`19` Binaryen empty-recursion-group, `1` Binaryen bad-section-size).
 
+### 2026-06-07 final closeout evidence
+
+Source/option refresh:
+
+- Local oracle: `wasm-opt --version` -> `wasm-opt version 130 (version_130)`.
+- Online source check: `https://raw.githubusercontent.com/WebAssembly/binaryen/version_130/src/passes/MemoryPacking.cpp` and `https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/MemoryPacking.cpp` were byte-identical on 2026-06-07. The only `getPassOptions()` references were `zeroFilledMemory` and `trapsNeverHappen`; this closed the previously documented option-surface uncertainty.
+
+Validation and artifact replay:
+
+- `moon info` still crashes with the known Moon panic: `index out of bounds: the len is 36 but the index is 8329485`.
+- `moon fmt` passed.
+- `moon test --package jtenner/starshine/passes --file memory_packing_test.mbt` -> `30/30`.
+- `moon test --package jtenner/starshine/passes --file memory_packing_wbtest.mbt` -> `1/1`.
+- `moon test src/passes` -> `1965/1965`.
+- `moon test` -> `5157/5157`.
+- `moon build --target native --release src/cmd` passed with pre-existing `pass_manager.mbt` unused-function warnings.
+- Saved generated `-O4z` slot replay: `bun scripts/self-optimize-compare.ts .artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/02-slot02-remove-unused-module-elements/binaryen.wasm --memory-packing --out-dir .tmp/memory-packing-slot03-closeout-20260607-final --starshine-bin target/native/release/build/cmd/cmd.exe` produced canonical wasm equality and normalized WAT equality. Timings were Starshine wall `276.339 ms`, Binaryen wall `203.724 ms`, Starshine pass `40.624 ms`, Binaryen pass `23.634 ms`; the pass-local ratio remains within the repo `<= 2x Binaryen` target though not faster than Binaryen in this sample.
+
+Final direct compare:
+
+```sh
+bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass memory-packing --out-dir .tmp/pass-fuzz-memory-packing-final-100000-fix3 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+```
+
+Result: `99751/100000` compared, `99745` normalized matches, `0` validation/property/generator failures, `249` command failures, and `6` normalized-output mismatches. Command failures were classified by the harness as `219` Binaryen empty-recursion-group, `12` Binaryen bad-section-size, `11` Binaryen command-failed, `6` Binaryen table-index-out-of-range, and `1` Binaryen invalid-tag-index. Agent classification: the six mismatches are the two narrow semantic-safe drift families listed below, not true `memory-packing` semantic mismatches.
+
 ## Practical signoff rule
 
-For now, treat `memory-packing` as:
+For now, treat `memory-packing` as behavior-closed for the v0.1.0 direct-pass audit:
 
-- **green on the saved generated artifact**
-- **green again on the direct saved-repro family and current direct compare lane, modulo known Binaryen/tool command-failure noise**
-- **wider than the former active-only subset, but still not a full port of Binaryen `MemoryPacking.cpp`**
+- **green on the saved generated artifact** (`.tmp/memory-packing-slot03-closeout-20260607-final`, canonical wasm and normalized WAT equal)
+- **green on true semantic behavior in the final 100000-case direct lane**, with six remaining normalized-output differences classified by inspection rather than treated as pass semantic failures
+- **source-confirmed against Binaryen `version_130` / current `main` for option-surface parity**, with only `zeroFilledMemory` and `trapsNeverHappen` used by `MemoryPacking.cpp` and both wired locally
 
-That is the honest status this dossier should preserve.
+The six final-lane differences are narrow:
+
+- `case-023083`, `case-046375`, and `case-082547`: no-data/no-segment code-shape drift where Starshine output keeps unreachable `drop` debris that Binaryen canonical output omits. This is representation-only and outside `memory-packing` segment semantics.
+- `case-036637`, `case-059023`, and `case-097023`: Starshine removes or remaps unreferenced passive/empty data segments more aggressively than Binaryen in modules with no remaining segment users. This is semantic-safe size-winning cleanup because no `memory.init`, `data.drop`, `array.new_data`, or `array.init_data` can observe those segments.
+
+Keep these as reopening watchpoints only if future evidence shows observability; do not reclassify them as true behavior mismatches solely because raw normalized WAT differs.
 
 ## Sources
 

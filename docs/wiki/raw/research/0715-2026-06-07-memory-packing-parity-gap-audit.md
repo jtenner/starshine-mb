@@ -178,3 +178,13 @@ bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass memory-pack
 ```
 
 Also add targeted Binaryen lit-shape replays for `memory-packing_all-features`, `memory-packing_traps`, `memory-packing_zero-filled-memory*`, `memory-packing_memory64-high-addr`, and `memory-packing-gc` once the corresponding families are implemented.
+
+## 2026-06-07 closeout update
+
+This research note is superseded for current status by the follow-up implementation and final closeout recorded in `docs/wiki/binaryen/passes/memory-packing/parity.md`. The originally listed behavior families are now implemented or classified for the local Binaryen `version_130` oracle: active segment-op cleanup, passive split/replacement, split `data.drop`, lazy drop-state globals, imported-memory `zeroFilledMemory`, `trapsNeverHappen`, data-name / `__llvm*` handling, high-address saturating offset behavior, GC data-user conservatism, `MaxDataSegments`, and lowered `memory.init` operand side-effect preservation.
+
+The final option-source refresh checked local `wasm-opt version 130 (version_130)` and byte-compared upstream `version_130` and current `main` `MemoryPacking.cpp`; both sources had only two `getPassOptions()` reads relevant to this pass: `zeroFilledMemory` and `trapsNeverHappen`, both already wired by Starshine.
+
+Final closeout evidence requested `100000` direct `memory-packing` comparisons at seed `0x5eed` with explicit `--jobs auto` and explicit native Starshine binary path. The `.tmp/pass-fuzz-memory-packing-final-100000-fix3` run compared `99751/100000`, had `99745` normalized matches, `6` agent-classified semantic-safe normalized-output drifts, `0` true semantic mismatches, and `249` Binaryen/tool command failures. The saved generated `-O4z` slot replay at `.tmp/memory-packing-slot03-closeout-20260607-final` remained canonical-wasm and normalized-WAT equal.
+
+The six final compare drifts are retained as watchpoints only: three no-data unreachable-debris representation differences and three unobservable data-segment cleanup/remap differences with no segment users. They are not active release blockers under the behavior-parity rule unless future evidence shows observable memory or segment behavior changes.

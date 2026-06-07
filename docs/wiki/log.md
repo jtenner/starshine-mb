@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-07] passes/memory-packing | Final direct-pass closeout
+
+- Source-confirmed Binaryen `memory-packing` option surface against local `wasm-opt version 130 (version_130)` and byte-identical upstream `version_130` / current `main` `MemoryPacking.cpp`: the only `getPassOptions()` reads are `zeroFilledMemory` and `trapsNeverHappen`, both already wired through Starshine's hot pipeline.
+- Added a focused guard for trap-only active `memory.init` destination debris so local trap lowering can collapse an unconditional destination `unreachable` to a single trap while preserving the side-effecting destination cases added earlier.
+- Final evidence: `moon info` still hit the known Moon panic; `moon fmt`, focused memory-packing tests (`30/30` plus white-box `1/1`), `moon test src/passes` (`1965/1965`), full `moon test` (`5157/5157`), and native `src/cmd` build passed. Saved slot replay at `.tmp/memory-packing-slot03-closeout-20260607-final` was canonical-wasm and normalized-WAT equal. Final direct compare at `.tmp/pass-fuzz-memory-packing-final-100000-fix3` requested `100000`, compared `99751`, had `99745` normalized matches, `6` agent-classified semantic-safe drifts, `0` true semantic mismatches, and `249` Binaryen/tool command failures. Removed `[O4Z-AUDIT-MP]` from active backlog and updated the parity dossier/research inventory with reopening criteria.
+
 ## [2026-06-07] passes/memory-packing | memory.init operand side-effect preservation
 
 - Closed the main remaining documented `memory-packing` parity gap for lowered active/split-passive `memory.init` paths on the current constant-source/size rewrite surface. Trap and no-op lowerings now evaluate the original destination/source/size operands and drop their values before emitting the replacement `unreachable` or `nop`; split-passive in-range rewrites still cache dynamic destinations in a temp local before `memory.fill` / split `memory.init` replacement.
