@@ -4457,6 +4457,163 @@ test "code-folding shares internal-target conditional branch return suffixes" {
 }
 
 ///|
+test "code-folding shares internal-target br-table return suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (block $left
+      #|          (i32.const 1)
+      #|          (drop)
+      #|          (i32.const 2)
+      #|          (drop)
+      #|          (local.get 0)
+      #|          (br_table $left $left))
+      #|        (return)))
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (block $right
+      #|          (i32.const 1)
+      #|          (drop)
+      #|          (i32.const 2)
+      #|          (drop)
+      #|          (local.get 0)
+      #|          (br_table $right $right))
+      #|        (return)))
+      #|    (i32.const 99)
+      #|    (drop)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_table"), msg=pretty)
+  assert_true(pretty.contains("i32.const I32(99)"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(1)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(2)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding shares internal-target br-table unreachable suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (block $left
+      #|          (i32.const 1)
+      #|          (drop)
+      #|          (i32.const 2)
+      #|          (drop)
+      #|          (local.get 0)
+      #|          (br_table $left $left))
+      #|        (unreachable)))
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (block $right
+      #|          (i32.const 1)
+      #|          (drop)
+      #|          (i32.const 2)
+      #|          (drop)
+      #|          (local.get 0)
+      #|          (br_table $right $right))
+      #|        (unreachable)))
+      #|    (i32.const 99)
+      #|    (drop)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_table"), msg=pretty)
+  assert_true(pretty.contains("i32.const I32(99)"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(1)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(2)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "unreachable"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding shares internal-target br-table return-call suffixes" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func $target)
+      #|  (func (param i32)
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (block $left
+      #|          (i32.const 1)
+      #|          (drop)
+      #|          (i32.const 2)
+      #|          (drop)
+      #|          (local.get 0)
+      #|          (br_table $left $left))
+      #|        (return_call $target)))
+      #|    (if (local.get 0)
+      #|      (then
+      #|        (block $right
+      #|          (i32.const 1)
+      #|          (drop)
+      #|          (i32.const 2)
+      #|          (drop)
+      #|          (local.get 0)
+      #|          (br_table $right $right))
+      #|        (return_call $target)))
+      #|    (i32.const 99)
+      #|    (drop)))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("br_table"), msg=pretty)
+  assert_true(pretty.contains("i32.const I32(99)"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(1)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(2)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "return_call (Func 0)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
 test "code-folding shares non-root nested self-branch block return suffixes" {
   let optimized = code_folding_test_run(
     (
@@ -6514,6 +6671,128 @@ test "code-folding keeps br-table-poisoned block-exit suffixes" {
   @debug.assert_eq(
     code_folding_test_count_substring(pretty, "i32.const I32(7)"),
     2,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding hoists br-if block-exit suffixes targeting an enclosing block" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32)
+      #|    (block $outer
+      #|      (block $out
+      #|        (if (local.get 0)
+      #|          (then
+      #|            (i32.const 1)
+      #|            (drop)
+      #|            (i32.const 2)
+      #|            (drop)
+      #|            (local.get 0)
+      #|            (br_if $outer)
+      #|            (br $out)))
+      #|        (i32.const 1)
+      #|        (drop)
+      #|        (i32.const 2)
+      #|        (drop)
+      #|        (local.get 0)
+      #|        (br_if $outer)))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(1)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(2)"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding keeps br-table block-exit suffixes targeting an enclosing block" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32)
+      #|    (block $outer
+      #|      (block $out
+      #|        (if (local.get 0)
+      #|          (then
+      #|            (i32.const 1)
+      #|            (drop)
+      #|            (i32.const 2)
+      #|            (drop)
+      #|            (local.get 0)
+      #|            (br_table $outer $outer)
+      #|            (br $out)))
+      #|        (i32.const 1)
+      #|        (drop)
+      #|        (i32.const 2)
+      #|        (drop)
+      #|        (local.get 0)
+      #|        (br_table $outer $outer)))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_table"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(1)"),
+    2,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(2)"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "code-folding hoists br-table if-arm suffixes targeting an enclosing block" {
+  let optimized = code_folding_test_run(
+    (
+      #|(module
+      #|  (func (param i32)
+      #|    (block $outer
+      #|      (if (local.get 0)
+      #|        (then
+      #|          (i32.const 1)
+      #|          (drop)
+      #|          (i32.const 2)
+      #|          (drop)
+      #|          (local.get 0)
+      #|          (br_table $outer $outer))
+      #|        (else
+      #|          (i32.const 1)
+      #|          (drop)
+      #|          (i32.const 2)
+      #|          (drop)
+      #|          (local.get 0)
+      #|          (br_table $outer $outer))))))
+      #|,
+    ),
+  )
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_table"), msg=pretty)
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(1)"),
+    1,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    code_folding_test_count_substring(pretty, "i32.const I32(2)"),
+    1,
     msg=pretty,
   )
 }

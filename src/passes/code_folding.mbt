@@ -405,6 +405,18 @@ fn code_folding_node_exits_to_own_block_label(
   let last = @ir.hot_node_get(func, last_id)
   match last.op {
     @ir.HotOp::Br => last.imm0 == label_id && last.child_count == 0
+    @ir.HotOp::BrTable => {
+      if last.child_count != 1 ||
+        @ir.hot_branch_table_default_target(func, last.imm0) != label_id {
+        return false
+      }
+      for target_id in @ir.hot_branch_table_targets(func, last.imm0) {
+        if target_id != label_id {
+          return false
+        }
+      }
+      true
+    }
     _ => false
   }
 }
@@ -681,6 +693,29 @@ fn code_folding_nodes_equal_with_label_map(
       if !code_folding_labels_equal_with_map(left.imm0, right.imm0, label_map) {
         return false
       }
+    @ir.HotOp::BrTable => {
+      if !code_folding_labels_equal_with_map(
+          @ir.hot_branch_table_default_target(func, left.imm0),
+          @ir.hot_branch_table_default_target(func, right.imm0),
+          label_map,
+        ) {
+        return false
+      }
+      let left_targets = @ir.hot_branch_table_targets(func, left.imm0)
+      let right_targets = @ir.hot_branch_table_targets(func, right.imm0)
+      if left_targets.length() != right_targets.length() {
+        return false
+      }
+      for idx = 0; idx < left_targets.length(); idx = idx + 1 {
+        if !code_folding_labels_equal_with_map(
+            left_targets[idx],
+            right_targets[idx],
+            label_map,
+          ) {
+          return false
+        }
+      }
+    }
     @ir.HotOp::CallIndirect
     | @ir.HotOp::CallRef
     | @ir.HotOp::ReturnCallIndirect
