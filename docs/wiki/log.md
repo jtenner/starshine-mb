@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-07] passes/local-cse | LCSE atomic local-only boundary parity
+
+- Reopened the atomic-boundary deferral and implemented the safe Binaryen-positive subset: Starshine now preserves only local-only candidates across linear-memory atomic operations and `struct.atomic.get*`, while keeping atomic roots and atomic-dependent expressions non-reusable.
+- Validation/evidence: Binaryen spot-check `.tmp/lcse-reopen-gaps/atomic-local-only.wat` materialized repeated local-only `i32.add` across `i32.atomic.load`; focused LCSE TDD failed first (`177/178`) and then passed after implementation plus breadth flips (`178/178`); `moon info` still hit the known Moon panic; `moon fmt`, `moon test src/passes` (`1923/1923`), full `moon test` (`5109/5109`), native `src/cmd` build, native spot replay validation, and `bun validate readme-api-sync` passed. Direct `local-cse` compare at `.tmp/pass-fuzz-local-cse-atomic-local-only-10000` requested `10000` cases, compared `9972`, had `9972` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `28` command failures classified as `22` Binaryen empty-recursion-group, `1` Binaryen bad-section-size, and `5` Starshine/tool initializer-expression validation failures.
+- Repeated packed atomic root coverage remains a no-CSE boundary; this slice is local-only boundary precision, not atomic/shared-memory GVN.
+
 ## [2026-06-07] passes/local-cse | LCSE non-null ref.cast_desc_eq descriptor-cast parity
 
 - Reopened the non-null `ref.cast_desc_eq` deferral with fresh Binaryen/tool evidence and implemented the feasible parity subset using two-operand replay. Starshine now caches the defaultable reference and descriptor operands at the first occurrence, then replays the checked non-null descriptor cast at replacement sites instead of appending an invalid non-default result local.

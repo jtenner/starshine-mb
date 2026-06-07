@@ -3238,3 +3238,45 @@ bun scripts/pass-fuzz-compare.ts \
 ```
 
 Results: the focused TDD test failed before implementation (`176/177`) after flipping non-null `ref.cast_desc_eq` from the descriptor boundary test into a positive two-operand replay test, then passed after implementation (`177/177`). `moon fmt` passed; focused LCSE tests passed (`177/177`); `moon test src/passes` passed (`1922/1922`); full `moon test` passed (`5108/5108`); `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); native `src/cmd` build passed with the pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; native non-null descriptor-cast spot replay validated with `wasm-tools validate --features all`; `bun validate readme-api-sync` passed. Direct compare requested `10000`, compared `9972`, reported `9972` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `28` command failures. Agent classification: no LCSE semantic mismatches; command failures were `22` Binaryen empty-recursion-group parser failures, `1` Binaryen bad-section-size parser failure, and `5` Starshine/tool failures on generated table initializer expressions rejected as non-constant.
+
+## Atomic local-only boundary parity on 2026-06-07
+
+A follow-up reopened the broad atomic-boundary deferral and narrowed the feasible slice to local-only expressions across atomic operations. Atomic operations can observe or mutate shared memory / shared-GC state and may participate in concurrency-sensitive ordering, so this slice deliberately does **not** CSE atomic roots or atomic-root-dependent expressions. The safe Binaryen-positive subset is the same local-only principle used for calls and memory writes: a repeated whole tree that only reads unchanged locals can be materialized before an atomic operation and replayed afterward because the atomic operation cannot mutate Wasm locals.
+
+Fresh spot evidence used `.tmp/lcse-reopen-gaps/atomic-local-only.wat`:
+
+```wat
+(module
+ (memory 1 1 shared)
+ (func (param i32 i32)
+  (drop (i32.add (local.get 0) (local.get 1)))
+  (drop (i32.atomic.load (i32.const 0)))
+  (drop (i32.add (local.get 0) (local.get 1)))))
+```
+
+`wasm-tools parse`, `wasm-tools validate --features all`, and `wasm-opt --all-features --local-cse -S` succeeded, and Binaryen materialized the local-only `i32.add` with `local.tee` / `local.get` across the atomic operation. Starshine now models linear-memory atomics and `struct.atomic.get*` in the raw stack/effect layer enough to preserve only local-only active candidates across them. Atomic result roots and atomic-dependent parents carry an atomic-state bit and remain non-reusable; memory/heap/table/global candidates are filtered away at the atomic boundary. Focused tests now cover local-only reuse across atomic loads, load width variants, RMW op/width variants, stores and store width variants, cmpxchg and cmpxchg width variants, wait/notify/fence, and `struct.atomic.get`, while the repeated packed atomic root test remains a no-CSE boundary.
+
+Validation evidence:
+
+```sh
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon info
+moon build --target native --release src/cmd
+target/native/release/build/cmd/cmd.exe --local-cse -o .tmp/lcse-reopen-gaps/atomic-local-only.starshine.wasm .tmp/lcse-reopen-gaps/atomic-local-only.wasm
+wasm-tools validate --features all .tmp/lcse-reopen-gaps/atomic-local-only.starshine.wasm
+bun validate readme-api-sync
+bun scripts/pass-fuzz-compare.ts \
+  --count 10000 \
+  --seed 0x5eed \
+  --pass local-cse \
+  --out-dir .tmp/pass-fuzz-local-cse-atomic-local-only-10000 \
+  --jobs auto \
+  --starshine-bin target/native/release/build/cmd/cmd.exe \
+  --max-failures 2000 \
+  --keep-going-after-command-failures
+```
+
+Results: focused TDD failed first on the new atomic-load local-only positive (`177/178`) and then passed after implementation and breadth flips (`178/178`); `moon fmt` passed; `moon test src/passes` passed (`1923/1923`); full `moon test` passed (`5109/5109`); `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); native `src/cmd` build passed with the pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; native atomic spot replay validated with `wasm-tools validate --features all`; `bun validate readme-api-sync` passed. Direct compare requested `10000`, compared `9972`, reported `9972` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `28` command failures. Agent classification: no LCSE semantic mismatches; command failures were `22` Binaryen empty-recursion-group parser failures, `1` Binaryen bad-section-size parser failure, and `5` Starshine/tool failures on generated table initializer expressions rejected as non-constant.

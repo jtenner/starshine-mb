@@ -4146,7 +4146,7 @@ test "local-cse does not reuse array.get across array.set" {
 }
 
 ///|
-test "local-cse defers local-only reuse across linear atomic operations" {
+test "local-cse reuses local-only expression across atomic load" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let memarg = @lib.MemArg::new(@lib.U32(2U), None, @lib.U64(0UL))
   let func_type = @lib.RecType::new(
@@ -4178,6 +4178,46 @@ test "local-cse defers local-only reuse across linear atomic operations" {
             @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
             @lib.Instruction::i32_add(),
             @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  let temp = @lib.LocalIdx::new(2U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+}
+
+///|
+test "local-cse reuses local-only expression across atomic rmw" {
+  let func_type_idx = @lib.TypeIdx::new(0U)
+  let memarg = @lib.MemArg::new(@lib.U32(2U), None, @lib.U64(0UL))
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], []),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_mem_sec(
+      @lib.MemSec::new([
+        @lib.MemType::new(@lib.Limits::i32(1U, Some(1U)), shared=true),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::i32_add(),
+            @lib.Instruction::drop(),
             @lib.Instruction::i32_const(0),
             @lib.Instruction::i32_const(1),
             @lib.Instruction::atomic_rmw(@lib.AtomicRmwOp::i32_add(), memarg),
@@ -4194,12 +4234,14 @@ test "local-cse defers local-only reuse across linear atomic operations" {
   let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
     optimized,
   )
-  @debug.assert_eq(locals, @lib.Locals::from_types([]))
-  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(2U)), 0)
+  let temp = @lib.LocalIdx::new(2U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
 }
 
 ///|
-test "local-cse defers local-only reuse across atomic load width variants" {
+test "local-cse reuses local-only expression across atomic load width variants" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let memarg8 = @lib.MemArg::new(@lib.U32(0U), None, @lib.U64(0UL))
   let memarg16 = @lib.MemArg::new(@lib.U32(1U), None, @lib.U64(2UL))
@@ -4256,15 +4298,17 @@ test "local-cse defers local-only reuse across atomic load width variants" {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        let temp = @lib.LocalIdx::new(2U)
+        @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+        @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+        @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
       }
     None => fail("expected code section")
   }
 }
 
 ///|
-test "local-cse defers local-only reuse across atomic rmw variants" {
+test "local-cse reuses local-only expression across atomic rmw variants" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let memarg8 = @lib.MemArg::new(@lib.U32(0U), None, @lib.U64(0UL))
   let memarg16 = @lib.MemArg::new(@lib.U32(1U), None, @lib.U64(2UL))
@@ -4348,15 +4392,17 @@ test "local-cse defers local-only reuse across atomic rmw variants" {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        let temp = @lib.LocalIdx::new(2U)
+        @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+        @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+        @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
       }
     None => fail("expected code section")
   }
 }
 
 ///|
-test "local-cse defers local-only reuse across atomic store width variants" {
+test "local-cse reuses local-only expression across atomic store width variants" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let memarg8 = @lib.MemArg::new(@lib.U32(0U), None, @lib.U64(0UL))
   let memarg16 = @lib.MemArg::new(@lib.U32(1U), None, @lib.U64(2UL))
@@ -4428,15 +4474,17 @@ test "local-cse defers local-only reuse across atomic store width variants" {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        let temp = @lib.LocalIdx::new(2U)
+        @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+        @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+        @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
       }
     None => fail("expected code section")
   }
 }
 
 ///|
-test "local-cse defers local-only reuse across atomic stores" {
+test "local-cse reuses local-only expression across atomic stores" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let memarg32 = @lib.MemArg::new(@lib.U32(2U), None, @lib.U64(0UL))
   let memarg32_narrow = @lib.MemArg::new(@lib.U32(2U), None, @lib.U64(4UL))
@@ -4494,15 +4542,17 @@ test "local-cse defers local-only reuse across atomic stores" {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        let temp = @lib.LocalIdx::new(2U)
+        @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+        @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+        @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
       }
     None => fail("expected code section")
   }
 }
 
 ///|
-test "local-cse defers local-only reuse across atomic cmpxchg" {
+test "local-cse reuses local-only expression across atomic cmpxchg" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let memarg = @lib.MemArg::new(@lib.U32(2U), None, @lib.U64(0UL))
   let func_type = @lib.RecType::new(
@@ -4547,12 +4597,14 @@ test "local-cse defers local-only reuse across atomic cmpxchg" {
   let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
     optimized,
   )
-  @debug.assert_eq(locals, @lib.Locals::from_types([]))
-  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(2U)), 0)
+  let temp = @lib.LocalIdx::new(2U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
 }
 
 ///|
-test "local-cse defers local-only reuse across atomic cmpxchg width variants" {
+test "local-cse reuses local-only expression across atomic cmpxchg width variants" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let memarg8 = @lib.MemArg::new(@lib.U32(0U), None, @lib.U64(0UL))
   let memarg16 = @lib.MemArg::new(@lib.U32(1U), None, @lib.U64(2UL))
@@ -4631,15 +4683,17 @@ test "local-cse defers local-only reuse across atomic cmpxchg width variants" {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        let temp = @lib.LocalIdx::new(2U)
+        @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+        @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+        @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
       }
     None => fail("expected code section")
   }
 }
 
 ///|
-test "local-cse defers local-only reuse across atomic wait notify and fence" {
+test "local-cse reuses local-only expression across atomic wait notify and fence" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let memarg32 = @lib.MemArg::new(@lib.U32(2U), None, @lib.U64(0UL))
   let memarg64 = @lib.MemArg::new(@lib.U32(3U), None, @lib.U64(0UL))
@@ -4648,14 +4702,99 @@ test "local-cse defers local-only reuse across atomic wait notify and fence" {
       @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], []),
     ),
   )
+  let body_for = fn(middle : Array[@lib.Instruction]) {
+    let instrs : Array[@lib.Instruction] = [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::i32_add(),
+      @lib.Instruction::drop(),
+    ]
+    for instr in middle {
+      instrs.push(instr)
+    }
+    instrs.push(@lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+    instrs.push(@lib.Instruction::local_get(@lib.LocalIdx::new(1U)))
+    instrs.push(@lib.Instruction::i32_add())
+    instrs.push(@lib.Instruction::drop())
+    @lib.Func::new(@lib.Locals::from_types([]), @lib.Expr::new(instrs))
+  }
   let input = @lib.Module::new()
     .with_type_sec(@lib.TypeSec::new([func_type]))
-    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
+    .with_func_sec(
+      @lib.FuncSec::new([
+        func_type_idx, func_type_idx, func_type_idx, func_type_idx,
+      ]),
+    )
     .with_mem_sec(
       @lib.MemSec::new([
         @lib.MemType::new(@lib.Limits::i32(1U, Some(1U)), shared=true),
       ]),
     )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        body_for([
+          @lib.Instruction::i32_const(0),
+          @lib.Instruction::i32_const(1),
+          @lib.Instruction::memory_atomic_notify(memarg32),
+          @lib.Instruction::drop(),
+        ]),
+        body_for([
+          @lib.Instruction::i32_const(0),
+          @lib.Instruction::i32_const(0),
+          @lib.Instruction::i64_const(0L),
+          @lib.Instruction::memory_atomic_wait32(memarg32),
+          @lib.Instruction::drop(),
+        ]),
+        body_for([
+          @lib.Instruction::i32_const(0),
+          @lib.Instruction::i64_const(0L),
+          @lib.Instruction::i64_const(0L),
+          @lib.Instruction::memory_atomic_wait64(memarg64),
+          @lib.Instruction::drop(),
+        ]),
+        body_for([@lib.Instruction::atomic_fence()]),
+      ]),
+    )
+  let optimized = local_cse_run_module_pass(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      for func in funcs {
+        let @lib.Func(locals, @lib.Expr(instrs)) = func
+        let temp = @lib.LocalIdx::new(2U)
+        @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+        @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+        @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
+test "local-cse reuses local-only expression across struct atomic get" {
+  let struct_type_idx = @lib.TypeIdx::new(0U)
+  let func_type_idx = @lib.TypeIdx::new(1U)
+  let struct_ref = @lib.ValType::ref_null(@lib.HeapType::new(struct_type_idx))
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+      ]),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func(
+        [@lib.ValType::i32(), @lib.ValType::i32(), struct_ref],
+        [],
+      ),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
+    .with_func_sec(@lib.FuncSec::new([func_type_idx]))
     .with_code_sec(
       @lib.CodeSec::new([
         @lib.Func::new(
@@ -4665,33 +4804,13 @@ test "local-cse defers local-only reuse across atomic wait notify and fence" {
             @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
             @lib.Instruction::i32_add(),
             @lib.Instruction::drop(),
-            @lib.Instruction::i32_const(0),
-            @lib.Instruction::i32_const(1),
-            @lib.Instruction::memory_atomic_notify(memarg32),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::struct_atomic_get(
+              @lib.AtomicOrder::seq_cst(),
+              struct_type_idx,
+              @lib.U32(0U),
+            ),
             @lib.Instruction::drop(),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
-            @lib.Instruction::i32_add(),
-            @lib.Instruction::drop(),
-            @lib.Instruction::i32_const(0),
-            @lib.Instruction::i32_const(0),
-            @lib.Instruction::i64_const(0L),
-            @lib.Instruction::memory_atomic_wait32(memarg32),
-            @lib.Instruction::drop(),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
-            @lib.Instruction::i32_add(),
-            @lib.Instruction::drop(),
-            @lib.Instruction::i32_const(0),
-            @lib.Instruction::i64_const(0L),
-            @lib.Instruction::i64_const(0L),
-            @lib.Instruction::memory_atomic_wait64(memarg64),
-            @lib.Instruction::drop(),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
-            @lib.Instruction::i32_add(),
-            @lib.Instruction::drop(),
-            @lib.Instruction::atomic_fence(),
             @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
             @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
             @lib.Instruction::i32_add(),
@@ -4704,30 +4823,10 @@ test "local-cse defers local-only reuse across atomic wait notify and fence" {
   let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
     optimized,
   )
-  @debug.assert_eq(locals, @lib.Locals::from_types([]))
-  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(2U)), 0)
-}
-
-///|
-test "local-cse defers local-only reuse across struct atomic get" {
-  let input =
-    #| (module
-    #|   (type $box (sub (struct (field i32))))
-    #|   (global $g (mut (ref null $box)) (ref.null $box))
-    #|   (func (param i32 i32)
-    #|     (drop (i32.add (local.get 0) (local.get 1)))
-    #|     (drop (struct.atomic.get acq_rel $box 0 (global.get $g)))
-    #|     (drop (i32.add (local.get 0) (local.get 1)))))
-    #|
-  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected local-cse pipeline success, got \{err}")
-  }
-  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
-    optimized,
-  )
-  @debug.assert_eq(locals, @lib.Locals::from_types([]))
-  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(2U)), 0)
+  let temp = @lib.LocalIdx::new(3U)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, temp), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, temp), 1)
 }
 
 ///|

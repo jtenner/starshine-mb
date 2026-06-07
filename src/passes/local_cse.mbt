@@ -41,6 +41,7 @@ priv struct LcseRawExpr {
   reads_table_state : Bool
   reads_global : Bool
   reads_heap : Bool
+  reads_atomic : Bool
   cache_child_for_replay : Bool
   mut repeat_of : Int
   mut local_id : Int
@@ -939,6 +940,80 @@ fn lcse_instr_is_store(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn lcse_raw_instr_is_atomic(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Instruction::MemoryAtomicNotify(_)
+    | @lib.Instruction::MemoryAtomicWait32(_)
+    | @lib.Instruction::MemoryAtomicWait64(_)
+    | @lib.Instruction::AtomicFence
+    | @lib.Instruction::I32AtomicLoad(_)
+    | @lib.Instruction::I64AtomicLoad(_)
+    | @lib.Instruction::I32AtomicLoad8U(_)
+    | @lib.Instruction::I32AtomicLoad16U(_)
+    | @lib.Instruction::I64AtomicLoad8U(_)
+    | @lib.Instruction::I64AtomicLoad16U(_)
+    | @lib.Instruction::I64AtomicLoad32U(_)
+    | @lib.Instruction::I32AtomicStore(_)
+    | @lib.Instruction::I64AtomicStore(_)
+    | @lib.Instruction::I32AtomicStore8(_)
+    | @lib.Instruction::I32AtomicStore16(_)
+    | @lib.Instruction::I64AtomicStore8(_)
+    | @lib.Instruction::I64AtomicStore16(_)
+    | @lib.Instruction::I64AtomicStore32(_)
+    | @lib.Instruction::AtomicRmw(_, _)
+    | @lib.Instruction::AtomicCmpxchg(_, _)
+    | @lib.Instruction::StructAtomicGet(_, _, _)
+    | @lib.Instruction::StructAtomicGetS(_, _, _)
+    | @lib.Instruction::StructAtomicGetU(_, _, _) => true
+    _ => false
+  }
+}
+
+///|
+fn lcse_raw_atomic_rmw_result_type(op : @lib.AtomicRmwOp) -> @lib.ValType {
+  match op {
+    @lib.I64AtomicRmwAddOp
+    | @lib.I64AtomicRmw8AddUOp
+    | @lib.I64AtomicRmw16AddUOp
+    | @lib.I64AtomicRmw32AddUOp
+    | @lib.I64AtomicRmwSubOp
+    | @lib.I64AtomicRmw8SubUOp
+    | @lib.I64AtomicRmw16SubUOp
+    | @lib.I64AtomicRmw32SubUOp
+    | @lib.I64AtomicRmwAndOp
+    | @lib.I64AtomicRmw8AndUOp
+    | @lib.I64AtomicRmw16AndUOp
+    | @lib.I64AtomicRmw32AndUOp
+    | @lib.I64AtomicRmwOrOp
+    | @lib.I64AtomicRmw8OrUOp
+    | @lib.I64AtomicRmw16OrUOp
+    | @lib.I64AtomicRmw32OrUOp
+    | @lib.I64AtomicRmwXorOp
+    | @lib.I64AtomicRmw8XorUOp
+    | @lib.I64AtomicRmw16XorUOp
+    | @lib.I64AtomicRmw32XorUOp
+    | @lib.I64AtomicRmwXchgOp
+    | @lib.I64AtomicRmw8XchgUOp
+    | @lib.I64AtomicRmw16XchgUOp
+    | @lib.I64AtomicRmw32XchgUOp => @lib.ValType::i64()
+    _ => @lib.ValType::i32()
+  }
+}
+
+///|
+fn lcse_raw_atomic_cmpxchg_result_type(
+  op : @lib.AtomicCmpxchgOp,
+) -> @lib.ValType {
+  match op {
+    @lib.I64AtomicRmwCmpxchgOp
+    | @lib.I64AtomicRmw8CmpxchgUOp
+    | @lib.I64AtomicRmw16CmpxchgUOp
+    | @lib.I64AtomicRmw32CmpxchgUOp => @lib.ValType::i64()
+    _ => @lib.ValType::i32()
+  }
+}
+
+///|
 fn lcse_raw_func_idx_raw(idx : @lib.FuncIdx) -> Int {
   let @lib.FuncIdx(raw) = idx
   raw.reinterpret_as_int()
@@ -1176,6 +1251,9 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::StructGet(_, _)
     | @lib.Instruction::StructGetS(_, _)
     | @lib.Instruction::StructGetU(_, _)
+    | @lib.Instruction::StructAtomicGet(_, _, _)
+    | @lib.Instruction::StructAtomicGetS(_, _, _)
+    | @lib.Instruction::StructAtomicGetU(_, _, _)
     | @lib.Instruction::ArrayLen => Some(1)
     @lib.Instruction::RefCastDescEq(_, _)
     | @lib.Instruction::StructSet(_, _)
@@ -1196,6 +1274,26 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::TableCopy(_, _)
     | @lib.Instruction::TableFill(_)
     | @lib.Instruction::TableInit(_, _) => Some(3)
+    @lib.Instruction::MemoryAtomicNotify(_) => Some(2)
+    @lib.Instruction::MemoryAtomicWait32(_)
+    | @lib.Instruction::MemoryAtomicWait64(_)
+    | @lib.Instruction::AtomicCmpxchg(_, _) => Some(3)
+    @lib.Instruction::AtomicFence => Some(0)
+    @lib.Instruction::I32AtomicLoad(_)
+    | @lib.Instruction::I64AtomicLoad(_)
+    | @lib.Instruction::I32AtomicLoad8U(_)
+    | @lib.Instruction::I32AtomicLoad16U(_)
+    | @lib.Instruction::I64AtomicLoad8U(_)
+    | @lib.Instruction::I64AtomicLoad16U(_)
+    | @lib.Instruction::I64AtomicLoad32U(_) => Some(1)
+    @lib.Instruction::I32AtomicStore(_)
+    | @lib.Instruction::I64AtomicStore(_)
+    | @lib.Instruction::I32AtomicStore8(_)
+    | @lib.Instruction::I32AtomicStore16(_)
+    | @lib.Instruction::I64AtomicStore8(_)
+    | @lib.Instruction::I64AtomicStore16(_)
+    | @lib.Instruction::I64AtomicStore32(_)
+    | @lib.Instruction::AtomicRmw(_, _) => Some(2)
     @lib.Instruction::V128Load8Lane(_, _)
     | @lib.Instruction::V128Load16Lane(_, _)
     | @lib.Instruction::V128Load32Lane(_, _)
@@ -1352,9 +1450,17 @@ fn lcse_raw_result_type(
     | @lib.Instruction::I31GetU
     | @lib.Instruction::StructGetS(_, _)
     | @lib.Instruction::StructGetU(_, _)
+    | @lib.Instruction::StructAtomicGetS(_, _, _)
+    | @lib.Instruction::StructAtomicGetU(_, _, _)
     | @lib.Instruction::ArrayGetS(_)
     | @lib.Instruction::ArrayGetU(_)
-    | @lib.Instruction::ArrayLen => Some(@lib.ValType::i32())
+    | @lib.Instruction::ArrayLen
+    | @lib.Instruction::MemoryAtomicNotify(_)
+    | @lib.Instruction::MemoryAtomicWait32(_)
+    | @lib.Instruction::MemoryAtomicWait64(_)
+    | @lib.Instruction::I32AtomicLoad(_)
+    | @lib.Instruction::I32AtomicLoad8U(_)
+    | @lib.Instruction::I32AtomicLoad16U(_) => Some(@lib.ValType::i32())
     @lib.Instruction::I64Const(_)
     | @lib.Instruction::I64Load(_)
     | @lib.Instruction::I64Load8S(_)
@@ -1376,7 +1482,11 @@ fn lcse_raw_result_type(
     | @lib.Instruction::I64TruncF32S
     | @lib.Instruction::I64TruncF32U
     | @lib.Instruction::I64TruncF64S
-    | @lib.Instruction::I64TruncF64U => Some(@lib.ValType::i64())
+    | @lib.Instruction::I64TruncF64U
+    | @lib.Instruction::I64AtomicLoad(_)
+    | @lib.Instruction::I64AtomicLoad8U(_)
+    | @lib.Instruction::I64AtomicLoad16U(_)
+    | @lib.Instruction::I64AtomicLoad32U(_) => Some(@lib.ValType::i64())
     @lib.Instruction::F32Const(_)
     | @lib.Instruction::F32Load(_)
     | @lib.Instruction::F32Abs
@@ -1452,8 +1562,13 @@ fn lcse_raw_result_type(
     @lib.Instruction::ExternConvertAny => Some(@lib.ValType::externref())
     @lib.Instruction::RefFunc(_) | @lib.Instruction::TableGet(_) =>
       Some(@lib.ValType::funcref())
-    @lib.Instruction::StructGet(type_idx, field_idx) =>
+    @lib.Instruction::StructGet(type_idx, field_idx)
+    | @lib.Instruction::StructAtomicGet(_, type_idx, field_idx) =>
       lcse_raw_struct_field_type(subtypes, type_idx, field_idx)
+    @lib.Instruction::AtomicRmw(op, _) =>
+      Some(lcse_raw_atomic_rmw_result_type(op))
+    @lib.Instruction::AtomicCmpxchg(op, _) =>
+      Some(lcse_raw_atomic_cmpxchg_result_type(op))
     @lib.Instruction::ArrayGet(type_idx) =>
       lcse_raw_array_field_type(subtypes, type_idx)
     @lib.Instruction::Select(_) =>
@@ -1704,7 +1819,8 @@ fn lcse_raw_filter_active_local_only(
         !expr.reads_memory_size &&
         !expr.reads_table_state &&
         !expr.reads_global &&
-        !expr.reads_heap {
+        !expr.reads_heap &&
+        !expr.reads_atomic {
         keep.push(expr_id)
       }
     }
@@ -1869,7 +1985,12 @@ fn lcse_raw_scan_nested_repeats(
         }
       @lib.Instruction::CallIndirect(_, _) | @lib.Instruction::CallRef(_) =>
         lcse_raw_filter_active_local_only(exprs, active)
-      other => if lcse_raw_instr_clears_nested_window(other) { active.clear() }
+      other =>
+        if lcse_raw_instr_is_atomic(other) {
+          lcse_raw_filter_active_local_only(exprs, active)
+        } else if lcse_raw_instr_clears_nested_window(other) {
+          active.clear()
+        }
     }
     idx += 1
   }
@@ -2131,6 +2252,8 @@ fn lcse_raw_rewrite_instrs(
         }
       @lib.Instruction::CallIndirect(_, _) | @lib.Instruction::CallRef(_) =>
         lcse_raw_filter_active_local_only(exprs, active)
+      _ if lcse_raw_instr_is_atomic(instr) =>
+        lcse_raw_filter_active_local_only(exprs, active)
       @lib.Instruction::MemoryGrow(_) =>
         lcse_raw_filter_active_without_memory_or_size(exprs, active)
       @lib.Instruction::MemoryCopy(_, _)
@@ -2192,12 +2315,16 @@ fn lcse_raw_rewrite_instrs(
           @lib.Instruction::StructGet(_, _)
           | @lib.Instruction::StructGetS(_, _)
           | @lib.Instruction::StructGetU(_, _)
+          | @lib.Instruction::StructAtomicGet(_, _, _)
+          | @lib.Instruction::StructAtomicGetS(_, _, _)
+          | @lib.Instruction::StructAtomicGetU(_, _, _)
           | @lib.Instruction::ArrayGet(_)
           | @lib.Instruction::ArrayGetS(_)
           | @lib.Instruction::ArrayGetU(_)
           | @lib.Instruction::ArrayLen => true
           _ => false
         }
+        let mut reads_atomic = lcse_raw_instr_is_atomic(instr)
         for child in children {
           let child_expr = exprs[child]
           if child_expr.start < start {
@@ -2224,6 +2351,9 @@ fn lcse_raw_rewrite_instrs(
           if child_expr.reads_heap {
             reads_heap = true
           }
+          if child_expr.reads_atomic {
+            reads_atomic = true
+          }
         }
         match instr {
           @lib.Instruction::LocalGet(local_idx) => {
@@ -2243,6 +2373,7 @@ fn lcse_raw_rewrite_instrs(
         let reusable_root = match instr {
           @lib.Instruction::MemoryGrow(_) | @lib.Instruction::TableGrow(_) =>
             false
+          _ if reads_atomic => false
           _ => !reads_table_state && can_cache_child_for_replay
         }
         let materializable_root = cache_child_for_replay || @lib.has_default(ty)
@@ -2271,6 +2402,7 @@ fn lcse_raw_rewrite_instrs(
           reads_table_state,
           reads_global,
           reads_heap,
+          reads_atomic,
           cache_child_for_replay,
           repeat_of: -1,
           local_id: -1,
