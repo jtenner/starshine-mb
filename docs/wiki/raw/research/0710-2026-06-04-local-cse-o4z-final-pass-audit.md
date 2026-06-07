@@ -1,7 +1,7 @@
 ---
 kind: research
 status: supported
-last_reviewed: 2026-06-06
+last_reviewed: 2026-06-07
 sources:
   - ../binaryen/2026-06-04-local-cse-version-130-current-audit-refresh.md
   - ../../binaryen/passes/local-cse/index.md
@@ -2698,3 +2698,46 @@ bun scripts/pass-fuzz-compare.ts --replay-failures-from .tmp/pass-fuzz-local-cse
 Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`160/160`); `moon test src/passes` passed (`1905/1905`); full `moon test` passed (`5090/5090`); native `src/cmd` build succeeded with pre-existing unused-function warnings in `src/passes/pass_manager.mbt`; and the required 100000-case direct compare reached `99747/100000` compared cases, `99744` normalized matches, `0` compare-normalized matches, `0` validation/property/generator failures, `253` Binaryen/tool command failures, and `3` mismatches.
 
 Agent classification: the compare command failures are oracle/tool failures, not Starshine semantic failures: `221` `binaryen-rec-group-zero`, `8` `binaryen-bad-section-size`, `10` `binaryen-table-index-out-of-range`, `2` `binaryen-invalid-tag-index`, `10` `binaryen-command-failed`, and `2` `binaryen-invalid-type-index`. The three mismatches are semantic-safe unreachable/control-debris representation drift, not reference-conversion or LCSE semantic mismatches: cases `23083`, `46375`, and `82547` differ by Binaryen removing unobservable `drop (unreachable)` / nested dropped-unreachable wrappers while Starshine preserves them before a following `unreachable`. Replaying the three mismatches with `--normalize unreachable-control-debris` produced `2` compare-normalized matches and `1` remaining nested-wrapper mismatch; manual inspection classifies the remaining nested `drop (drop (unreachable))` before `unreachable` as the same semantic-safe unreachable-tail debris family.
+
+## Dropped-unreachable cleanup and non-relaxed SIMD root parity on 2026-06-07
+
+Slice `[O4Z-AUDIT-LCSE-PARITY]004` superseded the remaining `[O4Z-AUDIT-LCSE-PARITY]003` mismatch classification by making Starshine remove the unobservable dropped-unreachable/control debris instead of carrying it as accepted raw drift. The cleanup is intentionally local: it removes `drop (unreachable)`, nested dropped-unreachable wrappers, and branchless dropped/result-block debris only when an immediately following hard `unreachable` remains as the trap tail. Branch-bearing block bodies are not flattened by this cleanup.
+
+The same slice moved non-relaxed pure SIMD roots from conservative deferral to Binaryen behavior parity. Starshine now models operand counts and result types for repeated pure SIMD roots that produce `v128`, `i32`, `i64`, `f32`, or `f64` temp locals. This includes comparison masks, splats, replace-lane, shuffle/swizzle, `v128.not`/logic/bitselect, any-true/all-true/bitmask, integer vector arithmetic, float min/max and rounding, widening/narrowing, conversions, and lane extracts. It deliberately still excludes relaxed SIMD and all SIMD memory roots because those need separate nondeterminism and memory-state reasoning.
+
+Binaryen spot-check:
+
+```sh
+wasm-opt --all-features --local-cse -S \
+  -o .tmp/lcse-parity004-simd/simd-spot.binaryen.wat \
+  .tmp/lcse-parity004-simd/simd-spot.wat
+```
+
+Result: Binaryen emitted fresh `v128` and scalar locals with `local.tee` / `local.get` materialization for representative `v128.not`, `i8x16.eq`, `i32x4.splat`, `f32x4.splat`, `i8x16.extract_lane_s`, `v128.any_true`, and `i8x16.bitmask` repeats.
+
+TDD and implementation evidence:
+
+- Added failing-first debris tests for simple dropped unreachable, nested dropped unreachable, result-block/unreachable debris, valueless result-block debris, and branchless void-block debris before a hard `unreachable`.
+- Flipped the existing non-relaxed SIMD deferral fixtures to positives across pure roots, comparisons, splats, replace-lane, shuffle/swizzle, any-true/all-true/bitmask, wider arithmetic/logic, extended integer arithmetic, float min/max, float rounding, widening/narrowing, conversions, and lane extracts.
+- Kept relaxed SIMD and SIMD memory deferral fixtures unchanged.
+- `src/passes/local_cse.mbt` now has a non-relaxed SIMD operand/result model and the local unreachable-debris cleanup guarded by an immediately following hard `unreachable` and branchless block bodies.
+
+Validation evidence for this slice:
+
+```sh
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt # first runs failed before fixes
+wasm-opt --all-features --local-cse -S -o .tmp/lcse-parity004-simd/simd-spot.binaryen.wat .tmp/lcse-parity004-simd/simd-spot.wat
+moon info
+moon fmt
+moon test --package jtenner/starshine/passes --file local_cse_test.mbt
+moon test src/passes
+moon test
+moon build --target native --release src/cmd
+bun validate readme-api-sync
+bun scripts/pass-fuzz-compare.ts --replay-failures-from .tmp/pass-fuzz-local-cse-parity003-ref-convert-100000 --failure-status mismatch --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-drop-unreachable-simd-replay2 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass local-cse --out-dir .tmp/pass-fuzz-local-cse-drop-unreachable-simd-100000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+```
+
+Results: `moon info` still hit the known Moon panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt` passed; focused LCSE tests passed (`165/165`); `moon test src/passes` passed (`1910/1910`); full `moon test` passed (`5095/5095`); native `src/cmd` build succeeded; `bun validate readme-api-sync` passed; and the previous three mismatch cases replayed as raw normalized matches (`3/3`, `0` mismatches) at `.tmp/pass-fuzz-local-cse-drop-unreachable-simd-replay2`.
+
+The required 100000-case direct compare at `.tmp/pass-fuzz-local-cse-drop-unreachable-simd-100000` reached `99747/100000` compared cases, `99747` normalized matches, `0` compare-normalized matches, `0` validation/property/generator failures, `253` Binaryen/tool command failures, and `0` mismatches. Agent classification: no LCSE semantic mismatch remains in this lane; the command failures are Binaryen/tool failures, not Starshine semantic failures: `221` `binaryen-rec-group-zero`, `8` `binaryen-bad-section-size`, `10` `binaryen-table-index-out-of-range`, `2` `binaryen-invalid-tag-index`, `10` `binaryen-command-failed`, and `2` `binaryen-invalid-type-index`.

@@ -65,6 +65,77 @@ fn lcse_test_count_any_local_tee(instrs : Array[@lib.Instruction]) -> Int {
 }
 
 ///|
+fn lcse_test_count_drop(instrs : Array[@lib.Instruction]) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Instruction::Drop => count += 1
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+        count += lcse_test_count_drop(body)
+      @lib.Instruction::If(_, then_body, Some(else_body)) => {
+        count += lcse_test_count_drop(then_body)
+        count += lcse_test_count_drop(else_body)
+      }
+      @lib.Instruction::If(_, then_body, None) =>
+        count += lcse_test_count_drop(then_body)
+      @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        count += lcse_test_count_drop(body)
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn lcse_test_count_unreachable(instrs : Array[@lib.Instruction]) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Instruction::Unreachable => count += 1
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+        count += lcse_test_count_unreachable(body)
+      @lib.Instruction::If(_, then_body, Some(else_body)) => {
+        count += lcse_test_count_unreachable(then_body)
+        count += lcse_test_count_unreachable(else_body)
+      }
+      @lib.Instruction::If(_, then_body, None) =>
+        count += lcse_test_count_unreachable(then_body)
+      @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        count += lcse_test_count_unreachable(body)
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn lcse_test_count_block(instrs : Array[@lib.Instruction]) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Instruction::Block(_, @lib.Expr(body)) => {
+        count += 1
+        count += lcse_test_count_block(body)
+      }
+      @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+        count += lcse_test_count_block(body)
+      @lib.Instruction::If(_, then_body, Some(else_body)) => {
+        count += lcse_test_count_block(then_body)
+        count += lcse_test_count_block(else_body)
+      }
+      @lib.Instruction::If(_, then_body, None) =>
+        count += lcse_test_count_block(then_body)
+      @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        count += lcse_test_count_block(body)
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
 fn lcse_test_count_local_get(
   instrs : Array[@lib.Instruction],
   local_idx : @lib.LocalIdx,
@@ -765,7 +836,7 @@ test "local-cse reuses repeated float equality roots" {
 }
 
 ///|
-test "local-cse defers repeated SIMD pure roots" {
+test "local-cse reuses repeated SIMD pure roots" {
   let v128_ty = @lib.ValType::v128()
   let func_type_idx = @lib.TypeIdx::new(0U)
   let func_type = @lib.RecType::new(
@@ -801,12 +872,15 @@ test "local-cse defers repeated SIMD pure roots" {
   let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
     optimized,
   )
-  @debug.assert_eq(locals, @lib.Locals::from_types([]))
-  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(2U)), 0)
+  @debug.assert_eq(locals, @lib.Locals::from_types([v128_ty, v128_ty]))
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(2U)), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, @lib.LocalIdx::new(2U)), 1)
+  @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(3U)), 1)
+  @debug.assert_eq(lcse_test_count_local_get(instrs, @lib.LocalIdx::new(3U)), 1)
 }
 
 ///|
-test "local-cse defers repeated SIMD comparison roots" {
+test "local-cse reuses repeated SIMD comparison roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(
@@ -863,15 +937,15 @@ test "local-cse defers repeated SIMD comparison roots" {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        ignore(locals)
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 1)
       }
     None => fail("expected code section")
   }
 }
 
 ///|
-test "local-cse defers repeated SIMD splat roots" {
+test "local-cse reuses repeated SIMD splat roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let func_types = [
     @lib.RecType::new(
@@ -927,15 +1001,15 @@ test "local-cse defers repeated SIMD splat roots" {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        ignore(locals)
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 1)
       }
     None => fail("expected code section")
   }
 }
 
 ///|
-test "local-cse defers repeated SIMD replace-lane roots" {
+test "local-cse reuses repeated SIMD replace-lane roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let lane = @lib.LaneIdx::new(0)
   let func_types = [
@@ -1002,15 +1076,15 @@ test "local-cse defers repeated SIMD replace-lane roots" {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        ignore(locals)
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 1)
       }
     None => fail("expected code section")
   }
 }
 
 ///|
-test "local-cse defers repeated SIMD shuffle and swizzle roots" {
+test "local-cse reuses repeated SIMD shuffle and swizzle roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(
@@ -1065,15 +1139,15 @@ test "local-cse defers repeated SIMD shuffle and swizzle roots" {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        ignore(locals)
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 1)
       }
     None => fail("expected code section")
   }
 }
 
 ///|
-test "local-cse defers repeated SIMD any-true all-true and bitmask roots" {
+test "local-cse reuses repeated SIMD any-true all-true and bitmask roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::v128()], [])),
@@ -1117,15 +1191,15 @@ test "local-cse defers repeated SIMD any-true all-true and bitmask roots" {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        ignore(locals)
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 1)
       }
     None => fail("expected code section")
   }
 }
 
 ///|
-test "local-cse defers repeated wider SIMD arithmetic and logic roots" {
+test "local-cse reuses repeated wider SIMD arithmetic and logic roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(
@@ -1206,15 +1280,15 @@ test "local-cse defers repeated wider SIMD arithmetic and logic roots" {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        ignore(locals)
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 1)
       }
     None => fail("expected code section")
   }
 }
 
 ///|
-test "local-cse defers repeated SIMD extended integer arithmetic roots" {
+test "local-cse reuses repeated SIMD extended integer arithmetic roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(
@@ -1286,15 +1360,15 @@ test "local-cse defers repeated SIMD extended integer arithmetic roots" {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        ignore(locals)
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 1)
       }
     None => fail("expected code section")
   }
 }
 
 ///|
-test "local-cse defers repeated SIMD float min max roots" {
+test "local-cse reuses repeated SIMD float min max roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(
@@ -1341,15 +1415,15 @@ test "local-cse defers repeated SIMD float min max roots" {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        ignore(locals)
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 1)
       }
     None => fail("expected code section")
   }
 }
 
 ///|
-test "local-cse defers repeated SIMD float rounding roots" {
+test "local-cse reuses repeated SIMD float rounding roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::v128()], [])),
@@ -1392,15 +1466,15 @@ test "local-cse defers repeated SIMD float rounding roots" {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        ignore(locals)
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 1)
       }
     None => fail("expected code section")
   }
 }
 
 ///|
-test "local-cse defers repeated SIMD widening and narrowing roots" {
+test "local-cse reuses repeated SIMD widening and narrowing roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(
@@ -1474,15 +1548,15 @@ test "local-cse defers repeated SIMD widening and narrowing roots" {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        ignore(locals)
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 1)
       }
     None => fail("expected code section")
   }
 }
 
 ///|
-test "local-cse defers repeated SIMD conversion roots" {
+test "local-cse reuses repeated SIMD conversion roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let func_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::func([@lib.ValType::v128()], [])),
@@ -1527,8 +1601,8 @@ test "local-cse defers repeated SIMD conversion roots" {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        ignore(locals)
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 1)
       }
     None => fail("expected code section")
   }
@@ -1637,7 +1711,7 @@ test "local-cse defers repeated relaxed SIMD roots" {
 }
 
 ///|
-test "local-cse defers repeated SIMD lane-extract roots" {
+test "local-cse reuses repeated SIMD lane-extract roots" {
   let func_type_idx = @lib.TypeIdx::new(0U)
   let lane = @lib.LaneIdx::new(0)
   let func_type = @lib.RecType::new(
@@ -1679,8 +1753,8 @@ test "local-cse defers repeated SIMD lane-extract roots" {
     Some(@lib.CodeSec(funcs)) =>
       for func in funcs {
         let @lib.Func(locals, @lib.Expr(instrs)) = func
-        @debug.assert_eq(locals, @lib.Locals::from_types([]))
-        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 0)
+        ignore(locals)
+        @debug.assert_eq(lcse_test_count_any_local_tee(instrs), 1)
       }
     None => fail("expected code section")
   }
@@ -6185,6 +6259,114 @@ test "local-cse does not reuse expression across unreachable boundary" {
   )
   @debug.assert_eq(locals, @lib.Locals::from_types([]))
   @debug.assert_eq(lcse_test_count_local_tee(instrs, @lib.LocalIdx::new(2U)), 0)
+}
+
+///|
+test "local-cse removes dropped unreachable debris before hard unreachable" {
+  let input =
+    #| (module
+    #|   (func
+    #|     (drop (unreachable))
+    #|     (unreachable)))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_drop(instrs), 0)
+  @debug.assert_eq(lcse_test_count_unreachable(instrs), 1)
+}
+
+///|
+test "local-cse removes nested dropped unreachable debris before hard unreachable" {
+  let input =
+    #| (module
+    #|   (func
+    #|     (drop (drop (unreachable)))
+    #|     (unreachable)))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_drop(instrs), 0)
+  @debug.assert_eq(lcse_test_count_unreachable(instrs), 1)
+}
+
+///|
+test "local-cse removes dropped unreachable block debris before hard unreachable" {
+  let input =
+    #| (module
+    #|   (func (result v128)
+    #|     (block (result f64)
+    #|       (drop
+    #|         (i32x4.trunc_sat_f64x2_s_zero
+    #|           (v128.const i32x4 0x8477c514 0x9702b3f3 0x11fe0a74 0xee94920a)))
+    #|       (unreachable)
+    #|       (unreachable))
+    #|     (unreachable)))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_drop(instrs), 1)
+  @debug.assert_eq(lcse_test_count_unreachable(instrs), 1)
+}
+
+///|
+test "local-cse removes valueless dropped unreachable block debris before hard unreachable" {
+  let input =
+    #| (module
+    #|   (func
+    #|     (block (result f64)
+    #|       (unreachable)
+    #|       (unreachable))
+    #|     (unreachable)))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_drop(instrs), 0)
+  @debug.assert_eq(lcse_test_count_unreachable(instrs), 1)
+}
+
+///|
+test "local-cse inlines branchless void block debris before hard unreachable" {
+  let input =
+    #| (module
+    #|   (func
+    #|     (block
+    #|       (nop))
+    #|     (unreachable)))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["local-cse"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected local-cse pipeline success, got \{err}")
+  }
+  let @lib.Func(locals, @lib.Expr(instrs)) = lcse_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(lcse_test_count_block(instrs), 0)
+  @debug.assert_eq(lcse_test_count_unreachable(instrs), 1)
 }
 
 ///|

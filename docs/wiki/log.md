@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-07] passes/local-cse | LCSE dropped-unreachable cleanup and SIMD parity
+
+- Superseded the prior 100k LCSE unreachable/control-debris mismatch classification by removing the debris in Starshine: dropped `unreachable`, nested dropped-unreachable wrappers, and branchless block/unreachable debris are now cleaned before an immediately following hard `unreachable`.
+- Moved non-relaxed pure SIMD roots from conservative deferral to Binaryen behavior parity with `v128` or scalar temp locals. Relaxed SIMD and SIMD memory roots remain conservative deferrals.
+- Validation/evidence: focused LCSE TDD failed first and then passed (`165/165`); `moon info` still hit the known Moon panic; `moon fmt`, `moon test src/passes` (`1910/1910`), full `moon test` (`5095/5095`), native `src/cmd` build, and `bun validate readme-api-sync` passed. Prior mismatch replay `.tmp/pass-fuzz-local-cse-drop-unreachable-simd-replay2` had `3/3` raw normalized matches; required 100000-case direct compare `.tmp/pass-fuzz-local-cse-drop-unreachable-simd-100000` had `99747/100000` compared, `99747` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `253` Binaryen/tool command failures.
+
 ## [2026-06-06] passes/local-cse | LCSE reference-conversion parity
 
 - Completed `[O4Z-AUDIT-LCSE-PARITY]003` by moving repeated `any.convert_extern` / `extern.convert_any` roots from documented conservative deferral to Binaryen behavior parity. The slice stays narrow: result locals are defaultable nullable `anyref` / `externref`, and it does not add `ref.cast`, `ref.as_non_null`, descriptor, non-null local, or heap-GVN reasoning.

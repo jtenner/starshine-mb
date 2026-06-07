@@ -60,6 +60,273 @@ priv struct LcseRawCallInfo {
 }
 
 ///|
+fn lcse_simd_pure_operand_count(instr : @lib.Instruction) -> Int? {
+  match instr {
+    @lib.Instruction::V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      Some(0)
+    @lib.Instruction::V128Not
+    | @lib.Instruction::V128AnyTrue
+    | @lib.Instruction::I8x16Splat
+    | @lib.Instruction::I16x8Splat
+    | @lib.Instruction::I32x4Splat
+    | @lib.Instruction::I64x2Splat
+    | @lib.Instruction::F32x4Splat
+    | @lib.Instruction::F64x2Splat
+    | @lib.Instruction::I8x16ExtractLaneS(_)
+    | @lib.Instruction::I8x16ExtractLaneU(_)
+    | @lib.Instruction::I16x8ExtractLaneS(_)
+    | @lib.Instruction::I16x8ExtractLaneU(_)
+    | @lib.Instruction::I32x4ExtractLane(_)
+    | @lib.Instruction::I64x2ExtractLane(_)
+    | @lib.Instruction::F32x4ExtractLane(_)
+    | @lib.Instruction::F64x2ExtractLane(_)
+    | @lib.Instruction::I8x16Abs
+    | @lib.Instruction::I8x16Neg
+    | @lib.Instruction::I8x16Popcnt
+    | @lib.Instruction::I8x16AllTrue
+    | @lib.Instruction::I8x16Bitmask
+    | @lib.Instruction::I16x8ExtaddPairwiseI8x16S
+    | @lib.Instruction::I16x8ExtaddPairwiseI8x16U
+    | @lib.Instruction::I32x4ExtaddPairwiseI16x8S
+    | @lib.Instruction::I32x4ExtaddPairwiseI16x8U
+    | @lib.Instruction::I16x8Abs
+    | @lib.Instruction::I16x8Neg
+    | @lib.Instruction::I16x8AllTrue
+    | @lib.Instruction::I16x8Bitmask
+    | @lib.Instruction::I16x8ExtendLowI8x16S
+    | @lib.Instruction::I16x8ExtendHighI8x16S
+    | @lib.Instruction::I16x8ExtendLowI8x16U
+    | @lib.Instruction::I16x8ExtendHighI8x16U
+    | @lib.Instruction::I32x4Abs
+    | @lib.Instruction::I32x4Neg
+    | @lib.Instruction::I32x4AllTrue
+    | @lib.Instruction::I32x4Bitmask
+    | @lib.Instruction::I32x4ExtendLowI16x8S
+    | @lib.Instruction::I32x4ExtendHighI16x8S
+    | @lib.Instruction::I32x4ExtendLowI16x8U
+    | @lib.Instruction::I32x4ExtendHighI16x8U
+    | @lib.Instruction::I64x2Abs
+    | @lib.Instruction::I64x2Neg
+    | @lib.Instruction::I64x2AllTrue
+    | @lib.Instruction::I64x2Bitmask
+    | @lib.Instruction::I64x2ExtendLowI32x4S
+    | @lib.Instruction::I64x2ExtendHighI32x4S
+    | @lib.Instruction::I64x2ExtendLowI32x4U
+    | @lib.Instruction::I64x2ExtendHighI32x4U
+    | @lib.Instruction::F32x4Ceil
+    | @lib.Instruction::F32x4Floor
+    | @lib.Instruction::F32x4Trunc
+    | @lib.Instruction::F32x4Nearest
+    | @lib.Instruction::F32x4Abs
+    | @lib.Instruction::F32x4Neg
+    | @lib.Instruction::F32x4Sqrt
+    | @lib.Instruction::F64x2Ceil
+    | @lib.Instruction::F64x2Floor
+    | @lib.Instruction::F64x2Trunc
+    | @lib.Instruction::F64x2Nearest
+    | @lib.Instruction::F64x2Abs
+    | @lib.Instruction::F64x2Neg
+    | @lib.Instruction::F64x2Sqrt
+    | @lib.Instruction::F32x4DemoteF64x2Zero
+    | @lib.Instruction::F64x2PromoteLowF32x4
+    | @lib.Instruction::I32x4TruncSatF32x4S
+    | @lib.Instruction::I32x4TruncSatF32x4U
+    | @lib.Instruction::F32x4ConvertI32x4S
+    | @lib.Instruction::F32x4ConvertI32x4U
+    | @lib.Instruction::I32x4TruncSatF64x2SZero
+    | @lib.Instruction::I32x4TruncSatF64x2UZero
+    | @lib.Instruction::F64x2ConvertLowI32x4S
+    | @lib.Instruction::F64x2ConvertLowI32x4U => Some(1)
+    @lib.Instruction::I8x16Shuffle(
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _
+    )
+    | @lib.Instruction::I8x16Swizzle
+    | @lib.Instruction::I8x16ReplaceLane(_)
+    | @lib.Instruction::I16x8ReplaceLane(_)
+    | @lib.Instruction::I32x4ReplaceLane(_)
+    | @lib.Instruction::I64x2ReplaceLane(_)
+    | @lib.Instruction::F32x4ReplaceLane(_)
+    | @lib.Instruction::F64x2ReplaceLane(_)
+    | @lib.Instruction::I8x16Eq
+    | @lib.Instruction::I8x16Ne
+    | @lib.Instruction::I8x16LtS
+    | @lib.Instruction::I8x16LtU
+    | @lib.Instruction::I8x16GtS
+    | @lib.Instruction::I8x16GtU
+    | @lib.Instruction::I8x16LeS
+    | @lib.Instruction::I8x16LeU
+    | @lib.Instruction::I8x16GeS
+    | @lib.Instruction::I8x16GeU
+    | @lib.Instruction::I16x8Eq
+    | @lib.Instruction::I16x8Ne
+    | @lib.Instruction::I16x8LtS
+    | @lib.Instruction::I16x8LtU
+    | @lib.Instruction::I16x8GtS
+    | @lib.Instruction::I16x8GtU
+    | @lib.Instruction::I16x8LeS
+    | @lib.Instruction::I16x8LeU
+    | @lib.Instruction::I16x8GeS
+    | @lib.Instruction::I16x8GeU
+    | @lib.Instruction::I32x4Eq
+    | @lib.Instruction::I32x4Ne
+    | @lib.Instruction::I32x4LtS
+    | @lib.Instruction::I32x4LtU
+    | @lib.Instruction::I32x4GtS
+    | @lib.Instruction::I32x4GtU
+    | @lib.Instruction::I32x4LeS
+    | @lib.Instruction::I32x4LeU
+    | @lib.Instruction::I32x4GeS
+    | @lib.Instruction::I32x4GeU
+    | @lib.Instruction::I64x2Eq
+    | @lib.Instruction::I64x2Ne
+    | @lib.Instruction::I64x2LtS
+    | @lib.Instruction::I64x2GtS
+    | @lib.Instruction::I64x2LeS
+    | @lib.Instruction::I64x2GeS
+    | @lib.Instruction::F32x4Eq
+    | @lib.Instruction::F32x4Ne
+    | @lib.Instruction::F32x4Lt
+    | @lib.Instruction::F32x4Gt
+    | @lib.Instruction::F32x4Le
+    | @lib.Instruction::F32x4Ge
+    | @lib.Instruction::F64x2Eq
+    | @lib.Instruction::F64x2Ne
+    | @lib.Instruction::F64x2Lt
+    | @lib.Instruction::F64x2Gt
+    | @lib.Instruction::F64x2Le
+    | @lib.Instruction::F64x2Ge
+    | @lib.Instruction::V128And
+    | @lib.Instruction::V128Andnot
+    | @lib.Instruction::V128Or
+    | @lib.Instruction::V128Xor
+    | @lib.Instruction::I8x16NarrowI16x8S
+    | @lib.Instruction::I8x16NarrowI16x8U
+    | @lib.Instruction::I8x16Shl
+    | @lib.Instruction::I8x16ShrS
+    | @lib.Instruction::I8x16ShrU
+    | @lib.Instruction::I8x16Add
+    | @lib.Instruction::I8x16AddSatS
+    | @lib.Instruction::I8x16AddSatU
+    | @lib.Instruction::I8x16Sub
+    | @lib.Instruction::I8x16SubSatS
+    | @lib.Instruction::I8x16SubSatU
+    | @lib.Instruction::I8x16MinS
+    | @lib.Instruction::I8x16MinU
+    | @lib.Instruction::I8x16MaxS
+    | @lib.Instruction::I8x16MaxU
+    | @lib.Instruction::I8x16AvgrU
+    | @lib.Instruction::I16x8Q15mulrSatS
+    | @lib.Instruction::I16x8NarrowI32x4S
+    | @lib.Instruction::I16x8NarrowI32x4U
+    | @lib.Instruction::I16x8Shl
+    | @lib.Instruction::I16x8ShrS
+    | @lib.Instruction::I16x8ShrU
+    | @lib.Instruction::I16x8Add
+    | @lib.Instruction::I16x8AddSatS
+    | @lib.Instruction::I16x8AddSatU
+    | @lib.Instruction::I16x8Sub
+    | @lib.Instruction::I16x8SubSatS
+    | @lib.Instruction::I16x8SubSatU
+    | @lib.Instruction::I16x8Mul
+    | @lib.Instruction::I16x8MinS
+    | @lib.Instruction::I16x8MinU
+    | @lib.Instruction::I16x8MaxS
+    | @lib.Instruction::I16x8MaxU
+    | @lib.Instruction::I16x8AvgrU
+    | @lib.Instruction::I16x8ExtmulLowI8x16S
+    | @lib.Instruction::I16x8ExtmulHighI8x16S
+    | @lib.Instruction::I16x8ExtmulLowI8x16U
+    | @lib.Instruction::I16x8ExtmulHighI8x16U
+    | @lib.Instruction::I32x4Shl
+    | @lib.Instruction::I32x4ShrS
+    | @lib.Instruction::I32x4ShrU
+    | @lib.Instruction::I32x4Add
+    | @lib.Instruction::I32x4Sub
+    | @lib.Instruction::I32x4Mul
+    | @lib.Instruction::I32x4MinS
+    | @lib.Instruction::I32x4MinU
+    | @lib.Instruction::I32x4MaxS
+    | @lib.Instruction::I32x4MaxU
+    | @lib.Instruction::I32x4DotI16x8S
+    | @lib.Instruction::I32x4ExtmulLowI16x8S
+    | @lib.Instruction::I32x4ExtmulHighI16x8S
+    | @lib.Instruction::I32x4ExtmulLowI16x8U
+    | @lib.Instruction::I32x4ExtmulHighI16x8U
+    | @lib.Instruction::I64x2Shl
+    | @lib.Instruction::I64x2ShrS
+    | @lib.Instruction::I64x2ShrU
+    | @lib.Instruction::I64x2Add
+    | @lib.Instruction::I64x2Sub
+    | @lib.Instruction::I64x2Mul
+    | @lib.Instruction::I64x2ExtmulLowI32x4S
+    | @lib.Instruction::I64x2ExtmulHighI32x4S
+    | @lib.Instruction::I64x2ExtmulLowI32x4U
+    | @lib.Instruction::I64x2ExtmulHighI32x4U
+    | @lib.Instruction::F32x4Add
+    | @lib.Instruction::F32x4Sub
+    | @lib.Instruction::F32x4Mul
+    | @lib.Instruction::F32x4Div
+    | @lib.Instruction::F32x4Min
+    | @lib.Instruction::F32x4Max
+    | @lib.Instruction::F32x4Pmin
+    | @lib.Instruction::F32x4Pmax
+    | @lib.Instruction::F64x2Add
+    | @lib.Instruction::F64x2Sub
+    | @lib.Instruction::F64x2Mul
+    | @lib.Instruction::F64x2Div
+    | @lib.Instruction::F64x2Min
+    | @lib.Instruction::F64x2Max
+    | @lib.Instruction::F64x2Pmin
+    | @lib.Instruction::F64x2Pmax => Some(2)
+    @lib.Instruction::V128Bitselect => Some(3)
+    _ => None
+  }
+}
+
+///|
+fn lcse_simd_pure_result_type(instr : @lib.Instruction) -> @lib.ValType? {
+  match instr {
+    @lib.Instruction::V128AnyTrue
+    | @lib.Instruction::I8x16AllTrue
+    | @lib.Instruction::I8x16Bitmask
+    | @lib.Instruction::I16x8AllTrue
+    | @lib.Instruction::I16x8Bitmask
+    | @lib.Instruction::I32x4AllTrue
+    | @lib.Instruction::I32x4Bitmask
+    | @lib.Instruction::I8x16ExtractLaneS(_)
+    | @lib.Instruction::I8x16ExtractLaneU(_)
+    | @lib.Instruction::I16x8ExtractLaneS(_)
+    | @lib.Instruction::I16x8ExtractLaneU(_)
+    | @lib.Instruction::I32x4ExtractLane(_) => Some(@lib.ValType::i32())
+    @lib.Instruction::I64x2AllTrue
+    | @lib.Instruction::I64x2Bitmask
+    | @lib.Instruction::I64x2ExtractLane(_) => Some(@lib.ValType::i64())
+    @lib.Instruction::F32x4ExtractLane(_) => Some(@lib.ValType::f32())
+    @lib.Instruction::F64x2ExtractLane(_) => Some(@lib.ValType::f64())
+    _ =>
+      match lcse_simd_pure_operand_count(instr) {
+        Some(_) => Some(@lib.ValType::v128())
+        None => None
+      }
+  }
+}
+
+///|
 fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
   match instr {
     @lib.Instruction::I32Add => 1
@@ -221,7 +488,11 @@ fn lcse_candidate_op_id(instr : @lib.Instruction) -> Int {
     @lib.Instruction::Select(_) => 17
     @lib.Instruction::Call(_) => 18
     @lib.Instruction::RefEq => 19
-    _ => -1
+    _ =>
+      match lcse_simd_pure_operand_count(instr) {
+        Some(_) => 161
+        None => -1
+      }
   }
 }
 
@@ -271,6 +542,302 @@ fn lcse_instrs_may_have_repeated_candidate(
     instrs,
     @bitset.BitSet::new(192),
   )
+}
+
+///|
+fn lcse_raw_instr_is_branch_control(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Instruction::Br(_)
+    | @lib.Instruction::BrIf(_)
+    | @lib.Instruction::BrTable(_, _)
+    | @lib.Instruction::BrOnNull(_)
+    | @lib.Instruction::BrOnNonNull(_)
+    | @lib.Instruction::BrOnCast(_, _, _, _)
+    | @lib.Instruction::BrOnCastFail(_, _, _, _)
+    | @lib.Instruction::Return
+    | @lib.Instruction::ReturnCall(_)
+    | @lib.Instruction::ReturnCallIndirect(_, _)
+    | @lib.Instruction::ReturnCallRef(_) => true
+    _ => false
+  }
+}
+
+///|
+fn lcse_raw_instrs_have_branch_control(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if lcse_raw_instr_is_branch_control(instr) {
+      return true
+    }
+    match instr {
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+        if lcse_raw_instrs_have_branch_control(body) {
+          return true
+        }
+      @lib.Instruction::If(_, then_body, Some(else_body)) =>
+        if lcse_raw_instrs_have_branch_control(then_body) ||
+          lcse_raw_instrs_have_branch_control(else_body) {
+          return true
+        }
+      @lib.Instruction::If(_, then_body, None) =>
+        if lcse_raw_instrs_have_branch_control(then_body) {
+          return true
+        }
+      @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        if lcse_raw_instrs_have_branch_control(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn lcse_raw_instrs_end_in_unreachable(instrs : Array[@lib.Instruction]) -> Bool {
+  if instrs.length() == 0 {
+    return false
+  }
+  match instrs[instrs.length() - 1] {
+    @lib.Instruction::Unreachable => true
+    _ => false
+  }
+}
+
+///|
+fn lcse_raw_dropped_block_has_unreachable_tail(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Instruction::Block(_, @lib.Expr(body)) =>
+      lcse_raw_instrs_end_in_unreachable(body) &&
+      !lcse_raw_instrs_have_branch_control(body)
+    _ => false
+  }
+}
+
+///|
+fn lcse_raw_void_block_can_inline_before_unreachable(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Instruction::Block(_, @lib.Expr(body)) =>
+      !lcse_raw_instrs_have_branch_control(body)
+    _ => false
+  }
+}
+
+///|
+fn lcse_instrs_may_have_dropped_unreachable_before_unreachable(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let mut i = 0
+  while i < instrs.length() {
+    match instrs[i] {
+      @lib.Instruction::Unreachable | @lib.Instruction::Block(_, _) => {
+        let mut j = i + 1
+        let mut saw_drop = false
+        while j < instrs.length() {
+          match instrs[j] {
+            @lib.Instruction::Drop => {
+              saw_drop = true
+              j += 1
+            }
+            _ => break
+          }
+        }
+        if j < instrs.length() {
+          match instrs[j] {
+            @lib.Instruction::Unreachable =>
+              match instrs[i] {
+                @lib.Instruction::Unreachable => if saw_drop { return true }
+                other =>
+                  if lcse_raw_dropped_block_has_unreachable_tail(other) ||
+                    lcse_raw_void_block_can_inline_before_unreachable(other) {
+                    return true
+                  }
+              }
+            _ => ()
+          }
+        }
+      }
+      @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+        if lcse_instrs_may_have_dropped_unreachable_before_unreachable(body) {
+          return true
+        }
+      @lib.Instruction::If(_, then_body, Some(else_body)) =>
+        if lcse_instrs_may_have_dropped_unreachable_before_unreachable(
+            then_body,
+          ) ||
+          lcse_instrs_may_have_dropped_unreachable_before_unreachable(else_body) {
+          return true
+        }
+      @lib.Instruction::If(_, then_body, None) =>
+        if lcse_instrs_may_have_dropped_unreachable_before_unreachable(
+            then_body,
+          ) {
+          return true
+        }
+      @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        if lcse_instrs_may_have_dropped_unreachable_before_unreachable(body) {
+          return true
+        }
+      _ => ()
+    }
+    i += 1
+  }
+  false
+}
+
+///|
+fn lcse_raw_collapse_trailing_unreachable_run(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  let mut end = instrs.length()
+  while end > 0 {
+    match instrs[end - 1] {
+      @lib.Instruction::Unreachable => end -= 1
+      _ => break
+    }
+  }
+  if end == instrs.length() {
+    for instr in instrs {
+      out.push(instr)
+    }
+    return out
+  }
+  for idx = 0; idx < end; idx = idx + 1 {
+    out.push(instrs[idx])
+  }
+  out.push(@lib.Instruction::unreachable_())
+  out
+}
+
+///|
+fn lcse_raw_remove_dropped_unreachable_debris(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut i = 0
+  while i < instrs.length() {
+    match instrs[i] {
+      @lib.Instruction::Unreachable | @lib.Instruction::Block(_, _) => {
+        let mut j = i + 1
+        let mut saw_drop = false
+        while j < instrs.length() {
+          match instrs[j] {
+            @lib.Instruction::Drop => {
+              saw_drop = true
+              j += 1
+            }
+            _ => break
+          }
+        }
+        if j < instrs.length() {
+          match instrs[j] {
+            @lib.Instruction::Unreachable =>
+              match instrs[i] {
+                @lib.Instruction::Unreachable =>
+                  if saw_drop {
+                    changed = true
+                    i = j
+                    continue
+                  }
+                @lib.Instruction::Block(_, @lib.Expr(body)) =>
+                  if lcse_raw_dropped_block_has_unreachable_tail(instrs[i]) {
+                    let collapsed = lcse_raw_collapse_trailing_unreachable_run(
+                      body,
+                    )
+                    let (cleaned_body, _) = lcse_raw_remove_dropped_unreachable_debris(
+                      collapsed,
+                    )
+                    for body_instr in cleaned_body {
+                      out.push(body_instr)
+                    }
+                    changed = true
+                    i = j + 1
+                    continue
+                  } else if lcse_raw_void_block_can_inline_before_unreachable(
+                      instrs[i],
+                    ) {
+                    let (cleaned_body, _) = lcse_raw_remove_dropped_unreachable_debris(
+                      body,
+                    )
+                    for body_instr in cleaned_body {
+                      out.push(body_instr)
+                    }
+                    changed = true
+                    i += 1
+                    continue
+                  }
+                _ => ()
+              }
+            _ => ()
+          }
+        }
+      }
+      _ => ()
+    }
+    let rewritten_instr = match instrs[i] {
+      @lib.Instruction::Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = lcse_raw_remove_dropped_unreachable_debris(
+          body,
+        )
+        if body_changed {
+          changed = true
+        }
+        @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.Instruction::Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = lcse_raw_remove_dropped_unreachable_debris(
+          body,
+        )
+        if body_changed {
+          changed = true
+        }
+        @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.Instruction::If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = lcse_raw_remove_dropped_unreachable_debris(
+          then_body,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (body2, changed2) = lcse_raw_remove_dropped_unreachable_debris(
+              body,
+            )
+            (Some(body2), changed2)
+          }
+          None => (None, false)
+        }
+        if then_changed || else_changed {
+          changed = true
+        }
+        @lib.Instruction::if_(block_type, next_then, next_else)
+      }
+      @lib.Instruction::TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = lcse_raw_remove_dropped_unreachable_debris(
+          body,
+        )
+        if body_changed {
+          changed = true
+        }
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(next_body),
+        )
+      }
+      other => other
+    }
+    out.push(rewritten_instr)
+    i += 1
+  }
+  (out, changed)
 }
 
 ///|
@@ -546,12 +1113,16 @@ fn lcse_raw_instr_operand_count(
     | @lib.Instruction::TableFill(_)
     | @lib.Instruction::TableInit(_, _) => Some(3)
     _ =>
-      if lcse_instr_is_store(instr) {
-        Some(2)
-      } else if lcse_instr_is_load(instr) {
-        Some(1)
-      } else {
-        None
+      match lcse_simd_pure_operand_count(instr) {
+        Some(count) => Some(count)
+        None =>
+          if lcse_instr_is_store(instr) {
+            Some(2)
+          } else if lcse_instr_is_load(instr) {
+            Some(1)
+          } else {
+            None
+          }
       }
   }
 }
@@ -662,6 +1233,8 @@ fn lcse_raw_result_type(
     | @lib.Instruction::F64PromoteF32
     | @lib.Instruction::F64ReinterpretI64 => Some(@lib.ValType::f64())
     @lib.Instruction::RefNull(ty) => Some(@lib.ValType::ref_type(ty))
+    @lib.Instruction::V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      Some(@lib.ValType::v128())
     @lib.Instruction::AnyConvertExtern => Some(@lib.ValType::anyref())
     @lib.Instruction::ExternConvertAny => Some(@lib.ValType::externref())
     @lib.Instruction::RefFunc(_) | @lib.Instruction::TableGet(_) =>
@@ -747,7 +1320,7 @@ fn lcse_raw_result_type(
     | @lib.Instruction::F64Le
     | @lib.Instruction::F64Ge
     | @lib.Instruction::RefEq => Some(@lib.ValType::i32())
-    _ => None
+    _ => lcse_simd_pure_result_type(instr)
   }
 }
 
@@ -1344,18 +1917,27 @@ fn lcse_raw_rewrite_func(
   subtypes : Array[@lib.SubType],
 ) -> LcseRawRewrite {
   let @lib.Func(locals, @lib.Expr(instrs)) = func
-  if !lcse_instrs_may_have_repeated_candidate(instrs) {
+  let has_repeated_candidate = lcse_instrs_may_have_repeated_candidate(instrs)
+  let has_dropped_unreachable_debris = lcse_instrs_may_have_dropped_unreachable_before_unreachable(
+    instrs,
+  )
+  if !has_repeated_candidate && !has_dropped_unreachable_debris {
     return { func, changed: false }
   }
   let local_types = cl_flatten_locals(locals, locals.length())
-  let (rewritten, changed) = lcse_raw_rewrite_instrs(
-    instrs, params, local_types, call_infos, subtypes,
+  let (rewritten, rewrite_changed) = if has_repeated_candidate {
+    lcse_raw_rewrite_instrs(instrs, params, local_types, call_infos, subtypes)
+  } else {
+    (instrs, false)
+  }
+  let (cleaned, cleanup_changed) = lcse_raw_remove_dropped_unreachable_debris(
+    rewritten,
   )
-  if changed {
+  if rewrite_changed || cleanup_changed {
     {
       func: @lib.Func::new(
         @lib.Locals::from_types(local_types),
-        @lib.Expr::new(rewritten),
+        @lib.Expr::new(cleaned),
       ),
       changed: true,
     }
