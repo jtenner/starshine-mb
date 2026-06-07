@@ -64,6 +64,11 @@ fn code_folding_label_map_new() -> CodeFoldingLabelMap {
 }
 
 ///|
+fn code_folding_worth_adding_block_threshold() -> Int {
+  3
+}
+
+///|
 fn code_folding_value_exit_tail_branch(
   region_ref : @ir.HotRegionRef,
   branch_idx : Int,
@@ -3266,7 +3271,7 @@ fn code_folding_pick_terminating_tail_group_from_anchor(
       func, anchor_tail, best_len,
     ) *
     (best.length() - 1)
-  if profitability < 3 ||
+  if profitability < code_folding_worth_adding_block_threshold() ||
     code_folding_terminating_suffix_is_tail_call_operands_only(
       func, anchor_tail, best_len,
     ) {
@@ -3561,7 +3566,6 @@ fn code_folding_try_fold_if_then_fallthrough_terminal_at_region(
     ) {
     return false
   }
-
   let hoisted = pass_splice_region(
     ctx,
     func,
@@ -3651,7 +3655,8 @@ fn code_folding_try_fold_if_at_region(
   if result_arity == 0 &&
     then_start == 0 &&
     else_start == 0 &&
-    code_folding_suffix_measure(func, then_ref, then_start, suffix_len) < 3 {
+    code_folding_suffix_measure(func, then_ref, then_start, suffix_len) <
+    code_folding_worth_adding_block_threshold() {
     return false
   }
 
