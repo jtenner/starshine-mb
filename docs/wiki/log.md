@@ -2,12 +2,6 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
-## [2026-06-07] passes/local-cse | LCSE closeout signoff
-
-- Closed the current LCSE gap-reopening lane after the non-null descriptor-cast and atomic local-only slices. Remaining positives without safe/supporting evidence are explicitly accepted as deferrals: `ref.test_desc` is still tool-blocked, `ref.null` / `ref.func` and hand-encoded binary `string.const` repeat probes are Binaryen no-ops, relaxed SIMD remains nondeterminism-blocked, and atomic roots / atomic-dependent CSE remain outside the local-only boundary subset.
-- Final direct compare at `.tmp/pass-fuzz-local-cse-final-100000` requested `100000` cases and compared `99710`: `99709` normalized matches, `0` validation/property/generator failures, `290` tool/Binaryen command failures, and `1` agent-classified semantic-safe size-winning representation mismatch (`case-056513`, Binaryen expands an unreachable multi-value `tuple.drop` into scratch locals while Starshine preserves the smaller trapping shape).
-- No known true LCSE semantic mismatch remains in the active direct-pass lane; exact cleanup/text/size parity and the accepted deferrals are future non-semantic or separately gated work.
-
 ## [2026-06-07] passes/local-cse | LCSE final direct semantic-parity closeout
 
 - Closed the LCSE O4z audit for v0.1.0 direct semantic parity after descriptor-cast, call-boundary, and atomic local-only follow-ups. Implemented positives remain covered; remaining unsupported/nondeterministic/broad-GVN surfaces are accepted conservative deferrals, not active release blockers.

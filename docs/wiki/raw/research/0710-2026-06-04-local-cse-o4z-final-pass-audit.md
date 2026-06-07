@@ -3291,6 +3291,8 @@ The post-atomic closeout reran the standard LCSE ladder after the tracked LCSE t
 - Relaxed SIMD roots remain deliberately deferred despite Binaryen-positive spot output for `i8x16.relaxed_swizzle`, because the relaxed-SIMD proposal permits nondeterministic choices and CSEing a repeated relaxed operation is not generally semantic-preserving under the spec model.
 - Atomic roots and atomic-dependent expressions remain non-reusable; only local-only expressions across atomic boundaries were implemented in the previous slice.
 
+Validation ladder: `moon info` still hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`); `moon fmt`, focused LCSE tests (`178/178`), `moon test src/passes` (`1923/1923`), full `moon test` (`5109/5109`), native `src/cmd` build, native atomic spot replay validation, and `bun validate readme-api-sync` passed.
+
 Final direct compare:
 
 ```sh
@@ -3310,35 +3312,3 @@ Result: `99710/100000` compared, `99709` normalized matches, `0` validation/prop
 Agent mismatch classification: case `056513` is semantic-safe, size-winning representation drift, not an LCSE semantic mismatch. The input executes a side-effecting multi-value loop and then immediately reaches `unreachable`; Binaryen's `local-cse` rewrites the implicit multi-value `tuple.drop` before the hard unreachable into a block with scratch locals and tuple extracts, while Starshine preserves the smaller `tuple.drop` shape. The side-effecting loop remains in both outputs, and the subsequent hard trap means the produced tuple values are unobservable. Starshine output is smaller and validates; replay with the existing `unreachable-control-debris` / `local-cleanup-debris` normalizers still reports a shape mismatch because this tuple-drop representation family is not covered by those normalizers. Classification: semantic-safe / size-winning representation-only drift.
 
 Closeout status: no known LCSE true semantic mismatch remains in the active direct-pass lane. The accepted future/non-semantic surfaces are exact tuple-drop/unreachable cleanup shape parity, exact Binaryen text/size choices, relaxed SIMD root CSE under a future nondeterminism proof, string/reference tiny-root materialization if Binaryen-positive evidence appears, descriptor-test roots when the installed tools support them, and broad memory/table/heap/atomic/call GVN beyond the documented local-window model.
-
-
-## Final LCSE closeout signoff on 2026-06-07
-
-The LCSE O4z audit is closed for direct semantic parity after the descriptor-cast, call-boundary, and atomic local-only follow-ups. The remaining Binaryen differences are accepted conservative deferrals or representation/cleanup drift rather than release-blocking semantic gaps. Implemented positives include scalar numeric trap-root reuse, reference-conversion roots, nullable/non-null `ref.cast` and `ref.as_non_null` replay, `ref.i31` replay, same-window heap reads, SIMD memory loads and memory-write invalidation/local-only precision, `ref.get_desc` replay, nullable/non-null `ref.cast_desc_eq`, local-only reuse across direct/indirect/reference calls, local-only reuse across memory/table/global/bulk/GC write boundaries, and local-only reuse across linear/shared-GC atomic boundaries.
-
-Accepted conservative deferrals remain: `rethrow` until a distinct local raw instruction exists, indirect/reference-call root CSE and call-result-dependent CSE, `ref.test_desc` while the installed WAT/Binaryen oracle rejects it, broad descriptor reasoning beyond implemented read/cast replay, string roots, broad heap/memory/table/segment GVN, GC allocation roots, atomic roots and atomic-dependent expressions beyond local-only boundary reuse, relaxed SIMD nondeterminism, arbitrary call CSE, throwing-root CSE, and CFG-wide GVN.
-
-Final validation commands:
-
-```sh
-moon info
-moon fmt
-moon test --package jtenner/starshine/passes --file local_cse_test.mbt
-moon test src/passes
-moon test
-moon build --target native --release src/cmd
-target/native/release/build/cmd/cmd.exe --local-cse -o .tmp/lcse-reopen-gaps/atomic-local-only.starshine.wasm .tmp/lcse-reopen-gaps/atomic-local-only.wasm
-wasm-tools validate --features all .tmp/lcse-reopen-gaps/atomic-local-only.starshine.wasm
-bun validate readme-api-sync
-bun scripts/pass-fuzz-compare.ts \
-  --count 100000 \
-  --seed 0x1c5e \
-  --pass local-cse \
-  --out-dir .tmp/pass-fuzz-local-cse-final-100000 \
-  --jobs auto \
-  --starshine-bin target/native/release/build/cmd/cmd.exe \
-  --max-failures 2000 \
-  --keep-going-after-command-failures
-```
-
-Results: `moon info` still hit the known Moon internal panic (`index out of bounds: the len is 36 but the index is 8329485`, exit `101`). `moon fmt`, focused LCSE tests (`178/178`), `moon test src/passes` (`1923/1923`), full `moon test` (`5109/5109`), native `src/cmd` build, native atomic spot replay validation, and `bun validate readme-api-sync` passed. The final 100000-case direct compare requested `100000`, compared `99710`, reported `99709` normalized matches, `1` mismatch, `0` validation/property/generator failures, and `290` command failures. Agent classification: `0` LCSE semantic mismatches. The single mismatch, `.tmp/pass-fuzz-local-cse-final-100000/failures/case-056513-wasm-smith`, is semantic-safe size-winning representation/cleanup drift around a multi-value loop result immediately discarded before hard `unreachable`; both normalized outputs validate, both preserve the same global side effect before unreachable termination, and Starshine's normalized wasm is smaller (`104` bytes vs Binaryen's `118` bytes). Command failures are classified as `223` Binaryen empty-recursion-group parser failures, `45` Starshine/tool initializer-expression validation failures, `3` Binaryen table-index-out-of-range failures, `11` Binaryen bad-section-size failures, `1` Binaryen invalid-type-index failure, `2` Binaryen invalid-tag-index failures, and `5` Binaryen command failures.
