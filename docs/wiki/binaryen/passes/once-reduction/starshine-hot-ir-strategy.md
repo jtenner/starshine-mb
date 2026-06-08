@@ -29,7 +29,7 @@ related:
 
 # Starshine `once-reduction` module-pass strategy
 
-This page describes the **current local MoonBit implementation**, not the full upstream Binaryen `OnceReduction.cpp` contract.
+This page describes the **current local MoonBit implementation** and how its tested behavior maps to the upstream Binaryen `OnceReduction.cpp` contract.
 
 ## Current local surface
 
@@ -43,11 +43,9 @@ Starshine exposes `once-reduction` as an active **module pass** with:
 
 The most important current local rule is:
 
-- **Starshine implements a narrower recursive once-bit pass over boundary instruction arrays, not Binaryen's CFG + dominator + nested-pass engine.**
+- **Starshine implements the source/lit behavior families with a recursive boundary-array engine, not by literally porting Binaryen's CFG + dominator + nested-pass implementation.**
 
-That means the local pass should be taught as a useful implemented subset, not as a full source-parity port of the released Binaryen strategy.
-
-The 2026-06-03 O4z audit refreshed the direct-pass lane with `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass once-reduction --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-once-reduction-audit-current-10000-keepgoing`; the compare lane reported `9975 / 10000` compared cases, `9975` normalized matches, `0` semantic mismatches, and `25` Binaryen/tool command failures. The same audit added focused coverage for block-root once wrappers, defined idempotent fake roots, imported boundaries, extra global reads, and table / `ref.func` escape shapes.
+The implementation shape is different, but `[O4Z-AUDIT-OR]` is now signed off for v0.1.0 behavior parity. The 2026-06-08 inventory and follow-ups cover the previously documented broad gaps with focused tests, and the final direct compare lane `.tmp/pass-fuzz-once-reduction-current-100000` compared `99751 / 100000`, normalized `99751`, and had `0` mismatches with `249` Binaryen/tool command failures.
 
 ## Current local code map
 
@@ -164,7 +162,7 @@ This means Starshine really does have a fixed point over function summaries, but
 - no immediate-dominator entry-state propagation
 - no internal block-local relevant-expression lists
 
-So the local pass should be taught as “fixed-point once-summary propagation with recursive structural control handling,” not as “the Binaryen algorithm in MoonBit syntax.” Defined no-param/no-result `@binaryen.idempotent` functions now enter this same summary framework as fake once roots; imported idempotent annotations remain a conservative boundary in the local pass.
+So the local pass should be taught as “fixed-point once-summary propagation with recursive structural control handling,” not as “the Binaryen algorithm in MoonBit syntax.” Defined and imported no-param/no-result `@binaryen.idempotent` functions now enter this same summary framework as fake once roots.
 
 ## 5. Rewrite is direct and local: redundant calls and redundant writes become `nop`
 
@@ -175,11 +173,7 @@ So the local pass should be taught as “fixed-point once-summary propagation wi
 
 Like the analyzer, the rewrite is explicit about `if` intersection and recursive region rebuilding.
 
-A small but real local divergence from upstream is visible here too:
-
-- the MoonBit pass mentions `ReturnCall`, while the documented Binaryen surface is centered on ordinary direct `Call`
-
-I am keeping that explicit as a local difference, not silently smoothing it away into “same as upstream.”
+The rewrite also keeps the Binaryen source-surface distinction between ordinary direct calls and `return_call`: `return_call` cuts off local fact propagation and is not rewritten as a once call.
 
 ## 6. Final once-body cleanup is intentionally tiny locally too
 
@@ -206,44 +200,37 @@ The local registry and preset files make that explicit:
 
 That means this folder should be maintained as living implementation docs, not as speculative future-port notes.
 
-## What the local pass does not do
+## Current behavior-parity coverage
 
-Compared with the full upstream Binaryen `version_130` contract, the 2026-06-08 red-test/green phase changed Starshine in these important ways:
+Compared with the full upstream Binaryen `version_130` contract, the 2026-06-08 red-test/green phase and follow-up lit-surface expansion cover these important families:
 
-- imported no-param/no-result `@binaryen.idempotent` calls are now fake once roots
-- wrapper cleanup now strips an explicit once wrapper whose only payload calls an idempotent fake-root function
-- negative once writes are rejected to match Binaryen's positive-integer scanner rule
+- imported and defined no-param/no-result `@binaryen.idempotent` calls are fake once roots
+- wrapper cleanup strips explicit once wrappers whose only payload calls an idempotent or once fake-root function, while preserving wrapper-cycle safety
+- positive integer once writes are eligible, while negative, zero, and nonconstant writes are rejected to match Binaryen's scanner rule
 - structural `if` no longer leaks two-arm merge facts that Binaryen's dominance-only pass intentionally ignores
 - block branch exits, `return_call`, and `unreachable` stop local fact propagation
-- loop and `try_table` bodies can still optimize locally and propagate facts in the covered Binaryen-positive shapes
+- loop and `try_table` bodies optimize and propagate facts in the covered Binaryen-positive shapes
 - once-function-local transitive summaries are limited so dangerous recursive-cycle order-preservation cases keep their calls
+- nonzero initial globals, params/results, non-integer globals, extra reads, near-once debris, mismatched globals, loop-root/too-short bodies, direct call-chain summaries, mixed once/non-once globals, self-recursion, and non-once callee summary directionality all have focused tests
 
-The local implementation is still not literally Binaryen's CFG / `DomTree` engine, and the full dedicated lit decision tree has not been exhaustively ported. The detailed inventory, red-test table, and current green evidence live in [`../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md`](../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md).
+The local implementation is still not literally Binaryen's CFG / `DomTree` engine. The signoff claim is behavior parity for the reviewed source/lit families and direct oracle lane, not implementation-shape parity. The detailed inventory, behavior checklist, and current green evidence live in [`../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md`](../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md).
 
 ## Biggest local-vs-upstream difference
 
 The most important durable correction is:
 
 - upstream Binaryen `once-reduction` is a small but real module pass with a parallel scan, a strict but block-shaped once matcher, a CFG / dominator optimizer, idempotent fake-global support, and a cycle-aware wrapper cleanup tail
-- local Starshine `once-reduction` is currently a **narrower recursive boundary-array implementation** of the same overall once-bit idea
-
-That narrower implementation is still valuable and already green on the saved generated-artifact slot recorded in `parity.md`.
-But it should not be documented as if it were already the entire official Binaryen pass.
+- local Starshine `once-reduction` achieves the signed-off behavior with a recursive boundary-array implementation and focused guards instead of porting that implementation shape directly
 
 ## Practical maintenance rule
 
 Treat the current Starshine implementation as:
 
 - a real active module pass
-- a source-backed local subset of Binaryen `once-reduction`
-- a recursive once-bit optimizer whose current limits are the still-narrow wrapper matcher, imported-idempotent boundary, and simpler control-flow proof model
+- signed off for the reviewed Binaryen `once-reduction` behavior surface
+- a recursive once-bit optimizer whose implementation shape differs from Binaryen's CFG / `DomTree` engine but whose source/lit families are protected by focused tests
 
-Future work on this pass should answer one question explicitly:
-
-- are we preserving the current explicit once-wrapper subset,
-- or are we expanding toward the full Binaryen `OnceReduction.cpp` contract?
-
-For `once-reduction`, those are meaningfully different projects, and the docs should keep that boundary explicit.
+Future work on this pass should keep behavior parity and implementation-shape parity separate. If new Binaryen source or lit tests add behavior, extend the behavior checklist and focused tests first, then decide whether the recursive Starshine engine can cover it safely or needs a deeper algorithmic port.
 
 ## Freshness note
 

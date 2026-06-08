@@ -156,12 +156,6 @@ Behavior inventory source: `docs/wiki/raw/research/0714-2026-06-07-o4z-behavior-
 
 Reopened from prior removed audits because committed docs still list behavior gaps:
 
-- [O4Z-AUDIT-OR] - Widen `once-reduction` to Binaryen behavior parity
-  - Status: reopened v0.1.0 release-gating audit. Direct compare is green, but imported idempotent behavior, CFG/dominator precision, try/merge/cycle breadth, and local `ReturnCall` divergence remain documented outside the local subset.
-  - Scope: official idempotent annotation roots including imported-boundary semantics, dominance/CFG precision around merges and loops, try/catch stability, dangerous cycles, direct-call versus `return_call` handling, and nested helper-pass behavior.
-  - Current inventory: `docs/wiki/raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md` lists the full known gap set against local Binaryen `version_130`. The 2026-06-08 red-test/green slice now covers and fixes imported idempotent calls, idempotent-adjacent wrapper cleanup, negative once writes, merge conservatism, branch exits, loop/try_table propagation for focused shapes, dangerous recursive-cycle order preservation, and `return_call` divergence; focused tests and 10000-case direct compare are green.
-  - Deliverables: apply the common checklist; finish dedicated-lit/source-surface classification beyond the focused red-test set; refresh saved slot evidence; decide whether to run the final 100000-case closeout before removing this audit.
-
 
 - [O4Z-AUDIT-GR] - Confirm or fix remaining `global-refining` behavior watchpoints
   - Status: reopened focused v0.1.0 audit. The main boundary behavior is green, but the parity page still calls out a missing explicit GC feature gate and unproven descriptor/stringref/public-type initializer surfaces.

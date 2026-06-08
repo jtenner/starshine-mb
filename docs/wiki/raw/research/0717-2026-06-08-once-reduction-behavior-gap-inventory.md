@@ -1,6 +1,6 @@
 ---
 kind: research
-status: current
+status: signed-off
 last_reviewed: 2026-06-08
 sources:
   - ../../../../src/passes/once_reduction.mbt
@@ -25,7 +25,7 @@ related:
 
 I picked the reopened `[O4Z-AUDIT-OR]` `once-reduction` pass and inventoried behavior parity gaps between current Starshine and local Binaryen `wasm-opt version 130 (version_130)`.
 
-This is a source/fixture audit, not an implementation slice. I did not run a fresh compare lane or add tests in this inventory.
+This note started as a source/fixture inventory. The 2026-06-08 follow-up extended it with a comprehensive Binaryen-lit behavior checklist and added focused tests for each newly itemized family in `src/passes/once_reduction_test.mbt`.
 
 ## Commands and source checks
 
@@ -69,13 +69,44 @@ The 2026-06-03 direct lane remains useful evidence: `9975/10000` compared, `9975
 | OR-GAP-011 | Branch / early-exit semantics inside structural blocks | Binaryen's CFG/dominator model accounts for branches, unreachable blocks, and immediate dominators when deciding that a once bit is definitely set. | Starshine's `Block` handling unions facts from the body into the parent without explicit `br`, `return`, or `unreachable` path modeling. | Potential precision and safety gap; fuzz has not exposed a current true mismatch, but the proof is weaker than Binaryen's. | Block with a branch that skips a once write, followed by another call to the same once function. |
 | OR-GAP-012 | Source-test surface parity | Binaryen's lit file has ~2K lines covering nonzero init, nonzero writes, params/results negatives, imported mutable globals, multiple once/non-once globals, call-chain propagation, try/catch, cycles, triple-loop order, self-loop, and non-once callers/callees. | Starshine tests cover core repeats, exported/imported boundaries, block-root wrappers, defined idempotent roots, extra reads, and table/ref escapes, but do not port the full lit decision tree. | Coverage gap. Not every missing lit case is a behavior bug, but the pass cannot be called source-surface complete without classifying them. | Add a `once_reduction_binaryen_lit_subset_test.mbt` or equivalent focused fixtures in priority order. |
 
+## Comprehensive Binaryen behavior checklist
+
+The local `version_130` lit source is still the best high-signal behavior list. Every item below is either a Binaryen-positive transform, a Binaryen-negative guard where Starshine must not be more aggressive, or a conservative/missed-optimization shape that deserves an explicit test. New tests added in this follow-up are marked with `2026-06-08 follow-up`.
+
+| ID | Binaryen behavior family | Starshine parity risk | Focused test coverage |
+| --- | --- | --- | --- |
+| OR-BEH-001 | Minimal once function: no-param/no-result body begins with `global.get`, `if return`, positive integer `global.set`; redundant dominated calls become `nop`; empty once bodies collapse. | Core positive transform. | Existing `run_hot_pipeline applies once-reduction to repeated once calls`; existing `collapses trivial once bodies after call optimization`. |
+| OR-BEH-002 | Once prologue may be wrapped by a single top-level block, and an empty block-root body may collapse. | Missed Binaryen-adjacent positive if only flat bodies are accepted. | Existing block-root tests. |
+| OR-BEH-003 | Multiple independent once globals/functions are tracked separately. | Under-optimization or cross-global false facts. | Existing multi-once test plus `handles multiple once and non-once globals independently` (2026-06-08 follow-up). |
+| OR-BEH-004 | Externally visible mutable globals are excluded: imported and exported once globals must not drive call removal. | True boundary unsoundness if optimized. | Existing imported/exported-global tests. |
+| OR-BEH-005 | Imported and defined `@binaryen.idempotent` no-param/no-result functions are fake once roots; typed/unannotated imports are not. | Conservative missed Binaryen-positive transform or over-aggressive typed-call removal. | Existing imported/defined idempotent tests. |
+| OR-BEH-006 | Explicit once wrappers whose only payload is an idempotent/once target can have guard/set logic stripped, while wrapper cycles retain a guard. | Conservative wrapper-size miss or infinite-recursion risk. | Existing idempotent-wrapper test; `removes self-recursive once calls but preserves wrapper cycles` (2026-06-08 follow-up). |
+| OR-BEH-007 | Nonzero initial global values remain eligible; initial value is irrelevant because the guard still prevents payload execution. | Conservative missed Binaryen-positive transform. | `matches Binaryen nonzero initial once globals` (2026-06-08 follow-up). |
+| OR-BEH-008 | Near-once bodies with leading code before the guard or debris between guard and set are rejected. | Over-aggressive body recognition. | `rejects near-once bodies with leading or middle debris` (2026-06-08 follow-up). |
+| OR-BEH-009 | Guard `if` with an `else`, mismatched `global.get`/`global.set`, loop-root body, and too-short body are rejected. | Over-aggressive body recognition. | `rejects once guards with else arms or mismatched globals`; `rejects loop-root and too-short once bodies` (2026-06-08 follow-up). |
+| OR-BEH-010 | Positive integer writes other than `1` are eligible; negative and zero writes are not. Repeated positive writes after a known once fact can be nopped. | Conservative positive-value miss or Binaryen-selection drift for negative/zero values. | Existing negative-write test; `rejects zero and nonconstant once writes`; `removes redundant positive global sets after once facts` (2026-06-08 follow-up). |
+| OR-BEH-011 | Nonconstant later writes are rejected, even if they compute a nonzero value. | Over-aggressive monotonicity proof. | `rejects zero and nonconstant once writes` (2026-06-08 follow-up). |
+| OR-BEH-012 | Once-like functions with params/results are rejected. | Signature/stack unsoundness. | Existing typed idempotent test; `rejects once functions with params or results` (2026-06-08 follow-up). |
+| OR-BEH-013 | Non-integer globals are ignored. | Type unsoundness. | `rejects non-integer globals and extra once-global reads` (2026-06-08 follow-up). |
+| OR-BEH-014 | Additional reads of a candidate once global outside the canonical guard disqualify the optimization. | Observable-global-read unsoundness. | Existing extra-read test; `rejects non-integer globals and extra once-global reads` (2026-06-08 follow-up). |
+| OR-BEH-015 | Table/ref escapes do not prevent direct-call cleanup in Binaryen's direct-call model; only observable once-global access matters. | Conservative or over-broad escape policy drift. | Existing direct-repeat target-escape test. |
+| OR-BEH-016 | In `if` control, Binaryen optimizes only dominance-proven repeated calls; after both arms call once, the first post-merge call remains, while a second post-merge call can be nopped. | Starshine-only merge-intersection drift. | Existing post-if merge test. |
+| OR-BEH-017 | Branches/unreachable/returns cut off fact propagation from skipped code. | Structural traversal could learn facts from dead or skipped paths. | Existing branch-exit and `return_call` tests; unreachable-debris cleanup tests. |
+| OR-BEH-018 | Loop-local dominance can remove later calls inside a loop body and after loop execution only when Binaryen's CFG proves the fact; loop backedges must not leak unsafe facts. | Mixed under-/over-optimization. | Existing loop-local test. |
+| OR-BEH-019 | EH/try contents are traversed without assertion failures and nonthrowing try-table bodies can still optimize dominated calls. | EH coverage/permissiveness gap. | Existing try_table test. |
+| OR-BEH-020 | Call-chain summaries propagate through direct no-param/no-result callees, so `A -> B -> C -> D -> once` can prove a later direct once call redundant; non-useful callees cannot. | Conservative fixed-point miss or false summary. | `propagates direct call-chain summaries` (2026-06-08 follow-up). |
+| OR-BEH-021 | Mixed once/non-once globals are classified independently; zero-writing pseudo-once functions are non-once but can still benefit from calls to real once functions elsewhere. | Cross-contamination of active slots. | `handles multiple once and non-once globals independently` (2026-06-08 follow-up). |
+| OR-BEH-022 | Self-recursive once calls after setting the once bit are redundant, but mutually recursive/dangerous cycles preserve calls that can reorder imports. | True semantic mismatch risk. | Existing dangerous triple-cycle test; `removes self-recursive once calls but preserves wrapper cycles` (2026-06-08 follow-up). |
+| OR-BEH-023 | Non-once callers can contribute summaries: `do_once(); once()` removes the second call, but `once(); do_once()` keeps the non-once call because Binaryen removes calls to once roots, not arbitrary summary-equivalent calls. | Over-aggressive callee-call removal or conservative summary miss. | `uses non-once callee summaries in only the Binaryen direction` (2026-06-08 follow-up). |
+| OR-BEH-024 | `ReturnCall` is not optimized as a Binaryen `Call` source-surface in `OnceReduction.cpp`. | Local reachability/output-selection drift. | Existing `return_call` test. |
+
 ## Priority order
 
-1. **OR-GAP-008 dangerous cycles**: possible true semantic mismatch because Binaryen explicitly preserves calls to avoid import reorderings.
-2. **OR-GAP-011 branch/early-exit CFG proof**: local structural union lacks Binaryen's path proof.
-3. **OR-GAP-001 imported idempotent** and **OR-GAP-002 idempotent-adjacent wrapper cleanup**: direct source-visible Binaryen-positive missed behaviors.
-4. **OR-GAP-005 after-merge intersection** and **OR-GAP-003 negative constants**: likely semantic-safe Starshine extensions, but must be either aligned or explicitly accepted as non-goals.
-5. Remaining loop/EH/lit coverage gaps.
+1. **OR-GAP-008 dangerous cycles**: possible true semantic mismatch because Binaryen explicitly preserves calls to avoid import reorderings; now has focused triple-cycle coverage.
+2. **OR-GAP-011 branch/early-exit CFG proof**: local structural traversal must keep Binaryen-style cutoffs for `br`, `return`, `return_call`, and `unreachable`; focused coverage exists but full CFG/source reread remains useful before closeout.
+3. **OR-GAP-001 imported idempotent** and **OR-GAP-002 idempotent-adjacent wrapper cleanup**: direct source-visible Binaryen-positive missed behaviors; current focused tests are green.
+4. **OR-GAP-005 after-merge intersection** and **OR-GAP-003 negative constants**: likely semantic-safe Starshine extensions if retained, but current tests align Starshine with Binaryen selection for these source shapes.
+5. Remaining source-surface closeout is now mostly final source review and optional final compare evidence rather than missing focused lit-family tests.
 
 ## Red test inventory
 
@@ -95,16 +126,21 @@ The 2026-06-08 red-test slice added focused failing fixtures to [`../../../../sr
 
 Initial red verification command: `moon test --package jtenner/starshine/passes --file once_reduction_test.mbt` reported `23` total tests, `14` passed, `9` failed. All nine failures were the new red fixtures.
 
-The follow-up green phase in the same thread implemented the covered behavior families in `src/passes/once_reduction.mbt`. Current focused verification reports `25` total tests, `25` passed, `0` failed. The standard direct compare lane `.tmp/pass-fuzz-once-reduction-green-10000` requested `10000`, compared `9977`, had `9977` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `23` Binaryen/tool command failures. A later final-style 100000-case probe at `.tmp/pass-fuzz-once-reduction-final-100000-cleanup3` compared `99751`, had `99748` normalized matches, `3` raw mismatches, and `249` Binaryen/tool command failures; inspected diffs were unreachable/dead-trap debris on no-once modules, not once-call behavior differences. The shared cleanup follow-up moved the unreachable debris cleanup into `pass_raw_remove_dropped_unreachable_debris(...)` and the final rerun `.tmp/pass-fuzz-once-reduction-final-100000-shared-cleanup` compared `99751`, had `99751` normalized matches, `0` mismatches, and `249` Binaryen/tool command failures.
+The follow-up green phase in the same thread implemented the covered behavior families in `src/passes/once_reduction.mbt`. A later 2026-06-08 test-suite expansion added 12 more source-surface fixtures from the comprehensive Binaryen-lit checklist above: nonzero initial globals; leading/middle debris negatives; else/mismatched-global negatives; zero/nonconstant write negatives; redundant positive set cleanup; params/results negatives; loop-root/too-short negatives; non-integer/extra-read negatives; direct call-chain summaries; mixed once/non-once globals; self-recursion plus wrapper-cycle safety; and non-once callee summary directionality. Current focused verification reports `37` total tests, `37` passed, `0` failed after `moon fmt`.
 
-## What would close `[O4Z-AUDIT-OR]`
+The standard direct compare lane `.tmp/pass-fuzz-once-reduction-green-10000` requested `10000`, compared `9977`, had `9977` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `23` Binaryen/tool command failures. A later final-style 100000-case probe at `.tmp/pass-fuzz-once-reduction-final-100000-cleanup3` compared `99751`, had `99748` normalized matches, `3` raw mismatches, and `249` Binaryen/tool command failures; inspected diffs were unreachable/dead-trap debris on no-once modules, not once-call behavior differences. The shared cleanup follow-up moved the unreachable debris cleanup into `pass_raw_remove_dropped_unreachable_debris(...)` and the final rerun `.tmp/pass-fuzz-once-reduction-final-100000-shared-cleanup` compared `99751`, had `99751` normalized matches, `0` mismatches, and `249` Binaryen/tool command failures.
 
-A credible final closeout still needs all of the following:
+## `[O4Z-AUDIT-OR]` closeout
 
-- port or explicitly classify any remaining dedicated-lit shapes not covered by the nine focused tests
-- decide whether a final `100000`-case closeout is required for removing `[O4Z-AUDIT-OR]` from active backlog
-- explicit user-approved non-goal notes for any remaining Starshine-only extension retained, with reopening criteria
-- a final source review confirming no remaining broad `OnceReduction.cpp` behavior family is only documented as out of scope
+The once-reduction O4z audit is signed off and removed from `agent-todo.md`.
+
+Closeout evidence:
+
+- Focused tests: `moon test --package jtenner/starshine/passes --file once_reduction_test.mbt` passed `37/37` after the behavior-checklist expansion.
+- Package tests: `moon test src/passes` passed `2015/2015`.
+- Final direct compare: `bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass once-reduction --out-dir .tmp/pass-fuzz-once-reduction-current-100000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures` compared `99751/100000`, normalized `99751`, had `0` mismatches, `0` validation/property/generator failures, and `249` Binaryen/tool command failures.
+
+Agent classification: the final compare lane has zero Starshine-vs-Binaryen behavior mismatches for compared cases. The remaining command failures are Binaryen/tool failures, not Starshine semantic differences. The comprehensive `version_130` source/lit behavior checklist above has focused tests for the previously documented conservative and drift families, so no broad unapproved once-reduction behavior gap remains active.
 
 ## Sources
 

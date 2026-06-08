@@ -313,8 +313,8 @@ After, conceptually:
 Important note:
 
 - this is part of the official Binaryen source surface
-- as of the 2026-06-03 O4z audit, Starshine models this for defined no-param/no-result functions
-- imported idempotent calls remain a conservative local boundary
+- as of the 2026-06-08 O4z signoff, Starshine models this for defined and imported no-param/no-result functions
+- typed or unannotated idempotent-like functions remain negative guard shapes
 
 ## Positive family 11: try/catch control containers do not block the CFG proof by themselves
 

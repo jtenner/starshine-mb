@@ -788,3 +788,489 @@ test "once-reduction preserves dangerous triple-cycle call order" {
     @lib.Instruction::call(@lib.FuncIdx::new(0U)),
   ])
 }
+
+///|
+test "once-reduction matches Binaryen nonzero initial once globals" {
+  let input =
+    #| (module
+    #|   (global $g (mut i32) (i32.const 42))
+    #|   (func $once
+    #|     global.get $g
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g)
+    #|   (func (export "run")
+    #|     call $once
+    #|     call $once))
+    #|
+  let optimized = try! or_test_run_once_reduction(input)
+
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 1), [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::nop(),
+  ])
+}
+
+///|
+test "once-reduction rejects near-once bodies with leading or middle debris" {
+  let input =
+    #| (module
+    #|   (global $g0 (mut i32) (i32.const 0))
+    #|   (global $g1 (mut i32) (i32.const 0))
+    #|   (func $leading
+    #|     nop
+    #|     global.get $g0
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g0)
+    #|   (func $middle
+    #|     global.get $g1
+    #|     if
+    #|       return
+    #|     end
+    #|     nop
+    #|     i32.const 1
+    #|     global.set $g1)
+    #|   (func (export "run")
+    #|     call $leading
+    #|     call $leading
+    #|     call $middle
+    #|     call $middle))
+    #|
+  let optimized = try! or_test_run_once_reduction(input)
+
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 2), [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+  ])
+}
+
+///|
+test "once-reduction rejects once guards with else arms or mismatched globals" {
+  let input =
+    #| (module
+    #|   (global $g0 (mut i32) (i32.const 0))
+    #|   (global $g1 (mut i32) (i32.const 0))
+    #|   (global $g2 (mut i32) (i32.const 0))
+    #|   (func $elsey
+    #|     global.get $g0
+    #|     if
+    #|       return
+    #|     else
+    #|       nop
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g0)
+    #|   (func $mismatch
+    #|     global.get $g1
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g2)
+    #|   (func (export "run")
+    #|     call $elsey
+    #|     call $elsey
+    #|     call $mismatch
+    #|     call $mismatch))
+    #|
+  let optimized = try! or_test_run_once_reduction(input)
+
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 2), [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+  ])
+}
+
+///|
+test "once-reduction rejects zero and nonconstant once writes" {
+  let input =
+    #| (module
+    #|   (global $g0 (mut i32) (i32.const 0))
+    #|   (global $g1 (mut i32) (i32.const 0))
+    #|   (func $zero
+    #|     global.get $g0
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 0
+    #|     global.set $g0)
+    #|   (func $computed
+    #|     global.get $g1
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     i32.eqz
+    #|     i32.eqz
+    #|     global.set $g1)
+    #|   (func (export "run")
+    #|     call $zero
+    #|     call $zero
+    #|     call $computed
+    #|     call $computed))
+    #|
+  let optimized = try! or_test_run_once_reduction(input)
+
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 2), [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+  ])
+}
+
+///|
+test "once-reduction removes redundant positive global sets after once facts" {
+  let input =
+    #| (module
+    #|   (global $g (mut i32) (i32.const 0))
+    #|   (func $once
+    #|     global.get $g
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 42
+    #|     global.set $g)
+    #|   (func (export "run")
+    #|     i32.const 1337
+    #|     global.set $g
+    #|     call $once
+    #|     call $once))
+    #|
+  let optimized = try! or_test_run_once_reduction(input)
+
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 1), [
+    @lib.Instruction::i32_const(@lib.I32::new(1337)),
+    @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::nop(),
+    @lib.Instruction::nop(),
+  ])
+}
+
+///|
+test "once-reduction rejects once functions with params or results" {
+  let input =
+    #| (module
+    #|   (global $g0 (mut i32) (i32.const 0))
+    #|   (global $g1 (mut i32) (i32.const 0))
+    #|   (func $param (param i32)
+    #|     global.get $g0
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g0)
+    #|   (func $result (result i32)
+    #|     global.get $g1
+    #|     if
+    #|       i32.const 2
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g1
+    #|     i32.const 3)
+    #|   (func (export "run")
+    #|     i32.const 1
+    #|     call $param
+    #|     i32.const 1
+    #|     call $param
+    #|     call $result
+    #|     drop
+    #|     call $result
+    #|     drop))
+    #|
+  let optimized = try! or_test_run_once_reduction(input)
+
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 2), [
+    @lib.Instruction::i32_const(@lib.I32::new(1)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32::new(1)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
+test "once-reduction rejects loop-root and too-short once bodies" {
+  let input =
+    #| (module
+    #|   (global $g0 (mut i32) (i32.const 0))
+    #|   (global $g1 (mut i32) (i32.const 0))
+    #|   (func $loop_root
+    #|     loop
+    #|       global.get $g0
+    #|       if
+    #|         return
+    #|       end
+    #|       i32.const 1
+    #|       global.set $g0
+    #|     end)
+    #|   (func $too_short
+    #|     global.get $g1
+    #|     if
+    #|       return
+    #|     end)
+    #|   (func (export "run")
+    #|     call $loop_root
+    #|     call $loop_root
+    #|     call $too_short
+    #|     call $too_short))
+    #|
+  let optimized = try! or_test_run_once_reduction(input)
+
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 2), [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+  ])
+}
+
+///|
+test "once-reduction rejects non-integer globals and extra once-global reads" {
+  let input =
+    #| (module
+    #|   (global $float (mut f64) (f64.const 0))
+    #|   (global $g (mut i32) (i32.const 0))
+    #|   (func $float_once
+    #|     global.get $float
+    #|     i32.trunc_f64_s
+    #|     if
+    #|       return
+    #|     end
+    #|     f64.const 1
+    #|     global.set $float)
+    #|   (func $read_once
+    #|     global.get $g
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g
+    #|     global.get $g
+    #|     drop)
+    #|   (func (export "run")
+    #|     call $float_once
+    #|     call $float_once
+    #|     call $read_once
+    #|     call $read_once))
+    #|
+  let optimized = try! or_test_run_once_reduction(input)
+
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 2), [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+  ])
+}
+
+///|
+test "once-reduction propagates direct call-chain summaries" {
+  let input =
+    #| (module
+    #|   (global $g (mut i32) (i32.const 0))
+    #|   (func $once
+    #|     global.get $g
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g)
+    #|   (func $a
+    #|     call $b
+    #|     call $once)
+    #|   (func $b
+    #|     call $c)
+    #|   (func $c
+    #|     call $d)
+    #|   (func $d
+    #|     call $once
+    #|     call $once)
+    #|   (func $bad_a
+    #|     call $bad_b
+    #|     call $once)
+    #|   (func $bad_b)
+    #|   (func (export "run")
+    #|     call $a
+    #|     call $bad_a))
+    #|
+  let optimized = try! or_test_run_once_reduction(input)
+
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 1), [
+    @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+    @lib.Instruction::nop(),
+  ])
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 4), [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::nop(),
+  ])
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 5), [
+    @lib.Instruction::call(@lib.FuncIdx::new(6U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ])
+}
+
+///|
+test "once-reduction handles multiple once and non-once globals independently" {
+  let input =
+    #| (module
+    #|   (global $g0 (mut i32) (i32.const 0))
+    #|   (global $many (mut i32) (i32.const 0))
+    #|   (global $g1 (mut i32) (i32.const 0))
+    #|   (func $once0
+    #|     global.get $g0
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g0
+    #|     call $once0
+    #|     call $many_func
+    #|     call $once1
+    #|     call $once0
+    #|     call $once1)
+    #|   (func $many_func
+    #|     global.get $many
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 0
+    #|     global.set $many
+    #|     call $once0
+    #|     call $many_func
+    #|     call $once1
+    #|     call $once0)
+    #|   (func $once1
+    #|     global.get $g1
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 2
+    #|     global.set $g1
+    #|     call $once1
+    #|     call $many_func
+    #|     call $once0
+    #|     call $once1)
+    #|   (func (export "run")
+    #|     call $once0
+    #|     call $many_func
+    #|     call $once1))
+    #|
+  let optimized = try! or_test_run_once_reduction(input)
+
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 0), [
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [@lib.Instruction::return_()],
+      None,
+    ),
+    @lib.Instruction::i32_const(@lib.I32::new(1)),
+    @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::nop(),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(2U)),
+    @lib.Instruction::nop(),
+    @lib.Instruction::nop(),
+  ])
+}
+
+///|
+test "once-reduction removes self-recursive once calls but preserves wrapper cycles" {
+  let input =
+    #| (module
+    #|   (global $g0 (mut i32) (i32.const 0))
+    #|   (global $g1 (mut i32) (i32.const 0))
+    #|   (func $self
+    #|     global.get $g0
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g0
+    #|     call $self)
+    #|   (func $cycle_a
+    #|     global.get $g1
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g1
+    #|     call $cycle_b)
+    #|   (func $cycle_b
+    #|     global.get $g1
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g1
+    #|     call $cycle_a)
+    #|   (func (export "run")
+    #|     call $self
+    #|     call $self
+    #|     call $cycle_a
+    #|     call $cycle_a))
+    #|
+  let optimized = try! or_test_run_once_reduction(input)
+
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 0), [
+    @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [@lib.Instruction::return_()],
+      None,
+    ),
+    @lib.Instruction::i32_const(@lib.I32::new(1)),
+    @lib.Instruction::global_set(@lib.GlobalIdx::new(0U)),
+    @lib.Instruction::nop(),
+  ])
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 3), [
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+    @lib.Instruction::nop(),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::nop(),
+  ])
+}
+
+///|
+test "once-reduction uses non-once callee summaries in only the Binaryen direction" {
+  let input =
+    #| (module
+    #|   (global $g (mut i32) (i32.const 0))
+    #|   (func $once
+    #|     global.get $g
+    #|     if
+    #|       return
+    #|     end
+    #|     i32.const 1
+    #|     global.set $g)
+    #|   (func $do_once
+    #|     call $once)
+    #|   (func (export "run")
+    #|     call $do_once
+    #|     call $once
+    #|     call $once
+    #|     call $do_once))
+    #|
+  let optimized = try! or_test_run_once_reduction(input)
+
+  @debug.assert_eq(try! or_test_defined_func_instrs(optimized, 2), [
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::nop(),
+    @lib.Instruction::nop(),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+  ])
+}

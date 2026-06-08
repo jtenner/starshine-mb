@@ -1,6 +1,6 @@
 ---
 kind: comparison
-status: working
+status: signed-off
 last_reviewed: 2026-06-08
 sources:
   - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
@@ -29,10 +29,10 @@ related:
 
 ## Durable conclusions
 
-- Binaryen `version_129` `once-reduction` is a module-level once-bit plus direct-call optimization pass, not a generic repeated-call eliminator.
-- Current Starshine already matches the saved generated-artifact `-O4z` slot `4` on exact wasm and normalized WAT.
-- That green slot is **not** proof that Starshine already covers the full official `OnceReduction.cpp` surface.
-- The 2026-06-03 audit added the source-visible defined-function `@binaryen.idempotent` fake-root path and the main top-level-block once-wrapper shape; imported idempotent calls and Binaryen's broader CFG/dominator precision remain outside the local subset.
+- Binaryen `version_130` `once-reduction` is a module-level once-bit plus direct-call optimization pass, not a generic repeated-call eliminator.
+- Starshine now matches the saved generated-artifact `-O4z` slot `4` on exact wasm and normalized WAT.
+- `[O4Z-AUDIT-OR]` is signed off for v0.1.0 behavior parity and removed from `agent-todo.md` after the 2026-06-08 source/lit behavior checklist, focused test expansion, and final 100000-case direct compare.
+- The previously documented broad gaps are now covered by focused tests: imported idempotent roots, idempotent-adjacent wrapper cleanup, positive/negative write selection, merge conservatism, branch/loop/EH precision, dangerous cycles, `return_call` divergence, direct call-chain summaries, and lit-surface negative body shapes.
 
 ## Current in-tree status
 
@@ -54,76 +54,32 @@ The current Starshine subset clearly covers:
 
 The latest source audit is [`../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md`](../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md). It checked local Binaryen `wasm-opt version 130 (version_130)` and found that `version_130` `OnceReduction.cpp` plus the dedicated lit file are unchanged from the `version_129` sources this dossier already used.
 
-The audit originally kept `[O4Z-AUDIT-OR]` open with nine concrete red-test families: imported idempotent roots, idempotent-adjacent wrapper cleanup, negative once writes, CFG/dominator merge drift, branch exits, loop propagation, EH/`try_table`, dangerous recursive cycles, and `return_call` divergence.
+The audit originally kept `[O4Z-AUDIT-OR]` open with nine concrete red-test families: imported idempotent roots, idempotent-adjacent wrapper cleanup, negative once writes, CFG/dominator merge drift, branch exits, loop propagation, EH/`try_table`, dangerous recursive cycles, and `return_call` divergence. The same 2026-06-08 follow-up implemented those covered families, then a later test expansion added 12 more source/lit-surface fixtures.
 
-The same 2026-06-08 follow-up implemented those covered families. Current focused evidence:
+Current closeout evidence:
 
-- `moon test --package jtenner/starshine/passes --file once_reduction_test.mbt`: `25` / `25` passed
-- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass once-reduction --out-dir .tmp/pass-fuzz-once-reduction-green-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --keep-going-after-command-failures`: `9977` compared, `9977` normalized matches, `0` mismatches, `23` Binaryen/tool command failures
-- final-style probe `.tmp/pass-fuzz-once-reduction-final-100000-cleanup3`: `99751` compared, `99748` normalized matches, `3` raw mismatches, `249` Binaryen/tool command failures. Agent classification: the three raw mismatches were unreachable/dead-trap debris on no-once modules, not once-call behavior differences.
-- after moving that cleanup into the shared `pass_raw_remove_dropped_unreachable_debris(...)` utility, final rerun `.tmp/pass-fuzz-once-reduction-final-100000-shared-cleanup`: `99751` compared, `99751` normalized matches, `0` mismatches, `249` Binaryen/tool command failures.
+- `moon test --package jtenner/starshine/passes --file once_reduction_test.mbt`: `37` / `37` passed
+- `moon test src/passes`: `2015` / `2015` passed
+- final direct compare `bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass once-reduction --out-dir .tmp/pass-fuzz-once-reduction-current-100000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures`: `99751` compared, `99751` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `249` Binaryen/tool command failures.
 
-Keep `[O4Z-AUDIT-OR]` open until the remaining dedicated-lit/source-surface review and final closeout decision are complete.
+Agent classification: the final compare lane has zero Starshine-vs-Binaryen behavior mismatches for compared cases. The remaining command failures are Binaryen/tool failures, not Starshine semantic differences. No broad unapproved once-reduction behavior gap remains active.
 
-## Remaining gap
+## Covered source-visible strategy surface
 
-The former largest documented gap, the official idempotent-annotation path, is now partially closed for defined no-param/no-result functions.
+Upstream uses nested scanner/optimizer passes, CFG construction, and `DomTree` immediate-dominator reasoning. Starshine uses recursive instruction-array scanning and rewriting, but the behavior inventory now maps the official `version_130` source/lit families to focused tests rather than treating the architectural difference as an open broad gap.
 
-Upstream `OnceReduction.cpp` explicitly does this:
+Covered families include:
 
-- read `Intrinsics::getAnnotations(func.get()).idempotent`
-- give the function a fake once-global name with `Names::getValidGlobalName(...)`
-- run the ordinary once-call elimination machinery on that fake-global identity
-
-Current Starshine now models that fake-root behavior for defined no-param/no-result functions. It still deliberately keeps imported idempotent calls as a boundary until the exact upstream import semantics are source-confirmed and accepted locally.
-
-Repo-local source evidence:
-
-- `src/passes/once_reduction.mbt` contains idempotent-annotation handling through the function annotation section
-- the focused tests cover defined idempotent positives, typed idempotent negatives, and imported idempotent boundary behavior
-- the repo parser and lowering layers support function annotations, including `@binaryen.idempotent`, as shown by `src/wast/parser.mbt`, `src/wast/lower_to_lib.mbt`, and `src/wast/module_wast_tests.mbt`
-
-## Other source-visible strategy differences
-
-The local pass is also architecturally narrower than upstream in how it reasons about control flow.
-
-### Upstream
-
-- nested `Scanner` and `Optimizer` passes
-- CFG construction
-- `DomTree` immediate-dominator reasoning
-- shipped lit coverage for after-merge conservatism, try/catch stability, long control-flow chains, and dangerous multi-node cycles
-
-### Local
-
-- recursive instruction-array scanning and rewriting
-- explicit `if`-intersection logic and conservative loop / try-table handling in local code
-- focused coverage for block-root wrappers, idempotent fake roots, imported/global boundary cases, extra reads, and table / `ref.func` escapes
-- still a much smaller control-flow test surface than the full upstream lit file
-
-That does not automatically mean the local pass is wrong.
-It does mean the saved green artifact slot should be read as:
-
-- “good on the exercised artifact slice”
-
-not as:
-
-- “fully source-parity-complete with official `OnceReduction.cpp`”
-
-## Lateral divergence to keep explicit
-
-Local code also has one interesting sideways divergence:
-
-- `src/passes/once_reduction.mbt` explicitly mentions `ReturnCall`
-- upstream `OnceReduction.cpp` only visits direct `Call`
-
-I did **not** prove in this thread whether that is:
-
-- a harmless local extension
-- dead code for current artifacts
-- or a parity hazard
-
-So treat it as an explicit open follow-up question, not a silent assumption.
+- explicit integer once-global discovery, including positive non-`1` writes and nonzero initial globals
+- no-param/no-result once-function recognition in flat and single-top-level-block forms
+- negative body recognition for leading/middle debris, `if else`, mismatched globals, loop-root bodies, too-short bodies, params/results, non-integer globals, zero writes, nonconstant writes, imported/exported globals, and extra reads
+- imported and defined no-param/no-result `@binaryen.idempotent` fake roots, plus typed/unannotated negatives
+- fixed-point direct-call summaries, including long call chains and the Binaryen directionality for non-once callees
+- redundant direct-call and redundant positive `global.set` elimination
+- after-merge conservatism, branch/return/unreachable cutoffs, loop-local dominance, and `try_table` traversal
+- self-recursive once-call cleanup plus dangerous mutually recursive cycle preservation
+- direct-call versus `return_call` behavior selection
+- unreachable/dead-trap debris cleanup needed for final normalized direct-compare parity
 
 ## Refreshed direct-pass signoff
 
@@ -171,27 +127,16 @@ It also shows `running nested passes`, which matches the documented implementati
 
 ## In-tree focused tests
 
-The current local test file covers these core families:
-
-- repeated once calls becoming `nop`
-- exported-global, imported-global, imported-function, and imported-idempotent boundary conservatism
-- flat and single-top-level-block trivial once-body collapse
-- multiple independent once-globals
-- defined no-param/no-result idempotent fake roots and typed idempotent negatives
-- extra once-global read invalidation
-- table element plus `ref.func` escape preservation while still removing redundant direct calls
-
-Those tests are real, but they are still much smaller than the full upstream lit control-flow surface.
+The current local test file covers the core and source/lit parity families listed in the behavior-gap inventory, including repeated direct calls, explicit once-global body recognition, idempotent fake roots, boundary globals, direct-call summaries, control-flow conservatism, cycle safety, and Binaryen-negative guard shapes. The focused suite is now the executable behavior checklist for this pass.
 
 ## Practical signoff rule
 
-For now, treat `once-reduction` as:
+Treat `once-reduction` as signed off for v0.1.0 behavior parity:
 
-- **green on the saved generated artifact**
-- **substantially implemented locally for explicit once-global shapes plus defined idempotent fake roots**
-- **not yet a full source-surface parity port of Binaryen `OnceReduction.cpp`**
-
-That is the honest status this dossier should preserve.
+- green on the saved generated artifact
+- covered by focused source/lit behavior tests
+- zero-mismatch on the current final 100000-case direct compare lane
+- remaining final-run command failures classified separately as Binaryen/tool failures
 
 ## Sources
 

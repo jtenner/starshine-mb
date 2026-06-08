@@ -91,7 +91,7 @@ It is a narrow whole-module once-bit plus direct-call optimization pass.
 - The pass is dominance-driven and deliberately conservative at merges.
   - after-`if` and cycle-heavy shapes often stay untouched even when they look morally redundant
 - Upstream also supports a narrow `@binaryen.idempotent` path by giving such functions fake once-global names.
-  - Starshine now models that path for defined no-param/no-result functions; imported idempotent calls remain a conservative local boundary.
+  - Starshine now models that path for defined and imported no-param/no-result functions, while typed and unannotated cases remain negative guards.
 - Final body cleanup is tiny on purpose.
   - Binaryen only strips empty once bodies and single-call once wrappers with cycle protection
 
@@ -135,9 +135,9 @@ What it actually is in `version_129`:
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering classic positive once patterns, call-chain propagation, wrapper positives, nonzero-init / nonzero-write nuances, and the main bailout families.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Current in-tree Starshine module-pass strategy: recursive once-bit analysis/rewrite flow, single-top-level-block wrapper support, defined-idempotent fake roots, singleton-summary performance shortcut, and the main ways the local implementation is narrower than upstream Binaryen's CFG/dominator engine.
+  - Current in-tree Starshine module-pass strategy: recursive once-bit analysis/rewrite flow, single-top-level-block wrapper support, idempotent fake roots, singleton-summary performance shortcut, and the source/lit behavior families covered despite the local implementation not literally using Binaryen's CFG/dominator engine.
 - [`./parity.md`](./parity.md)
-  - Current in-tree parity state, 2026-06-03 direct-pass revalidation evidence, saved generated-artifact evidence, and the honest remaining gap between the local implementation and the full official `OnceReduction.cpp` surface.
+  - Current signed-off parity state, focused behavior-checklist evidence, saved generated-artifact evidence, and final 100000-case direct-compare closeout.
 
 ## Freshness note
 
@@ -156,7 +156,7 @@ So the durable rule is:
 
 ## Current behavior-gap inventory
 
-The 2026-06-08 audit [`../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md`](../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md) rechecked the pass against local Binaryen `version_130`; `OnceReduction.cpp` and the dedicated lit file are unchanged from `version_129` for this pass. The first follow-up added red tests and then implemented the covered behavior families: imported idempotent functions, idempotent-adjacent wrapper cleanup, positive-only once writes, merge conservatism, loop/EH/branch precision for the covered shapes, dangerous recursive-cycle order preservation, and `return_call` divergence. `[O4Z-AUDIT-OR]` remains open for final dedicated-lit/source-surface review and closeout evidence.
+The 2026-06-08 audit [`../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md`](../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md) rechecked the pass against local Binaryen `version_130`; `OnceReduction.cpp` and the dedicated lit file are unchanged from `version_129` for this pass. The follow-ups added focused tests and implemented or confirmed the covered behavior families: imported idempotent functions, idempotent-adjacent wrapper cleanup, positive-only once writes, merge conservatism, loop/EH/branch precision for the covered shapes, dangerous recursive-cycle order preservation, `return_call` divergence, nonzero initial globals, near-once negative bodies, nonconstant/zero write negatives, direct call-chain summaries, mixed once/non-once globals, and non-once callee summary directionality. `[O4Z-AUDIT-OR]` is signed off and removed from `agent-todo.md` after focused tests passed `37/37`, `moon test src/passes` passed `2015/2015`, and the current final 100000-case direct compare normalized `99751/99751` compared cases with `0` mismatches.
 
 ## Current maintenance rule
 
