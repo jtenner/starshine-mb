@@ -208,11 +208,15 @@ pub fn hot_body_result_type_set(HotFunc, Int) -> Unit
 
 pub fn hot_branch_table_default_target(HotFunc, Int) -> Int
 
+pub fn hot_branch_table_set(HotFunc, Int, Array[Int], Int) -> Unit
+
 pub fn hot_branch_table_targets(HotFunc, Int) -> Array[Int]
 
 pub fn hot_branch_table_targets_for_node(HotFunc, Int) -> Array[Int]
 
 pub fn hot_branch_target(HotFunc, Int) -> Int?
+
+pub fn hot_branch_target_set(HotFunc, Int, Int) -> Unit
 
 pub fn hot_build_binary(HotFunc, @lib.ValType, Int, Int) -> Int
 
@@ -367,12 +371,6 @@ pub fn hot_label_kind(HotFunc, Int) -> HotLabelKind
 pub fn hot_label_owner(HotFunc, Int) -> Int
 
 pub fn hot_label_owner_set(HotFunc, Int, Int) -> Unit
-
-pub fn hot_branch_target_set(HotFunc, Int, Int) -> Unit
-
-pub fn hot_branch_table_set(HotFunc, Int, Array[Int], Int) -> Unit
-
-pub fn hot_try_table_catches_set(HotFunc, Int, Array[HotCatchArm]) -> Unit
 
 pub fn hot_label_result_type(HotFunc, Int) -> Int
 
@@ -620,6 +618,8 @@ pub fn hot_simple_value_key(HotFunc, Int) -> HotSimpleValueKey?
 
 pub fn hot_split_trailing_payload_roots(HotFunc, Array[Int], Int) -> (Array[Int], Array[Int])?
 
+pub fn hot_try_table_catches_set(HotFunc, Int, Array[HotCatchArm]) -> Unit
+
 pub fn hot_tuple_make_promote_to_block(HotFunc, Int, @lib.BlockType) -> Unit
 
 pub fn hot_type_get(HotFunc, Int) -> HotTypeInfo
@@ -648,7 +648,7 @@ pub fn[C] hot_verify_all(HotFunc, cache? : C?) -> Result[Unit, HotVerifyError]
 
 pub fn hot_verify_all_or_abort(HotFunc) -> Unit
 
-pub fn[C] hot_verify_cfg(HotFunc, C) -> Result[Unit, HotVerifyError]
+pub fn hot_verify_cfg(HotFunc, HotCfg) -> Result[Unit, HotVerifyError]
 
 pub fn hot_verify_control(HotFunc) -> Result[Unit, HotVerifyError]
 
@@ -658,11 +658,11 @@ pub fn hot_verify_core(HotFunc) -> Result[Unit, HotVerifyError]
 
 pub fn hot_verify_core_or_abort(HotFunc) -> Unit
 
-pub fn[C, D] hot_verify_dominators(C, D) -> Result[Unit, HotVerifyError]
+pub fn hot_verify_dominators(HotCfg, HotDominators) -> Result[Unit, HotVerifyError]
 
 pub fn hot_verify_node_exact_instr_payload(HotFunc, Int) -> Bool
 
-pub fn[C, S] hot_verify_ssa(HotFunc, C, S) -> Result[Unit, HotVerifyError]
+pub fn hot_verify_ssa(HotFunc, HotCfg, HotLocalSsa) -> Result[Unit, HotVerifyError]
 
 pub fn[S, E] hot_visit_continue(S) -> HotVisitCtl[S, E]
 
@@ -1420,6 +1420,33 @@ pub enum HotVerifyError {
   InvalidControlChild(Int, Int, Int)
   InvalidBranchTarget(Int, Int)
   InvalidBranchArity(Int, Int, Int, Int)
+  InvalidCfgEntry(Int)
+  InvalidCfgExit(Int)
+  InvalidCfgBlockId(Int, Int)
+  InvalidCfgEdge(Int, CfgEdge)
+  InvalidCfgEdgeSymmetry(Int, CfgEdge)
+  InvalidCfgNodeMapping(Int, Int)
+  InvalidCfgBlockNode(Int, Int)
+  InvalidCfgRegionRoot(Int, Int, Int)
+  InvalidCfgShape(String, Int, Int)
+  InvalidDomEntry(Int, Int)
+  InvalidDomShape(String, Int, Int)
+  InvalidDomReachable(Int)
+  InvalidDomIdom(Int, Int)
+  InvalidDomChild(Int, Int)
+  InvalidDomFrontier(Int, Int)
+  InvalidSsaRevision(Int, Int)
+  InvalidSsaShape(String, Int, Int)
+  InvalidSsaValue(Int)
+  InvalidSsaPhi(Int)
+  InvalidSsaLocal(Int)
+  InvalidSsaNode(Int)
+  InvalidSsaValueOrigin(Int, HotSsaValueOrigin)
+  InvalidSsaPhiInput(Int, Int, Int)
+  InvalidSsaPhiAlignment(Int, Int, Int, Int)
+  InvalidSsaType(Int, @lib.ValType, @lib.ValType)
+  InvalidSsaUse(Int, HotSsaUseOrigin)
+  InvalidSsaDominance(Int, Int, Int)
 } derive(Eq, @debug.Debug)
 pub impl Show for HotVerifyError
 

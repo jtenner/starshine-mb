@@ -239,6 +239,7 @@ pub impl Show for HotVerifyError with fn output(self, logger) {
       expected.output(logger)
       logger.write_char(')')
     }
+    _ => logger.write_string(@debug.to_string(self))
   }
 }
 

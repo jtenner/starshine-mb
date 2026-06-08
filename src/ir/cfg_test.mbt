@@ -134,6 +134,23 @@ test "cfg build keeps unreachable roots in distinct predless blocks" {
 }
 
 ///|
+test "cfg build splits tail calls before later unreachable roots" {
+  let func = HotFunc::new()
+  let return_call = hot_build_return_call(func, 0, [])
+  let nop = hot_build_nop(func)
+  hot_root_append(func, return_call)
+  hot_root_append(func, nop)
+  let cfg = cfg_build(func)
+  let return_block = cfg_block_for_region_root(cfg, HotRegionRef::root(), 0).unwrap()
+  let nop_block = cfg_block_for_region_root(cfg, HotRegionRef::root(), 1).unwrap()
+
+  @debug.assert_eq(cfg_test_show_edges(cfg_successors(cfg, return_block)), [
+    "{kind: ReturnEdge, block: \{cfg_exit_block(cfg)}}",
+  ])
+  @debug.assert_eq(cfg_predecessors(cfg, nop_block), [])
+}
+
+///|
 test "cfg build gives synthetic continuations a concrete insertion span" {
   let func = hot_lift_body(
     @lib.Expr::new([

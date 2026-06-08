@@ -128,6 +128,9 @@ fn cfg_op_is_terminator(op : HotOp) -> Bool {
     | HotOp::BrOnCast
     | HotOp::BrOnCastFail
     | HotOp::Return
+    | HotOp::ReturnCall
+    | HotOp::ReturnCallIndirect
+    | HotOp::ReturnCallRef
     | HotOp::Throw
     | HotOp::Rethrow
     | HotOp::ThrowRef
@@ -198,7 +201,10 @@ pub fn cfg_terminator_edge_kinds(op : HotOp) -> Array[CfgEdgeKind] {
     | HotOp::BrOnCastFail =>
       [CfgEdgeKind::BranchEdge, CfgEdgeKind::FallthroughEdge]
     HotOp::BrTable => [CfgEdgeKind::BranchEdge]
-    HotOp::Return => [CfgEdgeKind::ReturnEdge]
+    HotOp::Return
+    | HotOp::ReturnCall
+    | HotOp::ReturnCallIndirect
+    | HotOp::ReturnCallRef => [CfgEdgeKind::ReturnEdge]
     HotOp::Throw | HotOp::ThrowRef | HotOp::Rethrow | HotOp::Delegate =>
       [CfgEdgeKind::ExceptionalEdge]
     HotOp::Unreachable => [CfgEdgeKind::UnreachableExitEdge]

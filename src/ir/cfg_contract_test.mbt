@@ -69,6 +69,21 @@ fn cfg_test_builder_ops_fixture() -> Array[HotOp] {
   let call_id = hot_build_call(func, 0, [], [])
   let br_if_id = hot_build_br_if(func, branch_target, cond)
   let return_id = hot_build_return(func, [])
+  let return_call_id = hot_build_return_call(func, 0, [])
+  let callee = hot_build_const_i32(func, @lib.I32(0))
+  let return_call_indirect_id = hot_build_return_call_indirect(
+    func,
+    @lib.TypeIdx::new(0U),
+    @lib.TableIdx::new(0U),
+    [],
+    callee,
+  )
+  let return_call_ref_id = hot_build_return_call_ref(
+    func,
+    @lib.TypeIdx::new(0U),
+    [],
+    exnref,
+  )
   let throw_ref_id = hot_build_throw_ref(func, exnref)
   let delegate_id = hot_build_delegate(func, branch_target)
   let nop_id = hot_build_nop(func)
@@ -82,6 +97,9 @@ fn cfg_test_builder_ops_fixture() -> Array[HotOp] {
     hot_node_get(func, call_id).op,
     hot_node_get(func, br_if_id).op,
     hot_node_get(func, return_id).op,
+    hot_node_get(func, return_call_id).op,
+    hot_node_get(func, return_call_indirect_id).op,
+    hot_node_get(func, return_call_ref_id).op,
     hot_node_get(func, throw_ref_id).op,
     hot_node_get(func, delegate_id).op,
     hot_node_get(func, nop_id).op,
@@ -146,6 +164,42 @@ test "cfg boundary classification marks control entries and terminators" {
 }
 
 ///|
+test "cfg tail-call op families are terminators with return edges" {
+  let func = HotFunc::new()
+  let exnref = hot_build_ref_null(
+    func,
+    @lib.RefType::abs(@lib.AbsHeapType::extern_()),
+  )
+  let callee = hot_build_const_i32(func, @lib.I32(0))
+  let return_call = hot_build_return_call(func, 0, [])
+  let return_call_indirect = hot_build_return_call_indirect(
+    func,
+    @lib.TypeIdx::new(0U),
+    @lib.TableIdx::new(0U),
+    [],
+    callee,
+  )
+  let return_call_ref = hot_build_return_call_ref(
+    func,
+    @lib.TypeIdx::new(0U),
+    [],
+    exnref,
+  )
+  for node_id in [return_call, return_call_indirect, return_call_ref] {
+    @debug.assert_eq(
+      cfg_test_show_array(cfg_block_boundary_reasons(func, node_id)),
+      ["Terminator"],
+    )
+    @debug.assert_eq(
+      cfg_test_show_array(
+        cfg_terminator_edge_kinds(hot_node_get(func, node_id).op),
+      ),
+      ["ReturnEdge"],
+    )
+  }
+}
+
+///|
 test "cfg terminator edge kinds and exception policies stay explicit" {
   let ops = cfg_test_builder_ops_fixture()
   @debug.assert_eq(cfg_test_show_array(cfg_terminator_edge_kinds(ops[6])), [
@@ -155,6 +209,15 @@ test "cfg terminator edge kinds and exception policies stay explicit" {
     "ReturnEdge",
   ])
   @debug.assert_eq(cfg_test_show_array(cfg_terminator_edge_kinds(ops[8])), [
+    "ReturnEdge",
+  ])
+  @debug.assert_eq(cfg_test_show_array(cfg_terminator_edge_kinds(ops[9])), [
+    "ReturnEdge",
+  ])
+  @debug.assert_eq(cfg_test_show_array(cfg_terminator_edge_kinds(ops[10])), [
+    "ReturnEdge",
+  ])
+  @debug.assert_eq(cfg_test_show_array(cfg_terminator_edge_kinds(ops[11])), [
     "ExceptionalEdge",
   ])
   @debug.assert_eq(
@@ -162,11 +225,11 @@ test "cfg terminator edge kinds and exception policies stay explicit" {
     "ToCatchListRegion",
   )
   @debug.assert_eq(
-    cfg_test_show_text(cfg_exception_target_policy(ops[9])),
+    cfg_test_show_text(cfg_exception_target_policy(ops[12])),
     "DelegateToTarget",
   )
   @debug.assert_eq(
-    cfg_test_show_text(cfg_exception_target_policy(ops[10])),
+    cfg_test_show_text(cfg_exception_target_policy(ops[13])),
     "NoExceptionEdge",
   )
 }

@@ -1,7 +1,7 @@
 ---
 kind: decision
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-08
 sources:
   - ../raw/ir2/2026-06-04-cfg-tail-call-current-recheck.md
   - ../raw/wasm/2026-06-05-typed-function-references-boundary-refresh.md
@@ -119,17 +119,9 @@ Tail calls are easy to misread because they combine two families of facts:
 
 A concrete CFG tail-call test should therefore assert that the ending block has a single `ReturnEdge` and that a following root has no predecessor from the tail-call block. An effects or pass-safety test may still need to assert the call/trap side of the same op.
 
-## Current Local Gap: Tail-Call Helper Coverage
+## Resolved Tail-Call Helper Coverage
 
-There is one important 2026-06-04 consistency gap to keep visible:
-
-- [`src/ir/hot_flags.mbt`](../../../src/ir/hot_flags.mbt) correctly marks `ReturnCall`, `ReturnCallIndirect`, and `ReturnCallRef` as terminators.
-- [`src/ir/cfg.mbt`](../../../src/ir/cfg.mbt) correctly maps all three tail-call forms to `ReturnEdge` when they are the last node in a block segment.
-- [`src/ir/cfg_contract.mbt`](../../../src/ir/cfg_contract.mbt), however, currently omits the tail-call forms from `cfg_op_is_terminator(...)` and `cfg_terminator_edge_kinds(...)`.
-- [`src/ir/cfg_contract_test.mbt`](../../../src/ir/cfg_contract_test.mbt) has focused policy-helper tests for ordinary `Return`, `ThrowRef`, `Delegate`, and structured control, but no focused tail-call case yet.
-- [`src/ir/cfg_test.mbt`](../../../src/ir/cfg_test.mbt) has concrete graph tests for nested blocks, `try_table`, ordinary return, and synthetic continuations, but no focused concrete tail-call graph test yet.
-
-Until the helper and tests are fixed, treat the concrete builder plus HOT flags as the stronger evidence for actual CFG behavior, and treat the policy helper omission as a testable follow-up rather than as a deliberate semantic distinction. A code fix should add failing `return_call*` CFG-contract tests first, add or refresh a concrete no-fallthrough CFG test, then update both helper functions and any affected order/CFG expectations.
+As of 2026-06-08, the policy helpers and concrete builder agree on tail-call segmentation: `ReturnCall`, `ReturnCallIndirect`, and `ReturnCallRef` are terminators and report `ReturnEdge` from `cfg_terminator_edge_kinds(...)`. Focused coverage lives in [`cfg_contract_test.mbt`](../../../src/ir/cfg_contract_test.mbt), and [`cfg_test.mbt`](../../../src/ir/cfg_test.mbt) checks that a later root after a tail call is predless rather than connected by false fallthrough.
 
 ## Concrete Flow Examples
 

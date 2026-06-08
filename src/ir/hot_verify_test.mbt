@@ -1,5 +1,5 @@
 ///|
-test "hot verify accepts valid lifted hot funcs and placeholder overlays" {
+test "hot verify accepts valid lifted hot funcs and concrete overlays" {
   let func = hot_lift_body(
     @lib.Expr::new([
       @lib.Instruction::block(
@@ -25,15 +25,20 @@ test "hot verify accepts valid lifted hot funcs and placeholder overlays" {
     Ok(_) => ()
     Err(err) => fail(err.to_string())
   }
-  match hot_verify_cfg(func, "cfg-placeholder") {
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+  match hot_verify_cfg(func, cfg) {
     Ok(_) => ()
     Err(err) => fail(err.to_string())
   }
-  match hot_verify_dominators("cfg-placeholder", "dom-placeholder") {
+  match hot_verify_dominators(cfg, dom) {
     Ok(_) => ()
     Err(err) => fail(err.to_string())
   }
-  match hot_verify_ssa(func, "cfg-placeholder", "ssa-placeholder") {
+  match hot_verify_ssa(func, cfg, ssa) {
     Ok(_) => ()
     Err(err) => fail(err.to_string())
   }
