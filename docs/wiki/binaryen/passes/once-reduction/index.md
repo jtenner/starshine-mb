@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-03
+last_reviewed: 2026-06-08
 sources:
   - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
+  - ../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
   - ../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
   - ../../../raw/research/0238-2026-04-21-once-reduction-starshine-strategy-followup.md
@@ -152,6 +153,10 @@ So the durable rule is:
 
 - treat Binaryen `version_129` as the released oracle for this dossier
 - keep the current-main note explicit only to say there is no visible source or dedicated-lit drift on the reviewed surfaces right now
+
+## Current behavior-gap inventory
+
+The 2026-06-08 audit [`../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md`](../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md) rechecked the pass against local Binaryen `version_130`; `OnceReduction.cpp` and the dedicated lit file are unchanged from `version_129` for this pass. The first follow-up added red tests and then implemented the covered behavior families: imported idempotent functions, idempotent-adjacent wrapper cleanup, positive-only once writes, merge conservatism, loop/EH/branch precision for the covered shapes, dangerous recursive-cycle order preservation, and `return_call` divergence. `[O4Z-AUDIT-OR]` remains open for final dedicated-lit/source-surface review and closeout evidence.
 
 ## Current maintenance rule
 

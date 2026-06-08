@@ -105,6 +105,237 @@ pub fn pass_rewrite_structured_instr(
 }
 
 ///|
+pub fn pass_raw_instr_is_branch_control(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Instruction::Br(_)
+    | @lib.Instruction::BrIf(_)
+    | @lib.Instruction::BrTable(_, _)
+    | @lib.Instruction::BrOnNull(_)
+    | @lib.Instruction::BrOnNonNull(_)
+    | @lib.Instruction::BrOnCast(_, _, _, _)
+    | @lib.Instruction::BrOnCastFail(_, _, _, _)
+    | @lib.Instruction::Return
+    | @lib.Instruction::ReturnCall(_)
+    | @lib.Instruction::ReturnCallIndirect(_, _)
+    | @lib.Instruction::ReturnCallRef(_) => true
+    _ => false
+  }
+}
+
+///|
+pub fn pass_raw_instrs_have_branch_control(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if pass_raw_instr_is_branch_control(instr) {
+      return true
+    }
+    match instr {
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+        if pass_raw_instrs_have_branch_control(body) {
+          return true
+        }
+      @lib.Instruction::If(_, then_body, Some(else_body)) =>
+        if pass_raw_instrs_have_branch_control(then_body) ||
+          pass_raw_instrs_have_branch_control(else_body) {
+          return true
+        }
+      @lib.Instruction::If(_, then_body, None) =>
+        if pass_raw_instrs_have_branch_control(then_body) {
+          return true
+        }
+      @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        if pass_raw_instrs_have_branch_control(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+pub fn pass_raw_instrs_end_in_unreachable(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if instrs.length() == 0 {
+    return false
+  }
+  match instrs[instrs.length() - 1] {
+    @lib.Instruction::Unreachable => true
+    _ => false
+  }
+}
+
+///|
+pub fn pass_raw_dropped_block_has_unreachable_tail(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Instruction::Block(_, @lib.Expr(body)) =>
+      pass_raw_instrs_end_in_unreachable(body) &&
+      !pass_raw_instrs_have_branch_control(body)
+    _ => false
+  }
+}
+
+///|
+pub fn pass_raw_void_block_can_inline_before_unreachable(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Instruction::Block(_, @lib.Expr(body)) =>
+      !pass_raw_instrs_have_branch_control(body)
+    _ => false
+  }
+}
+
+///|
+pub fn pass_raw_collapse_trailing_unreachable_run(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  let mut end = instrs.length()
+  while end > 0 {
+    match instrs[end - 1] {
+      @lib.Instruction::Unreachable => end -= 1
+      _ => break
+    }
+  }
+  if end == instrs.length() {
+    for instr in instrs {
+      out.push(instr)
+    }
+    return out
+  }
+  for idx = 0; idx < end; idx = idx + 1 {
+    out.push(instrs[idx])
+  }
+  out.push(@lib.Instruction::unreachable_())
+  out
+}
+
+///|
+pub fn pass_raw_remove_dropped_unreachable_debris(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut i = 0
+  while i < instrs.length() {
+    match instrs[i] {
+      @lib.Instruction::Unreachable | @lib.Instruction::Block(_, _) => {
+        let mut j = i + 1
+        while j < instrs.length() {
+          match instrs[j] {
+            @lib.Instruction::Drop => j += 1
+            _ => break
+          }
+        }
+        if j < instrs.length() {
+          match instrs[j] {
+            @lib.Instruction::Unreachable =>
+              match instrs[i] {
+                @lib.Instruction::Unreachable => {
+                  changed = true
+                  i = j
+                  continue
+                }
+                @lib.Instruction::Block(_, @lib.Expr(body)) =>
+                  if pass_raw_dropped_block_has_unreachable_tail(instrs[i]) {
+                    let collapsed = pass_raw_collapse_trailing_unreachable_run(
+                      body,
+                    )
+                    let (cleaned_body, _) = pass_raw_remove_dropped_unreachable_debris(
+                      collapsed,
+                    )
+                    for body_instr in cleaned_body {
+                      out.push(body_instr)
+                    }
+                    changed = true
+                    i = j + 1
+                    continue
+                  } else if pass_raw_void_block_can_inline_before_unreachable(
+                      instrs[i],
+                    ) {
+                    let (cleaned_body, _) = pass_raw_remove_dropped_unreachable_debris(
+                      body,
+                    )
+                    for body_instr in cleaned_body {
+                      out.push(body_instr)
+                    }
+                    changed = true
+                    i += 1
+                    continue
+                  }
+                _ => ()
+              }
+            _ => ()
+          }
+        }
+      }
+      _ => ()
+    }
+    let rewritten_instr = match instrs[i] {
+      @lib.Instruction::Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = pass_raw_remove_dropped_unreachable_debris(
+          body,
+        )
+        if body_changed {
+          changed = true
+        }
+        @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.Instruction::Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = pass_raw_remove_dropped_unreachable_debris(
+          body,
+        )
+        if body_changed {
+          changed = true
+        }
+        @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.Instruction::If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = pass_raw_remove_dropped_unreachable_debris(
+          then_body,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (body2, changed2) = pass_raw_remove_dropped_unreachable_debris(
+              body,
+            )
+            (Some(body2), changed2)
+          }
+          None => (None, false)
+        }
+        if then_changed || else_changed {
+          changed = true
+        }
+        @lib.Instruction::if_(block_type, next_then, next_else)
+      }
+      @lib.Instruction::TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = pass_raw_remove_dropped_unreachable_debris(
+          body,
+        )
+        if body_changed {
+          changed = true
+        }
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(next_body),
+        )
+      }
+      other => other
+    }
+    out.push(rewritten_instr)
+    i += 1
+  }
+  (out, changed)
+}
+
+///|
 pub fn pass_prepare_requirements(
   ctx : HotPassContext,
   func : @ir.HotFunc,

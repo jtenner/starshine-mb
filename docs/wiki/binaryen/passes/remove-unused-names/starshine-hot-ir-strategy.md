@@ -199,33 +199,34 @@ The recursive walker descends through:
 
 and visits child regions before attempting the current node rewrite.
 So the pass is still postorder in spirit, like upstream.
-But the local visitor only has structural work to do on:
+The local visitor has structural work to do on:
 
 - `Block`
 - `Loop`
 
-For `If`, `Try`, and `TryTable`, recursion exists so nested block/loop candidates can still be rewritten inside those regions.
-The local pass does **not** currently implement the upstream `handleBreakTarget(...)` / `visitTry(...)` style of clearing labels on every named scope.
+For `If`, `Try`, and `TryTable`, recursion exists so nested block/loop candidates can still be rewritten inside those regions. As of the 2026-06-07 O4z RUN implementation slice, same-type block peeling also retargets branch-like uses of labels owned by the removed wrapper chain to the surviving wrapper label before splicing the child body upward. That retargeting covers plain branches, conditional branches, `br_table` arm/default targets, `br_on_*` targets, delegates, and `try_table` catch targets through shared HOT mutation helpers.
+
+The local pass still does **not** implement the upstream `handleBreakTarget(...)` / `visitTry(...)` style of clearing labels on every named scope that remains structurally present.
 
 ## Biggest local-vs-upstream difference
 
 The most important durable correction is:
 
 - upstream Binaryen `remove-unused-names` is a general control-label cleanup pass with explicit name-use tracking, dead-label clearing, same-type block retargeting, loop demotion, and caller-delegate sentinel cleanup
-- local Starshine `remove-unused-names` is currently a **structural subset** that only peels dead-label same-typed block chains and demotes dead-label loops
+- local Starshine `remove-unused-names` is currently a **structural subset** that peels same-typed block chains with safe target retagging and demotes dead-label loops
 
 Concretely, the local pass does **not** do these upstream behaviors today:
 
 - generic control-label clearing on named `block`, `try`, or other scopes that remain structurally present
 - a `branchesSeen`/exact-user map keyed by symbolic names
-- generic scope-target retargeting via a `branch-utils` equivalent
+- generic scope-target retargeting outside the same-typed block-chain peel family
 - the explicit caller-delegate sentinel cleanup story from Binaryen's `DELEGATE_CALLER_TARGET`
 - the broader implicit-block-oriented “clear the label now, let emission erase the wrapper later” style of rewrite
 
 So the safe teaching headline is not “Starshine already implements `remove-unused-names`.”
 It is:
 
-- Starshine already implements the highest-value **block-peel plus loop-demotion subset** of `remove-unused-names` in HOT IR.
+- Starshine already implements the highest-value **same-typed block-peel/retarget plus loop-demotion subset** of `remove-unused-names` in HOT IR.
 
 ## Current local tests and what they prove
 
@@ -234,8 +235,8 @@ The focused tests in `src/passes/remove_unused_names_test.mbt` currently prove t
 - same-typed nested blocks peel into one surviving wrapper
 - typed type-index block wrappers still preserve the right outer type when peeled
 - branches targeting peeled parents are rebased to the surviving wrapper depth in the lowered WAT
-- peeling is blocked when nested control still targets one of the intermediate scopes
-- peeling is blocked when `try_table` catches still target an intermediate scope
+- branch-like uses targeting intermediate peeled wrappers are retargeted to the surviving wrapper label when the same-type chain makes those exits equivalent
+- `br_if`, `br_table`, and `try_table` catch targets participate in the same retargeting family
 - the shared label-use helper marks `Delegate` targets; this is helper-level coverage because the current public `@lib.Instruction` model has `TryTable` but not the legacy `try ... delegate` instruction surface
 - non-label name-section metadata survives the pass, while label-name maps can be dropped after structural control rewrites because the old label map can become stale
 - loops demote only when no continue target survives
@@ -249,7 +250,7 @@ A 2026-06-03 performance follow-up added a real lowered-instruction rewrite lane
 
 It is intentionally narrow:
 
-- It runs only outside the O4z no-op guard.
+- It runs in direct and O4z modes.
 - It first scans for the two local candidate families: same-type single-child block wrappers and loops.
 - It falls back to the HOT path if any label-use instruction is present: `br`, `br_if`, `br_table`, `br_on_null`, `br_on_non_null`, `br_on_cast`, `br_on_cast_fail`, or `try_table` catch targets.
 - On the safe branchless subset, it peels exact same-type block chains, demotes loops to blocks, and drops harmless `nop`s so the lowered output stays aligned with the pre-existing Starshine representation.
@@ -261,9 +262,9 @@ The HOT fallback was also tightened: instead of always doing a global candidate 
 
 ## O4z guard status
 
-As of the 2026-06-03 O4z audit and rewrite-kernel follow-up, direct `remove-unused-names` remains parity-clean and the branchless direct rewrite kernel is much faster, but actual O4z mode still guards the pass as a raw no-op. `src/passes/pass_manager.mbt` returns the original function for every `remove-unused-names` function pass when `optimize_level >= 4 && shrink_level >= 1`, with trace reason `o4z-remove-unused-names-noop`.
+The 2026-06-07 O4z RUN implementation removed the blanket `o4z-remove-unused-names-noop` guard from `src/passes/pass_manager.mbt`. O4z now uses the same raw branchless rewrite lane for no-label-use candidates and falls back to the HOT pass when branch-like label uses require retargeting or liveness checks.
 
-That guard is correctness-safe and performance-cheap, but it means O4z currently misses every same-type wrapper collapse and loop demotion this pass would otherwise perform. Treat re-enabling or narrowing that guard as a separate test-first precision-recovery task that must replay the self-opt / O4z artifact lane that originally motivated the guard.
+Focused O4z tests now cover branchless same-type and typed block peeling, recursive branchless `if` bodies, dead-label loop demotion, stale label-name cleanup, parent-target `br` / `br_if` / `br_table` retargeting, repeated RUN scheduling after `remove-unused-brs`, live-loop non-demotion, `try_table` catch retargeting, and typed unreachable loop demotion. Validation for the implementation slice: `moon fmt` finished; `moon test src/ir` passed 245 / 245; `moon test src/passes` passed 1977 / 1977; full `moon test` passed 5169 / 5169; native `src/cmd` build produced `target/native/release/build/cmd/cmd.exe`; direct `remove-unused-names` compare at `.tmp/pass-fuzz-remove-unused-names-o4z-run-10000` compared 7606 / 10000 cases with 7606 normalized matches, 0 mismatches, and 20 Binaryen/tool command failures. The requested 100000-case follow-up initially found five semantic-safe but size-losing dropped-unreachable debris mismatches; the size fix now removes that debris in the raw RUN adapter. Post-fix validation: `moon test src/passes` passed 1979 / 1979, full `moon test` passed 5171 / 5171, and `.tmp/pass-fuzz-remove-unused-names-o4z-run-final-100000-sizefix` compared 99751 / 100000 cases with 99751 normalized matches, 0 mismatches, and 249 Binaryen/tool command failures. `moon info` still hit the known local Moon panic recorded elsewhere.
 
 ## Practical maintenance rule
 
@@ -271,8 +272,8 @@ Treat the current Starshine implementation as:
 
 - a real in-tree hot pass for direct execution,
 - a deliberate HOT-IR subset of upstream Binaryen,
-- a currently guarded no-op in O4z mode,
-- and a pass whose direct behavior is best summarized as **same-typed block peeling plus dead-label loop demotion**.
+- active O4z execution through the raw branchless lane or HOT fallback,
+- and a pass whose direct behavior is best summarized as **same-typed block peeling with safe retargeting plus dead-label loop demotion**.
 
 Future work on this pass should answer one question explicitly:
 

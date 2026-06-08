@@ -159,12 +159,8 @@ Reopened from prior removed audits because committed docs still list behavior ga
 - [O4Z-AUDIT-OR] - Widen `once-reduction` to Binaryen behavior parity
   - Status: reopened v0.1.0 release-gating audit. Direct compare is green, but imported idempotent behavior, CFG/dominator precision, try/merge/cycle breadth, and local `ReturnCall` divergence remain documented outside the local subset.
   - Scope: official idempotent annotation roots including imported-boundary semantics, dominance/CFG precision around merges and loops, try/catch stability, dangerous cycles, direct-call versus `return_call` handling, and nested helper-pass behavior.
-  - Deliverables: apply the common checklist; source-confirm imported idempotent semantics before implementing or rejecting; add reduced CFG/dominator fixtures; refresh direct compare and saved slot evidence.
-
-- [O4Z-AUDIT-RUN] - Restore or explicitly accept O4z `remove-unused-names` behavior
-  - Status: reopened v0.1.0 release-gating audit for scheduled O4z behavior. Direct explicit `remove-unused-names` is clean, but actual O4z mode still no-ops this pass and misses same-type wrapper collapse plus loop demotion.
-  - Scope: `o4z-remove-unused-names-noop` guard, same-type block peel, loop demotion, delegate/label-use safety, name-section/control-label metadata repair, repeated RUN slots, and pass-local runtime.
-  - Deliverables: either narrow/remove the O4z no-op guard with artifact replay and direct compare evidence, or record explicit user-approved non-goal criteria for leaving O4z precision below Binaryen.
+  - Current inventory: `docs/wiki/raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md` lists the full known gap set against local Binaryen `version_130`. The 2026-06-08 red-test/green slice now covers and fixes imported idempotent calls, idempotent-adjacent wrapper cleanup, negative once writes, merge conservatism, branch exits, loop/try_table propagation for focused shapes, dangerous recursive-cycle order preservation, and `return_call` divergence; focused tests and 10000-case direct compare are green.
+  - Deliverables: apply the common checklist; finish dedicated-lit/source-surface classification beyond the focused red-test set; refresh saved slot evidence; decide whether to run the final 100000-case closeout before removing this audit.
 
 - [O4Z-AUDIT-DFE] - Reconcile `duplicate-function-elimination` behavior and scheduler parity
   - Status: reopened v0.1.0 release-gating audit. Core direct DFE compare is green, but docs still list one-iteration local behavior, missing Binaryen early/late scheduler slots, and local extra cleanup bundled with DFE.

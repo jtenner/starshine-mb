@@ -76,24 +76,6 @@ fn or_bool_array_union_into(
 }
 
 ///|
-fn or_bool_array_intersection_into(
-  target : @bitset.BitSet,
-  left : @bitset.BitSet,
-  right : @bitset.BitSet,
-) -> Unit {
-  let limit = or_min_int(
-    target.length(),
-    or_min_int(left.length(), right.length()),
-  )
-  for i = 0; i < limit; i = i + 1 {
-    target[i] = left[i] && right[i]
-  }
-  for i = limit; i < target.length(); i = i + 1 {
-    target[i] = false
-  }
-}
-
-///|
 fn or_bool_array_is_singleton(values : @bitset.BitSet, slot : Int) -> Bool {
   if slot < 0 || slot >= values.length() || !values[slot] {
     return false
@@ -149,7 +131,7 @@ fn or_global_type_is_integer(global_type : @lib.GlobalType) -> Bool {
 }
 
 ///|
-fn or_prev_nonzero_integer_const(
+fn or_prev_positive_integer_const(
   instrs : Array[@lib.Instruction],
   idx : Int,
 ) -> Bool {
@@ -157,8 +139,8 @@ fn or_prev_nonzero_integer_const(
     return false
   }
   match instrs[idx - 1] {
-    @lib.I32Const(@lib.I32(value)) => value != 0
-    @lib.I64Const(@lib.I64(value)) => value != 0L
+    @lib.I32Const(@lib.I32(value)) => value > 0
+    @lib.I64Const(@lib.I64(value)) => value > 0L
     _ => false
   }
 }
@@ -189,13 +171,13 @@ fn or_instrs_once_global(instrs : Array[@lib.Instruction]) -> Int {
       @lib.If(_, [@lib.Return], None),
       @lib.I32Const(@lib.I32(value)),
       @lib.GlobalSet(@lib.GlobalIdx(set_idx)),
-    ) if get_idx == set_idx && value != 0 => get_idx.reinterpret_as_int()
+    ) if get_idx == set_idx && value > 0 => get_idx.reinterpret_as_int()
     (
       @lib.GlobalGet(@lib.GlobalIdx(get_idx)),
       @lib.If(_, [@lib.Return], None),
       @lib.I64Const(@lib.I64(value)),
       @lib.GlobalSet(@lib.GlobalIdx(set_idx)),
-    ) if get_idx == set_idx && value != 0L => get_idx.reinterpret_as_int()
+    ) if get_idx == set_idx && value > 0L => get_idx.reinterpret_as_int()
     _ => -1
   }
 }
@@ -276,7 +258,7 @@ fn or_scan_instrs(
         let slot = or_slot_for_abs_idx(once_global_slots, global_idx)
         if slot >= 0 &&
           slot < once_global_slots.length() &&
-          !or_prev_nonzero_integer_const(instrs, idx) {
+          !or_prev_positive_integer_const(instrs, idx) {
           once_global_slots[global_idx.reinterpret_as_int()] = -1
         }
         if slot >= 0 {
@@ -306,7 +288,9 @@ fn or_scan_instrs(
       @lib.TryTable(_, _, @lib.Expr(body)) =>
         needs_dataflow = or_scan_instrs(body, read_counts, once_global_slots) ||
           needs_dataflow
-      @lib.Call(_) | @lib.ReturnCall(_) => needs_dataflow = true
+      @lib.Call(_) => needs_dataflow = true
+      @lib.ReturnCall(_) | @lib.Return | @lib.Br(_) | @lib.Unreachable =>
+        return needs_dataflow
       _ => ()
     }
   }
@@ -321,6 +305,7 @@ fn or_analyze_instrs(
   once_func_slots : Array[Int],
   func_once_sets : Array[@bitset.BitSet],
   func_once_set_singletons : @bitset.BitSet,
+  allow_transitive_call_summaries : Bool,
 ) -> @bitset.BitSet {
   let current = or_bool_array_copy(incoming)
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
@@ -328,34 +313,49 @@ fn or_analyze_instrs(
       @lib.Block(_, @lib.Expr(body)) => {
         let next = or_analyze_instrs(
           body, current, once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
+          allow_transitive_call_summaries,
         )
         or_bool_array_union_into(current, next)
       }
       @lib.If(_, then_body, else_body) => {
-        let then_set = or_analyze_instrs(
-          then_body, current, once_global_slots, once_func_slots, func_once_sets,
-          func_once_set_singletons,
+        ignore(
+          or_analyze_instrs(
+            then_body, current, once_global_slots, once_func_slots, func_once_sets,
+            func_once_set_singletons, allow_transitive_call_summaries,
+          ),
         )
-        let else_set = match else_body {
+        match else_body {
           Some(else_body) =>
-            or_analyze_instrs(
-              else_body, current, once_global_slots, once_func_slots, func_once_sets,
-              func_once_set_singletons,
+            ignore(
+              or_analyze_instrs(
+                else_body, current, once_global_slots, once_func_slots, func_once_sets,
+                func_once_set_singletons, allow_transitive_call_summaries,
+              ),
             )
-          None => current
+          None => ()
         }
-        or_bool_array_intersection_into(current, then_set, else_set)
       }
-      @lib.Loop(_, _) => ()
-      @lib.TryTable(_, _, _) => ()
+      @lib.Loop(_, @lib.Expr(body)) => {
+        let next = or_analyze_instrs(
+          body, current, once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
+          allow_transitive_call_summaries,
+        )
+        or_bool_array_union_into(current, next)
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) => {
+        let next = or_analyze_instrs(
+          body, current, once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
+          allow_transitive_call_summaries,
+        )
+        or_bool_array_union_into(current, next)
+      }
       @lib.GlobalSet(@lib.GlobalIdx(global_idx)) => {
         let slot = or_slot_for_abs_idx(once_global_slots, global_idx)
-        if slot >= 0 && or_prev_nonzero_integer_const(instrs, idx) {
+        if slot >= 0 && or_prev_positive_integer_const(instrs, idx) {
           current[slot] = true
         }
       }
-      @lib.Call(@lib.FuncIdx(func_idx))
-      | @lib.ReturnCall(@lib.FuncIdx(func_idx)) => {
+      @lib.Call(@lib.FuncIdx(func_idx)) => {
         let func_slot = func_idx.reinterpret_as_int()
         let mut direct_singleton = false
         if func_slot < once_func_slots.length() {
@@ -366,10 +366,14 @@ fn or_analyze_instrs(
               func_once_set_singletons[func_slot]
           }
         }
-        if func_slot < func_once_sets.length() && !direct_singleton {
+        if allow_transitive_call_summaries &&
+          func_slot < func_once_sets.length() &&
+          !direct_singleton {
           or_bool_array_union_into(current, func_once_sets[func_slot])
         }
       }
+      @lib.ReturnCall(_) | @lib.Return | @lib.Br(_) | @lib.Unreachable =>
+        return current
       _ => ()
     }
   }
@@ -384,6 +388,7 @@ fn or_rewrite_instrs(
   once_func_slots : Array[Int],
   func_once_sets : Array[@bitset.BitSet],
   func_once_set_singletons : @bitset.BitSet,
+  allow_transitive_call_summaries : Bool,
 ) -> @bitset.BitSet {
   let current = or_bool_array_copy(incoming)
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
@@ -391,49 +396,53 @@ fn or_rewrite_instrs(
       @lib.Block(block_type, @lib.Expr(body)) => {
         let next = or_rewrite_instrs(
           body, current, once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
+          allow_transitive_call_summaries,
         )
         instrs[idx] = @lib.Instruction::block(block_type, @lib.Expr::new(body))
         or_bool_array_union_into(current, next)
       }
       @lib.If(block_type, then_body, else_body) => {
-        let then_set = or_rewrite_instrs(
-          then_body, current, once_global_slots, once_func_slots, func_once_sets,
-          func_once_set_singletons,
+        ignore(
+          or_rewrite_instrs(
+            then_body, current, once_global_slots, once_func_slots, func_once_sets,
+            func_once_set_singletons, allow_transitive_call_summaries,
+          ),
         )
-        let else_set = match else_body {
+        match else_body {
           Some(else_body) =>
-            or_rewrite_instrs(
-              else_body, current, once_global_slots, once_func_slots, func_once_sets,
-              func_once_set_singletons,
+            ignore(
+              or_rewrite_instrs(
+                else_body, current, once_global_slots, once_func_slots, func_once_sets,
+                func_once_set_singletons, allow_transitive_call_summaries,
+              ),
             )
-          None => current
+          None => ()
         }
         instrs[idx] = @lib.Instruction::if_(block_type, then_body, else_body)
-        or_bool_array_intersection_into(current, then_set, else_set)
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
-        ignore(
-          or_rewrite_instrs(
-            body, current, once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
-          ),
+        let next = or_rewrite_instrs(
+          body, current, once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
+          allow_transitive_call_summaries,
         )
         instrs[idx] = @lib.Instruction::loop_(block_type, @lib.Expr::new(body))
+        or_bool_array_union_into(current, next)
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
-        ignore(
-          or_rewrite_instrs(
-            body, current, once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
-          ),
+        let next = or_rewrite_instrs(
+          body, current, once_global_slots, once_func_slots, func_once_sets, func_once_set_singletons,
+          allow_transitive_call_summaries,
         )
         instrs[idx] = @lib.Instruction::try_table(
           block_type,
           catches,
           @lib.Expr::new(body),
         )
+        or_bool_array_union_into(current, next)
       }
       @lib.GlobalSet(@lib.GlobalIdx(global_idx)) => {
         let slot = or_slot_for_abs_idx(once_global_slots, global_idx)
-        if slot >= 0 && or_prev_nonzero_integer_const(instrs, idx) {
+        if slot >= 0 && or_prev_positive_integer_const(instrs, idx) {
           if current[slot] {
             instrs[idx - 1] = @lib.Instruction::nop()
             instrs[idx] = @lib.Instruction::nop()
@@ -456,25 +465,14 @@ fn or_rewrite_instrs(
               func_once_set_singletons[func_slot]
           }
         }
-        if func_slot < func_once_sets.length() && !direct_singleton {
+        if allow_transitive_call_summaries &&
+          func_slot < func_once_sets.length() &&
+          !direct_singleton {
           or_bool_array_union_into(current, func_once_sets[func_slot])
         }
       }
-      @lib.ReturnCall(@lib.FuncIdx(func_idx)) => {
-        let func_slot = func_idx.reinterpret_as_int()
-        let mut direct_singleton = false
-        if func_slot < once_func_slots.length() {
-          let once_global = once_func_slots[func_slot]
-          if once_global >= 0 {
-            current[once_global] = true
-            direct_singleton = func_slot < func_once_set_singletons.length() &&
-              func_once_set_singletons[func_slot]
-          }
-        }
-        if func_slot < func_once_sets.length() && !direct_singleton {
-          or_bool_array_union_into(current, func_once_sets[func_slot])
-        }
-      }
+      @lib.ReturnCall(_) | @lib.Return | @lib.Br(_) | @lib.Unreachable =>
+        return current
       _ => ()
     }
   }
@@ -482,10 +480,33 @@ fn or_rewrite_instrs(
 }
 
 ///|
+fn or_cleanup_unreachable_debris(
+  funcs : Array[@lib.Func],
+) -> (Array[@lib.Func], Bool) {
+  let out : Array[@lib.Func] = []
+  let mut changed = false
+  for idx = 0; idx < funcs.length(); idx = idx + 1 {
+    let func = funcs[idx]
+    let @lib.Func(locals, @lib.Expr(instrs)) = func
+    let (next_instrs, func_changed) = pass_raw_remove_dropped_unreachable_debris(
+      instrs,
+    )
+    if func_changed {
+      out.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+      changed = true
+    } else {
+      out.push(func)
+    }
+  }
+  (out, changed)
+}
+
+///|
 fn or_optimize_once_bodies(
   funcs : Array[@lib.Func],
   imported_func_count : Int,
   once_func_globals : Array[Int],
+  once_func_slots : Array[Int],
 ) -> Bool {
   let removed_exit_logic = @bitset.BitSet::new(once_func_globals.length())
   let mut changed = false
@@ -521,7 +542,8 @@ fn or_optimize_once_bodies(
               @lib.Call(@lib.FuncIdx(target)) => {
                 let target_idx = target.reinterpret_as_int()
                 if target_idx < removed_exit_logic.length() &&
-                  once_func_globals[target_idx] >= 0 &&
+                  target_idx < once_func_slots.length() &&
+                  once_func_slots[target_idx] >= 0 &&
                   !removed_exit_logic[target_idx] {
                   funcs[defined_idx] = @lib.Func::new(
                     locals,
@@ -552,7 +574,8 @@ fn or_optimize_once_bodies(
       @lib.Call(@lib.FuncIdx(target)) => {
         let target_idx = target.reinterpret_as_int()
         if target_idx >= removed_exit_logic.length() ||
-          once_func_globals[target_idx] < 0 ||
+          target_idx >= once_func_slots.length() ||
+          once_func_slots[target_idx] < 0 ||
           removed_exit_logic[target_idx] {
           continue
         }
@@ -669,9 +692,7 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     }
   }
   let mut total_once_slots = active_global_count
-  for func_idx = imported_func_count
-      func_idx < total_funcs
-      func_idx = func_idx + 1 {
+  for func_idx = 0; func_idx < total_funcs; func_idx = func_idx + 1 {
     if once_func_slots[func_idx] < 0 &&
       idempotent_funcs[func_idx] &&
       or_func_has_no_params_or_results(env, func_idx) {
@@ -681,6 +702,10 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     }
   }
   if !found_once {
+    let (cleaned_funcs, cleanup_changed) = or_cleanup_unreachable_debris(funcs)
+    if cleanup_changed {
+      return mod_.with_code_sec(@lib.CodeSec::new(cleaned_funcs))
+    }
     return mod_
   }
 
@@ -710,11 +735,12 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
       let @lib.Func(_, @lib.Expr(instrs)) = funcs[defined_idx]
       let next = or_analyze_instrs(
         instrs,
-        func_initial_once_sets[abs_idx],
+        @bitset.BitSet::new(total_once_slots),
         active_global_slots,
         once_func_slots,
         func_once_sets,
         func_once_set_singletons,
+        once_func_slots[abs_idx] < 0,
       )
       if !or_bool_array_equal(next, func_once_sets[abs_idx]) {
         func_once_sets[abs_idx] = next
@@ -745,11 +771,12 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     ignore(
       or_rewrite_instrs(
         next_instrs,
-        func_initial_once_sets[abs_idx],
+        @bitset.BitSet::new(total_once_slots),
         active_global_slots,
         once_func_slots,
         func_once_sets,
         func_once_set_singletons,
+        once_func_slots[abs_idx] < 0,
       ),
     )
     let next_func = @lib.Func::new(locals, @lib.Expr::new(next_instrs))
@@ -759,12 +786,18 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     rewritten_funcs.push(next_func)
   }
   if or_optimize_once_bodies(
-      rewritten_funcs, imported_func_count, once_func_globals,
+      rewritten_funcs, imported_func_count, once_func_globals, once_func_slots,
     ) {
+    changed = true
+  }
+  let (cleaned_funcs, cleanup_changed) = or_cleanup_unreachable_debris(
+    rewritten_funcs,
+  )
+  if cleanup_changed {
     changed = true
   }
   if !changed {
     return mod_
   }
-  mod_.with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+  mod_.with_code_sec(@lib.CodeSec::new(cleaned_funcs))
 }

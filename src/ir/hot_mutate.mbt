@@ -649,6 +649,87 @@ pub fn hot_label_owner_set(
 }
 
 ///|
+pub fn hot_branch_target_set(
+  func : HotFunc,
+  node_id : NodeId,
+  target : LabelId,
+) -> Unit {
+  hot_mutate_require_live_node(func, node_id, "hot branch_target_set node")
+  hot_mutate_require_label_id(func, target, "hot branch_target_set target")
+  let node = hot_node_get(func, node_id)
+  match node.op {
+    HotOp::Br
+    | HotOp::BrIf
+    | HotOp::BrOnNull
+    | HotOp::BrOnNonNull
+    | HotOp::BrOnCast
+    | HotOp::BrOnCastFail
+    | HotOp::Delegate => {
+      func.nodes[node_id] = { ..node, imm0: target }
+      hot_revision_bump(func)
+    }
+    _ => abort("hot branch_target_set requires a single-target branch node")
+  }
+}
+
+///|
+pub fn hot_branch_table_set(
+  func : HotFunc,
+  node_id : NodeId,
+  targets : Array[LabelId],
+  default_target : LabelId,
+) -> Unit {
+  hot_mutate_require_live_node(func, node_id, "hot branch_table_set node")
+  for target in targets {
+    hot_mutate_require_label_id(func, target, "hot branch_table_set target")
+  }
+  hot_mutate_require_label_id(
+    func, default_target, "hot branch_table_set default target",
+  )
+  let node = hot_node_get(func, node_id)
+  match node.op {
+    HotOp::BrTable => {
+      let table_id = hot_alloc_branch_table(
+        func,
+        HotBranchTable::new(targets, default_target),
+      )
+      func.nodes[node_id] = { ..node, imm0: table_id }
+      hot_revision_bump(func)
+    }
+    _ => abort("hot branch_table_set requires a br_table node")
+  }
+}
+
+///|
+pub fn hot_try_table_catches_set(
+  func : HotFunc,
+  node_id : NodeId,
+  catches : Array[HotCatchArm],
+) -> Unit {
+  hot_mutate_require_live_node(func, node_id, "hot try_table_catches_set node")
+  for catch_ in catches {
+    let label_id = match catch_ {
+      HotCatchArm::CatchArm(_, label_id)
+      | HotCatchArm::CatchRefArm(_, label_id)
+      | HotCatchArm::CatchAllArm(label_id)
+      | HotCatchArm::CatchAllRefArm(label_id) => label_id
+    }
+    hot_mutate_require_label_id(
+      func, label_id, "hot try_table_catches_set catch target",
+    )
+  }
+  let node = hot_node_get(func, node_id)
+  match node.op {
+    HotOp::TryTable => {
+      let catch_id = hot_alloc_catch_info(func, HotCatchInfo::new(catches))
+      func.nodes[node_id] = { ..node, imm1: catch_id }
+      hot_revision_bump(func)
+    }
+    _ => abort("hot try_table_catches_set requires a try_table node")
+  }
+}
+
+///|
 pub fn hot_node_exact_instr_set(
   func : HotFunc,
   id : NodeId,

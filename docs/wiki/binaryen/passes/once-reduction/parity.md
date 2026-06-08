@@ -1,9 +1,10 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-06-03
+last_reviewed: 2026-06-08
 sources:
   - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
+  - ../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
   - ../../../raw/research/0238-2026-04-21-once-reduction-starshine-strategy-followup.md
   - ../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
@@ -48,6 +49,21 @@ The current Starshine subset clearly covers:
 - fixed-point propagation of definitely-set once-bits across direct-call summaries
 - redundant direct-call and redundant `global.set` elimination
 - trivial once-body cleanup for empty bodies and single-call wrappers, including the single-top-level-block form
+
+## 2026-06-08 behavior-gap inventory
+
+The latest source audit is [`../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md`](../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md). It checked local Binaryen `wasm-opt version 130 (version_130)` and found that `version_130` `OnceReduction.cpp` plus the dedicated lit file are unchanged from the `version_129` sources this dossier already used.
+
+The audit originally kept `[O4Z-AUDIT-OR]` open with nine concrete red-test families: imported idempotent roots, idempotent-adjacent wrapper cleanup, negative once writes, CFG/dominator merge drift, branch exits, loop propagation, EH/`try_table`, dangerous recursive cycles, and `return_call` divergence.
+
+The same 2026-06-08 follow-up implemented those covered families. Current focused evidence:
+
+- `moon test --package jtenner/starshine/passes --file once_reduction_test.mbt`: `25` / `25` passed
+- `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass once-reduction --out-dir .tmp/pass-fuzz-once-reduction-green-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --keep-going-after-command-failures`: `9977` compared, `9977` normalized matches, `0` mismatches, `23` Binaryen/tool command failures
+- final-style probe `.tmp/pass-fuzz-once-reduction-final-100000-cleanup3`: `99751` compared, `99748` normalized matches, `3` raw mismatches, `249` Binaryen/tool command failures. Agent classification: the three raw mismatches were unreachable/dead-trap debris on no-once modules, not once-call behavior differences.
+- after moving that cleanup into the shared `pass_raw_remove_dropped_unreachable_debris(...)` utility, final rerun `.tmp/pass-fuzz-once-reduction-final-100000-shared-cleanup`: `99751` compared, `99751` normalized matches, `0` mismatches, `249` Binaryen/tool command failures.
+
+Keep `[O4Z-AUDIT-OR]` open until the remaining dedicated-lit/source-surface review and final closeout decision are complete.
 
 ## Remaining gap
 

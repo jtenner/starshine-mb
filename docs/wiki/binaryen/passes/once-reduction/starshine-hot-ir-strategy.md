@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-03
+last_reviewed: 2026-06-08
 sources:
   - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
+  - ../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md
   - ../../../raw/research/0238-2026-04-21-once-reduction-starshine-strategy-followup.md
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
   - ../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
@@ -207,15 +208,17 @@ That means this folder should be maintained as living implementation docs, not a
 
 ## What the local pass does not do
 
-Compared with the full upstream Binaryen `version_129` contract, Starshine currently does **not** do these behaviors here:
+Compared with the full upstream Binaryen `version_130` contract, the 2026-06-08 red-test/green phase changed Starshine in these important ways:
 
-- imported `@binaryen.idempotent` call removal; defined no-param/no-result idempotent functions are now supported as fake roots
-- broader top-level-block and expression-body once-wrapper forms beyond the single-block shape added in the O4z audit
-- CFG / immediate-dominator propagation
-- the richer after-merge and long-control-flow precision that Binaryen gets from that CFG model
-- the broader dedicated lit surface around difficult loop / cycle / EH cases
+- imported no-param/no-result `@binaryen.idempotent` calls are now fake once roots
+- wrapper cleanup now strips an explicit once wrapper whose only payload calls an idempotent fake-root function
+- negative once writes are rejected to match Binaryen's positive-integer scanner rule
+- structural `if` no longer leaks two-arm merge facts that Binaryen's dominance-only pass intentionally ignores
+- block branch exits, `return_call`, and `unreachable` stop local fact propagation
+- loop and `try_table` bodies can still optimize locally and propagate facts in the covered Binaryen-positive shapes
+- once-function-local transitive summaries are limited so dangerous recursive-cycle order-preservation cases keep their calls
 
-Those are real capability differences, not just wording differences.
+The local implementation is still not literally Binaryen's CFG / `DomTree` engine, and the full dedicated lit decision tree has not been exhaustively ported. The detailed inventory, red-test table, and current green evidence live in [`../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md`](../../../raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md).
 
 ## Biggest local-vs-upstream difference
 

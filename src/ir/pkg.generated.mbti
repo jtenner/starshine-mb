@@ -368,6 +368,12 @@ pub fn hot_label_owner(HotFunc, Int) -> Int
 
 pub fn hot_label_owner_set(HotFunc, Int, Int) -> Unit
 
+pub fn hot_branch_target_set(HotFunc, Int, Int) -> Unit
+
+pub fn hot_branch_table_set(HotFunc, Int, Array[Int], Int) -> Unit
+
+pub fn hot_try_table_catches_set(HotFunc, Int, Array[HotCatchArm]) -> Unit
+
 pub fn hot_label_result_type(HotFunc, Int) -> Int
 
 pub fn hot_lift_body(@lib.Expr, HotLocals, body_result_type? : @lib.BlockType) -> HotFunc

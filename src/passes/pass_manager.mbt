@@ -9441,6 +9441,256 @@ fn run_hot_pipeline_raw_remove_unused_names_scan_instrs(
 }
 
 ///|
+fn run_hot_pipeline_raw_remove_unused_names_instr_is_branch_control(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Instruction::Br(_)
+    | @lib.Instruction::BrIf(_)
+    | @lib.Instruction::BrTable(_, _)
+    | @lib.Instruction::BrOnNull(_)
+    | @lib.Instruction::BrOnNonNull(_)
+    | @lib.Instruction::BrOnCast(_, _, _, _)
+    | @lib.Instruction::BrOnCastFail(_, _, _, _)
+    | @lib.Instruction::Return
+    | @lib.Instruction::ReturnCall(_)
+    | @lib.Instruction::ReturnCallIndirect(_, _)
+    | @lib.Instruction::ReturnCallRef(_) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_names_instrs_have_branch_control(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if run_hot_pipeline_raw_remove_unused_names_instr_is_branch_control(instr) {
+      return true
+    }
+    match instr {
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_remove_unused_names_instrs_have_branch_control(
+            body,
+          ) {
+          return true
+        }
+      @lib.Instruction::If(_, then_body, Some(else_body)) =>
+        if run_hot_pipeline_raw_remove_unused_names_instrs_have_branch_control(
+            then_body,
+          ) ||
+          run_hot_pipeline_raw_remove_unused_names_instrs_have_branch_control(
+            else_body,
+          ) {
+          return true
+        }
+      @lib.Instruction::If(_, then_body, None) =>
+        if run_hot_pipeline_raw_remove_unused_names_instrs_have_branch_control(
+            then_body,
+          ) {
+          return true
+        }
+      @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_remove_unused_names_instrs_have_branch_control(
+            body,
+          ) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_names_instrs_end_in_unreachable(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if instrs.length() == 0 {
+    return false
+  }
+  match instrs[instrs.length() - 1] {
+    @lib.Instruction::Unreachable => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_names_dropped_block_has_unreachable_tail(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Instruction::Block(_, @lib.Expr(body)) =>
+      run_hot_pipeline_raw_remove_unused_names_instrs_end_in_unreachable(body) &&
+      !run_hot_pipeline_raw_remove_unused_names_instrs_have_branch_control(body)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_names_void_block_can_inline_before_unreachable(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Instruction::Block(_, @lib.Expr(body)) =>
+      !run_hot_pipeline_raw_remove_unused_names_instrs_have_branch_control(body)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_names_collapse_trailing_unreachable_run(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  let mut end = instrs.length()
+  while end > 0 {
+    match instrs[end - 1] {
+      @lib.Instruction::Unreachable => end -= 1
+      _ => break
+    }
+  }
+  if end == instrs.length() {
+    for instr in instrs {
+      out.push(instr)
+    }
+    return out
+  }
+  for idx = 0; idx < end; idx = idx + 1 {
+    out.push(instrs[idx])
+  }
+  out.push(@lib.Instruction::unreachable_())
+  out
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_names_remove_dropped_unreachable_debris(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Bool) {
+  let out : Array[@lib.Instruction] = []
+  let mut changed = false
+  let mut i = 0
+  while i < instrs.length() {
+    match instrs[i] {
+      @lib.Instruction::Unreachable | @lib.Instruction::Block(_, _) => {
+        let mut j = i + 1
+        let mut saw_drop = false
+        while j < instrs.length() {
+          match instrs[j] {
+            @lib.Instruction::Drop => {
+              saw_drop = true
+              j += 1
+            }
+            _ => break
+          }
+        }
+        if j < instrs.length() {
+          match instrs[j] {
+            @lib.Instruction::Unreachable =>
+              match instrs[i] {
+                @lib.Instruction::Unreachable =>
+                  if saw_drop {
+                    changed = true
+                    i = j
+                    continue
+                  }
+                @lib.Instruction::Block(_, @lib.Expr(body)) =>
+                  if run_hot_pipeline_raw_remove_unused_names_dropped_block_has_unreachable_tail(
+                      instrs[i],
+                    ) {
+                    let collapsed = run_hot_pipeline_raw_remove_unused_names_collapse_trailing_unreachable_run(
+                      body,
+                    )
+                    let (cleaned_body, _) = run_hot_pipeline_raw_remove_unused_names_remove_dropped_unreachable_debris(
+                      collapsed,
+                    )
+                    for body_instr in cleaned_body {
+                      out.push(body_instr)
+                    }
+                    changed = true
+                    i = j + 1
+                    continue
+                  } else if run_hot_pipeline_raw_remove_unused_names_void_block_can_inline_before_unreachable(
+                      instrs[i],
+                    ) {
+                    let (cleaned_body, _) = run_hot_pipeline_raw_remove_unused_names_remove_dropped_unreachable_debris(
+                      body,
+                    )
+                    for body_instr in cleaned_body {
+                      out.push(body_instr)
+                    }
+                    changed = true
+                    i += 1
+                    continue
+                  }
+                _ => ()
+              }
+            _ => ()
+          }
+        }
+      }
+      _ => ()
+    }
+    let rewritten_instr = match instrs[i] {
+      @lib.Instruction::Block(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_remove_unused_names_remove_dropped_unreachable_debris(
+          body,
+        )
+        if body_changed {
+          changed = true
+        }
+        @lib.Instruction::block(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.Instruction::Loop(block_type, @lib.Expr(body)) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_remove_unused_names_remove_dropped_unreachable_debris(
+          body,
+        )
+        if body_changed {
+          changed = true
+        }
+        @lib.Instruction::loop_(block_type, @lib.Expr::new(next_body))
+      }
+      @lib.Instruction::If(block_type, then_body, else_body) => {
+        let (next_then, then_changed) = run_hot_pipeline_raw_remove_unused_names_remove_dropped_unreachable_debris(
+          then_body,
+        )
+        let (next_else, else_changed) = match else_body {
+          Some(body) => {
+            let (body2, changed2) = run_hot_pipeline_raw_remove_unused_names_remove_dropped_unreachable_debris(
+              body,
+            )
+            (Some(body2), changed2)
+          }
+          None => (None, false)
+        }
+        if then_changed || else_changed {
+          changed = true
+        }
+        @lib.Instruction::if_(block_type, next_then, next_else)
+      }
+      @lib.Instruction::TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (next_body, body_changed) = run_hot_pipeline_raw_remove_unused_names_remove_dropped_unreachable_debris(
+          body,
+        )
+        if body_changed {
+          changed = true
+        }
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(next_body),
+        )
+      }
+      other => other
+    }
+    out.push(rewritten_instr)
+    i += 1
+  }
+  (out, changed)
+}
+
+///|
 fn run_hot_pipeline_raw_remove_unused_names_strip_nops(
   instrs : Array[@lib.Instruction],
 ) -> (Array[@lib.Instruction], Bool) {
@@ -9613,38 +9863,45 @@ fn run_hot_pipeline_raw_remove_unused_names(
     return None
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
-  if options.optimize_level >= 4 && options.shrink_level >= 1 {
-    return Some({
-      reason: "o4z-remove-unused-names-noop",
-      func: original,
-      unchanged_original: true,
-      trace_skip_raw: true,
-    })
-  }
   let @lib.Func(locals, @lib.Expr(instrs)) = original
   let (has_candidate, has_label_use) = run_hot_pipeline_raw_remove_unused_names_scan_instrs(
     instrs,
   )
-  if !has_candidate {
-    return Some({
-      reason: "no-remove-unused-names-candidates",
-      func: original,
-      unchanged_original: true,
-      trace_skip_raw: true,
-    })
-  }
-  if has_label_use {
+  if !has_candidate || has_label_use {
+    let (cleaned, debris_changed) = run_hot_pipeline_raw_remove_unused_names_remove_dropped_unreachable_debris(
+      instrs,
+    )
+    if debris_changed {
+      return Some({
+        reason: "raw-remove-unused-names-unreachable-debris",
+        func: @lib.Func::new(locals, @lib.Expr::new(cleaned)),
+        unchanged_original: false,
+        trace_skip_raw: false,
+      })
+    }
+    if !has_candidate {
+      return Some({
+        reason: "no-remove-unused-names-candidates",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
     return None
   }
   let pass_timer_start = perf_start_timer_opt(
     options.perf,
     "pass:remove-unused-names",
   )
-  let (rewritten, changed) = match
+  let (rewritten_without_debris, rewrite_changed) = match
     run_hot_pipeline_raw_remove_unused_names_rewrite_single_root(instrs) {
     Some(result) => result
     None => run_hot_pipeline_raw_remove_unused_names_rewrite_instrs(instrs)
   }
+  let (rewritten, debris_changed) = run_hot_pipeline_raw_remove_unused_names_remove_dropped_unreachable_debris(
+    rewritten_without_debris,
+  )
+  let changed = rewrite_changed || debris_changed
   perf_stop_timer_opt(
     options.perf,
     "pass:remove-unused-names",
