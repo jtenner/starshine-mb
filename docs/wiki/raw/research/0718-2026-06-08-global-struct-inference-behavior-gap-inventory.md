@@ -174,9 +174,35 @@ Debris-cleanup follow-up:
     - command failures: `20`.
 - Per user request, the 100000-case lane was not rerun for this simple shared cleanup follow-up.
 
+Strict post-cleanup signoff:
+
+- Command: `bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass global-struct-inference --out-dir .tmp/pass-fuzz-global-struct-inference-post-debris-100000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures`
+- Compared: `99751 / 100000`.
+- Normalized matches: `99751`.
+- Mismatches: `0`.
+- Validation failures: `0`.
+- Property failures: `0`.
+- Generator failures: `0`.
+- Command failures: `249`.
+- The same Binaryen/tool command-failure count as the earlier final-style lane remained, but the dropped-unreachable debris mismatch family is gone.
+
+`version_130` source/lit refresh:
+
+- Local oracle reports `wasm-opt version 130 (version_130)`.
+- Rechecked the `version_130` Binaryen source and lit surface from:
+  - `https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/GlobalStructInference.cpp`
+  - `https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/gsi.wast`
+  - `https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/gsi-nontype.wast`
+  - `https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/gsi-desc.wast`
+  - `https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/gsi-to-desc-cast.wast`
+  - `https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/gsi-debug.wast`
+  - `https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/gsi_vacuum_precompute.wast`
+- Source shape remains aligned with this dossier: ordinary GSI rewrites immutable-field `struct.get` and `ref.get_desc`, has open-world direct immutable-global reads, closed-world type/global analysis, one/two-value select formation, nested-value un-nesting through immutable globals, packed-field materialization, nullable trap preservation through non-null casts/drops, and refinalization after type-changing replacement.
+- The source still keeps descriptor-cast rewriting behind the sibling `global-struct-inference-desc-cast` constructor flag; ordinary `--gsi` does not claim `ref.cast_desc_eq` rewrites. The earlier cast-carrier watchpoint remains a sibling-pass item, not an ordinary-GSI gap.
+- No additional ordinary-GSI positive surface was found in the `version_130` source/lit refresh that is not either covered by current focused tests or covered by the zero-mismatch 100000-case direct compare.
+- `moon info` was retried after signoff and still crashes with the known Moon panic: `index out of bounds: the len is 36 but the index is 8329485`.
+
 ## Suggested next implementation order
 
-1. Widen un-nestable operand splitting to array allocation constructors (`array.new`, `array.new_default`, `array.new_fixed`, and source-backed data/elem variants if local const-expression validation supports them), preserving exact non-null array result types and operand counts.
-2. Refresh the Binaryen `version_130` source/lit surface before expanding beyond these tests, especially for any ordinary-GSI carrier behavior.
-3. Keep `global-struct-inference-desc-cast` as a separate pass audit unless the user explicitly widens this slice to the sibling pass.
-4. Add source-backed tests before claiming arbitrary/cast-aware carrier parity.
+1. Keep `global-struct-inference-desc-cast` as a separate pass audit unless the user explicitly widens this slice to the sibling pass.
+2. Add source-backed tests before claiming arbitrary/cast-aware carrier parity outside ordinary `--gsi`.
