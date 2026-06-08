@@ -939,3 +939,934 @@ test "duplicate-function-elimination strips names and rewrites annotation maps t
     None => fail("expected rewritten func annotation section")
   }
 }
+
+///|
+fn dfe_test_run(input : @lib.Module) -> @lib.Module raise {
+  match
+    run_hot_pipeline(input, HotPipelineOptions::new(), [
+      "duplicate-function-elimination",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected duplicate-function-elimination pipeline success, got \{err}",
+      )
+  }
+}
+
+///|
+fn dfe_test_defined_func_count(mod_ : @lib.Module) -> Int raise {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.length()
+    None => fail("expected code section")
+  }
+}
+
+///|
+fn dfe_test_export_func_target(
+  mod_ : @lib.Module,
+  export_idx : Int,
+) -> UInt raise {
+  match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) =>
+      match exports[export_idx] {
+        @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(target))) => target
+        _ => fail("expected function export")
+      }
+    None => fail("expected export section")
+  }
+}
+
+///|
+test "duplicate-function-elimination never treats imported functions as removable candidates" {
+  let input = @lib.Module::new()
+    .with_type_sec(dfe_test_type_sec())
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("env"),
+          @lib.Name::from_string("imported_nop"),
+          @lib.ExternType::func(@lib.TypeIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("imported"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(0U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("defined"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+        ),
+      ]),
+    )
+  let optimized = try! dfe_test_run(input)
+  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 1)
+  @debug.assert_eq(try! dfe_test_export_func_target(optimized, 0), 0U)
+  @debug.assert_eq(try! dfe_test_export_func_target(optimized, 1), 1U)
+}
+
+///|
+test "duplicate-function-elimination keeps identical bodies distinct when function types differ" {
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], []),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(1U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    )
+  let optimized = try! dfe_test_run(input)
+  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 2)
+}
+
+///|
+test "duplicate-function-elimination keeps identical bodies distinct when local layouts differ" {
+  let input = @lib.Module::new()
+    .with_type_sec(dfe_test_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::f32()),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let optimized = try! dfe_test_run(input)
+  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 2)
+}
+
+///|
+test "duplicate-function-elimination merges functions with identical semantic annotations" {
+  let input = @lib.Module::new()
+    .with_type_sec(dfe_test_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+    .with_func_annotation_sec(
+      @lib.FuncAnnotationSec::new([
+        @lib.FuncAnnotationAssoc::new(0U, [
+          @lib.FuncAnnotation::new("binaryen.idempotent"),
+        ]),
+        @lib.FuncAnnotationAssoc::new(1U, [
+          @lib.FuncAnnotation::new("binaryen.idempotent"),
+        ]),
+      ]),
+    )
+  let optimized = try! dfe_test_run(input)
+  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 1)
+  match optimized.func_annotation_sec {
+    Some(@lib.FuncAnnotationSec(entries)) =>
+      @debug.assert_eq(entries, [
+        @lib.FuncAnnotationAssoc::new(0U, [
+          @lib.FuncAnnotation::new("binaryen.idempotent"),
+        ]),
+      ])
+    None => fail("expected canonical survivor annotation")
+  }
+}
+
+///|
+test "duplicate-function-elimination keeps different semantic annotations distinct" {
+  let input = @lib.Module::new()
+    .with_type_sec(dfe_test_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+    .with_func_annotation_sec(
+      @lib.FuncAnnotationSec::new([
+        @lib.FuncAnnotationAssoc::new(0U, [
+          @lib.FuncAnnotation::new("binaryen.idempotent"),
+        ]),
+        @lib.FuncAnnotationAssoc::new(1U, [
+          @lib.FuncAnnotation::new("binaryen.removable.if.unused"),
+        ]),
+      ]),
+    )
+  let optimized = try! dfe_test_run(input)
+  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 2)
+}
+
+///|
+test "duplicate-function-elimination keeps the earliest survivor across a duplicate bucket" {
+  let input = @lib.Module::new()
+    .with_type_sec(dfe_test_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(3U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(9)),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("middle"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(2U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::from_string("last"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(3U)),
+        ),
+      ]),
+    )
+  let optimized = try! dfe_test_run(input)
+  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 2)
+  @debug.assert_eq(try! dfe_test_call_target(optimized, 0), 1U)
+  @debug.assert_eq(try! dfe_test_export_func_target(optimized, 0), 1U)
+  @debug.assert_eq(try! dfe_test_export_func_target(optimized, 1), 1U)
+}
+
+///|
+fn dfe_test_instruction_references_func_idx(
+  instr : @lib.Instruction,
+  target : UInt,
+) -> Bool {
+  match instr {
+    @lib.Call(@lib.FuncIdx(raw))
+    | @lib.ReturnCall(@lib.FuncIdx(raw))
+    | @lib.RefFunc(@lib.FuncIdx(raw)) => raw == target
+    @lib.Block(_, expr) | @lib.Loop(_, expr) | @lib.TryTable(_, _, expr) =>
+      dfe_test_expr_references_func_idx(expr, target)
+    @lib.If(_, then_body, else_body) => {
+      for nested in then_body {
+        if dfe_test_instruction_references_func_idx(nested, target) {
+          return true
+        }
+      }
+      match else_body {
+        Some(body) =>
+          for nested in body {
+            if dfe_test_instruction_references_func_idx(nested, target) {
+              return true
+            }
+          }
+        None => ()
+      }
+      false
+    }
+    _ => false
+  }
+}
+
+///|
+fn dfe_test_expr_references_func_idx(expr : @lib.Expr, target : UInt) -> Bool {
+  let @lib.Expr(instrs) = expr
+  for instr in instrs {
+    if dfe_test_instruction_references_func_idx(instr, target) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+test "duplicate-function-elimination rewrites nested call and ref.func instruction carriers" {
+  let input = @lib.Module::new()
+    .with_type_sec(dfe_test_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(2U))]),
+            ),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::ref_func(@lib.FuncIdx::new(2U)),
+                @lib.Instruction::drop(),
+              ],
+              Some([@lib.Instruction::call(@lib.FuncIdx::new(2U))]),
+            ),
+            @lib.Instruction::loop_(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([
+                @lib.Instruction::ref_func(@lib.FuncIdx::new(2U)),
+                @lib.Instruction::drop(),
+              ]),
+            ),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(2U)]),
+        ),
+      ]),
+    )
+  let optimized = try! dfe_test_run(input)
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, body), ..])) => {
+      assert_false(dfe_test_expr_references_func_idx(body, 2U))
+      assert_true(dfe_test_expr_references_func_idx(body, 1U))
+    }
+    _ => fail("expected rewritten first function body")
+  }
+}
+
+///|
+test "duplicate-function-elimination rewrites passive typed function element expressions" {
+  let input = @lib.Module::new()
+    .with_type_sec(dfe_test_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::passive(),
+          @lib.ElemKind::typed_exprs(
+            @lib.RefType::new(
+              true,
+              @lib.HeapType::abs(@lib.AbsHeapType::func()),
+            ),
+            [
+              @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(1U))]),
+            ],
+          ),
+        ),
+      ]),
+    )
+  let optimized = try! dfe_test_run(input)
+  match optimized.elem_sec {
+    Some(
+      @lib.ElemSec([@lib.Elem(_, @lib.FuncsElemKind([@lib.FuncIdx(target)]))])
+    ) => @debug.assert_eq(target, 0U)
+    _ => fail("expected compacted typed function element expression")
+  }
+}
+
+///|
+test "duplicate-function-elimination remaps but preserves noncompact function element expressions" {
+  let input = @lib.Module::new()
+    .with_type_sec(dfe_test_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::typed_exprs(
+            @lib.RefType::new(
+              true,
+              @lib.HeapType::abs(@lib.AbsHeapType::func()),
+            ),
+            [
+              @lib.Expr::new([
+                @lib.Instruction::ref_null(
+                  @lib.HeapType::abs(@lib.AbsHeapType::func()),
+                ),
+              ]),
+              @lib.Expr::new([@lib.Instruction::ref_func(@lib.FuncIdx::new(1U))]),
+            ],
+          ),
+        ),
+      ]),
+    )
+  let optimized = try! dfe_test_run(input)
+  match optimized.elem_sec {
+    Some(
+      @lib.ElemSec(
+        [
+          @lib.Elem(
+            @lib.Declarative,
+            @lib.TypedExprsElemKind(
+              _,
+              [_, @lib.Expr([@lib.RefFunc(@lib.FuncIdx(target))])]
+            )
+          ),
+        ]
+      )
+    ) => @debug.assert_eq(target, 0U)
+    _ =>
+      fail(
+        "expected noncompact typed element expression to survive with remapped ref.func",
+      )
+  }
+}
+
+///|
+test "duplicate-function-elimination strips names even when no function merges" {
+  let input = @lib.Module::new()
+    .with_type_sec(dfe_test_type_sec())
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+    .with_name_sec(
+      @lib.NameSec::new(
+        func_names=Some(
+          @lib.NameMap::new([
+            @lib.NameAssoc::new(0U, @lib.Name::from_string("kept")),
+          ]),
+        ),
+      ),
+    )
+  let optimized = try! dfe_test_run(input)
+  @debug.assert_eq(optimized.name_sec, None)
+  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 1)
+}
+
+///|
+test "duplicate-function-elimination conservatively leaves duplicate recursive-group function types unmerged" {
+  let func_subtype = @lib.SubType::comp_type(@lib.CompType::func([], []))
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::group([func_subtype]),
+        @lib.RecType::group([func_subtype]),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(1U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    )
+  let optimized = try! dfe_test_run(input)
+  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 2)
+  match optimized.type_sec {
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 2)
+    None => fail("expected un-compacted type section")
+  }
+}
+
+///|
+test "duplicate-function-elimination reaches a three-round fixed point" {
+  let input = @lib.Module::new()
+    .with_type_sec(dfe_test_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(2U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(3U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(4U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(5U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+  let optimized = try! dfe_test_run(input)
+  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 3)
+  @debug.assert_eq(try! dfe_test_call_target(optimized, 0), 1U)
+  @debug.assert_eq(try! dfe_test_call_target(optimized, 1), 2U)
+}
+
+///|
+test "duplicate-function-elimination keeps fixed-point callers distinct when annotations differ" {
+  let input = @lib.Module::new()
+    .with_type_sec(dfe_test_type_sec())
+    .with_func_sec(
+      @lib.FuncSec::new([
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+        @lib.TypeIdx::new(0U),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(2U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::call(@lib.FuncIdx::new(3U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([@lib.Instruction::nop()]),
+        ),
+      ]),
+    )
+    .with_func_annotation_sec(
+      @lib.FuncAnnotationSec::new([
+        @lib.FuncAnnotationAssoc::new(0U, [
+          @lib.FuncAnnotation::new("binaryen.idempotent"),
+        ]),
+      ]),
+    )
+  let optimized = try! dfe_test_run(input)
+  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 3)
+  @debug.assert_eq(try! dfe_test_call_target(optimized, 0), 2U)
+  @debug.assert_eq(try! dfe_test_call_target(optimized, 1), 2U)
+}
+
+///|
+test "duplicate-function-elimination rewrites call_indirect and tag type indices during local type compaction" {
+  let void_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let result_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([void_type, void_type, result_type, result_type]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            @lib.RefType::new(
+              true,
+              @lib.HeapType::abs(@lib.AbsHeapType::func()),
+            ),
+            @lib.Limits::i32(1U, Some(1U)),
+          ),
+          None,
+        ),
+      ]),
+    )
+    .with_tag_sec(@lib.TagSec::new([@lib.TagType::new(@lib.TypeIdx::new(1U))]))
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(1U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::call_indirect(
+              @lib.TypeIdx::new(3U),
+              @lib.TableIdx::new(0U),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::empty(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(0)),
+            @lib.Instruction::call_indirect(
+              @lib.TypeIdx::new(3U),
+              @lib.TableIdx::new(0U),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = try! dfe_test_run(input)
+  match optimized.type_sec {
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 2)
+    None => fail("expected compacted type section")
+  }
+  match optimized.tag_sec {
+    Some(@lib.TagSec([@lib.TagType(@lib.TypeIdx(tag_type))])) =>
+      @debug.assert_eq(tag_type, 0U)
+    _ => fail("expected remapped tag type")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr([_, @lib.CallIndirect(@lib.TypeIdx(call_type), _), _])
+          ),
+        ]
+      )
+    ) => @debug.assert_eq(call_type, 1U)
+    _ => fail("expected remapped call_indirect type")
+  }
+}
+
+///|
+test "duplicate-function-elimination rewrites concrete local and global ref types during local type compaction" {
+  let ref_sig = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let func_sig = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let old_ref = @lib.ValType::ref_null(
+    @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([ref_sig, ref_sig, func_sig, func_sig]))
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(old_ref, false),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(
+              @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+            ),
+          ]),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(3U), @lib.TypeIdx::new(2U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, old_ref),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(
+              @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::single(1U, old_ref),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(
+              @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+            ),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = try! dfe_test_run(input)
+  match optimized.global_sec {
+    Some(
+      @lib.GlobalSec(
+        [
+          @lib.Global(
+            @lib.GlobalType(
+              @lib.RefTypeValType(
+                @lib.HeapTypeRefType(
+                  _,
+                  _,
+                  @lib.HeapType(@lib.TypeIdx(global_type))
+                )
+              ),
+              _
+            ),
+            @lib.Expr(
+              [
+                @lib.RefNull(
+                  @lib.HeapTypeRefType(
+                    _,
+                    _,
+                    @lib.HeapType(@lib.TypeIdx(init_type))
+                  )
+                ),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => {
+      @debug.assert_eq(global_type, 0U)
+      @debug.assert_eq(init_type, 0U)
+    }
+    _ => fail("expected remapped global ref type and initializer")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(locals, body)])) => {
+      match locals.runs() {
+        [run] =>
+          match run.val_type() {
+            @lib.RefTypeValType(
+              @lib.HeapTypeRefType(
+                _,
+                _,
+                @lib.HeapType(@lib.TypeIdx(local_type))
+              )
+            ) => @debug.assert_eq(local_type, 0U)
+            _ => fail("expected remapped local ref type")
+          }
+        _ => fail("expected one local run")
+      }
+      match body {
+        @lib.Expr(
+          [
+            @lib.RefNull(
+              @lib.HeapTypeRefType(_, _, @lib.HeapType(@lib.TypeIdx(body_type)))
+            ),
+            _,
+          ]
+        ) => @debug.assert_eq(body_type, 0U)
+        _ => fail("expected remapped body ref type")
+      }
+    }
+    _ => fail("expected remapped local and body ref types")
+  }
+}
+
+///|
+test "duplicate-function-elimination conservatively skips type compaction with descriptor metadata" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let duplicate_func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let descriptor_group = @lib.RecType::group([
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([]),
+      metadata=@lib.TypeMetadata::new(descriptor=Some(@lib.TypeIdx::new(3U))),
+    ),
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([]),
+      metadata=@lib.TypeMetadata::new(describes=Some(@lib.TypeIdx::new(2U))),
+    ),
+  ])
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([func_type, duplicate_func_type, descriptor_group]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    )
+  let optimized = try! dfe_test_run(input)
+  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 1)
+  match optimized.type_sec {
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 3)
+    None => fail("expected un-compacted descriptor-bearing type section")
+  }
+}
+
+///|
+test "duplicate-function-elimination conservatively skips type compaction with supertypes" {
+  let base = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let sub_a = @lib.RecType::new(
+    @lib.SubType::new(
+      false,
+      [@lib.TypeIdx::new(0U)],
+      @lib.CompType::func([], []),
+    ),
+  )
+  let sub_b = @lib.RecType::new(
+    @lib.SubType::new(
+      false,
+      [@lib.TypeIdx::new(0U)],
+      @lib.CompType::func([], []),
+    ),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([base, sub_a, sub_b]))
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(1U), @lib.TypeIdx::new(2U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    )
+  let optimized = try! dfe_test_run(input)
+  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 2)
+  match optimized.type_sec {
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 3)
+    None => fail("expected un-compacted subtype section")
+  }
+}
+
+///|
+test "duplicate-function-elimination conservatively skips local type compaction when non-function rec types are present" {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let duplicate_func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let struct_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::struct_([])),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([func_type, duplicate_func_type, struct_type]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    )
+  let optimized = try! dfe_test_run(input)
+  @debug.assert_eq(try! dfe_test_defined_func_count(optimized), 1)
+  match optimized.type_sec {
+    Some(@lib.TypeSec(types)) => @debug.assert_eq(types.length(), 3)
+    None => fail("expected non-function rec type to block local compaction")
+  }
+}

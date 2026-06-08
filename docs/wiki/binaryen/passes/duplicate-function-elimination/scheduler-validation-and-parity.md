@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-13
+last_reviewed: 2026-06-08
 sources:
+  - ../../../raw/research/0719-2026-06-08-duplicate-function-elimination-behavior-gap-inventory.md
   - ../../../raw/binaryen/2026-05-13-duplicate-function-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md
   - ../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md
@@ -44,7 +45,7 @@ Use this page after the overview and shape catalog:
 
 ## One-sentence rule
 
-A valid Starshine DFE change must preserve the upstream hash/equality/function-reference rewrite contract, keep local type/name/annotation cleanup explicitly labeled as local extra behavior, and not claim Binaryen preset parity until the multi-round and two-slot scheduler gap is tested.
+A valid Starshine DFE change must preserve the upstream hash/equality/function-reference rewrite contract, keep local type/name/annotation cleanup explicitly labeled as local extra behavior, and preserve the now-tested two-slot Binaryen preset neighborhoods in `optimize` and `shrink`.
 
 ## Beginner validation checklist
 
@@ -73,7 +74,7 @@ Binaryen current `main` still matches the source-backed contract captured in thi
 - remove later duplicates; and
 - rewrite module-wide function references through the replacement map.
 
-The repeat budget matters because a callee rewrite can make callers equal only after an earlier round. Binaryen's public optimizer can keep iterating at higher optimization or shrink levels, while a single explicit Starshine pass run currently does not.
+The repeat budget matters because a callee rewrite can make callers equal only after an earlier round. Starshine's direct pass now iterates to a fixed point, and the 2026-06-08 preset update schedules the two top-level Binaryen DFE neighborhoods in public `optimize` and `shrink`.
 
 ### 2. Current Starshine implementation to preserve
 
@@ -81,7 +82,7 @@ The local read path is:
 
 1. `src/passes/optimize.mbt:241` registers `duplicate-function-elimination` as a module pass.
 2. `src/passes/pass_manager.mbt:8674-8675` dispatches it to `dfe_run_module_pass_with_perf(...)`.
-3. `src/passes/duplicate_function_elimination.mbt:3245-3498` runs one duplicate-detection/rebuild/rewrite iteration.
+3. `src/passes/duplicate_function_elimination.mbt` runs duplicate-detection/rebuild/rewrite iterations until no additional merge is found.
 4. `src/passes/duplicate_function_elimination.mbt:2537-2827` rewrites function-index carriers in instructions and module sections.
 5. `src/passes/duplicate_function_elimination.mbt:3172-3243` compacts duplicate simple type indices after a successful merge.
 6. `src/passes/duplicate_function_elimination.mbt:3500-3532` orders the explicit pass: iteration, element canonicalization, name stripping on no-merge path, and duplicate-type compaction on merge path.
@@ -90,14 +91,12 @@ The local implementation is deliberately broader than upstream DFE in some areas
 
 ### 3. Current Starshine preset gap
 
-`src/passes/optimize.mbt:259-281` defines the public `optimize` and `shrink` preset entries, and those arrays currently omit `duplicate-function-elimination`.
+`src/passes/optimize.mbt` now defines public `optimize` and `shrink` preset entries with two DFE slots:
 
-So there are two valid validation modes today:
+- early pre-pass neighborhood: `duplicate-function-elimination -> remove-unused-module-elements -> memory-packing`;
+- late post-pass neighborhood: `dae-optimizing -> inlining-optimizing -> duplicate-function-elimination -> duplicate-import-elimination -> simplify-globals-optimizing -> remove-unused-module-elements`.
 
-- explicit-pass validation: `--pass duplicate-function-elimination` or a focused `run_hot_pipeline(..., ["duplicate-function-elimination"])` test;
-- future preset validation: ordered no-DWARF replay that decides whether to add the early Binaryen slot, the late Binaryen slot, and/or a multi-round loop.
-
-Do not treat green explicit-pass tests as evidence that Starshine's public `optimize` / `shrink` presets match Binaryen's DFE scheduling.
+Validation modes therefore split into direct DFE behavior and preset-neighborhood behavior. Keep both focused direct tests and preset order/behavior tests green when changing this pass.
 
 ## Known Starshine-vs-Binaryen split
 
@@ -108,8 +107,8 @@ Do not treat green explicit-pass tests as evidence that Starshine's public `opti
 | Core proof | Hash prefilter plus exact equality. | Hash prefilter plus exact equality over normalized local forms. |
 | Survivor choice | Earliest equivalent function survives. | Earliest equivalent function survives. |
 | Function-reference rewrite | Required. | Required and implemented across code/module carriers. |
-| Iteration | Option-dependent repeat budget. | One explicit duplicate-elimination iteration. |
-| Default scheduling | Early global pre-pass and late global post-pass. | Explicit pass only; public presets omit DFE today. |
+| Iteration | Option-dependent repeat budget. | Direct pass iterates to fixed point; presets schedule the two top-level DFE slots. |
+| Default scheduling | Early global pre-pass and late global post-pass. | Public presets now include the early and late DFE neighborhoods. |
 | Type compaction | Not DFE proper. | Local extra after a successful merge for duplicate simple function types. |
 | Name and annotation cleanup | Not the central upstream algorithm. | Local extra cleanup with focused tests. |
 
@@ -118,7 +117,7 @@ Do not treat green explicit-pass tests as evidence that Starshine's public `opti
 `src/passes/duplicate_function_elimination_test.mbt` is the current local proof surface:
 
 - `:99-194` covers ordinary function-reference rewrites.
-- `:196-252` locks the current single-pass transitive-unlock boundary.
+- `:196-252` locks fixed-point transitive-unlock behavior.
 - `:254-698` covers duplicate simple-type compaction and type-index repair.
 - `:700-764` covers element-expression canonicalization when no functions merge.
 - `:766-848` covers name stripping and annotation-map rewrite bookkeeping.
@@ -127,27 +126,21 @@ That test split is useful because it mirrors the documentation split:
 
 - upstream core DFE,
 - local extra cleanup,
-- and the known iteration gap.
+- and the now-tested preset scheduler shape.
 
-## Recommended future signoff before preset scheduling
+## Future signoff rule for scheduler changes
 
-Before adding DFE to `optimize` or `shrink`, collect evidence in this order:
+Before changing DFE placement in `optimize` or `shrink`, collect evidence in this order:
 
 1. Focused MoonBit tests for every row in the beginner checklist.
-2. A test that intentionally distinguishes one-round Starshine behavior from Binaryen's higher-budget behavior, or an implementation change that closes that gap.
+2. Keep the focused fixed-point/callee-unlocking test green so direct DFE cannot regress to the old one-round behavior.
 3. Binaryen-oracle `compare-pass` runs for explicit `duplicate-function-elimination` after normalizing known local extras or deciding they are intended output differences.
-4. Ordered no-DWARF replay proving the early and late DFE slots do not introduce downstream Starshine regressions.
+4. Ordered no-DWARF replay proving any changed early or late DFE neighborhood does not introduce downstream Starshine regressions.
 5. A docs update to [`parity.md`](./parity.md), [`starshine-strategy.md`](./starshine-strategy.md), and this page recording the exact scheduler decision.
 
-## Open decision
+## 2026-06-08 scheduler decision
 
-Starshine still needs to decide how to model Binaryen's repeat behavior:
-
-- implement Binaryen's repeat budget inside the explicit module pass;
-- keep the explicit pass one-round and rely on repeated preset slots;
-- or keep the local one-round explicit behavior and document a deliberate non-parity choice.
-
-Until that decision is made, this folder should say “active explicit module pass with a scheduler/iteration parity gap,” not “fully scheduled Binaryen-equivalent DFE.”
+Starshine now models Binaryen's two top-level DFE slots in public presets, including the adjacent DAE / inlining / duplicate-import neighborhood needed to keep the late slot source-shaped. Direct fixed-point behavior remains guarded separately. Remaining preset-path gaps belong to the broader no-DWARF preset inventory, not to a missing DFE scheduler slot.
 
 ## Sources
 

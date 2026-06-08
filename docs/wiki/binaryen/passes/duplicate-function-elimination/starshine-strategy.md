@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-06-03
+last_reviewed: 2026-06-08
 sources:
+  - ../../../raw/research/0719-2026-06-08-duplicate-function-elimination-behavior-gap-inventory.md
   - ../../../raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-13-duplicate-function-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md
@@ -65,15 +66,15 @@ So the practical rule is simple:
   - registers `duplicate-function-elimination` as an active **module pass** entry, not a hot pass
 - `src/passes/pass_manager.mbt:8672-8673`
   - dispatches the module-pass name to `dfe_run_module_pass_with_perf(...)`
-- `src/passes/optimize.mbt:379-402`
-  - current public `optimize` / `shrink` presets do **not** include DFE
+- `src/passes/optimize.mbt`
+  - current public `optimize` / `shrink` presets include DFE twice in the source-backed Binaryen neighborhoods: early before `remove-unused-module-elements -> memory-packing`, and late after `dae-optimizing -> inlining-optimizing` before `duplicate-import-elimination -> simplify-globals-optimizing -> remove-unused-module-elements`
 
 That already tells readers two important local facts:
 
 - the pass is public and runnable by name
-- but it is not yet scheduled inside the public presets the way upstream Binaryen schedules DFE in its no-DWARF optimizer
+- it is also scheduled in public presets in the same top-level DFE neighborhoods as Binaryen's no-DWARF optimizer
 
-## 2. Core one-round duplicate-detection and rebuild loop
+## 2. Core fixed-point duplicate-detection and rebuild loop
 
 The current local core lives in `src/passes/duplicate_function_elimination.mbt`.
 
@@ -94,12 +95,12 @@ What this local core does:
 7. rewrites function indices across the module
 8. then runs the extra local cleanup stages described below
 
-The most important current local boundary is here too:
+The important current local boundary is direct behavior versus broader no-DWARF preset parity:
 
-- this is still **one explicit DFE iteration** today
-- the pass does not yet model Binaryen's option-dependent multi-round behavior
+- direct `duplicate-function-elimination` iterates until no additional duplicate merge is found
+- public `optimize` / `shrink` schedule Binaryen's early and late DFE slots
 
-That exact limitation is why the local test suite intentionally locks a single-pass transitive-unlock result.
+The focused fixed-point test locks the callee-unlocking behavior so the old one-round limitation cannot return.
 
 ## 3. Function-reference rewrite surface
 
@@ -163,7 +164,7 @@ These helpers are another clear line between upstream DFE proper and the broader
 
 `dfe_run_module_pass_with_perf(...)` at `src/passes/duplicate_function_elimination.mbt:3500-3532` makes the local stage order explicit:
 
-1. run the one-round duplicate-elimination core
+1. run duplicate-elimination iterations to a fixed point
 2. if nothing merged, still canonicalize compactable element segments and strip names
 3. if something merged, canonicalize compactable element segments
 4. then compact duplicate simple types and rewrite the module accordingly
@@ -183,8 +184,8 @@ The local docs should keep saying that plainly.
 
 ### Narrower than Binaryen
 
-- one explicit DFE iteration instead of Binaryen's option-dependent multi-round budget
-- no current public `optimize` / `shrink` preset scheduling for DFE
+- no direct-pass iteration-budget knob; direct Starshine DFE uses fixed-point behavior while Binaryen's pass options choose a budget
+- broader no-DWARF preset parity still depends on neighboring pass audits and repeated cleanup slots outside DFE
 
 ### Broader than Binaryen
 
@@ -205,13 +206,15 @@ Focused local pass tests live in `src/passes/duplicate_function_elimination_test
 - white-box hash coverage
   - locks whole-body hash prefilter behavior so sparse same-sample functions do not share one collision bucket
 - transitive-unlock coverage
-  - locks the current **single-pass** transitive-unlock boundary
+  - locks direct fixed-point callee-unlocking behavior
 - type-compaction tests
   - lock duplicate simple-type compaction and the resulting typed block / typed select / concrete-ref rewrite surfaces
 - element-kind tests
   - lock compactable element-expression canonicalization even without function merges
 - metadata tests
   - lock name stripping and annotation-map rewrite bookkeeping
+- 2026-06-08 expanded audit tests
+  - lock import exclusion, function-type/local-layout negatives, annotation equality/inequality, earliest survivor, nested `block` / `if` / `loop` rewrites, typed/mixed element expressions, `call_indirect` / tag type repair, descriptor/supertype/non-function type-compaction boundaries, and public preset DFE scheduling
 
 CLI coverage lives in `src/cmd/cmd_wbtest.mbt:4010-4036`, which proves the explicit `--duplicate-function-elimination` command-line surface.
 
@@ -222,7 +225,7 @@ The refreshed direct explicit-pass lane is green after the fuzzer / compare harn
 - `moon info`, `moon fmt`, and `moon test` passed.
 - `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass duplicate-function-elimination --out-dir .tmp/pass-fuzz-duplicate-function-elimination` reported `6759 / 10000` compared cases, `6759` normalized matches, `0` mismatches, and `20` Binaryen empty-recursion-group parser/canonicalization command failures.
 
-This proves the current direct module-pass surface under the refreshed harness. It does not change the current one-iteration boundary or add DFE to public presets.
+This proves the current direct module-pass surface under the refreshed harness. It does not add DFE to public presets.
 
 ## 2026-06-03 audit update
 
@@ -235,7 +238,7 @@ The O4z audit refresh kept the explicit direct-pass semantics green while improv
 
 ## Practical validation rule
 
-For the full scheduler / iteration checklist, read [`scheduler-validation-and-parity.md`](./scheduler-validation-and-parity.md). It makes explicit that focused explicit-pass tests do not yet prove Binaryen-equivalent preset scheduling, because Starshine currently has one duplicate-elimination iteration and omits DFE from public `optimize` / `shrink` presets.
+For the full scheduler checklist, read [`scheduler-validation-and-parity.md`](./scheduler-validation-and-parity.md). It makes explicit that focused explicit-pass tests and public preset scheduling are separate proof surfaces; both are now covered for DFE's direct behavior and two-slot Binaryen neighborhoods.
 
 When you need to validate or review current Starshine behavior, read the code in this order:
 
@@ -246,4 +249,4 @@ When you need to validate or review current Starshine behavior, read the code in
 5. `src/passes/duplicate_function_elimination.mbt:3172-3243`
 6. `src/passes/duplicate_function_elimination_test.mbt:99-848`
 
-That path gives the cleanest local explanation from registry -> dispatcher -> module-pass core -> rewrite surface -> extra cleanup -> proof tests. After that, use [`scheduler-validation-and-parity.md`](./scheduler-validation-and-parity.md) to decide whether a change is preserving explicit-pass behavior, changing local extra cleanup, or trying to close the Binaryen scheduler/iteration gap.
+That path gives the cleanest local explanation from registry -> dispatcher -> module-pass core -> rewrite surface -> extra cleanup -> proof tests. After that, use [`scheduler-validation-and-parity.md`](./scheduler-validation-and-parity.md) to decide whether a change is preserving explicit-pass behavior, changing local extra cleanup, or changing the now-source-backed public preset scheduler slots.

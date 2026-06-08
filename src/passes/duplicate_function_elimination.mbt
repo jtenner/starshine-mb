@@ -3468,6 +3468,34 @@ fn dfe_iteration(
 }
 
 ///|
+fn dfe_cleanup_unreachable_debris(mod_ : @lib.Module) -> @lib.Module {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => {
+      let next : Array[@lib.Func] = []
+      let mut changed = false
+      for func in funcs {
+        let @lib.Func(locals, @lib.Expr(instrs)) = func
+        let (next_instrs, func_changed) = pass_raw_remove_dropped_unreachable_debris(
+          instrs,
+        )
+        if func_changed {
+          changed = true
+          next.push(@lib.Func::new(locals, @lib.Expr::new(next_instrs)))
+        } else {
+          next.push(func)
+        }
+      }
+      if changed {
+        mod_.with_code_sec(@lib.CodeSec::new(next))
+      } else {
+        mod_
+      }
+    }
+    None => mod_
+  }
+}
+
+///|
 fn dfe_run_module_pass_with_perf(
   mod_ : @lib.Module,
   perf : HotPerfSession?,
@@ -3488,6 +3516,12 @@ fn dfe_run_module_pass_with_perf(
   }
   dfe_perf_stop_timer_opt(perf, "iterations", iteration_timer)
   dfe_trace_opt(perf, "iterations count=\{iteration_count}")
+
+  let cleanup_timer = dfe_perf_start_timer_opt(
+    perf, "cleanup-unreachable-debris",
+  )
+  current = dfe_cleanup_unreachable_debris(current)
+  dfe_perf_stop_timer_opt(perf, "cleanup-unreachable-debris", cleanup_timer)
 
   let elem_timer = dfe_perf_start_timer_opt(perf, "canonicalize-elem-segments")
   let with_elem_segments = dfe_canonicalize_elem_segments(current)

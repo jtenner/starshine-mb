@@ -648,14 +648,17 @@ test "tuple-optimization exact preset prereqs place code-pushing before the tupl
   let optimize = optimize_preset_passes(HotPipelineOptions::new())
   let shrink = shrink_preset_passes(HotPipelineOptions::new())
   for preset in [optimize, shrink] {
-    @debug.assert_eq(preset[14], "precompute")
-    @debug.assert_eq(preset[15], "code-pushing")
-    @debug.assert_eq(preset[16], "tuple-optimization")
-    @debug.assert_eq(preset[17], "simplify-locals-nostructure")
-    @debug.assert_eq(preset[18], "vacuum")
-    @debug.assert_eq(preset[19], "reorder-locals")
-    @debug.assert_eq(preset[20], "remove-unused-brs")
-    @debug.assert_eq(preset[21], "heap2local")
+    let tuple_slots = optimize_test_pass_slots(preset, "tuple-optimization")
+    @debug.assert_eq(tuple_slots.length(), 1)
+    let tuple_slot = tuple_slots[0]
+    @debug.assert_eq(preset[tuple_slot - 2], "precompute")
+    @debug.assert_eq(preset[tuple_slot - 1], "code-pushing")
+    @debug.assert_eq(preset[tuple_slot], "tuple-optimization")
+    @debug.assert_eq(preset[tuple_slot + 1], "simplify-locals-nostructure")
+    @debug.assert_eq(preset[tuple_slot + 2], "vacuum")
+    @debug.assert_eq(preset[tuple_slot + 3], "reorder-locals")
+    @debug.assert_eq(preset[tuple_slot + 4], "remove-unused-brs")
+    @debug.assert_eq(preset[tuple_slot + 5], "heap2local")
   }
 }
 
@@ -678,7 +681,9 @@ test "simplify-locals-nostructure exact slot helper exposes the ordered replay l
 ///|
 test "optimize preset replays remove-unused-names in all RUN slots" {
   let trace : Array[String] = []
-  let input = pass_test_module_from_wat("(module (func loop br 0 end))")
+  let input = pass_test_module_from_wat(
+    "(module (func (export \"f\") loop br 0 end))",
+  )
   let optimized = match
     run_hot_pipeline(
       input,
@@ -702,7 +707,7 @@ test "optimize preset replays remove-unused-names in all RUN slots" {
 test "optimize preset replays remove-unused-brs in all RUB slots" {
   let trace : Array[String] = []
   let input = pass_test_module_from_wat(
-    "(module (func (param i32) (block $exit (if (local.get 0) (then (br $exit))))))",
+    "(module (func (export \"f\") (param i32) (block $exit (if (local.get 0) (then (br $exit))))))",
   )
   let optimized = match
     run_hot_pipeline(
@@ -727,7 +732,7 @@ test "optimize preset replays remove-unused-brs in all RUB slots" {
 test "shrink preset replays remove-unused-brs in all RUB slots" {
   let trace : Array[String] = []
   let input = pass_test_module_from_wat(
-    "(module (func (param i32) (block $exit (if (local.get 0) (then (br $exit))))))",
+    "(module (func (export \"f\") (param i32) (block $exit (if (local.get 0) (then (br $exit))))))",
   )
   let optimized = match
     run_hot_pipeline(
@@ -752,7 +757,7 @@ test "shrink preset replays remove-unused-brs in all RUB slots" {
 test "optimize preset replays precompute in both PC slots" {
   let trace : Array[String] = []
   let input = pass_test_module_from_wat(
-    "(module (func (result i32) i32.const 1 i32.const 2 i32.add))",
+    "(module (func (export \"f\") (result i32) i32.const 1 i32.const 2 i32.add))",
   )
   let optimized = match
     run_hot_pipeline(
@@ -778,7 +783,7 @@ test "optimize preset replays precompute in both PC slots" {
 test "shrink preset replays precompute in both PC slots" {
   let trace : Array[String] = []
   let input = pass_test_module_from_wat(
-    "(module (func (result i32) i32.const 1 i32.const 2 i32.add))",
+    "(module (func (export \"f\") (result i32) i32.const 1 i32.const 2 i32.add))",
   )
   let optimized = match
     run_hot_pipeline(
@@ -804,7 +809,7 @@ test "shrink preset replays precompute in both PC slots" {
 test "optimize preset replays merge-blocks in both late MB slots" {
   let trace : Array[String] = []
   let input = pass_test_module_from_wat(
-    "(module (func (result i32) (block (result i32) (block (result i32) i32.const 7))))",
+    "(module (func (export \"f\") (result i32) (block (result i32) (block (result i32) i32.const 7))))",
   )
   let optimized = match
     run_hot_pipeline(
@@ -829,7 +834,7 @@ test "optimize preset replays merge-blocks in both late MB slots" {
 test "shrink preset replays merge-blocks in both late MB slots" {
   let trace : Array[String] = []
   let input = pass_test_module_from_wat(
-    "(module (func (result i32) (block (result i32) (block (result i32) i32.const 7))))",
+    "(module (func (export \"f\") (result i32) (block (result i32) (block (result i32) i32.const 7))))",
   )
   let optimized = match
     run_hot_pipeline(
@@ -861,7 +866,7 @@ test "optimize and shrink presets schedule reorder-locals only inside the tuple 
         reorder_slots.push(idx)
       }
     }
-    @debug.assert_eq(reorder_slots, [19])
+    @debug.assert_eq(reorder_slots.length(), 1)
     @debug.assert_eq(preset[reorder_slots[0] - 1], "vacuum")
     @debug.assert_eq(preset[reorder_slots[0] + 1], "remove-unused-brs")
   }
@@ -909,13 +914,16 @@ test "simplify-locals-notee-nostructure exact neighborhood waits for flatten" {
 ///|
 test "optimize preset schedules the proven optimize-casts GC/local cleanup neighborhood" {
   let optimize = optimize_preset_passes(HotPipelineOptions::new())
-  @debug.assert_eq(optimize[20], "remove-unused-brs")
-  @debug.assert_eq(optimize[21], "heap2local")
-  @debug.assert_eq(optimize[22], "optimize-casts")
-  @debug.assert_eq(optimize[23], "local-subtyping")
-  @debug.assert_eq(optimize[24], "coalesce-locals")
-  @debug.assert_eq(optimize[25], "local-cse")
-  @debug.assert_eq(optimize[26], "simplify-locals")
+  let heap2local_slots = optimize_test_pass_slots(optimize, "heap2local")
+  @debug.assert_eq(heap2local_slots.length(), 1)
+  let start = heap2local_slots[0] - 1
+  @debug.assert_eq(optimize[start], "remove-unused-brs")
+  @debug.assert_eq(optimize[start + 1], "heap2local")
+  @debug.assert_eq(optimize[start + 2], "optimize-casts")
+  @debug.assert_eq(optimize[start + 3], "local-subtyping")
+  @debug.assert_eq(optimize[start + 4], "coalesce-locals")
+  @debug.assert_eq(optimize[start + 5], "local-cse")
+  @debug.assert_eq(optimize[start + 6], "simplify-locals")
 }
 
 ///|
@@ -934,7 +942,7 @@ test "optimize and shrink presets schedule string global late tail" {
 test "optimize preset hands simplify-locals output to the late merge-blocks cleanup cluster" {
   let trace : Array[String] = []
   let input = pass_test_module_from_wat(
-    "(module (func (param i32) (result i32) (local i32) local.get 0 if i32.const 1 local.set 1 else i32.const 2 local.set 1 end local.get 1))",
+    "(module (func (export \"f\") (param i32) (result i32) (local i32) local.get 0 if i32.const 1 local.set 1 else i32.const 2 local.set 1 end local.get 1))",
   )
   let optimized = match
     run_hot_pipeline(
@@ -1067,4 +1075,127 @@ test "remove-unused-names can clean up stale labels exposed by remove-unused-brs
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("Block("), msg=pretty)
+}
+
+///|
+fn optimize_test_pass_slots(
+  preset : Array[String],
+  name : String,
+) -> Array[Int] {
+  let slots : Array[Int] = []
+  for idx = 0; idx < preset.length(); idx = idx + 1 {
+    if preset[idx] == name {
+      slots.push(idx)
+    }
+  }
+  slots
+}
+
+///|
+fn optimize_test_assert_binaryen_dfe_scheduler(
+  preset_name : String,
+  preset : Array[String],
+) -> Unit raise {
+  let dfe_slots = optimize_test_pass_slots(
+    preset, "duplicate-function-elimination",
+  )
+  if dfe_slots.length() != 2 {
+    fail(
+      "expected exactly two duplicate-function-elimination slots in \{preset_name}, got \{dfe_slots.to_string()} from \{preset.to_string()}",
+    )
+  }
+  @debug.assert_eq(dfe_slots[0], 0)
+  assert_true(
+    preset.length() > 2 &&
+    preset[1] == "remove-unused-module-elements" &&
+    preset[2] == "memory-packing",
+    msg="expected early Binaryen pre-pass DFE -> RUME -> memory-packing in \{preset_name}, got \{preset.to_string()}",
+  )
+
+  let late_dfe = dfe_slots[1]
+  assert_true(late_dfe >= 2, msg=preset.to_string())
+  assert_true(
+    preset[late_dfe - 2] == "dae-optimizing" &&
+    preset[late_dfe - 1] == "inlining-optimizing",
+    msg="expected late Binaryen DAE/inlining before DFE in \{preset_name}, got \{preset.to_string()}",
+  )
+  assert_true(
+    late_dfe + 3 < preset.length() &&
+    preset[late_dfe + 1] == "duplicate-import-elimination" &&
+    preset[late_dfe + 2] == "simplify-globals-optimizing" &&
+    preset[late_dfe + 3] == "remove-unused-module-elements",
+    msg="expected late Binaryen DFE -> DIE -> SGO -> RUME in \{preset_name}, got \{preset.to_string()}",
+  )
+}
+
+///|
+test "optimize preset includes Binaryen duplicate-function-elimination scheduler slots" {
+  try! optimize_test_assert_binaryen_dfe_scheduler(
+    "optimize",
+    optimize_preset_passes(HotPipelineOptions::new()),
+  )
+}
+
+///|
+test "shrink preset includes Binaryen duplicate-function-elimination scheduler slots" {
+  try! optimize_test_assert_binaryen_dfe_scheduler(
+    "shrink",
+    shrink_preset_passes(HotPipelineOptions::new()),
+  )
+}
+
+///|
+fn optimize_test_assert_preset_merges_exported_duplicate_functions(
+  pass_name : String,
+) -> Unit raise {
+  let optimized = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(
+        (
+          #|(module
+          #|  (func $a (export "a") (result i32)
+          #|    i32.const 7)
+          #|  (func $b (export "b") (result i32)
+          #|    i32.const 7))
+        ),
+      ),
+      HotPipelineOptions::new(),
+      [pass_name],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected \{pass_name} pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected \{pass_name} output to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => @debug.assert_eq(funcs.length(), 1)
+    None => fail("expected code section after \{pass_name}")
+  }
+  match optimized.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      @debug.assert_eq(exports.length(), 2)
+      match (exports[0], exports[1]) {
+        (
+          @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(first))),
+          @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(second))),
+        ) => @debug.assert_eq(first, second)
+        _ => fail("expected both exports to remain function exports")
+      }
+    }
+    None => fail("expected exports after \{pass_name}")
+  }
+}
+
+///|
+test "optimize preset runs early duplicate-function-elimination on input duplicates" {
+  try! optimize_test_assert_preset_merges_exported_duplicate_functions(
+    "optimize",
+  )
+}
+
+///|
+test "shrink preset runs early duplicate-function-elimination on input duplicates" {
+  try! optimize_test_assert_preset_merges_exported_duplicate_functions("shrink")
 }

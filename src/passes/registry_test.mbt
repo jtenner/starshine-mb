@@ -224,30 +224,21 @@ test "preset expansion stays on implemented active pass names" {
   let optimize = optimize_preset_passes(HotPipelineOptions::new())
   let shrink = shrink_preset_passes(HotPipelineOptions::new())
 
-  @debug.assert_eq(optimize, [
-    "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-    "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
-    "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
-    "heap-store-optimization", "pick-load-signs", "precompute", "code-pushing", "tuple-optimization",
-    "simplify-locals-nostructure", "vacuum", "reorder-locals", "remove-unused-brs",
-    "heap2local", "optimize-casts", "local-subtyping", "coalesce-locals", "local-cse",
-    "simplify-locals", "merge-blocks", "remove-unused-brs", "remove-unused-names",
-    "merge-blocks", "precompute", "optimize-instructions", "heap-store-optimization",
-    "simplify-globals-optimizing", "remove-unused-module-elements", "string-gathering",
-    "reorder-globals", "directize",
-  ])
-  @debug.assert_eq(shrink, [
-    "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
-    "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
-    "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
-    "heap-store-optimization", "pick-load-signs", "precompute", "code-pushing", "tuple-optimization",
-    "simplify-locals-nostructure", "vacuum", "reorder-locals", "remove-unused-brs",
-    "heap2local", "optimize-casts", "local-subtyping", "coalesce-locals", "local-cse",
-    "simplify-locals", "merge-blocks", "remove-unused-brs", "remove-unused-names",
-    "merge-blocks", "precompute", "optimize-instructions", "heap-store-optimization",
-    "simplify-globals-optimizing", "remove-unused-module-elements", "string-gathering",
-    "reorder-globals", "directize",
-  ])
+  let expected = [
+    "duplicate-function-elimination", "remove-unused-module-elements", "memory-packing",
+    "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge",
+    "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "remove-unused-names",
+    "vacuum", "remove-unused-brs", "optimize-instructions", "heap-store-optimization",
+    "pick-load-signs", "precompute", "code-pushing", "tuple-optimization", "simplify-locals-nostructure",
+    "vacuum", "reorder-locals", "remove-unused-brs", "heap2local", "optimize-casts",
+    "local-subtyping", "coalesce-locals", "local-cse", "simplify-locals", "merge-blocks",
+    "remove-unused-brs", "remove-unused-names", "merge-blocks", "precompute", "optimize-instructions",
+    "heap-store-optimization", "dae-optimizing", "inlining-optimizing", "duplicate-function-elimination",
+    "duplicate-import-elimination", "simplify-globals-optimizing", "remove-unused-module-elements",
+    "string-gathering", "reorder-globals", "directize",
+  ]
+  @debug.assert_eq(optimize, expected)
+  @debug.assert_eq(shrink, expected)
   for name in optimize {
     match pass_registry_category(name) {
       Some(HotPass) | Some(ModulePass) => ()

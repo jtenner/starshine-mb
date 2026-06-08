@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-06-03
+last_reviewed: 2026-06-08
 sources:
+  - ../../../raw/research/0719-2026-06-08-duplicate-function-elimination-behavior-gap-inventory.md
   - ../../../raw/research/0524-2026-05-06-duplicate-function-elimination-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-13-duplicate-function-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md
@@ -47,11 +48,12 @@ For the actionable validation ladder and scheduler decision points, see [`schedu
 - For the no-DWARF optimizer, Binaryen runs DFE twice at top level:
   - once in global pre-passes
   - once again in global post-passes
-- For stronger optimize contexts, Binaryen also gives DFE a larger visible iteration budget than the current local one-round implementation.
+- Starshine direct DFE now iterates to a fixed point; the old local one-round caveat is stale for direct-pass behavior.
 - The 2026-04-27 validation bridge records this as the remaining preset/scheduler signoff gap rather than a hidden failure of the explicit pass surface.
 - The 2026-05-13 current-main recheck kept that framing unchanged.
 - The 2026-05-06 direct revalidation reran the refreshed 10000-case compare lane and found no semantic mismatches.
 - The 2026-06-03 O4z audit refreshed the direct lane after switching the Starshine hash prefilter from sparse instruction samples to whole-body instruction hashes; the final `10000`-requested keep-going lane compared `9975 / 10000` cases with `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures.
+- The 2026-06-08 DFE audit made the expanded direct behavior suite and public preset scheduler suite green. Starshine `optimize` / `shrink` now include the source-backed Binaryen DFE neighborhoods: early `duplicate-function-elimination -> remove-unused-module-elements -> memory-packing` and late `dae-optimizing -> inlining-optimizing -> duplicate-function-elimination -> duplicate-import-elimination -> simplify-globals-optimizing -> remove-unused-module-elements`.
 
 ## Current in-tree status
 
@@ -78,16 +80,15 @@ This is a different question:
 
 Those are not the same problem.
 
-## What is clearly still open
+## What remains separate from core DFE parity
 
-- The local implementation is still a one-iteration module strategy today.
-  - that is narrower than Binaryen's stronger optimize-level and shrink-level behavior
-- The local no-DWARF preset does not yet model Binaryen's second late DFE slot in the full upstream schedule
-- The local implementation still performs extra cleanup that upstream DFE proper does not
+- The local no-DWARF `optimize` / `shrink` presets now model Binaryen's early pre-pass DFE slot and second late DFE slot in the source-backed neighborhoods.
+- Preset execution now covers input duplicate merging and the late post-DAE/post-inlining DFE cleanup slot.
+- The local implementation still performs extra cleanup that upstream DFE proper does not.
 
-So future parity work must decide separately:
+So future parity work must keep deciding separately:
 
-- how much upstream iteration/scheduler behavior to add
+- broader non-DFE no-DWARF scheduler gaps in `optimize` / `shrink`
 - and which local extra cleanup should remain coupled to this pass
 
 ## What is no longer okay to claim
@@ -101,6 +102,16 @@ After the 2026-05-13 current-main recheck, the docs should no longer claim that 
 - dedicated annotation-section normalization
 
 Those may still matter for local output comparison, but they are not the official DFE algorithm.
+
+## 2026-06-08 final DFE audit signoff
+
+The expanded behavior-gap suite was resolved against the wiki/source contract rather than by weakening Binaryen expectations:
+
+- Direct focused DFE tests now pass `29 / 29`. The corrected reductions use valid `ref.func` declarations, a valid empty-result tag signature while still proving `call_indirect` / tag type-index repair, and valid descriptor metadata in a recursive group. The descriptor test now asserts the source-backed split: official DFE can still merge same-type duplicate functions while Starshine-local type compaction is conservatively skipped.
+- Public preset tests now pass `45 / 45`; registry expansion tests were updated to the new source-backed two-slot DFE neighborhoods.
+- Full pass and repo suites passed: `moon test src/passes` `2037 / 2037`, full `moon test` `5229 / 5229`.
+- Final requested compare before the debris cleanup follow-up: `bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass duplicate-function-elimination --out-dir .tmp/pass-fuzz-dfe-final-100000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures` compared `99751 / 100000`, with `99748` normalized matches, `0` cleanup-normalized matches, `3` raw mismatches, `0` validation/property/generator failures, and `249` Binaryen/tool command failures. Command failure classes were `219` `binaryen-rec-group-zero`, `12` `binaryen-bad-section-size`, `11` `binaryen-command-failed`, `6` `binaryen-table-index-out-of-range`, and `1` `binaryen-invalid-tag-index`.
+- Agent classification for those three raw mismatches: semantic-safe unreachable-control-debris representation drift (`drop (unreachable)` before hard `unreachable`) in cases `023083`, `046375`, and `082547`, not a DFE duplicate-detection/rewrite semantic mismatch. The existing shared `pass_raw_remove_dropped_unreachable_debris(...)` machinery is now applied by DFE; per explicit user instruction, no post-cleanup verification rerun was performed before signing off.
 
 ## 2026-06-03 O4z audit refresh
 
@@ -142,7 +153,7 @@ The saved focused fuzz evidence remains useful and was not invalidated by the so
 Those lanes suggest the core merge-and-rewrite behavior is in decent shape on the compared corpus.
 But they do not answer the newly-clarified questions about:
 
-- upstream multi-round scheduling
+- upstream preset scheduling
 - or the broader local-extra cleanup surface
 
 ## Practical rule

@@ -162,10 +162,6 @@ Reopened from prior removed audits because committed docs still list behavior ga
   - Current inventory: `docs/wiki/raw/research/0717-2026-06-08-once-reduction-behavior-gap-inventory.md` lists the full known gap set against local Binaryen `version_130`. The 2026-06-08 red-test/green slice now covers and fixes imported idempotent calls, idempotent-adjacent wrapper cleanup, negative once writes, merge conservatism, branch exits, loop/try_table propagation for focused shapes, dangerous recursive-cycle order preservation, and `return_call` divergence; focused tests and 10000-case direct compare are green.
   - Deliverables: apply the common checklist; finish dedicated-lit/source-surface classification beyond the focused red-test set; refresh saved slot evidence; decide whether to run the final 100000-case closeout before removing this audit.
 
-- [O4Z-AUDIT-DFE] - Reconcile `duplicate-function-elimination` behavior and scheduler parity
-  - Status: reopened v0.1.0 release-gating audit. Core direct DFE compare is green, but docs still list one-iteration local behavior, missing Binaryen early/late scheduler slots, and local extra cleanup bundled with DFE.
-  - Scope: duplicate detection and survivor choice, function-reference rewrites, optimize/shrink iteration budget, the two documented no-DWARF top-level DFE slots, and separation of official DFE behavior from Starshine-local type/name/element cleanup.
-  - Deliverables: apply the common checklist; prove direct fixed-point or iteration behavior; add preset-order tests only after direct behavior is signed off; keep local-extra cleanup classified separately from Binaryen DFE semantics.
 
 - [O4Z-AUDIT-GR] - Confirm or fix remaining `global-refining` behavior watchpoints
   - Status: reopened focused v0.1.0 audit. The main boundary behavior is green, but the parity page still calls out a missing explicit GC feature gate and unproven descriptor/stringref/public-type initializer surfaces.
@@ -181,7 +177,7 @@ Preset behavior inventory:
 
 - [O4Z-PRESET-BEHAVIOR] - Reconcile documented Binaryen no-DWARF order with Starshine public presets
   - Status: active behavior-inventory slice; do not widen presets until direct pass audits and ordered neighborhoods are green.
-  - Current finding: the documented Binaryen no-DWARF path has 52 top-level slots while current Starshine public `optimize` / `shrink` has 39. Missing documented counts are DFE x2, RUME x2, `vacuum` x2, `reorder-locals` x2, `coalesce-locals` x1, `code-folding` x1, `redundant-set-elimination` x1, `dae-optimizing` x1, `inlining-optimizing` x1, and `duplicate-import-elimination` x1; Starshine currently has one extra `remove-unused-brs` slot. Local `wasm-opt --version` now reports `version_130`, so the exact path needs a fresh `version_130` reread before final scheduling claims.
+  - Current finding: after the DFE audit, public `optimize` / `shrink` include Binaryen-shaped early and late DFE neighborhoods plus `dae-optimizing`, `inlining-optimizing`, `duplicate-import-elimination`, and one early `remove-unused-module-elements` slot. Remaining documented count/order gaps are now outside DFE: the second pre-pass `remove-unused-module-elements`, repeated `reorder-locals` / `coalesce-locals` details, `code-folding`, `redundant-set-elimination`, and the known extra Starshine `remove-unused-brs` slot. Local `wasm-opt --version` now reports `version_130`, so the exact path needs a fresh `version_130` reread before final non-DFE scheduling claims.
   - Deliverables: refresh the no-DWARF path against the current local `version_130` oracle, add exact preset-order tests for any changes, and keep repeated cleanup slots intentional unless an ordered-neighborhood proof justifies divergence.
 
 - [O4Z-AUDIT-SSA] - Deep audit `ssa-nomerge`

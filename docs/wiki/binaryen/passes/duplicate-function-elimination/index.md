@@ -128,7 +128,7 @@ What it actually is in `version_129`:
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   - Current in-tree Starshine strategy with the exact MoonBit registry/dispatcher/core-rewrite code map, plus the explicit reason this remains a module pass rather than a HOT pass. The 2026-04-26 health pass renamed this page from the stale `starshine-hot-ir-strategy.md` filename.
 - [`./scheduler-validation-and-parity.md`](./scheduler-validation-and-parity.md)
-  - Read-along validation bridge tying together upstream repeat-budget and two-slot scheduling, current Starshine one-iteration explicit-pass behavior, local extra cleanup, focused test surfaces, and the evidence required before public preset scheduling.
+  - Read-along validation bridge tying together upstream repeat-budget and two-slot scheduling, current Starshine fixed-point direct-pass behavior, local extra cleanup, focused test surfaces, and the evidence required before public preset scheduling.
 - [`./type-compaction-and-metadata.md`](./type-compaction-and-metadata.md)
   - The crucial source-backed distinction between upstream DFE proper and the broader local type/name/metadata cleanup currently bundled into Starshine's pass, now with concrete local before/after shape families and exact owner-file locations.
 - [`./parity.md`](./parity.md)
