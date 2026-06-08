@@ -2111,3 +2111,164 @@ test "merge-blocks keeps typed single-param multi-result if-arm lowering Binarye
   assert_true(pretty.contains("I64(2)"), msg=pretty)
   assert_true(pretty.contains("I64(4)"), msg=pretty)
 }
+
+///|
+test "merge-blocks lifts safe prefixes before live-label block breaks like Binaryen" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #| (module
+        #|   (func
+        #|     (block $exit
+        #|       (drop (i32.const 7))
+        #|       (br $exit)
+        #|       (drop (i32.const 9)))))
+      ),
+      ["merge-blocks"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected merge-blocks live-label prefix success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(block"), msg=pretty)
+  assert_true(pretty.contains("br"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  @debug.assert_eq(
+    merge_blocks_test_count_substring(pretty, "(block"),
+    1,
+    msg=pretty,
+  )
+}
+
+///|
+test "merge-blocks moves block prefixes out of if conditions like Binaryen" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #| (module
+        #|   (func (param i32) (result i32)
+        #|     (if (result i32)
+        #|       (block (result i32)
+        #|         (drop (i32.const 7))
+        #|         (local.get 0))
+        #|       (then (i32.const 1))
+        #|       (else (i32.const 2)))))
+      ),
+      ["merge-blocks"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected merge-blocks if-condition motion success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(
+    merge_blocks_test_count_substring(pretty, "(block"),
+    0,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("(if"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+}
+
+///|
+test "merge-blocks moves block prefixes out of drop operands like Binaryen" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #| (module
+        #|   (func
+        #|     (drop
+        #|       (block (result i32)
+        #|         (drop (i32.const 7))
+        #|         (i32.const 9)))))
+      ),
+      ["merge-blocks"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected merge-blocks drop-block motion success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(
+    merge_blocks_test_count_substring(pretty, "(block"),
+    0,
+    msg=pretty,
+  )
+  @debug.assert_eq(
+    merge_blocks_test_count_substring(pretty, "drop"),
+    2,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("I32(9)"), msg=pretty)
+}
+
+///|
+test "merge-blocks moves block prefixes out of store operands without reordering effects" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #| (module
+        #|   (memory 1)
+        #|   (func (param i32)
+        #|     (i32.store
+        #|       (block (result i32)
+        #|         (drop (i32.const 7))
+        #|         (i32.const 0))
+        #|       (block (result i32)
+        #|         (drop (i32.const 8))
+        #|         (local.get 0)))))
+      ),
+      ["merge-blocks"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected merge-blocks store operand motion success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(
+    merge_blocks_test_count_substring(pretty, "(block"),
+    0,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("i32.store"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("I32(8)"), msg=pretty)
+}
+
+///|
+test "merge-blocks moves pure block prefixes out of throw operands like Binaryen" {
+  let optimized = match
+    pass_test_run_pipeline(
+      (
+        #| (module
+        #|   (tag $e (param i32))
+        #|   (func
+        #|     (throw $e
+        #|       (block (result i32)
+        #|         (drop (i32.const 7))
+        #|         (i32.const 9)))))
+      ),
+      ["merge-blocks"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected merge-blocks throw operand motion success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  @debug.assert_eq(
+    merge_blocks_test_count_substring(pretty, "(block"),
+    0,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("throw"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("I32(9)"), msg=pretty)
+}

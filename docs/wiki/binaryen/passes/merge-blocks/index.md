@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-06
+last_reviewed: 2026-06-08
 sources:
+  - ../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md
   - ../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md
   - ../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md
@@ -142,7 +143,7 @@ Those are related strategies, but not the same implementation.
 - The 2026-05-06 debug-artifact `--merge-blocks` compare on `tests/node/dist/starshine-debug-wasi.wasm` had normalized WAT equality and canonical function equality; raw/canonical wasm and normalized WAT text still differ, but not at the normalized/function compare level used for this direct pass.
 - `src/passes/registry_test.mbt` classifies it as an active hot pass.
 - `src/passes/optimize_test.mbt` proves that both public presets replay it twice in the late cleanup cluster.
-- `src/passes/merge_blocks_test.mbt` is a substantial direct proof surface for live-label gating, typed carriers, `unreachable` suffix repair, and Binaryen-stable lowering families.
+- `src/passes/merge_blocks_test.mbt` is a substantial direct proof surface for live-label gating, typed carriers, `unreachable` suffix repair, Binaryen-stable lowering families, and the 2026-06-08 expression-child block-prefix motion fixtures for `drop(block ...)`, `if` conditions, stores, and `throw` operands.
 - `src/ir/hot_lower_test.mbt` also acts as neighboring evidence because several writeback tests explicitly anchor their expected shape to “merge-blocks wants Binaryen-stable output.”
 
 ## Validation guidance
@@ -158,10 +159,11 @@ For documentation work, validate by cross-reading:
 7. [`./starshine-strategy.md`](./starshine-strategy.md)
 8. [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
 
-For implementation work, run at minimum the pass and command test lanes, then a pass-targeted Binaryen comparison if behavior changes. The latest full direct evidence is captured in [`../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md`](../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md).
+For implementation work, run at minimum the pass and command test lanes, then a pass-targeted Binaryen comparison if behavior changes. The 2026-05-06 direct revalidation is captured in [`../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md`](../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md). The latest 2026-06-08 behavior audit and expression-child block-motion slice is captured in [`../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md`](../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md); its final behavior-normalized 100000-case compare is zero-mismatch, with three raw unnormalized debris mismatches classified as non-semantic.
 
 ## Sources
 
+- [`../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md`](../../../raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md)
 - [`../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md`](../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md`](../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md)
 - [`../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md`](../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md)

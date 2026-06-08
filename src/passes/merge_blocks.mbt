@@ -290,6 +290,194 @@ fn merge_blocks_visit_control_node(
 }
 
 ///|
+fn merge_blocks_can_lift_block_child(
+  func : @ir.HotFunc,
+  block_id : Int,
+  label_used : @bitset.BitSet,
+  module_ctx : @ir.HotModuleContext?,
+) -> Bool {
+  if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, block_id).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  if pass_label_is_used(@ir.hot_control_node_label(func, block_id), label_used) {
+    return false
+  }
+  if merge_blocks_block_has_params(func, block_id, module_ctx) {
+    return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  if merge_blocks_region_contains_loop(func, body_ref) {
+    return false
+  }
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  if root_count < 2 {
+    return false
+  }
+  let tail_id = @ir.hot_region_get(func, body_ref, root_count - 1)
+  if @ir.hot_node_result_arity(func, tail_id) != 1 {
+    return false
+  }
+  let block_results = @ir.hot_type_results(
+    func,
+    @ir.hot_node_type(func, block_id),
+  )
+  let tail_results = @ir.hot_type_results(
+    func,
+    @ir.hot_node_type(func, tail_id),
+  )
+  block_results == tail_results && block_results.length() == 1
+}
+
+///|
+fn merge_blocks_lift_expression_block_children(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  label_used : @bitset.BitSet,
+  module_ctx : @ir.HotModuleContext?,
+) -> Int {
+  let root_id = @ir.hot_region_get(func, region_ref, idx)
+  if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+    return 0
+  }
+  let root_node = @ir.hot_node_get(func, root_id)
+  match root_node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try | @ir.HotOp::TryTable =>
+      return 0
+    _ => ()
+  }
+  let child_count = @ir.hot_child_count(func, root_id)
+  if child_count == 0 {
+    return 0
+  }
+  let mut previous_effects = 0U
+  let lifted_prefixes : Array[Int] = []
+  let next_children : Array[Int] = []
+  let mut changed = false
+  for slot = 0; slot < child_count; slot = slot + 1 {
+    match root_node.op {
+      @ir.HotOp::If if slot != 0 => {
+        next_children.push(@ir.hot_child_get(func, root_id, slot))
+        continue
+      }
+      _ => ()
+    }
+    let child_id = @ir.hot_child_get(func, root_id, slot)
+    if merge_blocks_can_lift_block_child(func, child_id, label_used, module_ctx) {
+      let body_ref = @ir.hot_region_body_ref(func, child_id)
+      let root_count = @ir.hot_region_root_count(func, body_ref)
+      let tail_id = @ir.hot_region_get(func, body_ref, root_count - 1)
+      let prefix : Array[Int] = []
+      let mut prefix_effects = 0U
+      for prefix_idx = 0
+          prefix_idx < root_count - 1
+          prefix_idx = prefix_idx + 1 {
+        let prefix_id = @ir.hot_region_get(func, body_ref, prefix_idx)
+        prefix.push(prefix_id)
+        prefix_effects = prefix_effects | @ir.effects_for_node(func, prefix_id)
+      }
+      if @ir.effects_is_pure(prefix_effects) ||
+        @ir.effects_is_pure(previous_effects) {
+        for prefix_id in prefix {
+          lifted_prefixes.push(prefix_id)
+        }
+        next_children.push(tail_id)
+        @ir.hot_region_replace_body(func, body_ref, [])
+        previous_effects = previous_effects |
+          @ir.effects_for_node(func, tail_id)
+        changed = true
+        continue
+      }
+    }
+    next_children.push(child_id)
+    previous_effects = previous_effects | @ir.effects_for_node(func, child_id)
+  }
+  if !changed || lifted_prefixes.length() == 0 {
+    return 0
+  }
+  ignore(@ir.hot_replace_child_span(func, root_id, next_children))
+  ignore(@ir.hot_region_splice(func, region_ref, idx, 0, lifted_prefixes))
+  lifted_prefixes.length()
+}
+
+///|
+fn merge_blocks_node_reaches_label(
+  func : @ir.HotFunc,
+  node_id : Int,
+  label_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_branch_target(func, node_id) {
+    Some(target) if target == label_id => return true
+    _ => ()
+  }
+  for target in @ir.hot_branch_table_targets_for_node(func, node_id) {
+    if target == label_id {
+      return true
+    }
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if merge_blocks_node_reaches_label(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+        label_id,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn merge_blocks_lift_prefix_before_live_label_block(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  block_id : Int,
+  label_id : Int,
+) -> Bool {
+  if @ir.hot_node_result_arity(func, block_id) != 0 {
+    return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  if root_count < 2 {
+    return false
+  }
+  let mut split_idx = -1
+  for body_idx = 0; body_idx < root_count; body_idx = body_idx + 1 {
+    if merge_blocks_node_reaches_label(
+        func,
+        @ir.hot_region_get(func, body_ref, body_idx),
+        label_id,
+      ) {
+      split_idx = body_idx
+      break
+    }
+  }
+  if split_idx <= 0 {
+    return false
+  }
+  let prefix : Array[Int] = []
+  let suffix : Array[Int] = []
+  for body_idx = 0; body_idx < split_idx; body_idx = body_idx + 1 {
+    prefix.push(@ir.hot_region_get(func, body_ref, body_idx))
+  }
+  for body_idx = split_idx; body_idx < root_count; body_idx = body_idx + 1 {
+    suffix.push(@ir.hot_region_get(func, body_ref, body_idx))
+  }
+  ignore(@ir.hot_region_splice(func, region_ref, idx, 0, prefix))
+  @ir.hot_region_replace_body(func, body_ref, suffix)
+  true
+}
+
+///|
 fn merge_blocks_flatten_region_root_block(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -310,14 +498,16 @@ fn merge_blocks_flatten_region_root_block(
     _ => return false
   }
   let label_id = @ir.hot_control_node_label(func, block_id)
-  if pass_label_is_used(label_id, label_used) {
-    return false
-  }
-  let param_count = merge_blocks_block_param_count(func, block_id, module_ctx)
   let result_count = @ir.hot_type_results(
     func,
     @ir.hot_node_type(func, block_id),
   ).length()
+  if pass_label_is_used(label_id, label_used) {
+    return merge_blocks_lift_prefix_before_live_label_block(
+      func, region_ref, idx, block_id, label_id,
+    )
+  }
+  let param_count = merge_blocks_block_param_count(func, block_id, module_ctx)
   if param_count > 0 &&
     (
       !enclosing_control_has_params ||
@@ -357,6 +547,13 @@ fn merge_blocks_visit_region(
           func, node_id, label_used, flattened_roots, module_ctx,
         ) ||
         changed
+    }
+    let lifted_count = merge_blocks_lift_expression_block_children(
+      func, region_ref, idx, label_used, module_ctx,
+    )
+    if lifted_count > 0 {
+      changed = true
+      idx += lifted_count
     }
     if merge_blocks_flatten_region_root_block(
         func, region_ref, idx, label_used, flattened_roots, module_ctx, enclosing_control_has_params,

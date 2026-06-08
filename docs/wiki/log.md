@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-08] passes/merge-blocks | Behavior audit expression-block motion slice
+
+- Added [`raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md`](raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md) for `[O4Z-AUDIT-MB]`. The note records the Binaryen behavior surface, the previous Starshine gap around block-valued expression operands, and pending command evidence required before closeout.
+- Updated [`../../src/passes/merge_blocks.mbt`](../../src/passes/merge_blocks.mbt) so `merge-blocks` conservatively lifts label-dead, param-free, branch-free block prefixes out of non-control expression operands while preserving effect order. This covers the Binaryen-style `drop(block ...)`, `if` condition, `throw` operand, and general operand-prefix motion families without requiring exact output shape.
+- Added focused fixtures to [`../../src/passes/merge_blocks_test.mbt`](../../src/passes/merge_blocks_test.mbt) for live-label prefix lifting, if-condition, drop operand, store-operand, and throw-operand block-prefix motion. Validation: `moon fmt`, `moon test src/passes` `2042/2042`, full `moon test` `5234/5234`, native `src/cmd` build with pre-existing warnings, direct 1000-case compare `.tmp/pass-fuzz-merge-blocks-o4z-audit-1000` (`998/1000`, `0` mismatches), unnormalized final compare `.tmp/pass-fuzz-merge-blocks-o4z-audit-final-100000` (`99751/100000`, `3` raw debris mismatches), and behavior-normalized final compare `.tmp/pass-fuzz-merge-blocks-o4z-audit-final-100000-norm3` with `--normalize unreachable-control-debris --normalize local-cleanup-debris --normalize drop-consts` (`99751/100000`, `99748` normalized, `3` cleanup-normalized, `0` mismatches, `249` Binaryen/tool command failures). `moon info` still reproduces the known Moon tool panic.
+
 ## [2026-06-08] passes/duplicate-function-elimination | Audit green and preset scheduling
 
 - Made the expanded DFE audit suite green without weakening the Binaryen/source-backed contract. Direct DFE focused tests now pass `29 / 29`; corrected invalid reductions around `ref.func` declaration, tag empty-result signatures, and descriptor metadata while preserving the intended behavior assertions.
