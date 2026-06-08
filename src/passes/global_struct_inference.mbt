@@ -579,7 +579,10 @@ fn gsi_instr_slice(
 }
 
 ///|
-fn gsi_unnestable_stack_operand_count(instr : @lib.Instruction) -> Int? {
+fn gsi_unnestable_stack_operand_count(
+  env : @validate.Env,
+  instr : @lib.Instruction,
+) -> Int? {
   match instr {
     @lib.I32Const(_)
     | @lib.I64Const(_)
@@ -589,7 +592,8 @@ fn gsi_unnestable_stack_operand_count(instr : @lib.Instruction) -> Int? {
     | @lib.RefNull(_)
     | @lib.RefFunc(_)
     | @lib.GlobalGet(_)
-    | @lib.StringConst(_) => Some(0)
+    | @lib.StringConst(_)
+    | @lib.StructNewDefault(_) => Some(0)
     @lib.I32Eqz
     | @lib.I64Eqz
     | @lib.I32Clz
@@ -617,6 +621,28 @@ fn gsi_unnestable_stack_operand_count(instr : @lib.Instruction) -> Int? {
     | @lib.F64Trunc
     | @lib.F64Nearest
     | @lib.F64Sqrt => Some(1)
+    @lib.StructNew(type_idx) =>
+      match env.resolve_struct_fields(type_idx) {
+        Ok(fields) => Some(fields.length())
+        Err(_) => None
+      }
+    @lib.StructNewDesc(type_idx) =>
+      match env.resolve_struct_fields(type_idx) {
+        Ok(fields) => Some(fields.length() + 1)
+        Err(_) => None
+      }
+    @lib.StructNewDefaultDesc(_) => Some(1)
+    @lib.ArrayNew(_) => Some(2)
+    @lib.ArrayNewDefault(_) => Some(1)
+    @lib.ArrayNewFixed(_, @lib.U32(raw_len)) => {
+      let len = raw_len.reinterpret_as_int()
+      if len < 0 {
+        None
+      } else {
+        Some(len)
+      }
+    }
+    @lib.ArrayNewData(_, _) | @lib.ArrayNewElem(_, _) => Some(2)
     @lib.I32Add
     | @lib.I32Sub
     | @lib.I32Mul
@@ -726,19 +752,34 @@ fn gsi_unnestable_instr_result_type(
     | @lib.F64Min
     | @lib.F64Max
     | @lib.F64Copysign => Some(@lib.ValType::f64())
+    @lib.StructNew(type_idx)
+    | @lib.StructNewDefault(type_idx)
+    | @lib.StructNewDesc(type_idx)
+    | @lib.StructNewDefaultDesc(type_idx)
+    | @lib.ArrayNew(type_idx)
+    | @lib.ArrayNewDefault(type_idx)
+    | @lib.ArrayNewFixed(type_idx, _)
+    | @lib.ArrayNewData(type_idx, _)
+    | @lib.ArrayNewElem(type_idx, _) =>
+      Some(
+        @lib.ValType::ref_type(
+          @lib.RefType::new(false, @lib.HeapType::new(type_idx), exact=true),
+        ),
+      )
     _ => gsi_simple_instr_result_type(env, instr)
   }
 }
 
 ///|
 fn gsi_find_operand_start(
+  env : @validate.Env,
   instrs : Array[@lib.Instruction],
   end_inclusive : Int,
 ) -> Int {
   let mut needed = 1
   let mut idx = end_inclusive
   while idx >= 0 {
-    let operands = match gsi_unnestable_stack_operand_count(instrs[idx]) {
+    let operands = match gsi_unnestable_stack_operand_count(env, instrs[idx]) {
       Some(operands) => operands
       None => return -1
     }
@@ -757,6 +798,7 @@ fn gsi_find_operand_start(
 
 ///|
 fn gsi_split_constructor_operands(
+  env : @validate.Env,
   instrs : Array[@lib.Instruction],
   operand_count : Int,
 ) -> Array[GsiSplitOperand]? {
@@ -767,7 +809,7 @@ fn gsi_split_constructor_operands(
   let mut end_inclusive = instrs.length() - 2
   for operand = 0; operand < operand_count; operand = operand + 1 {
     ignore(operand)
-    let start = gsi_find_operand_start(instrs, end_inclusive)
+    let start = gsi_find_operand_start(env, instrs, end_inclusive)
     if start < 0 {
       return None
     }
@@ -815,7 +857,7 @@ fn gsi_expr_is_unnestable_field_value(
     return false
   }
   for instr in instrs {
-    if gsi_unnestable_stack_operand_count(instr) is None {
+    if gsi_unnestable_stack_operand_count(env, instr) is None {
       return false
     }
   }
@@ -1026,7 +1068,11 @@ fn gsi_try_unnest_global_init(
     Err(_) => return None
   }
   let operands = match
-    gsi_split_constructor_operands(instrs, fields.length() + extra_operands) {
+    gsi_split_constructor_operands(
+      env,
+      instrs,
+      fields.length() + extra_operands,
+    ) {
     Some(operands) => operands
     None => return None
   }
@@ -1120,31 +1166,6 @@ fn gsi_module_has_ref_get_desc(mod_ : @lib.Module) -> Bool {
 }
 
 ///|
-fn gsi_extra_surfaces_allowed(
-  mod_ : @lib.Module,
-  globals : Array[@lib.Global],
-) -> Bool {
-  if globals.length() > 4 {
-    return false
-  }
-  match mod_.code_sec {
-    Some(@lib.CodeSec(funcs)) => {
-      if funcs.length() > 2 {
-        return false
-      }
-      for func in funcs {
-        let @lib.Func(_, @lib.Expr(instrs)) = func
-        if instrs.length() > 256 {
-          return false
-        }
-      }
-      true
-    }
-    None => false
-  }
-}
-
-///|
 fn gsi_unnest_global_operands(
   mod_ : @lib.Module,
   closed_world : Bool,
@@ -1152,9 +1173,6 @@ fn gsi_unnest_global_operands(
   let globals = match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) => globals
     None => return (mod_, false)
-  }
-  if !gsi_extra_surfaces_allowed(mod_, globals) {
-    return (mod_, false)
   }
   let env = @validate.Env::new().with_module(mod_)
   let facts = if closed_world {
@@ -1717,7 +1735,8 @@ fn gsi_candidate_global_descriptor_expr(
     @lib.StructNewDefaultDesc(type_idx) => (type_idx, 1, 0)
     _ => return None
   }
-  let operands = match gsi_split_constructor_operands(instrs, operand_count) {
+  let operands = match
+    gsi_split_constructor_operands(env, instrs, operand_count) {
     Some(operands) => operands
     None => return None
   }
@@ -2859,6 +2878,33 @@ fn gsi_instrs_may_rewrite(
 }
 
 ///|
+fn gsi_cleanup_dropped_unreachable_debris(
+  mod_ : @lib.Module,
+) -> (@lib.Module, Bool) {
+  let funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs
+    None => return (mod_, false)
+  }
+  let next_funcs = funcs.copy()
+  let mut changed = false
+  for idx = 0; idx < funcs.length(); idx = idx + 1 {
+    let @lib.Func(locals, @lib.Expr(instrs)) = funcs[idx]
+    let (next_instrs, func_changed) = pass_raw_remove_dropped_unreachable_debris(
+      instrs,
+    )
+    if func_changed {
+      next_funcs[idx] = @lib.Func::new(locals, @lib.Expr::new(next_instrs))
+      changed = true
+    }
+  }
+  if changed {
+    (mod_.with_code_sec(@lib.CodeSec::new(next_funcs)), true)
+  } else {
+    (mod_, false)
+  }
+}
+
+///|
 pub fn global_struct_inference_run_module_pass(
   mod_ : @lib.Module,
   closed_world : Bool,
@@ -2869,6 +2915,7 @@ pub fn global_struct_inference_run_module_pass(
   if did_unnest {
     return global_struct_inference_run_module_pass(unnested_mod, closed_world)
   }
+  let (mod_, cleanup_changed) = gsi_cleanup_dropped_unreachable_debris(mod_)
   let env = @validate.Env::new().with_module(mod_)
   let type_count = env.global_types.length()
   let exact_single_candidate_by_type_slot : Array[@lib.GlobalIdx?] = Array::make(
@@ -2907,8 +2954,7 @@ pub fn global_struct_inference_run_module_pass(
     total_globals,
     None,
   )
-  let needs_descriptor_values = gsi_extra_surfaces_allowed(mod_, globals) &&
-    gsi_module_has_ref_get_desc(mod_)
+  let needs_descriptor_values = gsi_module_has_ref_get_desc(mod_)
   let global_type_slots = Array::make(total_globals, -1)
 
   for slot = 0; slot < type_count; slot = slot + 1 {
@@ -3017,6 +3063,7 @@ pub fn global_struct_inference_run_module_pass(
     changed = true
   }
   if !changed {
+    ignore(cleanup_changed)
     return mod_
   }
   mod_.with_code_sec(@lib.CodeSec::new(next_funcs))

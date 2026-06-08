@@ -17,6 +17,125 @@ fn gsi_test_pretty(input : String, closed_world : Bool) -> String raise {
 }
 
 ///|
+fn gsi_test_run_module(
+  mod_ : @lib.Module,
+  closed_world : Bool,
+) -> @lib.Module raise {
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("unexpected invalid global-struct-inference fixture: \{err}")
+  }
+  let optimized = global_struct_inference_run_module_pass(mod_, closed_world)
+  match @validate.validate_module(optimized) {
+    Ok(_) => optimized
+    Err(err) =>
+      fail("expected global-struct-inference output to validate, got \{err}")
+  }
+}
+
+///|
+fn gsi_test_first_defined_func(mod_ : @lib.Module) -> @lib.Func raise {
+  match mod_.code_sec {
+    Some(@lib.CodeSec([func, ..])) => func
+    _ => fail("expected at least one defined function")
+  }
+}
+
+///|
+fn gsi_test_count_drop(instrs : Array[@lib.Instruction]) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Instruction::Drop => count += 1
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+        count += gsi_test_count_drop(body)
+      @lib.Instruction::If(_, then_body, else_body) => {
+        count += gsi_test_count_drop(then_body)
+        match else_body {
+          Some(else_body) => count += gsi_test_count_drop(else_body)
+          None => ()
+        }
+      }
+      @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        count += gsi_test_count_drop(body)
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn gsi_test_count_unreachable(instrs : Array[@lib.Instruction]) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Instruction::Unreachable => count += 1
+      @lib.Instruction::Block(_, @lib.Expr(body))
+      | @lib.Instruction::Loop(_, @lib.Expr(body)) =>
+        count += gsi_test_count_unreachable(body)
+      @lib.Instruction::If(_, then_body, else_body) => {
+        count += gsi_test_count_unreachable(then_body)
+        match else_body {
+          Some(else_body) => count += gsi_test_count_unreachable(else_body)
+          None => ()
+        }
+      }
+      @lib.Instruction::TryTable(_, _, @lib.Expr(body)) =>
+        count += gsi_test_count_unreachable(body)
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn gsi_test_i32_array_type() -> @lib.RecType {
+  @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+      ),
+    ),
+  )
+}
+
+///|
+fn gsi_test_struct_type(field_type : @lib.ValType) -> @lib.RecType {
+  @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::struct_([
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(field_type),
+          @lib.Mut::const_(),
+        ),
+      ]),
+    ),
+  )
+}
+
+///|
+fn gsi_test_func_type(
+  params : Array[@lib.ValType],
+  results : Array[@lib.ValType],
+) -> @lib.RecType {
+  @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func(params, results)),
+  )
+}
+
+///|
+fn gsi_test_ref_type(type_idx : @lib.TypeIdx, nullable : Bool) -> @lib.ValType {
+  @lib.ValType::ref_type(
+    @lib.RefType::new(nullable, @lib.HeapType::new(type_idx)),
+  )
+}
+
+///|
 fn gsi_test_defined_global_count(mod_ : @lib.Module) -> Int raise {
   match mod_.global_sec {
     Some(@lib.GlobalSec(globals)) => globals.length()
@@ -57,6 +176,57 @@ fn gsi_test_any_global_init_contains(
     }
     None => fail("expected global section")
   }
+}
+
+///|
+fn gsi_assert_no_unreachable_drop_debris(input : String) -> Unit raise {
+  let optimized = gsi_test_run(input, false)
+  let @lib.Func(locals, @lib.Expr(instrs)) = try! gsi_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(gsi_test_count_drop(instrs), 0)
+  @debug.assert_eq(gsi_test_count_unreachable(instrs), 1)
+}
+
+///|
+test "global-struct-inference removes dropped unreachable debris before hard unreachable" {
+  let input =
+    #| (module
+    #|   (func
+    #|     (drop (unreachable))
+    #|     (unreachable)))
+    #|
+  gsi_assert_no_unreachable_drop_debris(input)
+}
+
+///|
+test "global-struct-inference removes nested dropped unreachable debris before hard unreachable" {
+  let input =
+    #| (module
+    #|   (func
+    #|     (drop (drop (unreachable)))
+    #|     (unreachable)))
+    #|
+  gsi_assert_no_unreachable_drop_debris(input)
+}
+
+///|
+test "global-struct-inference removes unreachable debris inside nested control before hard unreachable" {
+  let input =
+    #| (module
+    #|   (func
+    #|     (block
+    #|       (drop (unreachable))
+    #|       (unreachable))))
+    #|
+  let optimized = gsi_test_run(input, false)
+  let @lib.Func(locals, @lib.Expr(instrs)) = try! gsi_test_first_defined_func(
+    optimized,
+  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([]))
+  @debug.assert_eq(gsi_test_count_drop(instrs), 0)
+  @debug.assert_eq(gsi_test_count_unreachable(instrs), 1)
 }
 
 ///|
@@ -896,6 +1066,326 @@ test "global-struct-inference un-nests pure float div min max copysign direct-gl
       @lib.Instruction::f64_copysign(),
     ),
   )
+}
+
+///|
+test "global-struct-inference un-nests nested struct field values" {
+  let input =
+    #| (module
+    #|   (type $inner (sub (struct (field i32))))
+    #|   (type $outer (sub (struct (field (ref $inner)))))
+    #|   (global $g (ref $outer)
+    #|     (struct.new $outer
+    #|       (struct.new $inner (i32.const 42))))
+    #|   (func (export "read") (result (ref $inner))
+    #|     global.get $g
+    #|     struct.get $outer 0))
+    #|
+  let optimized = gsi_test_run(input, false)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(optimized), 2)
+}
+
+///|
+test "global-struct-inference un-nests direct array.new_fixed field values" {
+  let array = @lib.TypeIdx::new(0U)
+  let box = @lib.TypeIdx::new(1U)
+  let func = @lib.TypeIdx::new(2U)
+  let array_ref = gsi_test_ref_type(array, false)
+  let box_ref = gsi_test_ref_type(box, false)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        gsi_test_i32_array_type(),
+        gsi_test_struct_type(array_ref),
+        gsi_test_func_type([], [array_ref]),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(box_ref, false),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32::new(1)),
+            @lib.Instruction::i32_const(@lib.I32::new(2)),
+            @lib.Instruction::array_new_fixed(array, @lib.U32::new(2U)),
+            @lib.Instruction::struct_new(box),
+          ]),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::struct_get(box, @lib.U32::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = gsi_test_run_module(input, false)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(optimized), 2)
+  assert_true(
+    try! gsi_test_any_global_init_contains(
+      optimized,
+      @lib.Instruction::array_new_fixed(array, @lib.U32::new(2U)),
+    ),
+    msg=pretty,
+  )
+}
+
+///|
+test "global-struct-inference un-nests direct array.new_default field values" {
+  let array = @lib.TypeIdx::new(0U)
+  let box = @lib.TypeIdx::new(1U)
+  let func = @lib.TypeIdx::new(2U)
+  let array_ref = gsi_test_ref_type(array, false)
+  let box_ref = gsi_test_ref_type(box, false)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        gsi_test_i32_array_type(),
+        gsi_test_struct_type(array_ref),
+        gsi_test_func_type([], [array_ref]),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(box_ref, false),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32::new(3)),
+            @lib.Instruction::array_new_default(array),
+            @lib.Instruction::struct_new(box),
+          ]),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::global_get(@lib.GlobalIdx::new(0U)),
+            @lib.Instruction::struct_get(box, @lib.U32::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = gsi_test_run_module(input, false)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(optimized), 2)
+  assert_true(
+    try! gsi_test_any_global_init_contains(
+      optimized,
+      @lib.Instruction::array_new_default(array),
+    ),
+    msg=pretty,
+  )
+}
+
+///|
+test "global-struct-inference un-nests closed-world array field select values" {
+  let array = @lib.TypeIdx::new(0U)
+  let box = @lib.TypeIdx::new(1U)
+  let func = @lib.TypeIdx::new(2U)
+  let array_ref_null = gsi_test_ref_type(array, true)
+  let box_ref = gsi_test_ref_type(box, false)
+  let box_ref_null = gsi_test_ref_type(box, true)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        gsi_test_i32_array_type(),
+        gsi_test_struct_type(array_ref_null),
+        gsi_test_func_type([box_ref_null], [array_ref_null]),
+      ]),
+    )
+    .with_global_sec(
+      @lib.GlobalSec::new([
+        @lib.Global::new(
+          @lib.GlobalType::new(box_ref, false),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32::new(1)),
+            @lib.Instruction::i32_const(@lib.I32::new(2)),
+            @lib.Instruction::array_new_fixed(array, @lib.U32::new(2U)),
+            @lib.Instruction::struct_new(box),
+          ]),
+        ),
+        @lib.Global::new(
+          @lib.GlobalType::new(box_ref, false),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null(@lib.HeapType::new(array)),
+            @lib.Instruction::struct_new(box),
+          ]),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([func]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([box_ref_null]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::struct_get(box, @lib.U32::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = gsi_test_run_module(input, true)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("ref.eq"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("ref.null"), msg=pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(optimized), 3)
+}
+
+///|
+test "global-struct-inference refinalizes null-result local folds" {
+  let input =
+    #| (module
+    #|   (type $box (sub (struct (field (ref null $box)))))
+    #|   (global $a (ref $box) (struct.new_default $box))
+    #|   (global $b (ref $box) (struct.new_default $box))
+    #|   (func (export "read") (param (ref $box)) (result (ref $box))
+    #|     local.get 0
+    #|     struct.get $box 0
+    #|     ref.as_non_null)
+    #| )
+  let pretty = gsi_test_pretty(input, true)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("ref.null"), msg=pretty)
+  assert_true(pretty.contains("ref.as_non_null"), msg=pretty)
+}
+
+///|
+test "global-struct-inference un-nests direct-global fields in modules with many globals" {
+  let input =
+    #| (module
+    #|   (type $box (sub (struct (field i32))))
+    #|   (global $a (ref $box) (struct.new $box (i32.const 1)))
+    #|   (global $b (ref $box) (struct.new $box (i32.const 2)))
+    #|   (global $c (ref $box) (struct.new $box (i32.const 3)))
+    #|   (global $d (ref $box) (struct.new $box (i32.const 4)))
+    #|   (global $g (ref $box)
+    #|     (struct.new $box
+    #|       (i32.add (i32.const 40) (i32.const 2))))
+    #|   (func (export "read") (result i32)
+    #|     global.get $g
+    #|     struct.get $box 0))
+    #|
+  let optimized = gsi_test_run(input, false)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(optimized), 6)
+}
+
+///|
+test "global-struct-inference un-nests direct-global fields in modules with many functions" {
+  let input =
+    #| (module
+    #|   (type $box (sub (struct (field i32))))
+    #|   (global $g (ref $box)
+    #|     (struct.new $box
+    #|       (i32.add (i32.const 40) (i32.const 2))))
+    #|   (func $dummy0)
+    #|   (func $dummy1)
+    #|   (func (export "read") (result i32)
+    #|     global.get $g
+    #|     struct.get $box 0))
+    #|
+  let optimized = gsi_test_run(input, false)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(optimized), 2)
+}
+
+///|
+test "global-struct-inference preserves nullable traps when un-nesting nested struct fields" {
+  let input =
+    #| (module
+    #|   (type $inner (sub (struct (field i32))))
+    #|   (type $outer (sub (struct (field (ref $inner)))))
+    #|   (global $g (ref null $outer)
+    #|     (struct.new $outer
+    #|       (struct.new $inner (i32.const 42))))
+    #|   (func (export "read") (result (ref $inner))
+    #|     global.get $g
+    #|     struct.get $outer 0))
+    #|
+  let optimized = gsi_test_run(input, false)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("ref.as_non_null"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(optimized), 2)
+}
+
+///|
+test "global-struct-inference un-nests closed-world local select fields in modules with many globals" {
+  let input =
+    #| (module
+    #|   (global $filler0 i32 (i32.const 0))
+    #|   (global $filler1 i32 (i32.const 1))
+    #|   (global $filler2 i32 (i32.const 2))
+    #|   (type $box (sub (struct (field i32))))
+    #|   (global $a (ref $box)
+    #|     (struct.new $box
+    #|       (i32.add (i32.const 40) (i32.const 2))))
+    #|   (global $b (ref $box) (struct.new $box (i32.const 1337)))
+    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|     local.get 0
+    #|     struct.get $box 0))
+    #|
+  let optimized = gsi_test_run(input, true)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("ref.eq"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("I32(1337)"), msg=pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(optimized), 6)
+}
+
+///|
+test "global-struct-inference un-nests closed-world local select fields in modules with many functions" {
+  let input =
+    #| (module
+    #|   (type $box (sub (struct (field i32))))
+    #|   (global $a (ref $box)
+    #|     (struct.new $box
+    #|       (i32.add (i32.const 40) (i32.const 2))))
+    #|   (global $b (ref $box) (struct.new $box (i32.const 1337)))
+    #|   (func $dummy0)
+    #|   (func $dummy1)
+    #|   (func (export "read") (param (ref null $box)) (result i32)
+    #|     local.get 0
+    #|     struct.get $box 0))
+    #|
+  let optimized = gsi_test_run(input, true)
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_true(pretty.contains("ref.eq"), msg=pretty)
+  assert_true(pretty.contains("global.get"), msg=pretty)
+  assert_true(pretty.contains("I32(1337)"), msg=pretty)
+  @debug.assert_eq(try! gsi_test_defined_global_count(optimized), 3)
 }
 
 ///|
