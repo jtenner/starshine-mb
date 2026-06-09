@@ -19,4 +19,5 @@ result.json
 agent-lost-and-found.md
 .tmp/
 build/
+examples/modules/*.wasm
 vgcore.*
