@@ -122,6 +122,14 @@ fn ssa_local_visit_node(
   }
 }
 
+// SSA v1 intentionally skips exceptional CFG edges (see `cfg.mbt`, `local-ssa-policy.md`).
+// The CFG records them for try/try_table headers and throw-family terminators; catch
+// bodies are not dominated by throwing blocks in the normal-flow dominator tree.
+// Liveness, dominators, phi placement, rename, and destroy all follow the normal-flow-only
+// contract until upgraded together. Do not remove the `ExceptionalEdge` continues below
+// without that full upgrade. Until then, mutation passes such as `ssa-nomerge` fail closed
+// on exceptional-flow functions.
+
 ///|
 fn ssa_local_record_successor_phi_inputs(
   cfg : HotCfg,

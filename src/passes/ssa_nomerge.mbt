@@ -175,8 +175,10 @@ fn ssa_nomerge_has_nested_cfg_sensitive_control(func : @ir.HotFunc) -> Bool {
 
 ///|
 fn ssa_nomerge_has_exceptional_flow(func : @ir.HotFunc) -> Bool {
-  // SSA v1 explicitly excludes exceptional edges. Rewriting local defs while
-  // ignoring try_table/throw edges can drop writes that reach catch targets.
+  // SSA v1 is normal-flow-only. The CFG records `ExceptionalEdge` for try/try_table
+  // and throw-family ops, but liveness, dominators, phi placement, rename, and destroy
+  // ignore exceptional predecessors. Fail closed here (not feature support): rewriting
+  // locals while skipping those edges can drop writes that must reach catch continuations.
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue

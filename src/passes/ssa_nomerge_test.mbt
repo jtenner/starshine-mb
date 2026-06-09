@@ -118,6 +118,106 @@ test "ssa-nomerge preserves dropped local increments for later repair" {
 }
 
 ///|
+fn ssa_test_validate_ssa_nomerge_pipeline(source : String) -> @lib.Module raise {
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected ssa-nomerge pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => optimized
+    Err(err) =>
+      fail(
+        "expected ssa-nomerge output to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+fn ssa_test_hot_exceptional_local_traffic_preserved(
+  source : String,
+) -> Unit raise {
+  let optimized = match ssa_test_run_hot_path_only(source) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected exceptional hot-path ssa-nomerge success, got \{err}")
+  }
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(
+    text.contains("local.set") || text.contains("local.tee"),
+    msg=text,
+  )
+}
+
+///|
+fn ssa_test_hot_func_has_local_write(func : @ir.HotFunc) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn ssa_test_hot_func_exceptional_fail_closed(func : @ir.HotFunc) -> Unit raise {
+  @ir.hot_verify_all_or_abort(func)
+  let revision_before = @ir.hot_revision_current(func)
+  let ctx = HotPassContext::new(
+    ssa_nomerge_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected hot func ssa-nomerge success, got \{err}")
+  }
+  @debug.assert_eq(@ir.hot_revision_current(func), revision_before)
+  assert_true(ssa_test_hot_func_has_local_write(func))
+}
+
+///|
+test "ssa-nomerge does not mutate exceptional-flow functions" {
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (tag $e)
+    #|  (func (export "f") (result i32)
+    #|    (local i32)
+    #|    i32.const 1
+    #|    local.set 0
+    #|    (block $h
+    #|      (try_table (catch $e $h)
+    #|        i32.const 2
+    #|        local.set 0
+    #|        throw $e))
+    #|    local.get 0))
+    #|)
+  match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected exceptional-flow ssa-nomerge fail-closed success, got \{err}",
+      )
+  }
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "ssa-nomerge preserves try-table local writes across exceptional exits" {
   let source =
     #|(module
@@ -142,6 +242,93 @@ test "ssa-nomerge preserves try-table local writes across exceptional exits" {
   let text = instrs.to_string()
   assert_true(text.contains("local.set"), msg=text)
   assert_false(text.contains("drop"), msg=text)
+}
+
+///|
+test "ssa-nomerge preserves try-table default local at catch continuation" {
+  let source =
+    #|(module
+    #|  (tag $e)
+    #|  (func (export "f") (result i32)
+    #|    (local i32)
+    #|    (block $h
+    #|      (try_table (catch $e $h)
+    #|        throw $e))
+    #|    local.get 0))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(
+    text.contains("local.get") || text.contains("i32.const I32(0)"),
+    msg=text,
+  )
+}
+
+///|
+test "ssa-nomerge preserves local written before conditional throw to catch" {
+  let source =
+    #|(module
+    #|  (tag $e)
+    #|  (func (export "f") (param i32) (result i32)
+    #|    (local i32)
+    #|    i32.const 10
+    #|    local.set 1
+    #|    (block $h
+    #|      (try_table (catch $e $h)
+    #|        local.get 0
+    #|        if
+    #|          i32.const 20
+    #|          local.set 1
+    #|          throw $e
+    #|        end))
+    #|    local.get 1))
+    #|)
+  ssa_test_hot_exceptional_local_traffic_preserved(source)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("local.set"), msg=text)
+}
+
+///|
+test "ssa-nomerge preserves legacy rethrow shapes without hot local corruption" {
+  let source =
+    #|(module
+    #|  (tag $e0)
+    #|  (func (export "f") (result i32)
+    #|    (local i32)
+    #|    i32.const 5
+    #|    local.set 0
+    #|    (try
+    #|      (do (throw $e0))
+    #|      (catch $e0
+    #|        (rethrow 0)))))
+    #|)
+  ssa_test_hot_exceptional_local_traffic_preserved(source)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("local.set"), msg=text)
+}
+
+///|
+test "ssa-nomerge preserves delegate shapes without hot local corruption" {
+  // Nested legacy delegate WAT does not survive `hot_lift_func`; build HOT IR directly.
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+  let set = @ir.hot_build_local_set(
+    func,
+    0,
+    @ir.hot_build_const_i32(func, @lib.I32(7)),
+  )
+  let block = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  let target = @ir.hot_control_node_label(func, block)
+  let delegate = @ir.hot_build_delegate(func, target)
+  @ir.hot_root_append(func, set)
+  @ir.hot_root_append(func, delegate)
+  ssa_test_hot_func_exceptional_fail_closed(func)
 }
 
 ///|
