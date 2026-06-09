@@ -31,6 +31,11 @@ fn ssa_nomerge_has_local_writes(func : @ir.HotFunc) -> Bool {
 }
 
 ///|
+// Narrow fail-closed guard for dropped local increments. `ssa_nomerge_run` only
+// reaches this after confirming the function has local writes, so tests must
+// include an actual `local.set` / `local.tee` elsewhere to exercise this guard.
+// The current guarded shape is intentionally exact:
+//   drop(i32.add(local.get N, i32.const 1))
 fn ssa_nomerge_has_dropped_local_increment(func : @ir.HotFunc) -> Bool {
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {

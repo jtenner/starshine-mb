@@ -96,7 +96,10 @@ test "ssa-nomerge skips O4z raw pass until self-opt cli flag parsing is safe" {
 }
 
 ///|
-test "ssa-nomerge preserves dropped local increments for later repair" {
+test "ssa-nomerge preserves dropped local increments without local writes" {
+  // This fixture has no local writes, so `ssa_nomerge_run` returns before the
+  // dropped-increment guard. It protects no-write/raw preservation, not the HOT
+  // guard itself.
   let source =
     #|(module
     #|  (func (local i32)
@@ -115,6 +118,97 @@ test "ssa-nomerge preserves dropped local increments for later repair" {
   let text = instrs.to_string()
   assert_true(text.contains("i32.add"), msg=text)
   assert_true(text.contains("drop"), msg=text)
+}
+
+///|
+test "ssa-nomerge does not mutate dropped local increment when local writes exist" {
+  let source =
+    #|(module
+    #|  (func (local i32)
+    #|    i32.const 10
+    #|    local.set 0
+    #|
+    #|    local.get 0
+    #|    i32.const 1
+    #|    i32.add
+    #|    drop))
+    #|)
+  ssa_test_ssa_nomerge_pipeline_no_mutation(
+    source, "dropped local increment with local.set",
+  )
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("i32.add"), msg=text)
+  assert_true(text.contains("drop"), msg=text)
+}
+
+///|
+test "ssa-nomerge does not mutate dropped local increment when local.tee provides local writes" {
+  let source =
+    #|(module
+    #|  (func (local i32)
+    #|    i32.const 10
+    #|    local.tee 0
+    #|    drop
+    #|
+    #|    local.get 0
+    #|    i32.const 1
+    #|    i32.add
+    #|    drop))
+    #|)
+  ssa_test_ssa_nomerge_pipeline_no_mutation(
+    source, "dropped local increment with local.tee",
+  )
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("local.tee"), msg=text)
+  assert_true(text.contains("i32.add"), msg=text)
+  assert_true(text.contains("drop"), msg=text)
+}
+
+///|
+test "ssa-nomerge validates reversed dropped local increment without guarding it" {
+  // Reversed `i32.add(i32.const 1, local.get)` is not part of the current
+  // dropped-increment guard; this test documents the boundary only.
+  let source =
+    #|(module
+    #|  (func (local i32)
+    #|    i32.const 10
+    #|    local.set 0
+    #|
+    #|    i32.const 1
+    #|    local.get 0
+    #|    i32.add
+    #|    drop))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("i32.add"), msg=text)
+  assert_true(text.contains("drop"), msg=text)
+}
+
+///|
+fn ssa_test_ssa_nomerge_pipeline_no_mutation(
+  source : String,
+  label : String,
+) -> Unit raise {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected \{label} ssa-nomerge success, got \{err}")
+  }
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
 }
 
 ///|
