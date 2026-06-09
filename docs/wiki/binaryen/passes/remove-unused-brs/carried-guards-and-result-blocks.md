@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-10
+last_reviewed: 2026-06-09
 sources:
+  - ../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md
   - ../../../raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md
   - ../../../raw/research/0077-2026-04-10-remove-unused-brs-large-result-br-table-noop-skip.md
   - ../../../raw/research/0078-2026-04-10-remove-unused-brs-false-prefix-guard-raw-skip.md
@@ -71,9 +72,12 @@ This is the main "carried guard block becomes one-arm `if`" transformation.
 The focused regressions include:
 
 - `rewrites result-block br_if prefixes into one-arm payload ifs`
+- `preserves merge-blocks-exposed result-block fallbacks`
 - `rewrites result-block br_if prefixes with payload bodies into one-arm payload ifs`
 - `rewrites stack-style branch-payload result wrappers around br_if prefixes`
 - `rewrites sibling-carried branch payload wrappers around br_if prefixes`
+
+The merge-blocks fallback guard is important: when the `br_if`-taken path falls through the rewritten guard, the result-block tail fallback value is still required and must remain a live block-body root.
 
 The matcher now also short-circuits before label-ref work when the first inner root is not a `br_if`.
 

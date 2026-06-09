@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-05-07
+last_reviewed: 2026-06-09
 sources:
+  - ../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md
   - ../../../raw/research/0548-2026-05-07-remove-unused-brs-mixed-rerun-and-local-normalization-classification.md
   - ../../../raw/binaryen/2026-05-06-remove-unused-brs-current-main-recheck.md
   - ../../../raw/research/0505-2026-05-06-remove-unused-brs-current-main-recheck.md
@@ -53,6 +54,7 @@ related:
 - Binaryen's `RemoveUnusedBrs` is phase-driven and Starshine now mirrors a meaningful subset of that structure.
 - The current tree already covers much more than dead tail stripping:
   - tail `br` / `return` elimination
+  - constant `br_if` folding, including carried payloads as of the 2026-06-09 audit
   - one-armed `if` to `br_if`
   - two-armed branch-exit cleanup
   - block-local chain flattening
@@ -61,6 +63,10 @@ related:
   - branch-payload `if` cleanup
   - carried-guard/result-block cleanup
   - repeated-constant `br_if` ladders to `br_table`
+- The 2026-06-09 merge-blocks/RUB result-fallback audit is covered by [`../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md`](../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md):
+  - `remove_unused_brs_try_fold_constant_br_if(...)` now preserves branch payload children while folding constant `br_if` roots
+  - `merge-blocks -> remove-unused-brs` has a focused guard proving the result-block fallback remains live when the prefix guard can fall through to the block end
+  - focused RUB tests pass `113/113`, `moon test src/passes` passes `2044/2044`, direct normalized 1000-case RUB compare has `0` mismatches, and ordered `merge-blocks -> remove-unused-brs` normalized 1000-case compare has `0` mismatches
 - The old early artifact-backed carried-wrapper gap is now fixed:
   - Starshine retargets `br_table` continuation-wrapper arms directly to the outer exit
   - the dead forwarding tails now lower to `unreachable` like Binaryen

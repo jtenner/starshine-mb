@@ -185,9 +185,9 @@ Preset behavior inventory:
   - Deliverables: apply the common checklist; add missing dead-tail/control/EH fixtures; refresh direct compare and `DCE` slot evidence; classify Binaryen-shape differences as semantic, representation, or size tradeoffs.
 
 - [O4Z-AUDIT-RUB] - Deep audit `remove-unused-brs`
-  - Status: active v0.1.0 release-gating `-O4z` per-pass audit.
-  - Scope: tail branch/return removal, branch-to-trap rewrite, value-if/select lowering, br_table labels, raw gate thresholds, and retired slot14/slot40 corruption families.
-  - Deliverables: apply the common checklist; coordinate with `[AUDIT002-B]` through `[AUDIT002-E]`; refresh direct compare and all `RUB` slot evidence; measure pass-local impact of raw skip choices.
+  - Status: active v0.1.0 release-gating `-O4z` per-pass audit. 2026-06-09 merge-blocks/result-fallback slice fixed constant payload `br_if` folding and added a focused fallback-preservation guard; it does not close the audit because EH/GC/switch/metadata behavior surfaces remain open.
+  - Scope: tail branch/return removal, constant/payload `br_if`, branch-to-trap rewrite, value-if/select lowering, br_table labels, raw gate thresholds, EH caught-throw cleanup, GC `br_on_*` cleanup, branch-hint/never-unconditionalize behavior, and retired slot14/slot40 corruption families.
+  - Deliverables: apply the common checklist; coordinate with `[AUDIT002-B]` through `[AUDIT002-E]`; refresh direct compare and all `RUB` slot evidence; measure pass-local impact of raw skip choices; use `docs/wiki/raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md` as the latest merge-blocks/fallback evidence.
 
 - [O4Z-AUDIT-OI] - Deep audit `optimize-instructions`
   - Status: active v0.1.0 release-gating `-O4z` per-pass audit.

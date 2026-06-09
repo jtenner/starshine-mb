@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-13
+last_reviewed: 2026-06-09
 sources:
+  - ../../../raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md
   - ../../../raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md
   - ../../../raw/research/0077-2026-04-10-remove-unused-brs-large-result-br-table-noop-skip.md
   - ../../../raw/research/0078-2026-04-10-remove-unused-brs-false-prefix-guard-raw-skip.md
@@ -178,6 +179,11 @@ Detailed page:
   Covered by:
   - `merges nested one-armed if conditions before branching`
   - `flattens else-if ladders with embedded value-if conditions`
+- `remove_unused_brs_try_fold_constant_br_if(...)`
+  Folds root `br_if` nodes with constant conditions, including payload-carrying forms where the final child is the condition and earlier children are the branch/fallthrough payload. False conditions splice the payload into the region; true conditions become a plain payload `br`.
+  Covered by:
+  - `folds constant br-if conditions`
+  - `folds constant br-if with carried payloads`
 - `remove_unused_brs_try_rewrite_br_if_eq_ladder_to_br_table(...)`
   Collapses repeated `br_if (local == const)` ladders to a `br_table` when all branches target the same label and the constant range stays small.
   Covered by:

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-09] passes/remove-unused-brs | Merge-blocks result-fallback audit
+
+- Added [`raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md`](raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md) for the RUB merge-blocks/result-block audit. The report records local Binaryen `version_130`, the source behavior matrix, the newly fixed constant-payload `br_if` family, and the remaining EH/GC/switch/metadata behavior gaps that keep `[O4Z-AUDIT-RUB]` active.
+- Updated [`../../src/passes/remove_unused_brs.mbt`](../../src/passes/remove_unused_brs.mbt) so constant `br_if` folding preserves carried payload children: false conditions splice the payload into the region, while true conditions become a plain payload `br`.
+- Added focused fixtures to [`../../src/passes/remove_unused_brs_test.mbt`](../../src/passes/remove_unused_brs_test.mbt) for constant payload `br_if` true/false cases and for `merge-blocks -> remove-unused-brs` preserving a result-block fallback value when the prefix guard can fall through. Validation: focused RUB tests `113/113`, `moon test src/passes` `2044/2044`, native `src/cmd` build with pre-existing pass-manager warnings, direct normalized RUB compare `.tmp/pass-fuzz-rub-audit-final-1000` (`998/1000`, `0` mismatches), and ordered normalized `merge-blocks -> remove-unused-brs` compare `.tmp/pass-fuzz-mb-rub-audit-final-1000` (`998/1000`, `0` mismatches).
+
 ## [2026-06-08] passes/merge-blocks | Behavior audit expression-block motion slice
 
 - Added [`raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md`](raw/research/0720-2026-06-08-merge-blocks-o4z-behavior-audit.md) for `[O4Z-AUDIT-MB]`. The note records the Binaryen behavior surface, the previous Starshine gap around block-valued expression operands, and pending command evidence required before closeout.

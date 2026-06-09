@@ -1305,20 +1305,29 @@ fn remove_unused_brs_try_fold_constant_br_if(
     @ir.HotOp::BrIf => ()
     _ => return false
   }
-  if branch_node.child_count != 1 {
+  if branch_node.child_count < 1 {
     return false
   }
-  let condition = @ir.hot_child_get(func, branch_id, 0)
+  let condition_slot = branch_node.child_count - 1
+  let condition = @ir.hot_child_get(func, branch_id, condition_slot)
   let value = match remove_unused_brs_match_i32_const_value(func, condition) {
     Some(value) => value
     None => return false
   }
-  let removed = if value == 0 {
-    pass_splice_region(ctx, func, region_ref, idx, 1, [])
-  } else {
-    let replacement = @ir.hot_build_br(func, branch_node.imm0)
-    pass_splice_region(ctx, func, region_ref, idx, 1, [replacement])
+  let payloads : Array[Int] = []
+  for child_idx = 0; child_idx < condition_slot; child_idx = child_idx + 1 {
+    let payload = @ir.hot_child_get(func, branch_id, child_idx)
+    if payload < 0 || !@ir.hot_node_is_live(func, payload) {
+      return false
+    }
+    payloads.push(payload)
   }
+  let replacement = if value == 0 {
+    payloads
+  } else {
+    [@ir.hot_build_br(func, branch_node.imm0, values=payloads)]
+  }
+  let removed = pass_splice_region(ctx, func, region_ref, idx, 1, replacement)
   removed.push(condition)
   remove_unused_brs_delete_unused_nodes(ctx, func, removed)
   remove_unused_brs_mark_mutated(ctx, func, "fold-constant-br-if")

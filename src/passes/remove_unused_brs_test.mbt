@@ -77,6 +77,35 @@ test "remove-unused-brs folds constant br-if conditions" {
 }
 
 ///|
+test "remove-unused-brs folds constant br-if with carried payloads" {
+  let optimized_false = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (block $exit (result i32) i32.const 7 i32.const 0 br_if $exit)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected false payload br_if cleanup success, got \{err}")
+  }
+  let false_pretty = optimized_false.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(false_pretty.contains("br_if"), msg=false_pretty)
+  assert_false(false_pretty.contains("br"), msg=false_pretty)
+  assert_true(false_pretty.contains("I32(7)"), msg=false_pretty)
+
+  let optimized_true = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (block $exit (result i32) i32.const 7 i32.const 1 br_if $exit)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected true payload br_if cleanup success, got \{err}")
+  }
+  let true_pretty = optimized_true.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(true_pretty.contains("br_if"), msg=true_pretty)
+  assert_true(true_pretty.contains("br"), msg=true_pretty)
+  assert_true(true_pretty.contains("I32(7)"), msg=true_pretty)
+}
+
+///|
 test "remove-unused-brs drops void self-branch blocks inside constant ifs" {
   let optimized = match
     pass_test_run_pipeline(
@@ -1256,6 +1285,47 @@ test "remove-unused-brs rewrites result-block br_if prefixes into one-arm payloa
     _ =>
       fail(
         "expected preserved inner block wrapper, got \{@ir.hot_node_get(func, then_root).op}",
+      )
+  }
+}
+
+///|
+test "remove-unused-brs preserves merge-blocks-exposed result-block fallbacks" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (block $outer (block $exit (result i32) (block $inner (br_if $inner (local.get 0)) (local.get 1) (br $exit)) (i32.const 9)) (return)) (i32.const 0)))",
+      ["merge-blocks", "remove-unused-brs"],
+      options=HotPipelineOptions::new(
+        verify_policy=HotPipelineVerifyPolicy::after_each_pass(),
+      ),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected merge-blocks-exposed result fallback preservation success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(9)"), msg=pretty)
+  assert_false(pretty.contains("I32(0)"), msg=pretty)
+  assert_false(pretty.contains("return"), msg=pretty)
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let root = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail("expected result block root, got \{@ir.hot_node_get(func, root).op}")
+  }
+  let body = @ir.hot_region_body_ref(func, root)
+  @debug.assert_eq(@ir.hot_region_root_count(func, body), 2, msg=pretty)
+  let fallback = @ir.hot_region_get(func, body, 1)
+  match @ir.hot_node_get(func, fallback).op {
+    @ir.HotOp::Const => ()
+    _ =>
+      fail(
+        "expected block fallback value to remain live, got \{@ir.hot_node_get(func, fallback).op}",
       )
   }
 }
