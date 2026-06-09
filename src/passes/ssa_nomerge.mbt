@@ -174,6 +174,29 @@ fn ssa_nomerge_has_nested_cfg_sensitive_control(func : @ir.HotFunc) -> Bool {
 }
 
 ///|
+fn ssa_nomerge_has_exceptional_flow(func : @ir.HotFunc) -> Bool {
+  // SSA v1 explicitly excludes exceptional edges. Rewriting local defs while
+  // ignoring try_table/throw edges can drop writes that reach catch targets.
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Try
+      | @ir.HotOp::TryTable
+      | @ir.HotOp::Throw
+      | @ir.HotOp::ThrowRef
+      | @ir.HotOp::Rethrow
+      | @ir.HotOp::Delegate
+      | @ir.HotOp::Catch
+      | @ir.HotOp::CatchAll => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn ssa_nomerge_has_loop_param_control(func : @ir.HotFunc) -> Bool {
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
@@ -227,7 +250,8 @@ fn ssa_nomerge_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   if !ssa_nomerge_has_local_writes(func) {
     return HotPassResult::unchanged()
   }
-  if ssa_nomerge_has_loop_param_control(func) ||
+  if ssa_nomerge_has_exceptional_flow(func) ||
+    ssa_nomerge_has_loop_param_control(func) ||
     ssa_nomerge_has_dropped_local_increment(func) ||
     ssa_nomerge_has_nested_cfg_sensitive_control(func) {
     return HotPassResult::unchanged()

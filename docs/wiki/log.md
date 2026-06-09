@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-09] passes/ssa-nomerge | Exceptional-edge and final-lane audit
+
+- Added/updated [`raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md`](raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md) for `[O4Z-AUDIT-SSA]`. The audit found a true HOT `ssa-nomerge` corruption where normal-flow-only local SSA dropped `try_table` body writes that reached an outside catch via `throw`; the pass now fails closed on exceptional-flow HOT mutation.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so no-write direct `ssa-nomerge` materializes default body-local reads across branchy control and cleans dropped-unreachable debris before hard `unreachable` tails without widening branch-sensitive alias SSA. Added focused regressions in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt).
+- Evidence: focused `ssa_nomerge_test.mbt` passed `28/28`; native `src/cmd` build passed with pre-existing pass-manager warnings; final direct compare `.tmp/pass-fuzz-ssa-nomerge-final-100000-after-debris` requested `100000`, compared `99751`, had `99751` normalized matches, `0` mismatches, `0` validation/property/generator failures, and `249` Binaryen/tool command failures. The current debug-artifact direct replay validates and `--help` smokes green, but exact normalized/canonical function parity remains open; the public O4z `ssa-nomerge` slot stays no-op pending preset/artifact replay.
+
 ## [2026-06-09] passes/remove-unused-brs | Merge-blocks result-fallback audit
 
 - Added [`raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md`](raw/research/0721-2026-06-09-remove-unused-brs-merge-blocks-audit.md) for the RUB merge-blocks/result-block audit. The report records local Binaryen `version_130`, the source behavior matrix, the newly fixed constant-payload `br_if` family, and the remaining EH/GC/switch/metadata behavior gaps that keep `[O4Z-AUDIT-RUB]` active.
@@ -13722,3 +13728,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Flipped the former conservative deferral coverage into breadth-positive tests; initial focused run failed (`157/160`) before adding the roots to the LCSE candidate, operand-count, and result-type models.
 - Validation: `moon fmt`, focused LCSE tests (`160/160`), `moon test src/passes` (`1905/1905`), full `moon test` (`5090/5090`), and native `src/cmd` build passed; `moon info` still hit the known Moon DB panic.
 - Direct compare `.tmp/pass-fuzz-local-cse-parity001-trap-numeric-10000` reached `6768/10000` compared cases, `6768` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures (`17` rec-group-zero plus one each bad-section-size, table-index-out-of-range, invalid-tag-index).
+
+## 2026-06-09 ssa-nomerge exceptional-edge audit
+
+- Fixed a true `ssa-nomerge` corruption where HOT local SSA ignored exceptional edges: a `try_table` body `local.set` followed by `throw` to a catch target could be dropped, leaving a later read to observe the default value.
+- Added a fail-closed exceptional-flow guard to `src/passes/ssa_nomerge.mbt` and focused coverage in `src/passes/ssa_nomerge_test.mbt`.
+- Improved raw no-write/default-local materialization in `src/passes/pass_manager.mbt` so branchy-control cases rewrite default body-local reads without HOT fallback.
+- Recorded audit findings and validation in `docs/wiki/raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md`, refreshed `docs/wiki/binaryen/passes/ssa-nomerge/{index,parity}.md`, and clarified the normal-flow-only SSA v1 constraint in `docs/wiki/ir2/local-ssa-policy.md`.

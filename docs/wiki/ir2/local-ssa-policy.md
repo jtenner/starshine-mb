@@ -1,8 +1,9 @@
 ---
 kind: decision
 status: supported
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-09
 sources:
+  - ../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md
   - ../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md
   - ../raw/ir2/2026-05-20-local-ssa-source-bridge.md
   - ../raw/research/0061-2026-03-24-local-ssa-policy.md
@@ -130,7 +131,7 @@ So `ssa_build_local` creates one join phi for local `0`, maps the later `local.g
 ## Correctness Constraints
 
 - **Revision-keyed:** `HotLocalSsa.revision` records `hot_revision_current(func)` at build time. Treat any mutation through [`hot_mutate.mbt`](../../../src/ir/hot_mutate.mbt), [`pass_mark_mutated(...)`](../../../src/passes/pass_common.mbt), or other revision-bumping APIs as invalidating the overlay and its dependent ids.
-- **Normal-flow only:** SSA v1 skips exceptional successors while recording phi inputs. Do not use it to prove facts across `try` / `try_table` exceptional edges.
+- **Normal-flow only:** SSA v1 skips exceptional successors while recording phi inputs. Do not use it to prove facts across `try` / `try_table` exceptional edges. The 2026-06-09 `ssa-nomerge` audit found a true corruption when this exclusion was ignored: a `try_table` body `local.set` followed by `throw` to a catch target was dropped while a later read observed the default value. Optimizer passes must fail closed on exceptional-flow functions unless they implement explicit exceptional-edge SSA semantics.
 - **Local values only:** The overlay models local variable definitions and uses. It does not model stack SSA, globals, memory, tables, tags, heap objects, data/elem segments, or arbitrary expression values.
 - **No persistent phis:** A pass may inspect `PhiId`s and phi input values, but it must not add a HOT `Phi` opcode or store SSA as an owned body form.
 - **Liveness-pruned placement:** A dominance frontier alone is insufficient. `ssa_phi_placement_blocks(...)` keeps a candidate only if the local is live-in to that block.
@@ -160,6 +161,7 @@ If future work needs any of those, update the IR2 architecture contract first, a
 
 ## Sources
 
+- 2026-06-09 exceptional-edge audit: [`../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md`](../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md)
 - Current cache/pass-use refresh: [`../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md`](../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md)
 - SSA lineage and source bridge: [`../raw/ir2/2026-05-20-local-ssa-source-bridge.md`](../raw/ir2/2026-05-20-local-ssa-source-bridge.md)
 - Archived original policy note: [`../raw/research/0061-2026-03-24-local-ssa-policy.md`](../raw/research/0061-2026-03-24-local-ssa-policy.md)

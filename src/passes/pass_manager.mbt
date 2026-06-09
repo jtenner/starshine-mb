@@ -7184,6 +7184,102 @@ fn run_hot_pipeline_raw_append_local_read(
 }
 
 ///|
+fn run_hot_pipeline_raw_rewrite_default_local_reads_instr(
+  instr : @lib.Instruction,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+) -> @lib.Instruction {
+  match instr {
+    @lib.LocalGet(@lib.LocalIdx(raw)) => {
+      let local_id = raw.reinterpret_as_int()
+      if local_id >= params.length() {
+        run_hot_pipeline_raw_default_instr_for_local(params, locals, local_id)
+      } else {
+        instr
+      }
+    }
+    @lib.Block(block_type, @lib.Expr(body)) =>
+      @lib.Instruction::block(
+        block_type,
+        @lib.Expr::new(
+          run_hot_pipeline_raw_rewrite_default_local_reads_body(
+            body, params, locals,
+          ),
+        ),
+      )
+    @lib.Loop(block_type, @lib.Expr(body)) =>
+      @lib.Instruction::loop_(
+        block_type,
+        @lib.Expr::new(
+          run_hot_pipeline_raw_rewrite_default_local_reads_body(
+            body, params, locals,
+          ),
+        ),
+      )
+    @lib.If(block_type, then_body, else_body) =>
+      @lib.Instruction::if_(
+        block_type,
+        run_hot_pipeline_raw_rewrite_default_local_reads_body(
+          then_body, params, locals,
+        ),
+        match else_body {
+          Some(body) =>
+            Some(
+              run_hot_pipeline_raw_rewrite_default_local_reads_body(
+                body, params, locals,
+              ),
+            )
+          None => None
+        },
+      )
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+      @lib.Instruction::try_table(
+        block_type,
+        catches,
+        @lib.Expr::new(
+          run_hot_pipeline_raw_rewrite_default_local_reads_body(
+            body, params, locals,
+          ),
+        ),
+      )
+    _ => instr
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_rewrite_default_local_reads_body(
+  instrs : Array[@lib.Instruction],
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+) -> Array[@lib.Instruction] {
+  let out : Array[@lib.Instruction] = []
+  for instr in instrs {
+    out.push(
+      run_hot_pipeline_raw_rewrite_default_local_reads_instr(
+        instr, params, locals,
+      ),
+    )
+  }
+  out
+}
+
+///|
+fn run_hot_pipeline_raw_rewrite_default_local_reads_func(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+) -> @lib.Func {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  @lib.Func::new(
+    locals.copy(),
+    @lib.Expr::new(
+      run_hot_pipeline_raw_rewrite_default_local_reads_body(
+        instrs, params, locals,
+      ),
+    ),
+  )
+}
+
+///|
 fn run_hot_pipeline_raw_aliases_equal(
   lhs : Array[@lib.LocalIdx],
   rhs : Array[@lib.LocalIdx],
@@ -7328,7 +7424,9 @@ fn run_hot_pipeline_raw_has_default_local_reads(
 ) -> Bool {
   for instr in instrs {
     match instr {
-      @lib.Block(_, @lib.Expr(body)) =>
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
         if run_hot_pipeline_raw_has_default_local_reads(body, param_count) {
           return true
         }
@@ -8404,38 +8502,47 @@ fn run_hot_pipeline_raw_ssa_nomerge(
   )
   let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
   if !has_writes {
-    if !run_hot_pipeline_raw_has_default_local_reads(instrs, params.length()) {
+    let has_default_reads = run_hot_pipeline_raw_has_default_local_reads(
+      instrs,
+      params.length(),
+    )
+    let mut rewritten = original
+    let mut changed = false
+    let mut reason = "no-local-writes"
+    if has_default_reads {
+      rewritten = run_hot_pipeline_raw_rewrite_default_local_reads_func(
+        original, params,
+      )
+      changed = true
+      reason = "default-local-reads"
+    }
+    let @lib.Func(rewritten_locals, @lib.Expr(rewritten_instrs)) = rewritten
+    let (cleaned_instrs, cleaned_debris) = run_hot_pipeline_raw_remove_unused_names_remove_dropped_unreachable_debris(
+      rewritten_instrs,
+    )
+    if cleaned_debris {
+      rewritten = @lib.Func::new(
+        rewritten_locals.copy(),
+        @lib.Expr::new(cleaned_instrs),
+      )
+      changed = true
+      reason = if has_default_reads {
+        "default-local-reads-unreachable-debris"
+      } else {
+        "no-local-writes-unreachable-debris"
+      }
+    }
+    if !changed {
       return Some({
-        reason: "no-local-writes",
+        reason,
         func: original,
         unchanged_original: true,
         trace_skip_raw: true,
       })
     }
-    if has_structured_control {
-      match
-        run_hot_pipeline_raw_ssa_nomerge_structured(
-          original, module_ctx, params,
-        ) {
-        Some(rewritten) =>
-          if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
-              rewritten,
-            ) {
-            return None
-          } else {
-            return Some({
-              reason: "default-local-reads",
-              func: rewritten,
-              unchanged_original: false,
-              trace_skip_raw: true,
-            })
-          }
-        None => return None
-      }
-    }
     return Some({
-      reason: "default-local-reads",
-      func: run_hot_pipeline_raw_ssa_nomerge_straight_line(original, params),
+      reason,
+      func: rewritten,
       unchanged_original: false,
       trace_skip_raw: true,
     })

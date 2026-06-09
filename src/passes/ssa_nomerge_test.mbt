@@ -118,6 +118,33 @@ test "ssa-nomerge preserves dropped local increments for later repair" {
 }
 
 ///|
+test "ssa-nomerge preserves try-table local writes across exceptional exits" {
+  let source =
+    #|(module
+    #|  (tag $e)
+    #|  (func (export "f") (result i32)
+    #|    (local i32)
+    #|    i32.const 1
+    #|    local.set 0
+    #|    (block $h
+    #|      (try_table (catch $e $h)
+    #|        i32.const 2
+    #|        local.set 0
+    #|        throw $e))
+    #|    local.get 0))
+    #|)
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected try-table ssa-nomerge success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("local.set"), msg=text)
+  assert_false(text.contains("drop"), msg=text)
+}
+
+///|
 test "ssa-nomerge preserves typed loop-carried induction values" {
   let source =
     #|(module
@@ -353,6 +380,46 @@ test "ssa-nomerge skips very large structured local-write functions without bran
       )
     }),
   )
+}
+
+///|
+test "ssa-nomerge rewrites default local reads after branchy control without hot fallback" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (local i32) block i32.const 0 br_table 0 0 end local.get 0))",
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected branchy default-read rewrite success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("i32.const I32(0)"), msg=text)
+  assert_false(text.contains("local.get"), msg=text)
+}
+
+///|
+test "ssa-nomerge removes dropped unreachable debris before a following unreachable" {
+  let source =
+    #|(module
+    #|  (func
+    #|    (block (result i32)
+    #|      unreachable
+    #|      unreachable)
+    #|    unreachable))
+    #|)
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected unreachable-debris rewrite success, got \{err}")
+  }
+
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("unreachable"), msg=text)
+  assert_false(text.contains("(block"), msg=text)
+  assert_false(text.contains("Drop"), msg=text)
 }
 
 ///|

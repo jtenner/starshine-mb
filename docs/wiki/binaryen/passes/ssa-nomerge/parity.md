@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-05-07
+last_reviewed: 2026-06-09
 sources:
+  - ../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md
   - ../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md
   - ../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md
   - ../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md
@@ -31,6 +32,9 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 
 ## Durable Conclusions
 
+- The June 2026 exceptional-edge corruption family is fixed in-tree by making HOT `ssa-nomerge` fail closed on `try_table` / throw-family flow, matching the documented SSA v1 normal-flow-only contract.
+- The June 2026 default-local branchy-control drift family is fixed in the raw no-write path: reads of never-written body locals are materialized as explicit type defaults across block/loop/if/try_table bodies without invoking HOT SSA.
+- The June 2026 final-lane dropped-unreachable-debris drift family is fixed in the same no-write raw path: `drop (unreachable)` / nested dropped-unreachable debris before a hard `unreachable` is collapsed using the existing shared cleanup helper.
 - The April `2026-04-10` dead-param-write parity family is now fixed in-tree for `ssa-nomerge`.
 - Current source-mode `ssa-nomerge` replay on the checked-in debug CLI artifact now completes, validates, and matches Binaryen on normalized WAT and canonical per-function output.
 - Random compare fuzz is still useful, but it is not sufficient as the only signoff lane for `ssa-nomerge`.
@@ -43,14 +47,21 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 ## Current In-Tree Status
 
 - The implementation lives in [`../../../../../src/passes/ssa_nomerge.mbt`](../../../../../src/passes/ssa_nomerge.mbt).
-- The current raw-lowering fix lives in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt): dead param writes now spill through fresh locals, while live straight-line and typed-if param flows stay on the canonical param slot.
+- The current raw-lowering fixes live in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt): dead param writes spill through fresh locals, live straight-line and typed-if param flows stay on the canonical param slot, no-write default-local reads are rewritten through a dedicated recursive default materializer instead of falling back to HOT SSA, and no-write dropped-unreachable debris is cleaned before hard `unreachable` tails.
 - That rule is an in-tree inference from Binaryen `src/passes/SSAify.cpp` `createNewIndexes()` plus direct `wasm-opt --ssa-nomerge` micro-replays on reduced param-write cases.
 - The same pass-manager path still rejects per-function writebacks that fail module-aware validation, in addition to the existing `invalid-escape-carrier` and `suspicious-escape-carrier` families.
 - The `cmd` package contains a native debug-artifact replay test in [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt), and a focused `moon test src/cmd --target native --filter 'run_cmd_with_adapter validates ssa-nomerge on debug artifact'` run is currently green.
 - The reduced `Func 523` follow-up now also lives in [`../../../../../src/ir/hot_lift.mbt`](../../../../../src/ir/hot_lift.mbt), [`../../../../../src/ir/hot_lift_test.mbt`](../../../../../src/ir/hot_lift_test.mbt), [`../../../../../src/passes/ssa_nomerge_test.mbt`](../../../../../src/passes/ssa_nomerge_test.mbt), and the focused extracted-function CLI replay in [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt).
+- The 2026-06-09 audit added focused `try_table` exceptional-exit, branchy default-local-read, and dropped-unreachable-debris regressions in [`../../../../../src/passes/ssa_nomerge_test.mbt`](../../../../../src/passes/ssa_nomerge_test.mbt); details and command evidence live in [`../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md`](../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md).
 
 ## Current Signoff State
 
+- 2026-06-09 focused pass test after the exceptional-edge/default-local/debris fixes: `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `28/28`.
+- 2026-06-09 SSA package coverage: `moon test src/ir` passed `251/251`, `moon test src/passes` passed `2047/2047`, and full `moon test` passed `5245/5245`.
+- 2026-06-09 direct compare: `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass ssa-nomerge --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-ssa-nomerge-audit-after-10000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures` compared `9977/10000`, with `9977` normalized matches, `0` mismatches, no validation/property/generator failures, and `23` Binaryen/tool command failures.
+- Initial final lane before the dropped-unreachable-debris follow-up: `.tmp/pass-fuzz-ssa-nomerge-final-100000` compared `99751/100000`, normalized `99748`, with `3` agent-classified semantic-safe unreachable-debris mismatches and `249` Binaryen/tool command failures.
+- Current final lane after the debris follow-up: `bun scripts/pass-fuzz-compare.ts --count 100000 --seed 0x5eed --pass ssa-nomerge --normalize local-cleanup-debris --out-dir .tmp/pass-fuzz-ssa-nomerge-final-100000-after-debris --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures` compared `99751/100000`, with `99751` normalized matches, `0` mismatches, no validation/property/generator failures, and `249` Binaryen/tool command failures (`219` `binaryen-rec-group-zero`, `12` `binaryen-bad-section-size`, `11` `binaryen-command-failed`, `6` `binaryen-table-index-out-of-range`, `1` `binaryen-invalid-tag-index`).
+- `moon info` still reproduces the known Moon DB panic; `moon fmt` completed.
 - `wasm-tools validate tests/node/dist/starshine-debug-wasi.wasm` succeeds.
 - `moon test --package jtenner/starshine/ir --file ssa_destroy_test.mbt` is green with focused temp-local declaration and unreachable dead-tee regressions.
 - `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` is green with focused dead-param, live-param, unreachable-carrier, and value-if temp-local regressions.
@@ -60,28 +71,32 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 - `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --max-failures 5 --out-dir /tmp/ssa-pass-fuzz-rebased-2026-04-10-signoff --pass ssa-nomerge` stays mismatch-free on comparable cases (`2380 / 10000` compared, `0` mismatches) and only stops on the Binaryen-only `binaryen-rec-group-zero` parser family.
 - `bun scripts/pass-fuzz-compare.ts --count 2000 --seed 0x51a --max-failures 5 --out-dir /tmp/ssa-pass-fuzz-postcommit-mixed-seed51a --pass ssa-nomerge` stayed clean on all comparable cases (`1996 / 2000`, `0` mismatches, `4` Binaryen-only parser gaps).
 - `bun scripts/pass-fuzz-compare.ts --generator gen-valid --count 10000 --min-compared 10000 --seed 0x51a --max-failures 5 --out-dir /tmp/ssa-pass-fuzz-postcommit-genvalid-seed51a --pass ssa-nomerge` is also green at `10000 / 10000` compared and `10000` normalized matches.
-- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --ssa-nomerge` currently reports `Normalized WAT equal: yes` and `Canonical function compare equal: yes`, while `Canonical wasm equal: no`.
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --out-dir .tmp/self-ssa-nomerge-debug-wasi-after-debris --starshine-bin target/native/release/build/cmd/cmd.exe --ssa-nomerge` completes and validates, but currently reports `Normalized WAT equal: no` and `Canonical function compare equal: no` (`defined=0 abs=27` first diff). Agent classification: local-cleanup/temporary-local shape drift on the debug artifact, not a proven runtime corruption; the Starshine output's `--help` smoke exits `0`.
 - `moon test --package jtenner/starshine/ir --file hot_lift_test.mbt -F '*wired to typed block results*'` is green for the reduced unreachable compare-carrier lift slice.
 - `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt -F '*func 523 shape*'` is green for the reduced pass-level `Func 523` follow-up.
 - `moon run src/cmd --target native -- --debug-serial-passes --tracing pass --ssa-nomerge --out /tmp/ssa-nomerge-func523-followup.wasm tests/node/dist/starshine-debug-wasi.wasm` still exits zero, and `wasm-tools validate /tmp/ssa-nomerge-func523-followup.wasm` still succeeds.
 
 ## Remaining Gap
 
+- Exceptional-edge SSA remains explicitly unimplemented. `ssa-nomerge` is safe because it now skips exceptional-flow HOT mutation, not because the local SSA overlay models exceptional successors.
+- The O4z public preset still intentionally no-ops `ssa-nomerge`; the direct-pass corruption and debris fixes do not by themselves justify re-enabling the O4z slot.
+- The 2026-06-09 direct final lane is normalized-green at `99751/100000` with `0` mismatches, but artifact exact parity and O4z neighborhood replay remain open.
 - The direct `[SSA]001` temp-local declaration drift is closed by focused tests plus the current `10000 / 10000` `gen-valid` lane.
 - The focused extracted-function CLI replay now proves that the old `Func 523` `writeback-validate:type mismatch` skip is retired.
 - However, this follow-up did **not** rerun a fresh full-artifact traced skip census, so the older `2026-04-11` count of `228` `suspicious-escape-carrier` skips remains only historical context, not a fresh exact current count.
 - The same input still succeeds under Binaryen with `wasm-opt tests/node/dist/starshine-debug-wasi.wasm --all-features --ssa-nomerge`.
-- So the current output-facing blocker for the reduced `Func 523` family is fixed, but broader raw-lowering coverage is still incomplete and direct artifact replay remains mandatory.
+- So the current output-facing blocker for the reduced `Func 523` family is fixed, but broader raw-lowering coverage is still incomplete and direct artifact replay remains mandatory. The latest artifact replay is runtime-smoke-green but exact normalized/canonical function parity is not green.
 
 ## Practical Rule
 
 - Keep direct debug-artifact replay in the `ssa-nomerge` signoff loop.
 - Treat the seeded `binaryen-rec-group-zero` wasm-smith failure as an oracle parser gap, not an SSA semantic mismatch.
-- Treat current-source output parity as green for the fixed dead-param family and the reduced unreachable compare-carrier follow-up, but do not claim exact artifact parity until a fresh traced full-artifact replay shows that the remaining fail-closed raw-lowering skip families are gone or intentionally accepted.
+- Treat current-source output parity as green for the fixed dead-param family, the reduced unreachable compare-carrier follow-up, the exceptional-edge fail-closed guard, the raw no-write default-local rewrite, and the raw no-write dropped-unreachable-debris cleanup, but do not claim exact artifact parity until a fresh traced full-artifact replay shows that the remaining fail-closed raw-lowering/local-cleanup shape families are gone or intentionally accepted.
 - Keep the direct artifact replay and the `10000 / 10000` `gen-valid` compare lane together as the minimum signoff pair; the current `0x5eed` `gen-valid` lane is green in `.tmp/pass-fuzz-ssa-nomerge-genvalid-10000-if-order-fix-rerun`.
 
 ## Sources
 
+- 2026-06-09 exceptional-edge/default-local audit: [`../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md`](../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md)
 - Implementation/test-map refresh: [`../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md`](../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md)
 - Research note for this refresh: [`../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md`](../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md)
 - Archived research doc: [`../../../raw/research/0076-2026-04-10-ssa-nomerge-parity-investigation.md`](../../../raw/research/0076-2026-04-10-ssa-nomerge-parity-investigation.md)

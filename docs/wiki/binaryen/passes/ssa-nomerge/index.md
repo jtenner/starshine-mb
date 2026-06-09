@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-06-02
+last_reviewed: 2026-06-09
 sources:
+  - ../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md
   - ../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md
   - ../../../raw/research/0555-2026-05-07-aud001-backlog-split-after-current-head-rerun.md
   - ../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md
@@ -82,8 +83,9 @@ So this is **not** full SSA construction, but it is also **not** just straight-l
   - input validates: `yes`
   - output validates: `yes`
 - The saved `-O4z` debug log also shows repeated nested reruns of `ssa-nomerge`, not just the top-level slot.
-- `agent-todo.md` now has a dedicated `[SSA]001` slice for the reopened current-head direct mismatch family.
-  - The active remaining work is temp-local declaration count/type/order normalization against Binaryen, not a new semantic rewrite family.
+- The 2026-06-09 audit found and fixed a true semantic corruption family: HOT `ssa-nomerge` ignored exceptional edges, so a `try_table` body local write followed by `throw` to a catch target could be dropped while a later `local.get` read the default value. Starshine now skips exceptional-flow HOT mutation for this pass until local SSA grows exceptional-edge semantics.
+- The same audit fixed non-corrupting direct-compare drift in no-write functions: default body-local reads after branchy control now materialize explicit type defaults, and dropped-unreachable debris before a hard `unreachable` is cleaned in the raw path.
+- `agent-todo.md` has a dedicated `[O4Z-AUDIT-SSA]` slice for the reopened audit. The direct explicit pass is green on the 2026-06-09 final `100000`-case normalized compare, but artifact exact parity, O4z neighborhood replay, and the currently no-op O4z slot decision remain open.
 
 ## Most important durable takeaways
 
@@ -164,10 +166,11 @@ So the durable rule is:
 - Treat this folder as the canonical home for future `ssa-nomerge` parity and scheduler research.
 - Keep the main beginner correction explicit:
   - upstream `ssa-nomerge` is LocalGraph-based single-source untangling with merges deliberately left canonical, not full phi SSA and not just straight-line renaming
-- Keep the per-set no-merge rule, the default-value materialization behavior, the shared `ssa` helper boundary, the new local HOT-SSA-destruction strategy page, and the current artifact-level fail-closed writeback caveat explicit whenever future docs or code changes touch this pass.
+- Keep the per-set no-merge rule, the default-value materialization behavior, the shared `ssa` helper boundary, the local HOT-SSA-destruction strategy page, the normal-flow-only SSA v1 exceptional-edge exclusion, and the current artifact-level fail-closed writeback caveat explicit whenever future docs or code changes touch this pass.
 
 ## Sources
 
+- [`../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md`](../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md)
 - [`../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md`](../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md)
 - [`../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md`](../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md)
 - [`../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md`](../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md)
