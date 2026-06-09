@@ -85,7 +85,8 @@ So this is **not** full SSA construction, but it is also **not** just straight-l
 - The saved `-O4z` debug log also shows repeated nested reruns of `ssa-nomerge`, not just the top-level slot.
 - The 2026-06-09 audit found and fixed a true semantic corruption family: HOT `ssa-nomerge` ignored exceptional edges, so a `try_table` body local write followed by `throw` to a catch target could be dropped while a later `local.get` read the default value. Starshine now skips exceptional-flow HOT mutation for this pass until local SSA grows exceptional-edge semantics.
 - The same audit fixed non-corrupting direct-compare drift in no-write functions: default body-local reads after branchy control now materialize explicit type defaults, and dropped-unreachable debris before a hard `unreachable` is cleaned in the raw path.
-- `agent-todo.md` has a dedicated `[O4Z-AUDIT-SSA]` slice for the reopened audit. The direct explicit pass is green on the 2026-06-09 final `100000`-case normalized compare, but artifact exact parity, O4z neighborhood replay, and the currently no-op O4z slot decision remain open.
+- Follow-ups on the debug-artifact direct trace reduced nested structured param/body-local shape drift, removed unneeded branch/label merge copies, removed the one current `Func 4302` false-positive suspicious-carrier skip, and expanded raw structured coverage for moderate large functions. The current direct trace has only `17` remaining `large-structured-local-writes` skips, all very large functions with payload metrics.
+- `agent-todo.md` has a dedicated `[O4Z-AUDIT-SSA]` slice for the reopened audit. The direct explicit pass is green on the 2026-06-09 final `100000`-case normalized compare and the latest needed-copy/canonical-local `10000`-case compare; the debug-WASI direct artifact lane is now size-winning for Starshine, but artifact exact parity, O4z neighborhood replay, the remaining huge structured functions, and the currently no-op O4z slot decision remain open.
 
 ## Most important durable takeaways
 
@@ -143,7 +144,7 @@ What it actually is in `version_129`:
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering straight-line positives, dead-param and default-zero rewrites, merge bailouts, shared-helper ref/tuple defaults, and the full-`ssa` families that upstream `ssa-nomerge` intentionally declines.
 - [`./parity.md`](./parity.md)
-  - Current in-tree parity state, the fixed dead-param family, the green WAT/canonical compare evidence, and the honest remaining artifact-level writeback-skip story.
+  - Current in-tree parity state, fixed direct-skip families, compare evidence, and the honest remaining artifact-level exact-parity / huge-function story.
 
 ## Freshness note
 

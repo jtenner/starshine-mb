@@ -7300,6 +7300,7 @@ priv struct RawSsaLabelTarget {
   block_type : @lib.BlockType
   result_types : Array[@lib.ValType]
   is_loop : Bool
+  needed_alias_copies : @bitset.BitSet
 }
 
 ///|
@@ -7333,17 +7334,29 @@ fn run_hot_pipeline_raw_fresh_typed_local(
 }
 
 ///|
-fn run_hot_pipeline_raw_append_alias_merge_copies(
+fn run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
   branch_instrs : Array[@lib.Instruction],
   source_aliases : Array[@lib.LocalIdx],
   target_aliases : Array[@lib.LocalIdx],
   canonical_aliases : Array[@lib.LocalIdx],
   initialized_locals : @bitset.BitSet,
+  needed_alias_copies : @bitset.BitSet,
   result_types : Array[@lib.ValType],
   params : Array[@lib.ValType],
   locals : @lib.Locals,
   extra_local_types : Array[@lib.ValType],
 ) -> Array[@lib.Instruction] {
+  let mut has_needed_copy = false
+  for local_id = 0; local_id < target_aliases.length(); local_id = local_id + 1 {
+    if needed_alias_copies[local_id] &&
+      source_aliases[local_id] != target_aliases[local_id] {
+      has_needed_copy = true
+      break
+    }
+  }
+  if !has_needed_copy {
+    return branch_instrs.copy()
+  }
   let out = branch_instrs.copy()
   let result_scratch : Array[@lib.LocalIdx] = []
   for result_type in result_types {
@@ -7357,7 +7370,8 @@ fn run_hot_pipeline_raw_append_alias_merge_copies(
     out.push(@lib.Instruction::local_set(result_scratch[idx]))
   }
   for local_id = 0; local_id < target_aliases.length(); local_id = local_id + 1 {
-    if source_aliases[local_id] == target_aliases[local_id] {
+    if !needed_alias_copies[local_id] ||
+      source_aliases[local_id] == target_aliases[local_id] {
       continue
     }
     run_hot_pipeline_raw_append_local_read(
@@ -7370,28 +7384,6 @@ fn run_hot_pipeline_raw_append_alias_merge_copies(
     out.push(@lib.Instruction::local_get(local_idx))
   }
   out
-}
-
-///|
-fn run_hot_pipeline_raw_append_alias_copies(
-  out : Array[@lib.Instruction],
-  source_aliases : Array[@lib.LocalIdx],
-  target_aliases : Array[@lib.LocalIdx],
-  canonical_aliases : Array[@lib.LocalIdx],
-  initialized_locals : @bitset.BitSet,
-  params : Array[@lib.ValType],
-  locals : @lib.Locals,
-) -> Unit {
-  for local_id = 0; local_id < target_aliases.length(); local_id = local_id + 1 {
-    if source_aliases[local_id] == target_aliases[local_id] {
-      continue
-    }
-    run_hot_pipeline_raw_append_local_read(
-      out, source_aliases, canonical_aliases, initialized_locals, params, locals,
-      local_id,
-    )
-    out.push(@lib.Instruction::local_set(target_aliases[local_id]))
-  }
 }
 
 ///|
@@ -7633,13 +7625,36 @@ fn run_hot_pipeline_raw_future_local_accesses(
 }
 
 ///|
+fn run_hot_pipeline_raw_future_local_reads_before_writes(
+  instrs : Array[@lib.Instruction],
+  start_idx : Int,
+  inherited : @bitset.BitSet,
+) -> @bitset.BitSet {
+  let future = inherited.copy()
+  for local_id = 0; local_id < future.length(); local_id = local_id + 1 {
+    if run_hot_pipeline_raw_instrs_have_later_local_read_before_next_local_write(
+        instrs, start_idx, local_id,
+      ) {
+      future[local_id] = true
+    } else if run_hot_pipeline_raw_instrs_have_later_local_write(
+        instrs, start_idx, local_id,
+      ) {
+      future[local_id] = false
+    }
+  }
+  future
+}
+
+///|
 fn run_hot_pipeline_raw_label_target(
   module_ctx : @ir.HotModuleContext,
   block_type : @lib.BlockType,
   is_loop : Bool,
+  needed_alias_copies : @bitset.BitSet,
 ) -> RawSsaLabelTarget? {
   match @ir.hot_module_resolve_block_results(module_ctx, block_type) {
-    Some(result_types) => Some({ block_type, result_types, is_loop })
+    Some(result_types) =>
+      Some({ block_type, result_types, is_loop, needed_alias_copies })
     None => None
   }
 }
@@ -7728,10 +7743,17 @@ fn run_hot_pipeline_raw_rewrite_br_if(
 ) -> Array[@lib.Instruction]? {
   let target_label = run_hot_pipeline_raw_label_inc(label_idx)
   if label_target.result_types.length() == 0 {
-    let then_body : Array[@lib.Instruction] = []
-    run_hot_pipeline_raw_append_alias_copies(
-      then_body, source_aliases, canonical_aliases, canonical_aliases, initialized_locals,
-      params, locals,
+    let then_body = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
+      [],
+      source_aliases,
+      canonical_aliases,
+      canonical_aliases,
+      initialized_locals,
+      label_target.needed_alias_copies,
+      [],
+      params,
+      locals,
+      extra_local_types,
     )
     then_body.push(@lib.Instruction::br(target_label))
     return Some([
@@ -7766,10 +7788,17 @@ fn run_hot_pipeline_raw_rewrite_br_if(
   }
   rewritten.push(@lib.Instruction::local_get(cond_local))
 
-  let then_body : Array[@lib.Instruction] = []
-  run_hot_pipeline_raw_append_alias_copies(
-    then_body, source_aliases, canonical_aliases, canonical_aliases, initialized_locals,
-    params, locals,
+  let then_body = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
+    [],
+    source_aliases,
+    canonical_aliases,
+    canonical_aliases,
+    initialized_locals,
+    label_target.needed_alias_copies,
+    [],
+    params,
+    locals,
+    extra_local_types,
   )
   for scratch_local in result_scratch {
     then_body.push(@lib.Instruction::local_get(scratch_local))
@@ -7798,6 +7827,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
   label_stack : Array[RawSsaLabelTarget],
   future_reads : @bitset.BitSet,
   future_writes : @bitset.BitSet,
+  future_reads_before_writes : @bitset.BitSet,
   extra_local_types : Array[@lib.ValType],
 ) -> (
   Array[@lib.Instruction],
@@ -7816,11 +7846,6 @@ fn run_hot_pipeline_raw_rewrite_instrs(
     let was_reachable = fallthrough
     match instr {
       @lib.Block(block_type, @lib.Expr(body)) => {
-        let label_target = match
-          run_hot_pipeline_raw_label_target(module_ctx, block_type, false) {
-          Some(label_target) => label_target
-          None => return None
-        }
         let child_future_reads = run_hot_pipeline_raw_future_local_accesses(
           instrs,
           idx + 1,
@@ -7833,6 +7858,18 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           future_writes,
           false,
         )
+        let child_future_reads_before_writes = run_hot_pipeline_raw_future_local_reads_before_writes(
+          instrs,
+          idx + 1,
+          future_reads_before_writes,
+        )
+        let label_target = match
+          run_hot_pipeline_raw_label_target(
+            module_ctx, block_type, false, child_future_reads_before_writes,
+          ) {
+          Some(label_target) => label_target
+          None => return None
+        }
         match
           run_hot_pipeline_raw_rewrite_instrs(
             body,
@@ -7845,6 +7882,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             run_hot_pipeline_raw_push_label_target(label_stack, label_target),
             child_future_reads,
             child_future_writes,
+            child_future_reads_before_writes,
             extra_local_types,
           ) {
           Some(
@@ -7860,12 +7898,13 @@ fn run_hot_pipeline_raw_rewrite_instrs(
               body_exit_depths[0]
             let mut finalized_body = rewritten_body
             if body_fallthrough && body_exits_current_label {
-              finalized_body = run_hot_pipeline_raw_append_alias_merge_copies(
+              finalized_body = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
                 finalized_body,
                 body_aliases,
                 canonical_aliases,
                 canonical_aliases,
                 body_initialized,
+                label_target.needed_alias_copies,
                 label_target.result_types,
                 params,
                 locals,
@@ -7912,11 +7951,6 @@ fn run_hot_pipeline_raw_rewrite_instrs(
         }
       }
       @lib.If(block_type, then_body, else_body) => {
-        let label_target = match
-          run_hot_pipeline_raw_label_target(module_ctx, block_type, false) {
-          Some(label_target) => label_target
-          None => return None
-        }
         let child_future_reads = run_hot_pipeline_raw_future_local_accesses(
           instrs,
           idx + 1,
@@ -7929,6 +7963,18 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           future_writes,
           false,
         )
+        let child_future_reads_before_writes = run_hot_pipeline_raw_future_local_reads_before_writes(
+          instrs,
+          idx + 1,
+          future_reads_before_writes,
+        )
+        let label_target = match
+          run_hot_pipeline_raw_label_target(
+            module_ctx, block_type, false, child_future_reads_before_writes,
+          ) {
+          Some(label_target) => label_target
+          None => return None
+        }
         let then_result = match
           run_hot_pipeline_raw_rewrite_instrs(
             then_body,
@@ -7941,6 +7987,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             run_hot_pipeline_raw_push_label_target(label_stack, label_target),
             child_future_reads,
             child_future_writes,
+            child_future_reads_before_writes,
             extra_local_types,
           ) {
           Some(result) => result
@@ -7962,6 +8009,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                 ),
                 child_future_reads,
                 child_future_writes,
+                child_future_reads_before_writes,
                 extra_local_types,
               ) {
               Some(result) => result
@@ -8005,12 +8053,13 @@ fn run_hot_pipeline_raw_rewrite_instrs(
         let mut merged_aliases = aliases
         if has_current_label_exits {
           if then_fallthrough {
-            finalized_then = run_hot_pipeline_raw_append_alias_merge_copies(
+            finalized_then = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
               finalized_then,
               then_aliases,
               canonical_aliases,
               canonical_aliases,
               then_initialized,
+              label_target.needed_alias_copies,
               label_target.result_types,
               params,
               locals,
@@ -8018,12 +8067,13 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             )
           }
           if else_fallthrough {
-            finalized_else = run_hot_pipeline_raw_append_alias_merge_copies(
+            finalized_else = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
               finalized_else,
               else_aliases,
               canonical_aliases,
               canonical_aliases,
               else_initialized,
+              label_target.needed_alias_copies,
               label_target.result_types,
               params,
               locals,
@@ -8041,7 +8091,9 @@ fn run_hot_pipeline_raw_rewrite_instrs(
               if then_aliases[local_id] == else_aliases[local_id] {
                 continue
               }
-              merged_aliases[local_id] = if local_id < params.length() {
+              merged_aliases[local_id] = if !child_future_reads_before_writes[local_id] {
+                canonical_aliases[local_id]
+              } else if local_id < params.length() {
                 canonical_aliases[local_id]
               } else {
                 run_hot_pipeline_raw_fresh_local(
@@ -8049,23 +8101,26 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                 )
               }
             }
-            finalized_then = run_hot_pipeline_raw_append_alias_merge_copies(
+            let needed_alias_copies = child_future_reads_before_writes.copy()
+            finalized_then = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
               finalized_then,
               then_aliases,
               merged_aliases,
               canonical_aliases,
               then_initialized,
+              needed_alias_copies,
               label_target.result_types,
               params,
               locals,
               extra_local_types,
             )
-            finalized_else = run_hot_pipeline_raw_append_alias_merge_copies(
+            finalized_else = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
               finalized_else,
               else_aliases,
               merged_aliases,
               canonical_aliases,
               else_initialized,
+              needed_alias_copies,
               label_target.result_types,
               params,
               locals,
@@ -8153,12 +8208,13 @@ fn run_hot_pipeline_raw_rewrite_instrs(
         if label_target.is_loop {
           return None
         }
-        let branch_instrs = run_hot_pipeline_raw_append_alias_merge_copies(
+        let branch_instrs = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
           [],
           aliases,
           canonical_aliases,
           canonical_aliases,
           initialized,
+          label_target.needed_alias_copies,
           label_target.result_types,
           params,
           locals,
@@ -8206,22 +8262,33 @@ fn run_hot_pipeline_raw_rewrite_instrs(
         )
       @lib.LocalSet(@lib.LocalIdx(raw)) => {
         let local_id = raw.reinterpret_as_int()
+        let later_read_before_next_write = run_hot_pipeline_raw_instrs_have_later_local_read_before_next_local_write(
+          instrs,
+          idx + 1,
+          local_id,
+        )
         let later_read = run_hot_pipeline_raw_instrs_have_later_local_read(
             instrs,
             idx + 1,
             local_id,
           ) ||
           (local_id < params.length() && future_reads[local_id])
+        let future_read_before_next_write = future_reads_before_writes[local_id]
         let later_write = run_hot_pipeline_raw_instrs_have_later_local_write(
             instrs,
             idx + 1,
             local_id,
           ) ||
           (local_id < params.length() && future_writes[local_id])
-        if aliases[local_id] == canonical_aliases[local_id] &&
-          later_read &&
-          !later_write {
+        if (
+            aliases[local_id] == canonical_aliases[local_id] &&
+            later_read &&
+            !later_write
+          ) ||
+          later_read_before_next_write ||
+          future_read_before_next_write {
           initialized[local_id] = true
+          aliases[local_id] = canonical_aliases[local_id]
           rewritten.push(
             @lib.Instruction::local_set(canonical_aliases[local_id]),
           )
@@ -8252,6 +8319,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           later_read &&
           !later_write {
           initialized[local_id] = true
+          aliases[local_id] = canonical_aliases[local_id]
           rewritten.push(
             @lib.Instruction::local_tee(canonical_aliases[local_id]),
           )
@@ -8305,6 +8373,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
       canonical_aliases,
       initialized_locals,
       [],
+      @bitset.BitSet::new(base_local_count),
       @bitset.BitSet::new(base_local_count),
       @bitset.BitSet::new(base_local_count),
       extra_local_types,
@@ -8437,8 +8506,9 @@ fn run_hot_pipeline_raw_ssa_nomerge(
   descriptor : @ir.HotPassDescriptor,
   options : HotPipelineOptions,
 ) -> HotPipelineFuncResult? {
-  let structured_branch_raw_instr_limit = 128
-  let structured_branch_raw_local_limit = 64
+  let structured_branch_raw_instr_limit = 4096
+  let structured_no_branch_raw_instr_limit = 4096
+  let structured_branch_raw_local_limit = 1024
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   if descriptor.name == "dead-code-elimination" &&
     options.optimize_level >= 4 &&
@@ -8549,10 +8619,15 @@ fn run_hot_pipeline_raw_ssa_nomerge(
   }
   if has_structured_control {
     let base_local_count = params.length() + locals.length()
-    if instr_count > structured_branch_raw_instr_limit ||
+    let structured_instr_limit = if has_branches {
+      structured_branch_raw_instr_limit
+    } else {
+      structured_no_branch_raw_instr_limit
+    }
+    if instr_count > structured_instr_limit ||
       (has_branches && base_local_count > structured_branch_raw_local_limit) {
       return Some({
-        reason: "large-structured-local-writes",
+        reason: "large-structured-local-writes func=\{func_idx} instrs=\{instr_count} locals=\{base_local_count}",
         func: original,
         unchanged_original: true,
         trace_skip_raw: true,
@@ -11457,7 +11532,9 @@ fn run_hot_pipeline_skip_invalid_lower_reason(
       ) {
       return Some("invalid-escape-carrier")
     }
-    if run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(result.func) {
+    if run_hot_pipeline_lowered_func_has_narrow_suspicious_escape_carrier(
+        result.func,
+      ) {
       return Some("suspicious-escape-carrier")
     }
     return match
@@ -11601,6 +11678,17 @@ fn run_hot_pipeline_has_hard_exit(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
+fn run_hot_pipeline_has_immediate_hard_exit(instr : @lib.Instruction) -> Bool {
+  match instr {
+    @lib.Instruction::Return
+    | @lib.Instruction::Unreachable
+    | @lib.Instruction::Throw(_)
+    | @lib.Instruction::ThrowRef => true
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_has_invalid_hard_exit_escape_carrier_block(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -11640,6 +11728,47 @@ fn run_hot_pipeline_has_invalid_hard_exit_escape_carrier_block(
 }
 
 ///|
+fn run_hot_pipeline_has_narrow_invalid_hard_exit_escape_carrier_block(
+  instr : @lib.Instruction,
+) -> Bool {
+  let walk_body = fn(body : Array[@lib.Instruction]) -> Bool {
+    body.any(fn(child) {
+      run_hot_pipeline_has_narrow_invalid_hard_exit_escape_carrier_block(child)
+    })
+  }
+  match instr {
+    @lib.Instruction::Block(
+      block_type,
+      @lib.Expr(
+        [
+          @lib.Instruction::Block(@lib.VoidBlockType, @lib.Expr(prefix)),
+          ..,
+          @lib.Instruction::LocalGet(_),
+        ]
+      )
+    ) =>
+      match block_type {
+        @lib.VoidBlockType => walk_body(prefix)
+        _ =>
+          if prefix.any(fn(item) {
+              run_hot_pipeline_has_immediate_hard_exit(item)
+            }) {
+            true
+          } else {
+            walk_body(prefix)
+          }
+      }
+    @lib.Instruction::Block(_, @lib.Expr(body))
+    | @lib.Instruction::Loop(_, @lib.Expr(body))
+    | @lib.Instruction::TryTable(_, _, @lib.Expr(body)) => walk_body(body)
+    @lib.Instruction::If(_, then_, Some(else_)) =>
+      walk_body(then_) || walk_body(else_)
+    @lib.Instruction::If(_, then_, None) => walk_body(then_)
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
   func : @lib.Func,
 ) -> Bool {
@@ -11656,6 +11785,16 @@ fn run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(
   let @lib.Func(_, @lib.Expr(body)) = func
   body.any(fn(instr) {
     run_hot_pipeline_has_invalid_hard_exit_escape_carrier_block(instr)
+  })
+}
+
+///|
+fn run_hot_pipeline_lowered_func_has_narrow_suspicious_escape_carrier(
+  func : @lib.Func,
+) -> Bool {
+  let @lib.Func(_, @lib.Expr(body)) = func
+  body.any(fn(instr) {
+    run_hot_pipeline_has_narrow_invalid_hard_exit_escape_carrier_block(instr)
   })
 }
 
