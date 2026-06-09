@@ -159,8 +159,12 @@ fn ssa_nomerge_has_nested_cfg_control_node(
 
 ///|
 fn ssa_nomerge_has_nested_cfg_sensitive_control(func : @ir.HotFunc) -> Bool {
-  // The current SSA/no-merge local model can miss reads inside nested control
-  // value regions. Keep those shapes unchanged until nested liveness is exact.
+  // Nested value-control regions can contain local reads/writes and terminators
+  // that are not represented as simple block-level local flow. SSA v1 local
+  // liveness/use-def/rename may miss local reads inside those nested regions,
+  // and rewriting local definitions around these shapes can detach reads from
+  // the reaching local version. Fail closed until nested liveness/use-def/
+  // rename/destruction are proven exact. This is not feature support.
   for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
     if ssa_nomerge_has_nested_cfg_control_node(
         func,

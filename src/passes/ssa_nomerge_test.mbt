@@ -164,6 +164,74 @@ fn ssa_test_hot_func_has_local_write(func : @ir.HotFunc) -> Bool {
 }
 
 ///|
+fn ssa_test_hot_func_ssa_nomerge_revision_unchanged(
+  func : @ir.HotFunc,
+) -> Unit raise {
+  @ir.hot_verify_all_or_abort(func)
+  let revision_before = @ir.hot_revision_current(func)
+  let ctx = HotPassContext::new(
+    ssa_nomerge_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected hot func ssa-nomerge success, got \{err}")
+  }
+  @debug.assert_eq(@ir.hot_revision_current(func), revision_before)
+}
+
+///|
+fn ssa_test_nested_cfg_pipeline_fail_closed(source : String) -> Unit raise {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected nested-CFG-sensitive ssa-nomerge fail-closed success, got \{err}",
+      )
+  }
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+fn ssa_test_nested_cfg_hot_fail_closed(source : String) -> Unit raise {
+  let mod_ = pass_test_module_from_wat(source)
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
+  @ir.hot_verify_all_or_abort(func)
+  ssa_test_hot_func_ssa_nomerge_revision_unchanged(func)
+  assert_true(ssa_test_hot_func_has_local_write(func))
+}
+
+///|
+fn ssa_test_nested_cfg_hot_local_traffic_preserved(
+  source : String,
+) -> Unit raise {
+  let optimized = match ssa_test_run_hot_path_only(source) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nested-CFG hot-path ssa-nomerge success, got \{err}")
+  }
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(
+    text.contains("local.set") || text.contains("local.tee"),
+    msg=text,
+  )
+  assert_true(text.contains("local.get"), msg=text)
+}
+
+///|
 fn ssa_test_typed_loop_param_pipeline_fail_closed(
   source : String,
 ) -> Unit raise {
@@ -524,6 +592,112 @@ test "ssa-nomerge preserves typed loop-carried induction values" {
   let text = instrs.to_string()
   assert_true(text.contains("local.tee"), msg=text)
   assert_true(text.contains("i32.shl"), msg=text)
+}
+
+///|
+test "ssa-nomerge does not mutate dropped value-block local traffic" {
+  // HOT nests the value block under `drop`, so the block is nested CFG-sensitive
+  // control rather than a function-body region root.
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    (local i32)
+    #|    (block (result i32)
+    #|      i32.const 7
+    #|      local.set 1
+    #|      local.get 1)
+    #|    drop
+    #|    local.get 1))
+    #|)
+  ssa_test_nested_cfg_pipeline_fail_closed(source)
+  ssa_test_nested_cfg_hot_fail_closed(source)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("local.set"), msg=text)
+  assert_true(text.contains("local.get"), msg=text)
+}
+
+///|
+test "ssa-nomerge does not mutate nested if inside dropped value block" {
+  // The result-typed `if` arms are region roots, but the enclosing value block
+  // sits in `drop`'s operand slot and is therefore nested CFG-sensitive control.
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    (local i32)
+    #|    (block (result i32)
+    #|      local.get 0
+    #|      if (result i32)
+    #|        i32.const 10
+    #|        local.set 1
+    #|        local.get 1
+    #|      else
+    #|        i32.const 20
+    #|        local.set 1
+    #|        local.get 1
+    #|      end)
+    #|    drop
+    #|    local.get 1))
+    #|)
+  ssa_test_nested_cfg_pipeline_fail_closed(source)
+  ssa_test_nested_cfg_hot_fail_closed(source)
+  ssa_test_nested_cfg_hot_local_traffic_preserved(source)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("local.set"), msg=text)
+  assert_true(text.contains("local.get"), msg=text)
+}
+
+///|
+test "ssa-nomerge does not mutate nested br inside dropped value block" {
+  // `br` is a terminator; when it appears inside a value block nested under
+  // `drop`, the guard treats the subtree as nested CFG-sensitive local traffic.
+  // An outer `$outer` label gives the inner `br` a valid exit target.
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    (local i32)
+    #|    (block $outer
+    #|      (block (result i32)
+    #|        i32.const 7
+    #|        local.set 1
+    #|        br $outer
+    #|        local.get 1)
+    #|      drop)
+    #|    local.get 1))
+    #|)
+  ssa_test_nested_cfg_pipeline_fail_closed(source)
+  ssa_test_nested_cfg_hot_fail_closed(source)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("local.set"), msg=text)
+  assert_true(text.contains("local.get"), msg=text)
+}
+
+///|
+test "ssa-nomerge does not mutate nested br_if local traffic inside dropped value block" {
+  // `br_if` is branch-shaped but not a HOT terminator flag; this fixture still
+  // triggers the guard via the nested value block under `drop` with local traffic.
+  // The outer `$outer` label keeps the inner `br_if` stack-valid.
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    (local i32)
+    #|    (block $outer
+    #|      (block (result i32)
+    #|        i32.const 7
+    #|        local.set 1
+    #|        i32.const 1
+    #|        br_if $outer
+    #|        local.get 1)
+    #|      drop)
+    #|    local.get 1))
+    #|)
+  ssa_test_nested_cfg_pipeline_fail_closed(source)
+  ssa_test_nested_cfg_hot_fail_closed(source)
 }
 
 ///|
