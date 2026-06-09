@@ -28,7 +28,7 @@ related:
 # `ssa-nomerge` Binaryen Parity
 
 This page is the current local signoff tracker.
-Use the strategy and shape pages in this folder for the upstream Binaryen algorithm itself; use [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for owner-file and proof-surface navigation. This page is about the repo's current evidence and remaining gaps.
+Use the strategy and shape pages in this folder for the upstream Binaryen algorithm itself; use `[./implementation-structure-and-tests.md](./implementation-structure-and-tests.md)` for owner-file and proof-surface navigation. This page is about the repo's current evidence and remaining gaps.
 
 ## Durable Conclusions
 
@@ -46,16 +46,17 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 
 ## Current In-Tree Status
 
-- The implementation lives in [`../../../../../src/passes/ssa_nomerge.mbt`](../../../../../src/passes/ssa_nomerge.mbt).
-- The current raw-lowering fixes live in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt): dead param writes spill through fresh locals, live straight-line and typed-if param flows stay on the canonical param slot, no-write default-local reads are rewritten through a dedicated recursive default materializer instead of falling back to HOT SSA, and no-write dropped-unreachable debris is cleaned before hard `unreachable` tails.
+- The implementation lives in `[../../../../../src/passes/ssa_nomerge.mbt](../../../../../src/passes/ssa_nomerge.mbt)`.
+- The current raw-lowering fixes live in `[../../../../../src/passes/pass_manager.mbt](../../../../../src/passes/pass_manager.mbt)`: dead param writes spill through fresh locals, live straight-line and typed-if param flows stay on the canonical param slot, no-write default-local reads are rewritten through a dedicated recursive default materializer instead of falling back to HOT SSA, and no-write dropped-unreachable debris is cleaned before hard `unreachable` tails.
 - That rule is an in-tree inference from Binaryen `src/passes/SSAify.cpp` `createNewIndexes()` plus direct `wasm-opt --ssa-nomerge` micro-replays on reduced param-write cases.
 - The same pass-manager path still rejects per-function writebacks that fail module-aware validation, in addition to the existing `invalid-escape-carrier` and `suspicious-escape-carrier` families.
-- The `cmd` package contains a native debug-artifact replay test in [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt), and a focused `moon test src/cmd --target native --filter 'run_cmd_with_adapter validates ssa-nomerge on debug artifact'` run is currently green.
-- The reduced `Func 523` follow-up now also lives in [`../../../../../src/ir/hot_lift.mbt`](../../../../../src/ir/hot_lift.mbt), [`../../../../../src/ir/hot_lift_test.mbt`](../../../../../src/ir/hot_lift_test.mbt), [`../../../../../src/passes/ssa_nomerge_test.mbt`](../../../../../src/passes/ssa_nomerge_test.mbt), and the focused extracted-function CLI replay in [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt).
-- The 2026-06-09 audit added focused `try_table` exceptional-exit, branchy default-local-read, dropped-unreachable-debris, nested param-slot, large structured raw coverage, needed-only branch/label copies, canonical body-local writes, and `Func 4302` carrier-narrowing regressions in [`../../../../../src/passes/ssa_nomerge_test.mbt`](../../../../../src/passes/ssa_nomerge_test.mbt); details and command evidence live in [`../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md`](../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md).
+- The `cmd` package contains a native debug-artifact replay test in `[../../../../../src/cmd/cmd_wbtest.mbt](../../../../../src/cmd/cmd_wbtest.mbt)`, and a focused `moon test src/cmd --target native --filter 'run_cmd_with_adapter validates ssa-nomerge on debug artifact'` run is currently green.
+- The reduced `Func 523` follow-up now also lives in `[../../../../../src/ir/hot_lift.mbt](../../../../../src/ir/hot_lift.mbt)`, `[../../../../../src/ir/hot_lift_test.mbt](../../../../../src/ir/hot_lift_test.mbt)`, `[../../../../../src/passes/ssa_nomerge_test.mbt](../../../../../src/passes/ssa_nomerge_test.mbt)`, and the focused extracted-function CLI replay in `[../../../../../src/cmd/cmd_wbtest.mbt](../../../../../src/cmd/cmd_wbtest.mbt)`.
+- The 2026-06-09 audit added focused `try_table` exceptional-exit, branchy default-local-read, dropped-unreachable-debris, nested param-slot, large structured raw coverage, needed-only branch/label copies, canonical body-local writes, and `Func 4302` carrier-narrowing regressions in `[../../../../../src/passes/ssa_nomerge_test.mbt](../../../../../src/passes/ssa_nomerge_test.mbt)`; details and command evidence live in `[../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md](../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md)`.
 
 ## Current Signoff State
 
+- 2026-06-09 typed-loop-param fail-closed hardening: `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `42/42`, adding pipeline-trace no-HOT-mutation assertions for typed loop-param control, locals written before typed loops, backedge-vs-body-local separation, hot-path revision checks for the validated param-only typed-loop `br` repro, and tightening the existing typed-loop induction fixture. `moon test src/ir` passed `251/251` and `moon test src/passes` passed `2061/2061` after the follow-up.
 - 2026-06-09 exceptional-edge fail-closed hardening: `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` adds a pipeline-trace no-HOT-mutation assertion, default-local catch continuation, conditional throw, `rethrow`, and `delegate` regressions on top of the original `try_table` write-before-throw case.
 - 2026-06-09 focused pass test after the exceptional-edge/default-local/debris fixes: `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `28/28`.
 - 2026-06-09 artifact param-slot, large-structured, and needed-copy/canonical-local follow-ups: `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` now passes `33/33`, `moon test --package jtenner/starshine/passes` passes `2052/2052`, and the earlier full `moon test` passed `5247/5247` after adding nested param-write, large structured raw coverage, reduced `Func 4302` carrier, unneeded-copy, and canonical body-local regressions.
@@ -81,6 +82,10 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 
 ## Remaining Gap
 
+- Typed loop-param control remains explicitly unsupported and intentionally fail-closed. HOT represents typed loop params as `BlockResultResolved` param prefixes on `HotOp::Loop` children and as branch operands on backedges, with `HotLabelInfo.branch_arity` recording the payload count. SSA v1's local overlay models only `LocalGet` / `LocalSet` / `LocalTee` reaching definitions; it does not treat loop-param stack flow as local defs, and destruction only inserts predecessor copies for overlay phis on normal CFG edges — not wasm branch operands that re-enter typed loop headers.
+- `ssa-nomerge` is safe because it skips typed-loop-param HOT mutation via `ssa_nomerge_has_loop_param_control(...)`, not because the local SSA overlay models loop-carried param ABI.
+- Typed-loop-param behavior is fail-closed for HOT SSA mutation and regression-covered: pipeline traces must not contain `pass[ssa-nomerge]:mutated` for typed-loop-param fixtures, locals written before the loop stay preserved, backedge-carried param values stay separate from unrelated body locals, and the hot-path revision check stays unchanged for the validated param-only typed-loop `br` repro. A dedicated `br_if`-to-typed-loop WAT fixture is still deferred because the attempted operand+condition shapes fail module validation in the pass-test harness even though unconditional `br` repros lift and validate.
+- Future work requires loop-param-aware liveness, use-def facts for branch operands, phi placement at typed loop headers, rename semantics that distinguish entry vs backedge param values, destruction copies before loop backedge terminators, lowering that preserves typed loop branch operands, and a validated `br_if` regression once the harness accepts that shape — not broad Binaryen parity claims for typed-loop SSA.
 - Exceptional-edge SSA remains explicitly unimplemented and intentionally deferred. The CFG already records `ExceptionalEdge` successors for `try` / `try_table` headers and throw-family terminators, but SSA v1 liveness, dominators, phi placement, dominator-stack rename, and predecessor-copy destruction all follow the normal-flow-only contract.
 - Catch continuations are not dominated by throwing blocks.
 - The current rename algorithm cannot propagate reaching definitions across exceptional edges without a dedicated exceptional SSA mode.
@@ -104,11 +109,12 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 
 ## Sources
 
-- 2026-06-09 exceptional-edge/default-local audit: [`../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md`](../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md)
-- Implementation/test-map refresh: [`../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md`](../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md)
-- Research note for this refresh: [`../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md`](../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md)
-- Archived research doc: [`../../../raw/research/0076-2026-04-10-ssa-nomerge-parity-investigation.md`](../../../raw/research/0076-2026-04-10-ssa-nomerge-parity-investigation.md)
-- Pass implementation: [`../../../../../src/passes/ssa_nomerge.mbt`](../../../../../src/passes/ssa_nomerge.mbt)
-- Pass manager guard: [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
-- CLI artifact test surface: [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
-- Random compare harness: [`../../../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts)
+- 2026-06-09 exceptional-edge/default-local audit: `[../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md](../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md)`
+- Implementation/test-map refresh: `[../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md](../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md)`
+- Research note for this refresh: `[../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md](../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md)`
+- Archived research doc: `[../../../raw/research/0076-2026-04-10-ssa-nomerge-parity-investigation.md](../../../raw/research/0076-2026-04-10-ssa-nomerge-parity-investigation.md)`
+- Pass implementation: `[../../../../../src/passes/ssa_nomerge.mbt](../../../../../src/passes/ssa_nomerge.mbt)`
+- Pass manager guard: `[../../../../../src/passes/pass_manager.mbt](../../../../../src/passes/pass_manager.mbt)`
+- CLI artifact test surface: `[../../../../../src/cmd/cmd_wbtest.mbt](../../../../../src/cmd/cmd_wbtest.mbt)`
+- Random compare harness: `[../../../../../scripts/lib/pass-fuzz-compare-task.ts](../../../../../scripts/lib/pass-fuzz-compare-task.ts)`
+

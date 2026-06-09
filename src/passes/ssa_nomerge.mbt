@@ -200,6 +200,20 @@ fn ssa_nomerge_has_exceptional_flow(func : @ir.HotFunc) -> Bool {
 
 ///|
 fn ssa_nomerge_has_loop_param_control(func : @ir.HotFunc) -> Bool {
+  // Typed loop params are loop-carried control values on the wasm stack, not body
+  // locals. HOT represents them as the Loop node's param-prefix children and as
+  // branch operands on backedges (`br` / `br_if` / `br_table` children), with
+  // `HotLabelInfo.branch_arity` recording the payload count.
+  //
+  // SSA v1's local overlay models only `LocalGet` / `LocalSet` / `LocalTee`
+  // reaching definitions. It does not treat loop-param value flow as local defs,
+  // and destruction only inserts predecessor copies for overlay phis on normal
+  // CFG edges — not wasm branch operands that re-enter typed loop headers.
+  //
+  // Rewriting locals around typed loops without loop-param-aware liveness,
+  // use-def, phi placement, rename, destroy, and lower can conflate a local SSA
+  // version with the loop-carried param ABI. Fail closed until that stack is
+  // proven together; regression tests lock the no-mutation contract.
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue

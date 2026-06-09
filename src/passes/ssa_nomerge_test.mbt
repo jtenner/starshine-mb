@@ -164,6 +164,58 @@ fn ssa_test_hot_func_has_local_write(func : @ir.HotFunc) -> Bool {
 }
 
 ///|
+fn ssa_test_typed_loop_param_pipeline_fail_closed(
+  source : String,
+) -> Unit raise {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected typed-loop-param ssa-nomerge fail-closed success, got \{err}",
+      )
+  }
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+fn ssa_test_typed_loop_param_hot_fail_closed(source : String) -> Unit raise {
+  let mod_ = pass_test_module_from_wat(source)
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
+  @ir.hot_verify_all_or_abort(func)
+  ssa_test_hot_func_typed_loop_param_fail_closed(func)
+}
+
+///|
+fn ssa_test_hot_func_typed_loop_param_fail_closed(
+  func : @ir.HotFunc,
+) -> Unit raise {
+  @ir.hot_verify_all_or_abort(func)
+  let revision_before = @ir.hot_revision_current(func)
+  let ctx = HotPassContext::new(
+    ssa_nomerge_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected hot func ssa-nomerge success, got \{err}")
+  }
+  @debug.assert_eq(@ir.hot_revision_current(func), revision_before)
+  assert_true(ssa_test_hot_func_has_local_write(func))
+}
+
+///|
 fn ssa_test_hot_func_exceptional_fail_closed(func : @ir.HotFunc) -> Unit raise {
   @ir.hot_verify_all_or_abort(func)
   let revision_before = @ir.hot_revision_current(func)
@@ -332,6 +384,121 @@ test "ssa-nomerge preserves delegate shapes without hot local corruption" {
 }
 
 ///|
+test "ssa-nomerge does not mutate typed loop-param control functions" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32) (result i32)))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    (local.get 0)
+    #|    (loop $l (type $loop_t)
+    #|      local.tee 1
+    #|      local.get 0
+    #|      i32.lt_s
+    #|      if (result i32)
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.add
+    #|        br $l
+    #|      else
+    #|        local.get 1
+    #|      end)))
+    #|)
+  ssa_test_typed_loop_param_pipeline_fail_closed(source)
+  ssa_test_typed_loop_param_hot_fail_closed(source)
+  ignore(ssa_test_validate_ssa_nomerge_pipeline(source))
+}
+
+///|
+test "ssa-nomerge preserves locals written before typed loop-param control" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32) (result i32)))
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    i32.const 5
+    #|    local.set 1
+    #|    local.get 0
+    #|    (loop $l (type $loop_t)
+    #|      local.tee 2
+    #|      local.get 0
+    #|      i32.lt_s
+    #|      if (result i32)
+    #|        local.get 2
+    #|        i32.const 1
+    #|        i32.add
+    #|        br $l
+    #|      else
+    #|        local.get 1
+    #|      end)))
+    #|)
+  ssa_test_typed_loop_param_pipeline_fail_closed(source)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("local.set"), msg=text)
+  assert_true(text.contains("local.get"), msg=text)
+}
+
+///|
+test "ssa-nomerge keeps typed loop-param backedge values separate from body locals" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32) (result i32)))
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    i32.const 100
+    #|    local.set 1
+    #|    local.get 0
+    #|    (loop $l (type $loop_t)
+    #|      local.tee 2
+    #|      local.get 0
+    #|      i32.lt_s
+    #|      if (result i32)
+    #|        local.get 2
+    #|        i32.const 1
+    #|        i32.add
+    #|        br $l
+    #|      else
+    #|        local.get 1
+    #|      end)))
+    #|)
+  ssa_test_typed_loop_param_pipeline_fail_closed(source)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("i32.const I32(100)"), msg=text)
+  assert_true(text.contains("local.set"), msg=text)
+  assert_true(text.contains("local.get"), msg=text)
+}
+
+///|
+test "ssa-nomerge preserves typed loop-param control on the hot path" {
+  // `br_if` backedges to typed loops with explicit branch operands do not yet
+  // survive pass-test module validation in this harness; cover the hot-path
+  // fail-closed contract with the validated param-only typed-loop `br` repro.
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 0
+    #|    loop $l (type $loop_t)
+    #|      local.tee 1
+    #|      local.get 0
+    #|      i32.lt_s
+    #|      if
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.add
+    #|        br $l
+    #|      end
+    #|      local.get 1
+    #|      drop
+    #|    end
+    #|    i32.const 1)
+    #|)
+  ssa_test_typed_loop_param_hot_fail_closed(source)
+  ssa_test_typed_loop_param_pipeline_fail_closed(source)
+}
+
+///|
 test "ssa-nomerge preserves typed loop-carried induction values" {
   let source =
     #|(module
@@ -351,11 +518,8 @@ test "ssa-nomerge preserves typed loop-carried induction values" {
     #|        local.get 1
     #|      end)))
     #|)
-  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected typed loop ssa-nomerge success, got \{err}")
-  }
-
+  ssa_test_typed_loop_param_pipeline_fail_closed(source)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   let text = instrs.to_string()
   assert_true(text.contains("local.tee"), msg=text)
