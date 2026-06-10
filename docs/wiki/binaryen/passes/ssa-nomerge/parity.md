@@ -110,8 +110,11 @@ Use `--gen-valid-profile ssa-nomerge-parity` with parity-appropriate `--require-
 
 - `100/100` compared, `100` compare-normalized matches, `0` mismatches (`.tmp/pass-fuzz-ssa-nomerge-parity-profile-100-v2`)
 - `1000/1000` compared, `1000` compare-normalized matches, `0` mismatches (`.tmp/pass-fuzz-ssa-nomerge-parity-profile-1000`)
+- `10000/10000` compared, `10000` compare-normalized matches, `0` mismatches (`.tmp/pass-fuzz-ssa-nomerge-parity-profile-10000`)
 
-The earlier dense-profile smoke (`ssa-nomerge-coverage` with loop/block/br_table/parallel-copy in one function) remains a coverage-lane artifact, not a parity signoff lane.
+These lanes are **targeted GenValid SSA parity-profile signoff** for the trimmed template set. They do not replace the broad mixed-generator `99751/100000` signoff baseline above.
+
+The earlier dense-profile smoke (`ssa-nomerge-coverage` with loop/block/br_table/parallel-copy in one function) remains a coverage-lane artifact, not a parity-profile compare lane.
 
 ## Remaining Gap
 
