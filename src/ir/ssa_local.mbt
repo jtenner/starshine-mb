@@ -132,28 +132,6 @@ fn ssa_simple_value_block_subtree_is_straight_line(
 }
 
 ///|
-fn ssa_simple_subtree_has_local_write(func : HotFunc, node_id : NodeId) -> Bool {
-  if node_id < 0 || !hot_node_is_live(func, node_id) {
-    return false
-  }
-  match hot_node_get(func, node_id).op {
-    HotOp::LocalSet | HotOp::LocalTee => return true
-    _ => ()
-  }
-  let node = hot_node_get(func, node_id)
-  for slot = 0; slot < node.child_count; slot = slot + 1 {
-    let child_id = func.children[node.child_base + slot]
-    if child_id == HOT_NONE_NODE || !hot_node_is_live(func, child_id) {
-      continue
-    }
-    if ssa_simple_subtree_has_local_write(func, child_id) {
-      return true
-    }
-  }
-  false
-}
-
-///|
 fn ssa_simple_result_if_region_is_straight_line(
   func : HotFunc,
   region_ref : HotRegionRef,
@@ -187,12 +165,28 @@ fn ssa_simple_result_if_has_supported_drop_result(
 }
 
 ///|
+// Straight-line `if` condition subtree for operand-nested `drop(if (result t) …)`.
+// Local writes are allowed because CFG places the condition in the predecessor block
+// that dominates both arms and the post-`drop` continuation, and SSA rename visits that
+// block before the arm regions. Nested control, branches, and terminators stay
+// fail-closed.
+fn ssa_simple_result_if_condition_allowed(
+  func : HotFunc,
+  condition_id : NodeId,
+) -> Bool {
+  condition_id >= 0 &&
+  hot_node_is_live(func, condition_id) &&
+  ssa_simple_value_block_subtree_is_straight_line(func, condition_id, false)
+}
+
+///|
 // Operand-nested `drop(if (result t) …)` with a single scalar numeric result is a
-// narrow CFG shape: both arms are straight-line, the condition has no nested control
-// or local writes, and the else arm is required. The result value is dropped, but
-// arms still need CFG/SSA modeling for local traffic. v128, reference/GC, and
-// multi-value results stay unsupported. Broader nested `if` (nested branches/loops/
-// exceptions, missing else) stays fail-closed in `ssa-nomerge`.
+// narrow CFG shape: both arms are straight-line, the condition is straight-line with
+// no nested control (local writes in the condition are allowed), and the else arm is
+// required. The result value is dropped, but arms still need CFG/SSA modeling for
+// local traffic. v128, reference/GC, and multi-value results stay unsupported.
+// Broader nested `if` (nested branches/loops/exceptions, missing else) stays
+// fail-closed in `ssa-nomerge`.
 pub fn ssa_simple_drop_result_if_allowed(
   func : HotFunc,
   drop_id : NodeId,
@@ -219,9 +213,7 @@ pub fn ssa_simple_drop_result_if_allowed(
   }
   let condition_id = func.children[hot_node_get(func, if_id).child_base]
   if condition_id == HOT_NONE_NODE ||
-    !hot_node_is_live(func, condition_id) ||
-    ssa_simple_subtree_has_local_write(func, condition_id) ||
-    !ssa_simple_value_block_subtree_is_straight_line(func, condition_id, false) {
+    !ssa_simple_result_if_condition_allowed(func, condition_id) {
     return false
   }
   ssa_simple_result_if_region_is_straight_line(

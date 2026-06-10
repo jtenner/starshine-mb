@@ -172,6 +172,44 @@ test "cfg build maps drop operand result-if arms to join continuation" {
 }
 
 ///|
+test "cfg build places condition local writes in drop operand result-if predecessor" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let result_if = hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    hot_build_local_tee(func, 1, hot_build_const_i32(func, @lib.I32(1))),
+    [
+      hot_build_local_set(func, 1, hot_build_const_i32(func, @lib.I32(7))),
+      hot_build_local_get(func, 1),
+    ],
+    else_body=Some([
+      hot_build_local_set(func, 1, hot_build_const_i32(func, @lib.I32(9))),
+      hot_build_local_get(func, 1),
+    ]),
+  )
+  let drop = hot_build_drop(func, result_if)
+  hot_root_append(func, drop)
+  hot_root_append(func, hot_build_drop(func, hot_build_local_get(func, 1)))
+  assert_true(
+    ssa_simple_drop_result_if_allowed(func, drop, 0, result_if),
+    msg="expected condition local.tee result-if shape to be allowed",
+  )
+  let cfg = cfg_build(func)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let drop_block = cfg_block_for_node(cfg, drop).unwrap()
+  let writes = local_write_block_ids(use_def, 1)
+  assert_true(
+    writes.length() >= 2,
+    msg="expected condition and arm local writes",
+  )
+  @debug.assert_eq(writes[0], drop_block)
+}
+
+///|
 test "ssa simple drop result-if rejects missing else arm" {
   let func = HotFunc::new(
     locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
