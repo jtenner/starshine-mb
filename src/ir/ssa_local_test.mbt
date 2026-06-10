@@ -570,6 +570,186 @@ test "ssa local build renames locals inside drop operand value blocks" {
 }
 
 ///|
+fn ssa_local_test_arm_value_block_drop_result_if(
+  func : HotFunc,
+  condition : NodeId,
+  then_body : Array[NodeId],
+  else_body : Array[NodeId],
+) -> (NodeId, NodeId, NodeId, NodeId) {
+  let then_block = hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    then_body,
+  )
+  let else_block = hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    else_body,
+  )
+  let then_set = hot_region_get(func, hot_region_body_ref(func, then_block), 0)
+  let else_set = hot_region_get(func, hot_region_body_ref(func, else_block), 0)
+  let result_if = hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    condition,
+    [then_block],
+    else_body=Some([else_block]),
+  )
+  let drop = hot_build_drop(func, result_if)
+  hot_root_append(func, drop)
+  hot_root_append(func, hot_build_drop(func, hot_build_local_get(func, 1)))
+  (result_if, drop, then_set, else_set)
+}
+
+///|
+test "ssa local build renames result-if arm value-block locals" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let (_, drop, then_set, else_set) = ssa_local_test_arm_value_block_drop_result_if(
+    func,
+    hot_build_local_get(func, 0),
+    [
+      hot_build_local_set(func, 1, hot_build_const_i32(func, @lib.I32(7))),
+      hot_build_local_get(func, 1),
+    ],
+    [
+      hot_build_local_set(func, 1, hot_build_const_i32(func, @lib.I32(9))),
+      hot_build_local_get(func, 1),
+    ],
+  )
+  let final_get = hot_child_get(func, hot_root_get(func, 1), 0)
+  assert_true(
+    ssa_simple_drop_result_if_allowed(
+      func,
+      drop,
+      0,
+      hot_child_get(func, drop, 0),
+    ),
+    msg="expected arm value-block drop result-if shape to be allowed",
+  )
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+  let then_value = ssa_def_for_local_set(ssa, then_set)
+  let else_value = ssa_def_for_local_set(ssa, else_set)
+  let final_value = ssa_value_for_local_get(ssa, final_get)
+
+  assert_false(final_value == then_value)
+  assert_false(final_value == else_value)
+  let join_block = cfg_block_for_region_root(cfg, HotRegionRef::root(), 1).unwrap()
+  let phis = ssa_phis_for_block(ssa, join_block)
+  @debug.assert_eq(phis.length(), 1)
+  @debug.assert_eq(ssa_phi_local(ssa, phis[0]), 1)
+}
+
+///|
+test "ssa local build carries arm-value-block writes into post-drop join" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let (_, _, then_set, else_set) = ssa_local_test_arm_value_block_drop_result_if(
+    func,
+    hot_build_local_get(func, 0),
+    [
+      hot_build_local_set(func, 1, hot_build_const_i32(func, @lib.I32(7))),
+      hot_build_local_get(func, 1),
+    ],
+    [
+      hot_build_local_set(func, 1, hot_build_const_i32(func, @lib.I32(9))),
+      hot_build_local_get(func, 1),
+    ],
+  )
+  let final_get = hot_child_get(func, hot_root_get(func, 1), 0)
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+  let then_value = ssa_def_for_local_set(ssa, then_set)
+  let else_value = ssa_def_for_local_set(ssa, else_set)
+  let final_value = ssa_value_for_local_get(ssa, final_get)
+  let join_block = cfg_block_for_region_root(cfg, HotRegionRef::root(), 1).unwrap()
+  let phis = ssa_phis_for_block(ssa, join_block)
+  let inputs = ssa_phi_inputs(ssa, phis[0])
+  let mut saw_then = false
+  let mut saw_else = false
+
+  @debug.assert_eq(inputs.length(), 2)
+  for input in inputs {
+    if input.value_id == then_value {
+      saw_then = true
+    } else if input.value_id == else_value {
+      saw_else = true
+    }
+  }
+  assert_true(saw_then)
+  assert_true(saw_else)
+  assert_false(final_value == then_value)
+  assert_false(final_value == else_value)
+}
+
+///|
+test "ssa local build lets arm value-blocks read condition-written locals" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32 i32)
+    #|    i32.const 4
+    #|    local.set 1
+    #|    local.get 0
+    #|    if (result i32)
+    #|      (block (result i32)
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.set 2
+    #|        local.get 2)
+    #|    else
+    #|      (block (result i32)
+    #|        local.get 1
+    #|        i32.const 2
+    #|        i32.add
+    #|        local.set 2
+    #|        local.get 2)
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2
+    #|    drop))
+    #|)
+  let fixture = ir_test_build_hot_from_wat(source)
+  let func = fixture.hot_func
+  let pre_set = hot_root_get(func, 0)
+  let final_get_1 = hot_child_get(func, hot_root_get(func, 2), 0)
+  let final_get_2 = hot_child_get(func, hot_root_get(func, 3), 0)
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+  let pre_value = ssa_def_for_local_set(ssa, pre_set)
+  let final_value_2 = ssa_value_for_local_get(ssa, final_get_2)
+
+  @debug.assert_eq(
+    ssa_value_for_local_get(ssa, final_get_1),
+    pre_value,
+    msg="pre-if local write must reach post-if continuation",
+  )
+  match ssa_value_origin(ssa, final_value_2) {
+    HotSsaValueOrigin::PhiDef(phi_id) =>
+      @debug.assert_eq(ssa_phi_local(ssa, phi_id), 2)
+    _ => fail("expected arm-written local 2 to merge through a join phi")
+  }
+}
+
+///|
 test "ssa local build records local tee defs for later reads" {
   let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
   let value = hot_build_const_i32(func, @lib.I32(9))

@@ -132,13 +132,51 @@ fn ssa_simple_value_block_subtree_is_straight_line(
 }
 
 ///|
+// Straight-line `block (result t)` used as the sole root of a then/else arm in
+// operand-nested `drop(if (result t) …)`. The block result type must match the
+// parent `if` result type; the body is branch-free local traffic only. CFG
+// models the body in child blocks; rename and use-def visit those blocks normally.
+pub fn ssa_simple_result_if_arm_value_block_allowed(
+  func : HotFunc,
+  if_result_type : @lib.ValType,
+  block_id : NodeId,
+) -> Bool {
+  if block_id < 0 ||
+    !hot_node_is_live(func, block_id) ||
+    hot_node_get(func, block_id).op != HotOp::Block {
+    return false
+  }
+  let results = hot_type_results(func, hot_node_get(func, block_id).ty)
+  if results.length() != 1 || results[0] != if_result_type {
+    return false
+  }
+  if if_result_type != @lib.ValType::i32() &&
+    if_result_type != @lib.ValType::i64() &&
+    if_result_type != @lib.ValType::f32() &&
+    if_result_type != @lib.ValType::f64() {
+    return false
+  }
+  ssa_simple_value_block_subtree_is_straight_line(func, block_id, true)
+}
+
+///|
 fn ssa_simple_result_if_region_is_straight_line(
   func : HotFunc,
   region_ref : HotRegionRef,
+  if_result_type : @lib.ValType,
 ) -> Bool {
-  for slot = 0; slot < hot_region_root_count(func, region_ref); slot = slot + 1 {
+  let root_count = hot_region_root_count(func, region_ref)
+  for slot = 0; slot < root_count; slot = slot + 1 {
     let root_id = hot_region_get(func, region_ref, slot)
     if root_id == HOT_NONE_NODE || !hot_node_is_live(func, root_id) {
+      continue
+    }
+    if ssa_simple_result_if_arm_value_block_allowed(
+        func, if_result_type, root_id,
+      ) {
+      if root_count != 1 {
+        return false
+      }
       continue
     }
     if !ssa_simple_value_block_subtree_is_straight_line(func, root_id, false) {
@@ -204,12 +242,12 @@ fn ssa_simple_result_if_condition_allowed(
 
 ///|
 // Operand-nested `drop(if (result t) …)` with a single scalar numeric result is a
-// narrow CFG shape: both arms are straight-line, the condition is straight-line with
-// no nested control (local writes in the condition are allowed), and the else arm is
-// required. The result value is dropped, but arms still need CFG/SSA modeling for
-// local traffic. v128, reference/GC, and multi-value results stay unsupported.
-// Broader nested `if` (nested branches/loops/exceptions, missing else) stays
-// fail-closed in `ssa-nomerge`.
+// narrow CFG shape: both arms are straight-line or a single simple `block (result t)`
+// root per arm, the condition is straight-line with no nested control (local writes
+// in the condition are allowed), and the else arm is required. The result value is
+// dropped, but arms still need CFG/SSA modeling for local traffic. v128, reference/GC,
+// and multi-value results stay unsupported. Broader nested `if` (nested
+// branches/loops/exceptions, missing else) stays fail-closed in `ssa-nomerge`.
 pub fn ssa_simple_drop_result_if_allowed(
   func : HotFunc,
   drop_id : NodeId,
@@ -230,6 +268,7 @@ pub fn ssa_simple_drop_result_if_allowed(
   if !ssa_simple_result_if_has_supported_drop_result(func, if_id) {
     return false
   }
+  let if_result_type = hot_type_results(func, hot_node_get(func, if_id).ty)[0]
   let else_ref = match hot_region_else_ref(func, if_id) {
     Some(region_ref) => region_ref
     None => return false
@@ -242,8 +281,9 @@ pub fn ssa_simple_drop_result_if_allowed(
   ssa_simple_result_if_region_is_straight_line(
     func,
     hot_region_then_ref(func, if_id),
+    if_result_type,
   ) &&
-  ssa_simple_result_if_region_is_straight_line(func, else_ref)
+  ssa_simple_result_if_region_is_straight_line(func, else_ref, if_result_type)
 }
 
 ///|

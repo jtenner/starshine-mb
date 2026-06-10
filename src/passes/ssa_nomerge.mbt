@@ -106,7 +106,9 @@ fn ssa_nomerge_if_in_supported_drop_result_if(
     match @ir.hot_node_get(func, node_id).op {
       @ir.HotOp::Drop =>
         if @ir.hot_child_get(func, node_id, 0) == if_id &&
-          ssa_nomerge_is_simple_nested_result_if_operand(func, node_id, 0, if_id) {
+          ssa_nomerge_is_simple_nested_result_if_operand(
+            func, node_id, 0, if_id,
+          ) {
           return true
         }
       _ => ()

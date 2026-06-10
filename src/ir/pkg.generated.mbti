@@ -796,6 +796,8 @@ pub fn ssa_simple_drop_result_if_allowed(HotFunc, Int, Int, Int) -> Bool
 
 pub fn ssa_simple_drop_value_block_allowed(HotFunc, Int, Int, Int) -> Bool
 
+pub fn ssa_simple_result_if_arm_value_block_allowed(HotFunc, @lib.ValType, Int) -> Bool
+
 pub fn ssa_uses_of_value(HotLocalSsa, Int) -> Array[HotSsaUseOrigin]
 
 pub fn ssa_v1_exclusions() -> Array[HotSsaExcludedFeature]
