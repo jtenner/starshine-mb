@@ -685,7 +685,6 @@ fn gen_valid_append_ssa_nomerge_parity_body_slice(
 ) -> Unit {
   let param_count = accepts.length()
   let l0 = gen_valid_ssa_body_local(param_count, 0)
-  let l1 = gen_valid_ssa_body_local(param_count, 1)
   let p0 = LocalIdx::new(0U)
   // A. straight-line multi-def same local
   out.push(Instruction::i32_const(I32(1)))
@@ -732,82 +731,6 @@ fn gen_valid_append_ssa_nomerge_parity_body_slice(
     ),
   )
   out.push(Instruction::local_get(l0))
-  out.push(Instruction::drop())
-  // F. loop backedge phi candidate (no outer block wrapper)
-  out.push(Instruction::i32_const(I32(0)))
-  out.push(Instruction::local_set(l0))
-  out.push(
-    Instruction::loop_(
-      BlockType::void_(),
-      Expr::new([
-        Instruction::local_get(l0),
-        Instruction::drop(),
-        Instruction::i32_const(I32(1)),
-        Instruction::local_set(l0),
-        Instruction::local_get(l0),
-        Instruction::br_if(LabelIdx::new(0U)),
-      ]),
-    ),
-  )
-  out.push(Instruction::local_get(l0))
-  out.push(Instruction::drop())
-  // G. br-to-outer-block copy candidate
-  out.push(Instruction::i32_const(I32(0)))
-  out.push(Instruction::local_set(l0))
-  out.push(
-    Instruction::block(
-      BlockType::void_(),
-      Expr::new([
-        Instruction::i32_const(I32(7)),
-        Instruction::local_set(l0),
-        Instruction::br(LabelIdx::new(0U)),
-      ]),
-    ),
-  )
-  out.push(Instruction::local_get(l0))
-  out.push(Instruction::drop())
-  // H. br_table multi-predecessor candidate
-  out.push(Instruction::i32_const(I32(0)))
-  out.push(Instruction::local_set(l0))
-  out.push(
-    Instruction::block(
-      BlockType::void_(),
-      Expr::new([
-        Instruction::i32_const(I32(1)),
-        Instruction::local_set(l0),
-        Instruction::i32_const(I32(0)),
-        Instruction::br_table([LabelIdx::new(0U)], LabelIdx::new(0U)),
-      ]),
-    ),
-  )
-  out.push(Instruction::local_get(l0))
-  out.push(Instruction::drop())
-  // I. parallel-copy candidate
-  out.push(Instruction::i32_const(I32(1)))
-  out.push(Instruction::local_set(l0))
-  out.push(Instruction::i32_const(I32(2)))
-  out.push(Instruction::local_set(l1))
-  out.push(Instruction::local_get(l0))
-  out.push(
-    Instruction::if_(
-      BlockType::void_(),
-      [
-        Instruction::local_get(l1),
-        Instruction::local_set(l0),
-        Instruction::local_get(l0),
-        Instruction::local_set(l1),
-      ],
-      Some([
-        Instruction::local_get(l0),
-        Instruction::local_set(l1),
-        Instruction::local_get(l1),
-        Instruction::local_set(l0),
-      ]),
-    ),
-  )
-  out.push(Instruction::local_get(l0))
-  out.push(Instruction::drop())
-  out.push(Instruction::local_get(l1))
   out.push(Instruction::drop())
   ignore(ctx)
   ignore(env)

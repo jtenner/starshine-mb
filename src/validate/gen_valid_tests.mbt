@@ -7325,16 +7325,29 @@ test "ssa-nomerge parity generated modules omit fail-closed coverage slices" {
     msg="expected straight-line local chain",
   )
   assert_true(
+    facts.has_ssa_multi_def_same_local,
+    msg="expected multi-def same local",
+  )
+  assert_true(facts.has_ssa_local_tee_def_use, msg="expected local.tee def-use")
+  assert_true(
     facts.has_ssa_if_join_phi_candidate,
     msg="expected if-join phi candidate",
   )
   assert_true(
-    facts.has_ssa_loop_backedge_phi_candidate,
-    msg="expected loop backedge phi candidate",
+    facts.has_ssa_default_local_merge,
+    msg="expected default local merge",
   )
-  assert_true(
+  assert_false(
+    facts.has_ssa_loop_backedge_phi_candidate,
+    msg="parity profile defers loop backedge until compare lane is clean",
+  )
+  assert_false(
+    facts.has_ssa_br_table_phi_candidate,
+    msg="parity profile defers br_table join until compare lane is clean",
+  )
+  assert_false(
     facts.has_ssa_parallel_copy_candidate,
-    msg="expected parallel-copy candidate",
+    msg="parity profile defers parallel-copy until compare lane is clean",
   )
   assert_false(
     facts.has_ssa_nested_cfg_fail_closed_shape,

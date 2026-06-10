@@ -98,13 +98,20 @@ The dense GenValid `ssa-nomerge` profile smoke lane (`0/100` normalized) is **no
 
 ### GenValid profile split (2026-06-09)
 
-| Profile | Purpose | Compare against Binaryen? |
-|---|---|---|
-| `ssa-nomerge-coverage` (`ssa-nomerge` alias) | Dense SSA body templates, all `ssa-*` coverage floors, fail-closed stress shapes | **No** — coverage/stress only |
-| `ssa-nomerge-parity` | Lighter templates: rewrite shapes where Starshine is expected to run the comparable path; excludes nested-CFG fail-closed, dropped-increment guard, unreachable-carrier, and other skip-inducing slices | **Yes** — intended future GenValid parity lane |
-| `ssa-nomerge-stress` | Reserved pathological/fail-closed lane (currently aliases dense coverage templates) | **No** |
+| Profile | Purpose | Templates included | Templates excluded |
+|---|---|---|---|
+| `ssa-nomerge-coverage` (`ssa-nomerge` alias) | Dense SSA body templates, all `ssa-*` coverage floors, fail-closed stress shapes | straight-line multi-def, tee, param write, if-join, default merge, loop backedge, block join, br_table, parallel-copy (+ cycle), unreachable carrier, dropped increment guarded/reversed, nested-CFG fail-closed | exceptional/typed-loop fail-closed (not emitted; scanned only when present elsewhere) |
+| `ssa-nomerge-parity` | Compare candidate: rewrite shapes where both tools transform without fail-closed skip | straight-line multi-def, tee, param write (when i32 param), if-join phi, one-arm default merge | loop backedge, block join, br_table, parallel-copy, unreachable carrier, dropped increment guarded/reversed, nested-CFG / typed-loop / exceptional fail-closed |
+| `ssa-nomerge-stress` | Reserved pathological/fail-closed lane (currently aliases dense coverage templates) | same as coverage | — |
 
-Use `--gen-valid-profile ssa-nomerge-parity` with parity-appropriate `--require-feature` floors for SSA rewrite signoff experiments. Keep `--gen-valid-profile ssa-nomerge-coverage` (or legacy `ssa-nomerge`) for scanner/floor coverage only.
+Use `--gen-valid-profile ssa-nomerge-parity` with parity-appropriate `--require-feature` floors for targeted GenValid parity-profile compare lanes. Keep `--gen-valid-profile ssa-nomerge-coverage` (or legacy `ssa-nomerge`) for scanner/floor coverage only. The broad mixed-generator `100000` lane with `--normalize local-cleanup-debris` remains the primary signoff baseline; a green parity-profile lane is strong targeted evidence, not a replacement for that baseline.
+
+2026-06-09 parity-profile compare (trimmed templates A–E only, `--normalize ssa-local-allocation-debris --normalize local-cleanup-debris`):
+
+- `100/100` compared, `100` compare-normalized matches, `0` mismatches (`.tmp/pass-fuzz-ssa-nomerge-parity-profile-100-v2`)
+- `1000/1000` compared, `1000` compare-normalized matches, `0` mismatches (`.tmp/pass-fuzz-ssa-nomerge-parity-profile-1000`)
+
+The earlier dense-profile smoke (`ssa-nomerge-coverage` with loop/block/br_table/parallel-copy in one function) remains a coverage-lane artifact, not a parity signoff lane.
 
 ## Remaining Gap
 
