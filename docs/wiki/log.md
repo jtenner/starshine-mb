@@ -7,6 +7,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Documented the join-allocation investigation in [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md): dense `ssa-nomerge` GenValid smoke mismatches are primarily coverage-lane artifacts (Starshine skip vs Binaryen rewrite), not a broad normalizer gap.
 - Split GenValid SSA profiles into `ssa-nomerge-coverage` (legacy `ssa-nomerge` alias), `ssa-nomerge-parity`, and `ssa-nomerge-stress`; updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) with lane definitions.
 - Parity lane uses lighter SSA body templates that exclude fail-closed / skip-inducing slices; coverage/stress lanes keep dense templates for scanner floors only.
+- Implementation: `ssa-nomerge-coverage` / `ssa-nomerge-parity` / `ssa-nomerge-stress` profiles in [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt); legacy `ssa-nomerge` aliases coverage. Parity smoke (`.tmp/pass-fuzz-ssa-nomerge-parity-smoke-20`) compares `20/20` with Starshine `changed=true` on func 0; normalized matches remain `0/20` due to join allocation drift, not skip-vs-transform.
 
 ## [2026-06-09] passes/ssa-nomerge | Needed structured copies and canonical body locals
 

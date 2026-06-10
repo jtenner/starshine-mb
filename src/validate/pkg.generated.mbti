@@ -1007,6 +1007,9 @@ pub enum GenValidProfile {
   ControlHeavyProfile
   TopologyHeavyProfile
   PathologicalValidProfile
+  SsaNomergeCoverageProfile
+  SsaNomergeParityProfile
+  SsaNomergeStressProfile
 } derive(Eq, @debug.Debug)
 
 pub enum GenValidProposalFeature {

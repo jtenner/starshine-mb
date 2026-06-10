@@ -7214,15 +7214,36 @@ test "control-heavy profile uses typed GenValid body generator slice" {
 }
 
 ///|
-test "ssa-nomerge gen-valid profile resolves and enables SSA body generator" {
-  @debug.assert_eq(gen_valid_profile_name(SsaNomergeProfile), "ssa-nomerge")
-  assert_true(gen_valid_profile_names().contains("ssa-nomerge"))
+test "ssa-nomerge gen-valid profiles resolve and enable SSA body generator" {
+  @debug.assert_eq(
+    gen_valid_profile_name(SsaNomergeCoverageProfile),
+    "ssa-nomerge-coverage",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(SsaNomergeParityProfile),
+    "ssa-nomerge-parity",
+  )
+  @debug.assert_eq(
+    gen_valid_profile_name(SsaNomergeStressProfile),
+    "ssa-nomerge-stress",
+  )
+  assert_true(gen_valid_profile_names().contains("ssa-nomerge-coverage"))
+  assert_true(gen_valid_profile_names().contains("ssa-nomerge-parity"))
+  assert_true(gen_valid_profile_names().contains("ssa-nomerge-stress"))
   match gen_valid_profile_by_name("ssa-nomerge") {
-    Ok(profile) => @debug.assert_eq(profile, SsaNomergeProfile)
+    Ok(profile) => @debug.assert_eq(profile, SsaNomergeCoverageProfile)
     Err(msg) => fail(msg)
   }
-  let config = GenValidConfig::for_profile(SsaNomergeProfile)
-  @debug.assert_eq(gen_valid_config_label(config), "ssa-nomerge")
+  match gen_valid_profile_by_name("ssa-nomerge-coverage") {
+    Ok(profile) => @debug.assert_eq(profile, SsaNomergeCoverageProfile)
+    Err(msg) => fail(msg)
+  }
+  match gen_valid_profile_by_name("ssa-nomerge-parity") {
+    Ok(profile) => @debug.assert_eq(profile, SsaNomergeParityProfile)
+    Err(msg) => fail(msg)
+  }
+  let config = GenValidConfig::for_profile(SsaNomergeCoverageProfile)
+  @debug.assert_eq(gen_valid_config_label(config), "ssa-nomerge-coverage")
   assert_true(config.features.allow_ssa_nomerge_body_generator)
   assert_false(
     GenValidConfig::natural_default().features.allow_ssa_nomerge_body_generator,
@@ -7233,8 +7254,8 @@ test "ssa-nomerge gen-valid profile resolves and enables SSA body generator" {
 }
 
 ///|
-test "ssa-nomerge generated modules record core SSA feature facts" {
-  let config = GenValidConfig::for_profile(SsaNomergeProfile)
+test "ssa-nomerge coverage generated modules record dense SSA feature facts" {
+  let config = GenValidConfig::for_profile(SsaNomergeCoverageProfile)
   let generated = match gen_valid_module_result_from_seed(0x5eedUL, config) {
     Ok(v) => v
     Err(failure) =>
@@ -7285,6 +7306,47 @@ test "ssa-nomerge generated modules record core SSA feature facts" {
   assert_true(
     facts.has_ssa_nested_cfg_fail_closed_shape,
     msg="expected nested CFG fail-closed shape",
+  )
+}
+
+///|
+test "ssa-nomerge parity generated modules omit fail-closed coverage slices" {
+  let config = GenValidConfig::for_profile(SsaNomergeParityProfile)
+  let generated = match gen_valid_module_result_from_seed(0x5eedUL, config) {
+    Ok(v) => v
+    Err(failure) =>
+      fail(
+        "ssa-nomerge-parity generation failed: \{failure.validation_error_message}",
+      )
+  }
+  let facts = generated.facts
+  assert_true(
+    facts.has_ssa_straight_line_local_chain,
+    msg="expected straight-line local chain",
+  )
+  assert_true(
+    facts.has_ssa_if_join_phi_candidate,
+    msg="expected if-join phi candidate",
+  )
+  assert_true(
+    facts.has_ssa_loop_backedge_phi_candidate,
+    msg="expected loop backedge phi candidate",
+  )
+  assert_true(
+    facts.has_ssa_parallel_copy_candidate,
+    msg="expected parallel-copy candidate",
+  )
+  assert_false(
+    facts.has_ssa_nested_cfg_fail_closed_shape,
+    msg="parity profile must not emit nested CFG fail-closed shape",
+  )
+  assert_false(
+    facts.has_ssa_dropped_increment_guard_shape,
+    msg="parity profile must not emit dropped increment guard shape",
+  )
+  assert_false(
+    facts.has_ssa_unreachable_local_carrier,
+    msg="parity profile must not emit unreachable local carrier",
   )
 }
 

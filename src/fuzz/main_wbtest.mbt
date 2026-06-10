@@ -2360,7 +2360,7 @@ test "emit_gen_valid_batch_artifacts_until_features satisfies ssa-nomerge SSA fl
     emit_gen_valid_batch_artifacts_until_features(
       1,
       0x5eedUL,
-      match GenValidConfig::profile("ssa-nomerge") {
+      match GenValidConfig::profile("ssa-nomerge-coverage") {
         Ok(v) => v
         Err(e) => fail(e)
       },

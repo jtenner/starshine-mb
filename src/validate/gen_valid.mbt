@@ -652,7 +652,9 @@ pub enum GenValidProfile {
   ControlHeavyProfile
   TopologyHeavyProfile
   PathologicalValidProfile
-  SsaNomergeProfile
+  SsaNomergeCoverageProfile
+  SsaNomergeParityProfile
+  SsaNomergeStressProfile
 } derive(Eq, Debug)
 
 ///|
@@ -684,7 +686,9 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     ControlHeavyProfile => "control-heavy"
     TopologyHeavyProfile => "topology-heavy"
     PathologicalValidProfile => "pathological-valid"
-    SsaNomergeProfile => "ssa-nomerge"
+    SsaNomergeCoverageProfile => "ssa-nomerge-coverage"
+    SsaNomergeParityProfile => "ssa-nomerge-parity"
+    SsaNomergeStressProfile => "ssa-nomerge-stress"
   }
 }
 
@@ -717,7 +721,9 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     ControlHeavyProfile,
     TopologyHeavyProfile,
     PathologicalValidProfile,
-    SsaNomergeProfile,
+    SsaNomergeCoverageProfile,
+    SsaNomergeParityProfile,
+    SsaNomergeStressProfile,
   ]
 }
 
@@ -768,6 +774,7 @@ pub fn gen_valid_profile_by_name(
     "coverage-forced" => Ok(CoverageForcedAllFeaturesProfile)
     "portable-coverage-forced" => Ok(CoverageForcedPortableProfile)
     "binaryen-oracle-coverage-forced" => Ok(BinaryenOraclePortableProfile)
+    "ssa-nomerge" => Ok(SsaNomergeCoverageProfile)
     _ =>
       Err(
         "unknown gen-valid profile '\{name}'; expected \{gen_valid_join_profile_names(gen_valid_profile_names())}",
@@ -1094,41 +1101,52 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         max_name_length: 256,
         max_segment_payload_size: 4096,
       }
-    SsaNomergeProfile => {
-      let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
-      GenValidConfig::{
-        ..base,
-        max_type_defs: 6,
-        max_defined_funcs: 8,
-        max_params: 4,
-        max_results: 2,
-        max_locals: 12,
-        max_body_statements: 24,
-        max_body_depth: 5,
-        features: GenValidFeatureToggles::{
-          ..base.features,
-          allow_branch_heavy_control: true,
-          allow_typed_body_generator: false,
-          allow_ssa_nomerge_body_generator: true,
-          allow_calls: false,
-          allow_imports: false,
-          allow_tables: false,
-          allow_mems: false,
-          allow_globals: false,
-          allow_tags: false,
-          allow_v128: false,
-          allow_relaxed_simd: false,
-          allow_call_indirect: false,
-          allow_tail_calls: false,
-          allow_memory64: false,
-          allow_atomics: false,
-          allow_shared_memories: false,
-          allow_subtyping_topology: false,
-          allow_ref_types: false,
-          allow_name_custom_sections: false,
-        },
-      }
-    }
+    SsaNomergeCoverageProfile
+    | SsaNomergeParityProfile
+    | SsaNomergeStressProfile => gen_valid_ssa_nomerge_profile_config(profile)
+  }
+}
+
+///|
+fn gen_valid_ssa_nomerge_profile_config(
+  profile : GenValidProfile,
+) -> GenValidConfig {
+  let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+  let max_locals = match profile {
+    SsaNomergeParityProfile => 8
+    _ => 12
+  }
+  GenValidConfig::{
+    ..base,
+    max_type_defs: 6,
+    max_defined_funcs: 8,
+    max_params: 4,
+    max_results: 2,
+    max_locals,
+    max_body_statements: 24,
+    max_body_depth: 5,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_branch_heavy_control: true,
+      allow_typed_body_generator: false,
+      allow_ssa_nomerge_body_generator: true,
+      allow_calls: false,
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: false,
+      allow_globals: false,
+      allow_tags: false,
+      allow_v128: false,
+      allow_relaxed_simd: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_memory64: false,
+      allow_atomics: false,
+      allow_shared_memories: false,
+      allow_subtyping_topology: false,
+      allow_ref_types: false,
+      allow_name_custom_sections: false,
+    },
   }
 }
 
@@ -1151,8 +1169,15 @@ fn gen_valid_is_control_heavy_config(config : GenValidConfig) -> Bool {
 }
 
 ///|
-fn gen_valid_is_ssa_nomerge_config(config : GenValidConfig) -> Bool {
-  config == GenValidConfig::for_profile(SsaNomergeProfile)
+fn gen_valid_is_ssa_nomerge_family_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(SsaNomergeCoverageProfile) ||
+  config == GenValidConfig::for_profile(SsaNomergeParityProfile) ||
+  config == GenValidConfig::for_profile(SsaNomergeStressProfile)
+}
+
+///|
+fn gen_valid_is_ssa_nomerge_parity_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(SsaNomergeParityProfile)
 }
 
 ///|
@@ -10179,7 +10204,7 @@ fn gen_valid_build_func(
   }
   gen_valid_append_typed_body_generator_slice(body_instrs, ctx, env)
   match current_func_idx {
-    Some(idx) if gen_valid_is_ssa_nomerge_config(ctx.config) &&
+    Some(idx) if gen_valid_is_ssa_nomerge_family_config(ctx.config) &&
       idx != FuncIdx::new(0U) => ()
     // SSA templates are a no-op unless allow_ssa_nomerge_body_generator (see gen_valid_ssa.mbt).
     _ => gen_valid_append_ssa_nomerge_body_slice(body_instrs, ctx, env, accepts)
@@ -11046,14 +11071,14 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       [ValType::v128()]
     } else if gen_valid_is_control_heavy_config(ctx.config) && i == 3 {
       [ValType::i32(), ValType::i64()]
-    } else if gen_valid_is_ssa_nomerge_config(ctx.config) && i == 0 {
+    } else if gen_valid_is_ssa_nomerge_family_config(ctx.config) && i == 0 {
       [ValType::i32()]
-    } else if gen_valid_is_ssa_nomerge_config(ctx.config) {
+    } else if gen_valid_is_ssa_nomerge_family_config(ctx.config) {
       []
     } else {
       gen_param_types(ctx)
     }
-    let results = if gen_valid_is_ssa_nomerge_config(ctx.config) {
+    let results = if gen_valid_is_ssa_nomerge_family_config(ctx.config) {
       []
     } else if i == 0 && (has_start || total_tag_count > 0) {
       []
