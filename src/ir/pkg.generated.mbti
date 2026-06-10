@@ -786,6 +786,8 @@ pub fn ssa_phis_for_block(HotLocalSsa, Int) -> Array[Int]
 
 pub fn ssa_remove_dead_local_defs(HotFunc, Array[Int]) -> Unit
 
+pub fn ssa_simple_drop_value_block_allowed(HotFunc, Int, Int, Int) -> Bool
+
 pub fn ssa_rename_policy() -> HotSsaRenamePolicy
 
 pub fn ssa_rewrite_local_use(HotFunc, Int, Int) -> Unit

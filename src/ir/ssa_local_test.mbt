@@ -142,6 +142,47 @@ test "ssa local build resolves uninitialized locals to default-init entry defs" 
 }
 
 ///|
+test "ssa local build renames locals inside drop operand value blocks" {
+  let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+  let prior_set = hot_build_local_set(
+    func,
+    0,
+    hot_build_const_i32(func, @lib.I32(3)),
+  )
+  let nested_set = hot_build_local_set(
+    func,
+    0,
+    hot_build_const_i32(func, @lib.I32(7)),
+  )
+  let nested_get = hot_build_local_get(func, 0)
+  let value_block = hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [nested_set, nested_get],
+  )
+  let drop = hot_build_drop(func, value_block)
+  let final_get = hot_build_local_get(func, 0)
+  hot_root_append(func, prior_set)
+  hot_root_append(func, drop)
+  hot_root_append(func, hot_build_drop(func, final_get))
+
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+  let prior_value = ssa_def_for_local_set(ssa, prior_set)
+  let nested_value = ssa_def_for_local_set(ssa, nested_set)
+
+  @debug.assert_eq(ssa_value_for_local_get(ssa, final_get), nested_value)
+  assert_false(ssa_value_for_local_get(ssa, final_get) == prior_value)
+  @debug.assert_eq(
+    ssa_value_origin(ssa, ssa_value_for_local_get(ssa, nested_get)),
+    ssa_local_set_def(nested_set),
+  )
+}
+
+///|
 test "ssa local build records local tee defs for later reads" {
   let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
   let value = hot_build_const_i32(func, @lib.I32(9))

@@ -68,10 +68,37 @@ fn ssa_nomerge_subtree_has_local_or_terminator(
 }
 
 ///|
+fn ssa_nomerge_is_simple_nested_value_block_operand(
+  func : @ir.HotFunc,
+  parent_id : @ir.NodeId,
+  slot : Int,
+  child_id : @ir.NodeId,
+) -> Bool {
+  @ir.ssa_simple_drop_value_block_allowed(func, parent_id, slot, child_id)
+}
+
+///|
+fn ssa_nomerge_nested_cfg_node_is_fail_closed(
+  func : @ir.HotFunc,
+  parent_id : @ir.NodeId,
+  parent_slot : Int,
+  node_id : @ir.NodeId,
+) -> Bool {
+  if ssa_nomerge_is_simple_nested_value_block_operand(
+      func, parent_id, parent_slot, node_id,
+    ) {
+    return false
+  }
+  ssa_nomerge_subtree_has_local_or_terminator(func, node_id)
+}
+
+///|
 fn ssa_nomerge_has_nested_cfg_control_node(
   func : @ir.HotFunc,
   node_id : @ir.NodeId,
   is_region_root : Bool,
+  parent_id : @ir.NodeId,
+  parent_slot : Int,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -80,8 +107,11 @@ fn ssa_nomerge_has_nested_cfg_control_node(
     (
       @ir.hot_is_control_node(func, node_id) ||
       @ir.hot_is_terminator_node(func, node_id)
+    ) &&
+    ssa_nomerge_nested_cfg_node_is_fail_closed(
+      func, parent_id, parent_slot, node_id,
     ) {
-    return ssa_nomerge_subtree_has_local_or_terminator(func, node_id)
+    return true
   }
   let node = @ir.hot_node_get(func, node_id)
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
@@ -92,7 +122,7 @@ fn ssa_nomerge_has_nested_cfg_control_node(
     let child_is_region_root = @ir.hot_is_control_node(func, node_id) &&
       ssa_nomerge_is_control_region_slot(node.op, slot)
     if ssa_nomerge_has_nested_cfg_control_node(
-        func, child_id, child_is_region_root,
+        func, child_id, child_is_region_root, node_id, slot,
       ) {
       return true
     }
@@ -102,17 +132,18 @@ fn ssa_nomerge_has_nested_cfg_control_node(
 
 ///|
 fn ssa_nomerge_has_nested_cfg_sensitive_control(func : @ir.HotFunc) -> Bool {
-  // Nested value-control regions can contain local reads/writes and terminators
-  // that are not represented as simple block-level local flow. SSA v1 local
-  // liveness/use-def/rename may miss local reads inside those nested regions,
-  // and rewriting local definitions around these shapes can detach reads from
-  // the reaching local version. Fail closed until nested liveness/use-def/
-  // rename/destruction are proven exact. This is not feature support.
+  // Operand-nested straight-line `drop(block (result t) ...)` value blocks are
+  // allowed via `ssa_simple_drop_value_block_allowed(...)` and inline rename in
+  // `ssa_local_visit_node`. All other nested value-control regions can still
+  // contain local reads/writes and terminators outside SSA v1's region-root
+  // model; fail closed for those shapes.
   for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
     if ssa_nomerge_has_nested_cfg_control_node(
         func,
         @ir.hot_root_get(func, root_idx),
         true,
+        -1,
+        -1,
       ) {
       return true
     }

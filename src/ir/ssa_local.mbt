@@ -65,6 +65,111 @@ fn ssa_local_is_region_slot(op : HotOp, slot : Int) -> Bool {
 }
 
 ///|
+fn ssa_simple_node_is_forbidden_control(
+  func : HotFunc,
+  node_id : NodeId,
+) -> Bool {
+  if node_id < 0 || !hot_node_is_live(func, node_id) {
+    return false
+  }
+  if hot_is_terminator_node(func, node_id) || hot_is_branch(func, node_id) {
+    return true
+  }
+  match hot_node_get(func, node_id).op {
+    HotOp::Block
+    | HotOp::Loop
+    | HotOp::If
+    | HotOp::Try
+    | HotOp::TryTable
+    | HotOp::Br
+    | HotOp::BrIf
+    | HotOp::BrTable
+    | HotOp::Return
+    | HotOp::Unreachable
+    | HotOp::Throw
+    | HotOp::ThrowRef
+    | HotOp::Rethrow
+    | HotOp::Delegate => true
+    _ => false
+  }
+}
+
+///|
+fn ssa_simple_value_block_subtree_is_straight_line(
+  func : HotFunc,
+  node_id : NodeId,
+  allow_block_root : Bool,
+) -> Bool {
+  if node_id < 0 || !hot_node_is_live(func, node_id) {
+    return true
+  }
+  let node = hot_node_get(func, node_id)
+  if !allow_block_root && ssa_simple_node_is_forbidden_control(func, node_id) {
+    return false
+  }
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    let child_id = func.children[node.child_base + slot]
+    if child_id == HOT_NONE_NODE || !hot_node_is_live(func, child_id) {
+      continue
+    }
+    if !ssa_simple_value_block_subtree_is_straight_line(func, child_id, false) {
+      return false
+    }
+  }
+  if allow_block_root && node.op == HotOp::Block {
+    let body = hot_region_body_ref(func, node_id)
+    for slot = 0; slot < hot_region_root_count(func, body); slot = slot + 1 {
+      let root_id = hot_region_get(func, body, slot)
+      if root_id == HOT_NONE_NODE || !hot_node_is_live(func, root_id) {
+        continue
+      }
+      if !ssa_simple_value_block_subtree_is_straight_line(func, root_id, false) {
+        return false
+      }
+    }
+  }
+  true
+}
+
+///|
+pub fn ssa_simple_drop_value_block_allowed(
+  func : HotFunc,
+  drop_id : NodeId,
+  operand_slot : Int,
+  block_id : NodeId,
+) -> Bool {
+  if drop_id < 0 ||
+    operand_slot != 0 ||
+    block_id < 0 ||
+    !hot_node_is_live(func, drop_id) ||
+    !hot_node_is_live(func, block_id) {
+    return false
+  }
+  if hot_node_get(func, drop_id).op != HotOp::Drop ||
+    hot_node_get(func, block_id).op != HotOp::Block {
+    return false
+  }
+  ssa_simple_value_block_subtree_is_straight_line(func, block_id, true)
+}
+
+///|
+fn ssa_local_visit_region_roots(
+  func : HotFunc,
+  ssa : HotLocalSsa,
+  region_ref : HotRegionRef,
+  local_stacks : Array[Array[SsaValueId]],
+  pushed_locals : Array[LocalId],
+) -> Unit {
+  for slot = 0; slot < hot_region_root_count(func, region_ref); slot = slot + 1 {
+    let root_id = hot_region_get(func, region_ref, slot)
+    if root_id == HOT_NONE_NODE || !hot_node_is_live(func, root_id) {
+      continue
+    }
+    ssa_local_visit_node(func, ssa, root_id, local_stacks, pushed_locals)
+  }
+}
+
+///|
 fn ssa_local_live_child(func : HotFunc, node : HotNode, slot : Int) -> NodeId? {
   let child_id = func.children[node.child_base + slot]
   if child_id == HOT_NONE_NODE || !hot_node_is_live(func, child_id) {
@@ -88,7 +193,18 @@ fn ssa_local_visit_node(
     }
     match ssa_local_live_child(func, node, slot) {
       Some(child_id) =>
-        ssa_local_visit_node(func, ssa, child_id, local_stacks, pushed_locals)
+        if node.op == HotOp::Drop &&
+          ssa_simple_drop_value_block_allowed(func, node_id, slot, child_id) {
+          ssa_local_visit_region_roots(
+            func,
+            ssa,
+            hot_region_body_ref(func, child_id),
+            local_stacks,
+            pushed_locals,
+          )
+        } else {
+          ssa_local_visit_node(func, ssa, child_id, local_stacks, pushed_locals)
+        }
       None => ()
     }
   }

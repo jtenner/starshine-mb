@@ -768,31 +768,136 @@ test "ssa-nomerge preserves typed loop-carried induction values" {
 }
 
 ///|
-test "ssa-nomerge does not mutate dropped value-block local traffic" {
-  // HOT nests the value block under `drop`, so the block is nested CFG-sensitive
-  // control rather than a function-body region root.
+fn ssa_test_nested_cfg_hot_mutates(source : String) -> Unit raise {
+  assert_true(
+    ssa_test_hot_path_revision_changed(source),
+    msg="expected hot-path rewrite for simple nested value block",
+  )
+}
+
+///|
+test "ssa-nomerge rewrites simple nested value-block local traffic" {
   let source =
     #|(module
-    #|  (func (param i32) (result i32)
-    #|    (local i32)
+    #|  (func (local i32)
     #|    (block (result i32)
     #|      i32.const 7
-    #|      local.set 1
-    #|      local.get 1)
+    #|      local.set 0
+    #|      local.get 0)
     #|    drop
-    #|    local.get 1))
+    #|    local.get 0
+    #|    drop))
     #|)
-  ssa_test_nested_cfg_pipeline_fail_closed(source)
-  ssa_test_nested_cfg_hot_fail_closed(source)
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  ssa_test_nested_cfg_hot_mutates(source)
+}
+
+///|
+test "ssa-nomerge preserves reaching local from nested value-block local.set" {
+  let source =
+    #|(module
+    #|  (func (local i32)
+    #|    i32.const 3
+    #|    local.set 0
+    #|    (block (result i32)
+    #|      i32.const 7
+    #|      local.set 0
+    #|      local.get 0)
+    #|    drop
+    #|    local.get 0
+    #|    drop))
+    #|)
+  let optimized = match ssa_test_run_hot_path_only(source) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected nested value-block prior-write hot-path success, got \{err}",
+      )
+  }
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   let text = instrs.to_string()
+  assert_true(text.contains("i32.const I32(3)"), msg=text)
+  assert_true(text.contains("i32.const I32(7)"), msg=text)
   assert_true(text.contains("local.set"), msg=text)
+  assert_false(text.contains("local.get (Local 0)"), msg=text)
   assert_true(text.contains("local.get"), msg=text)
 }
 
 ///|
-test "ssa-nomerge does not mutate nested if inside dropped value block" {
+test "ssa-nomerge handles simple nested value-block local.tee" {
+  let source =
+    #|(module
+    #|  (func (local i32)
+    #|    (block (result i32)
+    #|      i32.const 7
+    #|      local.tee 0)
+    #|    drop
+    #|    local.get 0
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_hot_mutates(source)
+  let optimized = match ssa_test_run_hot_path_only(source) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nested value-block tee hot-path success, got \{err}")
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+      ]),
+    ),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
+test "ssa-nomerge preserves distinct locals around nested value-block traffic" {
+  let source =
+    #|(module
+    #|  (func (local i32 i32)
+    #|    i32.const 10
+    #|    local.set 0
+    #|    i32.const 20
+    #|    local.set 1
+    #|    (block (result i32)
+    #|      local.get 0
+    #|      i32.const 1
+    #|      i32.add
+    #|      local.set 0
+    #|      local.get 0)
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 0
+    #|    drop))
+    #|)
+  let optimized = match ssa_test_run_hot_path_only(source) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nested value-block two-local hot-path success, got \{err}")
+  }
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("i32.const I32(10)"), msg=text)
+  assert_true(text.contains("i32.const I32(20)"), msg=text)
+  assert_true(text.contains("i32.add"), msg=text)
+  assert_false(text.contains("local.get (Local 0)"), msg=text)
+  assert_false(text.contains("local.set (Local 0)"), msg=text)
+  assert_true(text.contains("local.get"), msg=text)
+  assert_true(text.contains("local.set"), msg=text)
+}
+
+///|
+test "ssa-nomerge still skips nested result if under value block" {
   // The result-typed `if` arms are region roots, but the enclosing value block
   // sits in `drop`'s operand slot and is therefore nested CFG-sensitive control.
   let source =
@@ -824,7 +929,7 @@ test "ssa-nomerge does not mutate nested if inside dropped value block" {
 }
 
 ///|
-test "ssa-nomerge does not mutate nested br inside dropped value block" {
+test "ssa-nomerge still skips nested value block with br" {
   // `br` is a terminator; when it appears inside a value block nested under
   // `drop`, the guard treats the subtree as nested CFG-sensitive local traffic.
   // An outer `$outer` label gives the inner `br` a valid exit target.
@@ -851,7 +956,7 @@ test "ssa-nomerge does not mutate nested br inside dropped value block" {
 }
 
 ///|
-test "ssa-nomerge does not mutate nested br_if local traffic inside dropped value block" {
+test "ssa-nomerge still skips nested value block with br_if" {
   // `br_if` is branch-shaped but not a HOT terminator flag; this fixture still
   // triggers the guard via the nested value block under `drop` with local traffic.
   // The outer `$outer` label keeps the inner `br_if` stack-valid.
@@ -871,6 +976,30 @@ test "ssa-nomerge does not mutate nested br_if local traffic inside dropped valu
     #|)
   ssa_test_nested_cfg_pipeline_fail_closed(source)
   ssa_test_nested_cfg_hot_fail_closed(source)
+}
+
+///|
+test "ssa-nomerge still skips nested loop under value block" {
+  let source =
+    #|(module
+    #|  (func (local i32)
+    #|    (block (result i32)
+    #|      loop
+    #|        i32.const 7
+    #|        local.set 0
+    #|      end
+    #|      local.get 0)
+    #|    drop
+    #|    local.get 0
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_pipeline_fail_closed(source)
+  ssa_test_nested_cfg_hot_fail_closed(source)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("local.set"), msg=text)
+  assert_true(text.contains("local.get"), msg=text)
 }
 
 ///|
