@@ -7355,7 +7355,7 @@ test "ssa-nomerge parity generated modules omit fail-closed coverage slices" {
   )
   assert_false(
     facts.has_ssa_dropped_increment_guard_shape,
-    msg="parity profile must not emit dropped increment guard shape",
+    msg="parity profile must not emit dropped increment guard shape until compare lane is clean",
   )
   assert_false(
     facts.has_ssa_unreachable_local_carrier,

@@ -31,68 +31,6 @@ fn ssa_nomerge_has_local_writes(func : @ir.HotFunc) -> Bool {
 }
 
 ///|
-// Narrow fail-closed guard for dropped local increments. `ssa_nomerge_run` only
-// reaches this after confirming the function has local writes, so tests must
-// include an actual `local.set` / `local.tee` elsewhere to exercise this guard.
-// The current guarded shape is intentionally exact:
-//   drop(i32.add(local.get N, i32.const 1))
-fn ssa_nomerge_has_dropped_local_increment(func : @ir.HotFunc) -> Bool {
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    let node = @ir.hot_node_get(func, node_id)
-    match node.op {
-      @ir.HotOp::Drop => {
-        if @ir.hot_child_count(func, node_id) != 1 {
-          continue
-        }
-        let value_id = @ir.hot_child_get(func, node_id, 0)
-        if value_id < 0 || !@ir.hot_node_is_live(func, value_id) {
-          continue
-        }
-        let value_node = @ir.hot_node_get(func, value_id)
-        match value_node.op {
-          @ir.HotOp::Binary =>
-            match @ir.hot_node_exact_instr(func, value_id) {
-              Some(@lib.Instruction::I32Add) => {
-                let lhs_id = @ir.hot_child_get(func, value_id, 0)
-                let rhs_id = @ir.hot_child_get(func, value_id, 1)
-                if lhs_id >= 0 &&
-                  rhs_id >= 0 &&
-                  @ir.hot_node_is_live(func, lhs_id) &&
-                  @ir.hot_node_is_live(func, rhs_id) {
-                  match
-                    (
-                      @ir.hot_node_get(func, lhs_id).op,
-                      @ir.hot_node_get(func, rhs_id).op,
-                    ) {
-                    (@ir.HotOp::LocalGet, @ir.HotOp::Const) =>
-                      match
-                        @ir.hot_const_get(
-                          func,
-                          @ir.hot_node_get(func, rhs_id).imm0,
-                        ) {
-                        @ir.HotConstPayload::I32Const(@lib.I32(1)) =>
-                          return true
-                        _ => ()
-                      }
-                    _ => ()
-                  }
-                }
-              }
-              _ => ()
-            }
-          _ => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  false
-}
-
-///|
 fn ssa_nomerge_is_control_region_slot(op : @ir.HotOp, slot : Int) -> Bool {
   match op {
     @ir.HotOp::Block | @ir.HotOp::Loop => true
@@ -277,7 +215,6 @@ fn ssa_nomerge_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   }
   if ssa_nomerge_has_exceptional_flow(func) ||
     ssa_nomerge_has_loop_param_control(func) ||
-    ssa_nomerge_has_dropped_local_increment(func) ||
     ssa_nomerge_has_nested_cfg_sensitive_control(func) {
     return HotPassResult::unchanged()
   }

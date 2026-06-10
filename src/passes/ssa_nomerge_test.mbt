@@ -121,7 +121,7 @@ test "ssa-nomerge preserves dropped local increments without local writes" {
 }
 
 ///|
-test "ssa-nomerge does not mutate dropped local increment when local writes exist" {
+test "ssa-nomerge rewrites functions containing dropped local increment debris" {
   let source =
     #|(module
     #|  (func (local i32)
@@ -131,20 +131,56 @@ test "ssa-nomerge does not mutate dropped local increment when local writes exis
     #|    local.get 0
     #|    i32.const 1
     #|    i32.add
+    #|    drop
+    #|
+    #|    local.get 0
     #|    drop))
     #|)
-  ssa_test_ssa_nomerge_pipeline_no_mutation(
-    source, "dropped local increment with local.set",
+  assert_true(
+    ssa_test_hot_path_revision_changed(source),
+    msg="expected hot-path rewrite for dropped increment debris",
   )
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
-  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
-  let text = instrs.to_string()
-  assert_true(text.contains("i32.add"), msg=text)
-  assert_true(text.contains("drop"), msg=text)
 }
 
 ///|
-test "ssa-nomerge does not mutate dropped local increment when local.tee provides local writes" {
+test "ssa-nomerge preserves reaching local after dropped increment debris" {
+  let source =
+    #|(module
+    #|  (func (local i32)
+    #|    i32.const 10
+    #|    local.set 0
+    #|
+    #|    local.get 0
+    #|    i32.const 1
+    #|    i32.add
+    #|    drop
+    #|
+    #|    local.get 0
+    #|    drop))
+    #|)
+  let optimized = match ssa_test_run_hot_path_only(source) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dropped increment hot-path success, got \{err}")
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::i32_const(@lib.I32(10)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
+test "ssa-nomerge handles dropped increment after local.tee" {
   let source =
     #|(module
     #|  (func (local i32)
@@ -155,23 +191,40 @@ test "ssa-nomerge does not mutate dropped local increment when local.tee provide
     #|    local.get 0
     #|    i32.const 1
     #|    i32.add
+    #|    drop
+    #|
+    #|    local.get 0
     #|    drop))
     #|)
-  ssa_test_ssa_nomerge_pipeline_no_mutation(
-    source, "dropped local increment with local.tee",
+  assert_true(
+    ssa_test_hot_path_revision_changed(source),
+    msg="expected hot-path rewrite after local.tee",
   )
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
-  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
-  let text = instrs.to_string()
-  assert_true(text.contains("local.tee"), msg=text)
-  assert_true(text.contains("i32.add"), msg=text)
-  assert_true(text.contains("drop"), msg=text)
+  let optimized = match ssa_test_run_hot_path_only(source) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected dropped increment tee hot-path success, got \{err}")
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::i32_const(@lib.I32(10)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_add(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+  ])
 }
 
 ///|
-test "ssa-nomerge validates reversed dropped local increment without guarding it" {
-  // Reversed `i32.add(i32.const 1, local.get)` is not part of the current
-  // dropped-increment guard; this test documents the boundary only.
+test "ssa-nomerge validates reversed dropped local increment boundary" {
   let source =
     #|(module
     #|  (func (local i32)
@@ -181,6 +234,9 @@ test "ssa-nomerge validates reversed dropped local increment without guarding it
     #|    i32.const 1
     #|    local.get 0
     #|    i32.add
+    #|    drop
+    #|
+    #|    local.get 0
     #|    drop))
     #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
@@ -191,24 +247,47 @@ test "ssa-nomerge validates reversed dropped local increment without guarding it
 }
 
 ///|
-fn ssa_test_ssa_nomerge_pipeline_no_mutation(
-  source : String,
-  label : String,
-) -> Unit raise {
-  let trace : Array[String] = []
-  match
-    pass_test_run_pipeline(
-      source,
-      ["ssa-nomerge"],
-      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-    ) {
-    Ok(_) => ()
-    Err(err) => fail("expected \{label} ssa-nomerge success, got \{err}")
-  }
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+test "ssa-nomerge validates non-one dropped increment boundary" {
+  let source =
+    #|(module
+    #|  (func (local i32)
+    #|    i32.const 10
+    #|    local.set 0
+    #|
+    #|    local.get 0
+    #|    i32.const 2
+    #|    i32.add
+    #|    drop
+    #|
+    #|    local.get 0
+    #|    drop))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("i32.const I32(2)"), msg=text)
+  assert_true(text.contains("i32.add"), msg=text)
+  assert_true(text.contains("drop"), msg=text)
+}
+
+///|
+fn ssa_test_hot_path_revision_changed(source : String) -> Bool raise {
+  let mod_ = pass_test_module_from_wat(source)
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
+  @ir.hot_verify_all_or_abort(func)
+  let revision_before = @ir.hot_revision_current(func)
+  let ctx = HotPassContext::new(
+    ssa_nomerge_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
   )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => fail("expected hot-path ssa-nomerge success, got \{err}")
+  }
+  @ir.hot_revision_current(func) != revision_before
 }
 
 ///|
