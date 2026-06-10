@@ -172,6 +172,31 @@ test "cfg build maps drop operand result-if arms to join continuation" {
 }
 
 ///|
+test "ssa simple drop result-if rejects missing else arm" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let result_if = hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    hot_build_local_get(func, 0),
+    [
+      hot_build_local_set(func, 1, hot_build_const_i32(func, @lib.I32(7))),
+      hot_build_local_get(func, 1),
+    ],
+    else_body=None,
+  )
+  let drop = hot_build_drop(func, result_if)
+  hot_root_append(func, drop)
+  assert_false(
+    ssa_simple_drop_result_if_allowed(func, drop, 0, result_if),
+    msg="result-if without else must stay fail-closed",
+  )
+}
+
+///|
 test "cfg build keeps unreachable roots in distinct predless blocks" {
   let func = hot_lift_body(
     @lib.Expr::new([@lib.Instruction::return_(), @lib.Instruction::nop()]),

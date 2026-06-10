@@ -1095,6 +1095,203 @@ test "ssa-nomerge preserves distinct locals around nested result-if traffic" {
 }
 
 ///|
+test "ssa-nomerge rewrites simple nested result-if with i64 result" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    local.get 0
+    #|    if (result i64)
+    #|      i32.const 7
+    #|      local.set 1
+    #|      i64.const 70
+    #|    else
+    #|      i32.const 9
+    #|      local.set 1
+    #|      i64.const 90
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_hot_mutates(source)
+}
+
+///|
+test "ssa-nomerge rewrites simple nested result-if with f32 result" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    local.get 0
+    #|    if (result f32)
+    #|      i32.const 7
+    #|      local.set 1
+    #|      f32.const 7.0
+    #|    else
+    #|      i32.const 9
+    #|      local.set 1
+    #|      f32.const 9.0
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_hot_mutates(source)
+}
+
+///|
+test "ssa-nomerge rewrites simple nested result-if with f64 result" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    local.get 0
+    #|    if (result f64)
+    #|      i32.const 7
+    #|      local.set 1
+    #|      f64.const 7.0
+    #|    else
+    #|      i32.const 9
+    #|      local.set 1
+    #|      f64.const 9.0
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_hot_mutates(source)
+}
+
+///|
+test "ssa-nomerge preserves i64 local traffic inside nested result-if" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i64)
+    #|    local.get 0
+    #|    if (result i64)
+    #|      i64.const 7
+    #|      local.set 1
+    #|      local.get 1
+    #|    else
+    #|      i64.const 9
+    #|      local.set 1
+    #|      local.get 1
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop))
+    #|)
+  let optimized = match ssa_test_run_hot_path_only(source) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nested i64 result-if hot-path success, got \{err}")
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("i64.const"), msg=text)
+  assert_true(text.contains("local.set"), msg=text)
+  assert_true(text.contains("local.get"), msg=text)
+  assert_true(
+    locals.length() > 2,
+    msg="expected SSA temps beyond param and one body local, got \{locals}",
+  )
+}
+
+///|
+test "ssa-nomerge preserves f32 local traffic inside nested result-if" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local f32)
+    #|    local.get 0
+    #|    if (result f32)
+    #|      f32.const 7.0
+    #|      local.set 1
+    #|      local.get 1
+    #|    else
+    #|      f32.const 9.0
+    #|      local.set 1
+    #|      local.get 1
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop))
+    #|)
+  let optimized = match ssa_test_run_hot_path_only(source) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nested f32 result-if hot-path success, got \{err}")
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("f32.const"), msg=text)
+  assert_true(text.contains("local.set"), msg=text)
+  assert_true(text.contains("local.get"), msg=text)
+  assert_true(
+    locals.length() > 2,
+    msg="expected SSA temps beyond param and one body local, got \{locals}",
+  )
+}
+
+///|
+test "ssa-nomerge preserves f64 local traffic inside nested result-if" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local f64)
+    #|    local.get 0
+    #|    if (result f64)
+    #|      f64.const 7.0
+    #|      local.set 1
+    #|      local.get 1
+    #|    else
+    #|      f64.const 9.0
+    #|      local.set 1
+    #|      local.get 1
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop))
+    #|)
+  let optimized = match ssa_test_run_hot_path_only(source) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nested f64 result-if hot-path success, got \{err}")
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("f64.const"), msg=text)
+  assert_true(text.contains("local.set"), msg=text)
+  assert_true(text.contains("local.get"), msg=text)
+  assert_true(
+    locals.length() > 2,
+    msg="expected SSA temps beyond param and one body local, got \{locals}",
+  )
+}
+
+///|
+test "ssa-nomerge still skips nested result-if with multi-value result" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    local.get 0
+    #|    if (result i32 i32)
+    #|      i32.const 7
+    #|      local.set 1
+    #|      local.get 1
+    #|      i32.const 1
+    #|    else
+    #|      i32.const 9
+    #|      local.set 1
+    #|      local.get 1
+    #|      i32.const 2
+    #|    end
+    #|    drop
+    #|    drop
+    #|    local.get 1
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_pipeline_fail_closed(source)
+  ssa_test_nested_cfg_hot_fail_closed(source)
+}
+
+///|
 test "ssa-nomerge still skips nested result-if with br" {
   let source =
     #|(module

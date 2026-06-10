@@ -149,9 +149,10 @@ fn ssa_nomerge_has_nested_cfg_control_node(
 fn ssa_nomerge_has_nested_cfg_sensitive_control(func : @ir.HotFunc) -> Bool {
   // Operand-nested straight-line `drop(block (result t) ...)` value blocks are
   // allowed via `ssa_simple_drop_value_block_allowed(...)` and inline rename in
-  // `ssa_local_visit_node`. Operand-nested `drop(if (result i32) ...)` with
-  // straight-line arms is allowed via `ssa_simple_drop_result_if_allowed(...)`
-  // and CFG-backed rename. All other nested value-control regions can still
+  // `ssa_local_visit_node`. Operand-nested `drop(if (result t) ...)` with a
+  // single scalar numeric result and straight-line arms is allowed via
+  // `ssa_simple_drop_result_if_allowed(...)` and CFG-backed rename. All other
+  // nested value-control regions can still
   // contain local reads/writes and terminators outside SSA v1's region-root
   // model; fail closed for those shapes.
   for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {

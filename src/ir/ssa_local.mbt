@@ -171,16 +171,28 @@ fn ssa_simple_result_if_region_is_straight_line(
 }
 
 ///|
-fn ssa_simple_result_if_has_i32_result(func : HotFunc, if_id : NodeId) -> Bool {
+fn ssa_simple_result_if_has_supported_drop_result(
+  func : HotFunc,
+  if_id : NodeId,
+) -> Bool {
   let results = hot_type_results(func, hot_node_get(func, if_id).ty)
-  results.length() == 1 && results[0] == @lib.ValType::i32()
+  if results.length() != 1 {
+    return false
+  }
+  let ty = results[0]
+  ty == @lib.ValType::i32() ||
+  ty == @lib.ValType::i64() ||
+  ty == @lib.ValType::f32() ||
+  ty == @lib.ValType::f64()
 }
 
 ///|
-// Operand-nested `drop(if (result i32) …)` is a narrow CFG shape: both arms are
-// straight-line, the condition has no nested control or local writes, and the else
-// arm is required. Broader nested `if` (nested branches/loops/exceptions, missing
-// else, multi-value results) stays fail-closed in `ssa-nomerge`.
+// Operand-nested `drop(if (result t) …)` with a single scalar numeric result is a
+// narrow CFG shape: both arms are straight-line, the condition has no nested control
+// or local writes, and the else arm is required. The result value is dropped, but
+// arms still need CFG/SSA modeling for local traffic. v128, reference/GC, and
+// multi-value results stay unsupported. Broader nested `if` (nested branches/loops/
+// exceptions, missing else) stays fail-closed in `ssa-nomerge`.
 pub fn ssa_simple_drop_result_if_allowed(
   func : HotFunc,
   drop_id : NodeId,
@@ -198,7 +210,7 @@ pub fn ssa_simple_drop_result_if_allowed(
     hot_node_get(func, if_id).op != HotOp::If {
     return false
   }
-  if !ssa_simple_result_if_has_i32_result(func, if_id) {
+  if !ssa_simple_result_if_has_supported_drop_result(func, if_id) {
     return false
   }
   let else_ref = match hot_region_else_ref(func, if_id) {

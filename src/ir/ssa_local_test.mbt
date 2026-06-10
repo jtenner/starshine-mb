@@ -204,6 +204,69 @@ test "ssa local build renames locals inside drop operand result-if arms" {
 }
 
 ///|
+fn ssa_local_test_drop_result_if_scalar_phi(
+  result_type : @lib.ValType,
+  build_then_const : (HotFunc) -> NodeId,
+  build_else_const : (HotFunc) -> NodeId,
+) -> Unit raise {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[result_type]),
+  )
+  let condition = hot_build_local_get(func, 0)
+  let then_set = hot_build_local_set(func, 1, build_then_const(func))
+  let then_get = hot_build_local_get(func, 1)
+  let else_set = hot_build_local_set(func, 1, build_else_const(func))
+  let else_get = hot_build_local_get(func, 1)
+  let result_if = hot_build_if(
+    func,
+    @lib.BlockType::val_type(result_type),
+    condition,
+    [then_set, then_get],
+    else_body=Some([else_set, else_get]),
+  )
+  let drop = hot_build_drop(func, result_if)
+  let final_get = hot_build_local_get(func, 1)
+  hot_root_append(func, drop)
+  hot_root_append(func, hot_build_drop(func, final_get))
+
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+  let then_value = ssa_def_for_local_set(ssa, then_set)
+  let else_value = ssa_def_for_local_set(ssa, else_set)
+  let final_value = ssa_value_for_local_get(ssa, final_get)
+
+  assert_false(final_value == then_value)
+  assert_false(final_value == else_value)
+  let next_roots_block = cfg_block_for_region_root(cfg, HotRegionRef::root(), 1).unwrap()
+  let phis = ssa_phis_for_block(ssa, next_roots_block)
+  @debug.assert_eq(phis.length(), 1)
+  @debug.assert_eq(ssa_phi_local(ssa, phis[0]), 1)
+  @debug.assert_eq(ssa_phi_inputs(ssa, phis[0]).length(), 2)
+}
+
+///|
+test "ssa local build renames locals inside scalar drop operand result-if arms" {
+  ssa_local_test_drop_result_if_scalar_phi(
+    @lib.ValType::i64(),
+    fn(func) { hot_build_const_i64(func, @lib.I64(7L)) },
+    fn(func) { hot_build_const_i64(func, @lib.I64(9L)) },
+  )
+  ssa_local_test_drop_result_if_scalar_phi(
+    @lib.ValType::f32(),
+    fn(func) { hot_build_const_f32(func, @lib.F32(7.0)) },
+    fn(func) { hot_build_const_f32(func, @lib.F32(9.0)) },
+  )
+  ssa_local_test_drop_result_if_scalar_phi(
+    @lib.ValType::f64(),
+    fn(func) { hot_build_const_f64(func, @lib.F64(7.0)) },
+    fn(func) { hot_build_const_f64(func, @lib.F64(9.0)) },
+  )
+}
+
+///|
 test "ssa local build renames locals inside drop operand value blocks" {
   let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
   let prior_set = hot_build_local_set(
