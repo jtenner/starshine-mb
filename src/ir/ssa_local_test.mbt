@@ -602,6 +602,54 @@ fn ssa_local_test_arm_value_block_drop_result_if(
 }
 
 ///|
+fn ssa_local_test_mixed_arm_value_block_drop_result_if(
+  func : HotFunc,
+  condition : NodeId,
+  then_prefix : NodeId,
+  then_body : Array[NodeId],
+  else_prefix : NodeId,
+  else_body : Array[NodeId],
+) -> (NodeId, NodeId, NodeId, NodeId, NodeId, NodeId) {
+  let then_block = hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    then_body,
+  )
+  let else_block = hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    else_body,
+  )
+  let then_body_get = hot_region_get(
+    func,
+    hot_region_body_ref(func, then_block),
+    0,
+  )
+  let then_block_set = hot_region_get(
+    func,
+    hot_region_body_ref(func, then_block),
+    then_body.length() - 2,
+  )
+  let else_block_set = hot_region_get(
+    func,
+    hot_region_body_ref(func, else_block),
+    else_body.length() - 2,
+  )
+  let result_if = hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    condition,
+    [then_prefix, then_block],
+    else_body=Some([else_prefix, else_block]),
+  )
+  let drop = hot_build_drop(func, result_if)
+  hot_root_append(func, drop)
+  hot_root_append(func, hot_build_drop(func, hot_build_local_get(func, 1)))
+  hot_root_append(func, hot_build_drop(func, hot_build_local_get(func, 2)))
+  (result_if, drop, then_prefix, then_body_get, then_block_set, else_block_set)
+}
+
+///|
 test "ssa local build renames result-if arm value-block locals" {
   let func = HotFunc::new(
     locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
@@ -693,6 +741,138 @@ test "ssa local build carries arm-value-block writes into post-drop join" {
   assert_true(saw_else)
   assert_false(final_value == then_value)
   assert_false(final_value == else_value)
+}
+
+///|
+test "ssa local build lets arm value-blocks read prefix-written locals" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  let (_, _, then_prefix, then_body_get, _, _) = ssa_local_test_mixed_arm_value_block_drop_result_if(
+    func,
+    hot_build_local_get(func, 0),
+    hot_build_local_set(func, 1, hot_build_const_i32(func, @lib.I32(4))),
+    [
+      hot_build_local_get(func, 1),
+      hot_build_local_set(func, 2, hot_build_const_i32(func, @lib.I32(7))),
+      hot_build_local_get(func, 2),
+    ],
+    hot_build_local_set(func, 1, hot_build_const_i32(func, @lib.I32(5))),
+    [
+      hot_build_local_get(func, 1),
+      hot_build_local_set(func, 2, hot_build_const_i32(func, @lib.I32(9))),
+      hot_build_local_get(func, 2),
+    ],
+  )
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+  let prefix_value = ssa_def_for_local_set(ssa, then_prefix)
+
+  @debug.assert_eq(
+    ssa_value_for_local_get(ssa, then_body_get),
+    prefix_value,
+    msg="prefix write must reach final value-block body read",
+  )
+}
+
+///|
+test "ssa local build carries mixed-arm prefix and block writes into post-drop join" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  let (_, _, then_prefix, _, then_block_set, else_block_set) = ssa_local_test_mixed_arm_value_block_drop_result_if(
+    func,
+    hot_build_local_get(func, 0),
+    hot_build_local_set(func, 1, hot_build_const_i32(func, @lib.I32(1))),
+    [
+      hot_build_local_set(func, 2, hot_build_const_i32(func, @lib.I32(7))),
+      hot_build_local_get(func, 2),
+    ],
+    hot_build_local_set(func, 1, hot_build_const_i32(func, @lib.I32(2))),
+    [
+      hot_build_local_set(func, 2, hot_build_const_i32(func, @lib.I32(9))),
+      hot_build_local_get(func, 2),
+    ],
+  )
+  let else_prefix = hot_region_get(
+    func,
+    hot_region_else_ref(func, hot_child_get(func, hot_root_get(func, 0), 0)).unwrap(),
+    0,
+  )
+  let final_get_1 = hot_child_get(func, hot_root_get(func, 1), 0)
+  let final_get_2 = hot_child_get(func, hot_root_get(func, 2), 0)
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+  let then_prefix_value = ssa_def_for_local_set(ssa, then_prefix)
+  let else_prefix_value = ssa_def_for_local_set(ssa, else_prefix)
+  let then_block_value = ssa_def_for_local_set(ssa, then_block_set)
+  let else_block_value = ssa_def_for_local_set(ssa, else_block_set)
+  let final_value_1 = ssa_value_for_local_get(ssa, final_get_1)
+  let final_value_2 = ssa_value_for_local_get(ssa, final_get_2)
+  let join_block = cfg_block_for_region_root(cfg, HotRegionRef::root(), 1).unwrap()
+  let phis = ssa_phis_for_block(ssa, join_block)
+  let mut phi_local_1 : PhiId? = None
+  let mut phi_local_2 : PhiId? = None
+
+  for phi_id in phis {
+    match ssa_phi_local(ssa, phi_id) {
+      1 => phi_local_1 = Some(phi_id)
+      2 => phi_local_2 = Some(phi_id)
+      _ => ()
+    }
+  }
+  match phi_local_1 {
+    Some(phi_id) => {
+      let inputs = ssa_phi_inputs(ssa, phi_id)
+      @debug.assert_eq(inputs.length(), 2)
+      let mut saw_then = false
+      let mut saw_else = false
+      for input in inputs {
+        if input.value_id == then_prefix_value {
+          saw_then = true
+        } else if input.value_id == else_prefix_value {
+          saw_else = true
+        }
+      }
+      assert_true(saw_then)
+      assert_true(saw_else)
+      assert_false(final_value_1 == then_prefix_value)
+      assert_false(final_value_1 == else_prefix_value)
+    }
+    None => fail("expected join phi for local 1")
+  }
+  match phi_local_2 {
+    Some(phi_id) => {
+      let inputs = ssa_phi_inputs(ssa, phi_id)
+      @debug.assert_eq(inputs.length(), 2)
+      let mut saw_then = false
+      let mut saw_else = false
+      for input in inputs {
+        if input.value_id == then_block_value {
+          saw_then = true
+        } else if input.value_id == else_block_value {
+          saw_else = true
+        }
+      }
+      assert_true(saw_then)
+      assert_true(saw_else)
+      assert_false(final_value_2 == then_block_value)
+      assert_false(final_value_2 == else_block_value)
+    }
+    None => fail("expected join phi for local 2")
+  }
 }
 
 ///|

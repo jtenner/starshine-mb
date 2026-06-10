@@ -160,23 +160,61 @@ pub fn ssa_simple_result_if_arm_value_block_allowed(
 }
 
 ///|
+fn ssa_simple_result_if_region_root_is_void_straight_line(
+  func : HotFunc,
+  root_id : NodeId,
+) -> Bool {
+  if root_id < 0 || !hot_node_is_live(func, root_id) {
+    return false
+  }
+  if hot_type_results(func, hot_node_get(func, root_id).ty).length() != 0 {
+    return false
+  }
+  ssa_simple_value_block_subtree_is_straight_line(func, root_id, false)
+}
+
+///|
 fn ssa_simple_result_if_region_is_straight_line(
   func : HotFunc,
   region_ref : HotRegionRef,
   if_result_type : @lib.ValType,
 ) -> Bool {
   let root_count = hot_region_root_count(func, region_ref)
+  let mut last_live_slot = -1
+  let mut value_block_slot = -1
   for slot = 0; slot < root_count; slot = slot + 1 {
     let root_id = hot_region_get(func, region_ref, slot)
     if root_id == HOT_NONE_NODE || !hot_node_is_live(func, root_id) {
       continue
     }
+    last_live_slot = slot
     if ssa_simple_result_if_arm_value_block_allowed(
         func, if_result_type, root_id,
       ) {
-      if root_count != 1 {
+      if value_block_slot >= 0 {
         return false
       }
+      value_block_slot = slot
+    }
+  }
+  if value_block_slot >= 0 {
+    if value_block_slot != last_live_slot {
+      return false
+    }
+    for slot = 0; slot < value_block_slot; slot = slot + 1 {
+      let root_id = hot_region_get(func, region_ref, slot)
+      if root_id == HOT_NONE_NODE || !hot_node_is_live(func, root_id) {
+        continue
+      }
+      if !ssa_simple_result_if_region_root_is_void_straight_line(func, root_id) {
+        return false
+      }
+    }
+    return true
+  }
+  for slot = 0; slot < root_count; slot = slot + 1 {
+    let root_id = hot_region_get(func, region_ref, slot)
+    if root_id == HOT_NONE_NODE || !hot_node_is_live(func, root_id) {
       continue
     }
     if !ssa_simple_value_block_subtree_is_straight_line(func, root_id, false) {
@@ -242,8 +280,9 @@ fn ssa_simple_result_if_condition_allowed(
 
 ///|
 // Operand-nested `drop(if (result t) …)` with a single scalar numeric result is a
-// narrow CFG shape: both arms are straight-line or a single simple `block (result t)`
-// root per arm, the condition is straight-line with no nested control (local writes
+// narrow CFG shape: both arms are straight-line, a single simple `block (result t)`
+// root per arm, or void straight-line prefix roots followed by one such value block,
+// the condition is straight-line with no nested control (local writes
 // in the condition are allowed), and the else arm is required. The result value is
 // dropped, but arms still need CFG/SSA modeling for local traffic. v128, reference/GC,
 // and multi-value results stay unsupported. Broader nested `if` (nested

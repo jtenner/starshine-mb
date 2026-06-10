@@ -2050,6 +2050,473 @@ test "ssa-nomerge still skips nested result-if with nested loop in arm value-blo
 }
 
 ///|
+test "ssa-nomerge rewrites nested result-if with void prefixes before arm value-blocks" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32 i32)
+    #|    local.get 0
+    #|    if (result i32)
+    #|      i32.const 1
+    #|      local.set 1
+    #|      (block (result i32)
+    #|        i32.const 7
+    #|        local.set 2
+    #|        local.get 2)
+    #|    else
+    #|      i32.const 2
+    #|      local.set 1
+    #|      (block (result i32)
+    #|        i32.const 9
+    #|        local.set 2
+    #|        local.get 2)
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_hot_mutates(source)
+}
+
+///|
+test "ssa-nomerge rewrites nested result-if with one mixed arm value-block" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32 i32)
+    #|    local.get 0
+    #|    if (result i32)
+    #|      i32.const 1
+    #|      local.set 1
+    #|      (block (result i32)
+    #|        i32.const 7
+    #|        local.set 2
+    #|        local.get 2)
+    #|    else
+    #|      (block (result i32)
+    #|        i32.const 9
+    #|        local.set 2
+    #|        local.get 2)
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_hot_mutates(source)
+}
+
+///|
+test "ssa-nomerge lets arm value-blocks read prefix-written locals" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32 i32)
+    #|    local.get 0
+    #|    if (result i32)
+    #|      i32.const 4
+    #|      local.set 1
+    #|      (block (result i32)
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.set 2
+    #|        local.get 2)
+    #|    else
+    #|      i32.const 5
+    #|      local.set 1
+    #|      (block (result i32)
+    #|        local.get 1
+    #|        i32.const 2
+    #|        i32.add
+    #|        local.set 2
+    #|        local.get 2)
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_hot_mutates(source)
+}
+
+///|
+test "ssa-nomerge handles condition value-block plus mixed arm roots" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32 i32 i32)
+    #|    (block (result i32)
+    #|      i32.const 1
+    #|      local.set 1
+    #|      local.get 1)
+    #|    if (result i32)
+    #|      i32.const 4
+    #|      local.set 2
+    #|      (block (result i32)
+    #|        i32.const 7
+    #|        local.set 3
+    #|        local.get 3)
+    #|    else
+    #|      i32.const 5
+    #|      local.set 2
+    #|      (block (result i32)
+    #|        i32.const 9
+    #|        local.set 3
+    #|        local.get 3)
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2
+    #|    drop
+    #|    local.get 3
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_hot_mutates(source)
+}
+
+///|
+test "ssa-nomerge handles scalar result-if with mixed scalar arm value-blocks" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32 f64)
+    #|    local.get 0
+    #|    if (result f64)
+    #|      i32.const 1
+    #|      local.set 1
+    #|      (block (result f64)
+    #|        f64.const 7.0
+    #|        local.set 2
+    #|        local.get 2)
+    #|    else
+    #|      i32.const 2
+    #|      local.set 1
+    #|      (block (result f64)
+    #|        f64.const 9.0
+    #|        local.set 2
+    #|        local.get 2)
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_hot_mutates(source)
+}
+
+///|
+test "ssa-nomerge handles drop prefixes before arm value-blocks" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    local.get 0
+    #|    if (result i32)
+    #|      i32.const 123
+    #|      drop
+    #|      (block (result i32)
+    #|        i32.const 7
+    #|        local.set 1
+    #|        local.get 1)
+    #|    else
+    #|      i32.const 456
+    #|      drop
+    #|      (block (result i32)
+    #|        i32.const 9
+    #|        local.set 1
+    #|        local.get 1)
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_hot_mutates(source)
+}
+
+///|
+test "ssa-nomerge rejects mixed arm with value-producing prefix root" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let then_block = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [
+      @ir.hot_build_local_set(
+        func,
+        1,
+        @ir.hot_build_const_i32(func, @lib.I32(7)),
+      ),
+      @ir.hot_build_local_get(func, 1),
+    ],
+  )
+  let result_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @ir.hot_build_local_get(func, 0),
+    [@ir.hot_build_const_i32(func, @lib.I32(111)), then_block],
+    else_body=Some([
+      @ir.hot_build_local_set(
+        func,
+        1,
+        @ir.hot_build_const_i32(func, @lib.I32(9)),
+      ),
+      @ir.hot_build_local_get(func, 1),
+    ]),
+  )
+  let drop = @ir.hot_build_drop(func, result_if)
+  @ir.hot_root_append(func, drop)
+  @ir.hot_root_append(
+    func,
+    @ir.hot_build_drop(func, @ir.hot_build_local_get(func, 1)),
+  )
+  assert_false(
+    @ir.ssa_simple_drop_result_if_allowed(func, drop, 0, result_if),
+    msg="value-producing mixed-arm prefix must stay fail-closed",
+  )
+  ssa_test_hot_func_ssa_nomerge_revision_unchanged(func)
+}
+
+///|
+test "ssa-nomerge rejects mixed arm with roots after final value-block" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let then_block = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [
+      @ir.hot_build_local_set(
+        func,
+        1,
+        @ir.hot_build_const_i32(func, @lib.I32(7)),
+      ),
+      @ir.hot_build_local_get(func, 1),
+    ],
+  )
+  let result_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @ir.hot_build_local_get(func, 0),
+    [
+      then_block,
+      @ir.hot_build_drop(func, @ir.hot_build_const_i32(func, @lib.I32(222))),
+    ],
+    else_body=Some([
+      @ir.hot_build_local_set(
+        func,
+        1,
+        @ir.hot_build_const_i32(func, @lib.I32(9)),
+      ),
+      @ir.hot_build_local_get(func, 1),
+    ]),
+  )
+  let drop = @ir.hot_build_drop(func, result_if)
+  @ir.hot_root_append(func, drop)
+  @ir.hot_root_append(
+    func,
+    @ir.hot_build_drop(func, @ir.hot_build_local_get(func, 1)),
+  )
+  assert_false(
+    @ir.ssa_simple_drop_result_if_allowed(func, drop, 0, result_if),
+    msg="roots after final mixed-arm value block must stay fail-closed",
+  )
+  ssa_test_hot_func_ssa_nomerge_revision_unchanged(func)
+}
+
+///|
+test "ssa-nomerge rejects mixed arm with two value-block roots" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let first_block = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [@ir.hot_build_const_i32(func, @lib.I32(7))],
+  )
+  let second_block = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [
+      @ir.hot_build_local_set(
+        func,
+        1,
+        @ir.hot_build_const_i32(func, @lib.I32(8)),
+      ),
+      @ir.hot_build_local_get(func, 1),
+    ],
+  )
+  let result_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @ir.hot_build_local_get(func, 0),
+    [first_block, second_block],
+    else_body=Some([
+      @ir.hot_build_local_set(
+        func,
+        1,
+        @ir.hot_build_const_i32(func, @lib.I32(9)),
+      ),
+      @ir.hot_build_local_get(func, 1),
+    ]),
+  )
+  let drop = @ir.hot_build_drop(func, result_if)
+  @ir.hot_root_append(func, drop)
+  @ir.hot_root_append(
+    func,
+    @ir.hot_build_drop(func, @ir.hot_build_local_get(func, 1)),
+  )
+  assert_false(
+    @ir.ssa_simple_drop_result_if_allowed(func, drop, 0, result_if),
+    msg="two mixed-arm value blocks must stay fail-closed",
+  )
+  ssa_test_hot_func_ssa_nomerge_revision_unchanged(func)
+}
+
+///|
+test "ssa-nomerge still skips mixed arm with branch in final value-block" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let prefix = @ir.hot_build_local_set(
+    func,
+    1,
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+  )
+  let outer_block = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  let then_block = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [
+      @ir.hot_build_br(func, @ir.hot_control_node_label(func, outer_block)),
+      @ir.hot_build_local_get(func, 1),
+    ],
+  )
+  let result_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @ir.hot_build_local_get(func, 0),
+    [prefix, then_block],
+    else_body=Some([
+      @ir.hot_build_local_set(
+        func,
+        1,
+        @ir.hot_build_const_i32(func, @lib.I32(9)),
+      ),
+      @ir.hot_build_local_get(func, 1),
+    ]),
+  )
+  let drop = @ir.hot_build_drop(func, result_if)
+  @ir.hot_region_replace_body(
+    func,
+    @ir.hot_region_body_ref(func, outer_block),
+    [drop],
+  )
+  @ir.hot_root_append(func, outer_block)
+  @ir.hot_root_append(
+    func,
+    @ir.hot_build_drop(func, @ir.hot_build_local_get(func, 1)),
+  )
+  assert_false(
+    @ir.ssa_simple_drop_result_if_allowed(func, drop, 0, result_if),
+    msg="branch inside mixed-arm final value block must stay fail-closed",
+  )
+  ssa_test_hot_func_ssa_nomerge_revision_unchanged(func)
+}
+
+///|
+test "ssa-nomerge rejects mixed arm value-block result type mismatch" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let prefix = @ir.hot_build_local_set(
+    func,
+    1,
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+  )
+  let then_block = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i64()),
+    [
+      @ir.hot_build_local_set(
+        func,
+        1,
+        @ir.hot_build_const_i64(func, @lib.I64(7)),
+      ),
+      @ir.hot_build_local_get(func, 1),
+    ],
+  )
+  let else_block = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [
+      @ir.hot_build_local_set(
+        func,
+        1,
+        @ir.hot_build_const_i32(func, @lib.I32(9)),
+      ),
+      @ir.hot_build_local_get(func, 1),
+    ],
+  )
+  let result_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    @ir.hot_build_local_get(func, 0),
+    [prefix, then_block],
+    else_body=Some([else_block]),
+  )
+  let drop = @ir.hot_build_drop(func, result_if)
+  @ir.hot_root_append(func, drop)
+  @ir.hot_root_append(
+    func,
+    @ir.hot_build_drop(func, @ir.hot_build_local_get(func, 1)),
+  )
+  assert_false(
+    @ir.ssa_simple_drop_result_if_allowed(func, drop, 0, result_if),
+    msg="mixed arm value-block result type mismatch must stay fail-closed",
+  )
+  ssa_test_hot_func_ssa_nomerge_revision_unchanged(func)
+}
+
+///|
+test "ssa-nomerge still skips mixed arm with nested block inside final value-block" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    local.get 0
+    #|    if (result i32)
+    #|      i32.const 1
+    #|      local.set 1
+    #|      (block (result i32)
+    #|        (block
+    #|          i32.const 7
+    #|          local.set 1)
+    #|        local.get 1)
+    #|    else
+    #|      i32.const 9
+    #|      local.set 1
+    #|      local.get 1
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_pipeline_fail_closed(source)
+  ssa_test_nested_cfg_hot_fail_closed(source)
+}
+
+///|
 test "ssa-nomerge rejects arm value-block result type mismatch" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[

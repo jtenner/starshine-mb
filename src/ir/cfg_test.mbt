@@ -304,6 +304,71 @@ test "use-def records arm value-block local writes in result-if arm blocks" {
 }
 
 ///|
+test "use-def records mixed arm prefix and value-block writes in their cfg blocks" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  let then_prefix = hot_build_local_set(
+    func,
+    1,
+    hot_build_const_i32(func, @lib.I32(1)),
+  )
+  let then_block = hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [
+      hot_build_local_set(func, 2, hot_build_const_i32(func, @lib.I32(7))),
+      hot_build_local_get(func, 2),
+    ],
+  )
+  let then_block_set = hot_region_get(
+    func,
+    hot_region_body_ref(func, then_block),
+    0,
+  )
+  let else_block = hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [
+      hot_build_local_set(func, 2, hot_build_const_i32(func, @lib.I32(9))),
+      hot_build_local_get(func, 2),
+    ],
+  )
+  let else_block_set = hot_region_get(
+    func,
+    hot_region_body_ref(func, else_block),
+    0,
+  )
+  let result_if = hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    hot_build_local_get(func, 0),
+    [then_prefix, then_block],
+    else_body=Some([else_block]),
+  )
+  let drop = hot_build_drop(func, result_if)
+  hot_root_append(func, drop)
+  hot_root_append(func, hot_build_drop(func, hot_build_local_get(func, 1)))
+  hot_root_append(func, hot_build_drop(func, hot_build_local_get(func, 2)))
+  assert_true(
+    ssa_simple_drop_result_if_allowed(func, drop, 0, result_if),
+    msg="expected mixed arm prefix plus value-block shape to be allowed",
+  )
+  let cfg = cfg_build(func)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let prefix_block = cfg_block_for_node(cfg, then_prefix).unwrap()
+  let then_arm_block = cfg_block_for_node(cfg, then_block_set).unwrap()
+  let else_arm_block = cfg_block_for_node(cfg, else_block_set).unwrap()
+
+  assert_true(bitset_contains(block_local_defs(use_def, prefix_block), 1))
+  assert_true(bitset_contains(block_local_defs(use_def, then_arm_block), 2))
+  assert_true(bitset_contains(block_local_defs(use_def, else_arm_block), 2))
+}
+
+///|
 test "ssa simple drop result-if rejects missing else arm" {
   let func = HotFunc::new(
     locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
