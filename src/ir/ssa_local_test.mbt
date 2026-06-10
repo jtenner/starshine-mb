@@ -390,6 +390,145 @@ test "ssa local build carries condition-written local into then and else arms" {
 }
 
 ///|
+test "ssa local build renames condition value-block locals before drop operand result-if arms" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let condition_block = hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [
+      hot_build_local_set(func, 1, hot_build_const_i32(func, @lib.I32(1))),
+      hot_build_local_get(func, 1),
+    ],
+  )
+  let then_set = hot_build_local_set(
+    func,
+    1,
+    hot_build_const_i32(func, @lib.I32(7)),
+  )
+  let then_get = hot_build_local_get(func, 1)
+  let else_set = hot_build_local_set(
+    func,
+    1,
+    hot_build_const_i32(func, @lib.I32(9)),
+  )
+  let else_get = hot_build_local_get(func, 1)
+  let result_if = hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    condition_block,
+    [then_set, then_get],
+    else_body=Some([else_set, else_get]),
+  )
+  let drop = hot_build_drop(func, result_if)
+  let final_get = hot_build_local_get(func, 1)
+  hot_root_append(func, drop)
+  hot_root_append(func, hot_build_drop(func, final_get))
+
+  assert_true(
+    ssa_simple_drop_result_if_allowed(func, drop, 0, result_if),
+    msg="expected condition value-block drop result-if shape to be allowed",
+  )
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+  let condition_set = hot_region_get(
+    func,
+    hot_region_body_ref(func, condition_block),
+    0,
+  )
+  let condition_value = ssa_def_for_local_set(ssa, condition_set)
+  let then_value = ssa_def_for_local_set(ssa, then_set)
+  let else_value = ssa_def_for_local_set(ssa, else_set)
+  let final_value = ssa_value_for_local_get(ssa, final_get)
+
+  assert_false(final_value == condition_value)
+  assert_false(final_value == then_value)
+  assert_false(final_value == else_value)
+  let drop_block = cfg_block_for_node(cfg, drop).unwrap()
+  let writes = local_write_block_ids(use_def, 1)
+  assert_true(
+    writes.length() >= 2,
+    msg="expected condition-block and arm local writes",
+  )
+  @debug.assert_eq(writes[0], drop_block)
+}
+
+///|
+test "ssa local build carries condition-block-written local into then and else arms" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  let condition_block = hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [
+      hot_build_local_set(func, 1, hot_build_const_i32(func, @lib.I32(4))),
+      hot_build_local_get(func, 0),
+    ],
+  )
+  let then_set = hot_build_local_set(func, 2, hot_build_local_get(func, 1))
+  let then_get = hot_build_local_get(func, 2)
+  let else_set = hot_build_local_set(
+    func,
+    2,
+    hot_build_const_i32(func, @lib.I32(2)),
+  )
+  let else_get = hot_build_local_get(func, 2)
+  let result_if = hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    condition_block,
+    [then_set, then_get],
+    else_body=Some([else_set, else_get]),
+  )
+  let drop = hot_build_drop(func, result_if)
+  let final_get_1 = hot_build_local_get(func, 1)
+  let final_get_2 = hot_build_local_get(func, 2)
+  hot_root_append(func, drop)
+  hot_root_append(func, hot_build_drop(func, final_get_1))
+  hot_root_append(func, hot_build_drop(func, final_get_2))
+
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+  let condition_set = hot_region_get(
+    func,
+    hot_region_body_ref(func, condition_block),
+    0,
+  )
+  let condition_value = ssa_def_for_local_set(ssa, condition_set)
+
+  @debug.assert_eq(
+    ssa_value_for_local_get(ssa, final_get_1),
+    condition_value,
+    msg="condition-block-written local must reach post-if continuation",
+  )
+  assert_false(
+    ssa_value_for_local_get(ssa, final_get_2) ==
+    ssa_def_for_local_set(ssa, then_set),
+  )
+  assert_false(
+    ssa_value_for_local_get(ssa, final_get_2) ==
+    ssa_def_for_local_set(ssa, else_set),
+  )
+  let join_block = cfg_block_for_region_root(cfg, HotRegionRef::root(), 1).unwrap()
+  let phis = ssa_phis_for_block(ssa, join_block)
+  @debug.assert_eq(phis.length(), 1)
+  @debug.assert_eq(ssa_phi_local(ssa, phis[0]), 2)
+}
+
+///|
 test "ssa local build renames locals inside drop operand value blocks" {
   let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
   let prior_set = hot_build_local_set(

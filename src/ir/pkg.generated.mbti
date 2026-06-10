@@ -790,6 +790,8 @@ pub fn ssa_rename_policy() -> HotSsaRenamePolicy
 
 pub fn ssa_rewrite_local_use(HotFunc, Int, Int) -> Unit
 
+pub fn ssa_simple_condition_value_block_allowed(HotFunc, Int) -> Bool
+
 pub fn ssa_simple_drop_result_if_allowed(HotFunc, Int, Int, Int) -> Bool
 
 pub fn ssa_simple_drop_value_block_allowed(HotFunc, Int, Int, Int) -> Bool

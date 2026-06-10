@@ -88,6 +88,59 @@ fn ssa_nomerge_is_simple_nested_result_if_operand(
 }
 
 ///|
+fn ssa_nomerge_if_in_supported_drop_result_if(
+  func : @ir.HotFunc,
+  if_id : @ir.NodeId,
+) -> Bool {
+  if if_id < 0 || !@ir.hot_node_is_live(func, if_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, if_id).op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Drop =>
+        if @ir.hot_child_get(func, node_id, 0) == if_id &&
+          ssa_nomerge_is_simple_nested_result_if_operand(func, node_id, 0, if_id) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn ssa_nomerge_is_supported_result_if_condition_value_block(
+  func : @ir.HotFunc,
+  parent_id : @ir.NodeId,
+  parent_slot : Int,
+  block_id : @ir.NodeId,
+) -> Bool {
+  if parent_slot != 0 ||
+    parent_id < 0 ||
+    block_id < 0 ||
+    !@ir.hot_node_is_live(func, parent_id) ||
+    !@ir.hot_node_is_live(func, block_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, parent_id).op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  if @ir.hot_child_get(func, parent_id, 0) != block_id {
+    return false
+  }
+  @ir.ssa_simple_condition_value_block_allowed(func, block_id) &&
+  ssa_nomerge_if_in_supported_drop_result_if(func, parent_id)
+}
+
+///|
 fn ssa_nomerge_nested_cfg_node_is_fail_closed(
   func : @ir.HotFunc,
   parent_id : @ir.NodeId,
@@ -100,6 +153,11 @@ fn ssa_nomerge_nested_cfg_node_is_fail_closed(
     return false
   }
   if ssa_nomerge_is_simple_nested_result_if_operand(
+      func, parent_id, parent_slot, node_id,
+    ) {
+    return false
+  }
+  if ssa_nomerge_is_supported_result_if_condition_value_block(
       func, parent_id, parent_slot, node_id,
     ) {
     return false
@@ -151,10 +209,10 @@ fn ssa_nomerge_has_nested_cfg_sensitive_control(func : @ir.HotFunc) -> Bool {
   // allowed via `ssa_simple_drop_value_block_allowed(...)` and inline rename in
   // `ssa_local_visit_node`. Operand-nested `drop(if (result t) ...)` with a
   // single scalar numeric result, straight-line arms, and a straight-line
-  // condition (including condition-local set/tee when CFG-backed rename visits
-  // the predecessor block before both arms) is allowed via
-  // `ssa_simple_drop_result_if_allowed(...)` and CFG-backed rename. Branches and
-  // nested control in the condition stay fail-closed. All other
+  // condition (including condition-local set/tee or one simple `block (result i32)`
+  // when CFG-backed rename/use-def inline-visit the predecessor block before both
+  // arms) is allowed via `ssa_simple_drop_result_if_allowed(...)` and CFG-backed
+  // rename. Branches and nested control in the condition stay fail-closed. All other
   // nested value-control regions can still
   // contain local reads/writes and terminators outside SSA v1's region-root
   // model; fail closed for those shapes.

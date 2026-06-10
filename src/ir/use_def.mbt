@@ -219,6 +219,18 @@ fn use_def_scan_block_node(
   }
   seen_stamps[node_id] = block_id
   let node = hot_node_get(func, node_id)
+  if ssa_simple_condition_value_block_allowed(func, node_id) {
+    let body = hot_region_body_ref(func, node_id)
+    for slot = 0; slot < hot_region_root_count(func, body); slot = slot + 1 {
+      let root_id = hot_region_get(func, body, slot)
+      if root_id == HOT_NONE_NODE || !hot_node_is_live(func, root_id) {
+        continue
+      }
+      use_def_scan_block_node(
+        func, root_id, block_id, local_count, defs, uses, local_write_blocks, seen_stamps,
+      )
+    }
+  }
   for slot = 0; slot < node.child_count; slot = slot + 1 {
     if use_def_region_slot(node.op, slot) {
       continue

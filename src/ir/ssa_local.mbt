@@ -165,17 +165,40 @@ fn ssa_simple_result_if_has_supported_drop_result(
 }
 
 ///|
+// Straight-line `block (result i32)` used as the condition of operand-nested
+// `drop(if (result t) …)`. The block body is branch-free local traffic only; rename
+// and use-def inline-visit the body in the shared predecessor block before both arms.
+pub fn ssa_simple_condition_value_block_allowed(
+  func : HotFunc,
+  block_id : NodeId,
+) -> Bool {
+  if block_id < 0 ||
+    !hot_node_is_live(func, block_id) ||
+    hot_node_get(func, block_id).op != HotOp::Block {
+    return false
+  }
+  let results = hot_type_results(func, hot_node_get(func, block_id).ty)
+  if results.length() != 1 || results[0] != @lib.ValType::i32() {
+    return false
+  }
+  ssa_simple_value_block_subtree_is_straight_line(func, block_id, true)
+}
+
+///|
 // Straight-line `if` condition subtree for operand-nested `drop(if (result t) …)`.
 // Local writes are allowed because CFG places the condition in the predecessor block
 // that dominates both arms and the post-`drop` continuation, and SSA rename visits that
-// block before the arm regions. Nested control, branches, and terminators stay
-// fail-closed.
+// block before the arm regions. A single simple `block (result i32)` condition is
+// semantically straight-line and is visited inline; nested control, branches, and
+// terminators stay fail-closed.
 fn ssa_simple_result_if_condition_allowed(
   func : HotFunc,
   condition_id : NodeId,
 ) -> Bool {
-  condition_id >= 0 &&
-  hot_node_is_live(func, condition_id) &&
+  if condition_id < 0 || !hot_node_is_live(func, condition_id) {
+    return false
+  }
+  ssa_simple_condition_value_block_allowed(func, condition_id) ||
   ssa_simple_value_block_subtree_is_straight_line(func, condition_id, false)
 }
 
@@ -287,6 +310,14 @@ fn ssa_local_visit_node(
       Some(child_id) =>
         if node.op == HotOp::Drop &&
           ssa_simple_drop_value_block_allowed(func, node_id, slot, child_id) {
+          ssa_local_visit_region_roots(
+            func,
+            ssa,
+            hot_region_body_ref(func, child_id),
+            local_stacks,
+            pushed_locals,
+          )
+        } else if ssa_simple_condition_value_block_allowed(func, child_id) {
           ssa_local_visit_region_roots(
             func,
             ssa,

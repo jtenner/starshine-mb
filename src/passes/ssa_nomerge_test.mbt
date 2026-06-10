@@ -1428,6 +1428,294 @@ test "ssa-nomerge handles scalar result-if with condition local write" {
 }
 
 ///|
+test "ssa-nomerge rewrites nested result-if with condition value-block local.set" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    (block (result i32)
+    #|      i32.const 1
+    #|      local.set 1
+    #|      local.get 1)
+    #|    if (result i32)
+    #|      i32.const 7
+    #|      local.set 1
+    #|      local.get 1
+    #|    else
+    #|      i32.const 9
+    #|      local.set 1
+    #|      local.get 1
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_hot_mutates(source)
+}
+
+///|
+test "ssa-nomerge rewrites nested result-if with condition value-block local.tee" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    (block (result i32)
+    #|      i32.const 1
+    #|      local.tee 1)
+    #|    if (result i32)
+    #|      i32.const 7
+    #|      local.set 1
+    #|      local.get 1
+    #|    else
+    #|      i32.const 9
+    #|      local.set 1
+    #|      local.get 1
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_hot_mutates(source)
+}
+
+///|
+test "ssa-nomerge preserves condition-block-written local across nested result-if arms" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32 i32)
+    #|    (block (result i32)
+    #|      i32.const 1
+    #|      local.set 1
+    #|      local.get 1)
+    #|    if (result i32)
+    #|      i32.const 7
+    #|      local.set 2
+    #|      local.get 2
+    #|    else
+    #|      i32.const 9
+    #|      local.set 2
+    #|      local.get 2
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2
+    #|    drop))
+    #|)
+  let optimized = match ssa_test_run_hot_path_only(source) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected condition-block-written local preservation hot-path success, got \{err}",
+      )
+  }
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("i32.const I32(1)"), msg=text)
+  assert_true(text.contains("i32.const I32(7)"), msg=text)
+  assert_true(text.contains("i32.const I32(9)"), msg=text)
+  assert_true(text.contains("local.get"), msg=text)
+}
+
+///|
+test "ssa-nomerge lets nested result-if arms read condition-block-written locals" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32 i32)
+    #|    (block (result i32)
+    #|      i32.const 4
+    #|      local.set 1
+    #|      local.get 0)
+    #|    if (result i32)
+    #|      local.get 1
+    #|      i32.const 1
+    #|      i32.add
+    #|      local.set 2
+    #|      local.get 2
+    #|    else
+    #|      local.get 1
+    #|      i32.const 2
+    #|      i32.add
+    #|      local.set 2
+    #|      local.get 2
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop
+    #|    local.get 2
+    #|    drop))
+    #|)
+  let optimized = match ssa_test_run_hot_path_only(source) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected arms-read-condition-block-local hot-path success, got \{err}",
+      )
+  }
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("i32.const I32(4)"), msg=text)
+  assert_true(text.contains("i32.add"), msg=text)
+  assert_true(text.contains("local.get"), msg=text)
+}
+
+///|
+test "ssa-nomerge handles scalar result-if with condition value-block" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    (block (result i32)
+    #|      i32.const 1
+    #|      local.set 1
+    #|      local.get 1)
+    #|    if (result f64)
+    #|      i32.const 7
+    #|      local.set 1
+    #|      f64.const 7.0
+    #|    else
+    #|      i32.const 9
+    #|      local.set 1
+    #|      f64.const 9.0
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_hot_mutates(source)
+}
+
+///|
+test "ssa-nomerge still skips nested result-if with branch in condition block" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    block
+    #|      (block (result i32)
+    #|        i32.const 1
+    #|        local.set 1
+    #|        br 1
+    #|        local.get 1)
+    #|      if (result i32)
+    #|        i32.const 7
+    #|        local.set 1
+    #|        local.get 1
+    #|      else
+    #|        i32.const 9
+    #|        local.set 1
+    #|        local.get 1
+    #|      end
+    #|      drop
+    #|    end
+    #|    local.get 1
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_pipeline_fail_closed(source)
+  ssa_test_nested_cfg_hot_fail_closed(source)
+}
+
+///|
+test "ssa-nomerge still skips nested result-if with br_if in condition block" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    block
+    #|      (block (result i32)
+    #|        i32.const 1
+    #|        local.set 1
+    #|        i32.const 1
+    #|        br_if 1
+    #|        local.get 1)
+    #|      if (result i32)
+    #|        i32.const 7
+    #|        local.set 1
+    #|        local.get 1
+    #|      else
+    #|        i32.const 9
+    #|        local.set 1
+    #|        local.get 1
+    #|      end
+    #|      drop
+    #|    end
+    #|    local.get 1
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_pipeline_fail_closed(source)
+  ssa_test_nested_cfg_hot_fail_closed(source)
+}
+
+///|
+test "ssa-nomerge still skips nested result-if with nested loop in condition block" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    (block (result i32)
+    #|      loop
+    #|        i32.const 1
+    #|        local.set 1
+    #|      end
+    #|      local.get 1)
+    #|    if (result i32)
+    #|      i32.const 7
+    #|      local.set 1
+    #|      local.get 1
+    #|    else
+    #|      i32.const 9
+    #|      local.set 1
+    #|      local.get 1
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_pipeline_fail_closed(source)
+  ssa_test_nested_cfg_hot_fail_closed(source)
+}
+
+///|
+test "ssa-nomerge still skips nested result-if with non-i32 condition block result" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let condition_block = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i64()),
+    [@ir.hot_build_const_i64(func, @lib.I64(1))],
+  )
+  let result_if = @ir.hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    condition_block,
+    [
+      @ir.hot_build_local_set(
+        func,
+        1,
+        @ir.hot_build_const_i32(func, @lib.I32(7)),
+      ),
+      @ir.hot_build_local_get(func, 1),
+    ],
+    else_body=Some([
+      @ir.hot_build_local_set(
+        func,
+        1,
+        @ir.hot_build_const_i32(func, @lib.I32(9)),
+      ),
+      @ir.hot_build_local_get(func, 1),
+    ]),
+  )
+  let drop = @ir.hot_build_drop(func, result_if)
+  @ir.hot_root_append(func, drop)
+  @ir.hot_root_append(
+    func,
+    @ir.hot_build_drop(func, @ir.hot_build_local_get(func, 1)),
+  )
+  assert_false(
+    @ir.ssa_simple_drop_result_if_allowed(func, drop, 0, result_if),
+    msg="non-i32 condition block must stay fail-closed",
+  )
+  ssa_test_hot_func_ssa_nomerge_revision_unchanged(func)
+}
+
+///|
 test "ssa-nomerge still skips nested result-if with branch in condition" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
@@ -1474,7 +1762,7 @@ test "ssa-nomerge still skips nested result-if with branch in condition" {
 }
 
 ///|
-test "ssa-nomerge still skips nested result-if with nested control in condition" {
+test "ssa-nomerge rewrites drop operand result-if with simple condition value-block" {
   let source =
     #|(module
     #|  (func (param i32) (local i32)
@@ -1495,8 +1783,7 @@ test "ssa-nomerge still skips nested result-if with nested control in condition"
     #|    (local.get 1)
     #|    drop))
     #|)
-  ssa_test_nested_cfg_pipeline_fail_closed(source)
-  ssa_test_nested_cfg_hot_fail_closed(source)
+  ssa_test_nested_cfg_hot_mutates(source)
 }
 
 ///|
