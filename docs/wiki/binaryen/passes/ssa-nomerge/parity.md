@@ -82,6 +82,10 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 - `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt -F '*func 523 shape*'` is green for the reduced pass-level `Func 523` follow-up.
 - `moon run src/cmd --target native -- --debug-serial-passes --tracing pass --ssa-nomerge --out /tmp/ssa-nomerge-func523-followup.wasm tests/node/dist/starshine-debug-wasi.wasm` still exits zero, and `wasm-tools validate /tmp/ssa-nomerge-func523-followup.wasm` still succeeds.
 
+## Coverage / Investigation Lanes
+
+- 2026-06-09 GenValid SSA profile widening: added `ssa-nomerge` GenValid profile, SSA-specific feature facts/scanner (`src/validate/gen_valid_ssa.mbt`), and `--require-feature ssa-*` coverage floors. Unit/fuzz tests for profile resolution, scanner facts, and batch floor selection are green (`moon test src/validate` `1568/1568`, `moon test src/fuzz` `625/625`). A targeted profile smoke lane with eleven required SSA floors (`--gen-valid-profile ssa-nomerge --require-feature ssa-* --count 50 --seed 0x5eed --normalize local-cleanup-debris`) compared `50/50` but reported `0` normalized matches and `50` mismatches: Starshine `ssa-nomerge` reindexes locals more aggressively than Binaryen on template-heavy bodies (suspected representation-only local-index / temp-local allocation drift; not yet classified with replay evidence). Do **not** treat this profile lane as signoff-green until normalized parity is restored or mismatches are reclassified with replay evidence. The prior mixed-generator `100000` lane (`99751/99751` normalized matches) remains the current broad signoff baseline under **Current Signoff State** above.
+
 ## Remaining Gap
 
 - Dropped-local-increment behavior remains intentionally narrow. The guard currently covers `drop(i32.add(local.get, i32.const 1))` after the function has local writes; reversed operands, other integer widths, and other constants are not claimed unless separate tests and implementation support are added.

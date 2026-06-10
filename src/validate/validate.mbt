@@ -3449,6 +3449,24 @@ pub enum ValidateValidFeatureKey {
   InvalidAstStrategies
   InvalidBinaryStrategies
   WastArbitraryParity
+  SsaStraightLineLocalChain
+  SsaMultiDefSameLocal
+  SsaLocalTeeDefUse
+  SsaParamWrite
+  SsaDeadLocalSet
+  SsaDeadLocalTee
+  SsaIfJoinPhiCandidate
+  SsaLoopBackedgePhiCandidate
+  SsaBrTablePhiCandidate
+  SsaParallelCopyCandidate
+  SsaParallelCopyCycleCandidate
+  SsaDefaultLocalMerge
+  SsaUnreachableLocalCarrier
+  SsaDroppedIncrementGuardShape
+  SsaDroppedIncrementReversedBoundary
+  SsaExceptionalFailClosedShape
+  SsaTypedLoopParamFailClosedShape
+  SsaNestedCfgFailClosedShape
 } derive(Eq, Debug)
 
 ///|
@@ -3510,6 +3528,33 @@ pub impl Show for ValidateValidFeatureKey with fn output(self, logger) {
     InvalidAstStrategies => logger.write_string("InvalidAstStrategies")
     InvalidBinaryStrategies => logger.write_string("InvalidBinaryStrategies")
     WastArbitraryParity => logger.write_string("WastArbitraryParity")
+    SsaStraightLineLocalChain =>
+      logger.write_string("SsaStraightLineLocalChain")
+    SsaMultiDefSameLocal => logger.write_string("SsaMultiDefSameLocal")
+    SsaLocalTeeDefUse => logger.write_string("SsaLocalTeeDefUse")
+    SsaParamWrite => logger.write_string("SsaParamWrite")
+    SsaDeadLocalSet => logger.write_string("SsaDeadLocalSet")
+    SsaDeadLocalTee => logger.write_string("SsaDeadLocalTee")
+    SsaIfJoinPhiCandidate => logger.write_string("SsaIfJoinPhiCandidate")
+    SsaLoopBackedgePhiCandidate =>
+      logger.write_string("SsaLoopBackedgePhiCandidate")
+    SsaBrTablePhiCandidate => logger.write_string("SsaBrTablePhiCandidate")
+    SsaParallelCopyCandidate => logger.write_string("SsaParallelCopyCandidate")
+    SsaParallelCopyCycleCandidate =>
+      logger.write_string("SsaParallelCopyCycleCandidate")
+    SsaDefaultLocalMerge => logger.write_string("SsaDefaultLocalMerge")
+    SsaUnreachableLocalCarrier =>
+      logger.write_string("SsaUnreachableLocalCarrier")
+    SsaDroppedIncrementGuardShape =>
+      logger.write_string("SsaDroppedIncrementGuardShape")
+    SsaDroppedIncrementReversedBoundary =>
+      logger.write_string("SsaDroppedIncrementReversedBoundary")
+    SsaExceptionalFailClosedShape =>
+      logger.write_string("SsaExceptionalFailClosedShape")
+    SsaTypedLoopParamFailClosedShape =>
+      logger.write_string("SsaTypedLoopParamFailClosedShape")
+    SsaNestedCfgFailClosedShape =>
+      logger.write_string("SsaNestedCfgFailClosedShape")
   }
 }
 
@@ -3671,6 +3716,26 @@ pub fn validate_valid_feature_actual_count(
     InvalidAstStrategies => 0
     InvalidBinaryStrategies => 0
     WastArbitraryParity => 0
+    SsaStraightLineLocalChain => stats.ssa_straight_line_local_chain
+    SsaMultiDefSameLocal => stats.ssa_multi_def_same_local
+    SsaLocalTeeDefUse => stats.ssa_local_tee_def_use
+    SsaParamWrite => stats.ssa_param_write
+    SsaDeadLocalSet => stats.ssa_dead_local_set
+    SsaDeadLocalTee => stats.ssa_dead_local_tee
+    SsaIfJoinPhiCandidate => stats.ssa_if_join_phi_candidate
+    SsaLoopBackedgePhiCandidate => stats.ssa_loop_backedge_phi_candidate
+    SsaBrTablePhiCandidate => stats.ssa_br_table_phi_candidate
+    SsaParallelCopyCandidate => stats.ssa_parallel_copy_candidate
+    SsaParallelCopyCycleCandidate => stats.ssa_parallel_copy_cycle_candidate
+    SsaDefaultLocalMerge => stats.ssa_default_local_merge
+    SsaUnreachableLocalCarrier => stats.ssa_unreachable_local_carrier
+    SsaDroppedIncrementGuardShape => stats.ssa_dropped_increment_guard_shape
+    SsaDroppedIncrementReversedBoundary =>
+      stats.ssa_dropped_increment_reversed_boundary
+    SsaExceptionalFailClosedShape => stats.ssa_exceptional_fail_closed_shape
+    SsaTypedLoopParamFailClosedShape =>
+      stats.ssa_typed_loop_param_fail_closed_shape
+    SsaNestedCfgFailClosedShape => stats.ssa_nested_cfg_fail_closed_shape
   }
 }
 
@@ -3733,6 +3798,24 @@ fn validate_valid_feature_ledger_keys() -> Array[ValidateValidFeatureKey] {
     InvalidAstStrategies,
     InvalidBinaryStrategies,
     WastArbitraryParity,
+    SsaStraightLineLocalChain,
+    SsaMultiDefSameLocal,
+    SsaLocalTeeDefUse,
+    SsaParamWrite,
+    SsaDeadLocalSet,
+    SsaDeadLocalTee,
+    SsaIfJoinPhiCandidate,
+    SsaLoopBackedgePhiCandidate,
+    SsaBrTablePhiCandidate,
+    SsaParallelCopyCandidate,
+    SsaParallelCopyCycleCandidate,
+    SsaDefaultLocalMerge,
+    SsaUnreachableLocalCarrier,
+    SsaDroppedIncrementGuardShape,
+    SsaDroppedIncrementReversedBoundary,
+    SsaExceptionalFailClosedShape,
+    SsaTypedLoopParamFailClosedShape,
+    SsaNestedCfgFailClosedShape,
   ]
 }
 
@@ -3850,6 +3933,25 @@ fn validate_valid_feature_key_label(key : ValidateValidFeatureKey) -> String {
     InvalidAstStrategies => "invalid_ast_strategies"
     InvalidBinaryStrategies => "invalid_binary_strategies"
     WastArbitraryParity => "wast_arbitrary_parity"
+    SsaStraightLineLocalChain => "ssa-straight-line-local-chain"
+    SsaMultiDefSameLocal => "ssa-multi-def-same-local"
+    SsaLocalTeeDefUse => "ssa-local-tee-def-use"
+    SsaParamWrite => "ssa-param-write"
+    SsaDeadLocalSet => "ssa-dead-local-set"
+    SsaDeadLocalTee => "ssa-dead-local-tee"
+    SsaIfJoinPhiCandidate => "ssa-if-join-phi-candidate"
+    SsaLoopBackedgePhiCandidate => "ssa-loop-backedge-phi-candidate"
+    SsaBrTablePhiCandidate => "ssa-br-table-phi-candidate"
+    SsaParallelCopyCandidate => "ssa-parallel-copy-candidate"
+    SsaParallelCopyCycleCandidate => "ssa-parallel-copy-cycle-candidate"
+    SsaDefaultLocalMerge => "ssa-default-local-merge"
+    SsaUnreachableLocalCarrier => "ssa-unreachable-local-carrier"
+    SsaDroppedIncrementGuardShape => "ssa-dropped-increment-guard-shape"
+    SsaDroppedIncrementReversedBoundary =>
+      "ssa-dropped-increment-reversed-boundary"
+    SsaExceptionalFailClosedShape => "ssa-exceptional-fail-closed-shape"
+    SsaTypedLoopParamFailClosedShape => "ssa-typed-loop-param-fail-closed-shape"
+    SsaNestedCfgFailClosedShape => "ssa-nested-cfg-fail-closed-shape"
   }
 }
 
@@ -3914,6 +4016,26 @@ fn validate_valid_feature_key_from_label(
     "invalid_ast_strategies" => Some(InvalidAstStrategies)
     "invalid_binary_strategies" => Some(InvalidBinaryStrategies)
     "wast_arbitrary_parity" => Some(WastArbitraryParity)
+    "ssa-straight-line-local-chain" => Some(SsaStraightLineLocalChain)
+    "ssa-multi-def-same-local" => Some(SsaMultiDefSameLocal)
+    "ssa-local-tee-def-use" => Some(SsaLocalTeeDefUse)
+    "ssa-param-write" => Some(SsaParamWrite)
+    "ssa-dead-local-set" => Some(SsaDeadLocalSet)
+    "ssa-dead-local-tee" => Some(SsaDeadLocalTee)
+    "ssa-if-join-phi-candidate" => Some(SsaIfJoinPhiCandidate)
+    "ssa-loop-backedge-phi-candidate" => Some(SsaLoopBackedgePhiCandidate)
+    "ssa-br-table-phi-candidate" => Some(SsaBrTablePhiCandidate)
+    "ssa-parallel-copy-candidate" => Some(SsaParallelCopyCandidate)
+    "ssa-parallel-copy-cycle-candidate" => Some(SsaParallelCopyCycleCandidate)
+    "ssa-default-local-merge" => Some(SsaDefaultLocalMerge)
+    "ssa-unreachable-local-carrier" => Some(SsaUnreachableLocalCarrier)
+    "ssa-dropped-increment-guard-shape" => Some(SsaDroppedIncrementGuardShape)
+    "ssa-dropped-increment-reversed-boundary" =>
+      Some(SsaDroppedIncrementReversedBoundary)
+    "ssa-exceptional-fail-closed-shape" => Some(SsaExceptionalFailClosedShape)
+    "ssa-typed-loop-param-fail-closed-shape" =>
+      Some(SsaTypedLoopParamFailClosedShape)
+    "ssa-nested-cfg-fail-closed-shape" => Some(SsaNestedCfgFailClosedShape)
     _ => None
   }
 }

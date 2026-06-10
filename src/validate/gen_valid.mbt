@@ -99,6 +99,7 @@ pub struct GenValidFeatureToggles {
   allow_subtyping_topology : Bool
   allow_name_custom_sections : Bool
   allow_typed_body_generator : Bool
+  allow_ssa_nomerge_body_generator : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -151,6 +152,8 @@ pub impl Show for GenValidFeatureToggles with fn output(self, logger) {
   self.allow_name_custom_sections.output(logger)
   logger.write_string(", allow_typed_body_generator:")
   self.allow_typed_body_generator.output(logger)
+  logger.write_string(", allow_ssa_nomerge_body_generator:")
+  self.allow_ssa_nomerge_body_generator.output(logger)
 }
 
 ///|
@@ -180,6 +183,7 @@ pub fn GenValidFeatureToggles::natural_default() -> GenValidFeatureToggles {
     allow_subtyping_topology: true,
     allow_name_custom_sections: true,
     allow_typed_body_generator: false,
+    allow_ssa_nomerge_body_generator: false,
   }
 }
 
@@ -648,6 +652,7 @@ pub enum GenValidProfile {
   ControlHeavyProfile
   TopologyHeavyProfile
   PathologicalValidProfile
+  SsaNomergeProfile
 } derive(Eq, Debug)
 
 ///|
@@ -679,6 +684,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     ControlHeavyProfile => "control-heavy"
     TopologyHeavyProfile => "topology-heavy"
     PathologicalValidProfile => "pathological-valid"
+    SsaNomergeProfile => "ssa-nomerge"
   }
 }
 
@@ -711,6 +717,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     ControlHeavyProfile,
     TopologyHeavyProfile,
     PathologicalValidProfile,
+    SsaNomergeProfile,
   ]
 }
 
@@ -1087,6 +1094,41 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         max_name_length: 256,
         max_segment_payload_size: 4096,
       }
+    SsaNomergeProfile => {
+      let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
+      GenValidConfig::{
+        ..base,
+        max_type_defs: 6,
+        max_defined_funcs: 8,
+        max_params: 4,
+        max_results: 2,
+        max_locals: 12,
+        max_body_statements: 24,
+        max_body_depth: 5,
+        features: GenValidFeatureToggles::{
+          ..base.features,
+          allow_branch_heavy_control: true,
+          allow_typed_body_generator: false,
+          allow_ssa_nomerge_body_generator: true,
+          allow_calls: false,
+          allow_imports: false,
+          allow_tables: false,
+          allow_mems: false,
+          allow_globals: false,
+          allow_tags: false,
+          allow_v128: false,
+          allow_relaxed_simd: false,
+          allow_call_indirect: false,
+          allow_tail_calls: false,
+          allow_memory64: false,
+          allow_atomics: false,
+          allow_shared_memories: false,
+          allow_subtyping_topology: false,
+          allow_ref_types: false,
+          allow_name_custom_sections: false,
+        },
+      }
+    }
   }
 }
 
@@ -1106,6 +1148,11 @@ fn gen_valid_is_topology_heavy_config(config : GenValidConfig) -> Bool {
 ///|
 fn gen_valid_is_control_heavy_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(ControlHeavyProfile)
+}
+
+///|
+fn gen_valid_is_ssa_nomerge_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(SsaNomergeProfile)
 }
 
 ///|
@@ -1179,6 +1226,24 @@ pub struct GenValidFeatureFacts {
   has_gc_tail_call_combo : Bool
   has_shared_memory_atomics : Bool
   has_imports_start_exports : Bool
+  has_ssa_straight_line_local_chain : Bool
+  has_ssa_multi_def_same_local : Bool
+  has_ssa_local_tee_def_use : Bool
+  has_ssa_param_write : Bool
+  has_ssa_dead_local_set : Bool
+  has_ssa_dead_local_tee : Bool
+  has_ssa_if_join_phi_candidate : Bool
+  has_ssa_loop_backedge_phi_candidate : Bool
+  has_ssa_br_table_phi_candidate : Bool
+  has_ssa_parallel_copy_candidate : Bool
+  has_ssa_parallel_copy_cycle_candidate : Bool
+  has_ssa_default_local_merge : Bool
+  has_ssa_unreachable_local_carrier : Bool
+  has_ssa_dropped_increment_guard_shape : Bool
+  has_ssa_dropped_increment_reversed_boundary : Bool
+  has_ssa_exceptional_fail_closed_shape : Bool
+  has_ssa_typed_loop_param_fail_closed_shape : Bool
+  has_ssa_nested_cfg_fail_closed_shape : Bool
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, Debug)
 
@@ -1299,6 +1364,24 @@ pub struct GenValidFeatureStats {
   gc_tail_call_combo : Int
   shared_memory_atomics : Int
   imports_start_exports : Int
+  ssa_straight_line_local_chain : Int
+  ssa_multi_def_same_local : Int
+  ssa_local_tee_def_use : Int
+  ssa_param_write : Int
+  ssa_dead_local_set : Int
+  ssa_dead_local_tee : Int
+  ssa_if_join_phi_candidate : Int
+  ssa_loop_backedge_phi_candidate : Int
+  ssa_br_table_phi_candidate : Int
+  ssa_parallel_copy_candidate : Int
+  ssa_parallel_copy_cycle_candidate : Int
+  ssa_default_local_merge : Int
+  ssa_unreachable_local_carrier : Int
+  ssa_dropped_increment_guard_shape : Int
+  ssa_dropped_increment_reversed_boundary : Int
+  ssa_exceptional_fail_closed_shape : Int
+  ssa_typed_loop_param_fail_closed_shape : Int
+  ssa_nested_cfg_fail_closed_shape : Int
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, Debug)
 
@@ -1430,6 +1513,42 @@ pub impl Show for GenValidFeatureStats with fn output(self, logger) {
   self.shared_memory_atomics.output(logger)
   logger.write_string(", imports_start_exports: ")
   self.imports_start_exports.output(logger)
+  logger.write_string(", ssa_straight_line_local_chain: ")
+  self.ssa_straight_line_local_chain.output(logger)
+  logger.write_string(", ssa_multi_def_same_local: ")
+  self.ssa_multi_def_same_local.output(logger)
+  logger.write_string(", ssa_local_tee_def_use: ")
+  self.ssa_local_tee_def_use.output(logger)
+  logger.write_string(", ssa_param_write: ")
+  self.ssa_param_write.output(logger)
+  logger.write_string(", ssa_dead_local_set: ")
+  self.ssa_dead_local_set.output(logger)
+  logger.write_string(", ssa_dead_local_tee: ")
+  self.ssa_dead_local_tee.output(logger)
+  logger.write_string(", ssa_if_join_phi_candidate: ")
+  self.ssa_if_join_phi_candidate.output(logger)
+  logger.write_string(", ssa_loop_backedge_phi_candidate: ")
+  self.ssa_loop_backedge_phi_candidate.output(logger)
+  logger.write_string(", ssa_br_table_phi_candidate: ")
+  self.ssa_br_table_phi_candidate.output(logger)
+  logger.write_string(", ssa_parallel_copy_candidate: ")
+  self.ssa_parallel_copy_candidate.output(logger)
+  logger.write_string(", ssa_parallel_copy_cycle_candidate: ")
+  self.ssa_parallel_copy_cycle_candidate.output(logger)
+  logger.write_string(", ssa_default_local_merge: ")
+  self.ssa_default_local_merge.output(logger)
+  logger.write_string(", ssa_unreachable_local_carrier: ")
+  self.ssa_unreachable_local_carrier.output(logger)
+  logger.write_string(", ssa_dropped_increment_guard_shape: ")
+  self.ssa_dropped_increment_guard_shape.output(logger)
+  logger.write_string(", ssa_dropped_increment_reversed_boundary: ")
+  self.ssa_dropped_increment_reversed_boundary.output(logger)
+  logger.write_string(", ssa_exceptional_fail_closed_shape: ")
+  self.ssa_exceptional_fail_closed_shape.output(logger)
+  logger.write_string(", ssa_typed_loop_param_fail_closed_shape: ")
+  self.ssa_typed_loop_param_fail_closed_shape.output(logger)
+  logger.write_string(", ssa_nested_cfg_fail_closed_shape: ")
+  self.ssa_nested_cfg_fail_closed_shape.output(logger)
   logger.write_string(", exact_opcode_counts: ")
   self.exact_opcode_counts.output(logger)
   logger.write_char('}')
@@ -1501,6 +1620,24 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     gc_tail_call_combo: 0,
     shared_memory_atomics: 0,
     imports_start_exports: 0,
+    ssa_straight_line_local_chain: 0,
+    ssa_multi_def_same_local: 0,
+    ssa_local_tee_def_use: 0,
+    ssa_param_write: 0,
+    ssa_dead_local_set: 0,
+    ssa_dead_local_tee: 0,
+    ssa_if_join_phi_candidate: 0,
+    ssa_loop_backedge_phi_candidate: 0,
+    ssa_br_table_phi_candidate: 0,
+    ssa_parallel_copy_candidate: 0,
+    ssa_parallel_copy_cycle_candidate: 0,
+    ssa_default_local_merge: 0,
+    ssa_unreachable_local_carrier: 0,
+    ssa_dropped_increment_guard_shape: 0,
+    ssa_dropped_increment_reversed_boundary: 0,
+    ssa_exceptional_fail_closed_shape: 0,
+    ssa_typed_loop_param_fail_closed_shape: 0,
+    ssa_nested_cfg_fail_closed_shape: 0,
     exact_opcode_counts: GenValidExactOpcodeCounts::empty(),
   }
 }
@@ -1612,6 +1749,42 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_shared_memory_atomics),
     imports_start_exports: self.imports_start_exports +
     gen_valid_bool_count(facts.has_imports_start_exports),
+    ssa_straight_line_local_chain: self.ssa_straight_line_local_chain +
+    gen_valid_bool_count(facts.has_ssa_straight_line_local_chain),
+    ssa_multi_def_same_local: self.ssa_multi_def_same_local +
+    gen_valid_bool_count(facts.has_ssa_multi_def_same_local),
+    ssa_local_tee_def_use: self.ssa_local_tee_def_use +
+    gen_valid_bool_count(facts.has_ssa_local_tee_def_use),
+    ssa_param_write: self.ssa_param_write +
+    gen_valid_bool_count(facts.has_ssa_param_write),
+    ssa_dead_local_set: self.ssa_dead_local_set +
+    gen_valid_bool_count(facts.has_ssa_dead_local_set),
+    ssa_dead_local_tee: self.ssa_dead_local_tee +
+    gen_valid_bool_count(facts.has_ssa_dead_local_tee),
+    ssa_if_join_phi_candidate: self.ssa_if_join_phi_candidate +
+    gen_valid_bool_count(facts.has_ssa_if_join_phi_candidate),
+    ssa_loop_backedge_phi_candidate: self.ssa_loop_backedge_phi_candidate +
+    gen_valid_bool_count(facts.has_ssa_loop_backedge_phi_candidate),
+    ssa_br_table_phi_candidate: self.ssa_br_table_phi_candidate +
+    gen_valid_bool_count(facts.has_ssa_br_table_phi_candidate),
+    ssa_parallel_copy_candidate: self.ssa_parallel_copy_candidate +
+    gen_valid_bool_count(facts.has_ssa_parallel_copy_candidate),
+    ssa_parallel_copy_cycle_candidate: self.ssa_parallel_copy_cycle_candidate +
+    gen_valid_bool_count(facts.has_ssa_parallel_copy_cycle_candidate),
+    ssa_default_local_merge: self.ssa_default_local_merge +
+    gen_valid_bool_count(facts.has_ssa_default_local_merge),
+    ssa_unreachable_local_carrier: self.ssa_unreachable_local_carrier +
+    gen_valid_bool_count(facts.has_ssa_unreachable_local_carrier),
+    ssa_dropped_increment_guard_shape: self.ssa_dropped_increment_guard_shape +
+    gen_valid_bool_count(facts.has_ssa_dropped_increment_guard_shape),
+    ssa_dropped_increment_reversed_boundary: self.ssa_dropped_increment_reversed_boundary +
+    gen_valid_bool_count(facts.has_ssa_dropped_increment_reversed_boundary),
+    ssa_exceptional_fail_closed_shape: self.ssa_exceptional_fail_closed_shape +
+    gen_valid_bool_count(facts.has_ssa_exceptional_fail_closed_shape),
+    ssa_typed_loop_param_fail_closed_shape: self.ssa_typed_loop_param_fail_closed_shape +
+    gen_valid_bool_count(facts.has_ssa_typed_loop_param_fail_closed_shape),
+    ssa_nested_cfg_fail_closed_shape: self.ssa_nested_cfg_fail_closed_shape +
+    gen_valid_bool_count(facts.has_ssa_nested_cfg_fail_closed_shape),
     exact_opcode_counts: self.exact_opcode_counts.add(facts.exact_opcode_counts),
   }
 }
@@ -3797,6 +3970,19 @@ fn gen_valid_ensure_body_layout_locals(
   ctx : GenValidContext,
   locals : Array[ValType],
 ) -> Unit {
+  if ctx.config.mode == CoverageForced &&
+    ctx.config.features.allow_ssa_nomerge_body_generator {
+    let mut i32_local_count = 0
+    for vt in locals {
+      if vt == ValType::i32() {
+        i32_local_count += 1
+      }
+    }
+    while i32_local_count < 2 {
+      locals.push(ValType::i32())
+      i32_local_count += 1
+    }
+  }
   if ctx.config.mode == CoverageForced &&
     ctx.config.features.allow_typed_body_generator {
     locals.push(ValType::i32())
@@ -9976,7 +10162,8 @@ fn gen_valid_build_func(
     label_depth: 0,
   }
   let body_instrs : Array[Instruction] = []
-  if ctx.config.mode == CoverageForced {
+  if ctx.config.mode == CoverageForced &&
+    !ctx.config.features.allow_ssa_nomerge_body_generator {
     gen_valid_append_coverage_prelude(body_instrs, ctx, env, returns)
   }
   let stmt_count = if ctx.config.mode == CoverageForced {
@@ -9991,6 +10178,12 @@ fn gen_valid_build_func(
     append_void_stmt(body_instrs, ctx, env)
   }
   gen_valid_append_typed_body_generator_slice(body_instrs, ctx, env)
+  match current_func_idx {
+    Some(idx) if gen_valid_is_ssa_nomerge_config(ctx.config) &&
+      idx != FuncIdx::new(0U) => ()
+    // SSA templates are a no-op unless allow_ssa_nomerge_body_generator (see gen_valid_ssa.mbt).
+    _ => gen_valid_append_ssa_nomerge_body_slice(body_instrs, ctx, env, accepts)
+  }
   if ctx.config.mode == Natural && ctx.config.features.allow_ref_types {
     let gc_stmt_count = if gc_type_plan.concrete_ref_types.is_empty() {
       1 + ctx.random_int_from(BodyStream, 2)
@@ -10853,10 +11046,16 @@ fn gen_valid_module_once_with_context(ctx : GenValidContext) -> Module {
       [ValType::v128()]
     } else if gen_valid_is_control_heavy_config(ctx.config) && i == 3 {
       [ValType::i32(), ValType::i64()]
+    } else if gen_valid_is_ssa_nomerge_config(ctx.config) && i == 0 {
+      [ValType::i32()]
+    } else if gen_valid_is_ssa_nomerge_config(ctx.config) {
+      []
     } else {
       gen_param_types(ctx)
     }
-    let results = if i == 0 && (has_start || total_tag_count > 0) {
+    let results = if gen_valid_is_ssa_nomerge_config(ctx.config) {
+      []
+    } else if i == 0 && (has_start || total_tag_count > 0) {
       []
     } else if ctx.config.features.allow_typed_body_generator && i == 1 {
       if ctx.config.features.allow_v128 {
@@ -14632,6 +14831,7 @@ pub fn gen_valid_feature_facts(
   let mut exact_opcode_counts = GenValidExactOpcodeCounts::empty()
   let mut control_nodes = 0
   let mut branch_ops = 0
+  let mut ssa_facts = GenValidSsaFuncFacts::empty()
 
   for custom in mod.custom_secs {
     let @lib.CustomSec(name, _) = custom
@@ -15204,6 +15404,10 @@ pub fn gen_valid_feature_facts(
         let (func_has_unused, func_has_write_only) = gen_valid_func_local_layout_facts(
           param_count, locals, expr,
         )
+        ssa_facts = gen_valid_merge_ssa_func_facts(
+          ssa_facts,
+          gen_valid_scan_func_ssa_facts(param_count, locals, expr),
+        )
         has_unused_locals = has_unused_locals || func_has_unused
         has_write_only_locals = has_write_only_locals || func_has_write_only
         uses_ref_types = uses_ref_types || facts.uses_ref_types
@@ -15320,6 +15524,24 @@ pub fn gen_valid_feature_facts(
     has_gc_tail_call_combo: has_gc_feature && has_tail_calls,
     has_shared_memory_atomics: has_shared_memories && has_atomics,
     has_imports_start_exports: has_imports && has_start && has_any_export,
+    has_ssa_straight_line_local_chain: ssa_facts.has_ssa_straight_line_local_chain,
+    has_ssa_multi_def_same_local: ssa_facts.has_ssa_multi_def_same_local,
+    has_ssa_local_tee_def_use: ssa_facts.has_ssa_local_tee_def_use,
+    has_ssa_param_write: ssa_facts.has_ssa_param_write,
+    has_ssa_dead_local_set: ssa_facts.has_ssa_dead_local_set,
+    has_ssa_dead_local_tee: ssa_facts.has_ssa_dead_local_tee,
+    has_ssa_if_join_phi_candidate: ssa_facts.has_ssa_if_join_phi_candidate,
+    has_ssa_loop_backedge_phi_candidate: ssa_facts.has_ssa_loop_backedge_phi_candidate,
+    has_ssa_br_table_phi_candidate: ssa_facts.has_ssa_br_table_phi_candidate,
+    has_ssa_parallel_copy_candidate: ssa_facts.has_ssa_parallel_copy_candidate,
+    has_ssa_parallel_copy_cycle_candidate: ssa_facts.has_ssa_parallel_copy_cycle_candidate,
+    has_ssa_default_local_merge: ssa_facts.has_ssa_default_local_merge,
+    has_ssa_unreachable_local_carrier: ssa_facts.has_ssa_unreachable_local_carrier,
+    has_ssa_dropped_increment_guard_shape: ssa_facts.has_ssa_dropped_increment_guard_shape,
+    has_ssa_dropped_increment_reversed_boundary: ssa_facts.has_ssa_dropped_increment_reversed_boundary,
+    has_ssa_exceptional_fail_closed_shape: ssa_facts.has_ssa_exceptional_fail_closed_shape,
+    has_ssa_typed_loop_param_fail_closed_shape: ssa_facts.has_ssa_typed_loop_param_fail_closed_shape,
+    has_ssa_nested_cfg_fail_closed_shape: ssa_facts.has_ssa_nested_cfg_fail_closed_shape,
     exact_opcode_counts,
   }
 }

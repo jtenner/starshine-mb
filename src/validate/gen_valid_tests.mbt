@@ -7212,3 +7212,97 @@ test "control-heavy profile uses typed GenValid body generator slice" {
     None => fail("expected generated module to contain code bodies")
   }
 }
+
+///|
+test "ssa-nomerge gen-valid profile resolves and enables SSA body generator" {
+  @debug.assert_eq(gen_valid_profile_name(SsaNomergeProfile), "ssa-nomerge")
+  assert_true(gen_valid_profile_names().contains("ssa-nomerge"))
+  match gen_valid_profile_by_name("ssa-nomerge") {
+    Ok(profile) => @debug.assert_eq(profile, SsaNomergeProfile)
+    Err(msg) => fail(msg)
+  }
+  let config = GenValidConfig::for_profile(SsaNomergeProfile)
+  @debug.assert_eq(gen_valid_config_label(config), "ssa-nomerge")
+  assert_true(config.features.allow_ssa_nomerge_body_generator)
+  assert_false(
+    GenValidConfig::natural_default().features.allow_ssa_nomerge_body_generator,
+    msg="SSA body templates must stay gated off natural/default profiles",
+  )
+  assert_false(config.features.allow_imports)
+  assert_false(config.features.allow_mems)
+}
+
+///|
+test "ssa-nomerge generated modules record core SSA feature facts" {
+  let config = GenValidConfig::for_profile(SsaNomergeProfile)
+  let generated = match gen_valid_module_result_from_seed(0x5eedUL, config) {
+    Ok(v) => v
+    Err(failure) =>
+      fail("ssa-nomerge generation failed: \{failure.validation_error_message}")
+  }
+  let facts = generated.facts
+  assert_true(
+    facts.has_ssa_straight_line_local_chain,
+    msg="expected straight-line local chain",
+  )
+  assert_true(
+    facts.has_ssa_multi_def_same_local,
+    msg="expected multi-def same local",
+  )
+  assert_true(facts.has_ssa_local_tee_def_use, msg="expected local.tee def-use")
+  assert_true(
+    facts.has_ssa_if_join_phi_candidate,
+    msg="expected if-join phi candidate",
+  )
+  assert_true(
+    facts.has_ssa_loop_backedge_phi_candidate,
+    msg="expected loop backedge phi candidate",
+  )
+  assert_true(
+    facts.has_ssa_br_table_phi_candidate,
+    msg="expected br_table phi candidate",
+  )
+  assert_true(
+    facts.has_ssa_parallel_copy_candidate,
+    msg="expected parallel-copy candidate",
+  )
+  assert_true(
+    facts.has_ssa_default_local_merge,
+    msg="expected default local merge",
+  )
+  assert_true(
+    facts.has_ssa_unreachable_local_carrier,
+    msg="expected unreachable local carrier",
+  )
+  assert_true(
+    facts.has_ssa_dropped_increment_guard_shape,
+    msg="expected dropped increment guard shape",
+  )
+  assert_true(
+    facts.has_ssa_dropped_increment_reversed_boundary,
+    msg="expected reversed dropped increment boundary",
+  )
+  assert_true(
+    facts.has_ssa_nested_cfg_fail_closed_shape,
+    msg="expected nested CFG fail-closed shape",
+  )
+}
+
+///|
+test "validate_valid_feature_floor_by_label recognizes SSA feature labels" {
+  for
+    label in [
+      "ssa-straight-line-local-chain", "ssa-multi-def-same-local", "ssa-local-tee-def-use",
+      "ssa-param-write", "ssa-dead-local-set", "ssa-dead-local-tee", "ssa-if-join-phi-candidate",
+      "ssa-loop-backedge-phi-candidate", "ssa-br-table-phi-candidate", "ssa-parallel-copy-candidate",
+      "ssa-parallel-copy-cycle-candidate", "ssa-default-local-merge", "ssa-unreachable-local-carrier",
+      "ssa-dropped-increment-guard-shape", "ssa-dropped-increment-reversed-boundary",
+      "ssa-exceptional-fail-closed-shape", "ssa-typed-loop-param-fail-closed-shape",
+      "ssa-nested-cfg-fail-closed-shape",
+    ] {
+    match validate_valid_feature_floor_by_label(label, 1) {
+      Ok(_) => ()
+      Err(msg) => fail("expected label \{label} to resolve, got \{msg}")
+    }
+  }
+}

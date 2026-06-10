@@ -3356,6 +3356,39 @@ fn gen_valid_coverage_feature_label(key : ValidateValidFeatureKey) -> String {
       "invalid_binary_strategies"
     @validate.ValidateValidFeatureKey::WastArbitraryParity =>
       "wast_arbitrary_parity"
+    @validate.ValidateValidFeatureKey::SsaStraightLineLocalChain =>
+      "ssa-straight-line-local-chain"
+    @validate.ValidateValidFeatureKey::SsaMultiDefSameLocal =>
+      "ssa-multi-def-same-local"
+    @validate.ValidateValidFeatureKey::SsaLocalTeeDefUse =>
+      "ssa-local-tee-def-use"
+    @validate.ValidateValidFeatureKey::SsaParamWrite => "ssa-param-write"
+    @validate.ValidateValidFeatureKey::SsaDeadLocalSet => "ssa-dead-local-set"
+    @validate.ValidateValidFeatureKey::SsaDeadLocalTee => "ssa-dead-local-tee"
+    @validate.ValidateValidFeatureKey::SsaIfJoinPhiCandidate =>
+      "ssa-if-join-phi-candidate"
+    @validate.ValidateValidFeatureKey::SsaLoopBackedgePhiCandidate =>
+      "ssa-loop-backedge-phi-candidate"
+    @validate.ValidateValidFeatureKey::SsaBrTablePhiCandidate =>
+      "ssa-br-table-phi-candidate"
+    @validate.ValidateValidFeatureKey::SsaParallelCopyCandidate =>
+      "ssa-parallel-copy-candidate"
+    @validate.ValidateValidFeatureKey::SsaParallelCopyCycleCandidate =>
+      "ssa-parallel-copy-cycle-candidate"
+    @validate.ValidateValidFeatureKey::SsaDefaultLocalMerge =>
+      "ssa-default-local-merge"
+    @validate.ValidateValidFeatureKey::SsaUnreachableLocalCarrier =>
+      "ssa-unreachable-local-carrier"
+    @validate.ValidateValidFeatureKey::SsaDroppedIncrementGuardShape =>
+      "ssa-dropped-increment-guard-shape"
+    @validate.ValidateValidFeatureKey::SsaDroppedIncrementReversedBoundary =>
+      "ssa-dropped-increment-reversed-boundary"
+    @validate.ValidateValidFeatureKey::SsaExceptionalFailClosedShape =>
+      "ssa-exceptional-fail-closed-shape"
+    @validate.ValidateValidFeatureKey::SsaTypedLoopParamFailClosedShape =>
+      "ssa-typed-loop-param-fail-closed-shape"
+    @validate.ValidateValidFeatureKey::SsaNestedCfgFailClosedShape =>
+      "ssa-nested-cfg-fail-closed-shape"
   }
 }
 
@@ -3405,14 +3438,18 @@ fn gen_valid_coverage_contributes(
   if required_floors.is_empty() {
     return true
   }
+  let mut all_met = true
   for floor in required_floors {
     let before = validate_valid_feature_actual_count(current, floor.key)
-    let after = validate_valid_feature_actual_count(next, floor.key)
-    if before < floor.min_count && after > before {
-      return true
+    if before < floor.min_count {
+      all_met = false
+      let after = validate_valid_feature_actual_count(next, floor.key)
+      if after > before {
+        return true
+      }
     }
   }
-  false
+  all_met
 }
 
 ///|
@@ -3667,7 +3704,7 @@ pub fn emit_gen_valid_batch_artifacts(
 fn format_gen_valid_batch_feature_facts_json(
   facts : GenValidFeatureFacts,
 ) -> String {
-  "{\"mode\":\"\{fuzz_json_escape(@debug.to_string(facts.mode))}\",\"imports\":\{facts.has_imports},\"func_exports\":\{facts.has_func_exports},\"table_exports\":\{facts.has_table_exports},\"mem_exports\":\{facts.has_mem_exports},\"global_exports\":\{facts.has_global_exports},\"tag_exports\":\{facts.has_tag_exports},\"start\":\{facts.has_start},\"lacks_start\":\{facts.lacks_start},\"tables\":\{facts.has_tables},\"mems\":\{facts.has_mems},\"globals\":\{facts.has_globals},\"tags\":\{facts.has_tags},\"elems\":\{facts.has_elems},\"datas\":\{facts.has_datas},\"data_count\":\{facts.has_data_count},\"ref_types\":\{facts.uses_ref_types},\"v128\":\{facts.uses_v128},\"calls\":\{facts.has_call},\"call_indirect\":\{facts.has_call_indirect},\"branch_heavy_control\":\{facts.has_branch_heavy_control},\"payload_control_flow\":\{facts.has_payload_control_flow},\"multivalue_control_flow\":\{facts.has_multivalue_control_flow},\"numeric_full_ops\":\{facts.has_numeric_full_ops},\"br_table\":\{facts.has_br_table},\"standalone_unreachable\":\{facts.has_standalone_unreachable},\"local_tee\":\{facts.has_local_tee},\"typed_select\":\{facts.has_typed_select},\"tail_calls\":\{facts.has_tail_calls},\"scalar_memory_widths\":\{facts.has_scalar_memory_widths},\"nonzero_memarg\":\{facts.has_nonzero_memarg},\"memory_limit_variants\":\{facts.has_memory_limit_variants},\"table_limit_variants\":\{facts.has_table_limit_variants},\"const_expr_variants\":\{facts.has_const_expr_variants},\"basic_ref_instructions\":\{facts.has_basic_ref_instructions},\"i31_extern_conversions\":\{facts.has_i31_extern_conversions},\"simd_phase1\":\{facts.has_simd_phase1},\"simd_phase2\":\{facts.has_simd_phase2},\"simd_phase3\":\{facts.has_simd_phase3},\"atomics\":\{facts.has_atomics},\"gc_constructors\":\{facts.has_gc_constructors},\"gc_accessors\":\{facts.has_gc_accessors},\"string_ops\":\{facts.has_string_ops},\"exception_try_table_matrix\":\{facts.has_exception_try_table_matrix},\"subtyping_topology\":\{facts.has_subtyping_topology},\"rich_gc_field_plans\":\{facts.has_rich_gc_field_plans},\"import_export_topology\":\{facts.has_import_export_topology},\"element_segment_range\":\{facts.has_element_segment_range},\"data_segment_range\":\{facts.has_data_segment_range},\"name_custom_sections\":\{facts.has_name_custom_sections},\"gc_exception_combo\":\{facts.has_gc_exception_combo},\"gc_tail_call_combo\":\{facts.has_gc_tail_call_combo},\"shared_memory_atomics\":\{facts.has_shared_memory_atomics},\"imports_start_exports\":\{facts.has_imports_start_exports}}"
+  "{\"mode\":\"\{fuzz_json_escape(@debug.to_string(facts.mode))}\",\"imports\":\{facts.has_imports},\"func_exports\":\{facts.has_func_exports},\"table_exports\":\{facts.has_table_exports},\"mem_exports\":\{facts.has_mem_exports},\"global_exports\":\{facts.has_global_exports},\"tag_exports\":\{facts.has_tag_exports},\"start\":\{facts.has_start},\"lacks_start\":\{facts.lacks_start},\"tables\":\{facts.has_tables},\"mems\":\{facts.has_mems},\"globals\":\{facts.has_globals},\"tags\":\{facts.has_tags},\"elems\":\{facts.has_elems},\"datas\":\{facts.has_datas},\"data_count\":\{facts.has_data_count},\"ref_types\":\{facts.uses_ref_types},\"v128\":\{facts.uses_v128},\"calls\":\{facts.has_call},\"call_indirect\":\{facts.has_call_indirect},\"branch_heavy_control\":\{facts.has_branch_heavy_control},\"payload_control_flow\":\{facts.has_payload_control_flow},\"multivalue_control_flow\":\{facts.has_multivalue_control_flow},\"numeric_full_ops\":\{facts.has_numeric_full_ops},\"br_table\":\{facts.has_br_table},\"standalone_unreachable\":\{facts.has_standalone_unreachable},\"local_tee\":\{facts.has_local_tee},\"typed_select\":\{facts.has_typed_select},\"tail_calls\":\{facts.has_tail_calls},\"scalar_memory_widths\":\{facts.has_scalar_memory_widths},\"nonzero_memarg\":\{facts.has_nonzero_memarg},\"memory_limit_variants\":\{facts.has_memory_limit_variants},\"table_limit_variants\":\{facts.has_table_limit_variants},\"const_expr_variants\":\{facts.has_const_expr_variants},\"basic_ref_instructions\":\{facts.has_basic_ref_instructions},\"i31_extern_conversions\":\{facts.has_i31_extern_conversions},\"simd_phase1\":\{facts.has_simd_phase1},\"simd_phase2\":\{facts.has_simd_phase2},\"simd_phase3\":\{facts.has_simd_phase3},\"atomics\":\{facts.has_atomics},\"gc_constructors\":\{facts.has_gc_constructors},\"gc_accessors\":\{facts.has_gc_accessors},\"string_ops\":\{facts.has_string_ops},\"exception_try_table_matrix\":\{facts.has_exception_try_table_matrix},\"subtyping_topology\":\{facts.has_subtyping_topology},\"rich_gc_field_plans\":\{facts.has_rich_gc_field_plans},\"import_export_topology\":\{facts.has_import_export_topology},\"element_segment_range\":\{facts.has_element_segment_range},\"data_segment_range\":\{facts.has_data_segment_range},\"name_custom_sections\":\{facts.has_name_custom_sections},\"gc_exception_combo\":\{facts.has_gc_exception_combo},\"gc_tail_call_combo\":\{facts.has_gc_tail_call_combo},\"shared_memory_atomics\":\{facts.has_shared_memory_atomics},\"imports_start_exports\":\{facts.has_imports_start_exports},\"ssa_straight_line_local_chain\":\{facts.has_ssa_straight_line_local_chain},\"ssa_multi_def_same_local\":\{facts.has_ssa_multi_def_same_local},\"ssa_local_tee_def_use\":\{facts.has_ssa_local_tee_def_use},\"ssa_param_write\":\{facts.has_ssa_param_write},\"ssa_dead_local_set\":\{facts.has_ssa_dead_local_set},\"ssa_dead_local_tee\":\{facts.has_ssa_dead_local_tee},\"ssa_if_join_phi_candidate\":\{facts.has_ssa_if_join_phi_candidate},\"ssa_loop_backedge_phi_candidate\":\{facts.has_ssa_loop_backedge_phi_candidate},\"ssa_br_table_phi_candidate\":\{facts.has_ssa_br_table_phi_candidate},\"ssa_parallel_copy_candidate\":\{facts.has_ssa_parallel_copy_candidate},\"ssa_parallel_copy_cycle_candidate\":\{facts.has_ssa_parallel_copy_cycle_candidate},\"ssa_default_local_merge\":\{facts.has_ssa_default_local_merge},\"ssa_unreachable_local_carrier\":\{facts.has_ssa_unreachable_local_carrier},\"ssa_dropped_increment_guard_shape\":\{facts.has_ssa_dropped_increment_guard_shape},\"ssa_dropped_increment_reversed_boundary\":\{facts.has_ssa_dropped_increment_reversed_boundary},\"ssa_exceptional_fail_closed_shape\":\{facts.has_ssa_exceptional_fail_closed_shape},\"ssa_typed_loop_param_fail_closed_shape\":\{facts.has_ssa_typed_loop_param_fail_closed_shape},\"ssa_nested_cfg_fail_closed_shape\":\{facts.has_ssa_nested_cfg_fail_closed_shape}}"
 }
 
 ///|

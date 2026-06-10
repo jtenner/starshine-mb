@@ -2341,6 +2341,85 @@ test "emit_gen_valid_batch_artifacts_with_manifest returns deterministic diagnos
 }
 
 ///|
+test "emit_gen_valid_batch_artifacts_until_features satisfies ssa-nomerge SSA floors" {
+  let chain_floor = match
+    @validate.validate_valid_feature_floor_by_label(
+      "ssa-straight-line-local-chain", 1,
+    ) {
+    Ok(v) => v
+    Err(e) => fail(e)
+  }
+  let phi_floor = match
+    @validate.validate_valid_feature_floor_by_label(
+      "ssa-if-join-phi-candidate", 1,
+    ) {
+    Ok(v) => v
+    Err(e) => fail(e)
+  }
+  let selected = match
+    emit_gen_valid_batch_artifacts_until_features(
+      1,
+      0x5eedUL,
+      match GenValidConfig::profile("ssa-nomerge") {
+        Ok(v) => v
+        Err(e) => fail(e)
+      },
+      [chain_floor, phi_floor],
+      [],
+      32,
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected ssa-nomerge feature-guided batch success, got \{e}")
+  }
+  @debug.assert_eq(selected.artifacts.length(), 1)
+  let chain_count = match
+    @validate.validate_valid_feature_actual_count_by_label(
+      selected.feature_stats,
+      "ssa-straight-line-local-chain",
+    ) {
+    Ok(v) => v
+    Err(e) => fail(e)
+  }
+  assert_true(chain_count >= 1)
+}
+
+///|
+test "emit_gen_valid_batch_artifacts_until_features continues after floors are satisfied" {
+  let v128_floor = match
+    @validate.validate_valid_feature_floor_by_label("v128", 1) {
+    Ok(v) => v
+    Err(e) => fail(e)
+  }
+  let selected = match
+    emit_gen_valid_batch_artifacts_until_features(
+      5,
+      0xf71004UL,
+      GenValidConfig::coverage_forced_default(),
+      [v128_floor],
+      [],
+      32,
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected feature-guided batch to fill count after floors met, got \{e}",
+      )
+  }
+  @debug.assert_eq(selected.artifacts.length(), 5)
+  @debug.assert_eq(selected.selected, 5)
+  let v128_count = match
+    @validate.validate_valid_feature_actual_count_by_label(
+      selected.feature_stats,
+      "v128",
+    ) {
+    Ok(v) => v
+    Err(e) => fail(e)
+  }
+  assert_true(v128_count >= 1)
+}
+
+///|
 test "emit_gen_valid_batch_artifacts_until_features selects bounded feature-covering modules" {
   let v128_floor = match
     @validate.validate_valid_feature_floor_by_label("v128", 1) {
