@@ -885,6 +885,12 @@ pub struct GenValidFeatureFacts {
   has_ssa_exceptional_fail_closed_shape : Bool
   has_ssa_typed_loop_param_fail_closed_shape : Bool
   has_ssa_nested_cfg_fail_closed_shape : Bool
+  has_ssa_nested_result_if_supported_shape : Bool
+  has_ssa_nested_result_if_condition_write : Bool
+  has_ssa_nested_result_if_condition_value_block : Bool
+  has_ssa_nested_result_if_arm_value_block : Bool
+  has_ssa_nested_result_if_mixed_arm_value_block : Bool
+  has_ssa_nested_result_if_scalar_result : Bool
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, @debug.Debug)
 
@@ -970,6 +976,12 @@ pub struct GenValidFeatureStats {
   ssa_exceptional_fail_closed_shape : Int
   ssa_typed_loop_param_fail_closed_shape : Int
   ssa_nested_cfg_fail_closed_shape : Int
+  ssa_nested_result_if_supported_shape : Int
+  ssa_nested_result_if_condition_write : Int
+  ssa_nested_result_if_condition_value_block : Int
+  ssa_nested_result_if_arm_value_block : Int
+  ssa_nested_result_if_mixed_arm_value_block : Int
+  ssa_nested_result_if_scalar_result : Int
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureStats::empty(GenValidMode) -> Self
@@ -1125,6 +1137,12 @@ pub struct GenValidSsaFuncFacts {
   has_ssa_exceptional_fail_closed_shape : Bool
   has_ssa_typed_loop_param_fail_closed_shape : Bool
   has_ssa_nested_cfg_fail_closed_shape : Bool
+  has_ssa_nested_result_if_supported_shape : Bool
+  has_ssa_nested_result_if_condition_write : Bool
+  has_ssa_nested_result_if_condition_value_block : Bool
+  has_ssa_nested_result_if_arm_value_block : Bool
+  has_ssa_nested_result_if_mixed_arm_value_block : Bool
+  has_ssa_nested_result_if_scalar_result : Bool
 } derive(Eq, @debug.Debug)
 pub fn GenValidSsaFuncFacts::empty() -> Self
 
@@ -1575,6 +1593,12 @@ pub enum ValidateValidFeatureKey {
   SsaExceptionalFailClosedShape
   SsaTypedLoopParamFailClosedShape
   SsaNestedCfgFailClosedShape
+  SsaNestedResultIfSupportedShape
+  SsaNestedResultIfConditionWrite
+  SsaNestedResultIfConditionValueBlock
+  SsaNestedResultIfArmValueBlock
+  SsaNestedResultIfMixedArmValueBlock
+  SsaNestedResultIfScalarResult
 } derive(Eq, @debug.Debug)
 pub impl Show for ValidateValidFeatureKey
 

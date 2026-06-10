@@ -3389,6 +3389,18 @@ fn gen_valid_coverage_feature_label(key : ValidateValidFeatureKey) -> String {
       "ssa-typed-loop-param-fail-closed-shape"
     @validate.ValidateValidFeatureKey::SsaNestedCfgFailClosedShape =>
       "ssa-nested-cfg-fail-closed-shape"
+    @validate.ValidateValidFeatureKey::SsaNestedResultIfSupportedShape =>
+      "ssa-nested-result-if-supported-shape"
+    @validate.ValidateValidFeatureKey::SsaNestedResultIfConditionWrite =>
+      "ssa-nested-result-if-condition-write"
+    @validate.ValidateValidFeatureKey::SsaNestedResultIfConditionValueBlock =>
+      "ssa-nested-result-if-condition-value-block"
+    @validate.ValidateValidFeatureKey::SsaNestedResultIfArmValueBlock =>
+      "ssa-nested-result-if-arm-value-block"
+    @validate.ValidateValidFeatureKey::SsaNestedResultIfMixedArmValueBlock =>
+      "ssa-nested-result-if-mixed-arm-value-block"
+    @validate.ValidateValidFeatureKey::SsaNestedResultIfScalarResult =>
+      "ssa-nested-result-if-scalar-result"
   }
 }
 

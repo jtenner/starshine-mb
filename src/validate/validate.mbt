@@ -3467,6 +3467,12 @@ pub enum ValidateValidFeatureKey {
   SsaExceptionalFailClosedShape
   SsaTypedLoopParamFailClosedShape
   SsaNestedCfgFailClosedShape
+  SsaNestedResultIfSupportedShape
+  SsaNestedResultIfConditionWrite
+  SsaNestedResultIfConditionValueBlock
+  SsaNestedResultIfArmValueBlock
+  SsaNestedResultIfMixedArmValueBlock
+  SsaNestedResultIfScalarResult
 } derive(Eq, Debug)
 
 ///|
@@ -3555,6 +3561,18 @@ pub impl Show for ValidateValidFeatureKey with fn output(self, logger) {
       logger.write_string("SsaTypedLoopParamFailClosedShape")
     SsaNestedCfgFailClosedShape =>
       logger.write_string("SsaNestedCfgFailClosedShape")
+    SsaNestedResultIfSupportedShape =>
+      logger.write_string("SsaNestedResultIfSupportedShape")
+    SsaNestedResultIfConditionWrite =>
+      logger.write_string("SsaNestedResultIfConditionWrite")
+    SsaNestedResultIfConditionValueBlock =>
+      logger.write_string("SsaNestedResultIfConditionValueBlock")
+    SsaNestedResultIfArmValueBlock =>
+      logger.write_string("SsaNestedResultIfArmValueBlock")
+    SsaNestedResultIfMixedArmValueBlock =>
+      logger.write_string("SsaNestedResultIfMixedArmValueBlock")
+    SsaNestedResultIfScalarResult =>
+      logger.write_string("SsaNestedResultIfScalarResult")
   }
 }
 
@@ -3736,6 +3754,16 @@ pub fn validate_valid_feature_actual_count(
     SsaTypedLoopParamFailClosedShape =>
       stats.ssa_typed_loop_param_fail_closed_shape
     SsaNestedCfgFailClosedShape => stats.ssa_nested_cfg_fail_closed_shape
+    SsaNestedResultIfSupportedShape =>
+      stats.ssa_nested_result_if_supported_shape
+    SsaNestedResultIfConditionWrite =>
+      stats.ssa_nested_result_if_condition_write
+    SsaNestedResultIfConditionValueBlock =>
+      stats.ssa_nested_result_if_condition_value_block
+    SsaNestedResultIfArmValueBlock => stats.ssa_nested_result_if_arm_value_block
+    SsaNestedResultIfMixedArmValueBlock =>
+      stats.ssa_nested_result_if_mixed_arm_value_block
+    SsaNestedResultIfScalarResult => stats.ssa_nested_result_if_scalar_result
   }
 }
 
@@ -3816,6 +3844,12 @@ fn validate_valid_feature_ledger_keys() -> Array[ValidateValidFeatureKey] {
     SsaExceptionalFailClosedShape,
     SsaTypedLoopParamFailClosedShape,
     SsaNestedCfgFailClosedShape,
+    SsaNestedResultIfSupportedShape,
+    SsaNestedResultIfConditionWrite,
+    SsaNestedResultIfConditionValueBlock,
+    SsaNestedResultIfArmValueBlock,
+    SsaNestedResultIfMixedArmValueBlock,
+    SsaNestedResultIfScalarResult,
   ]
 }
 
@@ -3952,6 +3986,14 @@ fn validate_valid_feature_key_label(key : ValidateValidFeatureKey) -> String {
     SsaExceptionalFailClosedShape => "ssa-exceptional-fail-closed-shape"
     SsaTypedLoopParamFailClosedShape => "ssa-typed-loop-param-fail-closed-shape"
     SsaNestedCfgFailClosedShape => "ssa-nested-cfg-fail-closed-shape"
+    SsaNestedResultIfSupportedShape => "ssa-nested-result-if-supported-shape"
+    SsaNestedResultIfConditionWrite => "ssa-nested-result-if-condition-write"
+    SsaNestedResultIfConditionValueBlock =>
+      "ssa-nested-result-if-condition-value-block"
+    SsaNestedResultIfArmValueBlock => "ssa-nested-result-if-arm-value-block"
+    SsaNestedResultIfMixedArmValueBlock =>
+      "ssa-nested-result-if-mixed-arm-value-block"
+    SsaNestedResultIfScalarResult => "ssa-nested-result-if-scalar-result"
   }
 }
 
@@ -4036,6 +4078,17 @@ fn validate_valid_feature_key_from_label(
     "ssa-typed-loop-param-fail-closed-shape" =>
       Some(SsaTypedLoopParamFailClosedShape)
     "ssa-nested-cfg-fail-closed-shape" => Some(SsaNestedCfgFailClosedShape)
+    "ssa-nested-result-if-supported-shape" =>
+      Some(SsaNestedResultIfSupportedShape)
+    "ssa-nested-result-if-condition-write" =>
+      Some(SsaNestedResultIfConditionWrite)
+    "ssa-nested-result-if-condition-value-block" =>
+      Some(SsaNestedResultIfConditionValueBlock)
+    "ssa-nested-result-if-arm-value-block" =>
+      Some(SsaNestedResultIfArmValueBlock)
+    "ssa-nested-result-if-mixed-arm-value-block" =>
+      Some(SsaNestedResultIfMixedArmValueBlock)
+    "ssa-nested-result-if-scalar-result" => Some(SsaNestedResultIfScalarResult)
     _ => None
   }
 }

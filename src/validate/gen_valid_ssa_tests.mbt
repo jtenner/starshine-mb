@@ -143,3 +143,1027 @@ test "ssa scanner detects parallel copy candidate" {
   let facts = gen_valid_feature_facts(mod_, CoverageForced)
   assert_true(facts.has_ssa_parallel_copy_candidate)
 }
+
+///|
+fn gen_valid_ssa_nested_result_if_i32_slice(
+  condition : Array[Instruction],
+  then_body : Array[Instruction],
+  else_body : Array[Instruction],
+  tail : Array[Instruction],
+) -> Array[Instruction] {
+  let out = condition
+  out.push(
+    Instruction::if_(
+      BlockType::val_type(ValType::i32()),
+      then_body,
+      Some(else_body),
+    ),
+  )
+  out.push(Instruction::drop())
+  for instr in tail {
+    out.push(instr)
+  }
+  out
+}
+
+///|
+test "ssa scanner detects nested result-if supported shape" {
+  let mod_ = gen_valid_ssa_test_module(
+    [ValType::i32()],
+    [ValType::i32()],
+    gen_valid_ssa_nested_result_if_i32_slice(
+      [Instruction::local_get(LocalIdx::new(0U))],
+      [
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::local_get(LocalIdx::new(1U)),
+      ],
+      [
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::local_get(LocalIdx::new(1U)),
+      ],
+      [Instruction::local_get(LocalIdx::new(1U)), Instruction::drop()],
+    ),
+  )
+  let facts = gen_valid_feature_facts(mod_, CoverageForced)
+  assert_true(facts.has_ssa_nested_result_if_supported_shape)
+  assert_false(facts.has_ssa_nested_cfg_fail_closed_shape)
+  assert_false(facts.has_ssa_nested_result_if_condition_write)
+  assert_false(facts.has_ssa_nested_result_if_condition_value_block)
+  assert_false(facts.has_ssa_nested_result_if_arm_value_block)
+  assert_false(facts.has_ssa_nested_result_if_mixed_arm_value_block)
+  assert_false(facts.has_ssa_nested_result_if_scalar_result)
+}
+
+///|
+test "ssa scanner detects nested result-if condition write" {
+  let mod_ = gen_valid_ssa_test_module(
+    [],
+    [ValType::i32()],
+    gen_valid_ssa_nested_result_if_i32_slice(
+      [
+        Instruction::i32_const(I32(1)),
+        Instruction::local_tee(LocalIdx::new(0U)),
+      ],
+      [
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+      ],
+      [
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+      ],
+      [Instruction::local_get(LocalIdx::new(0U)), Instruction::drop()],
+    ),
+  )
+  let facts = gen_valid_feature_facts(mod_, CoverageForced)
+  assert_true(facts.has_ssa_nested_result_if_supported_shape)
+  assert_true(facts.has_ssa_nested_result_if_condition_write)
+  assert_false(facts.has_ssa_nested_result_if_condition_value_block)
+}
+
+///|
+test "ssa scanner detects nested result-if condition value-block" {
+  let mod_ = gen_valid_ssa_test_module(
+    [],
+    [ValType::i32()],
+    gen_valid_ssa_nested_result_if_i32_slice(
+      [
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([
+            Instruction::i32_const(I32(1)),
+            Instruction::local_set(LocalIdx::new(0U)),
+            Instruction::local_get(LocalIdx::new(0U)),
+          ]),
+        ),
+      ],
+      [
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+      ],
+      [
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+      ],
+      [Instruction::local_get(LocalIdx::new(0U)), Instruction::drop()],
+    ),
+  )
+  let facts = gen_valid_feature_facts(mod_, CoverageForced)
+  assert_true(facts.has_ssa_nested_result_if_condition_value_block)
+  assert_false(facts.has_ssa_nested_result_if_condition_write)
+}
+
+///|
+test "ssa scanner detects nested result-if arm value-block" {
+  let mod_ = gen_valid_ssa_test_module(
+    [ValType::i32()],
+    [ValType::i32()],
+    gen_valid_ssa_nested_result_if_i32_slice(
+      [Instruction::local_get(LocalIdx::new(0U))],
+      [
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([
+            Instruction::i32_const(I32(7)),
+            Instruction::local_set(LocalIdx::new(1U)),
+            Instruction::local_get(LocalIdx::new(1U)),
+          ]),
+        ),
+      ],
+      [
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([
+            Instruction::i32_const(I32(9)),
+            Instruction::local_set(LocalIdx::new(1U)),
+            Instruction::local_get(LocalIdx::new(1U)),
+          ]),
+        ),
+      ],
+      [Instruction::local_get(LocalIdx::new(1U)), Instruction::drop()],
+    ),
+  )
+  let facts = gen_valid_feature_facts(mod_, CoverageForced)
+  assert_true(facts.has_ssa_nested_result_if_arm_value_block)
+  assert_false(facts.has_ssa_nested_result_if_mixed_arm_value_block)
+}
+
+///|
+test "ssa scanner detects nested result-if mixed arm value-block" {
+  let mod_ = gen_valid_ssa_test_module(
+    [ValType::i32()],
+    [ValType::i32(), ValType::i32()],
+    gen_valid_ssa_nested_result_if_i32_slice(
+      [Instruction::local_get(LocalIdx::new(0U))],
+      [
+        Instruction::i32_const(I32(1)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([
+            Instruction::i32_const(I32(7)),
+            Instruction::local_set(LocalIdx::new(2U)),
+            Instruction::local_get(LocalIdx::new(2U)),
+          ]),
+        ),
+      ],
+      [
+        Instruction::i32_const(I32(2)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([
+            Instruction::i32_const(I32(9)),
+            Instruction::local_set(LocalIdx::new(2U)),
+            Instruction::local_get(LocalIdx::new(2U)),
+          ]),
+        ),
+      ],
+      [
+        Instruction::local_get(LocalIdx::new(1U)),
+        Instruction::drop(),
+        Instruction::local_get(LocalIdx::new(2U)),
+        Instruction::drop(),
+      ],
+    ),
+  )
+  let facts = gen_valid_feature_facts(mod_, CoverageForced)
+  assert_true(facts.has_ssa_nested_result_if_mixed_arm_value_block)
+  assert_false(facts.has_ssa_nested_result_if_arm_value_block)
+}
+
+///|
+fn gen_valid_ssa_assert_nested_result_if_scalar_variant(
+  result_vt : ValType,
+  then_const : Instruction,
+  else_const : Instruction,
+) -> Unit raise {
+  let local_idx = LocalIdx::new(0U)
+  let mod_ = gen_valid_ssa_test_module([], [result_vt], [
+    Instruction::i32_const(I32(1)),
+    Instruction::if_(
+      BlockType::val_type(result_vt),
+      [
+        then_const,
+        Instruction::local_set(local_idx),
+        Instruction::local_get(local_idx),
+      ],
+      Some([
+        else_const,
+        Instruction::local_set(local_idx),
+        Instruction::local_get(local_idx),
+      ]),
+    ),
+    Instruction::drop(),
+    Instruction::local_get(local_idx),
+    Instruction::drop(),
+  ])
+  let facts = gen_valid_feature_facts(mod_, CoverageForced)
+  assert_true(facts.has_ssa_nested_result_if_supported_shape)
+  assert_true(facts.has_ssa_nested_result_if_scalar_result)
+}
+
+///|
+test "ssa scanner detects nested result-if scalar result variants" {
+  gen_valid_ssa_assert_nested_result_if_scalar_variant(
+    ValType::i64(),
+    Instruction::i64_const(I64(7L)),
+    Instruction::i64_const(I64(9L)),
+  )
+  gen_valid_ssa_assert_nested_result_if_scalar_variant(
+    ValType::f32(),
+    Instruction::f32_const(F32(7.0)),
+    Instruction::f32_const(F32(9.0)),
+  )
+  gen_valid_ssa_assert_nested_result_if_scalar_variant(
+    ValType::f64(),
+    Instruction::f64_const(F64(7.0)),
+    Instruction::f64_const(F64(9.0)),
+  )
+}
+
+///|
+test "ssa straight-line local chain is not nested result-if supported shape" {
+  let mod_ = gen_valid_ssa_test_module([], [ValType::i32()], [
+    Instruction::i32_const(I32(1)),
+    Instruction::local_set(LocalIdx::new(0U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::drop(),
+  ])
+  let facts = gen_valid_feature_facts(mod_, CoverageForced)
+  assert_true(facts.has_ssa_straight_line_local_chain)
+  assert_false(facts.has_ssa_nested_result_if_supported_shape)
+}
+
+///|
+test "ssa nested CFG fail-closed shape stays distinct from supported result-if" {
+  let mod_ = gen_valid_ssa_test_module([], [ValType::i32()], [
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+      ]),
+    ),
+    Instruction::drop(),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::drop(),
+  ])
+  let facts = gen_valid_feature_facts(mod_, CoverageForced)
+  assert_true(facts.has_ssa_nested_cfg_fail_closed_shape)
+  assert_false(facts.has_ssa_nested_result_if_supported_shape)
+}
+
+///|
+fn gen_valid_ssa_assert_unsupported_nested_result_if(
+  accepts : Array[ValType],
+  locals : Array[ValType],
+  body : Array[Instruction],
+) -> Unit raise {
+  let mod_ = gen_valid_ssa_test_module(accepts, locals, body)
+  let facts = gen_valid_feature_facts(mod_, CoverageForced)
+
+  assert_false(
+    facts.has_ssa_nested_result_if_supported_shape,
+    msg="unsupported dropped result-if must not scan as supported",
+  )
+}
+
+///|
+fn gen_valid_ssa_unsupported_drop_result_if_body(
+  condition : Array[Instruction],
+  then_body : Array[Instruction],
+  else_body : Array[Instruction],
+) -> Array[Instruction] {
+  let out = condition
+  out.push(
+    Instruction::if_(
+      BlockType::val_type(ValType::i32()),
+      then_body,
+      Some(else_body),
+    ),
+  )
+  out.push(Instruction::drop())
+  out.push(Instruction::local_get(LocalIdx::new(1U)))
+  out.push(Instruction::drop())
+  out
+}
+
+///|
+test "ssa scanner rejects dropped result-if with branch in arm value-block" {
+  gen_valid_ssa_assert_unsupported_nested_result_if(
+    [ValType::i32()],
+    [ValType::i32()],
+    gen_valid_ssa_unsupported_drop_result_if_body(
+      [Instruction::local_get(LocalIdx::new(0U))],
+      [
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([
+            Instruction::i32_const(I32(7)),
+            Instruction::local_set(LocalIdx::new(1U)),
+            Instruction::block(
+              BlockType::void_(),
+              Expr::new([Instruction::br(LabelIdx::new(0U))]),
+            ),
+            Instruction::local_get(LocalIdx::new(1U)),
+          ]),
+        ),
+      ],
+      [
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::local_get(LocalIdx::new(1U)),
+      ],
+    ),
+  )
+}
+
+///|
+test "ssa scanner rejects dropped result-if with br_if in arm value-block" {
+  gen_valid_ssa_assert_unsupported_nested_result_if(
+    [ValType::i32()],
+    [ValType::i32()],
+    gen_valid_ssa_unsupported_drop_result_if_body(
+      [Instruction::local_get(LocalIdx::new(0U))],
+      [
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([
+            Instruction::i32_const(I32(7)),
+            Instruction::local_set(LocalIdx::new(1U)),
+            Instruction::block(
+              BlockType::void_(),
+              Expr::new([
+                Instruction::i32_const(I32(0)),
+                Instruction::br_if(LabelIdx::new(0U)),
+              ]),
+            ),
+            Instruction::local_get(LocalIdx::new(1U)),
+          ]),
+        ),
+      ],
+      [
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::local_get(LocalIdx::new(1U)),
+      ],
+    ),
+  )
+}
+
+///|
+test "ssa scanner rejects dropped result-if with nested if in arm value-block" {
+  gen_valid_ssa_assert_unsupported_nested_result_if(
+    [ValType::i32(), ValType::i32()],
+    [ValType::i32()],
+    gen_valid_ssa_unsupported_drop_result_if_body(
+      [Instruction::local_get(LocalIdx::new(0U))],
+      [
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([
+            Instruction::local_get(LocalIdx::new(2U)),
+            Instruction::if_(
+              BlockType::void_(),
+              [
+                Instruction::i32_const(I32(7)),
+                Instruction::local_set(LocalIdx::new(1U)),
+              ],
+              None,
+            ),
+            Instruction::local_get(LocalIdx::new(1U)),
+          ]),
+        ),
+      ],
+      [
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::local_get(LocalIdx::new(1U)),
+      ],
+    ),
+  )
+}
+
+///|
+test "ssa scanner rejects dropped result-if with value-producing prefix root" {
+  gen_valid_ssa_assert_unsupported_nested_result_if(
+    [ValType::i32()],
+    [ValType::i32()],
+    gen_valid_ssa_unsupported_drop_result_if_body(
+      [Instruction::local_get(LocalIdx::new(0U))],
+      [
+        Instruction::i32_const(I32(111)),
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([
+            Instruction::i32_const(I32(7)),
+            Instruction::local_set(LocalIdx::new(1U)),
+            Instruction::local_get(LocalIdx::new(1U)),
+          ]),
+        ),
+      ],
+      [
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::local_get(LocalIdx::new(1U)),
+      ],
+    ),
+  )
+}
+
+///|
+test "ssa scanner rejects dropped result-if with two arm value-blocks" {
+  gen_valid_ssa_assert_unsupported_nested_result_if(
+    [ValType::i32()],
+    [ValType::i32()],
+    gen_valid_ssa_unsupported_drop_result_if_body(
+      [Instruction::local_get(LocalIdx::new(0U))],
+      [
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([Instruction::i32_const(I32(7))]),
+        ),
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([
+            Instruction::i32_const(I32(8)),
+            Instruction::local_set(LocalIdx::new(1U)),
+            Instruction::local_get(LocalIdx::new(1U)),
+          ]),
+        ),
+      ],
+      [
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::local_get(LocalIdx::new(1U)),
+      ],
+    ),
+  )
+}
+
+///|
+test "ssa scanner rejects dropped result-if with root after final arm value-block" {
+  gen_valid_ssa_assert_unsupported_nested_result_if(
+    [ValType::i32()],
+    [ValType::i32()],
+    gen_valid_ssa_unsupported_drop_result_if_body(
+      [Instruction::local_get(LocalIdx::new(0U))],
+      [
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([
+            Instruction::i32_const(I32(7)),
+            Instruction::local_set(LocalIdx::new(1U)),
+            Instruction::local_get(LocalIdx::new(1U)),
+          ]),
+        ),
+        Instruction::drop(),
+      ],
+      [
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::local_get(LocalIdx::new(1U)),
+      ],
+    ),
+  )
+}
+
+///|
+test "ssa scanner rejects dropped result-if with branch in condition value-block" {
+  gen_valid_ssa_assert_unsupported_nested_result_if(
+    [],
+    [ValType::i32()],
+    gen_valid_ssa_unsupported_drop_result_if_body(
+      [
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([
+            Instruction::i32_const(I32(1)),
+            Instruction::local_set(LocalIdx::new(0U)),
+            Instruction::block(
+              BlockType::void_(),
+              Expr::new([Instruction::br(LabelIdx::new(0U))]),
+            ),
+            Instruction::local_get(LocalIdx::new(0U)),
+          ]),
+        ),
+      ],
+      [
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+      ],
+      [
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+      ],
+    ),
+  )
+}
+
+///|
+test "ssa scanner rejects dropped result-if with nested loop in arm value-block" {
+  gen_valid_ssa_assert_unsupported_nested_result_if(
+    [ValType::i32()],
+    [ValType::i32()],
+    gen_valid_ssa_unsupported_drop_result_if_body(
+      [Instruction::local_get(LocalIdx::new(0U))],
+      [
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([
+            Instruction::i32_const(I32(7)),
+            Instruction::local_set(LocalIdx::new(1U)),
+            Instruction::loop_(
+              BlockType::void_(),
+              Expr::new([
+                Instruction::local_get(LocalIdx::new(1U)),
+                Instruction::br_if(LabelIdx::new(0U)),
+              ]),
+            ),
+            Instruction::local_get(LocalIdx::new(1U)),
+          ]),
+        ),
+      ],
+      [
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::local_get(LocalIdx::new(1U)),
+      ],
+    ),
+  )
+}
+
+///|
+test "ssa scanner rejects dropped result-if with nested block in arm value-block" {
+  gen_valid_ssa_assert_unsupported_nested_result_if(
+    [ValType::i32()],
+    [ValType::i32()],
+    gen_valid_ssa_unsupported_drop_result_if_body(
+      [Instruction::local_get(LocalIdx::new(0U))],
+      [
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([
+            Instruction::block(
+              BlockType::void_(),
+              Expr::new([Instruction::i32_const(I32(0)), Instruction::drop()]),
+            ),
+            Instruction::i32_const(I32(7)),
+            Instruction::local_set(LocalIdx::new(1U)),
+            Instruction::local_get(LocalIdx::new(1U)),
+          ]),
+        ),
+      ],
+      [
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::local_get(LocalIdx::new(1U)),
+      ],
+    ),
+  )
+}
+
+///|
+test "ssa scanner rejects dropped result-if with br_if in condition value-block" {
+  gen_valid_ssa_assert_unsupported_nested_result_if(
+    [],
+    [ValType::i32()],
+    gen_valid_ssa_unsupported_drop_result_if_body(
+      [
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([
+            Instruction::i32_const(I32(1)),
+            Instruction::local_set(LocalIdx::new(0U)),
+            Instruction::block(
+              BlockType::void_(),
+              Expr::new([
+                Instruction::i32_const(I32(0)),
+                Instruction::br_if(LabelIdx::new(0U)),
+              ]),
+            ),
+            Instruction::local_get(LocalIdx::new(0U)),
+          ]),
+        ),
+      ],
+      [
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+      ],
+      [
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+      ],
+    ),
+  )
+}
+
+///|
+test "ssa scanner rejects dropped result-if with nested if in condition value-block" {
+  gen_valid_ssa_assert_unsupported_nested_result_if(
+    [],
+    [ValType::i32()],
+    gen_valid_ssa_unsupported_drop_result_if_body(
+      [
+        Instruction::block(
+          BlockType::val_type(ValType::i32()),
+          Expr::new([
+            Instruction::i32_const(I32(1)),
+            Instruction::local_set(LocalIdx::new(0U)),
+            Instruction::if_(
+              BlockType::void_(),
+              [
+                Instruction::i32_const(I32(1)),
+                Instruction::local_set(LocalIdx::new(0U)),
+              ],
+              None,
+            ),
+            Instruction::local_get(LocalIdx::new(0U)),
+          ]),
+        ),
+      ],
+      [
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+      ],
+      [
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::local_get(LocalIdx::new(0U)),
+      ],
+    ),
+  )
+}
+
+///|
+test "ssa scanner rejects dropped result-if with result type mismatch" {
+  gen_valid_ssa_assert_unsupported_nested_result_if(
+    [ValType::i32()],
+    [ValType::i32()],
+    gen_valid_ssa_unsupported_drop_result_if_body(
+      [Instruction::local_get(LocalIdx::new(0U))],
+      [
+        Instruction::block(
+          BlockType::val_type(ValType::f32()),
+          Expr::new([
+            Instruction::f32_const(F32(7.0)),
+            Instruction::local_set(LocalIdx::new(1U)),
+            Instruction::local_get(LocalIdx::new(1U)),
+          ]),
+        ),
+      ],
+      [
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::local_get(LocalIdx::new(1U)),
+      ],
+    ),
+  )
+}
+
+///|
+test "ssa scanner rejects dropped result-if with multi-value result" {
+  let mod_ = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([], []))),
+        RecType::new(
+          SubType::comp_type(
+            CompType::func([], [ValType::i32(), ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::i32_const(I32(1)),
+            Instruction::if_(
+              BlockType::type_idx(TypeIdx::new(1U)),
+              [Instruction::i32_const(I32(7)), Instruction::i32_const(I32(8))],
+              Some([
+                Instruction::i32_const(I32(9)),
+                Instruction::i32_const(I32(10)),
+              ]),
+            ),
+            Instruction::drop(),
+            Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let facts = gen_valid_feature_facts(mod_, CoverageForced)
+  assert_false(facts.has_ssa_nested_result_if_supported_shape)
+  assert_false(facts.has_ssa_nested_result_if_arm_value_block)
+  assert_false(facts.has_ssa_nested_result_if_mixed_arm_value_block)
+  assert_false(facts.has_ssa_nested_result_if_condition_value_block)
+}
+
+///|
+test "ssa coverage template slices scan as supported shapes" {
+  // O. nested result-if straight-line arms (i32)
+  {
+    let mod_ = gen_valid_ssa_test_module([ValType::i32()], [ValType::i32()], [
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::if_(
+        BlockType::val_type(ValType::i32()),
+        [
+          Instruction::i32_const(I32(7)),
+          Instruction::local_set(LocalIdx::new(1U)),
+          Instruction::local_get(LocalIdx::new(1U)),
+        ],
+        Some([
+          Instruction::i32_const(I32(9)),
+          Instruction::local_set(LocalIdx::new(1U)),
+          Instruction::local_get(LocalIdx::new(1U)),
+        ]),
+      ),
+      Instruction::drop(),
+      Instruction::local_get(LocalIdx::new(1U)),
+      Instruction::drop(),
+    ])
+    let facts = gen_valid_feature_facts(mod_, CoverageForced)
+    assert_true(
+      facts.has_ssa_nested_result_if_supported_shape,
+      msg="template O should scan as supported nested result-if",
+    )
+    assert_false(facts.has_ssa_nested_result_if_condition_write)
+    assert_false(facts.has_ssa_nested_result_if_condition_value_block)
+    assert_false(facts.has_ssa_nested_result_if_arm_value_block)
+    assert_false(facts.has_ssa_nested_result_if_mixed_arm_value_block)
+    assert_false(facts.has_ssa_nested_result_if_scalar_result)
+  }
+
+  // S. nested result-if condition local write
+  {
+    let mod_ = gen_valid_ssa_test_module([], [ValType::i32()], [
+      Instruction::i32_const(I32(1)),
+      Instruction::local_tee(LocalIdx::new(0U)),
+      Instruction::if_(
+        BlockType::val_type(ValType::i32()),
+        [
+          Instruction::i32_const(I32(7)),
+          Instruction::local_set(LocalIdx::new(0U)),
+          Instruction::local_get(LocalIdx::new(0U)),
+        ],
+        Some([
+          Instruction::i32_const(I32(9)),
+          Instruction::local_set(LocalIdx::new(0U)),
+          Instruction::local_get(LocalIdx::new(0U)),
+        ]),
+      ),
+      Instruction::drop(),
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::drop(),
+    ])
+    let facts = gen_valid_feature_facts(mod_, CoverageForced)
+    assert_true(
+      facts.has_ssa_nested_result_if_supported_shape,
+      msg="template S should scan as supported nested result-if",
+    )
+    assert_true(
+      facts.has_ssa_nested_result_if_condition_write,
+      msg="template S should scan condition-write fact",
+    )
+    assert_false(facts.has_ssa_nested_result_if_condition_value_block)
+    assert_false(facts.has_ssa_nested_result_if_arm_value_block)
+    assert_false(facts.has_ssa_nested_result_if_mixed_arm_value_block)
+  }
+
+  // T. nested result-if condition value-block
+  {
+    let mod_ = gen_valid_ssa_test_module([], [ValType::i32()], [
+      Instruction::block(
+        BlockType::val_type(ValType::i32()),
+        Expr::new([
+          Instruction::i32_const(I32(1)),
+          Instruction::local_set(LocalIdx::new(0U)),
+          Instruction::local_get(LocalIdx::new(0U)),
+        ]),
+      ),
+      Instruction::if_(
+        BlockType::val_type(ValType::i32()),
+        [
+          Instruction::i32_const(I32(7)),
+          Instruction::local_set(LocalIdx::new(0U)),
+          Instruction::local_get(LocalIdx::new(0U)),
+        ],
+        Some([
+          Instruction::i32_const(I32(9)),
+          Instruction::local_set(LocalIdx::new(0U)),
+          Instruction::local_get(LocalIdx::new(0U)),
+        ]),
+      ),
+      Instruction::drop(),
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::drop(),
+    ])
+    let facts = gen_valid_feature_facts(mod_, CoverageForced)
+    assert_true(
+      facts.has_ssa_nested_result_if_supported_shape,
+      msg="template T should scan as supported nested result-if",
+    )
+    assert_true(
+      facts.has_ssa_nested_result_if_condition_value_block,
+      msg="template T should scan condition-value-block fact",
+    )
+    assert_false(facts.has_ssa_nested_result_if_condition_write)
+    assert_false(facts.has_ssa_nested_result_if_arm_value_block)
+    assert_false(facts.has_ssa_nested_result_if_mixed_arm_value_block)
+  }
+
+  // U. nested result-if arm value-blocks
+  {
+    let mod_ = gen_valid_ssa_test_module([ValType::i32()], [ValType::i32()], [
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::if_(
+        BlockType::val_type(ValType::i32()),
+        [
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(7)),
+              Instruction::local_set(LocalIdx::new(1U)),
+              Instruction::local_get(LocalIdx::new(1U)),
+            ]),
+          ),
+        ],
+        Some([
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(9)),
+              Instruction::local_set(LocalIdx::new(1U)),
+              Instruction::local_get(LocalIdx::new(1U)),
+            ]),
+          ),
+        ]),
+      ),
+      Instruction::drop(),
+      Instruction::local_get(LocalIdx::new(1U)),
+      Instruction::drop(),
+    ])
+    let facts = gen_valid_feature_facts(mod_, CoverageForced)
+    assert_true(
+      facts.has_ssa_nested_result_if_supported_shape,
+      msg="template U should scan as supported nested result-if",
+    )
+    assert_true(
+      facts.has_ssa_nested_result_if_arm_value_block,
+      msg="template U should scan arm-value-block fact",
+    )
+    assert_false(facts.has_ssa_nested_result_if_mixed_arm_value_block)
+  }
+
+  // V. nested result-if mixed arm roots
+  {
+    let mod_ = gen_valid_ssa_test_module(
+      [ValType::i32()],
+      [ValType::i32(), ValType::i32()],
+      [
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::if_(
+          BlockType::val_type(ValType::i32()),
+          [
+            Instruction::i32_const(I32(1)),
+            Instruction::local_set(LocalIdx::new(1U)),
+            Instruction::block(
+              BlockType::val_type(ValType::i32()),
+              Expr::new([
+                Instruction::i32_const(I32(7)),
+                Instruction::local_set(LocalIdx::new(2U)),
+                Instruction::local_get(LocalIdx::new(2U)),
+              ]),
+            ),
+          ],
+          Some([
+            Instruction::i32_const(I32(2)),
+            Instruction::local_set(LocalIdx::new(1U)),
+            Instruction::block(
+              BlockType::val_type(ValType::i32()),
+              Expr::new([
+                Instruction::i32_const(I32(9)),
+                Instruction::local_set(LocalIdx::new(2U)),
+                Instruction::local_get(LocalIdx::new(2U)),
+              ]),
+            ),
+          ]),
+        ),
+        Instruction::drop(),
+        Instruction::local_get(LocalIdx::new(1U)),
+        Instruction::drop(),
+        Instruction::local_get(LocalIdx::new(2U)),
+        Instruction::drop(),
+      ],
+    )
+    let facts = gen_valid_feature_facts(mod_, CoverageForced)
+    assert_true(
+      facts.has_ssa_nested_result_if_supported_shape,
+      msg="template V should scan as supported nested result-if",
+    )
+    assert_true(
+      facts.has_ssa_nested_result_if_mixed_arm_value_block,
+      msg="template V should scan mixed-arm-value-block fact",
+    )
+    assert_false(facts.has_ssa_nested_result_if_arm_value_block)
+  }
+
+  // W. condition value-block + mixed arm roots
+  let mod_ = gen_valid_ssa_test_module(
+    [ValType::i32()],
+    [ValType::i32(), ValType::i32(), ValType::i32()],
+    [
+      Instruction::block(
+        BlockType::val_type(ValType::i32()),
+        Expr::new([
+          Instruction::i32_const(I32(1)),
+          Instruction::local_set(LocalIdx::new(1U)),
+          Instruction::local_get(LocalIdx::new(1U)),
+        ]),
+      ),
+      Instruction::if_(
+        BlockType::val_type(ValType::i32()),
+        [
+          Instruction::i32_const(I32(4)),
+          Instruction::local_set(LocalIdx::new(2U)),
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(7)),
+              Instruction::local_set(LocalIdx::new(3U)),
+              Instruction::local_get(LocalIdx::new(3U)),
+            ]),
+          ),
+        ],
+        Some([
+          Instruction::i32_const(I32(5)),
+          Instruction::local_set(LocalIdx::new(2U)),
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(9)),
+              Instruction::local_set(LocalIdx::new(3U)),
+              Instruction::local_get(LocalIdx::new(3U)),
+            ]),
+          ),
+        ]),
+      ),
+      Instruction::drop(),
+      Instruction::local_get(LocalIdx::new(1U)),
+      Instruction::drop(),
+      Instruction::local_get(LocalIdx::new(2U)),
+      Instruction::drop(),
+      Instruction::local_get(LocalIdx::new(3U)),
+      Instruction::drop(),
+    ],
+  )
+  let facts = gen_valid_feature_facts(mod_, CoverageForced)
+  assert_true(
+    facts.has_ssa_nested_result_if_supported_shape,
+    msg="template W should scan as supported nested result-if",
+  )
+  assert_true(
+    facts.has_ssa_nested_result_if_condition_value_block,
+    msg="template W should scan condition-value-block fact",
+  )
+  assert_true(
+    facts.has_ssa_nested_result_if_mixed_arm_value_block,
+    msg="template W should scan mixed-arm-value-block fact",
+  )
+  assert_false(facts.has_ssa_nested_result_if_arm_value_block)
+}
+
+///|
+test "ssa-nomerge coverage profile emits nested result-if supported shape" {
+  let config = GenValidConfig::for_profile(SsaNomergeCoverageProfile)
+  let generated = match gen_valid_module_result_from_seed(0x5eedUL, config) {
+    Ok(v) => v
+    Err(failure) =>
+      fail("ssa-nomerge generation failed: \{failure.validation_error_message}")
+  }
+  assert_true(
+    generated.facts.has_ssa_nested_result_if_supported_shape,
+    msg="expected nested result-if supported shape in coverage profile",
+  )
+  assert_true(generated.facts.has_ssa_nested_result_if_condition_write)
+  assert_true(generated.facts.has_ssa_nested_result_if_condition_value_block)
+  assert_true(generated.facts.has_ssa_nested_result_if_arm_value_block)
+  assert_true(generated.facts.has_ssa_nested_result_if_mixed_arm_value_block)
+  assert_true(generated.facts.has_ssa_nested_result_if_scalar_result)
+}

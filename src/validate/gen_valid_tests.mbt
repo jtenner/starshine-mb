@@ -7307,6 +7307,14 @@ test "ssa-nomerge coverage generated modules record dense SSA feature facts" {
     facts.has_ssa_nested_cfg_fail_closed_shape,
     msg="expected nested CFG fail-closed shape",
   )
+  assert_true(
+    facts.has_ssa_nested_result_if_supported_shape,
+    msg="expected nested result-if supported shape",
+  )
+  assert_true(
+    facts.has_ssa_nested_result_if_scalar_result,
+    msg="expected nested result-if scalar result variants",
+  )
 }
 
 ///|
@@ -7361,6 +7369,10 @@ test "ssa-nomerge parity generated modules omit fail-closed coverage slices" {
     facts.has_ssa_unreachable_local_carrier,
     msg="parity profile must not emit unreachable local carrier",
   )
+  assert_false(
+    facts.has_ssa_nested_result_if_supported_shape,
+    msg="parity profile must not emit nested result-if coverage slices",
+  )
 }
 
 ///|
@@ -7373,7 +7385,10 @@ test "validate_valid_feature_floor_by_label recognizes SSA feature labels" {
       "ssa-parallel-copy-cycle-candidate", "ssa-default-local-merge", "ssa-unreachable-local-carrier",
       "ssa-dropped-increment-guard-shape", "ssa-dropped-increment-reversed-boundary",
       "ssa-exceptional-fail-closed-shape", "ssa-typed-loop-param-fail-closed-shape",
-      "ssa-nested-cfg-fail-closed-shape",
+      "ssa-nested-cfg-fail-closed-shape", "ssa-nested-result-if-supported-shape",
+      "ssa-nested-result-if-condition-write", "ssa-nested-result-if-condition-value-block",
+      "ssa-nested-result-if-arm-value-block", "ssa-nested-result-if-mixed-arm-value-block",
+      "ssa-nested-result-if-scalar-result",
     ] {
     match validate_valid_feature_floor_by_label(label, 1) {
       Ok(_) => ()

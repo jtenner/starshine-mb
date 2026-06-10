@@ -1269,6 +1269,12 @@ pub struct GenValidFeatureFacts {
   has_ssa_exceptional_fail_closed_shape : Bool
   has_ssa_typed_loop_param_fail_closed_shape : Bool
   has_ssa_nested_cfg_fail_closed_shape : Bool
+  has_ssa_nested_result_if_supported_shape : Bool
+  has_ssa_nested_result_if_condition_write : Bool
+  has_ssa_nested_result_if_condition_value_block : Bool
+  has_ssa_nested_result_if_arm_value_block : Bool
+  has_ssa_nested_result_if_mixed_arm_value_block : Bool
+  has_ssa_nested_result_if_scalar_result : Bool
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, Debug)
 
@@ -1407,6 +1413,12 @@ pub struct GenValidFeatureStats {
   ssa_exceptional_fail_closed_shape : Int
   ssa_typed_loop_param_fail_closed_shape : Int
   ssa_nested_cfg_fail_closed_shape : Int
+  ssa_nested_result_if_supported_shape : Int
+  ssa_nested_result_if_condition_write : Int
+  ssa_nested_result_if_condition_value_block : Int
+  ssa_nested_result_if_arm_value_block : Int
+  ssa_nested_result_if_mixed_arm_value_block : Int
+  ssa_nested_result_if_scalar_result : Int
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, Debug)
 
@@ -1574,6 +1586,18 @@ pub impl Show for GenValidFeatureStats with fn output(self, logger) {
   self.ssa_typed_loop_param_fail_closed_shape.output(logger)
   logger.write_string(", ssa_nested_cfg_fail_closed_shape: ")
   self.ssa_nested_cfg_fail_closed_shape.output(logger)
+  logger.write_string(", ssa_nested_result_if_supported_shape: ")
+  self.ssa_nested_result_if_supported_shape.output(logger)
+  logger.write_string(", ssa_nested_result_if_condition_write: ")
+  self.ssa_nested_result_if_condition_write.output(logger)
+  logger.write_string(", ssa_nested_result_if_condition_value_block: ")
+  self.ssa_nested_result_if_condition_value_block.output(logger)
+  logger.write_string(", ssa_nested_result_if_arm_value_block: ")
+  self.ssa_nested_result_if_arm_value_block.output(logger)
+  logger.write_string(", ssa_nested_result_if_mixed_arm_value_block: ")
+  self.ssa_nested_result_if_mixed_arm_value_block.output(logger)
+  logger.write_string(", ssa_nested_result_if_scalar_result: ")
+  self.ssa_nested_result_if_scalar_result.output(logger)
   logger.write_string(", exact_opcode_counts: ")
   self.exact_opcode_counts.output(logger)
   logger.write_char('}')
@@ -1663,6 +1687,12 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     ssa_exceptional_fail_closed_shape: 0,
     ssa_typed_loop_param_fail_closed_shape: 0,
     ssa_nested_cfg_fail_closed_shape: 0,
+    ssa_nested_result_if_supported_shape: 0,
+    ssa_nested_result_if_condition_write: 0,
+    ssa_nested_result_if_condition_value_block: 0,
+    ssa_nested_result_if_arm_value_block: 0,
+    ssa_nested_result_if_mixed_arm_value_block: 0,
+    ssa_nested_result_if_scalar_result: 0,
     exact_opcode_counts: GenValidExactOpcodeCounts::empty(),
   }
 }
@@ -1810,6 +1840,18 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_ssa_typed_loop_param_fail_closed_shape),
     ssa_nested_cfg_fail_closed_shape: self.ssa_nested_cfg_fail_closed_shape +
     gen_valid_bool_count(facts.has_ssa_nested_cfg_fail_closed_shape),
+    ssa_nested_result_if_supported_shape: self.ssa_nested_result_if_supported_shape +
+    gen_valid_bool_count(facts.has_ssa_nested_result_if_supported_shape),
+    ssa_nested_result_if_condition_write: self.ssa_nested_result_if_condition_write +
+    gen_valid_bool_count(facts.has_ssa_nested_result_if_condition_write),
+    ssa_nested_result_if_condition_value_block: self.ssa_nested_result_if_condition_value_block +
+    gen_valid_bool_count(facts.has_ssa_nested_result_if_condition_value_block),
+    ssa_nested_result_if_arm_value_block: self.ssa_nested_result_if_arm_value_block +
+    gen_valid_bool_count(facts.has_ssa_nested_result_if_arm_value_block),
+    ssa_nested_result_if_mixed_arm_value_block: self.ssa_nested_result_if_mixed_arm_value_block +
+    gen_valid_bool_count(facts.has_ssa_nested_result_if_mixed_arm_value_block),
+    ssa_nested_result_if_scalar_result: self.ssa_nested_result_if_scalar_result +
+    gen_valid_bool_count(facts.has_ssa_nested_result_if_scalar_result),
     exact_opcode_counts: self.exact_opcode_counts.add(facts.exact_opcode_counts),
   }
 }
@@ -3998,14 +4040,32 @@ fn gen_valid_ensure_body_layout_locals(
   if ctx.config.mode == CoverageForced &&
     ctx.config.features.allow_ssa_nomerge_body_generator {
     let mut i32_local_count = 0
+    let mut has_i64 = false
+    let mut has_f32 = false
+    let mut has_f64 = false
     for vt in locals {
       if vt == ValType::i32() {
         i32_local_count += 1
+      } else if vt == ValType::i64() {
+        has_i64 = true
+      } else if vt == ValType::f32() {
+        has_f32 = true
+      } else if vt == ValType::f64() {
+        has_f64 = true
       }
     }
-    while i32_local_count < 2 {
+    while i32_local_count < 3 {
       locals.push(ValType::i32())
       i32_local_count += 1
+    }
+    if !has_i64 {
+      locals.push(ValType::i64())
+    }
+    if !has_f32 {
+      locals.push(ValType::f32())
+    }
+    if !has_f64 {
+      locals.push(ValType::f64())
     }
   }
   if ctx.config.mode == CoverageForced &&
@@ -15567,6 +15627,12 @@ pub fn gen_valid_feature_facts(
     has_ssa_exceptional_fail_closed_shape: ssa_facts.has_ssa_exceptional_fail_closed_shape,
     has_ssa_typed_loop_param_fail_closed_shape: ssa_facts.has_ssa_typed_loop_param_fail_closed_shape,
     has_ssa_nested_cfg_fail_closed_shape: ssa_facts.has_ssa_nested_cfg_fail_closed_shape,
+    has_ssa_nested_result_if_supported_shape: ssa_facts.has_ssa_nested_result_if_supported_shape,
+    has_ssa_nested_result_if_condition_write: ssa_facts.has_ssa_nested_result_if_condition_write,
+    has_ssa_nested_result_if_condition_value_block: ssa_facts.has_ssa_nested_result_if_condition_value_block,
+    has_ssa_nested_result_if_arm_value_block: ssa_facts.has_ssa_nested_result_if_arm_value_block,
+    has_ssa_nested_result_if_mixed_arm_value_block: ssa_facts.has_ssa_nested_result_if_mixed_arm_value_block,
+    has_ssa_nested_result_if_scalar_result: ssa_facts.has_ssa_nested_result_if_scalar_result,
     exact_opcode_counts,
   }
 }

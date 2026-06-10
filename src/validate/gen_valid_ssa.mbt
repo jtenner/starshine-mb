@@ -18,6 +18,12 @@ pub struct GenValidSsaFuncFacts {
   has_ssa_exceptional_fail_closed_shape : Bool
   has_ssa_typed_loop_param_fail_closed_shape : Bool
   has_ssa_nested_cfg_fail_closed_shape : Bool
+  has_ssa_nested_result_if_supported_shape : Bool
+  has_ssa_nested_result_if_condition_write : Bool
+  has_ssa_nested_result_if_condition_value_block : Bool
+  has_ssa_nested_result_if_arm_value_block : Bool
+  has_ssa_nested_result_if_mixed_arm_value_block : Bool
+  has_ssa_nested_result_if_scalar_result : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -41,6 +47,12 @@ pub fn GenValidSsaFuncFacts::empty() -> GenValidSsaFuncFacts {
     has_ssa_exceptional_fail_closed_shape: false,
     has_ssa_typed_loop_param_fail_closed_shape: false,
     has_ssa_nested_cfg_fail_closed_shape: false,
+    has_ssa_nested_result_if_supported_shape: false,
+    has_ssa_nested_result_if_condition_write: false,
+    has_ssa_nested_result_if_condition_value_block: false,
+    has_ssa_nested_result_if_arm_value_block: false,
+    has_ssa_nested_result_if_mixed_arm_value_block: false,
+    has_ssa_nested_result_if_scalar_result: false,
   }
 }
 
@@ -85,6 +97,18 @@ pub fn gen_valid_merge_ssa_func_facts(
     right.has_ssa_typed_loop_param_fail_closed_shape,
     has_ssa_nested_cfg_fail_closed_shape: left.has_ssa_nested_cfg_fail_closed_shape ||
     right.has_ssa_nested_cfg_fail_closed_shape,
+    has_ssa_nested_result_if_supported_shape: left.has_ssa_nested_result_if_supported_shape ||
+    right.has_ssa_nested_result_if_supported_shape,
+    has_ssa_nested_result_if_condition_write: left.has_ssa_nested_result_if_condition_write ||
+    right.has_ssa_nested_result_if_condition_write,
+    has_ssa_nested_result_if_condition_value_block: left.has_ssa_nested_result_if_condition_value_block ||
+    right.has_ssa_nested_result_if_condition_value_block,
+    has_ssa_nested_result_if_arm_value_block: left.has_ssa_nested_result_if_arm_value_block ||
+    right.has_ssa_nested_result_if_arm_value_block,
+    has_ssa_nested_result_if_mixed_arm_value_block: left.has_ssa_nested_result_if_mixed_arm_value_block ||
+    right.has_ssa_nested_result_if_mixed_arm_value_block,
+    has_ssa_nested_result_if_scalar_result: left.has_ssa_nested_result_if_scalar_result ||
+    right.has_ssa_nested_result_if_scalar_result,
   }
 }
 
@@ -169,6 +193,536 @@ fn gen_valid_ssa_blocktype_is_typed_loop(bt : BlockType) -> Bool {
   match bt {
     TypeIdxBlockType(_) => true
     _ => false
+  }
+}
+
+///|
+fn gen_valid_ssa_is_scalar_numeric_result(vt : ValType) -> Bool {
+  vt == ValType::i32() ||
+  vt == ValType::i64() ||
+  vt == ValType::f32() ||
+  vt == ValType::f64()
+}
+
+///|
+fn gen_valid_ssa_blocktype_scalar_result(bt : BlockType) -> ValType? {
+  match bt {
+    ValTypeBlockType(vt) if gen_valid_ssa_is_scalar_numeric_result(vt) =>
+      Some(vt)
+    _ => None
+  }
+}
+
+///|
+fn gen_valid_ssa_instr_is_forbidden_control(instr : Instruction) -> Bool {
+  match instr {
+    Block(_, _)
+    | Loop(_, _)
+    | If(_, _, _)
+    | Br(_)
+    | BrIf(_)
+    | BrTable(_, _)
+    | Return
+    | Unreachable
+    | TryTable(_, _, _)
+    | Throw(_)
+    | ThrowRef => true
+    _ => false
+  }
+}
+
+///|
+fn gen_valid_ssa_blocktype_has_stack_result(bt : BlockType) -> Bool {
+  match bt {
+    ValTypeBlockType(_) | TypeIdxBlockType(_) => true
+    _ => false
+  }
+}
+
+///|
+fn gen_valid_ssa_instr_subtree_is_straight_line_no_nested_control(
+  instr : Instruction,
+  allow_block_root : Bool,
+) -> Bool {
+  match instr {
+    Block(_, body) if allow_block_root =>
+      gen_valid_ssa_expr_is_straight_line_no_nested_control(body)
+    Block(_, _)
+    | Loop(_, _)
+    | If(_, _, _)
+    | Br(_)
+    | BrIf(_)
+    | BrTable(_, _)
+    | Return
+    | Unreachable
+    | TryTable(_, _, _)
+    | Throw(_)
+    | ThrowRef => false
+    _ => true
+  }
+}
+
+///|
+fn gen_valid_ssa_expr_is_straight_line_no_nested_control(expr : Expr) -> Bool {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    if !gen_valid_ssa_instr_subtree_is_straight_line_no_nested_control(
+        instr, false,
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn gen_valid_ssa_subtree_is_straight_line_no_nested_control(
+  expr : Expr,
+  allow_block_root : Bool,
+) -> Bool {
+  let Expr(instrs) = expr
+  let mut allow_root = allow_block_root
+  for instr in instrs {
+    if !gen_valid_ssa_instr_subtree_is_straight_line_no_nested_control(
+        instr, allow_root,
+      ) {
+      return false
+    }
+    allow_root = false
+  }
+  true
+}
+
+///|
+fn gen_valid_ssa_instr_i32_stack_delta(instr : Instruction) -> Int? {
+  match instr {
+    I32Const(_) | LocalGet(_) => Some(1)
+    LocalTee(_) => Some(0)
+    Block(ValTypeBlockType(vt), _) if vt == ValType::i32() => Some(1)
+    Block(TypeIdxBlockType(_), _) => Some(1)
+    LocalSet(_)
+    | Drop
+    | Br(_)
+    | BrIf(_)
+    | BrTable(_, _)
+    | Return
+    | Unreachable => Some(-1)
+    I32Add
+    | I32Sub
+    | I32Mul
+    | I32DivS
+    | I32DivU
+    | I32RemS
+    | I32RemU
+    | I32And
+    | I32Or
+    | I32Xor => Some(-1)
+    Block(bt, _) | Loop(bt, _) if !gen_valid_ssa_blocktype_has_stack_result(bt) =>
+      Some(0)
+    _ => None
+  }
+}
+
+///|
+fn gen_valid_ssa_prefix_leaves_single_i32(
+  instrs : Array[Instruction],
+  start : Int,
+  end : Int,
+) -> Bool {
+  let mut stack = 0
+  let mut i = start
+  while i < end {
+    match gen_valid_ssa_instr_i32_stack_delta(instrs[i]) {
+      None => return false
+      Some(delta) => {
+        stack = stack + delta
+        if stack < 0 {
+          return false
+        }
+      }
+    }
+    i += 1
+  }
+  stack == 1
+}
+
+///|
+fn gen_valid_ssa_instr_scalar_stack_delta(
+  instr : Instruction,
+  result_vt : ValType,
+) -> Int? {
+  match instr {
+    I32Const(_) if result_vt == ValType::i32() => Some(1)
+    I64Const(_) if result_vt == ValType::i64() => Some(1)
+    F32Const(_) if result_vt == ValType::f32() => Some(1)
+    F64Const(_) if result_vt == ValType::f64() => Some(1)
+    LocalGet(_) => Some(1)
+    LocalTee(_) => Some(0)
+    LocalSet(_) | Drop => Some(-1)
+    Block(ValTypeBlockType(vt), _) if vt == result_vt => Some(1)
+    Block(bt, _) | Loop(bt, _) if !gen_valid_ssa_blocktype_has_stack_result(bt) =>
+      Some(0)
+    I32Add
+    | I32Sub
+    | I32Mul
+    | I32DivS
+    | I32DivU
+    | I32RemS
+    | I32RemU
+    | I32And
+    | I32Or
+    | I32Xor if result_vt == ValType::i32() => Some(-1)
+    I64Add
+    | I64Sub
+    | I64Mul
+    | I64DivS
+    | I64DivU
+    | I64RemS
+    | I64RemU
+    | I64And
+    | I64Or
+    | I64Xor if result_vt == ValType::i64() => Some(-1)
+    F32Add | F32Sub | F32Mul | F32Div | F32Min | F32Max if result_vt ==
+      ValType::f32() => Some(-1)
+    F64Add | F64Sub | F64Mul | F64Div | F64Min | F64Max if result_vt ==
+      ValType::f64() => Some(-1)
+    Br(_)
+    | BrIf(_)
+    | BrTable(_, _)
+    | Return
+    | Unreachable
+    | If(_, _, _)
+    | Loop(_, _)
+    | TryTable(_, _, _) => None
+    _ => None
+  }
+}
+
+///|
+fn gen_valid_ssa_arm_value_block_is_supported(
+  instr : Instruction,
+  result_vt : ValType,
+) -> Bool {
+  match instr {
+    Block(ValTypeBlockType(vt), body) if vt == result_vt =>
+      gen_valid_ssa_expr_is_straight_line_no_nested_control(body)
+    _ => false
+  }
+}
+
+///|
+fn gen_valid_ssa_prefix_stack_depth(
+  instrs : Array[Instruction],
+  start : Int,
+  end : Int,
+  result_vt? : ValType = ValType::i32(),
+) -> Int? {
+  let mut stack = 0
+  let mut i = start
+  while i < end {
+    let delta = if result_vt == ValType::i32() {
+      gen_valid_ssa_instr_i32_stack_delta(instrs[i])
+    } else {
+      gen_valid_ssa_instr_scalar_stack_delta(instrs[i], result_vt)
+    }
+    match delta {
+      None => return None
+      Some(delta) => {
+        stack = stack + delta
+        if stack < 0 {
+          return None
+        }
+      }
+    }
+    i += 1
+  }
+  Some(stack)
+}
+
+///|
+fn gen_valid_ssa_arm_region_is_supported(
+  body : Array[Instruction],
+  result_vt : ValType,
+) -> Bool {
+  let mut last_live_idx = -1
+  let mut value_block_idx = -1
+  let mut i = 0
+
+  while i < body.length() {
+    last_live_idx = i
+    if gen_valid_ssa_arm_value_block_is_supported(body[i], result_vt) {
+      if value_block_idx >= 0 {
+        return false
+      }
+      value_block_idx = i
+    }
+    i += 1
+  }
+
+  if value_block_idx >= 0 {
+    // Mixed or single value-block arm:
+    //   [straight-line stack-neutral prefix instructions]*
+    //   final block(result t)
+    //
+    // In the GenValid AST, a HOT "void root" such as local.set appears as
+    // multiple stack instructions (`const`, `local.set`). Therefore this scanner
+    // must validate the prefix as a stack-neutral straight-line sequence, not as
+    // individually void-producing roots.
+    if value_block_idx != last_live_idx {
+      return false
+    }
+
+    let prefix_expr = Expr::new(
+      gen_valid_ssa_slice_instrs(body, 0, value_block_idx),
+    )
+    if !gen_valid_ssa_expr_is_straight_line_no_nested_control(prefix_expr) {
+      return false
+    }
+
+    match
+      gen_valid_ssa_prefix_stack_depth(body, 0, value_block_idx, result_vt~) {
+      Some(0) => true
+      _ => false
+    }
+  } else {
+    // Plain straight-line arm with no explicit arm value-block. The whole arm
+    // must be straight-line and leave exactly one value of the parent result type.
+    let whole_expr = Expr::new(
+      gen_valid_ssa_slice_instrs(body, 0, body.length()),
+    )
+    if !gen_valid_ssa_expr_is_straight_line_no_nested_control(whole_expr) {
+      return false
+    }
+
+    match gen_valid_ssa_prefix_stack_depth(body, 0, body.length(), result_vt~) {
+      Some(1) => true
+      _ => false
+    }
+  }
+}
+
+///|
+fn gen_valid_ssa_condition_value_block_is_supported(
+  instr : Instruction,
+) -> Bool {
+  gen_valid_ssa_arm_value_block_is_supported(instr, ValType::i32())
+}
+
+///|
+priv struct GenValidSsaConditionFacts {
+  has_condition_write : Bool
+  has_condition_value_block : Bool
+}
+
+///|
+fn gen_valid_ssa_condition_window_bounds(
+  instrs : Array[Instruction],
+  if_idx : Int,
+) -> (Int, Int)? {
+  if if_idx <= 0 {
+    return None
+  }
+  let mut need = 1
+  let mut i = if_idx - 1
+  while i >= 0 {
+    match gen_valid_ssa_instr_i32_stack_delta(instrs[i]) {
+      None => return None
+      Some(delta) => {
+        need = need - delta
+        if need <= 0 {
+          match gen_valid_ssa_prefix_stack_depth(instrs, i, if_idx) {
+            Some(1) => return Some((i, if_idx))
+            _ => return None
+          }
+        }
+      }
+    }
+    i -= 1
+  }
+  None
+}
+
+///|
+fn gen_valid_ssa_condition_window_is_supported(
+  instrs : Array[Instruction],
+  start : Int,
+  end : Int,
+) -> Bool {
+  if start < 0 || end <= start || end > instrs.length() {
+    return false
+  }
+  let len = end - start
+  if len == 1 {
+    match instrs[start] {
+      instr if gen_valid_ssa_condition_value_block_is_supported(instr) => true
+      instr =>
+        gen_valid_ssa_instr_subtree_is_straight_line_no_nested_control(
+          instr, false,
+        ) &&
+        gen_valid_ssa_prefix_leaves_single_i32(instrs, start, end)
+    }
+  } else {
+    gen_valid_ssa_subtree_is_straight_line_no_nested_control(
+      Expr::new(gen_valid_ssa_slice_instrs(instrs, start, end)),
+      false,
+    ) &&
+    gen_valid_ssa_prefix_leaves_single_i32(instrs, start, end)
+  }
+}
+
+///|
+fn gen_valid_ssa_condition_facts_from_window(
+  instrs : Array[Instruction],
+  start : Int,
+  end : Int,
+) -> GenValidSsaConditionFacts {
+  let mut has_write = false
+  let mut has_value_block = false
+
+  if end - start == 1 &&
+    gen_valid_ssa_condition_value_block_is_supported(instrs[start]) {
+    has_value_block = true
+  } else {
+    let mut i = start
+    while i < end {
+      match instrs[i] {
+        LocalSet(_) | LocalTee(_) => has_write = true
+        _ => ()
+      }
+      i += 1
+    }
+  }
+
+  { has_condition_write: has_write, has_condition_value_block: has_value_block }
+}
+
+///|
+fn gen_valid_ssa_find_supported_result_if_condition(
+  instrs : Array[Instruction],
+  if_idx : Int,
+) -> (Int, Int, GenValidSsaConditionFacts)? {
+  match gen_valid_ssa_condition_window_bounds(instrs, if_idx) {
+    None => None
+    Some((start, end)) =>
+      if gen_valid_ssa_condition_window_is_supported(instrs, start, end) {
+        Some(
+          (
+            start,
+            end,
+            gen_valid_ssa_condition_facts_from_window(instrs, start, end),
+          ),
+        )
+      } else {
+        None
+      }
+  }
+}
+
+///|
+fn gen_valid_ssa_condition_is_supported(
+  instrs : Array[Instruction],
+  if_idx : Int,
+) -> Bool {
+  gen_valid_ssa_find_supported_result_if_condition(instrs, if_idx) is Some(_)
+}
+
+///|
+fn gen_valid_ssa_slice_instrs(
+  instrs : Array[Instruction],
+  start : Int,
+  end : Int,
+) -> Array[Instruction] {
+  let out : Array[Instruction] = []
+  let mut i = start
+  while i < end {
+    out.push(instrs[i])
+    i += 1
+  }
+  out
+}
+
+///|
+fn gen_valid_ssa_arm_is_single_value_block_supported(
+  body : Array[Instruction],
+  result_vt : ValType,
+) -> Bool {
+  body.length() == 1 &&
+  gen_valid_ssa_arm_value_block_is_supported(body[0], result_vt)
+}
+
+///|
+fn gen_valid_ssa_arm_is_mixed_value_block_supported(
+  body : Array[Instruction],
+  result_vt : ValType,
+) -> Bool {
+  body.length() >= 2 &&
+  gen_valid_ssa_arm_value_block_is_supported(body[body.length() - 1], result_vt) &&
+  gen_valid_ssa_arm_region_is_supported(body, result_vt) &&
+  !gen_valid_ssa_arm_is_single_value_block_supported(body, result_vt)
+}
+
+///|
+fn gen_valid_ssa_dropped_result_if_is_supported(
+  instrs : Array[Instruction],
+  if_idx : Int,
+  bt : BlockType,
+  then_body : Array[Instruction],
+  else_body : Array[Instruction],
+) -> Bool {
+  match gen_valid_ssa_blocktype_scalar_result(bt) {
+    None => false
+    Some(result_vt) =>
+      gen_valid_ssa_condition_is_supported(instrs, if_idx) &&
+      gen_valid_ssa_arm_region_is_supported(then_body, result_vt) &&
+      gen_valid_ssa_arm_region_is_supported(else_body, result_vt)
+  }
+}
+
+///|
+fn gen_valid_ssa_scan_dropped_result_if(
+  instrs : Array[Instruction],
+  if_idx : Int,
+  bt : BlockType,
+  then_body : Array[Instruction],
+  else_body : Array[Instruction],
+  facts : GenValidSsaFuncFacts,
+) -> GenValidSsaFuncFacts {
+  if !gen_valid_ssa_dropped_result_if_is_supported(
+      instrs, if_idx, bt, then_body, else_body,
+    ) {
+    return facts
+  }
+  match gen_valid_ssa_blocktype_scalar_result(bt) {
+    None => facts
+    Some(result_vt) => {
+      let mut out = { ..facts, has_ssa_nested_result_if_supported_shape: true }
+      if result_vt != ValType::i32() {
+        out = { ..out, has_ssa_nested_result_if_scalar_result: true }
+      }
+      match gen_valid_ssa_find_supported_result_if_condition(instrs, if_idx) {
+        Some((_, _, condition_facts)) => {
+          if condition_facts.has_condition_write {
+            out = { ..out, has_ssa_nested_result_if_condition_write: true }
+          }
+          if condition_facts.has_condition_value_block {
+            out = {
+              ..out,
+              has_ssa_nested_result_if_condition_value_block: true,
+            }
+          }
+        }
+        None => ()
+      }
+      if gen_valid_ssa_arm_is_single_value_block_supported(then_body, result_vt) ||
+        gen_valid_ssa_arm_is_single_value_block_supported(else_body, result_vt) {
+        out = { ..out, has_ssa_nested_result_if_arm_value_block: true }
+      }
+      if gen_valid_ssa_arm_is_mixed_value_block_supported(then_body, result_vt) ||
+        gen_valid_ssa_arm_is_mixed_value_block_supported(else_body, result_vt) {
+        out = { ..out, has_ssa_nested_result_if_mixed_arm_value_block: true }
+      }
+      out
+    }
   }
 }
 
@@ -267,6 +821,15 @@ fn gen_valid_ssa_scan_linear(
       Drop =>
         if i > 0 {
           match instrs[i - 1] {
+            If(bt, then_body, Some(else_body)) =>
+              out = gen_valid_ssa_scan_dropped_result_if(
+                instrs,
+                i - 1,
+                bt,
+                then_body,
+                else_body,
+                out,
+              )
             Block(ValTypeBlockType(_), body)
             | Block(TypeIdxBlockType(_), body) =>
               if gen_valid_ssa_func_has_local_write(body) {
@@ -941,5 +1504,263 @@ fn gen_valid_append_ssa_nomerge_coverage_body_slice(
   out.push(Instruction::drop())
   out.push(Instruction::local_get(l0))
   out.push(Instruction::drop())
+  // O. nested result-if straight-line arms (i32)
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::local_get(p0))
+    out.push(
+      Instruction::if_(
+        BlockType::val_type(ValType::i32()),
+        [
+          Instruction::i32_const(I32(7)),
+          Instruction::local_set(l0),
+          Instruction::local_get(l0),
+        ],
+        Some([
+          Instruction::i32_const(I32(9)),
+          Instruction::local_set(l0),
+          Instruction::local_get(l0),
+        ]),
+      ),
+    )
+    out.push(Instruction::drop())
+    out.push(Instruction::local_get(l0))
+    out.push(Instruction::drop())
+  }
+  // P–R. nested result-if scalar variants (i64/f32/f64)
+  gen_valid_append_ssa_nested_result_if_scalar_variants(out, param_count, env)
+  // S. nested result-if condition local write
+  out.push(Instruction::i32_const(I32(1)))
+  out.push(Instruction::local_tee(l0))
+  out.push(
+    Instruction::if_(
+      BlockType::val_type(ValType::i32()),
+      [
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(l0),
+        Instruction::local_get(l0),
+      ],
+      Some([
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(l0),
+        Instruction::local_get(l0),
+      ]),
+    ),
+  )
+  out.push(Instruction::drop())
+  out.push(Instruction::local_get(l0))
+  out.push(Instruction::drop())
+  // T. nested result-if condition value-block
+  out.push(
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([
+        Instruction::i32_const(I32(1)),
+        Instruction::local_set(l0),
+        Instruction::local_get(l0),
+      ]),
+    ),
+  )
+  out.push(
+    Instruction::if_(
+      BlockType::val_type(ValType::i32()),
+      [
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(l0),
+        Instruction::local_get(l0),
+      ],
+      Some([
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(l0),
+        Instruction::local_get(l0),
+      ]),
+    ),
+  )
+  out.push(Instruction::drop())
+  out.push(Instruction::local_get(l0))
+  out.push(Instruction::drop())
+  // U. nested result-if arm value-blocks
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::local_get(p0))
+    out.push(
+      Instruction::if_(
+        BlockType::val_type(ValType::i32()),
+        [
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(7)),
+              Instruction::local_set(l0),
+              Instruction::local_get(l0),
+            ]),
+          ),
+        ],
+        Some([
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(9)),
+              Instruction::local_set(l0),
+              Instruction::local_get(l0),
+            ]),
+          ),
+        ]),
+      ),
+    )
+    out.push(Instruction::drop())
+    out.push(Instruction::local_get(l0))
+    out.push(Instruction::drop())
+  }
+  // V. nested result-if mixed arm roots
+  let l2 = gen_valid_ssa_body_local(param_count, 2)
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::local_get(p0))
+    out.push(
+      Instruction::if_(
+        BlockType::val_type(ValType::i32()),
+        [
+          Instruction::i32_const(I32(1)),
+          Instruction::local_set(l0),
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(7)),
+              Instruction::local_set(l1),
+              Instruction::local_get(l1),
+            ]),
+          ),
+        ],
+        Some([
+          Instruction::i32_const(I32(2)),
+          Instruction::local_set(l0),
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(9)),
+              Instruction::local_set(l1),
+              Instruction::local_get(l1),
+            ]),
+          ),
+        ]),
+      ),
+    )
+    out.push(Instruction::drop())
+    out.push(Instruction::local_get(l0))
+    out.push(Instruction::drop())
+    out.push(Instruction::local_get(l1))
+    out.push(Instruction::drop())
+  }
+  // W. nested result-if combined condition value-block + mixed arm roots
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(
+      Instruction::block(
+        BlockType::val_type(ValType::i32()),
+        Expr::new([
+          Instruction::i32_const(I32(1)),
+          Instruction::local_set(l0),
+          Instruction::local_get(l0),
+        ]),
+      ),
+    )
+    out.push(
+      Instruction::if_(
+        BlockType::val_type(ValType::i32()),
+        [
+          Instruction::i32_const(I32(4)),
+          Instruction::local_set(l1),
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(7)),
+              Instruction::local_set(l2),
+              Instruction::local_get(l2),
+            ]),
+          ),
+        ],
+        Some([
+          Instruction::i32_const(I32(5)),
+          Instruction::local_set(l1),
+          Instruction::block(
+            BlockType::val_type(ValType::i32()),
+            Expr::new([
+              Instruction::i32_const(I32(9)),
+              Instruction::local_set(l2),
+              Instruction::local_get(l2),
+            ]),
+          ),
+        ]),
+      ),
+    )
+    out.push(Instruction::drop())
+    out.push(Instruction::local_get(l0))
+    out.push(Instruction::drop())
+    out.push(Instruction::local_get(l1))
+    out.push(Instruction::drop())
+    out.push(Instruction::local_get(l2))
+    out.push(Instruction::drop())
+  }
   ignore(env)
+}
+
+///|
+fn gen_valid_ssa_first_body_local_of_type(
+  param_count : Int,
+  local_types : Array[ValType],
+  vt : ValType,
+) -> LocalIdx? {
+  let mut i = param_count
+  while i < local_types.length() {
+    if local_types[i] == vt {
+      return Some(LocalIdx::new(i.reinterpret_as_uint()))
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+fn gen_valid_append_ssa_nested_result_if_scalar_variants(
+  out : Array[Instruction],
+  param_count : Int,
+  env : GenValidBodyEnv,
+) -> Unit {
+  for result_vt in [ValType::i64(), ValType::f32(), ValType::f64()] {
+    match
+      gen_valid_ssa_first_body_local_of_type(
+        param_count,
+        env.local_types,
+        result_vt,
+      ) {
+      Some(local_idx) => {
+        let (then_const, else_const) = if result_vt == ValType::i64() {
+          (Instruction::i64_const(I64(7L)), Instruction::i64_const(I64(9L)))
+        } else if result_vt == ValType::f32() {
+          (Instruction::f32_const(F32(7.0)), Instruction::f32_const(F32(9.0)))
+        } else if result_vt == ValType::f64() {
+          (Instruction::f64_const(F64(7.0)), Instruction::f64_const(F64(9.0)))
+        } else {
+          continue
+        }
+        out.push(Instruction::i32_const(I32(1)))
+        out.push(
+          Instruction::if_(
+            BlockType::val_type(result_vt),
+            [
+              then_const,
+              Instruction::local_set(local_idx),
+              Instruction::local_get(local_idx),
+            ],
+            Some([
+              else_const,
+              Instruction::local_set(local_idx),
+              Instruction::local_get(local_idx),
+            ]),
+          ),
+        )
+        out.push(Instruction::drop())
+        out.push(Instruction::local_get(local_idx))
+        out.push(Instruction::drop())
+      }
+      None => ()
+    }
+  }
 }

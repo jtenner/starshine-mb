@@ -103,9 +103,9 @@ The dense GenValid `ssa-nomerge` profile smoke lane (`0/100` normalized) is **no
 
 | Profile | Purpose | Templates included | Templates excluded |
 |---|---|---|---|
-| `ssa-nomerge-coverage` (`ssa-nomerge` alias) | Dense SSA body templates, all `ssa-*` coverage floors, fail-closed stress shapes | straight-line multi-def, tee, param write, if-join, default merge, loop backedge, block join, br_table, parallel-copy (+ cycle), unreachable carrier, dropped increment guarded/reversed, nested-CFG fail-closed | exceptional/typed-loop fail-closed (not emitted; scanned only when present elsewhere) |
-| `ssa-nomerge-parity` | Compare candidate: rewrite shapes where both tools transform without fail-closed skip | straight-line multi-def, tee, param write (when i32 param), if-join phi, one-arm default merge | loop backedge, block join, br_table, parallel-copy, unreachable carrier, dropped increment guarded/reversed, nested-CFG / typed-loop / exceptional fail-closed |
-| `ssa-nomerge-stress` | Reserved pathological/fail-closed lane (currently aliases dense coverage templates) | same as coverage | — |
+| `ssa-nomerge-coverage` (`ssa-nomerge` alias) | Dense SSA body templates, all `ssa-*` coverage floors, fail-closed stress shapes, supported nested `drop(if (result t) ...)` family | straight-line multi-def, tee, param write, if-join, default merge, loop backedge, block join, br_table, parallel-copy (+ cycle), unreachable carrier, dropped increment guarded/reversed, nested-CFG fail-closed, nested result-if straight-line/scalar/condition/arm/mixed templates | exceptional/typed-loop fail-closed (not emitted; scanned only when present elsewhere) |
+| `ssa-nomerge-parity` | Compare candidate: rewrite shapes where both tools transform without fail-closed skip | straight-line multi-def, tee, param write (when i32 param), if-join phi, one-arm default merge | loop backedge, block join, br_table, parallel-copy, unreachable carrier, dropped increment guarded/reversed, nested-CFG / typed-loop / exceptional fail-closed, nested result-if coverage templates |
+| `ssa-nomerge-stress` | Reserved pathological/fail-closed lane (currently aliases dense coverage templates) | same as coverage (including nested result-if templates) | — |
 
 Use `--gen-valid-profile ssa-nomerge-parity` with parity-appropriate `--require-feature` floors for targeted GenValid parity-profile compare lanes. Keep `--gen-valid-profile ssa-nomerge-coverage` (or legacy `ssa-nomerge`) for scanner/floor coverage only. The broad mixed-generator `100000` lane with `--normalize local-cleanup-debris` remains the primary signoff baseline; a green parity-profile lane is strong targeted evidence, not a replacement for that baseline.
 
@@ -118,6 +118,13 @@ Use `--gen-valid-profile ssa-nomerge-parity` with parity-appropriate `--require-
 These lanes are **targeted GenValid SSA parity-profile signoff** for the trimmed template set. They do not replace the broad mixed-generator `99751/100000` signoff baseline above.
 
 The earlier dense-profile smoke (`ssa-nomerge-coverage` with loop/block/br_table/parallel-copy in one function) remains a coverage-lane artifact, not a parity-profile compare lane.
+
+2026-06-10 nested result-if GenValid coverage (templates O–W in `gen_valid_ssa.mbt`, feature facts `ssa-nested-result-if-*`):
+
+- New GenValid facts distinguish supported `drop(if (result t) ...)` shapes from `ssa-nested-cfg-fail-closed-shape` (`drop(block (result t) ...)` with local writes).
+- `ssa-nested-result-if-supported-shape` means the scanner matched the supported `ssa_simple_drop_result_if_allowed(...)` family: stack-boundary condition-window detection (not whole-function prefix), straight-line or single `block (result i32)` conditions, straight-line / single value-block / void-prefix + final value-block arms, both arms present, and scalar `i32`/`i64`/`f32`/`f64` results only. The scanner is conservative: false negatives are acceptable; false positives are not.
+- Templates are wired into `ssa-nomerge-coverage` and `ssa-nomerge-stress` only; `ssa-nomerge-parity` stays on the conservative A–E template set.
+- Targeted `--require-feature ssa-nested-result-if-supported-shape` lanes on the dense coverage profile are **coverage smoke**, not parity signoff: they combine rewrite-expected nested result-if slices with fail-closed / join-allocation drift shapes in one function body. A dirty 100-case lane is expected when allocation drift and fail-closed shapes share the same dense body.
 
 ## Remaining Gap
 
