@@ -3085,6 +3085,86 @@ test "ssa-nomerge rewrites very large structured local-write functions without b
 }
 
 ///|
+fn ssa_test_large_structured_branch_if_prefix_fixture(if_count : Int) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module (func (local i32) block i32.const 0 br 0 end ")
+  for i = 0; i < if_count; i = i + 1 {
+    out.write_string("i32.const 0 if nop else nop end ")
+  }
+  out.write_string("i32.const 1 local.set 0))")
+  out.to_string()
+}
+
+///|
+test "ssa-nomerge keeps structured branch functions below raw instruction threshold on raw path" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      ssa_test_large_structured_branch_if_prefix_fixture(1020),
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected below-threshold structured branch ssa-nomerge success, got \{err}",
+      )
+  }
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=large-structured-local-writes",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("skip-invalid-lower") }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge classifies structured branch functions above raw instruction threshold as large-structured-local-writes" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      ssa_test_large_structured_branch_if_prefix_fixture(1030),
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected above-threshold structured branch ssa-nomerge success, got \{err}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=large-structured-local-writes",
+      ) &&
+      line.contains("instrs=")
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("skip-invalid-lower") }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "ssa-nomerge rewrites default local reads after branchy control without hot fallback" {
   let optimized = match
     pass_test_run_pipeline(
