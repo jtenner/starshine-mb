@@ -15,10 +15,11 @@ import {
 import { type FuzzSummaryReport, formatFuzzSummaryReport, normalizeFuzzSummaryReport } from "./fuzz-summary-counters";
 import { type EffectTrapFacts, scanEffectTrapFactsFromWasmBytes } from "./effect-trap-scanner";
 import { formatReductionReportLog, reduceBinaryByByteSlicesWithReport, type ReductionStep } from "./fuzz-reducers";
+import { normalizeSsaLocalAllocationDebris } from "./pass-fuzz-ssa-local-allocation-debris";
 
 type GeneratorMode = "both" | "wasm-smith" | "gen-valid";
 type GeneratorKind = "wasm-smith" | "gen-valid";
-type CompareNormalizer = "drop-consts" | "unreachable-control-debris" | "local-cleanup-debris";
+type CompareNormalizer = "drop-consts" | "unreachable-control-debris" | "local-cleanup-debris" | "ssa-local-allocation-debris";
 type CaseStatus = "match" | "mismatch" | "validation-failure" | "generator-failure" | "command-failure" | "property-failure";
 type ExternalValidatorKind = "wasm-tools" | "binaryen" | "wabt";
 type RuntimeExecutionMode = "off" | "node";
@@ -297,7 +298,7 @@ const HELP_TEXT = [
   "  --max-failures <n>    Stop after this many mismatches/failures. Default: 20",
   "  --keep-going-after-command-failures",
   "                       Record command failures without counting them toward --max-failures",
-  "  --normalize <name>   Enable compare normalizer. Supported: drop-consts, unreachable-control-debris, local-cleanup-debris. May repeat",
+  "  --normalize <name>   Enable compare normalizer. Supported: drop-consts, unreachable-control-debris, local-cleanup-debris, ssa-local-allocation-debris. May repeat",
   "  --jobs <n|auto>       Concurrent case jobs. Default: auto with --starshine-bin, otherwise 1; auto uses available parallelism; >1 requires --starshine-bin",
   "  --pass <name>         Canonical pass name without leading --. May repeat",
   "  --replay-failures-from <dir>",
@@ -405,6 +406,8 @@ function normalizeCompareNormalizer(raw: string): CompareNormalizer {
       return "unreachable-control-debris";
     case "local-cleanup-debris":
       return "local-cleanup-debris";
+    case "ssa-local-allocation-debris":
+      return "ssa-local-allocation-debris";
     default:
       fail(`unsupported pass-fuzz-compare normalizer: ${raw}`);
   }
@@ -1565,18 +1568,39 @@ function normalizeLocalCleanupDebris(wat: string): string {
   return normalizeStandaloneNops(normalizeUnusedLocalDeclarations(wat));
 }
 
+function orderedCompareNormalizers(normalizers: CompareNormalizer[]): CompareNormalizer[] {
+  const requested = new Set(normalizers);
+  const ordered: CompareNormalizer[] = [];
+  for (const normalizer of [
+    "drop-consts",
+    "unreachable-control-debris",
+    "ssa-local-allocation-debris",
+    "local-cleanup-debris",
+  ] as const) {
+    if (requested.has(normalizer)) {
+      ordered.push(normalizer);
+    }
+  }
+  return ordered;
+}
+
 function applyCompareNormalizers(wat: string, normalizers: CompareNormalizer[]): string {
   let normalized = wat;
-  for (const normalizer of normalizers) {
+  for (const normalizer of orderedCompareNormalizers(normalizers)) {
     if (normalizer === "drop-consts") {
       normalized = normalizeDroppedConstExpressions(normalized);
     } else if (normalizer === "unreachable-control-debris") {
       normalized = normalizeUnreachableControlDebris(normalized);
     } else if (normalizer === "local-cleanup-debris") {
       normalized = normalizeLocalCleanupDebris(normalized);
+    } else if (normalizer === "ssa-local-allocation-debris") {
+      normalized = normalizeSsaLocalAllocationDebris(normalized);
     }
   }
   if (normalizers.includes("local-cleanup-debris") && normalizers.includes("unreachable-control-debris")) {
+    normalized = normalizeLocalCleanupDebris(normalized);
+  }
+  if (normalizers.includes("ssa-local-allocation-debris") && normalizers.includes("local-cleanup-debris")) {
     normalized = normalizeLocalCleanupDebris(normalized);
   }
   return normalized;

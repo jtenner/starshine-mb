@@ -257,6 +257,400 @@ describe("pass-fuzz compare normalizers", () => {
     );
   });
 
+  test("ssa-local-allocation-debris normalizes equivalent fresh temp vs reused straight-line islands", () => {
+    const binaryenWat = `(module
+ (func $0
+  (local $6 i32)
+  (local.set $6
+   (i32.const 1)
+  )
+  (drop
+   (local.get $6)
+  )
+  (local.set $7
+   (i32.const 2)
+  )
+  (drop
+   (local.get $7)
+  )
+ )
+)
+`;
+    const starshineWat = `(module
+ (func $0
+  (local $1 i32)
+  (local.set $1
+   (i32.const 1)
+  )
+  (drop
+   (local.get $1)
+  )
+  (local.set $1
+   (i32.const 2)
+  )
+  (drop
+   (local.get $1)
+  )
+ )
+)
+`;
+
+    expect(
+      applyCompareNormalizersForTest(binaryenWat, ["ssa-local-allocation-debris", "local-cleanup-debris"]),
+    ).toBe(
+      applyCompareNormalizersForTest(starshineWat, ["ssa-local-allocation-debris", "local-cleanup-debris"]),
+    );
+  });
+
+  test("ssa-local-allocation-debris normalizes independent tee islands", () => {
+    const binaryenWat = `(module
+ (func $0
+  (drop
+   (local.tee $8
+    (i32.const 7)
+   )
+  )
+  (drop
+   (local.get $8)
+  )
+ )
+)
+`;
+    const starshineWat = `(module
+ (func $0
+  (drop
+   (local.tee $1
+    (i32.const 7)
+   )
+  )
+  (drop
+   (local.get $1)
+  )
+ )
+)
+`;
+
+    expect(
+      applyCompareNormalizersForTest(binaryenWat, ["ssa-local-allocation-debris", "local-cleanup-debris"]),
+    ).toBe(
+      applyCompareNormalizersForTest(starshineWat, ["ssa-local-allocation-debris", "local-cleanup-debris"]),
+    );
+  });
+
+  test("ssa-local-allocation-debris normalizes pre-if condition carriers only", () => {
+    const binaryenWat = `(module
+ (func $0
+  (local $1 i32)
+  (local.set $9
+   (i32.const 0)
+  )
+  (if
+   (local.get $9)
+   (then
+    (local.set $1
+     (i32.const 1)
+    )
+   )
+   (else
+    (local.set $1
+     (i32.const 2)
+    )
+   )
+  )
+ )
+)
+`;
+    const starshineWat = `(module
+ (func $0
+  (local $1 i32)
+  (local.set $1
+   (i32.const 0)
+  )
+  (if
+   (local.get $1)
+   (then
+    (local.set $1
+     (i32.const 1)
+    )
+   )
+   (else
+    (local.set $1
+     (i32.const 2)
+    )
+   )
+  )
+ )
+)
+`;
+
+    expect(
+      applyCompareNormalizersForTest(binaryenWat, ["ssa-local-allocation-debris", "local-cleanup-debris"]),
+    ).toBe(
+      applyCompareNormalizersForTest(starshineWat, ["ssa-local-allocation-debris", "local-cleanup-debris"]),
+    );
+  });
+
+  test("ssa-local-allocation-debris normalizes case-000001 straight-line prefix", () => {
+    const binaryenWat = `(module
+ (func $0 (param $0 i32)
+  (local $6 i32)
+  (local $7 i32)
+  (local $8 i32)
+  (local.set $6
+   (i32.const 1)
+  )
+  (drop
+   (local.get $6)
+  )
+  (local.set $7
+   (i32.const 2)
+  )
+  (drop
+   (local.get $7)
+  )
+  (drop
+   (local.tee $8
+    (i32.const 7)
+   )
+  )
+  (drop
+   (local.get $8)
+  )
+  (local.set $0
+   (i32.const 9)
+  )
+  (drop
+   (local.get $0)
+  )
+ )
+)
+`;
+    const starshineWat = `(module
+ (func $0 (param $0 i32)
+  (local $1 i32)
+  (local.set $1
+   (i32.const 1)
+  )
+  (drop
+   (local.get $1)
+  )
+  (local.set $1
+   (i32.const 2)
+  )
+  (drop
+   (local.get $1)
+  )
+  (drop
+   (local.tee $1
+    (i32.const 7)
+   )
+  )
+  (drop
+   (local.get $1)
+  )
+  (local.set $0
+   (i32.const 9)
+  )
+  (drop
+   (local.get $0)
+  )
+ )
+)
+`;
+
+    expect(
+      applyCompareNormalizersForTest(binaryenWat, ["ssa-local-allocation-debris", "local-cleanup-debris"]),
+    ).toBe(
+      applyCompareNormalizersForTest(starshineWat, ["ssa-local-allocation-debris", "local-cleanup-debris"]),
+    );
+  });
+
+  test("ssa-local-allocation-debris rejects incompatible local types", () => {
+    const binaryenWat = `(module
+ (func $0
+  (local $6 i32)
+  (local.set $6
+   (i32.const 1)
+  )
+  (drop
+   (local.get $6)
+  )
+ )
+)
+`;
+    const starshineWat = `(module
+ (func $0
+  (local $1 i64)
+  (local.set $1
+   (i64.const 1)
+  )
+  (drop
+   (local.get $1)
+  )
+ )
+)
+`;
+
+    expect(
+      applyCompareNormalizersForTest(binaryenWat, ["ssa-local-allocation-debris", "local-cleanup-debris"]),
+    ).not.toBe(
+      applyCompareNormalizersForTest(starshineWat, ["ssa-local-allocation-debris", "local-cleanup-debris"]),
+    );
+  });
+
+  test("ssa-local-allocation-debris rejects missing local.set", () => {
+    const binaryenWat = `(module
+ (func $0
+  (local.set $6
+   (i32.const 1)
+  )
+  (drop
+   (local.get $6)
+  )
+ )
+)
+`;
+    const starshineWat = `(module
+ (func $0
+  (drop
+   (local.get $1)
+  )
+ )
+)
+`;
+
+    expect(
+      applyCompareNormalizersForTest(binaryenWat, ["ssa-local-allocation-debris", "local-cleanup-debris"]),
+    ).not.toBe(
+      applyCompareNormalizersForTest(starshineWat, ["ssa-local-allocation-debris", "local-cleanup-debris"]),
+    );
+  });
+
+  test("ssa-local-allocation-debris rejects reordered local traffic", () => {
+    const binaryenWat = `(module
+ (func $0
+  (local.set $6
+   (i32.const 1)
+  )
+  (drop
+   (local.get $6)
+  )
+ )
+)
+`;
+    const starshineWat = `(module
+ (func $0
+  (drop
+   (local.get $1)
+  )
+  (local.set $1
+   (i32.const 1)
+  )
+ )
+)
+`;
+
+    expect(
+      applyCompareNormalizersForTest(binaryenWat, ["ssa-local-allocation-debris", "local-cleanup-debris"]),
+    ).not.toBe(
+      applyCompareNormalizersForTest(starshineWat, ["ssa-local-allocation-debris", "local-cleanup-debris"]),
+    );
+  });
+
+  test("ssa-local-allocation-debris rejects changed branch structure", () => {
+    const binaryenWat = `(module
+ (func $0
+  (local $1 i32)
+  (local.set $9
+   (i32.const 0)
+  )
+  (if
+   (local.get $9)
+   (then
+    (local.set $1
+     (i32.const 1)
+    )
+   )
+   (else
+    (local.set $1
+     (i32.const 2)
+    )
+   )
+  )
+ )
+)
+`;
+    const starshineWat = `(module
+ (func $0
+  (local $1 i32)
+  (local.set $1
+   (i32.const 0)
+  )
+  (if
+   (local.get $1)
+   (then
+    (local.set $1
+     (i32.const 1)
+    )
+   )
+  )
+ )
+)
+`;
+
+    expect(
+      applyCompareNormalizersForTest(binaryenWat, ["ssa-local-allocation-debris", "local-cleanup-debris"]),
+    ).not.toBe(
+      applyCompareNormalizersForTest(starshineWat, ["ssa-local-allocation-debris", "local-cleanup-debris"]),
+    );
+  });
+
+  test("ssa-local-allocation-debris rejects block join local allocation drift", () => {
+    const binaryenWat = `(module
+ (func $0
+  (local $10 i32)
+  (local $11 i32)
+  (local.set $10
+   (i32.const 0)
+  )
+  (block $block
+   (local.set $11
+    (i32.const 7)
+   )
+   (br $block)
+  )
+  (drop
+   (local.get $11)
+  )
+ )
+)
+`;
+    const starshineWat = `(module
+ (func $0
+  (local $1 i32)
+  (local.set $1
+   (i32.const 0)
+  )
+  (block $block
+   (local.set $1
+    (i32.const 7)
+   )
+   (br $block)
+  )
+  (drop
+   (local.get $1)
+  )
+ )
+)
+`;
+
+    expect(
+      applyCompareNormalizersForTest(binaryenWat, ["ssa-local-allocation-debris", "local-cleanup-debris"]),
+    ).not.toBe(
+      applyCompareNormalizersForTest(starshineWat, ["ssa-local-allocation-debris", "local-cleanup-debris"]),
+    );
+  });
+
   test("drop-consts erases pure reinterpret numeric trees", () => {
     const binaryenWat = `(module
  (func $0
