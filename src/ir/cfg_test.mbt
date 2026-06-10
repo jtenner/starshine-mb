@@ -117,6 +117,61 @@ test "cfg build materializes try_table body and exceptional catch-list edges" {
 }
 
 ///|
+fn cfg_test_drop_result_if_fixture() -> (HotFunc, NodeId, NodeId) {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let result_if = hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    hot_build_local_get(func, 0),
+    [
+      hot_build_local_set(func, 1, hot_build_const_i32(func, @lib.I32(7))),
+      hot_build_local_get(func, 1),
+    ],
+    else_body=Some([
+      hot_build_local_set(func, 1, hot_build_const_i32(func, @lib.I32(9))),
+      hot_build_local_get(func, 1),
+    ]),
+  )
+  let drop = hot_build_drop(func, result_if)
+  hot_root_append(func, drop)
+  hot_root_append(func, hot_build_drop(func, hot_build_local_get(func, 1)))
+  (func, drop, result_if)
+}
+
+///|
+test "cfg build maps drop operand result-if arms to join continuation" {
+  let (func, drop, result_if) = cfg_test_drop_result_if_fixture()
+  let operand_id = hot_child_get(func, drop, 0)
+  @debug.assert_eq(operand_id, result_if)
+  assert_true(
+    ssa_simple_drop_result_if_allowed(func, drop, 0, operand_id),
+    msg="expected drop operand result-if shape to be allowed",
+  )
+  let cfg = cfg_build(func)
+  assert_true(cfg_block_count(cfg) >= 3)
+  let drop_block = cfg_block_for_node(cfg, drop).unwrap()
+  @debug.assert_eq(cfg_successors(cfg, drop_block).length(), 2)
+  let then_region = hot_region_then_ref(func, result_if)
+  let then_set = hot_region_get(func, then_region, 0)
+  let then_block = cfg_block_for_node(cfg, then_set).unwrap()
+  let else_region = hot_region_else_ref(func, result_if).unwrap()
+  let else_set = hot_region_get(func, else_region, 0)
+  let else_block = cfg_block_for_node(cfg, else_set).unwrap()
+  let join_block = cfg_block_for_region_root(cfg, HotRegionRef::root(), 1).unwrap()
+  let dom = dom_build(cfg)
+
+  @debug.assert_eq(cfg_successors(cfg, drop_block).length(), 2)
+  @debug.assert_eq(dom_idom(dom, then_block), Some(drop_block))
+  @debug.assert_eq(dom_idom(dom, else_block), Some(drop_block))
+  @debug.assert_eq(dom_idom(dom, join_block), Some(drop_block))
+  assert_true(dom_children(dom, drop_block).length() >= 2)
+}
+
+///|
 test "cfg build keeps unreachable roots in distinct predless blocks" {
   let func = hot_lift_body(
     @lib.Expr::new([@lib.Instruction::return_(), @lib.Instruction::nop()]),

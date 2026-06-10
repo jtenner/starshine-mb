@@ -132,6 +132,94 @@ fn ssa_simple_value_block_subtree_is_straight_line(
 }
 
 ///|
+fn ssa_simple_subtree_has_local_write(func : HotFunc, node_id : NodeId) -> Bool {
+  if node_id < 0 || !hot_node_is_live(func, node_id) {
+    return false
+  }
+  match hot_node_get(func, node_id).op {
+    HotOp::LocalSet | HotOp::LocalTee => return true
+    _ => ()
+  }
+  let node = hot_node_get(func, node_id)
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    let child_id = func.children[node.child_base + slot]
+    if child_id == HOT_NONE_NODE || !hot_node_is_live(func, child_id) {
+      continue
+    }
+    if ssa_simple_subtree_has_local_write(func, child_id) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn ssa_simple_result_if_region_is_straight_line(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+) -> Bool {
+  for slot = 0; slot < hot_region_root_count(func, region_ref); slot = slot + 1 {
+    let root_id = hot_region_get(func, region_ref, slot)
+    if root_id == HOT_NONE_NODE || !hot_node_is_live(func, root_id) {
+      continue
+    }
+    if !ssa_simple_value_block_subtree_is_straight_line(func, root_id, false) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn ssa_simple_result_if_has_i32_result(func : HotFunc, if_id : NodeId) -> Bool {
+  let results = hot_type_results(func, hot_node_get(func, if_id).ty)
+  results.length() == 1 && results[0] == @lib.ValType::i32()
+}
+
+///|
+// Operand-nested `drop(if (result i32) …)` is a narrow CFG shape: both arms are
+// straight-line, the condition has no nested control or local writes, and the else
+// arm is required. Broader nested `if` (nested branches/loops/exceptions, missing
+// else, multi-value results) stays fail-closed in `ssa-nomerge`.
+pub fn ssa_simple_drop_result_if_allowed(
+  func : HotFunc,
+  drop_id : NodeId,
+  operand_slot : Int,
+  if_id : NodeId,
+) -> Bool {
+  if drop_id < 0 ||
+    operand_slot != 0 ||
+    if_id < 0 ||
+    !hot_node_is_live(func, drop_id) ||
+    !hot_node_is_live(func, if_id) {
+    return false
+  }
+  if hot_node_get(func, drop_id).op != HotOp::Drop ||
+    hot_node_get(func, if_id).op != HotOp::If {
+    return false
+  }
+  if !ssa_simple_result_if_has_i32_result(func, if_id) {
+    return false
+  }
+  let else_ref = match hot_region_else_ref(func, if_id) {
+    Some(region_ref) => region_ref
+    None => return false
+  }
+  let condition_id = func.children[hot_node_get(func, if_id).child_base]
+  if condition_id == HOT_NONE_NODE ||
+    !hot_node_is_live(func, condition_id) ||
+    ssa_simple_subtree_has_local_write(func, condition_id) ||
+    !ssa_simple_value_block_subtree_is_straight_line(func, condition_id, false) {
+    return false
+  }
+  ssa_simple_result_if_region_is_straight_line(
+    func,
+    hot_region_then_ref(func, if_id),
+  ) &&
+  ssa_simple_result_if_region_is_straight_line(func, else_ref)
+}
+
+///|
 pub fn ssa_simple_drop_value_block_allowed(
   func : HotFunc,
   drop_id : NodeId,

@@ -21,6 +21,49 @@ fn ssa_test_defined_func(
 }
 
 ///|
+fn ssa_test_collect_local_write_indices(
+  instrs : Array[@lib.Instruction],
+  out : Array[UInt],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(@lib.LocalIdx(idx)) | @lib.LocalTee(@lib.LocalIdx(idx)) =>
+        out.push(idx)
+      @lib.If(_, then_instrs, else_instrs) => {
+        ssa_test_collect_local_write_indices(then_instrs, out)
+        match else_instrs {
+          Some(else_body) =>
+            ssa_test_collect_local_write_indices(else_body, out)
+          None => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        ssa_test_collect_local_write_indices(body, out)
+      _ => ()
+    }
+  }
+}
+
+///|
+fn ssa_test_local_write_indices(
+  instrs : Array[@lib.Instruction],
+) -> Array[UInt] {
+  let out : Array[UInt] = []
+  ssa_test_collect_local_write_indices(instrs, out)
+  out
+}
+
+///|
+fn ssa_test_has_ssa_temp_local_writes(
+  instrs : Array[@lib.Instruction],
+  canonical_local : UInt,
+) -> Bool {
+  ssa_test_local_write_indices(instrs).any(fn(idx) { idx > canonical_local })
+}
+
+///|
 fn ssa_test_has_adjacent_call_drop(
   instrs : Array[@lib.Instruction],
   target : UInt,
@@ -894,6 +937,263 @@ test "ssa-nomerge preserves distinct locals around nested value-block traffic" {
   assert_false(text.contains("local.set (Local 0)"), msg=text)
   assert_true(text.contains("local.get"), msg=text)
   assert_true(text.contains("local.set"), msg=text)
+}
+
+///|
+test "ssa-nomerge rewrites simple nested result-if local traffic" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    local.get 0
+    #|    if (result i32)
+    #|      i32.const 7
+    #|      local.set 1
+    #|      local.get 1
+    #|    else
+    #|      i32.const 9
+    #|      local.set 1
+    #|      local.get 1
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_hot_mutates(source)
+}
+
+///|
+test "ssa-nomerge preserves reaching local from nested result-if arms" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    i32.const 3
+    #|    local.set 1
+    #|
+    #|    local.get 0
+    #|    if (result i32)
+    #|      i32.const 7
+    #|      local.set 1
+    #|      local.get 1
+    #|    else
+    #|      i32.const 9
+    #|      local.set 1
+    #|      local.get 1
+    #|    end
+    #|    drop
+    #|
+    #|    local.get 1
+    #|    drop))
+    #|)
+  let optimized = match ssa_test_run_hot_path_only(source) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nested result-if prior-write hot-path success, got \{err}")
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("i32.const I32(3)"), msg=text)
+  assert_true(text.contains("i32.const I32(7)"), msg=text)
+  assert_true(text.contains("i32.const I32(9)"), msg=text)
+  assert_true(text.contains("local.set"), msg=text)
+  assert_true(text.contains("local.get"), msg=text)
+  assert_true(text.contains("if I32"), msg=text)
+  assert_true(
+    locals.length() > 2,
+    msg="expected SSA temps beyond param and one body local, got \{locals}",
+  )
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg="expected if-arm local writes to use SSA temps, got \{text}",
+  )
+}
+
+///|
+test "ssa-nomerge handles local.tee in simple nested result-if arm" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    local.get 0
+    #|    if (result i32)
+    #|      i32.const 7
+    #|      local.tee 1
+    #|    else
+    #|      i32.const 9
+    #|      local.set 1
+    #|      local.get 1
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_hot_mutates(source)
+  let optimized = match ssa_test_run_hot_path_only(source) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nested result-if tee hot-path success, got \{err}")
+  }
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(
+    text.contains("local.tee") || text.contains("local.set"),
+    msg=text,
+  )
+  assert_true(text.contains("local.get"), msg=text)
+}
+
+///|
+test "ssa-nomerge preserves distinct locals around nested result-if traffic" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32 i32)
+    #|    i32.const 10
+    #|    local.set 1
+    #|    i32.const 20
+    #|    local.set 2
+    #|
+    #|    local.get 0
+    #|    if (result i32)
+    #|      local.get 1
+    #|      i32.const 1
+    #|      i32.add
+    #|      local.set 1
+    #|      local.get 1
+    #|    else
+    #|      local.get 1
+    #|      i32.const 2
+    #|      i32.add
+    #|      local.set 1
+    #|      local.get 1
+    #|    end
+    #|    drop
+    #|
+    #|    local.get 2
+    #|    drop
+    #|    local.get 1
+    #|    drop))
+    #|)
+  let optimized = match ssa_test_run_hot_path_only(source) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nested result-if two-local hot-path success, got \{err}")
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  let text = instrs.to_string()
+  assert_true(text.contains("i32.const I32(10)"), msg=text)
+  assert_true(text.contains("i32.const I32(20)"), msg=text)
+  assert_true(text.contains("i32.add"), msg=text)
+  assert_true(text.contains("local.get"), msg=text)
+  assert_true(text.contains("local.set"), msg=text)
+  assert_true(text.contains("if I32"), msg=text)
+  assert_true(
+    locals.length() > 3,
+    msg="expected SSA temps beyond param and two body locals, got \{locals}",
+  )
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 2U),
+    msg="expected if-arm local writes to use SSA temps above local 2, got \{text}",
+  )
+}
+
+///|
+test "ssa-nomerge still skips nested result-if with br" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    (block $outer
+    #|      local.get 0
+    #|      if (result i32)
+    #|        i32.const 7
+    #|        local.set 1
+    #|        br $outer
+    #|        local.get 1
+    #|      else
+    #|        i32.const 9
+    #|        local.set 1
+    #|        local.get 1
+    #|      end
+    #|      drop)
+    #|    local.get 1
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_pipeline_fail_closed(source)
+  ssa_test_nested_cfg_hot_fail_closed(source)
+}
+
+///|
+test "ssa-nomerge still skips nested result-if with br_if" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    (block $outer
+    #|      local.get 0
+    #|      if (result i32)
+    #|        i32.const 7
+    #|        local.set 1
+    #|        i32.const 1
+    #|        br_if $outer
+    #|        local.get 1
+    #|      else
+    #|        i32.const 9
+    #|        local.set 1
+    #|        local.get 1
+    #|      end
+    #|      drop)
+    #|    local.get 1
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_pipeline_fail_closed(source)
+  ssa_test_nested_cfg_hot_fail_closed(source)
+}
+
+///|
+test "ssa-nomerge still skips nested result-if with nested loop" {
+  let source =
+    #|(module
+    #|  (func (param i32) (local i32)
+    #|    local.get 0
+    #|    if (result i32)
+    #|      loop
+    #|        i32.const 7
+    #|        local.set 1
+    #|      end
+    #|      local.get 1
+    #|    else
+    #|      i32.const 9
+    #|      local.set 1
+    #|      local.get 1
+    #|    end
+    #|    drop
+    #|    local.get 1
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_pipeline_fail_closed(source)
+  ssa_test_nested_cfg_hot_fail_closed(source)
+}
+
+///|
+test "ssa-nomerge still skips nested result-if with nested if" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (local i32)
+    #|    local.get 0
+    #|    if (result i32)
+    #|      local.get 1
+    #|      if
+    #|        i32.const 7
+    #|        local.set 2
+    #|      end
+    #|      local.get 2
+    #|    else
+    #|      i32.const 9
+    #|      local.set 2
+    #|      local.get 2
+    #|    end
+    #|    drop
+    #|    local.get 2
+    #|    drop))
+    #|)
+  ssa_test_nested_cfg_pipeline_fail_closed(source)
+  ssa_test_nested_cfg_hot_fail_closed(source)
 }
 
 ///|

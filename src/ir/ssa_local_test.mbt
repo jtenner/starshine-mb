@@ -142,6 +142,68 @@ test "ssa local build resolves uninitialized locals to default-init entry defs" 
 }
 
 ///|
+test "ssa local build renames locals inside drop operand result-if arms" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let condition = hot_build_local_get(func, 0)
+  let then_set = hot_build_local_set(
+    func,
+    1,
+    hot_build_const_i32(func, @lib.I32(7)),
+  )
+  let then_get = hot_build_local_get(func, 1)
+  let else_set = hot_build_local_set(
+    func,
+    1,
+    hot_build_const_i32(func, @lib.I32(9)),
+  )
+  let else_get = hot_build_local_get(func, 1)
+  let result_if = hot_build_if(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    condition,
+    [then_set, then_get],
+    else_body=Some([else_set, else_get]),
+  )
+  let drop = hot_build_drop(func, result_if)
+  let final_get = hot_build_local_get(func, 1)
+  hot_root_append(func, drop)
+  hot_root_append(func, hot_build_drop(func, final_get))
+
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+  let then_value = ssa_def_for_local_set(ssa, then_set)
+  let else_value = ssa_def_for_local_set(ssa, else_set)
+  let final_value = ssa_value_for_local_get(ssa, final_get)
+
+  assert_false(final_value == then_value)
+  assert_false(final_value == else_value)
+  @debug.assert_eq(
+    ssa_value_origin(ssa, ssa_value_for_local_get(ssa, then_get)),
+    ssa_local_set_def(then_set),
+  )
+  @debug.assert_eq(
+    ssa_value_origin(ssa, ssa_value_for_local_get(ssa, else_get)),
+    ssa_local_set_def(else_set),
+  )
+  let entry_block = cfg_entry_block(cfg)
+  let next_roots_block = cfg_block_for_region_root(cfg, HotRegionRef::root(), 1).unwrap()
+  assert_false(entry_block == next_roots_block)
+  let phis = ssa_phis_for_block(ssa, next_roots_block)
+  @debug.assert_eq(phis.length(), 1)
+  let phi_id = phis[0]
+  @debug.assert_eq(ssa_phi_local(ssa, phi_id), 1)
+  let inputs = ssa_phi_inputs(ssa, phi_id)
+  @debug.assert_eq(inputs.length(), 2)
+}
+
+///|
 test "ssa local build renames locals inside drop operand value blocks" {
   let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
   let prior_set = hot_build_local_set(

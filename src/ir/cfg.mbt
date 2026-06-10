@@ -192,6 +192,22 @@ fn cfg_builder_connect_exits(
 }
 
 ///|
+fn cfg_region_segment_break_after_drop_operand_control(
+  func : HotFunc,
+  node_id : NodeId,
+) -> Bool {
+  if node_id < 0 || !hot_node_is_live(func, node_id) {
+    return false
+  }
+  if hot_node_get(func, node_id).op != HotOp::Drop {
+    return false
+  }
+  let child_id = hot_child_get(func, node_id, 0)
+  ssa_simple_drop_result_if_allowed(func, node_id, 0, child_id) ||
+  ssa_simple_drop_value_block_allowed(func, node_id, 0, child_id)
+}
+
+///|
 fn cfg_builder_region_segments(
   builder : CfgBuilder,
   func : HotFunc,
@@ -210,6 +226,9 @@ fn cfg_builder_region_segments(
       }
       let next = hot_region_get(func, region_ref, end)
       if hot_is_control_node(func, next) {
+        break
+      }
+      if cfg_region_segment_break_after_drop_operand_control(func, previous) {
         break
       }
       end = end + 1
@@ -318,6 +337,65 @@ fn cfg_builder_exception_target(
 }
 
 ///|
+fn cfg_builder_connect_result_if(
+  builder : CfgBuilder,
+  func : HotFunc,
+  if_id : NodeId,
+  current_block : BlockId,
+  continuation : BlockId,
+  handler_target : BlockId?,
+) -> Unit {
+  cfg_builder_label_target_set(
+    builder,
+    hot_control_node_label(func, if_id),
+    continuation,
+  )
+  let then_build = cfg_builder_build_region(
+    builder,
+    func,
+    hot_region_then_ref(func, if_id),
+    handler_target,
+    force_entry=true,
+  )
+  cfg_builder_add_edge(
+    builder,
+    current_block,
+    then_build.entry_block.unwrap(),
+    CfgEdgeKind::FallthroughEdge,
+  )
+  cfg_builder_connect_exits(builder, then_build.exit_blocks, Some(continuation))
+  match hot_region_else_ref(func, if_id) {
+    Some(else_ref) => {
+      let else_build = cfg_builder_build_region(
+        builder,
+        func,
+        else_ref,
+        handler_target,
+        force_entry=true,
+      )
+      cfg_builder_add_edge(
+        builder,
+        current_block,
+        else_build.entry_block.unwrap(),
+        CfgEdgeKind::FallthroughEdge,
+      )
+      cfg_builder_connect_exits(
+        builder,
+        else_build.exit_blocks,
+        Some(continuation),
+      )
+    }
+    None =>
+      cfg_builder_add_edge(
+        builder,
+        current_block,
+        continuation,
+        CfgEdgeKind::FallthroughEdge,
+      )
+  }
+}
+
+///|
 fn cfg_builder_process_block(
   builder : CfgBuilder,
   func : HotFunc,
@@ -400,56 +478,52 @@ fn cfg_builder_process_block(
         segment.end_slot,
         next_block,
       )
-      cfg_builder_label_target_set(
-        builder,
-        hot_control_node_label(func, last_node),
-        continuation.unwrap(),
-      )
-      let then_build = cfg_builder_build_region(
+      cfg_builder_connect_result_if(
         builder,
         func,
-        hot_region_then_ref(func, last_node),
-        handler_target,
-        force_entry=true,
-      )
-      cfg_builder_add_edge(
-        builder,
+        last_node,
         current_block,
-        then_build.entry_block.unwrap(),
-        CfgEdgeKind::FallthroughEdge,
+        continuation.unwrap(),
+        handler_target,
       )
-      cfg_builder_connect_exits(builder, then_build.exit_blocks, continuation)
-      match hot_region_else_ref(func, last_node) {
-        Some(else_ref) => {
-          let else_build = cfg_builder_build_region(
-            builder,
-            func,
-            else_ref,
-            handler_target,
-            force_entry=true,
-          )
-          cfg_builder_add_edge(
-            builder,
-            current_block,
-            else_build.entry_block.unwrap(),
-            CfgEdgeKind::FallthroughEdge,
-          )
-          cfg_builder_connect_exits(
-            builder,
-            else_build.exit_blocks,
-            continuation,
-          )
-        }
-        None =>
-          cfg_builder_add_edge(
-            builder,
-            current_block,
-            continuation.unwrap(),
-            CfgEdgeKind::FallthroughEdge,
-          )
-      }
       if synthetic_exit {
         exits.push(continuation.unwrap())
+      }
+    }
+    HotOp::Drop => {
+      let operand_id = hot_child_get(func, last_node, 0)
+      if operand_id >= 0 &&
+        hot_node_is_live(func, operand_id) &&
+        hot_node_get(func, operand_id).op == HotOp::If &&
+        ssa_simple_drop_result_if_allowed(func, last_node, 0, operand_id) {
+        let (continuation, synthetic_exit) = cfg_builder_maybe_continuation(
+          builder,
+          region_ref,
+          segment.end_slot,
+          next_block,
+        )
+        cfg_builder_connect_result_if(
+          builder,
+          func,
+          operand_id,
+          current_block,
+          continuation.unwrap(),
+          handler_target,
+        )
+        if synthetic_exit {
+          exits.push(continuation.unwrap())
+        }
+      } else {
+        match next_block {
+          Some(block_id) =>
+            cfg_builder_add_edge(
+              builder,
+              current_block,
+              block_id,
+              CfgEdgeKind::FallthroughEdge,
+            )
+          None => exits.push(current_block)
+        }
       }
     }
     HotOp::Try => {

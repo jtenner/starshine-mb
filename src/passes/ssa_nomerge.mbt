@@ -78,6 +78,16 @@ fn ssa_nomerge_is_simple_nested_value_block_operand(
 }
 
 ///|
+fn ssa_nomerge_is_simple_nested_result_if_operand(
+  func : @ir.HotFunc,
+  parent_id : @ir.NodeId,
+  slot : Int,
+  child_id : @ir.NodeId,
+) -> Bool {
+  @ir.ssa_simple_drop_result_if_allowed(func, parent_id, slot, child_id)
+}
+
+///|
 fn ssa_nomerge_nested_cfg_node_is_fail_closed(
   func : @ir.HotFunc,
   parent_id : @ir.NodeId,
@@ -85,6 +95,11 @@ fn ssa_nomerge_nested_cfg_node_is_fail_closed(
   node_id : @ir.NodeId,
 ) -> Bool {
   if ssa_nomerge_is_simple_nested_value_block_operand(
+      func, parent_id, parent_slot, node_id,
+    ) {
+    return false
+  }
+  if ssa_nomerge_is_simple_nested_result_if_operand(
       func, parent_id, parent_slot, node_id,
     ) {
     return false
@@ -134,7 +149,9 @@ fn ssa_nomerge_has_nested_cfg_control_node(
 fn ssa_nomerge_has_nested_cfg_sensitive_control(func : @ir.HotFunc) -> Bool {
   // Operand-nested straight-line `drop(block (result t) ...)` value blocks are
   // allowed via `ssa_simple_drop_value_block_allowed(...)` and inline rename in
-  // `ssa_local_visit_node`. All other nested value-control regions can still
+  // `ssa_local_visit_node`. Operand-nested `drop(if (result i32) ...)` with
+  // straight-line arms is allowed via `ssa_simple_drop_result_if_allowed(...)`
+  // and CFG-backed rename. All other nested value-control regions can still
   // contain local reads/writes and terminators outside SSA v1's region-root
   // model; fail closed for those shapes.
   for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
