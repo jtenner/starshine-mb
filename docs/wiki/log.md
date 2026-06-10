@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-09] fuzzing/gen-valid | Split ssa-nomerge GenValid profiles
+
+- Documented the join-allocation investigation in [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md): dense `ssa-nomerge` GenValid smoke mismatches are primarily coverage-lane artifacts (Starshine skip vs Binaryen rewrite), not a broad normalizer gap.
+- Split GenValid SSA profiles into `ssa-nomerge-coverage` (legacy `ssa-nomerge` alias), `ssa-nomerge-parity`, and `ssa-nomerge-stress`; updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) with lane definitions.
+- Parity lane uses lighter SSA body templates that exclude fail-closed / skip-inducing slices; coverage/stress lanes keep dense templates for scanner floors only.
+
 ## [2026-06-09] passes/ssa-nomerge | Needed structured copies and canonical body locals
 
 - Tightened the raw structured `ssa-nomerge` output path in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): label targets now carry continuation read-before-write needs, branch/label merge copies are emitted only for observable aliases, and body-local `local.set` reuses the canonical slot when the next observable use reads before overwrite.

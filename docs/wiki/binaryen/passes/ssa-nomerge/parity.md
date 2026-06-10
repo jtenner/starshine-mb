@@ -84,8 +84,27 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 
 ## Coverage / Investigation Lanes
 
-- 2026-06-09 GenValid SSA profile widening: added `ssa-nomerge` GenValid profile, SSA-specific feature facts/scanner (`src/validate/gen_valid_ssa.mbt`), and `--require-feature ssa-*` coverage floors. Unit/fuzz tests for profile resolution, scanner facts, and batch floor selection are green (`moon test src/validate` `1568/1568`, `moon test src/fuzz` `625/625`). A targeted profile smoke lane with eleven required SSA floors (`--gen-valid-profile ssa-nomerge --require-feature ssa-* --count 50 --seed 0x5eed --normalize local-cleanup-debris`) compared `50/50` but reported `0` normalized matches and `50` mismatches. Case `000001` was classified as **semantic-equivalent local allocation strategy drift**: both outputs validate, share identical wasm size and control-flow skeleton, and diverge identically at runtime; Starshine reuses short-lived locals where Binaryen allocates fresh temps (`$1` vs `$6/$7/$8`, etc.). This is not one-to-one alpha-renaming.
-- 2026-06-09 constrained compare normalizer prototype: added opt-in `--normalize ssa-local-allocation-debris` in `[../../../../../scripts/lib/pass-fuzz-ssa-local-allocation-debris.ts](../../../../../scripts/lib/pass-fuzz-ssa-local-allocation-debris.ts)` with harness wiring in `[../../../../../scripts/lib/pass-fuzz-compare-task.ts](../../../../../scripts/lib/pass-fuzz-compare-task.ts)`. It normalizes only proven-equivalent straight-line def-use islands and immediate pre-`if` condition carriers; it does **not** remap locals across `block` / `loop` / `br_table` join regions, parallel-copy merge locals, or parameter writes. Recommended compare order is `--normalize ssa-local-allocation-debris --normalize local-cleanup-debris` (the harness enforces this order when both are enabled). Hand-authored normalizer tests are green (`bun test scripts/lib/pass-fuzz-compare-task.test.ts`); replaying saved smoke failures with both normalizers still leaves block/join allocation drift mismatches (`0/100` normalized on `.tmp/pass-fuzz-ssa-nomerge-genvalid-profile-smoke-100`). Do **not** treat the GenValid SSA profile lane as signoff-green until a compare lane actually passes. The prior mixed-generator `100000` lane (`99751/99751` normalized matches) remains the current broad signoff baseline under **Current Signoff State** above.
+### 2026-06-09 join-allocation investigation (case `000001`)
+
+Reduced block-join replay (`.tmp/ssa-block-join-minimal/`) proves **semantic-equivalent join allocation drift** when both tools actually run `ssa-nomerge`: Starshine’s raw structured path keeps canonical slots (`$x`/`$x`/`$x`) while Binaryen fresh-allocates per set (`$2`/`$3`/`$3`). Both outputs validate and observe the same post-join value.
+
+The dense GenValid `ssa-nomerge` profile smoke lane (`0/100` normalized) is **not** primarily a normalizer gap. For case `000001`, `starshine.raw.wasm` is unchanged from input (`330` bytes, HOT `changed=false`, raw structured rewrite `None`), while Binaryen applies `--ssa-nomerge` (`271` bytes). The harness compares canonicalized **untransformed** Starshine output against Binaryen’s transformed output because the dense template combines fail-closed / raw-skip shapes with rewrite-expected slices in one function (`ssa_nested_cfg_fail_closed_shape`, dropped-increment guard shapes, and combined structured density).
+
+**Classification:** coverage-lane artifact for the dense profile; `semantic-equivalent-join-allocation-drift` only for isolated fixtures where both sides transform.
+
+**Normalizer:** opt-in `--normalize ssa-local-allocation-debris` stays narrow (straight-line islands and immediate pre-`if` carriers only). Do not broaden it across control-flow joins without proof and negative tests.
+
+**Signoff baseline:** mixed-generator `100000` lane with `--normalize local-cleanup-debris` (`99751/99751` normalized matches) under **Current Signoff State** above.
+
+### GenValid profile split (2026-06-09)
+
+| Profile | Purpose | Compare against Binaryen? |
+|---|---|---|
+| `ssa-nomerge-coverage` (`ssa-nomerge` alias) | Dense SSA body templates, all `ssa-*` coverage floors, fail-closed stress shapes | **No** — coverage/stress only |
+| `ssa-nomerge-parity` | Lighter templates: rewrite shapes where Starshine is expected to run the comparable path; excludes nested-CFG fail-closed, dropped-increment guard, unreachable-carrier, and other skip-inducing slices | **Yes** — intended future GenValid parity lane |
+| `ssa-nomerge-stress` | Reserved pathological/fail-closed lane (currently aliases dense coverage templates) | **No** |
+
+Use `--gen-valid-profile ssa-nomerge-parity` with parity-appropriate `--require-feature` floors for SSA rewrite signoff experiments. Keep `--gen-valid-profile ssa-nomerge-coverage` (or legacy `ssa-nomerge`) for scanner/floor coverage only.
 
 ## Remaining Gap
 
