@@ -9675,13 +9675,6 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             ) {
             return None
           }
-        } else if label_target.is_loop_param_proxy &&
-          run_hot_pipeline_raw_has_needed_alias_copy(
-            aliases,
-            canonical_aliases,
-            label_target.needed_alias_copies,
-          ) {
-          return None
         }
         match
           run_hot_pipeline_raw_rewrite_br_if(

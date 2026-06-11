@@ -1120,6 +1120,29 @@ test "ssa-nomerge preserves delegate shapes without hot local corruption" {
 }
 
 ///|
+fn ssa_test_expect_scalar_loop_param_branch_proxy(
+  source : String,
+  min_local_count : Int,
+  expect_br_if : Bool,
+) -> Unit raise {
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() >= min_local_count, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_branch_proxy(instrs, expect_br_if),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+fn ssa_test_expect_scalar_loop_param_br_if_proxy(
+  source : String,
+  min_local_count : Int,
+) -> Unit raise {
+  ssa_test_expect_scalar_loop_param_branch_proxy(source, min_local_count, true)
+}
+
+///|
 test "ssa-nomerge rewrites direct scalar typed loop-param br backedge" {
   let source =
     #|(module
@@ -1182,6 +1205,135 @@ test "ssa-nomerge rewrites no-copy scalar typed loop-param br_if backedge" {
     ssa_test_instrs_have_loop_param_scalar_br_if_proxy(instrs),
     msg=instrs.to_string(),
   )
+}
+
+///|
+test "ssa-nomerge rewrites no-copy scalar typed loop-param br_if for i64" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i64)))
+    #|  (func (param i64) (result i64) (local i64)
+    #|    i64.const 0
+    #|    loop $l (type $loop_t)
+    #|      local.tee 1
+    #|      i64.const 1
+    #|      i64.add
+    #|      local.get 1
+    #|      local.get 0
+    #|      i64.lt_s
+    #|      br_if $l
+    #|      drop
+    #|    end
+    #|    local.get 1))
+    #|)
+  ssa_test_expect_scalar_loop_param_br_if_proxy(source, 2)
+}
+
+///|
+test "ssa-nomerge rewrites no-copy scalar typed loop-param br_if for f32" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param f32)))
+    #|  (func (param f32) (result f32) (local f32)
+    #|    f32.const 0
+    #|    loop $l (type $loop_t)
+    #|      local.tee 1
+    #|      f32.const 1
+    #|      f32.add
+    #|      local.get 1
+    #|      local.get 0
+    #|      f32.lt
+    #|      br_if $l
+    #|      drop
+    #|    end
+    #|    local.get 1))
+    #|)
+  ssa_test_expect_scalar_loop_param_br_if_proxy(source, 2)
+}
+
+///|
+test "ssa-nomerge rewrites no-copy scalar typed loop-param br_if for f64" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param f64)))
+    #|  (func (param f64) (result f64) (local f64)
+    #|    f64.const 0
+    #|    loop $l (type $loop_t)
+    #|      local.tee 1
+    #|      f64.const 1
+    #|      f64.add
+    #|      local.get 1
+    #|      local.get 0
+    #|      f64.lt
+    #|      br_if $l
+    #|      drop
+    #|    end
+    #|    local.get 1))
+    #|)
+  ssa_test_expect_scalar_loop_param_br_if_proxy(source, 2)
+}
+
+///|
+test "ssa-nomerge rewrites nested no-copy scalar typed loop-param br_if" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 0
+    #|    loop $l (type $loop_t)
+    #|      local.tee 1
+    #|      local.get 0
+    #|      i32.lt_s
+    #|      if
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.get 1
+    #|        i32.const 0
+    #|        i32.ge_s
+    #|        br_if $l
+    #|        drop
+    #|      end
+    #|    end
+    #|    local.get 1))
+    #|)
+  ssa_test_expect_scalar_loop_param_br_if_proxy(source, 2)
+}
+
+///|
+test "ssa-nomerge rewrites copy-needing scalar typed loop-param br_if" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    i32.const 0
+    #|    loop $l (type $loop_t)
+    #|      local.tee 1
+    #|      i32.const 1
+    #|      i32.add
+    #|      local.get 2
+    #|      drop
+    #|      local.get 1
+    #|      i32.const 0
+    #|      i32.eq
+    #|      if
+    #|        i32.const 7
+    #|        local.set 2
+    #|      else
+    #|        i32.const 8
+    #|        local.set 2
+    #|      end
+    #|      local.get 1
+    #|      local.get 0
+    #|      i32.lt_s
+    #|      br_if $l
+    #|      drop
+    #|      i32.const 9
+    #|      local.set 2
+    #|    end
+    #|    local.get 2))
+    #|)
+  ssa_test_expect_scalar_loop_param_branch_proxy(source, 3, false)
 }
 
 ///|
