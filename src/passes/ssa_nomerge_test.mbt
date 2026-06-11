@@ -4167,6 +4167,108 @@ test "ssa-nomerge preserves void br_table with canonical merge copies" {
 }
 
 ///|
+test "ssa-nomerge preserves result br_table with canonical merge copies" {
+  let trace : Array[String] = []
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     (local i32)
+    #|     block (result i32)
+    #|       local.get 0
+    #|       if
+    #|         i32.const 7
+    #|         local.set 1
+    #|       else
+    #|         i32.const 8
+    #|         local.set 1
+    #|       end
+    #|       block
+    #|         i32.const 42
+    #|         local.get 0
+    #|         br_table 1 1
+    #|       end
+    #|       i32.const 9
+    #|       local.set 1
+    #|       i32.const 10
+    #|     end
+    #|     drop
+    #|     local.get 1))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected result br_table raw ssa-nomerge success, got \{err}")
+  }
+
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+          ],
+          Some([
+            @lib.Instruction::i32_const(@lib.I32(8)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+          ]),
+        ),
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(42)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::br_table(
+              [@lib.LabelIdx::new(1U)],
+              @lib.LabelIdx::new(1U),
+            ),
+          ]),
+        ),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::i32_const(@lib.I32(10)),
+      ]),
+    ),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  ])
+}
+
+///|
 test "ssa-nomerge preserves no-copy result block br_if" {
   let input =
     #| (module

@@ -7777,7 +7777,7 @@ fn run_hot_pipeline_raw_branch_if_block_type(
 }
 
 ///|
-fn run_hot_pipeline_raw_br_table_void_alias_copies(
+fn run_hot_pipeline_raw_br_table_non_loop_alias_copies(
   labels : Array[@lib.LabelIdx],
   default_label : @lib.LabelIdx,
   label_stack : Array[RawSsaLabelTarget],
@@ -7787,7 +7787,7 @@ fn run_hot_pipeline_raw_br_table_void_alias_copies(
   for label_idx in labels {
     match run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {
       Some(label_target) => {
-        if label_target.is_loop || label_target.result_types.length() != 0 {
+        if label_target.is_loop {
           return None
         }
         for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
@@ -7801,7 +7801,7 @@ fn run_hot_pipeline_raw_br_table_void_alias_copies(
   }
   match run_hot_pipeline_raw_resolve_label_target(label_stack, default_label) {
     Some(label_target) => {
-      if label_target.is_loop || label_target.result_types.length() != 0 {
+      if label_target.is_loop {
         return None
       }
       for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
@@ -8363,7 +8363,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
       }
       @lib.BrTable(labels, default_label) => {
         let needed_alias_copies = match
-          run_hot_pipeline_raw_br_table_void_alias_copies(
+          run_hot_pipeline_raw_br_table_non_loop_alias_copies(
             labels,
             default_label,
             label_stack,

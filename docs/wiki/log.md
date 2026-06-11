@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-11] passes/ssa-nomerge | Preserve result br_table copies
+
+- Fixed raw structured `ssa-nomerge` in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): non-loop `br_table` targets are no longer restricted to zero-result labels, so result-typed table exits can stay on the raw path and receive needed canonical alias copies before dispatch. The inserted copies are stack-neutral, preserving branch payload values and the selector below the copy sequence; loop targets remain fail-closed.
+- Added a focused source-backed regression in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for a result-typed `br_table` carrying an `i32` block result while an alias copy is needed before exiting over a later fallthrough overwrite. The test failed red under the old `changed=false` fallback and then passed after implementation.
+- Evidence: focused `*result br_table*` passed `1/1`; `ssa_nomerge_test.mbt` passed `123/123`; `moon test src/passes` passed `2142/2142`; `moon fmt`, `moon info` (3 pre-existing GenValid warnings), full `moon test` (`5402/5402`), native `src/cmd` build passed with pre-existing pass-manager warnings, `wasm-tools validate` passed on `.tmp/self-ssa-nomerge-debug-wasi-result-brtable/starshine.wasm`, and `git diff --check` passed. Direct compare `.tmp/pass-fuzz-ssa-nomerge-result-brtable-10000` compared `9977/10000` with `9977` normalized matches, `0` mismatches, and `23` Binaryen/tool command failures. GenValid parity `.tmp/pass-fuzz-ssa-nomerge-parity-result-brtable-10000` compared `10000/10000` with `10000` compare-normalized matches and `0` mismatches.
+- Direct artifact replay `.tmp/self-ssa-nomerge-debug-wasi-result-brtable` still differs at `defined=0 abs=27`; pass-local Starshine was `16.233 ms` vs Binaryen `349.014 ms`. This is not exact artifact or O4z closeout.
+
 ## [2026-06-11] fuzzing/gen-valid | Widen ssa-nomerge copy-family facts
 
 - Added two source-backed SSA GenValid labels/templates in [`../../src/validate/gen_valid_ssa.mbt`](../../src/validate/gen_valid_ssa.mbt): `ssa-enclosing-label-copy-before-exit` for divergent aliases that must be copied before an enclosing-label exit can bypass a fallthrough overwrite, and `ssa-void-br-table-canonical-copies` for void-target `br_table` dispatch that needs canonical alias copies.
