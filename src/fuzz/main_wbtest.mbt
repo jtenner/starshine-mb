@@ -2363,6 +2363,13 @@ test "emit_gen_valid_batch_artifacts_until_features satisfies ssa-nomerge SSA fl
     Ok(v) => v
     Err(e) => fail(e)
   }
+  let enclosing_floor = match
+    @validate.validate_valid_feature_floor_by_label(
+      "ssa-enclosing-label-copy-before-exit", 1,
+    ) {
+    Ok(v) => v
+    Err(e) => fail(e)
+  }
   let selected = match
     emit_gen_valid_batch_artifacts_until_features(
       1,
@@ -2371,7 +2378,7 @@ test "emit_gen_valid_batch_artifacts_until_features satisfies ssa-nomerge SSA fl
         Ok(v) => v
         Err(e) => fail(e)
       },
-      [chain_floor, branch_floor, br_if_floor],
+      [chain_floor, branch_floor, br_if_floor, enclosing_floor],
       [],
       32,
     ) {
@@ -2404,9 +2411,18 @@ test "emit_gen_valid_batch_artifacts_until_features satisfies ssa-nomerge SSA fl
     Ok(v) => v
     Err(e) => fail(e)
   }
+  let enclosing_count = match
+    @validate.validate_valid_feature_actual_count_by_label(
+      selected.feature_stats,
+      "ssa-enclosing-label-copy-before-exit",
+    ) {
+    Ok(v) => v
+    Err(e) => fail(e)
+  }
   assert_true(chain_count >= 1)
   assert_true(branch_count >= 1)
   assert_true(br_if_count >= 1)
+  assert_true(enclosing_count >= 1)
 }
 
 ///|
@@ -2421,6 +2437,7 @@ test "emit_gen_valid_batch_artifacts_until_features satisfies dense ssa-nomerge 
     "ssa-nested-result-if-mixed-arm-value-block", "ssa-nested-result-if-scalar-result",
     "ssa-default-local-read-after-branchy-control", "ssa-dropped-unreachable-debris-before-hard-unreachable",
     "ssa-canonical-body-local-next-read", "ssa-immediate-block-exit-canonical-set-br",
+    "ssa-enclosing-label-copy-before-exit", "ssa-void-br-table-canonical-copies",
   ]
   let floors : Array[ValidateValidFeatureFloor] = []
   for label in labels {

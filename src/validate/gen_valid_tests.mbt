@@ -7372,6 +7372,14 @@ test "ssa-nomerge coverage generated modules record dense SSA feature facts" {
     facts.has_ssa_immediate_block_exit_canonical_set_br,
     msg="expected immediate block-exit canonical set/br variant",
   )
+  assert_true(
+    facts.has_ssa_enclosing_label_copy_before_exit,
+    msg="expected enclosing label copy-before-exit variant",
+  )
+  assert_true(
+    facts.has_ssa_void_br_table_canonical_copies,
+    msg="expected void br_table canonical-copy variant",
+  )
 }
 
 ///|
@@ -7422,6 +7430,14 @@ test "ssa-nomerge smoke generated modules cover structured branch SSA shapes" {
   assert_true(
     facts.has_ssa_immediate_block_exit_canonical_set_br,
     msg="smoke profile should cover immediate set/br block exits",
+  )
+  assert_true(
+    facts.has_ssa_enclosing_label_copy_before_exit,
+    msg="smoke profile should cover enclosing label copy-before-exit",
+  )
+  assert_false(
+    facts.has_ssa_void_br_table_canonical_copies,
+    msg="smoke profile keeps br_table canonical-copy shapes out of quick smoke",
   )
   assert_false(
     facts.has_ssa_dropped_unreachable_debris_before_hard_unreachable,
@@ -7573,6 +7589,14 @@ test "ssa-nomerge parity generated modules omit fail-closed coverage slices" {
     facts.has_ssa_immediate_block_exit_canonical_set_br,
     msg="parity profile must not emit immediate block-exit set/br slices",
   )
+  assert_false(
+    facts.has_ssa_enclosing_label_copy_before_exit,
+    msg="parity profile must not emit enclosing-label copy structured slices",
+  )
+  assert_false(
+    facts.has_ssa_void_br_table_canonical_copies,
+    msg="parity profile must not emit void br_table copy structured slices",
+  )
 }
 
 ///|
@@ -7606,6 +7630,8 @@ test "ssa-nomerge stress generated modules record dense fail-closed SSA facts" {
   assert_true(facts.has_ssa_dropped_unreachable_debris_before_hard_unreachable)
   assert_true(facts.has_ssa_canonical_body_local_next_read)
   assert_true(facts.has_ssa_immediate_block_exit_canonical_set_br)
+  assert_true(facts.has_ssa_enclosing_label_copy_before_exit)
+  assert_true(facts.has_ssa_void_br_table_canonical_copies)
 }
 
 ///|
@@ -7625,7 +7651,8 @@ test "validate_valid_feature_floor_by_label recognizes SSA feature labels" {
       "ssa-block-branch-merge-copy", "ssa-block-br-if-merge-copy", "ssa-structured-param-merge",
       "ssa-branch-local-not-read-later", "ssa-default-local-read-after-branchy-control",
       "ssa-dropped-unreachable-debris-before-hard-unreachable", "ssa-canonical-body-local-next-read",
-      "ssa-immediate-block-exit-canonical-set-br",
+      "ssa-immediate-block-exit-canonical-set-br", "ssa-enclosing-label-copy-before-exit",
+      "ssa-void-br-table-canonical-copies",
     ] {
     match validate_valid_feature_floor_by_label(label, 1) {
       Ok(_) => ()

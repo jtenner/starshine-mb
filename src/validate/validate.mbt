@@ -3482,6 +3482,8 @@ pub enum ValidateValidFeatureKey {
   SsaDroppedUnreachableDebrisBeforeHardUnreachable
   SsaCanonicalBodyLocalNextRead
   SsaImmediateBlockExitCanonicalSetBr
+  SsaEnclosingLabelCopyBeforeExit
+  SsaVoidBrTableCanonicalCopies
 } derive(Eq, Debug)
 
 ///|
@@ -3597,6 +3599,10 @@ pub impl Show for ValidateValidFeatureKey with fn output(self, logger) {
       logger.write_string("SsaCanonicalBodyLocalNextRead")
     SsaImmediateBlockExitCanonicalSetBr =>
       logger.write_string("SsaImmediateBlockExitCanonicalSetBr")
+    SsaEnclosingLabelCopyBeforeExit =>
+      logger.write_string("SsaEnclosingLabelCopyBeforeExit")
+    SsaVoidBrTableCanonicalCopies =>
+      logger.write_string("SsaVoidBrTableCanonicalCopies")
   }
 }
 
@@ -3800,6 +3806,9 @@ pub fn validate_valid_feature_actual_count(
     SsaCanonicalBodyLocalNextRead => stats.ssa_canonical_body_local_next_read
     SsaImmediateBlockExitCanonicalSetBr =>
       stats.ssa_immediate_block_exit_canonical_set_br
+    SsaEnclosingLabelCopyBeforeExit =>
+      stats.ssa_enclosing_label_copy_before_exit
+    SsaVoidBrTableCanonicalCopies => stats.ssa_void_br_table_canonical_copies
   }
 }
 
@@ -3895,6 +3904,8 @@ fn validate_valid_feature_ledger_keys() -> Array[ValidateValidFeatureKey] {
     SsaDroppedUnreachableDebrisBeforeHardUnreachable,
     SsaCanonicalBodyLocalNextRead,
     SsaImmediateBlockExitCanonicalSetBr,
+    SsaEnclosingLabelCopyBeforeExit,
+    SsaVoidBrTableCanonicalCopies,
   ]
 }
 
@@ -4051,6 +4062,8 @@ fn validate_valid_feature_key_label(key : ValidateValidFeatureKey) -> String {
     SsaCanonicalBodyLocalNextRead => "ssa-canonical-body-local-next-read"
     SsaImmediateBlockExitCanonicalSetBr =>
       "ssa-immediate-block-exit-canonical-set-br"
+    SsaEnclosingLabelCopyBeforeExit => "ssa-enclosing-label-copy-before-exit"
+    SsaVoidBrTableCanonicalCopies => "ssa-void-br-table-canonical-copies"
   }
 }
 
@@ -4158,6 +4171,9 @@ fn validate_valid_feature_key_from_label(
     "ssa-canonical-body-local-next-read" => Some(SsaCanonicalBodyLocalNextRead)
     "ssa-immediate-block-exit-canonical-set-br" =>
       Some(SsaImmediateBlockExitCanonicalSetBr)
+    "ssa-enclosing-label-copy-before-exit" =>
+      Some(SsaEnclosingLabelCopyBeforeExit)
+    "ssa-void-br-table-canonical-copies" => Some(SsaVoidBrTableCanonicalCopies)
     _ => None
   }
 }

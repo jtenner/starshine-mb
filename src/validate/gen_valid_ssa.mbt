@@ -33,6 +33,8 @@ pub struct GenValidSsaFuncFacts {
   has_ssa_dropped_unreachable_debris_before_hard_unreachable : Bool
   has_ssa_canonical_body_local_next_read : Bool
   has_ssa_immediate_block_exit_canonical_set_br : Bool
+  has_ssa_enclosing_label_copy_before_exit : Bool
+  has_ssa_void_br_table_canonical_copies : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -71,6 +73,8 @@ pub fn GenValidSsaFuncFacts::empty() -> GenValidSsaFuncFacts {
     has_ssa_dropped_unreachable_debris_before_hard_unreachable: false,
     has_ssa_canonical_body_local_next_read: false,
     has_ssa_immediate_block_exit_canonical_set_br: false,
+    has_ssa_enclosing_label_copy_before_exit: false,
+    has_ssa_void_br_table_canonical_copies: false,
   }
 }
 
@@ -145,6 +149,10 @@ pub fn gen_valid_merge_ssa_func_facts(
     right.has_ssa_canonical_body_local_next_read,
     has_ssa_immediate_block_exit_canonical_set_br: left.has_ssa_immediate_block_exit_canonical_set_br ||
     right.has_ssa_immediate_block_exit_canonical_set_br,
+    has_ssa_enclosing_label_copy_before_exit: left.has_ssa_enclosing_label_copy_before_exit ||
+    right.has_ssa_enclosing_label_copy_before_exit,
+    has_ssa_void_br_table_canonical_copies: left.has_ssa_void_br_table_canonical_copies ||
+    right.has_ssa_void_br_table_canonical_copies,
   }
 }
 
@@ -912,6 +920,12 @@ fn gen_valid_ssa_scan_linear(
           gen_valid_ssa_expr_has_immediate_local_set_br(body) {
           out = { ..out, has_ssa_immediate_block_exit_canonical_set_br: true }
         }
+        if body_has_write && tail_has_read {
+          let Expr(body_instrs) = body
+          out = gen_valid_ssa_scan_enclosing_copy_before_exit(
+            body_instrs, tail, out,
+          )
+        }
         let (body_facts, body_writes, body_exceptional) = gen_valid_ssa_scan_expr(
           param_count, body, out, def_counts, has_local_write, has_exceptional,
         )
@@ -1105,6 +1119,173 @@ fn gen_valid_ssa_expr_has_immediate_local_set_br(expr : Expr) -> Bool {
     i += 1
   }
   false
+}
+
+///|
+fn gen_valid_ssa_expr_has_enclosing_exit(expr : Expr) -> Bool {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      Br(LabelIdx(idx)) if idx > 0U => return true
+      BrTable(labels, LabelIdx(default_idx)) => {
+        if default_idx > 0U {
+          return true
+        }
+        for label in labels {
+          let LabelIdx(idx) = label
+          if idx > 0U {
+            return true
+          }
+        }
+      }
+      Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
+        if gen_valid_ssa_expr_has_enclosing_exit(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_ssa_expr_has_enclosing_exit(Expr::new(then_body)) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_ssa_expr_has_enclosing_exit(Expr::new(body)) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_ssa_expr_has_enclosing_br_table_exit(expr : Expr) -> Bool {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      BrTable(labels, LabelIdx(default_idx)) => {
+        if default_idx > 0U {
+          return true
+        }
+        for label in labels {
+          let LabelIdx(idx) = label
+          if idx > 0U {
+            return true
+          }
+        }
+      }
+      Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
+        if gen_valid_ssa_expr_has_enclosing_br_table_exit(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_ssa_expr_has_enclosing_br_table_exit(Expr::new(then_body)) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_ssa_expr_has_enclosing_br_table_exit(
+              Expr::new(body),
+            ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_ssa_instr_writes_local(
+  instr : Instruction,
+  idx : LocalIdx,
+) -> Bool {
+  match instr {
+    LocalSet(write_idx) | LocalTee(write_idx) => write_idx == idx
+    _ => false
+  }
+}
+
+///|
+fn gen_valid_ssa_after_if_has_exit_before_overwrite(
+  instrs : Array[Instruction],
+  start : Int,
+  idx : LocalIdx,
+) -> Bool {
+  let mut saw_exit = false
+  let mut i = start
+  while i < instrs.length() {
+    if gen_valid_ssa_expr_has_enclosing_exit(Expr::new([instrs[i]])) {
+      saw_exit = true
+    }
+    if gen_valid_ssa_instr_writes_local(instrs[i], idx) {
+      return saw_exit
+    }
+    i += 1
+  }
+  false
+}
+
+///|
+fn gen_valid_ssa_after_if_has_br_table_exit_before_overwrite(
+  instrs : Array[Instruction],
+  start : Int,
+  idx : LocalIdx,
+) -> Bool {
+  let mut saw_exit = false
+  let mut i = start
+  while i < instrs.length() {
+    if gen_valid_ssa_expr_has_enclosing_br_table_exit(Expr::new([instrs[i]])) {
+      saw_exit = true
+    }
+    if gen_valid_ssa_instr_writes_local(instrs[i], idx) {
+      return saw_exit
+    }
+    i += 1
+  }
+  false
+}
+
+///|
+fn gen_valid_ssa_scan_enclosing_copy_before_exit(
+  instrs : Array[Instruction],
+  tail : Expr,
+  facts : GenValidSsaFuncFacts,
+) -> GenValidSsaFuncFacts {
+  let mut out = facts
+  let mut i = 0
+  while i < instrs.length() {
+    match instrs[i] {
+      If(_, then_body, Some(else_body)) => {
+        let then_writes = gen_valid_ssa_if_arm_writes_local(then_body)
+        let else_writes = gen_valid_ssa_if_arm_writes_local(else_body)
+        for slot in then_writes {
+          if else_writes.any(fn(other) { other == slot }) {
+            let idx = LocalIdx::new(slot.reinterpret_as_uint())
+            if gen_valid_expr_local_has_read(tail, idx) &&
+              gen_valid_ssa_after_if_has_exit_before_overwrite(
+                instrs,
+                i + 1,
+                idx,
+              ) {
+              out = { ..out, has_ssa_enclosing_label_copy_before_exit: true }
+            }
+            if gen_valid_expr_local_has_read(tail, idx) &&
+              gen_valid_ssa_after_if_has_br_table_exit_before_overwrite(
+                instrs,
+                i + 1,
+                idx,
+              ) {
+              out = { ..out, has_ssa_void_br_table_canonical_copies: true }
+            }
+          }
+        }
+      }
+      _ => ()
+    }
+    i += 1
+  }
+  out
 }
 
 ///|
@@ -1802,6 +1983,30 @@ fn gen_valid_append_ssa_nomerge_smoke_body_slice(
     )
     out.push(Instruction::drop())
   }
+  // L. enclosing label copy before an exit over a fallthrough overwrite.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::local_get(p0),
+          Instruction::if_(
+            BlockType::void_(),
+            [Instruction::i32_const(I32(37)), Instruction::local_set(l0)],
+            Some([Instruction::i32_const(I32(38)), Instruction::local_set(l0)]),
+          ),
+          Instruction::block(
+            BlockType::void_(),
+            Expr::new([Instruction::br(LabelIdx::new(1U))]),
+          ),
+          Instruction::i32_const(I32(39)),
+          Instruction::local_set(l0),
+        ]),
+      ),
+    )
+    out.push(Instruction::local_get(l0))
+    out.push(Instruction::drop())
+  }
   ignore(ctx)
   ignore(env)
 }
@@ -2370,6 +2575,57 @@ fn gen_valid_append_ssa_nomerge_coverage_body_slice(
         ]),
       ),
     )
+    out.push(Instruction::drop())
+  }
+  // AC. enclosing label copy before an exit over a fallthrough overwrite.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::local_get(p0),
+          Instruction::if_(
+            BlockType::void_(),
+            [Instruction::i32_const(I32(37)), Instruction::local_set(l0)],
+            Some([Instruction::i32_const(I32(38)), Instruction::local_set(l0)]),
+          ),
+          Instruction::block(
+            BlockType::void_(),
+            Expr::new([Instruction::br(LabelIdx::new(1U))]),
+          ),
+          Instruction::i32_const(I32(39)),
+          Instruction::local_set(l0),
+        ]),
+      ),
+    )
+    out.push(Instruction::local_get(l0))
+    out.push(Instruction::drop())
+  }
+  // AD. void br_table canonical copies before dispatch to an enclosing label.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::local_get(p0),
+          Instruction::if_(
+            BlockType::void_(),
+            [Instruction::i32_const(I32(47)), Instruction::local_set(l0)],
+            Some([Instruction::i32_const(I32(48)), Instruction::local_set(l0)]),
+          ),
+          Instruction::block(
+            BlockType::void_(),
+            Expr::new([
+              Instruction::local_get(p0),
+              Instruction::br_table([LabelIdx::new(1U)], LabelIdx::new(1U)),
+            ]),
+          ),
+          Instruction::i32_const(I32(49)),
+          Instruction::local_set(l0),
+        ]),
+      ),
+    )
+    out.push(Instruction::local_get(l0))
     out.push(Instruction::drop())
   }
   ignore(ctx)

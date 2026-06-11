@@ -1380,6 +1380,68 @@ test "ssa scanner detects recent raw structured ssa-nomerge coverage families" {
 }
 
 ///|
+test "ssa scanner detects enclosing label and void br_table copy families" {
+  let mod_ = gen_valid_ssa_test_module([ValType::i32()], [ValType::i32()], [
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::if_(
+          BlockType::void_(),
+          [
+            Instruction::i32_const(I32(7)),
+            Instruction::local_set(LocalIdx::new(1U)),
+          ],
+          Some([
+            Instruction::i32_const(I32(8)),
+            Instruction::local_set(LocalIdx::new(1U)),
+          ]),
+        ),
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([Instruction::br(LabelIdx::new(1U))]),
+        ),
+        Instruction::i32_const(I32(9)),
+        Instruction::local_set(LocalIdx::new(1U)),
+      ]),
+    ),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::drop(),
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::local_get(LocalIdx::new(0U)),
+        Instruction::if_(
+          BlockType::void_(),
+          [
+            Instruction::i32_const(I32(17)),
+            Instruction::local_set(LocalIdx::new(1U)),
+          ],
+          Some([
+            Instruction::i32_const(I32(18)),
+            Instruction::local_set(LocalIdx::new(1U)),
+          ]),
+        ),
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::local_get(LocalIdx::new(0U)),
+            Instruction::br_table([LabelIdx::new(1U)], LabelIdx::new(1U)),
+          ]),
+        ),
+        Instruction::i32_const(I32(19)),
+        Instruction::local_set(LocalIdx::new(1U)),
+      ]),
+    ),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::drop(),
+  ])
+  let facts = gen_valid_feature_facts(mod_, CoverageForced)
+  assert_true(facts.has_ssa_enclosing_label_copy_before_exit)
+  assert_true(facts.has_ssa_void_br_table_canonical_copies)
+}
+
+///|
 test "ssa-nomerge coverage profile emits newer structured raw variants" {
   let config = GenValidConfig::for_profile(SsaNomergeCoverageProfile)
   let generated = match gen_valid_module_result_from_seed(0x5eedUL, config) {
@@ -1397,6 +1459,8 @@ test "ssa-nomerge coverage profile emits newer structured raw variants" {
   assert_true(facts.has_ssa_dropped_unreachable_debris_before_hard_unreachable)
   assert_true(facts.has_ssa_canonical_body_local_next_read)
   assert_true(facts.has_ssa_immediate_block_exit_canonical_set_br)
+  assert_true(facts.has_ssa_enclosing_label_copy_before_exit)
+  assert_true(facts.has_ssa_void_br_table_canonical_copies)
   assert_true(generated.facts.has_ssa_structured_early_return_local)
   assert_true(generated.facts.has_ssa_block_branch_merge_copy)
   assert_true(generated.facts.has_ssa_block_br_if_merge_copy)
@@ -1408,4 +1472,6 @@ test "ssa-nomerge coverage profile emits newer structured raw variants" {
   )
   assert_true(generated.facts.has_ssa_canonical_body_local_next_read)
   assert_true(generated.facts.has_ssa_immediate_block_exit_canonical_set_br)
+  assert_true(generated.facts.has_ssa_enclosing_label_copy_before_exit)
+  assert_true(generated.facts.has_ssa_void_br_table_canonical_copies)
 }

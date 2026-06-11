@@ -900,6 +900,8 @@ pub struct GenValidFeatureFacts {
   has_ssa_dropped_unreachable_debris_before_hard_unreachable : Bool
   has_ssa_canonical_body_local_next_read : Bool
   has_ssa_immediate_block_exit_canonical_set_br : Bool
+  has_ssa_enclosing_label_copy_before_exit : Bool
+  has_ssa_void_br_table_canonical_copies : Bool
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, @debug.Debug)
 
@@ -1000,6 +1002,8 @@ pub struct GenValidFeatureStats {
   ssa_dropped_unreachable_debris_before_hard_unreachable : Int
   ssa_canonical_body_local_next_read : Int
   ssa_immediate_block_exit_canonical_set_br : Int
+  ssa_enclosing_label_copy_before_exit : Int
+  ssa_void_br_table_canonical_copies : Int
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureStats::empty(GenValidMode) -> Self
@@ -1171,6 +1175,8 @@ pub struct GenValidSsaFuncFacts {
   has_ssa_dropped_unreachable_debris_before_hard_unreachable : Bool
   has_ssa_canonical_body_local_next_read : Bool
   has_ssa_immediate_block_exit_canonical_set_br : Bool
+  has_ssa_enclosing_label_copy_before_exit : Bool
+  has_ssa_void_br_table_canonical_copies : Bool
 } derive(Eq, @debug.Debug)
 pub fn GenValidSsaFuncFacts::empty() -> Self
 
@@ -1636,6 +1642,8 @@ pub enum ValidateValidFeatureKey {
   SsaDroppedUnreachableDebrisBeforeHardUnreachable
   SsaCanonicalBodyLocalNextRead
   SsaImmediateBlockExitCanonicalSetBr
+  SsaEnclosingLabelCopyBeforeExit
+  SsaVoidBrTableCanonicalCopies
 } derive(Eq, @debug.Debug)
 pub impl Show for ValidateValidFeatureKey
 

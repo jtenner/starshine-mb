@@ -1295,6 +1295,8 @@ pub struct GenValidFeatureFacts {
   has_ssa_dropped_unreachable_debris_before_hard_unreachable : Bool
   has_ssa_canonical_body_local_next_read : Bool
   has_ssa_immediate_block_exit_canonical_set_br : Bool
+  has_ssa_enclosing_label_copy_before_exit : Bool
+  has_ssa_void_br_table_canonical_copies : Bool
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, Debug)
 
@@ -1448,6 +1450,8 @@ pub struct GenValidFeatureStats {
   ssa_dropped_unreachable_debris_before_hard_unreachable : Int
   ssa_canonical_body_local_next_read : Int
   ssa_immediate_block_exit_canonical_set_br : Int
+  ssa_enclosing_label_copy_before_exit : Int
+  ssa_void_br_table_canonical_copies : Int
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, Debug)
 
@@ -1647,6 +1651,10 @@ pub impl Show for GenValidFeatureStats with fn output(self, logger) {
   self.ssa_canonical_body_local_next_read.output(logger)
   logger.write_string(", ssa_immediate_block_exit_canonical_set_br: ")
   self.ssa_immediate_block_exit_canonical_set_br.output(logger)
+  logger.write_string(", ssa_enclosing_label_copy_before_exit: ")
+  self.ssa_enclosing_label_copy_before_exit.output(logger)
+  logger.write_string(", ssa_void_br_table_canonical_copies: ")
+  self.ssa_void_br_table_canonical_copies.output(logger)
   logger.write_string(", exact_opcode_counts: ")
   self.exact_opcode_counts.output(logger)
   logger.write_char('}')
@@ -1751,6 +1759,8 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     ssa_dropped_unreachable_debris_before_hard_unreachable: 0,
     ssa_canonical_body_local_next_read: 0,
     ssa_immediate_block_exit_canonical_set_br: 0,
+    ssa_enclosing_label_copy_before_exit: 0,
+    ssa_void_br_table_canonical_copies: 0,
     exact_opcode_counts: GenValidExactOpcodeCounts::empty(),
   }
 }
@@ -1930,6 +1940,10 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_ssa_canonical_body_local_next_read),
     ssa_immediate_block_exit_canonical_set_br: self.ssa_immediate_block_exit_canonical_set_br +
     gen_valid_bool_count(facts.has_ssa_immediate_block_exit_canonical_set_br),
+    ssa_enclosing_label_copy_before_exit: self.ssa_enclosing_label_copy_before_exit +
+    gen_valid_bool_count(facts.has_ssa_enclosing_label_copy_before_exit),
+    ssa_void_br_table_canonical_copies: self.ssa_void_br_table_canonical_copies +
+    gen_valid_bool_count(facts.has_ssa_void_br_table_canonical_copies),
     exact_opcode_counts: self.exact_opcode_counts.add(facts.exact_opcode_counts),
   }
 }
@@ -15720,6 +15734,8 @@ pub fn gen_valid_feature_facts(
     has_ssa_dropped_unreachable_debris_before_hard_unreachable: ssa_facts.has_ssa_dropped_unreachable_debris_before_hard_unreachable,
     has_ssa_canonical_body_local_next_read: ssa_facts.has_ssa_canonical_body_local_next_read,
     has_ssa_immediate_block_exit_canonical_set_br: ssa_facts.has_ssa_immediate_block_exit_canonical_set_br,
+    has_ssa_enclosing_label_copy_before_exit: ssa_facts.has_ssa_enclosing_label_copy_before_exit,
+    has_ssa_void_br_table_canonical_copies: ssa_facts.has_ssa_void_br_table_canonical_copies,
     exact_opcode_counts,
   }
 }
