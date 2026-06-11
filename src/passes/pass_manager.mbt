@@ -8767,9 +8767,27 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           exit_depths[raw.reinterpret_as_int()] = true
         }
       }
-      @lib.BrOnNonNull(_)
-      | @lib.BrOnCast(_, _, _, _)
-      | @lib.BrOnCastFail(_, _, _, _) => return None
+      @lib.BrOnNonNull(label_idx) => {
+        let label_target = match
+          run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {
+          Some(label_target) => label_target
+          None => return None
+        }
+        if label_target.is_loop ||
+          run_hot_pipeline_raw_has_needed_alias_copy(
+            aliases,
+            canonical_aliases,
+            label_target.needed_alias_copies,
+          ) {
+          return None
+        }
+        rewritten.push(@lib.Instruction::br_on_non_null(label_idx))
+        if was_reachable {
+          let @lib.LabelIdx(raw) = label_idx
+          exit_depths[raw.reinterpret_as_int()] = true
+        }
+      }
+      @lib.BrOnCast(_, _, _, _) | @lib.BrOnCastFail(_, _, _, _) => return None
       @lib.BrTable(labels, default_label) => {
         let needed_alias_copies = match
           run_hot_pipeline_raw_br_table_alias_copies(

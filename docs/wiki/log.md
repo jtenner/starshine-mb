@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-11] passes/ssa-nomerge | Admit no-copy br_on_non_null exits
+
+- Fixed raw structured `ssa-nomerge` in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): non-loop `br_on_non_null` exits now stay on the raw path when no canonical alias copy is needed at the branch. Copy-needing `br_on_non_null` and `br_on_cast` / `br_on_cast_fail` remain fail-closed.
+- Added a source-backed regression in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for `.tmp/ssa-nomerge-refbranch-audit/br_on_non_null_dead.wat`: Binaryen freshens the dead local write around a `br_on_non_null` result block, while old Starshine left the function unchanged after a HOT lift error. The focused test failed red before implementation and now asserts raw structured rewriting.
+- Evidence: focused `*br_on_non_null*` passed; `ssa_nomerge_test.mbt` passed `129/129`; `moon test src/passes` passed `2148/2148`; `moon fmt`, `moon info` (3 pre-existing GenValid warnings), full `moon test` (`5408/5408`), and native `src/cmd` build passed with pre-existing pass-manager warnings. Direct compare `.tmp/pass-fuzz-ssa-nomerge-br-on-non-null-10000` compared `9977/10000` with `9977` normalized matches, `0` mismatches, and `23` Binaryen/tool command failures. GenValid parity `.tmp/pass-fuzz-ssa-nomerge-parity-br-on-non-null-10000` compared `10000/10000` with `10000` compare-normalized matches and `0` mismatches.
+- Direct artifact replay `.tmp/self-ssa-nomerge-debug-wasi-br-on-non-null` validates but still differs at `defined=0 abs=27`; pass-local Starshine was `3.145 ms` vs Binaryen `343.754 ms`. This is not exact artifact or O4z closeout.
+
 ## [2026-06-11] passes/ssa-nomerge | Preserve br_on_null taken-edge copies
 
 - Fixed raw structured `ssa-nomerge` in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): concrete `br_on_null` is now treated as a conditional label exit. If a taken null edge needs canonical alias copies before exiting over a fallthrough overwrite, Starshine lowers through `ref.is_null` / `ref.as_non_null`, copies only on the taken path, and preserves the non-null fallthrough reference. `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` now fail closed from the raw structured path instead of being treated as ordinary fallthrough.
