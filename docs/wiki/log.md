@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-11] passes/ssa-nomerge | Narrow block-exit merge copies
+
+- Tightened the raw structured `ssa-nomerge` branch-copy path in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): when a `local.set` is immediately followed by an unconditional `br` to a non-loop block whose continuation needs that local, Starshine writes the canonical merge slot directly instead of allocating a fresh temp and copying it before the branch.
+- Updated the focused block-target branch regression in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) test-first; the initial focused run failed on the old extra-local output, then passed after the implementation.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `113/113`; `moon test src/passes` passed `2132/2132`; `moon fmt` and native `src/cmd` build passed with pre-existing pass-manager warnings; direct mixed-generator compare `.tmp/pass-fuzz-ssa-nomerge-branch-copy-10000` requested `10000`, compared `9977`, had `9977` normalized matches, `0` mismatches, and `23` Binaryen/tool command failures; `ssa-nomerge-smoke` 100-case compare still has `100/100` representation mismatches with no validation/generator/command failures, while the paired `ssa-nomerge-parity` 100-case lane stayed green with `100` compare-normalized matches and `0` mismatches.
+
 ## [2026-06-11] fuzzing/gen-valid | Add ssa-nomerge smoke profile
 
 - Added `ssa-nomerge-smoke` as a middle GenValid SSA profile: parity A–E plus structured early-return, block `br`/`br_if`, structured-param merge, and branch-local-not-read-later templates, while still excluding dense loop/br_table/parallel-copy/unreachable/dropped-increment/fail-closed stress slices.

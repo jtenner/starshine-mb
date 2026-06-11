@@ -7690,6 +7690,29 @@ fn run_hot_pipeline_raw_label_inc(label_idx : @lib.LabelIdx) -> @lib.LabelIdx {
 }
 
 ///|
+fn run_hot_pipeline_raw_next_br_needs_canonical_alias(
+  instrs : Array[@lib.Instruction],
+  next_idx : Int,
+  label_stack : Array[RawSsaLabelTarget],
+  local_id : Int,
+) -> Bool {
+  if next_idx >= instrs.length() {
+    return false
+  }
+  match instrs[next_idx] {
+    @lib.Br(label_idx) =>
+      match run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {
+        Some(label_target) =>
+          !label_target.is_loop &&
+          local_id < label_target.needed_alias_copies.length() &&
+          label_target.needed_alias_copies[local_id]
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_empty_exit_depths(
   label_stack : Array[RawSsaLabelTarget],
 ) -> @bitset.BitSet {
@@ -8280,7 +8303,14 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             local_id,
           ) ||
           (local_id < params.length() && future_writes[local_id])
-        if (
+        let branch_exit_needs_canonical = run_hot_pipeline_raw_next_br_needs_canonical_alias(
+          instrs,
+          idx + 1,
+          label_stack,
+          local_id,
+        )
+        if branch_exit_needs_canonical ||
+          (
             aliases[local_id] == canonical_aliases[local_id] &&
             later_read &&
             !later_write

@@ -3715,10 +3715,7 @@ test "ssa-nomerge rewrites block-target branches through canonical locals" {
   }
 
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  @debug.assert_eq(
-    locals,
-    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
-  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
   @debug.assert_eq(instrs, [
     @lib.Instruction::i32_const(@lib.I32(0)),
     @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
@@ -3730,8 +3727,6 @@ test "ssa-nomerge rewrites block-target branches through canonical locals" {
           @lib.BlockType::void_(),
           [
             @lib.Instruction::i32_const(@lib.I32(7)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
             @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
             @lib.Instruction::br(@lib.LabelIdx::new(1U)),
           ],
