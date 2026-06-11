@@ -7898,24 +7898,22 @@ fn run_hot_pipeline_raw_instrs_have_branch(
 }
 
 ///|
-fn run_hot_pipeline_raw_instrs_only_direct_loop_cast_backedges(
+fn run_hot_pipeline_raw_instrs_only_direct_loop_ref_backedges(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
-  let mut saw_cast_backedge = false
+  let mut saw_ref_backedge = false
   for instr in instrs {
     match instr {
       @lib.BrOnCast(@lib.LabelIdx(raw), _, _, _)
-      | @lib.BrOnCastFail(@lib.LabelIdx(raw), _, _, _) =>
+      | @lib.BrOnCastFail(@lib.LabelIdx(raw), _, _, _)
+      | @lib.BrOnNonNull(@lib.LabelIdx(raw)) =>
         if raw == 0U {
-          saw_cast_backedge = true
+          saw_ref_backedge = true
         } else {
           return false
         }
-      @lib.Br(_)
-      | @lib.BrIf(_)
-      | @lib.BrTable(_, _)
-      | @lib.BrOnNull(_)
-      | @lib.BrOnNonNull(_) => return false
+      @lib.Br(_) | @lib.BrIf(_) | @lib.BrTable(_, _) | @lib.BrOnNull(_) =>
+        return false
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
@@ -7937,7 +7935,7 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_cast_backedges(
       _ => ()
     }
   }
-  saw_cast_backedge
+  saw_ref_backedge
 }
 
 ///|
@@ -9323,7 +9321,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             Some(loop_param_type) => loop_param_type
             None => return None
           }
-          if !run_hot_pipeline_raw_instrs_only_direct_loop_cast_backedges(body) {
+          if !run_hot_pipeline_raw_instrs_only_direct_loop_ref_backedges(body) {
             return None
           }
           let scratch_type = match
