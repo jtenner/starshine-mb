@@ -4755,7 +4755,7 @@ test "ssa-nomerge preserves no-copy loop-target br_on_cast with typed loop param
 }
 
 ///|
-test "ssa-nomerge keeps copy-needing loop-target br_on_cast fail-closed" {
+test "ssa-nomerge preserves copy-needing loop-target br_on_cast with typed loop param" {
   let trace : Array[String] = []
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
@@ -4827,18 +4827,28 @@ test "ssa-nomerge keeps copy-needing loop-target br_on_cast fail-closed" {
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected copy-needing loop-target br_on_cast fail-closed success, got \{err}",
+        "expected copy-needing loop-target br_on_cast raw ssa-nomerge success, got \{err}",
       )
   }
 
   assert_true(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:done changed=false") }),
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("hot-lift-error") }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
     msg=trace.join("\n"),
   )
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  @debug.assert_eq(locals, @lib.Locals::single(1U, @lib.ValType::i32()))
-  assert_false(
-    ssa_test_instrs_have_loop_param_cast_proxy(instrs, false),
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_ref_cast_branch_copy_block(instrs, 2U, true),
     msg=instrs.to_string(),
   )
 }
@@ -5201,6 +5211,105 @@ test "ssa-nomerge preserves no-copy loop-target br_on_cast_fail with typed loop 
   assert_true(locals.length() > 1, msg=locals.to_string())
   assert_true(
     ssa_test_instrs_have_loop_param_cast_proxy(instrs, true),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge preserves copy-needing loop-target br_on_cast_fail with typed loop param" {
+  let trace : Array[String] = []
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
+  let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([any_ref_type], [])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([any_ref_type, @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::loop_(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+              @lib.Expr::new([
+                @lib.Instruction::drop(),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::if_(
+                  @lib.BlockType::void_(),
+                  [
+                    @lib.Instruction::i32_const(@lib.I32::new(7)),
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                  ],
+                  Some([
+                    @lib.Instruction::i32_const(@lib.I32::new(8)),
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                  ]),
+                ),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::br_on_cast_fail(
+                  @lib.LabelIdx::new(0U),
+                  true,
+                  any_heap,
+                  false,
+                  i31_heap,
+                ),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(@lib.I32::new(9)),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+              ]),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected copy-needing loop-target br_on_cast_fail raw ssa-nomerge success, got \{err}",
+      )
+  }
+
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("hot-lift-error") }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_ref_cast_branch_copy_block(instrs, 2U, false),
     msg=instrs.to_string(),
   )
 }

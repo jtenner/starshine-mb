@@ -7326,6 +7326,7 @@ priv struct RawSsaLabelTarget {
   result_types : Array[@lib.ValType]
   is_loop : Bool
   is_loop_param_proxy : Bool
+  loop_param_scratch : @lib.LocalIdx?
   needed_alias_copies : @bitset.BitSet
 }
 
@@ -7694,6 +7695,7 @@ fn run_hot_pipeline_raw_label_target(
         result_types,
         is_loop,
         is_loop_param_proxy: false,
+        loop_param_scratch: None,
         needed_alias_copies,
       })
     None => None
@@ -7941,6 +7943,7 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_cast_backedges(
 ///|
 fn run_hot_pipeline_raw_loop_param_proxy_label_target(
   param_type : @lib.ValType,
+  loop_param_scratch : @lib.LocalIdx,
   needed_alias_copies : @bitset.BitSet,
 ) -> RawSsaLabelTarget {
   {
@@ -7948,6 +7951,7 @@ fn run_hot_pipeline_raw_loop_param_proxy_label_target(
     result_types: [param_type],
     is_loop: false,
     is_loop_param_proxy: true,
+    loop_param_scratch: Some(loop_param_scratch),
     needed_alias_copies,
   }
 }
@@ -8336,6 +8340,162 @@ fn run_hot_pipeline_raw_append_scratch_get_as_type(
 }
 
 ///|
+fn run_hot_pipeline_raw_rewrite_loop_param_proxy_br_on_cast_copy(
+  rewritten : Array[@lib.Instruction],
+  label_idx : @lib.LabelIdx,
+  label_target : RawSsaLabelTarget,
+  source_nullable : Bool,
+  source_heap : @lib.HeapType,
+  target_nullable : Bool,
+  target_heap : @lib.HeapType,
+  source_aliases : Array[@lib.LocalIdx],
+  canonical_aliases : Array[@lib.LocalIdx],
+  initialized_locals : @bitset.BitSet,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> Bool {
+  let @lib.LabelIdx(raw_label) = label_idx
+  if raw_label != 0U || label_target.result_types.length() != 1 {
+    return false
+  }
+  let loop_scratch = match label_target.loop_param_scratch {
+    Some(scratch) => scratch
+    None => return false
+  }
+  let source_type = @lib.ValType::ref_type(
+    @lib.RefType::new(source_nullable, source_heap),
+  )
+  let fallthrough_type = run_hot_pipeline_raw_cast_diff_type(
+    source_nullable, target_nullable, source_heap,
+  )
+  let source_scratch_type = match
+    run_hot_pipeline_raw_defaultable_scratch_type(source_type) {
+    Some(scratch_type) => scratch_type
+    None => return false
+  }
+  let scratch_ref = run_hot_pipeline_raw_fresh_typed_local(
+    params, locals, source_scratch_type, extra_local_types,
+  )
+  rewritten.push(@lib.Instruction::local_set(scratch_ref))
+  let body : Array[@lib.Instruction] = []
+  run_hot_pipeline_raw_append_scratch_get_as_type(
+    body, scratch_ref, source_type,
+  )
+  body.push(
+    @lib.Instruction::br_on_cast_fail(
+      @lib.LabelIdx::new(0U),
+      source_nullable,
+      source_heap,
+      target_nullable,
+      target_heap,
+    ),
+  )
+  body.push(@lib.Instruction::local_set(loop_scratch))
+  let copies = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
+    [],
+    source_aliases,
+    canonical_aliases,
+    canonical_aliases,
+    initialized_locals,
+    label_target.needed_alias_copies,
+    [],
+    params,
+    locals,
+    extra_local_types,
+  )
+  for copy in copies {
+    body.push(copy)
+  }
+  body.push(@lib.Instruction::br(@lib.LabelIdx::new(3U)))
+  rewritten.push(
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(fallthrough_type),
+      @lib.Expr::new(body),
+    ),
+  )
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_rewrite_loop_param_proxy_br_on_cast_fail_copy(
+  rewritten : Array[@lib.Instruction],
+  label_idx : @lib.LabelIdx,
+  label_target : RawSsaLabelTarget,
+  source_nullable : Bool,
+  source_heap : @lib.HeapType,
+  target_nullable : Bool,
+  target_heap : @lib.HeapType,
+  source_aliases : Array[@lib.LocalIdx],
+  canonical_aliases : Array[@lib.LocalIdx],
+  initialized_locals : @bitset.BitSet,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> Bool {
+  let @lib.LabelIdx(raw_label) = label_idx
+  if raw_label != 0U || label_target.result_types.length() != 1 {
+    return false
+  }
+  let loop_scratch = match label_target.loop_param_scratch {
+    Some(scratch) => scratch
+    None => return false
+  }
+  let source_type = @lib.ValType::ref_type(
+    @lib.RefType::new(source_nullable, source_heap),
+  )
+  let fallthrough_type = @lib.ValType::ref_type(
+    @lib.RefType::new(target_nullable, target_heap),
+  )
+  let source_scratch_type = match
+    run_hot_pipeline_raw_defaultable_scratch_type(source_type) {
+    Some(scratch_type) => scratch_type
+    None => return false
+  }
+  let scratch_ref = run_hot_pipeline_raw_fresh_typed_local(
+    params, locals, source_scratch_type, extra_local_types,
+  )
+  rewritten.push(@lib.Instruction::local_set(scratch_ref))
+  let body : Array[@lib.Instruction] = []
+  run_hot_pipeline_raw_append_scratch_get_as_type(
+    body, scratch_ref, source_type,
+  )
+  body.push(
+    @lib.Instruction::br_on_cast(
+      @lib.LabelIdx::new(0U),
+      source_nullable,
+      source_heap,
+      target_nullable,
+      target_heap,
+    ),
+  )
+  body.push(@lib.Instruction::local_set(loop_scratch))
+  let copies = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
+    [],
+    source_aliases,
+    canonical_aliases,
+    canonical_aliases,
+    initialized_locals,
+    label_target.needed_alias_copies,
+    [],
+    params,
+    locals,
+    extra_local_types,
+  )
+  for copy in copies {
+    body.push(copy)
+  }
+  body.push(@lib.Instruction::br(@lib.LabelIdx::new(3U)))
+  rewritten.push(
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(fallthrough_type),
+      @lib.Expr::new(body),
+    ),
+  )
+  true
+}
+
+///|
 fn run_hot_pipeline_raw_rewrite_br_on_cast(
   rewritten : Array[@lib.Instruction],
   label_idx : @lib.LabelIdx,
@@ -8365,7 +8525,11 @@ fn run_hot_pipeline_raw_rewrite_br_on_cast(
     return true
   }
   if label_target.is_loop_param_proxy {
-    return false
+    return run_hot_pipeline_raw_rewrite_loop_param_proxy_br_on_cast_copy(
+      rewritten, label_idx, label_target, source_nullable, source_heap, target_nullable,
+      target_heap, source_aliases, canonical_aliases, initialized_locals, params,
+      locals, extra_local_types,
+    )
   }
   if label_target.result_types.length() == 0 {
     return false
@@ -8534,7 +8698,11 @@ fn run_hot_pipeline_raw_rewrite_br_on_cast_fail(
     return true
   }
   if label_target.is_loop_param_proxy {
-    return false
+    return run_hot_pipeline_raw_rewrite_loop_param_proxy_br_on_cast_fail_copy(
+      rewritten, label_idx, label_target, source_nullable, source_heap, target_nullable,
+      target_heap, source_aliases, canonical_aliases, initialized_locals, params,
+      locals, extra_local_types,
+    )
   }
   if label_target.result_types.length() == 0 {
     return false
@@ -9176,7 +9344,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             }
           }
           let proxy_label_target = run_hot_pipeline_raw_loop_param_proxy_label_target(
-            loop_param_type, loop_header_reads_before_writes,
+            loop_param_type, loop_scratch, loop_header_reads_before_writes,
           )
           match
             run_hot_pipeline_raw_rewrite_instrs(
