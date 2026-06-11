@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-11] passes/ssa-nomerge | Lower cast reference branch copies
+
+- Fixed raw structured `ssa-nomerge` in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): copy-needing non-loop `br_on_cast` / `br_on_cast_fail` exits now lower through a scratch source ref and an inner inverse cast-branch block, so canonical alias copies run only on the taken edge before branching with the preserved cast payload. Loop targets and multi-result cast branch targets remain fail-closed.
+- Added focused source-backed regressions in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for `.tmp/ssa-nomerge-refbranch-audit/br_on_cast_divergent_exit.wat` and `br_on_cast_fail_divergent_exit.wat`. Binaryen preserves the branch-taken divergent alias over the fallthrough overwrite; the old Starshine pipeline stayed unchanged (`changed=false`) because copy-needing cast branches failed closed.
+- Evidence: focused `*br_on_cast*` was red before implementation and then passed `4/4`; focused `*br_on*` passed `7/7`; `ssa_nomerge_test.mbt` passed `134/134`; `moon test src/passes` passed `2153/2153`; `moon fmt`; `moon info` passed with 3 pre-existing GenValid warnings; full `moon test` passed `5413/5413`; native `src/cmd` build passed with pre-existing pass-manager warnings; reduced Starshine outputs validated with `wasm-tools validate --features all`. Direct compare `.tmp/pass-fuzz-ssa-nomerge-cast-ref-branch-copies-10000` compared `9977/10000` with `9977` normalized matches, `0` mismatches, and `23` Binaryen/tool command failures (`22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`). Normalized GenValid parity `.tmp/pass-fuzz-ssa-nomerge-parity-cast-ref-branch-copies-genvalid-normalized-10000` compared `10000/10000` with `10000` compare-normalized matches and `0` mismatches.
+- Direct artifact replay `.tmp/self-ssa-nomerge-debug-wasi-cast-ref-branch-copies` validates but still differs at `defined=0 abs=27`; pass-local Starshine was `4.918 ms` vs Binaryen `368.846 ms`. This is not exact artifact or O4z closeout.
+
 ## [2026-06-11] passes/ssa-nomerge | Widen reference branch exits
 
 - Fixed raw structured `ssa-nomerge` in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): copy-needing non-loop `br_on_non_null` exits now lower through a scratch reference plus `ref.is_null` / `ref.as_non_null`, copying canonical aliases only on the non-null taken edge before branching with the preserved non-null payload. Source-backed no-copy `br_on_cast` / `br_on_cast_fail` exits now stay on the raw path; copy-needing cast exits and loop targets remain fail-closed.
