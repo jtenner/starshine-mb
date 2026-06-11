@@ -7325,6 +7325,7 @@ priv struct RawSsaLabelTarget {
   block_type : @lib.BlockType
   result_types : Array[@lib.ValType]
   is_loop : Bool
+  is_loop_param_proxy : Bool
   needed_alias_copies : @bitset.BitSet
 }
 
@@ -7688,7 +7689,13 @@ fn run_hot_pipeline_raw_label_target(
 ) -> RawSsaLabelTarget? {
   match @ir.hot_module_resolve_block_results(module_ctx, block_type) {
     Some(result_types) =>
-      Some({ block_type, result_types, is_loop, needed_alias_copies })
+      Some({
+        block_type,
+        result_types,
+        is_loop,
+        is_loop_param_proxy: false,
+        needed_alias_copies,
+      })
     None => None
   }
 }
@@ -7825,6 +7832,123 @@ fn run_hot_pipeline_raw_loop_backedge_supported(
   match label_target.block_type {
     @lib.VoidBlockType => true
     _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_loop_single_ref_param_type(
+  module_ctx : @ir.HotModuleContext,
+  block_type : @lib.BlockType,
+) -> @lib.ValType? {
+  match block_type {
+    @lib.TypeIdxBlockType(type_idx) =>
+      match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+        Some(@lib.FuncType(params, results)) =>
+          if params.length() == 1 && results.length() == 0 {
+            match params[0] {
+              @lib.RefTypeValType(_) => Some(params[0])
+              _ => None
+            }
+          } else {
+            None
+          }
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_instrs_have_branch(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_)
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_instrs_have_branch(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_instrs_have_branch(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_instrs_have_branch(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_instrs_only_direct_loop_cast_backedges(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let mut saw_cast_backedge = false
+  for instr in instrs {
+    match instr {
+      @lib.BrOnCast(@lib.LabelIdx(raw), _, _, _)
+      | @lib.BrOnCastFail(@lib.LabelIdx(raw), _, _, _) =>
+        if raw == 0U {
+          saw_cast_backedge = true
+        } else {
+          return false
+        }
+      @lib.Br(_)
+      | @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_) => return false
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_instrs_have_branch(body) {
+          return false
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_instrs_have_branch(then_body) {
+          return false
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_instrs_have_branch(body) {
+              return false
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  saw_cast_backedge
+}
+
+///|
+fn run_hot_pipeline_raw_loop_param_proxy_label_target(
+  param_type : @lib.ValType,
+  needed_alias_copies : @bitset.BitSet,
+) -> RawSsaLabelTarget {
+  {
+    block_type: @lib.BlockType::val_type(param_type),
+    result_types: [param_type],
+    is_loop: false,
+    is_loop_param_proxy: true,
+    needed_alias_copies,
   }
 }
 
@@ -8227,17 +8351,21 @@ fn run_hot_pipeline_raw_rewrite_br_on_cast(
   locals : @lib.Locals,
   extra_local_types : Array[@lib.ValType],
 ) -> Bool {
-  if !run_hot_pipeline_raw_has_needed_alias_copy(
-      source_aliases,
-      canonical_aliases,
-      label_target.needed_alias_copies,
-    ) {
+  let needs_alias_copy = run_hot_pipeline_raw_has_needed_alias_copy(
+    source_aliases,
+    canonical_aliases,
+    label_target.needed_alias_copies,
+  )
+  if !needs_alias_copy {
     rewritten.push(
       @lib.Instruction::br_on_cast(
         label_idx, source_nullable, source_heap, target_nullable, target_heap,
       ),
     )
     return true
+  }
+  if label_target.is_loop_param_proxy {
+    return false
   }
   if label_target.result_types.length() == 0 {
     return false
@@ -8392,17 +8520,21 @@ fn run_hot_pipeline_raw_rewrite_br_on_cast_fail(
   locals : @lib.Locals,
   extra_local_types : Array[@lib.ValType],
 ) -> Bool {
-  if !run_hot_pipeline_raw_has_needed_alias_copy(
-      source_aliases,
-      canonical_aliases,
-      label_target.needed_alias_copies,
-    ) {
+  let needs_alias_copy = run_hot_pipeline_raw_has_needed_alias_copy(
+    source_aliases,
+    canonical_aliases,
+    label_target.needed_alias_copies,
+  )
+  if !needs_alias_copy {
     rewritten.push(
       @lib.Instruction::br_on_cast_fail(
         label_idx, source_nullable, source_heap, target_nullable, target_heap,
       ),
     )
     return true
+  }
+  if label_target.is_loop_param_proxy {
+    return false
   }
   if label_target.result_types.length() == 0 {
     return false
@@ -8961,61 +9093,156 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           Some(label_target) => label_target
           None => return None
         }
-        if !run_hot_pipeline_raw_loop_backedge_supported(label_target) {
-          return None
-        }
-        let loop_initialized = initialized.copy()
-        for local_id = 0
-            local_id < loop_initialized.length()
-            local_id = local_id + 1 {
-          if loop_header_reads_before_writes[local_id] {
-            loop_initialized[local_id] = true
-          }
-        }
-        match
-          run_hot_pipeline_raw_rewrite_instrs(
-            body,
-            module_ctx,
-            params,
-            locals,
-            aliases.copy(),
-            canonical_aliases,
-            loop_initialized,
-            run_hot_pipeline_raw_push_label_target(label_stack, label_target),
-            child_future_reads,
-            child_future_writes,
-            child_future_reads_before_writes,
-            extra_local_types,
-          ) {
-          Some(
-            (
-              rewritten_body,
-              body_aliases,
-              body_initialized,
-              body_fallthrough,
-              body_exit_depths,
-            )
-          ) => {
-            rewritten.push(
-              @lib.Instruction::loop_(
-                block_type,
-                @lib.Expr::new(rewritten_body),
-              ),
-            )
-            if was_reachable {
-              run_hot_pipeline_raw_propagate_outer_exits(
-                exit_depths, body_exit_depths,
-              )
-              if body_fallthrough {
-                aliases = body_aliases
-                initialized = body_initialized
-                fallthrough = true
-              } else {
-                fallthrough = false
-              }
+        if run_hot_pipeline_raw_loop_backedge_supported(label_target) {
+          let loop_initialized = initialized.copy()
+          for local_id = 0
+              local_id < loop_initialized.length()
+              local_id = local_id + 1 {
+            if loop_header_reads_before_writes[local_id] {
+              loop_initialized[local_id] = true
             }
           }
-          None => return None
+          match
+            run_hot_pipeline_raw_rewrite_instrs(
+              body,
+              module_ctx,
+              params,
+              locals,
+              aliases.copy(),
+              canonical_aliases,
+              loop_initialized,
+              run_hot_pipeline_raw_push_label_target(label_stack, label_target),
+              child_future_reads,
+              child_future_writes,
+              child_future_reads_before_writes,
+              extra_local_types,
+            ) {
+            Some(
+              (
+                rewritten_body,
+                body_aliases,
+                body_initialized,
+                body_fallthrough,
+                body_exit_depths,
+              )
+            ) => {
+              rewritten.push(
+                @lib.Instruction::loop_(
+                  block_type,
+                  @lib.Expr::new(rewritten_body),
+                ),
+              )
+              if was_reachable {
+                run_hot_pipeline_raw_propagate_outer_exits(
+                  exit_depths, body_exit_depths,
+                )
+                if body_fallthrough {
+                  aliases = body_aliases
+                  initialized = body_initialized
+                  fallthrough = true
+                } else {
+                  fallthrough = false
+                }
+              }
+            }
+            None => return None
+          }
+        } else {
+          let loop_param_type = match
+            run_hot_pipeline_raw_loop_single_ref_param_type(
+              module_ctx, block_type,
+            ) {
+            Some(loop_param_type) => loop_param_type
+            None => return None
+          }
+          if !run_hot_pipeline_raw_instrs_only_direct_loop_cast_backedges(body) {
+            return None
+          }
+          let scratch_type = match
+            run_hot_pipeline_raw_defaultable_scratch_type(loop_param_type) {
+            Some(scratch_type) => scratch_type
+            None => return None
+          }
+          let loop_scratch = run_hot_pipeline_raw_fresh_typed_local(
+            params, locals, scratch_type, extra_local_types,
+          )
+          rewritten.push(@lib.Instruction::local_set(loop_scratch))
+          let loop_initialized = initialized.copy()
+          for local_id = 0
+              local_id < loop_initialized.length()
+              local_id = local_id + 1 {
+            if loop_header_reads_before_writes[local_id] {
+              loop_initialized[local_id] = true
+            }
+          }
+          let proxy_label_target = run_hot_pipeline_raw_loop_param_proxy_label_target(
+            loop_param_type, loop_header_reads_before_writes,
+          )
+          match
+            run_hot_pipeline_raw_rewrite_instrs(
+              body,
+              module_ctx,
+              params,
+              locals,
+              aliases.copy(),
+              canonical_aliases,
+              loop_initialized,
+              run_hot_pipeline_raw_push_label_target(
+                label_stack, proxy_label_target,
+              ),
+              child_future_reads,
+              child_future_writes,
+              child_future_reads_before_writes,
+              extra_local_types,
+            ) {
+            Some(
+              (
+                rewritten_body,
+                body_aliases,
+                body_initialized,
+                body_fallthrough,
+                _,
+              )
+            ) => {
+              let inner_body : Array[@lib.Instruction] = []
+              run_hot_pipeline_raw_append_scratch_get_as_type(
+                inner_body, loop_scratch, loop_param_type,
+              )
+              inner_body.append(rewritten_body)
+              if body_fallthrough {
+                inner_body.push(@lib.Instruction::br(@lib.LabelIdx::new(1U)))
+              }
+              let outer_body : Array[@lib.Instruction] = [
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(loop_param_type),
+                  @lib.Expr::new(inner_body),
+                ),
+                @lib.Instruction::local_set(loop_scratch),
+                @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+              ]
+              rewritten.push(
+                @lib.Instruction::loop_(
+                  @lib.BlockType::void_(),
+                  @lib.Expr::new([
+                    @lib.Instruction::block(
+                      @lib.BlockType::void_(),
+                      @lib.Expr::new(outer_body),
+                    ),
+                  ]),
+                ),
+              )
+              if was_reachable {
+                if body_fallthrough {
+                  aliases = body_aliases
+                  initialized = body_initialized
+                  fallthrough = true
+                } else {
+                  fallthrough = false
+                }
+              }
+            }
+            None => return None
+          }
         }
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {

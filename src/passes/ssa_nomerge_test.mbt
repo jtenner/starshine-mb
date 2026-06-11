@@ -191,6 +191,68 @@ fn ssa_test_instrs_have_ref_non_null_branch_copy_lowering(
 }
 
 ///|
+fn ssa_test_instrs_have_loop_param_cast_proxy(
+  instrs : Array[@lib.Instruction],
+  expect_fail_variant : Bool,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Loop(@lib.VoidBlockType, @lib.Expr(loop_body)) =>
+        for loop_instr in loop_body {
+          match loop_instr {
+            @lib.Block(@lib.VoidBlockType, @lib.Expr(outer_body)) => {
+              let has_loop_backedge = outer_body.any(fn(outer_instr) {
+                outer_instr == @lib.Instruction::br(@lib.LabelIdx::new(1U))
+              })
+              let has_inner_cast_proxy = outer_body.any(fn(outer_instr) {
+                match outer_instr {
+                  @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(inner_body)) =>
+                    inner_body.any(fn(inner_instr) {
+                      match inner_instr {
+                        @lib.BrOnCastFail(@lib.LabelIdx(raw), _, _, _) =>
+                          expect_fail_variant && raw == 0U
+                        @lib.BrOnCast(@lib.LabelIdx(raw), _, _, _) =>
+                          !expect_fail_variant && raw == 0U
+                        _ => false
+                      }
+                    })
+                  _ => false
+                }
+              })
+              if has_loop_backedge && has_inner_cast_proxy {
+                return true
+              }
+            }
+            _ => ()
+          }
+        }
+      @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if ssa_test_instrs_have_loop_param_cast_proxy(body, expect_fail_variant) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if ssa_test_instrs_have_loop_param_cast_proxy(
+            then_body, expect_fail_variant,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if ssa_test_instrs_have_loop_param_cast_proxy(
+                body, expect_fail_variant,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn ssa_test_instrs_have_ref_cast_branch_copy_block(
   instrs : Array[@lib.Instruction],
   canonical_local : UInt,
@@ -4596,6 +4658,192 @@ test "ssa-nomerge preserves multi-result br_on_cast taken-edge copies" {
 }
 
 ///|
+test "ssa-nomerge preserves no-copy loop-target br_on_cast with typed loop param" {
+  let trace : Array[String] = []
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
+  let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([any_ref_type], [])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([any_ref_type, @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::loop_(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+              @lib.Expr::new([
+                @lib.Instruction::drop(),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::if_(
+                  @lib.BlockType::void_(),
+                  [
+                    @lib.Instruction::i32_const(@lib.I32::new(7)),
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                  ],
+                  Some([
+                    @lib.Instruction::i32_const(@lib.I32::new(8)),
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                  ]),
+                ),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::br_on_cast(
+                  @lib.LabelIdx::new(0U),
+                  true,
+                  any_heap,
+                  false,
+                  i31_heap,
+                ),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(@lib.I32::new(9)),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+              ]),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected loop-target br_on_cast raw ssa-nomerge success, got \{err}",
+      )
+  }
+
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("hot-lift-error") }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_cast_proxy(instrs, false),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge keeps copy-needing loop-target br_on_cast fail-closed" {
+  let trace : Array[String] = []
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
+  let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([any_ref_type], [])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([any_ref_type, @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::loop_(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+              @lib.Expr::new([
+                @lib.Instruction::drop(),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::if_(
+                  @lib.BlockType::void_(),
+                  [
+                    @lib.Instruction::i32_const(@lib.I32::new(7)),
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                  ],
+                  Some([
+                    @lib.Instruction::i32_const(@lib.I32::new(8)),
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                  ]),
+                ),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::br_on_cast(
+                  @lib.LabelIdx::new(0U),
+                  true,
+                  any_heap,
+                  false,
+                  i31_heap,
+                ),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(@lib.I32::new(9)),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+              ]),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected copy-needing loop-target br_on_cast fail-closed success, got \{err}",
+      )
+  }
+
+  assert_true(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:done changed=false") }),
+    msg=trace.join("\n"),
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(locals, @lib.Locals::single(1U, @lib.ValType::i32()))
+  assert_false(
+    ssa_test_instrs_have_loop_param_cast_proxy(instrs, false),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge preserves no-copy br_on_cast_fail on raw path" {
   let trace : Array[String] = []
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
@@ -4856,6 +5104,103 @@ test "ssa-nomerge preserves multi-result br_on_cast_fail taken-edge copies" {
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(
     ssa_test_instrs_have_ref_cast_branch_copy_block(instrs, 2U, false),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge preserves no-copy loop-target br_on_cast_fail with typed loop param" {
+  let trace : Array[String] = []
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
+  let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([any_ref_type], [])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([any_ref_type, @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::loop_(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+              @lib.Expr::new([
+                @lib.Instruction::drop(),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::if_(
+                  @lib.BlockType::void_(),
+                  [
+                    @lib.Instruction::i32_const(@lib.I32::new(7)),
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                  ],
+                  Some([
+                    @lib.Instruction::i32_const(@lib.I32::new(8)),
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                  ]),
+                ),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::br_on_cast_fail(
+                  @lib.LabelIdx::new(0U),
+                  true,
+                  any_heap,
+                  false,
+                  i31_heap,
+                ),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(@lib.I32::new(9)),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+              ]),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected loop-target br_on_cast_fail raw ssa-nomerge success, got \{err}",
+      )
+  }
+
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("hot-lift-error") }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_cast_proxy(instrs, true),
     msg=instrs.to_string(),
   )
 }
