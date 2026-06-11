@@ -7899,26 +7899,53 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_scalar_br_backedges(
   instrs : Array[@lib.Instruction],
   loop_depth : UInt,
 ) -> Bool {
+  run_hot_pipeline_raw_instrs_only_direct_loop_scalar_backedges(
+    instrs, loop_depth, false,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_instrs_only_direct_loop_scalar_br_if_backedges(
+  instrs : Array[@lib.Instruction],
+  loop_depth : UInt,
+) -> Bool {
+  run_hot_pipeline_raw_instrs_only_direct_loop_scalar_backedges(
+    instrs, loop_depth, true,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_instrs_only_direct_loop_scalar_backedges(
+  instrs : Array[@lib.Instruction],
+  loop_depth : UInt,
+  expect_br_if : Bool,
+) -> Bool {
   let mut saw_scalar_backedge = false
   for instr in instrs {
     match instr {
       @lib.Br(@lib.LabelIdx(raw)) =>
-        if raw == loop_depth {
+        if !expect_br_if && raw == loop_depth {
           saw_scalar_backedge = true
         } else {
           return false
         }
-      @lib.BrIf(_)
-      | @lib.BrTable(_, _)
+      @lib.BrIf(@lib.LabelIdx(raw)) =>
+        if expect_br_if && raw == loop_depth {
+          saw_scalar_backedge = true
+        } else {
+          return false
+        }
+      @lib.BrTable(_, _)
       | @lib.BrOnNull(_)
       | @lib.BrOnNonNull(_)
       | @lib.BrOnCast(_, _, _, _)
       | @lib.BrOnCastFail(_, _, _, _) => return false
       @lib.Block(_, @lib.Expr(body)) =>
         if run_hot_pipeline_raw_instrs_have_branch(body) {
-          if run_hot_pipeline_raw_instrs_only_direct_loop_scalar_br_backedges(
+          if run_hot_pipeline_raw_instrs_only_direct_loop_scalar_backedges(
               body,
               loop_depth + 1U,
+              expect_br_if,
             ) {
             saw_scalar_backedge = true
           } else {
@@ -7931,9 +7958,10 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_scalar_br_backedges(
         }
       @lib.If(_, then_body, else_body) => {
         if run_hot_pipeline_raw_instrs_have_branch(then_body) {
-          if run_hot_pipeline_raw_instrs_only_direct_loop_scalar_br_backedges(
+          if run_hot_pipeline_raw_instrs_only_direct_loop_scalar_backedges(
               then_body,
               loop_depth + 1U,
+              expect_br_if,
             ) {
             saw_scalar_backedge = true
           } else {
@@ -7943,9 +7971,10 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_scalar_br_backedges(
         match else_body {
           Some(body) =>
             if run_hot_pipeline_raw_instrs_have_branch(body) {
-              if run_hot_pipeline_raw_instrs_only_direct_loop_scalar_br_backedges(
+              if run_hot_pipeline_raw_instrs_only_direct_loop_scalar_backedges(
                   body,
                   loop_depth + 1U,
+                  expect_br_if,
                 ) {
                 saw_scalar_backedge = true
               } else {
@@ -9391,7 +9420,16 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           let scalar_br_backedges_supported = run_hot_pipeline_raw_instrs_only_direct_loop_scalar_br_backedges(
             body, 0U,
           )
-          if !ref_backedges_supported && !scalar_br_backedges_supported {
+          let scalar_br_if_backedges_supported = match loop_param_type {
+            @lib.RefTypeValType(_) => false
+            _ =>
+              run_hot_pipeline_raw_instrs_only_direct_loop_scalar_br_if_backedges(
+                body, 0U,
+              )
+          }
+          if !ref_backedges_supported &&
+            !scalar_br_backedges_supported &&
+            !scalar_br_if_backedges_supported {
             return None
           }
           let scratch_type = match
@@ -9637,6 +9675,13 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             ) {
             return None
           }
+        } else if label_target.is_loop_param_proxy &&
+          run_hot_pipeline_raw_has_needed_alias_copy(
+            aliases,
+            canonical_aliases,
+            label_target.needed_alias_copies,
+          ) {
+          return None
         }
         match
           run_hot_pipeline_raw_rewrite_br_if(

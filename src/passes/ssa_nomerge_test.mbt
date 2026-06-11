@@ -256,22 +256,50 @@ fn ssa_test_instrs_have_loop_param_cast_proxy(
 fn ssa_test_instrs_have_loop_param_scalar_br_proxy(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
-  fn body_has_br_depth(body : Array[@lib.Instruction], depth : UInt) -> Bool {
+  ssa_test_instrs_have_loop_param_scalar_branch_proxy(instrs, false)
+}
+
+///|
+fn ssa_test_instrs_have_loop_param_scalar_br_if_proxy(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  ssa_test_instrs_have_loop_param_scalar_branch_proxy(instrs, true)
+}
+
+///|
+fn ssa_test_instrs_have_loop_param_scalar_branch_proxy(
+  instrs : Array[@lib.Instruction],
+  expect_br_if : Bool,
+) -> Bool {
+  fn body_has_branch_depth(
+    body : Array[@lib.Instruction],
+    depth : UInt,
+  ) -> Bool {
     for instr in body {
       match instr {
-        @lib.Br(@lib.LabelIdx(raw)) => if raw == depth { return true }
+        @lib.Br(@lib.LabelIdx(raw)) =>
+          if !expect_br_if && raw == depth {
+            return true
+          }
+        @lib.BrIf(@lib.LabelIdx(raw)) =>
+          if expect_br_if && raw == depth {
+            return true
+          }
         @lib.Block(_, @lib.Expr(nested_body))
         | @lib.Loop(_, @lib.Expr(nested_body))
         | @lib.TryTable(_, _, @lib.Expr(nested_body)) =>
-          if body_has_br_depth(nested_body, depth + 1U) {
+          if body_has_branch_depth(nested_body, depth + 1U) {
             return true
           }
         @lib.If(_, then_body, else_body) => {
-          if body_has_br_depth(then_body, depth + 1U) {
+          if body_has_branch_depth(then_body, depth + 1U) {
             return true
           }
           match else_body {
-            Some(body) => if body_has_br_depth(body, depth + 1U) { return true }
+            Some(body) =>
+              if body_has_branch_depth(body, depth + 1U) {
+                return true
+              }
             None => ()
           }
         }
@@ -289,14 +317,14 @@ fn ssa_test_instrs_have_loop_param_scalar_br_proxy(
               let has_loop_backedge = outer_body.any(fn(outer_instr) {
                 outer_instr == @lib.Instruction::br(@lib.LabelIdx::new(1U))
               })
-              let has_inner_br_proxy = outer_body.any(fn(outer_instr) {
+              let has_inner_branch_proxy = outer_body.any(fn(outer_instr) {
                 match outer_instr {
                   @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(inner_body)) =>
-                    body_has_br_depth(inner_body, 0U)
+                    body_has_branch_depth(inner_body, 0U)
                   _ => false
                 }
               })
-              if has_loop_backedge && has_inner_br_proxy {
+              if has_loop_backedge && has_inner_branch_proxy {
                 return true
               }
             }
@@ -304,16 +332,22 @@ fn ssa_test_instrs_have_loop_param_scalar_br_proxy(
           }
         }
       @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if ssa_test_instrs_have_loop_param_scalar_br_proxy(body) {
+        if ssa_test_instrs_have_loop_param_scalar_branch_proxy(
+            body, expect_br_if,
+          ) {
           return true
         }
       @lib.If(_, then_body, else_body) => {
-        if ssa_test_instrs_have_loop_param_scalar_br_proxy(then_body) {
+        if ssa_test_instrs_have_loop_param_scalar_branch_proxy(
+            then_body, expect_br_if,
+          ) {
           return true
         }
         match else_body {
           Some(body) =>
-            if ssa_test_instrs_have_loop_param_scalar_br_proxy(body) {
+            if ssa_test_instrs_have_loop_param_scalar_branch_proxy(
+                body, expect_br_if,
+              ) {
               return true
             }
           None => ()
@@ -1119,6 +1153,38 @@ test "ssa-nomerge rewrites direct scalar typed loop-param br backedge" {
 }
 
 ///|
+test "ssa-nomerge rewrites no-copy scalar typed loop-param br_if backedge" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 0
+    #|    loop $l (type $loop_t)
+    #|      local.tee 1
+    #|      i32.const 1
+    #|      i32.add
+    #|      local.get 1
+    #|      local.get 0
+    #|      i32.lt_s
+    #|      br_if $l
+    #|      drop
+    #|    end
+    #|    local.get 1))
+    #|)
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected scalar loop-param br_if ssa-nomerge success, got \{err}")
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_if_proxy(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge does not mutate typed loop-param control functions" {
   let source =
     #|(module
@@ -1206,9 +1272,8 @@ test "ssa-nomerge keeps typed loop-param backedge values separate from body loca
 
 ///|
 test "ssa-nomerge preserves typed loop-param control on the hot path" {
-  // `br_if` backedges to typed loops with explicit branch operands do not yet
-  // survive pass-test module validation in this harness; cover the hot-path
-  // fail-closed contract with the validated param-only typed-loop `br` repro.
+  // Multi-result typed loop-param control still stays fail-closed in the HOT
+  // path; cover that boundary with a validated param-only typed-loop repro.
   let source =
     #|(module
     #|  (type $loop_t (func (param i32)))
