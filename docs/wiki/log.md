@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-11] passes/ssa-nomerge | Admit void loop backedges
+
+- Fixed raw structured `ssa-nomerge` in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): void `loop` bodies can now stay on the raw path, and `br` / `br_table` backedges to void loop labels use header read-before-write facts to decide when to keep canonical locals versus freshen dead writes. Typed loop-param/result shapes and `br_if` loop backedges remain fail-closed.
+- Added focused source-backed regressions in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): a no-copy loop-target `br_table` fixture now preserves Binaryen's fresh dead-write local instead of falling through HOT and dropping it, and a loop-carried read-before-write `br_table` fixture now succeeds without the prior HOT SSA phi-alignment abort while preserving canonical loop-carried locals. The existing root-loop header test was updated to the Binaryen-observed canonical shape.
+- Evidence: focused `*loop*br_table*` was red under the old behavior (`pass[ssa-nomerge]:mutated` / dropped write for the dead-write fixture, and HOT SSA phi-alignment abort for the loop-carried fixture) and then passed `2/2`; `ssa_nomerge_test.mbt` passed `126/126`; `moon test src/passes` passed `2145/2145`; `moon fmt`, `moon info` (3 pre-existing GenValid warnings), full `moon test` (`5405/5405`), and native `src/cmd` build passed with pre-existing pass-manager warnings. Direct compare `.tmp/pass-fuzz-ssa-nomerge-loop-backedge-10000` compared `9977/10000` with `9977` normalized matches, `0` mismatches, and `23` Binaryen/tool command failures (`22` rec-group-zero, `1` bad-section-size). GenValid parity `.tmp/pass-fuzz-ssa-nomerge-parity-loop-backedge-10000` compared `10000/10000` with `10000` compare-normalized matches and `0` mismatches.
+- Direct artifact replay `.tmp/self-ssa-nomerge-debug-wasi-loop-backedge` validates but still differs at `defined=0 abs=27`; pass-local Starshine was `3.288 ms` vs Binaryen `348.756 ms`. Whole-command Starshine runtime was slower in this replay and remains outside this pass-local slice. This is not exact artifact or O4z closeout.
+
 ## [2026-06-11] passes/ssa-nomerge | Admit no-throw try_table bodies
 
 - Fixed raw structured `ssa-nomerge` in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): `try_table` bodies with no throw-family instructions and no calls/return-calls now use the normal structured-control rewrite path, preserving Binaryen-observed local-write freshening without opening the exceptional-edge corruption family. Bodies that can throw or call still fail closed.

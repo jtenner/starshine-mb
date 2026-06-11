@@ -3772,10 +3772,7 @@ test "ssa-nomerge skips synthetic entry copies for root loop headers" {
   }
 
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  @debug.assert_eq(
-    locals,
-    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
-  )
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
   @debug.assert_eq(instrs, [
     @lib.Instruction::loop_(
       @lib.BlockType::void_(),
@@ -3787,8 +3784,6 @@ test "ssa-nomerge skips synthetic entry copies for root loop headers" {
           @lib.BlockType::void_(),
           [
             @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
-            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
             @lib.Instruction::i32_const(@lib.I32(1)),
             @lib.Instruction::i32_add(),
             @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
@@ -4114,6 +4109,123 @@ test "ssa-nomerge preserves no-copy block-target br_table on raw path" {
       @lib.Expr::new([
         @lib.Instruction::i32_const(@lib.I32(7)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::br_table(
+          [@lib.LabelIdx::new(0U)],
+          @lib.LabelIdx::new(0U),
+        ),
+      ]),
+    ),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+  ])
+}
+
+///|
+test "ssa-nomerge preserves no-copy loop-target br_table on raw path" {
+  let trace : Array[String] = []
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     (local i32)
+    #|     loop
+    #|       i32.const 7
+    #|       local.set 1
+    #|       local.get 0
+    #|       br_table 0 0
+    #|     end
+    #|     i32.const 1))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected loop br_table raw ssa-nomerge success, got \{err}")
+  }
+
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::loop_(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::br_table(
+          [@lib.LabelIdx::new(0U)],
+          @lib.LabelIdx::new(0U),
+        ),
+      ]),
+    ),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+  ])
+}
+
+///|
+test "ssa-nomerge preserves loop-carried reads for br_table backedges" {
+  let trace : Array[String] = []
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     (local i32)
+    #|     loop
+    #|       local.get 1
+    #|       drop
+    #|       i32.const 7
+    #|       local.set 1
+    #|       local.get 0
+    #|       br_table 0 0
+    #|     end
+    #|     i32.const 1))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected loop-carried br_table ssa-nomerge success, got \{err}")
+  }
+
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::loop_(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
         @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
         @lib.Instruction::br_table(
           [@lib.LabelIdx::new(0U)],
