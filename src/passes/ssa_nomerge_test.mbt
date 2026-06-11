@@ -3043,10 +3043,10 @@ test "ssa-nomerge rewrites moderately large structured branch functions without 
 }
 
 ///|
-fn ssa_test_large_structured_local_write_fixture() -> String {
+fn ssa_test_large_structured_local_write_fixture(if_count : Int) -> String {
   let out = StringBuilder::new()
   out.write_string("(module (func (local i32) ")
-  for i = 0; i < 130; i = i + 1 {
+  for i = 0; i < if_count; i = i + 1 {
     out.write_string("i32.const 0 if nop else nop end ")
   }
   out.write_string("i32.const 1 local.set 0))")
@@ -3058,7 +3058,7 @@ test "ssa-nomerge rewrites very large structured local-write functions without b
   let trace : Array[String] = []
   match
     pass_test_run_pipeline(
-      ssa_test_large_structured_local_write_fixture(),
+      ssa_test_large_structured_local_write_fixture(130),
       ["ssa-nomerge"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
@@ -3080,6 +3080,73 @@ test "ssa-nomerge rewrites very large structured local-write functions without b
     trace.any(fn(line) {
       line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
     }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge keeps audited mid-threshold structured local-write functions without branches on raw path" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      ssa_test_large_structured_local_write_fixture(1343),
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected audited mid-threshold no-branch ssa-nomerge success, got \{err}",
+      )
+  }
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=large-structured-local-writes",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("skip-invalid-lower") }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge keeps larger no-branch structured functions above raw threshold classified as large" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      ssa_test_large_structured_local_write_fixture(1344),
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected above-threshold no-branch ssa-nomerge success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=large-structured-local-writes",
+      ) &&
+      line.contains("instrs=")
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("skip-invalid-lower") }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
     msg=trace.join("\n"),
   )
 }
@@ -3131,11 +3198,11 @@ test "ssa-nomerge keeps structured branch functions below raw instruction thresh
 }
 
 ///|
-test "ssa-nomerge keeps audited near-threshold structured branch functions on raw path" {
+test "ssa-nomerge keeps audited mid-threshold structured branch functions on raw path" {
   let trace : Array[String] = []
   match
     pass_test_run_pipeline(
-      ssa_test_large_structured_branch_if_prefix_fixture(1150),
+      ssa_test_large_structured_branch_if_prefix_fixture(1342),
       ["ssa-nomerge"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
@@ -3170,7 +3237,7 @@ test "ssa-nomerge classifies structured branch functions above raw instruction t
   let trace : Array[String] = []
   match
     pass_test_run_pipeline(
-      ssa_test_large_structured_branch_if_prefix_fixture(1151),
+      ssa_test_large_structured_branch_if_prefix_fixture(1343),
       ["ssa-nomerge"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {

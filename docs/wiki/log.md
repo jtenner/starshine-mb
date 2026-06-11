@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-11] passes/ssa-nomerge | Admit mid-threshold structured functions
+
+- Raised the guarded direct raw structured `ssa-nomerge` instruction budgets in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) to `5376` for both branch-bearing and no-branch structured functions, enough for four additional sampled debug-artifact functions (`Func 2114`, `Func 3139`, `Func 95`, and no-branch `Func 3554`) while preserving the existing branchy local-count guard.
+- Updated [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) test-first: the new 5373-instruction branch fixture and 5374-instruction no-branch fixture failed red under the prior budgets, now stay on the raw structured path, and 5377/5378-instruction fixtures still report `large-structured-local-writes`.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `116/116`; `moon test src/passes` passed `2135/2135`; `moon fmt`, `moon info`, full `moon test` (`5393/5393`), and native `src/cmd` build passed with pre-existing warnings; extracted sampled targets validate with `--extract-functions=<func> --strip-debug`; full debug-artifact trace `.tmp/ssa-nomerge-structured-5376-trace` validates and reduces `large-structured-local-writes` from `15` to `11` with `0` `skip-invalid-lower`; direct compare `.tmp/pass-fuzz-ssa-nomerge-structured-5376-10000` compared `9977/10000` with `9977` normalized matches, `0` mismatches, and `23` Binaryen/tool command failures; `ssa-nomerge-parity` GenValid 1000-case lane stayed green.
+- Direct artifact replay `.tmp/self-ssa-nomerge-debug-wasi-structured-5376` still differs from Binaryen at `defined=0 abs=27`; inspected first-diff WAT is local-allocation representation drift (Starshine reuses fewer body-local temps than Binaryen for the same observable flow), so this is not exact artifact or O4z closeout.
+
 ## [2026-06-11] passes/ssa-nomerge | Admit near-threshold structured branch functions
 
 - Raised the guarded direct raw structured `ssa-nomerge` branch instruction budget in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) from `4096` to `4608`, enough for the two sampled threshold-only debug-artifact functions (`Func 3668` and `Func 1265`) while preserving the existing branchy local-count guard.
