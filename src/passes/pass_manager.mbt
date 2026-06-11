@@ -7741,6 +7741,21 @@ fn run_hot_pipeline_raw_propagate_outer_exits(
 }
 
 ///|
+fn run_hot_pipeline_raw_enclosing_label_needs_alias_copy(
+  label_stack : Array[RawSsaLabelTarget],
+  local_id : Int,
+) -> Bool {
+  for label_target in label_stack {
+    if !label_target.is_loop &&
+      local_id < label_target.needed_alias_copies.length() &&
+      label_target.needed_alias_copies[local_id] {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_branch_if_block_type(
   module_ctx : @ir.HotModuleContext,
   label_target : RawSsaLabelTarget,
@@ -7762,36 +7777,41 @@ fn run_hot_pipeline_raw_branch_if_block_type(
 }
 
 ///|
-fn run_hot_pipeline_raw_br_table_can_preserve_without_copies(
+fn run_hot_pipeline_raw_br_table_void_alias_copies(
   labels : Array[@lib.LabelIdx],
   default_label : @lib.LabelIdx,
   label_stack : Array[RawSsaLabelTarget],
-  source_aliases : Array[@lib.LocalIdx],
-  canonical_aliases : Array[@lib.LocalIdx],
-) -> Bool {
+  base_local_count : Int,
+) -> @bitset.BitSet? {
+  let needed_alias_copies = @bitset.BitSet::new(base_local_count)
   for label_idx in labels {
     match run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {
-      Some(label_target) =>
-        if label_target.is_loop ||
-          run_hot_pipeline_raw_has_needed_alias_copy(
-            source_aliases,
-            canonical_aliases,
-            label_target.needed_alias_copies,
-          ) {
-          return false
+      Some(label_target) => {
+        if label_target.is_loop || label_target.result_types.length() != 0 {
+          return None
         }
-      None => return false
+        for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
+          if label_target.needed_alias_copies[local_id] {
+            needed_alias_copies[local_id] = true
+          }
+        }
+      }
+      None => return None
     }
   }
   match run_hot_pipeline_raw_resolve_label_target(label_stack, default_label) {
-    Some(label_target) =>
-      !label_target.is_loop &&
-      !run_hot_pipeline_raw_has_needed_alias_copy(
-        source_aliases,
-        canonical_aliases,
-        label_target.needed_alias_copies,
-      )
-    None => false
+    Some(label_target) => {
+      if label_target.is_loop || label_target.result_types.length() != 0 {
+        return None
+      }
+      for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
+        if label_target.needed_alias_copies[local_id] {
+          needed_alias_copies[local_id] = true
+        }
+      }
+      Some(needed_alias_copies)
+    }
+    None => None
   }
 }
 
@@ -8172,13 +8192,19 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             merged_aliases = then_aliases
           } else {
             merged_aliases = then_aliases.copy()
+            let needed_alias_copies = child_future_reads_before_writes.copy()
             for local_id = 0
                 local_id < merged_aliases.length()
                 local_id = local_id + 1 {
               if then_aliases[local_id] == else_aliases[local_id] {
                 continue
               }
-              merged_aliases[local_id] = if !child_future_reads_before_writes[local_id] {
+              if run_hot_pipeline_raw_enclosing_label_needs_alias_copy(
+                  label_stack, local_id,
+                ) {
+                needed_alias_copies[local_id] = true
+              }
+              merged_aliases[local_id] = if !needed_alias_copies[local_id] {
                 canonical_aliases[local_id]
               } else if local_id < params.length() {
                 canonical_aliases[local_id]
@@ -8188,7 +8214,6 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                 )
               }
             }
-            let needed_alias_copies = child_future_reads_before_writes.copy()
             finalized_then = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
               finalized_then,
               then_aliases,
@@ -8337,12 +8362,30 @@ fn run_hot_pipeline_raw_rewrite_instrs(
         }
       }
       @lib.BrTable(labels, default_label) => {
-        if !run_hot_pipeline_raw_br_table_can_preserve_without_copies(
-            labels, default_label, label_stack, aliases, canonical_aliases,
+        let needed_alias_copies = match
+          run_hot_pipeline_raw_br_table_void_alias_copies(
+            labels,
+            default_label,
+            label_stack,
+            canonical_aliases.length(),
           ) {
-          return None
+          Some(needed_alias_copies) => needed_alias_copies
+          None => return None
         }
-        rewritten.push(instr)
+        let branch_instrs = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
+          [],
+          aliases,
+          canonical_aliases,
+          canonical_aliases,
+          initialized,
+          needed_alias_copies,
+          [],
+          params,
+          locals,
+          extra_local_types,
+        )
+        branch_instrs.push(instr)
+        rewritten.append(branch_instrs)
         if was_reachable {
           run_hot_pipeline_raw_mark_br_table_exit_depths(
             exit_depths, labels, default_label,

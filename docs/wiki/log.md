@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-11] passes/ssa-nomerge | Enclosing label copies and br_table copies
+
+- Fixed raw structured `ssa-nomerge` in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): divergent `if` aliases now preserve enclosing non-loop label copy needs before a later branch can exit over a fallthrough overwrite, instead of merging to an unwritten canonical slot.
+- Extended void-target `br_table` handling on the raw path: non-loop, zero-result table targets can now insert the union of needed canonical alias copies before dispatch; loop targets and result-typed copy lowering remain fail-closed.
+- Updated [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) test-first with focused unconditional-`br` and `br_table` regressions. Each failed under the old behavior with `3` locals instead of the required merged temp/canonical copy shape, then passed after implementation.
+- Evidence: `ssa_nomerge_test.mbt` passed `122/122`; `moon test src/passes` passed `2141/2141`; `moon fmt`, `moon info` (3 pre-existing GenValid warnings), full `moon test` (`5400/5400`), native `src/cmd` build passed with pre-existing pass-manager warnings, `wasm-tools validate` passed on `.tmp/self-ssa-nomerge-debug-wasi-enclosing-label-brtable-copies/starshine.wasm`, and `git diff --check` passed. Direct compare `.tmp/pass-fuzz-ssa-nomerge-enclosing-label-brtable-copies-10000` compared `9977/10000` with `9977` normalized matches, `0` mismatches, and `23` Binaryen/tool command failures. GenValid parity `.tmp/pass-fuzz-ssa-nomerge-parity-enclosing-label-brtable-copies-genvalid-normalized-1000` compared `1000/1000` with `1000` compare-normalized matches and `0` mismatches.
+- Direct artifact replay `.tmp/self-ssa-nomerge-debug-wasi-enclosing-label-brtable-copies` still differs at `defined=0 abs=27`; pass-local Starshine was `16.568 ms` vs Binaryen `345.979 ms`, and Starshine artifact size remained `3150187` vs Binaryen `3155990`. This is not exact artifact or O4z closeout.
+
 ## [2026-06-11] passes/ssa-nomerge | No-copy br_table and 8192 structured budget
 
 - Tightened raw structured `ssa-nomerge` in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): no-copy `br_table` exits now stay on the raw structured path when every table target is a non-loop label and no observable alias merge copy is required, avoiding the previous HOT fallback that dropped the reduced fixture's dead local write instead of matching Binaryen's fresh-temp shape.
