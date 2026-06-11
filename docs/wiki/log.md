@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-11] passes/ssa-nomerge | Admit near-threshold structured branch functions
+
+- Raised the guarded direct raw structured `ssa-nomerge` branch instruction budget in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) from `4096` to `4608`, enough for the two sampled threshold-only debug-artifact functions (`Func 3668` and `Func 1265`) while preserving the existing branchy local-count guard.
+- Updated [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) test-first: a 4605-instruction synthetic branch fixture failed red under the old budget, now stays on the raw structured path, and a 4609-instruction fixture still reports `large-structured-local-writes`.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `114/114`; `moon test src/passes` passed `2133/2133`; native `src/cmd` build passed with pre-existing pass-manager warnings; extracted `Func 3668` / `Func 1265` outputs validate; full debug-artifact trace `.tmp/ssa-nomerge-structured-4608-trace` validates and reduces `large-structured-local-writes` from `17` to `15` with `0` `skip-invalid-lower`; direct compare `.tmp/pass-fuzz-ssa-nomerge-structured-4608-10000` compared `9977/10000` with `9977` normalized matches, `0` mismatches, and `23` Binaryen/tool command failures; `ssa-nomerge-parity` GenValid 1000-case lane stayed green.
+- Direct artifact replay `.tmp/self-ssa-nomerge-debug-wasi-structured-4608` still differs from Binaryen at `defined=0 abs=27`; this is a near-threshold budget narrowing, not exact artifact or O4z closeout.
+
 ## [2026-06-11] fuzzing/gen-valid | Deepen ssa-nomerge SSA coverage floors
 
 - Expanded dense `ssa-nomerge-coverage` / `ssa-nomerge-stress` GenValid templates in [`../../src/validate/gen_valid_ssa.mbt`](../../src/validate/gen_valid_ssa.mbt) with positive typed loop-param/backedge and `try_table`/`throw_ref` exceptional fail-closed specimens; the scanner now recursively accounts for `try_table` body local writes when reporting `ssa-exceptional-fail-closed-shape`.

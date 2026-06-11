@@ -8536,7 +8536,7 @@ fn run_hot_pipeline_raw_ssa_nomerge(
   descriptor : @ir.HotPassDescriptor,
   options : HotPipelineOptions,
 ) -> HotPipelineFuncResult? {
-  let structured_branch_raw_instr_limit = 4096
+  let structured_branch_raw_instr_limit = 4608
   let structured_no_branch_raw_instr_limit = 4096
   let structured_branch_raw_local_limit = 1024
   let original = run_hot_pipeline_original_func(mod_, func_idx)

@@ -3131,11 +3131,46 @@ test "ssa-nomerge keeps structured branch functions below raw instruction thresh
 }
 
 ///|
+test "ssa-nomerge keeps audited near-threshold structured branch functions on raw path" {
+  let trace : Array[String] = []
+  match
+    pass_test_run_pipeline(
+      ssa_test_large_structured_branch_if_prefix_fixture(1150),
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected audited near-threshold structured branch ssa-nomerge success, got \{err}",
+      )
+  }
+  assert_false(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[ssa-nomerge]:skip-raw reason=large-structured-local-writes",
+      )
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("skip-invalid-lower") }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "ssa-nomerge classifies structured branch functions above raw instruction threshold as large-structured-local-writes" {
   let trace : Array[String] = []
   match
     pass_test_run_pipeline(
-      ssa_test_large_structured_branch_if_prefix_fixture(1030),
+      ssa_test_large_structured_branch_if_prefix_fixture(1151),
       ["ssa-nomerge"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
