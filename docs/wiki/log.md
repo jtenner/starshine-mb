@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-11] passes/ssa-nomerge | Admit no-copy loop br_if backedges
+
+- Fixed raw structured `ssa-nomerge` in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): void loop-target `br_if` backedges now stay on the raw path when no branch-time canonical alias copy is required. Typed loop-param/result shapes and copy-needing conditional loop backedges remain fail-closed.
+- Updated source-backed regressions in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): a no-copy loop-target `br_if` fixture now preserves Binaryen's fresh dead-write local instead of falling through HOT and dropping it, and the loop-carried `br_if` fixture now locks the Binaryen-observed canonical-local shape on the raw path.
+- Evidence: focused `*br_if backedge*` and `*loop-target br_if*` were red under the old HOT fallback and then passed individually; `ssa_nomerge_test.mbt` passed `127/127`; `moon test src/passes` passed `2146/2146`; `moon fmt`, `moon info` (3 pre-existing GenValid warnings), full `moon test` (`5406/5406`), native `src/cmd` build passed with pre-existing pass-manager warnings, `wasm-tools validate` passed on `.tmp/self-ssa-nomerge-debug-wasi-loop-brif/starshine.wasm`, and `git diff --check` passed. Direct compare `.tmp/pass-fuzz-ssa-nomerge-loop-brif-10000` compared `9977/10000` with `9977` normalized matches, `0` mismatches, and `23` Binaryen/tool command failures (`22` rec-group-zero, `1` bad-section-size). GenValid parity `.tmp/pass-fuzz-ssa-nomerge-parity-loop-brif-10000` compared `10000/10000` with `10000` compare-normalized matches and `0` mismatches.
+- Direct artifact replay `.tmp/self-ssa-nomerge-debug-wasi-loop-brif` validates but still differs at `defined=0 abs=27`; pass-local Starshine was `3.087 ms` vs Binaryen `347.543 ms`. Whole-command Starshine runtime was slower in this replay and remains outside this pass-local slice. This is not exact artifact or O4z closeout.
+
 ## [2026-06-11] passes/ssa-nomerge | Admit void loop backedges
 
 - Fixed raw structured `ssa-nomerge` in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): void `loop` bodies can now stay on the raw path, and `br` / `br_table` backedges to void loop labels use header read-before-write facts to decide when to keep canonical locals versus freshen dead writes. Typed loop-param/result shapes and `br_if` loop backedges remain fail-closed.

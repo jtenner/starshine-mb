@@ -8626,7 +8626,14 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           None => return None
         }
         if label_target.is_loop {
-          return None
+          if !run_hot_pipeline_raw_loop_backedge_supported(label_target) ||
+            run_hot_pipeline_raw_has_needed_alias_copy(
+              aliases,
+              canonical_aliases,
+              label_target.needed_alias_copies,
+            ) {
+            return None
+          }
         }
         match
           run_hot_pipeline_raw_rewrite_br_if(
@@ -8636,7 +8643,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           Some(branch_instrs) => rewritten.append(branch_instrs)
           None => return None
         }
-        if was_reachable {
+        if was_reachable && !label_target.is_loop {
           let @lib.LabelIdx(raw) = label_idx
           exit_depths[raw.reinterpret_as_int()] = true
         }
