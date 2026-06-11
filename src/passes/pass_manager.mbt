@@ -7838,7 +7838,7 @@ fn run_hot_pipeline_raw_loop_backedge_supported(
 }
 
 ///|
-fn run_hot_pipeline_raw_loop_single_ref_param_type(
+fn run_hot_pipeline_raw_loop_single_param_type(
   module_ctx : @ir.HotModuleContext,
   block_type : @lib.BlockType,
 ) -> @lib.ValType? {
@@ -7847,10 +7847,7 @@ fn run_hot_pipeline_raw_loop_single_ref_param_type(
       match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
         Some(@lib.FuncType(params, results)) =>
           if params.length() == 1 && results.length() == 0 {
-            match params[0] {
-              @lib.RefTypeValType(_) => Some(params[0])
-              _ => None
-            }
+            Some(params[0])
           } else {
             None
           }
@@ -7895,6 +7892,73 @@ fn run_hot_pipeline_raw_instrs_have_branch(
     }
   }
   false
+}
+
+///|
+fn run_hot_pipeline_raw_instrs_only_direct_loop_scalar_br_backedges(
+  instrs : Array[@lib.Instruction],
+  loop_depth : UInt,
+) -> Bool {
+  let mut saw_scalar_backedge = false
+  for instr in instrs {
+    match instr {
+      @lib.Br(@lib.LabelIdx(raw)) =>
+        if raw == loop_depth {
+          saw_scalar_backedge = true
+        } else {
+          return false
+        }
+      @lib.BrIf(_)
+      | @lib.BrTable(_, _)
+      | @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_)
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _) => return false
+      @lib.Block(_, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_instrs_have_branch(body) {
+          if run_hot_pipeline_raw_instrs_only_direct_loop_scalar_br_backedges(
+              body,
+              loop_depth + 1U,
+            ) {
+            saw_scalar_backedge = true
+          } else {
+            return false
+          }
+        }
+      @lib.Loop(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_instrs_have_branch(body) {
+          return false
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_instrs_have_branch(then_body) {
+          if run_hot_pipeline_raw_instrs_only_direct_loop_scalar_br_backedges(
+              then_body,
+              loop_depth + 1U,
+            ) {
+            saw_scalar_backedge = true
+          } else {
+            return false
+          }
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_instrs_have_branch(body) {
+              if run_hot_pipeline_raw_instrs_only_direct_loop_scalar_br_backedges(
+                  body,
+                  loop_depth + 1U,
+                ) {
+                saw_scalar_backedge = true
+              } else {
+                return false
+              }
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  saw_scalar_backedge
 }
 
 ///|
@@ -9315,13 +9379,19 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           }
         } else {
           let loop_param_type = match
-            run_hot_pipeline_raw_loop_single_ref_param_type(
-              module_ctx, block_type,
-            ) {
+            run_hot_pipeline_raw_loop_single_param_type(module_ctx, block_type) {
             Some(loop_param_type) => loop_param_type
             None => return None
           }
-          if !run_hot_pipeline_raw_instrs_only_direct_loop_ref_backedges(body) {
+          let ref_backedges_supported = match loop_param_type {
+            @lib.RefTypeValType(_) =>
+              run_hot_pipeline_raw_instrs_only_direct_loop_ref_backedges(body)
+            _ => false
+          }
+          let scalar_br_backedges_supported = run_hot_pipeline_raw_instrs_only_direct_loop_scalar_br_backedges(
+            body, 0U,
+          )
+          if !ref_backedges_supported && !scalar_br_backedges_supported {
             return None
           }
           let scratch_type = match

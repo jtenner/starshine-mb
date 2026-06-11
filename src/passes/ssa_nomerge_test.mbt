@@ -253,6 +253,79 @@ fn ssa_test_instrs_have_loop_param_cast_proxy(
 }
 
 ///|
+fn ssa_test_instrs_have_loop_param_scalar_br_proxy(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  fn body_has_br_depth(body : Array[@lib.Instruction], depth : UInt) -> Bool {
+    for instr in body {
+      match instr {
+        @lib.Br(@lib.LabelIdx(raw)) => if raw == depth { return true }
+        @lib.Block(_, @lib.Expr(nested_body))
+        | @lib.Loop(_, @lib.Expr(nested_body))
+        | @lib.TryTable(_, _, @lib.Expr(nested_body)) =>
+          if body_has_br_depth(nested_body, depth + 1U) {
+            return true
+          }
+        @lib.If(_, then_body, else_body) => {
+          if body_has_br_depth(then_body, depth + 1U) {
+            return true
+          }
+          match else_body {
+            Some(body) => if body_has_br_depth(body, depth + 1U) { return true }
+            None => ()
+          }
+        }
+        _ => ()
+      }
+    }
+    false
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Loop(@lib.VoidBlockType, @lib.Expr(loop_body)) =>
+        for loop_instr in loop_body {
+          match loop_instr {
+            @lib.Block(@lib.VoidBlockType, @lib.Expr(outer_body)) => {
+              let has_loop_backedge = outer_body.any(fn(outer_instr) {
+                outer_instr == @lib.Instruction::br(@lib.LabelIdx::new(1U))
+              })
+              let has_inner_br_proxy = outer_body.any(fn(outer_instr) {
+                match outer_instr {
+                  @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(inner_body)) =>
+                    body_has_br_depth(inner_body, 0U)
+                  _ => false
+                }
+              })
+              if has_loop_backedge && has_inner_br_proxy {
+                return true
+              }
+            }
+            _ => ()
+          }
+        }
+      @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if ssa_test_instrs_have_loop_param_scalar_br_proxy(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if ssa_test_instrs_have_loop_param_scalar_br_proxy(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if ssa_test_instrs_have_loop_param_scalar_br_proxy(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn ssa_test_instrs_have_loop_param_non_null_proxy(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -1010,6 +1083,39 @@ test "ssa-nomerge preserves delegate shapes without hot local corruption" {
   @ir.hot_root_append(func, set)
   @ir.hot_root_append(func, delegate)
   ssa_test_hot_func_exceptional_fail_closed(func)
+}
+
+///|
+test "ssa-nomerge rewrites direct scalar typed loop-param br backedge" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 0
+    #|    loop $l (type $loop_t)
+    #|      local.tee 1
+    #|      local.get 0
+    #|      i32.lt_s
+    #|      if
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.add
+    #|        br $l
+    #|      end
+    #|    end
+    #|    local.get 1))
+    #|)
+  let optimized = match pass_test_run_pipeline(source, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected scalar loop-param br ssa-nomerge success, got \{err}")
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
+    msg=instrs.to_string(),
+  )
 }
 
 ///|
