@@ -3411,6 +3411,14 @@ fn gen_valid_coverage_feature_label(key : ValidateValidFeatureKey) -> String {
       "ssa-structured-param-merge"
     @validate.ValidateValidFeatureKey::SsaBranchLocalNotReadLater =>
       "ssa-branch-local-not-read-later"
+    @validate.ValidateValidFeatureKey::SsaDefaultLocalReadAfterBranchyControl =>
+      "ssa-default-local-read-after-branchy-control"
+    @validate.ValidateValidFeatureKey::SsaDroppedUnreachableDebrisBeforeHardUnreachable =>
+      "ssa-dropped-unreachable-debris-before-hard-unreachable"
+    @validate.ValidateValidFeatureKey::SsaCanonicalBodyLocalNextRead =>
+      "ssa-canonical-body-local-next-read"
+    @validate.ValidateValidFeatureKey::SsaImmediateBlockExitCanonicalSetBr =>
+      "ssa-immediate-block-exit-canonical-set-br"
   }
 }
 

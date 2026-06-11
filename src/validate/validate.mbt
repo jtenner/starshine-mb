@@ -3478,6 +3478,10 @@ pub enum ValidateValidFeatureKey {
   SsaBlockBrIfMergeCopy
   SsaStructuredParamMerge
   SsaBranchLocalNotReadLater
+  SsaDefaultLocalReadAfterBranchyControl
+  SsaDroppedUnreachableDebrisBeforeHardUnreachable
+  SsaCanonicalBodyLocalNextRead
+  SsaImmediateBlockExitCanonicalSetBr
 } derive(Eq, Debug)
 
 ///|
@@ -3585,6 +3589,14 @@ pub impl Show for ValidateValidFeatureKey with fn output(self, logger) {
     SsaStructuredParamMerge => logger.write_string("SsaStructuredParamMerge")
     SsaBranchLocalNotReadLater =>
       logger.write_string("SsaBranchLocalNotReadLater")
+    SsaDefaultLocalReadAfterBranchyControl =>
+      logger.write_string("SsaDefaultLocalReadAfterBranchyControl")
+    SsaDroppedUnreachableDebrisBeforeHardUnreachable =>
+      logger.write_string("SsaDroppedUnreachableDebrisBeforeHardUnreachable")
+    SsaCanonicalBodyLocalNextRead =>
+      logger.write_string("SsaCanonicalBodyLocalNextRead")
+    SsaImmediateBlockExitCanonicalSetBr =>
+      logger.write_string("SsaImmediateBlockExitCanonicalSetBr")
   }
 }
 
@@ -3781,6 +3793,13 @@ pub fn validate_valid_feature_actual_count(
     SsaBlockBrIfMergeCopy => stats.ssa_block_br_if_merge_copy
     SsaStructuredParamMerge => stats.ssa_structured_param_merge
     SsaBranchLocalNotReadLater => stats.ssa_branch_local_not_read_later
+    SsaDefaultLocalReadAfterBranchyControl =>
+      stats.ssa_default_local_read_after_branchy_control
+    SsaDroppedUnreachableDebrisBeforeHardUnreachable =>
+      stats.ssa_dropped_unreachable_debris_before_hard_unreachable
+    SsaCanonicalBodyLocalNextRead => stats.ssa_canonical_body_local_next_read
+    SsaImmediateBlockExitCanonicalSetBr =>
+      stats.ssa_immediate_block_exit_canonical_set_br
   }
 }
 
@@ -3872,6 +3891,10 @@ fn validate_valid_feature_ledger_keys() -> Array[ValidateValidFeatureKey] {
     SsaBlockBrIfMergeCopy,
     SsaStructuredParamMerge,
     SsaBranchLocalNotReadLater,
+    SsaDefaultLocalReadAfterBranchyControl,
+    SsaDroppedUnreachableDebrisBeforeHardUnreachable,
+    SsaCanonicalBodyLocalNextRead,
+    SsaImmediateBlockExitCanonicalSetBr,
   ]
 }
 
@@ -4021,6 +4044,13 @@ fn validate_valid_feature_key_label(key : ValidateValidFeatureKey) -> String {
     SsaBlockBrIfMergeCopy => "ssa-block-br-if-merge-copy"
     SsaStructuredParamMerge => "ssa-structured-param-merge"
     SsaBranchLocalNotReadLater => "ssa-branch-local-not-read-later"
+    SsaDefaultLocalReadAfterBranchyControl =>
+      "ssa-default-local-read-after-branchy-control"
+    SsaDroppedUnreachableDebrisBeforeHardUnreachable =>
+      "ssa-dropped-unreachable-debris-before-hard-unreachable"
+    SsaCanonicalBodyLocalNextRead => "ssa-canonical-body-local-next-read"
+    SsaImmediateBlockExitCanonicalSetBr =>
+      "ssa-immediate-block-exit-canonical-set-br"
   }
 }
 
@@ -4121,6 +4151,13 @@ fn validate_valid_feature_key_from_label(
     "ssa-block-br-if-merge-copy" => Some(SsaBlockBrIfMergeCopy)
     "ssa-structured-param-merge" => Some(SsaStructuredParamMerge)
     "ssa-branch-local-not-read-later" => Some(SsaBranchLocalNotReadLater)
+    "ssa-default-local-read-after-branchy-control" =>
+      Some(SsaDefaultLocalReadAfterBranchyControl)
+    "ssa-dropped-unreachable-debris-before-hard-unreachable" =>
+      Some(SsaDroppedUnreachableDebrisBeforeHardUnreachable)
+    "ssa-canonical-body-local-next-read" => Some(SsaCanonicalBodyLocalNextRead)
+    "ssa-immediate-block-exit-canonical-set-br" =>
+      Some(SsaImmediateBlockExitCanonicalSetBr)
     _ => None
   }
 }

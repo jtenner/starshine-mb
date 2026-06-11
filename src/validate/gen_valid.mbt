@@ -1291,6 +1291,10 @@ pub struct GenValidFeatureFacts {
   has_ssa_block_br_if_merge_copy : Bool
   has_ssa_structured_param_merge : Bool
   has_ssa_branch_local_not_read_later : Bool
+  has_ssa_default_local_read_after_branchy_control : Bool
+  has_ssa_dropped_unreachable_debris_before_hard_unreachable : Bool
+  has_ssa_canonical_body_local_next_read : Bool
+  has_ssa_immediate_block_exit_canonical_set_br : Bool
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, Debug)
 
@@ -1440,6 +1444,10 @@ pub struct GenValidFeatureStats {
   ssa_block_br_if_merge_copy : Int
   ssa_structured_param_merge : Int
   ssa_branch_local_not_read_later : Int
+  ssa_default_local_read_after_branchy_control : Int
+  ssa_dropped_unreachable_debris_before_hard_unreachable : Int
+  ssa_canonical_body_local_next_read : Int
+  ssa_immediate_block_exit_canonical_set_br : Int
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, Debug)
 
@@ -1629,6 +1637,16 @@ pub impl Show for GenValidFeatureStats with fn output(self, logger) {
   self.ssa_structured_param_merge.output(logger)
   logger.write_string(", ssa_branch_local_not_read_later: ")
   self.ssa_branch_local_not_read_later.output(logger)
+  logger.write_string(", ssa_default_local_read_after_branchy_control: ")
+  self.ssa_default_local_read_after_branchy_control.output(logger)
+  logger.write_string(
+    ", ssa_dropped_unreachable_debris_before_hard_unreachable: ",
+  )
+  self.ssa_dropped_unreachable_debris_before_hard_unreachable.output(logger)
+  logger.write_string(", ssa_canonical_body_local_next_read: ")
+  self.ssa_canonical_body_local_next_read.output(logger)
+  logger.write_string(", ssa_immediate_block_exit_canonical_set_br: ")
+  self.ssa_immediate_block_exit_canonical_set_br.output(logger)
   logger.write_string(", exact_opcode_counts: ")
   self.exact_opcode_counts.output(logger)
   logger.write_char('}')
@@ -1729,6 +1747,10 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     ssa_block_br_if_merge_copy: 0,
     ssa_structured_param_merge: 0,
     ssa_branch_local_not_read_later: 0,
+    ssa_default_local_read_after_branchy_control: 0,
+    ssa_dropped_unreachable_debris_before_hard_unreachable: 0,
+    ssa_canonical_body_local_next_read: 0,
+    ssa_immediate_block_exit_canonical_set_br: 0,
     exact_opcode_counts: GenValidExactOpcodeCounts::empty(),
   }
 }
@@ -1898,6 +1920,16 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_ssa_structured_param_merge),
     ssa_branch_local_not_read_later: self.ssa_branch_local_not_read_later +
     gen_valid_bool_count(facts.has_ssa_branch_local_not_read_later),
+    ssa_default_local_read_after_branchy_control: self.ssa_default_local_read_after_branchy_control +
+    gen_valid_bool_count(facts.has_ssa_default_local_read_after_branchy_control),
+    ssa_dropped_unreachable_debris_before_hard_unreachable: self.ssa_dropped_unreachable_debris_before_hard_unreachable +
+    gen_valid_bool_count(
+      facts.has_ssa_dropped_unreachable_debris_before_hard_unreachable,
+    ),
+    ssa_canonical_body_local_next_read: self.ssa_canonical_body_local_next_read +
+    gen_valid_bool_count(facts.has_ssa_canonical_body_local_next_read),
+    ssa_immediate_block_exit_canonical_set_br: self.ssa_immediate_block_exit_canonical_set_br +
+    gen_valid_bool_count(facts.has_ssa_immediate_block_exit_canonical_set_br),
     exact_opcode_counts: self.exact_opcode_counts.add(facts.exact_opcode_counts),
   }
 }
@@ -15684,6 +15716,10 @@ pub fn gen_valid_feature_facts(
     has_ssa_block_br_if_merge_copy: ssa_facts.has_ssa_block_br_if_merge_copy,
     has_ssa_structured_param_merge: ssa_facts.has_ssa_structured_param_merge,
     has_ssa_branch_local_not_read_later: ssa_facts.has_ssa_branch_local_not_read_later,
+    has_ssa_default_local_read_after_branchy_control: ssa_facts.has_ssa_default_local_read_after_branchy_control,
+    has_ssa_dropped_unreachable_debris_before_hard_unreachable: ssa_facts.has_ssa_dropped_unreachable_debris_before_hard_unreachable,
+    has_ssa_canonical_body_local_next_read: ssa_facts.has_ssa_canonical_body_local_next_read,
+    has_ssa_immediate_block_exit_canonical_set_br: ssa_facts.has_ssa_immediate_block_exit_canonical_set_br,
     exact_opcode_counts,
   }
 }

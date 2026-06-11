@@ -896,6 +896,10 @@ pub struct GenValidFeatureFacts {
   has_ssa_block_br_if_merge_copy : Bool
   has_ssa_structured_param_merge : Bool
   has_ssa_branch_local_not_read_later : Bool
+  has_ssa_default_local_read_after_branchy_control : Bool
+  has_ssa_dropped_unreachable_debris_before_hard_unreachable : Bool
+  has_ssa_canonical_body_local_next_read : Bool
+  has_ssa_immediate_block_exit_canonical_set_br : Bool
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, @debug.Debug)
 
@@ -992,6 +996,10 @@ pub struct GenValidFeatureStats {
   ssa_block_br_if_merge_copy : Int
   ssa_structured_param_merge : Int
   ssa_branch_local_not_read_later : Int
+  ssa_default_local_read_after_branchy_control : Int
+  ssa_dropped_unreachable_debris_before_hard_unreachable : Int
+  ssa_canonical_body_local_next_read : Int
+  ssa_immediate_block_exit_canonical_set_br : Int
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureStats::empty(GenValidMode) -> Self
@@ -1159,6 +1167,10 @@ pub struct GenValidSsaFuncFacts {
   has_ssa_block_br_if_merge_copy : Bool
   has_ssa_structured_param_merge : Bool
   has_ssa_branch_local_not_read_later : Bool
+  has_ssa_default_local_read_after_branchy_control : Bool
+  has_ssa_dropped_unreachable_debris_before_hard_unreachable : Bool
+  has_ssa_canonical_body_local_next_read : Bool
+  has_ssa_immediate_block_exit_canonical_set_br : Bool
 } derive(Eq, @debug.Debug)
 pub fn GenValidSsaFuncFacts::empty() -> Self
 
@@ -1620,6 +1632,10 @@ pub enum ValidateValidFeatureKey {
   SsaBlockBrIfMergeCopy
   SsaStructuredParamMerge
   SsaBranchLocalNotReadLater
+  SsaDefaultLocalReadAfterBranchyControl
+  SsaDroppedUnreachableDebrisBeforeHardUnreachable
+  SsaCanonicalBodyLocalNextRead
+  SsaImmediateBlockExitCanonicalSetBr
 } derive(Eq, @debug.Debug)
 pub impl Show for ValidateValidFeatureKey
 

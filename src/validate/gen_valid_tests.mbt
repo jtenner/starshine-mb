@@ -7356,6 +7356,22 @@ test "ssa-nomerge coverage generated modules record dense SSA feature facts" {
     facts.has_ssa_branch_local_not_read_later,
     msg="expected unneeded branch-local variant",
   )
+  assert_true(
+    facts.has_ssa_default_local_read_after_branchy_control,
+    msg="expected default local read after branchy control variant",
+  )
+  assert_true(
+    facts.has_ssa_dropped_unreachable_debris_before_hard_unreachable,
+    msg="expected dropped unreachable debris before hard unreachable variant",
+  )
+  assert_true(
+    facts.has_ssa_canonical_body_local_next_read,
+    msg="expected canonical body-local next-read variant",
+  )
+  assert_true(
+    facts.has_ssa_immediate_block_exit_canonical_set_br,
+    msg="expected immediate block-exit canonical set/br variant",
+  )
 }
 
 ///|
@@ -7394,6 +7410,22 @@ test "ssa-nomerge smoke generated modules cover structured branch SSA shapes" {
   assert_true(
     facts.has_ssa_branch_local_not_read_later,
     msg="smoke profile should cover branch-local writes that are not read later",
+  )
+  assert_true(
+    facts.has_ssa_default_local_read_after_branchy_control,
+    msg="smoke profile should cover default local reads after branchy control",
+  )
+  assert_true(
+    facts.has_ssa_canonical_body_local_next_read,
+    msg="smoke profile should cover canonical body-local next reads",
+  )
+  assert_true(
+    facts.has_ssa_immediate_block_exit_canonical_set_br,
+    msg="smoke profile should cover immediate set/br block exits",
+  )
+  assert_false(
+    facts.has_ssa_dropped_unreachable_debris_before_hard_unreachable,
+    msg="smoke profile keeps dropped-unreachable debris out of quick smoke",
   )
   assert_false(
     facts.has_ssa_loop_backedge_phi_candidate,
@@ -7525,6 +7557,22 @@ test "ssa-nomerge parity generated modules omit fail-closed coverage slices" {
     facts.has_ssa_nested_result_if_supported_shape,
     msg="parity profile must not emit nested result-if coverage slices",
   )
+  assert_false(
+    facts.has_ssa_default_local_read_after_branchy_control,
+    msg="parity profile must not emit default-local branchy-control slices",
+  )
+  assert_false(
+    facts.has_ssa_dropped_unreachable_debris_before_hard_unreachable,
+    msg="parity profile must not emit dropped-unreachable debris slices",
+  )
+  assert_false(
+    facts.has_ssa_canonical_body_local_next_read,
+    msg="parity profile must not emit canonical-next-read structured slices",
+  )
+  assert_false(
+    facts.has_ssa_immediate_block_exit_canonical_set_br,
+    msg="parity profile must not emit immediate block-exit set/br slices",
+  )
 }
 
 ///|
@@ -7554,6 +7602,10 @@ test "ssa-nomerge stress generated modules record dense fail-closed SSA facts" {
   assert_true(facts.has_ssa_nested_result_if_arm_value_block)
   assert_true(facts.has_ssa_nested_result_if_mixed_arm_value_block)
   assert_true(facts.has_ssa_nested_result_if_scalar_result)
+  assert_true(facts.has_ssa_default_local_read_after_branchy_control)
+  assert_true(facts.has_ssa_dropped_unreachable_debris_before_hard_unreachable)
+  assert_true(facts.has_ssa_canonical_body_local_next_read)
+  assert_true(facts.has_ssa_immediate_block_exit_canonical_set_br)
 }
 
 ///|
@@ -7571,7 +7623,9 @@ test "validate_valid_feature_floor_by_label recognizes SSA feature labels" {
       "ssa-nested-result-if-arm-value-block", "ssa-nested-result-if-mixed-arm-value-block",
       "ssa-nested-result-if-scalar-result", "ssa-structured-early-return-local",
       "ssa-block-branch-merge-copy", "ssa-block-br-if-merge-copy", "ssa-structured-param-merge",
-      "ssa-branch-local-not-read-later",
+      "ssa-branch-local-not-read-later", "ssa-default-local-read-after-branchy-control",
+      "ssa-dropped-unreachable-debris-before-hard-unreachable", "ssa-canonical-body-local-next-read",
+      "ssa-immediate-block-exit-canonical-set-br",
     ] {
     match validate_valid_feature_floor_by_label(label, 1) {
       Ok(_) => ()

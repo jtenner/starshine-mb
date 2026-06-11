@@ -29,6 +29,10 @@ pub struct GenValidSsaFuncFacts {
   has_ssa_block_br_if_merge_copy : Bool
   has_ssa_structured_param_merge : Bool
   has_ssa_branch_local_not_read_later : Bool
+  has_ssa_default_local_read_after_branchy_control : Bool
+  has_ssa_dropped_unreachable_debris_before_hard_unreachable : Bool
+  has_ssa_canonical_body_local_next_read : Bool
+  has_ssa_immediate_block_exit_canonical_set_br : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -63,6 +67,10 @@ pub fn GenValidSsaFuncFacts::empty() -> GenValidSsaFuncFacts {
     has_ssa_block_br_if_merge_copy: false,
     has_ssa_structured_param_merge: false,
     has_ssa_branch_local_not_read_later: false,
+    has_ssa_default_local_read_after_branchy_control: false,
+    has_ssa_dropped_unreachable_debris_before_hard_unreachable: false,
+    has_ssa_canonical_body_local_next_read: false,
+    has_ssa_immediate_block_exit_canonical_set_br: false,
   }
 }
 
@@ -129,6 +137,14 @@ pub fn gen_valid_merge_ssa_func_facts(
     right.has_ssa_structured_param_merge,
     has_ssa_branch_local_not_read_later: left.has_ssa_branch_local_not_read_later ||
     right.has_ssa_branch_local_not_read_later,
+    has_ssa_default_local_read_after_branchy_control: left.has_ssa_default_local_read_after_branchy_control ||
+    right.has_ssa_default_local_read_after_branchy_control,
+    has_ssa_dropped_unreachable_debris_before_hard_unreachable: left.has_ssa_dropped_unreachable_debris_before_hard_unreachable ||
+    right.has_ssa_dropped_unreachable_debris_before_hard_unreachable,
+    has_ssa_canonical_body_local_next_read: left.has_ssa_canonical_body_local_next_read ||
+    right.has_ssa_canonical_body_local_next_read,
+    has_ssa_immediate_block_exit_canonical_set_br: left.has_ssa_immediate_block_exit_canonical_set_br ||
+    right.has_ssa_immediate_block_exit_canonical_set_br,
   }
 }
 
@@ -776,6 +792,8 @@ fn gen_valid_ssa_scan_linear(
     last_def.push(false)
   }
   let mut saw_unreachable_prefix = false
+  let mut saw_branchy_control = false
+  let mut saw_structured_control = false
   let mut i = 0
   while i < instrs.length() {
     let instr = instrs[i]
@@ -783,7 +801,15 @@ fn gen_valid_ssa_scan_linear(
       has_exceptional = true
     }
     match instr {
-      Unreachable => saw_unreachable_prefix = true
+      Unreachable => {
+        if gen_valid_ssa_prev_is_unreachable_debris(instrs, i) {
+          out = {
+            ..out,
+            has_ssa_dropped_unreachable_debris_before_hard_unreachable: true,
+          }
+        }
+        saw_unreachable_prefix = true
+      }
       LocalSet(idx) | LocalTee(idx) => {
         has_local_write = true
         match gen_valid_ssa_local_slot(idx) {
@@ -806,6 +832,11 @@ fn gen_valid_ssa_scan_linear(
               let tail = gen_valid_ssa_tail_expr(instrs, i + 1)
               if !gen_valid_expr_local_has_read(tail, idx) {
                 out = { ..out, has_ssa_dead_local_set: true }
+              }
+              if slot >= param_count &&
+                saw_structured_control &&
+                gen_valid_ssa_tail_next_access_reads_local(instrs, i + 1, idx) {
+                out = { ..out, has_ssa_canonical_body_local_next_read: true }
               }
             }
             if instr is LocalTee(_) {
@@ -834,6 +865,14 @@ fn gen_valid_ssa_scan_linear(
             }
             if saw_unreachable_prefix {
               out = { ..out, has_ssa_unreachable_local_carrier: true }
+            }
+            if saw_branchy_control &&
+              slot >= param_count &&
+              def_counts[slot] == 0 {
+              out = {
+                ..out,
+                has_ssa_default_local_read_after_branchy_control: true,
+              }
             }
           }
           None => ()
@@ -868,6 +907,11 @@ fn gen_valid_ssa_scan_linear(
         if body_has_write && tail_has_read && gen_valid_ssa_expr_has_br_if(body) {
           out = { ..out, has_ssa_block_br_if_merge_copy: true }
         }
+        if body_has_write &&
+          tail_has_read &&
+          gen_valid_ssa_expr_has_immediate_local_set_br(body) {
+          out = { ..out, has_ssa_immediate_block_exit_canonical_set_br: true }
+        }
         let (body_facts, body_writes, body_exceptional) = gen_valid_ssa_scan_expr(
           param_count, body, out, def_counts, has_local_write, has_exceptional,
         )
@@ -877,6 +921,10 @@ fn gen_valid_ssa_scan_linear(
         if gen_valid_ssa_expr_has_unreachable(body) {
           saw_unreachable_prefix = true
         }
+        if gen_valid_ssa_expr_has_branch_exit(body) {
+          saw_branchy_control = true
+        }
+        saw_structured_control = true
       }
       TryTable(_, _, body) => {
         let (body_facts, body_writes, _) = gen_valid_ssa_scan_expr(
@@ -888,12 +936,20 @@ fn gen_valid_ssa_scan_linear(
         if gen_valid_ssa_expr_has_unreachable(body) {
           saw_unreachable_prefix = true
         }
+        if gen_valid_ssa_expr_has_branch_exit(body) {
+          saw_branchy_control = true
+        }
+        saw_structured_control = true
       }
       Loop(bt, body) => {
         let loop_facts = gen_valid_ssa_scan_loop(
           param_count, bt, body, def_counts, has_local_write, has_exceptional,
         )
         out = gen_valid_merge_ssa_func_facts(out, loop_facts)
+        if gen_valid_ssa_expr_has_branch_exit(body) {
+          saw_branchy_control = true
+        }
+        saw_structured_control = true
       }
       If(_, then_body, else_body) => {
         let (then_facts, then_writes, then_exceptional) = gen_valid_ssa_scan_if_arm(
@@ -929,12 +985,22 @@ fn gen_valid_ssa_scan_linear(
         out = gen_valid_ssa_scan_if_join(
           param_count, then_body, else_body, tail, out,
         )
+        let else_branchy = match else_body {
+          Some(body) => gen_valid_ssa_expr_has_branch_exit(Expr::new(body))
+          None => false
+        }
+        if gen_valid_ssa_expr_has_branch_exit(Expr::new(then_body)) ||
+          else_branchy {
+          saw_branchy_control = true
+        }
+        saw_structured_control = true
       }
       BrTable(_, _) => {
         let tail = gen_valid_ssa_tail_expr(instrs, i + 1)
         if has_local_write && gen_valid_ssa_expr_has_local_read(tail) {
           out = { ..out, has_ssa_br_table_phi_candidate: true }
         }
+        saw_branchy_control = true
       }
       _ => ()
     }
@@ -977,6 +1043,120 @@ fn gen_valid_ssa_expr_has_local_read(expr : Expr) -> Bool {
       }
       _ => ()
     }
+  }
+  false
+}
+
+///|
+fn gen_valid_ssa_expr_has_branch_exit(expr : Expr) -> Bool {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      Br(_) | BrIf(_) | BrTable(_, _) | Return => return true
+      Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
+        if gen_valid_ssa_expr_has_branch_exit(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_ssa_expr_has_branch_exit(Expr::new(then_body)) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_ssa_expr_has_branch_exit(Expr::new(body)) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_ssa_expr_has_immediate_local_set_br(expr : Expr) -> Bool {
+  let Expr(instrs) = expr
+  let mut i = 0
+  while i < instrs.length() {
+    if i + 1 < instrs.length() {
+      match (instrs[i], instrs[i + 1]) {
+        (LocalSet(_), Br(_)) => return true
+        _ => ()
+      }
+    }
+    match instrs[i] {
+      Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
+        if gen_valid_ssa_expr_has_immediate_local_set_br(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_ssa_expr_has_immediate_local_set_br(Expr::new(then_body)) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_ssa_expr_has_immediate_local_set_br(
+              Expr::new(body),
+            ) => return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+    i += 1
+  }
+  false
+}
+
+///|
+fn gen_valid_ssa_prev_is_unreachable_debris(
+  instrs : Array[Instruction],
+  idx : Int,
+) -> Bool {
+  if idx <= 0 {
+    return false
+  }
+  match instrs[idx - 1] {
+    Block(ValTypeBlockType(_), body) | Block(TypeIdxBlockType(_), body) =>
+      gen_valid_ssa_expr_has_unreachable(body)
+    If(ValTypeBlockType(_), then_body, Some(else_body)) =>
+      gen_valid_ssa_expr_has_unreachable(Expr::new(then_body)) ||
+      gen_valid_ssa_expr_has_unreachable(Expr::new(else_body))
+    If(TypeIdxBlockType(_), then_body, Some(else_body)) =>
+      gen_valid_ssa_expr_has_unreachable(Expr::new(then_body)) ||
+      gen_valid_ssa_expr_has_unreachable(Expr::new(else_body))
+    _ => false
+  }
+}
+
+///|
+fn gen_valid_ssa_tail_next_access_reads_local(
+  instrs : Array[Instruction],
+  start : Int,
+  idx : LocalIdx,
+) -> Bool {
+  let mut i = start
+  while i < instrs.length() {
+    match instrs[i] {
+      LocalGet(read_idx) => return read_idx == idx
+      LocalSet(write_idx) | LocalTee(write_idx) if write_idx == idx =>
+        return false
+      Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
+        if gen_valid_expr_local_has_read(body, idx) {
+          return false
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_expr_local_has_read(Expr::new(then_body), idx) {
+          return false
+        }
+        match else_body {
+          Some(body) if gen_valid_expr_local_has_read(Expr::new(body), idx) =>
+            return false
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+    i += 1
   }
   false
 }
@@ -1455,6 +1635,15 @@ fn gen_valid_append_ssa_nomerge_smoke_body_slice(
   let l1 = gen_valid_ssa_body_local(param_count, 1)
   let l2 = gen_valid_ssa_body_local(param_count, 2)
   let p0 = LocalIdx::new(0U)
+  // A0. default body-local read after branchy no-write control.
+  out.push(
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([Instruction::br(LabelIdx::new(0U))]),
+    ),
+  )
+  out.push(Instruction::local_get(l0))
+  out.push(Instruction::drop())
   // A. straight-line multi-def same local
   out.push(Instruction::i32_const(I32(1)))
   out.push(Instruction::local_set(l0))
@@ -1562,7 +1751,16 @@ fn gen_valid_append_ssa_nomerge_smoke_body_slice(
     out.push(Instruction::local_get(l0))
     out.push(Instruction::drop())
   }
-  // I. typed result-if writing a param and reading it after the merge.
+  // I. canonical body-local write followed by its next read after structure.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::local_get(p0))
+    out.push(Instruction::if_(BlockType::void_(), [Instruction::nop()], None))
+    out.push(Instruction::i32_const(I32(12)))
+    out.push(Instruction::local_set(l0))
+    out.push(Instruction::local_get(l0))
+    out.push(Instruction::drop())
+  }
+  // J. typed result-if writing a param and reading it after the merge.
   if param_count > 0 && accepts[0] == ValType::i32() {
     out.push(Instruction::local_get(p0))
     out.push(
@@ -1584,7 +1782,7 @@ fn gen_valid_append_ssa_nomerge_smoke_body_slice(
     out.push(Instruction::local_get(p0))
     out.push(Instruction::drop())
   }
-  // J. branch-local writes that are intentionally not read later.
+  // K. branch-local writes that are intentionally not read later.
   if param_count > 0 && accepts[0] == ValType::i32() {
     out.push(Instruction::local_get(p0))
     out.push(
@@ -1619,6 +1817,18 @@ fn gen_valid_append_ssa_nomerge_coverage_body_slice(
   let l0 = gen_valid_ssa_body_local(param_count, 0)
   let l1 = gen_valid_ssa_body_local(param_count, 1)
   let p0 = LocalIdx::new(0U)
+  // A0. default body-local read after branchy no-write control.
+  out.push(
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::i32_const(I32(0)),
+        Instruction::br_table([LabelIdx::new(0U)], LabelIdx::new(0U)),
+      ]),
+    ),
+  )
+  out.push(Instruction::local_get(l0))
+  out.push(Instruction::drop())
   // A. straight-line multi-def same local
   out.push(Instruction::i32_const(I32(1)))
   out.push(Instruction::local_set(l0))
@@ -2042,7 +2252,24 @@ fn gen_valid_append_ssa_nomerge_coverage_body_slice(
     out.push(Instruction::local_get(l2))
     out.push(Instruction::drop())
   }
-  // X. structured early-return local traffic with a fallthrough read.
+  // X. dropped unreachable debris before a hard unreachable tail.
+  out.push(
+    Instruction::block(
+      BlockType::val_type(ValType::i32()),
+      Expr::new([Instruction::unreachable_(), Instruction::unreachable_()]),
+    ),
+  )
+  out.push(Instruction::unreachable_())
+  // Y. canonical body-local write followed by its next read after structure.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::local_get(p0))
+    out.push(Instruction::if_(BlockType::void_(), [Instruction::nop()], None))
+    out.push(Instruction::i32_const(I32(12)))
+    out.push(Instruction::local_set(l0))
+    out.push(Instruction::local_get(l0))
+    out.push(Instruction::drop())
+  }
+  // Z. structured early-return local traffic with a fallthrough read.
   if param_count > 0 && accepts[0] == ValType::i32() {
     out.push(Instruction::local_get(p0))
     out.push(

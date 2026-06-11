@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-11] fuzzing/gen-valid | Widen ssa-nomerge raw structured SSA facts
+
+- Added four source-backed SSA GenValid labels/templates in [`../../src/validate/gen_valid_ssa.mbt`](../../src/validate/gen_valid_ssa.mbt): `ssa-default-local-read-after-branchy-control`, `ssa-dropped-unreachable-debris-before-hard-unreachable`, `ssa-canonical-body-local-next-read`, and `ssa-immediate-block-exit-canonical-set-br`.
+- Updated feature plumbing and coverage tests in [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), [`../../src/validate/gen_valid_tests.mbt`](../../src/validate/gen_valid_tests.mbt), [`../../src/validate/gen_valid_ssa_tests.mbt`](../../src/validate/gen_valid_ssa_tests.mbt), and [`../../src/fuzz/main_wbtest.mbt`](../../src/fuzz/main_wbtest.mbt). Coverage/stress include all four new facts; smoke includes the three quick structured allocation signals and excludes dropped-unreachable debris; parity remains the conservative A–E set.
+- Evidence: tests were red before the new fields existed; after implementation, focused GenValid SSA tests passed `34/34`, `moon test src/validate` passed `1599/1599`, `moon test src/fuzz` passed `627/627`, `moon fmt` passed, and native `src/cmd` build passed with pre-existing warnings. `ssa-nomerge-parity` `.tmp/pass-fuzz-ssa-nomerge-parity-genvalid-new-families-1000-final` compared `1000/1000` with `1000` compare-normalized matches and `0` mismatches; coverage/smoke required-feature lanes for the new labels compared `20/20` each with no validation/generator/command failures and expected dirty coverage-lane mismatches.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`../../agent-todo.md`](../../agent-todo.md). This is generator coverage widening only, not `ssa-nomerge` artifact parity or O4z closeout.
+
 ## [2026-06-11] passes/ssa-nomerge | Admit mid-threshold structured functions
 
 - Raised the guarded direct raw structured `ssa-nomerge` instruction budgets in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) to `5376` for both branch-bearing and no-branch structured functions, enough for four additional sampled debug-artifact functions (`Func 2114`, `Func 3139`, `Func 95`, and no-branch `Func 3554`) while preserving the existing branchy local-count guard.
