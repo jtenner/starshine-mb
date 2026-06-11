@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-11] passes/ssa-nomerge | No-copy br_table and 8192 structured budget
+
+- Tightened raw structured `ssa-nomerge` in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): no-copy `br_table` exits now stay on the raw structured path when every table target is a non-loop label and no observable alias merge copy is required, avoiding the previous HOT fallback that dropped the reduced fixture's dead local write instead of matching Binaryen's fresh-temp shape.
+- Raised the guarded branch-bearing and no-branch structured instruction budgets to `8192`, admitting sampled debug-artifact `Func 502` (`7132` instructions / `827` locals) and `Func 5418` (`7925` / `894`) without widening the `1024` branchy local-count guard.
+- Updated [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) test-first: the no-copy `br_table` fixture failed under the old HOT fallback, and the high-threshold boundary fixtures failed under the old `5376` budgets; focused green runs passed after implementation.
+- Evidence: `ssa_nomerge_test.mbt` passed `120/120`; `moon test src/passes` passed `2139/2139`; `moon fmt`, `moon info` (3 pre-existing GenValid warnings), full `moon test` (`5398/5398`), and native `src/cmd` build passed with pre-existing pass-manager warnings. Direct compare `.tmp/pass-fuzz-ssa-nomerge-brtable-8192-10000` compared `9977/10000` with `9977` normalized matches, `0` mismatches, and `23` Binaryen/tool command failures. GenValid parity `.tmp/pass-fuzz-ssa-nomerge-parity-brtable-8192-genvalid-normalized-1000` compared `1000/1000` with `1000` compare-normalized matches and `0` mismatches.
+- Full debug-artifact trace `.tmp/ssa-nomerge-structured-8192-brtable-trace` validates and reduces `large-structured-local-writes` from `11` to `9` with `0` `skip-invalid-lower`. Direct artifact replay `.tmp/self-ssa-nomerge-debug-wasi-brtable-8192` still differs at `defined=0 abs=27`; pass-local Starshine was `15.972 ms` vs Binaryen `343.315 ms`, and artifact size remains Starshine-winning (`3150187` vs `3155990`). This is not exact artifact or O4z closeout.
+
 ## [2026-06-11] passes/ssa-nomerge | Narrow local tees and no-copy br_if
 
 - Tightened raw structured `ssa-nomerge` in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): body-local `local.tee` now reuses the canonical slot when a branch continuation or result branch reads before overwrite, and no-copy `br_if` terminators are preserved instead of lowered to `if { br }` with scratch locals when no alias merge copy is required.

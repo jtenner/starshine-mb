@@ -7762,6 +7762,54 @@ fn run_hot_pipeline_raw_branch_if_block_type(
 }
 
 ///|
+fn run_hot_pipeline_raw_br_table_can_preserve_without_copies(
+  labels : Array[@lib.LabelIdx],
+  default_label : @lib.LabelIdx,
+  label_stack : Array[RawSsaLabelTarget],
+  source_aliases : Array[@lib.LocalIdx],
+  canonical_aliases : Array[@lib.LocalIdx],
+) -> Bool {
+  for label_idx in labels {
+    match run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {
+      Some(label_target) =>
+        if label_target.is_loop ||
+          run_hot_pipeline_raw_has_needed_alias_copy(
+            source_aliases,
+            canonical_aliases,
+            label_target.needed_alias_copies,
+          ) {
+          return false
+        }
+      None => return false
+    }
+  }
+  match run_hot_pipeline_raw_resolve_label_target(label_stack, default_label) {
+    Some(label_target) =>
+      !label_target.is_loop &&
+      !run_hot_pipeline_raw_has_needed_alias_copy(
+        source_aliases,
+        canonical_aliases,
+        label_target.needed_alias_copies,
+      )
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_mark_br_table_exit_depths(
+  exit_depths : @bitset.BitSet,
+  labels : Array[@lib.LabelIdx],
+  default_label : @lib.LabelIdx,
+) -> Unit {
+  for label_idx in labels {
+    let @lib.LabelIdx(raw) = label_idx
+    exit_depths[raw.reinterpret_as_int()] = true
+  }
+  let @lib.LabelIdx(default_raw) = default_label
+  exit_depths[default_raw.reinterpret_as_int()] = true
+}
+
+///|
 fn run_hot_pipeline_raw_rewrite_br_if(
   module_ctx : @ir.HotModuleContext,
   label_idx : @lib.LabelIdx,
@@ -8236,8 +8284,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           }
         }
       }
-      @lib.Loop(_, _) | @lib.BrTable(_, _) | @lib.TryTable(_, _, _) =>
-        return None
+      @lib.Loop(_, _) | @lib.TryTable(_, _, _) => return None
       @lib.Br(label_idx) => {
         let label_target = match
           run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {
@@ -8287,6 +8334,20 @@ fn run_hot_pipeline_raw_rewrite_instrs(
         if was_reachable {
           let @lib.LabelIdx(raw) = label_idx
           exit_depths[raw.reinterpret_as_int()] = true
+        }
+      }
+      @lib.BrTable(labels, default_label) => {
+        if !run_hot_pipeline_raw_br_table_can_preserve_without_copies(
+            labels, default_label, label_stack, aliases, canonical_aliases,
+          ) {
+          return None
+        }
+        rewritten.push(instr)
+        if was_reachable {
+          run_hot_pipeline_raw_mark_br_table_exit_depths(
+            exit_depths, labels, default_label,
+          )
+          fallthrough = false
         }
       }
       @lib.LocalGet(@lib.LocalIdx(raw)) =>
@@ -8562,8 +8623,8 @@ fn run_hot_pipeline_raw_ssa_nomerge(
   descriptor : @ir.HotPassDescriptor,
   options : HotPipelineOptions,
 ) -> HotPipelineFuncResult? {
-  let structured_branch_raw_instr_limit = 5376
-  let structured_no_branch_raw_instr_limit = 5376
+  let structured_branch_raw_instr_limit = 8192
+  let structured_no_branch_raw_instr_limit = 8192
   let structured_branch_raw_local_limit = 1024
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   if descriptor.name == "dead-code-elimination" &&

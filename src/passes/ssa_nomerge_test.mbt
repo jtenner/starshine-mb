@@ -3085,18 +3085,18 @@ test "ssa-nomerge rewrites very large structured local-write functions without b
 }
 
 ///|
-test "ssa-nomerge keeps audited mid-threshold structured local-write functions without branches on raw path" {
+test "ssa-nomerge keeps audited high-threshold structured local-write functions without branches on raw path" {
   let trace : Array[String] = []
   match
     pass_test_run_pipeline(
-      ssa_test_large_structured_local_write_fixture(1343),
+      ssa_test_large_structured_local_write_fixture(2047),
       ["ssa-nomerge"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected audited mid-threshold no-branch ssa-nomerge success, got \{err}",
+        "expected audited high-threshold no-branch ssa-nomerge success, got \{err}",
       )
   }
   assert_false(
@@ -3124,7 +3124,7 @@ test "ssa-nomerge keeps larger no-branch structured functions above raw threshol
   let trace : Array[String] = []
   match
     pass_test_run_pipeline(
-      ssa_test_large_structured_local_write_fixture(1344),
+      ssa_test_large_structured_local_write_fixture(2048),
       ["ssa-nomerge"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
@@ -3198,18 +3198,18 @@ test "ssa-nomerge keeps structured branch functions below raw instruction thresh
 }
 
 ///|
-test "ssa-nomerge keeps audited mid-threshold structured branch functions on raw path" {
+test "ssa-nomerge keeps audited high-threshold structured branch functions on raw path" {
   let trace : Array[String] = []
   match
     pass_test_run_pipeline(
-      ssa_test_large_structured_branch_if_prefix_fixture(1342),
+      ssa_test_large_structured_branch_if_prefix_fixture(2046),
       ["ssa-nomerge"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected audited near-threshold structured branch ssa-nomerge success, got \{err}",
+        "expected audited high-threshold structured branch ssa-nomerge success, got \{err}",
       )
   }
   assert_false(
@@ -3237,7 +3237,7 @@ test "ssa-nomerge classifies structured branch functions above raw instruction t
   let trace : Array[String] = []
   match
     pass_test_run_pipeline(
-      ssa_test_large_structured_branch_if_prefix_fixture(1343),
+      ssa_test_large_structured_branch_if_prefix_fixture(2047),
       ["ssa-nomerge"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
@@ -3934,6 +3934,64 @@ test "ssa-nomerge preserves no-copy block-target br_if" {
       ]),
     ),
     @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  ])
+}
+
+///|
+test "ssa-nomerge preserves no-copy block-target br_table on raw path" {
+  let trace : Array[String] = []
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     (local i32)
+    #|     block
+    #|       i32.const 7
+    #|       local.set 1
+    #|       local.get 0
+    #|       br_table 0 0
+    #|     end
+    #|     i32.const 1))
+    #|
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected no-copy br_table raw ssa-nomerge success, got \{err}")
+  }
+
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::br_table(
+          [@lib.LabelIdx::new(0U)],
+          @lib.LabelIdx::new(0U),
+        ),
+      ]),
+    ),
+    @lib.Instruction::i32_const(@lib.I32(1)),
   ])
 }
 
