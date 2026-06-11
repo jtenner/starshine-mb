@@ -136,6 +136,61 @@ fn ssa_test_instrs_have_ref_null_branch_copy_lowering(
 }
 
 ///|
+fn ssa_test_instrs_have_ref_non_null_branch_copy_lowering(
+  instrs : Array[@lib.Instruction],
+  canonical_local : UInt,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.If(_, then_body, Some(else_body)) => {
+        let else_copies_canonical = ssa_test_local_write_indices(else_body).any(fn(
+            idx,
+          ) {
+            idx == canonical_local
+          },
+        )
+        let else_restores_non_null = else_body.any(fn(else_instr) {
+          else_instr == @lib.Instruction::ref_as_non_null()
+        })
+        let else_branches = else_body.any(fn(else_instr) {
+          match else_instr {
+            @lib.Br(_) => true
+            _ => false
+          }
+        })
+        if else_copies_canonical && else_restores_non_null && else_branches {
+          return true
+        }
+        if ssa_test_instrs_have_ref_non_null_branch_copy_lowering(
+            then_body, canonical_local,
+          ) ||
+          ssa_test_instrs_have_ref_non_null_branch_copy_lowering(
+            else_body, canonical_local,
+          ) {
+          return true
+        }
+      }
+      @lib.If(_, then_body, None) =>
+        if ssa_test_instrs_have_ref_non_null_branch_copy_lowering(
+            then_body, canonical_local,
+          ) {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if ssa_test_instrs_have_ref_non_null_branch_copy_lowering(
+            body, canonical_local,
+          ) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn ssa_test_run_hot_path_only(text : String) -> Result[@lib.Module, String] {
   let mod_ = pass_test_module_from_wat(text)
   let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
@@ -4203,6 +4258,252 @@ test "ssa-nomerge preserves no-copy br_on_non_null on raw path" {
   )
   assert_true(
     ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge preserves no-copy br_on_cast on raw path" {
+  let trace : Array[String] = []
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
+  let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
+  let i31_ref_type = @lib.ValType::ref_type(@lib.RefType::new(false, i31_heap))
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([any_ref_type], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(i31_ref_type),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32::new(7)),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::br_on_cast(
+                  @lib.LabelIdx::new(0U),
+                  true,
+                  any_heap,
+                  false,
+                  i31_heap,
+                ),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(@lib.I32::new(42)),
+                @lib.Instruction::ref_i31(),
+              ]),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(@lib.I32::new(1)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected br_on_cast raw ssa-nomerge success, got \{err}")
+  }
+
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("hot-lift-error") }),
+    msg=trace.join("\n"),
+  )
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge preserves no-copy br_on_cast_fail on raw path" {
+  let trace : Array[String] = []
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
+  let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([any_ref_type], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(any_ref_type),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(@lib.I32::new(7)),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::br_on_cast_fail(
+                  @lib.LabelIdx::new(0U),
+                  true,
+                  any_heap,
+                  false,
+                  i31_heap,
+                ),
+                @lib.Instruction::drop(),
+                @lib.Instruction::ref_null(any_heap),
+              ]),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::i32_const(@lib.I32::new(1)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected br_on_cast_fail raw ssa-nomerge success, got \{err}")
+  }
+
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("hot-lift-error") }),
+    msg=trace.join("\n"),
+  )
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge preserves br_on_non_null taken-edge copies after divergent aliases" {
+  let trace : Array[String] = []
+  let ref_type = @lib.ValType::ref_null(
+    @lib.HeapType::new(@lib.TypeIdx::new(0U)),
+  )
+  let non_null_ref_type = @lib.ValType::ref_type(
+    @lib.RefType::new(false, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([ref_type, @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(1U)]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([@lib.FuncIdx::new(0U)]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(non_null_ref_type),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::if_(
+                  @lib.BlockType::void_(),
+                  [
+                    @lib.Instruction::i32_const(@lib.I32::new(7)),
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                  ],
+                  Some([
+                    @lib.Instruction::i32_const(@lib.I32::new(8)),
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                  ]),
+                ),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::ref_func(@lib.FuncIdx::new(0U)),
+                @lib.Instruction::i32_const(@lib.I32::new(9)),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+              ]),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected br_on_non_null copy raw ssa-nomerge success, got \{err}")
+  }
+
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("hot-lift-error") }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
+  let (_, instrs) = try! ssa_test_defined_func(optimized, 1)
+  assert_true(
+    ssa_test_instrs_have_ref_non_null_branch_copy_lowering(instrs, 2U),
     msg=instrs.to_string(),
   )
 }

@@ -8100,6 +8100,69 @@ fn run_hot_pipeline_raw_rewrite_br_on_null(
 }
 
 ///|
+fn run_hot_pipeline_raw_rewrite_br_on_non_null(
+  rewritten : Array[@lib.Instruction],
+  label_idx : @lib.LabelIdx,
+  label_target : RawSsaLabelTarget,
+  source_aliases : Array[@lib.LocalIdx],
+  canonical_aliases : Array[@lib.LocalIdx],
+  initialized_locals : @bitset.BitSet,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> Bool {
+  if !run_hot_pipeline_raw_has_needed_alias_copy(
+      source_aliases,
+      canonical_aliases,
+      label_target.needed_alias_copies,
+    ) {
+    rewritten.push(@lib.Instruction::br_on_non_null(label_idx))
+    return true
+  }
+  let condition_local = match rewritten.last() {
+    Some(@lib.LocalGet(local_idx)) => local_idx
+    _ => return false
+  }
+  ignore(rewritten.pop())
+  let @lib.LocalIdx(raw_condition_local) = condition_local
+  let condition_local_id = raw_condition_local.reinterpret_as_int()
+  let nullable_ref_type = run_hot_pipeline_raw_local_type(
+    params, locals, condition_local_id,
+  )
+  if run_hot_pipeline_raw_non_null_ref_type(nullable_ref_type) is None {
+    return false
+  }
+  let scratch_ref = run_hot_pipeline_raw_fresh_typed_local(
+    params, locals, nullable_ref_type, extra_local_types,
+  )
+  rewritten.push(@lib.Instruction::local_get(condition_local))
+  rewritten.push(@lib.Instruction::local_set(scratch_ref))
+  rewritten.push(@lib.Instruction::local_get(scratch_ref))
+  rewritten.push(@lib.Instruction::ref_is_null())
+  let else_body = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
+    [],
+    source_aliases,
+    canonical_aliases,
+    canonical_aliases,
+    initialized_locals,
+    label_target.needed_alias_copies,
+    [],
+    params,
+    locals,
+    extra_local_types,
+  )
+  else_body.push(@lib.Instruction::local_get(scratch_ref))
+  else_body.push(@lib.Instruction::ref_as_non_null())
+  else_body.push(
+    @lib.Instruction::br(run_hot_pipeline_raw_label_inc(label_idx)),
+  )
+  rewritten.push(
+    @lib.Instruction::if_(@lib.BlockType::void_(), [], Some(else_body)),
+  )
+  true
+}
+
+///|
 fn run_hot_pipeline_raw_rewrite_instrs(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
@@ -8773,6 +8836,27 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           Some(label_target) => label_target
           None => return None
         }
+        if label_target.is_loop {
+          return None
+        }
+        if !run_hot_pipeline_raw_rewrite_br_on_non_null(
+            rewritten, label_idx, label_target, aliases, canonical_aliases, initialized,
+            params, locals, extra_local_types,
+          ) {
+          return None
+        }
+        if was_reachable {
+          let @lib.LabelIdx(raw) = label_idx
+          exit_depths[raw.reinterpret_as_int()] = true
+        }
+      }
+      @lib.BrOnCast(label_idx, _, _, _)
+      | @lib.BrOnCastFail(label_idx, _, _, _) => {
+        let label_target = match
+          run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {
+          Some(label_target) => label_target
+          None => return None
+        }
         if label_target.is_loop ||
           run_hot_pipeline_raw_has_needed_alias_copy(
             aliases,
@@ -8781,13 +8865,12 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           ) {
           return None
         }
-        rewritten.push(@lib.Instruction::br_on_non_null(label_idx))
+        rewritten.push(instr)
         if was_reachable {
           let @lib.LabelIdx(raw) = label_idx
           exit_depths[raw.reinterpret_as_int()] = true
         }
       }
-      @lib.BrOnCast(_, _, _, _) | @lib.BrOnCastFail(_, _, _, _) => return None
       @lib.BrTable(labels, default_label) => {
         let needed_alias_copies = match
           run_hot_pipeline_raw_br_table_alias_copies(
