@@ -66,6 +66,50 @@ test "ssa scanner detects loop backedge phi candidate" {
 }
 
 ///|
+test "ssa scanner detects typed loop-param fail-closed shape" {
+  let mod_ = gen_valid_ssa_test_module([ValType::i32()], [ValType::i32()], [
+    Instruction::i32_const(I32(0)),
+    Instruction::local_set(LocalIdx::new(1U)),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::loop_(
+      BlockType::type_idx(TypeIdx::new(0U)),
+      Expr::new([
+        Instruction::drop(),
+        Instruction::i32_const(I32(1)),
+        Instruction::local_set(LocalIdx::new(1U)),
+        Instruction::local_get(LocalIdx::new(1U)),
+        Instruction::br(LabelIdx::new(0U)),
+      ]),
+    ),
+    Instruction::local_get(LocalIdx::new(1U)),
+    Instruction::drop(),
+  ])
+  let facts = gen_valid_feature_facts(mod_, CoverageForced)
+  assert_true(facts.has_ssa_typed_loop_param_fail_closed_shape)
+  assert_true(facts.has_ssa_loop_backedge_phi_candidate)
+}
+
+///|
+test "ssa scanner detects exceptional fail-closed shape" {
+  let mod_ = gen_valid_ssa_test_module([], [ValType::i32()], [
+    Instruction::try_table(
+      BlockType::void_(),
+      [Catch::all(LabelIdx::new(0U))],
+      Expr::new([
+        Instruction::i32_const(I32(7)),
+        Instruction::local_set(LocalIdx::new(0U)),
+        Instruction::ref_null(HeapType::abs(AbsHeapType::exn())),
+        Instruction::throw_ref(),
+      ]),
+    ),
+    Instruction::local_get(LocalIdx::new(0U)),
+    Instruction::drop(),
+  ])
+  let facts = gen_valid_feature_facts(mod_, CoverageForced)
+  assert_true(facts.has_ssa_exceptional_fail_closed_shape)
+}
+
+///|
 test "ssa scanner detects dropped increment guarded shape" {
   let mod_ = gen_valid_ssa_test_module([], [ValType::i32()], [
     Instruction::i32_const(I32(10)),

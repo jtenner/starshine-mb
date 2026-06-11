@@ -2410,6 +2410,54 @@ test "emit_gen_valid_batch_artifacts_until_features satisfies ssa-nomerge SSA fl
 }
 
 ///|
+test "emit_gen_valid_batch_artifacts_until_features satisfies dense ssa-nomerge coverage floors" {
+  let labels = [
+    "ssa-loop-backedge-phi-candidate", "ssa-br-table-phi-candidate", "ssa-parallel-copy-candidate",
+    "ssa-parallel-copy-cycle-candidate", "ssa-unreachable-local-carrier", "ssa-dropped-increment-guard-shape",
+    "ssa-dropped-increment-reversed-boundary", "ssa-exceptional-fail-closed-shape",
+    "ssa-typed-loop-param-fail-closed-shape", "ssa-nested-cfg-fail-closed-shape",
+    "ssa-nested-result-if-supported-shape", "ssa-nested-result-if-condition-write",
+    "ssa-nested-result-if-condition-value-block", "ssa-nested-result-if-arm-value-block",
+    "ssa-nested-result-if-mixed-arm-value-block", "ssa-nested-result-if-scalar-result",
+  ]
+  let floors : Array[ValidateValidFeatureFloor] = []
+  for label in labels {
+    match @validate.validate_valid_feature_floor_by_label(label, 1) {
+      Ok(v) => floors.push(v)
+      Err(e) => fail(e)
+    }
+  }
+  let selected = match
+    emit_gen_valid_batch_artifacts_until_features(
+      1,
+      0x5eedUL,
+      match GenValidConfig::profile("ssa-nomerge-coverage") {
+        Ok(v) => v
+        Err(e) => fail(e)
+      },
+      floors,
+      [],
+      32,
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected dense ssa-nomerge feature-guided batch success, got \{e}")
+  }
+  @debug.assert_eq(selected.artifacts.length(), 1)
+  for label in labels {
+    let actual = match
+      @validate.validate_valid_feature_actual_count_by_label(
+        selected.feature_stats,
+        label,
+      ) {
+      Ok(v) => v
+      Err(e) => fail(e)
+    }
+    assert_true(actual >= 1, msg="expected dense SSA floor \{label}")
+  }
+}
+
+///|
 test "emit_gen_valid_batch_artifacts_until_features continues after floors are satisfied" {
   let v128_floor = match
     @validate.validate_valid_feature_floor_by_label("v128", 1) {

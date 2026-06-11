@@ -858,7 +858,7 @@ fn gen_valid_ssa_scan_linear(
             _ => ()
           }
         }
-      Block(bt, body) => {
+      Block(_, body) => {
         let tail = gen_valid_ssa_tail_expr(instrs, i + 1)
         let body_has_write = gen_valid_ssa_func_has_local_write(body)
         let tail_has_read = gen_valid_ssa_expr_has_local_read(tail)
@@ -868,9 +868,23 @@ fn gen_valid_ssa_scan_linear(
         if body_has_write && tail_has_read && gen_valid_ssa_expr_has_br_if(body) {
           out = { ..out, has_ssa_block_br_if_merge_copy: true }
         }
-        out = gen_valid_ssa_scan_expr(
-            param_count, body, out, def_counts, has_local_write, has_exceptional,
-          ).0
+        let (body_facts, body_writes, body_exceptional) = gen_valid_ssa_scan_expr(
+          param_count, body, out, def_counts, has_local_write, has_exceptional,
+        )
+        out = body_facts
+        has_local_write = has_local_write || body_writes
+        has_exceptional = has_exceptional || body_exceptional
+        if gen_valid_ssa_expr_has_unreachable(body) {
+          saw_unreachable_prefix = true
+        }
+      }
+      TryTable(_, _, body) => {
+        let (body_facts, body_writes, _) = gen_valid_ssa_scan_expr(
+          param_count, body, out, def_counts, has_local_write, true,
+        )
+        out = body_facts
+        has_local_write = has_local_write || body_writes
+        has_exceptional = true
         if gen_valid_ssa_expr_has_unreachable(body) {
           saw_unreachable_prefix = true
         }
@@ -881,7 +895,7 @@ fn gen_valid_ssa_scan_linear(
         )
         out = gen_valid_merge_ssa_func_facts(out, loop_facts)
       }
-      If(bt, then_body, else_body) => {
+      If(_, then_body, else_body) => {
         let (then_facts, then_writes, then_exceptional) = gen_valid_ssa_scan_if_arm(
           param_count, then_body, def_counts, has_local_write, has_exceptional,
         )
@@ -1674,7 +1688,42 @@ fn gen_valid_append_ssa_nomerge_coverage_body_slice(
   )
   out.push(Instruction::local_get(l0))
   out.push(Instruction::drop())
-  // G. br-to-outer-block copy candidate
+  // G. typed loop-param/backedge fail-closed candidate.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::local_set(l0))
+    out.push(Instruction::local_get(p0))
+    out.push(
+      Instruction::loop_(
+        BlockType::type_idx(TypeIdx::new(0U)),
+        Expr::new([
+          Instruction::drop(),
+          Instruction::i32_const(I32(1)),
+          Instruction::local_set(l0),
+          Instruction::local_get(l0),
+          Instruction::br(LabelIdx::new(0U)),
+        ]),
+      ),
+    )
+    out.push(Instruction::local_get(l0))
+    out.push(Instruction::drop())
+  }
+  // H. exceptional-flow fail-closed candidate.
+  out.push(
+    Instruction::try_table(
+      BlockType::void_(),
+      [Catch::all(LabelIdx::new(0U))],
+      Expr::new([
+        Instruction::i32_const(I32(42)),
+        Instruction::local_set(l0),
+        Instruction::ref_null(HeapType::abs(AbsHeapType::exn())),
+        Instruction::throw_ref(),
+      ]),
+    ),
+  )
+  out.push(Instruction::local_get(l0))
+  out.push(Instruction::drop())
+  // I. br-to-outer-block copy candidate
   out.push(Instruction::i32_const(I32(0)))
   out.push(Instruction::local_set(l0))
   out.push(

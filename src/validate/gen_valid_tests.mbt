@@ -7297,6 +7297,10 @@ test "ssa-nomerge coverage generated modules record dense SSA feature facts" {
     msg="expected parallel-copy candidate",
   )
   assert_true(
+    facts.has_ssa_parallel_copy_cycle_candidate,
+    msg="expected parallel-copy cycle candidate",
+  )
+  assert_true(
     facts.has_ssa_default_local_merge,
     msg="expected default local merge",
   )
@@ -7311,6 +7315,14 @@ test "ssa-nomerge coverage generated modules record dense SSA feature facts" {
   assert_true(
     facts.has_ssa_dropped_increment_reversed_boundary,
     msg="expected reversed dropped increment boundary",
+  )
+  assert_true(
+    facts.has_ssa_exceptional_fail_closed_shape,
+    msg="expected exceptional-flow fail-closed shape",
+  )
+  assert_true(
+    facts.has_ssa_typed_loop_param_fail_closed_shape,
+    msg="expected typed loop-param fail-closed shape",
   )
   assert_true(
     facts.has_ssa_nested_cfg_fail_closed_shape,
@@ -7396,12 +7408,24 @@ test "ssa-nomerge smoke generated modules cover structured branch SSA shapes" {
     msg="smoke profile keeps parallel-copy joins out of quick compare smoke",
   )
   assert_false(
+    facts.has_ssa_parallel_copy_cycle_candidate,
+    msg="smoke profile keeps parallel-copy cycle joins out of quick compare smoke",
+  )
+  assert_false(
     facts.has_ssa_unreachable_local_carrier,
     msg="smoke profile keeps unreachable-carrier stress out of quick smoke",
   )
   assert_false(
     facts.has_ssa_dropped_increment_guard_shape,
     msg="smoke profile keeps dropped-increment debris out of quick smoke",
+  )
+  assert_false(
+    facts.has_ssa_exceptional_fail_closed_shape,
+    msg="smoke profile keeps exceptional fail-closed shapes out of quick smoke",
+  )
+  assert_false(
+    facts.has_ssa_typed_loop_param_fail_closed_shape,
+    msg="smoke profile keeps typed loop-param fail-closed shapes out of quick smoke",
   )
   assert_false(
     facts.has_ssa_nested_cfg_fail_closed_shape,
@@ -7470,6 +7494,18 @@ test "ssa-nomerge parity generated modules omit fail-closed coverage slices" {
     msg="parity profile defers parallel-copy until compare lane is clean",
   )
   assert_false(
+    facts.has_ssa_parallel_copy_cycle_candidate,
+    msg="parity profile defers parallel-copy cycles until compare lane is clean",
+  )
+  assert_false(
+    facts.has_ssa_exceptional_fail_closed_shape,
+    msg="parity profile must not emit exceptional fail-closed shape",
+  )
+  assert_false(
+    facts.has_ssa_typed_loop_param_fail_closed_shape,
+    msg="parity profile must not emit typed loop-param fail-closed shape",
+  )
+  assert_false(
     facts.has_ssa_nested_cfg_fail_closed_shape,
     msg="parity profile must not emit nested CFG fail-closed shape",
   )
@@ -7482,9 +7518,42 @@ test "ssa-nomerge parity generated modules omit fail-closed coverage slices" {
     msg="parity profile must not emit unreachable local carrier",
   )
   assert_false(
+    facts.has_ssa_dropped_increment_reversed_boundary,
+    msg="parity profile must not emit reversed dropped-increment boundary",
+  )
+  assert_false(
     facts.has_ssa_nested_result_if_supported_shape,
     msg="parity profile must not emit nested result-if coverage slices",
   )
+}
+
+///|
+test "ssa-nomerge stress generated modules record dense fail-closed SSA facts" {
+  let config = GenValidConfig::for_profile(SsaNomergeStressProfile)
+  let generated = match gen_valid_module_result_from_seed(0x5eedUL, config) {
+    Ok(v) => v
+    Err(failure) =>
+      fail(
+        "ssa-nomerge-stress generation failed: \{failure.validation_error_message}",
+      )
+  }
+  let facts = generated.facts
+  assert_true(facts.has_ssa_loop_backedge_phi_candidate)
+  assert_true(facts.has_ssa_br_table_phi_candidate)
+  assert_true(facts.has_ssa_parallel_copy_candidate)
+  assert_true(facts.has_ssa_parallel_copy_cycle_candidate)
+  assert_true(facts.has_ssa_unreachable_local_carrier)
+  assert_true(facts.has_ssa_dropped_increment_guard_shape)
+  assert_true(facts.has_ssa_dropped_increment_reversed_boundary)
+  assert_true(facts.has_ssa_exceptional_fail_closed_shape)
+  assert_true(facts.has_ssa_typed_loop_param_fail_closed_shape)
+  assert_true(facts.has_ssa_nested_cfg_fail_closed_shape)
+  assert_true(facts.has_ssa_nested_result_if_supported_shape)
+  assert_true(facts.has_ssa_nested_result_if_condition_write)
+  assert_true(facts.has_ssa_nested_result_if_condition_value_block)
+  assert_true(facts.has_ssa_nested_result_if_arm_value_block)
+  assert_true(facts.has_ssa_nested_result_if_mixed_arm_value_block)
+  assert_true(facts.has_ssa_nested_result_if_scalar_result)
 }
 
 ///|

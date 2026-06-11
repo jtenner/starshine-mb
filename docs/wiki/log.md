@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-11] fuzzing/gen-valid | Deepen ssa-nomerge SSA coverage floors
+
+- Expanded dense `ssa-nomerge-coverage` / `ssa-nomerge-stress` GenValid templates in [`../../src/validate/gen_valid_ssa.mbt`](../../src/validate/gen_valid_ssa.mbt) with positive typed loop-param/backedge and `try_table`/`throw_ref` exceptional fail-closed specimens; the scanner now recursively accounts for `try_table` body local writes when reporting `ssa-exceptional-fail-closed-shape`.
+- Strengthened profile/floor tests in [`../../src/validate/gen_valid_tests.mbt`](../../src/validate/gen_valid_tests.mbt), [`../../src/validate/gen_valid_ssa_tests.mbt`](../../src/validate/gen_valid_ssa_tests.mbt), and [`../../src/fuzz/main_wbtest.mbt`](../../src/fuzz/main_wbtest.mbt) so dense coverage can require loop, br_table, parallel-copy/cycle, unreachable-carrier, dropped-increment, typed-loop, exceptional, nested-CFG, and nested result-if facts while smoke/parity exclude dense/fail-closed shapes.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) and [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) to keep `ssa-nomerge-parity` green A–E only, keep smoke as quick structured-branch signal, and classify the new typed/exceptions templates as coverage/stress-only generator coverage rather than pass closeout.
+- Evidence: focused GenValid SSA/profile tests passed; `moon test src/validate`, `moon test src/fuzz`, `moon test src/passes`, full `moon test`, `moon info`, `moon fmt`, and native `src/cmd` build completed; parity GenValid 1000-case compare stayed green (`1000` compare-normalized matches, `0` mismatches), while smoke and dense coverage/stress fail-closed-required lanes remained intentionally dirty with no validation/generator/command failures.
+
 ## [2026-06-11] passes/ssa-nomerge | Narrow block-exit merge copies
 
 - Tightened the raw structured `ssa-nomerge` branch-copy path in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): when a `local.set` is immediately followed by an unconditional `br` to a non-loop block whose continuation needs that local, Starshine writes the canonical merge slot directly instead of allocating a fresh temp and copying it before the branch.
