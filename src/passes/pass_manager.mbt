@@ -8174,6 +8174,44 @@ fn run_hot_pipeline_raw_cast_diff_type(
 }
 
 ///|
+fn run_hot_pipeline_raw_defaultable_scratch_type(
+  val_type : @lib.ValType,
+) -> @lib.ValType? {
+  if @lib.has_default(val_type) {
+    return Some(val_type)
+  }
+  match val_type {
+    @lib.RefTypeValType(ref_type) =>
+      Some(
+        @lib.ValType::ref_type(
+          @lib.RefType::new(
+            true,
+            ref_type.get_heap_type(),
+            exact=ref_type.is_exact(),
+          ),
+        ),
+      )
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_append_scratch_get_as_type(
+  instrs : Array[@lib.Instruction],
+  scratch : @lib.LocalIdx,
+  original_type : @lib.ValType,
+) -> Unit {
+  instrs.push(@lib.Instruction::local_get(scratch))
+  match original_type {
+    @lib.RefTypeValType(ref_type) =>
+      if !ref_type.is_nullable() {
+        instrs.push(@lib.Instruction::ref_as_non_null())
+      }
+    _ => ()
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_rewrite_br_on_cast(
   rewritten : Array[@lib.Instruction],
   label_idx : @lib.LabelIdx,
@@ -8201,18 +8239,52 @@ fn run_hot_pipeline_raw_rewrite_br_on_cast(
     )
     return true
   }
-  if label_target.result_types.length() != 1 {
+  if label_target.result_types.length() == 0 {
     return false
   }
   let source_type = @lib.ValType::ref_type(
     @lib.RefType::new(source_nullable, source_heap),
   )
-  let scratch_ref = run_hot_pipeline_raw_fresh_typed_local(
-    params, locals, source_type, extra_local_types,
+  let fallthrough_type = run_hot_pipeline_raw_cast_diff_type(
+    source_nullable, target_nullable, source_heap,
   )
+  let branch_payload_type = @lib.ValType::ref_type(
+    @lib.RefType::new(target_nullable, target_heap),
+  )
+  let source_scratch_type = match
+    run_hot_pipeline_raw_defaultable_scratch_type(source_type) {
+    Some(scratch_type) => scratch_type
+    None => return false
+  }
+  let scratch_ref = run_hot_pipeline_raw_fresh_typed_local(
+    params, locals, source_scratch_type, extra_local_types,
+  )
+  let prefix_scratch : Array[@lib.LocalIdx] = []
+  for idx = 0; idx < label_target.result_types.length() - 1; idx = idx + 1 {
+    let prefix_scratch_type = match
+      run_hot_pipeline_raw_defaultable_scratch_type(
+        label_target.result_types[idx],
+      ) {
+      Some(scratch_type) => scratch_type
+      None => return false
+    }
+    prefix_scratch.push(
+      run_hot_pipeline_raw_fresh_typed_local(
+        params, locals, prefix_scratch_type, extra_local_types,
+      ),
+    )
+  }
   rewritten.push(@lib.Instruction::local_set(scratch_ref))
-  let body : Array[@lib.Instruction] = [
-    @lib.Instruction::local_get(scratch_ref),
+  if prefix_scratch.length() > 0 {
+    for idx = prefix_scratch.length() - 1; idx >= 0; idx = idx - 1 {
+      rewritten.push(@lib.Instruction::local_set(prefix_scratch[idx]))
+    }
+  }
+  let body : Array[@lib.Instruction] = []
+  run_hot_pipeline_raw_append_scratch_get_as_type(
+    body, scratch_ref, source_type,
+  )
+  body.push(
     @lib.Instruction::br_on_cast_fail(
       @lib.LabelIdx::new(0U),
       source_nullable,
@@ -8220,33 +8292,87 @@ fn run_hot_pipeline_raw_rewrite_br_on_cast(
       target_nullable,
       target_heap,
     ),
-  ]
-  let copies = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
-    [],
-    source_aliases,
-    canonical_aliases,
-    canonical_aliases,
-    initialized_locals,
-    label_target.needed_alias_copies,
-    [],
-    params,
-    locals,
-    extra_local_types,
   )
-  for copy in copies {
-    body.push(copy)
+  if prefix_scratch.length() > 0 {
+    let branch_payload_scratch_type = match
+      run_hot_pipeline_raw_defaultable_scratch_type(branch_payload_type) {
+      Some(scratch_type) => scratch_type
+      None => return false
+    }
+    let branch_payload_scratch = run_hot_pipeline_raw_fresh_typed_local(
+      params, locals, branch_payload_scratch_type, extra_local_types,
+    )
+    body.push(@lib.Instruction::local_set(branch_payload_scratch))
+    let copies = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
+      [],
+      source_aliases,
+      canonical_aliases,
+      canonical_aliases,
+      initialized_locals,
+      label_target.needed_alias_copies,
+      [],
+      params,
+      locals,
+      extra_local_types,
+    )
+    for copy in copies {
+      body.push(copy)
+    }
+    for idx = 0; idx < prefix_scratch.length(); idx = idx + 1 {
+      run_hot_pipeline_raw_append_scratch_get_as_type(
+        body,
+        prefix_scratch[idx],
+        label_target.result_types[idx],
+      )
+    }
+    run_hot_pipeline_raw_append_scratch_get_as_type(
+      body, branch_payload_scratch, branch_payload_type,
+    )
+  } else {
+    let copies = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
+      [],
+      source_aliases,
+      canonical_aliases,
+      canonical_aliases,
+      initialized_locals,
+      label_target.needed_alias_copies,
+      [],
+      params,
+      locals,
+      extra_local_types,
+    )
+    for copy in copies {
+      body.push(copy)
+    }
   }
   body.push(@lib.Instruction::br(run_hot_pipeline_raw_label_inc(label_idx)))
   rewritten.push(
     @lib.Instruction::block(
-      @lib.BlockType::val_type(
-        run_hot_pipeline_raw_cast_diff_type(
-          source_nullable, target_nullable, source_heap,
-        ),
-      ),
+      @lib.BlockType::val_type(fallthrough_type),
       @lib.Expr::new(body),
     ),
   )
+  if prefix_scratch.length() > 0 {
+    let fallthrough_scratch_type = match
+      run_hot_pipeline_raw_defaultable_scratch_type(fallthrough_type) {
+      Some(scratch_type) => scratch_type
+      None => return false
+    }
+    let fallthrough_scratch = run_hot_pipeline_raw_fresh_typed_local(
+      params, locals, fallthrough_scratch_type, extra_local_types,
+    )
+    rewritten.push(@lib.Instruction::local_set(fallthrough_scratch))
+    for idx = 0; idx < prefix_scratch.length(); idx = idx + 1 {
+      run_hot_pipeline_raw_append_scratch_get_as_type(
+        rewritten,
+        prefix_scratch[idx],
+        label_target.result_types[idx],
+      )
+    }
+    run_hot_pipeline_raw_append_scratch_get_as_type(
+      rewritten, fallthrough_scratch, fallthrough_type,
+    )
+  }
   true
 }
 
@@ -8278,18 +8404,52 @@ fn run_hot_pipeline_raw_rewrite_br_on_cast_fail(
     )
     return true
   }
-  if label_target.result_types.length() != 1 {
+  if label_target.result_types.length() == 0 {
     return false
   }
   let source_type = @lib.ValType::ref_type(
     @lib.RefType::new(source_nullable, source_heap),
   )
-  let scratch_ref = run_hot_pipeline_raw_fresh_typed_local(
-    params, locals, source_type, extra_local_types,
+  let branch_payload_type = run_hot_pipeline_raw_cast_diff_type(
+    source_nullable, target_nullable, source_heap,
   )
+  let fallthrough_type = @lib.ValType::ref_type(
+    @lib.RefType::new(target_nullable, target_heap),
+  )
+  let source_scratch_type = match
+    run_hot_pipeline_raw_defaultable_scratch_type(source_type) {
+    Some(scratch_type) => scratch_type
+    None => return false
+  }
+  let scratch_ref = run_hot_pipeline_raw_fresh_typed_local(
+    params, locals, source_scratch_type, extra_local_types,
+  )
+  let prefix_scratch : Array[@lib.LocalIdx] = []
+  for idx = 0; idx < label_target.result_types.length() - 1; idx = idx + 1 {
+    let prefix_scratch_type = match
+      run_hot_pipeline_raw_defaultable_scratch_type(
+        label_target.result_types[idx],
+      ) {
+      Some(scratch_type) => scratch_type
+      None => return false
+    }
+    prefix_scratch.push(
+      run_hot_pipeline_raw_fresh_typed_local(
+        params, locals, prefix_scratch_type, extra_local_types,
+      ),
+    )
+  }
   rewritten.push(@lib.Instruction::local_set(scratch_ref))
-  let body : Array[@lib.Instruction] = [
-    @lib.Instruction::local_get(scratch_ref),
+  if prefix_scratch.length() > 0 {
+    for idx = prefix_scratch.length() - 1; idx >= 0; idx = idx - 1 {
+      rewritten.push(@lib.Instruction::local_set(prefix_scratch[idx]))
+    }
+  }
+  let body : Array[@lib.Instruction] = []
+  run_hot_pipeline_raw_append_scratch_get_as_type(
+    body, scratch_ref, source_type,
+  )
+  body.push(
     @lib.Instruction::br_on_cast(
       @lib.LabelIdx::new(0U),
       source_nullable,
@@ -8297,31 +8457,87 @@ fn run_hot_pipeline_raw_rewrite_br_on_cast_fail(
       target_nullable,
       target_heap,
     ),
-  ]
-  let copies = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
-    [],
-    source_aliases,
-    canonical_aliases,
-    canonical_aliases,
-    initialized_locals,
-    label_target.needed_alias_copies,
-    [],
-    params,
-    locals,
-    extra_local_types,
   )
-  for copy in copies {
-    body.push(copy)
+  if prefix_scratch.length() > 0 {
+    let branch_payload_scratch_type = match
+      run_hot_pipeline_raw_defaultable_scratch_type(branch_payload_type) {
+      Some(scratch_type) => scratch_type
+      None => return false
+    }
+    let branch_payload_scratch = run_hot_pipeline_raw_fresh_typed_local(
+      params, locals, branch_payload_scratch_type, extra_local_types,
+    )
+    body.push(@lib.Instruction::local_set(branch_payload_scratch))
+    let copies = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
+      [],
+      source_aliases,
+      canonical_aliases,
+      canonical_aliases,
+      initialized_locals,
+      label_target.needed_alias_copies,
+      [],
+      params,
+      locals,
+      extra_local_types,
+    )
+    for copy in copies {
+      body.push(copy)
+    }
+    for idx = 0; idx < prefix_scratch.length(); idx = idx + 1 {
+      run_hot_pipeline_raw_append_scratch_get_as_type(
+        body,
+        prefix_scratch[idx],
+        label_target.result_types[idx],
+      )
+    }
+    run_hot_pipeline_raw_append_scratch_get_as_type(
+      body, branch_payload_scratch, branch_payload_type,
+    )
+  } else {
+    let copies = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
+      [],
+      source_aliases,
+      canonical_aliases,
+      canonical_aliases,
+      initialized_locals,
+      label_target.needed_alias_copies,
+      [],
+      params,
+      locals,
+      extra_local_types,
+    )
+    for copy in copies {
+      body.push(copy)
+    }
   }
   body.push(@lib.Instruction::br(run_hot_pipeline_raw_label_inc(label_idx)))
   rewritten.push(
     @lib.Instruction::block(
-      @lib.BlockType::val_type(
-        @lib.ValType::ref_type(@lib.RefType::new(target_nullable, target_heap)),
-      ),
+      @lib.BlockType::val_type(fallthrough_type),
       @lib.Expr::new(body),
     ),
   )
+  if prefix_scratch.length() > 0 {
+    let fallthrough_scratch_type = match
+      run_hot_pipeline_raw_defaultable_scratch_type(fallthrough_type) {
+      Some(scratch_type) => scratch_type
+      None => return false
+    }
+    let fallthrough_scratch = run_hot_pipeline_raw_fresh_typed_local(
+      params, locals, fallthrough_scratch_type, extra_local_types,
+    )
+    rewritten.push(@lib.Instruction::local_set(fallthrough_scratch))
+    for idx = 0; idx < prefix_scratch.length(); idx = idx + 1 {
+      run_hot_pipeline_raw_append_scratch_get_as_type(
+        rewritten,
+        prefix_scratch[idx],
+        label_target.result_types[idx],
+      )
+    }
+    run_hot_pipeline_raw_append_scratch_get_as_type(
+      rewritten, fallthrough_scratch, fallthrough_type,
+    )
+  }
   true
 }
 
