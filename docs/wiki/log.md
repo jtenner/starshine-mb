@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-11] passes/ssa-nomerge | Preserve br_on_null taken-edge copies
+
+- Fixed raw structured `ssa-nomerge` in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): concrete `br_on_null` is now treated as a conditional label exit. If a taken null edge needs canonical alias copies before exiting over a fallthrough overwrite, Starshine lowers through `ref.is_null` / `ref.as_non_null`, copies only on the taken path, and preserves the non-null fallthrough reference. `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` now fail closed from the raw structured path instead of being treated as ordinary fallthrough.
+- Added a source-backed regression in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for `.tmp/ssa-nomerge-refbranch-audit/br_on_null_divergent_exit.wat`: Binaryen preserves the branch-taken divergent alias value, while old Starshine copied to a temp and left the null edge reading the default canonical local. The focused test failed red before implementation and now asserts a taken-edge copy lowering.
+- Evidence: focused `*br_on_null*` passed; `ssa_nomerge_test.mbt` passed `128/128`; `moon test src/passes` passed `2147/2147`; `moon fmt`, `moon info` (3 pre-existing GenValid warnings), full `moon test` (`5407/5407`), and native `src/cmd` build passed with pre-existing pass-manager warnings. Direct compare `.tmp/pass-fuzz-ssa-nomerge-br-on-null-10000` compared `9977/10000` with `9977` normalized matches, `0` mismatches, and `23` Binaryen/tool command failures. GenValid parity `.tmp/pass-fuzz-ssa-nomerge-parity-br-on-null-10000` compared `10000/10000` with `10000` compare-normalized matches and `0` mismatches.
+- Direct artifact replay `.tmp/self-ssa-nomerge-debug-wasi-br-on-null` validates but still differs at `defined=0 abs=27`; pass-local Starshine was `3.124 ms` vs Binaryen `346.501 ms`. This is not exact artifact or O4z closeout.
+
 ## [2026-06-11] passes/ssa-nomerge | Admit no-copy loop br_if backedges
 
 - Fixed raw structured `ssa-nomerge` in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): void loop-target `br_if` backedges now stay on the raw path when no branch-time canonical alias copy is required. Typed loop-param/result shapes and copy-needing conditional loop backedges remain fail-closed.
