@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-11] passes/ssa-nomerge | Narrow local tees and no-copy br_if
+
+- Tightened raw structured `ssa-nomerge` in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): body-local `local.tee` now reuses the canonical slot when a branch continuation or result branch reads before overwrite, and no-copy `br_if` terminators are preserved instead of lowered to `if { br }` with scratch locals when no alias merge copy is required.
+- Updated [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) test-first with two canonical-tee branch/result regressions, changed the existing block-target `br_if` expectation to preserve `br_if`, and added a result-block no-copy `br_if` regression. Focused red runs failed under the old heuristics; focused green runs passed `2/2` for each slice.
+- Evidence: `ssa_nomerge_test.mbt` passed `119/119`; `moon test src/passes` passed `2138/2138`; `moon fmt`, `moon info` (3 pre-existing GenValid warnings), full `moon test` (`5397/5397`), and native `src/cmd` build passed with pre-existing pass-manager warnings. Direct compare `.tmp/pass-fuzz-ssa-nomerge-tee-brif-10000` compared `9977/10000` with `9977` normalized matches, `0` mismatches, and `23` Binaryen/tool command failures. GenValid parity `.tmp/pass-fuzz-ssa-nomerge-parity-tee-brif-genvalid-normalized-1000` compared `1000/1000` with `1000` compare-normalized matches and `0` mismatches; GenValid smoke `.tmp/pass-fuzz-ssa-nomerge-smoke-tee-brif-genvalid-normalized-100` remains intentionally dirty (`100/100` mismatches) as a coverage artifact.
+- Direct artifact replay `.tmp/self-ssa-nomerge-debug-wasi-tee-brif` still differs at `defined=0 abs=27`; pass-local Starshine was `23.089 ms` vs Binaryen `354.292 ms`. This narrows structured allocation behavior only and is not exact artifact or O4z closeout.
+
 ## [2026-06-11] fuzzing/gen-valid | Widen ssa-nomerge raw structured SSA facts
 
 - Added four source-backed SSA GenValid labels/templates in [`../../src/validate/gen_valid_ssa.mbt`](../../src/validate/gen_valid_ssa.mbt): `ssa-default-local-read-after-branchy-control`, `ssa-dropped-unreachable-debris-before-hard-unreachable`, `ssa-canonical-body-local-next-read`, and `ssa-immediate-block-exit-canonical-set-br`.

@@ -7334,6 +7334,21 @@ fn run_hot_pipeline_raw_fresh_typed_local(
 }
 
 ///|
+fn run_hot_pipeline_raw_has_needed_alias_copy(
+  source_aliases : Array[@lib.LocalIdx],
+  target_aliases : Array[@lib.LocalIdx],
+  needed_alias_copies : @bitset.BitSet,
+) -> Bool {
+  for local_id = 0; local_id < target_aliases.length(); local_id = local_id + 1 {
+    if needed_alias_copies[local_id] &&
+      source_aliases[local_id] != target_aliases[local_id] {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
   branch_instrs : Array[@lib.Instruction],
   source_aliases : Array[@lib.LocalIdx],
@@ -7346,15 +7361,9 @@ fn run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
   locals : @lib.Locals,
   extra_local_types : Array[@lib.ValType],
 ) -> Array[@lib.Instruction] {
-  let mut has_needed_copy = false
-  for local_id = 0; local_id < target_aliases.length(); local_id = local_id + 1 {
-    if needed_alias_copies[local_id] &&
-      source_aliases[local_id] != target_aliases[local_id] {
-      has_needed_copy = true
-      break
-    }
-  }
-  if !has_needed_copy {
+  if !run_hot_pipeline_raw_has_needed_alias_copy(
+      source_aliases, target_aliases, needed_alias_copies,
+    ) {
     return branch_instrs.copy()
   }
   let out = branch_instrs.copy()
@@ -7765,6 +7774,13 @@ fn run_hot_pipeline_raw_rewrite_br_if(
   extra_local_types : Array[@lib.ValType],
 ) -> Array[@lib.Instruction]? {
   let target_label = run_hot_pipeline_raw_label_inc(label_idx)
+  if !run_hot_pipeline_raw_has_needed_alias_copy(
+      source_aliases,
+      canonical_aliases,
+      label_target.needed_alias_copies,
+    ) {
+    return Some([@lib.Instruction::br_if(label_idx)])
+  }
   if label_target.result_types.length() == 0 {
     let then_body = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
       [],
@@ -8333,21 +8349,31 @@ fn run_hot_pipeline_raw_rewrite_instrs(
       }
       @lib.LocalTee(@lib.LocalIdx(raw)) => {
         let local_id = raw.reinterpret_as_int()
+        let later_read_before_next_write = run_hot_pipeline_raw_instrs_have_later_local_read_before_next_local_write(
+          instrs,
+          idx + 1,
+          local_id,
+        )
         let later_read = run_hot_pipeline_raw_instrs_have_later_local_read(
             instrs,
             idx + 1,
             local_id,
           ) ||
           (local_id < params.length() && future_reads[local_id])
+        let future_read_before_next_write = future_reads_before_writes[local_id]
         let later_write = run_hot_pipeline_raw_instrs_have_later_local_write(
             instrs,
             idx + 1,
             local_id,
           ) ||
           (local_id < params.length() && future_writes[local_id])
-        if aliases[local_id] == canonical_aliases[local_id] &&
-          later_read &&
-          !later_write {
+        if (
+            aliases[local_id] == canonical_aliases[local_id] &&
+            later_read &&
+            !later_write
+          ) ||
+          later_read_before_next_write ||
+          future_read_before_next_write {
           initialized[local_id] = true
           aliases[local_id] = canonical_aliases[local_id]
           rewritten.push(

@@ -3791,6 +3791,61 @@ test "ssa-nomerge rewrites structured early-return local traffic without hot lif
 }
 
 ///|
+test "ssa-nomerge keeps body-local tees canonical before branch continuation read" {
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     (local i32)
+    #|     block
+    #|       i32.const 7
+    #|       local.tee 1
+    #|       drop
+    #|       br 0
+    #|     end
+    #|     local.get 1))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected branch-continuation tee rewrite success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  assert_false(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge keeps result-branch tees canonical before continuation read" {
+  let input =
+    #| (module
+    #|   (func (result i32)
+    #|     (local i32)
+    #|     block (result i32)
+    #|       i32.const 7
+    #|       local.tee 0
+    #|       br 0
+    #|     end
+    #|     local.get 0
+    #|     i32.add))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected result-branch tee rewrite success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  assert_false(
+    ssa_test_has_ssa_temp_local_writes(instrs, 0U),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge rewrites block-target branches through canonical locals" {
   let input =
     #| (module
@@ -3843,7 +3898,7 @@ test "ssa-nomerge rewrites block-target branches through canonical locals" {
 }
 
 ///|
-test "ssa-nomerge rewrites block-target br_if through canonical locals" {
+test "ssa-nomerge preserves no-copy block-target br_if" {
   let input =
     #| (module
     #|   (func (param i32) (result i32)
@@ -3873,16 +3928,55 @@ test "ssa-nomerge rewrites block-target br_if through canonical locals" {
       @lib.BlockType::void_(),
       @lib.Expr::new([
         @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-        @lib.Instruction::if_(
-          @lib.BlockType::void_(),
-          [@lib.Instruction::br(@lib.LabelIdx::new(1U))],
-          None,
-        ),
+        @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
         @lib.Instruction::i32_const(@lib.I32(9)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
       ]),
     ),
     @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  ])
+}
+
+///|
+test "ssa-nomerge preserves no-copy result block br_if" {
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     (local i32)
+    #|     i32.const 1
+    #|     local.set 1
+    #|     block (result i32)
+    #|       i32.const 7
+    #|       local.get 0
+    #|       br_if 0
+    #|       drop
+    #|       i32.const 9
+    #|     end))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected no-copy result br_if raw ssa-nomerge success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+      ]),
+    ),
   ])
 }
 
