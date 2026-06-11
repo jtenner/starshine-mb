@@ -1360,7 +1360,9 @@ fn gen_valid_append_ssa_nomerge_body_slice(
   if !ctx.config.features.allow_ssa_nomerge_body_generator {
     return
   }
-  if gen_valid_is_ssa_nomerge_parity_config(ctx.config) {
+  if gen_valid_is_ssa_nomerge_smoke_config(ctx.config) {
+    gen_valid_append_ssa_nomerge_smoke_body_slice(out, ctx, env, accepts)
+  } else if gen_valid_is_ssa_nomerge_parity_config(ctx.config) {
     gen_valid_append_ssa_nomerge_parity_body_slice(out, ctx, env, accepts)
   } else {
     gen_valid_append_ssa_nomerge_coverage_body_slice(out, ctx, env, accepts)
@@ -1423,6 +1425,171 @@ fn gen_valid_append_ssa_nomerge_parity_body_slice(
   )
   out.push(Instruction::local_get(l0))
   out.push(Instruction::drop())
+  ignore(ctx)
+  ignore(env)
+}
+
+///|
+fn gen_valid_append_ssa_nomerge_smoke_body_slice(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+  accepts : Array[ValType],
+) -> Unit {
+  let param_count = accepts.length()
+  let l0 = gen_valid_ssa_body_local(param_count, 0)
+  let l1 = gen_valid_ssa_body_local(param_count, 1)
+  let l2 = gen_valid_ssa_body_local(param_count, 2)
+  let p0 = LocalIdx::new(0U)
+  // A. straight-line multi-def same local
+  out.push(Instruction::i32_const(I32(1)))
+  out.push(Instruction::local_set(l0))
+  out.push(Instruction::local_get(l0))
+  out.push(Instruction::drop())
+  out.push(Instruction::i32_const(I32(2)))
+  out.push(Instruction::local_set(l0))
+  out.push(Instruction::local_get(l0))
+  out.push(Instruction::drop())
+  // B. local.tee def-use chain
+  out.push(Instruction::i32_const(I32(7)))
+  out.push(Instruction::local_tee(l0))
+  out.push(Instruction::drop())
+  out.push(Instruction::local_get(l0))
+  out.push(Instruction::drop())
+  // C. parameter write when available
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::i32_const(I32(9)))
+    out.push(Instruction::local_set(p0))
+    out.push(Instruction::local_get(p0))
+    out.push(Instruction::drop())
+  }
+  // D. if-join phi candidate
+  out.push(Instruction::i32_const(I32(0)))
+  out.push(Instruction::local_set(l0))
+  out.push(Instruction::local_get(l0))
+  out.push(
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::i32_const(I32(1)), Instruction::local_set(l0)],
+      Some([Instruction::i32_const(I32(2)), Instruction::local_set(l0)]),
+    ),
+  )
+  out.push(Instruction::local_get(l0))
+  out.push(Instruction::drop())
+  // E. one-arm default merge
+  out.push(Instruction::local_get(l0))
+  out.push(
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::i32_const(I32(7)), Instruction::local_set(l0)],
+      None,
+    ),
+  )
+  out.push(Instruction::local_get(l0))
+  out.push(Instruction::drop())
+  // F. structured early-return local traffic with a fallthrough read.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::local_get(p0))
+    out.push(
+      Instruction::if_(
+        BlockType::void_(),
+        [
+          Instruction::i32_const(I32(7)),
+          Instruction::local_set(l0),
+          Instruction::return_(),
+        ],
+        Some([Instruction::i32_const(I32(9)), Instruction::local_set(l0)]),
+      ),
+    )
+    out.push(Instruction::local_get(l0))
+    out.push(Instruction::drop())
+  }
+  // G. block-target branch copy candidate.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::local_set(l0))
+    out.push(
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::local_get(p0),
+          Instruction::if_(
+            BlockType::void_(),
+            [
+              Instruction::i32_const(I32(7)),
+              Instruction::local_set(l0),
+              Instruction::br(LabelIdx::new(1U)),
+            ],
+            None,
+          ),
+          Instruction::i32_const(I32(9)),
+          Instruction::local_set(l0),
+        ]),
+      ),
+    )
+    out.push(Instruction::local_get(l0))
+    out.push(Instruction::drop())
+  }
+  // H. block-target br_if merge candidate.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::i32_const(I32(7)))
+    out.push(Instruction::local_set(l0))
+    out.push(
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::local_get(p0),
+          Instruction::br_if(LabelIdx::new(0U)),
+          Instruction::i32_const(I32(9)),
+          Instruction::local_set(l0),
+        ]),
+      ),
+    )
+    out.push(Instruction::local_get(l0))
+    out.push(Instruction::drop())
+  }
+  // I. typed result-if writing a param and reading it after the merge.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::local_get(p0))
+    out.push(
+      Instruction::if_(
+        BlockType::val_type(ValType::i32()),
+        [
+          Instruction::i32_const(I32(7)),
+          Instruction::local_set(p0),
+          Instruction::i32_const(I32(1)),
+        ],
+        Some([
+          Instruction::i32_const(I32(9)),
+          Instruction::local_set(p0),
+          Instruction::i32_const(I32(2)),
+        ]),
+      ),
+    )
+    out.push(Instruction::drop())
+    out.push(Instruction::local_get(p0))
+    out.push(Instruction::drop())
+  }
+  // J. branch-local writes that are intentionally not read later.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::local_get(p0))
+    out.push(
+      Instruction::if_(
+        BlockType::val_type(ValType::i32()),
+        [
+          Instruction::i32_const(I32(20)),
+          Instruction::local_set(l1),
+          Instruction::i32_const(I32(2)),
+        ],
+        Some([
+          Instruction::i32_const(I32(30)),
+          Instruction::local_set(l2),
+          Instruction::i32_const(I32(3)),
+        ]),
+      ),
+    )
+    out.push(Instruction::drop())
+  }
   ignore(ctx)
   ignore(env)
 }
@@ -1929,6 +2096,7 @@ fn gen_valid_append_ssa_nomerge_coverage_body_slice(
     )
     out.push(Instruction::drop())
   }
+  ignore(ctx)
   ignore(env)
 }
 

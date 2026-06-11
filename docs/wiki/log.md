@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-11] fuzzing/gen-valid | Add ssa-nomerge smoke profile
+
+- Added `ssa-nomerge-smoke` as a middle GenValid SSA profile: parity A–E plus structured early-return, block `br`/`br_if`, structured-param merge, and branch-local-not-read-later templates, while still excluding dense loop/br_table/parallel-copy/unreachable/dropped-increment/fail-closed stress slices.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) and [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) to distinguish quick coverage-signal smoke from the green `ssa-nomerge-parity` compare lane.
+- Evidence: targeted Moon tests cover the profile and feature-guided batch selection; a 100-case GenValid compare smoke on `ssa-nomerge-smoke` compares all cases with no validation/generator/command failures but expected local-allocation representation mismatches, so it is not a parity signoff lane.
+
 ## [2026-06-09] fuzzing/gen-valid | Split ssa-nomerge GenValid profiles
 
 - Documented the join-allocation investigation in [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md): dense `ssa-nomerge` GenValid smoke mismatches are primarily coverage-lane artifacts (Starshine skip vs Binaryen rewrite), not a broad normalizer gap.

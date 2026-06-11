@@ -1071,6 +1071,7 @@ pub enum GenValidProfile {
   TopologyHeavyProfile
   PathologicalValidProfile
   SsaNomergeCoverageProfile
+  SsaNomergeSmokeProfile
   SsaNomergeParityProfile
   SsaNomergeStressProfile
 } derive(Eq, @debug.Debug)

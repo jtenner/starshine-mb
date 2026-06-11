@@ -148,7 +148,7 @@ bun scripts/pass-fuzz-compare.ts --count 50000 --seed 0x551a --pass <canonical-n
 
 Current dedicated pass-profile examples:
 
-- `ssa-nomerge`: run `ssa-nomerge-coverage` for shape breadth and `ssa-nomerge-parity` when the slice specifically changed parity-safe SSA generator templates. Use explicit out dirs such as `.tmp/pass-fuzz-ssa-nomerge-genvalid-coverage-50000`. If the user asks for “ssa-genvalid fuzz”, treat this as `--pass ssa-nomerge --gen-valid-profile ssa-nomerge-coverage` unless they specify another SSA profile.
+- `ssa-nomerge`: run `ssa-nomerge-coverage` for shape breadth, `ssa-nomerge-smoke` for quick structured-branch SSA coverage smoke, and `ssa-nomerge-parity` when the slice specifically changed parity-safe SSA generator templates. Use explicit out dirs such as `.tmp/pass-fuzz-ssa-nomerge-genvalid-coverage-50000`. If the user asks for “ssa-genvalid fuzz”, treat this as `--pass ssa-nomerge --gen-valid-profile ssa-nomerge-coverage` unless they specify another SSA profile.
 
 Report dedicated-profile lanes separately from the general compare lane: profile name, requested count, compared count, normalized matches, cleanup-normalized matches, raw mismatches, command failures, and any profile-specific feature-floor or generation failures.
 

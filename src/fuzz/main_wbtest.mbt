@@ -2349,9 +2349,16 @@ test "emit_gen_valid_batch_artifacts_until_features satisfies ssa-nomerge SSA fl
     Ok(v) => v
     Err(e) => fail(e)
   }
-  let phi_floor = match
+  let branch_floor = match
     @validate.validate_valid_feature_floor_by_label(
-      "ssa-if-join-phi-candidate", 1,
+      "ssa-block-branch-merge-copy", 1,
+    ) {
+    Ok(v) => v
+    Err(e) => fail(e)
+  }
+  let br_if_floor = match
+    @validate.validate_valid_feature_floor_by_label(
+      "ssa-block-br-if-merge-copy", 1,
     ) {
     Ok(v) => v
     Err(e) => fail(e)
@@ -2360,11 +2367,11 @@ test "emit_gen_valid_batch_artifacts_until_features satisfies ssa-nomerge SSA fl
     emit_gen_valid_batch_artifacts_until_features(
       1,
       0x5eedUL,
-      match GenValidConfig::profile("ssa-nomerge-coverage") {
+      match GenValidConfig::profile("ssa-nomerge-smoke") {
         Ok(v) => v
         Err(e) => fail(e)
       },
-      [chain_floor, phi_floor],
+      [chain_floor, branch_floor, br_if_floor],
       [],
       32,
     ) {
@@ -2381,7 +2388,25 @@ test "emit_gen_valid_batch_artifacts_until_features satisfies ssa-nomerge SSA fl
     Ok(v) => v
     Err(e) => fail(e)
   }
+  let branch_count = match
+    @validate.validate_valid_feature_actual_count_by_label(
+      selected.feature_stats,
+      "ssa-block-branch-merge-copy",
+    ) {
+    Ok(v) => v
+    Err(e) => fail(e)
+  }
+  let br_if_count = match
+    @validate.validate_valid_feature_actual_count_by_label(
+      selected.feature_stats,
+      "ssa-block-br-if-merge-copy",
+    ) {
+    Ok(v) => v
+    Err(e) => fail(e)
+  }
   assert_true(chain_count >= 1)
+  assert_true(branch_count >= 1)
+  assert_true(br_if_count >= 1)
 }
 
 ///|

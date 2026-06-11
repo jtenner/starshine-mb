@@ -653,6 +653,7 @@ pub enum GenValidProfile {
   TopologyHeavyProfile
   PathologicalValidProfile
   SsaNomergeCoverageProfile
+  SsaNomergeSmokeProfile
   SsaNomergeParityProfile
   SsaNomergeStressProfile
 } derive(Eq, Debug)
@@ -687,6 +688,7 @@ pub fn gen_valid_profile_name(profile : GenValidProfile) -> String {
     TopologyHeavyProfile => "topology-heavy"
     PathologicalValidProfile => "pathological-valid"
     SsaNomergeCoverageProfile => "ssa-nomerge-coverage"
+    SsaNomergeSmokeProfile => "ssa-nomerge-smoke"
     SsaNomergeParityProfile => "ssa-nomerge-parity"
     SsaNomergeStressProfile => "ssa-nomerge-stress"
   }
@@ -722,6 +724,7 @@ pub fn gen_valid_profiles() -> Array[GenValidProfile] {
     TopologyHeavyProfile,
     PathologicalValidProfile,
     SsaNomergeCoverageProfile,
+    SsaNomergeSmokeProfile,
     SsaNomergeParityProfile,
     SsaNomergeStressProfile,
   ]
@@ -1102,6 +1105,7 @@ pub fn GenValidConfig::for_profile(profile : GenValidProfile) -> GenValidConfig 
         max_segment_payload_size: 4096,
       }
     SsaNomergeCoverageProfile
+    | SsaNomergeSmokeProfile
     | SsaNomergeParityProfile
     | SsaNomergeStressProfile => gen_valid_ssa_nomerge_profile_config(profile)
   }
@@ -1114,6 +1118,7 @@ fn gen_valid_ssa_nomerge_profile_config(
   let base = GenValidConfig::binaryen_oracle_coverage_forced_default()
   let max_locals = match profile {
     SsaNomergeParityProfile => 8
+    SsaNomergeSmokeProfile => 10
     _ => 12
   }
   GenValidConfig::{
@@ -1171,8 +1176,14 @@ fn gen_valid_is_control_heavy_config(config : GenValidConfig) -> Bool {
 ///|
 fn gen_valid_is_ssa_nomerge_family_config(config : GenValidConfig) -> Bool {
   config == GenValidConfig::for_profile(SsaNomergeCoverageProfile) ||
+  config == GenValidConfig::for_profile(SsaNomergeSmokeProfile) ||
   config == GenValidConfig::for_profile(SsaNomergeParityProfile) ||
   config == GenValidConfig::for_profile(SsaNomergeStressProfile)
+}
+
+///|
+fn gen_valid_is_ssa_nomerge_smoke_config(config : GenValidConfig) -> Bool {
+  config == GenValidConfig::for_profile(SsaNomergeSmokeProfile)
 }
 
 ///|

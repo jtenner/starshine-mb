@@ -7220,6 +7220,10 @@ test "ssa-nomerge gen-valid profiles resolve and enable SSA body generator" {
     "ssa-nomerge-coverage",
   )
   @debug.assert_eq(
+    gen_valid_profile_name(SsaNomergeSmokeProfile),
+    "ssa-nomerge-smoke",
+  )
+  @debug.assert_eq(
     gen_valid_profile_name(SsaNomergeParityProfile),
     "ssa-nomerge-parity",
   )
@@ -7228,6 +7232,7 @@ test "ssa-nomerge gen-valid profiles resolve and enable SSA body generator" {
     "ssa-nomerge-stress",
   )
   assert_true(gen_valid_profile_names().contains("ssa-nomerge-coverage"))
+  assert_true(gen_valid_profile_names().contains("ssa-nomerge-smoke"))
   assert_true(gen_valid_profile_names().contains("ssa-nomerge-parity"))
   assert_true(gen_valid_profile_names().contains("ssa-nomerge-stress"))
   match gen_valid_profile_by_name("ssa-nomerge") {
@@ -7236,6 +7241,10 @@ test "ssa-nomerge gen-valid profiles resolve and enable SSA body generator" {
   }
   match gen_valid_profile_by_name("ssa-nomerge-coverage") {
     Ok(profile) => @debug.assert_eq(profile, SsaNomergeCoverageProfile)
+    Err(msg) => fail(msg)
+  }
+  match gen_valid_profile_by_name("ssa-nomerge-smoke") {
+    Ok(profile) => @debug.assert_eq(profile, SsaNomergeSmokeProfile)
     Err(msg) => fail(msg)
   }
   match gen_valid_profile_by_name("ssa-nomerge-parity") {
@@ -7334,6 +7343,89 @@ test "ssa-nomerge coverage generated modules record dense SSA feature facts" {
   assert_true(
     facts.has_ssa_branch_local_not_read_later,
     msg="expected unneeded branch-local variant",
+  )
+}
+
+///|
+test "ssa-nomerge smoke generated modules cover structured branch SSA shapes" {
+  let config = GenValidConfig::for_profile(SsaNomergeSmokeProfile)
+  let generated = match gen_valid_module_result_from_seed(0x5eedUL, config) {
+    Ok(v) => v
+    Err(failure) =>
+      fail(
+        "ssa-nomerge-smoke generation failed: \{failure.validation_error_message}",
+      )
+  }
+  @debug.assert_eq(generated.config_label, "ssa-nomerge-smoke")
+  let facts = generated.facts
+  assert_true(facts.has_ssa_straight_line_local_chain)
+  assert_true(facts.has_ssa_multi_def_same_local)
+  assert_true(facts.has_ssa_local_tee_def_use)
+  assert_true(facts.has_ssa_if_join_phi_candidate)
+  assert_true(facts.has_ssa_default_local_merge)
+  assert_true(
+    facts.has_ssa_structured_early_return_local,
+    msg="smoke profile should cover structured early-return local traffic",
+  )
+  assert_true(
+    facts.has_ssa_block_branch_merge_copy,
+    msg="smoke profile should cover block-target branch merge copies",
+  )
+  assert_true(
+    facts.has_ssa_block_br_if_merge_copy,
+    msg="smoke profile should cover block-target br_if merge copies",
+  )
+  assert_true(
+    facts.has_ssa_structured_param_merge,
+    msg="smoke profile should cover param writes read after structured merges",
+  )
+  assert_true(
+    facts.has_ssa_branch_local_not_read_later,
+    msg="smoke profile should cover branch-local writes that are not read later",
+  )
+  assert_false(
+    facts.has_ssa_loop_backedge_phi_candidate,
+    msg="smoke profile keeps loop backedge out of quick compare smoke",
+  )
+  assert_false(
+    facts.has_ssa_br_table_phi_candidate,
+    msg="smoke profile keeps br_table joins out of quick compare smoke",
+  )
+  assert_false(
+    facts.has_ssa_parallel_copy_candidate,
+    msg="smoke profile keeps parallel-copy joins out of quick compare smoke",
+  )
+  assert_false(
+    facts.has_ssa_unreachable_local_carrier,
+    msg="smoke profile keeps unreachable-carrier stress out of quick smoke",
+  )
+  assert_false(
+    facts.has_ssa_dropped_increment_guard_shape,
+    msg="smoke profile keeps dropped-increment debris out of quick smoke",
+  )
+  assert_false(
+    facts.has_ssa_nested_cfg_fail_closed_shape,
+    msg="smoke profile keeps nested CFG fail-closed shapes out of quick smoke",
+  )
+  assert_true(
+    facts.has_ssa_nested_result_if_supported_shape,
+    msg="structured-param merge is intentionally a small result-if smoke shape",
+  )
+  assert_false(
+    facts.has_ssa_nested_result_if_condition_write,
+    msg="smoke profile keeps dense condition-write result-if coverage in coverage/stress lanes",
+  )
+  assert_false(
+    facts.has_ssa_nested_result_if_condition_value_block,
+    msg="smoke profile keeps dense condition value-block result-if coverage in coverage/stress lanes",
+  )
+  assert_false(
+    facts.has_ssa_nested_result_if_arm_value_block,
+    msg="smoke profile keeps dense arm value-block result-if coverage in coverage/stress lanes",
+  )
+  assert_false(
+    facts.has_ssa_nested_result_if_mixed_arm_value_block,
+    msg="smoke profile keeps dense mixed-arm result-if coverage in coverage/stress lanes",
   )
 }
 
