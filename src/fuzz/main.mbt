@@ -3401,6 +3401,16 @@ fn gen_valid_coverage_feature_label(key : ValidateValidFeatureKey) -> String {
       "ssa-nested-result-if-mixed-arm-value-block"
     @validate.ValidateValidFeatureKey::SsaNestedResultIfScalarResult =>
       "ssa-nested-result-if-scalar-result"
+    @validate.ValidateValidFeatureKey::SsaStructuredEarlyReturnLocal =>
+      "ssa-structured-early-return-local"
+    @validate.ValidateValidFeatureKey::SsaBlockBranchMergeCopy =>
+      "ssa-block-branch-merge-copy"
+    @validate.ValidateValidFeatureKey::SsaBlockBrIfMergeCopy =>
+      "ssa-block-br-if-merge-copy"
+    @validate.ValidateValidFeatureKey::SsaStructuredParamMerge =>
+      "ssa-structured-param-merge"
+    @validate.ValidateValidFeatureKey::SsaBranchLocalNotReadLater =>
+      "ssa-branch-local-not-read-later"
   }
 }
 

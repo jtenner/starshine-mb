@@ -891,6 +891,11 @@ pub struct GenValidFeatureFacts {
   has_ssa_nested_result_if_arm_value_block : Bool
   has_ssa_nested_result_if_mixed_arm_value_block : Bool
   has_ssa_nested_result_if_scalar_result : Bool
+  has_ssa_structured_early_return_local : Bool
+  has_ssa_block_branch_merge_copy : Bool
+  has_ssa_block_br_if_merge_copy : Bool
+  has_ssa_structured_param_merge : Bool
+  has_ssa_branch_local_not_read_later : Bool
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, @debug.Debug)
 
@@ -982,6 +987,11 @@ pub struct GenValidFeatureStats {
   ssa_nested_result_if_arm_value_block : Int
   ssa_nested_result_if_mixed_arm_value_block : Int
   ssa_nested_result_if_scalar_result : Int
+  ssa_structured_early_return_local : Int
+  ssa_block_branch_merge_copy : Int
+  ssa_block_br_if_merge_copy : Int
+  ssa_structured_param_merge : Int
+  ssa_branch_local_not_read_later : Int
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureStats::empty(GenValidMode) -> Self
@@ -1143,6 +1153,11 @@ pub struct GenValidSsaFuncFacts {
   has_ssa_nested_result_if_arm_value_block : Bool
   has_ssa_nested_result_if_mixed_arm_value_block : Bool
   has_ssa_nested_result_if_scalar_result : Bool
+  has_ssa_structured_early_return_local : Bool
+  has_ssa_block_branch_merge_copy : Bool
+  has_ssa_block_br_if_merge_copy : Bool
+  has_ssa_structured_param_merge : Bool
+  has_ssa_branch_local_not_read_later : Bool
 } derive(Eq, @debug.Debug)
 pub fn GenValidSsaFuncFacts::empty() -> Self
 
@@ -1599,6 +1614,11 @@ pub enum ValidateValidFeatureKey {
   SsaNestedResultIfArmValueBlock
   SsaNestedResultIfMixedArmValueBlock
   SsaNestedResultIfScalarResult
+  SsaStructuredEarlyReturnLocal
+  SsaBlockBranchMergeCopy
+  SsaBlockBrIfMergeCopy
+  SsaStructuredParamMerge
+  SsaBranchLocalNotReadLater
 } derive(Eq, @debug.Debug)
 pub impl Show for ValidateValidFeatureKey
 

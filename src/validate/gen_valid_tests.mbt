@@ -7315,6 +7315,26 @@ test "ssa-nomerge coverage generated modules record dense SSA feature facts" {
     facts.has_ssa_nested_result_if_scalar_result,
     msg="expected nested result-if scalar result variants",
   )
+  assert_true(
+    facts.has_ssa_structured_early_return_local,
+    msg="expected structured early-return local variant",
+  )
+  assert_true(
+    facts.has_ssa_block_branch_merge_copy,
+    msg="expected block branch merge-copy variant",
+  )
+  assert_true(
+    facts.has_ssa_block_br_if_merge_copy,
+    msg="expected block br_if merge-copy variant",
+  )
+  assert_true(
+    facts.has_ssa_structured_param_merge,
+    msg="expected structured param merge variant",
+  )
+  assert_true(
+    facts.has_ssa_branch_local_not_read_later,
+    msg="expected unneeded branch-local variant",
+  )
 }
 
 ///|
@@ -7388,7 +7408,9 @@ test "validate_valid_feature_floor_by_label recognizes SSA feature labels" {
       "ssa-nested-cfg-fail-closed-shape", "ssa-nested-result-if-supported-shape",
       "ssa-nested-result-if-condition-write", "ssa-nested-result-if-condition-value-block",
       "ssa-nested-result-if-arm-value-block", "ssa-nested-result-if-mixed-arm-value-block",
-      "ssa-nested-result-if-scalar-result",
+      "ssa-nested-result-if-scalar-result", "ssa-structured-early-return-local",
+      "ssa-block-branch-merge-copy", "ssa-block-br-if-merge-copy", "ssa-structured-param-merge",
+      "ssa-branch-local-not-read-later",
     ] {
     match validate_valid_feature_floor_by_label(label, 1) {
       Ok(_) => ()

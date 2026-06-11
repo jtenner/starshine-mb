@@ -1167,3 +1167,139 @@ test "ssa-nomerge coverage profile emits nested result-if supported shape" {
   assert_true(generated.facts.has_ssa_nested_result_if_mixed_arm_value_block)
   assert_true(generated.facts.has_ssa_nested_result_if_scalar_result)
 }
+
+///|
+fn gen_valid_ssa_first_func_scan_facts(
+  mod_ : Module,
+  param_count : Int,
+) -> GenValidSsaFuncFacts raise {
+  let (locals, expr) = match mod_.code_sec {
+    Some(CodeSec(funcs)) =>
+      match funcs.get(0) {
+        Some(Func(locals, expr)) => (locals, expr)
+        None => fail("expected first generated function body")
+      }
+    _ => fail("expected generated module with code section")
+  }
+  gen_valid_scan_func_ssa_facts(param_count, locals, expr)
+}
+
+///|
+test "ssa scanner detects newer structured raw ssa-nomerge variants" {
+  let mod_ = gen_valid_ssa_test_module(
+    [ValType::i32()],
+    [ValType::i32(), ValType::i32(), ValType::i32()],
+    [
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::if_(
+        BlockType::void_(),
+        [
+          Instruction::i32_const(I32(7)),
+          Instruction::local_set(LocalIdx::new(1U)),
+          Instruction::return_(),
+        ],
+        Some([
+          Instruction::i32_const(I32(9)),
+          Instruction::local_set(LocalIdx::new(1U)),
+        ]),
+      ),
+      Instruction::local_get(LocalIdx::new(1U)),
+      Instruction::drop(),
+      Instruction::i32_const(I32(0)),
+      Instruction::local_set(LocalIdx::new(1U)),
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::if_(
+            BlockType::void_(),
+            [
+              Instruction::i32_const(I32(7)),
+              Instruction::local_set(LocalIdx::new(1U)),
+              Instruction::br(LabelIdx::new(1U)),
+            ],
+            None,
+          ),
+          Instruction::i32_const(I32(9)),
+          Instruction::local_set(LocalIdx::new(1U)),
+        ]),
+      ),
+      Instruction::local_get(LocalIdx::new(1U)),
+      Instruction::drop(),
+      Instruction::i32_const(I32(7)),
+      Instruction::local_set(LocalIdx::new(1U)),
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(0U)),
+          Instruction::br_if(LabelIdx::new(0U)),
+          Instruction::i32_const(I32(9)),
+          Instruction::local_set(LocalIdx::new(1U)),
+        ]),
+      ),
+      Instruction::local_get(LocalIdx::new(1U)),
+      Instruction::drop(),
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::if_(
+        BlockType::val_type(ValType::i32()),
+        [
+          Instruction::i32_const(I32(7)),
+          Instruction::local_set(LocalIdx::new(0U)),
+          Instruction::i32_const(I32(1)),
+        ],
+        Some([
+          Instruction::i32_const(I32(9)),
+          Instruction::local_set(LocalIdx::new(0U)),
+          Instruction::i32_const(I32(2)),
+        ]),
+      ),
+      Instruction::drop(),
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::drop(),
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::if_(
+        BlockType::val_type(ValType::i32()),
+        [
+          Instruction::i32_const(I32(20)),
+          Instruction::local_set(LocalIdx::new(2U)),
+          Instruction::i32_const(I32(2)),
+        ],
+        Some([
+          Instruction::i32_const(I32(30)),
+          Instruction::local_set(LocalIdx::new(3U)),
+          Instruction::i32_const(I32(3)),
+        ]),
+      ),
+      Instruction::drop(),
+    ],
+  )
+  let facts = gen_valid_feature_facts(mod_, CoverageForced)
+  assert_true(facts.has_ssa_if_join_phi_candidate)
+  let direct = try! gen_valid_ssa_first_func_scan_facts(mod_, 1)
+  assert_true(direct.has_ssa_structured_early_return_local)
+  assert_true(direct.has_ssa_block_branch_merge_copy)
+  assert_true(direct.has_ssa_block_br_if_merge_copy)
+  assert_true(direct.has_ssa_structured_param_merge)
+  assert_true(direct.has_ssa_branch_local_not_read_later)
+}
+
+///|
+test "ssa-nomerge coverage profile emits newer structured raw variants" {
+  let config = GenValidConfig::for_profile(SsaNomergeCoverageProfile)
+  let generated = match gen_valid_module_result_from_seed(0x5eedUL, config) {
+    Ok(v) => v
+    Err(failure) =>
+      fail("ssa-nomerge generation failed: \{failure.validation_error_message}")
+  }
+  let facts = try! gen_valid_ssa_first_func_scan_facts(generated.wasm_module, 1)
+  assert_true(facts.has_ssa_structured_early_return_local)
+  assert_true(facts.has_ssa_block_branch_merge_copy)
+  assert_true(facts.has_ssa_block_br_if_merge_copy)
+  assert_true(facts.has_ssa_structured_param_merge)
+  assert_true(facts.has_ssa_branch_local_not_read_later)
+  assert_true(generated.facts.has_ssa_structured_early_return_local)
+  assert_true(generated.facts.has_ssa_block_branch_merge_copy)
+  assert_true(generated.facts.has_ssa_block_br_if_merge_copy)
+  assert_true(generated.facts.has_ssa_structured_param_merge)
+  assert_true(generated.facts.has_ssa_branch_local_not_read_later)
+}

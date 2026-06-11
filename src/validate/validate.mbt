@@ -3473,6 +3473,11 @@ pub enum ValidateValidFeatureKey {
   SsaNestedResultIfArmValueBlock
   SsaNestedResultIfMixedArmValueBlock
   SsaNestedResultIfScalarResult
+  SsaStructuredEarlyReturnLocal
+  SsaBlockBranchMergeCopy
+  SsaBlockBrIfMergeCopy
+  SsaStructuredParamMerge
+  SsaBranchLocalNotReadLater
 } derive(Eq, Debug)
 
 ///|
@@ -3573,6 +3578,13 @@ pub impl Show for ValidateValidFeatureKey with fn output(self, logger) {
       logger.write_string("SsaNestedResultIfMixedArmValueBlock")
     SsaNestedResultIfScalarResult =>
       logger.write_string("SsaNestedResultIfScalarResult")
+    SsaStructuredEarlyReturnLocal =>
+      logger.write_string("SsaStructuredEarlyReturnLocal")
+    SsaBlockBranchMergeCopy => logger.write_string("SsaBlockBranchMergeCopy")
+    SsaBlockBrIfMergeCopy => logger.write_string("SsaBlockBrIfMergeCopy")
+    SsaStructuredParamMerge => logger.write_string("SsaStructuredParamMerge")
+    SsaBranchLocalNotReadLater =>
+      logger.write_string("SsaBranchLocalNotReadLater")
   }
 }
 
@@ -3764,6 +3776,11 @@ pub fn validate_valid_feature_actual_count(
     SsaNestedResultIfMixedArmValueBlock =>
       stats.ssa_nested_result_if_mixed_arm_value_block
     SsaNestedResultIfScalarResult => stats.ssa_nested_result_if_scalar_result
+    SsaStructuredEarlyReturnLocal => stats.ssa_structured_early_return_local
+    SsaBlockBranchMergeCopy => stats.ssa_block_branch_merge_copy
+    SsaBlockBrIfMergeCopy => stats.ssa_block_br_if_merge_copy
+    SsaStructuredParamMerge => stats.ssa_structured_param_merge
+    SsaBranchLocalNotReadLater => stats.ssa_branch_local_not_read_later
   }
 }
 
@@ -3850,6 +3867,11 @@ fn validate_valid_feature_ledger_keys() -> Array[ValidateValidFeatureKey] {
     SsaNestedResultIfArmValueBlock,
     SsaNestedResultIfMixedArmValueBlock,
     SsaNestedResultIfScalarResult,
+    SsaStructuredEarlyReturnLocal,
+    SsaBlockBranchMergeCopy,
+    SsaBlockBrIfMergeCopy,
+    SsaStructuredParamMerge,
+    SsaBranchLocalNotReadLater,
   ]
 }
 
@@ -3994,6 +4016,11 @@ fn validate_valid_feature_key_label(key : ValidateValidFeatureKey) -> String {
     SsaNestedResultIfMixedArmValueBlock =>
       "ssa-nested-result-if-mixed-arm-value-block"
     SsaNestedResultIfScalarResult => "ssa-nested-result-if-scalar-result"
+    SsaStructuredEarlyReturnLocal => "ssa-structured-early-return-local"
+    SsaBlockBranchMergeCopy => "ssa-block-branch-merge-copy"
+    SsaBlockBrIfMergeCopy => "ssa-block-br-if-merge-copy"
+    SsaStructuredParamMerge => "ssa-structured-param-merge"
+    SsaBranchLocalNotReadLater => "ssa-branch-local-not-read-later"
   }
 }
 
@@ -4089,6 +4116,11 @@ fn validate_valid_feature_key_from_label(
     "ssa-nested-result-if-mixed-arm-value-block" =>
       Some(SsaNestedResultIfMixedArmValueBlock)
     "ssa-nested-result-if-scalar-result" => Some(SsaNestedResultIfScalarResult)
+    "ssa-structured-early-return-local" => Some(SsaStructuredEarlyReturnLocal)
+    "ssa-block-branch-merge-copy" => Some(SsaBlockBranchMergeCopy)
+    "ssa-block-br-if-merge-copy" => Some(SsaBlockBrIfMergeCopy)
+    "ssa-structured-param-merge" => Some(SsaStructuredParamMerge)
+    "ssa-branch-local-not-read-later" => Some(SsaBranchLocalNotReadLater)
     _ => None
   }
 }

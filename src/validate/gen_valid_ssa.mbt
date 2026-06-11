@@ -24,6 +24,11 @@ pub struct GenValidSsaFuncFacts {
   has_ssa_nested_result_if_arm_value_block : Bool
   has_ssa_nested_result_if_mixed_arm_value_block : Bool
   has_ssa_nested_result_if_scalar_result : Bool
+  has_ssa_structured_early_return_local : Bool
+  has_ssa_block_branch_merge_copy : Bool
+  has_ssa_block_br_if_merge_copy : Bool
+  has_ssa_structured_param_merge : Bool
+  has_ssa_branch_local_not_read_later : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -53,6 +58,11 @@ pub fn GenValidSsaFuncFacts::empty() -> GenValidSsaFuncFacts {
     has_ssa_nested_result_if_arm_value_block: false,
     has_ssa_nested_result_if_mixed_arm_value_block: false,
     has_ssa_nested_result_if_scalar_result: false,
+    has_ssa_structured_early_return_local: false,
+    has_ssa_block_branch_merge_copy: false,
+    has_ssa_block_br_if_merge_copy: false,
+    has_ssa_structured_param_merge: false,
+    has_ssa_branch_local_not_read_later: false,
   }
 }
 
@@ -109,6 +119,16 @@ pub fn gen_valid_merge_ssa_func_facts(
     right.has_ssa_nested_result_if_mixed_arm_value_block,
     has_ssa_nested_result_if_scalar_result: left.has_ssa_nested_result_if_scalar_result ||
     right.has_ssa_nested_result_if_scalar_result,
+    has_ssa_structured_early_return_local: left.has_ssa_structured_early_return_local ||
+    right.has_ssa_structured_early_return_local,
+    has_ssa_block_branch_merge_copy: left.has_ssa_block_branch_merge_copy ||
+    right.has_ssa_block_branch_merge_copy,
+    has_ssa_block_br_if_merge_copy: left.has_ssa_block_br_if_merge_copy ||
+    right.has_ssa_block_br_if_merge_copy,
+    has_ssa_structured_param_merge: left.has_ssa_structured_param_merge ||
+    right.has_ssa_structured_param_merge,
+    has_ssa_branch_local_not_read_later: left.has_ssa_branch_local_not_read_later ||
+    right.has_ssa_branch_local_not_read_later,
   }
 }
 
@@ -839,6 +859,15 @@ fn gen_valid_ssa_scan_linear(
           }
         }
       Block(bt, body) => {
+        let tail = gen_valid_ssa_tail_expr(instrs, i + 1)
+        let body_has_write = gen_valid_ssa_func_has_local_write(body)
+        let tail_has_read = gen_valid_ssa_expr_has_local_read(tail)
+        if body_has_write && tail_has_read && gen_valid_ssa_expr_has_br(body) {
+          out = { ..out, has_ssa_block_branch_merge_copy: true }
+        }
+        if body_has_write && tail_has_read && gen_valid_ssa_expr_has_br_if(body) {
+          out = { ..out, has_ssa_block_br_if_merge_copy: true }
+        }
         out = gen_valid_ssa_scan_expr(
             param_count, body, out, def_counts, has_local_write, has_exceptional,
           ).0
@@ -865,13 +894,24 @@ fn gen_valid_ssa_scan_linear(
         }
         out = gen_valid_merge_ssa_func_facts(out, then_facts)
         out = gen_valid_merge_ssa_func_facts(out, else_facts)
+        let tail = gen_valid_ssa_tail_expr(instrs, i + 1)
+        let else_has_return = match else_body {
+          Some(body) => gen_valid_ssa_expr_has_return(Expr::new(body))
+          None => false
+        }
+        let has_arm_return = gen_valid_ssa_expr_has_return(Expr::new(then_body)) ||
+          else_has_return
+        if (then_writes || else_writes) &&
+          has_arm_return &&
+          gen_valid_ssa_expr_has_local_read(tail) {
+          out = { ..out, has_ssa_structured_early_return_local: true }
+        }
         if then_writes || else_writes || then_exceptional || else_exceptional {
           has_local_write = has_local_write || then_writes || else_writes
           has_exceptional = has_exceptional ||
             then_exceptional ||
             else_exceptional
         }
-        let tail = gen_valid_ssa_tail_expr(instrs, i + 1)
         out = gen_valid_ssa_scan_if_join(
           param_count, then_body, else_body, tail, out,
         )
@@ -998,6 +1038,11 @@ fn gen_valid_ssa_scan_if_join(
     let idx = LocalIdx::new(slot.reinterpret_as_uint())
     if gen_valid_expr_local_has_read(tail, idx) {
       out = { ..out, has_ssa_if_join_phi_candidate: true }
+      if slot < param_count {
+        out = { ..out, has_ssa_structured_param_merge: true }
+      }
+    } else {
+      out = { ..out, has_ssa_branch_local_not_read_later: true }
     }
     for other in else_writes {
       if other == slot {
@@ -1010,6 +1055,11 @@ fn gen_valid_ssa_scan_if_join(
     let idx = LocalIdx::new(slot.reinterpret_as_uint())
     if gen_valid_expr_local_has_read(tail, idx) {
       out = { ..out, has_ssa_if_join_phi_candidate: true }
+      if slot < param_count {
+        out = { ..out, has_ssa_structured_param_merge: true }
+      }
+    } else {
+      out = { ..out, has_ssa_branch_local_not_read_later: true }
     }
   }
   if any_write {
@@ -1052,7 +1102,6 @@ fn gen_valid_ssa_scan_if_join(
       out = { ..out, has_ssa_parallel_copy_cycle_candidate: true }
     }
   }
-  ignore(param_count)
   out
 }
 
@@ -1174,6 +1223,85 @@ fn gen_valid_ssa_expr_has_br_table(expr : Expr) -> Bool {
         }
         match else_body {
           Some(body) if gen_valid_ssa_expr_has_br_table(Expr::new(body)) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_ssa_expr_has_br(expr : Expr) -> Bool {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      Br(_) => return true
+      Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
+        if gen_valid_ssa_expr_has_br(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_ssa_expr_has_br(Expr::new(then_body)) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_ssa_expr_has_br(Expr::new(body)) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_ssa_expr_has_br_if(expr : Expr) -> Bool {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      BrIf(_) => return true
+      Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
+        if gen_valid_ssa_expr_has_br_if(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_ssa_expr_has_br_if(Expr::new(then_body)) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_ssa_expr_has_br_if(Expr::new(body)) =>
+            return true
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_ssa_expr_has_return(expr : Expr) -> Bool {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      Return | ReturnCall(_) | ReturnCallIndirect(_, _) | ReturnCallRef(_) =>
+        return true
+      Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
+        if gen_valid_ssa_expr_has_return(body) {
+          return true
+        }
+      If(_, then_body, else_body) => {
+        if gen_valid_ssa_expr_has_return(Expr::new(then_body)) {
+          return true
+        }
+        match else_body {
+          Some(body) if gen_valid_ssa_expr_has_return(Expr::new(body)) =>
             return true
           _ => ()
         }
@@ -1696,6 +1824,109 @@ fn gen_valid_append_ssa_nomerge_coverage_body_slice(
     out.push(Instruction::local_get(l1))
     out.push(Instruction::drop())
     out.push(Instruction::local_get(l2))
+    out.push(Instruction::drop())
+  }
+  // X. structured early-return local traffic with a fallthrough read.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::local_get(p0))
+    out.push(
+      Instruction::if_(
+        BlockType::void_(),
+        [
+          Instruction::i32_const(I32(7)),
+          Instruction::local_set(l0),
+          Instruction::return_(),
+        ],
+        Some([Instruction::i32_const(I32(9)), Instruction::local_set(l0)]),
+      ),
+    )
+    out.push(Instruction::local_get(l0))
+    out.push(Instruction::drop())
+  }
+  // Y. block-target branch copy candidate.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::local_set(l0))
+    out.push(
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::local_get(p0),
+          Instruction::if_(
+            BlockType::void_(),
+            [
+              Instruction::i32_const(I32(7)),
+              Instruction::local_set(l0),
+              Instruction::br(LabelIdx::new(1U)),
+            ],
+            None,
+          ),
+          Instruction::i32_const(I32(9)),
+          Instruction::local_set(l0),
+        ]),
+      ),
+    )
+    out.push(Instruction::local_get(l0))
+    out.push(Instruction::drop())
+  }
+  // Z. block-target br_if merge candidate.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::i32_const(I32(7)))
+    out.push(Instruction::local_set(l0))
+    out.push(
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::local_get(p0),
+          Instruction::br_if(LabelIdx::new(0U)),
+          Instruction::i32_const(I32(9)),
+          Instruction::local_set(l0),
+        ]),
+      ),
+    )
+    out.push(Instruction::local_get(l0))
+    out.push(Instruction::drop())
+  }
+  // AA. typed result-if writing a param and reading it after the merge.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::local_get(p0))
+    out.push(
+      Instruction::if_(
+        BlockType::val_type(ValType::i32()),
+        [
+          Instruction::i32_const(I32(7)),
+          Instruction::local_set(p0),
+          Instruction::i32_const(I32(1)),
+        ],
+        Some([
+          Instruction::i32_const(I32(9)),
+          Instruction::local_set(p0),
+          Instruction::i32_const(I32(2)),
+        ]),
+      ),
+    )
+    out.push(Instruction::drop())
+    out.push(Instruction::local_get(p0))
+    out.push(Instruction::drop())
+  }
+  // AB. branch-local writes that are intentionally not read later.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::local_get(p0))
+    out.push(
+      Instruction::if_(
+        BlockType::val_type(ValType::i32()),
+        [
+          Instruction::i32_const(I32(20)),
+          Instruction::local_set(l1),
+          Instruction::i32_const(I32(2)),
+        ],
+        Some([
+          Instruction::i32_const(I32(30)),
+          Instruction::local_set(l2),
+          Instruction::i32_const(I32(3)),
+        ]),
+      ),
+    )
     out.push(Instruction::drop())
   }
   ignore(env)

@@ -136,6 +136,22 @@ Use before declaring a pass closed, audit-complete, or behavior-parity complete.
 
 Final closeout must use the `100000`-case direct pass lane, not the ordinary `10000`-case slice lane, unless the user explicitly approves a smaller run for that specific closeout.
 
+### Pass-specific generator fuzz lanes
+
+Some passes have dedicated in-repo GenValid profiles that intentionally generate shapes the general alternating smith/GenValid lane may hit only rarely. When a pass has a named profile, when you change `src/validate/gen_valid*`, or when an audit mentions pass-specific generated shapes, add a separate `compare-pass` lane with `--gen-valid-profile <profile>` after the standard direct lane.
+
+For ordinary implementation slices, use at least `10000` requested cases for the dedicated profile. For final closeout or audit-close claims, use a wider dedicated-profile lane unless the user explicitly approves a smaller run:
+
+```sh
+bun scripts/pass-fuzz-compare.ts --count 50000 --seed 0x551a --pass <canonical-name> --gen-valid-profile <profile> --out-dir .tmp/pass-fuzz-<name>-genvalid-<profile>-50000 --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe --max-failures 2000 --keep-going-after-command-failures
+```
+
+Current dedicated pass-profile examples:
+
+- `ssa-nomerge`: run `ssa-nomerge-coverage` for shape breadth and `ssa-nomerge-parity` when the slice specifically changed parity-safe SSA generator templates. Use explicit out dirs such as `.tmp/pass-fuzz-ssa-nomerge-genvalid-coverage-50000`. If the user asks for “ssa-genvalid fuzz”, treat this as `--pass ssa-nomerge --gen-valid-profile ssa-nomerge-coverage` unless they specify another SSA profile.
+
+Report dedicated-profile lanes separately from the general compare lane: profile name, requested count, compared count, normalized matches, cleanup-normalized matches, raw mismatches, command failures, and any profile-specific feature-floor or generation failures.
+
 For DAE / `dae-optimizing` mixed-generator lanes, add the documented compare normalizer so generated dropped-constant debris does not consume the mismatch budget:
 
 ```sh
@@ -148,6 +164,7 @@ Required result:
 
 - Binaryen behavior parity for the targeted pass, not merely “no known catastrophic semantic bug.”
 - `10000` compared cases for ordinary implementation slices, and `100000` requested cases for final pass closeout when the harness can complete that many valid comparisons.
+- Dedicated GenValid pass-profile lanes run when applicable (`10000` ordinary; wider, e.g. `50000`, for final/audit-close or generator-widening work), and their results are reported separately from the general lane.
 - Zero true semantic mismatches, and no broad unapproved family deferrals hidden behind “safe drift.”
 - Command failures classified separately from semantic mismatches.
 - Raw wasm/text or transform-shape differences are not failures when normalized/canonical semantic comparison is green and the observed behavior matches Binaryen.
@@ -198,7 +215,8 @@ When reporting pass signoff, include:
 - tests added or updated
 - focused Moon command results
 - standard Moon signoff results: `moon info`, `moon fmt`, `moon test`
-- compare-pass command, seed, out dir, explicit `--jobs auto`, explicit `--starshine-bin`, requested count (`10000` for ordinary slices or `100000` for final closeout), compared count, normalized match count, cleanup-normalized match count when `--normalize ...` is used, raw mismatch count, and command-failure classification
+- general compare-pass command, seed, out dir, explicit `--jobs auto`, explicit `--starshine-bin`, requested count (`10000` for ordinary slices or `100000` for final closeout), compared count, normalized match count, cleanup-normalized match count when `--normalize ...` is used, raw mismatch count, and command-failure classification
+- pass-specific GenValid compare-pass lanes, if applicable: `--gen-valid-profile`, seed, out dir, requested count (`10000` for ordinary slices, wider e.g. `50000` for final/audit-close lanes), compared count, normalized match count, cleanup-normalized match count, raw mismatch count, command failures, and feature-generation/floor failures
 - agent-classified mismatch breakdown, with explicit rationale for any semantic-safe/size-winning mismatch family; never imply the harness proved semantic safety
 - replayed failure dirs and their outcomes, if any
 - pass-local performance numbers, artifact comparisons, any `[WALL]001` attribution, or why they were not applicable
@@ -213,6 +231,7 @@ A pass is done only when:
 - public behavior is protected by tests
 - registry, dispatcher, CLI, and preset surfaces are wired or explicitly out of scope
 - direct pass execution matches Binaryen behavior on the required compare-pass run: `10000` for ordinary slices and `100000` for final pass closeout; a green lane must be cross-checked against source/docs so broad missing transform families are not hidden as "no mismatches"
+- any dedicated GenValid pass profile relevant to the pass or touched generator code has its own reported compare lane (`10000` ordinary, wider e.g. `50000` for final/audit-close), or the report explicitly states why it was not applicable or not run
 - any remaining behavior divergence or unimplemented family is narrow, evidence-backed, explicitly approved, and documented with reopening criteria; otherwise the audit stays active or is reopened
 - every transform is covered as safe and valid, with validation evidence for changed modules when applicable
 - relevant performance/artifact evidence is captured when applicable, and pass-local Starshine timing is at least 50% of Binaryen speed unless explicitly accepted

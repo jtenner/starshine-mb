@@ -1275,6 +1275,11 @@ pub struct GenValidFeatureFacts {
   has_ssa_nested_result_if_arm_value_block : Bool
   has_ssa_nested_result_if_mixed_arm_value_block : Bool
   has_ssa_nested_result_if_scalar_result : Bool
+  has_ssa_structured_early_return_local : Bool
+  has_ssa_block_branch_merge_copy : Bool
+  has_ssa_block_br_if_merge_copy : Bool
+  has_ssa_structured_param_merge : Bool
+  has_ssa_branch_local_not_read_later : Bool
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, Debug)
 
@@ -1419,6 +1424,11 @@ pub struct GenValidFeatureStats {
   ssa_nested_result_if_arm_value_block : Int
   ssa_nested_result_if_mixed_arm_value_block : Int
   ssa_nested_result_if_scalar_result : Int
+  ssa_structured_early_return_local : Int
+  ssa_block_branch_merge_copy : Int
+  ssa_block_br_if_merge_copy : Int
+  ssa_structured_param_merge : Int
+  ssa_branch_local_not_read_later : Int
   exact_opcode_counts : GenValidExactOpcodeCounts
 } derive(Eq, Debug)
 
@@ -1598,6 +1608,16 @@ pub impl Show for GenValidFeatureStats with fn output(self, logger) {
   self.ssa_nested_result_if_mixed_arm_value_block.output(logger)
   logger.write_string(", ssa_nested_result_if_scalar_result: ")
   self.ssa_nested_result_if_scalar_result.output(logger)
+  logger.write_string(", ssa_structured_early_return_local: ")
+  self.ssa_structured_early_return_local.output(logger)
+  logger.write_string(", ssa_block_branch_merge_copy: ")
+  self.ssa_block_branch_merge_copy.output(logger)
+  logger.write_string(", ssa_block_br_if_merge_copy: ")
+  self.ssa_block_br_if_merge_copy.output(logger)
+  logger.write_string(", ssa_structured_param_merge: ")
+  self.ssa_structured_param_merge.output(logger)
+  logger.write_string(", ssa_branch_local_not_read_later: ")
+  self.ssa_branch_local_not_read_later.output(logger)
   logger.write_string(", exact_opcode_counts: ")
   self.exact_opcode_counts.output(logger)
   logger.write_char('}')
@@ -1693,6 +1713,11 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     ssa_nested_result_if_arm_value_block: 0,
     ssa_nested_result_if_mixed_arm_value_block: 0,
     ssa_nested_result_if_scalar_result: 0,
+    ssa_structured_early_return_local: 0,
+    ssa_block_branch_merge_copy: 0,
+    ssa_block_br_if_merge_copy: 0,
+    ssa_structured_param_merge: 0,
+    ssa_branch_local_not_read_later: 0,
     exact_opcode_counts: GenValidExactOpcodeCounts::empty(),
   }
 }
@@ -1852,6 +1877,16 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_ssa_nested_result_if_mixed_arm_value_block),
     ssa_nested_result_if_scalar_result: self.ssa_nested_result_if_scalar_result +
     gen_valid_bool_count(facts.has_ssa_nested_result_if_scalar_result),
+    ssa_structured_early_return_local: self.ssa_structured_early_return_local +
+    gen_valid_bool_count(facts.has_ssa_structured_early_return_local),
+    ssa_block_branch_merge_copy: self.ssa_block_branch_merge_copy +
+    gen_valid_bool_count(facts.has_ssa_block_branch_merge_copy),
+    ssa_block_br_if_merge_copy: self.ssa_block_br_if_merge_copy +
+    gen_valid_bool_count(facts.has_ssa_block_br_if_merge_copy),
+    ssa_structured_param_merge: self.ssa_structured_param_merge +
+    gen_valid_bool_count(facts.has_ssa_structured_param_merge),
+    ssa_branch_local_not_read_later: self.ssa_branch_local_not_read_later +
+    gen_valid_bool_count(facts.has_ssa_branch_local_not_read_later),
     exact_opcode_counts: self.exact_opcode_counts.add(facts.exact_opcode_counts),
   }
 }
@@ -15633,6 +15668,11 @@ pub fn gen_valid_feature_facts(
     has_ssa_nested_result_if_arm_value_block: ssa_facts.has_ssa_nested_result_if_arm_value_block,
     has_ssa_nested_result_if_mixed_arm_value_block: ssa_facts.has_ssa_nested_result_if_mixed_arm_value_block,
     has_ssa_nested_result_if_scalar_result: ssa_facts.has_ssa_nested_result_if_scalar_result,
+    has_ssa_structured_early_return_local: ssa_facts.has_ssa_structured_early_return_local,
+    has_ssa_block_branch_merge_copy: ssa_facts.has_ssa_block_branch_merge_copy,
+    has_ssa_block_br_if_merge_copy: ssa_facts.has_ssa_block_br_if_merge_copy,
+    has_ssa_structured_param_merge: ssa_facts.has_ssa_structured_param_merge,
+    has_ssa_branch_local_not_read_later: ssa_facts.has_ssa_branch_local_not_read_later,
     exact_opcode_counts,
   }
 }
