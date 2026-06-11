@@ -519,6 +519,61 @@ fn ssa_test_hot_func_exceptional_fail_closed(func : @ir.HotFunc) -> Unit raise {
 }
 
 ///|
+test "ssa-nomerge rewrites no-throw try_table local writes" {
+  let input =
+    #| (module
+    #|   (func (result i32)
+    #|     (local i32)
+    #|     i32.const 1
+    #|     local.set 0
+    #|     block
+    #|       try_table (catch_all 0)
+    #|         i32.const 7
+    #|         local.set 0
+    #|       end
+    #|     end
+    #|     i32.const 9
+    #|     local.set 0
+    #|     local.get 0))
+    #|
+  let optimized = match pass_test_run_pipeline(input, ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected no-throw try_table ssa-nomerge success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  @debug.assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  @debug.assert_eq(instrs, [
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::try_table(
+          @lib.BlockType::void_(),
+          [@lib.Catch::all(@lib.LabelIdx::new(0U))],
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(7)),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+          ]),
+        ),
+      ]),
+    ),
+    @lib.Instruction::i32_const(@lib.I32(9)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  ])
+}
+
+///|
 test "ssa-nomerge does not mutate exceptional-flow functions" {
   let trace : Array[String] = []
   let source =

@@ -7830,6 +7830,43 @@ fn run_hot_pipeline_raw_mark_br_table_exit_depths(
 }
 
 ///|
+fn run_hot_pipeline_raw_try_table_body_has_exceptional_edge(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Throw(_) | @lib.ThrowRef => return true
+      @lib.Call(_)
+      | @lib.CallIndirect(_, _)
+      | @lib.CallRef(_)
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_try_table_body_has_exceptional_edge(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_try_table_body_has_exceptional_edge(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_try_table_body_has_exceptional_edge(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_rewrite_br_if(
   module_ctx : @ir.HotModuleContext,
   label_idx : @lib.LabelIdx,
@@ -8309,7 +8346,116 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           }
         }
       }
-      @lib.Loop(_, _) | @lib.TryTable(_, _, _) => return None
+      @lib.Loop(_, _) => return None
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        if run_hot_pipeline_raw_try_table_body_has_exceptional_edge(body) {
+          return None
+        }
+        let child_future_reads = run_hot_pipeline_raw_future_local_accesses(
+          instrs,
+          idx + 1,
+          future_reads,
+          true,
+        )
+        let child_future_writes = run_hot_pipeline_raw_future_local_accesses(
+          instrs,
+          idx + 1,
+          future_writes,
+          false,
+        )
+        let child_future_reads_before_writes = run_hot_pipeline_raw_future_local_reads_before_writes(
+          instrs,
+          idx + 1,
+          future_reads_before_writes,
+        )
+        let label_target = match
+          run_hot_pipeline_raw_label_target(
+            module_ctx, block_type, false, child_future_reads_before_writes,
+          ) {
+          Some(label_target) => label_target
+          None => return None
+        }
+        match
+          run_hot_pipeline_raw_rewrite_instrs(
+            body,
+            module_ctx,
+            params,
+            locals,
+            aliases.copy(),
+            canonical_aliases,
+            initialized.copy(),
+            run_hot_pipeline_raw_push_label_target(label_stack, label_target),
+            child_future_reads,
+            child_future_writes,
+            child_future_reads_before_writes,
+            extra_local_types,
+          ) {
+          Some(
+            (
+              rewritten_body,
+              body_aliases,
+              body_initialized,
+              body_fallthrough,
+              body_exit_depths,
+            )
+          ) => {
+            let body_exits_current_label = body_exit_depths.length() > 0 &&
+              body_exit_depths[0]
+            let mut finalized_body = rewritten_body
+            if body_fallthrough && body_exits_current_label {
+              finalized_body = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
+                finalized_body,
+                body_aliases,
+                canonical_aliases,
+                canonical_aliases,
+                body_initialized,
+                label_target.needed_alias_copies,
+                label_target.result_types,
+                params,
+                locals,
+                extra_local_types,
+              )
+            }
+            rewritten.push(
+              @lib.Instruction::try_table(
+                block_type,
+                catches,
+                @lib.Expr::new(finalized_body),
+              ),
+            )
+            if was_reachable {
+              run_hot_pipeline_raw_propagate_outer_exits(
+                exit_depths, body_exit_depths,
+              )
+              if body_fallthrough || body_exits_current_label {
+                aliases = if body_exits_current_label {
+                  canonical_aliases.copy()
+                } else {
+                  body_aliases
+                }
+                initialized = if body_exits_current_label {
+                  let next_initialized = initialized.copy()
+                  for local_id = 0
+                      local_id < next_initialized.length()
+                      local_id = local_id + 1 {
+                    if body_aliases[local_id] != canonical_aliases[local_id] ||
+                      body_initialized[local_id] {
+                      next_initialized[local_id] = true
+                    }
+                  }
+                  next_initialized
+                } else {
+                  body_initialized
+                }
+                fallthrough = true
+              } else {
+                fallthrough = false
+              }
+            }
+          }
+          None => return None
+        }
+      }
       @lib.Br(label_idx) => {
         let label_target = match
           run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {

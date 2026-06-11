@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-11] passes/ssa-nomerge | Admit no-throw try_table bodies
+
+- Fixed raw structured `ssa-nomerge` in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): `try_table` bodies with no throw-family instructions and no calls/return-calls now use the normal structured-control rewrite path, preserving Binaryen-observed local-write freshening without opening the exceptional-edge corruption family. Bodies that can throw or call still fail closed.
+- Added a focused source-backed regression in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for dead local writes around a no-throw `try_table`; the test failed red under the old no-rewrite fallback and passed after implementation. Existing exceptional-flow fail-closed tests still pass.
+- Evidence: focused `*no-throw try_table*` passed `1/1`; focused `*exceptional*` passed `2/2`; `ssa_nomerge_test.mbt` passed `124/124`; `moon test src/passes` passed `2143/2143`; `moon fmt`, `moon info` (3 pre-existing GenValid warnings), full `moon test` (`5403/5403`), and native `src/cmd` build passed with pre-existing pass-manager warnings. Direct compare `.tmp/pass-fuzz-ssa-nomerge-no-throw-trytable-10000` compared `9977/10000` with `9977` normalized matches, `0` mismatches, and `23` Binaryen/tool command failures. GenValid parity `.tmp/pass-fuzz-ssa-nomerge-parity-no-throw-trytable-10000` compared `10000/10000` with `10000` compare-normalized matches and `0` mismatches.
+- Direct artifact replay `.tmp/self-ssa-nomerge-debug-wasi-no-throw-trytable` validates but still differs at `defined=0 abs=27`; pass-local Starshine was `16.298 ms` vs Binaryen `344.507 ms`. This is not exact artifact or O4z closeout.
+
 ## [2026-06-11] passes/ssa-nomerge | Preserve result br_table copies
 
 - Fixed raw structured `ssa-nomerge` in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): non-loop `br_table` targets are no longer restricted to zero-result labels, so result-typed table exits can stay on the raw path and receive needed canonical alias copies before dispatch. The inserted copies are stack-neutral, preserving branch payload values and the selector below the copy sequence; loop targets remain fail-closed.
