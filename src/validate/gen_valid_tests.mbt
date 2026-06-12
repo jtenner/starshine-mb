@@ -7318,15 +7318,15 @@ test "ssa-nomerge coverage generated modules record dense SSA feature facts" {
   )
   assert_true(
     facts.has_ssa_exceptional_fail_closed_shape,
-    msg="expected exceptional-flow fail-closed shape",
+    msg="expected exceptional-flow unsupported-boundary shape",
   )
   assert_true(
     facts.has_ssa_typed_loop_param_fail_closed_shape,
-    msg="expected typed loop-param fail-closed shape",
+    msg="expected typed loop-param unsupported-boundary shape",
   )
   assert_true(
     facts.has_ssa_nested_cfg_fail_closed_shape,
-    msg="expected nested CFG fail-closed shape",
+    msg="expected nested CFG unsupported-boundary shape",
   )
   assert_true(
     facts.has_ssa_nested_result_if_supported_shape,
@@ -7469,15 +7469,15 @@ test "ssa-nomerge smoke generated modules cover structured branch SSA shapes" {
   )
   assert_false(
     facts.has_ssa_exceptional_fail_closed_shape,
-    msg="smoke profile keeps exceptional fail-closed shapes out of quick smoke",
+    msg="smoke profile keeps exceptional unsupported-boundary shapes out of quick smoke",
   )
   assert_false(
     facts.has_ssa_typed_loop_param_fail_closed_shape,
-    msg="smoke profile keeps typed loop-param fail-closed shapes out of quick smoke",
+    msg="smoke profile keeps typed loop-param unsupported-boundary shapes out of quick smoke",
   )
   assert_false(
     facts.has_ssa_nested_cfg_fail_closed_shape,
-    msg="smoke profile keeps nested CFG fail-closed shapes out of quick smoke",
+    msg="smoke profile keeps nested CFG unsupported-boundary shapes out of quick smoke",
   )
   assert_true(
     facts.has_ssa_nested_result_if_supported_shape,
@@ -7502,7 +7502,7 @@ test "ssa-nomerge smoke generated modules cover structured branch SSA shapes" {
 }
 
 ///|
-test "ssa-nomerge compare-clean generated modules omit fail-closed coverage slices" {
+test "ssa-nomerge compare-clean generated modules omit unsupported-boundary coverage slices" {
   let config = GenValidConfig::for_profile(SsaNomergeParityProfile)
   let generated = match gen_valid_module_result_from_seed(0x5eedUL, config) {
     Ok(v) => v
@@ -7547,15 +7547,15 @@ test "ssa-nomerge compare-clean generated modules omit fail-closed coverage slic
   )
   assert_false(
     facts.has_ssa_exceptional_fail_closed_shape,
-    msg="compare-clean profile must not emit exceptional fail-closed shape",
+    msg="compare-clean profile must not emit exceptional unsupported-boundary shape",
   )
   assert_false(
     facts.has_ssa_typed_loop_param_fail_closed_shape,
-    msg="compare-clean profile must not emit typed loop-param fail-closed shape",
+    msg="compare-clean profile must not emit typed loop-param unsupported-boundary shape",
   )
   assert_false(
     facts.has_ssa_nested_cfg_fail_closed_shape,
-    msg="compare-clean profile must not emit nested CFG fail-closed shape",
+    msg="compare-clean profile must not emit nested CFG unsupported-boundary shape",
   )
   assert_false(
     facts.has_ssa_dropped_increment_guard_shape,
@@ -7600,7 +7600,7 @@ test "ssa-nomerge compare-clean generated modules omit fail-closed coverage slic
 }
 
 ///|
-test "ssa-nomerge stress generated modules record dense fail-closed SSA facts" {
+test "ssa-nomerge stress generated modules record dense unsupported-boundary SSA facts" {
   let config = GenValidConfig::for_profile(SsaNomergeStressProfile)
   let generated = match gen_valid_module_result_from_seed(0x5eedUL, config) {
     Ok(v) => v
