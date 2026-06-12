@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-12] passes/ssa-nomerge | Add remaining gap classification guards
+
+- Added focused fail-closed guards in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the remaining documented `ssa-nomerge` behavior-gap classifications that can be represented as unit fixtures: multi-instruction reference inputs for loop-store and non-current `br_on_null` / `br_on_non_null`, non-current typed-loop `br_table` targets, scalar-proxy `try_table` catch-label relabeling, single-result `try_table` fallthrough, nested non-void loop self-backedges, and nested other-label branches.
+- Source-backed concrete probes live in `.tmp/ssa-nomerge-remaining-gap-classification-tests/`; `wasm-tools parse`, `wasm-tools validate --features all`, and `wasm-opt --all-features --ssa-nomerge -S` succeeded for all nine probes.
+- Evidence: focused `*fail-closed*` passed `13/13`; full `ssa_nomerge_test.mbt` passed `253/253`; `moon test src/passes` passed `2272/2272`; `moon fmt`; `moon info` passed with the 3 pre-existing GenValid warnings; full `moon test` passed `5534/5534`. Standard native `moon build --target native --release src/cmd -v` still fails on the known generated C `system` symbol conflict, so compare/replay used an exact-current manually compiled `.tmp/cmd.ssa-gap-classification-tests.exe` from generated C after deleting only the conflicting duplicate prototype.
+- Direct compare `.tmp/pass-fuzz-ssa-nomerge-gap-classification-tests-10000` compared `9977/10000` with `9977` normalized matches, `0` mismatches, and `23` Binaryen/tool command failures (`22` `binaryen-rec-group-zero`, `1` `binaryen-bad-section-size`). Normalized GenValid parity `.tmp/pass-fuzz-ssa-nomerge-parity-gap-classification-tests-genvalid-normalized-10000` compared `10000/10000` with `10000` compare-normalized matches and `0` mismatches. Direct artifact replay `.tmp/self-ssa-nomerge-debug-wasi-gap-classification-tests` validates but still differs at `defined=0 abs=27`; pass-local Starshine was `2.408 ms` vs Binaryen `418.876 ms`.
+- These tests intentionally preserve current fail-closed behavior and do not claim implementation, exact artifact parity, huge-threshold closeout, or O4z slot enablement.
+
 ## [2026-06-12] passes/ssa-nomerge | Audit br_on_null prefix subtype result branches
 
 - Added source-backed raw structured coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for copy-needing non-loop `br_on_null` exits whose taken-edge prefix payload is a subtype of a broader block result type: `ref.i31` to nullable `eqref`, `struct.new_default` child-to-parent, `array.new_default` child-to-parent, and `ref.func` child-function-to-parent-function.

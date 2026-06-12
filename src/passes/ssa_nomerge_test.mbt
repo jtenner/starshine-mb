@@ -1085,6 +1085,45 @@ fn ssa_test_validate_ssa_nomerge_pipeline(source : String) -> @lib.Module raise 
 }
 
 ///|
+fn ssa_test_module_fail_closed_unmutated(
+  input : @lib.Module,
+  context : String,
+) -> Unit raise {
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected \{context} fail-closed success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected \{context} fail-closed output to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+fn ssa_test_pipeline_fail_closed_unmutated(
+  source : String,
+  context : String,
+) -> Unit raise {
+  ssa_test_module_fail_closed_unmutated(
+    pass_test_module_from_wat(source),
+    context,
+  )
+}
+
+///|
 fn ssa_test_hot_exceptional_local_traffic_preserved(
   source : String,
 ) -> Unit raise {
@@ -5207,6 +5246,340 @@ test "ssa-nomerge keeps multi-result typed loop-param direct br fail-closed" {
     #|    end)
     #|)
   ssa_test_typed_loop_param_pipeline_fail_closed(source)
+}
+
+///|
+test "ssa-nomerge keeps multi-instruction br_on_null loop-store tested refs fail-closed" {
+  let externref = @lib.ValType::externref()
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([externref], [])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([externref], [externref])),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([externref]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::loop_(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+              @lib.Expr::new([
+                @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(externref),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                  ]),
+                ),
+                @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+              ]),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  ssa_test_module_fail_closed_unmutated(
+    input, "multi-instruction br_on_null loop-store tested ref",
+  )
+}
+
+///|
+test "ssa-nomerge keeps multi-instruction br_on_non_null loop-store tested refs fail-closed" {
+  let externref = @lib.ValType::externref()
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([externref], [])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([externref], [externref])),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([externref]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::loop_(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+              @lib.Expr::new([
+                @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(externref),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                  ]),
+                ),
+                @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  ssa_test_module_fail_closed_unmutated(
+    input, "multi-instruction br_on_non_null loop-store tested ref",
+  )
+}
+
+///|
+test "ssa-nomerge keeps non-current multi-instruction br_on_null branch inputs fail-closed" {
+  let externref = @lib.ValType::externref()
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([externref], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::i32_const(7),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+              ],
+              Some([
+                @lib.Instruction::i32_const(8),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+              ]),
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::i32()),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(externref),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                  ]),
+                ),
+                @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(9),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  ssa_test_module_fail_closed_unmutated(
+    input, "non-current multi-instruction br_on_null branch input",
+  )
+}
+
+///|
+test "ssa-nomerge keeps non-current multi-instruction br_on_non_null branch inputs fail-closed" {
+  let externref = @lib.ValType::externref()
+  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([externref], [externref])),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::i32_const(7),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+              ],
+              Some([
+                @lib.Instruction::i32_const(8),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+              ]),
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(externref),
+              @lib.Expr::new([
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(externref),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                  ]),
+                ),
+                @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::ref_null(extern_heap),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  ssa_test_module_fail_closed_unmutated(
+    input, "non-current multi-instruction br_on_non_null branch input",
+  )
+}
+
+///|
+test "ssa-nomerge keeps non-current loop br_table targets fail-closed" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 0
+    #|    loop $l (type $loop_t)
+    #|      local.set 1
+    #|      block $inner
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.get 0
+    #|        br_table $l $l
+    #|      end
+    #|      local.get 1
+    #|      drop
+    #|    end
+    #|    local.get 1))
+    #|)
+  ssa_test_pipeline_fail_closed_unmutated(
+    source, "non-current loop br_table target",
+  )
+}
+
+///|
+test "ssa-nomerge keeps try_table scalar proxy br_if catch-relabeling boundary fail-closed" {
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    (block $h
+    #|      i32.const 0
+    #|      (loop $l (param i32)
+    #|        local.set 1
+    #|        (try_table (catch_all $h)
+    #|          local.get 1
+    #|          i32.const 1
+    #|          i32.add
+    #|          local.get 0
+    #|          br_if $l
+    #|          drop)))
+    #|    local.get 1))
+    #|)
+  ssa_test_pipeline_fail_closed_unmutated(
+    source, "try_table scalar proxy br_if catch-label relabeling boundary",
+  )
+}
+
+///|
+test "ssa-nomerge keeps try_table single-result fallthrough store model fail-closed" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32 i32) (result i32)))
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    (block $h
+    #|      i32.const 0
+    #|      local.get 0
+    #|      loop $l (type $loop_t)
+    #|        local.set 2
+    #|        local.set 1
+    #|        try_table (result i32) (catch_all $h)
+    #|          local.get 1
+    #|          i32.const 1
+    #|          i32.add
+    #|          local.get 2
+    #|          local.get 0
+    #|          br_if $l
+    #|          drop
+    #|        end
+    #|      end
+    #|      return)
+    #|    local.get 1))
+    #|)
+  ssa_test_pipeline_fail_closed_unmutated(
+    source, "try_table single-result fallthrough store model",
+  )
+}
+
+///|
+test "ssa-nomerge keeps nested non-void loop self-backedges fail-closed" {
+  let source =
+    #|(module
+    #|  (type $outer_t (func (param i32)))
+    #|  (type $inner_t (func (param i32)))
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    i32.const 0
+    #|    loop $outer (type $outer_t)
+    #|      local.set 1
+    #|      i32.const 0
+    #|      loop $inner (type $inner_t)
+    #|        local.set 2
+    #|        local.get 2
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.get 0
+    #|        br_if $inner
+    #|        drop
+    #|      end
+    #|      local.get 1
+    #|      i32.const 1
+    #|      i32.add
+    #|      br $outer
+    #|    end
+    #|    local.get 1))
+    #|)
+  ssa_test_pipeline_fail_closed_unmutated(
+    source, "nested non-void loop self-backedge",
+  )
+}
+
+///|
+test "ssa-nomerge keeps nested other-label branches under typed loop params fail-closed" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 0
+    #|    loop $outer (type $loop_t)
+    #|      local.set 1
+    #|      block $other
+    #|        br $other
+    #|      end
+    #|      local.get 1
+    #|      i32.const 1
+    #|      i32.add
+    #|      br $outer
+    #|    end
+    #|    local.get 1))
+    #|)
+  ssa_test_pipeline_fail_closed_unmutated(
+    source, "nested other-label branch under typed loop param",
+  )
 }
 
 ///|
