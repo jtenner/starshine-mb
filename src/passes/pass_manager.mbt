@@ -7179,6 +7179,31 @@ fn run_hot_pipeline_raw_non_null_ref_type(
 }
 
 ///|
+fn run_hot_pipeline_raw_reference_type_matches_same_heap(
+  actual : @lib.ValType,
+  expected : @lib.ValType,
+) -> Bool {
+  if actual == expected {
+    return true
+  }
+  match (actual, expected) {
+    (@lib.RefTypeValType(actual_ref), @lib.RefTypeValType(expected_ref)) => {
+      if actual_ref.get_heap_type() != expected_ref.get_heap_type() {
+        return false
+      }
+      if expected_ref.is_exact() && !actual_ref.is_exact() {
+        return false
+      }
+      if actual_ref.is_nullable() && !expected_ref.is_nullable() {
+        return false
+      }
+      true
+    }
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_default_instr_for_local(
   params : Array[@lib.ValType],
   locals : @lib.Locals,
@@ -8871,7 +8896,10 @@ fn run_hot_pipeline_raw_rewrite_loop_param_store_br_on_non_null(
     None => return false
   }
   let final_idx = label_target.result_types.length() - 1
-  if label_target.result_types[final_idx] != non_null_ref_type {
+  if !run_hot_pipeline_raw_reference_type_matches_same_heap(
+      non_null_ref_type,
+      label_target.result_types[final_idx],
+    ) {
     return false
   }
   if final_idx > 0 {
