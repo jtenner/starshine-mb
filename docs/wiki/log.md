@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-12] passes/ssa-nomerge | Classify sampled artifact local-allocation residuals
+
+- Refreshed the current debug-artifact `ssa-nomerge` sampled functions after commits `0dc102965` and `ee4a17d0e`; `abs=111` had a real typed-loop loop-param scratch parity gap and is now covered by a reduced regression in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt).
+- Classified residual sampled differences at `abs=95`, `abs=98`, `abs=110`, `abs=111`, and `abs=115` as Starshine-winning differences, not generic representation drift: the remaining inspected family keeps single-use call results on the operand stack across intervening void calls instead of spilling/reloading Binaryen-style locals.
+- Evidence recorded in [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md): all five refreshed Starshine prints have smaller print/body text, fewer local writes, fewer local gets, and lower max referenced local than Binaryen for the sampled current artifacts. Scope remains artifact-sample classification only; exact artifact equality and pass closeout are still unclaimed.
+
 ## [2026-06-12] passes/ssa-nomerge | Audit non-current typed-loop br_table targets
 
 - Converted the previous non-current typed-loop `br_table` fail-closed guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) into positive coverage, and added five more source-backed positives for nested/non-current all-loop and mixed current-loop/enclosing-label table targets.
