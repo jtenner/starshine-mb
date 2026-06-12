@@ -7895,59 +7895,38 @@ fn run_hot_pipeline_raw_instrs_have_branch(
 }
 
 ///|
-fn run_hot_pipeline_raw_instrs_only_direct_loop_scalar_br_backedges(
+fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
   instrs : Array[@lib.Instruction],
   loop_depth : UInt,
+  allow_ref_branches : Bool,
 ) -> Bool {
-  run_hot_pipeline_raw_instrs_only_direct_loop_scalar_backedges(
-    instrs, loop_depth, false,
-  )
-}
-
-///|
-fn run_hot_pipeline_raw_instrs_only_direct_loop_scalar_br_if_backedges(
-  instrs : Array[@lib.Instruction],
-  loop_depth : UInt,
-) -> Bool {
-  run_hot_pipeline_raw_instrs_only_direct_loop_scalar_backedges(
-    instrs, loop_depth, true,
-  )
-}
-
-///|
-fn run_hot_pipeline_raw_instrs_only_direct_loop_scalar_backedges(
-  instrs : Array[@lib.Instruction],
-  loop_depth : UInt,
-  expect_br_if : Bool,
-) -> Bool {
-  let mut saw_scalar_backedge = false
+  let mut saw_backedge = false
   for instr in instrs {
     match instr {
-      @lib.Br(@lib.LabelIdx(raw)) =>
-        if !expect_br_if && raw == loop_depth {
-          saw_scalar_backedge = true
+      @lib.Br(@lib.LabelIdx(raw)) | @lib.BrIf(@lib.LabelIdx(raw)) =>
+        if raw == loop_depth {
+          saw_backedge = true
         } else {
           return false
         }
-      @lib.BrIf(@lib.LabelIdx(raw)) =>
-        if expect_br_if && raw == loop_depth {
-          saw_scalar_backedge = true
+      @lib.BrOnCast(@lib.LabelIdx(raw), _, _, _)
+      | @lib.BrOnCastFail(@lib.LabelIdx(raw), _, _, _)
+      | @lib.BrOnNull(@lib.LabelIdx(raw))
+      | @lib.BrOnNonNull(@lib.LabelIdx(raw)) =>
+        if allow_ref_branches && raw == loop_depth {
+          saw_backedge = true
         } else {
           return false
         }
-      @lib.BrTable(_, _)
-      | @lib.BrOnNull(_)
-      | @lib.BrOnNonNull(_)
-      | @lib.BrOnCast(_, _, _, _)
-      | @lib.BrOnCastFail(_, _, _, _) => return false
+      @lib.BrTable(_, _) => return false
       @lib.Block(_, @lib.Expr(body)) =>
         if run_hot_pipeline_raw_instrs_have_branch(body) {
-          if run_hot_pipeline_raw_instrs_only_direct_loop_scalar_backedges(
+          if run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
               body,
               loop_depth + 1U,
-              expect_br_if,
+              allow_ref_branches,
             ) {
-            saw_scalar_backedge = true
+            saw_backedge = true
           } else {
             return false
           }
@@ -7958,12 +7937,12 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_scalar_backedges(
         }
       @lib.If(_, then_body, else_body) => {
         if run_hot_pipeline_raw_instrs_have_branch(then_body) {
-          if run_hot_pipeline_raw_instrs_only_direct_loop_scalar_backedges(
+          if run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
               then_body,
               loop_depth + 1U,
-              expect_br_if,
+              allow_ref_branches,
             ) {
-            saw_scalar_backedge = true
+            saw_backedge = true
           } else {
             return false
           }
@@ -7971,12 +7950,12 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_scalar_backedges(
         match else_body {
           Some(body) =>
             if run_hot_pipeline_raw_instrs_have_branch(body) {
-              if run_hot_pipeline_raw_instrs_only_direct_loop_scalar_backedges(
+              if run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
                   body,
                   loop_depth + 1U,
-                  expect_br_if,
+                  allow_ref_branches,
                 ) {
-                saw_scalar_backedge = true
+                saw_backedge = true
               } else {
                 return false
               }
@@ -7987,48 +7966,7 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_scalar_backedges(
       _ => ()
     }
   }
-  saw_scalar_backedge
-}
-
-///|
-fn run_hot_pipeline_raw_instrs_only_direct_loop_ref_backedges(
-  instrs : Array[@lib.Instruction],
-) -> Bool {
-  let mut saw_ref_backedge = false
-  for instr in instrs {
-    match instr {
-      @lib.BrOnCast(@lib.LabelIdx(raw), _, _, _)
-      | @lib.BrOnCastFail(@lib.LabelIdx(raw), _, _, _)
-      | @lib.BrOnNull(@lib.LabelIdx(raw))
-      | @lib.BrOnNonNull(@lib.LabelIdx(raw)) =>
-        if raw == 0U {
-          saw_ref_backedge = true
-        } else {
-          return false
-        }
-      @lib.Br(_) | @lib.BrIf(_) | @lib.BrTable(_, _) => return false
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_instrs_have_branch(body) {
-          return false
-        }
-      @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_instrs_have_branch(then_body) {
-          return false
-        }
-        match else_body {
-          Some(body) =>
-            if run_hot_pipeline_raw_instrs_have_branch(body) {
-              return false
-            }
-          None => ()
-        }
-      }
-      _ => ()
-    }
-  }
-  saw_ref_backedge
+  saw_backedge
 }
 
 ///|
@@ -9446,20 +9384,17 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             Some(loop_param_type) => loop_param_type
             None => return None
           }
-          let ref_backedges_supported = match loop_param_type {
+          let direct_loop_param_backedges_supported = match loop_param_type {
             @lib.RefTypeValType(_) =>
-              run_hot_pipeline_raw_instrs_only_direct_loop_ref_backedges(body)
-            _ => false
+              run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
+                body, 0U, true,
+              )
+            _ =>
+              run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
+                body, 0U, false,
+              )
           }
-          let scalar_br_backedges_supported = run_hot_pipeline_raw_instrs_only_direct_loop_scalar_br_backedges(
-            body, 0U,
-          )
-          let scalar_br_if_backedges_supported = run_hot_pipeline_raw_instrs_only_direct_loop_scalar_br_if_backedges(
-            body, 0U,
-          )
-          if !ref_backedges_supported &&
-            !scalar_br_backedges_supported &&
-            !scalar_br_if_backedges_supported {
+          if !direct_loop_param_backedges_supported {
             return None
           }
           let scratch_type = match

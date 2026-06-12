@@ -1805,31 +1805,75 @@ test "ssa-nomerge keeps multi-param typed loop direct br fail-closed" {
 }
 
 ///|
-test "ssa-nomerge keeps mixed typed loop branch families fail-closed" {
-  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
-  let extern_ref = @lib.ValType::ref_type(@lib.RefType::new(true, extern_heap))
+test "ssa-nomerge rewrites mixed scalar typed loop br and br_if backedges" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 0
+    #|    loop $l (type $loop_t)
+    #|      local.set 1
+    #|      local.get 1
+    #|      i32.const 3
+    #|      i32.lt_s
+    #|      if
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.add
+    #|        br $l
+    #|      end
+    #|      local.get 1
+    #|      i32.const 1
+    #|      i32.add
+    #|      local.get 1
+    #|      local.get 0
+    #|      i32.lt_s
+    #|      br_if $l
+    #|      drop
+    #|    end
+    #|    local.get 1))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
+    msg=instrs.to_string(),
+  )
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_if_proxy(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites mixed reference typed loop br_if and br_on_null backedges" {
+  let struct_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
   let input = @lib.Module::new()
     .with_type_sec(
       @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::struct_([]))),
         @lib.RecType::new(
-          @lib.SubType::comp_type(@lib.CompType::func([extern_ref], [])),
+          @lib.SubType::comp_type(@lib.CompType::func([struct_ref], [])),
         ),
         @lib.RecType::new(
           @lib.SubType::comp_type(
-            @lib.CompType::func([extern_ref, @lib.ValType::i32()], [extern_ref]),
+            @lib.CompType::func([struct_ref, @lib.ValType::i32()], [struct_ref]),
           ),
         ),
       ]),
     )
-    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
     .with_code_sec(
       @lib.CodeSec::new([
         @lib.Func::new(
-          @lib.Locals::from_types([extern_ref]),
+          @lib.Locals::from_types([struct_ref]),
           @lib.Expr::new([
             @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
             @lib.Instruction::loop_(
-              @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
               @lib.Expr::new([
                 @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
                 @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
@@ -1848,7 +1892,106 @@ test "ssa-nomerge keeps mixed typed loop branch families fail-closed" {
         ),
       ]),
     )
-  ssa_test_typed_loop_param_module_fail_closed(input)
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected mixed reference typed-loop success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected output to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_if_proxy(instrs),
+    msg=instrs.to_string(),
+  )
+  assert_true(
+    ssa_test_instrs_have_loop_param_null_proxy(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites nested mixed reference typed loop br_if and br_on_null backedges" {
+  let struct_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::struct_([]))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([struct_ref], [])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([struct_ref, @lib.ValType::i32()], [struct_ref]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([struct_ref]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::loop_(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+              @lib.Expr::new([
+                @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::if_(
+                  @lib.BlockType::void_(),
+                  [
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                    @lib.Instruction::br_if(@lib.LabelIdx::new(1U)),
+                    @lib.Instruction::drop(),
+                  ],
+                  None,
+                ),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+              ]),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nested mixed reference typed-loop success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected output to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_if_proxy(instrs),
+    msg=instrs.to_string(),
+  )
+  assert_true(
+    ssa_test_instrs_have_loop_param_null_proxy(instrs),
+    msg=instrs.to_string(),
+  )
 }
 
 ///|
