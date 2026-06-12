@@ -1329,8 +1329,10 @@ test "ssa-nomerge artifact parity lowers loop-param block-branch scratch" {
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (locals, instrs) = try! ssa_test_defined_func(optimized, 5)
   assert_true(locals.length() >= 38, msg=locals.to_string())
+  let writes = ssa_test_local_write_indices(instrs)
+  assert_true(writes.any(fn(idx) { idx == 39U }), msg=instrs.to_string())
   assert_true(
-    ssa_test_local_write_indices(instrs).any(fn(idx) { idx == 39U }),
+    writes.any(fn(idx) { idx == 38U }) && writes.any(fn(idx) { idx == 3U }),
     msg=instrs.to_string(),
   )
 }

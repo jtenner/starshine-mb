@@ -11919,11 +11919,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
             (
               local_id >= params.length() &&
               local_id < base_local_count &&
-              (
-                run_hot_pipeline_raw_count_local_writes(root_instrs, local_id) >
-                1 ||
-                run_hot_pipeline_raw_count_local_gets(root_instrs, local_id) > 1
-              )
+              run_hot_pipeline_raw_count_local_writes(root_instrs, local_id) > 1
             )
           ) {
           let fresh_local = run_hot_pipeline_raw_fresh_local(
