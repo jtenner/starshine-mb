@@ -118,3 +118,42 @@ test "ssa policy skips loop-header phis for locals with no writes" {
     ssa_default_init_def(0),
   )
 }
+
+///|
+test "ssa policy prunes diamond frontier phis when the local is dead at join" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        ],
+        Some([@lib.Instruction::nop()]),
+      ),
+      @lib.Instruction::nop(),
+    ]),
+    HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let join_block = cfg_block_for_region_root(cfg, HotRegionRef::root(), 1).unwrap()
+
+  @debug.assert_eq(
+    ssa_phi_placement_blocks(
+      func,
+      cfg,
+      dom,
+      liveness,
+      use_def,
+      cfg_reverse_postorder(cfg),
+      0,
+    ),
+    [],
+  )
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+  @debug.assert_eq(ssa_phis_for_block(ssa, join_block), [])
+}

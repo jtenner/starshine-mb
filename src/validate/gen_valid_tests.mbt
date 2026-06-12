@@ -7502,7 +7502,7 @@ test "ssa-nomerge smoke generated modules cover structured branch SSA shapes" {
 }
 
 ///|
-test "ssa-nomerge parity generated modules omit fail-closed coverage slices" {
+test "ssa-nomerge compare-clean generated modules omit fail-closed coverage slices" {
   let config = GenValidConfig::for_profile(SsaNomergeParityProfile)
   let generated = match gen_valid_module_result_from_seed(0x5eedUL, config) {
     Ok(v) => v
@@ -7531,71 +7531,71 @@ test "ssa-nomerge parity generated modules omit fail-closed coverage slices" {
   )
   assert_false(
     facts.has_ssa_loop_backedge_phi_candidate,
-    msg="parity profile defers loop backedge until compare lane is clean",
+    msg="compare-clean profile defers loop backedge until compare lane is clean",
   )
   assert_false(
     facts.has_ssa_br_table_phi_candidate,
-    msg="parity profile defers br_table join until compare lane is clean",
+    msg="compare-clean profile defers br_table join until compare lane is clean",
   )
   assert_false(
     facts.has_ssa_parallel_copy_candidate,
-    msg="parity profile defers parallel-copy until compare lane is clean",
+    msg="compare-clean profile defers parallel-copy until compare lane is clean",
   )
   assert_false(
     facts.has_ssa_parallel_copy_cycle_candidate,
-    msg="parity profile defers parallel-copy cycles until compare lane is clean",
+    msg="compare-clean profile defers parallel-copy cycles until compare lane is clean",
   )
   assert_false(
     facts.has_ssa_exceptional_fail_closed_shape,
-    msg="parity profile must not emit exceptional fail-closed shape",
+    msg="compare-clean profile must not emit exceptional fail-closed shape",
   )
   assert_false(
     facts.has_ssa_typed_loop_param_fail_closed_shape,
-    msg="parity profile must not emit typed loop-param fail-closed shape",
+    msg="compare-clean profile must not emit typed loop-param fail-closed shape",
   )
   assert_false(
     facts.has_ssa_nested_cfg_fail_closed_shape,
-    msg="parity profile must not emit nested CFG fail-closed shape",
+    msg="compare-clean profile must not emit nested CFG fail-closed shape",
   )
   assert_false(
     facts.has_ssa_dropped_increment_guard_shape,
-    msg="parity profile must not emit dropped increment guard shape until compare lane is clean",
+    msg="compare-clean profile must not emit dropped increment guard shape until compare lane is clean",
   )
   assert_false(
     facts.has_ssa_unreachable_local_carrier,
-    msg="parity profile must not emit unreachable local carrier",
+    msg="compare-clean profile must not emit unreachable local carrier",
   )
   assert_false(
     facts.has_ssa_dropped_increment_reversed_boundary,
-    msg="parity profile must not emit reversed dropped-increment boundary",
+    msg="compare-clean profile must not emit reversed dropped-increment boundary",
   )
   assert_false(
     facts.has_ssa_nested_result_if_supported_shape,
-    msg="parity profile must not emit nested result-if coverage slices",
+    msg="compare-clean profile must not emit nested result-if coverage slices",
   )
   assert_false(
     facts.has_ssa_default_local_read_after_branchy_control,
-    msg="parity profile must not emit default-local branchy-control slices",
+    msg="compare-clean profile must not emit default-local branchy-control slices",
   )
   assert_false(
     facts.has_ssa_dropped_unreachable_debris_before_hard_unreachable,
-    msg="parity profile must not emit dropped-unreachable debris slices",
+    msg="compare-clean profile must not emit dropped-unreachable debris slices",
   )
   assert_false(
     facts.has_ssa_canonical_body_local_next_read,
-    msg="parity profile must not emit canonical-next-read structured slices",
+    msg="compare-clean profile must not emit canonical-next-read structured slices",
   )
   assert_false(
     facts.has_ssa_immediate_block_exit_canonical_set_br,
-    msg="parity profile must not emit immediate block-exit set/br slices",
+    msg="compare-clean profile must not emit immediate block-exit set/br slices",
   )
   assert_false(
     facts.has_ssa_enclosing_label_copy_before_exit,
-    msg="parity profile must not emit enclosing-label copy structured slices",
+    msg="compare-clean profile must not emit enclosing-label copy structured slices",
   )
   assert_false(
     facts.has_ssa_void_br_table_canonical_copies,
-    msg="parity profile must not emit void br_table copy structured slices",
+    msg="compare-clean profile must not emit void br_table copy structured slices",
   )
 }
 

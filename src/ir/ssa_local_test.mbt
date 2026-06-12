@@ -12,6 +12,41 @@ fn ssa_local_find_phi_input(
 }
 
 ///|
+fn ssa_local_has_phi_input_use(
+  uses : Array[HotSsaUseOrigin],
+  expected_phi : PhiId,
+  expected_predecessor : BlockId,
+) -> Bool {
+  for use_item in uses {
+    match use_item {
+      HotSsaUseOrigin::PhiInputUse(phi_id, predecessor) =>
+        if phi_id == expected_phi && predecessor == expected_predecessor {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn ssa_local_has_local_get_use(
+  uses : Array[HotSsaUseOrigin],
+  expected_node : NodeId,
+) -> Bool {
+  for use_item in uses {
+    match use_item {
+      HotSsaUseOrigin::LocalGetUse(node_id) =>
+        if node_id == expected_node {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 test "ssa local build inserts a join phi for diamond local merges" {
   let func = hot_lift_body(
     @lib.Expr::new([
@@ -138,6 +173,96 @@ test "ssa local build resolves uninitialized locals to default-init entry defs" 
   @debug.assert_eq(
     ssa_value_origin(ssa, ssa_value_for_local_get(ssa, local_get)),
     ssa_default_init_def(0),
+  )
+}
+
+///|
+test "ssa local build assigns value types for params defaults writes and phis" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i64()], locals=[
+      @lib.ValType::f64(),
+    ]),
+  )
+  let condition = hot_build_local_get(func, 0)
+  let then_set = hot_build_local_set(
+    func,
+    1,
+    hot_build_const_f64(func, @lib.F64(7.0)),
+  )
+  let result_if = hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    condition,
+    [then_set],
+    else_body=Some([hot_build_nop(func)]),
+  )
+  let final_get = hot_build_local_get(func, 1)
+  hot_root_append(func, result_if)
+  hot_root_append(func, hot_build_drop(func, final_get))
+
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+  let join_block = cfg_block_for_region_root(cfg, HotRegionRef::root(), 1).unwrap()
+  let phis = ssa_phis_for_block(ssa, join_block)
+
+  @debug.assert_eq(ssa_value_type(ssa, ssa.entry_defs[0]), @lib.ValType::i64())
+  @debug.assert_eq(ssa_value_type(ssa, ssa.entry_defs[1]), @lib.ValType::f64())
+  @debug.assert_eq(
+    ssa_value_type(ssa, ssa_def_for_local_set(ssa, then_set)),
+    @lib.ValType::f64(),
+  )
+  @debug.assert_eq(phis.length(), 1)
+  @debug.assert_eq(
+    ssa_value_type(ssa, ssa_value_for_local_get(ssa, final_get)),
+    @lib.ValType::f64(),
+  )
+  @debug.assert_eq(
+    ssa_value_origin(ssa, ssa_value_for_local_get(ssa, final_get)),
+    ssa_phi_def(phis[0]),
+  )
+}
+
+///|
+test "ssa local build carries dominating writes into both if arms without phis" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let dominating_set = hot_build_local_set(
+    func,
+    1,
+    hot_build_const_i32(func, @lib.I32(11)),
+  )
+  let then_get = hot_build_local_get(func, 1)
+  let else_get = hot_build_local_get(func, 1)
+  let result_if = hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    hot_build_local_get(func, 0),
+    [hot_build_drop(func, then_get)],
+    else_body=Some([hot_build_drop(func, else_get)]),
+  )
+  hot_root_append(func, dominating_set)
+  hot_root_append(func, result_if)
+
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+
+  @debug.assert_eq(ssa.phis.length(), 0)
+  @debug.assert_eq(
+    ssa_value_for_local_get(ssa, then_get),
+    ssa_def_for_local_set(ssa, dominating_set),
+  )
+  @debug.assert_eq(
+    ssa_value_for_local_get(ssa, else_get),
+    ssa_def_for_local_set(ssa, dominating_set),
   )
 }
 
@@ -947,6 +1072,131 @@ test "ssa local build records local tee defs for later reads" {
 
   @debug.assert_eq(ssa_value_origin(ssa, tee_value), ssa_local_tee_def(tee))
   @debug.assert_eq(ssa_value_for_local_get(ssa, read), tee_value)
+}
+
+///|
+test "ssa local build reads previous local value inside tee operands" {
+  let func = HotFunc::new(locals=HotLocals::new(params=[@lib.ValType::i32()]))
+  let operand_get = hot_build_local_get(func, 0)
+  let tee = hot_build_local_tee(func, 0, operand_get)
+  let after_get = hot_build_local_get(func, 0)
+  hot_root_append(func, hot_build_drop(func, tee))
+  hot_root_append(func, hot_build_drop(func, after_get))
+
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+  let tee_value = ssa_def_for_local_set(ssa, tee)
+
+  @debug.assert_eq(
+    ssa_value_origin(ssa, ssa_value_for_local_get(ssa, operand_get)),
+    ssa_param_entry_def(0),
+  )
+  @debug.assert_eq(ssa_value_origin(ssa, tee_value), ssa_local_tee_def(tee))
+  @debug.assert_eq(ssa_value_for_local_get(ssa, after_get), tee_value)
+}
+
+///|
+test "ssa local build records local get and phi input uses" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [
+          @lib.Instruction::i32_const(@lib.I32(7)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        ],
+        Some([@lib.Instruction::nop()]),
+      ),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+    ]),
+    HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+  let if_id = hot_root_get(func, 0)
+  let then_region = hot_region_then_ref(func, if_id)
+  let then_set = hot_region_get(func, then_region, 0)
+  let join_drop = hot_root_get(func, 1)
+  let join_get = hot_child_get(func, join_drop, 0)
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+  let then_block = cfg_block_for_region_root(cfg, then_region, 0).unwrap()
+  let else_block = cfg_block_for_region_root(
+    cfg,
+    hot_region_else_ref(func, if_id).unwrap(),
+    0,
+  ).unwrap()
+  let join_block = cfg_block_for_region_root(cfg, HotRegionRef::root(), 1).unwrap()
+  let phis = ssa_phis_for_block(ssa, join_block)
+  @debug.assert_eq(phis.length(), 1)
+  let phi_id = phis[0]
+  let then_value = ssa_def_for_local_set(ssa, then_set)
+  let phi_value = ssa_value_for_local_get(ssa, join_get)
+  let ordered_inputs = ssa_phi_inputs(ssa, phi_id)
+  let ordered_predecessors = cfg_predecessors(cfg, join_block)
+  @debug.assert_eq(ordered_inputs.length(), ordered_predecessors.length())
+  for idx = 0; idx < ordered_inputs.length(); idx = idx + 1 {
+    @debug.assert_eq(
+      ordered_inputs[idx].predecessor,
+      ordered_predecessors[idx].block,
+    )
+  }
+
+  assert_true(
+    ssa_local_has_phi_input_use(
+      ssa_uses_of_value(ssa, then_value),
+      phi_id,
+      then_block,
+    ),
+    msg="then-set value should be used by the join phi input",
+  )
+  assert_true(
+    ssa_local_has_phi_input_use(
+      ssa_uses_of_value(ssa, ssa.entry_defs[0]),
+      phi_id,
+      else_block,
+    ),
+    msg="default entry value should be used by the else phi input",
+  )
+  assert_true(
+    ssa_local_has_local_get_use(ssa_uses_of_value(ssa, phi_value), join_get),
+    msg="phi value should be used by the post-join local.get",
+  )
+}
+
+///|
+test "ssa local maybe-def queries distinguish writes from reads" {
+  let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+  let set_id = hot_build_local_set(
+    func,
+    0,
+    hot_build_const_i32(func, @lib.I32(7)),
+  )
+  let get_id = hot_build_local_get(func, 0)
+  hot_root_append(func, set_id)
+  hot_root_append(func, hot_build_drop(func, get_id))
+
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+
+  match ssa_maybe_def_for_local_set(ssa, set_id) {
+    Some(value_id) =>
+      @debug.assert_eq(value_id, ssa_def_for_local_set(ssa, set_id))
+    None => fail("expected local.set to have an SSA def")
+  }
+  match ssa_maybe_def_for_local_set(ssa, get_id) {
+    Some(_) => fail("local.get must not have an SSA def")
+    None => ()
+  }
 }
 
 ///|

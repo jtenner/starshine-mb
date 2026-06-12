@@ -1085,10 +1085,10 @@ fn ssa_test_validate_ssa_nomerge_pipeline(source : String) -> @lib.Module raise 
 }
 
 ///|
-fn ssa_test_module_fail_closed_unmutated(
+fn ssa_test_module_expected_mutation_valid(
   input : @lib.Module,
   context : String,
-) -> Unit raise {
+) -> @lib.Module raise {
   let trace : Array[String] = []
   let optimized = match
     run_hot_pipeline(
@@ -1097,27 +1097,28 @@ fn ssa_test_module_fail_closed_unmutated(
       ["ssa-nomerge"],
     ) {
     Ok(mod_) => mod_
-    Err(err) => fail("expected \{context} fail-closed success, got \{err}")
+    Err(err) => fail("expected \{context} ssa-nomerge success, got \{err}")
   }
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected \{context} fail-closed output to validate, got \{@validate.validation_error_message(err)}",
+        "expected \{context} ssa-nomerge output to validate, got \{@validate.validation_error_message(err)}",
       )
   }
-  assert_false(
+  assert_true(
     trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+    msg="expected \{context} to mutate; trace:\n\{trace.join("\n")}",
   )
+  optimized
 }
 
 ///|
-fn ssa_test_pipeline_fail_closed_unmutated(
+fn ssa_test_pipeline_expected_mutation_valid(
   source : String,
   context : String,
-) -> Unit raise {
-  ssa_test_module_fail_closed_unmutated(
+) -> @lib.Module raise {
+  ssa_test_module_expected_mutation_valid(
     pass_test_module_from_wat(source),
     context,
   )
@@ -1252,35 +1253,6 @@ fn ssa_test_typed_loop_param_pipeline_fail_closed(
   ssa_test_typed_loop_param_module_fail_closed(
     pass_test_module_from_wat(source),
   )
-}
-
-///|
-fn ssa_test_typed_loop_param_hot_fail_closed(source : String) -> Unit raise {
-  let mod_ = pass_test_module_from_wat(source)
-  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
-  @ir.hot_verify_all_or_abort(func)
-  ssa_test_hot_func_typed_loop_param_fail_closed(func)
-}
-
-///|
-fn ssa_test_hot_func_typed_loop_param_fail_closed(
-  func : @ir.HotFunc,
-) -> Unit raise {
-  @ir.hot_verify_all_or_abort(func)
-  let revision_before = @ir.hot_revision_current(func)
-  let ctx = HotPassContext::new(
-    ssa_nomerge_descriptor(),
-    @ir.HotAnalysisCache::new(),
-    HotPipelineVerifyPolicy::after_each_pass(),
-    false,
-    fn(_) { () },
-  )
-  match hot_pass_run(ctx, func) {
-    Ok(_) => ()
-    Err(err) => fail("expected hot func ssa-nomerge success, got \{err}")
-  }
-  @debug.assert_eq(@ir.hot_revision_current(func), revision_before)
-  assert_true(ssa_test_hot_func_has_local_write(func))
 }
 
 ///|
@@ -5095,8 +5067,7 @@ test "ssa-nomerge rewrites copy-needing multi-param single-result typed loop br_
 }
 
 ///|
-test "ssa-nomerge keeps no-throw try_table scalar proxy backedges fail-closed" {
-  let trace : Array[String] = []
+test "ssa-nomerge rewrites no-throw try_table scalar proxy backedges" {
   let source =
     #|(module
     #|  (func (param i32) (result i32) (local i32)
@@ -5111,21 +5082,14 @@ test "ssa-nomerge keeps no-throw try_table scalar proxy backedges fail-closed" {
     #|          br $l)))
     #|    local.get 1))
     #|)
-  match
-    pass_test_run_pipeline(
-      source,
-      ["ssa-nomerge"],
-      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-    ) {
-    Ok(_) => ()
-    Err(err) =>
-      fail(
-        "expected no-throw try_table scalar proxy fail-closed success, got \{err}",
-      )
-  }
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+  let optimized = ssa_test_pipeline_expected_mutation_valid(
+    source, "no-throw try_table scalar proxy backedge",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
+    msg=instrs.to_string(),
   )
 }
 
@@ -5188,8 +5152,7 @@ test "ssa-nomerge rewrites no-throw try_table single-result typed loop br backed
 }
 
 ///|
-test "ssa-nomerge keeps throwing try_table typed loop backedges fail-closed" {
-  let trace : Array[String] = []
+test "ssa-nomerge rewrites throwing try_table typed loop backedges" {
   let source =
     #|(module
     #|  (tag $e)
@@ -5206,26 +5169,19 @@ test "ssa-nomerge keeps throwing try_table typed loop backedges fail-closed" {
     #|          throw $e)))
     #|    local.get 1))
     #|)
-  match
-    pass_test_run_pipeline(
-      source,
-      ["ssa-nomerge"],
-      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-    ) {
-    Ok(_) => ()
-    Err(err) =>
-      fail(
-        "expected throwing try_table typed-loop ssa-nomerge fail-closed success, got \{err}",
-      )
-  }
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+  let optimized = ssa_test_pipeline_expected_mutation_valid(
+    source, "throwing try_table typed-loop backedge",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
+    msg=instrs.to_string(),
   )
 }
 
 ///|
-test "ssa-nomerge keeps multi-result typed loop-param direct br fail-closed" {
+test "ssa-nomerge rewrites multi-result typed loop-param direct br" {
   let source =
     #|(module
     #|  (type $loop_t (func (param i32) (result i32 i64)))
@@ -5245,11 +5201,19 @@ test "ssa-nomerge keeps multi-result typed loop-param direct br fail-closed" {
     #|      i64.const 7
     #|    end)
     #|)
-  ssa_test_typed_loop_param_pipeline_fail_closed(source)
+  let optimized = ssa_test_pipeline_expected_mutation_valid(
+    source, "multi-result typed loop-param direct br",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
+    msg=instrs.to_string(),
+  )
 }
 
 ///|
-test "ssa-nomerge keeps multi-instruction br_on_null loop-store tested refs fail-closed" {
+test "ssa-nomerge rewrites multi-instruction br_on_null loop-store tested refs" {
   let externref = @lib.ValType::externref()
   let input = @lib.Module::new()
     .with_type_sec(
@@ -5290,13 +5254,19 @@ test "ssa-nomerge keeps multi-instruction br_on_null loop-store tested refs fail
         ),
       ]),
     )
-  ssa_test_module_fail_closed_unmutated(
+  let optimized = ssa_test_module_expected_mutation_valid(
     input, "multi-instruction br_on_null loop-store tested ref",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
   )
 }
 
 ///|
-test "ssa-nomerge keeps multi-instruction br_on_non_null loop-store tested refs fail-closed" {
+test "ssa-nomerge rewrites multi-instruction br_on_non_null loop-store tested refs" {
   let externref = @lib.ValType::externref()
   let input = @lib.Module::new()
     .with_type_sec(
@@ -5334,13 +5304,19 @@ test "ssa-nomerge keeps multi-instruction br_on_non_null loop-store tested refs 
         ),
       ]),
     )
-  ssa_test_module_fail_closed_unmutated(
+  let optimized = ssa_test_module_expected_mutation_valid(
     input, "multi-instruction br_on_non_null loop-store tested ref",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
   )
 }
 
 ///|
-test "ssa-nomerge keeps non-current multi-instruction br_on_null branch inputs fail-closed" {
+test "ssa-nomerge rewrites non-current multi-instruction br_on_null branch inputs" {
   let externref = @lib.ValType::externref()
   let input = @lib.Module::new()
     .with_type_sec(
@@ -5390,13 +5366,19 @@ test "ssa-nomerge keeps non-current multi-instruction br_on_null branch inputs f
         ),
       ]),
     )
-  ssa_test_module_fail_closed_unmutated(
+  let optimized = ssa_test_module_expected_mutation_valid(
     input, "non-current multi-instruction br_on_null branch input",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
   )
 }
 
 ///|
-test "ssa-nomerge keeps non-current multi-instruction br_on_non_null branch inputs fail-closed" {
+test "ssa-nomerge rewrites non-current multi-instruction br_on_non_null branch inputs" {
   let externref = @lib.ValType::externref()
   let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
   let input = @lib.Module::new()
@@ -5442,8 +5424,14 @@ test "ssa-nomerge keeps non-current multi-instruction br_on_non_null branch inpu
         ),
       ]),
     )
-  ssa_test_module_fail_closed_unmutated(
+  let optimized = ssa_test_module_expected_mutation_valid(
     input, "non-current multi-instruction br_on_non_null branch input",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
   )
 }
 
@@ -5478,7 +5466,7 @@ test "ssa-nomerge rewrites non-current scalar typed loop br_table targets" {
 }
 
 ///|
-test "ssa-nomerge keeps try_table scalar proxy br_if catch-relabeling boundary fail-closed" {
+test "ssa-nomerge rewrites try_table scalar proxy br_if catch-relabeling" {
   let source =
     #|(module
     #|  (func (param i32) (result i32) (local i32)
@@ -5495,13 +5483,19 @@ test "ssa-nomerge keeps try_table scalar proxy br_if catch-relabeling boundary f
     #|          drop)))
     #|    local.get 1))
     #|)
-  ssa_test_pipeline_fail_closed_unmutated(
-    source, "try_table scalar proxy br_if catch-label relabeling boundary",
+  let optimized = ssa_test_pipeline_expected_mutation_valid(
+    source, "try_table scalar proxy br_if catch-label relabeling",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_if_proxy(instrs),
+    msg=instrs.to_string(),
   )
 }
 
 ///|
-test "ssa-nomerge keeps try_table single-result fallthrough store model fail-closed" {
+test "ssa-nomerge rewrites try_table single-result fallthrough store model" {
   let source =
     #|(module
     #|  (type $loop_t (func (param i32 i32) (result i32)))
@@ -5525,13 +5519,19 @@ test "ssa-nomerge keeps try_table single-result fallthrough store model fail-clo
     #|      return)
     #|    local.get 1))
     #|)
-  ssa_test_pipeline_fail_closed_unmutated(
+  let optimized = ssa_test_pipeline_expected_mutation_valid(
     source, "try_table single-result fallthrough store model",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
   )
 }
 
 ///|
-test "ssa-nomerge keeps nested non-void loop self-backedges fail-closed" {
+test "ssa-nomerge rewrites nested non-void loop self-backedges" {
   let source =
     #|(module
     #|  (type $outer_t (func (param i32)))
@@ -5557,13 +5557,19 @@ test "ssa-nomerge keeps nested non-void loop self-backedges fail-closed" {
     #|    end
     #|    local.get 1))
     #|)
-  ssa_test_pipeline_fail_closed_unmutated(
+  let optimized = ssa_test_pipeline_expected_mutation_valid(
     source, "nested non-void loop self-backedge",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_if_proxy(instrs),
+    msg=instrs.to_string(),
   )
 }
 
 ///|
-test "ssa-nomerge keeps nested other-label branches under typed loop params fail-closed" {
+test "ssa-nomerge rewrites nested other-label branches under typed loop params" {
   let source =
     #|(module
     #|  (type $loop_t (func (param i32)))
@@ -5581,8 +5587,14 @@ test "ssa-nomerge keeps nested other-label branches under typed loop params fail
     #|    end
     #|    local.get 1))
     #|)
-  ssa_test_pipeline_fail_closed_unmutated(
+  let optimized = ssa_test_pipeline_expected_mutation_valid(
     source, "nested other-label branch under typed loop param",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
+    msg=instrs.to_string(),
   )
 }
 
@@ -6056,7 +6068,7 @@ test "ssa-nomerge rewrites nested mixed reference typed loop br_if and br_on_nul
 }
 
 ///|
-test "ssa-nomerge keeps branch-bearing nested loops under typed loop params fail-closed" {
+test "ssa-nomerge does not mutate branch-bearing nested loops without loop-carried backedges" {
   let source =
     #|(module
     #|  (type $loop_t (func (param i32)))
@@ -6070,11 +6082,14 @@ test "ssa-nomerge keeps branch-bearing nested loops under typed loop params fail
     #|    end
     #|    local.get 1))
     #|)
+  // Boundary coverage: this fixture has branch-bearing nested control but no
+  // backedge carrying a new value to the typed outer loop, so ssa-nomerge has
+  // no required no-merge rewrite to perform.
   ssa_test_typed_loop_param_pipeline_fail_closed(source)
 }
 
 ///|
-test "ssa-nomerge does not mutate typed loop-param control functions" {
+test "ssa-nomerge rewrites typed loop-param control functions" {
   let source =
     #|(module
     #|  (type $loop_t (func (param i32) (result i32)))
@@ -6093,13 +6108,19 @@ test "ssa-nomerge does not mutate typed loop-param control functions" {
     #|        local.get 1
     #|      end)))
     #|)
-  ssa_test_typed_loop_param_pipeline_fail_closed(source)
-  ssa_test_typed_loop_param_hot_fail_closed(source)
-  ignore(ssa_test_validate_ssa_nomerge_pipeline(source))
+  let optimized = ssa_test_pipeline_expected_mutation_valid(
+    source, "typed loop-param control function",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
+    msg=instrs.to_string(),
+  )
 }
 
 ///|
-test "ssa-nomerge preserves locals written before typed loop-param control" {
+test "ssa-nomerge rewrites locals written before typed loop-param control" {
   let source =
     #|(module
     #|  (type $loop_t (func (param i32) (result i32)))
@@ -6120,16 +6141,21 @@ test "ssa-nomerge preserves locals written before typed loop-param control" {
     #|        local.get 1
     #|      end)))
     #|)
-  ssa_test_typed_loop_param_pipeline_fail_closed(source)
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
-  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let optimized = ssa_test_pipeline_expected_mutation_valid(
+    source, "locals before typed loop-param control",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   let text = instrs.to_string()
-  assert_true(text.contains("local.set"), msg=text)
-  assert_true(text.contains("local.get"), msg=text)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(text.contains("i32.const I32(5)"), msg=text)
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
+    msg=instrs.to_string(),
+  )
 }
 
 ///|
-test "ssa-nomerge keeps typed loop-param backedge values separate from body locals" {
+test "ssa-nomerge rewrites typed loop-param backedge values separate from body locals" {
   let source =
     #|(module
     #|  (type $loop_t (func (param i32) (result i32)))
@@ -6150,19 +6176,21 @@ test "ssa-nomerge keeps typed loop-param backedge values separate from body loca
     #|        local.get 1
     #|      end)))
     #|)
-  ssa_test_typed_loop_param_pipeline_fail_closed(source)
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
-  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let optimized = ssa_test_pipeline_expected_mutation_valid(
+    source, "typed loop-param backedge/body-local separation",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   let text = instrs.to_string()
+  assert_true(locals.length() > 2, msg=locals.to_string())
   assert_true(text.contains("i32.const I32(100)"), msg=text)
-  assert_true(text.contains("local.set"), msg=text)
-  assert_true(text.contains("local.get"), msg=text)
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
+    msg=instrs.to_string(),
+  )
 }
 
 ///|
-test "ssa-nomerge preserves typed loop-param control on the hot path" {
-  // Multi-result typed loop-param control still stays fail-closed in the HOT
-  // path; cover that boundary with a validated param-only typed-loop repro.
+test "ssa-nomerge rewrites typed loop-param control on the hot path" {
   let source =
     #|(module
     #|  (type $loop_t (func (param i32)))
@@ -6183,12 +6211,19 @@ test "ssa-nomerge preserves typed loop-param control on the hot path" {
     #|    end
     #|    i32.const 1)
     #|)
-  ssa_test_typed_loop_param_hot_fail_closed(source)
-  ssa_test_typed_loop_param_pipeline_fail_closed(source)
+  let optimized = ssa_test_pipeline_expected_mutation_valid(
+    source, "typed loop-param control on the hot path",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
+    msg=instrs.to_string(),
+  )
 }
 
 ///|
-test "ssa-nomerge preserves typed loop-carried induction values" {
+test "ssa-nomerge rewrites typed loop-carried induction values" {
   let source =
     #|(module
     #|  (type $loop_t (func (param i32) (result i32)))
@@ -6207,12 +6242,17 @@ test "ssa-nomerge preserves typed loop-carried induction values" {
     #|        local.get 1
     #|      end)))
     #|)
-  ssa_test_typed_loop_param_pipeline_fail_closed(source)
-  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
-  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  let optimized = ssa_test_pipeline_expected_mutation_valid(
+    source, "typed loop-carried induction value",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   let text = instrs.to_string()
-  assert_true(text.contains("local.tee"), msg=text)
+  assert_true(locals.length() > 1, msg=locals.to_string())
   assert_true(text.contains("i32.shl"), msg=text)
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
+    msg=instrs.to_string(),
+  )
 }
 
 ///|
@@ -9037,8 +9077,7 @@ test "ssa-nomerge keeps branch joins canonical when the next read is safe" {
 }
 
 ///|
-test "ssa-nomerge keeps loop-carried locals canonical before br_if backedges" {
-  let trace : Array[String] = []
+test "ssa-nomerge rewrites loop-carried locals before br_if backedges" {
   let input =
     #| (module
     #|   (func (result i32)
@@ -9057,49 +9096,15 @@ test "ssa-nomerge keeps loop-carried locals canonical before br_if backedges" {
     #|     end
     #|     local.get 0))
     #|
-  let optimized = match
-    pass_test_run_pipeline(
-      input,
-      ["ssa-nomerge"],
-      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-    ) {
-    Ok(mod_) => mod_
-    Err(err) => fail("expected loop-carried ssa-nomerge success, got \{err}")
-  }
-
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
-    }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+  let optimized = ssa_test_pipeline_expected_mutation_valid(
+    input, "loop-carried locals before br_if backedges",
   )
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
-  @debug.assert_eq(instrs, [
-    @lib.Instruction::i32_const(@lib.I32(1)),
-    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
-    @lib.Instruction::block(
-      @lib.BlockType::void_(),
-      @lib.Expr::new([
-        @lib.Instruction::loop_(
-          @lib.BlockType::void_(),
-          @lib.Expr::new([
-            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-            @lib.Instruction::drop(),
-            @lib.Instruction::i32_const(@lib.I32(2)),
-            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
-            @lib.Instruction::i32_const(@lib.I32(1)),
-            @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
-          ]),
-        ),
-      ]),
-    ),
-    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-  ])
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_if_proxy(instrs),
+    msg=instrs.to_string(),
+  )
 }
 
 ///|
@@ -9577,8 +9582,7 @@ test "ssa-nomerge preserves no-copy br_on_cast on raw path" {
 }
 
 ///|
-test "ssa-nomerge preserves br_on_cast taken-edge copies after divergent aliases" {
-  let trace : Array[String] = []
+test "ssa-nomerge rewrites br_on_cast taken-edge copies after divergent aliases" {
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
   let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
@@ -9637,30 +9641,8 @@ test "ssa-nomerge preserves br_on_cast taken-edge copies after divergent aliases
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["ssa-nomerge"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail("expected br_on_cast copy raw ssa-nomerge success, got \{err}")
-  }
-
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
-    }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("hot-lift-error") }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "br_on_cast taken-edge copies after divergent aliases",
   )
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(
@@ -9670,8 +9652,7 @@ test "ssa-nomerge preserves br_on_cast taken-edge copies after divergent aliases
 }
 
 ///|
-test "ssa-nomerge preserves multi-result br_on_cast taken-edge copies" {
-  let trace : Array[String] = []
+test "ssa-nomerge rewrites multi-result br_on_cast taken-edge copies" {
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
   let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
@@ -9737,32 +9718,8 @@ test "ssa-nomerge preserves multi-result br_on_cast taken-edge copies" {
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["ssa-nomerge"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected multi-result br_on_cast copy raw ssa-nomerge success, got \{err}",
-      )
-  }
-
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
-    }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("hot-lift-error") }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "multi-result br_on_cast taken-edge copies",
   )
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(
@@ -9772,7 +9729,7 @@ test "ssa-nomerge preserves multi-result br_on_cast taken-edge copies" {
 }
 
 ///|
-test "ssa-nomerge preserves no-copy loop-target br_on_non_null with typed loop param" {
+test "ssa-nomerge does not mutate no-copy loop-target br_on_non_null with typed loop param" {
   let trace : Array[String] = []
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let non_null_any_ref_type = @lib.ValType::ref_type(
@@ -9870,8 +9827,7 @@ test "ssa-nomerge preserves no-copy loop-target br_on_non_null with typed loop p
 }
 
 ///|
-test "ssa-nomerge preserves copy-needing loop-target br_on_non_null with typed loop param" {
-  let trace : Array[String] = []
+test "ssa-nomerge rewrites copy-needing loop-target br_on_non_null with typed loop param" {
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let non_null_any_ref_type = @lib.ValType::ref_type(
     @lib.RefType::new(false, any_heap),
@@ -9934,32 +9890,8 @@ test "ssa-nomerge preserves copy-needing loop-target br_on_non_null with typed l
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["ssa-nomerge"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected copy-needing loop-target br_on_non_null raw ssa-nomerge success, got \{err}",
-      )
-  }
-
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
-    }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("hot-lift-error") }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "copy-needing loop-target br_on_non_null with typed loop param",
   )
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(locals.length() > 2, msg=locals.to_string())
@@ -9970,7 +9902,7 @@ test "ssa-nomerge preserves copy-needing loop-target br_on_non_null with typed l
 }
 
 ///|
-test "ssa-nomerge preserves no-copy loop-target br_on_cast with typed loop param" {
+test "ssa-nomerge does not mutate no-copy loop-target br_on_cast with typed loop param" {
   let trace : Array[String] = []
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
@@ -10067,8 +9999,7 @@ test "ssa-nomerge preserves no-copy loop-target br_on_cast with typed loop param
 }
 
 ///|
-test "ssa-nomerge preserves copy-needing loop-target br_on_cast with typed loop param" {
-  let trace : Array[String] = []
+test "ssa-nomerge rewrites copy-needing loop-target br_on_cast with typed loop param" {
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
   let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
@@ -10130,32 +10061,8 @@ test "ssa-nomerge preserves copy-needing loop-target br_on_cast with typed loop 
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["ssa-nomerge"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected copy-needing loop-target br_on_cast raw ssa-nomerge success, got \{err}",
-      )
-  }
-
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
-    }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("hot-lift-error") }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "copy-needing loop-target br_on_cast with typed loop param",
   )
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(locals.length() > 1, msg=locals.to_string())
@@ -10239,8 +10146,7 @@ test "ssa-nomerge preserves no-copy br_on_cast_fail on raw path" {
 }
 
 ///|
-test "ssa-nomerge preserves br_on_cast_fail taken-edge copies after divergent aliases" {
-  let trace : Array[String] = []
+test "ssa-nomerge rewrites br_on_cast_fail taken-edge copies after divergent aliases" {
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
   let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
@@ -10297,30 +10203,8 @@ test "ssa-nomerge preserves br_on_cast_fail taken-edge copies after divergent al
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["ssa-nomerge"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail("expected br_on_cast_fail copy raw ssa-nomerge success, got \{err}")
-  }
-
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
-    }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("hot-lift-error") }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "br_on_cast_fail taken-edge copies after divergent aliases",
   )
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(
@@ -10330,8 +10214,7 @@ test "ssa-nomerge preserves br_on_cast_fail taken-edge copies after divergent al
 }
 
 ///|
-test "ssa-nomerge preserves multi-result br_on_cast_fail taken-edge copies" {
-  let trace : Array[String] = []
+test "ssa-nomerge rewrites multi-result br_on_cast_fail taken-edge copies" {
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
   let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
@@ -10396,32 +10279,8 @@ test "ssa-nomerge preserves multi-result br_on_cast_fail taken-edge copies" {
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["ssa-nomerge"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected multi-result br_on_cast_fail copy raw ssa-nomerge success, got \{err}",
-      )
-  }
-
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
-    }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("hot-lift-error") }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "multi-result br_on_cast_fail taken-edge copies",
   )
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(
@@ -10431,7 +10290,7 @@ test "ssa-nomerge preserves multi-result br_on_cast_fail taken-edge copies" {
 }
 
 ///|
-test "ssa-nomerge preserves no-copy loop-target br_on_cast_fail with typed loop param" {
+test "ssa-nomerge does not mutate no-copy loop-target br_on_cast_fail with typed loop param" {
   let trace : Array[String] = []
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
@@ -10528,8 +10387,7 @@ test "ssa-nomerge preserves no-copy loop-target br_on_cast_fail with typed loop 
 }
 
 ///|
-test "ssa-nomerge preserves copy-needing loop-target br_on_cast_fail with typed loop param" {
-  let trace : Array[String] = []
+test "ssa-nomerge rewrites copy-needing loop-target br_on_cast_fail with typed loop param" {
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
   let any_ref_type = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
@@ -10591,32 +10449,8 @@ test "ssa-nomerge preserves copy-needing loop-target br_on_cast_fail with typed 
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["ssa-nomerge"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected copy-needing loop-target br_on_cast_fail raw ssa-nomerge success, got \{err}",
-      )
-  }
-
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
-    }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("hot-lift-error") }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "copy-needing loop-target br_on_cast_fail with typed loop param",
   )
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(locals.length() > 1, msg=locals.to_string())
@@ -10627,8 +10461,7 @@ test "ssa-nomerge preserves copy-needing loop-target br_on_cast_fail with typed 
 }
 
 ///|
-test "ssa-nomerge preserves br_on_non_null taken-edge copies after divergent aliases" {
-  let trace : Array[String] = []
+test "ssa-nomerge rewrites br_on_non_null taken-edge copies after divergent aliases" {
   let ref_type = @lib.ValType::ref_null(
     @lib.HeapType::new(@lib.TypeIdx::new(0U)),
   )
@@ -10693,30 +10526,8 @@ test "ssa-nomerge preserves br_on_non_null taken-edge copies after divergent ali
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["ssa-nomerge"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail("expected br_on_non_null copy raw ssa-nomerge success, got \{err}")
-  }
-
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
-    }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("hot-lift-error") }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "br_on_non_null taken-edge copies after divergent aliases",
   )
   let (_, instrs) = try! ssa_test_defined_func(optimized, 1)
   assert_true(
@@ -10726,8 +10537,7 @@ test "ssa-nomerge preserves br_on_non_null taken-edge copies after divergent ali
 }
 
 ///|
-test "ssa-nomerge preserves br_on_null taken-edge copies after divergent aliases" {
-  let trace : Array[String] = []
+test "ssa-nomerge rewrites br_on_null taken-edge copies after divergent aliases" {
   let ref_type = @lib.ValType::ref_null(
     @lib.HeapType::new(@lib.TypeIdx::new(0U)),
   )
@@ -10777,26 +10587,8 @@ test "ssa-nomerge preserves br_on_null taken-edge copies after divergent aliases
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["ssa-nomerge"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail("expected br_on_null copy raw ssa-nomerge success, got \{err}")
-  }
-
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
-    }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "br_on_null taken-edge copies after divergent aliases",
   )
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(
@@ -10806,8 +10598,7 @@ test "ssa-nomerge preserves br_on_null taken-edge copies after divergent aliases
 }
 
 ///|
-test "ssa-nomerge preserves local-tee-tested br_on_null block-exit copies" {
-  let trace : Array[String] = []
+test "ssa-nomerge rewrites local-tee-tested br_on_null block-exit copies" {
   let struct_idx = @lib.TypeIdx::new(0U)
   let struct_heap = @lib.HeapType::new(struct_idx)
   let nullable_struct_ref = @lib.ValType::ref_type(
@@ -10858,32 +10649,8 @@ test "ssa-nomerge preserves local-tee-tested br_on_null block-exit copies" {
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["ssa-nomerge"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected local-tee-tested br_on_null block-exit ssa-nomerge success, got \{err}",
-      )
-  }
-
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
-    }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("hot-lift-error") }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "local-tee-tested br_on_null block-exit copies",
   )
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(
@@ -10893,8 +10660,7 @@ test "ssa-nomerge preserves local-tee-tested br_on_null block-exit copies" {
 }
 
 ///|
-test "ssa-nomerge preserves local-tee-tested br_on_non_null block-exit copies" {
-  let trace : Array[String] = []
+test "ssa-nomerge rewrites local-tee-tested br_on_non_null block-exit copies" {
   let struct_idx = @lib.TypeIdx::new(0U)
   let struct_heap = @lib.HeapType::new(struct_idx)
   let nullable_struct_ref = @lib.ValType::ref_type(
@@ -10949,32 +10715,8 @@ test "ssa-nomerge preserves local-tee-tested br_on_non_null block-exit copies" {
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["ssa-nomerge"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected local-tee-tested br_on_non_null block-exit ssa-nomerge success, got \{err}",
-      )
-  }
-
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
-    }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("hot-lift-error") }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "local-tee-tested br_on_non_null block-exit copies",
   )
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(
@@ -10984,8 +10726,7 @@ test "ssa-nomerge preserves local-tee-tested br_on_non_null block-exit copies" {
 }
 
 ///|
-test "ssa-nomerge preserves ref-i31-tested br_on_null block-exit copies" {
-  let trace : Array[String] = []
+test "ssa-nomerge rewrites ref-i31-tested br_on_null block-exit copies" {
   let input = @lib.Module::new()
     .with_type_sec(
       @lib.TypeSec::new([
@@ -11030,32 +10771,8 @@ test "ssa-nomerge preserves ref-i31-tested br_on_null block-exit copies" {
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["ssa-nomerge"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected ref-i31-tested br_on_null block-exit ssa-nomerge success, got \{err}",
-      )
-  }
-
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
-    }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("hot-lift-error") }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "ref-i31-tested br_on_null block-exit copies",
   )
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(
@@ -11065,8 +10782,7 @@ test "ssa-nomerge preserves ref-i31-tested br_on_null block-exit copies" {
 }
 
 ///|
-test "ssa-nomerge preserves ref-i31-tested br_on_non_null block-exit copies" {
-  let trace : Array[String] = []
+test "ssa-nomerge rewrites ref-i31-tested br_on_non_null block-exit copies" {
   let input = @lib.Module::new()
     .with_type_sec(
       @lib.TypeSec::new([
@@ -11113,32 +10829,8 @@ test "ssa-nomerge preserves ref-i31-tested br_on_non_null block-exit copies" {
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["ssa-nomerge"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected ref-i31-tested br_on_non_null block-exit ssa-nomerge success, got \{err}",
-      )
-  }
-
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
-    }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("hot-lift-error") }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "ref-i31-tested br_on_non_null block-exit copies",
   )
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(
@@ -11623,8 +11315,7 @@ test "ssa-nomerge preserves ref-func-child-to-parent br_on_null prefix block-exi
 }
 
 ///|
-test "ssa-nomerge preserves struct-new-default-tested br_on_null block-exit copies" {
-  let trace : Array[String] = []
+test "ssa-nomerge rewrites struct-new-default-tested br_on_null block-exit copies" {
   let struct_idx = @lib.TypeIdx::new(0U)
   let input = @lib.Module::new()
     .with_type_sec(
@@ -11670,32 +11361,8 @@ test "ssa-nomerge preserves struct-new-default-tested br_on_null block-exit copi
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["ssa-nomerge"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected struct-new-default-tested br_on_null block-exit ssa-nomerge success, got \{err}",
-      )
-  }
-
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
-    }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("hot-lift-error") }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "struct-new-default-tested br_on_null block-exit copies",
   )
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(locals.length() > 1, msg=locals.to_string())
@@ -11706,8 +11373,7 @@ test "ssa-nomerge preserves struct-new-default-tested br_on_null block-exit copi
 }
 
 ///|
-test "ssa-nomerge preserves struct-new-default-tested br_on_non_null block-exit copies" {
-  let trace : Array[String] = []
+test "ssa-nomerge rewrites struct-new-default-tested br_on_non_null block-exit copies" {
   let struct_idx = @lib.TypeIdx::new(0U)
   let struct_heap = @lib.HeapType::new(struct_idx)
   let non_null_struct_ref = @lib.ValType::ref_type(
@@ -11758,32 +11424,8 @@ test "ssa-nomerge preserves struct-new-default-tested br_on_non_null block-exit 
         ),
       ]),
     )
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["ssa-nomerge"],
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "expected struct-new-default-tested br_on_non_null block-exit ssa-nomerge success, got \{err}",
-      )
-  }
-
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
-    }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("hot-lift-error") }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "struct-new-default-tested br_on_non_null block-exit copies",
   )
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(locals.length() > 1, msg=locals.to_string())
@@ -12273,7 +11915,7 @@ test "ssa-nomerge preserves extern-convert-tested br_on_non_null block-exit copi
 }
 
 ///|
-test "ssa-nomerge preserves no-copy block-target br_table on raw path" {
+test "ssa-nomerge does not mutate no-copy block-target br_table on raw path" {
   let trace : Array[String] = []
   let input =
     #| (module
@@ -12331,7 +11973,7 @@ test "ssa-nomerge preserves no-copy block-target br_table on raw path" {
 }
 
 ///|
-test "ssa-nomerge preserves no-copy loop-target br_if on raw path" {
+test "ssa-nomerge does not mutate no-copy loop-target br_if on raw path" {
   let trace : Array[String] = []
   let input =
     #| (module
@@ -12385,7 +12027,7 @@ test "ssa-nomerge preserves no-copy loop-target br_if on raw path" {
 }
 
 ///|
-test "ssa-nomerge preserves no-copy loop-target br_table on raw path" {
+test "ssa-nomerge does not mutate no-copy loop-target br_table on raw path" {
   let trace : Array[String] = []
   let input =
     #| (module
@@ -12443,8 +12085,7 @@ test "ssa-nomerge preserves no-copy loop-target br_table on raw path" {
 }
 
 ///|
-test "ssa-nomerge preserves loop-carried reads for br_table backedges" {
-  let trace : Array[String] = []
+test "ssa-nomerge rewrites loop-carried reads for br_table backedges" {
   let input =
     #| (module
     #|   (func (param i32) (result i32)
@@ -12459,26 +12100,8 @@ test "ssa-nomerge preserves loop-carried reads for br_table backedges" {
     #|     end
     #|     i32.const 1))
     #|
-  let optimized = match
-    pass_test_run_pipeline(
-      input,
-      ["ssa-nomerge"],
-      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail("expected loop-carried br_table ssa-nomerge success, got \{err}")
-  }
-
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
-    }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+  let optimized = ssa_test_pipeline_expected_mutation_valid(
+    input, "loop-carried reads for br_table backedges",
   )
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   @debug.assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
@@ -12502,8 +12125,7 @@ test "ssa-nomerge preserves loop-carried reads for br_table backedges" {
 }
 
 ///|
-test "ssa-nomerge preserves void br_table with canonical merge copies" {
-  let trace : Array[String] = []
+test "ssa-nomerge rewrites void br_table with canonical merge copies" {
   let input =
     #| (module
     #|   (func (param i32) (result i32)
@@ -12526,26 +12148,8 @@ test "ssa-nomerge preserves void br_table with canonical merge copies" {
     #|     end
     #|     local.get 1))
     #|
-  let optimized = match
-    pass_test_run_pipeline(
-      input,
-      ["ssa-nomerge"],
-      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail("expected copy br_table raw ssa-nomerge success, got \{err}")
-  }
-
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
-    }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+  let optimized = ssa_test_pipeline_expected_mutation_valid(
+    input, "void br_table with canonical merge copies",
   )
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   @debug.assert_eq(
@@ -12598,8 +12202,7 @@ test "ssa-nomerge preserves void br_table with canonical merge copies" {
 }
 
 ///|
-test "ssa-nomerge preserves result br_table with canonical merge copies" {
-  let trace : Array[String] = []
+test "ssa-nomerge rewrites result br_table with canonical merge copies" {
   let input =
     #| (module
     #|   (func (param i32) (result i32)
@@ -12625,26 +12228,8 @@ test "ssa-nomerge preserves result br_table with canonical merge copies" {
     #|     drop
     #|     local.get 1))
     #|
-  let optimized = match
-    pass_test_run_pipeline(
-      input,
-      ["ssa-nomerge"],
-      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail("expected result br_table raw ssa-nomerge success, got \{err}")
-  }
-
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
-    }),
-    msg=trace.join("\n"),
-  )
-  assert_false(
-    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
-    msg=trace.join("\n"),
+  let optimized = ssa_test_pipeline_expected_mutation_valid(
+    input, "result br_table with canonical merge copies",
   )
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   @debug.assert_eq(
@@ -12883,7 +12468,7 @@ test "ssa-nomerge preserves unreachable compare carriers from func 523 shape" {
 }
 
 ///|
-test "ssa-nomerge hot path preserves Binaryen temp locals for unreachable dead tees" {
+test "ssa-nomerge hot path preserves temp locals for unreachable dead tees" {
   let input =
     #| (module
     #|   (func (result i32)

@@ -158,6 +158,66 @@ test "ssa predecessor copy insertion allocates a temp for cycles" {
 }
 
 ///|
+test "ssa predecessor copy insertion elides self copies" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(locals=[@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  let nop = hot_build_nop(func)
+  hot_root_append(func, nop)
+  let cfg = cfg_build(func)
+  let block = cfg_block_for_region_root(cfg, HotRegionRef::root(), 0).unwrap()
+
+  let inserted = ssa_insert_predecessor_copies(
+    func,
+    HotRegionRef::root(),
+    cfg_block_get(cfg, block),
+    [HotSsaCopy::new(0, 0), HotSsaCopy::new(0, 1)],
+  )
+
+  @debug.assert_eq(inserted.length(), 1)
+  @debug.assert_eq(hot_local_count(func), 2)
+  @debug.assert_eq(hot_root_count(func), 2)
+  @debug.assert_eq(hot_root_get(func, 0), nop)
+  let copy = hot_root_get(func, 1)
+  @debug.assert_eq(copy, inserted[0])
+  @debug.assert_eq(hot_node_get(func, copy).op.to_string(), "LocalSet")
+  @debug.assert_eq(hot_node_get(func, copy).imm0, 1)
+  let source_get = hot_child_get(func, copy, 0)
+  @debug.assert_eq(hot_node_get(func, source_get).op.to_string(), "LocalGet")
+  @debug.assert_eq(hot_node_get(func, source_get).imm0, 0)
+}
+
+///|
+test "ssa predecessor copy insertion lands before block terminators" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(locals=[@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  let block_id = hot_build_block(func, @lib.BlockType::void_(), [])
+  let label = hot_control_node_label(func, block_id)
+  let nop = hot_build_nop(func)
+  let br = hot_build_br(func, label)
+  hot_region_replace_body(func, hot_region_body_ref(func, block_id), [nop, br])
+  hot_root_append(func, block_id)
+  let cfg = cfg_build(func)
+  let body_region = hot_region_body_ref(func, block_id)
+  let body_block = cfg_block_for_region_root(cfg, body_region, 0).unwrap()
+
+  let inserted = ssa_insert_predecessor_copies(
+    func,
+    body_region,
+    cfg_block_get(cfg, body_block),
+    [HotSsaCopy::new(0, 1)],
+  )
+
+  @debug.assert_eq(inserted.length(), 1)
+  @debug.assert_eq(hot_region_root_count(func, body_region), 3)
+  @debug.assert_eq(hot_region_get(func, body_region, 0), nop)
+  @debug.assert_eq(hot_region_get(func, body_region, 1), inserted[0])
+  @debug.assert_eq(hot_region_get(func, body_region, 2), br)
+  hot_verify_all_or_abort(func)
+}
+
+///|
 test "ssa destruction preserves root-region copy order for multiple loop preheaders" {
   let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
 
@@ -222,6 +282,19 @@ test "ssa dead local cleanup tolerates duplicate dead node ids" {
   @debug.assert_eq(hot_node_get(func, rewritten).op.to_string(), "Drop")
   let child = hot_child_get(func, rewritten, 0)
   @debug.assert_eq(hot_node_get(func, child).op.to_string(), "Const")
+}
+
+///|
+test "ssa dead local cleanup ignores invalid ids and existing drops" {
+  let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+  let drop_id = hot_build_drop(func, hot_build_const_i32(func, @lib.I32(1)))
+  hot_root_append(func, drop_id)
+
+  ssa_remove_dead_local_defs(func, [-1, hot_node_count(func) + 10, drop_id])
+
+  @debug.assert_eq(hot_root_count(func), 1)
+  @debug.assert_eq(hot_root_get(func, 0), drop_id)
+  @debug.assert_eq(hot_node_get(func, drop_id).op.to_string(), "Drop")
 }
 
 ///|
@@ -604,4 +677,36 @@ test "ssa destruction does not duplicate returned br_table result regions" {
     ssa_destroy_test_count_substring(pretty, "(block (Type 1)"),
     1,
   )
+}
+
+///|
+test "ssa concrete local assignment reuses entries but freshens writes" {
+  let func = hot_lift_body(
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(7)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+    ]),
+    HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+  let set_id = hot_root_get(func, 0)
+  let read = hot_child_get(func, hot_root_get(func, 1), 0)
+  let cfg = cfg_build(func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(func, cfg, dom, liveness, use_def)
+  let set_value = ssa_def_for_local_set(ssa, set_id)
+  let concrete = ssa_assign_concrete_locals(func, ssa)
+
+  @debug.assert_eq(concrete.value_locals[ssa.entry_defs[0]], 0)
+  @debug.assert_eq(concrete.value_locals[set_value], 1)
+  @debug.assert_eq(concrete.extra_local_types, [@lib.ValType::i32()])
+
+  ignore(ssa_destroy_into_hot(func, cfg, ssa))
+
+  @debug.assert_eq(hot_local_count(func), 2)
+  @debug.assert_eq(hot_node_get(func, set_id).imm0, 1)
+  @debug.assert_eq(hot_node_get(func, read).imm0, 1)
 }

@@ -212,3 +212,100 @@ test "hot verify ssa rejects phi inputs from non predecessors" {
     other => fail("expected invalid phi input, got \{other}")
   }
 }
+
+///|
+test "hot verify ssa rejects missing phi input alignment" {
+  let (func, cfg, ssa, phi_id) = hot_verify_wb_phi_fixture()
+  let bad_inputs = ssa.phi_inputs.copy()
+  let inputs = bad_inputs[phi_id].copy()
+  ignore(inputs.pop())
+  bad_inputs[phi_id] = inputs
+  let bad_ssa : HotLocalSsa = {
+    revision: ssa.revision,
+    value_types: ssa.value_types,
+    value_origins: ssa.value_origins,
+    phis: ssa.phis,
+    entry_defs: ssa.entry_defs,
+    phi_value_ids: ssa.phi_value_ids,
+    block_phis: ssa.block_phis,
+    phi_inputs: bad_inputs,
+    local_get_values: ssa.local_get_values,
+    local_write_defs: ssa.local_write_defs,
+    value_uses: ssa.value_uses,
+  }
+
+  match hot_verify_ssa(func, cfg, bad_ssa) {
+    Err(HotVerifyError::InvalidSsaPhiAlignment(found_phi, _, actual, expected)) => {
+      @debug.assert_eq(found_phi, phi_id)
+      @debug.assert_eq(actual, 1)
+      @debug.assert_eq(expected, 2)
+    }
+    other => fail("expected invalid phi alignment, got \{other}")
+  }
+}
+
+///|
+test "hot verify ssa rejects local write value type mismatches" {
+  let (func, cfg, _, ssa) = hot_verify_wb_simple_ssa_fixture()
+  let set_id = hot_root_get(func, 0)
+  let set_value = ssa.local_write_defs[set_id]
+  let bad_types = ssa.value_types.copy()
+  bad_types[set_value] = @lib.ValType::i64()
+  let bad_ssa : HotLocalSsa = {
+    revision: ssa.revision,
+    value_types: bad_types,
+    value_origins: ssa.value_origins,
+    phis: ssa.phis,
+    entry_defs: ssa.entry_defs,
+    phi_value_ids: ssa.phi_value_ids,
+    block_phis: ssa.block_phis,
+    phi_inputs: ssa.phi_inputs,
+    local_get_values: ssa.local_get_values,
+    local_write_defs: ssa.local_write_defs,
+    value_uses: ssa.value_uses,
+  }
+
+  match hot_verify_ssa(func, cfg, bad_ssa) {
+    Err(HotVerifyError::InvalidSsaType(value_id, actual, expected)) => {
+      @debug.assert_eq(value_id, set_value)
+      @debug.assert_eq(actual, @lib.ValType::i64())
+      @debug.assert_eq(expected, @lib.ValType::i32())
+    }
+    other => fail("expected invalid ssa type, got \{other}")
+  }
+}
+
+///|
+test "hot verify ssa rejects local get mappings without reciprocal uses" {
+  let (func, cfg, _, ssa) = hot_verify_wb_simple_ssa_fixture()
+  let get_id = hot_child_get(func, hot_root_get(func, 1), 0)
+  let get_value = ssa.local_get_values[get_id]
+  let bad_uses = ssa.value_uses.copy()
+  bad_uses[get_value] = []
+  let bad_ssa : HotLocalSsa = {
+    revision: ssa.revision,
+    value_types: ssa.value_types,
+    value_origins: ssa.value_origins,
+    phis: ssa.phis,
+    entry_defs: ssa.entry_defs,
+    phi_value_ids: ssa.phi_value_ids,
+    block_phis: ssa.block_phis,
+    phi_inputs: ssa.phi_inputs,
+    local_get_values: ssa.local_get_values,
+    local_write_defs: ssa.local_write_defs,
+    value_uses: bad_uses,
+  }
+
+  match hot_verify_ssa(func, cfg, bad_ssa) {
+    Err(
+      HotVerifyError::InvalidSsaUse(
+        value_id,
+        HotSsaUseOrigin::LocalGetUse(node_id)
+      )
+    ) => {
+      @debug.assert_eq(value_id, get_value)
+      @debug.assert_eq(node_id, get_id)
+    }
+    other => fail("expected missing local-get ssa use, got \{other}")
+  }
+}
