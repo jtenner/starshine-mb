@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-12] passes/ssa-nomerge | Audit non-current typed-loop br_table targets
+
+- Converted the previous non-current typed-loop `br_table` fail-closed guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) into positive coverage, and added five more source-backed positives for nested/non-current all-loop and mixed current-loop/enclosing-label table targets.
+- Covered scalar single-param proxy lowering, copy-needing scalar proxy lowering, multi-param/no-result store lowering, single-result store lowering, mixed-target scalar proxy dispatch, and mixed-target multi-param store dispatch.
+- No behavior-code widening was needed: existing label-depth recognition, proxy/store scratch lowerings, selector-dispatch rewrites, and branch-local alias-copy helpers already handled the nested label depths. The previous fail-closed guard did not prove the family was unimplemented.
+- Source probes live in `.tmp/ssa-nomerge-noncurrent-loop-brtable/`; `wasm-tools parse`, `wasm-tools validate --features all`, and `wasm-opt --all-features --ssa-nomerge -S` succeeded for the six WAT probes.
+- Evidence so far: focused `*non-current*br_table*` passed `6/6`; full `ssa_nomerge_test.mbt` passed `258/258`. Exact artifact parity and O4z closeout remain unclaimed; arbitrary multi-instruction reference expressions, multi-result typed loops, scalar-proxy/general `try_table`, nested non-void/other-target branch families, huge-threshold evidence, artifact first-diff work, and O4z slot policy remain active.
+
 ## [2026-06-12] passes/ssa-nomerge | Add remaining gap classification guards
 
 - Added focused fail-closed guards in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the remaining documented `ssa-nomerge` behavior-gap classifications that can be represented as unit fixtures: multi-instruction reference inputs for loop-store and non-current `br_on_null` / `br_on_non_null`, non-current typed-loop `br_table` targets, scalar-proxy `try_table` catch-label relabeling, single-result `try_table` fallthrough, nested non-void loop self-backedges, and nested other-label branches.

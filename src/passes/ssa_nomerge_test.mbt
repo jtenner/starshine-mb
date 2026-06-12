@@ -5448,7 +5448,7 @@ test "ssa-nomerge keeps non-current multi-instruction br_on_non_null branch inpu
 }
 
 ///|
-test "ssa-nomerge keeps non-current loop br_table targets fail-closed" {
+test "ssa-nomerge rewrites non-current scalar typed loop br_table targets" {
   let source =
     #|(module
     #|  (type $loop_t (func (param i32)))
@@ -5468,8 +5468,12 @@ test "ssa-nomerge keeps non-current loop br_table targets fail-closed" {
     #|    end
     #|    local.get 1))
     #|)
-  ssa_test_pipeline_fail_closed_unmutated(
-    source, "non-current loop br_table target",
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_br_table_proxy(instrs),
+    msg=instrs.to_string(),
   )
 }
 
@@ -5580,6 +5584,178 @@ test "ssa-nomerge keeps nested other-label branches under typed loop params fail
   ssa_test_pipeline_fail_closed_unmutated(
     source, "nested other-label branch under typed loop param",
   )
+}
+
+///|
+test "ssa-nomerge rewrites copy-needing non-current scalar typed loop br_table targets" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    i32.const 0
+    #|    loop $l (type $loop_t)
+    #|      local.set 1
+    #|      local.get 2
+    #|      drop
+    #|      local.get 1
+    #|      i32.const 0
+    #|      i32.eq
+    #|      if
+    #|        i32.const 7
+    #|        local.set 2
+    #|      else
+    #|        i32.const 8
+    #|        local.set 2
+    #|      end
+    #|      block $inner
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.get 0
+    #|        br_table $l $l
+    #|      end
+    #|    end
+    #|    local.get 2))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_br_table_proxy(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites non-current multi-param typed loop br_table targets" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32 i32)))
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    i32.const 0
+    #|    local.get 0
+    #|    loop $l (type $loop_t)
+    #|      local.set 2
+    #|      local.set 1
+    #|      block $inner
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.get 2
+    #|        local.get 0
+    #|        br_table $l $l
+    #|      end
+    #|    end
+    #|    local.get 1))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites non-current single-result typed loop br_table targets" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32 i32) (result i32)))
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    i32.const 0
+    #|    local.get 0
+    #|    loop $l (type $loop_t)
+    #|      local.set 2
+    #|      local.set 1
+    #|      block $inner
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.get 2
+    #|        local.get 0
+    #|        br_table $l $l
+    #|      end
+    #|      local.get 1
+    #|    end))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites non-current mixed-target scalar typed loop br_table targets" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    block $exit (result i32)
+    #|      i32.const 0
+    #|      loop $l (type $loop_t)
+    #|        local.set 1
+    #|        block $inner
+    #|          local.get 1
+    #|          i32.const 1
+    #|          i32.add
+    #|          local.get 0
+    #|          br_table $l $exit
+    #|        end
+    #|        unreachable
+    #|      end
+    #|      unreachable
+    #|    end))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
+    msg=instrs.to_string(),
+  )
+  assert_true(instrs.to_string().contains("i32.eq"), msg=instrs.to_string())
+}
+
+///|
+test "ssa-nomerge rewrites non-current mixed-target multi-param typed loop br_table targets" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32 i64)))
+    #|  (type $exit_t (func (result i32 i64)))
+    #|  (func (param i32) (result i32 i64) (local i32 i64)
+    #|    block $exit (type $exit_t)
+    #|      i32.const 0
+    #|      i64.const 1
+    #|      loop $l (type $loop_t)
+    #|        local.set 2
+    #|        local.set 1
+    #|        block $inner
+    #|          local.get 1
+    #|          i32.const 1
+    #|          i32.add
+    #|          local.get 2
+    #|          i64.const 1
+    #|          i64.add
+    #|          local.get 0
+    #|          br_table $l $exit
+    #|        end
+    #|        unreachable
+    #|      end
+    #|      unreachable
+    #|    end))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+  assert_true(instrs.to_string().contains("i32.eq"), msg=instrs.to_string())
 }
 
 ///|
