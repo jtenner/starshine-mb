@@ -9732,6 +9732,33 @@ fn run_hot_pipeline_raw_rewrite_br_on_non_null(
     Some(spilled) => spilled
     None => return false
   }
+  // `br_on_non_null` carries the tested non-null reference as the final label
+  // payload. Any earlier label results are prefix operands that are already on
+  // the stack after spilling the tested ref; preserve them across the synthetic
+  // `if` so the taken edge and null fallthrough see the same prefix stack.
+  let prefix_scratch : Array[@lib.LocalIdx] = []
+  let prefix_count = if label_target.result_types.length() > 0 {
+    label_target.result_types.length() - 1
+  } else {
+    0
+  }
+  for idx = 0; idx < prefix_count; idx = idx + 1 {
+    let scratch_type = match
+      run_hot_pipeline_raw_defaultable_scratch_type(
+        label_target.result_types[idx],
+      ) {
+      Some(scratch_type) => scratch_type
+      None => return false
+    }
+    prefix_scratch.push(
+      run_hot_pipeline_raw_fresh_typed_local(
+        params, locals, scratch_type, extra_local_types,
+      ),
+    )
+  }
+  for idx = prefix_scratch.length() - 1; idx >= 0; idx = idx - 1 {
+    rewritten.push(@lib.Instruction::local_set(prefix_scratch[idx]))
+  }
   rewritten.push(@lib.Instruction::local_get(scratch_ref))
   rewritten.push(@lib.Instruction::ref_is_null())
   let else_body = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
@@ -9746,6 +9773,13 @@ fn run_hot_pipeline_raw_rewrite_br_on_non_null(
     locals,
     extra_local_types,
   )
+  for idx = 0; idx < prefix_scratch.length(); idx = idx + 1 {
+    run_hot_pipeline_raw_append_scratch_get_as_type(
+      else_body,
+      prefix_scratch[idx],
+      label_target.result_types[idx],
+    )
+  }
   else_body.push(@lib.Instruction::local_get(scratch_ref))
   else_body.push(@lib.Instruction::ref_as_non_null())
   else_body.push(
@@ -9754,6 +9788,13 @@ fn run_hot_pipeline_raw_rewrite_br_on_non_null(
   rewritten.push(
     @lib.Instruction::if_(@lib.BlockType::void_(), [], Some(else_body)),
   )
+  for idx = 0; idx < prefix_scratch.length(); idx = idx + 1 {
+    run_hot_pipeline_raw_append_scratch_get_as_type(
+      rewritten,
+      prefix_scratch[idx],
+      label_target.result_types[idx],
+    )
+  }
   true
 }
 

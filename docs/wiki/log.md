@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-12] passes/ssa-nomerge | Preserve prefix payloads for if-result br_on_non_null
+
+- Added a reduced red/green regression in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for a non-current block result `(i32, externref)` where the `i32` prefix payload precedes a trailing `if (result externref)` feeding `br_on_non_null`.
+- Fixed [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so the synthetic `br_on_non_null` lowering spills/restores prefix label payloads around the `ref.is_null` branch while still using the already-evaluated typed-`if` reference exactly once as the final non-null branch payload.
+- Red evidence: the new test initially failed with `writeback-validate:stack underflow`. After the fix, focused `ssa_nomerge_test.mbt` passed `277/277`, `moon test src/passes` passed `2298/2298`, `moon fmt`, `moon info` passed with the 3 pre-existing GenValid warnings, full `moon test` passed `5573/5573`, native `src/cmd` build passed with pre-existing warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-prefix-if-nonnull-10000` requested `10000`, compared `7606`, had `7606` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- This closes a real Binaryen-vs-Starshine behavior gap for prefix-payload non-current `br_on_non_null` exits without admitting arbitrary multi-instruction reference-expression scanning.
+
 ## [2026-06-12] passes/ssa-nomerge | Admit if-result br_on_non_null inputs
 
 - Added source-backed positive coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for `if (result ref)` feeding `br_on_non_null` in non-current block-exit and typed-loop store/proxy contexts.
