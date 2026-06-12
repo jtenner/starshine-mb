@@ -11778,21 +11778,16 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
       }
       @lib.LocalSet(@lib.LocalIdx(idx)) => {
         let local_id = idx.reinterpret_as_int()
-        if freshen_params &&
-          local_id >= 0 &&
-          (
-            local_id < params.length() ||
-            (
-              local_id < base_local_count &&
-              run_hot_pipeline_raw_count_local_writes(instrs, local_id) > 1
-            )
-          ) {
+        if freshen_params && local_id >= 0 && local_id < params.length() {
           let fresh_local = run_hot_pipeline_raw_fresh_local(
             params, locals, local_id, extra_local_types,
           )
           param_aliases[local_id] = Some(fresh_local)
           rewritten.push(@lib.Instruction::local_set(fresh_local))
         } else {
+          if local_id >= 0 && local_id < param_aliases.length() {
+            param_aliases[local_id] = None
+          }
           rewritten.push(instr)
         }
       }
@@ -11813,6 +11808,9 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
           param_aliases[local_id] = Some(fresh_local)
           rewritten.push(@lib.Instruction::local_tee(fresh_local))
         } else {
+          if local_id >= 0 && local_id < param_aliases.length() {
+            param_aliases[local_id] = None
+          }
           rewritten.push(instr)
         }
       }

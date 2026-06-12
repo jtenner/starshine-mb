@@ -1148,6 +1148,130 @@ test "ssa-nomerge artifact parity freshens split-memory body scratch locals" {
 }
 
 ///|
+test "ssa-nomerge artifact parity freshens memory growth page temporaries only" {
+  // Artifact repro reduced from
+  // `.tmp/self-ssa-nomerge-debug-wasi-bronull-prefix-subtype-results`, sampled
+  // canonical difference `defined=0 abs=31` (`tlsf/initialize`). Binaryen
+  // freshens the pre-loop memory-size/page-count temps but keeps the loop
+  // induction locals canonical; do not let repeated-store freshening spill the
+  // induction locals beyond Binaryen's local budget.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (global (mut i32) (i32.const 0))
+    #|  (func $addMemory (param i32 i32 i64))
+    #|  (func
+    #|    (local i32 i32 i32)
+    #|    i32.const 220368
+    #|    i32.const 15
+    #|    i32.add
+    #|    i32.const -16
+    #|    i32.and
+    #|    local.set 0
+    #|    memory.size
+    #|    local.tee 1
+    #|    local.get 0
+    #|    i32.const 67107
+    #|    i32.add
+    #|    i32.const -65536
+    #|    i32.and
+    #|    i32.const 16
+    #|    i32.shr_u
+    #|    local.tee 2
+    #|    i32.lt_s
+    #|    if (result i32)
+    #|      local.get 2
+    #|      local.get 1
+    #|      i32.sub
+    #|      memory.grow
+    #|      i32.const 0
+    #|      i32.lt_s
+    #|    else
+    #|      i32.const 0
+    #|    end
+    #|    if
+    #|      unreachable
+    #|    else
+    #|      local.get 0
+    #|      i32.const 0
+    #|      i32.store
+    #|      local.get 0
+    #|      i32.const 0
+    #|      i32.store offset=1568
+    #|      i32.const 0
+    #|      local.set 1
+    #|      loop
+    #|        local.get 1
+    #|        i32.const 23
+    #|        i32.lt_u
+    #|        if
+    #|          local.get 0
+    #|          local.get 1
+    #|          i32.const 2
+    #|          i32.shl
+    #|          i32.add
+    #|          i32.const 0
+    #|          i32.store offset=4
+    #|          i32.const 0
+    #|          local.set 2
+    #|          loop
+    #|            local.get 2
+    #|            i32.const 16
+    #|            i32.lt_u
+    #|            if
+    #|              local.get 0
+    #|              local.get 1
+    #|              i32.const 4
+    #|              i32.shl
+    #|              local.get 2
+    #|              i32.add
+    #|              i32.const 2
+    #|              i32.shl
+    #|              i32.add
+    #|              i32.const 0
+    #|              i32.store offset=96
+    #|              local.get 2
+    #|              i32.const 1
+    #|              i32.add
+    #|              local.set 2
+    #|              br 1
+    #|            end
+    #|          end
+    #|          local.get 1
+    #|          i32.const 1
+    #|          i32.add
+    #|          local.set 1
+    #|          br 1
+    #|        end
+    #|      end
+    #|      local.get 0
+    #|      local.get 0
+    #|      i32.const 1572
+    #|      i32.add
+    #|      memory.size
+    #|      i64.extend_i32_s
+    #|      i64.const 16
+    #|      i64.shl
+    #|      call $addMemory
+    #|      local.get 0
+    #|      global.set 0
+    #|    end))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
+  assert_true(locals.length() >= 5, msg=locals.to_string())
+  assert_false(
+    ssa_test_local_write_indices(instrs).any(fn(idx) { idx > 4U }),
+    msg=instrs.to_string(),
+  )
+  assert_true(
+    ssa_test_local_write_indices(instrs).any(fn(idx) { idx == 3U }) &&
+    ssa_test_local_write_indices(instrs).any(fn(idx) { idx == 4U }),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge artifact parity keeps loop-carried result update in canonical local" {
   // Artifact repro reduced from
   // `.tmp/self-ssa-nomerge-debug-wasi-bronull-prefix-subtype-results`, sampled
