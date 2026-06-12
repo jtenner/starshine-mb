@@ -8599,7 +8599,8 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
   extra_local_types : Array[@lib.ValType],
   allow_local_tee : Bool,
 ) -> (@lib.ValType, @lib.LocalIdx)? {
-  let (ref_type, source_local, keep_trailing_value) = match rewritten.last() {
+  let (ref_type, source_local, keep_trailing_value, keep_ref_null) = match
+    rewritten.last() {
     Some(@lib.LocalGet(local_idx)) => {
       let @lib.LocalIdx(raw) = local_idx
       let ref_type = match
@@ -8612,7 +8613,7 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
         Some(val_type) => val_type
         None => return None
       }
-      (ref_type, local_idx, false)
+      (ref_type, Some(local_idx), false, false)
     }
     Some(@lib.LocalTee(local_idx)) if allow_local_tee => {
       let @lib.LocalIdx(raw) = local_idx
@@ -8626,8 +8627,10 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
         Some(val_type) => val_type
         None => return None
       }
-      (ref_type, local_idx, true)
+      (ref_type, Some(local_idx), true, false)
     }
+    Some(@lib.RefNull(ref_type)) =>
+      (@lib.ValType::ref_type(ref_type), None, false, true)
     _ => return None
   }
   if run_hot_pipeline_raw_non_null_ref_type(ref_type) is None {
@@ -8643,8 +8646,14 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
   )
   if keep_trailing_value {
     rewritten.push(@lib.Instruction::local_set(scratch_ref))
+  } else if keep_ref_null {
+    rewritten.push(@lib.Instruction::local_set(scratch_ref))
   } else {
     ignore(rewritten.pop())
+    let source_local = match source_local {
+      Some(source_local) => source_local
+      None => return None
+    }
     rewritten.push(@lib.Instruction::local_get(source_local))
     rewritten.push(@lib.Instruction::local_set(scratch_ref))
   }
