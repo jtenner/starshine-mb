@@ -2742,6 +2742,210 @@ test "ssa-nomerge rewrites multi-param single-result typed loop br_on_null backe
 }
 
 ///|
+test "ssa-nomerge rewrites nested-loop multi-param typed loop br backedges" {
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i64()], []),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i64()], []),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i64()]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::loop_(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+              @lib.Expr::new([
+                @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::loop_(
+                  @lib.BlockType::void_(),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                    @lib.Instruction::i32_const(@lib.I32::new(1)),
+                    @lib.Instruction::i32_add(),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+                    @lib.Instruction::i64_const(@lib.I64::new(1L)),
+                    @lib.Instruction::i64_add(),
+                    @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                  ]),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected nested-loop multi-param br loop-param ssa-nomerge success, got \{err}",
+      )
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites nested-loop multi-param single-result typed loop br_if backedges" {
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i64()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i64()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i64()]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::loop_(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+              @lib.Expr::new([
+                @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::loop_(
+                  @lib.BlockType::void_(),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                    @lib.Instruction::i32_const(@lib.I32::new(1)),
+                    @lib.Instruction::i32_add(),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+                    @lib.Instruction::i64_const(@lib.I64::new(1L)),
+                    @lib.Instruction::i64_add(),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                    @lib.Instruction::i32_const(@lib.I32::new(10)),
+                    @lib.Instruction::i32_lt_s(),
+                    @lib.Instruction::br_if(@lib.LabelIdx::new(1U)),
+                    @lib.Instruction::unreachable_(),
+                  ]),
+                ),
+                @lib.Instruction::unreachable_(),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected nested-loop multi-param single-result br_if loop-param ssa-nomerge success, got \{err}",
+      )
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites nested-loop multi-param typed loop br_on_null backedges" {
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let any_ref = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), any_ref], []),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([any_ref], [])),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32(), any_ref]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32::new(0)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::loop_(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+              @lib.Expr::new([
+                @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::loop_(
+                  @lib.BlockType::void_(),
+                  @lib.Expr::new([
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                    @lib.Instruction::i32_const(@lib.I32::new(1)),
+                    @lib.Instruction::i32_add(),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                    @lib.Instruction::br_on_null(@lib.LabelIdx::new(1U)),
+                    @lib.Instruction::drop(),
+                    @lib.Instruction::drop(),
+                    @lib.Instruction::drop(),
+                    @lib.Instruction::unreachable_(),
+                  ]),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected nested-loop multi-param br_on_null loop-param ssa-nomerge success, got \{err}",
+      )
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 fn ssa_test_multi_param_loop_store_cast_module(
   fail_variant : Bool,
   copy_needed : Bool,

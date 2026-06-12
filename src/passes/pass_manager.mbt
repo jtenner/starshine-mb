@@ -7957,7 +7957,19 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
             return false
           }
         }
-      @lib.Loop(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      @lib.Loop(_, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_instrs_have_branch(body) {
+          if run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
+              body,
+              loop_depth + 1U,
+              allow_ref_branches,
+            ) {
+            saw_backedge = true
+          } else {
+            return false
+          }
+        }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
         if run_hot_pipeline_raw_instrs_have_branch(body) {
           return false
         }
