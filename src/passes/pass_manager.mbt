@@ -8968,7 +8968,8 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
     }
     Some(@lib.RefNull(ref_type)) =>
       (@lib.ValType::ref_type(ref_type), None, false, true)
-    Some(@lib.Block(@lib.ValTypeBlockType(ref_type), _)) =>
+    Some(@lib.Block(@lib.ValTypeBlockType(ref_type), _))
+    | Some(@lib.If(@lib.ValTypeBlockType(ref_type), _, _)) =>
       (ref_type, None, true, false)
     Some(@lib.RefCast(nullable, heap_type)) =>
       (

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-12] passes/ssa-nomerge | Admit if-result br_on_null reference inputs
+
+- Added source-backed positive coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for `br_on_null` tested references produced by a trailing single-result `if` expression in two contexts: multi-param/no-result loop-store backedges and copy-needing non-current block exits.
+- Widened the shared raw branch-input spill helper in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) to infer the reference type from `if (result ref)` and spill the already-evaluated stack value once into a defaultable scratch, matching the existing typed-block model without duplicating arm effects or traps.
+- Red evidence: the new loop-store test failed before implementation with `changed=false`; after implementation, focused `ssa_nomerge_test.mbt` passed `270/270`, `moon test src/passes` passed `2291/2291`, `moon info` passed with the 3 pre-existing GenValid warnings, full `moon test` passed `5566/5566`, native `src/cmd` build passed with pre-existing warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-if-ref-10000` requested `10000`, compared `7608`, had `7608` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- This reduces the arbitrary multi-instruction `br_on_null` branch-input gap only for typed single-result `if` producers. Broader arbitrary expressions, `br_on_non_null` if-result variants, type-indexed/multi-result producers, multi-result typed loops, `try_table`, nested non-void/other-target branches, exact artifact parity, and O4z slot policy remain active.
+
 ## [2026-06-12] passes/ssa-nomerge | Classify sampled artifact local-allocation residuals
 
 - Refreshed the current debug-artifact `ssa-nomerge` sampled functions after commits `0dc102965` and `ee4a17d0e`; `abs=111` had a real typed-loop loop-param scratch parity gap and is now covered by a reduced regression in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt).
