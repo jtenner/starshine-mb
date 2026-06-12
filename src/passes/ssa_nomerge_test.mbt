@@ -204,6 +204,76 @@ fn ssa_test_instrs_have_ref_non_null_branch_copy_lowering(
 }
 
 ///|
+fn ssa_test_divergent_i32_local_prefix(
+  local_idx : @lib.LocalIdx,
+) -> Array[@lib.Instruction] {
+  [
+    @lib.Instruction::i32_const(@lib.I32::new(1)),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [
+        @lib.Instruction::i32_const(@lib.I32::new(7)),
+        @lib.Instruction::local_set(local_idx),
+      ],
+      Some([
+        @lib.Instruction::i32_const(@lib.I32::new(8)),
+        @lib.Instruction::local_set(local_idx),
+      ]),
+    ),
+  ]
+}
+
+///|
+fn ssa_test_assert_raw_ref_branch_copy_lowering(
+  input : @lib.Module,
+  canonical_local : UInt,
+  branch_on_non_null : Bool,
+  context : String,
+) -> Unit raise {
+  let trace : Array[String] = []
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected \{context} ssa-nomerge success, got \{err}")
+  }
+
+  assert_true(
+    trace.any(fn(line) {
+      line.contains("pass[ssa-nomerge]:skip-raw reason=structured-local-writes")
+    }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("hot-lift-error") }),
+    msg=trace.join("\n"),
+  )
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
+  let (_, instrs) = try! ssa_test_first_defined_func(optimized)
+  if branch_on_non_null {
+    assert_true(
+      ssa_test_instrs_have_ref_non_null_branch_copy_lowering(
+        instrs, canonical_local,
+      ),
+      msg=instrs.to_string(),
+    )
+  } else {
+    assert_true(
+      ssa_test_instrs_have_ref_null_branch_copy_lowering(
+        instrs, canonical_local,
+      ),
+      msg=instrs.to_string(),
+    )
+  }
+}
+
+///|
 fn ssa_test_instrs_have_loop_param_cast_proxy(
   instrs : Array[@lib.Instruction],
   expect_fail_variant : Bool,
@@ -10696,6 +10766,485 @@ test "ssa-nomerge preserves struct-new-default-tested br_on_non_null block-exit 
   assert_true(
     ssa_test_instrs_have_ref_non_null_branch_copy_lowering(instrs, 0U),
     msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge preserves array-new-default-tested br_on_null block-exit copies" {
+  let array_idx = @lib.TypeIdx::new(0U)
+  let array_field = @lib.FieldType::new(
+    @lib.StorageType::val_type(@lib.ValType::i32()),
+    @lib.Mut::var_(),
+  )
+  let block_body = ssa_test_divergent_i32_local_prefix(@lib.LocalIdx::new(0U))
+  block_body.append([
+    @lib.Instruction::i32_const(@lib.I32::new(1)),
+    @lib.Instruction::array_new_default(array_idx),
+    @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32::new(9)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+  ])
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::array(array_field)),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new(block_body),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+  try! ssa_test_assert_raw_ref_branch_copy_lowering(
+    input, 0U, false, "array-new-default-tested br_on_null block-exit copies",
+  )
+}
+
+///|
+test "ssa-nomerge preserves array-new-default-tested br_on_non_null block-exit copies" {
+  let array_idx = @lib.TypeIdx::new(0U)
+  let array_field = @lib.FieldType::new(
+    @lib.StorageType::val_type(@lib.ValType::i32()),
+    @lib.Mut::var_(),
+  )
+  let block_body = ssa_test_divergent_i32_local_prefix(@lib.LocalIdx::new(0U))
+  block_body.append([
+    @lib.Instruction::i32_const(@lib.I32::new(1)),
+    @lib.Instruction::array_new_default(array_idx),
+    @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32::new(9)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32::new(1)),
+    @lib.Instruction::array_new_default(array_idx),
+  ])
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::array(array_field)),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(
+                @lib.ValType::ref_array_nonnull(array_idx),
+              ),
+              @lib.Expr::new(block_body),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+  try! ssa_test_assert_raw_ref_branch_copy_lowering(
+    input, 0U, true, "array-new-default-tested br_on_non_null block-exit copies",
+  )
+}
+
+///|
+test "ssa-nomerge preserves ref-func-tested br_on_null block-exit copies" {
+  let callee_type_idx = @lib.TypeIdx::new(0U)
+  let test_type_idx = @lib.TypeIdx::new(1U)
+  let callee_idx = @lib.FuncIdx::new(1U)
+  let block_body = ssa_test_divergent_i32_local_prefix(@lib.LocalIdx::new(0U))
+  block_body.append([
+    @lib.Instruction::ref_func(callee_idx),
+    @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32::new(9)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+  ])
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([test_type_idx, callee_type_idx]))
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([callee_idx]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new(block_body),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          ]),
+        ),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    )
+  try! ssa_test_assert_raw_ref_branch_copy_lowering(
+    input, 0U, false, "ref-func-tested br_on_null block-exit copies",
+  )
+}
+
+///|
+test "ssa-nomerge preserves ref-func-tested br_on_non_null block-exit copies" {
+  let callee_type_idx = @lib.TypeIdx::new(0U)
+  let test_type_idx = @lib.TypeIdx::new(1U)
+  let callee_idx = @lib.FuncIdx::new(1U)
+  let block_body = ssa_test_divergent_i32_local_prefix(@lib.LocalIdx::new(0U))
+  block_body.append([
+    @lib.Instruction::ref_func(callee_idx),
+    @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32::new(9)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::ref_func(callee_idx),
+  ])
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([test_type_idx, callee_type_idx]))
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([callee_idx]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::funcref()),
+              @lib.Expr::new(block_body),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          ]),
+        ),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    )
+  try! ssa_test_assert_raw_ref_branch_copy_lowering(
+    input, 0U, true, "ref-func-tested br_on_non_null block-exit copies",
+  )
+}
+
+///|
+test "ssa-nomerge preserves ref-cast-tested br_on_null block-exit copies" {
+  let struct_idx = @lib.TypeIdx::new(0U)
+  let struct_heap = @lib.HeapType::new(struct_idx)
+  let nullable_struct_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, struct_heap),
+  )
+  let block_body = ssa_test_divergent_i32_local_prefix(@lib.LocalIdx::new(1U))
+  block_body.append([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::ref_cast(true, struct_heap),
+    @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32::new(9)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  ])
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::struct_([]))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nullable_struct_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new(block_body),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  try! ssa_test_assert_raw_ref_branch_copy_lowering(
+    input, 1U, false, "ref-cast-tested br_on_null block-exit copies",
+  )
+}
+
+///|
+test "ssa-nomerge preserves ref-cast-tested br_on_non_null block-exit copies" {
+  let struct_idx = @lib.TypeIdx::new(0U)
+  let struct_heap = @lib.HeapType::new(struct_idx)
+  let nullable_struct_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, struct_heap),
+  )
+  let non_null_struct_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, struct_heap),
+  )
+  let block_body = ssa_test_divergent_i32_local_prefix(@lib.LocalIdx::new(1U))
+  block_body.append([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::ref_cast(true, struct_heap),
+    @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32::new(9)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::struct_new_default(struct_idx),
+  ])
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::struct_([]))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nullable_struct_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(non_null_struct_ref),
+              @lib.Expr::new(block_body),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  try! ssa_test_assert_raw_ref_branch_copy_lowering(
+    input, 1U, true, "ref-cast-tested br_on_non_null block-exit copies",
+  )
+}
+
+///|
+test "ssa-nomerge preserves any-convert-tested br_on_null block-exit copies" {
+  let block_body = ssa_test_divergent_i32_local_prefix(@lib.LocalIdx::new(1U))
+  block_body.append([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::any_convert_extern(),
+    @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32::new(9)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  ])
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::externref()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new(block_body),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  try! ssa_test_assert_raw_ref_branch_copy_lowering(
+    input, 1U, false, "any-convert-tested br_on_null block-exit copies",
+  )
+}
+
+///|
+test "ssa-nomerge preserves any-convert-tested br_on_non_null block-exit copies" {
+  let block_body = ssa_test_divergent_i32_local_prefix(@lib.LocalIdx::new(1U))
+  block_body.append([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::any_convert_extern(),
+    @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32::new(9)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::any_convert_extern(),
+  ])
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::externref()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::anyref()),
+              @lib.Expr::new(block_body),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  try! ssa_test_assert_raw_ref_branch_copy_lowering(
+    input, 1U, true, "any-convert-tested br_on_non_null block-exit copies",
+  )
+}
+
+///|
+test "ssa-nomerge preserves extern-convert-tested br_on_null block-exit copies" {
+  let block_body = ssa_test_divergent_i32_local_prefix(@lib.LocalIdx::new(1U))
+  block_body.append([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::extern_convert_any(),
+    @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32::new(9)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+  ])
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::anyref()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new(block_body),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  try! ssa_test_assert_raw_ref_branch_copy_lowering(
+    input, 1U, false, "extern-convert-tested br_on_null block-exit copies",
+  )
+}
+
+///|
+test "ssa-nomerge preserves extern-convert-tested br_on_non_null block-exit copies" {
+  let block_body = ssa_test_divergent_i32_local_prefix(@lib.LocalIdx::new(1U))
+  block_body.append([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::extern_convert_any(),
+    @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::i32_const(@lib.I32::new(9)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::extern_convert_any(),
+  ])
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::anyref()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(@lib.ValType::externref()),
+              @lib.Expr::new(block_body),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  try! ssa_test_assert_raw_ref_branch_copy_lowering(
+    input, 1U, true, "extern-convert-tested br_on_non_null block-exit copies",
   )
 }
 
