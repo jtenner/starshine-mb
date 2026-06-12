@@ -11686,7 +11686,8 @@ fn run_hot_pipeline_raw_instrs_have_memory_store(
 ) -> Bool {
   for instr in instrs {
     match instr {
-      @lib.I32Store(_)
+      @lib.MemoryGrow(_)
+      | @lib.I32Store(_)
       | @lib.I64Store(_)
       | @lib.F32Store(_)
       | @lib.F64Store(_)
@@ -11816,6 +11817,7 @@ fn run_hot_pipeline_raw_count_local_writes(
 ///|
 fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
   instrs : Array[@lib.Instruction],
+  root_instrs : Array[@lib.Instruction],
   params : Array[@lib.ValType],
   locals : @lib.Locals,
   extra_local_types : Array[@lib.ValType],
@@ -11828,7 +11830,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
   )
   let base_local_count = params.length() + locals.length()
   let mut previous_was_local_tee = false
-  let mut previous_was_global_get = false
+  let mut previous_was_call = false
   let mut previous_was_table_size = false
   for instr in instrs {
     match instr {
@@ -11844,7 +11846,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
           rewritten.push(instr)
         }
         previous_was_local_tee = false
-        previous_was_global_get = false
+        previous_was_call = false
         previous_was_table_size = false
       }
       @lib.LocalSet(@lib.LocalIdx(idx)) => {
@@ -11852,7 +11854,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         if (freshen_params || freshen_repeated_non_loop_sets) &&
           local_id >= 0 &&
           (
-            local_id < params.length() ||
+            (local_id < params.length() && !previous_was_call) ||
             previous_was_local_tee ||
             previous_was_table_size ||
             (
@@ -11874,19 +11876,23 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
           rewritten.push(instr)
         }
         previous_was_local_tee = false
-        previous_was_global_get = false
+        previous_was_call = false
         previous_was_table_size = false
       }
       @lib.LocalTee(@lib.LocalIdx(idx)) => {
         let local_id = idx.reinterpret_as_int()
         if freshen_params &&
-          !previous_was_global_get &&
           local_id >= 0 &&
           (
-            local_id < params.length() ||
+            (local_id < params.length() && !previous_was_call) ||
             (
+              local_id >= params.length() &&
               local_id < base_local_count &&
-              run_hot_pipeline_raw_count_local_writes(instrs, local_id) > 1
+              (
+                run_hot_pipeline_raw_count_local_writes(root_instrs, local_id) >
+                1 ||
+                run_hot_pipeline_raw_count_local_gets(root_instrs, local_id) > 1
+              )
             )
           ) {
           let fresh_local = run_hot_pipeline_raw_fresh_local(
@@ -11901,29 +11907,37 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
           rewritten.push(instr)
         }
         previous_was_local_tee = true
-        previous_was_global_get = false
+        previous_was_call = false
         previous_was_table_size = false
       }
       @lib.GlobalGet(_) => {
         previous_was_local_tee = false
-        previous_was_global_get = true
+        previous_was_call = false
+        previous_was_table_size = false
+        rewritten.push(instr)
+      }
+      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
+        previous_was_local_tee = false
+        previous_was_call = true
         previous_was_table_size = false
         rewritten.push(instr)
       }
       @lib.TableSize(_) => {
         previous_was_local_tee = false
-        previous_was_global_get = false
+        previous_was_call = false
         previous_was_table_size = true
         rewritten.push(instr)
       }
       @lib.Block(block_type, @lib.Expr(body)) => {
         previous_was_local_tee = false
+        previous_was_call = false
         rewritten.push(
           @lib.Instruction::block(
             block_type,
             @lib.Expr::new(
               run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
                 body,
+                root_instrs,
                 params,
                 locals,
                 extra_local_types,
@@ -11935,12 +11949,14 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
         previous_was_local_tee = false
+        previous_was_call = false
         rewritten.push(
           @lib.Instruction::loop_(
             block_type,
             @lib.Expr::new(
               run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
                 body,
+                root_instrs,
                 params,
                 locals,
                 extra_local_types,
@@ -11952,6 +11968,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
       }
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         previous_was_local_tee = false
+        previous_was_call = false
         rewritten.push(
           @lib.Instruction::try_table(
             block_type,
@@ -11959,6 +11976,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
             @lib.Expr::new(
               run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
                 body,
+                root_instrs,
                 params,
                 locals,
                 extra_local_types,
@@ -11970,11 +11988,13 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
       }
       @lib.If(block_type, then_body, else_body) => {
         previous_was_local_tee = false
+        previous_was_call = false
         rewritten.push(
           @lib.Instruction::if_(
             block_type,
             run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
               then_body,
+              root_instrs,
               params,
               locals,
               extra_local_types,
@@ -11985,6 +12005,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
                 Some(
                   run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
                     body,
+                    root_instrs,
                     params,
                     locals,
                     extra_local_types,
@@ -11998,7 +12019,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
       }
       _ => {
         previous_was_local_tee = false
-        previous_was_global_get = false
+        previous_was_call = false
         previous_was_table_size = false
         rewritten.push(instr)
       }
@@ -12019,7 +12040,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes(
     None,
   )
   run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
-    instrs, params, locals, extra_local_types, param_aliases,
+    instrs, instrs, params, locals, extra_local_types, param_aliases,
   )
 }
 

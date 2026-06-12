@@ -1325,6 +1325,208 @@ test "ssa-nomerge artifact parity freshens memory growth page temporaries only" 
 }
 
 ///|
+test "ssa-nomerge artifact parity freshens malloc split and grow temporaries" {
+  // Artifact repro reduced from
+  // `.tmp/self-ssa-nomerge-debug-wasi-bronull-prefix-subtype-results`, sampled
+  // canonical difference `defined=0 abs=32` (`moonbit.malloc`). Binaryen
+  // allocates distinct temporaries for the allocator base, requested size,
+  // memory-size/grow pages, split remainder, split block pointer, and coalesced
+  // block-size slots. Reusing the canonical five-body-local shape has no proven
+  // Starshine benefit, so keep matching Binaryen's fresh allocator scratch
+  // shape when the grow path and split/coalesce stores appear together.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (global (mut i32) (i32.const 0))
+    #|  (func $tlsf.searchBlock (param i32 i32) (result i32)
+    #|    i32.const 0)
+    #|  (func $tlsf.unlinkBlock (param i32 i32))
+    #|  (func $tlsf.insertBlock (param i32 i32))
+    #|  (func $addMemory (param i32 i32 i64))
+    #|  (func $malloc (param i32) (result i32)
+    #|    (local i32 i32 i32 i32)
+    #|    global.get 0
+    #|    i32.eqz
+    #|    if
+    #|      unreachable
+    #|    end
+    #|    local.get 0
+    #|    i32.const 1073741820
+    #|    i32.gt_u
+    #|    if
+    #|      unreachable
+    #|    end
+    #|    global.get 0
+    #|    local.tee 2
+    #|    local.get 0
+    #|    i32.const 12
+    #|    i32.le_u
+    #|    if (result i32)
+    #|      i32.const 12
+    #|    else
+    #|      local.get 0
+    #|      i32.const 19
+    #|      i32.add
+    #|      i32.const -16
+    #|      i32.and
+    #|      i32.const 4
+    #|      i32.sub
+    #|    end
+    #|    local.tee 1
+    #|    call $tlsf.searchBlock
+    #|    local.tee 0
+    #|    i32.eqz
+    #|    if
+    #|      memory.size
+    #|      local.tee 0
+    #|      local.get 1
+    #|      i32.const 256
+    #|      i32.ge_u
+    #|      if (result i32)
+    #|        local.get 1
+    #|        i32.const 536870910
+    #|        i32.lt_u
+    #|        if (result i32)
+    #|          local.get 1
+    #|          i32.const 1
+    #|          i32.const 27
+    #|          local.get 1
+    #|          i32.clz
+    #|          i32.sub
+    #|          i32.shl
+    #|          i32.add
+    #|          i32.const 1
+    #|          i32.sub
+    #|        else
+    #|          local.get 1
+    #|        end
+    #|      else
+    #|        local.get 1
+    #|      end
+    #|      i32.const 4
+    #|      local.get 2
+    #|      i32.load offset=1568
+    #|      local.get 0
+    #|      i32.const 16
+    #|      i32.shl
+    #|      i32.const 4
+    #|      i32.sub
+    #|      i32.ne
+    #|      i32.shl
+    #|      i32.add
+    #|      i32.const 65535
+    #|      i32.add
+    #|      i32.const -65536
+    #|      i32.and
+    #|      i32.const 16
+    #|      i32.shr_u
+    #|      local.tee 3
+    #|      local.get 0
+    #|      local.get 3
+    #|      i32.gt_s
+    #|      select
+    #|      memory.grow
+    #|      i32.const 0
+    #|      i32.lt_s
+    #|      if
+    #|        local.get 3
+    #|        memory.grow
+    #|        i32.const 0
+    #|        i32.lt_s
+    #|        if
+    #|          unreachable
+    #|        end
+    #|      end
+    #|      local.get 2
+    #|      local.get 0
+    #|      i32.const 16
+    #|      i32.shl
+    #|      memory.size
+    #|      i64.extend_i32_s
+    #|      i64.const 16
+    #|      i64.shl
+    #|      call $addMemory
+    #|      local.get 2
+    #|      local.get 1
+    #|      call $tlsf.searchBlock
+    #|      local.set 0
+    #|    end
+    #|    local.get 2
+    #|    local.get 0
+    #|    call $tlsf.unlinkBlock
+    #|    local.get 0
+    #|    i32.load
+    #|    local.tee 3
+    #|    i32.const -4
+    #|    i32.and
+    #|    local.get 1
+    #|    i32.sub
+    #|    local.tee 4
+    #|    i32.const 16
+    #|    i32.ge_u
+    #|    if
+    #|      local.get 0
+    #|      local.get 1
+    #|      local.get 3
+    #|      i32.const 2
+    #|      i32.and
+    #|      i32.or
+    #|      i32.store
+    #|      local.get 0
+    #|      i32.const 4
+    #|      i32.add
+    #|      local.get 1
+    #|      i32.add
+    #|      local.tee 1
+    #|      local.get 4
+    #|      i32.const 4
+    #|      i32.sub
+    #|      i32.const 1
+    #|      i32.or
+    #|      i32.store
+    #|      local.get 2
+    #|      local.get 1
+    #|      call $tlsf.insertBlock
+    #|    else
+    #|      local.get 0
+    #|      local.get 3
+    #|      i32.const -2
+    #|      i32.and
+    #|      i32.store
+    #|      local.get 0
+    #|      i32.const 4
+    #|      i32.add
+    #|      local.tee 1
+    #|      local.get 0
+    #|      i32.load
+    #|      i32.const -4
+    #|      i32.and
+    #|      local.tee 2
+    #|      i32.add
+    #|      local.get 1
+    #|      local.get 2
+    #|      i32.add
+    #|      i32.load
+    #|      i32.const -3
+    #|      i32.and
+    #|      i32.store
+    #|    end
+    #|    local.get 0
+    #|    i32.const 4
+    #|    i32.add)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 4)
+  assert_true(locals.length() >= 12, msg=locals.to_string())
+  let writes = ssa_test_local_write_indices(instrs)
+  assert_false(writes.any(fn(idx) { idx > 12U }), msg=instrs.to_string())
+  assert_true(
+    writes.any(fn(idx) { idx == 11U }) && writes.any(fn(idx) { idx == 12U }),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge artifact parity freshens table growth slot temporaries" {
   // Artifact repro reduced from
   // `.tmp/self-ssa-nomerge-debug-wasi-bronull-prefix-subtype-results`, sampled
