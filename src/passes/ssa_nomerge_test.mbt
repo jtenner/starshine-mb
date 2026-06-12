@@ -10825,6 +10825,255 @@ test "ssa-nomerge preserves ref-func-child-to-parent br_on_non_null block-exit c
 }
 
 ///|
+test "ssa-nomerge preserves ref-i31-to-eq br_on_null prefix block-exit copies" {
+  let nullable_eq_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+  )
+  let block_body = ssa_test_divergent_i32_local_prefix(@lib.LocalIdx::new(2U))
+  block_body.append([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::ref_i31(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32::new(9)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::ref_i31(),
+  ])
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), nullable_eq_ref], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_eq_ref),
+              @lib.Expr::new(block_body),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          ]),
+        ),
+      ]),
+    )
+  try! ssa_test_assert_raw_ref_branch_copy_lowering(
+    input, 2U, false, "ref-i31-to-eq br_on_null prefix block-exit copies",
+  )
+}
+
+///|
+test "ssa-nomerge preserves struct-child-to-parent br_on_null prefix block-exit copies" {
+  let parent_idx = @lib.TypeIdx::new(0U)
+  let child_idx = @lib.TypeIdx::new(1U)
+  let parent_heap = @lib.HeapType::new(parent_idx)
+  let nullable_eq_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+  )
+  let nullable_parent_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, parent_heap),
+  )
+  let block_body = ssa_test_divergent_i32_local_prefix(@lib.LocalIdx::new(1U))
+  block_body.append([
+    @lib.Instruction::struct_new_default(child_idx),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32::new(9)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::struct_new_default(parent_idx),
+  ])
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(false, [parent_idx], @lib.CompType::struct_([])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nullable_eq_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_parent_ref),
+              @lib.Expr::new(block_body),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  try! ssa_test_assert_raw_ref_branch_copy_lowering(
+    input, 1U, false, "struct-child-to-parent br_on_null prefix block-exit copies",
+  )
+}
+
+///|
+test "ssa-nomerge preserves array-child-to-parent br_on_null prefix block-exit copies" {
+  let parent_idx = @lib.TypeIdx::new(0U)
+  let child_idx = @lib.TypeIdx::new(1U)
+  let parent_heap = @lib.HeapType::new(parent_idx)
+  let array_field = @lib.FieldType::new(
+    @lib.StorageType::val_type(@lib.ValType::i32()),
+    @lib.Mut::var_(),
+  )
+  let nullable_eq_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+  )
+  let nullable_parent_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, parent_heap),
+  )
+  let block_body = ssa_test_divergent_i32_local_prefix(@lib.LocalIdx::new(1U))
+  block_body.append([
+    @lib.Instruction::i32_const(@lib.I32::new(1)),
+    @lib.Instruction::array_new_default(child_idx),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32::new(9)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32::new(1)),
+    @lib.Instruction::array_new_default(parent_idx),
+  ])
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::array(array_field)),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(
+            false,
+            [parent_idx],
+            @lib.CompType::array(array_field),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nullable_eq_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_parent_ref),
+              @lib.Expr::new(block_body),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  try! ssa_test_assert_raw_ref_branch_copy_lowering(
+    input, 1U, false, "array-child-to-parent br_on_null prefix block-exit copies",
+  )
+}
+
+///|
+test "ssa-nomerge preserves ref-func-child-to-parent br_on_null prefix block-exit copies" {
+  let parent_idx = @lib.TypeIdx::new(0U)
+  let child_idx = @lib.TypeIdx::new(1U)
+  let test_type_idx = @lib.TypeIdx::new(2U)
+  let callee_idx = @lib.FuncIdx::new(1U)
+  let parent_heap = @lib.HeapType::new(parent_idx)
+  let nullable_eq_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::eq())),
+  )
+  let nullable_parent_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, parent_heap),
+  )
+  let block_body = ssa_test_divergent_i32_local_prefix(@lib.LocalIdx::new(1U))
+  block_body.append([
+    @lib.Instruction::ref_func(callee_idx),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i32_const(@lib.I32::new(9)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::ref_func(callee_idx),
+  ])
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::new(false, [], @lib.CompType::func([], [])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::new(false, [parent_idx], @lib.CompType::func([], [])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([nullable_eq_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([test_type_idx, child_idx]))
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([callee_idx]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::single(1U, @lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_parent_ref),
+              @lib.Expr::new(block_body),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          ]),
+        ),
+        @lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([])),
+      ]),
+    )
+  try! ssa_test_assert_raw_ref_branch_copy_lowering(
+    input, 1U, false, "ref-func-child-to-parent br_on_null prefix block-exit copies",
+  )
+}
+
+///|
 test "ssa-nomerge preserves struct-new-default-tested br_on_null block-exit copies" {
   let trace : Array[String] = []
   let struct_idx = @lib.TypeIdx::new(0U)
