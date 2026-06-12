@@ -7842,22 +7842,33 @@ fn run_hot_pipeline_raw_loop_backedge_supported(
 }
 
 ///|
-fn run_hot_pipeline_raw_loop_param_types_no_results(
+fn run_hot_pipeline_raw_loop_param_and_result_types(
   module_ctx : @ir.HotModuleContext,
   block_type : @lib.BlockType,
-) -> Array[@lib.ValType]? {
+) -> (Array[@lib.ValType], Array[@lib.ValType])? {
   match block_type {
     @lib.TypeIdxBlockType(type_idx) =>
       match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
         Some(@lib.FuncType(params, results)) =>
-          if params.length() > 0 && results.length() == 0 {
-            Some(params)
+          if params.length() > 0 {
+            Some((params, results))
           } else {
             None
           }
         None => None
       }
     _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_single_result_block_type(
+  result_types : Array[@lib.ValType],
+) -> @lib.BlockType? {
+  if result_types.length() == 1 {
+    Some(@lib.BlockType::val_type(result_types[0]))
+  } else {
+    None
   }
 }
 
@@ -9544,14 +9555,14 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             None => return None
           }
         } else {
-          let loop_param_types = match
-            run_hot_pipeline_raw_loop_param_types_no_results(
+          let (loop_param_types, loop_result_types) = match
+            run_hot_pipeline_raw_loop_param_and_result_types(
               module_ctx, block_type,
             ) {
-            Some(loop_param_types) => loop_param_types
+            Some(types) => types
             None => return None
           }
-          if loop_param_types.length() == 1 {
+          if loop_result_types.length() == 0 && loop_param_types.length() == 1 {
             let loop_param_type = loop_param_types[0]
             let direct_loop_param_backedges_supported = match loop_param_type {
               @lib.RefTypeValType(_) =>
@@ -9651,7 +9662,8 @@ fn run_hot_pipeline_raw_rewrite_instrs(
               }
               None => return None
             }
-          } else {
+          } else if loop_result_types.length() == 0 ||
+            loop_result_types.length() == 1 {
             if !run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
                 body, 0U, false,
               ) {
@@ -9725,12 +9737,37 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                   )
                 }
                 loop_body.append(rewritten_body)
-                rewritten.push(
-                  @lib.Instruction::loop_(
-                    @lib.BlockType::void_(),
-                    @lib.Expr::new(loop_body),
-                  ),
-                )
+                if loop_result_types.length() == 0 {
+                  rewritten.push(
+                    @lib.Instruction::loop_(
+                      @lib.BlockType::void_(),
+                      @lib.Expr::new(loop_body),
+                    ),
+                  )
+                } else {
+                  let result_block_type = match
+                    run_hot_pipeline_raw_single_result_block_type(
+                      loop_result_types,
+                    ) {
+                    Some(result_block_type) => result_block_type
+                    None => return None
+                  }
+                  if body_fallthrough {
+                    loop_body.push(@lib.Instruction::br(@lib.LabelIdx::new(1U)))
+                  }
+                  rewritten.push(
+                    @lib.Instruction::block(
+                      result_block_type,
+                      @lib.Expr::new([
+                        @lib.Instruction::loop_(
+                          @lib.BlockType::void_(),
+                          @lib.Expr::new(loop_body),
+                        ),
+                        @lib.Instruction::unreachable_(),
+                      ]),
+                    ),
+                  )
+                }
                 if was_reachable {
                   if body_fallthrough {
                     aliases = body_aliases
@@ -9743,6 +9780,8 @@ fn run_hot_pipeline_raw_rewrite_instrs(
               }
               None => return None
             }
+          } else {
+            return None
           }
         }
       }

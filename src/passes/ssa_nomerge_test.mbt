@@ -2093,7 +2093,7 @@ test "ssa-nomerge rewrites multi-param typed loop br_table backedges" {
 }
 
 ///|
-test "ssa-nomerge keeps result-typed loop-param direct br fail-closed" {
+test "ssa-nomerge rewrites single-result typed loop direct br backedges" {
   let source =
     #|(module
     #|  (type $loop_t (func (param i32) (result i32)))
@@ -2110,6 +2110,95 @@ test "ssa-nomerge keeps result-typed loop-param direct br fail-closed" {
     #|        br $l
     #|      end
     #|      local.get 1
+    #|    end)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites single-result typed loop br_if backedges" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32) (result i32)))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 0
+    #|    loop $l (type $loop_t)
+    #|      local.set 1
+    #|      local.get 1
+    #|      i32.const 1
+    #|      i32.add
+    #|      local.get 1
+    #|      local.get 0
+    #|      i32.lt_s
+    #|      br_if $l
+    #|      drop
+    #|      local.get 1
+    #|    end)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites multi-param single-result typed loop br_table backedges" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32 i64) (result i32)))
+    #|  (func (param i32) (result i32) (local i32 i64)
+    #|    i32.const 0
+    #|    i64.const 1
+    #|    loop $l (type $loop_t)
+    #|      local.set 2
+    #|      local.set 1
+    #|      local.get 1
+    #|      i32.const 1
+    #|      i32.add
+    #|      local.get 2
+    #|      i64.const 1
+    #|      i64.add
+    #|      local.get 0
+    #|      br_table $l $l
+    #|    end)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge keeps multi-result typed loop-param direct br fail-closed" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32) (result i32 i64)))
+    #|  (func (param i32) (result i32 i64) (local i32)
+    #|    i32.const 0
+    #|    loop $l (type $loop_t)
+    #|      local.tee 1
+    #|      local.get 0
+    #|      i32.lt_s
+    #|      if
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.add
+    #|        br $l
+    #|      end
+    #|      local.get 1
+    #|      i64.const 7
     #|    end)
     #|)
   ssa_test_typed_loop_param_pipeline_fail_closed(source)
