@@ -9510,7 +9510,7 @@ fn run_hot_pipeline_raw_rewrite_br_on_null(
   }
   let (_, scratch_ref) = match
     run_hot_pipeline_raw_spill_trailing_ref_branch_input(
-      rewritten, module_ctx, params, locals, extra_local_types, false,
+      rewritten, module_ctx, params, locals, extra_local_types, true,
     ) {
     Some(spilled) => spilled
     None => return false
@@ -9594,7 +9594,7 @@ fn run_hot_pipeline_raw_rewrite_br_on_non_null(
   }
   let (_, scratch_ref) = match
     run_hot_pipeline_raw_spill_trailing_ref_branch_input(
-      rewritten, module_ctx, params, locals, extra_local_types, false,
+      rewritten, module_ctx, params, locals, extra_local_types, true,
     ) {
     Some(spilled) => spilled
     None => return false
