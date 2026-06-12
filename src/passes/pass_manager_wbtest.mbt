@@ -1,4 +1,67 @@
 ///|
+test "ssa-nomerge fresh local helper handles already-appended scratch locals" {
+  // Native artifact refresh for the remaining ssa-nomerge sampled bucket exposed
+  // this crash: earlier cleanup stages can append scratch locals before the
+  // store-driven scratch freshener runs. When that later stage freshens an
+  // already-appended local, it must read the type from `extra_local_types`, not
+  // index past the original body-local vector.
+  let params : Array[@lib.ValType] = []
+  let locals = @lib.Locals::from_types([@lib.ValType::i32()])
+  let extra_local_types = [@lib.ValType::i32()]
+  let fresh = run_hot_pipeline_raw_fresh_local(
+    params, locals, 1, extra_local_types,
+  )
+  @debug.assert_eq(fresh, @lib.LocalIdx::new(2U))
+  @debug.assert_eq(extra_local_types.length(), 2)
+  @debug.assert_eq(extra_local_types[1], @lib.ValType::i32())
+}
+
+///|
+test "ssa-nomerge scratch freshener aliases already-appended locals" {
+  // Same artifact-refresh crash as above at the caller level: the scratch
+  // freshener may decide to freshen a write to an already-appended local after a
+  // tee. The alias table must grow with appended locals instead of assuming the
+  // original local budget is the maximum index it can rewrite.
+  let params : Array[@lib.ValType] = []
+  let locals = @lib.Locals::from_types([@lib.ValType::i32()])
+  let extra_local_types = [@lib.ValType::i32()]
+  let appended = @lib.LocalIdx::new(1U)
+  let rewritten = run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
+    [
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::local_tee(appended),
+      @lib.Instruction::local_set(appended),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::i32_store(@lib.MemArg::new(0U, None, 0UL)),
+      @lib.Instruction::local_get(appended),
+    ],
+    [
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::local_tee(appended),
+      @lib.Instruction::local_set(appended),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::i32_store(@lib.MemArg::new(0U, None, 0UL)),
+      @lib.Instruction::local_get(appended),
+    ],
+    params,
+    locals,
+    extra_local_types,
+    [None],
+  )
+  @debug.assert_eq(extra_local_types.length(), 2)
+  @debug.assert_eq(
+    rewritten[2],
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+  )
+  @debug.assert_eq(
+    rewritten[6],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+  )
+}
+
+///|
 test "simplify-locals-nostructure lowered cleanup skips stack-root call hazards" {
   let mod_ = pass_test_module_from_wat(
     (

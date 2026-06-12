@@ -7556,9 +7556,14 @@ fn run_hot_pipeline_raw_fresh_local(
   let fresh_local_id = params.length() +
     locals.length() +
     extra_local_types.length()
-  extra_local_types.push(
-    run_hot_pipeline_raw_local_type(params, locals, local_id),
-  )
+  let local_type = match
+    run_hot_pipeline_raw_rewritten_local_type(
+      params, locals, extra_local_types, local_id,
+    ) {
+    Some(val_type) => val_type
+    None => abort("ssa-nomerge fresh local source is out of range")
+  }
+  extra_local_types.push(local_type)
   @lib.LocalIdx::new(fresh_local_id.reinterpret_as_uint())
 }
 
@@ -11815,6 +11820,27 @@ fn run_hot_pipeline_raw_count_local_writes(
 }
 
 ///|
+fn run_hot_pipeline_raw_set_param_alias(
+  param_aliases : Array[@lib.LocalIdx?],
+  local_id : Int,
+  mapped_alias : @lib.LocalIdx?,
+) -> Unit {
+  if local_id < 0 {
+    return
+  }
+  match mapped_alias {
+    Some(_) =>
+      while param_aliases.length() <= local_id {
+        param_aliases.push(None)
+      }
+    None => ()
+  }
+  if local_id < param_aliases.length() {
+    param_aliases[local_id] = mapped_alias
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
   instrs : Array[@lib.Instruction],
   root_instrs : Array[@lib.Instruction],
@@ -11867,12 +11893,14 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
           let fresh_local = run_hot_pipeline_raw_fresh_local(
             params, locals, local_id, extra_local_types,
           )
-          param_aliases[local_id] = Some(fresh_local)
+          run_hot_pipeline_raw_set_param_alias(
+            param_aliases,
+            local_id,
+            Some(fresh_local),
+          )
           rewritten.push(@lib.Instruction::local_set(fresh_local))
         } else {
-          if local_id >= 0 && local_id < param_aliases.length() {
-            param_aliases[local_id] = None
-          }
+          run_hot_pipeline_raw_set_param_alias(param_aliases, local_id, None)
           rewritten.push(instr)
         }
         previous_was_local_tee = false
@@ -11898,12 +11926,14 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
           let fresh_local = run_hot_pipeline_raw_fresh_local(
             params, locals, local_id, extra_local_types,
           )
-          param_aliases[local_id] = Some(fresh_local)
+          run_hot_pipeline_raw_set_param_alias(
+            param_aliases,
+            local_id,
+            Some(fresh_local),
+          )
           rewritten.push(@lib.Instruction::local_tee(fresh_local))
         } else {
-          if local_id >= 0 && local_id < param_aliases.length() {
-            param_aliases[local_id] = None
-          }
+          run_hot_pipeline_raw_set_param_alias(param_aliases, local_id, None)
           rewritten.push(instr)
         }
         previous_was_local_tee = true

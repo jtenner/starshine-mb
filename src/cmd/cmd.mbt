@@ -4003,8 +4003,27 @@ extern "c" fn cmd_native_access(path : Bytes, mode : Int) -> Int = "access"
 
 ///|
 #cfg(target="native")
-#borrow(command)
-extern "c" fn cmd_native_system(command : Bytes) -> Int = "system"
+#borrow(command, mode)
+extern "c" fn cmd_native_popen(command : Bytes, mode : Bytes) -> UInt64 = "popen"
+
+///|
+#cfg(target="native")
+extern "c" fn cmd_native_pclose(pipe : UInt64) -> Int = "pclose"
+
+///|
+#cfg(target="native")
+fn cmd_native_system(command : Bytes) -> Int {
+  // Avoid binding directly to libc `system`: MoonBit emits an incompatible C
+  // prototype for borrowed `Bytes`, which conflicts with `<stdlib.h>` on native
+  // release builds. `popen`/`pclose` still execute through the shell and return
+  // the command's wait status for the small native helper probes used here.
+  let pipe = cmd_native_popen(command, cmd_native_c_string("r"))
+  if pipe == 0UL {
+    -1
+  } else {
+    cmd_native_pclose(pipe)
+  }
+}
 
 ///|
 #cfg(target="native")
