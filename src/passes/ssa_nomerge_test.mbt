@@ -1201,6 +1201,141 @@ test "ssa-nomerge artifact parity freshens tee-set loop base scratch" {
 }
 
 ///|
+test "ssa-nomerge artifact parity lowers loop-param block-branch scratch" {
+  // Artifact repro reduced from
+  // `.tmp/self-ssa-nomerge-debug-wasi-bronull-prefix-subtype-results`, sampled
+  // canonical difference `defined=0 abs=111` (`spec/failed_preview`). Binaryen
+  // lowers this loop-carried i32 param through a fresh scratch local even though
+  // the loop body contains nested value blocks with internal branches. Keeping
+  // the typed loop leaves Starshine with a smaller, unproven local allocation
+  // shape, so this locks the Binaryen-like scratch write.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $mk (param i32) (result i32) local.get 0)
+    #|  (func $dropref (param i32))
+    #|  (func $kind (param i32) (result i32) local.get 0)
+    #|  (func $join (param i32 i32) (result i32) local.get 0)
+    #|  (func $use (param i32 i32))
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+    #|    i32.const 10080
+    #|    local.set 28
+    #|    i32.const 8
+    #|    call $mk
+    #|    local.tee 38
+    #|    i32.const 1573120
+    #|    i32.store offset=4
+    #|    local.get 38
+    #|    i32.const 0
+    #|    i32.store offset=8
+    #|    local.get 38
+    #|    local.get 28
+    #|    i32.store offset=12
+    #|    local.get 38
+    #|    local.set 2
+    #|    local.get 0
+    #|    i32.load offset=24
+    #|    local.set 30
+    #|    local.get 30
+    #|    local.tee 3
+    #|    i32.load offset=8
+    #|    local.set 4
+    #|    i32.const 0
+    #|    loop (param i32)
+    #|      local.tee 5
+    #|      local.get 4
+    #|      i32.lt_s
+    #|      if
+    #|        local.get 3
+    #|        i32.load offset=12
+    #|        local.tee 19
+    #|        local.get 5
+    #|        i32.const 2
+    #|        i32.shl
+    #|        i32.add
+    #|        i32.load offset=8
+    #|        local.set 6
+    #|        block $out (result i32)
+    #|          block $inner
+    #|            local.get 6
+    #|            i32.load offset=24
+    #|            local.tee 8
+    #|            call $kind
+    #|            local.tee 37
+    #|            i32.const 2
+    #|            i32.eq
+    #|            if
+    #|              local.get 8
+    #|              local.tee 9
+    #|              i32.load offset=8
+    #|              local.tee 10
+    #|              call $dropref
+    #|              local.get 6
+    #|              call $dropref
+    #|              local.get 10
+    #|              local.set 7
+    #|              br $inner
+    #|            else
+    #|              i32.const 0
+    #|              drop
+    #|            end
+    #|            i32.const 0
+    #|            br $out
+    #|          end
+    #|          i32.const 1
+    #|        end
+    #|        drop
+    #|        local.get 6
+    #|        i32.load offset=20
+    #|        local.set 29
+    #|        local.get 29
+    #|        local.tee 17
+    #|        call $kind
+    #|        local.tee 16
+    #|        i32.const 11400
+    #|        call $join
+    #|        local.get 16
+    #|        call $dropref
+    #|        local.set 14
+    #|        local.get 7
+    #|        call $kind
+    #|        local.set 15
+    #|        local.get 14
+    #|        local.get 15
+    #|        call $join
+    #|        local.get 15
+    #|        call $dropref
+    #|        local.get 14
+    #|        call $dropref
+    #|        local.set 13
+    #|        local.get 2
+    #|        call $dropref
+    #|        local.get 2
+    #|        local.get 13
+    #|        call $use
+    #|        local.get 5
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.tee 18
+    #|        br 1
+    #|      else
+    #|        local.get 3
+    #|        call $dropref
+    #|      end
+    #|    end
+    #|    i32.const 0))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 5)
+  assert_true(locals.length() >= 38, msg=locals.to_string())
+  assert_true(
+    ssa_test_local_write_indices(instrs).any(fn(idx) { idx == 39U }),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge artifact parity freshens memory growth page temporaries only" {
   // Artifact repro reduced from
   // `.tmp/self-ssa-nomerge-debug-wasi-bronull-prefix-subtype-results`, sampled

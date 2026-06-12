@@ -8335,7 +8335,10 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
           } else {
             match block_type {
               @lib.VoidBlockType => ()
-              _ => return false
+              // Non-void nested blocks may contain only internal branches that
+              // produce the block value before the loop backedge. They are not
+              // themselves evidence that loop-param lowering is unsupported.
+              _ => ()
             }
           }
         }
