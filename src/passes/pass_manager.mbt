@@ -7326,7 +7326,9 @@ priv struct RawSsaLabelTarget {
   result_types : Array[@lib.ValType]
   is_loop : Bool
   is_loop_param_proxy : Bool
+  is_loop_param_store : Bool
   loop_param_scratch : @lib.LocalIdx?
+  loop_param_scratches : Array[@lib.LocalIdx]
   needed_alias_copies : @bitset.BitSet
 }
 
@@ -7695,7 +7697,9 @@ fn run_hot_pipeline_raw_label_target(
         result_types,
         is_loop,
         is_loop_param_proxy: false,
+        is_loop_param_store: false,
         loop_param_scratch: None,
+        loop_param_scratches: [],
         needed_alias_copies,
       })
     None => None
@@ -7838,16 +7842,16 @@ fn run_hot_pipeline_raw_loop_backedge_supported(
 }
 
 ///|
-fn run_hot_pipeline_raw_loop_single_param_type(
+fn run_hot_pipeline_raw_loop_param_types_no_results(
   module_ctx : @ir.HotModuleContext,
   block_type : @lib.BlockType,
-) -> @lib.ValType? {
+) -> Array[@lib.ValType]? {
   match block_type {
     @lib.TypeIdxBlockType(type_idx) =>
       match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
         Some(@lib.FuncType(params, results)) =>
-          if params.length() == 1 && results.length() == 0 {
-            Some(params[0])
+          if params.length() > 0 && results.length() == 0 {
+            Some(params)
           } else {
             None
           }
@@ -7991,7 +7995,27 @@ fn run_hot_pipeline_raw_loop_param_proxy_label_target(
     result_types: [param_type],
     is_loop: false,
     is_loop_param_proxy: true,
+    is_loop_param_store: false,
     loop_param_scratch: Some(loop_param_scratch),
+    loop_param_scratches: [loop_param_scratch],
+    needed_alias_copies,
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_loop_param_store_label_target(
+  param_types : Array[@lib.ValType],
+  loop_param_scratches : Array[@lib.LocalIdx],
+  needed_alias_copies : @bitset.BitSet,
+) -> RawSsaLabelTarget {
+  {
+    block_type: @lib.BlockType::void_(),
+    result_types: param_types,
+    is_loop: true,
+    is_loop_param_proxy: false,
+    is_loop_param_store: true,
+    loop_param_scratch: None,
+    loop_param_scratches,
     needed_alias_copies,
   }
 }
@@ -8035,6 +8059,136 @@ fn run_hot_pipeline_raw_br_table_alias_copies(
     }
     None => None
   }
+}
+
+///|
+fn run_hot_pipeline_raw_br_table_loop_param_store_target(
+  labels : Array[@lib.LabelIdx],
+  default_label : @lib.LabelIdx,
+  label_stack : Array[RawSsaLabelTarget],
+) -> RawSsaLabelTarget? {
+  let default_target = match
+    run_hot_pipeline_raw_resolve_label_target(label_stack, default_label) {
+    Some(label_target) => label_target
+    None => return None
+  }
+  if !default_target.is_loop_param_store {
+    return None
+  }
+  for label_idx in labels {
+    match run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {
+      Some(label_target) =>
+        if !label_target.is_loop_param_store ||
+          label_target.result_types.length() !=
+          default_target.result_types.length() {
+          return None
+        }
+      None => return None
+    }
+  }
+  Some(default_target)
+}
+
+///|
+fn run_hot_pipeline_raw_append_loop_param_store_backedge(
+  rewritten : Array[@lib.Instruction],
+  label_idx : @lib.LabelIdx,
+  label_target : RawSsaLabelTarget,
+  source_aliases : Array[@lib.LocalIdx],
+  canonical_aliases : Array[@lib.LocalIdx],
+  initialized_locals : @bitset.BitSet,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> Bool {
+  if !label_target.is_loop_param_store ||
+    label_target.loop_param_scratches.length() !=
+    label_target.result_types.length() {
+    return false
+  }
+  let branch_instrs : Array[@lib.Instruction] = []
+  for idx = label_target.loop_param_scratches.length() - 1
+      idx >= 0
+      idx = idx - 1 {
+    branch_instrs.push(
+      @lib.Instruction::local_set(label_target.loop_param_scratches[idx]),
+    )
+  }
+  let branch_with_copies = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
+    branch_instrs,
+    source_aliases,
+    canonical_aliases,
+    canonical_aliases,
+    initialized_locals,
+    label_target.needed_alias_copies,
+    [],
+    params,
+    locals,
+    extra_local_types,
+  )
+  branch_with_copies.push(@lib.Instruction::br(label_idx))
+  rewritten.append(branch_with_copies)
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_rewrite_loop_param_store_br_if(
+  label_idx : @lib.LabelIdx,
+  label_target : RawSsaLabelTarget,
+  source_aliases : Array[@lib.LocalIdx],
+  canonical_aliases : Array[@lib.LocalIdx],
+  initialized_locals : @bitset.BitSet,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> Array[@lib.Instruction]? {
+  if !label_target.is_loop_param_store ||
+    label_target.loop_param_scratches.length() !=
+    label_target.result_types.length() {
+    return None
+  }
+  let cond_local = run_hot_pipeline_raw_fresh_typed_local(
+    params,
+    locals,
+    @lib.ValType::i32(),
+    extra_local_types,
+  )
+  let rewritten : Array[@lib.Instruction] = []
+  rewritten.push(@lib.Instruction::local_set(cond_local))
+  for idx = label_target.loop_param_scratches.length() - 1
+      idx >= 0
+      idx = idx - 1 {
+    rewritten.push(
+      @lib.Instruction::local_set(label_target.loop_param_scratches[idx]),
+    )
+  }
+  rewritten.push(@lib.Instruction::local_get(cond_local))
+  let then_body = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
+    [],
+    source_aliases,
+    canonical_aliases,
+    canonical_aliases,
+    initialized_locals,
+    label_target.needed_alias_copies,
+    [],
+    params,
+    locals,
+    extra_local_types,
+  )
+  then_body.push(
+    @lib.Instruction::br(run_hot_pipeline_raw_label_inc(label_idx)),
+  )
+  rewritten.push(
+    @lib.Instruction::if_(@lib.BlockType::void_(), then_body, None),
+  )
+  for idx = 0; idx < label_target.loop_param_scratches.length(); idx = idx + 1 {
+    run_hot_pipeline_raw_append_scratch_get_as_type(
+      rewritten,
+      label_target.loop_param_scratches[idx],
+      label_target.result_types[idx],
+    )
+  }
+  Some(rewritten)
 }
 
 ///|
@@ -9390,108 +9544,205 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             None => return None
           }
         } else {
-          let loop_param_type = match
-            run_hot_pipeline_raw_loop_single_param_type(module_ctx, block_type) {
-            Some(loop_param_type) => loop_param_type
-            None => return None
-          }
-          let direct_loop_param_backedges_supported = match loop_param_type {
-            @lib.RefTypeValType(_) =>
-              run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
-                body, 0U, true,
-              )
-            _ =>
-              run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
-                body, 0U, false,
-              )
-          }
-          if !direct_loop_param_backedges_supported {
-            return None
-          }
-          let scratch_type = match
-            run_hot_pipeline_raw_defaultable_scratch_type(loop_param_type) {
-            Some(scratch_type) => scratch_type
-            None => return None
-          }
-          let loop_scratch = run_hot_pipeline_raw_fresh_typed_local(
-            params, locals, scratch_type, extra_local_types,
-          )
-          rewritten.push(@lib.Instruction::local_set(loop_scratch))
-          let loop_initialized = initialized.copy()
-          for local_id = 0
-              local_id < loop_initialized.length()
-              local_id = local_id + 1 {
-            if loop_header_reads_before_writes[local_id] {
-              loop_initialized[local_id] = true
-            }
-          }
-          let proxy_label_target = run_hot_pipeline_raw_loop_param_proxy_label_target(
-            loop_param_type, loop_scratch, loop_header_reads_before_writes,
-          )
-          match
-            run_hot_pipeline_raw_rewrite_instrs(
-              body,
-              module_ctx,
-              params,
-              locals,
-              aliases.copy(),
-              canonical_aliases,
-              loop_initialized,
-              run_hot_pipeline_raw_push_label_target(
-                label_stack, proxy_label_target,
-              ),
-              child_future_reads,
-              child_future_writes,
-              child_future_reads_before_writes,
-              extra_local_types,
+          let loop_param_types = match
+            run_hot_pipeline_raw_loop_param_types_no_results(
+              module_ctx, block_type,
             ) {
-            Some(
-              (
-                rewritten_body,
-                body_aliases,
-                body_initialized,
-                body_fallthrough,
-                _,
-              )
-            ) => {
-              let inner_body : Array[@lib.Instruction] = []
-              run_hot_pipeline_raw_append_scratch_get_as_type(
-                inner_body, loop_scratch, loop_param_type,
-              )
-              inner_body.append(rewritten_body)
-              if body_fallthrough {
-                inner_body.push(@lib.Instruction::br(@lib.LabelIdx::new(1U)))
+            Some(loop_param_types) => loop_param_types
+            None => return None
+          }
+          if loop_param_types.length() == 1 {
+            let loop_param_type = loop_param_types[0]
+            let direct_loop_param_backedges_supported = match loop_param_type {
+              @lib.RefTypeValType(_) =>
+                run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
+                  body, 0U, true,
+                )
+              _ =>
+                run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
+                  body, 0U, false,
+                )
+            }
+            if !direct_loop_param_backedges_supported {
+              return None
+            }
+            let scratch_type = match
+              run_hot_pipeline_raw_defaultable_scratch_type(loop_param_type) {
+              Some(scratch_type) => scratch_type
+              None => return None
+            }
+            let loop_scratch = run_hot_pipeline_raw_fresh_typed_local(
+              params, locals, scratch_type, extra_local_types,
+            )
+            rewritten.push(@lib.Instruction::local_set(loop_scratch))
+            let loop_initialized = initialized.copy()
+            for local_id = 0
+                local_id < loop_initialized.length()
+                local_id = local_id + 1 {
+              if loop_header_reads_before_writes[local_id] {
+                loop_initialized[local_id] = true
               }
-              let outer_body : Array[@lib.Instruction] = [
-                @lib.Instruction::block(
-                  @lib.BlockType::val_type(loop_param_type),
-                  @lib.Expr::new(inner_body),
+            }
+            let proxy_label_target = run_hot_pipeline_raw_loop_param_proxy_label_target(
+              loop_param_type, loop_scratch, loop_header_reads_before_writes,
+            )
+            match
+              run_hot_pipeline_raw_rewrite_instrs(
+                body,
+                module_ctx,
+                params,
+                locals,
+                aliases.copy(),
+                canonical_aliases,
+                loop_initialized,
+                run_hot_pipeline_raw_push_label_target(
+                  label_stack, proxy_label_target,
                 ),
-                @lib.Instruction::local_set(loop_scratch),
-                @lib.Instruction::br(@lib.LabelIdx::new(1U)),
-              ]
-              rewritten.push(
-                @lib.Instruction::loop_(
-                  @lib.BlockType::void_(),
-                  @lib.Expr::new([
-                    @lib.Instruction::block(
-                      @lib.BlockType::void_(),
-                      @lib.Expr::new(outer_body),
-                    ),
-                  ]),
-                ),
-              )
-              if was_reachable {
+                child_future_reads,
+                child_future_writes,
+                child_future_reads_before_writes,
+                extra_local_types,
+              ) {
+              Some(
+                (
+                  rewritten_body,
+                  body_aliases,
+                  body_initialized,
+                  body_fallthrough,
+                  _,
+                )
+              ) => {
+                let inner_body : Array[@lib.Instruction] = []
+                run_hot_pipeline_raw_append_scratch_get_as_type(
+                  inner_body, loop_scratch, loop_param_type,
+                )
+                inner_body.append(rewritten_body)
                 if body_fallthrough {
-                  aliases = body_aliases
-                  initialized = body_initialized
-                  fallthrough = true
-                } else {
-                  fallthrough = false
+                  inner_body.push(@lib.Instruction::br(@lib.LabelIdx::new(1U)))
+                }
+                let outer_body : Array[@lib.Instruction] = [
+                  @lib.Instruction::block(
+                    @lib.BlockType::val_type(loop_param_type),
+                    @lib.Expr::new(inner_body),
+                  ),
+                  @lib.Instruction::local_set(loop_scratch),
+                  @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                ]
+                rewritten.push(
+                  @lib.Instruction::loop_(
+                    @lib.BlockType::void_(),
+                    @lib.Expr::new([
+                      @lib.Instruction::block(
+                        @lib.BlockType::void_(),
+                        @lib.Expr::new(outer_body),
+                      ),
+                    ]),
+                  ),
+                )
+                if was_reachable {
+                  if body_fallthrough {
+                    aliases = body_aliases
+                    initialized = body_initialized
+                    fallthrough = true
+                  } else {
+                    fallthrough = false
+                  }
                 }
               }
+              None => return None
             }
-            None => return None
+          } else {
+            if !run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
+                body, 0U, false,
+              ) {
+              return None
+            }
+            let loop_scratches : Array[@lib.LocalIdx] = []
+            for loop_param_type in loop_param_types {
+              let scratch_type = match
+                run_hot_pipeline_raw_defaultable_scratch_type(loop_param_type) {
+                Some(scratch_type) => scratch_type
+                None => return None
+              }
+              loop_scratches.push(
+                run_hot_pipeline_raw_fresh_typed_local(
+                  params, locals, scratch_type, extra_local_types,
+                ),
+              )
+            }
+            for scratch_idx = loop_scratches.length() - 1
+                scratch_idx >= 0
+                scratch_idx = scratch_idx - 1 {
+              rewritten.push(
+                @lib.Instruction::local_set(loop_scratches[scratch_idx]),
+              )
+            }
+            let loop_initialized = initialized.copy()
+            for local_id = 0
+                local_id < loop_initialized.length()
+                local_id = local_id + 1 {
+              if loop_header_reads_before_writes[local_id] {
+                loop_initialized[local_id] = true
+              }
+            }
+            let loop_label_target = run_hot_pipeline_raw_loop_param_store_label_target(
+              loop_param_types, loop_scratches, loop_header_reads_before_writes,
+            )
+            match
+              run_hot_pipeline_raw_rewrite_instrs(
+                body,
+                module_ctx,
+                params,
+                locals,
+                aliases.copy(),
+                canonical_aliases,
+                loop_initialized,
+                run_hot_pipeline_raw_push_label_target(
+                  label_stack, loop_label_target,
+                ),
+                child_future_reads,
+                child_future_writes,
+                child_future_reads_before_writes,
+                extra_local_types,
+              ) {
+              Some(
+                (
+                  rewritten_body,
+                  body_aliases,
+                  body_initialized,
+                  body_fallthrough,
+                  _,
+                )
+              ) => {
+                let loop_body : Array[@lib.Instruction] = []
+                for param_idx = 0
+                    param_idx < loop_param_types.length()
+                    param_idx = param_idx + 1 {
+                  run_hot_pipeline_raw_append_scratch_get_as_type(
+                    loop_body,
+                    loop_scratches[param_idx],
+                    loop_param_types[param_idx],
+                  )
+                }
+                loop_body.append(rewritten_body)
+                rewritten.push(
+                  @lib.Instruction::loop_(
+                    @lib.BlockType::void_(),
+                    @lib.Expr::new(loop_body),
+                  ),
+                )
+                if was_reachable {
+                  if body_fallthrough {
+                    aliases = body_aliases
+                    initialized = body_initialized
+                    fallthrough = true
+                  } else {
+                    fallthrough = false
+                  }
+                }
+              }
+              None => return None
+            }
           }
         }
       }
@@ -9610,6 +9861,18 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           Some(label_target) => label_target
           None => return None
         }
+        if label_target.is_loop_param_store {
+          if !run_hot_pipeline_raw_append_loop_param_store_backedge(
+              rewritten, label_idx, label_target, aliases, canonical_aliases, initialized,
+              params, locals, extra_local_types,
+            ) {
+            return None
+          }
+          if was_reachable {
+            fallthrough = false
+          }
+          continue
+        }
         if label_target.is_loop &&
           !run_hot_pipeline_raw_loop_backedge_supported(label_target) {
           return None
@@ -9641,6 +9904,17 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {
           Some(label_target) => label_target
           None => return None
+        }
+        if label_target.is_loop_param_store {
+          match
+            run_hot_pipeline_raw_rewrite_loop_param_store_br_if(
+              label_idx, label_target, aliases, canonical_aliases, initialized, params,
+              locals, extra_local_types,
+            ) {
+            Some(branch_instrs) => rewritten.append(branch_instrs)
+            None => return None
+          }
+          continue
         }
         if label_target.is_loop {
           if !run_hot_pipeline_raw_loop_backedge_supported(label_target) ||
@@ -9759,6 +10033,25 @@ fn run_hot_pipeline_raw_rewrite_instrs(
         }
       }
       @lib.BrTable(labels, default_label) => {
+        match
+          run_hot_pipeline_raw_br_table_loop_param_store_target(
+            labels, default_label, label_stack,
+          ) {
+          Some(label_target) => {
+            rewritten.push(@lib.Instruction::drop())
+            if !run_hot_pipeline_raw_append_loop_param_store_backedge(
+                rewritten, default_label, label_target, aliases, canonical_aliases,
+                initialized, params, locals, extra_local_types,
+              ) {
+              return None
+            }
+            if was_reachable {
+              fallthrough = false
+            }
+            continue
+          }
+          None => ()
+        }
         let needed_alias_copies = match
           run_hot_pipeline_raw_br_table_alias_copies(
             labels,

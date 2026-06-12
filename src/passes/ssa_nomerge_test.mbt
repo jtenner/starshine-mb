@@ -280,6 +280,68 @@ fn ssa_test_instrs_have_loop_param_scalar_br_if_proxy(
 }
 
 ///|
+fn ssa_test_instrs_have_multi_param_loop_store_backedge(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  fn body_has_loop_backedge(
+    body : Array[@lib.Instruction],
+    depth : UInt,
+  ) -> Bool {
+    for instr in body {
+      match instr {
+        @lib.Br(@lib.LabelIdx(raw)) => if raw == depth { return true }
+        @lib.Block(_, @lib.Expr(nested_body))
+        | @lib.Loop(_, @lib.Expr(nested_body))
+        | @lib.TryTable(_, _, @lib.Expr(nested_body)) =>
+          if body_has_loop_backedge(nested_body, depth + 1U) {
+            return true
+          }
+        @lib.If(_, then_body, else_body) => {
+          if body_has_loop_backedge(then_body, depth + 1U) {
+            return true
+          }
+          match else_body {
+            Some(body) =>
+              if body_has_loop_backedge(body, depth + 1U) {
+                return true
+              }
+            None => ()
+          }
+        }
+        _ => ()
+      }
+    }
+    false
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Loop(@lib.VoidBlockType, @lib.Expr(loop_body)) =>
+        if body_has_loop_backedge(loop_body, 0U) {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if ssa_test_instrs_have_multi_param_loop_store_backedge(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if ssa_test_instrs_have_multi_param_loop_store_backedge(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if ssa_test_instrs_have_multi_param_loop_store_backedge(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn ssa_test_instrs_have_loop_param_br_table_proxy(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -1867,13 +1929,13 @@ test "ssa-nomerge rewrites multi-result br_on_null taken-edge copies" {
 }
 
 ///|
-test "ssa-nomerge keeps multi-param typed loop direct br fail-closed" {
+test "ssa-nomerge rewrites multi-param typed loop direct br backedges" {
   let source =
     #|(module
-    #|  (type $loop_t (func (param i32 i32)))
-    #|  (func (param i32) (result i32) (local i32 i32)
+    #|  (type $loop_t (func (param i32 i64)))
+    #|  (func (param i32) (result i32) (local i32 i64)
     #|    i32.const 0
-    #|    i32.const 1
+    #|    i64.const 1
     #|    loop $l (type $loop_t)
     #|      local.set 2
     #|      local.tee 1
@@ -1884,14 +1946,55 @@ test "ssa-nomerge keeps multi-param typed loop direct br fail-closed" {
     #|        i32.const 1
     #|        i32.add
     #|        local.get 2
-    #|        i32.const 1
-    #|        i32.add
+    #|        i64.const 1
+    #|        i64.add
     #|        br $l
     #|      end
     #|    end
     #|    local.get 1))
     #|)
-  ssa_test_typed_loop_param_pipeline_fail_closed(source)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites multi-param typed loop br_if backedges" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32 i64)))
+    #|  (func (param i32) (result i32) (local i32 i64)
+    #|    i32.const 0
+    #|    i64.const 1
+    #|    loop $l (type $loop_t)
+    #|      local.set 2
+    #|      local.set 1
+    #|      local.get 1
+    #|      i32.const 1
+    #|      i32.add
+    #|      local.get 2
+    #|      i64.const 1
+    #|      i64.add
+    #|      local.get 1
+    #|      local.get 0
+    #|      i32.lt_s
+    #|      br_if $l
+    #|      drop
+    #|      drop
+    #|    end
+    #|    local.get 1))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
 }
 
 ///|
@@ -1959,26 +2062,55 @@ test "ssa-nomerge rewrites copy-needing scalar typed loop br_table backedges" {
 }
 
 ///|
-test "ssa-nomerge keeps multi-param typed loop br_table fail-closed" {
+test "ssa-nomerge rewrites multi-param typed loop br_table backedges" {
   let source =
     #|(module
-    #|  (type $loop_t (func (param i32 i32)))
-    #|  (func (param i32) (result i32) (local i32 i32)
+    #|  (type $loop_t (func (param i32 i64)))
+    #|  (func (param i32) (result i32) (local i32 i64)
     #|    i32.const 0
-    #|    i32.const 1
+    #|    i64.const 1
     #|    loop $l (type $loop_t)
     #|      local.set 2
-    #|      local.tee 1
+    #|      local.set 1
     #|      local.get 1
     #|      i32.const 1
     #|      i32.add
     #|      local.get 2
-    #|      i32.const 1
-    #|      i32.add
+    #|      i64.const 1
+    #|      i64.add
     #|      local.get 0
     #|      br_table $l $l
     #|    end
     #|    local.get 1))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge keeps result-typed loop-param direct br fail-closed" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32) (result i32)))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 0
+    #|    loop $l (type $loop_t)
+    #|      local.tee 1
+    #|      local.get 0
+    #|      i32.lt_s
+    #|      if
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.add
+    #|        br $l
+    #|      end
+    #|      local.get 1
+    #|    end)
     #|)
   ssa_test_typed_loop_param_pipeline_fail_closed(source)
 }
