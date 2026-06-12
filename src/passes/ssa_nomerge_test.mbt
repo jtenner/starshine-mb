@@ -8479,15 +8479,29 @@ fn ssa_test_large_structured_branch_fixture() -> String {
 }
 
 ///|
+fn ssa_test_assert_raw_structured_rewrite_added_alias_local(
+  optimized : @lib.Module,
+  original_local_count : Int,
+  context : String,
+) -> Unit raise {
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(
+    locals.length() > original_local_count,
+    msg="expected \{context} to add an SSA alias local; locals=\{locals}",
+  )
+  assert_true(instrs.to_string().contains("local.set"), msg=instrs.to_string())
+}
+
+///|
 test "ssa-nomerge rewrites moderately large structured branch functions without hot fallback" {
   let trace : Array[String] = []
-  match
+  let optimized = match
     pass_test_run_pipeline(
       ssa_test_large_structured_branch_fixture(),
       ["ssa-nomerge"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
-    Ok(_) => ()
+    Ok(mod_) => mod_
     Err(err) =>
       fail(
         "expected moderately large structured ssa-nomerge success, got \{err}",
@@ -8507,6 +8521,9 @@ test "ssa-nomerge rewrites moderately large structured branch functions without 
     }),
     msg=trace.join("\n"),
   )
+  ssa_test_assert_raw_structured_rewrite_added_alias_local(
+    optimized, 65, "moderately large structured branch raw rewrite",
+  )
 }
 
 ///|
@@ -8523,13 +8540,13 @@ fn ssa_test_large_structured_local_write_fixture(if_count : Int) -> String {
 ///|
 test "ssa-nomerge rewrites very large structured local-write functions without branches" {
   let trace : Array[String] = []
-  match
+  let optimized = match
     pass_test_run_pipeline(
       ssa_test_large_structured_local_write_fixture(130),
       ["ssa-nomerge"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
-    Ok(_) => ()
+    Ok(mod_) => mod_
     Err(err) =>
       fail(
         "expected large structured local-write ssa-nomerge rewrite success, got \{err}",
@@ -8549,18 +8566,21 @@ test "ssa-nomerge rewrites very large structured local-write functions without b
     }),
     msg=trace.join("\n"),
   )
+  ssa_test_assert_raw_structured_rewrite_added_alias_local(
+    optimized, 1, "large no-branch raw rewrite",
+  )
 }
 
 ///|
 test "ssa-nomerge keeps audited high-threshold structured local-write functions without branches on raw path" {
   let trace : Array[String] = []
-  match
+  let optimized = match
     pass_test_run_pipeline(
       ssa_test_large_structured_local_write_fixture(2047),
       ["ssa-nomerge"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
-    Ok(_) => ()
+    Ok(mod_) => mod_
     Err(err) =>
       fail(
         "expected audited high-threshold no-branch ssa-nomerge success, got \{err}",
@@ -8583,6 +8603,9 @@ test "ssa-nomerge keeps audited high-threshold structured local-write functions 
   assert_false(
     trace.any(fn(line) { line.contains("skip-invalid-lower") }),
     msg=trace.join("\n"),
+  )
+  ssa_test_assert_raw_structured_rewrite_added_alias_local(
+    optimized, 1, "high-threshold no-branch raw rewrite",
   )
 }
 
@@ -8632,13 +8655,13 @@ fn ssa_test_large_structured_branch_if_prefix_fixture(if_count : Int) -> String 
 ///|
 test "ssa-nomerge keeps structured branch functions below raw instruction threshold on raw path" {
   let trace : Array[String] = []
-  match
+  let optimized = match
     pass_test_run_pipeline(
       ssa_test_large_structured_branch_if_prefix_fixture(1020),
       ["ssa-nomerge"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
-    Ok(_) => ()
+    Ok(mod_) => mod_
     Err(err) =>
       fail(
         "expected below-threshold structured branch ssa-nomerge success, got \{err}",
@@ -8662,18 +8685,21 @@ test "ssa-nomerge keeps structured branch functions below raw instruction thresh
     trace.any(fn(line) { line.contains("skip-invalid-lower") }),
     msg=trace.join("\n"),
   )
+  ssa_test_assert_raw_structured_rewrite_added_alias_local(
+    optimized, 1, "below-threshold structured branch raw rewrite",
+  )
 }
 
 ///|
 test "ssa-nomerge keeps audited high-threshold structured branch functions on raw path" {
   let trace : Array[String] = []
-  match
+  let optimized = match
     pass_test_run_pipeline(
       ssa_test_large_structured_branch_if_prefix_fixture(2046),
       ["ssa-nomerge"],
       options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
-    Ok(_) => ()
+    Ok(mod_) => mod_
     Err(err) =>
       fail(
         "expected audited high-threshold structured branch ssa-nomerge success, got \{err}",
@@ -8696,6 +8722,9 @@ test "ssa-nomerge keeps audited high-threshold structured branch functions on ra
   assert_false(
     trace.any(fn(line) { line.contains("skip-invalid-lower") }),
     msg=trace.join("\n"),
+  )
+  ssa_test_assert_raw_structured_rewrite_added_alias_local(
+    optimized, 1, "high-threshold structured branch raw rewrite",
   )
 }
 
