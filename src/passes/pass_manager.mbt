@@ -8673,6 +8673,18 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
         true,
         false,
       )
+    Some(@lib.StructNewDefault(type_idx)) =>
+      (
+        @lib.ValType::ref_type(
+          @lib.RefType::new(false, @lib.HeapType::new(type_idx), exact=true),
+        ),
+        None,
+        true,
+        false,
+      )
+    Some(@lib.ArrayNewDefault(type_idx)) =>
+      (@lib.ValType::ref_array_nonnull(type_idx), None, true, false)
+    Some(@lib.RefI31) => (@lib.ValType::i31ref(), None, true, false)
     Some(@lib.AnyConvertExtern) => (@lib.ValType::anyref(), None, true, false)
     Some(@lib.ExternConvertAny) =>
       (@lib.ValType::externref(), None, true, false)

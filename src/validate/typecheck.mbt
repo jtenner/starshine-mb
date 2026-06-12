@@ -344,21 +344,6 @@ fn TcState::mem_at_of(st : TcState, mem : MemIdx) -> Result[ValType, String] {
 }
 
 ///|
-fn expect_ref_null_heaptype(v : ValType) -> Result[HeapType, String] {
-  match v {
-    RefTypeValType(rt) =>
-      match rt {
-        HeapTypeRefType(true, _, ht) => Ok(ht)
-        HeapTypeRefType(false, _, _) =>
-          Err("expected (ref null ht), got non-null ref")
-        AbsHeapTypeRefType(_) =>
-          Err("expected (ref null ht), got abstract ref type")
-      }
-    _ => Err("expected reference type")
-  }
-}
-
-///|
 fn pop_types_rev(st : TcState, ts : Array[ValType]) -> TcResult {
   let mut st = st
   for t in ts.rev_iter() {
@@ -1051,14 +1036,9 @@ fn typecheck_return_call_ref(st : TcState, tidx : TypeIdx) -> TcResult {
 }
 
 ///|
-fn expect_nullable_ref(v : ValType) -> Result[(HeapType, RefType), String] {
+fn expect_branch_ref(v : ValType) -> Result[(HeapType, RefType), String] {
   match v {
-    RefTypeValType(rt) => {
-      if !rt.is_nullable() {
-        return Err("expected a nullable reference type")
-      }
-      Ok((rt.get_heap_type(), rt))
-    }
+    RefTypeValType(rt) => Ok((rt.get_heap_type(), rt))
     _ => Err("expected a reference type")
   }
 }
@@ -1070,12 +1050,13 @@ fn typecheck_br_on_null(st : TcState, l : LabelIdx) -> TcResult {
     Some(x) => x
   }
 
-  // Pop operand: must be exactly (ref null ht)
+  // Pop operand: a nullable ref refines to non-null on fallthrough; a
+  // statically non-null ref is also valid and simply cannot take the null edge.
   let (st1, v) = match st.pop1() {
     Err(e) => return Err(e)
     Ok(pair) => pair
   }
-  let ht = match expect_ref_null_heaptype(v) {
+  let (ht, rt_in) = match expect_branch_ref(v) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
@@ -1091,8 +1072,12 @@ fn typecheck_br_on_null(st : TcState, l : LabelIdx) -> TcResult {
     }
   }
 
-  // Fallthrough refines to non-null (ref ht)
-  Ok(st1.push1(ValType::ref_type(RefType::new(false, ht))))
+  // Fallthrough refines to non-null (ref ht), preserving exactness.
+  Ok(
+    st1.push1(
+      ValType::ref_type(RefType::new(false, ht, exact=rt_in.is_exact())),
+    ),
+  )
 }
 
 ///|
@@ -1105,7 +1090,7 @@ fn typecheck_br_on_non_null(st : TcState, l : LabelIdx) -> TcResult {
     Err(e) => return Err(e)
     Ok(pair) => pair
   }
-  let (ht, _rt_in) = match expect_nullable_ref(v) {
+  let (ht, rt_in) = match expect_branch_ref(v) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
@@ -1117,11 +1102,12 @@ fn typecheck_br_on_non_null(st : TcState, l : LabelIdx) -> TcResult {
     None => return Err("br_on_non_null label type too short")
   }
 
-  // Label must end with NON-NULLABLE ref of same heap type
-  let non_null_rt = RefType::new(false, ht)
+  // The taken edge contributes the tested ref as non-null. The actual branch
+  // payload must match the label's final expected type.
+  let non_null_rt = RefType::new(false, ht, exact=rt_in.is_exact())
   let want_last = ValType::ref_type(non_null_rt)
   let last = label_ts[end]
-  if !Match::matches(last, want_last, st.env) {
+  if !Match::matches(want_last, last, st.env) {
     return Err("br_on_non_null label must end with non-nullable ref type")
   }
   if st.reachable {
@@ -6004,6 +5990,18 @@ test "Typecheck BrOnNonNull with externref" {
 }
 
 ///|
+test "Typecheck BrOnNonNull accepts statically non-null ref operand" {
+  let env = empty_env().with_labels([[@lib.ValType::i31ref()]])
+  let state = make_state(env, [@lib.ValType::i31ref()])
+  let result = Typecheck::typecheck(
+    Instruction::br_on_non_null(LabelIdx::new(0)),
+    state,
+  )
+  let new_state = assert_ok(result)
+  assert_stack(new_state, [])
+}
+
+///|
 test "Typecheck BrOnNonNull rejects empty label payloads" {
   let env = empty_env().with_labels([[]])
   let state = make_state(env, [nullable_funcref()])
@@ -6041,6 +6039,18 @@ test "Typecheck BrOnNull basic" {
   let new_state = assert_ok(result)
   // Fallthrough pushes non-nullable ref
   assert_stack(new_state, [non_nullable_funcref()])
+}
+
+///|
+test "Typecheck BrOnNull accepts statically non-null ref operand" {
+  let env = empty_env().with_labels([[]])
+  let state = make_state(env, [@lib.ValType::i31ref()])
+  let result = Typecheck::typecheck(
+    Instruction::br_on_null(LabelIdx::new(0)),
+    state,
+  )
+  let new_state = assert_ok(result)
+  assert_stack(new_state, [@lib.ValType::i31ref()])
 }
 
 ///|
