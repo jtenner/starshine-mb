@@ -8203,6 +8203,87 @@ fn run_hot_pipeline_raw_rewrite_loop_param_store_br_if(
 }
 
 ///|
+fn run_hot_pipeline_raw_rewrite_loop_param_store_br_on_null(
+  rewritten : Array[@lib.Instruction],
+  label_idx : @lib.LabelIdx,
+  label_target : RawSsaLabelTarget,
+  source_aliases : Array[@lib.LocalIdx],
+  canonical_aliases : Array[@lib.LocalIdx],
+  initialized_locals : @bitset.BitSet,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> Bool {
+  if !label_target.is_loop_param_store ||
+    label_target.loop_param_scratches.length() !=
+    label_target.result_types.length() {
+    return false
+  }
+  for local_id = 0
+      local_id < label_target.needed_alias_copies.length()
+      local_id = local_id + 1 {
+    if label_target.needed_alias_copies[local_id] {
+      return false
+    }
+  }
+  let condition_local = match rewritten.last() {
+    Some(@lib.LocalGet(local_idx)) => local_idx
+    _ => return false
+  }
+  ignore(rewritten.pop())
+  let @lib.LocalIdx(raw_condition_local) = condition_local
+  let condition_local_id = raw_condition_local.reinterpret_as_int()
+  let nullable_ref_type = run_hot_pipeline_raw_local_type(
+    params, locals, condition_local_id,
+  )
+  if run_hot_pipeline_raw_non_null_ref_type(nullable_ref_type) is None {
+    return false
+  }
+  let scratch_ref = run_hot_pipeline_raw_fresh_typed_local(
+    params, locals, nullable_ref_type, extra_local_types,
+  )
+  rewritten.push(@lib.Instruction::local_get(condition_local))
+  rewritten.push(@lib.Instruction::local_set(scratch_ref))
+  for idx = label_target.loop_param_scratches.length() - 1
+      idx >= 0
+      idx = idx - 1 {
+    rewritten.push(
+      @lib.Instruction::local_set(label_target.loop_param_scratches[idx]),
+    )
+  }
+  rewritten.push(@lib.Instruction::local_get(scratch_ref))
+  rewritten.push(@lib.Instruction::ref_is_null())
+  let then_body = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
+    [],
+    source_aliases,
+    canonical_aliases,
+    canonical_aliases,
+    initialized_locals,
+    label_target.needed_alias_copies,
+    [],
+    params,
+    locals,
+    extra_local_types,
+  )
+  then_body.push(
+    @lib.Instruction::br(run_hot_pipeline_raw_label_inc(label_idx)),
+  )
+  rewritten.push(
+    @lib.Instruction::if_(@lib.BlockType::void_(), then_body, None),
+  )
+  for idx = 0; idx < label_target.loop_param_scratches.length(); idx = idx + 1 {
+    run_hot_pipeline_raw_append_scratch_get_as_type(
+      rewritten,
+      label_target.loop_param_scratches[idx],
+      label_target.result_types[idx],
+    )
+  }
+  rewritten.push(@lib.Instruction::local_get(scratch_ref))
+  rewritten.push(@lib.Instruction::ref_as_non_null())
+  true
+}
+
+///|
 fn run_hot_pipeline_raw_mark_br_table_exit_depths(
   exit_depths : @bitset.BitSet,
   labels : Array[@lib.LabelIdx],
@@ -9664,8 +9745,14 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             }
           } else if loop_result_types.length() == 0 ||
             loop_result_types.length() == 1 {
+            let allow_ref_backedges = loop_param_types.any(fn(loop_param_type) {
+              match loop_param_type {
+                @lib.RefTypeValType(_) => true
+                _ => false
+              }
+            })
             if !run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
-                body, 0U, false,
+                body, 0U, allow_ref_backedges,
               ) {
               return None
             }
@@ -9983,6 +10070,15 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {
           Some(label_target) => label_target
           None => return None
+        }
+        if label_target.is_loop_param_store {
+          if !run_hot_pipeline_raw_rewrite_loop_param_store_br_on_null(
+              rewritten, label_idx, label_target, aliases, canonical_aliases, initialized,
+              params, locals, extra_local_types,
+            ) {
+            return None
+          }
+          continue
         }
         if label_target.is_loop &&
           !run_hot_pipeline_raw_loop_backedge_supported(label_target) {
