@@ -11541,6 +11541,222 @@ fn run_hot_pipeline_raw_rewrite_instrs(
 }
 
 ///|
+fn run_hot_pipeline_raw_count_local_gets(
+  instrs : Array[@lib.Instruction],
+  local_id : Int,
+) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) =>
+        if raw.reinterpret_as_int() == local_id {
+          count = count + 1
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        count = count + run_hot_pipeline_raw_count_local_gets(body, local_id)
+      @lib.If(_, then_body, else_body) => {
+        count = count +
+          run_hot_pipeline_raw_count_local_gets(then_body, local_id)
+        match else_body {
+          Some(body) =>
+            count = count +
+              run_hot_pipeline_raw_count_local_gets(body, local_id)
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
+fn run_hot_pipeline_raw_collect_written_body_locals(
+  instrs : Array[@lib.Instruction],
+  param_count : Int,
+  out : Array[Int],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        if local_id >= param_count && !out.contains(local_id) {
+          out.push(local_id)
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_raw_collect_written_body_locals(body, param_count, out)
+      @lib.If(_, then_body, else_body) => {
+        run_hot_pipeline_raw_collect_written_body_locals(
+          then_body, param_count, out,
+        )
+        match else_body {
+          Some(body) =>
+            run_hot_pipeline_raw_collect_written_body_locals(
+              body, param_count, out,
+            )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_rewrite_local_refs(
+  instrs : Array[@lib.Instruction],
+  old_local : Int,
+  new_local : @lib.LocalIdx,
+) -> Array[@lib.Instruction] {
+  let rewritten : Array[@lib.Instruction] = []
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) if raw.reinterpret_as_int() == old_local =>
+        rewritten.push(@lib.Instruction::local_get(new_local))
+      @lib.LocalSet(@lib.LocalIdx(raw)) if raw.reinterpret_as_int() == old_local =>
+        rewritten.push(@lib.Instruction::local_set(new_local))
+      @lib.LocalTee(@lib.LocalIdx(raw)) if raw.reinterpret_as_int() == old_local =>
+        rewritten.push(@lib.Instruction::local_tee(new_local))
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        rewritten.push(
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(
+              run_hot_pipeline_raw_rewrite_local_refs(
+                body, old_local, new_local,
+              ),
+            ),
+          ),
+        )
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        rewritten.push(
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(
+              run_hot_pipeline_raw_rewrite_local_refs(
+                body, old_local, new_local,
+              ),
+            ),
+          ),
+        )
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+        rewritten.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(
+              run_hot_pipeline_raw_rewrite_local_refs(
+                body, old_local, new_local,
+              ),
+            ),
+          ),
+        )
+      @lib.If(block_type, then_body, else_body) =>
+        rewritten.push(
+          @lib.Instruction::if_(
+            block_type,
+            run_hot_pipeline_raw_rewrite_local_refs(
+              then_body, old_local, new_local,
+            ),
+            match else_body {
+              Some(body) =>
+                Some(
+                  run_hot_pipeline_raw_rewrite_local_refs(
+                    body, old_local, new_local,
+                  ),
+                )
+              None => None
+            },
+          ),
+        )
+      _ => rewritten.push(instr)
+    }
+  }
+  rewritten
+}
+
+///|
+// Binaryen's `ssa-nomerge` allocates fresh temporaries for body-local scratch
+// writes that are confined to a value-producing `if` arm immediately consumed by
+// `local.tee`. The normal raw alias merger keeps canonical body locals when the
+// next read is in the same arm, which is semantically valid but leaves artifact
+// parity gaps. This narrow post-pass freshens only body locals whose reads are
+// wholly inside that arm, so branch joins and parameter locals keep the existing
+// canonical-copy policy.
+fn run_hot_pipeline_raw_freshen_value_if_arm_body_scratch(
+  arm : Array[@lib.Instruction],
+  all_instrs : Array[@lib.Instruction],
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> Array[@lib.Instruction] {
+  let candidates : Array[Int] = []
+  run_hot_pipeline_raw_collect_written_body_locals(
+    arm,
+    params.length(),
+    candidates,
+  )
+  let mut rewritten = arm
+  for local_id in candidates {
+    let arm_gets = run_hot_pipeline_raw_count_local_gets(rewritten, local_id)
+    if arm_gets == 0 ||
+      arm_gets != run_hot_pipeline_raw_count_local_gets(all_instrs, local_id) {
+      continue
+    }
+    let fresh_local = run_hot_pipeline_raw_fresh_local(
+      params, locals, local_id, extra_local_types,
+    )
+    rewritten = run_hot_pipeline_raw_rewrite_local_refs(
+      rewritten, local_id, fresh_local,
+    )
+  }
+  rewritten
+}
+
+///|
+fn run_hot_pipeline_raw_freshen_value_if_body_scratch(
+  instrs : Array[@lib.Instruction],
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> Array[@lib.Instruction] {
+  let rewritten : Array[@lib.Instruction] = []
+  for idx = 0; idx < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.If(block_type, then_body, Some(else_body)) =>
+        if block_type != @lib.BlockType::void_() && idx + 1 < instrs.length() {
+          match instrs[idx + 1] {
+            @lib.LocalTee(_) =>
+              rewritten.push(
+                @lib.Instruction::if_(
+                  block_type,
+                  run_hot_pipeline_raw_freshen_value_if_arm_body_scratch(
+                    then_body, instrs, params, locals, extra_local_types,
+                  ),
+                  Some(
+                    run_hot_pipeline_raw_freshen_value_if_arm_body_scratch(
+                      else_body, instrs, params, locals, extra_local_types,
+                    ),
+                  ),
+                ),
+              )
+            _ => rewritten.push(instrs[idx])
+          }
+        } else {
+          rewritten.push(instrs[idx])
+        }
+      _ => rewritten.push(instrs[idx])
+    }
+  }
+  rewritten
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_structured(
   func : @lib.Func,
   module_ctx : @ir.HotModuleContext,
@@ -11571,9 +11787,12 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
       extra_local_types,
     ) {
     Some((rewritten_instrs, _, _, _, _)) => {
+      let finalized_instrs = run_hot_pipeline_raw_freshen_value_if_body_scratch(
+        rewritten_instrs, params, locals, extra_local_types,
+      )
       let rewritten_locals = locals.copy()
       rewritten_locals.append_types(extra_local_types)
-      Some(@lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)))
+      Some(@lib.Func::new(rewritten_locals, @lib.Expr::new(finalized_instrs)))
     }
     None => None
   }
@@ -12141,6 +12360,75 @@ fn run_hot_pipeline_raw_ssa_nomerge_should_defer_loop_carried_br_if_to_hot(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_count_loop_branch_writes(
+  instrs : Array[@lib.Instruction],
+) -> (Int, Int, Int) {
+  let mut loop_count = 0
+  let mut branch_count = 0
+  let mut local_write_count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Loop(_, @lib.Expr(body)) => {
+        loop_count = loop_count + 1
+        let (child_loops, child_branches, child_writes) = run_hot_pipeline_raw_ssa_nomerge_count_loop_branch_writes(
+          body,
+        )
+        loop_count = loop_count + child_loops
+        branch_count = branch_count + child_branches
+        local_write_count = local_write_count + child_writes
+      }
+      @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) => {
+        let (child_loops, child_branches, child_writes) = run_hot_pipeline_raw_ssa_nomerge_count_loop_branch_writes(
+          body,
+        )
+        loop_count = loop_count + child_loops
+        branch_count = branch_count + child_branches
+        local_write_count = local_write_count + child_writes
+      }
+      @lib.If(_, then_body, else_body) => {
+        let (then_loops, then_branches, then_writes) = run_hot_pipeline_raw_ssa_nomerge_count_loop_branch_writes(
+          then_body,
+        )
+        loop_count = loop_count + then_loops
+        branch_count = branch_count + then_branches
+        local_write_count = local_write_count + then_writes
+        match else_body {
+          Some(body) => {
+            let (else_loops, else_branches, else_writes) = run_hot_pipeline_raw_ssa_nomerge_count_loop_branch_writes(
+              body,
+            )
+            loop_count = loop_count + else_loops
+            branch_count = branch_count + else_branches
+            local_write_count = local_write_count + else_writes
+          }
+          None => ()
+        }
+      }
+      @lib.Br(_) | @lib.BrIf(_) | @lib.BrTable(_, _) =>
+        branch_count = branch_count + 1
+      @lib.LocalSet(_) | @lib.LocalTee(_) =>
+        local_write_count = local_write_count + 1
+      _ => ()
+    }
+  }
+  (loop_count, branch_count, local_write_count)
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_branch_heavy_void_loop_exit_mesh(
+  instrs : Array[@lib.Instruction],
+  base_local_count : Int,
+) -> Bool {
+  if base_local_count < 17 {
+    return false
+  }
+  let (loop_count, branch_count, local_write_count) = run_hot_pipeline_raw_ssa_nomerge_count_loop_branch_writes(
+    instrs,
+  )
+  loop_count >= 4 && branch_count >= 5 && local_write_count >= 18
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_structured_mutation_reason(
   func : @lib.Func,
 ) -> String {
@@ -12297,6 +12585,16 @@ fn run_hot_pipeline_raw_ssa_nomerge(
       return None
     }
     let base_local_count = params.length() + locals.length()
+    if run_hot_pipeline_raw_ssa_nomerge_has_branch_heavy_void_loop_exit_mesh(
+        instrs, base_local_count,
+      ) {
+      return Some({
+        reason: "branch-heavy-void-loop-exit-mesh-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
     let structured_instr_limit = if has_branches {
       structured_branch_raw_instr_limit
     } else {

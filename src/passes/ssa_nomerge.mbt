@@ -259,20 +259,23 @@ fn ssa_nomerge_has_exceptional_flow(func : @ir.HotFunc) -> Bool {
 
 ///|
 fn ssa_nomerge_has_loop_param_control(func : @ir.HotFunc) -> Bool {
-  // Typed loop params are loop-carried control values on the wasm stack, not body
-  // locals. HOT represents them as the Loop node's param-prefix children and as
-  // branch operands on backedges (`br` / `br_if` / `br_table` children), with
-  // `HotLabelInfo.branch_arity` recording the payload count.
+  // Typed loop params/results are loop-carried control values on the wasm stack,
+  // not body locals. HOT represents params as the Loop node's param-prefix
+  // children and branch operands on backedges (`br` / `br_if` / `br_table`), with
+  // `HotLabelInfo.branch_arity` recording the payload count. Result loops also
+  // carry stack values across their branch/continuation ABI even when the loop has
+  // no explicit params.
   //
   // SSA v1's local overlay models only `LocalGet` / `LocalSet` / `LocalTee`
-  // reaching definitions. It does not treat loop-param value flow as local defs,
-  // and destruction only inserts predecessor copies for overlay phis on normal
-  // CFG edges — not wasm branch operands that re-enter typed loop headers.
+  // reaching definitions. It does not treat loop-param/result value flow as local
+  // defs, and destruction only inserts predecessor copies for overlay phis on
+  // normal CFG edges — not wasm branch operands that re-enter typed loop headers.
   //
-  // Rewriting locals around typed loops without loop-param-aware liveness,
+  // Rewriting locals around typed loops without loop-param/result-aware liveness,
   // use-def, phi placement, rename, destroy, and lower can conflate a local SSA
-  // version with the loop-carried param ABI. Fail closed until that stack is
-  // proven together; regression tests lock the no-mutation contract.
+  // version with the loop-carried stack ABI or allocate scratch locals for values
+  // Binaryen keeps in the canonical local. Fail closed until that stack is proven
+  // together; regression tests lock the no-mutation contract.
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
@@ -281,8 +284,12 @@ fn ssa_nomerge_has_loop_param_control(func : @ir.HotFunc) -> Bool {
     match node.op {
       @ir.HotOp::Loop =>
         match @ir.hot_type_get(func, node.ty) {
-          @ir.HotTypeInfo::BlockResultResolved(_, params, _) =>
-            if params.length() > 0 {
+          @ir.HotTypeInfo::BlockResult(block_type) =>
+            if block_type != @lib.BlockType::void_() {
+              return true
+            }
+          @ir.HotTypeInfo::BlockResultResolved(_, params, results) =>
+            if params.length() > 0 || results.length() > 0 {
               return true
             }
           _ => ()
@@ -291,6 +298,36 @@ fn ssa_nomerge_has_loop_param_control(func : @ir.HotFunc) -> Bool {
     }
   }
   false
+}
+
+///|
+fn ssa_nomerge_has_branch_heavy_void_loop_exit_mesh(func : @ir.HotFunc) -> Bool {
+  // Branch-heavy void loop meshes like the sampled `moonbit.gc.free` artifact
+  // (`abs=57`) currently make SSA destruction allocate more scratch locals than
+  // Binaryen for multi-predecessor branch exits. This is not the typed loop-result
+  // ABI gap covered above: these are ordinary void loops with many local-carrying
+  // exits. Fail closed for this high-complexity shape until SSA destruction can
+  // model/reuse those predecessor copies without adding unproven extra locals.
+  if @ir.hot_local_count(func) < 17 {
+    return false
+  }
+  let mut loop_count = 0
+  let mut branch_count = 0
+  let mut local_write_count = 0
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Loop => loop_count = loop_count + 1
+      @ir.HotOp::Br | @ir.HotOp::BrIf | @ir.HotOp::BrTable =>
+        branch_count = branch_count + 1
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+        local_write_count = local_write_count + 1
+      _ => ()
+    }
+  }
+  loop_count >= 4 && branch_count >= 5 && local_write_count >= 18
 }
 
 ///|
@@ -327,6 +364,7 @@ fn ssa_nomerge_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   }
   if ssa_nomerge_has_exceptional_flow(func) ||
     ssa_nomerge_has_loop_param_control(func) ||
+    ssa_nomerge_has_branch_heavy_void_loop_exit_mesh(func) ||
     ssa_nomerge_has_nested_cfg_sensitive_control(func) {
     return HotPassResult::unchanged()
   }

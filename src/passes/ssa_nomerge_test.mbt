@@ -897,6 +897,460 @@ fn ssa_test_run_hot_path_only(text : String) -> Result[@lib.Module, String] {
 }
 
 ///|
+test "ssa-nomerge artifact parity allocates fresh locals for value if after body-local writes" {
+  // Artifact repro from
+  // `.tmp/self-ssa-nomerge-debug-wasi-bronull-prefix-subtype-results`, first
+  // canonical difference `defined=0 abs=27`. Binaryen's `ssa-nomerge`
+  // leaves the original body-local slot behind and appends fresh SSA temporaries
+  // for body-local scratch writes inside the value-producing `if` before the
+  // later `local.tee`. Keep that shape so the artifact gap does not regress.
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32)
+    #|    local.get 1
+    #|    i32.const 256
+    #|    i32.lt_u
+    #|    if (result i32)
+    #|      local.get 1
+    #|      i32.const 4
+    #|      i32.shr_u
+    #|      local.set 1
+    #|      i32.const 0
+    #|    else
+    #|      local.get 1
+    #|      i32.const 536870910
+    #|      i32.lt_u
+    #|      if
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.const 27
+    #|        local.get 1
+    #|        i32.clz
+    #|        i32.sub
+    #|        i32.shl
+    #|        i32.add
+    #|        i32.const 1
+    #|        i32.sub
+    #|        local.set 1
+    #|      end
+    #|      i32.const 31
+    #|      local.get 1
+    #|      i32.clz
+    #|      i32.sub
+    #|      local.set 2
+    #|      local.get 1
+    #|      local.get 2
+    #|      i32.const 4
+    #|      i32.sub
+    #|      i32.shr_u
+    #|      i32.const 16
+    #|      i32.xor
+    #|      local.set 1
+    #|      local.get 2
+    #|      i32.const 7
+    #|      i32.sub
+    #|    end
+    #|    local.tee 2
+    #|    local.get 1
+    #|    i32.add))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() >= 3, msg=locals.to_string())
+  assert_true(
+    ssa_test_local_write_indices(instrs).any(fn(idx) { idx == 4U }),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge artifact parity keeps loop-carried result update in canonical local" {
+  // Artifact repro reduced from
+  // `.tmp/self-ssa-nomerge-debug-wasi-bronull-prefix-subtype-results`, sampled
+  // canonical difference `defined=0 abs=37`. Binaryen rewrites the loop-carried
+  // update with only the original body-local slot (`local 2`); Starshine used
+  // to spill `local.get 2` through an unnecessary extra temp (`local 3`), adding
+  // one local and one write with no proven Starshine benefit.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $id (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32)
+    #|    local.get 0
+    #|    call $id
+    #|    local.get 1
+    #|    call $id
+    #|    i32.eq
+    #|    if (result i32)
+    #|      loop (result i32)
+    #|        local.get 2
+    #|        local.get 0
+    #|        call $id
+    #|        i32.lt_s
+    #|        if (result i32)
+    #|          local.get 0
+    #|          local.get 2
+    #|          i32.const 1
+    #|          i32.shl
+    #|          i32.add
+    #|          i32.load16_u offset=8 align=1
+    #|          local.get 1
+    #|          local.get 2
+    #|          i32.const 1
+    #|          i32.shl
+    #|          i32.add
+    #|          i32.load16_u offset=8 align=1
+    #|          i32.eq
+    #|          if (result i32)
+    #|            local.get 2
+    #|            i32.const 1
+    #|            i32.add
+    #|            local.set 2
+    #|            br 2
+    #|          else
+    #|            i32.const 0
+    #|            return
+    #|          end
+    #|        else
+    #|          i32.const 1
+    #|          return
+    #|        end
+    #|      end
+    #|    else
+    #|      i32.const 0
+    #|      return
+    #|    end))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
+  assert_true(locals.length() <= 1, msg=locals.to_string())
+  assert_false(
+    ssa_test_local_write_indices(instrs).any(fn(idx) { idx == 3U }),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge artifact parity keeps gc free branch exits at Binaryen local budget" {
+  // Artifact repro from
+  // `.tmp/self-ssa-nomerge-debug-wasi-bronull-prefix-subtype-results`, sampled
+  // canonical difference `defined=0 abs=57` (`moonbit.gc.free`). The saved
+  // artifact has no typed result loop, so it is distinct from the abs37 loop
+  // result guard: Binaryen appends four body locals for this branch-heavy free
+  // walk, while Starshine used to append six. Until a measured Starshine win is
+  // proven, keep the Binaryen local budget shape.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $moonbit.decref (param i32))
+    #|  (func $moonbit.drop_externref (param i32))
+    #|  (func $moonbit.free (param i32))
+    #|  (func $moonbit.gc.free (param $ptr i32)
+    #|    (local $parent i32) (local $curr_child_offset i32) (local $remaining_children_count i32)
+    #|    (local $n_ptr_fields i32) (local $ptr_fields_offset i32) (local $kind i32)
+    #|    (local $ref_array_kind i32) (local $vt_ptr i32) (local $vt_ptr_index i32)
+    #|    (local $vt_ptr_fields_offset i32) (local $vt_n_ptr_fields i32) (local $vt_header i32)
+    #|    (local $meta i32) (local $next i32) (local $addr_of_next i32) (local $len i32) (local $count i32)
+    #|    loop
+    #|      local.get $ptr
+    #|      i32.load offset=4 align=1
+    #|      local.tee $meta
+    #|      i32.const 30
+    #|      i32.shr_u
+    #|      local.set $kind
+    #|      block
+    #|        i32.const 0
+    #|        local.get $kind
+    #|        i32.eq
+    #|        if
+    #|          local.get $meta
+    #|          i32.const 8
+    #|          i32.shr_u
+    #|          i32.const 2047
+    #|          i32.and
+    #|          local.tee $n_ptr_fields
+    #|          i32.eqz
+    #|          if
+    #|          else
+    #|            local.get $meta
+    #|            i32.const 19
+    #|            i32.shr_u
+    #|            i32.const 2047
+    #|            i32.and
+    #|            local.set $ptr_fields_offset
+    #|            local.get $ptr_fields_offset
+    #|            local.set $curr_child_offset
+    #|            local.get $n_ptr_fields
+    #|            local.set $remaining_children_count
+    #|            br 2
+    #|          end
+    #|        else
+    #|          i32.const 2
+    #|          local.get $kind
+    #|          i32.eq
+    #|          if
+    #|            i32.const 3
+    #|            local.get $meta
+    #|            i32.const 28
+    #|            i32.shr_u
+    #|            i32.and
+    #|            local.set $ref_array_kind
+    #|            i32.const 1
+    #|            local.get $ref_array_kind
+    #|            i32.eq
+    #|            if
+    #|              local.get $meta
+    #|              i32.const 268435455
+    #|              i32.and
+    #|              local.set $len
+    #|              local.get $ptr
+    #|              i32.const 8
+    #|              i32.add
+    #|              local.set $vt_ptr
+    #|              local.get $vt_ptr
+    #|              i32.load align=1
+    #|              local.set $vt_header
+    #|              i32.const 2047
+    #|              local.get $vt_header
+    #|              i32.const 8
+    #|              i32.shr_u
+    #|              i32.and
+    #|              local.set $vt_n_ptr_fields
+    #|              i32.const 2047
+    #|              local.get $vt_header
+    #|              i32.const 19
+    #|              i32.shr_u
+    #|              i32.and
+    #|              local.set $vt_ptr_fields_offset
+    #|              local.get $vt_ptr
+    #|              i32.const 4
+    #|              i32.add
+    #|              local.set $vt_ptr
+    #|              loop
+    #|                local.get $len
+    #|                i32.const 0
+    #|                i32.gt_s
+    #|                if
+    #|                  local.get $len
+    #|                  i32.const 1
+    #|                  i32.sub
+    #|                  local.set $len
+    #|                  i32.const 0
+    #|                  local.set $vt_ptr_index
+    #|                  local.get $vt_ptr
+    #|                  local.get $vt_ptr_fields_offset
+    #|                  i32.const 4
+    #|                  i32.mul
+    #|                  i32.add
+    #|                  local.set $vt_ptr
+    #|                  loop
+    #|                    local.get $vt_ptr_index
+    #|                    local.get $vt_n_ptr_fields
+    #|                    i32.lt_s
+    #|                    if
+    #|                      local.get $vt_ptr
+    #|                      i32.load align=1
+    #|                      i32.const 0
+    #|                      i32.ne
+    #|                      if
+    #|                        local.get $vt_ptr
+    #|                        i32.load align=1
+    #|                        call $moonbit.decref
+    #|                      end
+    #|                      local.get $vt_ptr_index
+    #|                      i32.const 1
+    #|                      i32.add
+    #|                      local.set $vt_ptr_index
+    #|                      local.get $vt_ptr
+    #|                      i32.const 4
+    #|                      i32.add
+    #|                      local.set $vt_ptr
+    #|                      br 1
+    #|                    end
+    #|                  end
+    #|                  br 1
+    #|                end
+    #|              end
+    #|            else
+    #|              local.get $meta
+    #|              i32.const 268435455
+    #|              i32.and
+    #|              local.set $len
+    #|              local.get $len
+    #|              i32.const 0
+    #|              i32.gt_s
+    #|              if
+    #|                i32.const 8
+    #|                i32.const 2
+    #|                i32.shr_u
+    #|                local.set $curr_child_offset
+    #|                local.get $len
+    #|                local.set $remaining_children_count
+    #|                br 4
+    #|              end
+    #|            end
+    #|          else
+    #|            i32.const 1
+    #|            local.get $kind
+    #|            i32.eq
+    #|            if
+    #|            else
+    #|              i32.const 3
+    #|              local.get $kind
+    #|              i32.eq
+    #|              if
+    #|                local.get $ptr
+    #|                call $moonbit.drop_externref
+    #|              else
+    #|                unreachable
+    #|              end
+    #|            end
+    #|          end
+    #|        end
+    #|        local.get $ptr
+    #|        call $moonbit.free
+    #|        local.get $parent
+    #|        i32.eqz
+    #|        if
+    #|          return
+    #|        end
+    #|        local.get $parent
+    #|        i32.load align=1
+    #|        local.set $curr_child_offset
+    #|        local.get $parent
+    #|        i32.load offset=4 align=1
+    #|        local.set $remaining_children_count
+    #|        local.get $parent
+    #|        local.set $ptr
+    #|        local.get $ptr
+    #|        local.get $curr_child_offset
+    #|        i32.const 4
+    #|        i32.mul
+    #|        i32.add
+    #|        i32.load align=1
+    #|        local.set $parent
+    #|        local.get $curr_child_offset
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.set $curr_child_offset
+    #|      end
+    #|      loop
+    #|        loop
+    #|          local.get $remaining_children_count
+    #|          i32.const 0
+    #|          i32.gt_s
+    #|          if
+    #|            local.get $remaining_children_count
+    #|            i32.const 1
+    #|            i32.sub
+    #|            local.set $remaining_children_count
+    #|            local.get $ptr
+    #|            local.get $curr_child_offset
+    #|            i32.const 4
+    #|            i32.mul
+    #|            i32.add
+    #|            local.tee $addr_of_next
+    #|            i32.load align=1
+    #|            local.tee $next
+    #|            i32.eqz
+    #|            if
+    #|              local.get $curr_child_offset
+    #|              i32.const 1
+    #|              i32.add
+    #|              local.set $curr_child_offset
+    #|              br 2
+    #|            end
+    #|            local.get $next
+    #|            i32.load align=1
+    #|            local.tee $count
+    #|            i32.const 1
+    #|            i32.gt_s
+    #|            if
+    #|              local.get $next
+    #|              local.get $count
+    #|              i32.const 1
+    #|              i32.sub
+    #|              i32.store align=1
+    #|            else
+    #|              local.get $count
+    #|              i32.const 1
+    #|              i32.eq
+    #|              if
+    #|                local.get $remaining_children_count
+    #|                i32.const 0
+    #|                i32.eq
+    #|                if
+    #|                  local.get $ptr
+    #|                  call $moonbit.free
+    #|                else
+    #|                  local.get $ptr
+    #|                  local.get $curr_child_offset
+    #|                  i32.store align=1
+    #|                  local.get $ptr
+    #|                  local.get $remaining_children_count
+    #|                  i32.store offset=4 align=1
+    #|                  local.get $addr_of_next
+    #|                  local.get $parent
+    #|                  i32.store align=1
+    #|                  local.get $ptr
+    #|                  local.set $parent
+    #|                end
+    #|                local.get $next
+    #|                local.set $ptr
+    #|                br 5
+    #|              end
+    #|            end
+    #|            local.get $curr_child_offset
+    #|            i32.const 1
+    #|            i32.add
+    #|            local.set $curr_child_offset
+    #|            br 1
+    #|          end
+    #|        end
+    #|        local.get $ptr
+    #|        call $moonbit.free
+    #|        local.get $parent
+    #|        i32.eqz
+    #|        if
+    #|          return
+    #|        end
+    #|        local.get $parent
+    #|        i32.load align=1
+    #|        local.set $curr_child_offset
+    #|        local.get $parent
+    #|        i32.load offset=4 align=1
+    #|        local.set $remaining_children_count
+    #|        local.get $parent
+    #|        local.set $ptr
+    #|        local.get $ptr
+    #|        local.get $curr_child_offset
+    #|        i32.const 4
+    #|        i32.mul
+    #|        i32.add
+    #|        i32.load align=1
+    #|        local.set $parent
+    #|        local.get $curr_child_offset
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.set $curr_child_offset
+    #|        br 0
+    #|      end
+    #|      unreachable
+    #|    end)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 3)
+  assert_true(locals.length() <= 21, msg=locals.to_string())
+  assert_false(
+    ssa_test_local_write_indices(instrs).any(fn(idx) { idx > 21U }),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge skips O4z raw pass until self-opt cli flag parsing is safe" {
   let trace : Array[String] = []
   match
