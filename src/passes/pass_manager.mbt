@@ -8368,6 +8368,187 @@ fn run_hot_pipeline_raw_rewrite_loop_param_store_br_on_non_null(
 }
 
 ///|
+fn run_hot_pipeline_raw_rewrite_loop_param_store_cast_branch(
+  rewritten : Array[@lib.Instruction],
+  label_idx : @lib.LabelIdx,
+  label_target : RawSsaLabelTarget,
+  source_nullable : Bool,
+  source_heap : @lib.HeapType,
+  target_nullable : Bool,
+  target_heap : @lib.HeapType,
+  fail_variant : Bool,
+  source_aliases : Array[@lib.LocalIdx],
+  canonical_aliases : Array[@lib.LocalIdx],
+  initialized_locals : @bitset.BitSet,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> Bool {
+  if !label_target.is_loop_param_store ||
+    label_target.result_types.length() == 0 ||
+    label_target.loop_param_scratches.length() !=
+    label_target.result_types.length() {
+    return false
+  }
+  let source_type = @lib.ValType::ref_type(
+    @lib.RefType::new(source_nullable, source_heap),
+  )
+  let target_type = @lib.ValType::ref_type(
+    @lib.RefType::new(target_nullable, target_heap),
+  )
+  let diff_type = run_hot_pipeline_raw_cast_diff_type(
+    source_nullable, target_nullable, source_heap,
+  )
+  let branch_payload_type = if fail_variant { diff_type } else { target_type }
+  let fallthrough_type = if fail_variant { target_type } else { diff_type }
+  let final_idx = label_target.result_types.length() - 1
+  if label_target.result_types[final_idx] != branch_payload_type {
+    return false
+  }
+  let source_scratch_type = match
+    run_hot_pipeline_raw_defaultable_scratch_type(source_type) {
+    Some(scratch_type) => scratch_type
+    None => return false
+  }
+  let scratch_ref = run_hot_pipeline_raw_fresh_typed_local(
+    params, locals, source_scratch_type, extra_local_types,
+  )
+  let fallthrough_scratch = if final_idx > 0 {
+    let fallthrough_scratch_type = match
+      run_hot_pipeline_raw_defaultable_scratch_type(fallthrough_type) {
+      Some(scratch_type) => scratch_type
+      None => return false
+    }
+    Some(
+      run_hot_pipeline_raw_fresh_typed_local(
+        params, locals, fallthrough_scratch_type, extra_local_types,
+      ),
+    )
+  } else {
+    None
+  }
+  rewritten.push(@lib.Instruction::local_set(scratch_ref))
+  if final_idx > 0 {
+    for idx = final_idx - 1; idx >= 0; idx = idx - 1 {
+      rewritten.push(
+        @lib.Instruction::local_set(label_target.loop_param_scratches[idx]),
+      )
+    }
+  }
+  let body : Array[@lib.Instruction] = []
+  run_hot_pipeline_raw_append_scratch_get_as_type(
+    body, scratch_ref, source_type,
+  )
+  if fail_variant {
+    body.push(
+      @lib.Instruction::br_on_cast(
+        @lib.LabelIdx::new(0U),
+        source_nullable,
+        source_heap,
+        target_nullable,
+        target_heap,
+      ),
+    )
+  } else {
+    body.push(
+      @lib.Instruction::br_on_cast_fail(
+        @lib.LabelIdx::new(0U),
+        source_nullable,
+        source_heap,
+        target_nullable,
+        target_heap,
+      ),
+    )
+  }
+  body.push(
+    @lib.Instruction::local_set(label_target.loop_param_scratches[final_idx]),
+  )
+  let copies = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
+    [],
+    source_aliases,
+    canonical_aliases,
+    canonical_aliases,
+    initialized_locals,
+    label_target.needed_alias_copies,
+    [],
+    params,
+    locals,
+    extra_local_types,
+  )
+  body.append(copies)
+  body.push(@lib.Instruction::br(run_hot_pipeline_raw_label_inc(label_idx)))
+  rewritten.push(
+    @lib.Instruction::block(
+      @lib.BlockType::val_type(fallthrough_type),
+      @lib.Expr::new(body),
+    ),
+  )
+  match fallthrough_scratch {
+    Some(scratch) => {
+      rewritten.push(@lib.Instruction::local_set(scratch))
+      for idx = 0; idx < final_idx; idx = idx + 1 {
+        run_hot_pipeline_raw_append_scratch_get_as_type(
+          rewritten,
+          label_target.loop_param_scratches[idx],
+          label_target.result_types[idx],
+        )
+      }
+      run_hot_pipeline_raw_append_scratch_get_as_type(
+        rewritten, scratch, fallthrough_type,
+      )
+    }
+    None => ()
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_rewrite_loop_param_store_br_on_cast(
+  rewritten : Array[@lib.Instruction],
+  label_idx : @lib.LabelIdx,
+  label_target : RawSsaLabelTarget,
+  source_nullable : Bool,
+  source_heap : @lib.HeapType,
+  target_nullable : Bool,
+  target_heap : @lib.HeapType,
+  source_aliases : Array[@lib.LocalIdx],
+  canonical_aliases : Array[@lib.LocalIdx],
+  initialized_locals : @bitset.BitSet,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> Bool {
+  run_hot_pipeline_raw_rewrite_loop_param_store_cast_branch(
+    rewritten, label_idx, label_target, source_nullable, source_heap, target_nullable,
+    target_heap, false, source_aliases, canonical_aliases, initialized_locals, params,
+    locals, extra_local_types,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_rewrite_loop_param_store_br_on_cast_fail(
+  rewritten : Array[@lib.Instruction],
+  label_idx : @lib.LabelIdx,
+  label_target : RawSsaLabelTarget,
+  source_nullable : Bool,
+  source_heap : @lib.HeapType,
+  target_nullable : Bool,
+  target_heap : @lib.HeapType,
+  source_aliases : Array[@lib.LocalIdx],
+  canonical_aliases : Array[@lib.LocalIdx],
+  initialized_locals : @bitset.BitSet,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> Bool {
+  run_hot_pipeline_raw_rewrite_loop_param_store_cast_branch(
+    rewritten, label_idx, label_target, source_nullable, source_heap, target_nullable,
+    target_heap, true, source_aliases, canonical_aliases, initialized_locals, params,
+    locals, extra_local_types,
+  )
+}
+
+///|
 fn run_hot_pipeline_raw_mark_br_table_exit_depths(
   exit_depths : @bitset.BitSet,
   labels : Array[@lib.LabelIdx],
@@ -10219,6 +10400,16 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           Some(label_target) => label_target
           None => return None
         }
+        if label_target.is_loop_param_store {
+          if !run_hot_pipeline_raw_rewrite_loop_param_store_br_on_cast(
+              rewritten, label_idx, label_target, source_nullable, source_heap, target_nullable,
+              target_heap, aliases, canonical_aliases, initialized, params, locals,
+              extra_local_types,
+            ) {
+            return None
+          }
+          continue
+        }
         if label_target.is_loop {
           return None
         }
@@ -10244,6 +10435,16 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {
           Some(label_target) => label_target
           None => return None
+        }
+        if label_target.is_loop_param_store {
+          if !run_hot_pipeline_raw_rewrite_loop_param_store_br_on_cast_fail(
+              rewritten, label_idx, label_target, source_nullable, source_heap, target_nullable,
+              target_heap, aliases, canonical_aliases, initialized, params, locals,
+              extra_local_types,
+            ) {
+            return None
+          }
+          continue
         }
         if label_target.is_loop {
           return None
