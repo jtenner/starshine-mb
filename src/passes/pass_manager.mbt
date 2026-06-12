@@ -8267,6 +8267,49 @@ fn run_hot_pipeline_raw_br_table_mixed_loop_param_store_target(
 }
 
 ///|
+fn run_hot_pipeline_raw_br_table_mixed_loop_param_proxy_target(
+  labels : Array[@lib.LabelIdx],
+  default_label : @lib.LabelIdx,
+  label_stack : Array[RawSsaLabelTarget],
+) -> RawSsaLabelTarget? {
+  let mut proxy_target : RawSsaLabelTarget? = None
+  let mut result_types : Array[@lib.ValType]? = None
+  let mut saw_non_proxy = false
+  let all_labels = labels.copy()
+  all_labels.push(default_label)
+  for label_idx in all_labels {
+    let label_target = match
+      run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {
+      Some(label_target) => label_target
+      None => return None
+    }
+    match result_types {
+      Some(types) => if label_target.result_types != types { return None }
+      None => result_types = Some(label_target.result_types)
+    }
+    if label_target.is_loop_param_proxy {
+      match proxy_target {
+        Some(existing) =>
+          if existing.loop_param_scratch != label_target.loop_param_scratch ||
+            existing.result_types != label_target.result_types {
+            return None
+          }
+        None => proxy_target = Some(label_target)
+      }
+    } else if label_target.is_loop || label_target.is_loop_param_store {
+      return None
+    } else {
+      saw_non_proxy = true
+    }
+  }
+  match proxy_target {
+    Some(target) if saw_non_proxy && target.result_types.length() == 1 =>
+      Some(target)
+    _ => None
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_append_br_table_scratch_branch(
   out : Array[@lib.Instruction],
   label_idx : @lib.LabelIdx,
@@ -8378,6 +8421,131 @@ fn run_hot_pipeline_raw_rewrite_mixed_loop_param_store_br_table(
   run_hot_pipeline_raw_append_br_table_scratch_branch(
     rewritten, default_label, default_target, loop_target, 0U, source_aliases, canonical_aliases,
     initialized_locals, params, locals, extra_local_types,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_append_br_table_proxy_scratch_branch(
+  out : Array[@lib.Instruction],
+  label_idx : @lib.LabelIdx,
+  label_target : RawSsaLabelTarget,
+  proxy_target : RawSsaLabelTarget,
+  proxy_label_increment : UInt,
+  non_proxy_label_increment : UInt,
+  source_aliases : Array[@lib.LocalIdx],
+  canonical_aliases : Array[@lib.LocalIdx],
+  initialized_locals : @bitset.BitSet,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> Bool {
+  let loop_scratch = match proxy_target.loop_param_scratch {
+    Some(scratch) => scratch
+    None => return false
+  }
+  if proxy_target.result_types.length() != 1 ||
+    label_target.result_types != proxy_target.result_types {
+    return false
+  }
+  if !label_target.is_loop_param_proxy &&
+    (label_target.is_loop || label_target.is_loop_param_store) {
+    return false
+  }
+  if label_target.is_loop_param_proxy &&
+    label_target.loop_param_scratch != proxy_target.loop_param_scratch {
+    return false
+  }
+  let branch_instrs = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
+    [],
+    source_aliases,
+    canonical_aliases,
+    canonical_aliases,
+    initialized_locals,
+    label_target.needed_alias_copies,
+    [],
+    params,
+    locals,
+    extra_local_types,
+  )
+  run_hot_pipeline_raw_append_scratch_get_as_type(
+    branch_instrs,
+    loop_scratch,
+    label_target.result_types[0],
+  )
+  branch_instrs.push(
+    @lib.Instruction::br(
+      run_hot_pipeline_raw_label_add(
+        label_idx,
+        if label_target.is_loop_param_proxy {
+          proxy_label_increment
+        } else {
+          non_proxy_label_increment
+        },
+      ),
+    ),
+  )
+  out.append(branch_instrs)
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_rewrite_mixed_loop_param_proxy_br_table(
+  rewritten : Array[@lib.Instruction],
+  labels : Array[@lib.LabelIdx],
+  default_label : @lib.LabelIdx,
+  proxy_target : RawSsaLabelTarget,
+  label_stack : Array[RawSsaLabelTarget],
+  source_aliases : Array[@lib.LocalIdx],
+  canonical_aliases : Array[@lib.LocalIdx],
+  initialized_locals : @bitset.BitSet,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> Bool {
+  let loop_scratch = match proxy_target.loop_param_scratch {
+    Some(scratch) => scratch
+    None => return false
+  }
+  if proxy_target.result_types.length() != 1 {
+    return false
+  }
+  let selector_local = run_hot_pipeline_raw_fresh_typed_local(
+    params,
+    locals,
+    @lib.ValType::i32(),
+    extra_local_types,
+  )
+  rewritten.push(@lib.Instruction::local_set(selector_local))
+  rewritten.push(@lib.Instruction::local_set(loop_scratch))
+  for label_pos = 0; label_pos < labels.length(); label_pos = label_pos + 1 {
+    let label_idx = labels[label_pos]
+    let label_target = match
+      run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {
+      Some(label_target) => label_target
+      None => return false
+    }
+    rewritten.push(@lib.Instruction::local_get(selector_local))
+    rewritten.push(@lib.Instruction::i32_const(@lib.I32::new(label_pos)))
+    rewritten.push(@lib.Instruction::i32_eq())
+    let then_body : Array[@lib.Instruction] = []
+    if !run_hot_pipeline_raw_append_br_table_proxy_scratch_branch(
+        then_body, label_idx, label_target, proxy_target, 1U, 3U, source_aliases,
+        canonical_aliases, initialized_locals, params, locals, extra_local_types,
+      ) {
+      return false
+    }
+    rewritten.push(
+      @lib.Instruction::if_(@lib.BlockType::void_(), then_body, None),
+    )
+  }
+  let default_target = match
+    run_hot_pipeline_raw_resolve_label_target(label_stack, default_label) {
+    Some(label_target) => label_target
+    None => return false
+  }
+  run_hot_pipeline_raw_append_br_table_proxy_scratch_branch(
+    rewritten, default_label, default_target, proxy_target, 0U, 2U, source_aliases,
+    canonical_aliases, initialized_locals, params, locals, extra_local_types,
   )
 }
 
@@ -10766,6 +10934,24 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             if !run_hot_pipeline_raw_append_loop_param_store_backedge(
                 rewritten, default_label, label_target, aliases, canonical_aliases,
                 initialized, params, locals, extra_local_types,
+              ) {
+              return None
+            }
+            if was_reachable {
+              fallthrough = false
+            }
+            continue
+          }
+          None => ()
+        }
+        match
+          run_hot_pipeline_raw_br_table_mixed_loop_param_proxy_target(
+            labels, default_label, label_stack,
+          ) {
+          Some(proxy_target) => {
+            if !run_hot_pipeline_raw_rewrite_mixed_loop_param_proxy_br_table(
+                rewritten, labels, default_label, proxy_target, label_stack, aliases,
+                canonical_aliases, initialized, params, locals, extra_local_types,
               ) {
               return None
             }
