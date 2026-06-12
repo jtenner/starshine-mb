@@ -11720,6 +11720,38 @@ fn run_hot_pipeline_raw_instrs_have_memory_store(
 }
 
 ///|
+fn run_hot_pipeline_raw_count_local_writes(
+  instrs : Array[@lib.Instruction],
+  local_id : Int,
+) -> Int {
+  let mut count = 0
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(@lib.LocalIdx(idx)) | @lib.LocalTee(@lib.LocalIdx(idx)) =>
+        if idx.reinterpret_as_int() == local_id {
+          count = count + 1
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        count = count + run_hot_pipeline_raw_count_local_writes(body, local_id)
+      @lib.If(_, then_body, else_body) => {
+        count = count +
+          run_hot_pipeline_raw_count_local_writes(then_body, local_id)
+        match else_body {
+          Some(body) =>
+            count = count +
+              run_hot_pipeline_raw_count_local_writes(body, local_id)
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  count
+}
+
+///|
 fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
   instrs : Array[@lib.Instruction],
   params : Array[@lib.ValType],
@@ -11729,6 +11761,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
 ) -> Array[@lib.Instruction] {
   let rewritten : Array[@lib.Instruction] = []
   let freshen_params = run_hot_pipeline_raw_instrs_have_memory_store(instrs)
+  let base_local_count = params.length() + locals.length()
   for instr in instrs {
     match instr {
       @lib.LocalGet(@lib.LocalIdx(idx)) => {
@@ -11745,7 +11778,15 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
       }
       @lib.LocalSet(@lib.LocalIdx(idx)) => {
         let local_id = idx.reinterpret_as_int()
-        if freshen_params && local_id >= 0 && local_id < params.length() {
+        if freshen_params &&
+          local_id >= 0 &&
+          (
+            local_id < params.length() ||
+            (
+              local_id < base_local_count &&
+              run_hot_pipeline_raw_count_local_writes(instrs, local_id) > 1
+            )
+          ) {
           let fresh_local = run_hot_pipeline_raw_fresh_local(
             params, locals, local_id, extra_local_types,
           )
@@ -11757,7 +11798,15 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
       }
       @lib.LocalTee(@lib.LocalIdx(idx)) => {
         let local_id = idx.reinterpret_as_int()
-        if freshen_params && local_id >= 0 && local_id < params.length() {
+        if freshen_params &&
+          local_id >= 0 &&
+          (
+            local_id < params.length() ||
+            (
+              local_id < base_local_count &&
+              run_hot_pipeline_raw_count_local_writes(instrs, local_id) > 1
+            )
+          ) {
           let fresh_local = run_hot_pipeline_raw_fresh_local(
             params, locals, local_id, extra_local_types,
           )
@@ -11852,7 +11901,10 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes(
   locals : @lib.Locals,
   extra_local_types : Array[@lib.ValType],
 ) -> Array[@lib.Instruction] {
-  let param_aliases : Array[@lib.LocalIdx?] = Array::make(params.length(), None)
+  let param_aliases : Array[@lib.LocalIdx?] = Array::make(
+    params.length() + locals.length(),
+    None,
+  )
   run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
     instrs, params, locals, extra_local_types, param_aliases,
   )

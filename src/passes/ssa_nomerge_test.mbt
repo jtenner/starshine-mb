@@ -1056,6 +1056,98 @@ test "ssa-nomerge artifact parity freshens parameter scratch writes in nested un
 }
 
 ///|
+test "ssa-nomerge artifact parity freshens split-memory body scratch locals" {
+  // Artifact repro reduced from
+  // `.tmp/self-ssa-nomerge-debug-wasi-bronull-prefix-subtype-results`, sampled
+  // canonical difference `defined=0 abs=30`. Binaryen freshens the derived split
+  // size and new-block address temporaries before the nested stores and call;
+  // Starshine reused one body-local scratch for all of them with no proven win.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $insertBlock (param i32 i32))
+    #|  (func (param i32 i32 i64)
+    #|    (local i32 i32 i32)
+    #|    local.get 0
+    #|    i32.load offset=1568
+    #|    local.tee 4
+    #|    i32.const 0
+    #|    local.get 1
+    #|    i32.const 19
+    #|    i32.add
+    #|    i32.const -16
+    #|    i32.and
+    #|    i32.const 4
+    #|    i32.sub
+    #|    local.tee 1
+    #|    i32.const 16
+    #|    i32.sub
+    #|    local.tee 3
+    #|    local.get 4
+    #|    i32.eq
+    #|    select
+    #|    if
+    #|      local.get 4
+    #|      i32.load
+    #|      local.set 5
+    #|      local.get 3
+    #|      local.set 1
+    #|      local.get 2
+    #|      i32.wrap_i64
+    #|      i32.const -16
+    #|      i32.and
+    #|      local.get 1
+    #|      i32.sub
+    #|      local.tee 3
+    #|      i32.const 20
+    #|      i32.lt_u
+    #|      if
+    #|        return
+    #|      end
+    #|      local.get 1
+    #|      local.get 5
+    #|      i32.const 2
+    #|      i32.and
+    #|      local.get 3
+    #|      i32.const 8
+    #|      i32.sub
+    #|      local.tee 3
+    #|      i32.const 1
+    #|      i32.or
+    #|      i32.or
+    #|      i32.store
+    #|      local.get 1
+    #|      i32.const 0
+    #|      i32.store offset=4
+    #|      local.get 1
+    #|      i32.const 0
+    #|      i32.store offset=8
+    #|      local.get 1
+    #|      i32.const 4
+    #|      i32.add
+    #|      local.get 3
+    #|      i32.add
+    #|      local.tee 3
+    #|      i32.const 2
+    #|      i32.store
+    #|      local.get 0
+    #|      local.get 3
+    #|      i32.store offset=1568
+    #|      local.get 0
+    #|      local.get 1
+    #|      call $insertBlock
+    #|    end))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
+  assert_true(locals.length() >= 7, msg=locals.to_string())
+  assert_false(
+    ssa_test_local_write_indices(instrs).any(fn(idx) { idx == 3U }),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge artifact parity keeps loop-carried result update in canonical local" {
   // Artifact repro reduced from
   // `.tmp/self-ssa-nomerge-debug-wasi-bronull-prefix-subtype-results`, sampled
