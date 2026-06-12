@@ -7918,7 +7918,18 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
         } else {
           return false
         }
-      @lib.BrTable(_, _) => return false
+      @lib.BrTable(labels, @lib.LabelIdx(default_raw)) => {
+        if default_raw != loop_depth {
+          return false
+        }
+        for label_idx in labels {
+          let @lib.LabelIdx(raw) = label_idx
+          if raw != loop_depth {
+            return false
+          }
+        }
+        saw_backedge = true
+      }
       @lib.Block(_, @lib.Expr(body)) =>
         if run_hot_pipeline_raw_instrs_have_branch(body) {
           if run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(

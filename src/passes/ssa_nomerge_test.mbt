@@ -280,6 +280,96 @@ fn ssa_test_instrs_have_loop_param_scalar_br_if_proxy(
 }
 
 ///|
+fn ssa_test_instrs_have_loop_param_br_table_proxy(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  fn body_has_br_table_depth(
+    body : Array[@lib.Instruction],
+    depth : UInt,
+  ) -> Bool {
+    for instr in body {
+      match instr {
+        @lib.BrTable(labels, @lib.LabelIdx(default_raw)) => {
+          let mut all_targets_match = default_raw == depth
+          for label in labels {
+            let @lib.LabelIdx(raw) = label
+            if raw != depth {
+              all_targets_match = false
+            }
+          }
+          if all_targets_match {
+            return true
+          }
+        }
+        @lib.Block(_, @lib.Expr(nested_body))
+        | @lib.Loop(_, @lib.Expr(nested_body))
+        | @lib.TryTable(_, _, @lib.Expr(nested_body)) =>
+          if body_has_br_table_depth(nested_body, depth + 1U) {
+            return true
+          }
+        @lib.If(_, then_body, else_body) => {
+          if body_has_br_table_depth(then_body, depth + 1U) {
+            return true
+          }
+          match else_body {
+            Some(body) =>
+              if body_has_br_table_depth(body, depth + 1U) {
+                return true
+              }
+            None => ()
+          }
+        }
+        _ => ()
+      }
+    }
+    false
+  }
+  for instr in instrs {
+    match instr {
+      @lib.Loop(@lib.VoidBlockType, @lib.Expr(loop_body)) =>
+        for loop_instr in loop_body {
+          match loop_instr {
+            @lib.Block(@lib.VoidBlockType, @lib.Expr(outer_body)) => {
+              let has_loop_backedge = outer_body.any(fn(outer_instr) {
+                outer_instr == @lib.Instruction::br(@lib.LabelIdx::new(1U))
+              })
+              let has_inner_table_proxy = outer_body.any(fn(outer_instr) {
+                match outer_instr {
+                  @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(inner_body)) =>
+                    body_has_br_table_depth(inner_body, 0U)
+                  _ => false
+                }
+              })
+              if has_loop_backedge && has_inner_table_proxy {
+                return true
+              }
+            }
+            _ => ()
+          }
+        }
+      @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if ssa_test_instrs_have_loop_param_br_table_proxy(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if ssa_test_instrs_have_loop_param_br_table_proxy(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if ssa_test_instrs_have_loop_param_br_table_proxy(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn ssa_test_instrs_have_loop_param_scalar_branch_proxy(
   instrs : Array[@lib.Instruction],
   expect_br_if : Bool,
@@ -1802,6 +1892,202 @@ test "ssa-nomerge keeps multi-param typed loop direct br fail-closed" {
     #|    local.get 1))
     #|)
   ssa_test_typed_loop_param_pipeline_fail_closed(source)
+}
+
+///|
+test "ssa-nomerge rewrites scalar typed loop br_table backedges" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 0
+    #|    loop $l (type $loop_t)
+    #|      local.set 1
+    #|      local.get 1
+    #|      i32.const 1
+    #|      i32.add
+    #|      local.get 0
+    #|      br_table $l $l
+    #|    end
+    #|    local.get 1))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_br_table_proxy(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites copy-needing scalar typed loop br_table backedges" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    i32.const 0
+    #|    loop $l (type $loop_t)
+    #|      local.set 1
+    #|      local.get 2
+    #|      drop
+    #|      local.get 1
+    #|      i32.const 0
+    #|      i32.eq
+    #|      if
+    #|        i32.const 7
+    #|        local.set 2
+    #|      else
+    #|        i32.const 8
+    #|        local.set 2
+    #|      end
+    #|      local.get 1
+    #|      i32.const 1
+    #|      i32.add
+    #|      local.get 0
+    #|      br_table $l $l
+    #|    end
+    #|    local.get 2))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_br_table_proxy(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge keeps multi-param typed loop br_table fail-closed" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32 i32)))
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    i32.const 0
+    #|    i32.const 1
+    #|    loop $l (type $loop_t)
+    #|      local.set 2
+    #|      local.tee 1
+    #|      local.get 1
+    #|      i32.const 1
+    #|      i32.add
+    #|      local.get 2
+    #|      i32.const 1
+    #|      i32.add
+    #|      local.get 0
+    #|      br_table $l $l
+    #|    end
+    #|    local.get 1))
+    #|)
+  ssa_test_typed_loop_param_pipeline_fail_closed(source)
+}
+
+///|
+test "ssa-nomerge rewrites mixed scalar typed loop br_table and br_if backedges" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 0
+    #|    loop $l (type $loop_t)
+    #|      local.set 1
+    #|      local.get 1
+    #|      i32.const 3
+    #|      i32.lt_s
+    #|      if
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.get 0
+    #|        br_table $l $l
+    #|      end
+    #|      local.get 1
+    #|      i32.const 1
+    #|      i32.add
+    #|      local.get 1
+    #|      local.get 0
+    #|      i32.lt_s
+    #|      br_if $l
+    #|      drop
+    #|    end
+    #|    local.get 1))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_br_table_proxy(instrs),
+    msg=instrs.to_string(),
+  )
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_if_proxy(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites concrete reference typed loop br_table backedges" {
+  let struct_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::struct_([]))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([struct_ref], [])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([struct_ref, @lib.ValType::i32()], [struct_ref]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([struct_ref]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::loop_(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+              @lib.Expr::new([
+                @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::br_table(
+                  [@lib.LabelIdx::new(0U)],
+                  @lib.LabelIdx::new(0U),
+                ),
+              ]),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected reference typed-loop br_table success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected output to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_br_table_proxy(instrs),
+    msg=instrs.to_string(),
+  )
 }
 
 ///|
