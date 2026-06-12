@@ -1337,6 +1337,108 @@ test "ssa-nomerge rewrites copy-needing scalar typed loop-param br_if" {
 }
 
 ///|
+test "ssa-nomerge rewrites nullable reference typed loop-param br_if" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param externref)))
+    #|  (func (param externref) (param i32) (result externref) (local externref)
+    #|    local.get 0
+    #|    loop $l (type $loop_t)
+    #|      local.set 2
+    #|      local.get 2
+    #|      local.get 1
+    #|      br_if $l
+    #|      drop
+    #|    end
+    #|    local.get 2))
+    #|)
+  ssa_test_expect_scalar_loop_param_br_if_proxy(source, 2)
+}
+
+///|
+test "ssa-nomerge rewrites non-null reference typed loop-param br_if" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param (ref extern))))
+    #|  (func (param (ref extern)) (param i32) (result (ref extern)) (local externref)
+    #|    local.get 0
+    #|    loop $l (type $loop_t)
+    #|      local.set 2
+    #|      local.get 2
+    #|      ref.as_non_null
+    #|      local.get 1
+    #|      br_if $l
+    #|      drop
+    #|    end
+    #|    local.get 2
+    #|    ref.as_non_null))
+    #|)
+  ssa_test_expect_scalar_loop_param_br_if_proxy(source, 2)
+}
+
+///|
+test "ssa-nomerge rewrites copy-needing nullable reference typed loop-param br_if" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param externref)))
+    #|  (func (param externref) (param i32) (result externref) (local externref externref)
+    #|    local.get 0
+    #|    loop $l (type $loop_t)
+    #|      local.tee 2
+    #|      local.get 3
+    #|      drop
+    #|      local.get 1
+    #|      if
+    #|        local.get 0
+    #|        local.set 3
+    #|      else
+    #|        ref.null extern
+    #|        local.set 3
+    #|      end
+    #|      local.get 1
+    #|      br_if $l
+    #|      drop
+    #|      ref.null extern
+    #|      local.set 3
+    #|    end
+    #|    local.get 3))
+    #|)
+  ssa_test_expect_scalar_loop_param_branch_proxy(source, 4, false)
+}
+
+///|
+test "ssa-nomerge rewrites copy-needing non-null reference typed loop-param br_if" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param (ref extern))))
+    #|  (func (param (ref extern)) (param i32) (result externref) (local externref externref)
+    #|    local.get 0
+    #|    loop $l (type $loop_t)
+    #|      local.set 2
+    #|      local.get 2
+    #|      ref.as_non_null
+    #|      local.get 3
+    #|      drop
+    #|      local.get 1
+    #|      if
+    #|        local.get 0
+    #|        local.set 3
+    #|      else
+    #|        ref.null extern
+    #|        local.set 3
+    #|      end
+    #|      local.get 1
+    #|      br_if $l
+    #|      drop
+    #|      ref.null extern
+    #|      local.set 3
+    #|    end
+    #|    local.get 3))
+    #|)
+  ssa_test_expect_scalar_loop_param_branch_proxy(source, 4, false)
+}
+
+///|
 test "ssa-nomerge does not mutate typed loop-param control functions" {
   let source =
     #|(module

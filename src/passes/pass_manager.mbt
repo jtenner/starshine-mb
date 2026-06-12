@@ -8204,9 +8204,14 @@ fn run_hot_pipeline_raw_rewrite_br_if(
   )
   let result_scratch : Array[@lib.LocalIdx] = []
   for result_type in label_target.result_types {
+    let scratch_type = match
+      run_hot_pipeline_raw_defaultable_scratch_type(result_type) {
+      Some(scratch_type) => scratch_type
+      None => return None
+    }
     result_scratch.push(
       run_hot_pipeline_raw_fresh_typed_local(
-        params, locals, result_type, extra_local_types,
+        params, locals, scratch_type, extra_local_types,
       ),
     )
   }
@@ -8230,14 +8235,22 @@ fn run_hot_pipeline_raw_rewrite_br_if(
     locals,
     extra_local_types,
   )
-  for scratch_local in result_scratch {
-    then_body.push(@lib.Instruction::local_get(scratch_local))
+  for idx = 0; idx < result_scratch.length(); idx = idx + 1 {
+    run_hot_pipeline_raw_append_scratch_get_as_type(
+      then_body,
+      result_scratch[idx],
+      label_target.result_types[idx],
+    )
   }
   then_body.push(@lib.Instruction::br(target_label))
 
   let else_body : Array[@lib.Instruction] = []
-  for scratch_local in result_scratch {
-    else_body.push(@lib.Instruction::local_get(scratch_local))
+  for idx = 0; idx < result_scratch.length(); idx = idx + 1 {
+    run_hot_pipeline_raw_append_scratch_get_as_type(
+      else_body,
+      result_scratch[idx],
+      label_target.result_types[idx],
+    )
   }
   rewritten.push(
     @lib.Instruction::if_(if_block_type, then_body, Some(else_body)),
@@ -9420,13 +9433,9 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           let scalar_br_backedges_supported = run_hot_pipeline_raw_instrs_only_direct_loop_scalar_br_backedges(
             body, 0U,
           )
-          let scalar_br_if_backedges_supported = match loop_param_type {
-            @lib.RefTypeValType(_) => false
-            _ =>
-              run_hot_pipeline_raw_instrs_only_direct_loop_scalar_br_if_backedges(
-                body, 0U,
-              )
-          }
+          let scalar_br_if_backedges_supported = run_hot_pipeline_raw_instrs_only_direct_loop_scalar_br_if_backedges(
+            body, 0U,
+          )
           if !ref_backedges_supported &&
             !scalar_br_backedges_supported &&
             !scalar_br_if_backedges_supported {
