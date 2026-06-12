@@ -549,7 +549,7 @@ fn ssa_test_instrs_have_loop_param_scalar_branch_proxy(
   }
   for instr in instrs {
     match instr {
-      @lib.Loop(@lib.VoidBlockType, @lib.Expr(loop_body)) =>
+      @lib.Loop(@lib.VoidBlockType, @lib.Expr(loop_body)) => {
         for loop_instr in loop_body {
           match loop_instr {
             @lib.Block(@lib.VoidBlockType, @lib.Expr(outer_body)) => {
@@ -570,7 +570,31 @@ fn ssa_test_instrs_have_loop_param_scalar_branch_proxy(
             _ => ()
           }
         }
-      @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if ssa_test_instrs_have_loop_param_scalar_branch_proxy(
+            loop_body, expect_br_if,
+          ) {
+          return true
+        }
+      }
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        if !expect_br_if && block_type != @lib.BlockType::void_() {
+          for block_instr in body {
+            match block_instr {
+              @lib.Loop(@lib.VoidBlockType, @lib.Expr(loop_body)) =>
+                if body_has_branch_depth(loop_body, 1U) {
+                  return true
+                }
+              _ => ()
+            }
+          }
+        }
+        if ssa_test_instrs_have_loop_param_scalar_branch_proxy(
+            body, expect_br_if,
+          ) {
+          return true
+        }
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) =>
         if ssa_test_instrs_have_loop_param_scalar_branch_proxy(
             body, expect_br_if,
           ) {

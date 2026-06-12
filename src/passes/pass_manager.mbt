@@ -7960,6 +7960,89 @@ fn run_hot_pipeline_raw_label_add(
 }
 
 ///|
+fn run_hot_pipeline_raw_catch_label_add(
+  catch_ : @lib.Catch,
+  increment : UInt,
+) -> @lib.Catch {
+  match catch_ {
+    @lib.Catch(tag_idx, label_idx) =>
+      @lib.Catch::new(
+        tag_idx,
+        run_hot_pipeline_raw_label_add(label_idx, increment),
+      )
+    @lib.CatchRef(tag_idx, label_idx) =>
+      @lib.Catch::ref_(
+        tag_idx,
+        run_hot_pipeline_raw_label_add(label_idx, increment),
+      )
+    @lib.CatchAll(label_idx) =>
+      @lib.Catch::all(run_hot_pipeline_raw_label_add(label_idx, increment))
+    @lib.CatchAllRef(label_idx) =>
+      @lib.Catch::all_ref(run_hot_pipeline_raw_label_add(label_idx, increment))
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_increment_try_table_catch_labels(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let rewritten : Array[@lib.Instruction] = []
+  for instr in instrs {
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        rewritten.push(
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(
+              run_hot_pipeline_raw_increment_try_table_catch_labels(body),
+            ),
+          ),
+        )
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        rewritten.push(
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(
+              run_hot_pipeline_raw_increment_try_table_catch_labels(body),
+            ),
+          ),
+        )
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let shifted_catches : Array[@lib.Catch] = []
+        for catch_ in catches {
+          shifted_catches.push(run_hot_pipeline_raw_catch_label_add(catch_, 1U))
+        }
+        rewritten.push(
+          @lib.Instruction::try_table(
+            block_type,
+            shifted_catches,
+            @lib.Expr::new(
+              run_hot_pipeline_raw_increment_try_table_catch_labels(body),
+            ),
+          ),
+        )
+      }
+      @lib.If(block_type, then_body, else_body) =>
+        rewritten.push(
+          @lib.Instruction::if_(
+            block_type,
+            run_hot_pipeline_raw_increment_try_table_catch_labels(then_body),
+            match else_body {
+              Some(body) =>
+                Some(
+                  run_hot_pipeline_raw_increment_try_table_catch_labels(body),
+                )
+              None => None
+            },
+          ),
+        )
+      _ => rewritten.push(instr)
+    }
+  }
+  rewritten
+}
+
+///|
 fn run_hot_pipeline_raw_next_br_needs_canonical_alias(
   instrs : Array[@lib.Instruction],
   next_idx : Int,
@@ -8227,21 +8310,7 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
           return false
         }
       }
-      @lib.Block(_, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_instrs_have_branch(body) {
-          if run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
-              body,
-              loop_depth + 1U,
-              allow_ref_branches,
-              allow_try_table_branches,
-              run_hot_pipeline_raw_increment_label_depths(void_self_loop_depths),
-            ) {
-            saw_backedge = true
-          } else {
-            return false
-          }
-        }
-      @lib.Loop(block_type, @lib.Expr(body)) =>
+      @lib.Block(block_type, @lib.Expr(body)) =>
         if run_hot_pipeline_raw_instrs_have_branch(body) {
           let child_void_self_loop_depths = run_hot_pipeline_raw_increment_label_depths(
             void_self_loop_depths,
@@ -8258,6 +8327,34 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
               child_void_self_loop_depths,
             ) {
             saw_backedge = true
+          } else {
+            match block_type {
+              @lib.VoidBlockType => ()
+              _ => return false
+            }
+          }
+        }
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_instrs_have_branch(body) {
+          let child_void_self_loop_depths = run_hot_pipeline_raw_increment_label_depths(
+            void_self_loop_depths,
+          )
+          match block_type {
+            @lib.VoidBlockType => child_void_self_loop_depths.push(0U)
+            _ => ()
+          }
+          let nested_loop_depth = match block_type {
+            @lib.VoidBlockType => loop_depth + 1U
+            _ => 0U
+          }
+          if run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
+              body, nested_loop_depth, allow_ref_branches, allow_try_table_branches,
+              child_void_self_loop_depths,
+            ) {
+            match block_type {
+              @lib.VoidBlockType => saw_backedge = true
+              _ => ()
+            }
           } else {
             return false
           }
@@ -9507,6 +9604,11 @@ fn run_hot_pipeline_raw_rewrite_br_on_null(
       source_aliases,
       canonical_aliases,
       label_target.needed_alias_copies,
+    ) &&
+    (
+      label_target.result_types.length() == 0 ||
+      label_target.is_loop_param_proxy ||
+      label_target.is_loop_param_store
     ) {
     rewritten.push(@lib.Instruction::br_on_null(label_idx))
     return true
@@ -10840,7 +10942,15 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                     loop_param_types[param_idx],
                   )
                 }
-                loop_body.append(rewritten_body)
+                loop_body.append(
+                  if loop_result_types.length() == 0 {
+                    rewritten_body
+                  } else {
+                    run_hot_pipeline_raw_increment_try_table_catch_labels(
+                      rewritten_body,
+                    )
+                  },
+                )
                 if loop_result_types.length() == 0 {
                   rewritten.push(
                     @lib.Instruction::loop_(
@@ -11963,6 +12073,53 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_br_table_merge_copy_shape(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_should_defer_loop_carried_br_if_to_hot(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Loop(@lib.VoidBlockType, @lib.Expr(body)) => {
+        let mut saw_local_write = false
+        for body_instr in body {
+          match body_instr {
+            @lib.LocalSet(_) | @lib.LocalTee(_) => saw_local_write = true
+            @lib.BrIf(@lib.LabelIdx(raw)) =>
+              if saw_local_write && raw == 0U {
+                return true
+              }
+            _ => ()
+          }
+        }
+      }
+      @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_should_defer_loop_carried_br_if_to_hot(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_should_defer_loop_carried_br_if_to_hot(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_should_defer_loop_carried_br_if_to_hot(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_structured_mutation_reason(
   func : @lib.Func,
 ) -> String {
@@ -12112,6 +12269,11 @@ fn run_hot_pipeline_raw_ssa_nomerge(
     })
   }
   if has_structured_control {
+    if run_hot_pipeline_raw_ssa_nomerge_should_defer_loop_carried_br_if_to_hot(
+        instrs,
+      ) {
+      return None
+    }
     let base_local_count = params.length() + locals.length()
     let structured_instr_limit = if has_branches {
       structured_branch_raw_instr_limit
