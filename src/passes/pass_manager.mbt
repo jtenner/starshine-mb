@@ -8331,7 +8331,7 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
     instrs,
     loop_depth,
     allow_ref_branches,
-    false,
+    true,
     [],
   )
 }
@@ -8863,6 +8863,8 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
     }
     Some(@lib.RefNull(ref_type)) =>
       (@lib.ValType::ref_type(ref_type), None, false, true)
+    Some(@lib.Block(@lib.ValTypeBlockType(ref_type), _)) =>
+      (ref_type, None, true, false)
     Some(@lib.RefCast(nullable, heap_type)) =>
       (
         @lib.ValType::ref_type(@lib.RefType::new(nullable, heap_type)),
@@ -9357,6 +9359,7 @@ fn run_hot_pipeline_raw_try_table_body_has_exceptional_edge(
       | @lib.ReturnCall(_)
       | @lib.ReturnCallIndirect(_, _)
       | @lib.ReturnCallRef(_) => return true
+      @lib.Br(_) | @lib.Return | @lib.Unreachable => return false
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
@@ -11563,6 +11566,433 @@ priv struct HotPipelineFuncResult {
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_typeidx_loop_has_direct_backedge(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Loop(@lib.TypeIdxBlockType(_), @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_through_try_table(
+            body, 0U, false,
+          ) {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_typeidx_loop_has_direct_backedge(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_typeidx_loop_has_direct_backedge(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_typeidx_loop_has_direct_backedge(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_control_value_ref_branch(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let mut previous_is_control_value = false
+  for instr in instrs {
+    match instr {
+      @lib.BrOnNull(_)
+      | @lib.BrOnNonNull(_)
+      | @lib.BrOnCast(_, _, _, _)
+      | @lib.BrOnCastFail(_, _, _, _) =>
+        if previous_is_control_value {
+          return true
+        }
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_control_value_ref_branch(body) {
+          return true
+        }
+        previous_is_control_value = block_type != @lib.BlockType::void_()
+        continue
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_control_value_ref_branch(body) {
+          return true
+        }
+        previous_is_control_value = block_type != @lib.BlockType::void_()
+        continue
+      }
+      @lib.TryTable(block_type, _, @lib.Expr(body)) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_control_value_ref_branch(body) {
+          return true
+        }
+        previous_is_control_value = block_type != @lib.BlockType::void_()
+        continue
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_control_value_ref_branch(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_has_control_value_ref_branch(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+        previous_is_control_value = block_type != @lib.BlockType::void_()
+        continue
+      }
+      _ => previous_is_control_value = false
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_local_get_ref_branch_copy_shape(
+  instrs : Array[@lib.Instruction],
+  seen_if : Bool,
+  inside_typeidx_loop : Bool,
+  saw_non_param_local_read : Bool,
+) -> Bool {
+  let mut current_seen_if = seen_if
+  let mut current_saw_non_param_local_read = saw_non_param_local_read
+  let mut saw_constructed_ref_since_if = false
+  let mut previous_is_local_get = false
+  for instr in instrs {
+    match instr {
+      @lib.BrOnNull(_) =>
+        if current_seen_if &&
+          previous_is_local_get &&
+          !inside_typeidx_loop &&
+          !saw_constructed_ref_since_if {
+          return true
+        }
+      @lib.BrOnNonNull(_) =>
+        if current_seen_if &&
+          previous_is_local_get &&
+          (!inside_typeidx_loop || current_saw_non_param_local_read) {
+          return true
+        }
+      @lib.RefI31
+      | @lib.StructNewDefault(_)
+      | @lib.ArrayNewDefault(_)
+      | @lib.RefFunc(_) => {
+        saw_constructed_ref_since_if = true
+        previous_is_local_get = false
+      }
+      @lib.LocalGet(@lib.LocalIdx(raw)) => {
+        if raw.reinterpret_as_int() == 2 {
+          current_saw_non_param_local_read = true
+        }
+        previous_is_local_get = true
+        continue
+      }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_local_get_ref_branch_copy_shape(
+            then_body, current_seen_if, inside_typeidx_loop, current_saw_non_param_local_read,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_has_local_get_ref_branch_copy_shape(
+                body, current_seen_if, inside_typeidx_loop, current_saw_non_param_local_read,
+              ) {
+              return true
+            }
+          None => ()
+        }
+        current_seen_if = true
+        saw_constructed_ref_since_if = false
+      }
+      @lib.Loop(@lib.TypeIdxBlockType(_), @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_local_get_ref_branch_copy_shape(
+            body, current_seen_if, true, current_saw_non_param_local_read,
+          ) {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_local_get_ref_branch_copy_shape(
+            body, current_seen_if, inside_typeidx_loop, current_saw_non_param_local_read,
+          ) {
+          return true
+        }
+      _ => previous_is_local_get = false
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_constructed_ref_branch_copy_shape(
+  instrs : Array[@lib.Instruction],
+  seen_if : Bool,
+  block_type : @lib.BlockType,
+) -> Bool {
+  let mut current_seen_if = seen_if
+  let mut previous_constructed_ref : @lib.ValType? = None
+  for instr in instrs {
+    match instr {
+      @lib.BrOnNull(_) =>
+        if current_seen_if &&
+          previous_constructed_ref is Some(_) &&
+          block_type == @lib.BlockType::void_() {
+          return true
+        }
+      @lib.BrOnNonNull(_) =>
+        match (block_type, previous_constructed_ref) {
+          (@lib.ValTypeBlockType(target_type), Some(constructed_type)) =>
+            if current_seen_if && target_type == constructed_type {
+              return true
+            }
+          _ => ()
+        }
+      @lib.RefI31 => {
+        previous_constructed_ref = Some(@lib.ValType::i31ref())
+        continue
+      }
+      @lib.StructNewDefault(type_idx) => {
+        previous_constructed_ref = Some(
+          @lib.ValType::ref_type(
+            @lib.RefType::new(false, @lib.HeapType::new(type_idx), exact=true),
+          ),
+        )
+        continue
+      }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_constructed_ref_branch_copy_shape(
+            then_body, current_seen_if, block_type,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_has_constructed_ref_branch_copy_shape(
+                body, current_seen_if, block_type,
+              ) {
+              return true
+            }
+          None => ()
+        }
+        current_seen_if = true
+      }
+      @lib.Block(child_block_type, @lib.Expr(body))
+      | @lib.Loop(child_block_type, @lib.Expr(body))
+      | @lib.TryTable(child_block_type, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_constructed_ref_branch_copy_shape(
+            body, current_seen_if, child_block_type,
+          ) {
+          return true
+        }
+      _ => previous_constructed_ref = None
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_local_tee_ref_branch_copy_shape(
+  instrs : Array[@lib.Instruction],
+  seen_if : Bool,
+) -> Bool {
+  let mut current_seen_if = seen_if
+  let mut previous_is_local_tee = false
+  for instr in instrs {
+    match instr {
+      @lib.BrOnNull(_) | @lib.BrOnNonNull(_) =>
+        if current_seen_if && previous_is_local_tee {
+          return true
+        }
+      @lib.LocalTee(_) => {
+        previous_is_local_tee = true
+        continue
+      }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_local_tee_ref_branch_copy_shape(
+            then_body, current_seen_if,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_has_local_tee_ref_branch_copy_shape(
+                body, current_seen_if,
+              ) {
+              return true
+            }
+          None => ()
+        }
+        current_seen_if = true
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_local_tee_ref_branch_copy_shape(
+            body, current_seen_if,
+          ) {
+          return true
+        }
+      _ => previous_is_local_tee = false
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_cast_branch_copy_shape(
+  instrs : Array[@lib.Instruction],
+  seen_if : Bool,
+  inside_typeidx_loop : Bool,
+  saw_non_param_local_read : Bool,
+) -> Bool {
+  let mut current_seen_if = seen_if
+  let mut current_saw_non_param_local_read = saw_non_param_local_read
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) =>
+        if raw.reinterpret_as_int() == 2 {
+          current_saw_non_param_local_read = true
+        }
+      @lib.BrOnCast(_, _, _, _) | @lib.BrOnCastFail(_, _, _, _) =>
+        if current_seen_if &&
+          (!inside_typeidx_loop || current_saw_non_param_local_read) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_cast_branch_copy_shape(
+            then_body, current_seen_if, inside_typeidx_loop, current_saw_non_param_local_read,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_has_cast_branch_copy_shape(
+                body, current_seen_if, inside_typeidx_loop, current_saw_non_param_local_read,
+              ) {
+              return true
+            }
+          None => ()
+        }
+        current_seen_if = true
+      }
+      @lib.Loop(@lib.TypeIdxBlockType(_), @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_cast_branch_copy_shape(
+            body, current_seen_if, true, current_saw_non_param_local_read,
+          ) {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_cast_branch_copy_shape(
+            body, current_seen_if, inside_typeidx_loop, current_saw_non_param_local_read,
+          ) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_br_table_merge_copy_shape(
+  instrs : Array[@lib.Instruction],
+  seen_if : Bool,
+) -> Bool {
+  let mut saw_non_param_local_read = false
+  let mut current_seen_if = seen_if
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) =>
+        if raw.reinterpret_as_int() > 0 {
+          saw_non_param_local_read = true
+        }
+      @lib.BrTable(_, _) =>
+        if current_seen_if || saw_non_param_local_read {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_br_table_merge_copy_shape(
+            then_body, current_seen_if,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_has_br_table_merge_copy_shape(
+                body, current_seen_if,
+              ) {
+              return true
+            }
+          None => ()
+        }
+        current_seen_if = true
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_br_table_merge_copy_shape(
+            body, current_seen_if,
+          ) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_structured_mutation_reason(
+  func : @lib.Func,
+) -> String {
+  let @lib.Func(_, @lib.Expr(instrs)) = func
+  if run_hot_pipeline_raw_ssa_nomerge_typeidx_loop_has_direct_backedge(instrs) ||
+    run_hot_pipeline_raw_ssa_nomerge_has_control_value_ref_branch(instrs) ||
+    run_hot_pipeline_raw_ssa_nomerge_has_local_get_ref_branch_copy_shape(
+      instrs, false, false, false,
+    ) ||
+    run_hot_pipeline_raw_ssa_nomerge_has_local_tee_ref_branch_copy_shape(
+      instrs, false,
+    ) ||
+    run_hot_pipeline_raw_ssa_nomerge_has_constructed_ref_branch_copy_shape(
+      instrs,
+      false,
+      @lib.BlockType::void_(),
+    ) ||
+    run_hot_pipeline_raw_ssa_nomerge_has_cast_branch_copy_shape(
+      instrs, false, false, false,
+    ) ||
+    run_hot_pipeline_raw_ssa_nomerge_has_br_table_merge_copy_shape(
+      instrs, false,
+    ) {
+    "structured-local-writes-mutated"
+  } else {
+    "structured-local-writes"
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -11706,7 +12136,9 @@ fn run_hot_pipeline_raw_ssa_nomerge(
           None
         } else {
           Some({
-            reason: "structured-local-writes",
+            reason: run_hot_pipeline_raw_ssa_nomerge_structured_mutation_reason(
+              original,
+            ),
             func: rewritten,
             unchanged_original: false,
             trace_skip_raw: true,
@@ -15048,6 +15480,16 @@ fn run_hot_pipeline_apply_hot_pass(
         }
         if lower_state.type_sec_changed {
           current_mod = validation_mod
+        }
+        if descriptor.name == "ssa-nomerge" &&
+          result.reason.contains("-mutated") &&
+          !result.unchanged_original {
+          pipeline_trace_hook(
+            options.trace,
+            descriptor.name,
+            "mutated",
+            payload="raw reason=\{result.reason}",
+          )
         }
         if result.trace_skip_raw {
           if descriptor.name == "heap-store-optimization" &&
