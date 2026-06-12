@@ -588,6 +588,23 @@ fn ssa_test_instrs_have_loop_param_scalar_branch_proxy(
             }
           }
         }
+        if expect_br_if && block_type == @lib.BlockType::void_() {
+          for block_instr in body {
+            match block_instr {
+              @lib.Loop(@lib.VoidBlockType, @lib.Expr(loop_body)) =>
+                if body_has_branch_depth(loop_body, 0U) &&
+                  loop_body.any(fn(loop_instr) {
+                    match loop_instr {
+                      @lib.LocalSet(_) | @lib.LocalTee(_) => true
+                      _ => false
+                    }
+                  }) {
+                  return true
+                }
+              _ => ()
+            }
+          }
+        }
         if ssa_test_instrs_have_loop_param_scalar_branch_proxy(
             body, expect_br_if,
           ) {

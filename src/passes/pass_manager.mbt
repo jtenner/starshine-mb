@@ -10863,7 +10863,8 @@ fn run_hot_pipeline_raw_rewrite_instrs(
               None => return None
             }
           } else if loop_result_types.length() == 0 ||
-            loop_result_types.length() == 1 {
+            loop_result_types.length() == 1 ||
+            loop_param_types.length() > 0 {
             let allow_ref_backedges = loop_param_types.any(fn(loop_param_type) {
               match loop_param_type {
                 @lib.RefTypeValType(_) => true
@@ -10964,21 +10965,35 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                       loop_result_types,
                     ) {
                     Some(result_block_type) => result_block_type
-                    None => return None
+                    None => block_type
                   }
                   if body_fallthrough {
                     loop_body.push(@lib.Instruction::br(@lib.LabelIdx::new(1U)))
                   }
+                  let block_body : Array[@lib.Instruction] = []
+                  if result_block_type == block_type {
+                    for param_idx = 0
+                        param_idx < loop_param_types.length()
+                        param_idx = param_idx + 1 {
+                      run_hot_pipeline_raw_append_scratch_get_as_type(
+                        rewritten,
+                        loop_scratches[param_idx],
+                        loop_param_types[param_idx],
+                      )
+                      block_body.push(@lib.Instruction::drop())
+                    }
+                  }
+                  block_body.push(
+                    @lib.Instruction::loop_(
+                      @lib.BlockType::void_(),
+                      @lib.Expr::new(loop_body),
+                    ),
+                  )
+                  block_body.push(@lib.Instruction::unreachable_())
                   rewritten.push(
                     @lib.Instruction::block(
                       result_block_type,
-                      @lib.Expr::new([
-                        @lib.Instruction::loop_(
-                          @lib.BlockType::void_(),
-                          @lib.Expr::new(loop_body),
-                        ),
-                        @lib.Instruction::unreachable_(),
-                      ]),
+                      @lib.Expr::new(block_body),
                     ),
                   )
                 }
@@ -12075,16 +12090,22 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_br_table_merge_copy_shape(
 ///|
 fn run_hot_pipeline_raw_ssa_nomerge_should_defer_loop_carried_br_if_to_hot(
   instrs : Array[@lib.Instruction],
+  param_count : Int,
 ) -> Bool {
   for instr in instrs {
     match instr {
       @lib.Loop(@lib.VoidBlockType, @lib.Expr(body)) => {
+        let mut saw_local_read_before_write = false
         let mut saw_local_write = false
         for body_instr in body {
           match body_instr {
+            @lib.LocalGet(@lib.LocalIdx(raw)) =>
+              if !saw_local_write && raw.reinterpret_as_int() >= param_count {
+                saw_local_read_before_write = true
+              }
             @lib.LocalSet(_) | @lib.LocalTee(_) => saw_local_write = true
             @lib.BrIf(@lib.LabelIdx(raw)) =>
-              if saw_local_write && raw == 0U {
+              if saw_local_read_before_write && saw_local_write && raw == 0U {
                 return true
               }
             _ => ()
@@ -12093,20 +12114,20 @@ fn run_hot_pipeline_raw_ssa_nomerge_should_defer_loop_carried_br_if_to_hot(
       }
       @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
         if run_hot_pipeline_raw_ssa_nomerge_should_defer_loop_carried_br_if_to_hot(
-            body,
+            body, param_count,
           ) {
           return true
         }
       @lib.If(_, then_body, else_body) => {
         if run_hot_pipeline_raw_ssa_nomerge_should_defer_loop_carried_br_if_to_hot(
-            then_body,
+            then_body, param_count,
           ) {
           return true
         }
         match else_body {
           Some(body) =>
             if run_hot_pipeline_raw_ssa_nomerge_should_defer_loop_carried_br_if_to_hot(
-                body,
+                body, param_count,
               ) {
               return true
             }
@@ -12271,6 +12292,7 @@ fn run_hot_pipeline_raw_ssa_nomerge(
   if has_structured_control {
     if run_hot_pipeline_raw_ssa_nomerge_should_defer_loop_carried_br_if_to_hot(
         instrs,
+        params.length(),
       ) {
       return None
     }
