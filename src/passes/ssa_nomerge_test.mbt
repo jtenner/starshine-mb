@@ -93,6 +93,37 @@ fn ssa_test_instrs_have_br_on_null(instrs : Array[@lib.Instruction]) -> Bool {
 }
 
 ///|
+fn ssa_test_instrs_have_br_on_non_null(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.BrOnNonNull(_) => return true
+      @lib.If(_, then_body, else_body) => {
+        if ssa_test_instrs_have_br_on_non_null(then_body) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if ssa_test_instrs_have_br_on_non_null(else_body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if ssa_test_instrs_have_br_on_non_null(body) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn ssa_test_has_adjacent_call_drop(
   instrs : Array[@lib.Instruction],
   target : UInt,
@@ -6786,6 +6817,61 @@ test "ssa-nomerge rewrites multi-instruction br_on_non_null loop-store tested re
 }
 
 ///|
+test "ssa-nomerge rewrites if-result br_on_non_null loop-store tested refs" {
+  let externref = @lib.ValType::externref()
+  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([externref], [])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([externref], [externref])),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([externref]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::loop_(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+              @lib.Expr::new([
+                @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::i32_const(1),
+                @lib.Instruction::if_(
+                  @lib.BlockType::val_type(externref),
+                  [@lib.Instruction::local_get(@lib.LocalIdx::new(1U))],
+                  Some([@lib.Instruction::ref_null(extern_heap)]),
+                ),
+                @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+              ]),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "if-result br_on_non_null loop-store tested ref",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_instrs_have_br_on_non_null(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge rewrites select-result br_on_non_null loop-store tested refs" {
   let externref = @lib.ValType::externref()
   let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
@@ -7016,6 +7102,76 @@ test "ssa-nomerge rewrites non-current if-result br_on_null branch inputs" {
     msg=instrs.to_string(),
   )
   assert_false(ssa_test_instrs_have_br_on_null(instrs), msg=instrs.to_string())
+}
+
+///|
+test "ssa-nomerge rewrites non-current if-result br_on_non_null branch inputs" {
+  let externref = @lib.ValType::externref()
+  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([externref], [externref])),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(externref),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(1),
+                @lib.Instruction::if_(
+                  @lib.BlockType::void_(),
+                  [
+                    @lib.Instruction::i32_const(7),
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+                  ],
+                  Some([
+                    @lib.Instruction::i32_const(8),
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+                  ]),
+                ),
+                @lib.Instruction::i32_const(1),
+                @lib.Instruction::if_(
+                  @lib.BlockType::val_type(externref),
+                  [@lib.Instruction::local_get(@lib.LocalIdx::new(0U))],
+                  Some([@lib.Instruction::ref_null(extern_heap)]),
+                ),
+                @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::i32_const(9),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::ref_null(extern_heap),
+              ]),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "non-current if-result br_on_non_null branch input",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+  assert_true(
+    ssa_test_instrs_have_ref_non_null_branch_copy_lowering(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_instrs_have_br_on_non_null(instrs),
+    msg=instrs.to_string(),
+  )
 }
 
 ///|

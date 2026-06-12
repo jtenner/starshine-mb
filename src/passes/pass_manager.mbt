@@ -8928,6 +8928,18 @@ fn run_hot_pipeline_raw_append_loop_param_store_backedge(
 }
 
 ///|
+fn run_hot_pipeline_raw_trailing_ref_branch_input_needs_single_spill(
+  rewritten : Array[@lib.Instruction],
+) -> Bool {
+  match rewritten.last() {
+    Some(@lib.Block(@lib.ValTypeBlockType(_), _))
+    | Some(@lib.If(@lib.ValTypeBlockType(_), _, _))
+    | Some(@lib.Select(Some([@lib.RefTypeValType(_)]))) => true
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
   rewritten : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
@@ -9703,6 +9715,12 @@ fn run_hot_pipeline_raw_rewrite_br_on_non_null(
       source_aliases,
       canonical_aliases,
       label_target.needed_alias_copies,
+    ) &&
+    (
+      label_target.result_types.length() == 0 ||
+      !run_hot_pipeline_raw_trailing_ref_branch_input_needs_single_spill(
+        rewritten,
+      )
     ) {
     rewritten.push(@lib.Instruction::br_on_non_null(label_idx))
     return true

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-12] passes/ssa-nomerge | Admit if-result br_on_non_null inputs
+
+- Added source-backed positive coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for `if (result ref)` feeding `br_on_non_null` in non-current block-exit and typed-loop store/proxy contexts.
+- Narrowed the raw no-copy `br_on_non_null` fast path in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt): result-carrying labels now spill trailing typed `block`, typed `if`, and typed reference `select` branch inputs once instead of preserving the raw branch directly after an effectful multi-instruction producer.
+- Red evidence: `ssa-nomerge rewrites if-result br_on_non_null loop-store tested refs` initially left raw `br_on_non_null` after the typed `if` producer in the loop-store/proxy lowering. After the fix, focused `ssa_nomerge_test.mbt` passed `276/276`, `moon test src/passes` passed `2297/2297`, `moon fmt`, `moon info` passed with the 3 pre-existing GenValid warnings, full `moon test` passed `5572/5572`, native `src/cmd` build passed with pre-existing warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-if-nonnull-10000` requested `10000`, compared `7604`, had `7604` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- This reduces the `if (result ref)` / `br_on_non_null` branch-input gap without admitting arbitrary expression-stack guessing. Broader arbitrary expressions, type-indexed/multi-result producers, multi-result typed loops, `try_table`, nested non-void/other-target branches, exact artifact parity, and O4z slot policy remain active.
+
 ## [2026-06-12] passes/ssa-nomerge | Admit select-result reference branch inputs
 
 - Added source-backed positive coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for typed reference `select` producers feeding loop-store and non-current block-exit `br_on_null` / `br_on_non_null` branch inputs.
