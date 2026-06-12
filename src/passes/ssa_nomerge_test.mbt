@@ -100,10 +100,7 @@ fn ssa_test_instrs_have_ref_null_branch_copy_lowering(
             _ => false
           }
         })
-        let else_restores_non_null = else_body.any(fn(else_instr) {
-          else_instr == @lib.Instruction::ref_as_non_null()
-        })
-        if then_copies_canonical && then_branches && else_restores_non_null {
+        if then_copies_canonical && then_branches {
           return true
         }
         if ssa_test_instrs_have_ref_null_branch_copy_lowering(
@@ -115,12 +112,28 @@ fn ssa_test_instrs_have_ref_null_branch_copy_lowering(
           return true
         }
       }
-      @lib.If(_, then_body, None) =>
+      @lib.If(_, then_body, None) => {
+        let then_copies_canonical = ssa_test_local_write_indices(then_body).any(fn(
+            idx,
+          ) {
+            idx == canonical_local
+          },
+        )
+        let then_branches = then_body.any(fn(then_instr) {
+          match then_instr {
+            @lib.Br(_) => true
+            _ => false
+          }
+        })
+        if then_copies_canonical && then_branches {
+          return true
+        }
         if ssa_test_instrs_have_ref_null_branch_copy_lowering(
             then_body, canonical_local,
           ) {
           return true
         }
+      }
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
@@ -407,6 +420,56 @@ fn ssa_test_instrs_have_loop_param_null_proxy(
           None => ()
         }
       }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn ssa_test_instrs_have_null_taken_copy_branch(
+  instrs : Array[@lib.Instruction],
+  canonical_local : UInt,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.If(_, then_body, else_body) => {
+        let then_copies_canonical = ssa_test_local_write_indices(then_body).any(fn(
+            idx,
+          ) {
+            idx == canonical_local
+          },
+        )
+        let then_branches = then_body.any(fn(then_instr) {
+          match then_instr {
+            @lib.Br(_) => true
+            _ => false
+          }
+        })
+        if then_copies_canonical && then_branches {
+          return true
+        }
+        if ssa_test_instrs_have_null_taken_copy_branch(
+            then_body, canonical_local,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if ssa_test_instrs_have_null_taken_copy_branch(
+                body, canonical_local,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if ssa_test_instrs_have_null_taken_copy_branch(body, canonical_local) {
+          return true
+        }
       _ => ()
     }
   }
@@ -1556,7 +1619,7 @@ test "ssa-nomerge rewrites no-copy br_on_null typed loop-param backedge" {
 }
 
 ///|
-test "ssa-nomerge keeps copy-needing br_on_null typed loop-param fail-closed" {
+test "ssa-nomerge rewrites copy-needing br_on_null typed loop-param backedge" {
   let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
   let extern_ref = @lib.ValType::ref_type(@lib.RefType::new(true, extern_heap))
   let input = @lib.Module::new()
@@ -1611,7 +1674,106 @@ test "ssa-nomerge keeps copy-needing br_on_null typed loop-param fail-closed" {
         ),
       ]),
     )
-  ssa_test_typed_loop_param_module_fail_closed(input)
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected copy-needing br_on_null loop-param ssa-nomerge success, got \{err}",
+      )
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_null_taken_copy_branch(instrs, 3U),
+    msg=instrs.to_string(),
+  )
+  assert_true(
+    instrs.to_string().contains("ref.as_non_null"),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites multi-result br_on_null taken-edge copies" {
+  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
+  let extern_ref = @lib.ValType::ref_type(@lib.RefType::new(true, extern_heap))
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([extern_ref, @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32(), extern_ref]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::if_(
+                  @lib.BlockType::void_(),
+                  [
+                    @lib.Instruction::i32_const(7),
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                  ],
+                  Some([
+                    @lib.Instruction::i32_const(8),
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                  ]),
+                ),
+                @lib.Instruction::i32_const(42),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(9),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::i32_const(1),
+                @lib.Instruction::ref_null(extern_heap),
+              ]),
+            ),
+            @lib.Instruction::drop(),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::i32_add(),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected multi-result br_on_null ssa-nomerge success, got \{err}")
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_null_taken_copy_branch(instrs, 2U),
+    msg=instrs.to_string(),
+  )
+  assert_true(
+    instrs.to_string().contains("ref.as_non_null"),
+    msg=instrs.to_string(),
+  )
 }
 
 ///|

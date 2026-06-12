@@ -8278,9 +8278,6 @@ fn run_hot_pipeline_raw_rewrite_br_on_null(
     rewritten.push(@lib.Instruction::br_on_null(label_idx))
     return true
   }
-  if label_target.result_types.length() != 0 {
-    return false
-  }
   let condition_local = match rewritten.last() {
     Some(@lib.LocalGet(local_idx)) => local_idx
     _ => return false
@@ -8291,16 +8288,31 @@ fn run_hot_pipeline_raw_rewrite_br_on_null(
   let nullable_ref_type = run_hot_pipeline_raw_local_type(
     params, locals, condition_local_id,
   )
-  let non_null_ref_type = match
-    run_hot_pipeline_raw_non_null_ref_type(nullable_ref_type) {
-    Some(ref_type) => ref_type
-    None => return false
+  if run_hot_pipeline_raw_non_null_ref_type(nullable_ref_type) is None {
+    return false
   }
   let scratch_ref = run_hot_pipeline_raw_fresh_typed_local(
     params, locals, nullable_ref_type, extra_local_types,
   )
+  let result_scratch : Array[@lib.LocalIdx] = []
+  for result_type in label_target.result_types {
+    let scratch_type = match
+      run_hot_pipeline_raw_defaultable_scratch_type(result_type) {
+      Some(scratch_type) => scratch_type
+      None => return false
+    }
+    result_scratch.push(
+      run_hot_pipeline_raw_fresh_typed_local(
+        params, locals, scratch_type, extra_local_types,
+      ),
+    )
+  }
+
   rewritten.push(@lib.Instruction::local_get(condition_local))
   rewritten.push(@lib.Instruction::local_set(scratch_ref))
+  for idx = result_scratch.length() - 1; idx >= 0; idx = idx - 1 {
+    rewritten.push(@lib.Instruction::local_set(result_scratch[idx]))
+  }
   rewritten.push(@lib.Instruction::local_get(scratch_ref))
   rewritten.push(@lib.Instruction::ref_is_null())
   let then_body = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
@@ -8315,19 +8327,28 @@ fn run_hot_pipeline_raw_rewrite_br_on_null(
     locals,
     extra_local_types,
   )
+  for idx = 0; idx < result_scratch.length(); idx = idx + 1 {
+    run_hot_pipeline_raw_append_scratch_get_as_type(
+      then_body,
+      result_scratch[idx],
+      label_target.result_types[idx],
+    )
+  }
   then_body.push(
     @lib.Instruction::br(run_hot_pipeline_raw_label_inc(label_idx)),
   )
   rewritten.push(
-    @lib.Instruction::if_(
-      @lib.BlockType::val_type(non_null_ref_type),
-      then_body,
-      Some([
-        @lib.Instruction::local_get(scratch_ref),
-        @lib.Instruction::ref_as_non_null(),
-      ]),
-    ),
+    @lib.Instruction::if_(@lib.BlockType::void_(), then_body, None),
   )
+  for idx = 0; idx < result_scratch.length(); idx = idx + 1 {
+    run_hot_pipeline_raw_append_scratch_get_as_type(
+      rewritten,
+      result_scratch[idx],
+      label_target.result_types[idx],
+    )
+  }
+  rewritten.push(@lib.Instruction::local_get(scratch_ref))
+  rewritten.push(@lib.Instruction::ref_as_non_null())
   true
 }
 
