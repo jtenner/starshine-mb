@@ -1148,6 +1148,59 @@ test "ssa-nomerge artifact parity freshens split-memory body scratch locals" {
 }
 
 ///|
+test "ssa-nomerge artifact parity freshens tee-set loop base scratch" {
+  // Artifact repro reduced from
+  // `.tmp/self-ssa-nomerge-debug-wasi-bronull-prefix-subtype-results`, sampled
+  // canonical difference `defined=0 abs=50` (`moonbit.unsafe_make_string`).
+  // Binaryen keeps the allocation result tee and the loop base pointer in
+  // separate fresh locals before the store loop; Starshine reused the original
+  // body-local slot with no proven benefit.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $make (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32)
+    #|    local.get 0
+    #|    call $make
+    #|    local.tee 2
+    #|    local.set 2
+    #|    loop
+    #|      local.get 3
+    #|      local.get 0
+    #|      i32.lt_s
+    #|      if
+    #|        local.get 2
+    #|        local.get 3
+    #|        i32.const 1
+    #|        i32.shl
+    #|        i32.add
+    #|        local.get 1
+    #|        i32.store16 offset=8 align=1
+    #|        local.get 3
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.set 3
+    #|        br 1
+    #|      end
+    #|    end
+    #|    local.get 2))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
+  assert_true(locals.length() >= 4, msg=locals.to_string())
+  assert_true(
+    ssa_test_local_write_indices(instrs).any(fn(idx) { idx == 5U }),
+    msg=instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_local_write_indices(instrs).any(fn(idx) { idx == 2U }),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge artifact parity freshens memory growth page temporaries only" {
   // Artifact repro reduced from
   // `.tmp/self-ssa-nomerge-debug-wasi-bronull-prefix-subtype-results`, sampled
@@ -1267,6 +1320,107 @@ test "ssa-nomerge artifact parity freshens memory growth page temporaries only" 
   assert_true(
     ssa_test_local_write_indices(instrs).any(fn(idx) { idx == 3U }) &&
     ssa_test_local_write_indices(instrs).any(fn(idx) { idx == 4U }),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge artifact parity freshens table growth slot temporaries" {
+  // Artifact repro reduced from
+  // `.tmp/self-ssa-nomerge-debug-wasi-bronull-prefix-subtype-results`, sampled
+  // canonical difference `defined=0 abs=59` (`moonbit.alloc_externref`).
+  // Binaryen freshens the table size and allocated slot temporaries around the
+  // table growth/free-list update while preserving the grow-count loop local.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (table 0 externref)
+    #|  (global (mut i32) (i32.const -1))
+    #|  (func $malloc (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func $alloc (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func (param externref) (result i32)
+    #|    (local i32 i32 i32 i32 i32)
+    #|    global.get 0
+    #|    local.tee 1
+    #|    i32.const 0
+    #|    i32.lt_s
+    #|    if
+    #|      table.size 0
+    #|      local.set 3
+    #|      local.get 3
+    #|      i32.eqz
+    #|      if (result i32)
+    #|        i32.const 16
+    #|      else
+    #|        local.get 3
+    #|        i32.const 1
+    #|        i32.shl
+    #|      end
+    #|      local.set 5
+    #|      ref.null extern
+    #|      local.get 5
+    #|      table.grow 0
+    #|      i32.const 0
+    #|      i32.lt_s
+    #|      if
+    #|        unreachable
+    #|      end
+    #|      loop
+    #|        local.get 5
+    #|        local.get 3
+    #|        i32.gt_s
+    #|        if
+    #|          local.get 5
+    #|          i32.const 1
+    #|          i32.sub
+    #|          local.set 5
+    #|          i32.const 8
+    #|          call $malloc
+    #|          local.tee 2
+    #|          local.get 5
+    #|          i32.store
+    #|          local.get 2
+    #|          local.get 1
+    #|          i32.store offset=4
+    #|          local.get 2
+    #|          local.set 1
+    #|          br 1
+    #|        end
+    #|      end
+    #|    end
+    #|    local.get 1
+    #|    i32.load offset=4
+    #|    global.set 0
+    #|    local.get 1
+    #|    i32.load
+    #|    local.set 3
+    #|    local.get 3
+    #|    local.get 0
+    #|    table.set 0
+    #|    i32.const 4
+    #|    call $alloc
+    #|    local.tee 4
+    #|    i32.const 3
+    #|    i32.const 30
+    #|    i32.shl
+    #|    i32.store offset=4
+    #|    local.get 4
+    #|    local.get 3
+    #|    i32.store offset=8
+    #|    local.get 4)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 2)
+  assert_true(locals.length() >= 7, msg=locals.to_string())
+  assert_true(
+    ssa_test_local_write_indices(instrs).any(fn(idx) { idx == 6U }) &&
+    ssa_test_local_write_indices(instrs).any(fn(idx) { idx == 7U }),
+    msg=instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_local_write_indices(instrs).any(fn(idx) { idx == 3U }),
     msg=instrs.to_string(),
   )
 }
