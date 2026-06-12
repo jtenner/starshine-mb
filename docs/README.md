@@ -29,6 +29,7 @@ This section mirrors `AGENTS.md` and is intentionally compact enough to reuse in
 - Tests for behavior that should be implemented must fail before implementation; do not write green "fail-closed success" or no-op tests for required behavior gaps.
 - Boundary/fail-closed tests are allowed only when the behavior is intentionally unsupported or invalid, and the test name/comment must say so clearly.
 - Do not assert "differs from Binaryen on purpose" unless the test demonstrates an intentional Starshine semantic, validation, size, or performance win and documents why divergence is desired.
+- Do not accept Binaryen-vs-Starshine drift as merely "safe" representation difference. If a diff is not a proven Starshine win, treat it as a parity gap to reduce or fix.
 - Gitignore new non-repo build or cache dirs when needed.
 - Do not use destructive git commands unless explicitly requested.
 - Serialize `moon` commands because they contend on `_build/.moon-lock`.
@@ -48,11 +49,13 @@ This section mirrors `AGENTS.md` and is intentionally compact enough to reuse in
 
 - Correctness first.
 - Match oracle Binaryen semantics at minimum; byte-for-byte wasm, raw canonical wasm/text, or transform-for-transform parity is not required when normalized/canonical semantic evidence proves equivalence.
+- Prefer matching Binaryen output shape when there is no clear Starshine benefit. A remaining output-shape difference may be kept only when it is intentional, source-backed, documented, and shown to be a Starshine win such as smaller canonical output, fewer effective local/stack operations without size regressions, better downstream cleanup, stronger validation/correctness, or materially better pass-local performance.
+- Do not classify a diff family as safe/acceptable just because both outputs validate, appear semantically equivalent, or use fewer locals. Measure relevant deltas and either prove the Starshine shape wins without important regressions, or align to Binaryen.
 - Every transform must be safe and produce a valid wasm module.
 - Target `< 1s` or `>= 50%` of Binaryen pass-local wall time where possible.
 - Verify parity at `10000` comparisons with the project wrapper and an explicit native parallel lane: first run `moon build --target native --release src/cmd`, then use `bun fuzz compare-pass ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe`; `bun scripts/pass-fuzz-compare.ts ... --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe` remains the same underlying implementation when invoked directly.
 - For DAE / `dae-optimizing` mixed-generator compare-pass lanes, include `--normalize drop-consts --normalize unreachable-control-debris` so known generated dropped-constant and unreachable/control debris counts as `cleanupNormalizedMatchCount` instead of blocking the run as raw mismatches; still classify any remaining mismatches normally.
-- When reporting compare-pass mismatches, classify them as an agent judgment, not as a harness-provided fact: semantic-safe/size-winning, representation-only, size-losing, unknown/risky, validation failure, tool/Binaryen failure, or true semantic mismatch. Do not call a mismatch semantically safe just because both outputs validate or Starshine is smaller; cite the transform contract, inspected diff family, replay evidence, or other semantic reason.
+- When reporting compare-pass mismatches, classify them as an agent judgment, not as a harness-provided fact: Starshine-win, parity gap, size-losing, unknown/risky, validation failure, tool/Binaryen failure, or true semantic mismatch. Do not call a mismatch semantically safe just because both outputs validate or Starshine is smaller; cite the transform contract, inspected diff family, replay evidence, measured size/performance/downstream deltas, or other semantic reason. If there is no measured Starshine benefit, keep the mismatch open as a parity gap.
 - Prefer `--pass <name>` with canonical pass names and treat the harness as pass-targeted before expanding to combined-pass runs.
 - Use `.pi/skills/starshine-pass-implementation/SKILL.md` as the detailed pass creation, porting, parity-fix, registry-wiring, and signoff workflow.
 
