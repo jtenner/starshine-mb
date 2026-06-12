@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-12] passes/ssa-nomerge | Admit select-result reference branch inputs
+
+- Added source-backed positive coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for typed reference `select` producers feeding loop-store and non-current block-exit `br_on_null` / `br_on_non_null` branch inputs.
+- Widened the shared raw branch-input spill helper in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) to infer `select`'s single typed reference result and spill the already-selected stack value once into a defaultable scratch. Added a narrow structured raw recognizer so only typed reference `select` immediately feeding a reference branch opens the raw rewrite path.
+- Red evidence: `ssa-nomerge rewrites select-result br_on_null loop-store tested refs` failed first with `changed=false`, then after the spill helper alone still failed with `skip-raw reason=structured-local-writes`; after the recognizer, focused `ssa_nomerge_test.mbt` passed `274/274`, `moon test src/passes` passed `2295/2295`, `moon info` passed with the 3 pre-existing GenValid warnings, full `moon test` passed `5570/5570`, native `src/cmd` build passed with pre-existing warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-select-ref-10000-rerun` requested `10000`, compared `7608`, had `7608` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+- This reduces the arbitrary multi-instruction reference branch-input gap for typed `select` on both null and non-null reference branches. Broader arbitrary expressions, type-indexed/multi-result producers, multi-result typed loops, `try_table`, nested non-void/other-target branches, exact artifact parity, and O4z slot policy remain active.
+
 ## [2026-06-12] passes/ssa-nomerge | Admit if-result br_on_null reference inputs
 
 - Added source-backed positive coverage in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for `br_on_null` tested references produced by a trailing single-result `if` expression in two contexts: multi-param/no-result loop-store backedges and copy-needing non-current block exits.

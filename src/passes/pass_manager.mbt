@@ -8971,6 +8971,7 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
     Some(@lib.Block(@lib.ValTypeBlockType(ref_type), _))
     | Some(@lib.If(@lib.ValTypeBlockType(ref_type), _, _)) =>
       (ref_type, None, true, false)
+    Some(@lib.Select(Some([ref_type]))) => (ref_type, None, true, false)
     Some(@lib.RefCast(nullable, heap_type)) =>
       (
         @lib.ValType::ref_type(@lib.RefType::new(nullable, heap_type)),
@@ -12484,6 +12485,51 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_local_get_ref_branch_copy_shape(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_select_ref_branch_copy_shape(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let mut previous_select_ref = false
+  for instr in instrs {
+    match instr {
+      @lib.BrOnNull(_) | @lib.BrOnNonNull(_) =>
+        if previous_select_ref {
+          return true
+        }
+      @lib.Select(Some([@lib.RefTypeValType(_)])) => {
+        previous_select_ref = true
+        continue
+      }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_select_ref_branch_copy_shape(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_has_select_ref_branch_copy_shape(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_select_ref_branch_copy_shape(
+            body,
+          ) {
+          return true
+        }
+      _ => previous_select_ref = false
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_has_constructed_ref_branch_copy_shape(
   instrs : Array[@lib.Instruction],
   seen_if : Bool,
@@ -12838,6 +12884,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured_mutation_reason(
     run_hot_pipeline_raw_ssa_nomerge_has_local_tee_ref_branch_copy_shape(
       instrs, false,
     ) ||
+    run_hot_pipeline_raw_ssa_nomerge_has_select_ref_branch_copy_shape(instrs) ||
     run_hot_pipeline_raw_ssa_nomerge_has_constructed_ref_branch_copy_shape(
       instrs,
       false,
