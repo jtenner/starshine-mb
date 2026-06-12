@@ -2677,6 +2677,185 @@ test "ssa-nomerge rewrites copy-needing multi-param single-result typed loop br_
 }
 
 ///|
+fn ssa_test_multi_param_loop_store_local_tee_ref_branch_module(
+  non_null_branch : Bool,
+  single_result : Bool,
+) -> @lib.Module {
+  let struct_idx = @lib.TypeIdx::new(0U)
+  let struct_heap = @lib.HeapType::new(struct_idx)
+  let nullable_struct_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, struct_heap),
+  )
+  let non_null_struct_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(false, struct_heap),
+  )
+  let loop_ref_type = if non_null_branch {
+    non_null_struct_ref
+  } else {
+    nullable_struct_ref
+  }
+  let loop_result_types = if single_result { [@lib.ValType::i32()] } else { [] }
+  let loop_body : Array[@lib.Instruction] = [
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32::new(1)),
+    @lib.Instruction::i32_add(),
+  ]
+  if !non_null_branch {
+    loop_body.push(@lib.Instruction::local_get(@lib.LocalIdx::new(2U)))
+  }
+  loop_body.append([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(3U)),
+  ])
+  if non_null_branch {
+    loop_body.push(@lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)))
+    if !single_result {
+      loop_body.push(@lib.Instruction::drop())
+    }
+  } else {
+    loop_body.push(@lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)))
+    loop_body.push(@lib.Instruction::drop())
+    loop_body.push(@lib.Instruction::drop())
+    if !single_result {
+      loop_body.push(@lib.Instruction::drop())
+    }
+  }
+  let func_body : Array[@lib.Instruction] = [@lib.Instruction::i32_const(0)]
+  if non_null_branch {
+    func_body.push(@lib.Instruction::struct_new_default(struct_idx))
+  } else {
+    func_body.push(@lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+  }
+  func_body.push(
+    @lib.Instruction::loop_(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+      @lib.Expr::new(loop_body),
+    ),
+  )
+  if !single_result {
+    func_body.push(@lib.Instruction::local_get(@lib.LocalIdx::new(1U)))
+  }
+  @lib.Module::new()
+  .with_type_sec(
+    @lib.TypeSec::new([
+      @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::struct_([]))),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func(
+            [@lib.ValType::i32(), loop_ref_type],
+            loop_result_types,
+          ),
+        ),
+      ),
+      @lib.RecType::new(
+        @lib.SubType::comp_type(
+          @lib.CompType::func([nullable_struct_ref], [@lib.ValType::i32()]),
+        ),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::from_types([
+          @lib.ValType::i32(),
+          nullable_struct_ref,
+          nullable_struct_ref,
+        ]),
+        @lib.Expr::new(func_body),
+      ),
+    ]),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites local-tee-tested multi-param typed loop br_on_null backedges" {
+  let input = ssa_test_multi_param_loop_store_local_tee_ref_branch_module(
+    false, false,
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected local-tee-tested multi-param br_on_null loop-param ssa-nomerge success, got \{err}",
+      )
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 3, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites local-tee-tested multi-param single-result typed loop br_on_null backedges" {
+  let input = ssa_test_multi_param_loop_store_local_tee_ref_branch_module(
+    false, true,
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected local-tee-tested multi-param single-result br_on_null loop-param ssa-nomerge success, got \{err}",
+      )
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 3, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites local-tee-tested multi-param typed loop br_on_non_null backedges" {
+  let input = ssa_test_multi_param_loop_store_local_tee_ref_branch_module(
+    true, false,
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected local-tee-tested multi-param br_on_non_null loop-param ssa-nomerge success, got \{err}",
+      )
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 3, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites local-tee-tested multi-param single-result typed loop br_on_non_null backedges" {
+  let input = ssa_test_multi_param_loop_store_local_tee_ref_branch_module(
+    true, true,
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected local-tee-tested multi-param single-result br_on_non_null loop-param ssa-nomerge success, got \{err}",
+      )
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 3, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge rewrites multi-param single-result typed loop br_on_null backedges" {
   let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
   let extern_ref = @lib.ValType::ref_type(@lib.RefType::new(true, extern_heap))

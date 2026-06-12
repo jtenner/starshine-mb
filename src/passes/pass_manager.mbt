@@ -7142,6 +7142,24 @@ fn run_hot_pipeline_raw_local_type(
 }
 
 ///|
+fn run_hot_pipeline_raw_rewritten_local_type(
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+  local_id : Int,
+) -> @lib.ValType? {
+  if local_id < params.length() {
+    return Some(params[local_id])
+  }
+  let body_local_id = local_id - params.length()
+  if body_local_id < locals.length() {
+    return Some(locals.get(body_local_id))
+  }
+  let extra_id = body_local_id - locals.length()
+  extra_local_types.get(extra_id)
+}
+
+///|
 fn run_hot_pipeline_raw_non_null_ref_type(
   val_type : @lib.ValType,
 ) -> @lib.ValType? {
@@ -8155,6 +8173,66 @@ fn run_hot_pipeline_raw_append_loop_param_store_backedge(
 }
 
 ///|
+fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
+  rewritten : Array[@lib.Instruction],
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+  allow_local_tee : Bool,
+) -> (@lib.ValType, @lib.LocalIdx)? {
+  let (ref_type, source_local, keep_trailing_value) = match rewritten.last() {
+    Some(@lib.LocalGet(local_idx)) => {
+      let @lib.LocalIdx(raw) = local_idx
+      let ref_type = match
+        run_hot_pipeline_raw_rewritten_local_type(
+          params,
+          locals,
+          extra_local_types,
+          raw.reinterpret_as_int(),
+        ) {
+        Some(val_type) => val_type
+        None => return None
+      }
+      (ref_type, local_idx, false)
+    }
+    Some(@lib.LocalTee(local_idx)) if allow_local_tee => {
+      let @lib.LocalIdx(raw) = local_idx
+      let ref_type = match
+        run_hot_pipeline_raw_rewritten_local_type(
+          params,
+          locals,
+          extra_local_types,
+          raw.reinterpret_as_int(),
+        ) {
+        Some(val_type) => val_type
+        None => return None
+      }
+      (ref_type, local_idx, true)
+    }
+    _ => return None
+  }
+  if run_hot_pipeline_raw_non_null_ref_type(ref_type) is None {
+    return None
+  }
+  let scratch_type = match
+    run_hot_pipeline_raw_defaultable_scratch_type(ref_type) {
+    Some(scratch_type) => scratch_type
+    None => return None
+  }
+  let scratch_ref = run_hot_pipeline_raw_fresh_typed_local(
+    params, locals, scratch_type, extra_local_types,
+  )
+  if keep_trailing_value {
+    rewritten.push(@lib.Instruction::local_set(scratch_ref))
+  } else {
+    ignore(rewritten.pop())
+    rewritten.push(@lib.Instruction::local_get(source_local))
+    rewritten.push(@lib.Instruction::local_set(scratch_ref))
+  }
+  Some((ref_type, scratch_ref))
+}
+
+///|
 fn run_hot_pipeline_raw_rewrite_loop_param_store_br_if(
   label_idx : @lib.LabelIdx,
   label_target : RawSsaLabelTarget,
@@ -8231,24 +8309,13 @@ fn run_hot_pipeline_raw_rewrite_loop_param_store_br_on_null(
     label_target.result_types.length() {
     return false
   }
-  let condition_local = match rewritten.last() {
-    Some(@lib.LocalGet(local_idx)) => local_idx
-    _ => return false
+  let (_, scratch_ref) = match
+    run_hot_pipeline_raw_spill_trailing_ref_branch_input(
+      rewritten, params, locals, extra_local_types, true,
+    ) {
+    Some(spilled) => spilled
+    None => return false
   }
-  ignore(rewritten.pop())
-  let @lib.LocalIdx(raw_condition_local) = condition_local
-  let condition_local_id = raw_condition_local.reinterpret_as_int()
-  let nullable_ref_type = run_hot_pipeline_raw_local_type(
-    params, locals, condition_local_id,
-  )
-  if run_hot_pipeline_raw_non_null_ref_type(nullable_ref_type) is None {
-    return false
-  }
-  let scratch_ref = run_hot_pipeline_raw_fresh_typed_local(
-    params, locals, nullable_ref_type, extra_local_types,
-  )
-  rewritten.push(@lib.Instruction::local_get(condition_local))
-  rewritten.push(@lib.Instruction::local_set(scratch_ref))
   for idx = label_target.loop_param_scratches.length() - 1
       idx >= 0
       idx = idx - 1 {
@@ -8306,16 +8373,13 @@ fn run_hot_pipeline_raw_rewrite_loop_param_store_br_on_non_null(
     label_target.result_types.length() {
     return false
   }
-  let condition_local = match rewritten.last() {
-    Some(@lib.LocalGet(local_idx)) => local_idx
-    _ => return false
+  let (nullable_ref_type, scratch_ref) = match
+    run_hot_pipeline_raw_spill_trailing_ref_branch_input(
+      rewritten, params, locals, extra_local_types, true,
+    ) {
+    Some(spilled) => spilled
+    None => return false
   }
-  ignore(rewritten.pop())
-  let @lib.LocalIdx(raw_condition_local) = condition_local
-  let condition_local_id = raw_condition_local.reinterpret_as_int()
-  let nullable_ref_type = run_hot_pipeline_raw_local_type(
-    params, locals, condition_local_id,
-  )
   let non_null_ref_type = match
     run_hot_pipeline_raw_non_null_ref_type(nullable_ref_type) {
     Some(ref_type) => ref_type
@@ -8325,16 +8389,6 @@ fn run_hot_pipeline_raw_rewrite_loop_param_store_br_on_non_null(
   if label_target.result_types[final_idx] != non_null_ref_type {
     return false
   }
-  let scratch_ref_type = match
-    run_hot_pipeline_raw_defaultable_scratch_type(nullable_ref_type) {
-    Some(scratch_type) => scratch_type
-    None => return false
-  }
-  let scratch_ref = run_hot_pipeline_raw_fresh_typed_local(
-    params, locals, scratch_ref_type, extra_local_types,
-  )
-  rewritten.push(@lib.Instruction::local_get(condition_local))
-  rewritten.push(@lib.Instruction::local_set(scratch_ref))
   if final_idx > 0 {
     for idx = final_idx - 1; idx >= 0; idx = idx - 1 {
       rewritten.push(
@@ -8750,22 +8804,13 @@ fn run_hot_pipeline_raw_rewrite_br_on_null(
     rewritten.push(@lib.Instruction::br_on_null(label_idx))
     return true
   }
-  let condition_local = match rewritten.last() {
-    Some(@lib.LocalGet(local_idx)) => local_idx
-    _ => return false
+  let (_, scratch_ref) = match
+    run_hot_pipeline_raw_spill_trailing_ref_branch_input(
+      rewritten, params, locals, extra_local_types, false,
+    ) {
+    Some(spilled) => spilled
+    None => return false
   }
-  ignore(rewritten.pop())
-  let @lib.LocalIdx(raw_condition_local) = condition_local
-  let condition_local_id = raw_condition_local.reinterpret_as_int()
-  let nullable_ref_type = run_hot_pipeline_raw_local_type(
-    params, locals, condition_local_id,
-  )
-  if run_hot_pipeline_raw_non_null_ref_type(nullable_ref_type) is None {
-    return false
-  }
-  let scratch_ref = run_hot_pipeline_raw_fresh_typed_local(
-    params, locals, nullable_ref_type, extra_local_types,
-  )
   let result_scratch : Array[@lib.LocalIdx] = []
   for result_type in label_target.result_types {
     let scratch_type = match
@@ -8780,8 +8825,6 @@ fn run_hot_pipeline_raw_rewrite_br_on_null(
     )
   }
 
-  rewritten.push(@lib.Instruction::local_get(condition_local))
-  rewritten.push(@lib.Instruction::local_set(scratch_ref))
   for idx = result_scratch.length() - 1; idx >= 0; idx = idx - 1 {
     rewritten.push(@lib.Instruction::local_set(result_scratch[idx]))
   }
@@ -8844,24 +8887,13 @@ fn run_hot_pipeline_raw_rewrite_br_on_non_null(
     rewritten.push(@lib.Instruction::br_on_non_null(label_idx))
     return true
   }
-  let condition_local = match rewritten.last() {
-    Some(@lib.LocalGet(local_idx)) => local_idx
-    _ => return false
+  let (_, scratch_ref) = match
+    run_hot_pipeline_raw_spill_trailing_ref_branch_input(
+      rewritten, params, locals, extra_local_types, false,
+    ) {
+    Some(spilled) => spilled
+    None => return false
   }
-  ignore(rewritten.pop())
-  let @lib.LocalIdx(raw_condition_local) = condition_local
-  let condition_local_id = raw_condition_local.reinterpret_as_int()
-  let nullable_ref_type = run_hot_pipeline_raw_local_type(
-    params, locals, condition_local_id,
-  )
-  if run_hot_pipeline_raw_non_null_ref_type(nullable_ref_type) is None {
-    return false
-  }
-  let scratch_ref = run_hot_pipeline_raw_fresh_typed_local(
-    params, locals, nullable_ref_type, extra_local_types,
-  )
-  rewritten.push(@lib.Instruction::local_get(condition_local))
-  rewritten.push(@lib.Instruction::local_set(scratch_ref))
   rewritten.push(@lib.Instruction::local_get(scratch_ref))
   rewritten.push(@lib.Instruction::ref_is_null())
   let else_body = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
