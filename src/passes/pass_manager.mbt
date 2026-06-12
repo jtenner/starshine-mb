@@ -11681,13 +11681,191 @@ fn run_hot_pipeline_raw_rewrite_local_refs(
 }
 
 ///|
+fn run_hot_pipeline_raw_instrs_have_memory_store(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.I32Store(_)
+      | @lib.I64Store(_)
+      | @lib.F32Store(_)
+      | @lib.F64Store(_)
+      | @lib.I32Store8(_)
+      | @lib.I32Store16(_)
+      | @lib.I64Store8(_)
+      | @lib.I64Store16(_)
+      | @lib.I64Store32(_) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_instrs_have_memory_store(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_instrs_have_memory_store(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_instrs_have_memory_store(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
+  instrs : Array[@lib.Instruction],
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+  param_aliases : Array[@lib.LocalIdx?],
+) -> Array[@lib.Instruction] {
+  let rewritten : Array[@lib.Instruction] = []
+  let freshen_params = run_hot_pipeline_raw_instrs_have_memory_store(instrs)
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(idx)) => {
+        let local_id = idx.reinterpret_as_int()
+        if local_id >= 0 && local_id < param_aliases.length() {
+          match param_aliases[local_id] {
+            Some(mapped_local) =>
+              rewritten.push(@lib.Instruction::local_get(mapped_local))
+            None => rewritten.push(instr)
+          }
+        } else {
+          rewritten.push(instr)
+        }
+      }
+      @lib.LocalSet(@lib.LocalIdx(idx)) => {
+        let local_id = idx.reinterpret_as_int()
+        if freshen_params && local_id >= 0 && local_id < params.length() {
+          let fresh_local = run_hot_pipeline_raw_fresh_local(
+            params, locals, local_id, extra_local_types,
+          )
+          param_aliases[local_id] = Some(fresh_local)
+          rewritten.push(@lib.Instruction::local_set(fresh_local))
+        } else {
+          rewritten.push(instr)
+        }
+      }
+      @lib.LocalTee(@lib.LocalIdx(idx)) => {
+        let local_id = idx.reinterpret_as_int()
+        if freshen_params && local_id >= 0 && local_id < params.length() {
+          let fresh_local = run_hot_pipeline_raw_fresh_local(
+            params, locals, local_id, extra_local_types,
+          )
+          param_aliases[local_id] = Some(fresh_local)
+          rewritten.push(@lib.Instruction::local_tee(fresh_local))
+        } else {
+          rewritten.push(instr)
+        }
+      }
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        rewritten.push(
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(
+              run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
+                body,
+                params,
+                locals,
+                extra_local_types,
+                param_aliases.copy(),
+              ),
+            ),
+          ),
+        )
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        rewritten.push(
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(
+              run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
+                body,
+                params,
+                locals,
+                extra_local_types,
+                param_aliases.copy(),
+              ),
+            ),
+          ),
+        )
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+        rewritten.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(
+              run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
+                body,
+                params,
+                locals,
+                extra_local_types,
+                param_aliases.copy(),
+              ),
+            ),
+          ),
+        )
+      @lib.If(block_type, then_body, else_body) =>
+        rewritten.push(
+          @lib.Instruction::if_(
+            block_type,
+            run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
+              then_body,
+              params,
+              locals,
+              extra_local_types,
+              param_aliases.copy(),
+            ),
+            match else_body {
+              Some(body) =>
+                Some(
+                  run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
+                    body,
+                    params,
+                    locals,
+                    extra_local_types,
+                    param_aliases.copy(),
+                  ),
+                )
+              None => None
+            },
+          ),
+        )
+      _ => rewritten.push(instr)
+    }
+  }
+  rewritten
+}
+
+///|
+fn run_hot_pipeline_raw_freshen_param_scratch_writes(
+  instrs : Array[@lib.Instruction],
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> Array[@lib.Instruction] {
+  let param_aliases : Array[@lib.LocalIdx?] = Array::make(params.length(), None)
+  run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
+    instrs, params, locals, extra_local_types, param_aliases,
+  )
+}
+
+///|
 // Binaryen's `ssa-nomerge` allocates fresh temporaries for body-local scratch
 // writes that are confined to a value-producing `if` arm immediately consumed by
-// `local.tee`. The normal raw alias merger keeps canonical body locals when the
+// a local write. The normal raw alias merger keeps canonical body locals when the
 // next read is in the same arm, which is semantically valid but leaves artifact
 // parity gaps. This narrow post-pass freshens only body locals whose reads are
-// wholly inside that arm, so branch joins and parameter locals keep the existing
-// canonical-copy policy.
+// wholly inside that arm. A separate nested-store post-pass freshens parameter
+// scratch writes when they feed memory unlink/update code.
 fn run_hot_pipeline_raw_freshen_value_if_arm_body_scratch(
   arm : Array[@lib.Instruction],
   all_instrs : Array[@lib.Instruction],
@@ -11731,7 +11909,7 @@ fn run_hot_pipeline_raw_freshen_value_if_body_scratch(
       @lib.If(block_type, then_body, Some(else_body)) =>
         if block_type != @lib.BlockType::void_() && idx + 1 < instrs.length() {
           match instrs[idx + 1] {
-            @lib.LocalTee(_) =>
+            @lib.LocalSet(_) | @lib.LocalTee(_) =>
               rewritten.push(
                 @lib.Instruction::if_(
                   block_type,
@@ -11787,8 +11965,11 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
       extra_local_types,
     ) {
     Some((rewritten_instrs, _, _, _, _)) => {
-      let finalized_instrs = run_hot_pipeline_raw_freshen_value_if_body_scratch(
+      let value_if_freshened = run_hot_pipeline_raw_freshen_value_if_body_scratch(
         rewritten_instrs, params, locals, extra_local_types,
+      )
+      let finalized_instrs = run_hot_pipeline_raw_freshen_param_scratch_writes(
+        value_if_freshened, params, locals, extra_local_types,
       )
       let rewritten_locals = locals.copy()
       rewritten_locals.append_types(extra_local_types)
