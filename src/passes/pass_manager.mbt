@@ -8666,6 +8666,16 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
     }
     Some(@lib.RefNull(ref_type)) =>
       (@lib.ValType::ref_type(ref_type), None, false, true)
+    Some(@lib.RefCast(nullable, heap_type)) =>
+      (
+        @lib.ValType::ref_type(@lib.RefType::new(nullable, heap_type)),
+        None,
+        true,
+        false,
+      )
+    Some(@lib.AnyConvertExtern) => (@lib.ValType::anyref(), None, true, false)
+    Some(@lib.ExternConvertAny) =>
+      (@lib.ValType::externref(), None, true, false)
     _ => return None
   }
   if run_hot_pipeline_raw_non_null_ref_type(ref_type) is None {

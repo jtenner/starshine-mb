@@ -3074,6 +3074,275 @@ test "ssa-nomerge rewrites ref-null-tested multi-param typed loop br_on_non_null
 }
 
 ///|
+test "ssa-nomerge rewrites any-convert-tested multi-param typed loop br_on_null backedges" {
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::anyref()], []),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::externref()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::anyref()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32::new(0)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::any_convert_extern(),
+            @lib.Instruction::loop_(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+              @lib.Expr::new([
+                @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::i32_const(@lib.I32::new(1)),
+                @lib.Instruction::i32_add(),
+                @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::any_convert_extern(),
+                @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+              ]),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected any-convert-tested br_on_null loop-param ssa-nomerge success, got \{err}",
+      )
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites extern-convert-tested multi-param typed loop br_on_null backedges" {
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [@lib.ValType::i32(), @lib.ValType::externref()],
+              [],
+            ),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::anyref()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([
+            @lib.ValType::i32(),
+            @lib.ValType::externref(),
+          ]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32::new(0)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::extern_convert_any(),
+            @lib.Instruction::loop_(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+              @lib.Expr::new([
+                @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::i32_const(@lib.I32::new(1)),
+                @lib.Instruction::i32_add(),
+                @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::extern_convert_any(),
+                @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+              ]),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected extern-convert-tested br_on_null loop-param ssa-nomerge success, got \{err}",
+      )
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites ref-cast-tested multi-param typed loop br_on_null backedges" {
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let any_ref = @lib.ValType::ref_type(@lib.RefType::new(true, any_heap))
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), any_ref], []),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([any_ref], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32::new(0)),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::loop_(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+              @lib.Expr::new([
+                @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::i32_const(@lib.I32::new(1)),
+                @lib.Instruction::i32_add(),
+                @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::ref_cast(true, any_heap),
+                @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+              ]),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected ref-cast-tested br_on_null loop-param ssa-nomerge success, got \{err}",
+      )
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites ref-cast-tested multi-param typed loop br_on_non_null backedges" {
+  let i31_heap = @lib.HeapType::abs(@lib.AbsHeapType::i31())
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i31ref()], []),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32::new(0)),
+            @lib.Instruction::i32_const(@lib.I32::new(0)),
+            @lib.Instruction::ref_i31(),
+            @lib.Instruction::loop_(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+              @lib.Expr::new([
+                @lib.Instruction::drop(),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::i32_const(@lib.I32::new(1)),
+                @lib.Instruction::i32_add(),
+                @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::ref_null_type(
+                  @lib.RefType::new(true, i31_heap),
+                ),
+                @lib.Instruction::ref_cast(true, i31_heap),
+                @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+              ]),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected ref-cast-tested br_on_non_null loop-param ssa-nomerge success, got \{err}",
+      )
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge rewrites local-tee-tested multi-param typed loop br_on_null backedges" {
   let input = ssa_test_multi_param_loop_store_local_tee_ref_branch_module(
     false, false,
