@@ -7784,7 +7784,7 @@ fn run_hot_pipeline_raw_enclosing_label_needs_alias_copy(
   local_id : Int,
 ) -> Bool {
   for label_target in label_stack {
-    if !label_target.is_loop &&
+    if (!label_target.is_loop || label_target.is_loop_param_store) &&
       local_id < label_target.needed_alias_copies.length() &&
       label_target.needed_alias_copies[local_id] {
       return true
@@ -8218,13 +8218,6 @@ fn run_hot_pipeline_raw_rewrite_loop_param_store_br_on_null(
     label_target.loop_param_scratches.length() !=
     label_target.result_types.length() {
     return false
-  }
-  for local_id = 0
-      local_id < label_target.needed_alias_copies.length()
-      local_id = local_id + 1 {
-    if label_target.needed_alias_copies[local_id] {
-      return false
-    }
   }
   let condition_local = match rewritten.last() {
     Some(@lib.LocalGet(local_idx)) => local_idx
