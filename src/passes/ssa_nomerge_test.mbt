@@ -2093,6 +2093,127 @@ test "ssa-nomerge rewrites multi-param typed loop br_table backedges" {
 }
 
 ///|
+test "ssa-nomerge rewrites mixed-target single-result typed loop br_table backedges" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32) (result i32)))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    block $exit (result i32)
+    #|      i32.const 0
+    #|      loop $l (type $loop_t)
+    #|        local.tee 1
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.get 0
+    #|        br_table $l $exit
+    #|      end
+    #|    end)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+  assert_true(instrs.to_string().contains("i32.eq"), msg=instrs.to_string())
+}
+
+///|
+test "ssa-nomerge keeps mixed-target single-param no-result typed loop br_table fail-closed" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    block $exit (result i32)
+    #|      i32.const 0
+    #|      loop $l (type $loop_t)
+    #|        local.tee 1
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.get 0
+    #|        br_table $l $exit
+    #|      end
+    #|      unreachable
+    #|    end)
+    #|)
+  ssa_test_typed_loop_param_pipeline_fail_closed(source)
+}
+
+///|
+test "ssa-nomerge rewrites mixed-target multi-param typed loop br_table backedges" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32 i64)))
+    #|  (type $exit_t (func (result i32 i64)))
+    #|  (func (param i32) (result i32 i64) (local i32 i64)
+    #|    block $exit (type $exit_t)
+    #|      i32.const 0
+    #|      i64.const 1
+    #|      loop $l (type $loop_t)
+    #|        local.set 2
+    #|        local.set 1
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.get 2
+    #|        i64.const 1
+    #|        i64.add
+    #|        local.get 0
+    #|        br_table $l $exit
+    #|      end
+    #|      unreachable
+    #|    end)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+  assert_true(instrs.to_string().contains("i32.eq"), msg=instrs.to_string())
+}
+
+///|
+test "ssa-nomerge rewrites copy-needing mixed-target single-result typed loop br_table backedges" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32) (result i32)))
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    block $exit (result i32)
+    #|      i32.const 0
+    #|      loop $l (type $loop_t)
+    #|        local.set 1
+    #|        local.get 1
+    #|        i32.const 0
+    #|        i32.eq
+    #|        if
+    #|          i32.const 7
+    #|          local.set 2
+    #|        else
+    #|          i32.const 8
+    #|          local.set 2
+    #|        end
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.get 0
+    #|        br_table $l $exit
+    #|      end
+    #|    end)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+  assert_true(instrs.to_string().contains("i32.eq"), msg=instrs.to_string())
+}
+
+///|
 test "ssa-nomerge rewrites single-result typed loop direct br backedges" {
   let source =
     #|(module

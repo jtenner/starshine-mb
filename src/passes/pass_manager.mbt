@@ -7755,6 +7755,15 @@ fn run_hot_pipeline_raw_label_inc(label_idx : @lib.LabelIdx) -> @lib.LabelIdx {
 }
 
 ///|
+fn run_hot_pipeline_raw_label_add(
+  label_idx : @lib.LabelIdx,
+  increment : UInt,
+) -> @lib.LabelIdx {
+  let @lib.LabelIdx(raw) = label_idx
+  @lib.LabelIdx::new(raw + increment)
+}
+
+///|
 fn run_hot_pipeline_raw_next_br_needs_canonical_alias(
   instrs : Array[@lib.Instruction],
   next_idx : Int,
@@ -7980,29 +7989,47 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
         } else {
           return false
         }
-      @lib.BrTable(labels, @lib.LabelIdx(default_raw)) =>
-        if default_raw == loop_depth {
-          for label_idx in labels {
-            let @lib.LabelIdx(raw) = label_idx
-            if raw != loop_depth {
-              return false
-            }
+      @lib.BrTable(labels, @lib.LabelIdx(default_raw)) => {
+        let mut has_loop_target = default_raw == loop_depth
+        let mut has_enclosing_target = default_raw > loop_depth
+        let mut all_loop_targets = default_raw == loop_depth
+        let mut all_void_self_targets = run_hot_pipeline_raw_label_depth_is_allowed(
+          default_raw, void_self_loop_depths,
+        )
+        let mut all_loop_or_enclosing_targets = default_raw == loop_depth ||
+          default_raw > loop_depth
+        for label_idx in labels {
+          let @lib.LabelIdx(raw) = label_idx
+          if raw == loop_depth {
+            has_loop_target = true
           }
+          if raw > loop_depth {
+            has_enclosing_target = true
+          }
+          if raw != loop_depth {
+            all_loop_targets = false
+          }
+          if !run_hot_pipeline_raw_label_depth_is_allowed(
+              raw, void_self_loop_depths,
+            ) {
+            all_void_self_targets = false
+          }
+          if raw != loop_depth && raw <= loop_depth {
+            all_loop_or_enclosing_targets = false
+          }
+        }
+        if all_loop_targets {
           saw_backedge = true
-        } else if run_hot_pipeline_raw_label_depth_is_allowed(
-            default_raw, void_self_loop_depths,
-          ) {
-          for label_idx in labels {
-            let @lib.LabelIdx(raw) = label_idx
-            if !run_hot_pipeline_raw_label_depth_is_allowed(
-                raw, void_self_loop_depths,
-              ) {
-              return false
-            }
-          }
+        } else if all_void_self_targets {
+          ()
+        } else if has_loop_target &&
+          has_enclosing_target &&
+          all_loop_or_enclosing_targets {
+          saw_backedge = true
         } else {
           return false
         }
+      }
       @lib.Block(_, @lib.Expr(body)) =>
         if run_hot_pipeline_raw_instrs_have_branch(body) {
           if run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
@@ -8196,6 +8223,162 @@ fn run_hot_pipeline_raw_br_table_loop_param_store_target(
     }
   }
   Some(default_target)
+}
+
+///|
+fn run_hot_pipeline_raw_br_table_mixed_loop_param_store_target(
+  labels : Array[@lib.LabelIdx],
+  default_label : @lib.LabelIdx,
+  label_stack : Array[RawSsaLabelTarget],
+) -> RawSsaLabelTarget? {
+  let mut loop_target : RawSsaLabelTarget? = None
+  let mut result_types : Array[@lib.ValType]? = None
+  let mut saw_non_loop = false
+  let all_labels = labels.copy()
+  all_labels.push(default_label)
+  for label_idx in all_labels {
+    let label_target = match
+      run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {
+      Some(label_target) => label_target
+      None => return None
+    }
+    match result_types {
+      Some(types) => if label_target.result_types != types { return None }
+      None => result_types = Some(label_target.result_types)
+    }
+    if label_target.is_loop_param_store {
+      match loop_target {
+        Some(existing) =>
+          if existing.loop_param_scratches != label_target.loop_param_scratches {
+            return None
+          }
+        None => loop_target = Some(label_target)
+      }
+    } else if label_target.is_loop {
+      return None
+    } else {
+      saw_non_loop = true
+    }
+  }
+  match loop_target {
+    Some(target) if saw_non_loop => Some(target)
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_append_br_table_scratch_branch(
+  out : Array[@lib.Instruction],
+  label_idx : @lib.LabelIdx,
+  label_target : RawSsaLabelTarget,
+  loop_target : RawSsaLabelTarget,
+  label_increment : UInt,
+  source_aliases : Array[@lib.LocalIdx],
+  canonical_aliases : Array[@lib.LocalIdx],
+  initialized_locals : @bitset.BitSet,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> Bool {
+  let branch_instrs = run_hot_pipeline_raw_append_alias_merge_copies_for_needed(
+    [],
+    source_aliases,
+    canonical_aliases,
+    canonical_aliases,
+    initialized_locals,
+    label_target.needed_alias_copies,
+    [],
+    params,
+    locals,
+    extra_local_types,
+  )
+  if label_target.is_loop_param_store {
+    if label_target.loop_param_scratches != loop_target.loop_param_scratches ||
+      label_target.result_types != loop_target.result_types {
+      return false
+    }
+  } else if label_target.is_loop {
+    return false
+  } else {
+    for idx = 0; idx < loop_target.loop_param_scratches.length(); idx = idx + 1 {
+      run_hot_pipeline_raw_append_scratch_get_as_type(
+        branch_instrs,
+        loop_target.loop_param_scratches[idx],
+        label_target.result_types[idx],
+      )
+    }
+  }
+  branch_instrs.push(
+    @lib.Instruction::br(
+      run_hot_pipeline_raw_label_add(label_idx, label_increment),
+    ),
+  )
+  out.append(branch_instrs)
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_rewrite_mixed_loop_param_store_br_table(
+  rewritten : Array[@lib.Instruction],
+  labels : Array[@lib.LabelIdx],
+  default_label : @lib.LabelIdx,
+  loop_target : RawSsaLabelTarget,
+  label_stack : Array[RawSsaLabelTarget],
+  source_aliases : Array[@lib.LocalIdx],
+  canonical_aliases : Array[@lib.LocalIdx],
+  initialized_locals : @bitset.BitSet,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> Bool {
+  if loop_target.loop_param_scratches.length() !=
+    loop_target.result_types.length() {
+    return false
+  }
+  let selector_local = run_hot_pipeline_raw_fresh_typed_local(
+    params,
+    locals,
+    @lib.ValType::i32(),
+    extra_local_types,
+  )
+  rewritten.push(@lib.Instruction::local_set(selector_local))
+  for idx = loop_target.loop_param_scratches.length() - 1
+      idx >= 0
+      idx = idx - 1 {
+    rewritten.push(
+      @lib.Instruction::local_set(loop_target.loop_param_scratches[idx]),
+    )
+  }
+  for label_pos = 0; label_pos < labels.length(); label_pos = label_pos + 1 {
+    let label_idx = labels[label_pos]
+    let label_target = match
+      run_hot_pipeline_raw_resolve_label_target(label_stack, label_idx) {
+      Some(label_target) => label_target
+      None => return false
+    }
+    rewritten.push(@lib.Instruction::local_get(selector_local))
+    rewritten.push(@lib.Instruction::i32_const(@lib.I32::new(label_pos)))
+    rewritten.push(@lib.Instruction::i32_eq())
+    let then_body : Array[@lib.Instruction] = []
+    if !run_hot_pipeline_raw_append_br_table_scratch_branch(
+        then_body, label_idx, label_target, loop_target, 1U, source_aliases, canonical_aliases,
+        initialized_locals, params, locals, extra_local_types,
+      ) {
+      return false
+    }
+    rewritten.push(
+      @lib.Instruction::if_(@lib.BlockType::void_(), then_body, None),
+    )
+  }
+  let default_target = match
+    run_hot_pipeline_raw_resolve_label_target(label_stack, default_label) {
+    Some(label_target) => label_target
+    None => return false
+  }
+  run_hot_pipeline_raw_append_br_table_scratch_branch(
+    rewritten, default_label, default_target, loop_target, 0U, source_aliases, canonical_aliases,
+    initialized_locals, params, locals, extra_local_types,
+  )
 }
 
 ///|
@@ -10583,6 +10766,24 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             if !run_hot_pipeline_raw_append_loop_param_store_backedge(
                 rewritten, default_label, label_target, aliases, canonical_aliases,
                 initialized, params, locals, extra_local_types,
+              ) {
+              return None
+            }
+            if was_reachable {
+              fallthrough = false
+            }
+            continue
+          }
+          None => ()
+        }
+        match
+          run_hot_pipeline_raw_br_table_mixed_loop_param_store_target(
+            labels, default_label, label_stack,
+          ) {
+          Some(loop_target) => {
+            if !run_hot_pipeline_raw_rewrite_mixed_loop_param_store_br_table(
+                rewritten, labels, default_label, loop_target, label_stack, aliases,
+                canonical_aliases, initialized, params, locals, extra_local_types,
               ) {
               return None
             }
