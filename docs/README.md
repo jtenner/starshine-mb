@@ -26,6 +26,9 @@ This section mirrors `AGENTS.md` and is intentionally compact enough to reuse in
 - Update relevant docs for behavior or API changes; keep docs concise.
 - Update pass tests in the implementing file and active dispatcher. Today that is usually `src/cmd/cmd.mbt`; later also `src/passes/optimize.mbt`.
 - Do not remove features, disable passing tests, add telemetry-only tests, or add shell scripts under `scripts/`.
+- Tests for behavior that should be implemented must fail before implementation; do not write green "fail-closed success" or no-op tests for required behavior gaps.
+- Boundary/fail-closed tests are allowed only when the behavior is intentionally unsupported or invalid, and the test name/comment must say so clearly.
+- Do not assert "differs from Binaryen on purpose" unless the test demonstrates an intentional Starshine semantic, validation, size, or performance win and documents why divergence is desired.
 - Gitignore new non-repo build or cache dirs when needed.
 - Do not use destructive git commands unless explicitly requested.
 - Serialize `moon` commands because they contend on `_build/.moon-lock`.
