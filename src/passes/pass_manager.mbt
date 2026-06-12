@@ -7204,16 +7204,142 @@ fn run_hot_pipeline_raw_reference_type_matches_same_heap(
 }
 
 ///|
-fn run_hot_pipeline_raw_heap_type_is_func_subtype(
-  module_ctx : @ir.HotModuleContext,
-  heap_type : @lib.HeapType,
+fn run_hot_pipeline_raw_abs_heap_type_is_subtype(
+  source : @lib.AbsHeapType,
+  target : @lib.AbsHeapType,
 ) -> Bool {
-  match heap_type {
-    @lib.AbsHeapTypeHeapType(@lib.FuncAbsHeapType) => true
-    @lib.HeapType(type_idx) =>
-      match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
-        Some(_) => true
+  if source == target {
+    return true
+  }
+  match (source, target) {
+    (@lib.NoneAbsHeapType, @lib.StructAbsHeapType)
+    | (@lib.NoneAbsHeapType, @lib.ArrayAbsHeapType)
+    | (@lib.NoneAbsHeapType, @lib.EqAbsHeapType)
+    | (@lib.NoneAbsHeapType, @lib.AnyAbsHeapType)
+    | (@lib.NoFuncAbsHeapType, @lib.FuncAbsHeapType)
+    | (@lib.NoFuncAbsHeapType, @lib.AnyAbsHeapType)
+    | (@lib.NoExternAbsHeapType, @lib.ExternAbsHeapType)
+    | (@lib.NoExnAbsHeapType, @lib.ExnAbsHeapType)
+    | (@lib.I31AbsHeapType, @lib.EqAbsHeapType)
+    | (@lib.I31AbsHeapType, @lib.AnyAbsHeapType)
+    | (@lib.StructAbsHeapType, @lib.EqAbsHeapType)
+    | (@lib.StructAbsHeapType, @lib.AnyAbsHeapType)
+    | (@lib.ArrayAbsHeapType, @lib.EqAbsHeapType)
+    | (@lib.ArrayAbsHeapType, @lib.AnyAbsHeapType)
+    | (@lib.EqAbsHeapType, @lib.AnyAbsHeapType)
+    | (@lib.FuncAbsHeapType, @lib.AnyAbsHeapType)
+    | (@lib.ExternAbsHeapType, @lib.AnyAbsHeapType) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_comptype_matches_abs_heap(
+  comp_type : @lib.CompType,
+  abs_heap : @lib.AbsHeapType,
+) -> Bool {
+  match comp_type {
+    @lib.StructCompType(_) =>
+      abs_heap == @lib.AbsHeapType::struct_() ||
+      abs_heap == @lib.AbsHeapType::eq() ||
+      abs_heap == @lib.AbsHeapType::any()
+    @lib.ArrayCompType(_) =>
+      abs_heap == @lib.AbsHeapType::array() ||
+      abs_heap == @lib.AbsHeapType::eq() ||
+      abs_heap == @lib.AbsHeapType::any()
+    @lib.FuncCompType(_, _) =>
+      abs_heap == @lib.AbsHeapType::func() ||
+      abs_heap == @lib.AbsHeapType::any()
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_subtype_as_heap_type_is_subtype(
+  module_ctx : @ir.HotModuleContext,
+  subtype : @lib.SubType,
+  target : @lib.HeapType,
+  fuel : Int,
+) -> Bool {
+  if fuel <= 0 {
+    return false
+  }
+  let (is_final, supers, comp_type) = match subtype {
+    @lib.CompTypeSubType(_, comp_type) => (false, [], comp_type)
+    @lib.SubType(is_final, supers, _, comp_type) =>
+      (is_final, supers, comp_type)
+  }
+  match target {
+    @lib.AbsHeapTypeHeapType(abs_heap) => {
+      if run_hot_pipeline_raw_comptype_matches_abs_heap(comp_type, abs_heap) {
+        return true
+      }
+      if is_final {
+        return false
+      }
+    }
+    _ => ()
+  }
+  for super_idx in supers {
+    if run_hot_pipeline_raw_heap_type_is_subtype(
+        module_ctx,
+        @lib.HeapType::new(super_idx),
+        target,
+        fuel - 1,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_heap_type_is_subtype(
+  module_ctx : @ir.HotModuleContext,
+  source : @lib.HeapType,
+  target : @lib.HeapType,
+  fuel : Int,
+) -> Bool {
+  if source == target {
+    return true
+  }
+  if fuel <= 0 {
+    return false
+  }
+  match (source, target) {
+    (@lib.AbsHeapTypeHeapType(source_abs), @lib.AbsHeapTypeHeapType(target_abs)) =>
+      run_hot_pipeline_raw_abs_heap_type_is_subtype(source_abs, target_abs)
+    (@lib.HeapType(source_idx), _) =>
+      match @ir.hot_module_resolve_subtype(module_ctx, source_idx) {
+        Some(subtype) =>
+          run_hot_pipeline_raw_subtype_as_heap_type_is_subtype(
+            module_ctx,
+            subtype,
+            target,
+            fuel - 1,
+          )
         None => false
+      }
+    (_, @lib.HeapType(target_idx)) =>
+      match source {
+        @lib.AbsHeapTypeHeapType(@lib.NoneAbsHeapType) =>
+          match @ir.hot_module_resolve_subtype(module_ctx, target_idx) {
+            Some(subtype) =>
+              match subtype.get_comptype() {
+                @lib.StructCompType(_) | @lib.ArrayCompType(_) => true
+                _ => false
+              }
+            None => false
+          }
+        @lib.AbsHeapTypeHeapType(@lib.NoFuncAbsHeapType) =>
+          match @ir.hot_module_resolve_subtype(module_ctx, target_idx) {
+            Some(subtype) =>
+              match subtype.get_comptype() {
+                @lib.FuncCompType(_, _) => true
+                _ => false
+              }
+            None => false
+          }
+        _ => false
       }
     _ => false
   }
@@ -7230,19 +7356,18 @@ fn run_hot_pipeline_raw_reference_type_matches(
   }
   match (actual, expected) {
     (@lib.RefTypeValType(actual_ref), @lib.RefTypeValType(expected_ref)) => {
-      if expected_ref.get_heap_type() !=
-        @lib.HeapType::abs(@lib.AbsHeapType::func()) {
-        return false
-      }
-      if expected_ref.is_exact() {
-        return false
-      }
       if actual_ref.is_nullable() && !expected_ref.is_nullable() {
         return false
       }
-      run_hot_pipeline_raw_heap_type_is_func_subtype(
+      if expected_ref.is_exact() {
+        return actual_ref.is_exact() &&
+          actual_ref.get_heap_type() == expected_ref.get_heap_type()
+      }
+      run_hot_pipeline_raw_heap_type_is_subtype(
         module_ctx,
         actual_ref.get_heap_type(),
+        expected_ref.get_heap_type(),
+        512,
       )
     }
     _ => false
