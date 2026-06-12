@@ -7928,10 +7928,35 @@ fn run_hot_pipeline_raw_instrs_have_branch(
 }
 
 ///|
-fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
+fn run_hot_pipeline_raw_increment_label_depths(
+  depths : Array[UInt],
+) -> Array[UInt] {
+  let incremented : Array[UInt] = []
+  for depth in depths {
+    incremented.push(depth + 1U)
+  }
+  incremented
+}
+
+///|
+fn run_hot_pipeline_raw_label_depth_is_allowed(
+  raw : UInt,
+  depths : Array[UInt],
+) -> Bool {
+  for depth in depths {
+    if raw == depth {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
   instrs : Array[@lib.Instruction],
   loop_depth : UInt,
   allow_ref_branches : Bool,
+  void_self_loop_depths : Array[UInt],
 ) -> Bool {
   let mut saw_backedge = false
   for instr in instrs {
@@ -7939,6 +7964,10 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
       @lib.Br(@lib.LabelIdx(raw)) | @lib.BrIf(@lib.LabelIdx(raw)) =>
         if raw == loop_depth {
           saw_backedge = true
+        } else if run_hot_pipeline_raw_label_depth_is_allowed(
+            raw, void_self_loop_depths,
+          ) {
+          ()
         } else {
           return false
         }
@@ -7951,36 +7980,56 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
         } else {
           return false
         }
-      @lib.BrTable(labels, @lib.LabelIdx(default_raw)) => {
-        if default_raw != loop_depth {
+      @lib.BrTable(labels, @lib.LabelIdx(default_raw)) =>
+        if default_raw == loop_depth {
+          for label_idx in labels {
+            let @lib.LabelIdx(raw) = label_idx
+            if raw != loop_depth {
+              return false
+            }
+          }
+          saw_backedge = true
+        } else if run_hot_pipeline_raw_label_depth_is_allowed(
+            default_raw, void_self_loop_depths,
+          ) {
+          for label_idx in labels {
+            let @lib.LabelIdx(raw) = label_idx
+            if !run_hot_pipeline_raw_label_depth_is_allowed(
+                raw, void_self_loop_depths,
+              ) {
+              return false
+            }
+          }
+        } else {
           return false
         }
-        for label_idx in labels {
-          let @lib.LabelIdx(raw) = label_idx
-          if raw != loop_depth {
-            return false
-          }
-        }
-        saw_backedge = true
-      }
       @lib.Block(_, @lib.Expr(body)) =>
         if run_hot_pipeline_raw_instrs_have_branch(body) {
-          if run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
+          if run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
               body,
               loop_depth + 1U,
               allow_ref_branches,
+              run_hot_pipeline_raw_increment_label_depths(void_self_loop_depths),
             ) {
             saw_backedge = true
           } else {
             return false
           }
         }
-      @lib.Loop(_, @lib.Expr(body)) =>
+      @lib.Loop(block_type, @lib.Expr(body)) =>
         if run_hot_pipeline_raw_instrs_have_branch(body) {
-          if run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
+          let child_void_self_loop_depths = run_hot_pipeline_raw_increment_label_depths(
+            void_self_loop_depths,
+          )
+          match block_type {
+            @lib.VoidBlockType => child_void_self_loop_depths.push(0U)
+            _ => ()
+          }
+          if run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
               body,
               loop_depth + 1U,
               allow_ref_branches,
+              child_void_self_loop_depths,
             ) {
             saw_backedge = true
           } else {
@@ -7992,11 +8041,15 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
           return false
         }
       @lib.If(_, then_body, else_body) => {
+        let child_void_self_loop_depths = run_hot_pipeline_raw_increment_label_depths(
+          void_self_loop_depths,
+        )
         if run_hot_pipeline_raw_instrs_have_branch(then_body) {
-          if run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
+          if run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
               then_body,
               loop_depth + 1U,
               allow_ref_branches,
+              child_void_self_loop_depths,
             ) {
             saw_backedge = true
           } else {
@@ -8006,10 +8059,11 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
         match else_body {
           Some(body) =>
             if run_hot_pipeline_raw_instrs_have_branch(body) {
-              if run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
+              if run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
                   body,
                   loop_depth + 1U,
                   allow_ref_branches,
+                  child_void_self_loop_depths,
                 ) {
                 saw_backedge = true
               } else {
@@ -8023,6 +8077,20 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
     }
   }
   saw_backedge
+}
+
+///|
+fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
+  instrs : Array[@lib.Instruction],
+  loop_depth : UInt,
+  allow_ref_branches : Bool,
+) -> Bool {
+  run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
+    instrs,
+    loop_depth,
+    allow_ref_branches,
+    [],
+  )
 }
 
 ///|
