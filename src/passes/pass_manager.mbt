@@ -7204,6 +7204,52 @@ fn run_hot_pipeline_raw_reference_type_matches_same_heap(
 }
 
 ///|
+fn run_hot_pipeline_raw_heap_type_is_func_subtype(
+  module_ctx : @ir.HotModuleContext,
+  heap_type : @lib.HeapType,
+) -> Bool {
+  match heap_type {
+    @lib.AbsHeapTypeHeapType(@lib.FuncAbsHeapType) => true
+    @lib.HeapType(type_idx) =>
+      match @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+        Some(_) => true
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_reference_type_matches(
+  module_ctx : @ir.HotModuleContext,
+  actual : @lib.ValType,
+  expected : @lib.ValType,
+) -> Bool {
+  if run_hot_pipeline_raw_reference_type_matches_same_heap(actual, expected) {
+    return true
+  }
+  match (actual, expected) {
+    (@lib.RefTypeValType(actual_ref), @lib.RefTypeValType(expected_ref)) => {
+      if expected_ref.get_heap_type() !=
+        @lib.HeapType::abs(@lib.AbsHeapType::func()) {
+        return false
+      }
+      if expected_ref.is_exact() {
+        return false
+      }
+      if actual_ref.is_nullable() && !expected_ref.is_nullable() {
+        return false
+      }
+      run_hot_pipeline_raw_heap_type_is_func_subtype(
+        module_ctx,
+        actual_ref.get_heap_type(),
+      )
+    }
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_default_instr_for_local(
   params : Array[@lib.ValType],
   locals : @lib.Locals,
@@ -8654,6 +8700,7 @@ fn run_hot_pipeline_raw_append_loop_param_store_backedge(
 ///|
 fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
   rewritten : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
   params : Array[@lib.ValType],
   locals : @lib.Locals,
   extra_local_types : Array[@lib.ValType],
@@ -8710,6 +8757,21 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
     Some(@lib.ArrayNewDefault(type_idx)) =>
       (@lib.ValType::ref_array_nonnull(type_idx), None, true, false)
     Some(@lib.RefI31) => (@lib.ValType::i31ref(), None, true, false)
+    Some(@lib.RefFunc(func_idx)) => {
+      let type_idx = match
+        @ir.hot_module_resolve_func_type_idx(module_ctx, func_idx) {
+        Some(type_idx) => type_idx
+        None => return None
+      }
+      (
+        @lib.ValType::ref_type(
+          @lib.RefType::new(false, @lib.HeapType::new(type_idx)),
+        ),
+        None,
+        true,
+        false,
+      )
+    }
     Some(@lib.AnyConvertExtern) => (@lib.ValType::anyref(), None, true, false)
     Some(@lib.ExternConvertAny) =>
       (@lib.ValType::externref(), None, true, false)
@@ -8805,6 +8867,7 @@ fn run_hot_pipeline_raw_rewrite_loop_param_store_br_if(
 ///|
 fn run_hot_pipeline_raw_rewrite_loop_param_store_br_on_null(
   rewritten : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
   label_idx : @lib.LabelIdx,
   label_target : RawSsaLabelTarget,
   source_aliases : Array[@lib.LocalIdx],
@@ -8821,7 +8884,7 @@ fn run_hot_pipeline_raw_rewrite_loop_param_store_br_on_null(
   }
   let (_, scratch_ref) = match
     run_hot_pipeline_raw_spill_trailing_ref_branch_input(
-      rewritten, params, locals, extra_local_types, true,
+      rewritten, module_ctx, params, locals, extra_local_types, true,
     ) {
     Some(spilled) => spilled
     None => return false
@@ -8868,6 +8931,7 @@ fn run_hot_pipeline_raw_rewrite_loop_param_store_br_on_null(
 ///|
 fn run_hot_pipeline_raw_rewrite_loop_param_store_br_on_non_null(
   rewritten : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
   label_idx : @lib.LabelIdx,
   label_target : RawSsaLabelTarget,
   source_aliases : Array[@lib.LocalIdx],
@@ -8885,7 +8949,7 @@ fn run_hot_pipeline_raw_rewrite_loop_param_store_br_on_non_null(
   }
   let (nullable_ref_type, scratch_ref) = match
     run_hot_pipeline_raw_spill_trailing_ref_branch_input(
-      rewritten, params, locals, extra_local_types, true,
+      rewritten, module_ctx, params, locals, extra_local_types, true,
     ) {
     Some(spilled) => spilled
     None => return false
@@ -8896,7 +8960,8 @@ fn run_hot_pipeline_raw_rewrite_loop_param_store_br_on_non_null(
     None => return false
   }
   let final_idx = label_target.result_types.length() - 1
-  if !run_hot_pipeline_raw_reference_type_matches_same_heap(
+  if !run_hot_pipeline_raw_reference_type_matches(
+      module_ctx,
       non_null_ref_type,
       label_target.result_types[final_idx],
     ) {
@@ -9300,6 +9365,7 @@ fn run_hot_pipeline_raw_rewrite_br_if(
 ///|
 fn run_hot_pipeline_raw_rewrite_br_on_null(
   rewritten : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
   label_idx : @lib.LabelIdx,
   label_target : RawSsaLabelTarget,
   source_aliases : Array[@lib.LocalIdx],
@@ -9319,7 +9385,7 @@ fn run_hot_pipeline_raw_rewrite_br_on_null(
   }
   let (_, scratch_ref) = match
     run_hot_pipeline_raw_spill_trailing_ref_branch_input(
-      rewritten, params, locals, extra_local_types, false,
+      rewritten, module_ctx, params, locals, extra_local_types, false,
     ) {
     Some(spilled) => spilled
     None => return false
@@ -9383,6 +9449,7 @@ fn run_hot_pipeline_raw_rewrite_br_on_null(
 ///|
 fn run_hot_pipeline_raw_rewrite_br_on_non_null(
   rewritten : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
   label_idx : @lib.LabelIdx,
   label_target : RawSsaLabelTarget,
   source_aliases : Array[@lib.LocalIdx],
@@ -9402,7 +9469,7 @@ fn run_hot_pipeline_raw_rewrite_br_on_non_null(
   }
   let (_, scratch_ref) = match
     run_hot_pipeline_raw_spill_trailing_ref_branch_input(
-      rewritten, params, locals, extra_local_types, false,
+      rewritten, module_ctx, params, locals, extra_local_types, false,
     ) {
     Some(spilled) => spilled
     None => return false
@@ -10895,8 +10962,8 @@ fn run_hot_pipeline_raw_rewrite_instrs(
         }
         if label_target.is_loop_param_store {
           if !run_hot_pipeline_raw_rewrite_loop_param_store_br_on_null(
-              rewritten, label_idx, label_target, aliases, canonical_aliases, initialized,
-              params, locals, extra_local_types,
+              rewritten, module_ctx, label_idx, label_target, aliases, canonical_aliases,
+              initialized, params, locals, extra_local_types,
             ) {
             return None
           }
@@ -10907,8 +10974,8 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           return None
         }
         if !run_hot_pipeline_raw_rewrite_br_on_null(
-            rewritten, label_idx, label_target, aliases, canonical_aliases, initialized,
-            params, locals, extra_local_types,
+            rewritten, module_ctx, label_idx, label_target, aliases, canonical_aliases,
+            initialized, params, locals, extra_local_types,
           ) {
           return None
         }
@@ -10925,8 +10992,8 @@ fn run_hot_pipeline_raw_rewrite_instrs(
         }
         if label_target.is_loop_param_store {
           if !run_hot_pipeline_raw_rewrite_loop_param_store_br_on_non_null(
-              rewritten, label_idx, label_target, aliases, canonical_aliases, initialized,
-              params, locals, extra_local_types,
+              rewritten, module_ctx, label_idx, label_target, aliases, canonical_aliases,
+              initialized, params, locals, extra_local_types,
             ) {
             return None
           }
@@ -10936,8 +11003,8 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           return None
         }
         if !run_hot_pipeline_raw_rewrite_br_on_non_null(
-            rewritten, label_idx, label_target, aliases, canonical_aliases, initialized,
-            params, locals, extra_local_types,
+            rewritten, module_ctx, label_idx, label_target, aliases, canonical_aliases,
+            initialized, params, locals, extra_local_types,
           ) {
           return None
         }
