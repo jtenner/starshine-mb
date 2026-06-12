@@ -224,6 +224,10 @@ fn ssa_test_divergent_i32_local_prefix(
 }
 
 ///|
+// Raw-path boundary: GC/reference branch operands are not hot-mutated, but the
+// raw lowering must still materialize the required Starshine-owned branch-copy
+// shape. This is not a green no-op: the structural assertions below prove the
+// observable no-merge copy lowering is present.
 fn ssa_test_assert_raw_ref_branch_copy_lowering(
   input : @lib.Module,
   canonical_local : UInt,
@@ -1176,7 +1180,13 @@ fn ssa_test_hot_func_ssa_nomerge_revision_unchanged(
 }
 
 ///|
-fn ssa_test_nested_cfg_pipeline_fail_closed(source : String) -> Unit raise {
+// Boundary helper for nested CFG shapes outside SSA no-merge v1's straight-line
+// value-block/result-if model. These tests must prove the input still contains
+// local traffic and that the pass deliberately leaves it untouched; behavior
+// gaps that should be implemented must use the expected-mutation helpers instead.
+fn ssa_test_unsupported_nested_cfg_pipeline_no_mutation(
+  source : String,
+) -> Unit raise {
   let trace : Array[String] = []
   match
     pass_test_run_pipeline(
@@ -1187,7 +1197,7 @@ fn ssa_test_nested_cfg_pipeline_fail_closed(source : String) -> Unit raise {
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected nested-CFG-sensitive ssa-nomerge fail-closed success, got \{err}",
+        "expected unsupported nested-CFG ssa-nomerge no-mutation success, got \{err}",
       )
   }
   assert_false(
@@ -1197,7 +1207,9 @@ fn ssa_test_nested_cfg_pipeline_fail_closed(source : String) -> Unit raise {
 }
 
 ///|
-fn ssa_test_nested_cfg_hot_fail_closed(source : String) -> Unit raise {
+fn ssa_test_unsupported_nested_cfg_hot_no_mutation(
+  source : String,
+) -> Unit raise {
   let mod_ = pass_test_module_from_wat(source)
   let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
   @ir.hot_verify_all_or_abort(func)
@@ -1224,7 +1236,10 @@ fn ssa_test_nested_cfg_hot_local_traffic_preserved(
 }
 
 ///|
-fn ssa_test_typed_loop_param_module_fail_closed(
+// Boundary helper for typed loop-param fixtures with no loop-carried overwrite
+// or edge copy requirement. Required typed-loop SSA rewrites use expected-mutation
+// helpers elsewhere in this file.
+fn ssa_test_no_copy_typed_loop_param_module_no_mutation(
   input : @lib.Module,
 ) -> Unit raise {
   let trace : Array[String] = []
@@ -1237,7 +1252,7 @@ fn ssa_test_typed_loop_param_module_fail_closed(
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected typed-loop-param ssa-nomerge fail-closed success, got \{err}",
+        "expected no-copy typed-loop-param ssa-nomerge no-mutation success, got \{err}",
       )
   }
   assert_false(
@@ -1247,16 +1262,21 @@ fn ssa_test_typed_loop_param_module_fail_closed(
 }
 
 ///|
-fn ssa_test_typed_loop_param_pipeline_fail_closed(
+fn ssa_test_no_copy_typed_loop_param_pipeline_no_mutation(
   source : String,
 ) -> Unit raise {
-  ssa_test_typed_loop_param_module_fail_closed(
+  ssa_test_no_copy_typed_loop_param_module_no_mutation(
     pass_test_module_from_wat(source),
   )
 }
 
 ///|
-fn ssa_test_hot_func_exceptional_fail_closed(func : @ir.HotFunc) -> Unit raise {
+// Boundary helper for exceptional-control fixtures. SSA no-merge v1 is
+// normal-flow-only, so these direct HOT checks assert deliberate no-mutation
+// while preserving the local traffic that would be unsafe to rewrite.
+fn ssa_test_unsupported_exceptional_hot_no_mutation(
+  func : @ir.HotFunc,
+) -> Unit raise {
   @ir.hot_verify_all_or_abort(func)
   let revision_before = @ir.hot_revision_current(func)
   let ctx = HotPassContext::new(
@@ -1330,7 +1350,9 @@ test "ssa-nomerge rewrites no-throw try_table local writes" {
 }
 
 ///|
-test "ssa-nomerge does not mutate exceptional-flow functions" {
+test "ssa-nomerge does not mutate unsupported exceptional-flow functions" {
+  // Exceptional predecessors are outside SSA no-merge v1's normal-flow model;
+  // this boundary test must stay green only because the pass leaves them untouched.
   let trace : Array[String] = []
   let source =
     #|(module
@@ -1355,7 +1377,7 @@ test "ssa-nomerge does not mutate exceptional-flow functions" {
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected exceptional-flow ssa-nomerge fail-closed success, got \{err}",
+        "expected unsupported exceptional-flow ssa-nomerge no-mutation success, got \{err}",
       )
   }
   assert_false(
@@ -1475,7 +1497,7 @@ test "ssa-nomerge preserves delegate shapes without hot local corruption" {
   let delegate = @ir.hot_build_delegate(func, target)
   @ir.hot_root_append(func, set)
   @ir.hot_root_append(func, delegate)
-  ssa_test_hot_func_exceptional_fail_closed(func)
+  ssa_test_unsupported_exceptional_hot_no_mutation(func)
 }
 
 ///|
@@ -6085,7 +6107,7 @@ test "ssa-nomerge does not mutate branch-bearing nested loops without loop-carri
   // Boundary coverage: this fixture has branch-bearing nested control but no
   // backedge carrying a new value to the typed outer loop, so ssa-nomerge has
   // no required no-merge rewrite to perform.
-  ssa_test_typed_loop_param_pipeline_fail_closed(source)
+  ssa_test_no_copy_typed_loop_param_pipeline_no_mutation(source)
 }
 
 ///|
@@ -7028,7 +7050,7 @@ test "ssa-nomerge handles scalar result-if with condition value-block" {
 }
 
 ///|
-test "ssa-nomerge still skips nested result-if with branch in condition block" {
+test "ssa-nomerge does not mutate unsupported nested result-if with branch in condition block" {
   let source =
     #|(module
     #|  (func (param i32) (local i32)
@@ -7052,12 +7074,12 @@ test "ssa-nomerge still skips nested result-if with branch in condition block" {
     #|    local.get 1
     #|    drop))
     #|)
-  ssa_test_nested_cfg_pipeline_fail_closed(source)
-  ssa_test_nested_cfg_hot_fail_closed(source)
+  ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
+  ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
 
 ///|
-test "ssa-nomerge still skips nested result-if with br_if in condition block" {
+test "ssa-nomerge does not mutate unsupported nested result-if with br_if in condition block" {
   let source =
     #|(module
     #|  (func (param i32) (local i32)
@@ -7082,12 +7104,12 @@ test "ssa-nomerge still skips nested result-if with br_if in condition block" {
     #|    local.get 1
     #|    drop))
     #|)
-  ssa_test_nested_cfg_pipeline_fail_closed(source)
-  ssa_test_nested_cfg_hot_fail_closed(source)
+  ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
+  ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
 
 ///|
-test "ssa-nomerge still skips nested result-if with nested loop in condition block" {
+test "ssa-nomerge does not mutate unsupported nested result-if with nested loop in condition block" {
   let source =
     #|(module
     #|  (func (param i32) (local i32)
@@ -7110,12 +7132,12 @@ test "ssa-nomerge still skips nested result-if with nested loop in condition blo
     #|    local.get 1
     #|    drop))
     #|)
-  ssa_test_nested_cfg_pipeline_fail_closed(source)
-  ssa_test_nested_cfg_hot_fail_closed(source)
+  ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
+  ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
 
 ///|
-test "ssa-nomerge still skips nested result-if with non-i32 condition block result" {
+test "ssa-nomerge rejects unsupported nested result-if with non-i32 condition block result" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
       @lib.ValType::i32(),
@@ -7155,13 +7177,13 @@ test "ssa-nomerge still skips nested result-if with non-i32 condition block resu
   )
   assert_false(
     @ir.ssa_simple_drop_result_if_allowed(func, drop, 0, result_if),
-    msg="non-i32 condition block must stay fail-closed",
+    msg="non-i32 condition block is unsupported boundary",
   )
   ssa_test_hot_func_ssa_nomerge_revision_unchanged(func)
 }
 
 ///|
-test "ssa-nomerge still skips nested result-if with branch in condition" {
+test "ssa-nomerge rejects unsupported nested result-if with branch in condition" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
       @lib.ValType::i32(),
@@ -7201,7 +7223,7 @@ test "ssa-nomerge still skips nested result-if with branch in condition" {
   )
   assert_false(
     @ir.ssa_simple_drop_result_if_allowed(func, drop, 0, result_if),
-    msg="branch in condition must stay fail-closed",
+    msg="branch in condition is unsupported boundary",
   )
   ssa_test_hot_func_ssa_nomerge_revision_unchanged(func)
 }
@@ -7387,7 +7409,7 @@ test "ssa-nomerge handles condition value-block plus arm value-blocks" {
 }
 
 ///|
-test "ssa-nomerge still skips nested result-if with branch in arm value-block" {
+test "ssa-nomerge does not mutate unsupported nested result-if with branch in arm value-block" {
   let source =
     #|(module
     #|  (func (param i32) (local i32)
@@ -7409,12 +7431,12 @@ test "ssa-nomerge still skips nested result-if with branch in arm value-block" {
     #|    local.get 1
     #|    drop))
     #|)
-  ssa_test_nested_cfg_pipeline_fail_closed(source)
-  ssa_test_nested_cfg_hot_fail_closed(source)
+  ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
+  ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
 
 ///|
-test "ssa-nomerge still skips nested result-if with br_if in arm value-block" {
+test "ssa-nomerge does not mutate unsupported nested result-if with br_if in arm value-block" {
   let source =
     #|(module
     #|  (func (param i32) (local i32)
@@ -7437,12 +7459,12 @@ test "ssa-nomerge still skips nested result-if with br_if in arm value-block" {
     #|    local.get 1
     #|    drop))
     #|)
-  ssa_test_nested_cfg_pipeline_fail_closed(source)
-  ssa_test_nested_cfg_hot_fail_closed(source)
+  ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
+  ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
 
 ///|
-test "ssa-nomerge still skips nested result-if with nested if in arm value-block" {
+test "ssa-nomerge does not mutate unsupported nested result-if with nested if in arm value-block" {
   let source =
     #|(module
     #|  (func (param i32 i32) (local i32)
@@ -7464,12 +7486,12 @@ test "ssa-nomerge still skips nested result-if with nested if in arm value-block
     #|    local.get 2
     #|    drop))
     #|)
-  ssa_test_nested_cfg_pipeline_fail_closed(source)
-  ssa_test_nested_cfg_hot_fail_closed(source)
+  ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
+  ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
 
 ///|
-test "ssa-nomerge still skips nested result-if with nested loop in arm value-block" {
+test "ssa-nomerge does not mutate unsupported nested result-if with nested loop in arm value-block" {
   let source =
     #|(module
     #|  (func (param i32) (local i32)
@@ -7490,8 +7512,8 @@ test "ssa-nomerge still skips nested result-if with nested loop in arm value-blo
     #|    local.get 1
     #|    drop))
     #|)
-  ssa_test_nested_cfg_pipeline_fail_closed(source)
-  ssa_test_nested_cfg_hot_fail_closed(source)
+  ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
+  ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
 
 ///|
@@ -7720,7 +7742,7 @@ test "ssa-nomerge rejects mixed arm with value-producing prefix root" {
   )
   assert_false(
     @ir.ssa_simple_drop_result_if_allowed(func, drop, 0, result_if),
-    msg="value-producing mixed-arm prefix must stay fail-closed",
+    msg="value-producing mixed-arm prefix is unsupported boundary",
   )
   ssa_test_hot_func_ssa_nomerge_revision_unchanged(func)
 }
@@ -7769,7 +7791,7 @@ test "ssa-nomerge rejects mixed arm with roots after final value-block" {
   )
   assert_false(
     @ir.ssa_simple_drop_result_if_allowed(func, drop, 0, result_if),
-    msg="roots after final mixed-arm value block must stay fail-closed",
+    msg="roots after final mixed-arm value block are unsupported boundary",
   )
   ssa_test_hot_func_ssa_nomerge_revision_unchanged(func)
 }
@@ -7820,13 +7842,13 @@ test "ssa-nomerge rejects mixed arm with two value-block roots" {
   )
   assert_false(
     @ir.ssa_simple_drop_result_if_allowed(func, drop, 0, result_if),
-    msg="two mixed-arm value blocks must stay fail-closed",
+    msg="two mixed-arm value blocks are unsupported boundary",
   )
   ssa_test_hot_func_ssa_nomerge_revision_unchanged(func)
 }
 
 ///|
-test "ssa-nomerge still skips mixed arm with branch in final value-block" {
+test "ssa-nomerge rejects unsupported mixed arm with branch in final value-block" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(params=[@lib.ValType::i32()], locals=[
       @lib.ValType::i32(),
@@ -7873,7 +7895,7 @@ test "ssa-nomerge still skips mixed arm with branch in final value-block" {
   )
   assert_false(
     @ir.ssa_simple_drop_result_if_allowed(func, drop, 0, result_if),
-    msg="branch inside mixed-arm final value block must stay fail-closed",
+    msg="branch inside mixed-arm final value block is unsupported boundary",
   )
   ssa_test_hot_func_ssa_nomerge_revision_unchanged(func)
 }
@@ -7929,13 +7951,13 @@ test "ssa-nomerge rejects mixed arm value-block result type mismatch" {
   )
   assert_false(
     @ir.ssa_simple_drop_result_if_allowed(func, drop, 0, result_if),
-    msg="mixed arm value-block result type mismatch must stay fail-closed",
+    msg="mixed arm value-block result type mismatch is unsupported boundary",
   )
   ssa_test_hot_func_ssa_nomerge_revision_unchanged(func)
 }
 
 ///|
-test "ssa-nomerge still skips mixed arm with nested block inside final value-block" {
+test "ssa-nomerge does not mutate unsupported mixed arm with nested block inside final value-block" {
   let source =
     #|(module
     #|  (func (param i32) (local i32)
@@ -7957,8 +7979,8 @@ test "ssa-nomerge still skips mixed arm with nested block inside final value-blo
     #|    local.get 1
     #|    drop))
     #|)
-  ssa_test_nested_cfg_pipeline_fail_closed(source)
-  ssa_test_nested_cfg_hot_fail_closed(source)
+  ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
+  ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
 
 ///|
@@ -8007,13 +8029,13 @@ test "ssa-nomerge rejects arm value-block result type mismatch" {
   )
   assert_false(
     @ir.ssa_simple_drop_result_if_allowed(func, drop, 0, result_if),
-    msg="arm value-block result type mismatch must stay fail-closed",
+    msg="arm value-block result type mismatch is unsupported boundary",
   )
   ssa_test_hot_func_ssa_nomerge_revision_unchanged(func)
 }
 
 ///|
-test "ssa-nomerge still skips nested result-if with nested if in condition" {
+test "ssa-nomerge does not mutate unsupported nested result-if with nested if in condition" {
   let source =
     #|(module
     #|  (func (param i32 i32) (local i32)
@@ -8033,8 +8055,8 @@ test "ssa-nomerge still skips nested result-if with nested if in condition" {
     #|    (local.get 1)
     #|    drop))
     #|)
-  ssa_test_nested_cfg_pipeline_fail_closed(source)
-  ssa_test_nested_cfg_hot_fail_closed(source)
+  ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
+  ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
 
 ///|
@@ -8073,7 +8095,7 @@ test "ssa-nomerge rewrites nested result-if when one arm does not overwrite cond
 }
 
 ///|
-test "ssa-nomerge still skips nested result-if with multi-value result" {
+test "ssa-nomerge does not mutate unsupported nested result-if with multi-value result" {
   let source =
     #|(module
     #|  (func (param i32) (local i32)
@@ -8094,12 +8116,12 @@ test "ssa-nomerge still skips nested result-if with multi-value result" {
     #|    local.get 1
     #|    drop))
     #|)
-  ssa_test_nested_cfg_pipeline_fail_closed(source)
-  ssa_test_nested_cfg_hot_fail_closed(source)
+  ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
+  ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
 
 ///|
-test "ssa-nomerge still skips nested result-if with br" {
+test "ssa-nomerge does not mutate unsupported nested result-if with br" {
   let source =
     #|(module
     #|  (func (param i32) (local i32)
@@ -8119,12 +8141,12 @@ test "ssa-nomerge still skips nested result-if with br" {
     #|    local.get 1
     #|    drop))
     #|)
-  ssa_test_nested_cfg_pipeline_fail_closed(source)
-  ssa_test_nested_cfg_hot_fail_closed(source)
+  ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
+  ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
 
 ///|
-test "ssa-nomerge still skips nested result-if with br_if" {
+test "ssa-nomerge does not mutate unsupported nested result-if with br_if" {
   let source =
     #|(module
     #|  (func (param i32) (local i32)
@@ -8145,12 +8167,12 @@ test "ssa-nomerge still skips nested result-if with br_if" {
     #|    local.get 1
     #|    drop))
     #|)
-  ssa_test_nested_cfg_pipeline_fail_closed(source)
-  ssa_test_nested_cfg_hot_fail_closed(source)
+  ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
+  ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
 
 ///|
-test "ssa-nomerge still skips nested result-if with nested loop" {
+test "ssa-nomerge does not mutate unsupported nested result-if with nested loop" {
   let source =
     #|(module
     #|  (func (param i32) (local i32)
@@ -8170,12 +8192,12 @@ test "ssa-nomerge still skips nested result-if with nested loop" {
     #|    local.get 1
     #|    drop))
     #|)
-  ssa_test_nested_cfg_pipeline_fail_closed(source)
-  ssa_test_nested_cfg_hot_fail_closed(source)
+  ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
+  ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
 
 ///|
-test "ssa-nomerge still skips nested result-if with nested if" {
+test "ssa-nomerge does not mutate unsupported nested result-if with nested if" {
   let source =
     #|(module
     #|  (func (param i32 i32) (local i32)
@@ -8196,12 +8218,12 @@ test "ssa-nomerge still skips nested result-if with nested if" {
     #|    local.get 2
     #|    drop))
     #|)
-  ssa_test_nested_cfg_pipeline_fail_closed(source)
-  ssa_test_nested_cfg_hot_fail_closed(source)
+  ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
+  ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
 
 ///|
-test "ssa-nomerge still skips nested result if under value block" {
+test "ssa-nomerge does not mutate unsupported nested result-if under value block" {
   // The result-typed `if` arms are region roots, but the enclosing value block
   // sits in `drop`'s operand slot and is therefore nested CFG-sensitive control.
   let source =
@@ -8222,8 +8244,8 @@ test "ssa-nomerge still skips nested result if under value block" {
     #|    drop
     #|    local.get 1))
     #|)
-  ssa_test_nested_cfg_pipeline_fail_closed(source)
-  ssa_test_nested_cfg_hot_fail_closed(source)
+  ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
+  ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
   ssa_test_nested_cfg_hot_local_traffic_preserved(source)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
@@ -8233,7 +8255,7 @@ test "ssa-nomerge still skips nested result if under value block" {
 }
 
 ///|
-test "ssa-nomerge still skips nested value block with br" {
+test "ssa-nomerge does not mutate unsupported nested value block with br" {
   // `br` is a terminator; when it appears inside a value block nested under
   // `drop`, the guard treats the subtree as nested CFG-sensitive local traffic.
   // An outer `$outer` label gives the inner `br` a valid exit target.
@@ -8250,8 +8272,8 @@ test "ssa-nomerge still skips nested value block with br" {
     #|      drop)
     #|    local.get 1))
     #|)
-  ssa_test_nested_cfg_pipeline_fail_closed(source)
-  ssa_test_nested_cfg_hot_fail_closed(source)
+  ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
+  ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   let text = instrs.to_string()
@@ -8260,7 +8282,7 @@ test "ssa-nomerge still skips nested value block with br" {
 }
 
 ///|
-test "ssa-nomerge still skips nested value block with br_if" {
+test "ssa-nomerge does not mutate unsupported nested value block with br_if" {
   // `br_if` is branch-shaped but not a HOT terminator flag; this fixture still
   // triggers the guard via the nested value block under `drop` with local traffic.
   // The outer `$outer` label keeps the inner `br_if` stack-valid.
@@ -8278,12 +8300,12 @@ test "ssa-nomerge still skips nested value block with br_if" {
     #|      drop)
     #|    local.get 1))
     #|)
-  ssa_test_nested_cfg_pipeline_fail_closed(source)
-  ssa_test_nested_cfg_hot_fail_closed(source)
+  ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
+  ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
 }
 
 ///|
-test "ssa-nomerge still skips nested loop under value block" {
+test "ssa-nomerge does not mutate unsupported nested loop under value block" {
   let source =
     #|(module
     #|  (func (local i32)
@@ -8297,8 +8319,8 @@ test "ssa-nomerge still skips nested loop under value block" {
     #|    local.get 0
     #|    drop))
     #|)
-  ssa_test_nested_cfg_pipeline_fail_closed(source)
-  ssa_test_nested_cfg_hot_fail_closed(source)
+  ssa_test_unsupported_nested_cfg_pipeline_no_mutation(source)
+  ssa_test_unsupported_nested_cfg_hot_no_mutation(source)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (_, instrs) = try! ssa_test_first_defined_func(optimized)
   let text = instrs.to_string()
