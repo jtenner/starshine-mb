@@ -7999,14 +7999,14 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_ref_backedges(
     match instr {
       @lib.BrOnCast(@lib.LabelIdx(raw), _, _, _)
       | @lib.BrOnCastFail(@lib.LabelIdx(raw), _, _, _)
+      | @lib.BrOnNull(@lib.LabelIdx(raw))
       | @lib.BrOnNonNull(@lib.LabelIdx(raw)) =>
         if raw == 0U {
           saw_ref_backedge = true
         } else {
           return false
         }
-      @lib.Br(_) | @lib.BrIf(_) | @lib.BrTable(_, _) | @lib.BrOnNull(_) =>
-        return false
+      @lib.Br(_) | @lib.BrIf(_) | @lib.BrTable(_, _) => return false
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>

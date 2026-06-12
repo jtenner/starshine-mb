@@ -360,6 +360,60 @@ fn ssa_test_instrs_have_loop_param_scalar_branch_proxy(
 }
 
 ///|
+fn ssa_test_instrs_have_loop_param_null_proxy(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Loop(@lib.VoidBlockType, @lib.Expr(loop_body)) =>
+        for loop_instr in loop_body {
+          match loop_instr {
+            @lib.Block(@lib.VoidBlockType, @lib.Expr(outer_body)) => {
+              let has_loop_backedge = outer_body.any(fn(outer_instr) {
+                outer_instr == @lib.Instruction::br(@lib.LabelIdx::new(1U))
+              })
+              let has_inner_null_proxy = outer_body.any(fn(outer_instr) {
+                match outer_instr {
+                  @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(inner_body)) =>
+                    inner_body.any(fn(inner_instr) {
+                      match inner_instr {
+                        @lib.BrOnNull(@lib.LabelIdx(raw)) => raw == 0U
+                        _ => false
+                      }
+                    })
+                  _ => false
+                }
+              })
+              if has_loop_backedge && has_inner_null_proxy {
+                return true
+              }
+            }
+            _ => ()
+          }
+        }
+      @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if ssa_test_instrs_have_loop_param_null_proxy(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if ssa_test_instrs_have_loop_param_null_proxy(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if ssa_test_instrs_have_loop_param_null_proxy(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn ssa_test_instrs_have_loop_param_non_null_proxy(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -845,15 +899,15 @@ fn ssa_test_nested_cfg_hot_local_traffic_preserved(
 }
 
 ///|
-fn ssa_test_typed_loop_param_pipeline_fail_closed(
-  source : String,
+fn ssa_test_typed_loop_param_module_fail_closed(
+  input : @lib.Module,
 ) -> Unit raise {
   let trace : Array[String] = []
   match
-    pass_test_run_pipeline(
-      source,
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
       ["ssa-nomerge"],
-      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
     Ok(_) => ()
     Err(err) =>
@@ -864,6 +918,15 @@ fn ssa_test_typed_loop_param_pipeline_fail_closed(
   assert_false(
     trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
     msg=trace.join("\n"),
+  )
+}
+
+///|
+fn ssa_test_typed_loop_param_pipeline_fail_closed(
+  source : String,
+) -> Unit raise {
+  ssa_test_typed_loop_param_module_fail_closed(
+    pass_test_module_from_wat(source),
   )
 }
 
@@ -1436,6 +1499,212 @@ test "ssa-nomerge rewrites copy-needing non-null reference typed loop-param br_i
     #|    local.get 3))
     #|)
   ssa_test_expect_scalar_loop_param_branch_proxy(source, 4, false)
+}
+
+///|
+test "ssa-nomerge rewrites no-copy br_on_null typed loop-param backedge" {
+  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
+  let extern_ref = @lib.ValType::ref_type(@lib.RefType::new(true, extern_heap))
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([extern_ref], [])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([extern_ref], [extern_ref]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([extern_ref]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::loop_(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+              @lib.Expr::new([
+                @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+              ]),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected br_on_null loop-param ssa-nomerge success, got \{err}")
+  }
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_null_proxy(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge keeps copy-needing br_on_null typed loop-param fail-closed" {
+  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
+  let extern_ref = @lib.ValType::ref_type(@lib.RefType::new(true, extern_heap))
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([extern_ref], [])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([extern_ref, @lib.ValType::i32()], [extern_ref]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([extern_ref, extern_ref]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::loop_(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+              @lib.Expr::new([
+                @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::if_(
+                  @lib.BlockType::void_(),
+                  [
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+                  ],
+                  Some([
+                    @lib.Instruction::ref_null(extern_heap),
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+                  ]),
+                ),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::ref_null(extern_heap),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+              ]),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+          ]),
+        ),
+      ]),
+    )
+  ssa_test_typed_loop_param_module_fail_closed(input)
+}
+
+///|
+test "ssa-nomerge keeps multi-param typed loop direct br fail-closed" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32 i32)))
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    i32.const 0
+    #|    i32.const 1
+    #|    loop $l (type $loop_t)
+    #|      local.set 2
+    #|      local.tee 1
+    #|      local.get 0
+    #|      i32.lt_s
+    #|      if
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.add
+    #|        local.get 2
+    #|        i32.const 1
+    #|        i32.add
+    #|        br $l
+    #|      end
+    #|    end
+    #|    local.get 1))
+    #|)
+  ssa_test_typed_loop_param_pipeline_fail_closed(source)
+}
+
+///|
+test "ssa-nomerge keeps mixed typed loop branch families fail-closed" {
+  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
+  let extern_ref = @lib.ValType::ref_type(@lib.RefType::new(true, extern_heap))
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([extern_ref], [])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([extern_ref, @lib.ValType::i32()], [extern_ref]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([extern_ref]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+            @lib.Instruction::loop_(
+              @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+              @lib.Expr::new([
+                @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+              ]),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          ]),
+        ),
+      ]),
+    )
+  ssa_test_typed_loop_param_module_fail_closed(input)
+}
+
+///|
+test "ssa-nomerge keeps branch-bearing nested loops under typed loop params fail-closed" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 0
+    #|    loop $outer (type $loop_t)
+    #|      local.set 1
+    #|      loop $inner
+    #|        br $inner
+    #|      end
+    #|    end
+    #|    local.get 1))
+    #|)
+  ssa_test_typed_loop_param_pipeline_fail_closed(source)
 }
 
 ///|
