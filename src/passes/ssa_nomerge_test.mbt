@@ -3825,6 +3825,136 @@ test "ssa-nomerge rewrites copy-needing multi-param single-result typed loop br_
 }
 
 ///|
+test "ssa-nomerge keeps no-throw try_table scalar proxy backedges fail-closed" {
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    (block $h
+    #|      i32.const 0
+    #|      (loop $l (param i32)
+    #|        local.set 1
+    #|        (try_table (catch_all $h)
+    #|          local.get 1
+    #|          i32.const 1
+    #|          i32.add
+    #|          br $l)))
+    #|    local.get 1))
+    #|)
+  match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected no-throw try_table scalar proxy fail-closed success, got \{err}",
+      )
+  }
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites no-throw try_table multi-param typed loop br backedges" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32 i32)))
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    (block $h
+    #|      i32.const 0
+    #|      local.get 0
+    #|      (loop $l (type $loop_t)
+    #|        local.set 2
+    #|        local.set 1
+    #|        (try_table (catch_all $h)
+    #|          local.get 1
+    #|          i32.const 1
+    #|          i32.add
+    #|          local.get 2
+    #|          br $l)))
+    #|    local.get 1))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites no-throw try_table single-result typed loop br backedges" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32 i32) (result i32)))
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    i32.const 0
+    #|    local.get 0
+    #|    (loop $l (type $loop_t)
+    #|      local.set 2
+    #|      local.set 1
+    #|      (block $h
+    #|        (try_table (catch_all $h)
+    #|          local.get 1
+    #|          i32.const 1
+    #|          i32.add
+    #|          local.get 2
+    #|          br $l))
+    #|      unreachable)))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge keeps throwing try_table typed loop backedges fail-closed" {
+  let trace : Array[String] = []
+  let source =
+    #|(module
+    #|  (tag $e)
+    #|  (func (param i32) (result i32) (local i32)
+    #|    (block $h
+    #|      i32.const 0
+    #|      (loop $l (param i32)
+    #|        local.set 1
+    #|        (try_table (catch $e $h)
+    #|          local.get 1
+    #|          i32.const 1
+    #|          i32.add
+    #|          br $l
+    #|          throw $e)))
+    #|    local.get 1))
+    #|)
+  match
+    pass_test_run_pipeline(
+      source,
+      ["ssa-nomerge"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected throwing try_table typed-loop ssa-nomerge fail-closed success, got \{err}",
+      )
+  }
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[ssa-nomerge]:mutated") }),
+    msg=trace.join("\n"),
+  )
+}
+
+///|
 test "ssa-nomerge keeps multi-result typed loop-param direct br fail-closed" {
   let source =
     #|(module

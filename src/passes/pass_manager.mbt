@@ -7965,6 +7965,7 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
   instrs : Array[@lib.Instruction],
   loop_depth : UInt,
   allow_ref_branches : Bool,
+  allow_try_table_branches : Bool,
   void_self_loop_depths : Array[UInt],
 ) -> Bool {
   let mut saw_backedge = false
@@ -8036,6 +8037,7 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
               body,
               loop_depth + 1U,
               allow_ref_branches,
+              allow_try_table_branches,
               run_hot_pipeline_raw_increment_label_depths(void_self_loop_depths),
             ) {
             saw_backedge = true
@@ -8056,6 +8058,7 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
               body,
               loop_depth + 1U,
               allow_ref_branches,
+              allow_try_table_branches,
               child_void_self_loop_depths,
             ) {
             saw_backedge = true
@@ -8065,7 +8068,21 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
         }
       @lib.TryTable(_, _, @lib.Expr(body)) =>
         if run_hot_pipeline_raw_instrs_have_branch(body) {
-          return false
+          if !allow_try_table_branches ||
+            run_hot_pipeline_raw_try_table_body_has_exceptional_edge(body) {
+            return false
+          }
+          if run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
+              body,
+              loop_depth + 1U,
+              allow_ref_branches,
+              allow_try_table_branches,
+              run_hot_pipeline_raw_increment_label_depths(void_self_loop_depths),
+            ) {
+            saw_backedge = true
+          } else {
+            return false
+          }
         }
       @lib.If(_, then_body, else_body) => {
         let child_void_self_loop_depths = run_hot_pipeline_raw_increment_label_depths(
@@ -8076,6 +8093,7 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
               then_body,
               loop_depth + 1U,
               allow_ref_branches,
+              allow_try_table_branches,
               child_void_self_loop_depths,
             ) {
             saw_backedge = true
@@ -8090,6 +8108,7 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
                   body,
                   loop_depth + 1U,
                   allow_ref_branches,
+                  allow_try_table_branches,
                   child_void_self_loop_depths,
                 ) {
                 saw_backedge = true
@@ -8116,6 +8135,22 @@ fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
     instrs,
     loop_depth,
     allow_ref_branches,
+    false,
+    [],
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_through_try_table(
+  instrs : Array[@lib.Instruction],
+  loop_depth : UInt,
+  allow_ref_branches : Bool,
+) -> Bool {
+  run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_with_void_self(
+    instrs,
+    loop_depth,
+    allow_ref_branches,
+    true,
     [],
   )
 }
@@ -10488,7 +10523,7 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                 _ => false
               }
             })
-            if !run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges(
+            if !run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_through_try_table(
                 body, 0U, allow_ref_backedges,
               ) {
               return None
