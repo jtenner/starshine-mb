@@ -12019,6 +12019,37 @@ fn run_hot_pipeline_raw_instrs_have_memory_access(
 }
 
 ///|
+fn run_hot_pipeline_raw_instrs_have_table_grow(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.TableGrow(_) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_instrs_have_table_grow(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_instrs_have_table_grow(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_instrs_have_table_grow(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_instrs_have_table_update(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -12209,6 +12240,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
   let freshen_repeated_non_loop_sets = run_hot_pipeline_raw_instrs_have_table_update(
     instrs,
   )
+  let has_table_grow = run_hot_pipeline_raw_instrs_have_table_grow(root_instrs)
   // Binaryen's two-call allocator unlink helpers use a coupled allocation
   // schedule: freshen the top-level `block + 4` address tee, the value-if
   // result write, and selected value-if carriers, but keep most nested
@@ -12282,6 +12314,10 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
               run_hot_pipeline_raw_count_local_gets(instrs, local_id)
             )
           )
+        let preserve_table_grow_count_value_if_set = two_call_allocator_body &&
+          has_table_grow &&
+          previous_was_value_if &&
+          local_id == base_local_count - 1
         let preserve_nested_branch_memory_set = !two_call_allocator_body &&
           instrs.length() != root_instrs.length() &&
           previous_was_memory_load &&
@@ -12305,6 +12341,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
             (
               two_call_allocator_body &&
               previous_was_value_if &&
+              !preserve_table_grow_count_value_if_set &&
               local_id >= params.length() &&
               local_id < base_local_count
             ) ||

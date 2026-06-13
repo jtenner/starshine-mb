@@ -2568,6 +2568,10 @@ test "ssa-nomerge artifact parity freshens table growth slot temporaries" {
     ssa_test_local_write_indices(instrs).any(fn(idx) { idx == 3U }),
     msg=instrs.to_string(),
   )
+  assert_false(
+    ssa_test_local_write_indices(instrs).any(fn(idx) { idx > 7U }),
+    msg=instrs.to_string(),
+  )
 }
 
 ///|
