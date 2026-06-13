@@ -2962,6 +2962,176 @@ test "ssa-nomerge artifact parity keeps gc free branch exits at Binaryen local b
 }
 
 ///|
+test "ssa-nomerge artifact parity preserves branch-carried refcount locals" {
+  // Artifact repro from checked-in debug-WASI after the table-growth count-lane
+  // fix, current first canonical difference `defined=55 abs=82`. The structured
+  // early-return block carries the else-branch child reference through canonical
+  // local $3 for later use; freshening that branch result to a temporary drops
+  // the reaching value and leaves the post-block consumer on Binaryen's default
+  // zero lane. Binaryen also keeps the paired refcount/load lanes on canonical
+  // locals $10, $11, $12, and $23, so guard the full local budget here instead
+  // of accepting a representation-only drift.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $retain (param i32))
+    #|  (func $release (param i32))
+    #|  (func $free (param i32))
+    #|  (func $make (param i32 i32 i32) (result i32) local.get 0)
+    #|  (func $tag (param i32) (result i32) i32.const 2)
+    #|  (func $stderr_bytes (param i32) (result i32) local.get 0)
+    #|  (func $dispatch (param i32 i32) (result i32) local.get 1)
+    #|  (func (param $a i32) (param $obj i32) (param $arg i32) (result i32)
+    #|    (local $result i32) (local $callee i32) (local $made i32) (local $ptr i32)
+    #|    (local $errtmp i32) (local $call_result i32) (local $stderr i32) (local $payload i32)
+    #|    (local $child i32) (local $obj_count i32) (local $drop8 i32) (local $drop12 i32)
+    #|    (local $drop16 i32) (local $drop20 i32) (local $drop24 i32) (local $drop28 i32)
+    #|    (local $drop32 i32) (local $drop40 i32) (local $drop44 i32) (local $obj_dec i32)
+    #|    (local $child_count i32) (local $child_dec i32) (local $status i32)
+    #|    block
+    #|      local.get $obj
+    #|      call $retain
+    #|      local.get $a
+    #|      local.get $obj
+    #|      local.get $arg
+    #|      call $make
+    #|      local.tee $made
+    #|      call $tag
+    #|      local.tee $status
+    #|      i32.const 1
+    #|      i32.eq
+    #|      if (result i32)
+    #|        local.get $made
+    #|        call $release
+    #|        local.get $obj
+    #|        call $release
+    #|        i32.const 0
+    #|      else
+    #|        local.get $made
+    #|        local.tee $ptr
+    #|        i32.load offset=8 align=1
+    #|        local.set $child
+    #|        local.get $ptr
+    #|        i32.load align=1
+    #|        local.tee $child_count
+    #|        i32.const 1
+    #|        i32.gt_s
+    #|        if
+    #|          local.get $child_count
+    #|          i32.const 1
+    #|          i32.sub
+    #|          local.set $child_dec
+    #|          local.get $ptr
+    #|          local.get $child_dec
+    #|          i32.store align=1
+    #|          local.get $child
+    #|          call $retain
+    #|        else
+    #|          local.get $child_count
+    #|          i32.const 1
+    #|          i32.eq
+    #|          if
+    #|            local.get $ptr
+    #|            call $free
+    #|          end
+    #|        end
+    #|        local.get $child
+    #|        local.tee $errtmp
+    #|        local.set $result
+    #|        br 1
+    #|      end
+    #|      return
+    #|    end
+    #|    local.get $obj
+    #|    i32.load offset=36 align=1
+    #|    local.set $payload
+    #|    local.get $obj
+    #|    i32.load align=1
+    #|    local.tee $obj_count
+    #|    i32.const 1
+    #|    i32.gt_s
+    #|    if
+    #|      local.get $obj_count
+    #|      i32.const 1
+    #|      i32.sub
+    #|      local.set $obj_dec
+    #|      local.get $obj
+    #|      local.get $obj_dec
+    #|      i32.store align=1
+    #|      local.get $payload
+    #|      call $retain
+    #|    else
+    #|      local.get $obj_count
+    #|      i32.const 1
+    #|      i32.eq
+    #|      if
+    #|        local.get $obj
+    #|        i32.load offset=44 align=1
+    #|        local.tee $drop44
+    #|        call $release
+    #|        local.get $obj
+    #|        i32.load offset=40 align=1
+    #|        local.tee $drop40
+    #|        call $release
+    #|        local.get $obj
+    #|        i32.load offset=32 align=1
+    #|        local.tee $drop32
+    #|        call $release
+    #|        local.get $obj
+    #|        i32.load offset=28 align=1
+    #|        local.tee $drop28
+    #|        call $release
+    #|        local.get $obj
+    #|        i32.load offset=24 align=1
+    #|        local.tee $drop24
+    #|        call $release
+    #|        local.get $obj
+    #|        i32.load offset=20 align=1
+    #|        local.tee $drop20
+    #|        call $release
+    #|        local.get $obj
+    #|        i32.load offset=16 align=1
+    #|        local.tee $drop16
+    #|        call $release
+    #|        local.get $obj
+    #|        i32.load offset=12 align=1
+    #|        local.tee $drop12
+    #|        call $release
+    #|        local.get $obj
+    #|        i32.load offset=8 align=1
+    #|        local.tee $drop8
+    #|        call $release
+    #|        local.get $obj
+    #|        call $free
+    #|      end
+    #|    end
+    #|    local.get $payload
+    #|    local.set $callee
+    #|    local.get $result
+    #|    call $stderr_bytes
+    #|    local.set $stderr
+    #|    local.get $callee
+    #|    local.get $stderr
+    #|    call $dispatch
+    #|    local.tee $call_result
+    #|    call $release
+    #|    i32.const 1)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 7)
+  let writes = ssa_test_local_write_indices(instrs)
+  assert_true(locals.length() <= 35, msg=locals.to_string())
+  assert_true(writes.any(fn(idx) { idx == 3U }), msg=instrs.to_string())
+  assert_true(writes.any(fn(idx) { idx == 10U }), msg=instrs.to_string())
+  assert_true(writes.any(fn(idx) { idx == 11U }), msg=instrs.to_string())
+  assert_true(writes.any(fn(idx) { idx == 12U }), msg=instrs.to_string())
+  assert_true(writes.any(fn(idx) { idx == 23U }), msg=instrs.to_string())
+  let text = instrs.to_string()
+  assert_true(text.contains("(local.get (Local 3)), (call (Func 5))"), msg=text)
+  assert_false(writes.any(fn(idx) { idx > 37U }), msg=instrs.to_string())
+}
+
+///|
 test "ssa-nomerge skips O4z raw pass until self-opt cli flag parsing is safe" {
   let trace : Array[String] = []
   match

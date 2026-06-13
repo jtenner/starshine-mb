@@ -8078,6 +8078,64 @@ fn run_hot_pipeline_raw_empty_exit_depths(
 }
 
 ///|
+fn run_hot_pipeline_raw_exit_depths_have_outer_exit(
+  exit_depths : @bitset.BitSet,
+) -> Bool {
+  for depth = 1; depth < exit_depths.length(); depth = depth + 1 {
+    if exit_depths[depth] {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_instrs_have_local_read_before_hard_exit(
+  instrs : Array[@lib.Instruction],
+  start_idx : Int,
+) -> Bool {
+  let mut idx = start_idx
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.LocalGet(_) => return true
+      @lib.Return
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_)
+      | @lib.Throw(_)
+      | @lib.ThrowRef
+      | @lib.Unreachable
+      | @lib.Br(_) => return false
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_instrs_have_local_read_before_hard_exit(body, 0) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_instrs_have_local_read_before_hard_exit(
+            then_body, 0,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_instrs_have_local_read_before_hard_exit(
+                body, 0,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+    idx = idx + 1
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_propagate_outer_exits(
   exit_depths : @bitset.BitSet,
   nested_exit_depths : @bitset.BitSet,
@@ -10862,12 +10920,36 @@ fn run_hot_pipeline_raw_rewrite_instrs(
               }
               (true, false) => {
                 aliases = then_aliases
-                initialized = then_initialized
+                initialized = if run_hot_pipeline_raw_exit_depths_have_outer_exit(
+                    else_exit_depths,
+                  ) &&
+                  !run_hot_pipeline_raw_instrs_have_local_read_before_hard_exit(
+                    instrs,
+                    idx + 1,
+                  ) {
+                  run_hot_pipeline_raw_bitset_union(
+                    then_initialized, else_initialized,
+                  )
+                } else {
+                  then_initialized
+                }
                 fallthrough = true
               }
               (false, true) => {
                 aliases = else_aliases
-                initialized = else_initialized
+                initialized = if run_hot_pipeline_raw_exit_depths_have_outer_exit(
+                    then_exit_depths,
+                  ) &&
+                  !run_hot_pipeline_raw_instrs_have_local_read_before_hard_exit(
+                    instrs,
+                    idx + 1,
+                  ) {
+                  run_hot_pipeline_raw_bitset_union(
+                    then_initialized, else_initialized,
+                  )
+                } else {
+                  else_initialized
+                }
                 fallthrough = true
               }
               (false, false) => fallthrough = false
@@ -12325,6 +12407,22 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
           local_id < base_local_count &&
           run_hot_pipeline_raw_count_local_gets(root_instrs, local_id) >
           run_hot_pipeline_raw_count_local_gets(instrs, local_id)
+        let preserve_refcount_memory_load_set = !two_call_allocator_body &&
+          !has_table_grow &&
+          !freshen_repeated_non_loop_sets &&
+          previous_was_memory_load &&
+          local_id >= params.length() &&
+          local_id < base_local_count &&
+          run_hot_pipeline_raw_count_call_like(root_instrs) > 2 &&
+          run_hot_pipeline_raw_count_local_writes(root_instrs, local_id) == 1
+        let preserve_refcount_branch_result_set = !two_call_allocator_body &&
+          !has_table_grow &&
+          !freshen_repeated_non_loop_sets &&
+          instrs.length() != root_instrs.length() &&
+          previous_was_local_tee &&
+          local_id == params.length() &&
+          run_hot_pipeline_raw_count_call_like(root_instrs) > 2 &&
+          run_hot_pipeline_raw_instrs_have_branch(instrs)
         if (
             freshen_params ||
             freshen_repeated_non_loop_sets ||
@@ -12337,7 +12435,11 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
               !previous_was_call &&
               !preserve_nested_param_merge_set
             ) ||
-            (freshen_repeated_body_scratch && previous_was_local_tee) ||
+            (
+              freshen_repeated_body_scratch &&
+              previous_was_local_tee &&
+              !preserve_refcount_branch_result_set
+            ) ||
             (
               two_call_allocator_body &&
               previous_was_value_if &&
@@ -12350,7 +12452,8 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
             (
               previous_was_memory_load &&
               !preserve_first_two_call_unlink_load_set &&
-              !preserve_nested_branch_memory_set
+              !preserve_nested_branch_memory_set &&
+              !preserve_refcount_memory_load_set
             ) ||
             (
               freshen_repeated_non_loop_sets &&
@@ -12407,6 +12510,14 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
           previous_was_i32_and &&
           local_id == params.length() &&
           run_hot_pipeline_raw_count_local_writes(root_instrs, local_id) > 1
+        let preserve_refcount_memory_load_tee = !two_call_allocator_body &&
+          !has_table_grow &&
+          !freshen_repeated_non_loop_sets &&
+          previous_was_memory_load &&
+          local_id >= params.length() &&
+          local_id < base_local_count &&
+          run_hot_pipeline_raw_count_call_like(root_instrs) > 2 &&
+          run_hot_pipeline_raw_count_local_writes(root_instrs, local_id) == 1
         if (freshen_params || (two_call_allocator_body && previous_was_select)) &&
           local_id >= 0 &&
           (
@@ -12423,7 +12534,11 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
                 (two_call_allocator_body && previous_was_select) ||
                 value_if_prefix_mask_tee ||
                 repeated_top_level_add_tee ||
-                (previous_was_memory_load && !repeated_top_level_load_tee) ||
+                (
+                  previous_was_memory_load &&
+                  !repeated_top_level_load_tee &&
+                  !preserve_refcount_memory_load_tee
+                ) ||
                 (
                   freshen_repeated_body_scratch &&
                   run_hot_pipeline_raw_count_local_writes(root_instrs, local_id) >
