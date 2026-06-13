@@ -8790,6 +8790,239 @@ test "ssa-nomerge rewrites problem1 prefix call_indirect operands br_on_null inp
 }
 
 ///|
+test "ssa-nomerge fail-closed problem1 multi-result direct call br_on_non_null input" {
+  // Boundary: multi-result calls are intentionally not rewritten yet because
+  // the spill helper must preserve non-tested result lanes and know which lane
+  // contains the tested reference. Keep the raw branch instead of guessing.
+  let externref = @lib.ValType::externref()
+  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
+  let call_type_idx = @lib.TypeIdx::new(0U)
+  let result_type_idx = @lib.TypeIdx::new(1U)
+  let test_type_idx = @lib.TypeIdx::new(2U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32(), externref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32(), externref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32(), externref]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([call_type_idx, test_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(9),
+            @lib.Instruction::ref_null(extern_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::i32_const(7),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+              ],
+              None,
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::type_idx(result_type_idx),
+              @lib.Expr::new([
+                @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+                @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(6),
+                @lib.Instruction::ref_null(extern_heap),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  ssa_test_problem1_fail_closed_reference_branch_input(
+    input, 1, "multi-result direct call br_on_non_null input", ssa_test_instrs_have_br_on_non_null,
+  )
+}
+
+///|
+test "ssa-nomerge fail-closed problem1 multi-result call_ref br_on_non_null input" {
+  // Boundary: the current raw spill helper only admits exactly one reference
+  // result. Multi-result `call_ref` must stay raw until lane preservation is
+  // designed and tested.
+  let externref = @lib.ValType::externref()
+  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
+  let call_type_idx = @lib.TypeIdx::new(0U)
+  let result_type_idx = @lib.TypeIdx::new(1U)
+  let test_type_idx = @lib.TypeIdx::new(2U)
+  let helper_idx = @lib.FuncIdx::new(0U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32(), externref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32(), externref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32(), externref]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([call_type_idx, test_type_idx]))
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([helper_idx]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(9),
+            @lib.Instruction::ref_null(extern_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::i32_const(7),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+              ],
+              None,
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::type_idx(result_type_idx),
+              @lib.Expr::new([
+                @lib.Instruction::ref_func(helper_idx),
+                @lib.Instruction::call_ref(call_type_idx),
+                @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(6),
+                @lib.Instruction::ref_null(extern_heap),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  ssa_test_problem1_fail_closed_reference_branch_input(
+    input, 1, "multi-result call_ref br_on_non_null input", ssa_test_instrs_have_br_on_non_null,
+  )
+}
+
+///|
+test "ssa-nomerge fail-closed problem1 multi-result call_indirect br_on_non_null input" {
+  // Boundary: multi-result `call_indirect` has the same lane-preservation risk
+  // as direct/call_ref multi-result calls, plus a table-index operand.
+  let externref = @lib.ValType::externref()
+  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
+  let call_type_idx = @lib.TypeIdx::new(0U)
+  let result_type_idx = @lib.TypeIdx::new(1U)
+  let test_type_idx = @lib.TypeIdx::new(2U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32(), externref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32(), externref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32(), externref]),
+          ),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            @lib.RefType::new(
+              true,
+              @lib.HeapType::abs(@lib.AbsHeapType::func()),
+            ),
+            @lib.Limits::i32(1U, Some(1U)),
+          ),
+          None,
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([test_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::i32_const(7),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+              ],
+              None,
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::type_idx(result_type_idx),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(0),
+                @lib.Instruction::call_indirect(
+                  call_type_idx,
+                  @lib.TableIdx::new(0U),
+                ),
+                @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(6),
+                @lib.Instruction::ref_null(extern_heap),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  ssa_test_problem1_fail_closed_reference_branch_input(
+    input, 0, "multi-result call_indirect br_on_non_null input", ssa_test_instrs_have_br_on_non_null,
+  )
+}
+
+///|
 test "ssa-nomerge fail-closed problem1 struct-new operands br_on_non_null input" {
   let struct_idx = @lib.TypeIdx::new(0U)
   let struct_heap = @lib.HeapType::new(struct_idx)
@@ -8900,6 +9133,63 @@ test "ssa-nomerge fail-closed problem1 array-new operands br_on_non_null input" 
     )
   ssa_test_problem1_fail_closed_reference_branch_input(
     input, 0, "array-new operands br_on_non_null input", ssa_test_instrs_have_br_on_non_null,
+  )
+}
+
+///|
+test "ssa-nomerge fail-closed problem1 array-new-fixed operands br_on_non_null input" {
+  // Boundary: `array.new_fixed` consumes an operand sequence before producing
+  // the tested reference. Until aggregate operand preservation is designed, do
+  // not rewrite the adjacent ref branch.
+  let array_idx = @lib.TypeIdx::new(0U)
+  let array_heap = @lib.HeapType::new(array_idx)
+  let nullable_array_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, array_heap),
+  )
+  let field = @lib.FieldType::new(
+    @lib.StorageType::val_type(@lib.ValType::i32()),
+    @lib.Mut::var_(),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::array(field))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([], [nullable_array_ref])),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::i32_const(7),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+              ],
+              None,
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_array_ref),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(4),
+                @lib.Instruction::i32_const(5),
+                @lib.Instruction::array_new_fixed(array_idx, 2),
+                @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::ref_null(array_heap),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  ssa_test_problem1_fail_closed_reference_branch_input(
+    input, 0, "array-new-fixed operands br_on_non_null input", ssa_test_instrs_have_br_on_non_null,
   )
 }
 

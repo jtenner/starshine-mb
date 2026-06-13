@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Guard multi-result call and aggregate branch-input boundaries
+
+- Added fail-closed problem-1 boundary guards in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for multi-result direct `call`, `call_ref`, and `call_indirect` feeding `br_on_non_null`, plus operandful `array.new_fixed` feeding `br_on_non_null`.
+- No behavior-code widening was needed or intended: multi-result calls still need a lane-preservation design before the spill helper can target the tested reference without disturbing sibling results, and operandful aggregate constructors still stay raw rather than scanning backward across constructor operands. The guards require valid output and preservation of the raw branch.
+- TDD note: the initial multi-result tests exposed invalid fixture cleanup (`stack underflow` from dropping more fallthrough values than `br_on_non_null` leaves); after correcting the fixtures, the boundary guards were green. Signoff: focused `ssa_nomerge_test.mbt` passed `302/302`, `moon test src/passes` passed `2323/2323`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5598/5598`, native `src/cmd` build passed, and direct compare `.tmp/pass-fuzz-ssa-nomerge-multires-aggregate-boundaries-10000` requested `10000`, compared `7606`, had `7606` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-13] passes/ssa-nomerge | Cover remaining prefix call-family operands
 
 - Added three problem-1 prefix-payload call-family positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt): operandful `call_indirect` / `br_on_non_null`, operandful `call_ref` / `br_on_null`, and operandful `call_indirect` / `br_on_null`. Each requires mutation, validation, temp-local writes, and removal of the raw branch.
