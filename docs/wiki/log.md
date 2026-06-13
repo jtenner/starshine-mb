@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Cover flat mixed br_table/br_on_non_null reference typed-loop backedges
+
+- Added a positive in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for a flat type-indexed single-reference-param loop that mixes an all-current-target `br_table` current-loop backedge in a conditional arm with a following current-loop `br_on_non_null` backedge.
+- No behavior-code widening was needed after the preceding mixed-reference classifier and existing all-current `br_table` / reference-backedge proxy lowerings; the guard locks the composition and asserts valid mutation plus removal of the raw non-null branch.
+- TDD/coverage note: the new positive was green on first focused run (`330/330`) because earlier `br_table` and flat mixed reference work already admitted this family. Broader signoff is recorded in the matching parity entry.
+
 ## [2026-06-13] passes/ssa-nomerge | Implement flat mixed null/non-null reference typed-loop backedges
 
 - Added three positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for flat type-indexed single-reference-param loops with mixed current-loop reference backedge families: `br_if` plus `br_on_non_null`, `br_on_null` plus `br_on_non_null`, and the three-way `br_if` / `br_on_null` / `br_on_non_null` sibling.
