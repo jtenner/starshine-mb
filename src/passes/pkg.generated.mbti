@@ -297,6 +297,10 @@ pub fn simplify_locals_summary() -> String
 
 pub fn ssa_full_build_merge_rewrite_plan(@ir.HotFunc, @ir.HotLocalGraph) -> SsaFullRewritePlan
 
+pub fn ssa_full_descriptor() -> @ir.HotPassDescriptor
+
+pub fn ssa_full_summary() -> String
+
 pub fn ssa_nomerge_descriptor() -> @ir.HotPassDescriptor
 
 pub fn ssa_nomerge_summary() -> String

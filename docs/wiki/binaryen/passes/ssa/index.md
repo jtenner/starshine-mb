@@ -43,8 +43,8 @@ related:
 ## Role
 
 - `ssa` is a real public upstream Binaryen pass.
-- It is part of the local Starshine pass registry as a **boundary-only** name, not an active pass.
-- Starshine now has an analysis-only full-`ssa` merge-rewrite planner in `src/passes/ssa.mbt`; it consumes LocalGraph source facts but does not mutate functions or activate public `--ssa`.
+- It is part of the local Starshine pass registry as an **active partial** hot-pass name for non-merge families.
+- Starshine now has an active partial full-`ssa` hot pass for direct lit-compatible non-merge families; merge-local materialization remains fail-closed.
 - It is worth tracking here because the repo already has a deep dossier for the implemented sibling [`ssa-nomerge`](../ssa-nomerge/index.md), and that dossier repeatedly depends on a correct explanation of what full `ssa` would do differently.
 
 The beginner summary is:
@@ -109,7 +109,7 @@ So this dossier is primarily here to make the sibling split teachable, not to cl
 
 ## Agent-todo note
 
-`agent-todo.md` now tracks dedicated full-`ssa` slices under `[O4Z-AUDIT-SSA]`. `[SSA-FULL]001` chose the registry/request behavior: full `ssa` is known but boundary-only until mutation lands. `[SSA-FULL]002A` adds the no-mutation planner for merge-local actions; the remaining `[SSA-FULL]002B` through `[SSA-FULL]002E` slices still own active rewriting, direct pass activation, entry-prepend/default handling, loop merges, and direct `--pass ssa` signoff. The implementation must not alias to `ssa-nomerge`.
+`agent-todo.md` now tracks dedicated full-`ssa` slices under `[O4Z-AUDIT-SSA]`. `[SSA-FULL]001` first made full `ssa` known but boundary-only, `[SSA-FULL]002A` added the merge-local planner, and `[SSA-FULL]002B` activates direct non-merge rewrite families without aliasing the registry entry to `ssa-nomerge`. The remaining `[SSA-FULL]002C` through `[SSA-FULL]002E` slices still own merge-local materialization, entry-prepend/default merge handling, loop merges, and direct `--pass ssa` closeout signoff.
 
 ## Page map
 
@@ -122,7 +122,7 @@ So this dossier is primarily here to make the sibling split teachable, not to cl
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog, with direct `ssa.wast` positives clearly separated from source-derived merge-local families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  - Current Starshine status and port map: boundary-only local `ssa` registry entry, active `ssa-nomerge` sibling, reusable HOT SSA overlay/destruction infrastructure plus LocalGraph facts, and the exact code locations a future faithful port would need to bridge.
+  - Current Starshine status and port map: active partial local `ssa` registry entry, active `ssa-nomerge` sibling, reusable HOT SSA overlay/destruction infrastructure plus LocalGraph facts, and the exact code locations the remaining merge-local slices must bridge.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   - Future implementation bridge: registry honesty, source classifier requirements, merge-local rewrite order, `ssa-nomerge` sibling-stability checks, and validation ladder.
 

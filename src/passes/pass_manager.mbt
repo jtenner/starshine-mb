@@ -14660,10 +14660,12 @@ fn run_hot_pipeline_raw_ssa_nomerge(
       trace_skip_raw: true,
     })
   }
-  if descriptor.name != "ssa-nomerge" {
+  if descriptor.name != "ssa-nomerge" && descriptor.name != "ssa" {
     return None
   }
-  if options.optimize_level >= 4 && options.shrink_level >= 1 {
+  if descriptor.name == "ssa-nomerge" &&
+    options.optimize_level >= 4 &&
+    options.shrink_level >= 1 {
     return Some({
       reason: "o4z-ssa-nomerge-noop",
       func: original,
@@ -14724,6 +14726,9 @@ fn run_hot_pipeline_raw_ssa_nomerge(
       unchanged_original: false,
       trace_skip_raw: true,
     })
+  }
+  if descriptor.name == "ssa" {
+    return None
   }
   if has_structured_control {
     if run_hot_pipeline_raw_ssa_nomerge_should_defer_loop_carried_br_if_to_hot(
@@ -19455,6 +19460,7 @@ pub fn hot_pass_run(
     "pass:\{descriptor.name}",
   )
   let result = match descriptor.name {
+    "ssa" => ssa_full_run(ctx, func)
     "ssa-nomerge" => ssa_nomerge_run(ctx, func)
     "vacuum" =>
       if hot_pass_vacuum_should_skip_root_local_set_stack_hazard(func) {

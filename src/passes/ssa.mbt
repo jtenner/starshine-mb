@@ -1,4 +1,22 @@
 ///|
+pub fn ssa_full_descriptor() -> @ir.HotPassDescriptor {
+  @ir.HotPassDescriptor::new("ssa", invalidates=[
+    @ir.HotAnalysis::cfg(),
+    @ir.HotAnalysis::dominance(),
+    @ir.HotAnalysis::liveness(),
+    @ir.HotAnalysis::use_def(),
+    @ir.HotAnalysis::effects(),
+    @ir.HotAnalysis::loop_info(),
+    @ir.HotAnalysis::ssa(),
+  ])
+}
+
+///|
+pub fn ssa_full_summary() -> String {
+  "SSA-ify local traffic for non-merge families; merge-local materialization remains fail-closed."
+}
+
+///|
 /// Planned incoming source action for a future Binaryen-style full-SSA merge local.
 pub(all) enum SsaFullMergeInput {
   ExplicitWrite(@ir.NodeId)
@@ -88,4 +106,43 @@ pub fn ssa_full_build_merge_rewrite_plan(
     }
   }
   { merge_gets, }
+}
+
+///|
+fn ssa_full_graph_has_merge_get(
+  func : @ir.HotFunc,
+  graph : @ir.HotLocalGraph,
+) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::LocalGet =>
+        if @ir.local_graph_get_is_merge(graph, node_id) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn ssa_full_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
+  if !ssa_nomerge_has_local_writes(func) {
+    return HotPassResult::unchanged()
+  }
+  if ssa_nomerge_has_exceptional_flow(func) ||
+    ssa_nomerge_has_loop_param_control(func) ||
+    ssa_nomerge_has_branch_heavy_void_loop_exit_mesh(func) ||
+    ssa_nomerge_has_nested_cfg_sensitive_control(func) {
+    return HotPassResult::unchanged()
+  }
+  let cfg = pass_require_cfg(ctx, func)
+  let graph = @ir.local_graph_build(func, cfg)
+  if ssa_full_graph_has_merge_get(func, graph) {
+    return HotPassResult::unchanged()
+  }
+  ssa_nomerge_run(ctx, func)
 }

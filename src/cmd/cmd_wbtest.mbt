@@ -1702,8 +1702,12 @@ test "run_cmd_with_adapter rejects unknown pass flags once the hot pass registry
 }
 
 ///|
-test "run_cmd_with_adapter reports full ssa as unsupported instead of unknown" {
-  let wasm = encode_module_bytes(fixture_i32_const_module(1))
+test "run_cmd_with_adapter applies full ssa to non-merge wasm inputs" {
+  let wasm = encode_module_bytes(
+    @passes.pass_test_module_from_wat(
+      "(module (func (param i32) (result i32) local.get 0 i32.const 1 i32.add local.set 0 local.get 0))",
+    ),
+  )
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
     list_candidates=fn() { ["a.wasm"] },
@@ -1720,15 +1724,14 @@ test "run_cmd_with_adapter reports full ssa as unsupported instead of unknown" {
       Ok(())
     },
   )
-  match run_cmd_with_adapter(["--ssa", "--out", "out.wasm", "a.wasm"], io) {
-    Ok(summary) => fail("expected full ssa rejection, got \{summary}")
-    Err(CmdError::OptimizeFailed(msg)) => {
-      assert_true(msg.contains("boundary-only"), msg~)
-      assert_true(msg.contains("Full SSA"), msg~)
-    }
-    Err(err) => fail("expected explicit full ssa unsupported error, got \{err}")
+  let summary = match
+    run_cmd_with_adapter(["--ssa", "--out", "out.wasm", "a.wasm"], io) {
+    Ok(summary) => summary
+    Err(err) => fail("unexpected active full ssa run failure: \{err}")
   }
-  @debug.assert_eq(writes.length(), 0)
+  @debug.assert_eq(summary.resolved_passes, ["ssa"])
+  @debug.assert_eq(writes.length(), 1)
+  ignore(decode_module_bytes(writes[0].1))
 }
 
 ///|

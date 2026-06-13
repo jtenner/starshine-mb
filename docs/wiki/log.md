@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa | Activate direct full-SSA non-merge rewrites
+
+- Completed `[SSA-FULL]002B` in [`../../agent-todo.md`](../../agent-todo.md) as the first active public `ssa` rewrite slice.
+- Updated [`../../src/passes/ssa.mbt`](../../src/passes/ssa.mbt), [`../../src/passes/optimize.mbt`](../../src/passes/optimize.mbt), and [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so `ssa` is an active hot pass for direct non-merge families while LocalGraph merge reads remain fail-closed until merge-local mutation lands.
+- Added red-first focused tests in [`../../src/passes/ssa_test.mbt`](../../src/passes/ssa_test.mbt), [`../../src/passes/registry_test.mbt`](../../src/passes/registry_test.mbt), and [`../../src/cmd/cmd_wbtest.mbt`](../../src/cmd/cmd_wbtest.mbt) for repeated parameter overwrite freshening, default exact-ref replacement, merge-family fail-closed behavior, active registry status, and direct CLI `--ssa` success on non-merge input.
+- Refreshed [`binaryen/passes/ssa/index.md`](binaryen/passes/ssa/index.md), [`binaryen/passes/ssa/starshine-strategy.md`](binaryen/passes/ssa/starshine-strategy.md), [`binaryen/passes/ssa/starshine-port-readiness-and-validation.md`](binaryen/passes/ssa/starshine-port-readiness-and-validation.md), [`binaryen/passes/tracker.md`](binaryen/passes/tracker.md), [`ir2/local-ssa-policy.md`](ir2/local-ssa-policy.md), [`ir2/execution-plan.md`](ir2/execution-plan.md), [`ir2/registry-map.md`](ir2/registry-map.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`index.md`](index.md). Evidence: focused `ssa_test.mbt` passed `8/8`, `registry_test.mbt` passed `6/6`, `cmd_wbtest.mbt` passed `105/105`, `moon test src/passes` passed `2404/2404`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5708/5708`, and native `src/cmd` release build passed with pre-existing pass-manager unused-function warnings. Direct `--pass ssa` compare/fuzz was attempted but the harness rejected `ssa` as an unsupported pass flag before cases ran, so direct oracle signoff remains open for a later harness/closeout slice.
+
 ## [2026-06-13] passes/ssa | Add full SSA merge-rewrite planner
 
 - Completed `[SSA-FULL]002A` in [`../../agent-todo.md`](../../agent-todo.md) as a no-mutation planner slice; public `ssa` remains boundary-only and no pass rewrite behavior is active yet.

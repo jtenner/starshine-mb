@@ -34,7 +34,7 @@ related:
 
 ### Hot passes
 
-`ssa-nomerge`, `vacuum`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `optimize-casts`, `pick-load-signs`, `precompute`, `code-pushing`, `code-folding`, `tuple-optimization`, `simplify-locals`, `simplify-locals-nostructure`, `simplify-locals-no-structure`, `simplify-locals-notee-nostructure`, `merge-blocks`, and `redundant-set-elimination`.
+`ssa-nomerge`, `ssa`, `vacuum`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `optimize-casts`, `pick-load-signs`, `precompute`, `code-pushing`, `code-folding`, `tuple-optimization`, `simplify-locals`, `simplify-locals-nostructure`, `simplify-locals-no-structure`, `simplify-locals-notee-nostructure`, `merge-blocks`, and `redundant-set-elimination`.
 
 ### Module passes
 

@@ -14,7 +14,7 @@ test "pass registry classifies active, boundary-only, and removed names" {
   )
   @debug.assert_eq(
     pass_registry_category("ssa"),
-    Some(HotPassRegistryCategory::boundary_only()),
+    Some(HotPassRegistryCategory::hot_pass()),
   )
   @debug.assert_eq(
     pass_registry_category("dead-code-elimination"),
@@ -169,6 +169,7 @@ test "pass registry classifies active, boundary-only, and removed names" {
 ///|
 test "batch 1 descriptors expose the active first hot ports" {
   let ssa = ssa_nomerge_descriptor()
+  let full_ssa = ssa_full_descriptor()
   let dce = dead_code_elimination_descriptor()
   let opt = optimize_instructions_descriptor()
   let precompute = precompute_descriptor()
@@ -188,6 +189,8 @@ test "batch 1 descriptors expose the active first hot ports" {
 
   @debug.assert_eq(ssa.name, "ssa-nomerge")
   @debug.assert_eq(@ir.hot_pass_requires(ssa), [])
+  @debug.assert_eq(full_ssa.name, "ssa")
+  @debug.assert_eq(@ir.hot_pass_requires(full_ssa), [])
   @debug.assert_eq(dce.name, "dead-code-elimination")
   @debug.assert_eq(@ir.hot_pass_requires(dce), [])
   @debug.assert_eq(opt.name, "optimize-instructions")
@@ -272,17 +275,15 @@ test "run_hot_pipeline rejects removed registry names" {
 }
 
 ///|
-test "run_hot_pipeline rejects full ssa as an explicit boundary-only sibling" {
+test "run_hot_pipeline accepts full ssa for direct non-merge sibling work" {
   let input = pass_test_module_from_wat(
     "(module (func (result i32) (local i32) i32.const 1 local.set 0 local.get 0))",
   )
 
   match run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa"]) {
-    Ok(_) => fail("expected full ssa to reject until its IR2 port lands")
-    Err(err) => {
-      assert_true(err.contains("boundary-only"), msg=err)
-      assert_true(err.contains("Full SSA"), msg=err)
-    }
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected active full ssa non-merge pipeline success, got \{err}")
   }
 }
 

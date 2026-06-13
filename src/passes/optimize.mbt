@@ -156,10 +156,7 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       ssa_nomerge_summary(),
       ssa_nomerge_descriptor(),
     ),
-    pass_registry_entry_boundary_only(
-      "ssa",
-      summary="Full SSA sibling is known but intentionally unsupported until merge-local mutation and dispatcher activation land.",
-    ),
+    pass_registry_entry_hot("ssa", ssa_full_summary(), ssa_full_descriptor()),
     pass_registry_entry_hot(
       "vacuum",
       "Remove `nop` roots and region entries through hot IR cleanup.",
