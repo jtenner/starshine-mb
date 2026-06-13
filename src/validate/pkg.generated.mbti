@@ -872,6 +872,9 @@ pub struct GenValidFeatureFacts {
   has_ssa_multi_def_same_local : Bool
   has_ssa_param_entry_read : Bool
   has_ssa_local_tee_def_use : Bool
+  has_ssa_tee_freshen_candidate : Bool
+  has_ssa_tee_merge_feeding_candidate : Bool
+  has_ssa_tee_child_expression : Bool
   has_ssa_param_write : Bool
   has_ssa_dead_local_set : Bool
   has_ssa_dead_local_tee : Bool
@@ -981,6 +984,9 @@ pub struct GenValidFeatureStats {
   ssa_multi_def_same_local : Int
   ssa_param_entry_read : Int
   ssa_local_tee_def_use : Int
+  ssa_tee_freshen_candidate : Int
+  ssa_tee_merge_feeding_candidate : Int
+  ssa_tee_child_expression : Int
   ssa_param_write : Int
   ssa_dead_local_set : Int
   ssa_dead_local_tee : Int
@@ -1161,6 +1167,9 @@ pub struct GenValidSsaFuncFacts {
   has_ssa_multi_def_same_local : Bool
   has_ssa_param_entry_read : Bool
   has_ssa_local_tee_def_use : Bool
+  has_ssa_tee_freshen_candidate : Bool
+  has_ssa_tee_merge_feeding_candidate : Bool
+  has_ssa_tee_child_expression : Bool
   has_ssa_param_write : Bool
   has_ssa_dead_local_set : Bool
   has_ssa_dead_local_tee : Bool
@@ -1635,6 +1644,9 @@ pub enum ValidateValidFeatureKey {
   SsaMultiDefSameLocal
   SsaParamEntryRead
   SsaLocalTeeDefUse
+  SsaTeeFreshenCandidate
+  SsaTeeMergeFeedingCandidate
+  SsaTeeChildExpression
   SsaParamWrite
   SsaDeadLocalSet
   SsaDeadLocalTee

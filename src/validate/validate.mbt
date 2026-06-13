@@ -3454,6 +3454,9 @@ pub enum ValidateValidFeatureKey {
   SsaMultiDefSameLocal
   SsaParamEntryRead
   SsaLocalTeeDefUse
+  SsaTeeFreshenCandidate
+  SsaTeeMergeFeedingCandidate
+  SsaTeeChildExpression
   SsaParamWrite
   SsaDeadLocalSet
   SsaDeadLocalTee
@@ -3558,6 +3561,10 @@ pub impl Show for ValidateValidFeatureKey with fn output(self, logger) {
     SsaMultiDefSameLocal => logger.write_string("SsaMultiDefSameLocal")
     SsaParamEntryRead => logger.write_string("SsaParamEntryRead")
     SsaLocalTeeDefUse => logger.write_string("SsaLocalTeeDefUse")
+    SsaTeeFreshenCandidate => logger.write_string("SsaTeeFreshenCandidate")
+    SsaTeeMergeFeedingCandidate =>
+      logger.write_string("SsaTeeMergeFeedingCandidate")
+    SsaTeeChildExpression => logger.write_string("SsaTeeChildExpression")
     SsaParamWrite => logger.write_string("SsaParamWrite")
     SsaDeadLocalSet => logger.write_string("SsaDeadLocalSet")
     SsaDeadLocalTee => logger.write_string("SsaDeadLocalTee")
@@ -3784,6 +3791,9 @@ pub fn validate_valid_feature_actual_count(
     SsaMultiDefSameLocal => stats.ssa_multi_def_same_local
     SsaParamEntryRead => stats.ssa_param_entry_read
     SsaLocalTeeDefUse => stats.ssa_local_tee_def_use
+    SsaTeeFreshenCandidate => stats.ssa_tee_freshen_candidate
+    SsaTeeMergeFeedingCandidate => stats.ssa_tee_merge_feeding_candidate
+    SsaTeeChildExpression => stats.ssa_tee_child_expression
     SsaParamWrite => stats.ssa_param_write
     SsaDeadLocalSet => stats.ssa_dead_local_set
     SsaDeadLocalTee => stats.ssa_dead_local_tee
@@ -3898,6 +3908,9 @@ fn validate_valid_feature_ledger_keys() -> Array[ValidateValidFeatureKey] {
     SsaMultiDefSameLocal,
     SsaParamEntryRead,
     SsaLocalTeeDefUse,
+    SsaTeeFreshenCandidate,
+    SsaTeeMergeFeedingCandidate,
+    SsaTeeChildExpression,
     SsaParamWrite,
     SsaDeadLocalSet,
     SsaDeadLocalTee,
@@ -4057,6 +4070,9 @@ fn validate_valid_feature_key_label(key : ValidateValidFeatureKey) -> String {
     SsaMultiDefSameLocal => "ssa-multi-def-same-local"
     SsaParamEntryRead => "ssa-param-entry-read"
     SsaLocalTeeDefUse => "ssa-local-tee-def-use"
+    SsaTeeFreshenCandidate => "ssa-tee-freshen-candidate"
+    SsaTeeMergeFeedingCandidate => "ssa-tee-merge-feeding-candidate"
+    SsaTeeChildExpression => "ssa-tee-child-expression"
     SsaParamWrite => "ssa-param-write"
     SsaDeadLocalSet => "ssa-dead-local-set"
     SsaDeadLocalTee => "ssa-dead-local-tee"
@@ -4169,6 +4185,9 @@ fn validate_valid_feature_key_from_label(
     "ssa-multi-def-same-local" => Some(SsaMultiDefSameLocal)
     "ssa-param-entry-read" => Some(SsaParamEntryRead)
     "ssa-local-tee-def-use" => Some(SsaLocalTeeDefUse)
+    "ssa-tee-freshen-candidate" => Some(SsaTeeFreshenCandidate)
+    "ssa-tee-merge-feeding-candidate" => Some(SsaTeeMergeFeedingCandidate)
+    "ssa-tee-child-expression" => Some(SsaTeeChildExpression)
     "ssa-param-write" => Some(SsaParamWrite)
     "ssa-dead-local-set" => Some(SsaDeadLocalSet)
     "ssa-dead-local-tee" => Some(SsaDeadLocalTee)

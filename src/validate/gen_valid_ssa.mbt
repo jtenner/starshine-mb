@@ -5,6 +5,9 @@ pub struct GenValidSsaFuncFacts {
   has_ssa_multi_def_same_local : Bool
   has_ssa_param_entry_read : Bool
   has_ssa_local_tee_def_use : Bool
+  has_ssa_tee_freshen_candidate : Bool
+  has_ssa_tee_merge_feeding_candidate : Bool
+  has_ssa_tee_child_expression : Bool
   has_ssa_param_write : Bool
   has_ssa_dead_local_set : Bool
   has_ssa_dead_local_tee : Bool
@@ -52,6 +55,9 @@ pub fn GenValidSsaFuncFacts::empty() -> GenValidSsaFuncFacts {
     has_ssa_multi_def_same_local: false,
     has_ssa_param_entry_read: false,
     has_ssa_local_tee_def_use: false,
+    has_ssa_tee_freshen_candidate: false,
+    has_ssa_tee_merge_feeding_candidate: false,
+    has_ssa_tee_child_expression: false,
     has_ssa_param_write: false,
     has_ssa_dead_local_set: false,
     has_ssa_dead_local_tee: false,
@@ -108,6 +114,12 @@ pub fn gen_valid_merge_ssa_func_facts(
     right.has_ssa_param_entry_read,
     has_ssa_local_tee_def_use: left.has_ssa_local_tee_def_use ||
     right.has_ssa_local_tee_def_use,
+    has_ssa_tee_freshen_candidate: left.has_ssa_tee_freshen_candidate ||
+    right.has_ssa_tee_freshen_candidate,
+    has_ssa_tee_merge_feeding_candidate: left.has_ssa_tee_merge_feeding_candidate ||
+    right.has_ssa_tee_merge_feeding_candidate,
+    has_ssa_tee_child_expression: left.has_ssa_tee_child_expression ||
+    right.has_ssa_tee_child_expression,
     has_ssa_param_write: left.has_ssa_param_write || right.has_ssa_param_write,
     has_ssa_dead_local_set: left.has_ssa_dead_local_set ||
     right.has_ssa_dead_local_set,
@@ -879,11 +891,19 @@ fn gen_valid_ssa_scan_linear(
               match instrs.get(i + 1) {
                 Some(Drop) => {
                   let tail = gen_valid_ssa_tail_expr(instrs, i + 2)
-                  if !gen_valid_expr_local_has_read(tail, idx) {
+                  if gen_valid_expr_local_has_read(tail, idx) {
+                    out = { ..out, has_ssa_tee_freshen_candidate: true }
+                  } else {
                     out = { ..out, has_ssa_dead_local_tee: true }
                   }
                 }
-                _ => ()
+                _ => {
+                  let tail = gen_valid_ssa_tail_expr(instrs, i + 1)
+                  if gen_valid_expr_local_has_read(tail, idx) {
+                    out = { ..out, has_ssa_tee_freshen_candidate: true }
+                  }
+                  out = { ..out, has_ssa_tee_child_expression: true }
+                }
               }
             }
           }
@@ -1428,6 +1448,33 @@ fn gen_valid_ssa_if_arm_writes_local(body : Array[Instruction]) -> Array[Int] {
 }
 
 ///|
+fn gen_valid_ssa_if_arm_tees_local(body : Array[Instruction]) -> Array[Int] {
+  let written : Array[Int] = []
+  let Expr(instrs) = Expr::new(body)
+  for instr in instrs {
+    match instr {
+      LocalTee(idx) =>
+        match gen_valid_ssa_local_slot(idx) {
+          Some(slot) => {
+            let mut seen = false
+            for existing in written {
+              if existing == slot {
+                seen = true
+              }
+            }
+            if !seen {
+              written.push(slot)
+            }
+          }
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  written
+}
+
+///|
 fn gen_valid_ssa_scan_if_join(
   param_count : Int,
   then_body : Array[Instruction],
@@ -1437,8 +1484,13 @@ fn gen_valid_ssa_scan_if_join(
   def_counts : Array[Int],
 ) -> GenValidSsaFuncFacts {
   let then_writes = gen_valid_ssa_if_arm_writes_local(then_body)
+  let then_tees = gen_valid_ssa_if_arm_tees_local(then_body)
   let else_writes = match else_body {
     Some(body) => gen_valid_ssa_if_arm_writes_local(body)
+    None => []
+  }
+  let else_tees = match else_body {
+    Some(body) => gen_valid_ssa_if_arm_tees_local(body)
     None => []
   }
   let mut out = facts
@@ -1450,6 +1502,9 @@ fn gen_valid_ssa_scan_if_join(
     let in_else = else_writes.any(fn(other) { other == slot })
     if gen_valid_expr_local_has_read(tail, idx) {
       out = { ..out, has_ssa_if_join_phi_candidate: true }
+      if then_tees.any(fn(other) { other == slot }) {
+        out = { ..out, has_ssa_tee_merge_feeding_candidate: true }
+      }
       if slot < param_count {
         out = { ..out, has_ssa_structured_param_merge: true }
         if !in_else {
@@ -1476,6 +1531,9 @@ fn gen_valid_ssa_scan_if_join(
     let in_then = then_writes.any(fn(other) { other == slot })
     if gen_valid_expr_local_has_read(tail, idx) {
       out = { ..out, has_ssa_if_join_phi_candidate: true }
+      if else_tees.any(fn(other) { other == slot }) {
+        out = { ..out, has_ssa_tee_merge_feeding_candidate: true }
+      }
       if slot < param_count {
         out = { ..out, has_ssa_structured_param_merge: true }
         if !in_then {
@@ -1859,6 +1917,49 @@ fn gen_valid_append_ssa_nomerge_body_slice(
 }
 
 ///|
+fn gen_valid_append_ssa_nomerge_tee_body_slice(
+  out : Array[Instruction],
+  merge_local : LocalIdx,
+  child_local : LocalIdx,
+  dead_local : LocalIdx,
+) -> Unit {
+  // T1. local.tee merge-feeding write: the post-if read may observe the tee arm
+  // or the prior canonical value, so Binaryen no-merge must keep this write as a
+  // canonical merge input rather than treating all tee writes as freshenable.
+  out.push(Instruction::i32_const(I32(0)))
+  out.push(Instruction::local_set(merge_local))
+  out.push(Instruction::local_get(merge_local))
+  out.push(
+    Instruction::if_(
+      BlockType::void_(),
+      [
+        Instruction::i32_const(I32(120)),
+        Instruction::local_tee(merge_local),
+        Instruction::drop(),
+      ],
+      None,
+    ),
+  )
+  out.push(Instruction::local_get(merge_local))
+  out.push(Instruction::drop())
+  // T2. child-expression local.tee: the tee's stack result is consumed before a
+  // later get observes the write, so generated coverage distinguishes it from
+  // the common tee+drop statement form.
+  out.push(Instruction::i32_const(I32(121)))
+  out.push(Instruction::local_tee(child_local))
+  out.push(Instruction::i32_const(I32(1)))
+  out.push(Instruction::i32_add())
+  out.push(Instruction::drop())
+  out.push(Instruction::local_get(child_local))
+  out.push(Instruction::drop())
+  // T3. dead tee overwrite: dropping the tee result and never reading the local
+  // later lets feature floors prove the existing dead-tee scanner label.
+  out.push(Instruction::i32_const(I32(122)))
+  out.push(Instruction::local_tee(dead_local))
+  out.push(Instruction::drop())
+}
+
+///|
 fn gen_valid_append_ssa_nomerge_parity_body_slice(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -2171,6 +2272,7 @@ fn gen_valid_append_ssa_nomerge_smoke_body_slice(
     out.push(Instruction::local_get(l0))
     out.push(Instruction::drop())
   }
+  gen_valid_append_ssa_nomerge_tee_body_slice(out, l2, l4, l1)
   ignore(ctx)
   ignore(env)
 }
@@ -2830,6 +2932,7 @@ fn gen_valid_append_ssa_nomerge_coverage_body_slice(
     out.push(Instruction::local_get(l0))
     out.push(Instruction::drop())
   }
+  gen_valid_append_ssa_nomerge_tee_body_slice(out, l2, l4, l1)
   ignore(ctx)
   ignore(env)
 }

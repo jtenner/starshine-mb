@@ -1267,6 +1267,9 @@ pub struct GenValidFeatureFacts {
   has_ssa_multi_def_same_local : Bool
   has_ssa_param_entry_read : Bool
   has_ssa_local_tee_def_use : Bool
+  has_ssa_tee_freshen_candidate : Bool
+  has_ssa_tee_merge_feeding_candidate : Bool
+  has_ssa_tee_child_expression : Bool
   has_ssa_param_write : Bool
   has_ssa_dead_local_set : Bool
   has_ssa_dead_local_tee : Bool
@@ -1429,6 +1432,9 @@ pub struct GenValidFeatureStats {
   ssa_multi_def_same_local : Int
   ssa_param_entry_read : Int
   ssa_local_tee_def_use : Int
+  ssa_tee_freshen_candidate : Int
+  ssa_tee_merge_feeding_candidate : Int
+  ssa_tee_child_expression : Int
   ssa_param_write : Int
   ssa_dead_local_set : Int
   ssa_dead_local_tee : Int
@@ -1607,6 +1613,12 @@ pub impl Show for GenValidFeatureStats with fn output(self, logger) {
   self.ssa_param_entry_read.output(logger)
   logger.write_string(", ssa_local_tee_def_use: ")
   self.ssa_local_tee_def_use.output(logger)
+  logger.write_string(", ssa_tee_freshen_candidate: ")
+  self.ssa_tee_freshen_candidate.output(logger)
+  logger.write_string(", ssa_tee_merge_feeding_candidate: ")
+  self.ssa_tee_merge_feeding_candidate.output(logger)
+  logger.write_string(", ssa_tee_child_expression: ")
+  self.ssa_tee_child_expression.output(logger)
   logger.write_string(", ssa_param_write: ")
   self.ssa_param_write.output(logger)
   logger.write_string(", ssa_dead_local_set: ")
@@ -1759,6 +1771,9 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     ssa_multi_def_same_local: 0,
     ssa_param_entry_read: 0,
     ssa_local_tee_def_use: 0,
+    ssa_tee_freshen_candidate: 0,
+    ssa_tee_merge_feeding_candidate: 0,
+    ssa_tee_child_expression: 0,
     ssa_param_write: 0,
     ssa_dead_local_set: 0,
     ssa_dead_local_tee: 0,
@@ -1917,6 +1932,12 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_ssa_param_entry_read),
     ssa_local_tee_def_use: self.ssa_local_tee_def_use +
     gen_valid_bool_count(facts.has_ssa_local_tee_def_use),
+    ssa_tee_freshen_candidate: self.ssa_tee_freshen_candidate +
+    gen_valid_bool_count(facts.has_ssa_tee_freshen_candidate),
+    ssa_tee_merge_feeding_candidate: self.ssa_tee_merge_feeding_candidate +
+    gen_valid_bool_count(facts.has_ssa_tee_merge_feeding_candidate),
+    ssa_tee_child_expression: self.ssa_tee_child_expression +
+    gen_valid_bool_count(facts.has_ssa_tee_child_expression),
     ssa_param_write: self.ssa_param_write +
     gen_valid_bool_count(facts.has_ssa_param_write),
     ssa_dead_local_set: self.ssa_dead_local_set +
@@ -15755,6 +15776,9 @@ pub fn gen_valid_feature_facts(
     has_ssa_multi_def_same_local: ssa_facts.has_ssa_multi_def_same_local,
     has_ssa_param_entry_read: ssa_facts.has_ssa_param_entry_read,
     has_ssa_local_tee_def_use: ssa_facts.has_ssa_local_tee_def_use,
+    has_ssa_tee_freshen_candidate: ssa_facts.has_ssa_tee_freshen_candidate,
+    has_ssa_tee_merge_feeding_candidate: ssa_facts.has_ssa_tee_merge_feeding_candidate,
+    has_ssa_tee_child_expression: ssa_facts.has_ssa_tee_child_expression,
     has_ssa_param_write: ssa_facts.has_ssa_param_write,
     has_ssa_dead_local_set: ssa_facts.has_ssa_dead_local_set,
     has_ssa_dead_local_tee: ssa_facts.has_ssa_dead_local_tee,

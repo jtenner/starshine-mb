@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Add local.tee GenValid coverage
+
+- Completed `[SSANM-011d]` in [`../../agent-todo.md`](../../agent-todo.md) as a generator/profile coverage slice after adding explicit tee subfamily feature labels: `ssa-tee-freshen-candidate`, `ssa-tee-merge-feeding-candidate`, and `ssa-tee-child-expression`; the existing `ssa-dead-local-tee` label is now deterministically floor-proven by smoke and coverage profiles.
+- Updated [`../../src/validate/gen_valid_ssa.mbt`](../../src/validate/gen_valid_ssa.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), and [`../../src/fuzz/main.mbt`](../../src/fuzz/main.mbt) so SSA scanning, stats, feature floors, and GenValid manifest JSON expose the new facts; smoke and coverage templates now append deterministic tee merge-feeding, child-expression tee, and dead tee slices.
+- Evidence: red-first `gen_valid_tests.mbt` failed on missing fields; `moon fmt`; `moon info` passed with pre-existing GenValid warnings; focused GenValid tests (`74/74`, `35/35`); fuzz wbtests (`90/90`); full `moon test` (`5708/5708`); native `src/cmd` build with pre-existing pass-manager warnings; smoke/coverage one-artifact required-floor probes with no skips; direct mixed-generator compare green over `9977/10000` compared cases with `0` mismatches and `23` Binaryen/tool command failures; direct profile probes still expose the known `ssa-nomerge` local-allocation behavior gap (`smoke`: `215/215` mismatches before the cap; `coverage`: `65/65` mismatches before the cap; no validation/generator/command failures).
+- Refreshed [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) with the exact commands, counts, cache counters, and mismatch classification.
+
 ## [2026-06-13] passes/ssa-nomerge | Slice huge-function guardrail backlog
 
 - Split `[SSANM-008]` in [`../../agent-todo.md`](../../agent-todo.md) into epic-only huge-function guardrail work plus child slices `[SSANM-008a]` through `[SSANM-008d]` for replay-anchor refresh, LocalGraph planner classification, safe admit/narrow policy changes, and pass-local timing evidence.

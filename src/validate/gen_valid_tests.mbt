@@ -7288,8 +7288,21 @@ test "ssa-nomerge coverage generated modules record dense SSA feature facts" {
     msg="expected parameter-entry read",
   )
   assert_true(facts.has_ssa_local_tee_def_use, msg="expected local.tee def-use")
+  assert_true(
+    facts.has_ssa_tee_freshen_candidate,
+    msg="expected local.tee freshen candidate",
+  )
+  assert_true(
+    facts.has_ssa_tee_merge_feeding_candidate,
+    msg="expected local.tee merge-feeding candidate",
+  )
+  assert_true(
+    facts.has_ssa_tee_child_expression,
+    msg="expected child-expression local.tee candidate",
+  )
   assert_true(facts.has_ssa_param_write, msg="expected parameter write")
   assert_true(facts.has_ssa_dead_local_set, msg="expected dead local.set")
+  assert_true(facts.has_ssa_dead_local_tee, msg="expected dead local.tee")
   assert_true(
     facts.has_ssa_if_join_phi_candidate,
     msg="expected if-join phi candidate",
@@ -7429,8 +7442,12 @@ test "ssa-nomerge smoke generated modules cover structured branch SSA shapes" {
   assert_true(facts.has_ssa_multi_def_same_local)
   assert_true(facts.has_ssa_param_entry_read)
   assert_true(facts.has_ssa_local_tee_def_use)
+  assert_true(facts.has_ssa_tee_freshen_candidate)
+  assert_true(facts.has_ssa_tee_merge_feeding_candidate)
+  assert_true(facts.has_ssa_tee_child_expression)
   assert_true(facts.has_ssa_param_write)
   assert_true(facts.has_ssa_dead_local_set)
+  assert_true(facts.has_ssa_dead_local_tee)
   assert_true(facts.has_ssa_if_join_phi_candidate)
   assert_true(facts.has_ssa_default_local_merge)
   assert_true(facts.has_ssa_one_arm_default_merge)
@@ -7698,8 +7715,9 @@ test "validate_valid_feature_floor_by_label recognizes SSA feature labels" {
   for
     label in [
       "ssa-straight-line-local-chain", "ssa-already-ssa-local", "ssa-multi-def-same-local",
-      "ssa-param-entry-read", "ssa-local-tee-def-use", "ssa-param-write", "ssa-dead-local-set",
-      "ssa-dead-local-tee", "ssa-if-join-phi-candidate", "ssa-loop-backedge-phi-candidate",
+      "ssa-param-entry-read", "ssa-local-tee-def-use", "ssa-tee-freshen-candidate",
+      "ssa-tee-merge-feeding-candidate", "ssa-tee-child-expression", "ssa-param-write",
+      "ssa-dead-local-set", "ssa-dead-local-tee", "ssa-if-join-phi-candidate", "ssa-loop-backedge-phi-candidate",
       "ssa-br-table-phi-candidate", "ssa-parallel-copy-candidate", "ssa-parallel-copy-cycle-candidate",
       "ssa-default-local-merge", "ssa-one-arm-default-merge", "ssa-one-arm-param-merge",
       "ssa-both-arm-local-merge", "ssa-loop-carried-local-merge", "ssa-mixed-fresh-canonical-writes",
