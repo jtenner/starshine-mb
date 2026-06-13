@@ -8947,7 +8947,7 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
   locals : @lib.Locals,
   extra_local_types : Array[@lib.ValType],
   allow_local_tee : Bool,
-  allow_zero_param_call? : Bool = false,
+  allow_direct_call? : Bool = false,
 ) -> (@lib.ValType, @lib.LocalIdx)? {
   let (ref_type, source_local, keep_trailing_value, keep_ref_null) = match
     rewritten.last() {
@@ -9022,20 +9022,13 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
     Some(@lib.AnyConvertExtern) => (@lib.ValType::anyref(), None, true, false)
     Some(@lib.ExternConvertAny) =>
       (@lib.ValType::externref(), None, true, false)
-    Some(@lib.Call(func_idx)) if allow_zero_param_call => {
-      let @lib.FuncType(call_params, call_results) = match
+    Some(@lib.Call(func_idx)) if allow_direct_call => {
+      let ref_type = match
         @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
-        Some(func_type) => func_type
-        None => return None
+        Some(@lib.FuncType(_, [@lib.RefTypeValType(ref_type)])) => ref_type
+        _ => return None
       }
-      if call_params.length() != 0 || call_results.length() != 1 {
-        return None
-      }
-      let ref_type = match call_results.get(0) {
-        Some(ref_type) => ref_type
-        None => return None
-      }
-      (ref_type, None, true, false)
+      (@lib.ValType::ref_type(ref_type), None, true, false)
     }
     _ => return None
   }
@@ -9217,7 +9210,7 @@ fn run_hot_pipeline_raw_rewrite_loop_param_store_br_on_non_null(
       locals,
       extra_local_types,
       true,
-      allow_zero_param_call=true,
+      allow_direct_call=true,
     ) {
     Some(spilled) => spilled
     None => return false
@@ -12566,7 +12559,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_local_get_ref_branch_copy_shape(
 }
 
 ///|
-fn run_hot_pipeline_raw_ssa_nomerge_has_zero_param_call_non_null_loop_shape(
+fn run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_loop_shape(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
   inside_typeidx_loop : Bool,
@@ -12579,24 +12572,23 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_zero_param_call_non_null_loop_shape(
           return true
         }
       @lib.Call(func_idx) => {
-        let is_zero_param_ref_call = match
+        let is_direct_ref_call = match
           @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
-          Some(@lib.FuncType(call_params, [@lib.RefTypeValType(_)])) =>
-            call_params.length() == 0
+          Some(@lib.FuncType(_, [@lib.RefTypeValType(_)])) => true
           _ => false
         }
-        previous_is_call = is_zero_param_ref_call
+        previous_is_call = is_direct_ref_call
         continue
       }
       @lib.If(_, then_body, else_body) => {
-        if run_hot_pipeline_raw_ssa_nomerge_has_zero_param_call_non_null_loop_shape(
+        if run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_loop_shape(
             then_body, module_ctx, inside_typeidx_loop,
           ) {
           return true
         }
         match else_body {
           Some(body) =>
-            if run_hot_pipeline_raw_ssa_nomerge_has_zero_param_call_non_null_loop_shape(
+            if run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_loop_shape(
                 body, module_ctx, inside_typeidx_loop,
               ) {
               return true
@@ -12605,7 +12597,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_zero_param_call_non_null_loop_shape(
         }
       }
       @lib.Loop(@lib.TypeIdxBlockType(_), @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_ssa_nomerge_has_zero_param_call_non_null_loop_shape(
+        if run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_loop_shape(
             body, module_ctx, true,
           ) {
           return true
@@ -12613,7 +12605,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_zero_param_call_non_null_loop_shape(
       @lib.Block(_, @lib.Expr(body))
       | @lib.Loop(_, @lib.Expr(body))
       | @lib.TryTable(_, _, @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_ssa_nomerge_has_zero_param_call_non_null_loop_shape(
+        if run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_loop_shape(
             body, module_ctx, inside_typeidx_loop,
           ) {
           return true
@@ -13025,7 +13017,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured_mutation_reason(
     run_hot_pipeline_raw_ssa_nomerge_has_local_tee_ref_branch_copy_shape(
       instrs, false,
     ) ||
-    run_hot_pipeline_raw_ssa_nomerge_has_zero_param_call_non_null_loop_shape(
+    run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_loop_shape(
       instrs, module_ctx, false,
     ) ||
     run_hot_pipeline_raw_ssa_nomerge_has_select_ref_branch_copy_shape(instrs) ||

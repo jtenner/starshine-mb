@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-12] passes/ssa-nomerge | Admit direct call operands for br_on_non_null loop-store inputs
+
+- Added a red/green regression in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for `local.get; local.get; call (param i32 externref) (result externref)` feeding a current typed-loop store-model `br_on_non_null`.
+- Generalized the previous zero-param direct-call gate in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) to admit any direct `call` whose function type resolves to exactly one reference result. The rewrite spills only the already-evaluated call result once, so operands are neither scanned backward nor duplicated; multi-result calls, non-current call inputs, `call_ref` / return-call inputs, and aggregate/data constructors remain outside this slice.
+- Red evidence: the new test initially failed with HOT lift `UnsupportedInstruction((br_on_non_null (Label 0)))`; after the fix, focused `ssa_nomerge_test.mbt` passed `287/287`, `moon test src/passes` passed `2308/2308`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5583/5583`, native `src/cmd` build passed with pre-existing warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-direct-call-operands-10000` requested `10000`, compared `7604`, had `7604` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-12] passes/ssa-nomerge | Admit zero-param call br_on_non_null loop-store inputs
 
 - Added a red/green regression in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for a zero-param `call (result externref)` feeding a current typed-loop store-model `br_on_non_null`.

@@ -7531,6 +7531,76 @@ test "ssa-nomerge rewrites problem1 zero-param call br_on_non_null loop-store in
 }
 
 ///|
+test "ssa-nomerge rewrites problem1 direct call operands br_on_non_null loop-store input" {
+  // Narrow problem-1 implementation target: a final direct call with explicit
+  // operands can be evaluated exactly once, spilled immediately after the call,
+  // and lowered through the current typed-loop store model without scanning or
+  // duplicating the operand prefix.
+  let externref = @lib.ValType::externref()
+  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
+  let id_type_idx = @lib.TypeIdx::new(0U)
+  let loop_type_idx = @lib.TypeIdx::new(1U)
+  let test_type_idx = @lib.TypeIdx::new(2U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), externref], [externref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([externref], [externref])),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), externref], [externref]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([id_type_idx, test_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(1U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::from_types([externref]),
+          @lib.Expr::new([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::loop_(
+              @lib.BlockType::type_idx(loop_type_idx),
+              @lib.Expr::new([
+                @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+                @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::ref_null(extern_heap),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "direct call operands br_on_non_null loop-store input",
+  )
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_instrs_have_br_on_non_null(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge fail-closed problem1 call br_on_null non-current input" {
   let externref = @lib.ValType::externref()
   let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
