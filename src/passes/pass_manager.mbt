@@ -12701,12 +12701,19 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_direct_call_ref_loop_shape(
           return true
         }
       @lib.Call(func_idx) => {
-        let is_direct_ref_call = match
+        previous_is_call = match
           @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
           Some(@lib.FuncType(_, [@lib.RefTypeValType(_)])) => true
           _ => false
         }
-        previous_is_call = is_direct_ref_call
+        continue
+      }
+      @lib.CallRef(type_idx) | @lib.CallIndirect(type_idx, _) => {
+        previous_is_call = match
+          @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+          Some(@lib.FuncType(_, [@lib.RefTypeValType(_)])) => true
+          _ => false
+        }
         continue
       }
       @lib.If(_, then_body, else_body) => {

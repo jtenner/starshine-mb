@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Cover loop-store call_ref br_on_null
+
+- Added a positive in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for an explicit-operand, single-reference-result `call_ref` feeding current typed-loop store-model `br_on_null`, requiring mutation, valid output, temp-local writes, and removal of the raw branch.
+- Widened [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) narrowly so the existing typed-loop call-family recognizer admits module-context-resolved `call_ref` / `call_indirect` single-reference-result final producers. The `call_ref` value operands and function-reference operand are consumed before the result is spilled; the rewrite still does not scan backward or duplicate operands.
+- TDD note: the new positive failed first with `skip-raw reason=no-local-writes`; after extending the loop call-family recognizer, focused `ssa_nomerge_test.mbt` passed `320/320`. Signoff: `moon test src/passes` passed `2341/2341`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5617/5617`, native `src/cmd` build passed with pre-existing pass-manager unused-function warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-loop-call-ref-bronull-10000` requested `10000`, compared `7607`, had `7607` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-13] passes/ssa-nomerge | Cover loop-store call operands br_on_null
 
 - Added a positive in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for explicit-operand, single-reference-result direct calls feeding current typed-loop store-model `br_on_null`, requiring mutation, valid output, temp-local writes, and removal of the raw branch.
