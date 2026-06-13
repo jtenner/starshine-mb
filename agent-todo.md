@@ -182,8 +182,17 @@ Preset behavior inventory:
   - Active `SSANM` work slices, grouped by identifier:
     - [ ] [SSANM-001] - Refresh Binaryen no-merge source and fixture baseline
       - Goal: recheck the current local Binaryen `version_130` source/test surface for `SSAify.cpp`, `LocalGraph`, `ReFinalize`, pass registration, `ssa-nomerge_enable-simd`, `ssa.wast`, and `local-graph.cpp` before replacing Starshine mutation policy.
+      - Status: epic only; execute through child slices so source refresh and fixture planning stay reviewable.
       - Deliverables: concise wiki/parity note confirming whether the existing `version_129` dossier still applies; focused fixture list for the implementation slices below; explicit source-backed statement for any Binaryen drift.
       - Suggested tests/evidence: local `wasm-opt --version`, source diff or reviewed URLs, and no code mutation unless the fixture inventory changes.
+    - [ ] [SSANM-001a] - Refresh Binaryen no-merge source surface
+      - Goal: compare the current local Binaryen `version_130` implementation/test files against the checked-in `version_129` dossier before mutation slices consume the LocalGraph plan.
+      - Deliverables: source-backed wiki/parity note for `SSAify.cpp`, `LocalGraph`, `ReFinalize`, pass registration, `ssa-nomerge_enable-simd`, `ssa.wast`, and `local-graph.cpp`; explicit drift/no-drift statements; source paths or reviewed URLs.
+      - Suggested evidence: `wasm-opt --version`, local Binaryen source diff or reviewed upstream files, and docs-only review unless the refresh changes expected fixtures.
+    - [ ] [SSANM-001b] - Refresh fixture baseline from current Binaryen source/tests
+      - Goal: turn the refreshed source surface into a focused fixture matrix for `[SSANM-002a]` through `[SSANM-007b]`.
+      - Deliverables: matrix of straight-line, default-entry, branch/loop merge, tee, EH, typed-control, and huge-function fixture owners; explicit notes for any Binaryen source/test shape not represented by an existing or planned Starshine fixture.
+      - Suggested evidence: docs/wiki update plus focused micro-replays only when source drift or fixture uncertainty requires oracle output.
     - [ ] [SSANM-002a] - Build a LocalGraph no-merge rewrite planner
       - Goal: add a no-mutation `ssa-nomerge` plan that consumes `HotLocalGraph` and classifies every relevant write/get as Binaryen would.
       - Deliverables: planned fresh-local allocation per explicit `local.set` / `local.tee`, canonical keep decisions for already-SSA locals and merge-feeding writes, get retarget/default/keep decisions, and focused planner tests for straight-line, branch, loop-carried, param-entry, body-default, tee, dead-write, and no-read shapes.
