@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-12] passes/ssa-nomerge | Cover arbitrary reference branch-input gap breadth
+
+- Added a green problem-1 coverage slice in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for arbitrary multi-instruction reference branch inputs beyond the admitted trailing typed/direct producer subset.
+- New fail-closed guards preserve validating output plus the original raw branch for representative direct `call` inputs in loop-store/non-current contexts, final raw calls with explicit operands, prefix-payload `br_on_non_null` with an effectful call final ref, operandful `struct.new` / `array.new`, and call-then-`ref.cast` where the structured raw gate still refuses the shape.
+- The slice intentionally does not implement broad expression scanning: current-loop `call` + `br_on_non_null` still fails the pipeline and is recorded as an uncommitted red behavior gap rather than landed as a green test; call_ref/return_call_ref and broader array/data forms were left out of this finite matrix pending practical fixture support.
+- Evidence: focused `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` passed `285/285`, `moon test src/passes` passed `2306/2306`, `moon info` passed with the three pre-existing GenValid warnings, full `moon test` passed `5581/5581`, native `src/cmd` build passed, and direct compare `.tmp/pass-fuzz-ssa-nomerge-arbitrary-ref-input-tests-10000` requested `10000`, compared `7605`, had `7605` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-12] passes/ssa-nomerge | Preserve prefix payloads for if-result br_on_non_null
 
 - Added a reduced red/green regression in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for a non-current block result `(i32, externref)` where the `i32` prefix payload precedes a trailing `if (result externref)` feeding `br_on_non_null`.
