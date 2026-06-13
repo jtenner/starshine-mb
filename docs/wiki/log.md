@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Preserve insertBlock repeated load tee
+
+- Tightened the focused reduced `tlsf/insertBlock` guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the debug-WASI artifact first diff `defined=2 abs=29`. The test failed red before implementation when the guard required 13 or fewer body locals and no extra `$15` scratch; this locks the next allocator-local-allocation reduction rather than accepting practical drift.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so the narrow two-call allocator-helper gate preserves a repeated top-level memory-load `local.tee` on its canonical body-local lane after that lane already has a previous write. This keeps nested/value-if/memory-load freshening outside this exact shape intact and does not add broad expression-stack scanning.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `364/364`, `moon test src/passes` passed `2385/2385`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5661/5661`, native `src/cmd` release build completed with pre-existing pass-manager unused-function warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-insertblock-tee-10000` requested `10000`, compared `7606`, had `7606` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Artifact replay `.tmp/self-ssa-nomerge-debug-wasi-insertblock-tee-20260613` validates but still first-diffs at `defined=2 abs=29`; Starshine pass-local `0.034 ms` vs Binaryen `443.164 ms`, whole-command Starshine `6162.072 ms` vs Binaryen `1030.563 ms`. Exact artifact parity remains open under the full Binaryen behavior-parity goal.
+
 ## [2026-06-13] passes/ssa-nomerge | Limit allocator insertBlock call scratch temps
 
 - Added a focused reduced `tlsf/insertBlock` guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the debug-WASI artifact first diff `defined=2 abs=29`. The test failed red before implementation because Starshine kept over-freshening the call-bearing allocator unlink prefix into 18 body locals; the guard keeps the reduced neighborhood at 14 or fewer locals while still requiring the later Binaryen-style bitmap-address scratch temp.

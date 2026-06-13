@@ -1502,11 +1502,13 @@ test "ssa-nomerge artifact parity limits allocator insertBlock call scratch temp
     #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() <= 14, msg=locals.to_string())
-  assert_true(
-    ssa_test_local_write_indices(instrs).any(fn(idx) { idx == 14U }),
+  let write_indices = ssa_test_local_write_indices(instrs)
+  assert_true(locals.length() <= 13, msg=locals.to_string())
+  assert_false(
+    write_indices.any(fn(idx) { idx == 15U }),
     msg=instrs.to_string(),
   )
+  assert_true(write_indices.any(fn(idx) { idx == 14U }), msg=instrs.to_string())
 }
 
 ///|

@@ -12179,12 +12179,12 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
   // memory-load/value-if scratch writes. Keep this gate narrow so the older
   // split-memory and malloc call-bearing guards continue to get their nested
   // repeated body-local temps freshened.
-  let freshen_repeated_body_scratch = !(run_hot_pipeline_raw_count_call_like(
-      root_instrs,
-    ) ==
+  let two_call_root_body = run_hot_pipeline_raw_count_call_like(root_instrs) ==
     2 &&
-    instrs.length() == root_instrs.length())
+    instrs.length() == root_instrs.length()
+  let freshen_repeated_body_scratch = !two_call_root_body
   let base_local_count = params.length() + locals.length()
+  let seen_local_writes : Array[Bool] = Array::make(base_local_count, false)
   let mut previous_was_local_tee = false
   let mut previous_was_call = false
   let mut previous_was_table_size = false
@@ -12238,6 +12238,9 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
           run_hot_pipeline_raw_set_param_alias(param_aliases, local_id, None)
           rewritten.push(instr)
         }
+        if local_id >= 0 && local_id < seen_local_writes.length() {
+          seen_local_writes[local_id] = true
+        }
         previous_was_local_tee = false
         previous_was_call = false
         previous_was_table_size = false
@@ -12246,6 +12249,13 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
       }
       @lib.LocalTee(@lib.LocalIdx(idx)) => {
         let local_id = idx.reinterpret_as_int()
+        let repeated_top_level_load_tee = two_call_root_body &&
+          previous_was_memory_load &&
+          local_id >= params.length() &&
+          local_id < base_local_count &&
+          local_id < seen_local_writes.length() &&
+          seen_local_writes[local_id] &&
+          run_hot_pipeline_raw_count_local_writes(root_instrs, local_id) > 1
         if freshen_params &&
           local_id >= 0 &&
           (
@@ -12255,7 +12265,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
               local_id < base_local_count &&
               (
                 previous_was_value_if ||
-                previous_was_memory_load ||
+                (previous_was_memory_load && !repeated_top_level_load_tee) ||
                 (
                   freshen_repeated_body_scratch &&
                   run_hot_pipeline_raw_count_local_writes(root_instrs, local_id) >
@@ -12276,6 +12286,9 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         } else {
           run_hot_pipeline_raw_set_param_alias(param_aliases, local_id, None)
           rewritten.push(instr)
+        }
+        if local_id >= 0 && local_id < seen_local_writes.length() {
+          seen_local_writes[local_id] = true
         }
         previous_was_local_tee = true
         previous_was_call = false
