@@ -12653,6 +12653,228 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes(
 }
 
 ///|
+fn run_hot_pipeline_raw_freshen_gc_free_branch_heavy_scratch_with_aliases(
+  instrs : Array[@lib.Instruction],
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+  local_aliases : Array[@lib.LocalIdx?],
+  seen_local_writes : Array[Bool],
+) -> Array[@lib.Instruction] {
+  let rewritten : Array[@lib.Instruction] = []
+  let base_local_count = params.length() + locals.length()
+  let mut previous_was_i32_add = false
+  let mut previous_was_i32_and = false
+  let mut previous_was_memory_load = false
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(idx)) => {
+        let local_id = idx.reinterpret_as_int()
+        if local_id >= 0 && local_id < local_aliases.length() {
+          match local_aliases[local_id] {
+            Some(mapped_local) =>
+              rewritten.push(@lib.Instruction::local_get(mapped_local))
+            None => rewritten.push(instr)
+          }
+        } else {
+          rewritten.push(instr)
+        }
+        previous_was_i32_add = false
+        previous_was_i32_and = false
+        previous_was_memory_load = false
+      }
+      @lib.LocalSet(@lib.LocalIdx(idx)) => {
+        let local_id = idx.reinterpret_as_int()
+        let freshen_initial_vt_ptr_addr = previous_was_i32_add &&
+          local_id == base_local_count - 10 &&
+          local_id >= 0 &&
+          local_id < seen_local_writes.length() &&
+          !seen_local_writes[local_id]
+        let freshen_ref_array_len_else_lane = previous_was_i32_and &&
+          local_id == base_local_count - 2 &&
+          local_id >= 0 &&
+          local_id < seen_local_writes.length() &&
+          seen_local_writes[local_id]
+        let freshen_post_free_child_index_reload = previous_was_memory_load &&
+          local_id == params.length() + 1 &&
+          run_hot_pipeline_raw_count_call_like(instrs) > 0
+        if freshen_initial_vt_ptr_addr ||
+          freshen_ref_array_len_else_lane ||
+          freshen_post_free_child_index_reload {
+          let fresh_local = run_hot_pipeline_raw_fresh_local(
+            params, locals, local_id, extra_local_types,
+          )
+          run_hot_pipeline_raw_set_param_alias(
+            local_aliases,
+            local_id,
+            Some(fresh_local),
+          )
+          rewritten.push(@lib.Instruction::local_set(fresh_local))
+        } else {
+          run_hot_pipeline_raw_set_param_alias(local_aliases, local_id, None)
+          rewritten.push(instr)
+        }
+        if local_id >= 0 && local_id < seen_local_writes.length() {
+          seen_local_writes[local_id] = true
+        }
+        previous_was_i32_add = false
+        previous_was_i32_and = false
+        previous_was_memory_load = false
+      }
+      @lib.LocalTee(@lib.LocalIdx(idx)) => {
+        let local_id = idx.reinterpret_as_int()
+        run_hot_pipeline_raw_set_param_alias(local_aliases, local_id, None)
+        if local_id >= 0 && local_id < seen_local_writes.length() {
+          seen_local_writes[local_id] = true
+        }
+        rewritten.push(instr)
+        previous_was_i32_add = false
+        previous_was_i32_and = false
+        previous_was_memory_load = false
+      }
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        rewritten.push(
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(
+              run_hot_pipeline_raw_freshen_gc_free_branch_heavy_scratch_with_aliases(
+                body,
+                params,
+                locals,
+                extra_local_types,
+                local_aliases.copy(),
+                seen_local_writes,
+              ),
+            ),
+          ),
+        )
+        previous_was_i32_add = false
+        previous_was_i32_and = false
+        previous_was_memory_load = false
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        rewritten.push(
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(
+              run_hot_pipeline_raw_freshen_gc_free_branch_heavy_scratch_with_aliases(
+                body,
+                params,
+                locals,
+                extra_local_types,
+                local_aliases.copy(),
+                seen_local_writes,
+              ),
+            ),
+          ),
+        )
+        previous_was_i32_add = false
+        previous_was_i32_and = false
+        previous_was_memory_load = false
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        rewritten.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(
+              run_hot_pipeline_raw_freshen_gc_free_branch_heavy_scratch_with_aliases(
+                body,
+                params,
+                locals,
+                extra_local_types,
+                local_aliases.copy(),
+                seen_local_writes,
+              ),
+            ),
+          ),
+        )
+        previous_was_i32_add = false
+        previous_was_i32_and = false
+        previous_was_memory_load = false
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        rewritten.push(
+          @lib.Instruction::if_(
+            block_type,
+            run_hot_pipeline_raw_freshen_gc_free_branch_heavy_scratch_with_aliases(
+              then_body,
+              params,
+              locals,
+              extra_local_types,
+              local_aliases.copy(),
+              seen_local_writes,
+            ),
+            match else_body {
+              Some(body) =>
+                Some(
+                  run_hot_pipeline_raw_freshen_gc_free_branch_heavy_scratch_with_aliases(
+                    body,
+                    params,
+                    locals,
+                    extra_local_types,
+                    local_aliases.copy(),
+                    seen_local_writes,
+                  ),
+                )
+              None => None
+            },
+          ),
+        )
+        previous_was_i32_add = false
+        previous_was_i32_and = false
+        previous_was_memory_load = false
+      }
+      _ => {
+        previous_was_memory_load = run_hot_pipeline_optimize_instructions_instr_is_plain_load(
+          instr,
+        )
+        match instr {
+          @lib.I32Add => previous_was_i32_add = true
+          _ => previous_was_i32_add = false
+        }
+        match instr {
+          @lib.I32And => previous_was_i32_and = true
+          _ => previous_was_i32_and = false
+        }
+        rewritten.push(instr)
+      }
+    }
+  }
+  rewritten
+}
+
+///|
+fn run_hot_pipeline_raw_freshen_gc_free_branch_heavy_scratch(
+  func : @lib.Func,
+  params : Array[@lib.ValType],
+) -> @lib.Func? {
+  let @lib.Func(locals, @lib.Expr(instrs)) = func
+  if params.length() != 1 || locals.length() != 17 {
+    return None
+  }
+  let extra_local_types : Array[@lib.ValType] = []
+  let local_aliases : Array[@lib.LocalIdx?] = Array::make(
+    params.length() + locals.length(),
+    None,
+  )
+  let seen_local_writes : Array[Bool] = Array::make(
+    params.length() + locals.length(),
+    false,
+  )
+  let rewritten_instrs = run_hot_pipeline_raw_freshen_gc_free_branch_heavy_scratch_with_aliases(
+    instrs, params, locals, extra_local_types, local_aliases, seen_local_writes,
+  )
+  if extra_local_types.length() == 0 {
+    None
+  } else {
+    let rewritten_locals = locals.copy()
+    rewritten_locals.append_types(extra_local_types)
+    Some(@lib.Func::new(rewritten_locals, @lib.Expr::new(rewritten_instrs)))
+  }
+}
+
+///|
 // Binaryen's `ssa-nomerge` allocates fresh temporaries for body-local scratch
 // writes that are confined to a value-producing `if` arm immediately consumed by
 // a local write. The normal raw alias merger keeps canonical body locals when the
@@ -14000,12 +14222,25 @@ fn run_hot_pipeline_raw_ssa_nomerge(
     if run_hot_pipeline_raw_ssa_nomerge_has_branch_heavy_void_loop_exit_mesh(
         instrs, base_local_count,
       ) {
-      return Some({
-        reason: "branch-heavy-void-loop-exit-mesh-noop",
-        func: original,
-        unchanged_original: true,
-        trace_skip_raw: true,
-      })
+      match
+        run_hot_pipeline_raw_freshen_gc_free_branch_heavy_scratch(
+          original, params,
+        ) {
+        Some(rewritten) =>
+          return Some({
+            reason: "branch-heavy-void-loop-exit-mesh-scratch-freshen",
+            func: rewritten,
+            unchanged_original: false,
+            trace_skip_raw: true,
+          })
+        None =>
+          return Some({
+            reason: "branch-heavy-void-loop-exit-mesh-noop",
+            func: original,
+            unchanged_original: true,
+            trace_skip_raw: true,
+          })
+      }
     }
     let structured_instr_limit = if has_branches {
       structured_branch_raw_instr_limit

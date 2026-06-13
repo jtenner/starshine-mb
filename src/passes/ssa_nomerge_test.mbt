@@ -2950,10 +2950,11 @@ test "ssa-nomerge artifact parity keeps gc free branch exits at Binaryen local b
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (locals, instrs) = try! ssa_test_defined_func(optimized, 3)
   assert_true(locals.length() <= 21, msg=locals.to_string())
-  assert_false(
-    ssa_test_local_write_indices(instrs).any(fn(idx) { idx > 21U }),
-    msg=instrs.to_string(),
-  )
+  let writes = ssa_test_local_write_indices(instrs)
+  assert_true(writes.any(fn(idx) { idx == 18U }), msg=instrs.to_string())
+  assert_true(writes.any(fn(idx) { idx == 20U }), msg=instrs.to_string())
+  assert_true(writes.any(fn(idx) { idx == 21U }), msg=instrs.to_string())
+  assert_false(writes.any(fn(idx) { idx > 21U }), msg=instrs.to_string())
 }
 
 ///|

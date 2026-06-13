@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Freshen gc.free branch-heavy scratch lanes
+
+- Tightened the `moonbit.gc.free` artifact guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) so the branch-heavy debug-WASI function must keep Binaryen's fresh early vtable-address scratch lane plus both post-`call $6` child-index reload scratch lanes while preserving the existing `<=21` body-local budget. The new assertions failed red before implementation because Starshine reused canonical locals for those lanes.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) to keep the broad branch-heavy no-op guard fail-closed but admit the exact one-param/17-local `gc.free` shape through a narrow recursive aliasing scratch freshener for the initial vtable pointer address, repeated ref-array length arm, and post-free child-index reloads. This avoids the previous unsafe broad raw enablement that over-allocated the guard fixture.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `365/365`, `moon test src/passes` passed `2386/2386`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5662/5662`, native `src/cmd` release build completed with pre-existing pass-manager unused-function warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-gc-free-branch-scratch-10000` requested `10000`, compared `7606`, had `7606` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Direct artifact replay `.tmp/self-ssa-nomerge-debug-wasi-gc-free-scratch-20260613` validates and advances the first canonical diff from `defined=30 abs=57` to `defined=32 abs=59`. Artifact timing was Starshine pass-local `0.032 ms` vs Binaryen `385.866 ms`; whole-command Starshine `5460.662 ms` vs Binaryen `814.573 ms`. Exact artifact parity remains open at the new `defined=32 abs=59` structured local-allocation diff.
+
 ## [2026-06-13] passes/ssa-nomerge | Preserve allocator branch merge lanes
 
 - Tightened the corrected `tlsf/malloc` split-memory guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) so the root value-if branch writes the selected split pointer back to canonical param local `1` and the loaded flag word back to canonical body local `5`. Both assertions failed red before implementation when Starshine freshened the branch-local sets and left post-branch reads on stale aliases.
