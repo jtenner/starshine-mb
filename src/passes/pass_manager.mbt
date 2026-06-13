@@ -12174,15 +12174,18 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
   let freshen_repeated_non_loop_sets = run_hot_pipeline_raw_instrs_have_table_update(
     instrs,
   )
-  // Binaryen keeps the top-level scratch lanes of two-call allocator unlink
-  // helpers closer to the canonical locals, while still freshening nested
-  // memory-load/value-if scratch writes. Keep this gate narrow so the older
-  // split-memory and malloc call-bearing guards continue to get their nested
-  // repeated body-local temps freshened.
-  let two_call_root_body = run_hot_pipeline_raw_count_call_like(root_instrs) ==
-    2 &&
+  // Binaryen's two-call allocator unlink helpers use a coupled allocation
+  // schedule: freshen the top-level `block + 4` address tee and the value-if
+  // result write, but keep most nested unlink-prefix body scratch writes on
+  // canonical lanes. Keep this gate narrow so unrelated call-bearing helpers do
+  // not lose their repeated body-local scratch freshening.
+  let two_call_allocator_body = run_hot_pipeline_raw_count_call_like(
+      root_instrs,
+    ) ==
+    2
+  let two_call_root_body = two_call_allocator_body &&
     instrs.length() == root_instrs.length()
-  let freshen_repeated_body_scratch = !two_call_root_body
+  let freshen_repeated_body_scratch = !two_call_allocator_body
   let base_local_count = params.length() + locals.length()
   let seen_local_writes : Array[Bool] = Array::make(base_local_count, false)
   let mut previous_was_local_tee = false
@@ -12190,6 +12193,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
   let mut previous_was_table_size = false
   let mut previous_was_value_if = false
   let mut previous_was_memory_load = false
+  let mut previous_was_i32_add = false
   for instr in instrs {
     match instr {
       @lib.LocalGet(@lib.LocalIdx(idx)) => {
@@ -12208,6 +12212,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_table_size = false
         previous_was_value_if = false
         previous_was_memory_load = false
+        previous_was_i32_add = false
       }
       @lib.LocalSet(@lib.LocalIdx(idx)) => {
         let local_id = idx.reinterpret_as_int()
@@ -12216,6 +12221,12 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
           (
             (local_id < params.length() && !previous_was_call) ||
             (freshen_repeated_body_scratch && previous_was_local_tee) ||
+            (
+              two_call_allocator_body &&
+              previous_was_value_if &&
+              local_id >= params.length() &&
+              local_id < base_local_count
+            ) ||
             previous_was_table_size ||
             previous_was_memory_load ||
             (
@@ -12246,6 +12257,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_table_size = false
         previous_was_value_if = false
         previous_was_memory_load = false
+        previous_was_i32_add = false
       }
       @lib.LocalTee(@lib.LocalIdx(idx)) => {
         let local_id = idx.reinterpret_as_int()
@@ -12256,6 +12268,10 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
           local_id < seen_local_writes.length() &&
           seen_local_writes[local_id] &&
           run_hot_pipeline_raw_count_local_writes(root_instrs, local_id) > 1
+        let repeated_top_level_add_tee = two_call_root_body &&
+          previous_was_i32_add &&
+          local_id == base_local_count - 1 &&
+          run_hot_pipeline_raw_count_local_writes(root_instrs, local_id) > 1
         if freshen_params &&
           local_id >= 0 &&
           (
@@ -12265,6 +12281,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
               local_id < base_local_count &&
               (
                 previous_was_value_if ||
+                repeated_top_level_add_tee ||
                 (previous_was_memory_load && !repeated_top_level_load_tee) ||
                 (
                   freshen_repeated_body_scratch &&
@@ -12295,6 +12312,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_table_size = false
         previous_was_value_if = false
         previous_was_memory_load = false
+        previous_was_i32_add = false
       }
       @lib.GlobalGet(_) => {
         previous_was_local_tee = false
@@ -12302,6 +12320,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_table_size = false
         previous_was_value_if = false
         previous_was_memory_load = false
+        previous_was_i32_add = false
         rewritten.push(instr)
       }
       @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
@@ -12310,6 +12329,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_table_size = false
         previous_was_value_if = false
         previous_was_memory_load = false
+        previous_was_i32_add = false
         rewritten.push(instr)
       }
       @lib.TableSize(_) => {
@@ -12317,6 +12337,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_call = false
         previous_was_table_size = true
         previous_was_memory_load = false
+        previous_was_i32_add = false
         rewritten.push(instr)
       }
       @lib.Block(block_type, @lib.Expr(body)) => {
@@ -12325,6 +12346,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_table_size = false
         previous_was_value_if = false
         previous_was_memory_load = false
+        previous_was_i32_add = false
         rewritten.push(
           @lib.Instruction::block(
             block_type,
@@ -12347,6 +12369,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_table_size = false
         previous_was_value_if = false
         previous_was_memory_load = false
+        previous_was_i32_add = false
         rewritten.push(
           @lib.Instruction::loop_(
             block_type,
@@ -12369,6 +12392,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_table_size = false
         previous_was_value_if = false
         previous_was_memory_load = false
+        previous_was_i32_add = false
         rewritten.push(
           @lib.Instruction::try_table(
             block_type,
@@ -12392,6 +12416,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_table_size = false
         previous_was_value_if = block_type != @lib.BlockType::void_()
         previous_was_memory_load = false
+        previous_was_i32_add = false
         rewritten.push(
           @lib.Instruction::if_(
             block_type,
@@ -12428,6 +12453,10 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_memory_load = run_hot_pipeline_optimize_instructions_instr_is_plain_load(
           instr,
         )
+        match instr {
+          @lib.I32Add => previous_was_i32_add = true
+          _ => previous_was_i32_add = false
+        }
         rewritten.push(instr)
       }
     }

@@ -56,6 +56,27 @@ fn ssa_test_local_write_indices(
 }
 
 ///|
+fn ssa_test_root_i32_add_local_tee_targets(
+  instrs : Array[@lib.Instruction],
+) -> Array[UInt] {
+  let out : Array[UInt] = []
+  let mut previous_was_i32_add = false
+  for instr in instrs {
+    match instr {
+      @lib.I32Add => previous_was_i32_add = true
+      @lib.LocalTee(@lib.LocalIdx(idx)) => {
+        if previous_was_i32_add {
+          out.push(idx)
+        }
+        previous_was_i32_add = false
+      }
+      _ => previous_was_i32_add = false
+    }
+  }
+  out
+}
+
+///|
 fn ssa_test_has_ssa_temp_local_writes(
   instrs : Array[@lib.Instruction],
   canonical_local : UInt,
@@ -1320,11 +1341,12 @@ test "ssa-nomerge artifact parity freshens allocator unlink load temps" {
 test "ssa-nomerge artifact parity limits allocator insertBlock call scratch temps" {
   // Artifact repro from the checked-in debug-WASI artifact, current first
   // canonical difference after `tlsf/removeBlock`, `defined=2 abs=29`
-  // (`tlsf/insertBlock`). Binaryen freshens the allocator size-class and
-  // bitmap-update temps, but does not keep freshening every repeated body-local
-  // scratch write across the call-bearing unlink prefix. The broader shape has
-  // no measured Starshine win and bloats the artifact, so keep this neighborhood
-  // from over-allocating scratch locals while exact artifact parity remains open.
+  // (`tlsf/insertBlock`). Binaryen freshens the top-level `block + 4` address,
+  // allocator size-class result, and bitmap-update temps, but does not keep
+  // freshening every repeated body-local scratch write across the call-bearing
+  // unlink prefix. The broader shape has no measured Starshine win and bloats
+  // the artifact, so keep this neighborhood from over-allocating scratch locals
+  // while exact artifact parity remains open.
   let source =
     #|(module
     #|  (memory 1)
@@ -1503,12 +1525,17 @@ test "ssa-nomerge artifact parity limits allocator insertBlock call scratch temp
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   let write_indices = ssa_test_local_write_indices(instrs)
+  let root_add_tees = ssa_test_root_i32_add_local_tee_targets(instrs)
+  assert_true(
+    root_add_tees.any(fn(idx) { idx == 7U }),
+    msg=root_add_tees.to_string() + "\n" + instrs.to_string(),
+  )
   assert_true(locals.length() <= 13, msg=locals.to_string())
   assert_false(
     write_indices.any(fn(idx) { idx == 15U }),
     msg=instrs.to_string(),
   )
-  assert_true(write_indices.any(fn(idx) { idx == 14U }), msg=instrs.to_string())
+  assert_true(write_indices.any(fn(idx) { idx == 13U }), msg=instrs.to_string())
 }
 
 ///|

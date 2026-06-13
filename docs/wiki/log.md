@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Couple insertBlock prefix/value-if allocation
+
+- Tightened the reduced `tlsf/insertBlock` guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the debug-WASI artifact first diff `defined=2 abs=29`. The new assertion failed red before implementation because Starshine kept the top-level `block + 4` address tee on the canonical lane (`root_add_tees` was `[5, 2, 14]`) instead of Binaryen's fresh lane.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so the two-call allocator helper schedule freshens the top-level repeated `i32.add -> local.tee` address lane and the following value-if result local-set, while keeping most nested unlink-prefix body scratch writes on canonical lanes. This is the coupled version of the prior failed value-if probe; it does not add broad expression-stack scanning.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `364/364`, `moon test src/passes` passed `2385/2385`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5661/5661`, native `src/cmd` release build completed with pre-existing pass-manager unused-function warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-insertblock-prefix-valueif-10000` requested `10000`, compared `7604`, had `7604` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Direct artifact replay `.tmp/self-ssa-nomerge-debug-wasi-insertblock-prefix-valueif2-20260613` validates but still first-diffs at `defined=2 abs=29`; remaining drift is nested unlink-load/value-if arm local allocation, not accepted safe drift. Artifact timing: Starshine pass-local `0.032 ms` vs Binaryen `393.194 ms`; whole-command Starshine `5817.863 ms` vs Binaryen `845.636 ms`.
+
 ## [2026-06-13] passes/ssa-nomerge | Probe insertBlock value-if allocation
 
 - Inspected the still-open debug-WASI direct `--ssa-nomerge` artifact first diff in `.tmp/self-ssa-nomerge-debug-wasi-insertblock-tee-20260613` (`defined=2 abs=29`, `tlsf/insertBlock`). The remaining drift is coupled across the allocator prefix and size-class value-if allocation schedule: Binaryen freshens the early `block + 4` address, nested unlink-load temps, value-if scratch lanes, and final bitmap-address temp differently from Starshine.
