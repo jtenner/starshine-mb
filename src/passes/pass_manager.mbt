@@ -12216,6 +12216,12 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
       }
       @lib.LocalSet(@lib.LocalIdx(idx)) => {
         let local_id = idx.reinterpret_as_int()
+        let preserve_first_two_call_unlink_load_set = two_call_allocator_body &&
+          instrs.length() != root_instrs.length() &&
+          previous_was_memory_load &&
+          local_id == base_local_count - 2 &&
+          local_id >= 0 &&
+          run_hot_pipeline_raw_count_local_writes(root_instrs, local_id) > 1
         if (freshen_params || freshen_repeated_non_loop_sets) &&
           local_id >= 0 &&
           (
@@ -12228,7 +12234,10 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
               local_id < base_local_count
             ) ||
             previous_was_table_size ||
-            previous_was_memory_load ||
+            (
+              previous_was_memory_load &&
+              !preserve_first_two_call_unlink_load_set
+            ) ||
             (
               freshen_repeated_non_loop_sets &&
               local_id < base_local_count &&

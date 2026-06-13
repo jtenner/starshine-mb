@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Preserve insertBlock nested load set
+
+- Tightened the reduced `tlsf/insertBlock` guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the debug-WASI artifact first diff `defined=2 abs=29`. The new set-index assertion failed red before implementation because Starshine freshened the first nested post-call memory-load `local.set` into local `8` instead of preserving Binaryen's canonical unlink-result lane.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so exactly two-call allocator helper scratch freshening preserves the first nested memory-load `local.set` for the canonical body local that Binaryen keeps, without broad expression-stack scanning or widening unrelated memory-load temp preservation.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `364/364`, `moon test src/passes` passed `2385/2385`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5661/5661`, native `src/cmd` release build completed with pre-existing pass-manager unused-function warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-insertblock-loadset2-10000` requested `10000`, compared `7606`, had `7606` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Direct artifact replay `.tmp/self-ssa-nomerge-debug-wasi-insertblock-loadset2-20260613` validates but still first-diffs at `defined=2 abs=29`; remaining nested unlink/value-if and bitmap local-allocation drift is not accepted as safe. Artifact timing: Starshine pass-local `0.036 ms` vs Binaryen `413.761 ms`; whole-command Starshine `5865.054 ms` vs Binaryen `938.096 ms`.
+
 ## [2026-06-13] passes/ssa-nomerge | Couple insertBlock prefix/value-if allocation
 
 - Tightened the reduced `tlsf/insertBlock` guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the debug-WASI artifact first diff `defined=2 abs=29`. The new assertion failed red before implementation because Starshine kept the top-level `block + 4` address tee on the canonical lane (`root_add_tees` was `[5, 2, 14]`) instead of Binaryen's fresh lane.

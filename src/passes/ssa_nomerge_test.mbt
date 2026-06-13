@@ -56,6 +56,37 @@ fn ssa_test_local_write_indices(
 }
 
 ///|
+fn ssa_test_collect_local_set_indices(
+  instrs : Array[@lib.Instruction],
+  out : Array[UInt],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(@lib.LocalIdx(idx)) => out.push(idx)
+      @lib.If(_, then_instrs, else_instrs) => {
+        ssa_test_collect_local_set_indices(then_instrs, out)
+        match else_instrs {
+          Some(else_body) => ssa_test_collect_local_set_indices(else_body, out)
+          None => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        ssa_test_collect_local_set_indices(body, out)
+      _ => ()
+    }
+  }
+}
+
+///|
+fn ssa_test_local_set_indices(instrs : Array[@lib.Instruction]) -> Array[UInt] {
+  let out : Array[UInt] = []
+  ssa_test_collect_local_set_indices(instrs, out)
+  out
+}
+
+///|
 fn ssa_test_root_i32_add_local_tee_targets(
   instrs : Array[@lib.Instruction],
 ) -> Array[UInt] {
@@ -1530,12 +1561,14 @@ test "ssa-nomerge artifact parity limits allocator insertBlock call scratch temp
     root_add_tees.any(fn(idx) { idx == 7U }),
     msg=root_add_tees.to_string() + "\n" + instrs.to_string(),
   )
-  assert_true(locals.length() <= 13, msg=locals.to_string())
+  let set_indices = ssa_test_local_set_indices(instrs)
+  assert_false(set_indices.any(fn(idx) { idx == 8U }), msg=instrs.to_string())
+  assert_true(locals.length() <= 12, msg=locals.to_string())
   assert_false(
     write_indices.any(fn(idx) { idx == 15U }),
     msg=instrs.to_string(),
   )
-  assert_true(write_indices.any(fn(idx) { idx == 13U }), msg=instrs.to_string())
+  assert_true(write_indices.any(fn(idx) { idx == 12U }), msg=instrs.to_string())
 }
 
 ///|
