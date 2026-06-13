@@ -1333,6 +1333,85 @@ test "ssa-nomerge artifact parity freshens allocator searchBlock temps" {
 }
 
 ///|
+test "ssa-nomerge does not freshen multi-param branch-carried body locals" {
+  // The debug-WASI `defined=119 abs=146` follow-up has four parameters and two
+  // sibling value arms that carry a refcount/decref local out through a value
+  // block. Binaryen keeps the carried body local canonical in that multi-param
+  // adapter-like shape; the allocator/selector freshening post-passes are not
+  // allowed to append fresh lanes here because that shifts the whole suffix local
+  // budget.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $touch (param i32))
+    #|  (func (param $p0 i32) (param $p1 i32) (param $p2 i32) (param $p3 i32) (result i32)
+    #|    (local $carried i32) (local $obj i32) (local $count i32)
+    #|    (local $fresh i32) (local $suffix i32) (local $result i32)
+    #|    local.get $p3
+    #|    if (result i32)
+    #|      block (result i32)
+    #|        block
+    #|          block (result i32)
+    #|            local.get $p0
+    #|            local.tee $obj
+    #|            call $touch
+    #|            local.get $obj
+    #|            i32.load
+    #|            local.set $carried
+    #|            local.get $obj
+    #|            i32.load offset=4
+    #|            local.tee $count
+    #|            i32.const 1
+    #|            i32.gt_s
+    #|            if
+    #|              local.get $count
+    #|              i32.const 1
+    #|              i32.sub
+    #|              local.set $fresh
+    #|              local.get $obj
+    #|              local.get $fresh
+    #|              i32.store offset=4
+    #|              local.get $carried
+    #|              call $touch
+    #|            else
+    #|              local.get $count
+    #|              i32.const 1
+    #|              i32.eq
+    #|              if
+    #|                local.get $obj
+    #|                call $touch
+    #|              end
+    #|            end
+    #|            local.get $carried
+    #|          end
+    #|          drop
+    #|          br 0
+    #|        end
+    #|        i32.const 7
+    #|      end
+    #|    else
+    #|      i32.const 3
+    #|    end
+    #|    local.set $result
+    #|    i32.const 8
+    #|    local.set $suffix
+    #|    local.get $result
+    #|    local.get $suffix
+    #|    i32.add))
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
+  assert_true(
+    locals.length() <= 6,
+    msg=locals.to_string() + "\n" + instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_local_write_indices(instrs).any(fn(idx) { idx >= 10U }),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge artifact parity preserves selector formatter local budget" {
   // Binary fixture reduced from the checked-in debug-WASI first diff
   // `.tmp/self-ssa-nomerge-debug-wasi-adapter-error-20260613`, defined=109

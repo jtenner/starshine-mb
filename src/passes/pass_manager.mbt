@@ -14394,6 +14394,146 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured_mutation_reason(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_collect_local_carrier_events(
+  instrs : Array[@lib.Instruction],
+  param_count : Int,
+  seen_sets : @bitset.BitSet,
+  seen_get_after_set : @bitset.BitSet,
+  has_call : Ref[Bool],
+) -> Unit {
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(@lib.LocalIdx(raw)) => {
+        let id = raw.reinterpret_as_int()
+        if id >= param_count {
+          if id >= seen_sets.length() {
+            seen_sets.grow(id + 1)
+            seen_get_after_set.grow(id + 1)
+          }
+          seen_sets[id] = true
+        }
+      }
+      @lib.LocalTee(@lib.LocalIdx(raw)) => {
+        let id = raw.reinterpret_as_int()
+        if id >= param_count {
+          if id >= seen_sets.length() {
+            seen_sets.grow(id + 1)
+            seen_get_after_set.grow(id + 1)
+          }
+          seen_sets[id] = true
+          seen_get_after_set[id] = true
+        }
+      }
+      @lib.LocalGet(@lib.LocalIdx(raw)) => {
+        let id = raw.reinterpret_as_int()
+        if id >= param_count && id < seen_sets.length() && seen_sets[id] {
+          seen_get_after_set[id] = true
+        }
+      }
+      @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) =>
+        has_call.val = true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        run_hot_pipeline_raw_ssa_nomerge_collect_local_carrier_events(
+          body, param_count, seen_sets, seen_get_after_set, has_call,
+        )
+      @lib.If(_, then_body, else_body) => {
+        run_hot_pipeline_raw_ssa_nomerge_collect_local_carrier_events(
+          then_body, param_count, seen_sets, seen_get_after_set, has_call,
+        )
+        match else_body {
+          Some(body) =>
+            run_hot_pipeline_raw_ssa_nomerge_collect_local_carrier_events(
+              body, param_count, seen_sets, seen_get_after_set, has_call,
+            )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_arm_has_call_carried_body_local(
+  instrs : Array[@lib.Instruction],
+  param_count : Int,
+) -> Bool {
+  let seen_sets = @bitset.BitSet::new(256)
+  let seen_get_after_set = @bitset.BitSet::new(256)
+  let has_call = Ref::new(false)
+  run_hot_pipeline_raw_ssa_nomerge_collect_local_carrier_events(
+    instrs, param_count, seen_sets, seen_get_after_set, has_call,
+  )
+  if !has_call.val {
+    return false
+  }
+  for i = 0; i < seen_get_after_set.length(); i = i + 1 {
+    if seen_get_after_set[i] {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_multiparam_value_if_branch_carrier(
+  instrs : Array[@lib.Instruction],
+  param_count : Int,
+) -> Bool {
+  if param_count <= 1 {
+    return false
+  }
+  let mut idx = 0
+  while idx < instrs.length() {
+    match instrs[idx] {
+      @lib.If(block_type, then_body, Some(else_body)) => {
+        if block_type != @lib.BlockType::void_() && idx + 1 < instrs.length() {
+          match instrs[idx + 1] {
+            @lib.LocalSet(_) | @lib.LocalTee(_) =>
+              if run_hot_pipeline_raw_ssa_nomerge_arm_has_call_carried_body_local(
+                  then_body, param_count,
+                ) ||
+                run_hot_pipeline_raw_ssa_nomerge_arm_has_call_carried_body_local(
+                  else_body, param_count,
+                ) {
+                return true
+              }
+            _ => ()
+          }
+        }
+        if run_hot_pipeline_raw_ssa_nomerge_has_multiparam_value_if_branch_carrier(
+            then_body, param_count,
+          ) ||
+          run_hot_pipeline_raw_ssa_nomerge_has_multiparam_value_if_branch_carrier(
+            else_body, param_count,
+          ) {
+          return true
+        }
+      }
+      @lib.If(_, then_body, None) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_multiparam_value_if_branch_carrier(
+            then_body, param_count,
+          ) {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_multiparam_value_if_branch_carrier(
+            body, param_count,
+          ) {
+          return true
+        }
+      _ => ()
+    }
+    idx = idx + 1
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -14520,6 +14660,17 @@ fn run_hot_pipeline_raw_ssa_nomerge(
       return None
     }
     let base_local_count = params.length() + locals.length()
+    if run_hot_pipeline_raw_ssa_nomerge_has_multiparam_value_if_branch_carrier(
+        instrs,
+        params.length(),
+      ) {
+      return Some({
+        reason: "multiparam-value-if-branch-carrier-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
     if run_hot_pipeline_raw_ssa_nomerge_has_branch_heavy_void_loop_exit_mesh(
         instrs, base_local_count,
       ) {

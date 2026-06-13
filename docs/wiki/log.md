@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Skip multi-param value-if branch carrier freshening
+
+- Added a focused four-param adapter-style branch-carrier guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the debug-WASI `defined=119 abs=146` shape. The guard failed red because Starshine over-freshened a call/decref value-if arm and shifted the suffix local budget; local `wasm-opt --ssa-nomerge` on the reduced shape leaves the carried locals canonical.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) with a narrow multi-param value-if branch-carrier no-op detector: only value-producing `if` arms consumed by a local write, with calls and body-local read-after-write carrier evidence, are skipped. The existing one-param allocator/selector freshening paths remain active.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `370/370`, `moon test src/passes` passed `2391/2391`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5667/5667`, native `src/cmd` release build completed with pre-existing pass-manager unused-function warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-multiparam-carrier-10000` requested `10000`, compared `7599`, had `7599` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Direct artifact replay `.tmp/self-ssa-nomerge-debug-wasi-multiparam-carrier-20260613` validates and advances the first canonical diff from `defined=119 abs=146` to `defined=161 abs=188`. Artifact timing was Starshine pass-local `0.238 ms` vs Binaryen `410.064 ms`; whole-command Starshine `4851.293 ms` vs Binaryen `872.317 ms`. Exact artifact parity remains open at the new `defined=161 abs=188` one-param br_table/local-allocation diff.
+
 ## [2026-06-13] passes/ssa-nomerge | Spill selector formatter call results
 
 - Added a focused binary-path `cmd__print__selector__text` reduced guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt). The WAT path normalized this shape away, so the guard decodes compact wasm bytes, re-encodes/reparses the Starshine output, and requires the selector suffix call-spill budget to avoid the prior local `23` over-allocation.
