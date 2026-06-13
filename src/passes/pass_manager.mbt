@@ -7130,6 +7130,17 @@ fn run_hot_pipeline_required_func_params(
 }
 
 ///|
+fn run_hot_pipeline_required_func_results(
+  module_ctx : @ir.HotModuleContext,
+  func_idx : @lib.FuncIdx,
+) -> Array[@lib.ValType] {
+  match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+    Some(@lib.FuncType(_, results)) => results
+    None => []
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_local_type(
   params : Array[@lib.ValType],
   locals : @lib.Locals,
@@ -13040,6 +13051,125 @@ fn run_hot_pipeline_raw_freshen_gc_free_branch_heavy_scratch(
 }
 
 ///|
+fn run_hot_pipeline_raw_spill_call_result_across_following_call(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+  params : Array[@lib.ValType],
+  locals : @lib.Locals,
+  extra_local_types : Array[@lib.ValType],
+) -> Array[@lib.Instruction] {
+  if params.length() != 1 || params.length() + locals.length() > 20 {
+    return instrs
+  }
+  let rewritten : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < instrs.length() {
+    if idx + 3 < instrs.length() {
+      match (instrs[idx], instrs[idx + 1], instrs[idx + 2], instrs[idx + 3]) {
+        (
+          @lib.Call(producer_idx) as producer,
+          @lib.LocalGet(_),
+          @lib.Call(_)
+          | @lib.CallIndirect(_, _)
+          | @lib.CallRef(_) as follower,
+          @lib.LocalTee(@lib.LocalIdx(raw)),
+        ) => {
+          let target_id = raw.reinterpret_as_int()
+          let value_type = match
+            run_hot_pipeline_raw_rewritten_local_type(
+              params, locals, extra_local_types, target_id,
+            ) {
+            Some(type_) => type_
+            None => {
+              rewritten.push(instrs[idx])
+              idx = idx + 1
+              continue
+            }
+          }
+          let producer_results = run_hot_pipeline_required_func_results(
+            module_ctx, producer_idx,
+          )
+          if producer_results.length() != 1 || producer_results[0] != value_type {
+            rewritten.push(instrs[idx])
+            idx = idx + 1
+            continue
+          }
+          let scratch = run_hot_pipeline_raw_fresh_typed_local(
+            params, locals, value_type, extra_local_types,
+          )
+          rewritten.push(producer)
+          rewritten.push(@lib.Instruction::local_set(scratch))
+          rewritten.push(instrs[idx + 1])
+          rewritten.push(follower)
+          rewritten.push(@lib.Instruction::local_get(scratch))
+          rewritten.push(instrs[idx + 3])
+          idx = idx + 4
+          continue
+        }
+        _ => ()
+      }
+    }
+    match instrs[idx] {
+      @lib.Block(block_type, @lib.Expr(body)) =>
+        rewritten.push(
+          @lib.Instruction::block(
+            block_type,
+            @lib.Expr::new(
+              run_hot_pipeline_raw_spill_call_result_across_following_call(
+                body, module_ctx, params, locals, extra_local_types,
+              ),
+            ),
+          ),
+        )
+      @lib.Loop(block_type, @lib.Expr(body)) =>
+        rewritten.push(
+          @lib.Instruction::loop_(
+            block_type,
+            @lib.Expr::new(
+              run_hot_pipeline_raw_spill_call_result_across_following_call(
+                body, module_ctx, params, locals, extra_local_types,
+              ),
+            ),
+          ),
+        )
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+        rewritten.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(
+              run_hot_pipeline_raw_spill_call_result_across_following_call(
+                body, module_ctx, params, locals, extra_local_types,
+              ),
+            ),
+          ),
+        )
+      @lib.If(block_type, then_body, else_body) =>
+        rewritten.push(
+          @lib.Instruction::if_(
+            block_type,
+            run_hot_pipeline_raw_spill_call_result_across_following_call(
+              then_body, module_ctx, params, locals, extra_local_types,
+            ),
+            match else_body {
+              Some(body) =>
+                Some(
+                  run_hot_pipeline_raw_spill_call_result_across_following_call(
+                    body, module_ctx, params, locals, extra_local_types,
+                  ),
+                )
+              None => None
+            },
+          ),
+        )
+      _ => rewritten.push(instrs[idx])
+    }
+    idx = idx + 1
+  }
+  rewritten
+}
+
+///|
 // Binaryen's `ssa-nomerge` allocates fresh temporaries for body-local scratch
 // writes that are confined to a value-producing `if` arm immediately consumed by
 // a local write. The normal raw alias merger keeps canonical body locals when the
@@ -13162,8 +13292,11 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
       let value_if_freshened = run_hot_pipeline_raw_freshen_value_if_body_scratch(
         rewritten_instrs, params, locals, extra_local_types,
       )
+      let call_spilled = run_hot_pipeline_raw_spill_call_result_across_following_call(
+        value_if_freshened, module_ctx, params, locals, extra_local_types,
+      )
       let finalized_instrs = run_hot_pipeline_raw_freshen_param_scratch_writes(
-        value_if_freshened, params, locals, extra_local_types,
+        call_spilled, params, locals, extra_local_types,
       )
       let rewritten_locals = locals.copy()
       rewritten_locals.append_types(extra_local_types)
@@ -13174,8 +13307,11 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
       let value_if_freshened = run_hot_pipeline_raw_freshen_value_if_body_scratch(
         instrs, params, locals, fallback_extra_local_types,
       )
+      let call_spilled = run_hot_pipeline_raw_spill_call_result_across_following_call(
+        value_if_freshened, module_ctx, params, locals, fallback_extra_local_types,
+      )
       let finalized_instrs = run_hot_pipeline_raw_freshen_param_scratch_writes(
-        value_if_freshened, params, locals, fallback_extra_local_types,
+        call_spilled, params, locals, fallback_extra_local_types,
       )
       if fallback_extra_local_types.length() == 0 {
         None

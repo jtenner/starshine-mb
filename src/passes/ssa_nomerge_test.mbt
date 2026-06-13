@@ -1333,6 +1333,76 @@ test "ssa-nomerge artifact parity freshens allocator searchBlock temps" {
 }
 
 ///|
+test "ssa-nomerge artifact parity preserves selector formatter local budget" {
+  // Binary fixture reduced from the checked-in debug-WASI first diff
+  // `.tmp/self-ssa-nomerge-debug-wasi-adapter-error-20260613`, defined=109
+  // abs=136 (`cmd__print__selector__text`). The WAT fixture alone normalizes
+  // differently, so this guard decodes the compact binary-path shape. Binaryen
+  // spends three branch-carrier/tag temps and four suffix-formatting temps but
+  // does not allocate a 23rd body local; Starshine's current binary-path drift
+  // writes the tag to an early fresh lane and shifts suffix temps to local 23.
+  let input = ssa_test_decode_wasm_bytes([
+    0, 97, 115, 109, 1, 0, 0, 0, 1, 16, 3, 96, 1, 127, 1, 127, 96, 1, 127, 0, 96,
+    2, 127, 127, 1, 127, 3, 9, 8, 0, 1, 1, 1, 0, 0, 2, 0, 5, 3, 1, 0, 1, 10, 195,
+    1, 8, 4, 0, 32, 0, 11, 2, 0, 11, 2, 0, 11, 2, 0, 11, 4, 0, 32, 0, 11, 4, 0, 32,
+    0, 11, 4, 0, 32, 1, 11, 163, 1, 1, 14, 127, 2, 64, 2, 64, 32, 0, 16, 0, 34, 14,
+    65, 0, 70, 4, 127, 32, 0, 34, 3, 40, 0, 8, 32, 3, 16, 1, 34, 4, 33, 2, 12, 1,
+    5, 32, 0, 34, 5, 40, 0, 8, 33, 11, 32, 5, 40, 0, 0, 34, 12, 65, 1, 74, 4, 64,
+    32, 12, 65, 1, 107, 33, 13, 32, 5, 32, 13, 54, 0, 0, 32, 11, 16, 2, 5, 32, 12,
+    65, 1, 70, 4, 64, 32, 5, 16, 3, 11, 11, 32, 11, 34, 6, 33, 1, 12, 2, 11, 15,
+    11, 32, 2, 16, 4, 33, 10, 65, 232, 180, 1, 32, 10, 16, 6, 32, 10, 16, 1, 34,
+    9, 65, 216, 180, 1, 16, 6, 32, 9, 16, 1, 15, 11, 32, 1, 16, 5, 33, 8, 65, 248,
+    180, 1, 32, 8, 16, 6, 32, 8, 16, 1, 34, 7, 65, 248, 180, 1, 16, 6, 32, 7, 16,
+    1, 11, 0, 187, 1, 4, 110, 97, 109, 101, 1, 78, 7, 0, 7, 103, 101, 116, 95, 116,
+    97, 103, 1, 6, 100, 101, 99, 114, 101, 102, 2, 6, 105, 110, 99, 114, 101, 102,
+    3, 4, 102, 114, 101, 101, 4, 14, 117, 105, 110, 116, 95, 116, 111, 95, 115, 116,
+    114, 105, 110, 103, 5, 16, 115, 116, 114, 105, 110, 103, 95, 116, 111, 95, 115,
+    116, 114, 105, 110, 103, 6, 10, 97, 100, 100, 95, 115, 116, 114, 105, 110, 103,
+    2, 100, 1, 7, 15, 0, 8, 115, 101, 108, 101, 99, 116, 111, 114, 1, 4, 110, 97,
+    109, 101, 2, 3, 105, 100, 120, 3, 5, 73, 110, 100, 101, 120, 4, 4, 105, 100,
+    120, 50, 5, 4, 78, 97, 109, 101, 6, 5, 110, 97, 109, 101, 50, 7, 4, 116, 109,
+    112, 48, 8, 4, 116, 109, 112, 49, 9, 4, 116, 109, 112, 50, 10, 4, 116, 109, 112,
+    51, 11, 5, 102, 105, 101, 108, 100, 12, 3, 99, 110, 116, 13, 7, 110, 101, 119,
+    95, 99, 110, 116, 14, 3, 116, 97, 103,
+  ])
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["ssa-nomerge"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected selector formatter binary-path ssa-nomerge success, got \{err}",
+      )
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected selector formatter binary-path output to validate, got \{@validate.validation_error_message(err)}",
+      )
+  }
+  let encoded = match @binary.encode_module(optimized) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      fail("expected selector formatter binary-path encode success, got \{err}")
+  }
+  let reparsed = match @binary.decode_module(encoded) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected selector formatter binary-path reparse success, got \{err}",
+      )
+  }
+  let (locals, instrs) = try! ssa_test_defined_func(reparsed, 7)
+  let writes = ssa_test_local_write_indices(instrs)
+  assert_true(
+    locals.length() <= 22,
+    msg=locals.to_string() + "\n" + instrs.to_string(),
+  )
+  assert_true(writes.any(fn(idx) { idx == 19U }), msg=instrs.to_string())
+  assert_false(writes.any(fn(idx) { idx == 23U }), msg=instrs.to_string())
+}
+
+///|
 test "ssa-nomerge artifact parity freshens allocator unlink load temps" {
   // Artifact repro from the checked-in debug-WASI artifact, current first
   // canonical difference after `tlsf/searchBlock`, `defined=1 abs=28`. Binaryen
@@ -3746,6 +3816,23 @@ fn ssa_test_hot_path_revision_changed(source : String) -> Bool raise {
     Err(err) => fail("expected hot-path ssa-nomerge success, got \{err}")
   }
   @ir.hot_revision_current(func) != revision_before
+}
+
+///|
+fn ssa_test_bytes_from_ints(values : Array[Int]) -> Bytes {
+  let out = @buffer.new(size_hint=values.length())
+  for value in values {
+    out.write_byte(value.to_byte())
+  }
+  out.to_bytes()
+}
+
+///|
+fn ssa_test_decode_wasm_bytes(values : Array[Int]) -> @lib.Module {
+  match @binary.decode_module(ssa_test_bytes_from_ints(values)) {
+    Ok(mod_) => mod_
+    Err(err) => abort("expected SSA wasm fixture decode success, got \{err}")
+  }
 }
 
 ///|
