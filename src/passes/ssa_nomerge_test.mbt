@@ -9194,6 +9194,135 @@ test "ssa-nomerge fail-closed problem1 array-new-fixed operands br_on_non_null i
 }
 
 ///|
+test "ssa-nomerge fail-closed problem1 array-new-data operands br_on_non_null input" {
+  // Boundary: `array.new_data` consumes source/length operands and a passive
+  // data segment before producing the tested reference. Keep this data-backed
+  // constructor raw until operand preservation is source-backed.
+  let array_idx = @lib.TypeIdx::new(0U)
+  let array_heap = @lib.HeapType::new(array_idx)
+  let nullable_array_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, array_heap),
+  )
+  let field = @lib.FieldType::new(
+    @lib.StorageType::val_type(@lib.ValType::i32()),
+    @lib.Mut::var_(),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::array(field))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([], [nullable_array_ref])),
+        ),
+      ]),
+    )
+    .with_data_sec(
+      @lib.DataSec::new([@lib.Data::new(@lib.DataMode::passive(), b"")]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::i32_const(7),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+              ],
+              None,
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_array_ref),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(0),
+                @lib.Instruction::i32_const(0),
+                @lib.Instruction::array_new_data(
+                  array_idx,
+                  @lib.DataIdx::new(0U),
+                ),
+                @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::ref_null(array_heap),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  ssa_test_problem1_fail_closed_reference_branch_input(
+    input, 0, "array-new-data operands br_on_non_null input", ssa_test_instrs_have_br_on_non_null,
+  )
+}
+
+///|
+test "ssa-nomerge fail-closed problem1 array-new-elem operands br_on_non_null input" {
+  // Boundary: `array.new_elem` consumes source/length operands from an element
+  // segment-backed constructor. Preserve the raw branch until this final
+  // producer has a dedicated operand-preservation proof.
+  let array_idx = @lib.TypeIdx::new(0U)
+  let array_heap = @lib.HeapType::new(array_idx)
+  let nullable_array_ref = @lib.ValType::ref_type(
+    @lib.RefType::new(true, array_heap),
+  )
+  let funcref = @lib.ValType::funcref()
+  let field = @lib.FieldType::new(
+    @lib.StorageType::val_type(funcref),
+    @lib.Mut::var_(),
+  )
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::array(field))),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([], [nullable_array_ref])),
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(@lib.ElemMode::passive(), @lib.ElemKind::funcs([])),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::i32_const(7),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+              ],
+              None,
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(nullable_array_ref),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(0),
+                @lib.Instruction::i32_const(0),
+                @lib.Instruction::array_new_elem(
+                  array_idx,
+                  @lib.ElemIdx::new(0U),
+                ),
+                @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::ref_null(array_heap),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  ssa_test_problem1_fail_closed_reference_branch_input(
+    input, 0, "array-new-elem operands br_on_non_null input", ssa_test_instrs_have_br_on_non_null,
+  )
+}
+
+///|
 test "ssa-nomerge fail-closed problem1 call-then-ref-cast br_on_non_null input" {
   // Although trailing `ref.cast` is an admitted final producer in simpler raw
   // contexts, this call+cast block-exit shape currently stops at the structured

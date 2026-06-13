@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Guard array data/elem constructor branch inputs
+
+- Added fail-closed problem-1 boundary guards in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for operandful `array.new_data` and `array.new_elem` feeding `br_on_non_null`.
+- No behavior-code widening was needed or intended: these segment-backed constructors consume source/length operands before producing the tested reference, so they remain raw until a dedicated final-producer operand-preservation proof exists. The guards require valid output and preservation of the raw branch.
+- TDD note: the committed data/elem tests were already green (`304/304`) because current raw gates already reject these constructor inputs. A local return-call probe was not committed as an in-tree guard: `wasm-tools validate --features all` accepts `br_on_non_null` after `return_call*` as unreachable/type-polymorphic code, while Starshine validation currently rejects the same raw representation with `expected a reference type`; `br_on_null` return-call probes remained invalid with leftover stack values. Signoff: focused `ssa_nomerge_test.mbt` passed `304/304`, `moon test src/passes` passed `2325/2325`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5600/5600`, native `src/cmd` build passed, and direct compare `.tmp/pass-fuzz-ssa-nomerge-array-data-elem-boundaries-10000` requested `10000`, compared `7608`, had `7608` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-13] passes/ssa-nomerge | Guard multi-result call and aggregate branch-input boundaries
 
 - Added fail-closed problem-1 boundary guards in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for multi-result direct `call`, `call_ref`, and `call_indirect` feeding `br_on_non_null`, plus operandful `array.new_fixed` feeding `br_on_non_null`.
