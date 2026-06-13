@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Cover mixed direct-control/null reference typed-loop backedges
+
+- Added four positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for flat and nested type-indexed single-reference-param loops that mix a conditional direct current-loop `br` backedge plus either sibling `br_if` or all-current-target `br_table` direct-control backedges with sibling current-loop `br_on_null` and `br_on_non_null` reference backedges.
+- No behavior-code widening was needed after the preceding mixed-reference classifier and existing direct-`br`, `br_table`, `br_if`, and null-family proxy/store lowerings; the guards assert valid mutation, the direct-`br` proxy shape, and removal of raw `br_table`/`br_if`/null-family branches where present.
+- TDD/coverage note: the new positives were green on first focused runs (`343/343` for the direct-`br`/`br_if` pair, then `345/345` for the direct-`br`/`br_table` pair) because earlier direct-control and mixed-reference work already admitted these composed families. Broader signoff is recorded in the matching parity entry.
+
 ## [2026-06-13] passes/ssa-nomerge | Cover mixed direct-br/null reference typed-loop backedges
 
 - Added two positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for flat and nested type-indexed single-reference-param loops that mix a conditional direct current-loop `br` backedge with sibling current-loop `br_on_null` and `br_on_non_null` reference backedges.
