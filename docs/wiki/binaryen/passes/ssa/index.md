@@ -12,6 +12,8 @@ sources:
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/cmd/cmd.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../src/passes/ssa.mbt
+  - ../../../../../src/passes/ssa_test.mbt
   - ../../../../../src/passes/ssa_nomerge.mbt
   - ../../../../../src/ir/ssa_local.mbt
   - ../../../../../src/ir/ssa_destroy.mbt
@@ -42,6 +44,7 @@ related:
 
 - `ssa` is a real public upstream Binaryen pass.
 - It is part of the local Starshine pass registry as a **boundary-only** name, not an active pass.
+- Starshine now has an analysis-only full-`ssa` merge-rewrite planner in `src/passes/ssa.mbt`; it consumes LocalGraph source facts but does not mutate functions or activate public `--ssa`.
 - It is worth tracking here because the repo already has a deep dossier for the implemented sibling [`ssa-nomerge`](../ssa-nomerge/index.md), and that dossier repeatedly depends on a correct explanation of what full `ssa` would do differently.
 
 The beginner summary is:
@@ -106,7 +109,7 @@ So this dossier is primarily here to make the sibling split teachable, not to cl
 
 ## Agent-todo note
 
-`agent-todo.md` now tracks dedicated full-`ssa` slices under `[O4Z-AUDIT-SSA]`. `[SSA-FULL]001` chose the registry/request behavior: full `ssa` is known but boundary-only until the merge-local rewrite model lands. The remaining implementation slice `[SSA-FULL]002` owns the real Binaryen full-`ssa` merge-local model and must not alias to `ssa-nomerge`.
+`agent-todo.md` now tracks dedicated full-`ssa` slices under `[O4Z-AUDIT-SSA]`. `[SSA-FULL]001` chose the registry/request behavior: full `ssa` is known but boundary-only until mutation lands. `[SSA-FULL]002A` adds the no-mutation planner for merge-local actions; the remaining `[SSA-FULL]002B` through `[SSA-FULL]002E` slices still own active rewriting, direct pass activation, entry-prepend/default handling, loop merges, and direct `--pass ssa` signoff. The implementation must not alias to `ssa-nomerge`.
 
 ## Page map
 

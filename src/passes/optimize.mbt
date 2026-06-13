@@ -158,7 +158,7 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
     ),
     pass_registry_entry_boundary_only(
       "ssa",
-      summary="Full SSA sibling is known but intentionally unsupported until the LocalGraph merge-source rewrite model lands.",
+      summary="Full SSA sibling is known but intentionally unsupported until merge-local mutation and dispatcher activation land.",
     ),
     pass_registry_entry_hot(
       "vacuum",

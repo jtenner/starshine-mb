@@ -295,6 +295,8 @@ pub fn simplify_locals_notee_nostructure_summary() -> String
 
 pub fn simplify_locals_summary() -> String
 
+pub fn ssa_full_build_merge_rewrite_plan(@ir.HotFunc, @ir.HotLocalGraph) -> SsaFullRewritePlan
+
 pub fn ssa_nomerge_descriptor() -> @ir.HotPassDescriptor
 
 pub fn ssa_nomerge_summary() -> String
@@ -431,6 +433,23 @@ pub impl Show for HotTupleOptimizationGroup
 type HotTupleOptimizationQuerySummary derive(Eq, @debug.Debug)
 
 type HotTupleOptimizationRootSlot derive(Eq, @debug.Debug)
+
+pub(all) struct SsaFullMergeGetRewrite {
+  get_id : Int
+  original_local : Int
+  merge_local : Int
+  inputs : Array[SsaFullMergeInput]
+} derive(Eq, @debug.Debug)
+
+pub(all) enum SsaFullMergeInput {
+  ExplicitWrite(Int)
+  ParamEntry(Int)
+  DefaultEntry(Int)
+} derive(Eq, @debug.Debug)
+
+pub(all) struct SsaFullRewritePlan {
+  merge_gets : Array[SsaFullMergeGetRewrite]
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 

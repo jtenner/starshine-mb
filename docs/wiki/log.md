@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa | Add full SSA merge-rewrite planner
+
+- Completed `[SSA-FULL]002A` in [`../../agent-todo.md`](../../agent-todo.md) as a no-mutation planner slice; public `ssa` remains boundary-only and no pass rewrite behavior is active yet.
+- Added [`../../src/passes/ssa.mbt`](../../src/passes/ssa.mbt) with `SsaFullRewritePlan`, `SsaFullMergeGetRewrite`, `SsaFullMergeInput`, and `ssa_full_build_merge_rewrite_plan(...)` to consume LocalGraph merge/source/defaultability facts and record future Binaryen-shaped merge-local actions.
+- Added red-first focused planner tests in [`../../src/passes/ssa_test.mbt`](../../src/passes/ssa_test.mbt) for explicit diamond writes, parameter-entry merge prepends, default-entry no-prepend inputs, nondefaultable default-entry fail-closed behavior, and single-source no-merge contrast.
+- Refreshed [`binaryen/passes/ssa/index.md`](binaryen/passes/ssa/index.md), [`binaryen/passes/ssa/starshine-strategy.md`](binaryen/passes/ssa/starshine-strategy.md), [`binaryen/passes/ssa/starshine-port-readiness-and-validation.md`](binaryen/passes/ssa/starshine-port-readiness-and-validation.md), [`binaryen/passes/tracker.md`](binaryen/passes/tracker.md), [`ir2/local-ssa-policy.md`](ir2/local-ssa-policy.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`index.md`](index.md). Evidence: focused `moon test --package jtenner/starshine/passes --file ssa_test.mbt` passed `5/5`, `moon test src/passes` passed `2401/2401`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5705/5705`, and focused `cmd_wbtest.mbt` passed `105/105`. Direct compare/fuzz was not run for this slice because no public `ssa` mutation, dispatcher execution, or raw rewrite behavior changed.
+
 ## [2026-06-13] passes/ssa | Record full SSA boundary-only request status
 
 - Completed `[SSA-FULL]001` in [`../../agent-todo.md`](../../agent-todo.md) as a registry/request-decision slice, not a full-`ssa` implementation slice.
