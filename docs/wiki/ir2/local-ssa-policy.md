@@ -10,12 +10,14 @@ sources:
   - ../../../src/ir/ssa_policy.mbt
   - ../../../src/ir/ssa_local.mbt
   - ../../../src/ir/ssa_destroy.mbt
+  - ../../../src/ir/local_graph.mbt
   - ../../../src/ir/analysis_cache.mbt
   - ../../../src/ir/architecture.mbt
   - ../../../src/passes/pass_common.mbt
   - ../../../src/ir/ssa_policy_test.mbt
   - ../../../src/ir/ssa_local_test.mbt
   - ../../../src/ir/ssa_destroy_test.mbt
+  - ../../../src/ir/local_graph_test.mbt
   - ../../../src/ir/analysis_cache_test.mbt
 related:
   - ./architecture-rules.md
@@ -37,7 +39,7 @@ related:
 
 Starshine's local SSA is **not** a second optimizer IR. It is a locals-only analysis overlay built over a normal [`HotFunc`](../../../src/ir/hot_core.mbt) body, keyed to that function's revision. The body remains ordinary HOT IR before and after SSA-assisted work: local reads are still `LocalGet`, writes are still `LocalSet` / `LocalTee`, and phis are metadata that never become persistent HOT nodes.
 
-Use this page when adding or reviewing an SSA-assisted pass, debugging local-def/use facts, or deciding whether a new optimization really needs the current local overlay versus a different IR2 analysis. The classic external lineage is Cytron-style SSA placement, but Starshine intentionally narrows it: [`ssa_policy.mbt`](../../../src/ir/ssa_policy.mbt) uses dominance frontiers plus liveness filtering for locals, [`ssa_local.mbt`](../../../src/ir/ssa_local.mbt) performs dominator-tree renaming over local ops, and [`ssa_destroy.mbt`](../../../src/ir/ssa_destroy.mbt) lowers overlay phis back to predecessor copies so the owned body never stops being HOT IR. The current cache/pass-use source bridge is [`../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md`](../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md); the original bibliographic and implementation bridge remains [`../raw/ir2/2026-05-20-local-ssa-source-bridge.md`](../raw/ir2/2026-05-20-local-ssa-source-bridge.md), and the first local policy note is archived at [`../raw/research/0061-2026-03-24-local-ssa-policy.md`](../raw/research/0061-2026-03-24-local-ssa-policy.md).
+Use this page when adding or reviewing an SSA-assisted pass, debugging local-def/use facts, or deciding whether a new optimization really needs the current local overlay versus a different IR2 analysis. The classic external lineage is Cytron-style SSA placement, but Starshine intentionally narrows it: [`ssa_policy.mbt`](../../../src/ir/ssa_policy.mbt) uses dominance frontiers plus liveness filtering for locals, [`ssa_local.mbt`](../../../src/ir/ssa_local.mbt) performs dominator-tree renaming over local ops, and [`ssa_destroy.mbt`](../../../src/ir/ssa_destroy.mbt) lowers overlay phis back to predecessor copies so the owned body never stops being HOT IR. [`local_graph.mbt`](../../../src/ir/local_graph.mbt) is a separate Binaryen-facing reaching-source graph: it records entry/default sources and explicit local writes that can reach each `LocalGet`, plus the gets influenced by each set/tee, without rewriting the function. The current cache/pass-use source bridge is [`../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md`](../raw/ir2/2026-06-04-local-ssa-cache-and-pass-refresh.md); the original bibliographic and implementation bridge remains [`../raw/ir2/2026-05-20-local-ssa-source-bridge.md`](../raw/ir2/2026-05-20-local-ssa-source-bridge.md), and the first local policy note is archived at [`../raw/research/0061-2026-03-24-local-ssa-policy.md`](../raw/research/0061-2026-03-24-local-ssa-policy.md).
 
 ## Data Shape
 
@@ -50,6 +52,8 @@ Use this page when adding or reviewing an SSA-assisted pass, debugging local-def
 | Entry definitions | `entry_defs[local_id]` | Exactly one synthetic starting definition per parameter/body local. |
 | Node maps | `local_get_values` / `local_write_defs` | Node-indexed lookup from local HOT nodes to overlay value ids. |
 | Use lists | `value_uses[value_id]` | Consumers used by destruction and dead-def cleanup. |
+| LocalGraph source | `HotLocalGraphSource` | Binaryen-facing reaching-source fact: either `EntrySource(local_id)` or `SetSource(node_id)`. |
+| LocalGraph influence | `local_graph_influenced_gets_for_set(...)` | The `LocalGet` nodes whose reaching-source set includes a specific `LocalSet` / `LocalTee`. |
 
 Two entry-origin rules are especially important for beginners:
 
@@ -72,6 +76,18 @@ The implemented build pipeline is:
 8. Sort phi inputs into predecessor order and abort if a phi's inputs no longer align with the normal-flow predecessor set.
 
 Concrete locked examples live in [`ssa_local_test.mbt`](../../../src/ir/ssa_local_test.mbt): diamond joins create one join phi, loop headers create loop-carried phis, uninitialized locals read their default-init entry definitions, `LocalTee` creates a definition for later reads, and unreachable branch-carry ladders do not let unreachable predecessor blocks corrupt phi-input alignment.
+
+## LocalGraph Companion Analysis
+
+[`local_graph_build(...)`](../../../src/ir/local_graph.mbt) is analysis-only. It uses the existing normal-flow CFG and child-before-parent HOT expression order to compute may-reaching local sources:
+
+- every local begins with an entry source;
+- `LocalSet` and `LocalTee` replace the current source set for their local on that path;
+- joins union source sets from normal predecessors;
+- exceptional edges are skipped for now, matching the local SSA v1 normal-flow policy;
+- `local_graph_can_move_set_past_node(...)` ports the Binaryen `canMoveSet` test idea by reporting only influenced gets still reachable from a set when a candidate obstacle node blocks paths after that set.
+
+This graph is intentionally not a mutation engine yet. It is the staged bridge toward Binaryen-style `SSAify.cpp` decisions for future `ssa-nomerge` and full `ssa` work. Locked examples live in [`local_graph_test.mbt`](../../../src/ir/local_graph_test.mbt): simple set/get influence, get-before-set entry reads, overwrite kills, diamond merge sources, loop-carried sources, and Binaryen `canMoveSet` obstacle families.
 
 ## Cache And Pass-Use Lifecycle
 
@@ -146,6 +162,7 @@ SSA v1 deliberately excludes:
 - persistent HOT phi nodes;
 - an IR-owned SSA body representation;
 - non-local values, including globals, memory, tables, heap/GC objects, and generalized stack values;
+- LocalGraph-driven mutation; `local_graph.mbt` currently exposes analysis facts only, not a replacement for `ssa-nomerge` rewriting;
 - multi-value block-parameter modeling beyond the ordinary HOT/CFG/local policy already documented in [`cfg-contract.md`](./cfg-contract.md).
 
 If future work needs any of those, update the IR2 architecture contract first, add tests before implementation, and record how the new overlay invalidates or coexists with this locals-only policy.
@@ -169,5 +186,5 @@ If future work needs any of those, update the IR2 architecture contract first, a
 - Builder: [`../../../src/ir/ssa_local.mbt`](../../../src/ir/ssa_local.mbt)
 - Destruction/writeback: [`../../../src/ir/ssa_destroy.mbt`](../../../src/ir/ssa_destroy.mbt)
 - Cache/pass helper layer: [`../../../src/ir/analysis_cache.mbt`](../../../src/ir/analysis_cache.mbt), [`../../../src/ir/architecture.mbt`](../../../src/ir/architecture.mbt), [`../../../src/passes/pass_common.mbt`](../../../src/passes/pass_common.mbt)
-- Tests: [`../../../src/ir/ssa_policy_test.mbt`](../../../src/ir/ssa_policy_test.mbt), [`../../../src/ir/ssa_local_test.mbt`](../../../src/ir/ssa_local_test.mbt), [`../../../src/ir/ssa_destroy_test.mbt`](../../../src/ir/ssa_destroy_test.mbt), [`../../../src/ir/analysis_cache_test.mbt`](../../../src/ir/analysis_cache_test.mbt)
+- Tests: [`../../../src/ir/ssa_policy_test.mbt`](../../../src/ir/ssa_policy_test.mbt), [`../../../src/ir/ssa_local_test.mbt`](../../../src/ir/ssa_local_test.mbt), [`../../../src/ir/ssa_destroy_test.mbt`](../../../src/ir/ssa_destroy_test.mbt), [`../../../src/ir/local_graph_test.mbt`](../../../src/ir/local_graph_test.mbt), [`../../../src/ir/analysis_cache_test.mbt`](../../../src/ir/analysis_cache_test.mbt)
 - Supporting overlays: [`../../../src/ir/use_def.mbt`](../../../src/ir/use_def.mbt), [`../../../src/ir/liveness.mbt`](../../../src/ir/liveness.mbt), [`../../../src/ir/dominators.mbt`](../../../src/ir/dominators.mbt), [`../../../src/ir/cfg.mbt`](../../../src/ir/cfg.mbt)
