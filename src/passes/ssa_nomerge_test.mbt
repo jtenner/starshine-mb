@@ -9620,6 +9620,276 @@ test "ssa-nomerge rewrites problem1 prefix call_indirect operands br_on_null inp
 }
 
 ///|
+test "ssa-nomerge rewrites problem1 prefix direct call operands then ref-cast br_on_null input" {
+  // Coverage for the prefix-payload br_on_null sibling of the narrow
+  // call/ref.cast suffix: operands are consumed before the final cast, and the
+  // rewrite spills only that already-produced cast result.
+  let anyref = @lib.ValType::anyref()
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let id_type_idx = @lib.TypeIdx::new(0U)
+  let result_type_idx = @lib.TypeIdx::new(1U)
+  let test_type_idx = @lib.TypeIdx::new(2U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), anyref], [anyref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32(), anyref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([anyref], [@lib.ValType::i32(), anyref]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([id_type_idx, test_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(1U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::i32_const(7),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+              ],
+              None,
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::type_idx(result_type_idx),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(5),
+                @lib.Instruction::ref_null(any_heap),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+                @lib.Instruction::ref_cast(true, any_heap),
+                @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(6),
+                @lib.Instruction::ref_null(any_heap),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "prefix direct call operands then ref-cast br_on_null input",
+  )
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+  assert_false(ssa_test_instrs_have_br_on_null(instrs), msg=instrs.to_string())
+}
+
+///|
+test "ssa-nomerge rewrites problem1 prefix call_ref operands then ref-cast br_on_null input" {
+  // Coverage sibling for call_ref: the value operands and function reference are
+  // consumed before ref.cast, and the prefix-payload branch rewrite still spills
+  // only the final cast result.
+  let anyref = @lib.ValType::anyref()
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let call_type_idx = @lib.TypeIdx::new(0U)
+  let result_type_idx = @lib.TypeIdx::new(1U)
+  let test_type_idx = @lib.TypeIdx::new(2U)
+  let helper_idx = @lib.FuncIdx::new(0U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), anyref], [anyref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32(), anyref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([anyref], [@lib.ValType::i32(), anyref]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([call_type_idx, test_type_idx]))
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([helper_idx]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(1U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::i32_const(7),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+              ],
+              None,
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::type_idx(result_type_idx),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(5),
+                @lib.Instruction::ref_null(any_heap),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::ref_func(helper_idx),
+                @lib.Instruction::call_ref(call_type_idx),
+                @lib.Instruction::ref_cast(true, any_heap),
+                @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(6),
+                @lib.Instruction::ref_null(any_heap),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "prefix call_ref operands then ref-cast br_on_null input",
+  )
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+  assert_false(ssa_test_instrs_have_br_on_null(instrs), msg=instrs.to_string())
+}
+
+///|
+test "ssa-nomerge rewrites problem1 prefix call_indirect operands then ref-cast br_on_null input" {
+  // Coverage sibling for call_indirect: the table index and value operands are
+  // consumed before ref.cast, so the prefix rewrite does not need broad stack
+  // scanning or operand duplication.
+  let anyref = @lib.ValType::anyref()
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let call_type_idx = @lib.TypeIdx::new(0U)
+  let result_type_idx = @lib.TypeIdx::new(1U)
+  let test_type_idx = @lib.TypeIdx::new(2U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), anyref], [anyref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32(), anyref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([anyref], [@lib.ValType::i32(), anyref]),
+          ),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            @lib.RefType::new(
+              true,
+              @lib.HeapType::abs(@lib.AbsHeapType::func()),
+            ),
+            @lib.Limits::i32(1U, Some(1U)),
+          ),
+          None,
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([test_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::i32_const(7),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+              ],
+              None,
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::type_idx(result_type_idx),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(5),
+                @lib.Instruction::ref_null(any_heap),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::i32_const(0),
+                @lib.Instruction::call_indirect(
+                  call_type_idx,
+                  @lib.TableIdx::new(0U),
+                ),
+                @lib.Instruction::ref_cast(true, any_heap),
+                @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(6),
+                @lib.Instruction::ref_null(any_heap),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "prefix call_indirect operands then ref-cast br_on_null input",
+  )
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 0)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+  assert_false(ssa_test_instrs_have_br_on_null(instrs), msg=instrs.to_string())
+}
+
+///|
 test "ssa-nomerge fail-closed problem1 multi-result direct call br_on_null input" {
   // Boundary: multi-result calls are intentionally not rewritten for br_on_null
   // either. The first result may be a label payload while the second is the
