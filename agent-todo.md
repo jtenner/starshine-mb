@@ -185,10 +185,11 @@ Preset behavior inventory:
       - Status: epic only; execute through child slices so source refresh and fixture planning stay reviewable.
       - Deliverables: concise wiki/parity note confirming whether the existing `version_129` dossier still applies; focused fixture list for the implementation slices below; explicit source-backed statement for any Binaryen drift.
       - Suggested tests/evidence: local `wasm-opt --version`, source diff or reviewed URLs, and no code mutation unless the fixture inventory changes.
-    - [ ] [SSANM-001a] - Refresh Binaryen no-merge source surface
+    - [x] [SSANM-001a] - Refresh Binaryen no-merge source surface
+      - Status: completed 2026-06-13; source note lives in `docs/wiki/raw/binaryen/2026-06-13-ssa-nomerge-version-130-source-refresh.md` and the parity summary lives in `docs/wiki/binaryen/passes/ssa-nomerge/parity.md`.
       - Goal: compare the current local Binaryen `version_130` implementation/test files against the checked-in `version_129` dossier before mutation slices consume the LocalGraph plan.
       - Deliverables: source-backed wiki/parity note for `SSAify.cpp`, `LocalGraph`, `ReFinalize`, pass registration, `ssa-nomerge_enable-simd`, `ssa.wast`, and `local-graph.cpp`; explicit drift/no-drift statements; source paths or reviewed URLs.
-      - Suggested evidence: `wasm-opt --version`, local Binaryen source diff or reviewed upstream files, and docs-only review unless the refresh changes expected fixtures.
+      - Evidence: local `wasm-opt --version` reported `wasm-opt version 130 (version_130)`. Downloaded `version_129` and `version_130` official sources under `.tmp/ssanm001a` showed byte-identical `SSAify.cpp`, `local-graph.h`, `LocalGraph.cpp`, `ssa-nomerge_enable-simd.wast`, `ssa-nomerge_enable-simd.txt`, `ssa.wast`, and `local-graph.cpp` gtests. `ReFinalize.cpp` drift is limited to wide-int finalizers; `pass.cpp` / `passes.h` drift is unrelated registrations/options spelling with unchanged `ssa-nomerge` registration and early scheduling. Tests were not run because this was docs/source review only.
     - [ ] [SSANM-001b] - Refresh fixture baseline from current Binaryen source/tests
       - Goal: turn the refreshed source surface into a focused fixture matrix for `[SSANM-002a]` through `[SSANM-007b]`.
       - Deliverables: matrix of straight-line, default-entry, branch/loop merge, tee, EH, typed-control, and huge-function fixture owners; explicit notes for any Binaryen source/test shape not represented by an existing or planned Starshine fixture.

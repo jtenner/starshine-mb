@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Refresh Binaryen version_130 source surface
+
+- Completed `[SSANM-001a]` in [`../../agent-todo.md`](../../agent-todo.md) after checking local `wasm-opt --version` (`wasm-opt version 130 (version_130)`) and comparing downloaded official `version_129` / `version_130` sources under `.tmp/ssanm001a`.
+- Added [`raw/binaryen/2026-06-13-ssa-nomerge-version-130-source-refresh.md`](raw/binaryen/2026-06-13-ssa-nomerge-version-130-source-refresh.md): `SSAify.cpp`, `local-graph.h`, `LocalGraph.cpp`, `ssa-nomerge_enable-simd.wast`, `ssa-nomerge_enable-simd.txt`, `ssa.wast`, and `local-graph.cpp` gtests are byte-identical between the two tags; `ReFinalize.cpp`, `pass.cpp`, and `passes.h` drift is unrelated to the no-merge behavior contract.
+- Refreshed [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md), and [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md) so later SSANM mutation slices can rely on the existing `version_129` behavior dossier for local Binaryen `version_130` planning. Tests were not run because this was docs/source review only.
+
 ## [2026-06-13] passes/ssa-nomerge | Slice O4z scheduling decision backlog
 
 - Split `[SSANM-010]` in [`../../agent-todo.md`](../../agent-todo.md) into epic-only O4z/preset scheduling work plus child slices `[SSANM-010a]` through `[SSANM-010d]` for source/preset anchor refresh, early-neighborhood replay, the explicit user scheduling decision, and approved preset-order implementation/testing.

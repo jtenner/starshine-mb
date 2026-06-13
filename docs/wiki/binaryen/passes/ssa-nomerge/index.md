@@ -148,19 +148,21 @@ What it actually is in `version_129`:
 
 ## Freshness note
 
-A narrow 2026-04-20 direct source comparison found **no semantic post-`version_129` drift** in the owning official surfaces used for this dossier.
+A 2026-06-13 `[SSANM-001a]` refresh rechecked the owning official source/test surfaces against the local Binaryen oracle, `wasm-opt version 130 (version_130)`.
 
-- `src/passes/SSAify.cpp` is identical on current `main`
-- `src/ir/local-graph.h` is identical on current `main`
-- `src/ir/LocalGraph.cpp` is identical on current `main`
-- `src/ir/ReFinalize.cpp` is identical on current `main`
-- `test/passes/ssa-nomerge_enable-simd.wast` and `.txt` are identical on current `main`
+- `src/passes/SSAify.cpp` is identical between `version_129` and `version_130`.
+- `src/ir/local-graph.h` is identical between `version_129` and `version_130`.
+- `src/ir/LocalGraph.cpp` is identical between `version_129` and `version_130`.
+- `test/passes/ssa-nomerge_enable-simd.wast` and `.txt` are identical between `version_129` and `version_130`.
+- `test/lit/passes/ssa.wast` and `test/gtest/local-graph.cpp` are identical between `version_129` and `version_130`.
+- `src/ir/ReFinalize.cpp` only adds finalizers for new wide-int expression nodes; this does not change the no-merge default-ref repair contract.
+- `src/passes/pass.cpp` and `src/passes/passes.h` only changed in unrelated registration/declaration surfaces plus a GC closed-world option spelling; `ssa-nomerge` registration and early optimizer scheduling are unchanged.
 
 So the durable rule is:
 
-- treat Binaryen `version_129` as the reviewed tagged oracle for this dossier's upstream file/test surfaces
-- keep the current-main note explicit only to say there is no visible source or dedicated-test semantic drift right now
-- do **not** silently upgrade that narrower claim into “latest global Binaryen release”; the separate release-horizon page now records `version_130` as the public baseline, so keep that numbering separate from this dossier's reviewed `version_129` source surfaces instead
+- the `version_129` behavior dossier remains valid for local Binaryen `version_130` no-merge planning;
+- keep the source-refresh note explicit and pass-surface-limited;
+- do **not** silently upgrade that narrower claim into “all Binaryen optimizer behavior is unchanged.”
 
 ## Current maintenance rule
 
@@ -172,6 +174,7 @@ So the durable rule is:
 ## Sources
 
 - [`../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md`](../../../raw/research/0722-2026-06-09-ssa-nomerge-exceptional-edge-audit.md)
+- [`../../../raw/binaryen/2026-06-13-ssa-nomerge-version-130-source-refresh.md`](../../../raw/binaryen/2026-06-13-ssa-nomerge-version-130-source-refresh.md)
 - [`../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md`](../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md)
 - [`../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md`](../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md)
 - [`../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md`](../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md)
@@ -191,10 +194,14 @@ So the durable rule is:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/ssa-nomerge_enable-simd.wast>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/ssa-nomerge_enable-simd.txt>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/ssa.wast>
-- Narrow freshness-check surface:
-  - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/SSAify.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/main/src/ir/local-graph.h>
-  - <https://github.com/WebAssembly/binaryen/blob/main/src/ir/LocalGraph.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/main/src/ir/ReFinalize.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/main/test/passes/ssa-nomerge_enable-simd.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/main/test/passes/ssa-nomerge_enable-simd.txt>
+- Binaryen `version_130` refresh surface:
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/SSAify.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/local-graph.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/LocalGraph.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/ir/ReFinalize.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/src/passes/passes.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/ssa-nomerge_enable-simd.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/passes/ssa-nomerge_enable-simd.txt>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/lit/passes/ssa.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_130/test/gtest/local-graph.cpp>
