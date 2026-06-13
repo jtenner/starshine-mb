@@ -1276,6 +1276,11 @@ pub struct GenValidFeatureFacts {
   has_ssa_parallel_copy_candidate : Bool
   has_ssa_parallel_copy_cycle_candidate : Bool
   has_ssa_default_local_merge : Bool
+  has_ssa_one_arm_default_merge : Bool
+  has_ssa_one_arm_param_merge : Bool
+  has_ssa_both_arm_local_merge : Bool
+  has_ssa_loop_carried_local_merge : Bool
+  has_ssa_mixed_fresh_canonical_writes : Bool
   has_ssa_unreachable_local_carrier : Bool
   has_ssa_dropped_increment_guard_shape : Bool
   has_ssa_dropped_increment_reversed_boundary : Bool
@@ -1433,6 +1438,11 @@ pub struct GenValidFeatureStats {
   ssa_parallel_copy_candidate : Int
   ssa_parallel_copy_cycle_candidate : Int
   ssa_default_local_merge : Int
+  ssa_one_arm_default_merge : Int
+  ssa_one_arm_param_merge : Int
+  ssa_both_arm_local_merge : Int
+  ssa_loop_carried_local_merge : Int
+  ssa_mixed_fresh_canonical_writes : Int
   ssa_unreachable_local_carrier : Int
   ssa_dropped_increment_guard_shape : Int
   ssa_dropped_increment_reversed_boundary : Int
@@ -1615,6 +1625,16 @@ pub impl Show for GenValidFeatureStats with fn output(self, logger) {
   self.ssa_parallel_copy_cycle_candidate.output(logger)
   logger.write_string(", ssa_default_local_merge: ")
   self.ssa_default_local_merge.output(logger)
+  logger.write_string(", ssa_one_arm_default_merge: ")
+  self.ssa_one_arm_default_merge.output(logger)
+  logger.write_string(", ssa_one_arm_param_merge: ")
+  self.ssa_one_arm_param_merge.output(logger)
+  logger.write_string(", ssa_both_arm_local_merge: ")
+  self.ssa_both_arm_local_merge.output(logger)
+  logger.write_string(", ssa_loop_carried_local_merge: ")
+  self.ssa_loop_carried_local_merge.output(logger)
+  logger.write_string(", ssa_mixed_fresh_canonical_writes: ")
+  self.ssa_mixed_fresh_canonical_writes.output(logger)
   logger.write_string(", ssa_unreachable_local_carrier: ")
   self.ssa_unreachable_local_carrier.output(logger)
   logger.write_string(", ssa_dropped_increment_guard_shape: ")
@@ -1748,6 +1768,11 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     ssa_parallel_copy_candidate: 0,
     ssa_parallel_copy_cycle_candidate: 0,
     ssa_default_local_merge: 0,
+    ssa_one_arm_default_merge: 0,
+    ssa_one_arm_param_merge: 0,
+    ssa_both_arm_local_merge: 0,
+    ssa_loop_carried_local_merge: 0,
+    ssa_mixed_fresh_canonical_writes: 0,
     ssa_unreachable_local_carrier: 0,
     ssa_dropped_increment_guard_shape: 0,
     ssa_dropped_increment_reversed_boundary: 0,
@@ -1910,6 +1935,16 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_ssa_parallel_copy_cycle_candidate),
     ssa_default_local_merge: self.ssa_default_local_merge +
     gen_valid_bool_count(facts.has_ssa_default_local_merge),
+    ssa_one_arm_default_merge: self.ssa_one_arm_default_merge +
+    gen_valid_bool_count(facts.has_ssa_one_arm_default_merge),
+    ssa_one_arm_param_merge: self.ssa_one_arm_param_merge +
+    gen_valid_bool_count(facts.has_ssa_one_arm_param_merge),
+    ssa_both_arm_local_merge: self.ssa_both_arm_local_merge +
+    gen_valid_bool_count(facts.has_ssa_both_arm_local_merge),
+    ssa_loop_carried_local_merge: self.ssa_loop_carried_local_merge +
+    gen_valid_bool_count(facts.has_ssa_loop_carried_local_merge),
+    ssa_mixed_fresh_canonical_writes: self.ssa_mixed_fresh_canonical_writes +
+    gen_valid_bool_count(facts.has_ssa_mixed_fresh_canonical_writes),
     ssa_unreachable_local_carrier: self.ssa_unreachable_local_carrier +
     gen_valid_bool_count(facts.has_ssa_unreachable_local_carrier),
     ssa_dropped_increment_guard_shape: self.ssa_dropped_increment_guard_shape +
@@ -15729,6 +15764,11 @@ pub fn gen_valid_feature_facts(
     has_ssa_parallel_copy_candidate: ssa_facts.has_ssa_parallel_copy_candidate,
     has_ssa_parallel_copy_cycle_candidate: ssa_facts.has_ssa_parallel_copy_cycle_candidate,
     has_ssa_default_local_merge: ssa_facts.has_ssa_default_local_merge,
+    has_ssa_one_arm_default_merge: ssa_facts.has_ssa_one_arm_default_merge,
+    has_ssa_one_arm_param_merge: ssa_facts.has_ssa_one_arm_param_merge,
+    has_ssa_both_arm_local_merge: ssa_facts.has_ssa_both_arm_local_merge,
+    has_ssa_loop_carried_local_merge: ssa_facts.has_ssa_loop_carried_local_merge,
+    has_ssa_mixed_fresh_canonical_writes: ssa_facts.has_ssa_mixed_fresh_canonical_writes,
     has_ssa_unreachable_local_carrier: ssa_facts.has_ssa_unreachable_local_carrier,
     has_ssa_dropped_increment_guard_shape: ssa_facts.has_ssa_dropped_increment_guard_shape,
     has_ssa_dropped_increment_reversed_boundary: ssa_facts.has_ssa_dropped_increment_reversed_boundary,

@@ -14,6 +14,11 @@ pub struct GenValidSsaFuncFacts {
   has_ssa_parallel_copy_candidate : Bool
   has_ssa_parallel_copy_cycle_candidate : Bool
   has_ssa_default_local_merge : Bool
+  has_ssa_one_arm_default_merge : Bool
+  has_ssa_one_arm_param_merge : Bool
+  has_ssa_both_arm_local_merge : Bool
+  has_ssa_loop_carried_local_merge : Bool
+  has_ssa_mixed_fresh_canonical_writes : Bool
   has_ssa_unreachable_local_carrier : Bool
   has_ssa_dropped_increment_guard_shape : Bool
   has_ssa_dropped_increment_reversed_boundary : Bool
@@ -56,6 +61,11 @@ pub fn GenValidSsaFuncFacts::empty() -> GenValidSsaFuncFacts {
     has_ssa_parallel_copy_candidate: false,
     has_ssa_parallel_copy_cycle_candidate: false,
     has_ssa_default_local_merge: false,
+    has_ssa_one_arm_default_merge: false,
+    has_ssa_one_arm_param_merge: false,
+    has_ssa_both_arm_local_merge: false,
+    has_ssa_loop_carried_local_merge: false,
+    has_ssa_mixed_fresh_canonical_writes: false,
     has_ssa_unreachable_local_carrier: false,
     has_ssa_dropped_increment_guard_shape: false,
     has_ssa_dropped_increment_reversed_boundary: false,
@@ -115,6 +125,16 @@ pub fn gen_valid_merge_ssa_func_facts(
     right.has_ssa_parallel_copy_cycle_candidate,
     has_ssa_default_local_merge: left.has_ssa_default_local_merge ||
     right.has_ssa_default_local_merge,
+    has_ssa_one_arm_default_merge: left.has_ssa_one_arm_default_merge ||
+    right.has_ssa_one_arm_default_merge,
+    has_ssa_one_arm_param_merge: left.has_ssa_one_arm_param_merge ||
+    right.has_ssa_one_arm_param_merge,
+    has_ssa_both_arm_local_merge: left.has_ssa_both_arm_local_merge ||
+    right.has_ssa_both_arm_local_merge,
+    has_ssa_loop_carried_local_merge: left.has_ssa_loop_carried_local_merge ||
+    right.has_ssa_loop_carried_local_merge,
+    has_ssa_mixed_fresh_canonical_writes: left.has_ssa_mixed_fresh_canonical_writes ||
+    right.has_ssa_mixed_fresh_canonical_writes,
     has_ssa_unreachable_local_carrier: left.has_ssa_unreachable_local_carrier ||
     right.has_ssa_unreachable_local_carrier,
     has_ssa_dropped_increment_guard_shape: left.has_ssa_dropped_increment_guard_shape ||
@@ -977,6 +997,10 @@ fn gen_valid_ssa_scan_linear(
         saw_structured_control = true
       }
       If(_, then_body, else_body) => {
+        let def_counts_before_if : Array[Int] = []
+        for count in def_counts {
+          def_counts_before_if.push(count)
+        }
         let (then_facts, then_writes, then_exceptional) = gen_valid_ssa_scan_if_arm(
           param_count, then_body, def_counts, has_local_write, has_exceptional,
         )
@@ -1008,7 +1032,7 @@ fn gen_valid_ssa_scan_linear(
             else_exceptional
         }
         out = gen_valid_ssa_scan_if_join(
-          param_count, then_body, else_body, tail, out,
+          param_count, then_body, else_body, tail, out, def_counts_before_if,
         )
         let else_branchy = match else_body {
           Some(body) => gen_valid_ssa_expr_has_branch_exit(Expr::new(body))
@@ -1410,6 +1434,7 @@ fn gen_valid_ssa_scan_if_join(
   else_body : Array[Instruction]?,
   tail : Expr,
   facts : GenValidSsaFuncFacts,
+  def_counts : Array[Int],
 ) -> GenValidSsaFuncFacts {
   let then_writes = gen_valid_ssa_if_arm_writes_local(then_body)
   let else_writes = match else_body {
@@ -1422,27 +1447,47 @@ fn gen_valid_ssa_scan_if_join(
   for slot in then_writes {
     any_write = true
     let idx = LocalIdx::new(slot.reinterpret_as_uint())
+    let in_else = else_writes.any(fn(other) { other == slot })
     if gen_valid_expr_local_has_read(tail, idx) {
       out = { ..out, has_ssa_if_join_phi_candidate: true }
       if slot < param_count {
         out = { ..out, has_ssa_structured_param_merge: true }
+        if !in_else {
+          out = { ..out, has_ssa_one_arm_param_merge: true }
+        }
+      } else if in_else {
+        out = { ..out, has_ssa_both_arm_local_merge: true }
+      } else {
+        out = { ..out, has_ssa_one_arm_default_merge: true }
+      }
+      if def_counts[slot] >= 2 {
+        out = { ..out, has_ssa_mixed_fresh_canonical_writes: true }
       }
     } else {
       out = { ..out, has_ssa_branch_local_not_read_later: true }
     }
-    for other in else_writes {
-      if other == slot {
-        both_arms_write = true
-      }
+    if in_else {
+      both_arms_write = true
     }
   }
   for slot in else_writes {
     any_write = true
     let idx = LocalIdx::new(slot.reinterpret_as_uint())
+    let in_then = then_writes.any(fn(other) { other == slot })
     if gen_valid_expr_local_has_read(tail, idx) {
       out = { ..out, has_ssa_if_join_phi_candidate: true }
       if slot < param_count {
         out = { ..out, has_ssa_structured_param_merge: true }
+        if !in_then {
+          out = { ..out, has_ssa_one_arm_param_merge: true }
+        }
+      } else if in_then {
+        out = { ..out, has_ssa_both_arm_local_merge: true }
+      } else {
+        out = { ..out, has_ssa_one_arm_default_merge: true }
+      }
+      if def_counts[slot] >= 2 {
+        out = { ..out, has_ssa_mixed_fresh_canonical_writes: true }
       }
     } else {
       out = { ..out, has_ssa_branch_local_not_read_later: true }
@@ -1514,6 +1559,10 @@ fn gen_valid_ssa_scan_loop(
     gen_valid_ssa_expr_has_local_read(body)
   if has_backedge && has_local_traffic {
     out = { ..out, has_ssa_loop_backedge_phi_candidate: true }
+    if gen_valid_ssa_func_has_local_write(body) &&
+      gen_valid_ssa_expr_has_local_read(body) {
+      out = { ..out, has_ssa_loop_carried_local_merge: true }
+    }
   }
   if gen_valid_ssa_blocktype_is_typed_loop(bt) && has_local_traffic {
     out = { ..out, has_ssa_typed_loop_param_fail_closed_shape: true }
@@ -1905,6 +1954,30 @@ fn gen_valid_append_ssa_nomerge_smoke_body_slice(
   out.push(Instruction::local_set(l3))
   out.push(Instruction::local_get(l3))
   out.push(Instruction::drop())
+  // A-1. one-arm body-local/default merge before l2 receives any write.
+  out.push(Instruction::i32_const(I32(1)))
+  out.push(
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::i32_const(I32(103)), Instruction::local_set(l2)],
+      None,
+    ),
+  )
+  out.push(Instruction::local_get(l2))
+  out.push(Instruction::drop())
+  // A-0. one-arm parameter-entry merge before parameter write shapes.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::local_get(p0))
+    out.push(
+      Instruction::if_(
+        BlockType::void_(),
+        [Instruction::i32_const(I32(104)), Instruction::local_set(p0)],
+        None,
+      ),
+    )
+    out.push(Instruction::local_get(p0))
+    out.push(Instruction::drop())
+  }
   out.push(Instruction::i32_const(I32(102)))
   out.push(Instruction::local_set(l4))
   // A0. default body-local read after branchy no-write control.
@@ -2113,7 +2186,6 @@ fn gen_valid_append_ssa_nomerge_coverage_body_slice(
   let l0 = gen_valid_ssa_body_local(param_count, 0)
   let l1 = gen_valid_ssa_body_local(param_count, 1)
   let l2 = gen_valid_ssa_body_local(param_count, 2)
-  ignore(l2)
   let l3 = gen_valid_ssa_body_local(param_count, 3)
   let l4 = gen_valid_ssa_body_local(param_count, 4)
   let p0 = LocalIdx::new(0U)
@@ -2126,6 +2198,30 @@ fn gen_valid_append_ssa_nomerge_coverage_body_slice(
   out.push(Instruction::local_set(l3))
   out.push(Instruction::local_get(l3))
   out.push(Instruction::drop())
+  // A-1. one-arm body-local/default merge before l2 receives any write.
+  out.push(Instruction::i32_const(I32(1)))
+  out.push(
+    Instruction::if_(
+      BlockType::void_(),
+      [Instruction::i32_const(I32(103)), Instruction::local_set(l2)],
+      None,
+    ),
+  )
+  out.push(Instruction::local_get(l2))
+  out.push(Instruction::drop())
+  // A-0. one-arm parameter-entry merge before parameter write shapes.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::local_get(p0))
+    out.push(
+      Instruction::if_(
+        BlockType::void_(),
+        [Instruction::i32_const(I32(104)), Instruction::local_set(p0)],
+        None,
+      ),
+    )
+    out.push(Instruction::local_get(p0))
+    out.push(Instruction::drop())
+  }
   out.push(Instruction::i32_const(I32(102)))
   out.push(Instruction::local_set(l4))
   // A0. default body-local read after branchy no-write control.

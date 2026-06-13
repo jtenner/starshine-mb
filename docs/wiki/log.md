@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Add merge/per-write GenValid coverage
+
+- Completed `[SSANM-011c]` in [`../../agent-todo.md`](../../agent-todo.md) as a generator/profile coverage slice after adding explicit merge subfamily and mixed per-write feature labels: `ssa-one-arm-default-merge`, `ssa-one-arm-param-merge`, `ssa-both-arm-local-merge`, `ssa-loop-carried-local-merge`, and `ssa-mixed-fresh-canonical-writes`.
+- Updated [`../../src/validate/gen_valid_ssa.mbt`](../../src/validate/gen_valid_ssa.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), and [`../../src/fuzz/main.mbt`](../../src/fuzz/main.mbt) so SSA scanning, stats, feature floors, and GenValid manifest JSON expose the new facts; smoke and coverage templates now include deterministic one-arm body-local/default and parameter-entry merge slices before mutation-heavy parameter writes.
+- Evidence: red-first `gen_valid_tests.mbt` failed on missing fields; `moon info` passed with pre-existing GenValid warnings; `moon fmt`; focused GenValid tests (`74/74`, `35/35`); fuzz wbtests (`90/90`); full `moon test` (`5708/5708`); native `src/cmd` build with pre-existing pass-manager warnings; smoke/coverage one-artifact required-floor probes with no skips; direct mixed-generator compare green over `9977/10000` compared cases with `0` mismatches and `23` Binaryen/tool command failures; direct profile probes still expose the known `ssa-nomerge` local-allocation behavior gap (`smoke`: `215/215` mismatches before the cap; `coverage`: `65/65` mismatches before the cap; no validation/generator/command failures).
+- Refreshed [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) with the exact commands, counts, cache counters, and mismatch classification.
+
 ## [2026-06-13] passes/ssa-nomerge | Slice final closeout backlog
 
 - Split `[SSANM-012]` in [`../../agent-todo.md`](../../agent-todo.md) into epic-only final-closeout work plus child slices `[SSANM-012a]` through `[SSANM-012e]` for prerequisite census, `100000`-case direct oracle triage, dedicated GenValid closeout lanes, artifact/huge-function/O4z scheduling evidence, and final documentation/backlog publication.

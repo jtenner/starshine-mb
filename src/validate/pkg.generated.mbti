@@ -881,6 +881,11 @@ pub struct GenValidFeatureFacts {
   has_ssa_parallel_copy_candidate : Bool
   has_ssa_parallel_copy_cycle_candidate : Bool
   has_ssa_default_local_merge : Bool
+  has_ssa_one_arm_default_merge : Bool
+  has_ssa_one_arm_param_merge : Bool
+  has_ssa_both_arm_local_merge : Bool
+  has_ssa_loop_carried_local_merge : Bool
+  has_ssa_mixed_fresh_canonical_writes : Bool
   has_ssa_unreachable_local_carrier : Bool
   has_ssa_dropped_increment_guard_shape : Bool
   has_ssa_dropped_increment_reversed_boundary : Bool
@@ -985,6 +990,11 @@ pub struct GenValidFeatureStats {
   ssa_parallel_copy_candidate : Int
   ssa_parallel_copy_cycle_candidate : Int
   ssa_default_local_merge : Int
+  ssa_one_arm_default_merge : Int
+  ssa_one_arm_param_merge : Int
+  ssa_both_arm_local_merge : Int
+  ssa_loop_carried_local_merge : Int
+  ssa_mixed_fresh_canonical_writes : Int
   ssa_unreachable_local_carrier : Int
   ssa_dropped_increment_guard_shape : Int
   ssa_dropped_increment_reversed_boundary : Int
@@ -1160,6 +1170,11 @@ pub struct GenValidSsaFuncFacts {
   has_ssa_parallel_copy_candidate : Bool
   has_ssa_parallel_copy_cycle_candidate : Bool
   has_ssa_default_local_merge : Bool
+  has_ssa_one_arm_default_merge : Bool
+  has_ssa_one_arm_param_merge : Bool
+  has_ssa_both_arm_local_merge : Bool
+  has_ssa_loop_carried_local_merge : Bool
+  has_ssa_mixed_fresh_canonical_writes : Bool
   has_ssa_unreachable_local_carrier : Bool
   has_ssa_dropped_increment_guard_shape : Bool
   has_ssa_dropped_increment_reversed_boundary : Bool
@@ -1629,6 +1644,11 @@ pub enum ValidateValidFeatureKey {
   SsaParallelCopyCandidate
   SsaParallelCopyCycleCandidate
   SsaDefaultLocalMerge
+  SsaOneArmDefaultMerge
+  SsaOneArmParamMerge
+  SsaBothArmLocalMerge
+  SsaLoopCarriedLocalMerge
+  SsaMixedFreshCanonicalWrites
   SsaUnreachableLocalCarrier
   SsaDroppedIncrementGuardShape
   SsaDroppedIncrementReversedBoundary

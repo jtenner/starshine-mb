@@ -3463,6 +3463,11 @@ pub enum ValidateValidFeatureKey {
   SsaParallelCopyCandidate
   SsaParallelCopyCycleCandidate
   SsaDefaultLocalMerge
+  SsaOneArmDefaultMerge
+  SsaOneArmParamMerge
+  SsaBothArmLocalMerge
+  SsaLoopCarriedLocalMerge
+  SsaMixedFreshCanonicalWrites
   SsaUnreachableLocalCarrier
   SsaDroppedIncrementGuardShape
   SsaDroppedIncrementReversedBoundary
@@ -3564,6 +3569,12 @@ pub impl Show for ValidateValidFeatureKey with fn output(self, logger) {
     SsaParallelCopyCycleCandidate =>
       logger.write_string("SsaParallelCopyCycleCandidate")
     SsaDefaultLocalMerge => logger.write_string("SsaDefaultLocalMerge")
+    SsaOneArmDefaultMerge => logger.write_string("SsaOneArmDefaultMerge")
+    SsaOneArmParamMerge => logger.write_string("SsaOneArmParamMerge")
+    SsaBothArmLocalMerge => logger.write_string("SsaBothArmLocalMerge")
+    SsaLoopCarriedLocalMerge => logger.write_string("SsaLoopCarriedLocalMerge")
+    SsaMixedFreshCanonicalWrites =>
+      logger.write_string("SsaMixedFreshCanonicalWrites")
     SsaUnreachableLocalCarrier =>
       logger.write_string("SsaUnreachableLocalCarrier")
     SsaDroppedIncrementGuardShape =>
@@ -3782,6 +3793,11 @@ pub fn validate_valid_feature_actual_count(
     SsaParallelCopyCandidate => stats.ssa_parallel_copy_candidate
     SsaParallelCopyCycleCandidate => stats.ssa_parallel_copy_cycle_candidate
     SsaDefaultLocalMerge => stats.ssa_default_local_merge
+    SsaOneArmDefaultMerge => stats.ssa_one_arm_default_merge
+    SsaOneArmParamMerge => stats.ssa_one_arm_param_merge
+    SsaBothArmLocalMerge => stats.ssa_both_arm_local_merge
+    SsaLoopCarriedLocalMerge => stats.ssa_loop_carried_local_merge
+    SsaMixedFreshCanonicalWrites => stats.ssa_mixed_fresh_canonical_writes
     SsaUnreachableLocalCarrier => stats.ssa_unreachable_local_carrier
     SsaDroppedIncrementGuardShape => stats.ssa_dropped_increment_guard_shape
     SsaDroppedIncrementReversedBoundary =>
@@ -3891,6 +3907,11 @@ fn validate_valid_feature_ledger_keys() -> Array[ValidateValidFeatureKey] {
     SsaParallelCopyCandidate,
     SsaParallelCopyCycleCandidate,
     SsaDefaultLocalMerge,
+    SsaOneArmDefaultMerge,
+    SsaOneArmParamMerge,
+    SsaBothArmLocalMerge,
+    SsaLoopCarriedLocalMerge,
+    SsaMixedFreshCanonicalWrites,
     SsaUnreachableLocalCarrier,
     SsaDroppedIncrementGuardShape,
     SsaDroppedIncrementReversedBoundary,
@@ -4045,6 +4066,11 @@ fn validate_valid_feature_key_label(key : ValidateValidFeatureKey) -> String {
     SsaParallelCopyCandidate => "ssa-parallel-copy-candidate"
     SsaParallelCopyCycleCandidate => "ssa-parallel-copy-cycle-candidate"
     SsaDefaultLocalMerge => "ssa-default-local-merge"
+    SsaOneArmDefaultMerge => "ssa-one-arm-default-merge"
+    SsaOneArmParamMerge => "ssa-one-arm-param-merge"
+    SsaBothArmLocalMerge => "ssa-both-arm-local-merge"
+    SsaLoopCarriedLocalMerge => "ssa-loop-carried-local-merge"
+    SsaMixedFreshCanonicalWrites => "ssa-mixed-fresh-canonical-writes"
     SsaUnreachableLocalCarrier => "ssa-unreachable-local-carrier"
     SsaDroppedIncrementGuardShape => "ssa-dropped-increment-guard-shape"
     SsaDroppedIncrementReversedBoundary =>
@@ -4152,6 +4178,11 @@ fn validate_valid_feature_key_from_label(
     "ssa-parallel-copy-candidate" => Some(SsaParallelCopyCandidate)
     "ssa-parallel-copy-cycle-candidate" => Some(SsaParallelCopyCycleCandidate)
     "ssa-default-local-merge" => Some(SsaDefaultLocalMerge)
+    "ssa-one-arm-default-merge" => Some(SsaOneArmDefaultMerge)
+    "ssa-one-arm-param-merge" => Some(SsaOneArmParamMerge)
+    "ssa-both-arm-local-merge" => Some(SsaBothArmLocalMerge)
+    "ssa-loop-carried-local-merge" => Some(SsaLoopCarriedLocalMerge)
+    "ssa-mixed-fresh-canonical-writes" => Some(SsaMixedFreshCanonicalWrites)
     "ssa-unreachable-local-carrier" => Some(SsaUnreachableLocalCarrier)
     "ssa-dropped-increment-guard-shape" => Some(SsaDroppedIncrementGuardShape)
     "ssa-dropped-increment-reversed-boundary" =>

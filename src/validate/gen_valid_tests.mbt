@@ -7315,6 +7315,26 @@ test "ssa-nomerge coverage generated modules record dense SSA feature facts" {
     msg="expected default local merge",
   )
   assert_true(
+    facts.has_ssa_one_arm_default_merge,
+    msg="expected one-arm body-local/default merge",
+  )
+  assert_true(
+    facts.has_ssa_one_arm_param_merge,
+    msg="expected one-arm parameter-entry merge",
+  )
+  assert_true(
+    facts.has_ssa_both_arm_local_merge,
+    msg="expected both-arm body-local merge",
+  )
+  assert_true(
+    facts.has_ssa_loop_carried_local_merge,
+    msg="expected loop-carried body-local merge",
+  )
+  assert_true(
+    facts.has_ssa_mixed_fresh_canonical_writes,
+    msg="expected mixed fresh/canonical per-write local",
+  )
+  assert_true(
     facts.has_ssa_unreachable_local_carrier,
     msg="expected unreachable local carrier",
   )
@@ -7413,6 +7433,10 @@ test "ssa-nomerge smoke generated modules cover structured branch SSA shapes" {
   assert_true(facts.has_ssa_dead_local_set)
   assert_true(facts.has_ssa_if_join_phi_candidate)
   assert_true(facts.has_ssa_default_local_merge)
+  assert_true(facts.has_ssa_one_arm_default_merge)
+  assert_true(facts.has_ssa_one_arm_param_merge)
+  assert_true(facts.has_ssa_both_arm_local_merge)
+  assert_true(facts.has_ssa_mixed_fresh_canonical_writes)
   assert_true(
     facts.has_ssa_structured_early_return_local,
     msg="smoke profile should cover structured early-return local traffic",
@@ -7543,6 +7567,26 @@ test "ssa-nomerge compare-clean generated modules omit unsupported-boundary cove
     facts.has_ssa_default_local_merge,
     msg="expected default local merge",
   )
+  assert_true(
+    facts.has_ssa_one_arm_default_merge,
+    msg="expected one-arm body-local/default merge",
+  )
+  assert_false(
+    facts.has_ssa_one_arm_param_merge,
+    msg="compare-clean profile keeps parameter-entry one-arm merges out until the direct lane is clean",
+  )
+  assert_true(
+    facts.has_ssa_both_arm_local_merge,
+    msg="expected both-arm body-local merge",
+  )
+  assert_true(
+    facts.has_ssa_mixed_fresh_canonical_writes,
+    msg="expected mixed fresh/canonical per-write local",
+  )
+  assert_false(
+    facts.has_ssa_loop_carried_local_merge,
+    msg="compare-clean profile defers loop-carried local merge until compare lane is clean",
+  )
   assert_false(
     facts.has_ssa_loop_backedge_phi_candidate,
     msg="compare-clean profile defers loop backedge until compare lane is clean",
@@ -7625,6 +7669,7 @@ test "ssa-nomerge stress generated modules record dense unsupported-boundary SSA
   }
   let facts = generated.facts
   assert_true(facts.has_ssa_loop_backedge_phi_candidate)
+  assert_true(facts.has_ssa_loop_carried_local_merge)
   assert_true(facts.has_ssa_br_table_phi_candidate)
   assert_true(facts.has_ssa_parallel_copy_candidate)
   assert_true(facts.has_ssa_parallel_copy_cycle_candidate)
@@ -7656,14 +7701,16 @@ test "validate_valid_feature_floor_by_label recognizes SSA feature labels" {
       "ssa-param-entry-read", "ssa-local-tee-def-use", "ssa-param-write", "ssa-dead-local-set",
       "ssa-dead-local-tee", "ssa-if-join-phi-candidate", "ssa-loop-backedge-phi-candidate",
       "ssa-br-table-phi-candidate", "ssa-parallel-copy-candidate", "ssa-parallel-copy-cycle-candidate",
-      "ssa-default-local-merge", "ssa-unreachable-local-carrier", "ssa-dropped-increment-guard-shape",
-      "ssa-dropped-increment-reversed-boundary", "ssa-exceptional-fail-closed-shape",
-      "ssa-typed-loop-param-fail-closed-shape", "ssa-nested-cfg-fail-closed-shape",
-      "ssa-nested-result-if-supported-shape", "ssa-nested-result-if-condition-write",
-      "ssa-nested-result-if-condition-value-block", "ssa-nested-result-if-arm-value-block",
-      "ssa-nested-result-if-mixed-arm-value-block", "ssa-nested-result-if-scalar-result",
-      "ssa-structured-early-return-local", "ssa-block-branch-merge-copy", "ssa-block-br-if-merge-copy",
-      "ssa-structured-param-merge", "ssa-branch-local-not-read-later", "ssa-default-local-read-after-branchy-control",
+      "ssa-default-local-merge", "ssa-one-arm-default-merge", "ssa-one-arm-param-merge",
+      "ssa-both-arm-local-merge", "ssa-loop-carried-local-merge", "ssa-mixed-fresh-canonical-writes",
+      "ssa-unreachable-local-carrier", "ssa-dropped-increment-guard-shape", "ssa-dropped-increment-reversed-boundary",
+      "ssa-exceptional-fail-closed-shape", "ssa-typed-loop-param-fail-closed-shape",
+      "ssa-nested-cfg-fail-closed-shape", "ssa-nested-result-if-supported-shape",
+      "ssa-nested-result-if-condition-write", "ssa-nested-result-if-condition-value-block",
+      "ssa-nested-result-if-arm-value-block", "ssa-nested-result-if-mixed-arm-value-block",
+      "ssa-nested-result-if-scalar-result", "ssa-structured-early-return-local",
+      "ssa-block-branch-merge-copy", "ssa-block-br-if-merge-copy", "ssa-structured-param-merge",
+      "ssa-branch-local-not-read-later", "ssa-default-local-read-after-branchy-control",
       "ssa-dropped-unreachable-debris-before-hard-unreachable", "ssa-canonical-body-local-next-read",
       "ssa-immediate-block-exit-canonical-set-br", "ssa-enclosing-label-copy-before-exit",
       "ssa-void-br-table-canonical-copies",
