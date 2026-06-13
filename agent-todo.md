@@ -211,9 +211,21 @@ Preset behavior inventory:
       - Goal: decide and document the public full `ssa` sibling status before implementation.
       - Deliverables: registry/backlog tests for direct `--ssa` request behavior, explicit status in pass tracker/wiki, and dependency notes on LocalGraph merge/source facts.
       - Evidence: full `ssa` is now a known boundary-only registry name, direct CLI `--ssa` reaches an explicit unsupported full-SSA boundary error, and presets still use active `ssa-nomerge` only. Red TDD: `moon test src/passes --target native` showed the intended new `ssa` registry/pipeline failures before implementation, alongside unrelated native debug-artifact wbtest failures. After implementation, `moon test --package jtenner/starshine/passes --file registry_test.mbt` passed `6/6`, and `moon test --package jtenner/starshine/cmd --file cmd_wbtest.mbt` passed `105/105`. Direct `ssa` or `ssa-nomerge` compare/fuzz was not run because this slice changed registry/request status and docs only, with no pass mutation or rewrite behavior.
-    - [ ] [SSA-FULL]002 - Full `ssa` merge-local rewrite model
-      - Goal: port the Binaryen full-`ssa` shape separately from `ssa-nomerge` after LocalGraph can identify merge gets and incoming sources.
-      - Deliverables: merge locals at diamonds and loops, parameter-entry prepends, explicit incoming `tee`s, default-body-local no-prepend inputs, multi-source get handling, and no-merge contrast fixtures.
+    - [ ] [SSA-FULL]002A - Full `ssa` merge-rewrite planner
+      - Goal: make the first no-mutation full-`ssa` rewrite model consume LocalGraph merge/source/defaultability facts and produce Binaryen-shaped merge-local actions.
+      - Deliverables: focused planner fixtures for multiple explicit writes, explicit write plus parameter entry, explicit write plus defaultable body-local entry, nondefaultable default-entry fail-closed cases, and no-merge contrast classification; no public `ssa` activation or mutation in this slice.
+    - [ ] [SSA-FULL]002B - Full `ssa` direct lit-compatible non-merge rewrites
+      - Goal: activate the public `ssa` sibling for official `ssa.wast`-style non-merge families without merge-local materialization yet.
+      - Deliverables: repeated parameter overwrite freshening, default ref/null replacement, tuple/default replacement where representable, registry/dispatcher/CLI activation tests, and sibling `ssa-nomerge` stability checks.
+    - [ ] [SSA-FULL]002C - Full `ssa` diamond merge-local materialization
+      - Goal: implement Binaryen-shaped merge locals for acyclic diamond joins with explicit incoming definitions.
+      - Deliverables: fresh merge local per merged read, explicit incoming `local.tee` insertion, later get retargeting, no-merge contrast fixtures, validation, and direct `--pass ssa` compare evidence.
+    - [ ] [SSA-FULL]002D - Full `ssa` entry-source merge handling
+      - Goal: complete parameter-entry prepends and default-body-local no-prepend merge behavior.
+      - Deliverables: one-arm parameter overwrite prepend copies, one-arm defaultable body-local overwrite with no synthetic default copy, mixed source tests, and nondefaultable fail-closed coverage.
+    - [ ] [SSA-FULL]002E - Full `ssa` loop merge and closeout signoff
+      - Goal: extend the merge-local rewrite model to loop-carried ordinary local merges and sign off the public direct pass before broader SSA slices.
+      - Deliverables: loop merge fixtures, nested/control boundary tests, direct `--pass ssa` 10000 compare evidence, performance notes, docs/wiki updates, and explicit remaining blockers for EH/typed-loop/huge-function slices.
     - [ ] [SSA-TESTS]001 - Official Binaryen LocalGraph/SSA fixture parity
       - Goal: port the useful parts of `test/lit/passes/ssa.wast`, `test/gtest/local-graph.cpp`, `ssa-nomerge_enable-simd.wast`, and source-derived `SSAify.cpp` cases.
       - Deliverables: HOT/WAT fixtures where supported; comments and reopening criteria where Starshine lacks the necessary AST feature.
