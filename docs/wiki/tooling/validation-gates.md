@@ -168,13 +168,14 @@ Practical rules:
 | Change kind | Minimum useful gate | Stronger gate before commit or handoff |
 | --- | --- | --- |
 | Docs-only wiki update | Link/source review plus `git diff`; no Moon run required unless code snippets or generated docs changed. | Optional `bun validate readme-api-sync` if README/API references changed. |
-| MoonBit implementation change | Focused package tests during TDD, then `moon info`, `moon fmt`, `moon test`. | `bun validate full --profile ci --target wasm-gc`. |
-| Public API or `.mbti` change | `moon info`, review `.mbti` diffs, focused tests. | `bun validate readme-api-sync` plus full gate if the API is user-visible. |
-| Optimizer pass behavior | Focused pass tests and active dispatcher/registry tests. | `moon info`, `moon fmt`, `moon test`, pass-fuzz compare at the repo-standard count, and artifact replay when the pass participates in presets. |
+| Forward-moving test or expectation update | Diff review and enough local inspection to confirm the expectation moves in the intended direction; no test run required unless the intent is to fix related behavior. | Focused package tests when the changed expectations are meant to prove a behavior fix. |
+| Positive behavior change | Focused package tests during TDD when practical. A commit may proceed with known temporary test failures if it is clear forward progress and records the failure state. | `moon info`, `moon fmt`, `moon test`, or `bun validate full --profile ci --target wasm-gc` when repository-wide confidence is needed. |
+| Public API or `.mbti` change | `moon info`, review `.mbti` diffs, focused tests when behavior changed. | `bun validate readme-api-sync` plus full gate if the API is user-visible and stable enough for broad validation. |
+| Optimizer pass behavior | Focused pass tests and active dispatcher/registry tests when the intent is to fix pass behavior. | `moon info`, `moon fmt`, `moon test`, pass-fuzz compare at the repo-standard count, and artifact replay when the pass participates in presets and the slice is ready for broad signoff. |
 | Self-optimized artifact safety | `bun validate self-opt-smoke [--wasm <candidate>]`. | `bun validate self-opt-full [--wasm <candidate>]` after asking, especially for O4z or preset-path changes. |
-| Fuzzer generator or invalid-strategy work | Focused validate/fuzz tests and suite smoke. | `bun validate full` or suite-specific fuzz profiles plus updates to [`validate/fuzz-hardening.md`](../validate/fuzz-hardening.md), [`validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md), and [`fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md). |
-| Validator proof helpers | Focused executable tests and `moon prove src/validate_proof`. | Ordinary test/full validation as needed for call-site behavior. |
-| Trace/performance work | `bun validate trace-benchmark --list-corpora` and focused corpus runs. | Update [`validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md) when the durable baseline changes. |
+| Fuzzer generator or invalid-strategy work | Focused validate/fuzz tests and suite smoke when behavior changed. | `bun validate full` or suite-specific fuzz profiles plus updates to [`validate/fuzz-hardening.md`](../validate/fuzz-hardening.md), [`validate/diagnostics-and-invalid-repro.md`](../validate/diagnostics-and-invalid-repro.md), and [`fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md). |
+| Validator proof helpers | Focused executable tests and `moon prove src/validate_proof` when proved contracts change. | Ordinary test/full validation as needed for call-site behavior. |
+| Trace/performance work | `bun validate trace-benchmark --list-corpora` and focused corpus runs when updating measured behavior. | Update [`validate/trace-benchmark-baseline.md`](../validate/trace-benchmark-baseline.md) when the durable baseline changes. |
 
 ## Edge Cases And Invariants
 

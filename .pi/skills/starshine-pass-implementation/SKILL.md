@@ -82,7 +82,7 @@ Read the relevant sources before substantial pass work:
    - CLI/pass flag exposure: usually `src/cmd/cmd.mbt`.
    - Package imports: `package*/imports.mbt` when new imports are needed.
    - Public API snapshots: review `.mbti` diffs when public surfaces change.
-   - Docs/backlog: update relevant docs and `agent-todo.md` before commit when behavior or status changes; do not add per-commit changelog entries.
+   - Docs/backlog: update relevant docs and `agent-todo.md` before commit when behavior or status changes; do not add per-commit changelog entries; docs-only updates do not require tests.
 
 6. Handle mismatches and gaps deliberately.
    - Classify mismatch families as an agent judgment in the report, not as a script-determined truth. Use categories such as behavior-parity match despite output drift, representation-only, size-losing, unknown/risky, validation failure, tool/Binaryen failure, true semantic mismatch, or intentionally deferred with approval.
@@ -201,11 +201,13 @@ Use before committing pass work:
 
 1. Update relevant docs.
 2. Prune completed pass items from `agent-todo.md`; keep active blockers visible.
-3. Prefer `bun validate` before commit.
+3. Prefer `bun validate` before commit when the change needs repository-wide confidence.
 4. Use `bun validate readme-api-sync` for README/API drift.
 5. Use `bun validate full --profile ci --target wasm-gc` for the local full gate when requested or warranted.
-6. Review the staged diff, including `.mbti` changes.
-7. Commit with a message that includes changed files plus reasons.
+6. Forward-moving test or expectation updates do not require a test run unless the intent is to fix related behavior.
+7. Positive behavior changes may be committed even if they temporarily leave some tests failing, as long as the commit records the progress and failure state.
+8. Review the staged diff, including `.mbti` changes.
+9. Commit with a `<kind>: <title>` title and a detailed body that includes changed files plus reasons; split worktree changes into separate commits by top-level unit of change.
 
 ## Signoff Report Template
 

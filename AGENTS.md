@@ -1,13 +1,9 @@
 # Repo Essentials
 
-- MoonBit workspace under `moon.mod`; active directory-scoped packages normally use `moon.pkg`, with `src/spec_runner` currently documented as the only legacy `imports.mbt` package exception.
-- Tests live beside implementation as `*_test.mbt` or `*_wbtest.mbt`; package imports live in `package*/imports.mbt`.
+- MoonBit workspace under `moon.mod`; `src/` contains one folder for each package.
 - Review `.mbti` diffs for public API changes.
 - `docs/README.md` is the canonical docs and wiki schema; keep it in sync with this file.
-- Keep normative docs in `docs/`, living knowledge in `docs/wiki/`, immutable committed sources in `docs/wiki/raw/` except for redaction or format normalization, and one-off investigations in `docs/wiki/raw/research/[serial]-[YYYY-MM-DD]-[kebab-title].md`.
-- Keep `docs/wiki/index.md` and `docs/wiki/log.md` current when wiki schema, ingest, query-fileback, or lint behavior changes.
-- `src/node_api/`, `src/optimization/`, and `src/transformer/` are inactive compatibility or staging dirs unless rebuilt.
-- `agent-todo.md` is active unreleased backlog only. `agent-lost-and-found.md` is local-only and must never be committed.
+- Keep active backlog, wiki index/log, and local-only notes aligned with the docs schema.
 
 # Always-Follow Workflow Rules
 
@@ -51,18 +47,25 @@
 
 ## Validation And Signoff
 
-- Preferred quick signoff: `moon info`, `moon fmt`, then `moon test`.
-- Prefer `bun validate` before committing.
+- Preferred quick signoff for behavior changes: `moon info`, `moon fmt`, then `moon test`.
+- Docs-only commits do not require tests; use diff/link/source review unless docs change generated contracts or executable examples.
+- Forward-moving test or expectation updates do not require a test run unless the intent is to fix related behavior.
+- Positive behavior changes may be committed even if they temporarily leave some tests failing, as long as the commit is clear forward progress and the failure state is documented.
+- Prefer `bun validate` before committing when the change needs repository-wide confidence.
 - Local full gate: `bun validate full --profile ci --target wasm-gc`.
 - Coverage: `bun validate coverage`.
 - README sync: `bun validate readme-api-sync`.
 
 ## Commit And Publish
 
+- Use `.pi/skills/commit/SKILL.md` whenever the user asks to commit.
 - Update relevant docs before commit; do not add per-commit changelog entries.
 - Use docs/wiki pages, `docs/wiki/log.md`, release notes, and git history for durable change records.
-- Review the staged diff.
-- Commit with `git commit -F <temp-file>` and include changed files plus reasons in the commit text.
+- Treat any request to "commit" as a request to split the worktree by top-level unit of change and commit each unit separately.
+- Prefer large, detailed commits that explain what changed and why while staying as atomic as possible.
+- Review the staged diff for each atomic unit.
+- Commit titles must use `<kind>: <title>`.
+- Commit with `git commit -F <temp-file>` and include changed files plus reasons in the commit body.
 - Prune stale `agent-todo.md` items and add new blockers or risks.
 - Publishing requires an explicit semver bump, successful validation, consistent package version bumps, and release notes drafted from the relevant docs/wiki pages and git history.
 
