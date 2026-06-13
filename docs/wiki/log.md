@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-12] passes/ssa-nomerge | Admit non-current direct call br_on_null inputs
+
+- Converted the non-current single-result-block `call (result externref)` / `br_on_null` problem-1 guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) into a red/green positive that requires mutation, validation, temp-local writes, and removal of the raw branch.
+- Narrowed [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so only zero-param, single-reference-result direct calls in single-result non-current blocks open this raw structured branch-input path. The explicit-operand and prefix-payload non-current call guards still preserve fail-closed behavior.
+- Red evidence: the positive test initially failed because the pipeline did not add temp locals after `skip-raw reason=structured-local-writes`; after the fix, focused `ssa_nomerge_test.mbt` passed `287/287`, `moon test src/passes` passed `2308/2308`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5583/5583`, native `src/cmd` build passed with pre-existing warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-noncurrent-direct-call-bronull-10000` requested `10000`, compared `7606`, had `7606` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-12] passes/ssa-nomerge | Admit non-current direct call br_on_non_null inputs
 
 - Converted the no-prefix non-current `call (result externref)` / `br_on_non_null` problem-1 guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) into a red/green positive that requires mutation, validation, temp-local writes, and removal of the raw branch.
