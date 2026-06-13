@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Slice huge-function guardrail backlog
+
+- Split `[SSANM-008]` in [`../../agent-todo.md`](../../agent-todo.md) into epic-only huge-function guardrail work plus child slices `[SSANM-008a]` through `[SSANM-008d]` for replay-anchor refresh, LocalGraph planner classification, safe admit/narrow policy changes, and pass-local timing evidence.
+- No implementation behavior changed; this is a backlog-only planning update so tests were not required.
+
 ## [2026-06-13] passes/ssa-nomerge | Add merge/per-write GenValid coverage
 
 - Completed `[SSANM-011c]` in [`../../agent-todo.md`](../../agent-todo.md) as a generator/profile coverage slice after adding explicit merge subfamily and mixed per-write feature labels: `ssa-one-arm-default-merge`, `ssa-one-arm-param-merge`, `ssa-both-arm-local-merge`, `ssa-loop-carried-local-merge`, and `ssa-mixed-fresh-canonical-writes`.

@@ -241,8 +241,25 @@ Preset behavior inventory:
       - Deliverables: move or recreate full-`ssa` planner/materialization tasks under a sibling backlog section if still needed; keep `SSANM` tasks restricted to `SSAify(false)` behavior.
     - [ ] [SSANM-008] - Revisit huge-function guardrails with LocalGraph policy
       - Goal: classify remaining large structured functions using the new no-merge plan instead of blind raw thresholds.
+      - Status: epic only; execute through child slices after the LocalGraph no-merge planner/mutation work is available.
       - Deliverables: extracted/replayed evidence for `Func 265`, `Func 3518`, `Func 3536`, `Func 3781`, `Func 3885`, `Func 4119`, `Func 4522`, `Func 5417`, and `Func 5419`; pass-local timing; output size; validation; decision to admit, narrow, or keep fail-closed.
       - Suggested evidence: direct artifact/function replay before and after any threshold or policy change.
+    - [ ] [SSANM-008a] - Refresh huge-function replay anchors
+      - Goal: confirm the current first-diff and large structured-local-write function list still matches the checked-in debug-WASI artifact before changing huge-function policy.
+      - Deliverables: table for `Func 265`, `Func 3518`, `Func 3536`, `Func 3781`, `Func 3885`, `Func 4119`, `Func 4522`, `Func 5417`, and `Func 5419` with current status, extraction/replay path, local/write/control shape summary, and whether the function still reaches a huge/raw guard.
+      - Suggested evidence: docs/wiki review plus targeted artifact/function replay only as needed; no mutation unless anchors have drifted.
+    - [ ] [SSANM-008b] - Classify huge-function LocalGraph plan decisions
+      - Goal: run the no-mutation LocalGraph planner over the nine huge structured-local-write functions and separate plan-supported ordinary local rewrites from unsupported typed-control/EH/large-CFG boundaries.
+      - Deliverables: per-function counts for freshenable writes, merge-feeding canonical writes, default/parameter-entry reads, tee writes, and fail-closed boundary reasons; update the parity page with the classification table.
+      - Suggested evidence: focused planner/debug output or test-only helpers, with no pass mutation.
+    - [ ] [SSANM-008c] - Admit or narrow huge-function mutation safely
+      - Goal: after `[SSANM-008b]`, either admit a narrow subset of huge structured functions through the LocalGraph rewrite or prove the existing guard should remain.
+      - Deliverables: red-first reduced fixtures for any admitted family, validation and output-size evidence, explicit guard thresholds/reasons, and direct artifact/function replay before and after the change.
+      - Suggested evidence: focused `ssa_nomerge_test.mbt`, `moon test src/passes`, native build, targeted artifact replay, and direct `--pass ssa-nomerge` compare evidence.
+    - [ ] [SSANM-008d] - Measure huge-function pass-local budget
+      - Goal: prove any admitted huge-function policy stays inside the pass-local performance floor or keep the family fail-closed with documented timing evidence.
+      - Deliverables: pass-local Starshine/Binaryen timings, HOT lift/lower attribution if relevant, output size/validation summary, and reopening criteria for any retained performance guard.
+      - Suggested evidence: timing-only artifact/function replay and direct compare counts after policy changes.
     - [ ] [SSANM-009] - Replay and classify checked-in debug-WASI artifact parity
       - Goal: use artifact replay as evidence after the LocalGraph rewrite, not as the primary implementation strategy.
       - Deliverables: resume from `.tmp/self-ssa-nomerge-debug-wasi-brtable-callspill-20260613` at `defined=215 abs=242`, classify remaining first diffs as matched Binaryen behavior, measured Starshine win, parity gap, or explicit boundary, and delete/reclassify obsolete artifact-specific hacks where the LocalGraph path supersedes them.
