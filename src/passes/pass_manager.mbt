@@ -11929,6 +11929,52 @@ fn run_hot_pipeline_raw_instrs_have_memory_store(
 }
 
 ///|
+fn run_hot_pipeline_raw_instrs_have_memory_access(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if run_hot_pipeline_raw_instrs_have_memory_store(instrs) {
+    return true
+  }
+  for instr in instrs {
+    if run_hot_pipeline_optimize_instructions_instr_is_plain_load(instr) {
+      return true
+    }
+    match instr {
+      @lib.MemoryGrow(_)
+      | @lib.I32Store(_)
+      | @lib.I64Store(_)
+      | @lib.F32Store(_)
+      | @lib.F64Store(_)
+      | @lib.I32Store8(_)
+      | @lib.I32Store16(_)
+      | @lib.I64Store8(_)
+      | @lib.I64Store16(_)
+      | @lib.I64Store32(_) => return true
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_instrs_have_memory_access(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_instrs_have_memory_access(then_body) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_instrs_have_memory_access(body) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_instrs_have_table_update(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -12053,7 +12099,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
   param_aliases : Array[@lib.LocalIdx?],
 ) -> Array[@lib.Instruction] {
   let rewritten : Array[@lib.Instruction] = []
-  let freshen_params = run_hot_pipeline_raw_instrs_have_memory_store(instrs)
+  let freshen_params = run_hot_pipeline_raw_instrs_have_memory_access(instrs)
   let freshen_repeated_non_loop_sets = run_hot_pipeline_raw_instrs_have_table_update(
     instrs,
   )
@@ -12061,6 +12107,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
   let mut previous_was_local_tee = false
   let mut previous_was_call = false
   let mut previous_was_table_size = false
+  let mut previous_was_value_if = false
   for instr in instrs {
     match instr {
       @lib.LocalGet(@lib.LocalIdx(idx)) => {
@@ -12077,6 +12124,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_local_tee = false
         previous_was_call = false
         previous_was_table_size = false
+        previous_was_value_if = false
       }
       @lib.LocalSet(@lib.LocalIdx(idx)) => {
         let local_id = idx.reinterpret_as_int()
@@ -12109,6 +12157,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_local_tee = false
         previous_was_call = false
         previous_was_table_size = false
+        previous_was_value_if = false
       }
       @lib.LocalTee(@lib.LocalIdx(idx)) => {
         let local_id = idx.reinterpret_as_int()
@@ -12119,7 +12168,11 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
             (
               local_id >= params.length() &&
               local_id < base_local_count &&
-              run_hot_pipeline_raw_count_local_writes(root_instrs, local_id) > 1
+              (
+                previous_was_value_if ||
+                run_hot_pipeline_raw_count_local_writes(root_instrs, local_id) >
+                1
+              )
             )
           ) {
           let fresh_local = run_hot_pipeline_raw_fresh_local(
@@ -12138,17 +12191,20 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_local_tee = true
         previous_was_call = false
         previous_was_table_size = false
+        previous_was_value_if = false
       }
       @lib.GlobalGet(_) => {
         previous_was_local_tee = false
         previous_was_call = false
         previous_was_table_size = false
+        previous_was_value_if = false
         rewritten.push(instr)
       }
       @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
         previous_was_local_tee = false
         previous_was_call = true
         previous_was_table_size = false
+        previous_was_value_if = false
         rewritten.push(instr)
       }
       @lib.TableSize(_) => {
@@ -12160,6 +12216,8 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
       @lib.Block(block_type, @lib.Expr(body)) => {
         previous_was_local_tee = false
         previous_was_call = false
+        previous_was_table_size = false
+        previous_was_value_if = false
         rewritten.push(
           @lib.Instruction::block(
             block_type,
@@ -12179,6 +12237,8 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
       @lib.Loop(block_type, @lib.Expr(body)) => {
         previous_was_local_tee = false
         previous_was_call = false
+        previous_was_table_size = false
+        previous_was_value_if = false
         rewritten.push(
           @lib.Instruction::loop_(
             block_type,
@@ -12198,6 +12258,8 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
       @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
         previous_was_local_tee = false
         previous_was_call = false
+        previous_was_table_size = false
+        previous_was_value_if = false
         rewritten.push(
           @lib.Instruction::try_table(
             block_type,
@@ -12218,6 +12280,8 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
       @lib.If(block_type, then_body, else_body) => {
         previous_was_local_tee = false
         previous_was_call = false
+        previous_was_table_size = false
+        previous_was_value_if = block_type != @lib.BlockType::void_()
         rewritten.push(
           @lib.Instruction::if_(
             block_type,
@@ -12250,6 +12314,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_local_tee = false
         previous_was_call = false
         previous_was_table_size = false
+        previous_was_value_if = false
         rewritten.push(instr)
       }
     }
@@ -12324,20 +12389,27 @@ fn run_hot_pipeline_raw_freshen_value_if_body_scratch(
       @lib.If(block_type, then_body, Some(else_body)) =>
         if block_type != @lib.BlockType::void_() && idx + 1 < instrs.length() {
           match instrs[idx + 1] {
-            @lib.LocalSet(_) | @lib.LocalTee(_) =>
+            @lib.LocalSet(_) | @lib.LocalTee(_) => {
+              let if_consumed_context : Array[@lib.Instruction] = []
+              for context_idx = 0
+                  context_idx <= idx + 1
+                  context_idx = context_idx + 1 {
+                if_consumed_context.push(instrs[context_idx])
+              }
               rewritten.push(
                 @lib.Instruction::if_(
                   block_type,
                   run_hot_pipeline_raw_freshen_value_if_arm_body_scratch(
-                    then_body, instrs, params, locals, extra_local_types,
+                    then_body, if_consumed_context, params, locals, extra_local_types,
                   ),
                   Some(
                     run_hot_pipeline_raw_freshen_value_if_arm_body_scratch(
-                      else_body, instrs, params, locals, extra_local_types,
+                      else_body, if_consumed_context, params, locals, extra_local_types,
                     ),
                   ),
                 ),
               )
+            }
             _ => rewritten.push(instrs[idx])
           }
         } else {
@@ -12390,7 +12462,22 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
       rewritten_locals.append_types(extra_local_types)
       Some(@lib.Func::new(rewritten_locals, @lib.Expr::new(finalized_instrs)))
     }
-    None => None
+    None => {
+      let fallback_extra_local_types : Array[@lib.ValType] = []
+      let value_if_freshened = run_hot_pipeline_raw_freshen_value_if_body_scratch(
+        instrs, params, locals, fallback_extra_local_types,
+      )
+      let finalized_instrs = run_hot_pipeline_raw_freshen_param_scratch_writes(
+        value_if_freshened, params, locals, fallback_extra_local_types,
+      )
+      if fallback_extra_local_types.length() == 0 {
+        None
+      } else {
+        let rewritten_locals = locals.copy()
+        rewritten_locals.append_types(fallback_extra_local_types)
+        Some(@lib.Func::new(rewritten_locals, @lib.Expr::new(finalized_instrs)))
+      }
+    }
   }
 }
 

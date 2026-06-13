@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Freshen allocator searchBlock temps
+
+- Added a focused `tlsf/searchBlock` guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the debug-WASI artifact first diff `defined=0 abs=27`. The test failed red before implementation because Starshine left the no-branch allocator helper on the raw no-op path and reused original param/body locals instead of Binaryen's appended scratch locals.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so structured `ssa-nomerge` still runs the narrow value-if/body-local and parameter/body-local scratch freshening post-passes when the main merge-copy rewrite has no branch mutation, and so allocator memory loads trigger the same scratch-freshening evidence as stores. This is not broad expression-stack scanning; it preserves the existing local scratch rewrite model and targets the already-inspected allocator local-allocation gap.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `362/362`, `moon test src/passes` passed `2383/2383`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5659/5659`, native `src/cmd` release build completed with pre-existing pass-manager unused-function warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-allocator-searchblock-10000` requested `10000`, compared `7611`, had `7611` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Artifact replay `.tmp/self-ssa-nomerge-debug-wasi-allocator-searchblock-20260613` validates and advances the first canonical diff from `defined=0 abs=27` to `defined=1 abs=28`; Starshine pass-local `0.165 ms` vs Binaryen `427.762 ms`, whole-command Starshine `5699.770 ms` vs Binaryen `983.268 ms`.
+
 ## [2026-06-13] passes/ssa-nomerge | Refresh debug artifact first-diff replay
 
 - Replayed direct source-mode `--ssa-nomerge` on `tests/node/dist/starshine-debug-wasi.wasm` with current native `target/native/release/build/cmd/cmd.exe`; artifacts live in `.tmp/self-ssa-nomerge-debug-wasi-current-20260613095412`. The output validates but still differs from Binaryen at first canonical function `defined=0 abs=27`.

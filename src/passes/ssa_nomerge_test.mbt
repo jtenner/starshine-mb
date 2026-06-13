@@ -1009,71 +1009,188 @@ fn ssa_test_run_hot_path_only(text : String) -> Result[@lib.Module, String] {
 }
 
 ///|
-test "ssa-nomerge artifact parity allocates fresh locals for value if after body-local writes" {
-  // Artifact repro from
-  // `.tmp/self-ssa-nomerge-debug-wasi-bronull-prefix-subtype-results`, first
-  // canonical difference `defined=0 abs=27`. Binaryen's `ssa-nomerge`
-  // leaves the original body-local slot behind and appends fresh SSA temporaries
-  // for body-local scratch writes inside the value-producing `if` before the
-  // later `local.tee`. Keep that shape so the artifact gap does not regress.
+test "ssa-nomerge artifact parity freshens allocator searchBlock temps" {
+  // Artifact repro from the checked-in debug-WASI artifact, first canonical
+  // difference `defined=0 abs=27` (`tlsf/searchBlock`). Binaryen's
+  // `ssa-nomerge` freshens the allocator size-class value-if result, following
+  // mask temporaries, and ctz bucket index into appended locals even though the
+  // function has no merge-copy branch rewrite. Reusing the original param/body
+  // locals has no measured Starshine win, so keep this narrow source-mode
+  // neighborhood aligned with Binaryen instead of leaving full-artifact parity
+  // blocked on a no-op raw path.
   let source =
     #|(module
-    #|  (func (param i32 i32) (result i32)
-    #|    (local i32)
-    #|    local.get 1
-    #|    i32.const 256
-    #|    i32.lt_u
-    #|    if (result i32)
-    #|      local.get 1
-    #|      i32.const 4
-    #|      i32.shr_u
-    #|      local.set 1
-    #|      i32.const 0
-    #|    else
-    #|      local.get 1
-    #|      i32.const 536870910
-    #|      i32.lt_u
-    #|      if
-    #|        local.get 1
-    #|        i32.const 1
-    #|        i32.const 27
-    #|        local.get 1
-    #|        i32.clz
-    #|        i32.sub
-    #|        i32.shl
-    #|        i32.add
-    #|        i32.const 1
-    #|        i32.sub
-    #|        local.set 1
-    #|      end
-    #|      i32.const 31
-    #|      local.get 1
-    #|      i32.clz
-    #|      i32.sub
-    #|      local.set 2
-    #|      local.get 1
-    #|      local.get 2
-    #|      i32.const 4
-    #|      i32.sub
-    #|      i32.shr_u
-    #|      i32.const 16
-    #|      i32.xor
-    #|      local.set 1
-    #|      local.get 2
-    #|      i32.const 7
-    #|      i32.sub
-    #|    end
-    #|    local.tee 2
-    #|    local.get 1
-    #|    i32.add))
+    #|  (memory 1)
+    #| (func (param $0 i32) (param $1 i32) (result i32)
+    #|  (local $2 i32)
+    #|  (if (result i32)
+    #|   (local.tee $1
+    #|    (i32.and
+    #|     (i32.load offset=4 align=1
+    #|      (i32.add
+    #|       (local.get $0)
+    #|       (i32.shl
+    #|        (local.tee $2
+    #|         (if (result i32)
+    #|          (i32.lt_u
+    #|           (local.get $1)
+    #|           (i32.const 256)
+    #|          )
+    #|          (then
+    #|           (local.set $1
+    #|            (i32.shr_u
+    #|             (local.get $1)
+    #|             (i32.const 4)
+    #|            )
+    #|           )
+    #|           (i32.const 0)
+    #|          )
+    #|          (else
+    #|           (if
+    #|            (i32.lt_u
+    #|             (local.get $1)
+    #|             (i32.const 536870910)
+    #|            )
+    #|            (then
+    #|             (local.set $1
+    #|              (i32.sub
+    #|               (i32.add
+    #|                (local.get $1)
+    #|                (i32.shl
+    #|                 (i32.const 1)
+    #|                 (i32.sub
+    #|                  (i32.const 27)
+    #|                  (i32.clz
+    #|                   (local.get $1)
+    #|                  )
+    #|                 )
+    #|                )
+    #|               )
+    #|               (i32.const 1)
+    #|              )
+    #|             )
+    #|            )
+    #|           )
+    #|           (local.set $2
+    #|            (i32.sub
+    #|             (i32.const 31)
+    #|             (i32.clz
+    #|              (local.get $1)
+    #|             )
+    #|            )
+    #|           )
+    #|           (local.set $1
+    #|            (i32.xor
+    #|             (i32.shr_u
+    #|              (local.get $1)
+    #|              (i32.sub
+    #|               (local.get $2)
+    #|               (i32.const 4)
+    #|              )
+    #|             )
+    #|             (i32.const 16)
+    #|            )
+    #|           )
+    #|           (i32.sub
+    #|            (local.get $2)
+    #|            (i32.const 7)
+    #|           )
+    #|          )
+    #|         )
+    #|        )
+    #|        (i32.const 2)
+    #|       )
+    #|      )
+    #|     )
+    #|     (i32.shl
+    #|      (i32.const -1)
+    #|      (local.get $1)
+    #|     )
+    #|    )
+    #|   )
+    #|   (then
+    #|    (i32.load offset=96 align=1
+    #|     (i32.add
+    #|      (local.get $0)
+    #|      (i32.shl
+    #|       (i32.add
+    #|        (i32.ctz
+    #|         (local.get $1)
+    #|        )
+    #|        (i32.shl
+    #|         (local.get $2)
+    #|         (i32.const 4)
+    #|        )
+    #|       )
+    #|       (i32.const 2)
+    #|      )
+    #|     )
+    #|    )
+    #|   )
+    #|   (else
+    #|    (if (result i32)
+    #|     (local.tee $1
+    #|      (i32.and
+    #|       (i32.load align=1
+    #|        (local.get $0)
+    #|       )
+    #|       (i32.shl
+    #|        (i32.const -1)
+    #|        (i32.add
+    #|         (local.get $2)
+    #|         (i32.const 1)
+    #|        )
+    #|       )
+    #|      )
+    #|     )
+    #|     (then
+    #|      (i32.load offset=96 align=1
+    #|       (i32.add
+    #|        (local.get $0)
+    #|        (i32.shl
+    #|         (i32.add
+    #|          (i32.ctz
+    #|           (i32.load offset=4 align=1
+    #|            (i32.add
+    #|             (local.get $0)
+    #|             (i32.shl
+    #|              (local.tee $1
+    #|               (i32.ctz
+    #|                (local.get $1)
+    #|               )
+    #|              )
+    #|              (i32.const 2)
+    #|             )
+    #|            )
+    #|           )
+    #|          )
+    #|          (i32.shl
+    #|           (local.get $1)
+    #|           (i32.const 4)
+    #|          )
+    #|         )
+    #|         (i32.const 2)
+    #|        )
+    #|       )
+    #|      )
+    #|     )
+    #|     (else
+    #|      (i32.const 0)
+    #|     )
+    #|    )
+    #|   )
+    #|  )
+    #| )
     #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
-  assert_true(locals.length() >= 3, msg=locals.to_string())
-  assert_true(
-    ssa_test_local_write_indices(instrs).any(fn(idx) { idx == 4U }),
-    msg=instrs.to_string(),
-  )
+  assert_true(locals.length() >= 6, msg=locals.to_string())
+  let write_indices = ssa_test_local_write_indices(instrs)
+  assert_true(write_indices.any(fn(idx) { idx == 3U }), msg=instrs.to_string())
+  assert_true(write_indices.any(fn(idx) { idx == 4U }), msg=instrs.to_string())
+  assert_true(write_indices.any(fn(idx) { idx == 5U }), msg=instrs.to_string())
+  assert_true(write_indices.any(fn(idx) { idx == 6U }), msg=instrs.to_string())
+  assert_true(write_indices.any(fn(idx) { idx == 7U }), msg=instrs.to_string())
 }
 
 ///|
