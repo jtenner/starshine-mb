@@ -9794,8 +9794,7 @@ fn run_hot_pipeline_raw_rewrite_br_on_non_null(
   }
   match rewritten.last() {
     Some(@lib.Call(func_idx)) => {
-      let supported_non_current_call = if label_target.result_types.length() ==
-        1 {
+      let supported_non_current_call = if label_target.result_types.length() > 0 {
         match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
           Some(@lib.FuncType(call_params, [@lib.RefTypeValType(_)])) =>
             call_params.length() == 0
@@ -9819,7 +9818,7 @@ fn run_hot_pipeline_raw_rewrite_br_on_non_null(
       locals,
       extra_local_types,
       true,
-      allow_direct_call=label_target.result_types.length() == 1,
+      allow_direct_call=label_target.result_types.length() > 0,
     ) {
     Some(spilled) => spilled
     None => return false
@@ -12723,6 +12722,26 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_direct_call_ref_branch_sequence(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_direct_call_block_type_supported(
+  block_type : @lib.BlockType,
+  module_ctx : @ir.HotModuleContext,
+  branch_on_null : Bool,
+) -> Bool {
+  match @ir.hot_module_resolve_block_results(module_ctx, block_type) {
+    Some(result_types) =>
+      if branch_on_null {
+        result_types.length() == 1
+      } else {
+        match result_types.last() {
+          Some(@lib.RefTypeValType(_)) => true
+          _ => false
+        }
+      }
+    None => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_has_direct_call_single_result_block_shape(
   instrs : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
@@ -12730,8 +12749,11 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_direct_call_single_result_block_shape(
 ) -> Bool {
   for instr in instrs {
     match instr {
-      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
-        if run_hot_pipeline_raw_ssa_nomerge_has_direct_call_ref_branch_sequence(
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        if run_hot_pipeline_raw_ssa_nomerge_direct_call_block_type_supported(
+            block_type, module_ctx, branch_on_null,
+          ) &&
+          run_hot_pipeline_raw_ssa_nomerge_has_direct_call_ref_branch_sequence(
             body, module_ctx, branch_on_null,
           ) {
           return true
@@ -12758,9 +12780,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_direct_call_single_result_block_shape(
           None => ()
         }
       }
-      @lib.Block(_, @lib.Expr(body))
-      | @lib.Loop(_, @lib.Expr(body))
-      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      @lib.Loop(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
         if run_hot_pipeline_raw_ssa_nomerge_has_direct_call_single_result_block_shape(
             body, module_ctx, branch_on_null,
           ) {
