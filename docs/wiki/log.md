@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Cover nested mixed null/non-null reference typed-loop backedges
+
+- Added two positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for nested reference-header typed-loop shapes that mix current-loop `br_on_null` and `br_on_non_null` backedges, including a three-way sibling with `br_if`, `br_on_null`, and `br_on_non_null` in the same enclosing typed-loop body.
+- No behavior-code widening was needed: the existing store/proxy lowerings already spill only the already-produced tested reference, rewrite edge-local null/non-null branch payloads, and preserve nested direct backedges inside the synthetic void-loop/proxy/store shape.
+- TDD/coverage note: both new positives were green on first focused runs (`325/325` then `326/326`) because earlier nested reference-header and store-model work already admitted the combined family. Broader signoff is recorded in the matching parity entry.
+
 ## [2026-06-13] passes/ssa-nomerge | Cover nested mixed br_if/br_on_non_null typed-loop backedges
 
 - Added a positive in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for a nested typed-loop reference-header shape that mixes an inner `br_if` current-loop backedge with a following current-loop `br_on_non_null` backedge.
