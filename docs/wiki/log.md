@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] ir/local-graph | Add explicit SSA write influence facts
+
+- Completed `[SSA-LG]002` in [`../../agent-todo.md`](../../agent-todo.md) as an analysis-only LocalGraph slice; `ssa-nomerge` mutation still does not consume these facts.
+- Updated [`../../src/ir/local_graph.mbt`](../../src/ir/local_graph.mbt) so `HotLocalGraph` records explicit write local ids and `local.tee` flags and exposes helpers for write-node detection, `local.set` versus `local.tee`, written local id, and write-named influenced-get queries.
+- Added red-first focused checks in [`../../src/ir/local_graph_test.mbt`](../../src/ir/local_graph_test.mbt) for both `local.set` and child-expression `local.tee` write facts, plus a transfer-order fixture that failed red when the old influenced-get list followed node id order instead of LocalGraph transfer order. Existing overwrite, diamond, loop-carried, and `canMoveSet` influence fixtures remain covered.
+- Refreshed [`ir2/local-ssa-policy.md`](ir2/local-ssa-policy.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`index.md`](index.md). Evidence: red `moon test src/ir` failed on missing helper identifiers, then the transfer-order fixture failed as `[0, 3] != [3, 0]`; after implementation, `moon fmt` passed, `moon test src/ir` passed `297/297`, `moon info` passed with the three pre-existing GenValid warnings, and full `moon test` passed `5683/5683`. Direct `ssa-nomerge` fuzz was not run because this was analysis-only.
+
 ## [2026-06-13] ir/local-graph | Add SSA entry and merge analysis facts
 
 - Split the hidden `[O4Z-AUDIT-SSA]` LocalGraph backlog in [`../../agent-todo.md`](../../agent-todo.md) into explicit work slices and completed `[SSA-LG]001`.

@@ -132,7 +132,29 @@ test "local graph records a simple set reaching a later get" {
 
   @debug.assert_eq(sources.length(), 1)
   assert_true(local_graph_test_has_set_source(sources, set))
+  assert_true(local_graph_node_is_write(graph, set))
+  assert_true(local_graph_write_is_set(graph, set))
+  assert_false(local_graph_write_is_tee(graph, set))
+  @debug.assert_eq(local_graph_write_local_id(graph, set), 0)
   @debug.assert_eq(influenced, [get])
+  @debug.assert_eq(local_graph_influenced_gets_for_write(graph, set), [get])
+}
+
+///|
+test "local graph reports influenced gets in transfer order" {
+  let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+  let later_get = hot_build_local_get(func, 0)
+  let set = hot_build_local_set(func, 0, hot_build_const_i32(func, @lib.I32(1)))
+  let earlier_get = hot_build_local_get(func, 0)
+  hot_root_append(func, set)
+  hot_root_append(func, hot_build_drop(func, earlier_get))
+  hot_root_append(func, hot_build_drop(func, later_get))
+
+  let graph = local_graph_build(func, cfg_build(func))
+
+  @debug.assert_eq(local_graph_influenced_gets_for_write(graph, set), [
+    earlier_get, later_get,
+  ])
 }
 
 ///|
@@ -418,7 +440,12 @@ test "local graph can-move blocks a child set from moving past its parent obstac
   let cfg = cfg_build(func)
   let graph = local_graph_build(func, cfg)
 
+  assert_true(local_graph_node_is_write(graph, tee))
+  assert_false(local_graph_write_is_set(graph, tee))
+  assert_true(local_graph_write_is_tee(graph, tee))
+  @debug.assert_eq(local_graph_write_local_id(graph, tee), 0)
   @debug.assert_eq(local_graph_influenced_gets_for_set(graph, tee), [get])
+  @debug.assert_eq(local_graph_influenced_gets_for_write(graph, tee), [get])
   @debug.assert_eq(
     local_graph_can_move_set_past_node(func, cfg, graph, tee, obstacle),
     [],

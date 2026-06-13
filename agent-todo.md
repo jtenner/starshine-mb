@@ -181,9 +181,11 @@ Preset behavior inventory:
       - Goal: make `src/ir/local_graph.mbt` expose first-class analysis facts for parameter-entry sources, body-local default-entry sources, single-source gets, and multi-source merge gets without changing `ssa-nomerge` mutation yet.
       - Deliverables: focused `src/ir/local_graph_test.mbt` fixtures for param-vs-default reads and single-source-vs-merge reads; public LocalGraph query helpers; `docs/wiki/ir2/local-ssa-policy.md` and `docs/wiki/binaryen/passes/ssa-nomerge/parity.md` updates; keep this analysis-only.
       - Evidence: `moon info` passed with the three pre-existing GenValid warnings; `moon fmt` passed; `moon test src/ir` passed `296/296`; full `moon test` passed `5682/5682`. Direct `ssa-nomerge` fuzz was not run because this slice is analysis-only and does not change pass mutation.
-    - [ ] [SSA-LG]002 - LocalGraph explicit write source facts and influence ranges
+    - [x] [SSA-LG]002 - LocalGraph explicit write source facts and influence ranges
+      - Status: done on 2026-06-13.
       - Goal: distinguish `local.set` from `local.tee`, expose each set/tee local id, and report the influenced get range/order that Binaryen `SSAify.cpp` uses for per-set decisions.
       - Deliverables: source-derived fixtures for set, tee, overwrite, child-expression tee, diamond, and loop-carried influences; documented query semantics for unreachable and exceptional-flow exclusions.
+      - Evidence: red `moon test src/ir` failed on missing write query helpers, then a red transfer-order fixture failed as `[0, 3] != [3, 0]`; after implementation, `moon test src/ir` passed `297/297`, `moon fmt` passed, `moon info` passed with the three pre-existing GenValid warnings, and full `moon test` passed `5683/5683`. Direct `ssa-nomerge` fuzz was not run because this slice is analysis-only and does not change pass mutation.
     - [ ] [SSA-LG]003 - LocalGraph already-SSA local classifier
       - Goal: identify locals that Binaryen would consider already effectively SSA and therefore keep canonical.
       - Deliverables: straight-line, branch, loop, param, body-local, tee, no-read, and dead-write fixtures; no `ssa-nomerge` rewrite changes until shadow comparison lands.

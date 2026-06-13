@@ -10,6 +10,8 @@ pub struct HotLocalGraph {
   param_count : Int
   get_source_ids : Array[Array[Int]]
   set_influence_gets : Array[Array[NodeId]]
+  write_local_ids : Array[LocalId]
+  write_is_tees : Array[Bool]
 } derive(Eq, Debug)
 
 ///|
@@ -19,6 +21,14 @@ fn local_graph_require_node_range(
 ) -> Unit {
   if node_id < 0 || node_id >= graph.get_source_ids.length() {
     abort("local graph query requires a valid node id")
+  }
+}
+
+///|
+fn local_graph_require_write(graph : HotLocalGraph, node_id : NodeId) -> Unit {
+  local_graph_require_node_range(graph, node_id)
+  if graph.write_local_ids[node_id] < 0 {
+    abort("local graph write query requires local.set or local.tee")
   }
 }
 
@@ -138,12 +148,44 @@ fn local_graph_is_region_slot(op : HotOp, slot : Int) -> Bool {
 }
 
 ///|
+fn local_graph_record_get_sources(
+  local_count : Int,
+  get_id : NodeId,
+  sources : Array[Int],
+  get_sources : Array[Array[Int]]?,
+  write_influences : Array[Array[NodeId]]?,
+) -> Unit {
+  match get_sources {
+    Some(sources_by_node) => sources_by_node[get_id] = sources.copy()
+    None => ()
+  }
+  match write_influences {
+    Some(influences_by_node) =>
+      for source_id in sources {
+        if source_id >= local_count {
+          let set_id = source_id - local_count
+          if set_id >= 0 && set_id < influences_by_node.length() {
+            if !local_graph_node_array_contains(
+                influences_by_node[set_id],
+                get_id,
+              ) {
+              influences_by_node[set_id].push(get_id)
+            }
+          }
+        }
+      }
+    None => ()
+  }
+}
+
+///|
 fn local_graph_transfer_node(
   func : HotFunc,
   local_count : Int,
   node_id : NodeId,
   state : Array[Array[Int]],
   get_sources : Array[Array[Int]]?,
+  write_influences : Array[Array[NodeId]]?,
 ) -> Unit {
   if node_id == HOT_NONE_NODE || !hot_node_is_live(func, node_id) {
     return
@@ -159,15 +201,18 @@ fn local_graph_transfer_node(
       hot_child_get(func, node_id, slot),
       state,
       get_sources,
+      write_influences,
     )
   }
   match node.op {
     HotOp::LocalGet =>
-      match get_sources {
-        Some(sources_by_node) =>
-          sources_by_node[node_id] = state[node.imm0].copy()
-        None => ()
-      }
+      local_graph_record_get_sources(
+        local_count,
+        node_id,
+        state[node.imm0],
+        get_sources,
+        write_influences,
+      )
     HotOp::LocalSet | HotOp::LocalTee =>
       state[node.imm0] = [local_graph_set_source_id(local_count, node_id)]
     _ => ()
@@ -181,6 +226,7 @@ fn local_graph_transfer_block(
   block_id : BlockId,
   in_state : Array[Array[Int]],
   get_sources : Array[Array[Int]]?,
+  write_influences : Array[Array[NodeId]]?,
 ) -> Array[Array[Int]] {
   let state = local_graph_state_clone(in_state)
   for node_id in cfg_block_get(cfg, block_id).nodes {
@@ -190,6 +236,7 @@ fn local_graph_transfer_block(
       node_id,
       state,
       get_sources,
+      write_influences,
     )
   }
   state
@@ -247,6 +294,7 @@ fn local_graph_build_in_states(
         block_id,
         in_states[block_id],
         None,
+        None,
       )
       if !local_graph_state_equal(out_states[block_id], next_out) {
         out_states[block_id] = next_out
@@ -258,27 +306,46 @@ fn local_graph_build_in_states(
 }
 
 ///|
-fn local_graph_build_influences(
-  local_count : Int,
-  get_sources : Array[Array[Int]],
-) -> Array[Array[NodeId]] {
+fn local_graph_empty_influences(func : HotFunc) -> Array[Array[NodeId]] {
   let influences : Array[Array[NodeId]] = []
-  for _ in 0..<get_sources.length() {
+  for _ in 0..<hot_node_count(func) {
     influences.push([])
   }
-  for get_id = 0; get_id < get_sources.length(); get_id = get_id + 1 {
-    for source_id in get_sources[get_id] {
-      if source_id >= local_count {
-        let set_id = source_id - local_count
-        if set_id >= 0 && set_id < influences.length() {
-          if !local_graph_node_array_contains(influences[set_id], get_id) {
-            influences[set_id].push(get_id)
-          }
-        }
+  influences
+}
+
+///|
+fn local_graph_build_write_local_ids(func : HotFunc) -> Array[LocalId] {
+  let write_local_ids : Array[LocalId] = []
+  for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
+    if hot_node_is_live(func, node_id) {
+      let node = hot_node_get(func, node_id)
+      match node.op {
+        HotOp::LocalSet | HotOp::LocalTee => write_local_ids.push(node.imm0)
+        _ => write_local_ids.push(-1)
       }
+    } else {
+      write_local_ids.push(-1)
     }
   }
-  influences
+  write_local_ids
+}
+
+///|
+fn local_graph_build_write_is_tees(func : HotFunc) -> Array[Bool] {
+  let write_is_tees : Array[Bool] = []
+  for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
+    if hot_node_is_live(func, node_id) {
+      let node = hot_node_get(func, node_id)
+      match node.op {
+        HotOp::LocalTee => write_is_tees.push(true)
+        _ => write_is_tees.push(false)
+      }
+    } else {
+      write_is_tees.push(false)
+    }
+  }
+  write_is_tees
 }
 
 ///|
@@ -288,6 +355,7 @@ pub fn local_graph_build(func : HotFunc, cfg : HotCfg) -> HotLocalGraph {
   for _ in 0..<hot_node_count(func) {
     get_sources.push([])
   }
+  let write_influences = local_graph_empty_influences(func)
   let in_states = local_graph_build_in_states(func, cfg)
   for block_id = 0; block_id < cfg_block_count(cfg); block_id = block_id + 1 {
     ignore(
@@ -297,6 +365,7 @@ pub fn local_graph_build(func : HotFunc, cfg : HotCfg) -> HotLocalGraph {
         block_id,
         in_states[block_id],
         Some(get_sources),
+        Some(write_influences),
       ),
     )
   }
@@ -304,7 +373,9 @@ pub fn local_graph_build(func : HotFunc, cfg : HotCfg) -> HotLocalGraph {
     local_count,
     param_count: hot_param_count(func),
     get_source_ids: get_sources,
-    set_influence_gets: local_graph_build_influences(local_count, get_sources),
+    set_influence_gets: write_influences,
+    write_local_ids: local_graph_build_write_local_ids(func),
+    write_is_tees: local_graph_build_write_is_tees(func),
   }
 }
 
@@ -377,6 +448,51 @@ pub fn local_graph_get_is_merge(
 ) -> Bool {
   local_graph_require_node_range(graph, node_id)
   graph.get_source_ids[node_id].length() > 1
+}
+
+///|
+pub fn local_graph_node_is_write(
+  graph : HotLocalGraph,
+  node_id : NodeId,
+) -> Bool {
+  local_graph_require_node_range(graph, node_id)
+  graph.write_local_ids[node_id] >= 0
+}
+
+///|
+pub fn local_graph_write_local_id(
+  graph : HotLocalGraph,
+  node_id : NodeId,
+) -> LocalId {
+  local_graph_require_write(graph, node_id)
+  graph.write_local_ids[node_id]
+}
+
+///|
+pub fn local_graph_write_is_set(
+  graph : HotLocalGraph,
+  node_id : NodeId,
+) -> Bool {
+  local_graph_require_write(graph, node_id)
+  !graph.write_is_tees[node_id]
+}
+
+///|
+pub fn local_graph_write_is_tee(
+  graph : HotLocalGraph,
+  node_id : NodeId,
+) -> Bool {
+  local_graph_require_write(graph, node_id)
+  graph.write_is_tees[node_id]
+}
+
+///|
+pub fn local_graph_influenced_gets_for_write(
+  graph : HotLocalGraph,
+  node_id : NodeId,
+) -> Array[NodeId] {
+  local_graph_require_write(graph, node_id)
+  graph.set_influence_gets[node_id].copy()
 }
 
 ///|
