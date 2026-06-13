@@ -1,7 +1,9 @@
 ///|
 pub struct GenValidSsaFuncFacts {
   has_ssa_straight_line_local_chain : Bool
+  has_ssa_already_ssa_local : Bool
   has_ssa_multi_def_same_local : Bool
+  has_ssa_param_entry_read : Bool
   has_ssa_local_tee_def_use : Bool
   has_ssa_param_write : Bool
   has_ssa_dead_local_set : Bool
@@ -41,7 +43,9 @@ pub struct GenValidSsaFuncFacts {
 pub fn GenValidSsaFuncFacts::empty() -> GenValidSsaFuncFacts {
   {
     has_ssa_straight_line_local_chain: false,
+    has_ssa_already_ssa_local: false,
     has_ssa_multi_def_same_local: false,
+    has_ssa_param_entry_read: false,
     has_ssa_local_tee_def_use: false,
     has_ssa_param_write: false,
     has_ssa_dead_local_set: false,
@@ -86,8 +90,12 @@ pub fn gen_valid_merge_ssa_func_facts(
   {
     has_ssa_straight_line_local_chain: left.has_ssa_straight_line_local_chain ||
     right.has_ssa_straight_line_local_chain,
+    has_ssa_already_ssa_local: left.has_ssa_already_ssa_local ||
+    right.has_ssa_already_ssa_local,
     has_ssa_multi_def_same_local: left.has_ssa_multi_def_same_local ||
     right.has_ssa_multi_def_same_local,
+    has_ssa_param_entry_read: left.has_ssa_param_entry_read ||
+    right.has_ssa_param_entry_read,
     has_ssa_local_tee_def_use: left.has_ssa_local_tee_def_use ||
     right.has_ssa_local_tee_def_use,
     has_ssa_param_write: left.has_ssa_param_write || right.has_ssa_param_write,
@@ -867,6 +875,9 @@ fn gen_valid_ssa_scan_linear(
           Some(slot) => {
             if last_def[slot] {
               out = { ..out, has_ssa_straight_line_local_chain: true }
+            }
+            if slot < param_count && def_counts[slot] == 0 {
+              out = { ..out, has_ssa_param_entry_read: true }
             }
             if last_tee[slot] {
               out = { ..out, has_ssa_local_tee_def_use: true }
@@ -1688,15 +1699,64 @@ fn gen_valid_ssa_expr_has_return(expr : Expr) -> Bool {
 }
 
 ///|
+fn gen_valid_ssa_count_local_reads_and_writes(
+  expr : Expr,
+  read_counts : Array[Int],
+  write_counts : Array[Int],
+) -> Unit {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      LocalGet(idx) =>
+        match gen_valid_ssa_local_slot(idx) {
+          Some(slot) => read_counts[slot] = read_counts[slot] + 1
+          None => ()
+        }
+      LocalSet(idx) | LocalTee(idx) =>
+        match gen_valid_ssa_local_slot(idx) {
+          Some(slot) => write_counts[slot] = write_counts[slot] + 1
+          None => ()
+        }
+      Block(_, body) | Loop(_, body) | TryTable(_, _, body) =>
+        gen_valid_ssa_count_local_reads_and_writes(
+          body, read_counts, write_counts,
+        )
+      If(_, then_body, else_body) => {
+        gen_valid_ssa_count_local_reads_and_writes(
+          Expr::new(then_body),
+          read_counts,
+          write_counts,
+        )
+        match else_body {
+          Some(body) =>
+            gen_valid_ssa_count_local_reads_and_writes(
+              Expr::new(body),
+              read_counts,
+              write_counts,
+            )
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
 pub fn gen_valid_scan_func_ssa_facts(
   param_count : Int,
   _locals : Locals,
   expr : Expr,
 ) -> GenValidSsaFuncFacts {
   let def_counts : Array[Int] = []
+  let read_counts : Array[Int] = []
+  let write_counts : Array[Int] = []
   for _ in 0..<GEN_VALID_SSA_LOCAL_CAP {
     def_counts.push(0)
+    read_counts.push(0)
+    write_counts.push(0)
   }
+  gen_valid_ssa_count_local_reads_and_writes(expr, read_counts, write_counts)
   let mut out = gen_valid_ssa_scan_linear(
     param_count,
     match expr {
@@ -1716,6 +1776,11 @@ pub fn gen_valid_scan_func_ssa_facts(
     gen_valid_ssa_func_has_local_write(expr) &&
     gen_valid_ssa_expr_has_local_read(expr) {
     out = { ..out, has_ssa_unreachable_local_carrier: true }
+  }
+  for slot = param_count; slot < GEN_VALID_SSA_LOCAL_CAP; slot = slot + 1 {
+    if write_counts[slot] == 1 && read_counts[slot] > 0 {
+      out = { ..out, has_ssa_already_ssa_local: true }
+    }
   }
   out
 }
@@ -1753,7 +1818,20 @@ fn gen_valid_append_ssa_nomerge_parity_body_slice(
 ) -> Unit {
   let param_count = accepts.length()
   let l0 = gen_valid_ssa_body_local(param_count, 0)
+  let l1 = gen_valid_ssa_body_local(param_count, 1)
+  let l2 = gen_valid_ssa_body_local(param_count, 2)
   let p0 = LocalIdx::new(0U)
+  // A-2. parameter-entry read and one-source body-local before mutation-heavy cases.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::local_get(p0))
+    out.push(Instruction::drop())
+  }
+  out.push(Instruction::i32_const(I32(101)))
+  out.push(Instruction::local_set(l1))
+  out.push(Instruction::local_get(l1))
+  out.push(Instruction::drop())
+  out.push(Instruction::i32_const(I32(102)))
+  out.push(Instruction::local_set(l2))
   // A. straight-line multi-def same local
   out.push(Instruction::i32_const(I32(1)))
   out.push(Instruction::local_set(l0))
@@ -1815,7 +1893,20 @@ fn gen_valid_append_ssa_nomerge_smoke_body_slice(
   let l0 = gen_valid_ssa_body_local(param_count, 0)
   let l1 = gen_valid_ssa_body_local(param_count, 1)
   let l2 = gen_valid_ssa_body_local(param_count, 2)
+  let l3 = gen_valid_ssa_body_local(param_count, 3)
+  let l4 = gen_valid_ssa_body_local(param_count, 4)
   let p0 = LocalIdx::new(0U)
+  // A-2. parameter-entry read and one-source body-local before mutation-heavy cases.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::local_get(p0))
+    out.push(Instruction::drop())
+  }
+  out.push(Instruction::i32_const(I32(101)))
+  out.push(Instruction::local_set(l3))
+  out.push(Instruction::local_get(l3))
+  out.push(Instruction::drop())
+  out.push(Instruction::i32_const(I32(102)))
+  out.push(Instruction::local_set(l4))
   // A0. default body-local read after branchy no-write control.
   out.push(
     Instruction::block(
@@ -2021,7 +2112,22 @@ fn gen_valid_append_ssa_nomerge_coverage_body_slice(
   let param_count = accepts.length()
   let l0 = gen_valid_ssa_body_local(param_count, 0)
   let l1 = gen_valid_ssa_body_local(param_count, 1)
+  let l2 = gen_valid_ssa_body_local(param_count, 2)
+  ignore(l2)
+  let l3 = gen_valid_ssa_body_local(param_count, 3)
+  let l4 = gen_valid_ssa_body_local(param_count, 4)
   let p0 = LocalIdx::new(0U)
+  // A-2. parameter-entry read and one-source body-local before mutation-heavy cases.
+  if param_count > 0 && accepts[0] == ValType::i32() {
+    out.push(Instruction::local_get(p0))
+    out.push(Instruction::drop())
+  }
+  out.push(Instruction::i32_const(I32(101)))
+  out.push(Instruction::local_set(l3))
+  out.push(Instruction::local_get(l3))
+  out.push(Instruction::drop())
+  out.push(Instruction::i32_const(I32(102)))
+  out.push(Instruction::local_set(l4))
   // A0. default body-local read after branchy no-write control.
   out.push(
     Instruction::block(

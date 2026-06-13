@@ -868,7 +868,9 @@ pub struct GenValidFeatureFacts {
   has_shared_memory_atomics : Bool
   has_imports_start_exports : Bool
   has_ssa_straight_line_local_chain : Bool
+  has_ssa_already_ssa_local : Bool
   has_ssa_multi_def_same_local : Bool
+  has_ssa_param_entry_read : Bool
   has_ssa_local_tee_def_use : Bool
   has_ssa_param_write : Bool
   has_ssa_dead_local_set : Bool
@@ -970,7 +972,9 @@ pub struct GenValidFeatureStats {
   shared_memory_atomics : Int
   imports_start_exports : Int
   ssa_straight_line_local_chain : Int
+  ssa_already_ssa_local : Int
   ssa_multi_def_same_local : Int
+  ssa_param_entry_read : Int
   ssa_local_tee_def_use : Int
   ssa_param_write : Int
   ssa_dead_local_set : Int
@@ -1143,7 +1147,9 @@ pub impl Show for GenValidSectionBias
 
 pub struct GenValidSsaFuncFacts {
   has_ssa_straight_line_local_chain : Bool
+  has_ssa_already_ssa_local : Bool
   has_ssa_multi_def_same_local : Bool
+  has_ssa_param_entry_read : Bool
   has_ssa_local_tee_def_use : Bool
   has_ssa_param_write : Bool
   has_ssa_dead_local_set : Bool
@@ -1610,7 +1616,9 @@ pub enum ValidateValidFeatureKey {
   InvalidBinaryStrategies
   WastArbitraryParity
   SsaStraightLineLocalChain
+  SsaAlreadySsaLocal
   SsaMultiDefSameLocal
+  SsaParamEntryRead
   SsaLocalTeeDefUse
   SsaParamWrite
   SsaDeadLocalSet

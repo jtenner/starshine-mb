@@ -7276,10 +7276,20 @@ test "ssa-nomerge coverage generated modules record dense SSA feature facts" {
     msg="expected straight-line local chain",
   )
   assert_true(
+    facts.has_ssa_already_ssa_local,
+    msg="expected already-SSA single-source local read",
+  )
+  assert_true(
     facts.has_ssa_multi_def_same_local,
     msg="expected multi-def same local",
   )
+  assert_true(
+    facts.has_ssa_param_entry_read,
+    msg="expected parameter-entry read",
+  )
   assert_true(facts.has_ssa_local_tee_def_use, msg="expected local.tee def-use")
+  assert_true(facts.has_ssa_param_write, msg="expected parameter write")
+  assert_true(facts.has_ssa_dead_local_set, msg="expected dead local.set")
   assert_true(
     facts.has_ssa_if_join_phi_candidate,
     msg="expected if-join phi candidate",
@@ -7395,8 +7405,12 @@ test "ssa-nomerge smoke generated modules cover structured branch SSA shapes" {
   @debug.assert_eq(generated.config_label, "ssa-nomerge-smoke")
   let facts = generated.facts
   assert_true(facts.has_ssa_straight_line_local_chain)
+  assert_true(facts.has_ssa_already_ssa_local)
   assert_true(facts.has_ssa_multi_def_same_local)
+  assert_true(facts.has_ssa_param_entry_read)
   assert_true(facts.has_ssa_local_tee_def_use)
+  assert_true(facts.has_ssa_param_write)
+  assert_true(facts.has_ssa_dead_local_set)
   assert_true(facts.has_ssa_if_join_phi_candidate)
   assert_true(facts.has_ssa_default_local_merge)
   assert_true(
@@ -7638,18 +7652,18 @@ test "ssa-nomerge stress generated modules record dense unsupported-boundary SSA
 test "validate_valid_feature_floor_by_label recognizes SSA feature labels" {
   for
     label in [
-      "ssa-straight-line-local-chain", "ssa-multi-def-same-local", "ssa-local-tee-def-use",
-      "ssa-param-write", "ssa-dead-local-set", "ssa-dead-local-tee", "ssa-if-join-phi-candidate",
-      "ssa-loop-backedge-phi-candidate", "ssa-br-table-phi-candidate", "ssa-parallel-copy-candidate",
-      "ssa-parallel-copy-cycle-candidate", "ssa-default-local-merge", "ssa-unreachable-local-carrier",
-      "ssa-dropped-increment-guard-shape", "ssa-dropped-increment-reversed-boundary",
-      "ssa-exceptional-fail-closed-shape", "ssa-typed-loop-param-fail-closed-shape",
-      "ssa-nested-cfg-fail-closed-shape", "ssa-nested-result-if-supported-shape",
-      "ssa-nested-result-if-condition-write", "ssa-nested-result-if-condition-value-block",
-      "ssa-nested-result-if-arm-value-block", "ssa-nested-result-if-mixed-arm-value-block",
-      "ssa-nested-result-if-scalar-result", "ssa-structured-early-return-local",
-      "ssa-block-branch-merge-copy", "ssa-block-br-if-merge-copy", "ssa-structured-param-merge",
-      "ssa-branch-local-not-read-later", "ssa-default-local-read-after-branchy-control",
+      "ssa-straight-line-local-chain", "ssa-already-ssa-local", "ssa-multi-def-same-local",
+      "ssa-param-entry-read", "ssa-local-tee-def-use", "ssa-param-write", "ssa-dead-local-set",
+      "ssa-dead-local-tee", "ssa-if-join-phi-candidate", "ssa-loop-backedge-phi-candidate",
+      "ssa-br-table-phi-candidate", "ssa-parallel-copy-candidate", "ssa-parallel-copy-cycle-candidate",
+      "ssa-default-local-merge", "ssa-unreachable-local-carrier", "ssa-dropped-increment-guard-shape",
+      "ssa-dropped-increment-reversed-boundary", "ssa-exceptional-fail-closed-shape",
+      "ssa-typed-loop-param-fail-closed-shape", "ssa-nested-cfg-fail-closed-shape",
+      "ssa-nested-result-if-supported-shape", "ssa-nested-result-if-condition-write",
+      "ssa-nested-result-if-condition-value-block", "ssa-nested-result-if-arm-value-block",
+      "ssa-nested-result-if-mixed-arm-value-block", "ssa-nested-result-if-scalar-result",
+      "ssa-structured-early-return-local", "ssa-block-branch-merge-copy", "ssa-block-br-if-merge-copy",
+      "ssa-structured-param-merge", "ssa-branch-local-not-read-later", "ssa-default-local-read-after-branchy-control",
       "ssa-dropped-unreachable-debris-before-hard-unreachable", "ssa-canonical-body-local-next-read",
       "ssa-immediate-block-exit-canonical-set-br", "ssa-enclosing-label-copy-before-exit",
       "ssa-void-br-table-canonical-copies",

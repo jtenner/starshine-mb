@@ -3450,7 +3450,9 @@ pub enum ValidateValidFeatureKey {
   InvalidBinaryStrategies
   WastArbitraryParity
   SsaStraightLineLocalChain
+  SsaAlreadySsaLocal
   SsaMultiDefSameLocal
+  SsaParamEntryRead
   SsaLocalTeeDefUse
   SsaParamWrite
   SsaDeadLocalSet
@@ -3547,7 +3549,9 @@ pub impl Show for ValidateValidFeatureKey with fn output(self, logger) {
     WastArbitraryParity => logger.write_string("WastArbitraryParity")
     SsaStraightLineLocalChain =>
       logger.write_string("SsaStraightLineLocalChain")
+    SsaAlreadySsaLocal => logger.write_string("SsaAlreadySsaLocal")
     SsaMultiDefSameLocal => logger.write_string("SsaMultiDefSameLocal")
+    SsaParamEntryRead => logger.write_string("SsaParamEntryRead")
     SsaLocalTeeDefUse => logger.write_string("SsaLocalTeeDefUse")
     SsaParamWrite => logger.write_string("SsaParamWrite")
     SsaDeadLocalSet => logger.write_string("SsaDeadLocalSet")
@@ -3765,7 +3769,9 @@ pub fn validate_valid_feature_actual_count(
     InvalidBinaryStrategies => 0
     WastArbitraryParity => 0
     SsaStraightLineLocalChain => stats.ssa_straight_line_local_chain
+    SsaAlreadySsaLocal => stats.ssa_already_ssa_local
     SsaMultiDefSameLocal => stats.ssa_multi_def_same_local
+    SsaParamEntryRead => stats.ssa_param_entry_read
     SsaLocalTeeDefUse => stats.ssa_local_tee_def_use
     SsaParamWrite => stats.ssa_param_write
     SsaDeadLocalSet => stats.ssa_dead_local_set
@@ -3872,7 +3878,9 @@ fn validate_valid_feature_ledger_keys() -> Array[ValidateValidFeatureKey] {
     InvalidBinaryStrategies,
     WastArbitraryParity,
     SsaStraightLineLocalChain,
+    SsaAlreadySsaLocal,
     SsaMultiDefSameLocal,
+    SsaParamEntryRead,
     SsaLocalTeeDefUse,
     SsaParamWrite,
     SsaDeadLocalSet,
@@ -4024,7 +4032,9 @@ fn validate_valid_feature_key_label(key : ValidateValidFeatureKey) -> String {
     InvalidBinaryStrategies => "invalid_binary_strategies"
     WastArbitraryParity => "wast_arbitrary_parity"
     SsaStraightLineLocalChain => "ssa-straight-line-local-chain"
+    SsaAlreadySsaLocal => "ssa-already-ssa-local"
     SsaMultiDefSameLocal => "ssa-multi-def-same-local"
+    SsaParamEntryRead => "ssa-param-entry-read"
     SsaLocalTeeDefUse => "ssa-local-tee-def-use"
     SsaParamWrite => "ssa-param-write"
     SsaDeadLocalSet => "ssa-dead-local-set"
@@ -4129,7 +4139,9 @@ fn validate_valid_feature_key_from_label(
     "invalid_binary_strategies" => Some(InvalidBinaryStrategies)
     "wast_arbitrary_parity" => Some(WastArbitraryParity)
     "ssa-straight-line-local-chain" => Some(SsaStraightLineLocalChain)
+    "ssa-already-ssa-local" => Some(SsaAlreadySsaLocal)
     "ssa-multi-def-same-local" => Some(SsaMultiDefSameLocal)
+    "ssa-param-entry-read" => Some(SsaParamEntryRead)
     "ssa-local-tee-def-use" => Some(SsaLocalTeeDefUse)
     "ssa-param-write" => Some(SsaParamWrite)
     "ssa-dead-local-set" => Some(SsaDeadLocalSet)

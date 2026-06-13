@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Add straight-line/default-entry GenValid coverage
+
+- Completed `[SSANM-011b]` in [`../../agent-todo.md`](../../agent-todo.md) as a generator/profile coverage slice after adding explicit `ssa-already-ssa-local` and `ssa-param-entry-read` feature labels.
+- Updated [`../../src/validate/gen_valid_ssa.mbt`](../../src/validate/gen_valid_ssa.mbt), [`../../src/validate/gen_valid.mbt`](../../src/validate/gen_valid.mbt), [`../../src/validate/validate.mbt`](../../src/validate/validate.mbt), and [`../../src/fuzz/main.mbt`](../../src/fuzz/main.mbt) so the scanner, stats, validate feature-floor parser, and GenValid manifest JSON expose the new facts; the SSA profile local-layout helper now forces a five-`i32` prefix so the smoke/coverage/parity templates are valid on the first generated attempt.
+- Added/updated red-first coverage in [`../../src/validate/gen_valid_tests.mbt`](../../src/validate/gen_valid_tests.mbt), [`../../src/validate/gen_valid_ssa_tests.mbt`](../../src/validate/gen_valid_ssa_tests.mbt), and [`../../src/fuzz/main_wbtest.mbt`](../../src/fuzz/main_wbtest.mbt). Evidence: red-first failures on missing fields/labels, `moon info` with the three pre-existing GenValid warnings, `moon fmt`, focused GenValid tests (`74/74`, `35/35`), fuzz wbtests (`90/90`), full `moon test` (`5708/5708`), native `src/cmd` build with pre-existing warnings, smoke/coverage one-artifact required-floor probes with no skips, and compare probes that still expose the known `ssa-nomerge` local-allocation behavior gap (`smoke`: `215/215` mismatches before the cap; `coverage`: `25/25` mismatches with `--max-failures 10`; no validation/generator/command failures).
+- Refreshed [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) with the exact commands, counts, timeout caveat for wider coverage probes, and mismatch classification.
+
 ## [2026-06-13] passes/ssa-nomerge | Inventory GenValid profile coverage
 
 - Completed `[SSANM-011a]` in [`../../agent-todo.md`](../../agent-todo.md) as a docs/source-review inventory slice after first splitting the broad `[SSANM-011]` epic into child slices.

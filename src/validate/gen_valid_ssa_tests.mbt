@@ -1232,8 +1232,14 @@ fn gen_valid_ssa_first_func_scan_facts(
 test "ssa scanner detects newer structured raw ssa-nomerge variants" {
   let mod_ = gen_valid_ssa_test_module(
     [ValType::i32()],
-    [ValType::i32(), ValType::i32(), ValType::i32()],
+    [ValType::i32(), ValType::i32(), ValType::i32(), ValType::i32()],
     [
+      Instruction::local_get(LocalIdx::new(0U)),
+      Instruction::drop(),
+      Instruction::i32_const(I32(44)),
+      Instruction::local_set(LocalIdx::new(4U)),
+      Instruction::local_get(LocalIdx::new(4U)),
+      Instruction::drop(),
       Instruction::local_get(LocalIdx::new(0U)),
       Instruction::if_(
         BlockType::void_(),
@@ -1319,6 +1325,8 @@ test "ssa scanner detects newer structured raw ssa-nomerge variants" {
   )
   let facts = gen_valid_feature_facts(mod_, CoverageForced)
   assert_true(facts.has_ssa_if_join_phi_candidate)
+  assert_true(facts.has_ssa_param_entry_read)
+  assert_true(facts.has_ssa_already_ssa_local)
   let direct = try! gen_valid_ssa_first_func_scan_facts(mod_, 1)
   assert_true(direct.has_ssa_structured_early_return_local)
   assert_true(direct.has_ssa_block_branch_merge_copy)

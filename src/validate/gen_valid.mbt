@@ -1263,7 +1263,9 @@ pub struct GenValidFeatureFacts {
   has_shared_memory_atomics : Bool
   has_imports_start_exports : Bool
   has_ssa_straight_line_local_chain : Bool
+  has_ssa_already_ssa_local : Bool
   has_ssa_multi_def_same_local : Bool
+  has_ssa_param_entry_read : Bool
   has_ssa_local_tee_def_use : Bool
   has_ssa_param_write : Bool
   has_ssa_dead_local_set : Bool
@@ -1418,7 +1420,9 @@ pub struct GenValidFeatureStats {
   shared_memory_atomics : Int
   imports_start_exports : Int
   ssa_straight_line_local_chain : Int
+  ssa_already_ssa_local : Int
   ssa_multi_def_same_local : Int
+  ssa_param_entry_read : Int
   ssa_local_tee_def_use : Int
   ssa_param_write : Int
   ssa_dead_local_set : Int
@@ -1585,8 +1589,12 @@ pub impl Show for GenValidFeatureStats with fn output(self, logger) {
   self.imports_start_exports.output(logger)
   logger.write_string(", ssa_straight_line_local_chain: ")
   self.ssa_straight_line_local_chain.output(logger)
+  logger.write_string(", ssa_already_ssa_local: ")
+  self.ssa_already_ssa_local.output(logger)
   logger.write_string(", ssa_multi_def_same_local: ")
   self.ssa_multi_def_same_local.output(logger)
+  logger.write_string(", ssa_param_entry_read: ")
+  self.ssa_param_entry_read.output(logger)
   logger.write_string(", ssa_local_tee_def_use: ")
   self.ssa_local_tee_def_use.output(logger)
   logger.write_string(", ssa_param_write: ")
@@ -1727,7 +1735,9 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     shared_memory_atomics: 0,
     imports_start_exports: 0,
     ssa_straight_line_local_chain: 0,
+    ssa_already_ssa_local: 0,
     ssa_multi_def_same_local: 0,
+    ssa_param_entry_read: 0,
     ssa_local_tee_def_use: 0,
     ssa_param_write: 0,
     ssa_dead_local_set: 0,
@@ -1874,8 +1884,12 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_imports_start_exports),
     ssa_straight_line_local_chain: self.ssa_straight_line_local_chain +
     gen_valid_bool_count(facts.has_ssa_straight_line_local_chain),
+    ssa_already_ssa_local: self.ssa_already_ssa_local +
+    gen_valid_bool_count(facts.has_ssa_already_ssa_local),
     ssa_multi_def_same_local: self.ssa_multi_def_same_local +
     gen_valid_bool_count(facts.has_ssa_multi_def_same_local),
+    ssa_param_entry_read: self.ssa_param_entry_read +
+    gen_valid_bool_count(facts.has_ssa_param_entry_read),
     ssa_local_tee_def_use: self.ssa_local_tee_def_use +
     gen_valid_bool_count(facts.has_ssa_local_tee_def_use),
     ssa_param_write: self.ssa_param_write +
@@ -4131,24 +4145,24 @@ fn gen_valid_ensure_body_layout_locals(
 ) -> Unit {
   if ctx.config.mode == CoverageForced &&
     ctx.config.features.allow_ssa_nomerge_body_generator {
-    let mut i32_local_count = 0
+    let required_i32_prefix = 5
+    while locals.length() < required_i32_prefix {
+      locals.push(ValType::i32())
+    }
+    for i = 0; i < required_i32_prefix; i = i + 1 {
+      locals[i] = ValType::i32()
+    }
     let mut has_i64 = false
     let mut has_f32 = false
     let mut has_f64 = false
     for vt in locals {
-      if vt == ValType::i32() {
-        i32_local_count += 1
-      } else if vt == ValType::i64() {
+      if vt == ValType::i64() {
         has_i64 = true
       } else if vt == ValType::f32() {
         has_f32 = true
       } else if vt == ValType::f64() {
         has_f64 = true
       }
-    }
-    while i32_local_count < 3 {
-      locals.push(ValType::i32())
-      i32_local_count += 1
     }
     if !has_i64 {
       locals.push(ValType::i64())
@@ -15702,7 +15716,9 @@ pub fn gen_valid_feature_facts(
     has_shared_memory_atomics: has_shared_memories && has_atomics,
     has_imports_start_exports: has_imports && has_start && has_any_export,
     has_ssa_straight_line_local_chain: ssa_facts.has_ssa_straight_line_local_chain,
+    has_ssa_already_ssa_local: ssa_facts.has_ssa_already_ssa_local,
     has_ssa_multi_def_same_local: ssa_facts.has_ssa_multi_def_same_local,
+    has_ssa_param_entry_read: ssa_facts.has_ssa_param_entry_read,
     has_ssa_local_tee_def_use: ssa_facts.has_ssa_local_tee_def_use,
     has_ssa_param_write: ssa_facts.has_ssa_param_write,
     has_ssa_dead_local_set: ssa_facts.has_ssa_dead_local_set,
