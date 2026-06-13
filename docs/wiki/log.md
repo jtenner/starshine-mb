@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Cover try-table and nested-control variants
+
+- Added four positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for scalar-proxy `try_table` `br_table` catch-label relabeling, single-result store-model `try_table` `br_table` fallthrough, nested non-void loop direct self-backedges, and nested other-label `br_if` control under typed loop params.
+- No behavior-code widening was needed: existing no-exception `try_table`, nested-loop, and other-label raw structured lowering already admitted the variants. This is coverage for previously stale remaining-gap wording, not a new implementation widening.
+- TDD/coverage note: all four positives were green on first focused run (`353/353`). Signoff: `moon test src/passes` passed `2374/2374`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5650/5650`, native `src/cmd` release build reported no work to do, and direct compare `.tmp/pass-fuzz-ssa-nomerge-try-nested-control-10000` requested `10000`, compared `7604`, had `7604` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-13] passes/ssa-nomerge | Cover three-way/five-way mixed direct-control reference typed-loop backedges
 
 - Added four positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for flat and nested type-indexed single-reference-param loops that mix all covered sibling current-loop direct-control backedges (`br`, `br_if`, and all-current-target `br_table`), both without null-family siblings and with sibling current-loop `br_on_null` and `br_on_non_null` reference backedges.

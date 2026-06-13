@@ -11007,6 +11007,35 @@ test "ssa-nomerge rewrites try_table scalar proxy br_if catch-relabeling" {
 }
 
 ///|
+test "ssa-nomerge rewrites try_table scalar proxy br_table catch-relabeling" {
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32) (local i32)
+    #|    (block $h
+    #|      i32.const 0
+    #|      (loop $l (param i32)
+    #|        local.set 1
+    #|        (try_table (catch_all $h)
+    #|          local.get 1
+    #|          i32.const 1
+    #|          i32.add
+    #|          local.get 0
+    #|          br_table $l $l
+    #|          drop)))
+    #|    local.get 1))
+    #|)
+  let optimized = ssa_test_pipeline_expected_mutation_valid(
+    source, "try_table scalar proxy br_table catch-label relabeling",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_br_table_proxy(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge rewrites try_table single-result fallthrough store model" {
   let source =
     #|(module
@@ -11033,6 +11062,42 @@ test "ssa-nomerge rewrites try_table single-result fallthrough store model" {
     #|)
   let optimized = ssa_test_pipeline_expected_mutation_valid(
     source, "try_table single-result fallthrough store model",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_multi_param_loop_store_backedge(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites try_table single-result br_table fallthrough store model" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32 i32) (result i32)))
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    (block $h
+    #|      i32.const 0
+    #|      local.get 0
+    #|      loop $l (type $loop_t)
+    #|        local.set 2
+    #|        local.set 1
+    #|        try_table (result i32) (catch_all $h)
+    #|          local.get 1
+    #|          i32.const 1
+    #|          i32.add
+    #|          local.get 2
+    #|          local.get 0
+    #|          br_table $l $l
+    #|          drop
+    #|        end
+    #|      end
+    #|      return)
+    #|    local.get 1))
+    #|)
+  let optimized = ssa_test_pipeline_expected_mutation_valid(
+    source, "try_table single-result br_table fallthrough store model",
   )
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(locals.length() > 2, msg=locals.to_string())
@@ -11081,6 +11146,42 @@ test "ssa-nomerge rewrites nested non-void loop self-backedges" {
 }
 
 ///|
+test "ssa-nomerge rewrites nested non-void loop direct self-backedges" {
+  let source =
+    #|(module
+    #|  (type $outer_t (func (param i32)))
+    #|  (type $inner_t (func (param i32)))
+    #|  (func (param i32) (result i32) (local i32 i32)
+    #|    i32.const 0
+    #|    loop $outer (type $outer_t)
+    #|      local.set 1
+    #|      i32.const 0
+    #|      loop $inner (type $inner_t)
+    #|        local.set 2
+    #|        local.get 2
+    #|        i32.const 1
+    #|        i32.add
+    #|        br $inner
+    #|      end
+    #|      local.get 1
+    #|      i32.const 1
+    #|      i32.add
+    #|      br $outer
+    #|    end
+    #|    local.get 1))
+    #|)
+  let optimized = ssa_test_pipeline_expected_mutation_valid(
+    source, "nested non-void loop direct self-backedge",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 2, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
 test "ssa-nomerge rewrites nested other-label branches under typed loop params" {
   let source =
     #|(module
@@ -11101,6 +11202,37 @@ test "ssa-nomerge rewrites nested other-label branches under typed loop params" 
     #|)
   let optimized = ssa_test_pipeline_expected_mutation_valid(
     source, "nested other-label branch under typed loop param",
+  )
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_instrs_have_loop_param_scalar_br_proxy(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites nested other-label br_if branches under typed loop params" {
+  let source =
+    #|(module
+    #|  (type $loop_t (func (param i32)))
+    #|  (func (param i32) (result i32) (local i32)
+    #|    i32.const 0
+    #|    loop $outer (type $loop_t)
+    #|      local.set 1
+    #|      block $other
+    #|        local.get 0
+    #|        br_if $other
+    #|      end
+    #|      local.get 1
+    #|      i32.const 1
+    #|      i32.add
+    #|      br $outer
+    #|    end
+    #|    local.get 1))
+    #|)
+  let optimized = ssa_test_pipeline_expected_mutation_valid(
+    source, "nested other-label br_if under typed loop param",
   )
   let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
   assert_true(locals.length() > 1, msg=locals.to_string())
