@@ -12506,33 +12506,108 @@ priv struct HotPipelineFuncResult {
 }
 
 ///|
-fn run_hot_pipeline_raw_ssa_nomerge_typeidx_loop_has_direct_backedge(
+fn run_hot_pipeline_raw_instrs_have_mixed_direct_ref_loop_backedges(
   instrs : Array[@lib.Instruction],
+  loop_depth : UInt,
 ) -> Bool {
+  let mut saw_scalar_backedge = false
+  let mut saw_null_backedge = false
+  let mut saw_non_null_backedge = false
   for instr in instrs {
     match instr {
-      @lib.Loop(@lib.TypeIdxBlockType(_), @lib.Expr(body)) =>
-        if run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_through_try_table(
-            body, 0U, false,
+      @lib.Br(@lib.LabelIdx(raw)) | @lib.BrIf(@lib.LabelIdx(raw)) =>
+        if raw == loop_depth {
+          saw_scalar_backedge = true
+        }
+      @lib.BrOnNull(@lib.LabelIdx(raw)) =>
+        if raw == loop_depth {
+          saw_null_backedge = true
+        }
+      @lib.BrOnNonNull(@lib.LabelIdx(raw)) =>
+        if raw == loop_depth {
+          saw_non_null_backedge = true
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_instrs_have_mixed_direct_ref_loop_backedges(
+            body,
+            loop_depth + 1U,
           ) {
           return true
         }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_instrs_have_mixed_direct_ref_loop_backedges(
+            then_body,
+            loop_depth + 1U,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_instrs_have_mixed_direct_ref_loop_backedges(
+                body,
+                loop_depth + 1U,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  (saw_null_backedge || saw_non_null_backedge) &&
+  (saw_scalar_backedge || (saw_null_backedge && saw_non_null_backedge))
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_typeidx_loop_has_direct_backedge(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Loop(@lib.TypeIdxBlockType(type_idx), @lib.Expr(body)) => {
+        let allow_ref_branches = match
+          @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
+          Some(@lib.FuncType(params, _)) => {
+            let mut has_ref_param = false
+            for param in params {
+              match param {
+                @lib.RefTypeValType(_) => has_ref_param = true
+                _ => ()
+              }
+            }
+            has_ref_param &&
+            run_hot_pipeline_raw_instrs_have_mixed_direct_ref_loop_backedges(
+              body, 0U,
+            )
+          }
+          _ => false
+        }
+        if run_hot_pipeline_raw_instrs_only_direct_loop_param_backedges_through_try_table(
+            body, 0U, allow_ref_branches,
+          ) {
+          return true
+        }
+      }
       @lib.Block(_, @lib.Expr(body)) | @lib.TryTable(_, _, @lib.Expr(body)) =>
         if run_hot_pipeline_raw_ssa_nomerge_typeidx_loop_has_direct_backedge(
-            body,
+            body, module_ctx,
           ) {
           return true
         }
       @lib.If(_, then_body, else_body) => {
         if run_hot_pipeline_raw_ssa_nomerge_typeidx_loop_has_direct_backedge(
-            then_body,
+            then_body, module_ctx,
           ) {
           return true
         }
         match else_body {
           Some(body) =>
             if run_hot_pipeline_raw_ssa_nomerge_typeidx_loop_has_direct_backedge(
-                body,
+                body, module_ctx,
               ) {
               return true
             }
@@ -13348,7 +13423,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured_mutation_reason(
   module_ctx : @ir.HotModuleContext,
 ) -> String {
   let @lib.Func(_, @lib.Expr(instrs)) = func
-  if run_hot_pipeline_raw_ssa_nomerge_typeidx_loop_has_direct_backedge(instrs) ||
+  if run_hot_pipeline_raw_ssa_nomerge_typeidx_loop_has_direct_backedge(
+      instrs, module_ctx,
+    ) ||
     run_hot_pipeline_raw_ssa_nomerge_has_control_value_ref_branch(instrs) ||
     run_hot_pipeline_raw_ssa_nomerge_has_local_get_ref_branch_copy_shape(
       instrs, false, false, false,

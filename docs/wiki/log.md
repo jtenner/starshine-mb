@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Implement flat mixed null/non-null reference typed-loop backedges
+
+- Added three positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for flat type-indexed single-reference-param loops with mixed current-loop reference backedge families: `br_if` plus `br_on_non_null`, `br_on_null` plus `br_on_non_null`, and the three-way `br_if` / `br_on_null` / `br_on_non_null` sibling.
+- Widened [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) narrowly so the structured skip classifier admits reference branches in a type-indexed loop only when the loop type has a reference parameter and the body has a mixed direct current-loop reference-backedge family. Existing single-kind no-copy loop-target `br_on_non_null` / cast boundaries stayed fail-closed after narrowing.
+- TDD note: the new positives failed first with `skip-raw reason=structured-local-writes`; an initial broad classifier also tripped existing fail-closed loop-target boundary guards, so the final implementation was narrowed before focused `ssa_nomerge_test.mbt` passed `329/329`. Broader signoff is recorded in the matching parity entry.
+
 ## [2026-06-13] passes/ssa-nomerge | Cover nested mixed null/non-null reference typed-loop backedges
 
 - Added two positives in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for nested reference-header typed-loop shapes that mix current-loop `br_on_null` and `br_on_non_null` backedges, including a three-way sibling with `br_if`, `br_on_null`, and `br_on_non_null` in the same enclosing typed-loop body.
