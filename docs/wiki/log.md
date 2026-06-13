@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Match insertBlock value-if suffix lanes
+
+- Tightened the reduced `tlsf/insertBlock` guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) in three focused red/green assertions: the value-if precondition `i32.and` tee must use Binaryen's fresh lane, the inner value-if `i32.sub` result must use Binaryen's fresh lane, and post-value-if bitmap address reads must return to the canonical bucket lane rather than the precondition alias.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) within the existing two-call allocator gate to freshen the value-if prefix mask tee, freshen the nested suffix `i32.sub` set, and clear the specific post-value-if alias. This completes the visible `defined=2 abs=29` (`tlsf/insertBlock`) artifact diff without broad expression-stack scanning.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `364/364`, `moon test src/passes` passed `2385/2385`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5661/5661`, native `src/cmd` release build completed with pre-existing pass-manager unused-function warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-insertblock-valueif-suffix-10000b` requested `10000`, compared `7604`, had `7604` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Direct artifact replay `.tmp/self-ssa-nomerge-debug-wasi-insertblock-valueif-suffix-20260613b` validates and advances the first canonical diff to `defined=3 abs=30`; artifact timing was Starshine pass-local `0.038 ms` vs Binaryen `433.177 ms`, whole-command Starshine `5903.873 ms` vs Binaryen `939.545 ms`.
+
 ## [2026-06-13] passes/ssa-nomerge | Preserve insertBlock second unlink tee
 
 - Tightened the reduced `tlsf/insertBlock` guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the debug-WASI artifact first diff `defined=2 abs=29`. The new set-index assertion failed red before implementation because Starshine put the second nested unlink load result on the shifted lane after freshening its address-load `local.tee`.

@@ -108,6 +108,93 @@ fn ssa_test_root_i32_add_local_tee_targets(
 }
 
 ///|
+fn ssa_test_root_i32_and_local_tee_targets(
+  instrs : Array[@lib.Instruction],
+) -> Array[UInt] {
+  let out : Array[UInt] = []
+  let mut previous_was_i32_and = false
+  for instr in instrs {
+    match instr {
+      @lib.I32And => previous_was_i32_and = true
+      @lib.LocalTee(@lib.LocalIdx(idx)) => {
+        if previous_was_i32_and {
+          out.push(idx)
+        }
+        previous_was_i32_and = false
+      }
+      _ => previous_was_i32_and = false
+    }
+  }
+  out
+}
+
+///|
+fn ssa_test_collect_i32_sub_local_set_targets(
+  instrs : Array[@lib.Instruction],
+  out : Array[UInt],
+) -> Unit {
+  let mut previous_was_i32_sub = false
+  for instr in instrs {
+    match instr {
+      @lib.I32Sub => previous_was_i32_sub = true
+      @lib.LocalSet(@lib.LocalIdx(idx)) => {
+        if previous_was_i32_sub {
+          out.push(idx)
+        }
+        previous_was_i32_sub = false
+      }
+      @lib.If(_, then_instrs, else_instrs) => {
+        previous_was_i32_sub = false
+        ssa_test_collect_i32_sub_local_set_targets(then_instrs, out)
+        match else_instrs {
+          Some(else_body) =>
+            ssa_test_collect_i32_sub_local_set_targets(else_body, out)
+          None => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) => {
+        previous_was_i32_sub = false
+        ssa_test_collect_i32_sub_local_set_targets(body, out)
+      }
+      _ => previous_was_i32_sub = false
+    }
+  }
+}
+
+///|
+fn ssa_test_i32_sub_local_set_targets(
+  instrs : Array[@lib.Instruction],
+) -> Array[UInt] {
+  let out : Array[UInt] = []
+  ssa_test_collect_i32_sub_local_set_targets(instrs, out)
+  out
+}
+
+///|
+fn ssa_test_root_local_gets_after_first_set(
+  instrs : Array[@lib.Instruction],
+  set_target : UInt,
+) -> Array[UInt] {
+  let out : Array[UInt] = []
+  let mut after_set = false
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(@lib.LocalIdx(idx)) =>
+        if after_set {
+          ()
+        } else if idx == set_target {
+          after_set = true
+        }
+      @lib.LocalGet(@lib.LocalIdx(idx)) => if after_set { out.push(idx) }
+      _ => ()
+    }
+  }
+  out
+}
+
+///|
 fn ssa_test_has_ssa_temp_local_writes(
   instrs : Array[@lib.Instruction],
   canonical_local : UInt,
@@ -1563,7 +1650,28 @@ test "ssa-nomerge artifact parity limits allocator insertBlock call scratch temp
   )
   let set_indices = ssa_test_local_set_indices(instrs)
   assert_true(set_indices.any(fn(idx) { idx == 8U }), msg=instrs.to_string())
-  assert_true(locals.length() <= 12, msg=locals.to_string())
+  let root_and_tees = ssa_test_root_i32_and_local_tee_targets(instrs)
+  assert_true(
+    root_and_tees.any(fn(idx) { idx == 9U }),
+    msg=root_and_tees.to_string() + "\n" + instrs.to_string(),
+  )
+  let i32_sub_sets = ssa_test_i32_sub_local_set_targets(instrs)
+  assert_true(
+    i32_sub_sets.any(fn(idx) { idx == 11U }),
+    msg=i32_sub_sets.to_string() + "\n" + instrs.to_string(),
+  )
+  let after_value_if_result_gets = ssa_test_root_local_gets_after_first_set(
+    instrs, 12U,
+  )
+  assert_true(
+    after_value_if_result_gets.any(fn(idx) { idx == 2U }),
+    msg=after_value_if_result_gets.to_string() + "\n" + instrs.to_string(),
+  )
+  assert_false(
+    after_value_if_result_gets.any(fn(idx) { idx == 9U }),
+    msg=after_value_if_result_gets.to_string() + "\n" + instrs.to_string(),
+  )
+  assert_true(locals.length() <= 13, msg=locals.to_string())
   assert_false(
     write_indices.any(fn(idx) { idx == 15U }),
     msg=instrs.to_string(),
