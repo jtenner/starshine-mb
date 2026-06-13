@@ -8940,6 +8940,26 @@ fn run_hot_pipeline_raw_trailing_ref_branch_input_needs_single_spill(
 }
 
 ///|
+fn run_hot_pipeline_raw_trailing_ref_branch_input_needs_single_spill_for_non_null(
+  rewritten : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  if run_hot_pipeline_raw_trailing_ref_branch_input_needs_single_spill(
+      rewritten,
+    ) {
+    return true
+  }
+  match rewritten.last() {
+    Some(@lib.Call(func_idx)) =>
+      match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+        Some(@lib.FuncType(_, [@lib.RefTypeValType(_)])) => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
   rewritten : Array[@lib.Instruction],
   module_ctx : @ir.HotModuleContext,
@@ -8948,6 +8968,7 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
   extra_local_types : Array[@lib.ValType],
   allow_local_tee : Bool,
   allow_direct_call? : Bool = false,
+  allow_direct_call_operands? : Bool = false,
 ) -> (@lib.ValType, @lib.LocalIdx)? {
   let (ref_type, source_local, keep_trailing_value, keep_ref_null) = match
     rewritten.last() {
@@ -9023,10 +9044,14 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
     Some(@lib.ExternConvertAny) =>
       (@lib.ValType::externref(), None, true, false)
     Some(@lib.Call(func_idx)) if allow_direct_call => {
-      let ref_type = match
+      let (call_params, ref_type) = match
         @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
-        Some(@lib.FuncType(_, [@lib.RefTypeValType(ref_type)])) => ref_type
+        Some(@lib.FuncType(call_params, [@lib.RefTypeValType(ref_type)])) =>
+          (call_params, ref_type)
         _ => return None
+      }
+      if !allow_direct_call_operands && call_params.length() != 0 {
+        return None
       }
       (@lib.ValType::ref_type(ref_type), None, true, false)
     }
@@ -9211,6 +9236,7 @@ fn run_hot_pipeline_raw_rewrite_loop_param_store_br_on_non_null(
       extra_local_types,
       true,
       allow_direct_call=true,
+      allow_direct_call_operands=true,
     ) {
     Some(spilled) => spilled
     None => return false
@@ -9726,23 +9752,49 @@ fn run_hot_pipeline_raw_rewrite_br_on_non_null(
   locals : @lib.Locals,
   extra_local_types : Array[@lib.ValType],
 ) -> Bool {
-  if !run_hot_pipeline_raw_has_needed_alias_copy(
-      source_aliases,
-      canonical_aliases,
-      label_target.needed_alias_copies,
-    ) &&
+  let has_needed_copy = run_hot_pipeline_raw_has_needed_alias_copy(
+    source_aliases,
+    canonical_aliases,
+    label_target.needed_alias_copies,
+  )
+  if !has_needed_copy &&
     (
       label_target.result_types.length() == 0 ||
-      !run_hot_pipeline_raw_trailing_ref_branch_input_needs_single_spill(
-        rewritten,
+      !run_hot_pipeline_raw_trailing_ref_branch_input_needs_single_spill_for_non_null(
+        rewritten, module_ctx,
       )
     ) {
     rewritten.push(@lib.Instruction::br_on_non_null(label_idx))
     return true
   }
+  match rewritten.last() {
+    Some(@lib.Call(func_idx)) => {
+      let supported_non_current_call = if label_target.result_types.length() ==
+        1 {
+        match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+          Some(@lib.FuncType(call_params, [@lib.RefTypeValType(_)])) =>
+            call_params.length() == 0
+          _ => false
+        }
+      } else {
+        false
+      }
+      if !supported_non_current_call {
+        rewritten.push(@lib.Instruction::br_on_non_null(label_idx))
+        return true
+      }
+    }
+    _ => ()
+  }
   let (_, scratch_ref) = match
     run_hot_pipeline_raw_spill_trailing_ref_branch_input(
-      rewritten, module_ctx, params, locals, extra_local_types, true,
+      rewritten,
+      module_ctx,
+      params,
+      locals,
+      extra_local_types,
+      true,
+      allow_direct_call=label_target.result_types.length() == 1,
     ) {
     Some(spilled) => spilled
     None => return false
@@ -12617,6 +12669,79 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_loop_shape(
 }
 
 ///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_sequence(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  let mut previous_is_call = false
+  for instr in instrs {
+    match instr {
+      @lib.BrOnNonNull(_) => if previous_is_call { return true }
+      @lib.Call(func_idx) => {
+        previous_is_call = match
+          @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+          Some(@lib.FuncType(call_params, [@lib.RefTypeValType(_)])) =>
+            call_params.length() == 0
+          _ => false
+        }
+        continue
+      }
+      _ => previous_is_call = false
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_single_result_block_shape(
+  instrs : Array[@lib.Instruction],
+  module_ctx : @ir.HotModuleContext,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_sequence(
+            body, module_ctx,
+          ) {
+          return true
+        }
+        if run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_single_result_block_shape(
+            body, module_ctx,
+          ) {
+          return true
+        }
+      }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_single_result_block_shape(
+            then_body, module_ctx,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_single_result_block_shape(
+                body, module_ctx,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_single_result_block_shape(
+            body, module_ctx,
+          ) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_ssa_nomerge_has_select_ref_branch_copy_shape(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -13019,6 +13144,9 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured_mutation_reason(
     ) ||
     run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_loop_shape(
       instrs, module_ctx, false,
+    ) ||
+    run_hot_pipeline_raw_ssa_nomerge_has_direct_call_non_null_single_result_block_shape(
+      instrs, module_ctx,
     ) ||
     run_hot_pipeline_raw_ssa_nomerge_has_select_ref_branch_copy_shape(instrs) ||
     run_hot_pipeline_raw_ssa_nomerge_has_constructed_ref_branch_copy_shape(
