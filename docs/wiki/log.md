@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Guard multi-result br_on_null branch inputs
+
+- Added fail-closed problem-1 boundary guards in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for multi-result direct `call`, `call_ref`, and `call_indirect` followed by `br_on_null`.
+- These complement the existing `br_on_non_null` multi-result boundaries. The tested nullable reference may be only one result lane while sibling result lanes are label payloads or fallthrough values, so `ssa-nomerge` must preserve the raw branch until a lane-preserving spill design exists.
+- TDD note: the guards were green on first focused run because the existing narrow recognizers already exclude multi-result call-family producers. Signoff: focused `ssa_nomerge_test.mbt` passed `316/316`, `moon test src/passes` passed `2337/2337`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5613/5613`, native `src/cmd` build passed, and direct compare `.tmp/pass-fuzz-ssa-nomerge-multires-bronull-boundaries-10000` requested `10000`, compared `7604`, had `7604` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-13] passes/ssa-nomerge | Guard return-call unreachable branch inputs
 
 - Fixed the Starshine typechecker in [`../../src/validate/typecheck.mbt`](../../src/validate/typecheck.mbt) to accept `br_on_non_null` when the tested reference is supplied by unreachable-stack polymorphism (`BotValType`), matching the local `wasm-tools validate --features all` evidence for tail-call-terminated suffixes.

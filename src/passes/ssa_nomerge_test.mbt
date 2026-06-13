@@ -8790,6 +8790,237 @@ test "ssa-nomerge rewrites problem1 prefix call_indirect operands br_on_null inp
 }
 
 ///|
+test "ssa-nomerge fail-closed problem1 multi-result direct call br_on_null input" {
+  // Boundary: multi-result calls are intentionally not rewritten for br_on_null
+  // either. The first result may be a label payload while the second is the
+  // tested reference; keep the raw branch until lane preservation is designed.
+  let externref = @lib.ValType::externref()
+  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
+  let call_type_idx = @lib.TypeIdx::new(0U)
+  let result_type_idx = @lib.TypeIdx::new(1U)
+  let test_type_idx = @lib.TypeIdx::new(2U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32(), externref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([call_type_idx, test_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(9),
+            @lib.Instruction::ref_null(extern_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::i32_const(7),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+              ],
+              None,
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::type_idx(result_type_idx),
+              @lib.Expr::new([
+                @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+                @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(6),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  ssa_test_problem1_fail_closed_reference_branch_input(
+    input, 1, "multi-result direct call br_on_null input", ssa_test_instrs_have_br_on_null,
+  )
+}
+
+///|
+test "ssa-nomerge fail-closed problem1 multi-result call_ref br_on_null input" {
+  // Boundary: multi-result call_ref needs the same lane-preservation design as
+  // direct multi-result calls, plus function-reference operand handling.
+  let externref = @lib.ValType::externref()
+  let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
+  let call_type_idx = @lib.TypeIdx::new(0U)
+  let result_type_idx = @lib.TypeIdx::new(1U)
+  let test_type_idx = @lib.TypeIdx::new(2U)
+  let helper_idx = @lib.FuncIdx::new(0U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32(), externref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([call_type_idx, test_type_idx]))
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::declarative(),
+          @lib.ElemKind::funcs([helper_idx]),
+        ),
+      ]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(9),
+            @lib.Instruction::ref_null(extern_heap),
+          ]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::i32_const(7),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+              ],
+              None,
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::type_idx(result_type_idx),
+              @lib.Expr::new([
+                @lib.Instruction::ref_func(helper_idx),
+                @lib.Instruction::call_ref(call_type_idx),
+                @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(6),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  ssa_test_problem1_fail_closed_reference_branch_input(
+    input, 1, "multi-result call_ref br_on_null input", ssa_test_instrs_have_br_on_null,
+  )
+}
+
+///|
+test "ssa-nomerge fail-closed problem1 multi-result call_indirect br_on_null input" {
+  // Boundary: multi-result call_indirect also has a table-index operand; keep
+  // this raw until the tested-result lane and payload lanes can be preserved.
+  let externref = @lib.ValType::externref()
+  let call_type_idx = @lib.TypeIdx::new(0U)
+  let result_type_idx = @lib.TypeIdx::new(1U)
+  let test_type_idx = @lib.TypeIdx::new(2U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32(), externref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_table_sec(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            @lib.RefType::new(
+              true,
+              @lib.HeapType::abs(@lib.AbsHeapType::func()),
+            ),
+            @lib.Limits::i32(1U, Some(1U)),
+          ),
+          None,
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([test_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::i32_const(7),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+              ],
+              None,
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::type_idx(result_type_idx),
+              @lib.Expr::new([
+                @lib.Instruction::i32_const(0),
+                @lib.Instruction::call_indirect(
+                  call_type_idx,
+                  @lib.TableIdx::new(0U),
+                ),
+                @lib.Instruction::br_on_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::drop(),
+                @lib.Instruction::drop(),
+                @lib.Instruction::i32_const(6),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  ssa_test_problem1_fail_closed_reference_branch_input(
+    input, 0, "multi-result call_indirect br_on_null input", ssa_test_instrs_have_br_on_null,
+  )
+}
+
+///|
 test "ssa-nomerge fail-closed problem1 multi-result direct call br_on_non_null input" {
   // Boundary: multi-result calls are intentionally not rewritten yet because
   // the spill helper must preserve non-tested result lanes and know which lane
