@@ -262,7 +262,24 @@ Preset behavior inventory:
       - Suggested evidence: timing-only artifact/function replay and direct compare counts after policy changes.
     - [ ] [SSANM-009] - Replay and classify checked-in debug-WASI artifact parity
       - Goal: use artifact replay as evidence after the LocalGraph rewrite, not as the primary implementation strategy.
+      - Status: epic only; execute through child slices after the LocalGraph no-merge planner/mutation path is available.
       - Deliverables: resume from `.tmp/self-ssa-nomerge-debug-wasi-brtable-callspill-20260613` at `defined=215 abs=242`, classify remaining first diffs as matched Binaryen behavior, measured Starshine win, parity gap, or explicit boundary, and delete/reclassify obsolete artifact-specific hacks where the LocalGraph path supersedes them.
+    - [ ] [SSANM-009a] - Refresh debug-WASI replay anchor
+      - Goal: confirm the checked-in debug-WASI direct `ssa-nomerge` replay still first-diffs at `defined=215 abs=242` before using the artifact as post-LocalGraph evidence.
+      - Deliverables: exact replay command/out-dir, current first-diff tuple, validation status, pass-local timing when available, and a note when the prior `.tmp/self-ssa-nomerge-debug-wasi-brtable-callspill-20260613` anchor has drifted.
+      - Suggested evidence: native `src/cmd` build, targeted artifact replay, and docs/wiki update; no mutation unless the anchor has drifted to a reduced actionable family.
+    - [ ] [SSANM-009b] - Classify post-LocalGraph debug-WASI first diffs
+      - Goal: after the LocalGraph no-merge rewrite is active, inspect each remaining artifact first-diff family before adding artifact-specific code.
+      - Deliverables: per-diff classification as matched Binaryen behavior, behavior-parity gap, measured Starshine win, huge-function boundary, typed-control/EH boundary, or tool/representation issue; reduce actionable parity gaps into focused tests.
+      - Suggested evidence: targeted replay dirs, canonical diff snippets or summaries, focused reduced fixtures for actionable families, and direct `--pass ssa-nomerge` compare evidence after mutations.
+    - [ ] [SSANM-009c] - Retire obsolete debug-WASI-specific heuristics
+      - Goal: remove or narrow raw artifact-specific allocation hacks once the LocalGraph policy supersedes them.
+      - Deliverables: deletion/narrowing commits with focused guards proving retained behavior, artifact replay before/after, and a parity-page table mapping each retired heuristic to the LocalGraph rule that replaced it.
+      - Suggested evidence: red/green `ssa_nomerge_test.mbt` for retained guards, `moon test src/passes`, native build, targeted artifact replay, and direct compare evidence.
+    - [ ] [SSANM-009d] - Publish debug-WASI artifact parity status
+      - Goal: make the final artifact state durable without treating raw byte identity as the direct-pass closeout criterion.
+      - Deliverables: parity-page summary of final first-diff/equality status, output-size and validation summary, pass-local timing, remaining accepted boundaries with reopening criteria, and backlog cleanup for completed artifact slices.
+      - Suggested evidence: docs/wiki update, wiki log entry, targeted replay command, and final direct/pass-profile compare links from `[SSANM-012*]` when available.
     - [ ] [SSANM-010] - Decide O4z and preset `ssa-nomerge` scheduling
       - Goal: reconcile Starshine’s `o4z-ssa-nomerge-noop` guard with Binaryen’s early no-DWARF `ssa-nomerge` scheduling and nested reruns.
       - Deliverables: early slot replay, downstream `dead-code-elimination` / `remove-unused-names` / `remove-unused-brs` neighborhood replay, explicit decision to remove, narrow, or retain the O4z no-op with reopening criteria, and preset-order tests for any scheduling change.

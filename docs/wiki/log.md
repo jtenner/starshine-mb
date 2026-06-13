@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Slice debug-WASI artifact replay backlog
+
+- Split `[SSANM-009]` in [`../../agent-todo.md`](../../agent-todo.md) into epic-only debug-WASI artifact replay work plus child slices `[SSANM-009a]` through `[SSANM-009d]` for anchor refresh, post-LocalGraph first-diff classification, retirement/narrowing of obsolete artifact-specific heuristics, and final artifact parity publication.
+- No implementation behavior changed; this is a backlog-only planning update so tests were not required.
+
 ## [2026-06-13] passes/ssa-nomerge | Add local.tee GenValid coverage
 
 - Completed `[SSANM-011d]` in [`../../agent-todo.md`](../../agent-todo.md) as a generator/profile coverage slice after adding explicit tee subfamily feature labels: `ssa-tee-freshen-candidate`, `ssa-tee-merge-feeding-candidate`, and `ssa-tee-child-expression`; the existing `ssa-dead-local-tee` label is now deterministically floor-proven by smoke and coverage profiles.
