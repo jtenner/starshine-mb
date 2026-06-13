@@ -243,10 +243,11 @@ Preset behavior inventory:
     - [ ] [SSANM-011] - Add LocalGraph-driven GenValid coverage
       - Goal: generate inputs that exercise the LocalGraph no-merge decision table directly.
       - Status: epic only; execute through the child slices below so generator changes stay reviewable and each profile widening has its own evidence.
-    - [ ] [SSANM-011a] - Inventory current SSA GenValid profiles and feature labels
+    - [x] [SSANM-011a] - Inventory current SSA GenValid profiles and feature labels
+      - Status: completed 2026-06-13; inventory lives in `docs/wiki/binaryen/passes/ssa-nomerge/parity.md` under the `[SSANM-011a]` signoff note.
       - Goal: map the existing `ssa-nomerge-smoke`, `ssa-nomerge-coverage`, and `ssa-nomerge-parity` generator surfaces against the LocalGraph decision table before adding cases.
       - Deliverables: concise table in the SSA no-merge wiki/parity docs covering existing labels/floors, missing families, and which later slice owns each missing shape.
-      - Suggested evidence: `bun scripts/pass-fuzz-compare.ts --list-gen-valid-profiles` or equivalent harness/profile source review, plus no code mutation unless the inventory exposes stale names.
+      - Evidence: focused GenValid/profile tests passed (`gen_valid_tests.mbt` `74/74`, `gen_valid_ssa_tests.mbt` `35/35`, `fuzz/main_wbtest.mbt` `90/90`); one-artifact manifest probes for smoke/coverage/parity/stress at seed `0x5eed` all generated valid modules with no skips; native `src/cmd` build completed. Compare probes documented a current caveat: `ssa-nomerge-smoke` `1000` requested stopped at `215` compared / `215` mismatches, and `ssa-nomerge-parity` `100` requested had `100` compared / `100` mismatches, with no validation/generator/command failures; sampled mismatch is a Binaryen behavior-parity/local-allocation gap, so the current `ssa-nomerge-parity` profile name must not be used as green compare evidence until later LocalGraph mutation slices close or rename it.
     - [ ] [SSANM-011b] - Add straight-line and default-entry GenValid coverage
       - Goal: generate small positive shapes for already-SSA locals, single-source write/get influence, dead writes/no-read locals, body-default reads, and parameter-entry reads.
       - Deliverables: feature labels/floors, focused generator tests if available, `ssa-nomerge-smoke` and `ssa-nomerge-coverage` profile evidence, and docs/backlog updates with exact requested/compared counts.

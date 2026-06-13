@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Inventory GenValid profile coverage
+
+- Completed `[SSANM-011a]` in [`../../agent-todo.md`](../../agent-todo.md) as a docs/source-review inventory slice after first splitting the broad `[SSANM-011]` epic into child slices.
+- Refreshed [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) with the current `ssa-nomerge-smoke`, `ssa-nomerge-coverage`, `ssa-nomerge-parity`, and `ssa-nomerge-stress` profile spellings, feature-label/floor coverage, LocalGraph decision-table mapping, child-slice ownership, and the caveat that the current `ssa-nomerge-parity` profile is not direct-compare green.
+- Evidence: `gen_valid_tests.mbt` passed `74/74`, `gen_valid_ssa_tests.mbt` passed `35/35`, `fuzz/main_wbtest.mbt` passed `90/90`, native `src/cmd` build completed with no work, one-artifact manifest probes for smoke/coverage/parity/stress at seed `0x5eed` generated valid modules with no skips, and direct GenValid compare probes found no validation/generator/command failures but exposed local-allocation/behavior-parity mismatches (`ssa-nomerge-smoke`: `215/215` mismatches before the cap on a `1000`-case request; `ssa-nomerge-parity`: `100/100` mismatches).
+
 ## [2026-06-13] passes/ssa | Activate direct full-SSA non-merge rewrites
 
 - Completed `[SSA-FULL]002B` in [`../../agent-todo.md`](../../agent-todo.md) as the first active public `ssa` rewrite slice.
