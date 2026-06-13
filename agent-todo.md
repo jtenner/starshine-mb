@@ -242,8 +242,23 @@ Preset behavior inventory:
       - Deliverables: early slot replay, downstream `dead-code-elimination` / `remove-unused-names` / `remove-unused-brs` neighborhood replay, explicit decision to remove, narrow, or retain the O4z no-op with reopening criteria, and preset-order tests for any scheduling change.
     - [ ] [SSANM-011] - Add LocalGraph-driven GenValid coverage
       - Goal: generate inputs that exercise the LocalGraph no-merge decision table directly.
-      - Deliverables: `ssa-nomerge-*` feature labels/floors for already-SSA locals, single-source influences, merge-feeding writes, body-default reads, parameter-entry merges, per-write mixed fresh/canonical locals, tee writes, loop-carried sources, EH fail-closed cases, typed-control boundaries, and large structured mixes.
-      - Suggested evidence: dedicated `ssa-nomerge-smoke`, `ssa-nomerge-coverage`, and any new profile lanes with exact requested/compared counts.
+      - Status: epic only; execute through the child slices below so generator changes stay reviewable and each profile widening has its own evidence.
+    - [ ] [SSANM-011a] - Inventory current SSA GenValid profiles and feature labels
+      - Goal: map the existing `ssa-nomerge-smoke`, `ssa-nomerge-coverage`, and `ssa-nomerge-parity` generator surfaces against the LocalGraph decision table before adding cases.
+      - Deliverables: concise table in the SSA no-merge wiki/parity docs covering existing labels/floors, missing families, and which later slice owns each missing shape.
+      - Suggested evidence: `bun scripts/pass-fuzz-compare.ts --list-gen-valid-profiles` or equivalent harness/profile source review, plus no code mutation unless the inventory exposes stale names.
+    - [ ] [SSANM-011b] - Add straight-line and default-entry GenValid coverage
+      - Goal: generate small positive shapes for already-SSA locals, single-source write/get influence, dead writes/no-read locals, body-default reads, and parameter-entry reads.
+      - Deliverables: feature labels/floors, focused generator tests if available, `ssa-nomerge-smoke` and `ssa-nomerge-coverage` profile evidence, and docs/backlog updates with exact requested/compared counts.
+    - [ ] [SSANM-011c] - Add merge and per-write mixed GenValid coverage
+      - Goal: generate no-merge decision-table shapes where one local has freshenable single-source writes plus canonical merge-feeding writes.
+      - Deliverables: one-arm default/param merges, both-arm merges, loop-carried merges, mixed fresh/canonical writes, and profile evidence that these shapes appear without forcing invalid modules.
+    - [ ] [SSANM-011d] - Add `local.tee` GenValid coverage
+      - Goal: make tee writes exercise the same write/get influence paths as `local.set` while preserving stack-result semantics.
+      - Deliverables: tee freshen candidates, tee merge-feeding candidates, dead tee overwrite shapes, child-expression tee shapes where supported, and dedicated profile evidence.
+    - [ ] [SSANM-011e] - Add boundary GenValid coverage for EH, typed control, and large structured mixes
+      - Goal: generate fail-closed or classification shapes for exceptional flow, typed loop params/results, branch operands, `br_table`, nested-loop targets, and large structured local-write mixes.
+      - Deliverables: feature labels/floors that distinguish intended fail-closed boundaries from positive LocalGraph rewrite cases, profile evidence, and updated reopening criteria for any generator-only gaps.
     - [ ] [SSANM-012] - Final direct `ssa-nomerge` closeout
       - Goal: close direct `ssa-nomerge` only after every known Binaryen-visible gap is matched, measured as a Starshine win, or explicitly deferred.
       - Deliverables: focused tests, `moon test src/passes`, full `moon test`, native build, `100000`-case direct compare, relevant GenValid profile lanes, huge-function classification, debug-WASI classification, O4z scheduling decision, docs/wiki updates, and a final mismatch/boundary report.
