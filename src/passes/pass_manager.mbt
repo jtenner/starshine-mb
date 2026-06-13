@@ -8960,6 +8960,7 @@ fn run_hot_pipeline_raw_trailing_ref_branch_input_needs_single_spill_for_non_nul
         Some(@lib.FuncType(_, [@lib.RefTypeValType(_)])) => true
         _ => false
       }
+    Some(@lib.RefCast(_, _)) => true
     _ => false
   }
 }
@@ -12721,14 +12722,24 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_direct_call_ref_branch_sequence(
   allow_direct_call_operands : Bool,
 ) -> Bool {
   let mut previous_is_call = false
+  let mut previous_is_call_ref_cast = false
   for instr in instrs {
     match instr {
-      @lib.BrOnNull(_) if branch_on_null => if previous_is_call { return true }
-      @lib.BrOnNonNull(_) if !branch_on_null =>
-        if previous_is_call {
+      @lib.BrOnNull(_) if branch_on_null =>
+        if previous_is_call || previous_is_call_ref_cast {
           return true
         }
+      @lib.BrOnNonNull(_) if !branch_on_null =>
+        if previous_is_call || previous_is_call_ref_cast {
+          return true
+        }
+      @lib.RefCast(_, _) if previous_is_call => {
+        previous_is_call = false
+        previous_is_call_ref_cast = true
+        continue
+      }
       @lib.Call(func_idx) => {
+        previous_is_call_ref_cast = false
         previous_is_call = match
           @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
           Some(@lib.FuncType(call_params, [@lib.RefTypeValType(_)])) =>
@@ -12738,6 +12749,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_direct_call_ref_branch_sequence(
         continue
       }
       @lib.CallRef(type_idx) | @lib.CallIndirect(type_idx, _) => {
+        previous_is_call_ref_cast = false
         previous_is_call = match
           @ir.hot_module_resolve_type_func_type(module_ctx, type_idx) {
           Some(@lib.FuncType(call_params, [@lib.RefTypeValType(_)])) =>
@@ -12746,7 +12758,10 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_direct_call_ref_branch_sequence(
         }
         continue
       }
-      _ => previous_is_call = false
+      _ => {
+        previous_is_call = false
+        previous_is_call_ref_cast = false
+      }
     }
   }
   false

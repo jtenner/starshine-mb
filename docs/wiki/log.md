@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Cover call/ref.cast branch inputs
+
+- Widened the raw structured `ssa-nomerge` direct-call branch-input recognizer in [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) to admit the narrow `call` / `call_ref` / `call_indirect` then `ref.cast` then `br_on_null`/`br_on_non_null` suffix when the call is module-context-resolved to exactly one reference result; the rewrite still spills only the already-produced cast result and does not scan backward or duplicate call operands.
+- Converted the prior problem-1 `call` then `ref.cast` / `br_on_non_null` boundary guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) to a positive and added an operandful direct-call variant. Multi-result calls, return-call terminators, operandful aggregate constructors, and broader arbitrary reference expressions remain fail-closed or open.
+- TDD note: the converted zero-param call/ref.cast positive failed first (`303/304`) with `skip-raw reason=no-local-writes` then `structured-local-writes`; after the recognizer/spill-needs widening, focused `ssa_nomerge_test.mbt` passed `304/304`, the added operandful sibling was green under the same implementation, and final focused coverage passed `305/305`. Signoff: `moon test src/passes` passed `2326/2326`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5601/5601`, native `src/cmd` build passed with pre-existing pass-manager unused-function warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-call-refcast-10000` requested `10000`, compared `7607`, had `7607` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures.
+
 ## [2026-06-13] passes/ssa-nomerge | Guard array data/elem constructor branch inputs
 
 - Added fail-closed problem-1 boundary guards in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for operandful `array.new_data` and `array.new_elem` feeding `br_on_non_null`.

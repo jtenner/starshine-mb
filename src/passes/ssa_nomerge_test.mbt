@@ -9323,11 +9323,11 @@ test "ssa-nomerge fail-closed problem1 array-new-elem operands br_on_non_null in
 }
 
 ///|
-test "ssa-nomerge fail-closed problem1 call-then-ref-cast br_on_non_null input" {
-  // Although trailing `ref.cast` is an admitted final producer in simpler raw
-  // contexts, this call+cast block-exit shape currently stops at the structured
-  // raw gate. That preserves the original branch instead of scanning backward
-  // across the possibly trapping/effectful call.
+test "ssa-nomerge rewrites problem1 call-then-ref-cast br_on_non_null input" {
+  // Narrow problem-1 implementation: a final `ref.cast` after a single-ref
+  // call can be spilled immediately after the cast. The recognizer admits only
+  // the call/ref.cast/branch suffix; it still does not scan backward or
+  // duplicate the call operands.
   let anyref = @lib.ValType::anyref()
   let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
   let input = @lib.Module::new()
@@ -9375,8 +9375,89 @@ test "ssa-nomerge fail-closed problem1 call-then-ref-cast br_on_non_null input" 
         ),
       ]),
     )
-  ssa_test_problem1_fail_closed_reference_branch_input(
-    input, 1, "call-then-ref-cast br_on_non_null input", ssa_test_instrs_have_br_on_non_null,
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "call-then-ref-cast br_on_non_null input",
+  )
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_instrs_have_br_on_non_null(instrs),
+    msg=instrs.to_string(),
+  )
+}
+
+///|
+test "ssa-nomerge rewrites problem1 direct call operands then ref-cast br_on_non_null input" {
+  // Coverage for the operandful version of the call/ref.cast/branch suffix:
+  // the call operands are consumed before the final cast, and the rewrite only
+  // spills the already-produced cast result.
+  let anyref = @lib.ValType::anyref()
+  let any_heap = @lib.HeapType::abs(@lib.AbsHeapType::any())
+  let id_type_idx = @lib.TypeIdx::new(0U)
+  let test_type_idx = @lib.TypeIdx::new(1U)
+  let input = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), anyref], [anyref]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([anyref], [anyref])),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([id_type_idx, test_type_idx]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::new([]),
+          @lib.Expr::new([@lib.Instruction::local_get(@lib.LocalIdx::new(1U))]),
+        ),
+        @lib.Func::new(
+          @lib.Locals::from_types([@lib.ValType::i32()]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(1),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::i32_const(7),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+              ],
+              None,
+            ),
+            @lib.Instruction::block(
+              @lib.BlockType::val_type(anyref),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+                @lib.Instruction::ref_cast(true, any_heap),
+                @lib.Instruction::br_on_non_null(@lib.LabelIdx::new(0U)),
+                @lib.Instruction::ref_null(any_heap),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "direct call operands then ref-cast br_on_non_null input",
+  )
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_instrs_have_br_on_non_null(instrs),
+    msg=instrs.to_string(),
   )
 }
 
