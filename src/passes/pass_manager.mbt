@@ -12134,6 +12134,41 @@ fn run_hot_pipeline_raw_set_param_alias(
 }
 
 ///|
+fn run_hot_pipeline_raw_branch_writes_local(
+  instrs : Array[@lib.Instruction],
+  local_id : Int,
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.LocalSet(@lib.LocalIdx(idx)) | @lib.LocalTee(@lib.LocalIdx(idx)) =>
+        if idx.reinterpret_as_int() == local_id {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_branch_writes_local(body, local_id) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_branch_writes_local(then_body, local_id) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_branch_writes_local(body, local_id) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_count_call_like(
   instrs : Array[@lib.Instruction],
 ) -> Int {
@@ -12198,10 +12233,12 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
   let mut previous_was_i32_and = false
   let mut previous_was_i32_sub = false
   let mut previous_was_select = false
+  let mut previous_local_get_id = -1
   for instr in instrs {
     match instr {
       @lib.LocalGet(@lib.LocalIdx(idx)) => {
         let local_id = idx.reinterpret_as_int()
+        previous_local_get_id = local_id
         if local_id >= 0 && local_id < param_aliases.length() {
           match param_aliases[local_id] {
             Some(mapped_local) =>
@@ -12233,6 +12270,25 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
           previous_was_i32_sub &&
           local_id == base_local_count - 3 &&
           run_hot_pipeline_raw_count_local_writes(root_instrs, local_id) > 1
+        let preserve_nested_param_merge_set = instrs.length() !=
+          root_instrs.length() &&
+          local_id >= 0 &&
+          local_id < params.length() &&
+          (
+            previous_local_get_id >= params.length() ||
+            (
+              previous_was_i32_add &&
+              run_hot_pipeline_raw_count_local_gets(root_instrs, local_id) >
+              run_hot_pipeline_raw_count_local_gets(instrs, local_id)
+            )
+          )
+        let preserve_nested_branch_memory_set = !two_call_allocator_body &&
+          instrs.length() != root_instrs.length() &&
+          previous_was_memory_load &&
+          local_id >= params.length() &&
+          local_id < base_local_count &&
+          run_hot_pipeline_raw_count_local_gets(root_instrs, local_id) >
+          run_hot_pipeline_raw_count_local_gets(instrs, local_id)
         if (
             freshen_params ||
             freshen_repeated_non_loop_sets ||
@@ -12240,7 +12296,11 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
           ) &&
           local_id >= 0 &&
           (
-            (local_id < params.length() && !previous_was_call) ||
+            (
+              local_id < params.length() &&
+              !previous_was_call &&
+              !preserve_nested_param_merge_set
+            ) ||
             (freshen_repeated_body_scratch && previous_was_local_tee) ||
             (
               two_call_allocator_body &&
@@ -12252,7 +12312,8 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
             previous_was_table_size ||
             (
               previous_was_memory_load &&
-              !preserve_first_two_call_unlink_load_set
+              !preserve_first_two_call_unlink_load_set &&
+              !preserve_nested_branch_memory_set
             ) ||
             (
               freshen_repeated_non_loop_sets &&
@@ -12285,6 +12346,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_i32_add = false
         previous_was_i32_and = false
         previous_was_i32_sub = false
+        previous_local_get_id = -1
       }
       @lib.LocalTee(@lib.LocalIdx(idx)) => {
         let local_id = idx.reinterpret_as_int()
@@ -12369,6 +12431,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_i32_and = false
         previous_was_i32_sub = false
         previous_was_select = false
+        previous_local_get_id = -1
         rewritten.push(instr)
       }
       @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => {
@@ -12381,6 +12444,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_i32_and = false
         previous_was_i32_sub = false
         previous_was_select = false
+        previous_local_get_id = -1
         rewritten.push(instr)
       }
       @lib.TableSize(_) => {
@@ -12392,6 +12456,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_i32_and = false
         previous_was_i32_sub = false
         previous_was_select = false
+        previous_local_get_id = -1
         rewritten.push(instr)
       }
       @lib.Block(block_type, @lib.Expr(body)) => {
@@ -12404,6 +12469,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_i32_and = false
         previous_was_i32_sub = false
         previous_was_select = false
+        previous_local_get_id = -1
         rewritten.push(
           @lib.Instruction::block(
             block_type,
@@ -12430,6 +12496,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_i32_and = false
         previous_was_i32_sub = false
         previous_was_select = false
+        previous_local_get_id = -1
         rewritten.push(
           @lib.Instruction::loop_(
             block_type,
@@ -12456,6 +12523,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_i32_and = false
         previous_was_i32_sub = false
         previous_was_select = false
+        previous_local_get_id = -1
         rewritten.push(
           @lib.Instruction::try_table(
             block_type,
@@ -12483,6 +12551,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
         previous_was_i32_and = false
         previous_was_i32_sub = false
         previous_was_select = false
+        previous_local_get_id = -1
         rewritten.push(
           @lib.Instruction::if_(
             block_type,
@@ -12517,6 +12586,23 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
             None,
           )
         }
+        for param_id = 0; param_id < params.length(); param_id = param_id + 1 {
+          if run_hot_pipeline_raw_branch_writes_local(then_body, param_id) {
+            run_hot_pipeline_raw_set_param_alias(param_aliases, param_id, None)
+          } else {
+            match else_body {
+              Some(body) =>
+                if run_hot_pipeline_raw_branch_writes_local(body, param_id) {
+                  run_hot_pipeline_raw_set_param_alias(
+                    param_aliases,
+                    param_id,
+                    None,
+                  )
+                }
+              None => ()
+            }
+          }
+        }
       }
       _ => {
         previous_was_local_tee = false
@@ -12542,6 +12628,7 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
           @lib.Select(_) => previous_was_select = true
           _ => previous_was_select = false
         }
+        previous_local_get_id = -1
         rewritten.push(instr)
       }
     }

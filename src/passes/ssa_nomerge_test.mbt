@@ -1807,8 +1807,9 @@ test "ssa-nomerge artifact parity freshens split-memory body scratch locals" {
     #|      local.set 5
     #|      local.get 3
     #|      local.set 1
-    #|      local.get 2
-    #|      i32.wrap_i64
+    #|    end
+    #|    local.get 2
+    #|    i32.wrap_i64
     #|      i32.const -16
     #|      i32.and
     #|      local.get 1
@@ -1850,8 +1851,7 @@ test "ssa-nomerge artifact parity freshens split-memory body scratch locals" {
     #|      i32.store offset=1568
     #|      local.get 0
     #|      local.get 1
-    #|      call $insertBlock
-    #|    end))
+    #|      call $insertBlock)
     #|)
   let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
   let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
@@ -1860,6 +1860,97 @@ test "ssa-nomerge artifact parity freshens split-memory body scratch locals" {
     ssa_test_local_write_indices(instrs).any(fn(idx) { idx == 3U }),
     msg=instrs.to_string(),
   )
+  let set_indices = ssa_test_local_set_indices(instrs)
+  assert_true(set_indices.any(fn(idx) { idx == 1U }), msg=instrs.to_string())
+  assert_true(set_indices.any(fn(idx) { idx == 5U }), msg=instrs.to_string())
+}
+
+///|
+test "ssa-nomerge artifact parity preserves loop branch parameter updates" {
+  // Artifact repro from checked-in debug-WASI after the split-memory malloc
+  // branch-merge fix, first canonical difference `defined=19 abs=46`. Binaryen
+  // keeps the pointer bump updates on the original parameter locals across the
+  // loop backedge; fresh scratch locals leave the loop-carried values stale.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $len (param i32) (result i32)
+    #|    local.get 0)
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i64)
+    #|    local.get 0
+    #|    call $len
+    #|    local.set 2
+    #|    local.get 2
+    #|    local.get 1
+    #|    call $len
+    #|    i32.ne
+    #|    if
+    #|      i32.const 0
+    #|      return
+    #|    end
+    #|    loop
+    #|      local.get 2
+    #|      i32.const 8
+    #|      i32.ge_s
+    #|      if
+    #|        local.get 0
+    #|        i64.load offset=8
+    #|        local.get 1
+    #|        i64.load offset=8
+    #|        i64.ne
+    #|        if
+    #|          i32.const 0
+    #|          return
+    #|        end
+    #|        local.get 2
+    #|        i32.const 8
+    #|        i32.sub
+    #|        local.set 2
+    #|        local.get 0
+    #|        i32.const 8
+    #|        i32.add
+    #|        local.set 0
+    #|        local.get 1
+    #|        i32.const 8
+    #|        i32.add
+    #|        local.set 1
+    #|        br 1
+    #|      end
+    #|    end
+    #|    local.get 2
+    #|    i32.const 0
+    #|    i32.gt_s
+    #|    if (result i32)
+    #|      i64.const 1
+    #|      local.get 2
+    #|      i32.const 3
+    #|      i32.shl
+    #|      i64.extend_i32_u
+    #|      i64.shl
+    #|      i64.const 1
+    #|      i64.sub
+    #|      local.set 3
+    #|      local.get 0
+    #|      i64.load offset=8
+    #|      local.get 3
+    #|      i64.and
+    #|      local.get 1
+    #|      i64.load offset=8
+    #|      local.get 3
+    #|      i64.and
+    #|      i64.eq
+    #|    else
+    #|      i32.const 1
+    #|    end)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (_, instrs) = try! ssa_test_defined_func(optimized, 1)
+  let set_indices = ssa_test_local_set_indices(instrs)
+  assert_true(set_indices.any(fn(idx) { idx == 0U }), msg=instrs.to_string())
+  assert_true(set_indices.any(fn(idx) { idx == 1U }), msg=instrs.to_string())
+  assert_false(set_indices.any(fn(idx) { idx == 4U }), msg=instrs.to_string())
+  assert_false(set_indices.any(fn(idx) { idx == 5U }), msg=instrs.to_string())
 }
 
 ///|
