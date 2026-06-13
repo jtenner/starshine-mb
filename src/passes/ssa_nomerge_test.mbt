@@ -3132,6 +3132,184 @@ test "ssa-nomerge artifact parity preserves branch-carried refcount locals" {
 }
 
 ///|
+test "ssa-nomerge artifact parity preserves nested startup error local" {
+  // Artifact repro from checked-in debug-WASI after the branch-carried refcount
+  // fix, current first canonical difference `defined=70 abs=97`
+  // (`cmd_try_trivial_startup_exit`). In the help/version output path,
+  // Binaryen keeps the error payload that exits an inner block on the canonical
+  // body local consumed by the following error formatting code. Freshening that
+  // branch-carried write leaves the post-block `local.get` on an uninitialized
+  // default lane, so this is a behavior-parity gap rather than harmless local
+  // numbering drift.
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $retain (param i32))
+    #|  (func $release (param i32))
+    #|  (func $free (param i32))
+    #|  (func $malloc (param i32) (result i32) local.get 0)
+    #|  (func $tag (param i32) (result i32) i32.const 0)
+    #|  (func $to_string (param i32) (result i32) local.get 0)
+    #|  (func $add_string (param i32 i32) (result i32) local.get 1)
+    #|  (func (param $io i32) (result i32)
+    #|    (local $dummy i32) (local $err i32) (local $bind i32) (local $func i32) (local $result i32)
+    #|    (local $e i32) (local $tmp_string i32) (local $tmp_prefixed i32)
+    #|    (local $out_failed i32) (local $field i32) (local $cnt i32)
+    #|    (local $new_cnt i32) (local $drop8 i32) (local $drop12 i32)
+    #|    (local $drop16 i32) (local $drop20 i32) (local $drop24 i32)
+    #|    (local $drop28 i32) (local $drop36 i32) (local $drop40 i32)
+    #|    (local $drop44 i32) (local $ptr_a i32) (local $ptr_b i32)
+    #|    (block (result i32)
+    #|      block
+    #|        local.get $io
+    #|        i32.load offset=32 align=1
+    #|        local.set $func
+    #|        local.get $io
+    #|        i32.load align=1
+    #|        local.tee $cnt
+    #|        i32.const 1
+    #|        i32.gt_s
+    #|        if
+    #|          local.get $cnt
+    #|          i32.const 1
+    #|          i32.sub
+    #|          local.set $new_cnt
+    #|          local.get $io
+    #|          local.get $new_cnt
+    #|          i32.store align=1
+    #|          local.get $func
+    #|          call $retain
+    #|        else
+    #|          local.get $cnt
+    #|          i32.const 1
+    #|          i32.eq
+    #|          if
+    #|            local.get $io
+    #|            i32.load offset=44 align=1
+    #|            local.tee $drop44
+    #|            call $release
+    #|            local.get $io
+    #|            i32.load offset=40 align=1
+    #|            local.tee $drop40
+    #|            call $release
+    #|            local.get $io
+    #|            i32.load offset=36 align=1
+    #|            local.tee $drop36
+    #|            call $release
+    #|            local.get $io
+    #|            i32.load offset=28 align=1
+    #|            local.tee $drop28
+    #|            call $release
+    #|            local.get $io
+    #|            i32.load offset=24 align=1
+    #|            local.tee $drop24
+    #|            call $release
+    #|            local.get $io
+    #|            i32.load offset=20 align=1
+    #|            local.tee $drop20
+    #|            call $release
+    #|            local.get $io
+    #|            i32.load offset=16 align=1
+    #|            local.tee $drop16
+    #|            call $release
+    #|            local.get $io
+    #|            i32.load offset=12 align=1
+    #|            local.tee $drop12
+    #|            call $release
+    #|            local.get $io
+    #|            i32.load offset=8 align=1
+    #|            local.tee $drop8
+    #|            call $release
+    #|            local.get $io
+    #|            call $free
+    #|          end
+    #|        end
+    #|        i32.const 42
+    #|        local.tee $bind
+    #|        call $tag
+    #|        i32.const 1
+    #|        i32.eq
+    #|        if (result i32)
+    #|          local.get $bind
+    #|          call $release
+    #|          i32.const 4
+    #|          call $malloc
+    #|        else
+    #|          local.get $bind
+    #|          local.tee $e
+    #|          i32.load offset=8 align=1
+    #|          local.set $field
+    #|          local.get $e
+    #|          i32.load align=1
+    #|          local.tee $cnt
+    #|          i32.const 1
+    #|          i32.gt_s
+    #|          if
+    #|            local.get $cnt
+    #|            i32.const 1
+    #|            i32.sub
+    #|            local.set $new_cnt
+    #|            local.get $e
+    #|            local.get $new_cnt
+    #|            i32.store align=1
+    #|            local.get $field
+    #|            call $retain
+    #|          else
+    #|            local.get $cnt
+    #|            i32.const 1
+    #|            i32.eq
+    #|            if
+    #|              local.get $e
+    #|              call $free
+    #|            end
+    #|          end
+    #|          local.get $field
+    #|          local.tee $result
+    #|          local.set $err
+    #|          br 1
+    #|        end
+    #|        br 1
+    #|      end
+    #|      local.get $err
+    #|      call $to_string
+    #|      local.set $tmp_string
+    #|      i32.const 12088
+    #|      local.get $tmp_string
+    #|      call $add_string
+    #|      local.set $tmp_prefixed
+    #|      i32.const 4
+    #|      call $malloc
+    #|      local.tee $ptr_a
+    #|      i32.const 1048843
+    #|      i32.store offset=4 align=1
+    #|      local.get $ptr_a
+    #|      local.get $tmp_prefixed
+    #|      i32.store offset=8 align=1
+    #|      local.get $ptr_a
+    #|      local.set $out_failed
+    #|      i32.const 4
+    #|      call $malloc
+    #|      local.tee $ptr_b
+    #|      i32.const 1048832
+    #|      i32.store offset=4 align=1
+    #|      local.get $ptr_b
+    #|      local.get $out_failed
+    #|      i32.store offset=8 align=1
+    #|      local.get $ptr_b
+    #|    )
+    #|    return)
+    #|)
+  let optimized = ssa_test_validate_ssa_nomerge_pipeline(source)
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 7)
+  let writes = ssa_test_local_write_indices(instrs)
+  assert_true(locals.length() <= 35, msg=locals.to_string())
+  assert_true(writes.any(fn(idx) { idx == 2U }), msg=instrs.to_string())
+  let text = instrs.to_string()
+  assert_true(text.contains("(local.get (Local 2))(call (Func 5))"), msg=text)
+  assert_false(writes.any(fn(idx) { idx > 35U }), msg=instrs.to_string())
+}
+
+///|
 test "ssa-nomerge skips O4z raw pass until self-opt cli flag parsing is safe" {
   let trace : Array[String] = []
   match

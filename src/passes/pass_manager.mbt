@@ -12420,8 +12420,12 @@ fn run_hot_pipeline_raw_freshen_param_scratch_writes_with_aliases(
           !freshen_repeated_non_loop_sets &&
           instrs.length() != root_instrs.length() &&
           previous_was_local_tee &&
-          local_id == params.length() &&
+          local_id >= params.length() &&
+          local_id < base_local_count &&
           run_hot_pipeline_raw_count_call_like(root_instrs) > 2 &&
+          run_hot_pipeline_raw_count_local_writes(root_instrs, local_id) == 1 &&
+          run_hot_pipeline_raw_count_local_gets(root_instrs, local_id) >
+          run_hot_pipeline_raw_count_local_gets(instrs, local_id) &&
           run_hot_pipeline_raw_instrs_have_branch(instrs)
         if (
             freshen_params ||

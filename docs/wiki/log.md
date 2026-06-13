@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Preserve startup error branch local
+
+- Added a focused debug-WASI `abs=97` reduced guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the `cmd_try_trivial_startup_exit`-like nested help/version output path. The guard failed red before implementation because the post-block error formatting suffix needed to consume the canonical branch-carried error local instead of a fresh branch-local scratch/default lane.
+- Updated [`../../src/passes/pass_manager.mbt`](../../src/passes/pass_manager.mbt) so the existing call-heavy branch-result preservation also applies to non-first body locals when a nested branch writes the local, the local is read after that nested region, and the shape is still no-table/no-table.grow and call-heavy. This keeps the previous allocator/table-growth/refcount guards narrow while covering the newly exposed startup-error sibling.
+- Evidence: focused `ssa_nomerge_test.mbt` passed `367/367`, `moon test src/passes` passed `2388/2388`, `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, full `moon test` passed `5664/5664`, native `src/cmd` release build completed with pre-existing pass-manager unused-function warnings, and direct compare `.tmp/pass-fuzz-ssa-nomerge-startup-error-10000b` requested `10000`, compared `7604`, had `7604` normalized matches, `0` mismatches, and `20` Binaryen/tool command failures. Direct artifact replay `.tmp/self-ssa-nomerge-debug-wasi-startup-error-20260613` validates and advances the first canonical diff from `defined=70 abs=97` to `defined=73 abs=100`. Artifact timing was Starshine pass-local `0.216 ms` vs Binaryen `379.369 ms`; whole-command Starshine `5633.785 ms` vs Binaryen `810.294 ms`. Exact artifact parity remains open at the new `defined=73 abs=100` structured local-allocation diff.
+
 ## [2026-06-13] passes/ssa-nomerge | Preserve branch-carried refcount locals
 
 - Added a focused debug-WASI `abs=82` reduced guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the `run_cmd_exit_code_with_adapter.inner`-like early-return block. The guard failed red before the final implementation because Starshine materialized the post-block error/result consumer as `i32.const 0` instead of `local.get 3`, even after the visible branch write had been kept on the canonical local.
