@@ -56,6 +56,7 @@ Use this page when adding or reviewing an SSA-assisted pass, debugging local-def
 | LocalGraph get class | `local_graph_get_is_single_source(...)` / `local_graph_get_is_merge(...)` | Whether a `LocalGet` has exactly one reaching source or multiple reaching sources, matching the first analysis-only step toward Binaryen `SSAify.cpp` no-merge decisions. |
 | LocalGraph write class | `local_graph_node_is_write(...)`, `local_graph_write_is_set(...)`, `local_graph_write_is_tee(...)`, `local_graph_write_local_id(...)` | Per-node explicit-write facts for `LocalSet` and `LocalTee`, including the written local id and the opcode family. Non-write nodes are excluded from write-specific queries. |
 | LocalGraph influence | `local_graph_influenced_gets_for_set(...)` / `local_graph_influenced_gets_for_write(...)` | The `LocalGet` nodes whose reaching-source set includes a specific `LocalSet` / `LocalTee`, reported in LocalGraph's normal-flow transfer order for later Binaryen-style per-write decisions. |
+| LocalGraph already-SSA local | `local_graph_local_is_already_ssa(...)` | Binaryen-style local-index classifier used before per-write freshening: a local is already effectively SSA when its reachable gets collectively see exactly one source, and no other explicit write to that local exists. No-read locals and locals with dead unrelated writes fail closed instead of being treated as canonical. |
 
 Two entry-origin rules are especially important for beginners:
 
@@ -89,11 +90,12 @@ Concrete locked examples live in [`ssa_local_test.mbt`](../../../src/ir/ssa_loca
 - each explicit write records whether it came from `local.set` or `local.tee`, the written local id, and its influenced get list;
 - joins union source sets from normal predecessors;
 - `LocalGet` queries expose single-source versus merge-source classification without mutating the function;
-- exceptional edges are skipped for now, matching the local SSA v1 normal-flow policy, so the write and influence queries are normal-flow facts rather than EH-complete proofs;
+- `local_graph_local_is_already_ssa(...)` exposes the Binaryen `computeSSAIndexes()`-style local classifier: param-entry/default-only reads, straight-line explicit writes, and tee-defined locals can be canonical, while branch/loop merges, no-read locals, and locals with dead unrelated writes fail closed;
+- exceptional edges are skipped for now, matching the local SSA v1 normal-flow policy, so the write, influence, and already-SSA queries are normal-flow facts rather than EH-complete proofs;
 - unreachable or detached nodes are excluded by the normal HOT liveness checks used while building the graph;
 - `local_graph_can_move_set_past_node(...)` ports the Binaryen `canMoveSet` test idea by reporting only influenced gets still reachable from a set when a candidate obstacle node blocks paths after that set.
 
-This graph is intentionally not a mutation engine yet. It is the staged bridge toward Binaryen-style `SSAify.cpp` decisions for future `ssa-nomerge` and full `ssa` work. Locked examples live in [`local_graph_test.mbt`](../../../src/ir/local_graph_test.mbt): simple set/get influence with explicit write facts, get-before-set entry reads, param-vs-default entry classification, single-source/merge get classification, overwrite kills, child-expression tee facts, diamond merge sources, loop-carried sources, and Binaryen `canMoveSet` obstacle families.
+This graph is intentionally not a mutation engine yet. It is the staged bridge toward Binaryen-style `SSAify.cpp` decisions for future `ssa-nomerge` and full `ssa` work. Locked examples live in [`local_graph_test.mbt`](../../../src/ir/local_graph_test.mbt): simple set/get influence with explicit write facts, get-before-set entry reads, param-vs-default entry classification, single-source/merge get classification, already-SSA local classification for straight-line, branch, loop, param, body-local, tee, no-read, and dead-write fixtures, overwrite kills, child-expression tee facts, diamond merge sources, loop-carried sources, and Binaryen `canMoveSet` obstacle families.
 
 ## Cache And Pass-Use Lifecycle
 

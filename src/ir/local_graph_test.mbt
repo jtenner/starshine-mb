@@ -118,6 +118,131 @@ test "local graph classifies single-source and merge gets" {
 }
 
 ///|
+test "local graph classifies straight-line local as already SSA" {
+  let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+  let set = hot_build_local_set(func, 0, hot_build_const_i32(func, @lib.I32(7)))
+  let first_get = hot_build_local_get(func, 0)
+  let second_get = hot_build_local_get(func, 0)
+  hot_root_append(func, set)
+  hot_root_append(func, hot_build_drop(func, first_get))
+  hot_root_append(func, hot_build_drop(func, second_get))
+
+  let graph = local_graph_build(func, cfg_build(func))
+
+  assert_true(local_graph_local_is_already_ssa(graph, 0))
+}
+
+///|
+test "local graph classifies param and body default locals as already SSA" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let param_get = hot_build_local_get(func, 0)
+  let body_get = hot_build_local_get(func, 1)
+  hot_root_append(func, hot_build_drop(func, param_get))
+  hot_root_append(func, hot_build_drop(func, body_get))
+
+  let graph = local_graph_build(func, cfg_build(func))
+
+  assert_true(local_graph_local_is_already_ssa(graph, 0))
+  assert_true(local_graph_local_is_already_ssa(graph, 1))
+}
+
+///|
+test "local graph classifies tee-defined local as already SSA" {
+  let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+  let tee = hot_build_local_tee(func, 0, hot_build_const_i32(func, @lib.I32(4)))
+  let get = hot_build_local_get(func, 0)
+  hot_root_append(func, hot_build_drop(func, tee))
+  hot_root_append(func, hot_build_drop(func, get))
+
+  let graph = local_graph_build(func, cfg_build(func))
+
+  assert_true(local_graph_local_is_already_ssa(graph, 0))
+}
+
+///|
+test "local graph rejects branch merge local as already SSA" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let set = hot_build_local_set(func, 1, hot_build_const_i32(func, @lib.I32(7)))
+  let if_id = hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    hot_build_local_get(func, 0),
+    [set],
+    else_body=Some([hot_build_nop(func)]),
+  )
+  let get = hot_build_local_get(func, 1)
+  hot_root_append(func, if_id)
+  hot_root_append(func, hot_build_drop(func, get))
+
+  let graph = local_graph_build(func, cfg_build(func))
+
+  assert_false(local_graph_local_is_already_ssa(graph, 1))
+}
+
+///|
+test "local graph rejects loop-carried local as already SSA" {
+  let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+  let entry_set = hot_build_local_set(
+    func,
+    0,
+    hot_build_const_i32(func, @lib.I32(1)),
+  )
+  let loop_get = hot_build_local_get(func, 0)
+  let loop_set = hot_build_local_set(
+    func,
+    0,
+    hot_build_const_i32(func, @lib.I32(2)),
+  )
+  let loop_id = hot_build_loop(func, @lib.BlockType::void_(), [])
+  let label = hot_control_node_label(func, loop_id)
+  hot_region_replace_body(func, hot_region_body_ref(func, loop_id), [
+    hot_build_drop(func, loop_get),
+    loop_set,
+    hot_build_br_if(func, label, hot_build_const_i32(func, @lib.I32(1))),
+  ])
+  hot_root_append(func, entry_set)
+  hot_root_append(func, loop_id)
+
+  let graph = local_graph_build(func, cfg_build(func))
+
+  assert_false(local_graph_local_is_already_ssa(graph, 0))
+}
+
+///|
+test "local graph rejects no-read and dead-write locals as already SSA" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(locals=[@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  let live_set = hot_build_local_set(
+    func,
+    1,
+    hot_build_const_i32(func, @lib.I32(1)),
+  )
+  let live_get = hot_build_local_get(func, 1)
+  let dead_set = hot_build_local_set(
+    func,
+    1,
+    hot_build_const_i32(func, @lib.I32(2)),
+  )
+  hot_root_append(func, live_set)
+  hot_root_append(func, hot_build_drop(func, live_get))
+  hot_root_append(func, dead_set)
+
+  let graph = local_graph_build(func, cfg_build(func))
+
+  assert_false(local_graph_local_is_already_ssa(graph, 0))
+  assert_false(local_graph_local_is_already_ssa(graph, 1))
+}
+
+///|
 test "local graph records a simple set reaching a later get" {
   let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
   let set = hot_build_local_set(func, 0, hot_build_const_i32(func, @lib.I32(1)))

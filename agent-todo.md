@@ -186,9 +186,11 @@ Preset behavior inventory:
       - Goal: distinguish `local.set` from `local.tee`, expose each set/tee local id, and report the influenced get range/order that Binaryen `SSAify.cpp` uses for per-set decisions.
       - Deliverables: source-derived fixtures for set, tee, overwrite, child-expression tee, diamond, and loop-carried influences; documented query semantics for unreachable and exceptional-flow exclusions.
       - Evidence: red `moon test src/ir` failed on missing write query helpers, then a red transfer-order fixture failed as `[0, 3] != [3, 0]`; after implementation, `moon test src/ir` passed `297/297`, `moon fmt` passed, `moon info` passed with the three pre-existing GenValid warnings, and full `moon test` passed `5683/5683`. Direct `ssa-nomerge` fuzz was not run because this slice is analysis-only and does not change pass mutation.
-    - [ ] [SSA-LG]003 - LocalGraph already-SSA local classifier
+    - [x] [SSA-LG]003 - LocalGraph already-SSA local classifier
+      - Status: done on 2026-06-13.
       - Goal: identify locals that Binaryen would consider already effectively SSA and therefore keep canonical.
       - Deliverables: straight-line, branch, loop, param, body-local, tee, no-read, and dead-write fixtures; no `ssa-nomerge` rewrite changes until shadow comparison lands.
+      - Evidence: red `moon test src/ir` failed on missing `local_graph_local_is_already_ssa`; after implementation, `moon fmt` passed, `moon test src/ir` passed `303/303`, `moon info` passed with the three pre-existing GenValid warnings, and full `moon test` passed `5689/5689`. Direct `ssa-nomerge` fuzz was not run because this slice is analysis-only and does not change pass mutation.
     - [ ] [SSA-LG]004 - LocalGraph per-set no-merge eligibility
       - Goal: compute whether each explicit local write can be freshened in no-merge mode by requiring all influenced gets to stay single-source.
       - Deliverables: tests where one original local has both freshenable and merge-feeding writes; merge/default/param source classification; query helpers consumed only by shadow tests at first.

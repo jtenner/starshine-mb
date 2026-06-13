@@ -716,6 +716,8 @@ pub fn local_graph_influenced_gets_for_set(HotLocalGraph, Int) -> Array[Int]
 
 pub fn local_graph_influenced_gets_for_write(HotLocalGraph, Int) -> Array[Int]
 
+pub fn local_graph_local_is_already_ssa(HotLocalGraph, Int) -> Bool
+
 pub fn local_graph_node_is_write(HotLocalGraph, Int) -> Bool
 
 pub fn local_graph_reaching_sources_for_get(HotLocalGraph, Int) -> Array[HotLocalGraphSource]
@@ -1129,6 +1131,7 @@ pub struct HotLocalGraph {
   set_influence_gets : Array[Array[Int]]
   write_local_ids : Array[Int]
   write_is_tees : Array[Bool]
+  local_is_already_ssa : Array[Bool]
 } derive(Eq, @debug.Debug)
 
 pub enum HotLocalGraphSource {

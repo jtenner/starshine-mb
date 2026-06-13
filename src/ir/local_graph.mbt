@@ -12,6 +12,7 @@ pub struct HotLocalGraph {
   set_influence_gets : Array[Array[NodeId]]
   write_local_ids : Array[LocalId]
   write_is_tees : Array[Bool]
+  local_is_already_ssa : Array[Bool]
 } derive(Eq, Debug)
 
 ///|
@@ -29,6 +30,16 @@ fn local_graph_require_write(graph : HotLocalGraph, node_id : NodeId) -> Unit {
   local_graph_require_node_range(graph, node_id)
   if graph.write_local_ids[node_id] < 0 {
     abort("local graph write query requires local.set or local.tee")
+  }
+}
+
+///|
+fn local_graph_require_local_range(
+  graph : HotLocalGraph,
+  local_id : LocalId,
+) -> Unit {
+  if local_id < 0 || local_id >= graph.local_count {
+    abort("local graph query requires a valid local id")
   }
 }
 
@@ -349,6 +360,52 @@ fn local_graph_build_write_is_tees(func : HotFunc) -> Array[Bool] {
 }
 
 ///|
+fn local_graph_build_local_already_ssa(
+  func : HotFunc,
+  local_count : Int,
+  get_sources : Array[Array[Int]],
+) -> Array[Bool] {
+  let index_sources : Array[Array[Int]] = []
+  for _ in 0..<local_count {
+    index_sources.push([])
+  }
+  for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
+    if !hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = hot_node_get(func, node_id)
+    match node.op {
+      HotOp::LocalGet =>
+        ignore(
+          local_graph_union_into(index_sources[node.imm0], get_sources[node_id]),
+        )
+      _ => ()
+    }
+  }
+  for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
+    if !hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = hot_node_get(func, node_id)
+    match node.op {
+      HotOp::LocalSet | HotOp::LocalTee => {
+        let sources = index_sources[node.imm0]
+        if sources.length() == 1 &&
+          sources[0] != local_graph_set_source_id(local_count, node_id) {
+          sources.clear()
+        }
+      }
+      _ => ()
+    }
+  }
+  let out : Array[Bool] = []
+  for sources in index_sources {
+    out.push(sources.length() == 1)
+  }
+  out
+}
+
+///|
 pub fn local_graph_build(func : HotFunc, cfg : HotCfg) -> HotLocalGraph {
   let local_count = hot_local_count(func)
   let get_sources : Array[Array[Int]] = []
@@ -376,6 +433,9 @@ pub fn local_graph_build(func : HotFunc, cfg : HotCfg) -> HotLocalGraph {
     set_influence_gets: write_influences,
     write_local_ids: local_graph_build_write_local_ids(func),
     write_is_tees: local_graph_build_write_is_tees(func),
+    local_is_already_ssa: local_graph_build_local_already_ssa(
+      func, local_count, get_sources,
+    ),
   }
 }
 
@@ -448,6 +508,15 @@ pub fn local_graph_get_is_merge(
 ) -> Bool {
   local_graph_require_node_range(graph, node_id)
   graph.get_source_ids[node_id].length() > 1
+}
+
+///|
+pub fn local_graph_local_is_already_ssa(
+  graph : HotLocalGraph,
+  local_id : LocalId,
+) -> Bool {
+  local_graph_require_local_range(graph, local_id)
+  graph.local_is_already_ssa[local_id]
 }
 
 ///|

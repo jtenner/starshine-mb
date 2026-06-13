@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] ir/local-graph | Add already-SSA local classifier
+
+- Completed `[SSA-LG]003` in [`../../agent-todo.md`](../../agent-todo.md) as an analysis-only LocalGraph slice; `ssa-nomerge` mutation still does not consume these facts.
+- Updated [`../../src/ir/local_graph.mbt`](../../src/ir/local_graph.mbt) so `HotLocalGraph` records Binaryen-style already-SSA local-index facts and exposes `local_graph_local_is_already_ssa(...)`.
+- Added red-first focused checks in [`../../src/ir/local_graph_test.mbt`](../../src/ir/local_graph_test.mbt) for straight-line, branch merge, loop-carried, parameter-entry, body-default-entry, tee-defined, no-read, and dead-write classifier behavior.
+- Refreshed [`ir2/local-ssa-policy.md`](ir2/local-ssa-policy.md), [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md), and [`index.md`](index.md). Evidence: red `moon test src/ir` failed on missing `local_graph_local_is_already_ssa`; after implementation, `moon fmt` passed, `moon test src/ir` passed `303/303`, `moon info` passed with the three pre-existing GenValid warnings, and full `moon test` passed `5689/5689`. Direct `ssa-nomerge` fuzz was not run because this was analysis-only.
+
 ## [2026-06-13] ir/local-graph | Add explicit SSA write influence facts
 
 - Completed `[SSA-LG]002` in [`../../agent-todo.md`](../../agent-todo.md) as an analysis-only LocalGraph slice; `ssa-nomerge` mutation still does not consume these facts.
