@@ -52,7 +52,8 @@ Use this page when adding or reviewing an SSA-assisted pass, debugging local-def
 | Entry definitions | `entry_defs[local_id]` | Exactly one synthetic starting definition per parameter/body local. |
 | Node maps | `local_get_values` / `local_write_defs` | Node-indexed lookup from local HOT nodes to overlay value ids. |
 | Use lists | `value_uses[value_id]` | Consumers used by destruction and dead-def cleanup. |
-| LocalGraph source | `HotLocalGraphSource` | Binaryen-facing reaching-source fact: either `EntrySource(local_id)` or `SetSource(node_id)`. |
+| LocalGraph source | `HotLocalGraphSource` | Binaryen-facing reaching-source fact: either `EntrySource(local_id)` or `SetSource(node_id)`. Entry sources now carry first-class param-vs-body-default classification through `local_graph_source_is_param_entry(...)`, `local_graph_source_is_default_entry(...)`, `local_graph_entry_source_is_param(...)`, and `local_graph_entry_source_is_default(...)`. |
+| LocalGraph get class | `local_graph_get_is_single_source(...)` / `local_graph_get_is_merge(...)` | Whether a `LocalGet` has exactly one reaching source or multiple reaching sources, matching the first analysis-only step toward Binaryen `SSAify.cpp` no-merge decisions. |
 | LocalGraph influence | `local_graph_influenced_gets_for_set(...)` | The `LocalGet` nodes whose reaching-source set includes a specific `LocalSet` / `LocalTee`. |
 
 Two entry-origin rules are especially important for beginners:
@@ -82,12 +83,14 @@ Concrete locked examples live in [`ssa_local_test.mbt`](../../../src/ir/ssa_loca
 [`local_graph_build(...)`](../../../src/ir/local_graph.mbt) is analysis-only. It uses the existing normal-flow CFG and child-before-parent HOT expression order to compute may-reaching local sources:
 
 - every local begins with an entry source;
+- entry sources are classified as parameter entries or body-local default entries so future no-merge/full-SSA decisions can distinguish caller-provided values from implicit WebAssembly defaults;
 - `LocalSet` and `LocalTee` replace the current source set for their local on that path;
 - joins union source sets from normal predecessors;
+- `LocalGet` queries expose single-source versus merge-source classification without mutating the function;
 - exceptional edges are skipped for now, matching the local SSA v1 normal-flow policy;
 - `local_graph_can_move_set_past_node(...)` ports the Binaryen `canMoveSet` test idea by reporting only influenced gets still reachable from a set when a candidate obstacle node blocks paths after that set.
 
-This graph is intentionally not a mutation engine yet. It is the staged bridge toward Binaryen-style `SSAify.cpp` decisions for future `ssa-nomerge` and full `ssa` work. Locked examples live in [`local_graph_test.mbt`](../../../src/ir/local_graph_test.mbt): simple set/get influence, get-before-set entry reads, overwrite kills, diamond merge sources, loop-carried sources, and Binaryen `canMoveSet` obstacle families.
+This graph is intentionally not a mutation engine yet. It is the staged bridge toward Binaryen-style `SSAify.cpp` decisions for future `ssa-nomerge` and full `ssa` work. Locked examples live in [`local_graph_test.mbt`](../../../src/ir/local_graph_test.mbt): simple set/get influence, get-before-set entry reads, param-vs-default entry classification, single-source/merge get classification, overwrite kills, diamond merge sources, loop-carried sources, and Binaryen `canMoveSet` obstacle families.
 
 ## Cache And Pass-Use Lifecycle
 

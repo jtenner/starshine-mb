@@ -704,9 +704,21 @@ pub fn local_graph_build(HotFunc, HotCfg) -> HotLocalGraph
 
 pub fn local_graph_can_move_set_past_node(HotFunc, HotCfg, HotLocalGraph, Int, Int) -> Array[Int]
 
+pub fn local_graph_entry_source_is_default(HotLocalGraph, Int) -> Bool
+
+pub fn local_graph_entry_source_is_param(HotLocalGraph, Int) -> Bool
+
+pub fn local_graph_get_is_merge(HotLocalGraph, Int) -> Bool
+
+pub fn local_graph_get_is_single_source(HotLocalGraph, Int) -> Bool
+
 pub fn local_graph_influenced_gets_for_set(HotLocalGraph, Int) -> Array[Int]
 
 pub fn local_graph_reaching_sources_for_get(HotLocalGraph, Int) -> Array[HotLocalGraphSource]
+
+pub fn local_graph_source_is_default_entry(HotLocalGraph, HotLocalGraphSource) -> Bool
+
+pub fn local_graph_source_is_param_entry(HotLocalGraph, HotLocalGraphSource) -> Bool
 
 pub fn local_live_in(HotLiveness, Int, Int) -> Bool
 
@@ -1102,6 +1114,7 @@ pub impl Show for HotLiveness
 
 pub struct HotLocalGraph {
   local_count : Int
+  param_count : Int
   get_source_ids : Array[Array[Int]]
   set_influence_gets : Array[Array[Int]]
 } derive(Eq, @debug.Debug)

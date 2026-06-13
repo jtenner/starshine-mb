@@ -7,6 +7,7 @@ pub enum HotLocalGraphSource {
 ///|
 pub struct HotLocalGraph {
   local_count : Int
+  param_count : Int
   get_source_ids : Array[Array[Int]]
   set_influence_gets : Array[Array[NodeId]]
 } derive(Eq, Debug)
@@ -301,6 +302,7 @@ pub fn local_graph_build(func : HotFunc, cfg : HotCfg) -> HotLocalGraph {
   }
   {
     local_count,
+    param_count: hot_param_count(func),
     get_source_ids: get_sources,
     set_influence_gets: local_graph_build_influences(local_count, get_sources),
   }
@@ -317,6 +319,64 @@ pub fn local_graph_reaching_sources_for_get(
     out.push(local_graph_source_from_id(graph.local_count, source_id))
   }
   out
+}
+
+///|
+pub fn local_graph_entry_source_is_param(
+  graph : HotLocalGraph,
+  local_id : LocalId,
+) -> Bool {
+  local_id >= 0 && local_id < graph.param_count
+}
+
+///|
+pub fn local_graph_entry_source_is_default(
+  graph : HotLocalGraph,
+  local_id : LocalId,
+) -> Bool {
+  local_id >= graph.param_count && local_id < graph.local_count
+}
+
+///|
+pub fn local_graph_source_is_param_entry(
+  graph : HotLocalGraph,
+  source : HotLocalGraphSource,
+) -> Bool {
+  match source {
+    HotLocalGraphSource::EntrySource(local_id) =>
+      local_graph_entry_source_is_param(graph, local_id)
+    _ => false
+  }
+}
+
+///|
+pub fn local_graph_source_is_default_entry(
+  graph : HotLocalGraph,
+  source : HotLocalGraphSource,
+) -> Bool {
+  match source {
+    HotLocalGraphSource::EntrySource(local_id) =>
+      local_graph_entry_source_is_default(graph, local_id)
+    _ => false
+  }
+}
+
+///|
+pub fn local_graph_get_is_single_source(
+  graph : HotLocalGraph,
+  node_id : NodeId,
+) -> Bool {
+  local_graph_require_node_range(graph, node_id)
+  graph.get_source_ids[node_id].length() == 1
+}
+
+///|
+pub fn local_graph_get_is_merge(
+  graph : HotLocalGraph,
+  node_id : NodeId,
+) -> Bool {
+  local_graph_require_node_range(graph, node_id)
+  graph.get_source_ids[node_id].length() > 1
 }
 
 ///|

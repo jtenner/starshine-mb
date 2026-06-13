@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] ir/local-graph | Add SSA entry and merge analysis facts
+
+- Split the hidden `[O4Z-AUDIT-SSA]` LocalGraph backlog in [`../../agent-todo.md`](../../agent-todo.md) into explicit work slices and completed `[SSA-LG]001`.
+- Updated [`../../src/ir/local_graph.mbt`](../../src/ir/local_graph.mbt) so `HotLocalGraph` records parameter count and exposes analysis-only helpers for parameter-entry sources, body-local default-entry sources, single-source gets, and merge gets.
+- Added focused tests in [`../../src/ir/local_graph_test.mbt`](../../src/ir/local_graph_test.mbt) for param-vs-default entry reads and single-source-vs-merge get classification. This does not change `ssa-nomerge` mutation behavior yet.
+- Refreshed [`ir2/local-ssa-policy.md`](ir2/local-ssa-policy.md) and [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) with the new analysis facts. Evidence: `moon info` passed with the three pre-existing GenValid warnings, `moon fmt` passed, `moon test src/ir` passed `296/296`, and full `moon test` passed `5682/5682`. Direct `ssa-nomerge` fuzz was not run because this was analysis-only.
+
 ## [2026-06-13] passes/ssa-nomerge | Spill br_table arm load across following call
 
 - Added a focused one-param br_table dispatcher guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the debug-WASI `defined=161 abs=188` shape. The guard failed red because Starshine kept a loaded branch payload on the stack across a following decref-like call instead of allocating Binaryen's spill lane before the arm-local `local.tee`.

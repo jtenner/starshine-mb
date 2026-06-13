@@ -27,6 +27,97 @@ fn local_graph_test_has_set_source(
 }
 
 ///|
+fn local_graph_test_has_param_entry_source(
+  graph : HotLocalGraph,
+  sources : Array[HotLocalGraphSource],
+  local_id : LocalId,
+) -> Bool {
+  for source in sources {
+    match source {
+      HotLocalGraphSource::EntrySource(id) =>
+        if id == local_id && local_graph_source_is_param_entry(graph, source) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn local_graph_test_has_default_entry_source(
+  graph : HotLocalGraph,
+  sources : Array[HotLocalGraphSource],
+  local_id : LocalId,
+) -> Bool {
+  for source in sources {
+    match source {
+      HotLocalGraphSource::EntrySource(id) =>
+        if id == local_id && local_graph_source_is_default_entry(graph, source) {
+          return true
+        }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+test "local graph distinguishes parameter and body default entry sources" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let param_get = hot_build_local_get(func, 0)
+  let default_get = hot_build_local_get(func, 1)
+  hot_root_append(func, hot_build_drop(func, param_get))
+  hot_root_append(func, hot_build_drop(func, default_get))
+
+  let graph = local_graph_build(func, cfg_build(func))
+  let param_sources = local_graph_reaching_sources_for_get(graph, param_get)
+  let default_sources = local_graph_reaching_sources_for_get(graph, default_get)
+
+  @debug.assert_eq(param_sources.length(), 1)
+  @debug.assert_eq(default_sources.length(), 1)
+  assert_true(local_graph_test_has_param_entry_source(graph, param_sources, 0))
+  assert_false(local_graph_source_is_default_entry(graph, param_sources[0]))
+  assert_true(
+    local_graph_test_has_default_entry_source(graph, default_sources, 1),
+  )
+  assert_false(local_graph_source_is_param_entry(graph, default_sources[0]))
+}
+
+///|
+test "local graph classifies single-source and merge gets" {
+  let func = HotFunc::new(
+    locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+  )
+  let set = hot_build_local_set(func, 1, hot_build_const_i32(func, @lib.I32(7)))
+  let if_id = hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    hot_build_local_get(func, 0),
+    [set],
+    else_body=Some([hot_build_nop(func)]),
+  )
+  let merge_get = hot_build_local_get(func, 1)
+  let single_get = hot_build_local_get(func, 0)
+  hot_root_append(func, if_id)
+  hot_root_append(func, hot_build_drop(func, merge_get))
+  hot_root_append(func, hot_build_drop(func, single_get))
+
+  let graph = local_graph_build(func, cfg_build(func))
+
+  assert_true(local_graph_get_is_merge(graph, merge_get))
+  assert_false(local_graph_get_is_single_source(graph, merge_get))
+  assert_true(local_graph_get_is_single_source(graph, single_get))
+  assert_false(local_graph_get_is_merge(graph, single_get))
+}
+
+///|
 test "local graph records a simple set reaching a later get" {
   let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
   let set = hot_build_local_set(func, 0, hot_build_const_i32(func, @lib.I32(1)))
