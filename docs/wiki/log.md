@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] passes/ssa-nomerge | Cover nested mixed br_if/br_on_non_null typed-loop backedges
+
+- Added a positive in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for a nested typed-loop reference-header shape that mixes an inner `br_if` current-loop backedge with a following current-loop `br_on_non_null` backedge.
+- No behavior-code widening was needed: the existing raw structured typed-loop lowering stores the tested reference, replaces the non-null branch with an edge-local null test plus `ref.as_non_null`, and keeps the nested direct backedge local to the synthetic void-loop/proxy lowering.
+- TDD/coverage note: the first focused run was red only because the new fixture over-asserted the exact proxy helper shape; after narrowing the assertion to mutation, valid output, local freshening, and removal of the raw `br_on_non_null`, focused `ssa_nomerge_test.mbt` passed `324/324`. Broader signoff is recorded in the matching parity entry.
+
 ## [2026-06-13] passes/ssa-nomerge | Cover loop-store call_indirect br_on_non_null
 
 - Added a positive in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for an explicit-operand, single-reference-result `call_indirect` feeding current typed-loop store-model `br_on_non_null`, requiring mutation, valid output, temp-local writes, and removal of the raw branch.
