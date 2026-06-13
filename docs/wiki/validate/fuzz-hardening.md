@@ -59,7 +59,7 @@ Use this page as the durable, living answer for Starshine validator fuzzing. The
 | Understand what the generator can build | This page's valid-generator bullets plus [`../fuzzing/generator-coverage-ledger.md`](../fuzzing/generator-coverage-ledger.md) | Separates natural broad sampling from coverage-forced Binaryen-oracle batches and lists the feature families that have counters. |
 | Add or debug an invalid strategy | [`diagnostics-and-invalid-repro.md`](diagnostics-and-invalid-repro.md) plus this page's lane summaries | Keeps stable ids, expected stages, diagnostic families, and persisted artifacts aligned. |
 | Use official WAST assertions as seeds | [`../wast/static-assertion-harness.md`](../wast/static-assertion-harness.md) | Defines `assert_malformed`, `assert_invalid`, `assert_unlinkable`, runtime skips, and known spec-suite mismatch policy. |
-| Compare optimizer behavior with generated modules | [`../tooling/pass-fuzz-compare.md`](../tooling/pass-fuzz-compare.md) | The compare harness consumes the coverage-forced `gen-valid` batch surface but has its own oracle, normalization, and mismatch-classification rules. |
+| Compare optimizer behavior with generated modules | [`../tooling/pass-fuzz-compare.md`](../tooling/pass-fuzz-compare.md) | The compare harness consumes the coverage-forced `gen-valid` batch surface but has its own oracle, normalization, persistent wasm-smith/Binaryen cache, and mismatch-classification rules. |
 
 ## Suite And Lane Model
 

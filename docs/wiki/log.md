@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-06-13] tooling/pass-fuzz-compare | Cache wasm-smith and Binaryen oracle work
+
+- Updated [`tooling/pass-fuzz-compare.md`](tooling/pass-fuzz-compare.md), [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md), [`tooling/validation-gates.md`](tooling/validation-gates.md), and [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) for the new persistent compare-pass cache contract: `.tmp/pass-fuzz-cache` is enabled by default, `--cache-dir <dir>` selects another cache, `--no-cache` disables it for cache debugging, Starshine outputs are never cached, and `result.json.cache` records hit/miss counters.
+- Mirrored the workflow rule into [`../../AGENTS.md`](../../AGENTS.md), [`../README.md`](../README.md), and [`.pi/skills/starshine-pass-implementation/SKILL.md`](../../.pi/skills/starshine-pass-implementation/SKILL.md) so ordinary pass signoff keeps using cached deterministic `wasm-smith` inputs and Binaryen oracle outputs/failures while still regenerating Starshine outputs every run.
+- Implementation evidence lives in [`../../scripts/lib/pass-fuzz-compare-task.ts`](../../scripts/lib/pass-fuzz-compare-task.ts) and focused option tests in [`../../scripts/lib/pass-fuzz-compare-task.test.ts`](../../scripts/lib/pass-fuzz-compare-task.test.ts); the focused Bun test passed locally.
+
 ## [2026-06-13] passes/ssa-nomerge | Preserve adapter error sibling-block state
 
 - Added a focused debug-WASI `abs=100` reduced guard in [`../../src/passes/ssa_nomerge_test.mbt`](../../src/passes/ssa_nomerge_test.mbt) for the `lower_text_module_for_pipeline`-like adapter/in-process sibling-block path. The guard failed red before implementation because Starshine wrote the branch-carried adapter error in the nested block but later sibling-block cleanup and final formatting reads still saw default zero.

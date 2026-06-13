@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -92,6 +93,7 @@ type PassFuzzCompareOptions = {
   keepGoingAfterCommandFailures: boolean;
   jobs: number | null;
   passFlags: string[];
+  cacheDir: string | null;
   replayFailuresFrom: string | null;
   failureStatus: CaseStatus | null;
   failureClass: CommandFailureClass | null;
@@ -184,6 +186,15 @@ export type PassFuzzCompareSummary = {
   passFlags: string[];
   binaryenPassFlags: string[];
   normalizers: CompareNormalizer[];
+  cache: {
+    dir: string | null;
+    wasmSmithHits: number;
+    wasmSmithMisses: number;
+    binaryenHits: number;
+    binaryenMisses: number;
+    binaryenFailureHits: number;
+    binaryenFailureMisses: number;
+  };
   failureDirs: string[];
 };
 
@@ -211,6 +222,7 @@ const RESERVED_OPTIONS = new Set([
   "--normalize",
   "--jobs",
   "--pass",
+  "--cache-dir",
   "--replay-failures-from",
   "--failure-status",
   "--failure-class",
@@ -300,6 +312,8 @@ const HELP_TEXT = [
   "                       Record command failures without counting them toward --max-failures",
   "  --normalize <name>   Enable compare normalizer. Supported: drop-consts, unreachable-control-debris, local-cleanup-debris, ssa-local-allocation-debris. May repeat",
   "  --jobs <n|auto>       Concurrent case jobs. Default: auto with --starshine-bin, otherwise 1; auto uses available parallelism; >1 requires --starshine-bin",
+  "  --cache-dir <dir>     Persistent cache for wasm-smith inputs and Binaryen oracle outputs. Default: .tmp/pass-fuzz-cache",
+  "  --no-cache            Disable persistent input/oracle caching",
   "  --pass <name>         Canonical pass name without leading --. May repeat",
   "  --replay-failures-from <dir>",
   "                       Replay saved failure inputs from a prior out dir",
@@ -1627,6 +1641,157 @@ async function runSmith(
   };
 }
 
+function sha256Hex(bytes: string | Buffer | Uint8Array): string {
+  return crypto.createHash("sha256").update(bytes).digest("hex");
+}
+
+function safeCacheComponent(text: string): string {
+  return text.replace(/[^A-Za-z0-9._=-]+/g, "_").slice(0, 120) || "empty";
+}
+
+function readToolIdentity(command: string, args: string[], repoRoot: string): string {
+  const result = spawnSync(command, args, {
+    cwd: repoRoot,
+    env: makeRepoTmpEnv(repoRoot),
+    encoding: "utf8",
+    timeout: 5000,
+  });
+  if (result.status === 0) {
+    return `${command}\0${args.join("\0")}\0${result.stdout.trim()}\0${result.stderr.trim()}`;
+  }
+  try {
+    const resolved = fs.realpathSync(command);
+    const stat = fs.statSync(resolved);
+    return `${command}\0${resolved}\0${stat.size}\0${Math.trunc(stat.mtimeMs)}`;
+  } catch {
+    return `${command}\0unidentified`;
+  }
+}
+
+type BinaryenCacheIdentity = {
+  wasmOpt: string;
+  passFlags: string[];
+  passFlagsHash: string;
+};
+
+type BinaryenOracleResult =
+  | { ok: true; wat: string; cacheHit: boolean }
+  | { ok: false; detail: string; cacheHit: boolean };
+
+function binaryenSuccessCacheIsComplete(cacheDir: string): boolean {
+  return fs.existsSync(path.join(cacheDir, "done.json")) &&
+    fs.existsSync(path.join(cacheDir, "binaryen.raw.wasm")) &&
+    fs.existsSync(path.join(cacheDir, "binaryen.wasm")) &&
+    fs.existsSync(path.join(cacheDir, "binaryen.wat"));
+}
+
+function publishCacheDir(stagingDir: string, finalDir: string): void {
+  fs.mkdirSync(path.dirname(finalDir), { recursive: true });
+  try {
+    fs.renameSync(stagingDir, finalDir);
+  } catch {
+    fs.rmSync(stagingDir, { recursive: true, force: true });
+  }
+}
+
+function makeSmithCachePath(cacheDir: string, wasmToolsIdentity: string, seed: bigint, replayIndex: number): string {
+  const toolHash = sha256Hex(wasmToolsIdentity).slice(0, 16);
+  return path.join(
+    cacheDir,
+    "wasm-smith",
+    `wasm-tools-${toolHash}`,
+    `seed-${safeCacheComponent(seedHex(seed))}`,
+    `wasmsmith-${safeCacheComponent(seedHex(seed))}-${String(replayIndex).padStart(6, "0")}.wasm`,
+  );
+}
+
+function makeBinaryenCacheDir(
+  cacheDir: string,
+  identity: BinaryenCacheIdentity,
+  inputBytes: Buffer,
+): string {
+  const toolHash = sha256Hex(identity.wasmOpt).slice(0, 16);
+  const inputHash = sha256Hex(inputBytes);
+  return path.join(
+    cacheDir,
+    "binaryen",
+    `schema-v1`,
+    `wasm-opt-${toolHash}`,
+    `passes-${identity.passFlagsHash.slice(0, 16)}`,
+    `input-${inputHash}`,
+  );
+}
+
+async function runBinaryenOracleWithCache(
+  options: PassFuzzCompareOptions,
+  binaryenIdentity: BinaryenCacheIdentity,
+  inputPath: string,
+  binaryenRawPath: string,
+  binaryenPath: string,
+  binaryenWatPath: string,
+  repoRoot: string,
+  repoTmpEnv: NodeJS.ProcessEnv,
+): Promise<BinaryenOracleResult> {
+  const inputBytes = fs.readFileSync(inputPath);
+  const cacheRoot = options.cacheDir === null ? null : resolveRepoPath(repoRoot, options.cacheDir);
+  const cacheDir = cacheRoot === null ? null : makeBinaryenCacheDir(cacheRoot, binaryenIdentity, inputBytes);
+  const cacheDonePath = cacheDir === null ? null : path.join(cacheDir, "done.json");
+  const cacheFailurePath = cacheDir === null ? null : path.join(cacheDir, "failure.json");
+  if (cacheDir !== null && cacheDonePath !== null && binaryenSuccessCacheIsComplete(cacheDir)) {
+    fs.copyFileSync(path.join(cacheDir, "binaryen.raw.wasm"), binaryenRawPath);
+    fs.copyFileSync(path.join(cacheDir, "binaryen.wasm"), binaryenPath);
+    const wat = fs.readFileSync(path.join(cacheDir, "binaryen.wat"), "utf8");
+    fs.writeFileSync(binaryenWatPath, wat);
+    return { ok: true, wat, cacheHit: true };
+  }
+  if (cacheDir !== null && cacheFailurePath !== null && fs.existsSync(cacheFailurePath)) {
+    try {
+      const cached = JSON.parse(fs.readFileSync(cacheFailurePath, "utf8")) as { detail?: unknown };
+      return {
+        ok: false,
+        detail: typeof cached.detail === "string" ? cached.detail : "cached Binaryen/canonicalization command failed",
+        cacheHit: true,
+      };
+    } catch {
+      // Corrupt cache entries are ignored and overwritten on a fresh miss.
+    }
+  }
+
+  try {
+    await runOrThrowAsync(
+      options.wasmOptBin,
+      [inputPath, "--all-features", ...binaryenIdentity.passFlags, "-o", binaryenRawPath],
+      { cwd: repoRoot, env: repoTmpEnv },
+    );
+    await canonicalizeWasm(options.wasmOptBin, binaryenRawPath, binaryenPath, repoRoot);
+    const wat = await normalizePrintWat(
+      options.wasmOptBin,
+      binaryenPath,
+      binaryenWatPath,
+      repoRoot,
+    );
+    if (cacheDir !== null) {
+      const stagingDir = `${cacheDir}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      fs.mkdirSync(stagingDir, { recursive: true });
+      fs.copyFileSync(binaryenRawPath, path.join(stagingDir, "binaryen.raw.wasm"));
+      fs.copyFileSync(binaryenPath, path.join(stagingDir, "binaryen.wasm"));
+      fs.writeFileSync(path.join(stagingDir, "binaryen.wat"), wat);
+      fs.writeFileSync(path.join(stagingDir, "done.json"), JSON.stringify({ ok: true, schema: 1 }, null, 2) + "\n");
+      publishCacheDir(stagingDir, cacheDir);
+    }
+    return { ok: true, wat, cacheHit: false };
+  } catch (error) {
+    const detail = commandFailureDetail(error);
+    if (cacheDir !== null) {
+      const stagingDir = `${cacheDir}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      fs.mkdirSync(stagingDir, { recursive: true });
+      fs.writeFileSync(path.join(stagingDir, "failure.json"), JSON.stringify({ ok: false, schema: 1, detail }, null, 2) + "\n");
+      publishCacheDir(stagingDir, cacheDir);
+    }
+    return { ok: false, detail, cacheHit: false };
+  }
+}
+
 function makeSmithSeedBytes(seed: bigint, length = 64): Buffer {
   const mask = (1n << 64n) - 1n;
   let state = seed & mask;
@@ -2169,6 +2334,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let keepGoingAfterCommandFailures = false;
   let jobs: number | null = null;
   const passFlags: string[] = [];
+  let cacheDir: string | null = path.join(".tmp", "pass-fuzz-cache");
   let replayFailuresFrom: string | null = null;
   let failureStatus: CaseStatus | null = null;
   let failureClass: CommandFailureClass | null = null;
@@ -2301,6 +2467,14 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         passFlags.push(normalizePassNameToFlag(argv[i + 1] ?? fail("missing value for --pass")));
         i += 2;
         break;
+      case "--cache-dir":
+        cacheDir = argv[i + 1] ?? fail("missing value for --cache-dir");
+        i += 2;
+        break;
+      case "--no-cache":
+        cacheDir = null;
+        i += 1;
+        break;
       case "--replay-failures-from":
         replayFailuresFrom = argv[i + 1] ?? fail("missing value for --replay-failures-from");
         i += 2;
@@ -2376,6 +2550,11 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
           i += 1;
           break;
         }
+        if (token.startsWith("--cache-dir=")) {
+          cacheDir = token.substring("--cache-dir=".length);
+          i += 1;
+          break;
+        }
         if (RESERVED_OPTIONS.has(token)) {
           fail(`missing value for ${token}`);
         }
@@ -2438,6 +2617,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       keepGoingAfterCommandFailures,
       jobs,
       passFlags,
+      cacheDir,
       replayFailuresFrom,
       failureStatus,
       failureClass,
@@ -2473,6 +2653,13 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   const summaryPath = path.join(outDir, "summary.json");
   const casesPath = path.join(outDir, "cases.jsonl");
   const binaryenPassFlags = options.passFlags.map(normalizeBinaryenPassFlag);
+  const resolvedCacheDir = options.cacheDir === null ? null : resolveRepoPath(repoRoot, options.cacheDir);
+  const wasmToolsIdentity = readToolIdentity(options.wasmToolsBin, ["--version"], repoRoot);
+  const binaryenIdentity: BinaryenCacheIdentity = {
+    wasmOpt: readToolIdentity(options.wasmOptBin, ["--version"], repoRoot),
+    passFlags: binaryenPassFlags,
+    passFlagsHash: sha256Hex(JSON.stringify(binaryenPassFlags)),
+  };
   const replayCases =
     options.replayFailuresFrom === null
       ? null
@@ -2601,6 +2788,15 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     passFlags: options.passFlags,
     binaryenPassFlags,
     normalizers: options.normalizers,
+    cache: {
+      dir: options.cacheDir,
+      wasmSmithHits: 0,
+      wasmSmithMisses: 0,
+      binaryenHits: 0,
+      binaryenMisses: 0,
+      binaryenFailureHits: 0,
+      binaryenFailureMisses: 0,
+    },
     failureDirs: [],
   };
 
@@ -2672,12 +2868,32 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         }
         fs.copyFileSync(source, inputPath);
       } else {
-        const smith = await runSmith(
-          options.wasmToolsBin,
-          inputPath,
-          makeSmithSeedBytes(options.seed + BigInt(replayIndex)),
-          repoRoot,
-        );
+        const smithCachePath = resolvedCacheDir === null
+          ? null
+          : makeSmithCachePath(resolvedCacheDir, wasmToolsIdentity, options.seed, replayIndex);
+        let smith: { ok: boolean; stderr: string } = { ok: true, stderr: "" };
+        if (smithCachePath !== null && fs.existsSync(smithCachePath)) {
+          summary.cache.wasmSmithHits += 1;
+          fs.copyFileSync(smithCachePath, inputPath);
+        } else {
+          summary.cache.wasmSmithMisses += 1;
+          smith = await runSmith(
+            options.wasmToolsBin,
+            inputPath,
+            makeSmithSeedBytes(options.seed + BigInt(replayIndex)),
+            repoRoot,
+          );
+          if (smith.ok && smithCachePath !== null) {
+            fs.mkdirSync(path.dirname(smithCachePath), { recursive: true });
+            const tempPath = `${smithCachePath}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            fs.copyFileSync(inputPath, tempPath);
+            try {
+              fs.renameSync(tempPath, smithCachePath);
+            } catch {
+              fs.rmSync(tempPath, { force: true });
+            }
+          }
+        }
         if (!smith.ok) {
           summary.generatorFailureCount += 1;
           failures += 1;
@@ -3035,24 +3251,68 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
 
       let starshineWat = "";
       let binaryenWat = "";
-      try {
-        await runOrThrowAsync(
-          options.wasmOptBin,
-          [inputPath, "--all-features", ...binaryenPassFlags, "-o", binaryenRawPath],
-          { cwd: repoRoot, env: repoTmpEnv },
+      const binaryenOracle = await runBinaryenOracleWithCache(
+        options,
+        binaryenIdentity,
+        inputPath,
+        binaryenRawPath,
+        binaryenPath,
+        binaryenWatPath,
+        repoRoot,
+        repoTmpEnv,
+      );
+      if (binaryenOracle.ok) {
+        if (binaryenOracle.cacheHit) {
+          summary.cache.binaryenHits += 1;
+        } else {
+          summary.cache.binaryenMisses += 1;
+        }
+        binaryenWat = binaryenOracle.wat;
+      } else {
+        if (binaryenOracle.cacheHit) {
+          summary.cache.binaryenFailureHits += 1;
+        } else {
+          summary.cache.binaryenFailureMisses += 1;
+        }
+        summary.commandFailureCount += 1;
+        if (!options.keepGoingAfterCommandFailures) {
+          failures += 1;
+        }
+        const detail = `Binaryen/canonicalization command failed: ${binaryenOracle.detail}`;
+        const failureClass = classifyCommandFailure(detail);
+        noteCommandFailureClass(summary, failureClass);
+        summary.failureDirs.push(
+          persistFailureArtifacts(
+            outDir,
+            caseNumber,
+            generator,
+            "command-failure",
+            detail,
+            workDir,
+            options.wasmToolsBin,
+            repoRoot,
+            options.passFlags,
+            genValidManifestEntry,
+            inputEffectTrapFacts,
+          ),
         );
+        recordCase({
+          caseIndex: caseNumber,
+          generator,
+          status: "command-failure",
+          detail,
+          failureClass,
+          inputEffectTrapFacts: inputEffectTrapFacts ?? undefined,
+        });
+        return;
+      }
+
+      try {
         await canonicalizeWasm(options.wasmOptBin, starshineRawPath, starshinePath, repoRoot);
-        await canonicalizeWasm(options.wasmOptBin, binaryenRawPath, binaryenPath, repoRoot);
         starshineWat = await normalizePrintWat(
           options.wasmOptBin,
           starshinePath,
           starshineWatPath,
-          repoRoot,
-        );
-        binaryenWat = await normalizePrintWat(
-          options.wasmOptBin,
-          binaryenPath,
-          binaryenWatPath,
           repoRoot,
         );
       } catch (error) {
@@ -3060,7 +3320,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         if (!options.keepGoingAfterCommandFailures) {
           failures += 1;
         }
-        const detail = `Binaryen/canonicalization command failed: ${commandFailureDetail(error)}`;
+        const detail = `Starshine canonicalization command failed: ${commandFailureDetail(error)}`;
         const failureClass = classifyCommandFailure(detail);
         noteCommandFailureClass(summary, failureClass);
         summary.failureDirs.push(
@@ -3217,6 +3477,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   process.stdout.write(`Compare-normalized matches: ${summary.cleanupNormalizedMatchCount}\n`);
   process.stdout.write(`Validation failures: ${summary.validationFailureCount}\n`);
   process.stdout.write(`Property failures: ${summary.propertyFailureCount}\n`);
+  process.stdout.write(`Cache: wasm-smith ${summary.cache.wasmSmithHits} hits/${summary.cache.wasmSmithMisses} misses; Binaryen ${summary.cache.binaryenHits} hits/${summary.cache.binaryenMisses} misses; Binaryen failures ${summary.cache.binaryenFailureHits} hits/${summary.cache.binaryenFailureMisses} misses\n`);
   process.stdout.write(`Generator failures: ${summary.generatorFailureCount}\n`);
   process.stdout.write(`Command failures: ${summary.commandFailureCount}\n`);
   process.stdout.write(`Mismatches: ${summary.mismatchCount}\n`);

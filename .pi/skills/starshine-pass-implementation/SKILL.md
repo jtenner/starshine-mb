@@ -122,6 +122,8 @@ Equivalent direct entrypoint:
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass <canonical-name> --out-dir .tmp/pass-fuzz-<name> --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
 ```
 
+Compare-pass uses the persistent `.tmp/pass-fuzz-cache` by default for deterministic `wasm-smith` inputs and Binaryen oracle raw/canonical/WAT outputs plus repeatable Binaryen command failures. Do not disable this for ordinary signoff; use `--cache-dir <dir>` when an isolated/shared cache is needed, and `--no-cache` only when debugging cache behavior. Starshine outputs are never cached and are regenerated every run.
+
 ### Final pass closeout signoff
 
 Use before declaring a pass closed, audit-complete, or behavior-parity complete. This is stronger than ordinary slice signoff:
@@ -158,7 +160,7 @@ For DAE / `dae-optimizing` mixed-generator lanes, add the documented compare nor
 bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass dae-optimizing --normalize drop-consts --normalize unreachable-control-debris --out-dir .tmp/pass-fuzz-dae-optimizing --jobs auto --starshine-bin target/native/release/build/cmd/cmd.exe
 ```
 
-Report exact `normalizedMatchCount`, `cleanupNormalizedMatchCount`, remaining `mismatchCount`, and command-failure classes separately.
+Report exact `normalizedMatchCount`, `cleanupNormalizedMatchCount`, remaining `mismatchCount`, command-failure classes, and `result.json.cache` hit/miss counters separately.
 
 Required result:
 
@@ -215,8 +217,8 @@ When reporting pass signoff, include:
 - tests added or updated
 - focused Moon command results
 - standard Moon signoff results: `moon info`, `moon fmt`, `moon test`
-- general compare-pass command, seed, out dir, explicit `--jobs auto`, explicit `--starshine-bin`, requested count (`10000` for ordinary slices or `100000` for final closeout), compared count, normalized match count, cleanup-normalized match count when `--normalize ...` is used, raw mismatch count, and command-failure classification
-- pass-specific GenValid compare-pass lanes, if applicable: `--gen-valid-profile`, seed, out dir, requested count (`10000` for ordinary slices, wider e.g. `50000` for final/audit-close lanes), compared count, normalized match count, cleanup-normalized match count, raw mismatch count, command failures, and feature-generation/floor failures
+- general compare-pass command, seed, out dir, explicit `--jobs auto`, explicit `--starshine-bin`, cache mode or cache dir when non-default, requested count (`10000` for ordinary slices or `100000` for final closeout), compared count, normalized match count, cleanup-normalized match count when `--normalize ...` is used, raw mismatch count, command-failure classification, and `result.json.cache` hit/miss counters
+- pass-specific GenValid compare-pass lanes, if applicable: `--gen-valid-profile`, seed, out dir, requested count (`10000` for ordinary slices, wider e.g. `50000` for final/audit-close lanes), compared count, normalized match count, cleanup-normalized match count, raw mismatch count, command failures, feature-generation/floor failures, and cache hit/miss counters
 - agent-classified mismatch breakdown, with explicit rationale for any semantic-safe/size-winning mismatch family; never imply the harness proved semantic safety
 - replayed failure dirs and their outcomes, if any
 - pass-local performance numbers, artifact comparisons, any `[WALL]001` attribution, or why they were not applicable

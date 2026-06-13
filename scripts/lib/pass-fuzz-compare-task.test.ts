@@ -15,7 +15,38 @@ import {
   passFuzzReductionLogTextForTest,
   passFuzzSummaryCoverageReport,
   applyCompareNormalizersForTest,
+  parsePassFuzzCompareArgs,
 } from "./pass-fuzz-compare-task";
+
+describe("pass-fuzz persistent cache options", () => {
+  test("defaults to the repo-local persistent pass-fuzz cache", () => {
+    const parsed = parsePassFuzzCompareArgs(["--pass", "remove-unused-brs"]);
+
+    expect(parsed.kind).toBe("run");
+    if (parsed.kind === "run") {
+      expect(parsed.options.cacheDir).toBe(path.join(".tmp", "pass-fuzz-cache"));
+    }
+  });
+
+  test("accepts explicit cache dirs and no-cache", () => {
+    const withCache = parsePassFuzzCompareArgs([
+      "--pass",
+      "remove-unused-brs",
+      "--cache-dir",
+      ".tmp/custom-pass-cache",
+    ]);
+    const withoutCache = parsePassFuzzCompareArgs(["--pass", "remove-unused-brs", "--no-cache"]);
+
+    expect(withCache.kind).toBe("run");
+    if (withCache.kind === "run") {
+      expect(withCache.options.cacheDir).toBe(path.join(".tmp", "custom-pass-cache"));
+    }
+    expect(withoutCache.kind).toBe("run");
+    if (withoutCache.kind === "run") {
+      expect(withoutCache.options.cacheDir).toBeNull();
+    }
+  });
+});
 
 function wasmFromWat(wat: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-runtime-stubs-"));

@@ -1,7 +1,7 @@
 ---
 kind: workflow
 status: supported
-last_reviewed: 2026-06-05
+last_reviewed: 2026-06-13
 sources:
   - ../raw/binaryen/2026-06-05-binaryen-bron-assertion-oracle-boundary.md
   - ../raw/binaryen/2026-05-20-pass-fuzz-compare-tool-sources.md
@@ -37,13 +37,14 @@ The 2026-05-20 source bridge is [`../raw/binaryen/2026-05-20-pass-fuzz-compare-t
 Beginner mental model:
 
 1. generate or replay a `.wasm` input;
-2. validate the input with `wasm-tools validate`;
-3. run Starshine with the requested pass flags;
-4. validate Starshine's output;
-5. run Binaryen `wasm-opt` with matching pass flags;
-6. canonicalize and print both outputs with Binaryen;
-7. compare normalized WAT text;
-8. persist enough artifacts to replay every non-match or command failure.
+2. reuse or populate the persistent input/oracle cache when enabled;
+3. validate the input with `wasm-tools validate`;
+4. run Starshine with the requested pass flags;
+5. validate Starshine's output;
+6. run or reuse Binaryen `wasm-opt` with matching pass flags;
+7. canonicalize and print both outputs with Binaryen;
+8. compare normalized WAT text;
+9. persist enough artifacts to replay every non-match or command failure.
 
 This is a **semantic-oracle workflow**, not a byte-for-byte wasm comparison. Raw binary or raw text drift is acceptable when the normalized comparison is green and the pass dossier explains any intentional representation differences. The normalization fixture matrix in [`../../../scripts/test/pass-fuzz-normalization-fixtures.ts`](../../../scripts/test/pass-fuzz-normalization-fixtures.ts) locks representative equality/inequality expectations for debug stripping, default locals, NaN payload text, transparent block wrappers, local-name stripping, custom sections, and section-order drift.
 
@@ -64,6 +65,7 @@ bun fuzz compare-pass \
   [--external-validator wasm-tools|binaryen|wabt] \
   [--runtime-execution off|node] \
   [--property none|idempotence|composition] \
+  [--cache-dir .tmp/pass-fuzz-cache|--no-cache] \
   [--min-compared <n>] \
   [--max-failures 20] \
   [--keep-going-after-command-failures]
@@ -94,6 +96,16 @@ bun fuzz compare-pass --pass <name> --replay-failures-from <dir> --failure-statu
 
 The `gen-valid` path is why compare-pass depends on [`src/fuzz/main.mbt`](../../../src/fuzz/main.mbt) and [`src/validate/gen_valid.mbt`](../../../src/validate/gen_valid.mbt) even though compare-pass is not itself a MoonBit fuzz suite. Runs that generate Starshine inputs now keep `inputs/gen-valid/manifest.json` beside the saved `.wasm` files; this file records the requested profile, filters, aggregate feature stats, and per-input feature facts for replay triage.
 
+## Persistent Cache
+
+Compare-pass uses a persistent cache by default at `.tmp/pass-fuzz-cache`; override it with `--cache-dir <dir>` or disable it with `--no-cache`. The cache never stores Starshine outputs because those are the system under test. It only caches deterministic inputs and Binaryen oracle work:
+
+- `wasm-smith` inputs are stored under `wasm-smith/wasm-tools-<tool-hash>/seed-<seed>/wasmsmith-<seed>-<index>.wasm`, so rerunning the same seed and case index skips `wasm-tools smith`.
+- Binaryen oracle results are stored under `binaryen/schema-v1/wasm-opt-<tool-hash>/passes-<pass-hash>/input-<input-sha>/` with `binaryen.raw.wasm`, canonical `binaryen.wasm`, printed `binaryen.wat`, and a completion marker. The key includes the input bytes, Binaryen tool identity, and normalized Binaryen pass flags.
+- Deterministic Binaryen/canonicalization command failures are cached as `failure.json` for the same input/tool/pass tuple, so repeated lanes do not spend time reproducing the same oracle failure before counting it as a command failure.
+
+`result.json` records cache counters under `cache`: `wasmSmithHits`, `wasmSmithMisses`, `binaryenHits`, `binaryenMisses`, `binaryenFailureHits`, and `binaryenFailureMisses`. Cache hits still validate inputs and Starshine outputs and still canonicalize/print the fresh Starshine result before comparison.
+
 ## Normalization And Comparison Flow
 
 For each case, [`runPassFuzzCompare(...)`](../../../scripts/lib/pass-fuzz-compare-task.ts) follows this validation and normalization ladder:
@@ -101,9 +113,9 @@ For each case, [`runPassFuzzCompare(...)`](../../../scripts/lib/pass-fuzz-compar
 1. **Input validation:** `wasm-tools validate --features all input.wasm` must pass before the case can compare.
 2. **Starshine run:** Starshine receives the requested pass flags and `--out <starshine.raw.wasm> <input.wasm>`.
 3. **Starshine output validation:** `wasm-tools validate --features all starshine.raw.wasm` must pass. A failure here is a Starshine validation failure, not a Binaryen semantic mismatch. Optional `--external-validator` adapters can also run skip-clean output checks with `wasm-tools`, Binaryen, or WABT validators; missing external validator binaries are recorded as skipped in `result.json` instead of failing the run. Keep this pass-fuzz surface distinct from the command-harness binary differential adapter schema in [`external-validator-adapters.md`](external-validator-adapters.md).
-4. **Binaryen oracle run:** `wasm-opt input.wasm --all-features <binaryen-pass-flags> -o binaryen.raw.wasm` produces the oracle output.
-5. **Canonicalization:** both raw outputs are passed through `wasm-opt --all-features --strip-debug -o <canonical.wasm>`.
-6. **Text normalization:** both canonical outputs are printed with `wasm-opt --all-features --strip-debug -S -o <wat>`.
+4. **Binaryen oracle run or cache lookup:** `wasm-opt input.wasm --all-features <binaryen-pass-flags> -o binaryen.raw.wasm` produces the oracle output on a cache miss. On a cache hit, the harness restores cached Binaryen raw/canonical/text artifacts keyed by input bytes, Binaryen identity, and pass flags.
+5. **Canonicalization:** both raw outputs are passed through `wasm-opt --all-features --strip-debug -o <canonical.wasm>` on cache miss; cached Binaryen canonical output is reused on Binaryen cache hit. Starshine canonicalization always reruns.
+6. **Text normalization:** both canonical outputs are printed with `wasm-opt --all-features --strip-debug -S -o <wat>` on cache miss; cached Binaryen WAT is reused on Binaryen cache hit. Starshine text printing always reruns.
 7. **Optional runtime execution:** `--runtime-execution node` tries a Node WebAssembly adapter with deterministic basic import stubs against both raw Starshine and Binaryen outputs, pairs same-named function exports, and invokes up to eight exported functions with a deterministic simple argument vector: each observed parameter slot receives numeric zero, capped at eight arguments. Equal results and equal traps count as checked runtime evidence; unsupported imports/instantiation are skipped evidence; observed result/trap disagreement increments the runtime failed count. Equal traps are not whole-program equivalence proof: use [`../validate/runtime-trap-semantics.md`](../validate/runtime-trap-semantics.md) for the trap-vocabulary and trap-order caveats. Runtime execution remains opt-in; `result.json` always carries a `runtimeExecutionMatrix` block, with `outcome: "not-run"` when runtime execution is disabled, and runtime-enabled mismatch repro manifests also carry the per-case matrix summary, outcome, and semantic-mismatch samples.
 8. **Optional property checks:** `--property idempotence` reruns Starshine on `starshine.raw.wasm`, validates that second output, canonicalizes both Starshine outputs, and compares normalized WAT for `pass(pass(m)) == pass(m)`. `--property composition` requires at least two pass flags, runs those same flags one at a time through sequential Starshine invocations starting from the original input, validates each step, canonicalizes the final sequential output, and compares it with the combined Starshine invocation. Property failures increment `propertyFailureCount` and persist as `property-failure` cases, separate from Binaryen `mismatch` cases.
 9. **Compare:** matching WAT increments `normalizedMatchCount`; if one or more explicit compare normalizers are enabled and only the cleaned outputs match, the harness increments `cleanupNormalizedMatchCount` and records a `cleanup-normalized-match` case; otherwise drift records a `mismatch` case.
@@ -149,7 +161,7 @@ Use `--list-passes` before starting a long lane; it is the script-owned list, no
 
 Every run writes:
 
-- `result.json` - aggregate counts, pass flags, Binaryen flags, generator mode, compare normalizers, requested GenValid profile, feature filters, requested metamorphic transform ids, compared GenValid transform counts, exact `normalizedMatchCount` and `cleanupNormalizedMatchCount` totals, requested external validators plus skip counts, requested runtime execution mode plus checked/unsupported/failed counts and persisted `runtimeExecutionMatrix` summary/outcome/semantic-mismatch samples, requested property mode plus idempotence/composition checked/match counts and property failures, relative GenValid manifest path when present, generator counts, failure class counts, failure dirs, seed, requested count, and effective jobs.
+- `result.json` - aggregate counts, pass flags, Binaryen flags, generator mode, compare normalizers, persistent cache directory/counters, requested GenValid profile, feature filters, requested metamorphic transform ids, compared GenValid transform counts, exact `normalizedMatchCount` and `cleanupNormalizedMatchCount` totals, requested external validators plus skip counts, requested runtime execution mode plus checked/unsupported/failed counts and persisted `runtimeExecutionMatrix` summary/outcome/semantic-mismatch samples, requested property mode plus idempotence/composition checked/match counts and property failures, relative GenValid manifest path when present, generator counts, failure class counts, failure dirs, seed, requested count, and effective jobs.
 - `summary.json` - compact `starshine.fuzz-summary-report.v1` counters for `bun fuzz coverage-delta`, with suite `compare-pass`, profile `<pass>+<generator>`, required requested/compared case counters, optional generator/GenValid transform/property/input-effect/runtime counters, run-status counters including exact normalized-match versus cleanup-normalized-match separation, failure-class counters, and failure-artifact counts.
 - `cases.jsonl` - one case record per attempted case, sorted by case index after the run; GenValid metamorphic cases include `transformId` when their manifest entry has `transform_id` and `genValidFeatureFacts` when their manifest entry has `feature_facts`; records also include input effect/trap facts once the input has been scanned.
 - `inputs/` - saved generator inputs for generated lanes.
