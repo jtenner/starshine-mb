@@ -7727,7 +7727,7 @@ test "ssa-nomerge rewrites problem1 direct call br_on_non_null non-current input
 }
 
 ///|
-test "ssa-nomerge fail-closed problem1 call-with-operands br_on_non_null input" {
+test "ssa-nomerge rewrites problem1 direct call operands br_on_non_null non-current input" {
   let externref = @lib.ValType::externref()
   let extern_heap = @lib.HeapType::abs(@lib.AbsHeapType::extern_())
   let id_type_idx = @lib.TypeIdx::new(0U)
@@ -7780,8 +7780,18 @@ test "ssa-nomerge fail-closed problem1 call-with-operands br_on_non_null input" 
         ),
       ]),
     )
-  ssa_test_problem1_fail_closed_reference_branch_input(
-    input, 1, "call-with-operands br_on_non_null input", ssa_test_instrs_have_br_on_non_null,
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "direct call operands br_on_non_null non-current input",
+  )
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 1)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_instrs_have_br_on_non_null(instrs),
+    msg=instrs.to_string(),
   )
 }
 
