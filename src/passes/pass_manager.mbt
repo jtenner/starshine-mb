@@ -8963,7 +8963,9 @@ fn run_hot_pipeline_raw_trailing_ref_branch_input_needs_single_spill_for_non_nul
     Some(@lib.RefCast(_, _))
     | Some(@lib.StructNew(_))
     | Some(@lib.ArrayNew(_))
-    | Some(@lib.ArrayNewFixed(_, _)) => true
+    | Some(@lib.ArrayNewFixed(_, _))
+    | Some(@lib.ArrayNewData(_, _))
+    | Some(@lib.ArrayNewElem(_, _)) => true
     _ => false
   }
 }
@@ -9042,7 +9044,10 @@ fn run_hot_pipeline_raw_spill_trailing_ref_branch_input(
         true,
         false,
       )
-    Some(@lib.ArrayNew(type_idx)) | Some(@lib.ArrayNewFixed(type_idx, _)) =>
+    Some(@lib.ArrayNew(type_idx))
+    | Some(@lib.ArrayNewFixed(type_idx, _))
+    | Some(@lib.ArrayNewData(type_idx, _))
+    | Some(@lib.ArrayNewElem(type_idx, _)) =>
       (@lib.ValType::ref_array_nonnull(type_idx), None, true, false)
     Some(@lib.RefI31) => (@lib.ValType::i31ref(), None, true, false)
     Some(@lib.RefFunc(func_idx)) => {
@@ -12981,7 +12986,10 @@ fn run_hot_pipeline_raw_ssa_nomerge_has_constructed_ref_branch_copy_shape(
         )
         continue
       }
-      @lib.ArrayNew(type_idx) | @lib.ArrayNewFixed(type_idx, _) => {
+      @lib.ArrayNew(type_idx)
+      | @lib.ArrayNewFixed(type_idx, _)
+      | @lib.ArrayNewData(type_idx, _)
+      | @lib.ArrayNewElem(type_idx, _) => {
         previous_constructed_ref = Some(
           @lib.ValType::ref_array_nonnull(type_idx),
         )

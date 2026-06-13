@@ -9638,10 +9638,10 @@ test "ssa-nomerge rewrites problem1 array-new-fixed operands br_on_non_null inpu
 }
 
 ///|
-test "ssa-nomerge fail-closed problem1 array-new-data operands br_on_non_null input" {
-  // Boundary: `array.new_data` consumes source/length operands and a passive
-  // data segment before producing the tested reference. Keep this data-backed
-  // constructor raw until operand preservation is source-backed.
+test "ssa-nomerge rewrites problem1 array-new-data operands br_on_non_null input" {
+  // Narrow problem-1 implementation: `array.new_data` may trap while consuming
+  // source/length and data-segment state, but only produces a reference after
+  // those effects finish. The rewrite spills only that final produced array ref.
   let array_idx = @lib.TypeIdx::new(0U)
   let array_heap = @lib.HeapType::new(array_idx)
   let nullable_array_ref = @lib.ValType::ref_type(
@@ -9695,16 +9695,26 @@ test "ssa-nomerge fail-closed problem1 array-new-data operands br_on_non_null in
         ),
       ]),
     )
-  ssa_test_problem1_fail_closed_reference_branch_input(
-    input, 0, "array-new-data operands br_on_non_null input", ssa_test_instrs_have_br_on_non_null,
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "array-new-data operands br_on_non_null input",
+  )
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 0)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_instrs_have_br_on_non_null(instrs),
+    msg=instrs.to_string(),
   )
 }
 
 ///|
-test "ssa-nomerge fail-closed problem1 array-new-elem operands br_on_non_null input" {
-  // Boundary: `array.new_elem` consumes source/length operands from an element
-  // segment-backed constructor. Preserve the raw branch until this final
-  // producer has a dedicated operand-preservation proof.
+test "ssa-nomerge rewrites problem1 array-new-elem operands br_on_non_null input" {
+  // Narrow problem-1 implementation: `array.new_elem` may trap while consuming
+  // source/length and element-segment state, but only produces a reference after
+  // those effects finish. The rewrite spills only that final produced array ref.
   let array_idx = @lib.TypeIdx::new(0U)
   let array_heap = @lib.HeapType::new(array_idx)
   let nullable_array_ref = @lib.ValType::ref_type(
@@ -9761,8 +9771,18 @@ test "ssa-nomerge fail-closed problem1 array-new-elem operands br_on_non_null in
         ),
       ]),
     )
-  ssa_test_problem1_fail_closed_reference_branch_input(
-    input, 0, "array-new-elem operands br_on_non_null input", ssa_test_instrs_have_br_on_non_null,
+  let optimized = ssa_test_module_expected_mutation_valid(
+    input, "array-new-elem operands br_on_non_null input",
+  )
+  let (locals, instrs) = try! ssa_test_defined_func(optimized, 0)
+  assert_true(locals.length() > 1, msg=locals.to_string())
+  assert_true(
+    ssa_test_has_ssa_temp_local_writes(instrs, 1U),
+    msg=instrs.to_string(),
+  )
+  assert_false(
+    ssa_test_instrs_have_br_on_non_null(instrs),
+    msg=instrs.to_string(),
   )
 }
 
